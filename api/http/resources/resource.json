@@ -187,6 +187,13 @@
           }
         }
       },
+      "WritableResource": {
+        "description": "A declarative resource accepted by Admin apply. Workspace is readable but cannot be created or changed through apply.",
+        "oneOf": [
+          {"$ref": "#/components/schemas/ConcreteResourceWritable"},
+          {"$ref": "./resource_list.json#/components/schemas/ResourceListResource"}
+        ]
+      },
       "ConcreteResource": {
         "description": "A concrete resource carrying metadata.id. ResourceList is excluded.",
         "oneOf": [
@@ -292,6 +299,34 @@
             "RegistrationToken": "./registration_token.json#/components/schemas/RegistrationTokenResource"
           }
         }
+      },
+      "ConcreteResourceWritable": {
+        "description": "A concrete ResourceList item accepted by Admin apply. Workspace and nested ResourceList are excluded.",
+        "oneOf": [
+          {"$ref": "./credential.json#/components/schemas/CredentialResource"},
+          {"$ref": "./firmware.json#/components/schemas/FirmwareResource"},
+          {"$ref": "./contact.json#/components/schemas/ContactResource"},
+          {"$ref": "./friend.json#/components/schemas/FriendResource"},
+          {"$ref": "./friend_group.json#/components/schemas/FriendGroupResource"},
+          {"$ref": "./friend_group_invite_token.json#/components/schemas/FriendGroupInviteTokenResource"},
+          {"$ref": "./friend_group_member.json#/components/schemas/FriendGroupMemberResource"},
+          {"$ref": "./model.json#/components/schemas/ModelResource"},
+          {"$ref": "./dashscope_tenant.json#/components/schemas/DashScopeTenantResource"},
+          {"$ref": "./deepseek_tenant.json#/components/schemas/DeepSeekTenantResource"},
+          {"$ref": "./gemini_tenant.json#/components/schemas/GeminiTenantResource"},
+          {"$ref": "./minimax_tenant.json#/components/schemas/MiniMaxTenantResource"},
+          {"$ref": "./openai_tenant.json#/components/schemas/OpenAITenantResource"},
+          {"$ref": "./volc_tenant.json#/components/schemas/VolcTenantResource"},
+          {"$ref": "./voice.json#/components/schemas/VoiceResource"},
+          {"$ref": "./tool.json#/components/schemas/ToolResource"},
+          {"$ref": "./workflow.json#/components/schemas/WorkflowResource"},
+          {"$ref": "./pet_def.json#/components/schemas/PetDefResource"},
+          {"$ref": "./badge_def.json#/components/schemas/BadgeDefResource"},
+          {"$ref": "./game_def.json#/components/schemas/GameDefResource"},
+          {"$ref": "./memory_layout.json#/components/schemas/MemoryLayoutResource"},
+          {"$ref": "./runtime_profile.json#/components/schemas/RuntimeProfileResource"},
+          {"$ref": "./registration_token.json#/components/schemas/RegistrationTokenResource"}
+        ]
       },
       "ApplyAction": {
         "type": "string",

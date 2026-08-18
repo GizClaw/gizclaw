@@ -15,6 +15,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -488,19 +491,27 @@ func listWorkspaces(ctx context.Context, c *gizcli.Client) ([]apitypes.Workspace
 	}
 }
 
-func createWorkspace(ctx context.Context, c *gizcli.Client, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
-	api, err := c.ServerAdminClient()
-	if err != nil {
-		return apitypes.Workspace{}, err
+func createWorkspace(ctx context.Context, ts *testServer, c *gizcli.Client, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
+	server := &workspace.Server{
+		Store:     ts.server.WorkspaceStore,
+		Workflows: &workflow.Server{Store: ts.server.WorkflowStore},
 	}
-	resp, err := api.CreateWorkspaceWithResponse(ctx, body)
-	if err != nil {
-		return apitypes.Workspace{}, err
+	ctx = ownership.WithOwner(ctx, c.KeyPair.Public.String())
+	return server.CreatePeerWorkspace(ctx, workspace.PeerWorkspaceCreateRequest{
+		Name:       body.Name,
+		WorkflowID: body.WorkflowId,
+		Labels:     valueOrZero(body.Labels),
+		Parameters: body.Parameters,
+		Toolkit:    body.Toolkit,
+	})
+}
+
+func valueOrZero[T any](value *T) T {
+	if value == nil {
+		var zero T
+		return zero
 	}
-	if resp.JSON200 != nil {
-		return *resp.JSON200, nil
-	}
-	return apitypes.Workspace{}, responseError(resp.StatusCode(), resp.Body, resp.JSON400, resp.JSON409, resp.JSON500)
+	return *value
 }
 
 func createModel(ctx context.Context, c *gizcli.Client, body adminhttp.ModelUpsert) (apitypes.Model, error) {

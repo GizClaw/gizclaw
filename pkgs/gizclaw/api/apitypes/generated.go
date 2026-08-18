@@ -3037,8 +3037,8 @@ type AliyunCredentialBody struct {
 // ApplyAction Result of applying the resource.
 type ApplyAction string
 
-// ApplyResource defines model for ApplyResource.
-type ApplyResource = Resource
+// ApplyResource A declarative resource accepted by Admin apply. Workspace is readable but cannot be created or changed through apply.
+type ApplyResource = WritableResource
 
 // ApplyResult defines model for ApplyResult.
 type ApplyResult struct {
@@ -3181,6 +3181,11 @@ type ClientRPCToolSpecType string
 
 // ConcreteResource A concrete resource carrying metadata.id. ResourceList is excluded.
 type ConcreteResource struct {
+	union json.RawMessage
+}
+
+// ConcreteResourceWritable A concrete ResourceList item accepted by Admin apply. Workspace and nested ResourceList are excluded.
+type ConcreteResourceWritable struct {
 	union json.RawMessage
 }
 
@@ -5569,8 +5574,8 @@ type ResourceListResourceKind string
 
 // ResourceListSpec defines model for ResourceListSpec.
 type ResourceListSpec struct {
-	// Items Concrete resources only; nested ResourceList envelopes are invalid.
-	Items []ConcreteResource `json:"items"`
+	// Items Writable concrete resources only; Workspace and nested ResourceList envelopes are invalid.
+	Items []ConcreteResourceWritable `json:"items"`
 }
 
 // ResourceMetadata defines model for ResourceMetadata.
@@ -6571,6 +6576,11 @@ type WorkspaceSpec struct {
 	WorkflowId string `json:"workflow_id"`
 }
 
+// WritableResource A declarative resource accepted by Admin apply. Workspace is readable but cannot be created or changed through apply.
+type WritableResource struct {
+	union json.RawMessage
+}
+
 // AsASTTranslateInternalSpeakerParameters returns the union data inside the ASTTranslateVoiceParameters as a ASTTranslateInternalSpeakerParameters
 func (t ASTTranslateVoiceParameters) AsASTTranslateInternalSpeakerParameters() (ASTTranslateInternalSpeakerParameters, error) {
 	var body ASTTranslateInternalSpeakerParameters
@@ -7378,6 +7388,614 @@ func (t ConcreteResource) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ConcreteResource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCredentialResource returns the union data inside the ConcreteResourceWritable as a CredentialResource
+func (t ConcreteResourceWritable) AsCredentialResource() (CredentialResource, error) {
+	var body CredentialResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCredentialResource overwrites any union data inside the ConcreteResourceWritable as the provided CredentialResource
+func (t *ConcreteResourceWritable) FromCredentialResource(v CredentialResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCredentialResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided CredentialResource
+func (t *ConcreteResourceWritable) MergeCredentialResource(v CredentialResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFirmwareResource returns the union data inside the ConcreteResourceWritable as a FirmwareResource
+func (t ConcreteResourceWritable) AsFirmwareResource() (FirmwareResource, error) {
+	var body FirmwareResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFirmwareResource overwrites any union data inside the ConcreteResourceWritable as the provided FirmwareResource
+func (t *ConcreteResourceWritable) FromFirmwareResource(v FirmwareResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFirmwareResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided FirmwareResource
+func (t *ConcreteResourceWritable) MergeFirmwareResource(v FirmwareResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContactResource returns the union data inside the ConcreteResourceWritable as a ContactResource
+func (t ConcreteResourceWritable) AsContactResource() (ContactResource, error) {
+	var body ContactResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContactResource overwrites any union data inside the ConcreteResourceWritable as the provided ContactResource
+func (t *ConcreteResourceWritable) FromContactResource(v ContactResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContactResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided ContactResource
+func (t *ConcreteResourceWritable) MergeContactResource(v ContactResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendResource returns the union data inside the ConcreteResourceWritable as a FriendResource
+func (t ConcreteResourceWritable) AsFriendResource() (FriendResource, error) {
+	var body FriendResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendResource overwrites any union data inside the ConcreteResourceWritable as the provided FriendResource
+func (t *ConcreteResourceWritable) FromFriendResource(v FriendResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided FriendResource
+func (t *ConcreteResourceWritable) MergeFriendResource(v FriendResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupResource returns the union data inside the ConcreteResourceWritable as a FriendGroupResource
+func (t ConcreteResourceWritable) AsFriendGroupResource() (FriendGroupResource, error) {
+	var body FriendGroupResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupResource overwrites any union data inside the ConcreteResourceWritable as the provided FriendGroupResource
+func (t *ConcreteResourceWritable) FromFriendGroupResource(v FriendGroupResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided FriendGroupResource
+func (t *ConcreteResourceWritable) MergeFriendGroupResource(v FriendGroupResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupInviteTokenResource returns the union data inside the ConcreteResourceWritable as a FriendGroupInviteTokenResource
+func (t ConcreteResourceWritable) AsFriendGroupInviteTokenResource() (FriendGroupInviteTokenResource, error) {
+	var body FriendGroupInviteTokenResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupInviteTokenResource overwrites any union data inside the ConcreteResourceWritable as the provided FriendGroupInviteTokenResource
+func (t *ConcreteResourceWritable) FromFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupInviteTokenResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided FriendGroupInviteTokenResource
+func (t *ConcreteResourceWritable) MergeFriendGroupInviteTokenResource(v FriendGroupInviteTokenResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupMemberResource returns the union data inside the ConcreteResourceWritable as a FriendGroupMemberResource
+func (t ConcreteResourceWritable) AsFriendGroupMemberResource() (FriendGroupMemberResource, error) {
+	var body FriendGroupMemberResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupMemberResource overwrites any union data inside the ConcreteResourceWritable as the provided FriendGroupMemberResource
+func (t *ConcreteResourceWritable) FromFriendGroupMemberResource(v FriendGroupMemberResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupMemberResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided FriendGroupMemberResource
+func (t *ConcreteResourceWritable) MergeFriendGroupMemberResource(v FriendGroupMemberResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelResource returns the union data inside the ConcreteResourceWritable as a ModelResource
+func (t ConcreteResourceWritable) AsModelResource() (ModelResource, error) {
+	var body ModelResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelResource overwrites any union data inside the ConcreteResourceWritable as the provided ModelResource
+func (t *ConcreteResourceWritable) FromModelResource(v ModelResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided ModelResource
+func (t *ConcreteResourceWritable) MergeModelResource(v ModelResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDashScopeTenantResource returns the union data inside the ConcreteResourceWritable as a DashScopeTenantResource
+func (t ConcreteResourceWritable) AsDashScopeTenantResource() (DashScopeTenantResource, error) {
+	var body DashScopeTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDashScopeTenantResource overwrites any union data inside the ConcreteResourceWritable as the provided DashScopeTenantResource
+func (t *ConcreteResourceWritable) FromDashScopeTenantResource(v DashScopeTenantResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDashScopeTenantResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided DashScopeTenantResource
+func (t *ConcreteResourceWritable) MergeDashScopeTenantResource(v DashScopeTenantResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeepSeekTenantResource returns the union data inside the ConcreteResourceWritable as a DeepSeekTenantResource
+func (t ConcreteResourceWritable) AsDeepSeekTenantResource() (DeepSeekTenantResource, error) {
+	var body DeepSeekTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeepSeekTenantResource overwrites any union data inside the ConcreteResourceWritable as the provided DeepSeekTenantResource
+func (t *ConcreteResourceWritable) FromDeepSeekTenantResource(v DeepSeekTenantResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeepSeekTenantResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided DeepSeekTenantResource
+func (t *ConcreteResourceWritable) MergeDeepSeekTenantResource(v DeepSeekTenantResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGeminiTenantResource returns the union data inside the ConcreteResourceWritable as a GeminiTenantResource
+func (t ConcreteResourceWritable) AsGeminiTenantResource() (GeminiTenantResource, error) {
+	var body GeminiTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGeminiTenantResource overwrites any union data inside the ConcreteResourceWritable as the provided GeminiTenantResource
+func (t *ConcreteResourceWritable) FromGeminiTenantResource(v GeminiTenantResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGeminiTenantResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided GeminiTenantResource
+func (t *ConcreteResourceWritable) MergeGeminiTenantResource(v GeminiTenantResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMiniMaxTenantResource returns the union data inside the ConcreteResourceWritable as a MiniMaxTenantResource
+func (t ConcreteResourceWritable) AsMiniMaxTenantResource() (MiniMaxTenantResource, error) {
+	var body MiniMaxTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMiniMaxTenantResource overwrites any union data inside the ConcreteResourceWritable as the provided MiniMaxTenantResource
+func (t *ConcreteResourceWritable) FromMiniMaxTenantResource(v MiniMaxTenantResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMiniMaxTenantResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided MiniMaxTenantResource
+func (t *ConcreteResourceWritable) MergeMiniMaxTenantResource(v MiniMaxTenantResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOpenAITenantResource returns the union data inside the ConcreteResourceWritable as a OpenAITenantResource
+func (t ConcreteResourceWritable) AsOpenAITenantResource() (OpenAITenantResource, error) {
+	var body OpenAITenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOpenAITenantResource overwrites any union data inside the ConcreteResourceWritable as the provided OpenAITenantResource
+func (t *ConcreteResourceWritable) FromOpenAITenantResource(v OpenAITenantResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOpenAITenantResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided OpenAITenantResource
+func (t *ConcreteResourceWritable) MergeOpenAITenantResource(v OpenAITenantResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVolcTenantResource returns the union data inside the ConcreteResourceWritable as a VolcTenantResource
+func (t ConcreteResourceWritable) AsVolcTenantResource() (VolcTenantResource, error) {
+	var body VolcTenantResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVolcTenantResource overwrites any union data inside the ConcreteResourceWritable as the provided VolcTenantResource
+func (t *ConcreteResourceWritable) FromVolcTenantResource(v VolcTenantResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVolcTenantResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided VolcTenantResource
+func (t *ConcreteResourceWritable) MergeVolcTenantResource(v VolcTenantResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVoiceResource returns the union data inside the ConcreteResourceWritable as a VoiceResource
+func (t ConcreteResourceWritable) AsVoiceResource() (VoiceResource, error) {
+	var body VoiceResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVoiceResource overwrites any union data inside the ConcreteResourceWritable as the provided VoiceResource
+func (t *ConcreteResourceWritable) FromVoiceResource(v VoiceResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVoiceResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided VoiceResource
+func (t *ConcreteResourceWritable) MergeVoiceResource(v VoiceResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsToolResource returns the union data inside the ConcreteResourceWritable as a ToolResource
+func (t ConcreteResourceWritable) AsToolResource() (ToolResource, error) {
+	var body ToolResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromToolResource overwrites any union data inside the ConcreteResourceWritable as the provided ToolResource
+func (t *ConcreteResourceWritable) FromToolResource(v ToolResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeToolResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided ToolResource
+func (t *ConcreteResourceWritable) MergeToolResource(v ToolResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowResource returns the union data inside the ConcreteResourceWritable as a WorkflowResource
+func (t ConcreteResourceWritable) AsWorkflowResource() (WorkflowResource, error) {
+	var body WorkflowResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowResource overwrites any union data inside the ConcreteResourceWritable as the provided WorkflowResource
+func (t *ConcreteResourceWritable) FromWorkflowResource(v WorkflowResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided WorkflowResource
+func (t *ConcreteResourceWritable) MergeWorkflowResource(v WorkflowResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPetDefResource returns the union data inside the ConcreteResourceWritable as a PetDefResource
+func (t ConcreteResourceWritable) AsPetDefResource() (PetDefResource, error) {
+	var body PetDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPetDefResource overwrites any union data inside the ConcreteResourceWritable as the provided PetDefResource
+func (t *ConcreteResourceWritable) FromPetDefResource(v PetDefResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePetDefResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided PetDefResource
+func (t *ConcreteResourceWritable) MergePetDefResource(v PetDefResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBadgeDefResource returns the union data inside the ConcreteResourceWritable as a BadgeDefResource
+func (t ConcreteResourceWritable) AsBadgeDefResource() (BadgeDefResource, error) {
+	var body BadgeDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBadgeDefResource overwrites any union data inside the ConcreteResourceWritable as the provided BadgeDefResource
+func (t *ConcreteResourceWritable) FromBadgeDefResource(v BadgeDefResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBadgeDefResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided BadgeDefResource
+func (t *ConcreteResourceWritable) MergeBadgeDefResource(v BadgeDefResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsGameDefResource returns the union data inside the ConcreteResourceWritable as a GameDefResource
+func (t ConcreteResourceWritable) AsGameDefResource() (GameDefResource, error) {
+	var body GameDefResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromGameDefResource overwrites any union data inside the ConcreteResourceWritable as the provided GameDefResource
+func (t *ConcreteResourceWritable) FromGameDefResource(v GameDefResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeGameDefResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided GameDefResource
+func (t *ConcreteResourceWritable) MergeGameDefResource(v GameDefResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMemoryLayoutResource returns the union data inside the ConcreteResourceWritable as a MemoryLayoutResource
+func (t ConcreteResourceWritable) AsMemoryLayoutResource() (MemoryLayoutResource, error) {
+	var body MemoryLayoutResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMemoryLayoutResource overwrites any union data inside the ConcreteResourceWritable as the provided MemoryLayoutResource
+func (t *ConcreteResourceWritable) FromMemoryLayoutResource(v MemoryLayoutResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMemoryLayoutResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided MemoryLayoutResource
+func (t *ConcreteResourceWritable) MergeMemoryLayoutResource(v MemoryLayoutResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileResource returns the union data inside the ConcreteResourceWritable as a RuntimeProfileResource
+func (t ConcreteResourceWritable) AsRuntimeProfileResource() (RuntimeProfileResource, error) {
+	var body RuntimeProfileResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileResource overwrites any union data inside the ConcreteResourceWritable as the provided RuntimeProfileResource
+func (t *ConcreteResourceWritable) FromRuntimeProfileResource(v RuntimeProfileResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided RuntimeProfileResource
+func (t *ConcreteResourceWritable) MergeRuntimeProfileResource(v RuntimeProfileResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRegistrationTokenResource returns the union data inside the ConcreteResourceWritable as a RegistrationTokenResource
+func (t ConcreteResourceWritable) AsRegistrationTokenResource() (RegistrationTokenResource, error) {
+	var body RegistrationTokenResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRegistrationTokenResource overwrites any union data inside the ConcreteResourceWritable as the provided RegistrationTokenResource
+func (t *ConcreteResourceWritable) FromRegistrationTokenResource(v RegistrationTokenResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRegistrationTokenResource performs a merge with any union data inside the ConcreteResourceWritable, using the provided RegistrationTokenResource
+func (t *ConcreteResourceWritable) MergeRegistrationTokenResource(v RegistrationTokenResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ConcreteResourceWritable) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ConcreteResourceWritable) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -9939,6 +10557,68 @@ func (t WorkspaceParameters) MarshalJSON() ([]byte, error) {
 }
 
 func (t *WorkspaceParameters) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsConcreteResourceWritable returns the union data inside the WritableResource as a ConcreteResourceWritable
+func (t WritableResource) AsConcreteResourceWritable() (ConcreteResourceWritable, error) {
+	var body ConcreteResourceWritable
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromConcreteResourceWritable overwrites any union data inside the WritableResource as the provided ConcreteResourceWritable
+func (t *WritableResource) FromConcreteResourceWritable(v ConcreteResourceWritable) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeConcreteResourceWritable performs a merge with any union data inside the WritableResource, using the provided ConcreteResourceWritable
+func (t *WritableResource) MergeConcreteResourceWritable(v ConcreteResourceWritable) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsResourceListResource returns the union data inside the WritableResource as a ResourceListResource
+func (t WritableResource) AsResourceListResource() (ResourceListResource, error) {
+	var body ResourceListResource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromResourceListResource overwrites any union data inside the WritableResource as the provided ResourceListResource
+func (t *WritableResource) FromResourceListResource(v ResourceListResource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeResourceListResource performs a merge with any union data inside the WritableResource, using the provided ResourceListResource
+func (t *WritableResource) MergeResourceListResource(v ResourceListResource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t WritableResource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *WritableResource) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

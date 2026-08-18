@@ -290,6 +290,11 @@ func (s *Server) Close() error {
 		s.pendingDeletionProcessor.Close()
 		s.pendingDeletionProcessor = nil
 	}
+	if s.peerService != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		errs = append(errs, s.peerService.closeOpenAIResponses(ctx))
+		cancel()
+	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
 	}

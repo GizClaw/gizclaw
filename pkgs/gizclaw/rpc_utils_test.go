@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -519,12 +520,11 @@ func (invalidWorkspaceAdminService) ListWorkspaces(context.Context, adminhttp.Li
 	return nil, nil
 }
 
-func (invalidWorkspaceAdminService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "unchanged client message")), nil
-}
-
-func (invalidWorkspaceAdminService) CreatePeerWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return adminhttp.CreateWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", "unchanged client message")), nil
+func (invalidWorkspaceAdminService) CreatePeerWorkspace(context.Context, workspace.PeerWorkspaceCreateRequest) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, &workspace.PeerWorkspaceCreateError{
+		Kind: workspace.PeerWorkspaceCreateInvalid,
+		Err:  errors.New("unchanged client message"),
+	}
 }
 
 func (invalidWorkspaceAdminService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {

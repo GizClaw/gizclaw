@@ -92,6 +92,10 @@ Workspace also owns the immutable `system` lifecycle classification. Generic cre
 
 Background consumers resolve a retained Workspace through `GetAvailableWorkspaceByID`, which preserves the exact Workspace or owner `PendingDeletion` error instead of treating the Admin projection as runnable state. Once physical cleanup has removed the canonical Workspace record, the same boundary returns a Workspace-owned deleted terminal result rather than exposing a raw Store not-found. Runtime and background Memory resolution use this availability gate; Admin get/list intentionally remain diagnostic views of retained rows.
 
+Ordinary Workspace creation is Peer-owned. Admin `PUT` updates an existing Workspace and Admin apply rejects Workspace resources, including nested `ResourceList` entries, before mutating any item. Peer RPC and OpenAI Conversation creation share the typed domain operation that resolves a RuntimeProfile Workflow alias, assigns the authenticated owner, prepares the runtime, runs an optional pre-publication initializer, and rolls back on failure.
+
+One OpenAI Conversation maps one-to-one to one user Workspace. History remains the sole transcript store; OpenAI item records contain only stable IDs, role/status/order, and exact History correlation. Conversation metadata, item indexes, immutable Response input snapshots, and Response lifecycle records share the Workspace runtime prefix and are therefore removed by normal Workspace cleanup.
+
 ## Dependencies and boundaries
 
 ```mermaid

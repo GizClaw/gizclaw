@@ -276,7 +276,8 @@ func TestAdminServiceResourceMethodsHandleValidationAndManagerErrors(t *testing.
 	}`)
 	service := &adminService{}
 
-	applyResp, err := service.ApplyResource(context.Background(), adminhttp.ApplyResourceRequestObject{JSONBody: &resource})
+	writable := mustPeerServiceWritableResource(t, resource)
+	applyResp, err := service.ApplyResource(context.Background(), adminhttp.ApplyResourceRequestObject{JSONBody: &writable})
 	if err != nil {
 		t.Fatalf("ApplyResource() error = %v", err)
 	}
@@ -888,10 +889,6 @@ func (f *fakeAdminWorkspaceHistory) ListWorkspaces(context.Context, adminhttp.Li
 	return nil, nil
 }
 
-func (f *fakeAdminWorkspaceHistory) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return nil, nil
-}
-
 func (f *fakeAdminWorkspaceHistory) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	return nil, nil
 }
@@ -924,4 +921,17 @@ func mustPeerServiceResource(t *testing.T, raw string) apitypes.Resource {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return resource
+}
+
+func mustPeerServiceWritableResource(t *testing.T, resource apitypes.Resource) adminhttp.ApplyResourceJSONRequestBody {
+	t.Helper()
+	data, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatalf("marshal writable resource: %v", err)
+	}
+	var writable adminhttp.ApplyResourceJSONRequestBody
+	if err := json.Unmarshal(data, &writable); err != nil {
+		t.Fatalf("unmarshal writable resource: %v", err)
+	}
+	return writable
 }

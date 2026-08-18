@@ -22,6 +22,8 @@ Go 生成输出：`pkgs/gizclaw/api/adminhttp`
 
 Admin OpenAPI 只拥有 HTTP path、request/response 和 wire error。Resource validation、authorization、storage 和领域 lifecycle 由对应 services 与 resource manager 实现。
 
+Workspace 创建不属于 Admin 操作。Admin 保留 Workspace get/list、update、delete、history 与 icon；`PUT` 只更新已有对象，通用 resource apply 排除 Workspace。Peer 通过 typed Peer RPC/domain capability 创建自己的 Workspace，使 owner 来自 authenticated identity，而不是 operator payload。
+
 ## Admin Resource identity
 
 每个具体 Admin Resource 都由调用方提供的 `(kind, id)` 唯一定位。声明式 envelope 必须包含非空 `metadata.id`；直接 create/put DTO 必须包含同一个 `id`。Server 会原样持久化已接受的值，不生成、不 trim、不把 `name` 解析为 ID。ID 最多包含 1024 个 Unicode 字符（且不超过 4096 个 UTF-8 字节）。首尾包含空白的 ID 非法；独立 URI dot segment `.` 与 `..` 也是保留值；其余合法 ID 仍按 opaque value 处理。`PUT /resources/{kind}/{id}` 和各领域 put endpoint 要求 path ID 与 body ID 完全相等。

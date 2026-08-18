@@ -38,7 +38,15 @@ type resourceClientBridge struct {
 }
 
 func (r *resourceClientBridge) ApplyResource(ctx context.Context, resource apitypes.Resource) (apitypes.ApplyResult, error) {
-	resp, err := r.api.ApplyResourceWithResponse(ctx, resource)
+	data, err := json.Marshal(resource)
+	if err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	var writable adminhttp.ApplyResourceJSONRequestBody
+	if err := json.Unmarshal(data, &writable); err != nil {
+		return apitypes.ApplyResult{}, err
+	}
+	resp, err := r.api.ApplyResourceWithResponse(ctx, writable)
 	if err != nil {
 		return apitypes.ApplyResult{}, err
 	}

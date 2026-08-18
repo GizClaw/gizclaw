@@ -577,3 +577,9 @@ bash tests/memory/run_tests.sh
 ```
 
 Ordinary Memory tests remain credential-free and run under `go test ./...`.
+
+## OpenAI Conversations and Responses E2E
+
+The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tests/gizclaw-e2e/go/openai`. It uses the pinned official OpenAI Go SDK over authenticated `ServicePeerOpenAI`, creates an isolated Peer-owned Conversation Workspace, completes three text turns, composes transcription to Response to speech, exercises background cancel and streamed-client abort followed by same-Conversation recovery, and registers Workspace cleanup before mutation.
+
+Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.

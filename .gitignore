@@ -43,6 +43,7 @@ coverage.out
 tests/gizclaw-e2e/.env
 tests/gizclaw-e2e/setup/.env
 tests/gizclaw-e2e/.testbench/
+tests/gizclaw-e2e/testdata/openai-compatibility/
 tests/genx-e2e/.env
 tests/memory/.env
 

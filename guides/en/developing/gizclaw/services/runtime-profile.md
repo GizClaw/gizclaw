@@ -175,7 +175,7 @@ Public HTTP login may submit the same value through `X-Registration-Token`. Regi
 - Workflow, Model, Voice, and Tool list/get return safe scoped-name projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from a dynamic name. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
 - Workflow list requires a Collection. Workflow get uses the name projected by the current RuntimeProfile. There is no `source=runtime|owned` selector.
 - Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
-- Workspace create requires `collection` and `workflow_name`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC.
+- Workspace create requires `collection` and `workflow_name`; Workspace list requires `collection`. The Server stores Collection as an internal Workspace label and does not return generic labels through Peer RPC. The same typed create capability is used by OpenAI Conversation creation; Admin cannot create or apply a Workspace.
 - A removed Workflow binding does not hide or delete its Workspace. List/get still return it, while reload/run fails with not found until the same Peer name is restored.
 - Pet instances remain Peer/domain state. Adoption and all reward values come from `gameplay`; Server config contains only operational settings.
 

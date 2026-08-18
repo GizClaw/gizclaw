@@ -84,6 +84,84 @@ func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
 	}
 }
 
+func TestWorkspaceCreatePreservesNotFoundForUnknownWorkflowAlias(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = store.Close() })
+	profile := runtimeProfileWithWorkspaceAlias("r1")
+	workflows := &workflow.Server{Store: store}
+	server := &Server{
+		Caller:     giznet.PublicKey{1},
+		Workspaces: &workspace.Server{Store: store, Workflows: workflows},
+		Workflows:  workflows,
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			return &profile
+		},
+	}
+	var payload rpcapi.RPCPayload
+	if err := payload.FromWorkspaceCreateRequest(rpcapi.WorkspaceCreateRequest{
+		Name: "missing", Collection: "story-teller", WorkflowName: "missing",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	response, handled, err := server.Dispatch(ctx, &rpcapi.RPCRequest{Id: "create", Method: rpcapi.RPCMethodServerWorkspaceCreate, Params: &payload})
+	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Result != nil {
+		t.Fatalf("workspace create response = %#v, handled=%v error=%v, want NOT_FOUND", response, handled, err)
+	}
+}
+
+func TestWorkspaceCreateProjectsResolvedRuntimeProfileSnapshot(t *testing.T) {
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = store.Close() })
+	resolved := runtimeProfileWithWorkspaceAlias("r1")
+	workflows := &workflow.Server{Store: store}
+	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
+	calls := 0
+	workspaces := &profileMutatingWorkspaceService{
+		Server: &workspace.Server{Store: store, Workflows: workflows},
+		afterCreate: func() {
+			resolved.Revision = "r2"
+			resolved.Spec.Workflows.Collections["story-teller"] = map[string]apitypes.RuntimeProfileBinding{}
+		},
+	}
+	server := &Server{
+		Caller:     giznet.PublicKey{1},
+		Workspaces: workspaces,
+		Workflows:  workflows,
+		RuntimeProfile: func() *apitypes.RuntimeProfile {
+			calls++
+			return &resolved
+		},
+	}
+
+	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
+		Name: "snapshot", Collection: "story-teller", WorkflowName: "journey",
+	})
+	if calls != 1 {
+		t.Fatalf("RuntimeProfile calls = %d, want 1", calls)
+	}
+	if created.WorkflowName != "journey" || !created.Available {
+		t.Fatalf("created Workspace = %#v, want projection from r1", created)
+	}
+}
+
+type profileMutatingWorkspaceService struct {
+	*workspace.Server
+	afterCreate func()
+}
+
+func (s *profileMutatingWorkspaceService) CreatePeerWorkspace(
+	ctx context.Context,
+	request workspace.PeerWorkspaceCreateRequest,
+) (apitypes.Workspace, error) {
+	created, err := s.Server.CreatePeerWorkspace(ctx, request)
+	if err == nil && s.afterCreate != nil {
+		s.afterCreate()
+	}
+	return created, err
+}
+
 func TestSystemWorkspaceAvailabilityDoesNotRequireCollectionLabel(t *testing.T) {
 	system := true
 	profile := runtimeProfileWithWorkspaceAlias("r1")

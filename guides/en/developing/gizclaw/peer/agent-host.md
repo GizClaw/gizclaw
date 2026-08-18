@@ -40,3 +40,5 @@ ToolCall IDs and continuation stay inside the Transformer. AgentHost dispatches
 only canonical Resource names to `http_request` or the current connection's
 `client.tool.invoke`, and no Tool control traffic is projected into the public
 assistant stream.
+
+OpenAI Responses use a request-scoped direct Workspace attachment through the same canonical Resolver and shared Runtime Registry. It does not read or update the PeerRun selection. Server-side tools keep normal Workflow policy; connection-scoped client tools fail closed because an OpenAI request has no stable client-tool transport contract. A bounded History observer returns the exact persisted assistant entry used by the Response projection.

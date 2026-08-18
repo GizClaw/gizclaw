@@ -14,3 +14,5 @@ Bearer 与 cookie value 不作为 backend identity。Shell authenticator 只读�
 | --- | --- |
 | `peerOpenAIHTTPHandler` | 验证 primary session，并在 dispatch 前绑定其 immutable registration snapshot。 |
 | `openAIProtocolHandler` | 为一个 `PeerService` handler graph 懒构建并保留单个 Shell router，避免无关的 Server 启动等待 OpenAI Schema 解析。 |
+
+同一个 authenticated composition 也提供 Workspace-backed Conversations 与 Responses。进程共享的 Response runtime 按 Workspace 串行 active work，在返回终态 JSON/SSE 前持久化终态，并在读取时把重启遗留的 `in_progress` record 转为安全失败。Server shutdown 会先停止并 join 该 runtime，再关闭 Workspace 与 Agent store。

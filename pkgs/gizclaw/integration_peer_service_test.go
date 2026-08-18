@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
@@ -93,7 +94,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 		}
 	}`)
 
-	applyResp, err := api.ApplyResourceWithResponse(context.Background(), resource)
+	applyResp, err := api.ApplyResourceWithResponse(context.Background(), mustWritableAdminResource(t, resource))
 	if err != nil {
 		t.Fatalf("ApplyResourceWithResponse(create) error: %v", err)
 	}
@@ -123,7 +124,7 @@ func TestIntegrationAdminResourceAPIs(t *testing.T) {
 			"body": {"api_key": "secret"}
 		}
 	}`)
-	updatedResp, err := api.ApplyResourceWithResponse(context.Background(), updatedResource)
+	updatedResp, err := api.ApplyResourceWithResponse(context.Background(), mustWritableAdminResource(t, updatedResource))
 	if err != nil {
 		t.Fatalf("ApplyResourceWithResponse(update) error: %v", err)
 	}
@@ -163,4 +164,17 @@ func mustAdminResource(t *testing.T, raw string) apitypes.Resource {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	return resource
+}
+
+func mustWritableAdminResource(t *testing.T, resource apitypes.Resource) adminhttp.ApplyResourceJSONRequestBody {
+	t.Helper()
+	data, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	var writable adminhttp.ApplyResourceJSONRequestBody
+	if err := json.Unmarshal(data, &writable); err != nil {
+		t.Fatalf("json.Unmarshal(writable) error = %v", err)
+	}
+	return writable
 }

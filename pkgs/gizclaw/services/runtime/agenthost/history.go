@@ -61,6 +61,15 @@ func withWorkspaceHistoryNotifier(
 	return context.WithValue(ctx, workspaceHistoryNotifierContextKey{}, notify)
 }
 
+// WithWorkspaceHistoryObserver observes exact entries persisted by the Agent
+// for one request-scoped attachment.
+func WithWorkspaceHistoryObserver(
+	ctx context.Context,
+	notify func(context.Context, string, workspace.HistoryEntry),
+) context.Context {
+	return withWorkspaceHistoryNotifier(ctx, notify)
+}
+
 func notifyWorkspaceHistory(ctx context.Context, workspaceName string, entry workspace.HistoryEntry) {
 	notify, _ := ctx.Value(workspaceHistoryNotifierContextKey{}).(func(context.Context, string, workspace.HistoryEntry))
 	if notify != nil {

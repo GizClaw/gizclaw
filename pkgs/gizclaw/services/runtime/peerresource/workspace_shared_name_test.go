@@ -78,10 +78,6 @@ func (s *sharedWorkspaceNameService) ListWorkspaces(context.Context, adminhttp.L
 	return adminhttp.ListWorkspaces200JSONResponse(adminhttp.WorkspaceList{Items: []apitypes.Workspace{s.decoy, s.item}}), nil
 }
 
-func (*sharedWorkspaceNameService) CreateWorkspace(context.Context, adminhttp.CreateWorkspaceRequestObject) (adminhttp.CreateWorkspaceResponseObject, error) {
-	return nil, errors.New("unexpected CreateWorkspace")
-}
-
 func (*sharedWorkspaceNameService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	return nil, errors.New("unexpected DeleteWorkspace")
 }

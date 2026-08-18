@@ -29,6 +29,41 @@ func (s *Server) AppendWorkspaceHistory(ctx context.Context, workspaceName strin
 	return entry, nil
 }
 
+// AppendWorkspaceHistoryByID appends History through a canonical Workspace ID
+// without starting or selecting a Workspace Agent.
+func (s *Server) AppendWorkspaceHistoryByID(ctx context.Context, workspaceID string, req AppendHistoryRequest) (HistoryEntry, error) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	store, err := s.store()
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	item, err := getWorkspaceByID(ctx, store, workspaceID)
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
+		return HistoryEntry{}, err
+	}
+	if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+		return HistoryEntry{}, err
+	}
+	if s.RuntimeStore == nil {
+		return HistoryEntry{}, fmt.Errorf("workspace: runtime store is required")
+	}
+	runtime, err := s.RuntimeStore.GetWorkspaceRuntime(ctx, item.Id)
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	entry, err := runtime.History.Append(ctx, req)
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	if err := bumpWorkspaceLastActive(ctx, store, item.Name, entry.CreatedAt); err != nil {
+		return HistoryEntry{}, err
+	}
+	return entry, nil
+}
+
 func (s *Server) ListWorkspaceHistory(ctx context.Context, workspaceName string, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
 	store, err := s.historyStore(ctx, workspaceName)
 	if err != nil {

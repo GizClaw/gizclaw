@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/audiostream"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -32,6 +33,32 @@ type ModelLister interface {
 
 type VoiceLister interface {
 	ListVoices(context.Context, adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error)
+}
+
+// ConversationWorkspaceRequest is the transport-neutral request for one new
+// OpenAI-owned Workspace. The creator must authenticate ownership and execute
+// Initialize before publishing the Workspace.
+type ConversationWorkspaceRequest struct {
+	Name         string
+	Collection   string
+	WorkflowName string
+	Metadata     map[string]string
+	Initialize   func(context.Context, workspace.Runtime) error
+}
+
+// ConversationWorkspaces provides owner-fenced Workspace and durable state
+// access without starting an Agent for read operations.
+type ConversationWorkspaces interface {
+	CreateConversationWorkspace(context.Context, ConversationWorkspaceRequest) (apitypes.Workspace, error)
+	GetConversationWorkspace(context.Context, string) (apitypes.Workspace, error)
+	GetConversationRuntime(context.Context, string) (workspace.Runtime, error)
+	AppendConversationHistory(context.Context, string, workspace.AppendHistoryRequest) (workspace.HistoryEntry, error)
+}
+
+// WorkspaceExecutor executes one request-scoped text turn against the shared
+// canonical Workspace Agent. onDelta may be nil.
+type WorkspaceExecutor interface {
+	ExecuteWorkspaceText(context.Context, apitypes.Workspace, string, func(string) error) ([]workspace.HistoryEntry, error)
 }
 
 // VoiceListParams contains the pagination accepted by the RuntimeProfile-scoped
@@ -49,6 +76,9 @@ type Server struct {
 	Voices      VoiceLister
 	Generator   genx.Generator
 	Transformer genx.TransformerMux
+	Workspaces  ConversationWorkspaces
+	Executor    WorkspaceExecutor
+	Responses   *ResponseRuntime
 	Now         func() time.Time
 }
 
@@ -67,6 +97,10 @@ func (s *Server) Handle(ctx context.Context, request backend.Request) (backend.R
 		return s.createSpeech(ctx, request)
 	case request.Capability == backend.CapabilityAudio && request.Operation == "createTranscription":
 		return s.createTranscription(ctx, request)
+	case request.Capability == backend.CapabilityConversations:
+		return s.handleConversation(ctx, request)
+	case request.Capability == backend.CapabilityResponses:
+		return s.handleResponse(ctx, request)
 	default:
 		return backend.Response{}, &backend.Error{
 			Kind: backend.ErrorUnsupported, Code: "operation_not_supported",

@@ -17,17 +17,16 @@ import (
 )
 
 const (
-	sharedWorkflow          = "flowcraft-chat-assistant"
-	sharedChatroomWorkflow  = "chatroom-direct"
-	sharedWorkspace         = "support-desk-workspace"
-	sharedChatroomWorkspace = "direct-chatroom-workspace"
-	sharedModel             = "fake-openai-chat-000"
-	sharedCredential        = "fake-openai-credential-000"
-	sharedFirmware          = "devkit-firmware-main"
-	mutationWorkflow        = "mutation-rpc-workflow"
-	mutationWorkspace       = "mutation-rpc-workspace"
-	mutationModel           = "mutation-openai-model"
-	mutationCredential      = "mutation-openai-credential"
+	sharedWorkflow         = "flowcraft-chat-assistant"
+	sharedChatroomWorkflow = "chatroom-direct"
+	sharedWorkspace        = "workspace-owned-by-another-peer"
+	sharedModel            = "fake-openai-chat-000"
+	sharedCredential       = "fake-openai-credential-000"
+	sharedFirmware         = "devkit-firmware-main"
+	mutationWorkflow       = "mutation-rpc-workflow"
+	mutationWorkspace      = "mutation-rpc-workspace"
+	mutationModel          = "mutation-openai-model"
+	mutationCredential     = "mutation-openai-credential"
 )
 
 type serverResourceHarness struct {

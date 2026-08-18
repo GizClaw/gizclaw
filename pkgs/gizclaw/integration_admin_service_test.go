@@ -139,7 +139,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		WorkflowId: workflow.Id,
 		Parameters: testFlowcraftWorkspaceParameters(),
 	}
-	created, err := createWorkspace(context.Background(), admin, createBody)
+	created, err := createWorkspace(context.Background(), ts, admin, createBody)
 	if err != nil {
 		t.Fatalf("CreateWorkspace error: %v", err)
 	}

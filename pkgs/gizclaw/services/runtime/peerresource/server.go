@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -53,6 +54,78 @@ type WorkspaceHistoryService interface {
 	ListWorkspaceHistoryPageByID(context.Context, string, apitypes.PeerRunHistoryListRequest) (workspace.HistoryEntryPage, error)
 	GetWorkspaceHistoryByID(context.Context, string, string) (workspace.HistoryEntry, error)
 	ReadWorkspaceHistoryAssetByID(context.Context, string, string) (io.ReadCloser, error)
+}
+
+// WorkspaceCreateRequest selects one caller-visible Workflow alias and creates
+// an ordinary Workspace through the shared Peer-owned domain capability.
+type WorkspaceCreateRequest struct {
+	Name         string
+	Collection   string
+	WorkflowName string
+	Parameters   *apitypes.WorkspaceParameters
+	Toolkit      *apitypes.ToolkitPolicy
+	Labels       map[string]string
+	Initialize   func(context.Context, workspace.Runtime) error
+}
+
+// WorkspaceCreateResult carries the created Workspace together with the exact
+// RuntimeProfile snapshot used to resolve its caller-visible Workflow alias.
+// Transport adapters must use this snapshot when projecting the result.
+type WorkspaceCreateResult struct {
+	Workspace      apitypes.Workspace
+	RuntimeProfile apitypes.RuntimeProfile
+}
+
+// CreateWorkspace resolves the immutable caller RuntimeProfile snapshot and
+// creates a caller-owned Workspace without using Admin HTTP DTOs.
+func (s *Server) CreateWorkspace(ctx context.Context, request WorkspaceCreateRequest) (WorkspaceCreateResult, error) {
+	if s == nil || s.Workspaces == nil {
+		return WorkspaceCreateResult{}, errors.New("workspace service not configured")
+	}
+	collection := strings.TrimSpace(request.Collection)
+	alias := strings.TrimSpace(request.WorkflowName)
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return WorkspaceCreateResult{}, errors.New("runtime profile not configured")
+	}
+	bindings, exists := profile.Spec.Workflows.Collections[collection]
+	if collection == "" || alias == "" || !exists {
+		return WorkspaceCreateResult{}, &workspace.PeerWorkspaceCreateError{Kind: workspace.PeerWorkspaceCreateInvalid, Err: errors.New("invalid Workflow collection")}
+	}
+	binding, exists := bindings[alias]
+	if !exists {
+		return WorkspaceCreateResult{}, &workspace.PeerWorkspaceCreateError{Kind: workspace.PeerWorkspaceCreateNotFound, Err: errors.New("workflow not found")}
+	}
+	projectionProfile := apitypes.RuntimeProfile{
+		Id: profile.Id, Revision: profile.Revision,
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+			Collections: apitypes.RuntimeProfileWorkflowCollections{
+				collection: {alias: {ResourceId: binding.ResourceId}},
+			},
+		}},
+	}
+	labels := make(map[string]string, len(request.Labels)+1)
+	maps.Copy(labels, request.Labels)
+	labels["collection"] = collection
+	workspaceCtx := workspace.WithRuntimeVoiceBindings(
+		workspace.WithRuntimeModelBindings(
+			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
+			profileBindingsFrom(profile, profileModels),
+		),
+		profileBindingsFrom(profile, profileVoices),
+	)
+	creator, ok := s.Workspaces.(workspace.PeerWorkspaceService)
+	if !ok {
+		return WorkspaceCreateResult{}, errors.New("workspace service does not support Peer creation")
+	}
+	created, err := creator.CreatePeerWorkspace(workspaceCtx, workspace.PeerWorkspaceCreateRequest{
+		Name: request.Name, WorkflowID: binding.ResourceId, Parameters: request.Parameters,
+		Toolkit: request.Toolkit, Labels: labels, Initialize: request.Initialize,
+	})
+	if err != nil {
+		return WorkspaceCreateResult{}, err
+	}
+	return WorkspaceCreateResult{Workspace: created, RuntimeProfile: projectionProfile}, nil
 }
 
 func IsMethod(method rpcapi.RPCMethod) bool {
@@ -607,18 +680,6 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	}
 	collection := strings.TrimSpace(params.Collection)
 	alias := strings.TrimSpace(params.WorkflowName)
-	profile := s.currentRuntimeProfile()
-	if profile == nil {
-		return internalError(req.Id, "runtime profile not configured"), true, nil
-	}
-	bindings, exists := profile.Spec.Workflows.Collections[collection]
-	if collection == "" || alias == "" || !exists {
-		return invalidParams(req.Id), true, nil
-	}
-	binding, exists := bindings[alias]
-	if !exists {
-		return statusError(req.Id, http.StatusNotFound, "workflow not found"), true, nil
-	}
 	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
 	observability.Annotate(ctx, observability.AnnotationWorkflowName, alias)
 	parameters, err := convertType[*apitypes.WorkspaceParameters](params.Parameters)
@@ -629,33 +690,32 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		return nil, true, err
 	}
-	labels := map[string]string{"collection": collection}
-	body := adminhttp.CreateWorkspaceJSONRequestBody{
-		Name: params.Name, WorkflowId: binding.ResourceId,
-		Parameters: parameters, Toolkit: toolkitPolicy, Labels: &labels,
+	created, err := s.CreateWorkspace(ctx, WorkspaceCreateRequest{
+		Name: params.Name, Collection: collection, WorkflowName: alias,
+		Parameters: parameters, Toolkit: toolkitPolicy,
+	})
+	if err != nil {
+		var createErr *workspace.PeerWorkspaceCreateError
+		if errors.As(err, &createErr) {
+			switch createErr.Kind {
+			case workspace.PeerWorkspaceCreateInvalid:
+				observability.SetErrorCode(ctx, "INVALID_WORKSPACE")
+				return statusError(req.Id, http.StatusBadRequest, createErr.Error()), true, nil
+			case workspace.PeerWorkspaceCreateNotFound:
+				observability.SetErrorCode(ctx, "WORKFLOW_NOT_FOUND")
+				return statusError(req.Id, http.StatusNotFound, createErr.Error()), true, nil
+			case workspace.PeerWorkspaceCreateConflict:
+				observability.SetErrorCode(ctx, "WORKSPACE_ALREADY_EXISTS")
+				return statusError(req.Id, http.StatusConflict, createErr.Error()), true, nil
+			}
+		}
+		return internalError(req.Id, err.Error()), true, nil
 	}
-	workspaceCtx := workspace.WithRuntimeVoiceBindings(
-		workspace.WithRuntimeModelBindings(
-			workspace.WithRuntimeWorkflowBindings(s.ownerContext(ctx), profileBindingsFrom(profile, profileWorkflows)),
-			profileBindingsFrom(profile, profileModels),
-		),
-		profileBindingsFrom(profile, profileVoices),
-	)
-	creator, ok := s.Workspaces.(workspace.PeerWorkspaceService)
-	if !ok {
-		return internalError(req.Id, "workspace service does not support Peer creation"), true, nil
-	}
-	adminResp, err := creator.CreatePeerWorkspace(workspaceCtx, adminhttp.CreateWorkspaceRequestObject{Body: &body})
+	projected, err := workspaceRPCProjection(created.Workspace, &created.RuntimeProfile)
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
 	}
-	return workspaceAdminRPCResponse(ctx, req.Id, adminResp.VisitCreateWorkspaceResponse, func(payload *rpcapi.RPCPayload, item apitypes.Workspace) error {
-		projected, err := workspaceRPCProjection(item, profile)
-		if err != nil {
-			return err
-		}
-		return payload.FromWorkspaceCreateResponse(projected)
-	}), true, nil
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkspaceCreateResponse), true, nil
 }
 
 func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {

@@ -761,13 +761,19 @@ func TestOpenAIHandlerEnforcesShellBoundary(t *testing.T) {
 		method string
 		path   string
 	}{
-		{http.MethodPost, "/v1/responses"},
+		{http.MethodGet, "/v1/conversations"},
 		{http.MethodPost, "/v1/embeddings"},
 		{http.MethodGet, "/v1/realtime"},
 		{http.MethodGet, "/v1/models/model-a"},
 		{http.MethodPost, "/v1/audio/translations"},
 		{http.MethodGet, "/v1/chat/completions/completion-a"},
 		{http.MethodPost, "/v1/models"},
+		{http.MethodGet, "/v1/conversations/conv-a/"},
+		{http.MethodPost, "/v1/conversations/conv-a/items"},
+		{http.MethodDelete, "/v1/conversations/conv-a"},
+		{http.MethodGet, "/v1/responses/resp-a?include=output_text"},
+		{http.MethodPost, "/v1/responses?beta=true"},
+		{http.MethodGet, "/v1/conversations/conv-a/items?before=msg-a"},
 	} {
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, httptest.NewRequest(request.method, request.path, nil))
@@ -787,6 +793,31 @@ func TestOpenAIHandlerEnforcesShellBoundary(t *testing.T) {
 	protocol.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/v1/models", nil))
 	if recorder.Code != http.StatusUnauthorized {
 		t.Fatalf("missing binding status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestOpenAIRouteMatcherAcceptsOnlySupportedDynamicPaths(t *testing.T) {
+	for _, test := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPost, "/v1/conversations"},
+		{http.MethodGet, "/v1/conversations/conv-a"},
+		{http.MethodGet, "/v1/conversations/conv-a/items"},
+		{http.MethodGet, "/v1/conversations/conv-a/items/msg-a"},
+		{http.MethodPost, "/v1/responses"},
+		{http.MethodGet, "/v1/responses/resp-a"},
+		{http.MethodGet, "/v1/responses/resp-a/input_items"},
+		{http.MethodPost, "/v1/responses/resp-a/cancel"},
+	} {
+		if _, ok := supportedOpenAIRoute(test.method, test.path); !ok {
+			t.Errorf("%s %s was rejected", test.method, test.path)
+		}
+	}
+	for _, path := range []string{"/v1/conversations", "/v1/conversations/conv-a/", "/v1/conversations/a/b", "/v1/responses/resp-a/events"} {
+		if _, ok := supportedOpenAIRoute(http.MethodGet, path); ok {
+			t.Errorf("GET %s was accepted", path)
+		}
 	}
 }
 

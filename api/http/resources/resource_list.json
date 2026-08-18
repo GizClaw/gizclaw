@@ -16,9 +16,9 @@
         "properties": {
           "items": {
             "type": "array",
-            "description": "Concrete resources only; nested ResourceList envelopes are invalid.",
+            "description": "Writable concrete resources only; Workspace and nested ResourceList envelopes are invalid.",
             "items": {
-              "$ref": "./resource.json#/components/schemas/ConcreteResource"
+              "$ref": "./resource.json#/components/schemas/ConcreteResourceWritable"
             }
           }
         }

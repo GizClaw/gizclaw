@@ -51,6 +51,10 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 		}
 		svc.Models = resources
 		svc.Voices = resources
+		adapter := openAIWorkspaceAdapter{caller: publicKey, manager: s.manager, resources: resources}
+		svc.Workspaces = adapter
+		svc.Executor = adapter
+		svc.Responses = s.openAIResponseRuntime()
 		if genxSvc == nil && s.manager.Models != nil && s.manager.Voices != nil && s.manager.Credentials != nil && s.manager.ProviderTenants != nil {
 			genxSvc = peergenx.New(peergenx.Service{
 				Peer:            peerPublicKey(publicKey),
@@ -73,6 +77,21 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 		return openAIUnavailableHandler()
 	}
 	return bindOpenAIHTTPHandler(protocol, &svc)
+}
+
+func (s *PeerService) openAIResponseRuntime() *openaiapi.ResponseRuntime {
+	if s == nil {
+		return nil
+	}
+	s.openAIResponseOnce.Do(func() { s.openAIResponses = openaiapi.NewResponseRuntime() })
+	return s.openAIResponses
+}
+
+func (s *PeerService) closeOpenAIResponses(ctx context.Context) error {
+	if s == nil || s.openAIResponses == nil {
+		return nil
+	}
+	return s.openAIResponses.Close(ctx)
 }
 
 func (s *PeerService) peerResources(publicKey giznet.PublicKey) *peerresource.Server {
@@ -174,6 +193,7 @@ type openAIRoute struct {
 	path      string
 	operation string
 	voices    bool
+	queries   map[string]bool
 }
 
 var openAIRoutes = [...]openAIRoute{
@@ -181,7 +201,15 @@ var openAIRoutes = [...]openAIRoute{
 	{method: http.MethodPost, path: "/v1/chat/completions", operation: "createChatCompletion"},
 	{method: http.MethodPost, path: "/v1/audio/speech", operation: "createSpeech"},
 	{method: http.MethodPost, path: "/v1/audio/transcriptions", operation: "createTranscription"},
-	{method: http.MethodGet, path: "/v1/voices", operation: "listVoices", voices: true},
+	{method: http.MethodGet, path: "/v1/voices", operation: "listVoices", voices: true, queries: map[string]bool{"cursor": true, "limit": true}},
+	{method: http.MethodPost, path: "/v1/conversations", operation: "createConversation"},
+	{method: http.MethodGet, path: "/v1/conversations/{conversation_id}", operation: "getConversation"},
+	{method: http.MethodGet, path: "/v1/conversations/{conversation_id}/items", operation: "listConversationItems", queries: map[string]bool{"after": true, "limit": true, "order": true}},
+	{method: http.MethodGet, path: "/v1/conversations/{conversation_id}/items/{item_id}", operation: "getConversationItem"},
+	{method: http.MethodPost, path: "/v1/responses", operation: "createResponse"},
+	{method: http.MethodGet, path: "/v1/responses/{response_id}", operation: "getResponse"},
+	{method: http.MethodGet, path: "/v1/responses/{response_id}/input_items", operation: "listInputItems", queries: map[string]bool{"after": true, "limit": true, "order": true}},
+	{method: http.MethodPost, path: "/v1/responses/{response_id}/cancel", operation: "cancelResponse"},
 }
 
 func newOpenAIProtocolHandler() (http.Handler, error) {
@@ -199,6 +227,8 @@ func newOpenAIProtocolHandler() (http.Handler, error) {
 		backend.WithModels(dispatch),
 		backend.WithChat(dispatch),
 		backend.WithAudio(dispatch),
+		backend.WithConversations(dispatch),
+		backend.WithResponses(dispatch),
 	)
 	if err != nil {
 		return nil, err
@@ -228,6 +258,12 @@ func (h *openAIProtocolHandler) ServeHTTP(writer http.ResponseWriter, request *h
 		http.NotFound(writer, request)
 		return
 	}
+	for key := range request.URL.Query() {
+		if !route.queries[key] {
+			http.NotFound(writer, request)
+			return
+		}
+	}
 	outcome := observability.FromContext(request.Context())
 	outcome.SetRoute(route.path)
 	outcome.SetOperation(route.operation)
@@ -240,11 +276,34 @@ func (h *openAIProtocolHandler) ServeHTTP(writer http.ResponseWriter, request *h
 
 func supportedOpenAIRoute(method, path string) (openAIRoute, bool) {
 	for _, route := range openAIRoutes {
-		if route.method == method && route.path == path {
+		if route.method == method && openAIRouteMatches(route.path, path) {
 			return route, true
 		}
 	}
 	return openAIRoute{}, false
+}
+
+func openAIRouteMatches(pattern, requestPath string) bool {
+	if !strings.HasPrefix(requestPath, "/") || strings.HasPrefix(requestPath, "//") || (len(requestPath) > 1 && strings.HasSuffix(requestPath, "/")) {
+		return false
+	}
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	requestParts := strings.Split(strings.Trim(requestPath, "/"), "/")
+	if len(patternParts) != len(requestParts) {
+		return false
+	}
+	for index := range patternParts {
+		if strings.HasPrefix(patternParts[index], "{") && strings.HasSuffix(patternParts[index], "}") {
+			if requestParts[index] == "" {
+				return false
+			}
+			continue
+		}
+		if patternParts[index] != requestParts[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func bindOpenAIHTTPHandler(protocol http.Handler, service *openaiapi.Server) http.Handler {

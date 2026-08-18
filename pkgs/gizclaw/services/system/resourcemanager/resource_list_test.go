@@ -114,3 +114,19 @@ func TestApplyResourceListRejectsMetadata(t *testing.T) {
 	}`))
 	assertResourceError(t, err, 400, "INVALID_RESOURCE_LIST")
 }
+
+func TestApplyResourceListRejectsWorkspaceBeforeAnyMutation(t *testing.T) {
+	credentials := newFakeCredentials()
+	manager := New(Services{Credentials: credentials, Workspaces: newFakeWorkspaces()})
+
+	_, err := manager.Apply(t.Context(), mustResource(t, `{
+		"apiVersion":"gizclaw.admin/v1alpha1","kind":"ResourceList","spec":{"items":[
+			{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"must-not-exist"},"spec":{"provider":"minimax","body":{"api_key":"secret"}}},
+			{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workspace","metadata":{"id":"forbidden"},"spec":{"name":"forbidden","workflow_id":"workflow"}}
+		]}
+	}`))
+	assertResourceError(t, err, 400, "INVALID_RESOURCE_LIST")
+	if credentials.putCount != 0 || len(credentials.items) != 0 {
+		t.Fatalf("ResourceList mutated credentials before Workspace rejection: count=%d items=%#v", credentials.putCount, credentials.items)
+	}
+}
