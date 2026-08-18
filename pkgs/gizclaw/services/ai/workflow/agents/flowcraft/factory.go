@@ -351,7 +351,7 @@ func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
 	return result
 }
 
-func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.FlowcraftVoiceAdapter, inputMode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
+func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
 	config := audiodock.Config{Agent: core}
 	if alias := stringValue(voice.AsrModel); alias != "" {
 		config.ASR = patternTransformer{mux: f.GenX.Transformer(), pattern: flowcraftASRPattern(alias, inputMode)}

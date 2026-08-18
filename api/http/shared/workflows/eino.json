@@ -16,20 +16,7 @@
           "graph": { "$ref": "#/components/schemas/EinoGraph" },
           "conversation": { "$ref": "#/components/schemas/EinoConversation" },
           "limits": { "$ref": "#/components/schemas/EinoLimits" },
-          "voice_adapter": { "$ref": "#/components/schemas/EinoVoiceAdapter" }
-        }
-      },
-      "EinoVoiceAdapter": {
-        "type": "object",
-        "additionalProperties": false,
-        "minProperties": 1,
-        "properties": {
-          "asr_model": { "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
-          "default_voice": { "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
-          "output_voices": {
-            "type": "object",
-            "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" }
-          }
+          "voice_adapter": { "$ref": "./voice_adapter.json#/components/schemas/VoiceAdapter" }
         }
       },
       "EinoConversation": {

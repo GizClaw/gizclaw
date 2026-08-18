@@ -1320,9 +1320,9 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 					return err
 				}
 			}
-			if voiceAdapter.OutputVoices != nil {
-				for outputName, alias := range *voiceAdapter.OutputVoices {
-					if err := requireVoice("voice_adapter.output_voices."+outputName, alias); err != nil {
+			if voiceAdapter.NodeVoices != nil {
+				for nodeID, alias := range *voiceAdapter.NodeVoices {
+					if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
 						return err
 					}
 				}

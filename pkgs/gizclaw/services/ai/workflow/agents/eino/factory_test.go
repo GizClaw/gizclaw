@@ -147,25 +147,35 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 	mux := einoTestMux(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) { return input, nil })
 	core := einoTestTransformer(func(_ context.Context, input genx.Stream) (genx.Stream, error) { return input, nil })
 	asr, fallback := "speech.asr", "speech.default"
-	for _, voice := range []apitypes.EinoVoiceAdapter{
+	for _, voice := range []apitypes.VoiceAdapter{
 		{AsrModel: &asr},
 		{DefaultVoice: &fallback},
 		{AsrModel: &asr, DefaultVoice: &fallback},
 	} {
-		if _, err := wrapAudio(mux, core, voice, apitypes.WorkspaceInputModePushToTalk); err != nil {
+		if _, err := wrapAudio(mux, core, voice, nil, apitypes.WorkspaceInputModePushToTalk); err != nil {
 			t.Fatalf("wrapAudio(%#v) error = %v", voice, err)
 		}
 	}
 
-	resolver := einoVoiceResolver(fallback, map[string]string{
-		"assistant": "speech.assistant",
-		"silent":    "",
-	})
+	resolver := einoVoiceResolver(
+		fallback,
+		map[string]string{
+			"answer":      "speech.assistant",
+			"narrate":     "speech.narrator",
+			"silent-node": "",
+		},
+		map[string]string{
+			"assistant": "answer",
+			"narration": "narrate",
+			"silent":    "silent-node",
+		},
+	)
 	for _, testCase := range []struct {
 		name string
 		want string
 	}{
 		{name: "assistant", want: "voice/speech.assistant"},
+		{name: "narration", want: "voice/speech.narrator"},
 		{name: "other", want: "voice/speech.default"},
 		{name: "silent", want: "voice/speech.default"},
 	} {
@@ -174,7 +184,11 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 			t.Fatalf("resolve Voice(%q) = %q, %v, want %q", testCase.name, got, err, testCase.want)
 		}
 	}
-	withoutFallback := einoVoiceResolver("", map[string]string{"assistant": "speech.assistant"})
+	withoutFallback := einoVoiceResolver(
+		"",
+		map[string]string{"answer": "speech.assistant"},
+		map[string]string{"assistant": "answer"},
+	)
 	if got, err := withoutFallback(t.Context(), audiodock.VoiceRequest{Name: "other"}); err != nil || got != "" {
 		t.Fatalf("resolve unmapped Voice = %q, %v, want disabled", got, err)
 	}

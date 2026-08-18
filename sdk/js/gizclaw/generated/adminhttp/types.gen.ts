@@ -2991,19 +2991,11 @@ export type EinoTransformNode = EinoNodeBase & {
     max_output_bytes?: number;
 };
 
-export type EinoVoiceAdapter = {
-    asr_model?: string;
-    default_voice?: string;
-    output_voices?: {
-        [key: string]: string;
-    };
-};
-
 export type EinoWorkflowSpec = {
     graph: EinoGraph;
     conversation?: EinoConversation;
     limits?: EinoLimits;
-    voice_adapter?: EinoVoiceAdapter;
+    voice_adapter?: VoiceAdapter;
 };
 
 export type FlowcraftConversation = {
@@ -3142,22 +3134,22 @@ export type FlowcraftScriptNodeConfig = {
     source: string;
 };
 
-export type FlowcraftVoiceAdapter = {
+export type FlowcraftWorkflowSpec = {
+    graph: FlowcraftGraph;
+    max_iterations?: number;
+    conversation?: FlowcraftConversation;
+    voice_adapter?: VoiceAdapter;
+};
+
+export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
+
+export type VoiceAdapter = {
     asr_model?: string;
     default_voice?: string;
     node_voices?: {
         [key: string]: string;
     };
 };
-
-export type FlowcraftWorkflowSpec = {
-    graph: FlowcraftGraph;
-    max_iterations?: number;
-    conversation?: FlowcraftConversation;
-    voice_adapter?: FlowcraftVoiceAdapter;
-};
-
-export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
 
 export type Workspace = {
     id: string;

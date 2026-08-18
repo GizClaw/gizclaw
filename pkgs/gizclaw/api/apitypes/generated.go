@@ -4029,19 +4029,12 @@ type EinoTransformNodeOperation string
 // EinoTransformNodeType defines model for EinoTransformNode.Type.
 type EinoTransformNodeType string
 
-// EinoVoiceAdapter defines model for EinoVoiceAdapter.
-type EinoVoiceAdapter struct {
-	AsrModel     *string            `json:"asr_model,omitempty"`
-	DefaultVoice *string            `json:"default_voice,omitempty"`
-	OutputVoices *map[string]string `json:"output_voices,omitempty"`
-}
-
 // EinoWorkflowSpec defines model for EinoWorkflowSpec.
 type EinoWorkflowSpec struct {
 	Conversation *EinoConversation `json:"conversation,omitempty"`
 	Graph        EinoGraph         `json:"graph"`
 	Limits       *EinoLimits       `json:"limits,omitempty"`
-	VoiceAdapter *EinoVoiceAdapter `json:"voice_adapter,omitempty"`
+	VoiceAdapter *VoiceAdapter     `json:"voice_adapter,omitempty"`
 }
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
@@ -4413,19 +4406,12 @@ type FlowcraftScriptNodeConfig struct {
 	Source string `json:"source"`
 }
 
-// FlowcraftVoiceAdapter defines model for FlowcraftVoiceAdapter.
-type FlowcraftVoiceAdapter struct {
-	AsrModel     *string            `json:"asr_model,omitempty"`
-	DefaultVoice *string            `json:"default_voice,omitempty"`
-	NodeVoices   *map[string]string `json:"node_voices,omitempty"`
-}
-
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
 type FlowcraftWorkflowSpec struct {
 	Conversation  *FlowcraftConversation `json:"conversation,omitempty"`
 	Graph         FlowcraftGraph         `json:"graph"`
 	MaxIterations *int                   `json:"max_iterations,omitempty"`
-	VoiceAdapter  *FlowcraftVoiceAdapter `json:"voice_adapter,omitempty"`
+	VoiceAdapter  *VoiceAdapter          `json:"voice_adapter,omitempty"`
 }
 
 // FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
@@ -6324,6 +6310,13 @@ type Voice struct {
 	Source    VoiceSource `json:"source"`
 	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
 	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// VoiceAdapter defines model for VoiceAdapter.
+type VoiceAdapter struct {
+	AsrModel     *string            `json:"asr_model,omitempty"`
+	DefaultVoice *string            `json:"default_voice,omitempty"`
+	NodeVoices   *map[string]string `json:"node_voices,omitempty"`
 }
 
 // VoiceProvider defines model for VoiceProvider.

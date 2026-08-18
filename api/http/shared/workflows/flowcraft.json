@@ -16,7 +16,7 @@
           "graph": { "$ref": "#/components/schemas/FlowcraftGraph" },
           "max_iterations": { "type": "integer", "minimum": 1 },
           "conversation": { "$ref": "#/components/schemas/FlowcraftConversation" },
-          "voice_adapter": { "$ref": "#/components/schemas/FlowcraftVoiceAdapter" }
+          "voice_adapter": { "$ref": "./voice_adapter.json#/components/schemas/VoiceAdapter" }
         },
         "example": {
           "graph": {
@@ -278,15 +278,6 @@
         "type": "object",
         "additionalProperties": false,
         "properties": { "starts": { "type": "string", "enum": ["peer", "agent"] } }
-      },
-      "FlowcraftVoiceAdapter": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "asr_model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
-          "default_voice": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
-          "node_voices": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" } }
-        }
       }
     }
   }

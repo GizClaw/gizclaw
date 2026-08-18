@@ -9,7 +9,8 @@ spec:
   eino:
     voice_adapter:
       asr_model: asr
-      default_voice: assistant-voice
+      node_voices:
+        publish-answer: assistant-voice
     graph:
       name: eino-memory-assistant
       compile:

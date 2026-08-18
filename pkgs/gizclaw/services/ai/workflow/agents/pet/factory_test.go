@@ -138,7 +138,7 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 			name: "eino",
 			spec: apitypes.PetWorkflowSpec{
 				Driver: apitypes.ReusableWorkflowDriverEino,
-				Eino: &apitypes.EinoWorkflowSpec{VoiceAdapter: &apitypes.EinoVoiceAdapter{
+				Eino: &apitypes.EinoWorkflowSpec{VoiceAdapter: &apitypes.VoiceAdapter{
 					AsrModel: new("speech.asr"),
 				}},
 			},

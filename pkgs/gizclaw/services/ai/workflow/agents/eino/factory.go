@@ -137,7 +137,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	var composed genx.Transformer = transformer
 	if public.VoiceAdapter != nil {
-		composed, err = wrapAudio(service.Transformer(), transformer, *public.VoiceAdapter, inputMode)
+		composed, err = wrapAudio(service.Transformer(), transformer, *public.VoiceAdapter, public.Graph.Outputs, inputMode)
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
@@ -171,7 +171,7 @@ func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.Wo
 	return *value.Input, nil
 }
 
-func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.EinoVoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
+func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
 	if alias := stringPointerValue(voice.AsrModel); alias != "" {
 		resolved, err := service.ResolveTransformer(ctx, einoASRPattern(alias, inputMode))
 		if err != nil {
@@ -185,8 +185,8 @@ func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice
 	if alias := stringPointerValue(voice.DefaultVoice); alias != "" {
 		aliases[alias] = struct{}{}
 	}
-	if voice.OutputVoices != nil {
-		for _, alias := range *voice.OutputVoices {
+	if voice.NodeVoices != nil {
+		for _, alias := range *voice.NodeVoices {
 			aliases[strings.TrimSpace(alias)] = struct{}{}
 		}
 	}
@@ -202,26 +202,40 @@ func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice
 	return nil
 }
 
-func wrapAudio(mux genx.TransformerMux, core genx.Transformer, voice apitypes.EinoVoiceAdapter, inputMode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
+func wrapAudio(
+	mux genx.TransformerMux,
+	core genx.Transformer,
+	voice apitypes.VoiceAdapter,
+	outputs []apitypes.EinoOutput,
+	inputMode apitypes.WorkspaceInputMode,
+) (genx.Transformer, error) {
 	config := audiodock.Config{Agent: core}
 	if alias := stringPointerValue(voice.AsrModel); alias != "" {
 		config.ASR = einoPatternTransformer{mux: mux, pattern: einoASRPattern(alias, inputMode)}
 	}
 	defaultVoice := stringPointerValue(voice.DefaultVoice)
-	outputVoices := map[string]string(nil)
-	if voice.OutputVoices != nil {
-		outputVoices = maps.Clone(*voice.OutputVoices)
+	nodeVoices := map[string]string(nil)
+	if voice.NodeVoices != nil {
+		nodeVoices = maps.Clone(*voice.NodeVoices)
 	}
-	if defaultVoice != "" || len(outputVoices) != 0 {
+	if defaultVoice != "" || len(nodeVoices) != 0 {
 		config.TTS = mux
-		config.ResolveVoice = einoVoiceResolver(defaultVoice, outputVoices)
+		config.ResolveVoice = einoVoiceResolver(defaultVoice, nodeVoices, einoOutputNodes(outputs))
 	}
 	return audiodock.New(config)
 }
 
-func einoVoiceResolver(defaultVoice string, outputVoices map[string]string) audiodock.VoiceResolver {
+func einoOutputNodes(outputs []apitypes.EinoOutput) map[string]string {
+	result := make(map[string]string, len(outputs))
+	for _, output := range outputs {
+		result[strings.TrimSpace(output.Name)] = strings.TrimSpace(output.Node)
+	}
+	return result
+}
+
+func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]string) audiodock.VoiceResolver {
 	return func(_ context.Context, request audiodock.VoiceRequest) (string, error) {
-		alias := strings.TrimSpace(outputVoices[request.Name])
+		alias := strings.TrimSpace(nodeVoices[outputNodes[strings.TrimSpace(request.Name)]])
 		if alias == "" {
 			alias = strings.TrimSpace(defaultVoice)
 		}

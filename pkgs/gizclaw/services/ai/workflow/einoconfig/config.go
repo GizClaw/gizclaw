@@ -55,12 +55,12 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 	}
 	asr := stringValue(adapter.AsrModel)
 	defaultVoice := stringValue(adapter.DefaultVoice)
-	var outputVoices map[string]string
-	if adapter.OutputVoices != nil {
-		outputVoices = *adapter.OutputVoices
+	var nodeVoices map[string]string
+	if adapter.NodeVoices != nil {
+		nodeVoices = *adapter.NodeVoices
 	}
-	if asr == "" && defaultVoice == "" && len(outputVoices) == 0 {
-		return errors.New("must configure asr_model, default_voice, or output_voices")
+	if asr == "" && defaultVoice == "" && len(nodeVoices) == 0 {
+		return errors.New("must configure asr_model, default_voice, or node_voices")
 	}
 	if asr != "" {
 		if err := runtimealias.Validate("ASR model alias", asr); err != nil {
@@ -72,22 +72,19 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 			return fmt.Errorf("default_voice: %w", err)
 		}
 	}
-	outputs := make(map[string]apitypes.EinoOutput, len(public.Graph.Outputs))
+	textOutputNodes := make(map[string]struct{}, len(public.Graph.Outputs))
 	for _, output := range public.Graph.Outputs {
-		outputs[strings.TrimSpace(output.Name)] = output
-	}
-	for name, alias := range outputVoices {
-		name = strings.TrimSpace(name)
-		output, ok := outputs[name]
-		if !ok {
-			return fmt.Errorf("output_voices.%s: output name is not declared by graph.outputs", name)
-		}
 		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(output.MimeType))
-		if err != nil || !strings.EqualFold(mediaType, "text/plain") {
-			return fmt.Errorf("output_voices.%s: output MIME type %q is not text/plain", name, output.MimeType)
+		if err == nil && strings.EqualFold(mediaType, "text/plain") {
+			textOutputNodes[strings.TrimSpace(output.Node)] = struct{}{}
 		}
-		if err := runtimealias.Validate("output Voice alias", strings.TrimSpace(alias)); err != nil {
-			return fmt.Errorf("output_voices.%s: %w", name, err)
+	}
+	for nodeID, alias := range nodeVoices {
+		if _, ok := textOutputNodes[nodeID]; !ok {
+			return fmt.Errorf("node_voices.%s: node has no text/plain graph output", nodeID)
+		}
+		if err := runtimealias.Validate("node Voice alias", strings.TrimSpace(alias)); err != nil {
+			return fmt.Errorf("node_voices.%s: %w", nodeID, err)
 		}
 	}
 	return nil

@@ -773,9 +773,9 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 		t.Fatalf("validate Eino aliases: %v", err)
 	}
 	asr, defaultVoice := "speech.asr", "speech.voice"
-	outputVoices := map[string]string{"assistant": defaultVoice}
-	eino.Eino.VoiceAdapter = &apitypes.EinoVoiceAdapter{
-		AsrModel: &asr, DefaultVoice: &defaultVoice, OutputVoices: &outputVoices,
+	nodeVoices := map[string]string{"answer": defaultVoice}
+	eino.Eino.VoiceAdapter = &apitypes.VoiceAdapter{
+		AsrModel: &asr, DefaultVoice: &defaultVoice, NodeVoices: &nodeVoices,
 	}
 	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
 	voices[defaultVoice] = apitypes.VoiceResource{}
@@ -1822,6 +1822,6 @@ func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string
 	}
 	return &apitypes.FlowcraftWorkflowSpec{
 		Graph:        apitypes.FlowcraftGraph{Name: "Assistant", Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
-		VoiceAdapter: &apitypes.FlowcraftVoiceAdapter{DefaultVoice: &voiceAlias},
+		VoiceAdapter: &apitypes.VoiceAdapter{DefaultVoice: &voiceAlias},
 	}
 }
