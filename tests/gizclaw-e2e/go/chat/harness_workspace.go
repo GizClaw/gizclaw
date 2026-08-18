@@ -168,6 +168,7 @@ func runLoadedConfigWithResultAndInspect(
 		newTransport: func() (*chatTransport, error) {
 			return newChatTransportForRun(client)
 		},
+		peerConn: client.PeerConn,
 		reloadAgent: func(ctx context.Context) error {
 			return selectAndReloadAgentForRun(ctx, client, cfg)
 		},

@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
@@ -59,6 +60,7 @@ type personaDriver struct {
 	runtimeClient       runControlClient
 	transport           *chatTransport
 	newTransport        func() (*chatTransport, error)
+	peerConn            func() giznet.Conn
 	history             []roundHistory
 	reloadAgent         func(context.Context) error
 	generateUtterance   func(context.Context, int) (string, error)
@@ -925,6 +927,31 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			return nil
 		}
 		sentInterrupt = true
+		if firstSendDone != nil {
+			select {
+			case firstSendErr, ok := <-firstSendDone:
+				if ok && firstSendErr != nil {
+					return fmt.Errorf("interrupt finish first audio before transport cutover: %w", firstSendErr)
+				}
+			case <-ctx.Done():
+				return fmt.Errorf("interrupt wait for first audio before transport cutover: %w", ctx.Err())
+			}
+			firstSendDone = nil
+		}
+		if d.peerConn == nil {
+			return fmt.Errorf("interrupt physical Peer connection observer is missing")
+		}
+		peerConn := d.peerConn()
+		if peerConn == nil {
+			return fmt.Errorf("interrupt physical Peer connection is missing before logical stream cutover")
+		}
+		if err := d.resetTransport(); err != nil {
+			return fmt.Errorf("interrupt reopen logical PeerStream: %w", err)
+		}
+		if d.peerConn() != peerConn {
+			return fmt.Errorf("interrupt logical PeerStream cutover replaced the physical Peer connection")
+		}
+		fmt.Printf("workspace_progress event=interrupt_transport_cutover workspace=%s round=%d\n", d.cfg.Workspace, index)
 		if mode.Realtime {
 			if err := d.transport.sendAudioTurnBOS(ctx, secondStreamID); err != nil {
 				return fmt.Errorf("interrupt send second BOS: %w", err)
