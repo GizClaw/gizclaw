@@ -16,22 +16,38 @@ import (
 
 func TestWorkflowConcurrencyContract(t *testing.T) {
 	t.Run("provider-only skip classification is fail closed", func(t *testing.T) {
-		providerFailure := "turn 1: peer terminal error: AudioTTSIdleTimeoutError; AudioTTSIdleTimeoutError; recent events: closed"
+		providerError := "doubaospeech: sami error: codes=52000016, desc=AudioTTSIdleTimeoutError (code=55000000, reqid=, trace_id=, log_id=, connect_id=, http_status=0)"
+		providerFailure := "turn 1: peer terminal error: " + providerError + "; " + providerError + "; recent events: closed"
 		lanes := []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: providerFailure}}}
 		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
 			t.Fatal("exact provider-only failure was not classified as skippable")
 		}
+		regularProviderError := "doubao realtime receive events: realtime event 153: doubaospeech: sami error: codes=52000042, desc=DialogAudioIdleTimeoutError (code=55000001, reqid=, trace_id=, log_id=, connect_id=rt-test, http_status=0)"
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + regularProviderError}}}
+		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"DialogAudioIdleTimeoutError"}) {
+			t.Fatal("exact regular realtime provider-only failure was not classified as skippable")
+		}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: providerFailure}}}
 		lanes = append(lanes, &workflowConcurrencyLane{Result: workflowConcurrencyLaneResult{Error: "turn 1: audio EOS timeout"}})
 		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
 			t.Fatal("mixed provider and local failures were classified as skippable")
 		}
-		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: AudioTTSIdleTimeoutError; audio EOS timeout"}}}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + providerError + "; audio EOS timeout"}}}
 		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
 			t.Fatal("mixed terminal causes were classified as skippable")
 		}
-		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: audio EOS timeout; peer terminal error: AudioTTSIdleTimeoutError"}}}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: audio EOS timeout; peer terminal error: " + providerError}}}
 		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
 			t.Fatal("local failure before a provider terminal was classified as skippable")
+		}
+		for _, mixed := range []string{
+			providerError + ": local output timeout",
+			"local output timeout: " + providerError,
+		} {
+			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + mixed}}}
+			if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
+				t.Fatalf("marker-prefixed or marker-suffixed mixed cause was classified as skippable: %q", mixed)
+			}
 		}
 	})
 

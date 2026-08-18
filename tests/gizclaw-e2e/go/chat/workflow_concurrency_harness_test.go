@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -44,6 +45,10 @@ type workflowConcurrencySpec struct {
 }
 
 var (
+	workflowConcurrencyProviderErrorPatterns = map[string]*regexp.Regexp{
+		"DialogAudioIdleTimeoutError": regexp.MustCompile(`^doubao realtime receive events: realtime event 153: doubaospeech: sami error: codes=52000042, desc=DialogAudioIdleTimeoutError \(code=55000001, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
+		"AudioTTSIdleTimeoutError":    regexp.MustCompile(`^doubaospeech: sami error: codes=52000016, desc=AudioTTSIdleTimeoutError \(code=55000000, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
+	}
 	realtimeWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
 		SkippableProviderErrors: []string{"DialogAudioIdleTimeoutError"},
@@ -235,7 +240,8 @@ func workflowConcurrencySkippableProviderError(message string, markers []string)
 	for _, providerError := range providerErrors {
 		matched := false
 		for _, marker := range markers {
-			if marker = strings.TrimSpace(marker); marker != "" && strings.Contains(providerError, marker) {
+			pattern := workflowConcurrencyProviderErrorPatterns[strings.TrimSpace(marker)]
+			if pattern != nil && pattern.MatchString(providerError) {
 				matched = true
 				break
 			}
