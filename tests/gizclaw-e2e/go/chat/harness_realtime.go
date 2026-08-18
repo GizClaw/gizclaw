@@ -19,6 +19,14 @@ func (d *personaDriver) runRealtimeRoundtripWithMode(ctx context.Context, mode c
 }
 
 func (d *personaDriver) runFlowcraftRealtimeChatRoundtrip(ctx context.Context) ([]roundStats, error) {
+	return d.runRealtimeOpenInputRoundtrip(ctx)
+}
+
+func (d *personaDriver) runEinoRealtimeRoundtrip(ctx context.Context) ([]roundStats, error) {
+	return d.runRealtimeOpenInputRoundtrip(ctx)
+}
+
+func (d *personaDriver) runRealtimeOpenInputRoundtrip(ctx context.Context) ([]roundStats, error) {
 	stats, err := d.runRealtimeRoundtripWithMode(ctx, conversationMode{
 		KeepRealtimeInputOpen: true,
 		RealtimeTailSilence:   4 * time.Second,
@@ -26,15 +34,19 @@ func (d *personaDriver) runFlowcraftRealtimeChatRoundtrip(ctx context.Context) (
 	if err != nil {
 		return stats, err
 	}
+	return stats, validateRealtimeOpenInputStats(stats)
+}
+
+func validateRealtimeOpenInputStats(stats []roundStats) error {
 	for _, stat := range stats {
 		if !stat.FirstTranscriptBeforeEOS {
-			return stats, fmt.Errorf("round %d: transcript started only after client audio EOS", stat.Index)
+			return fmt.Errorf("round %d: transcript started only after client audio EOS", stat.Index)
 		}
 		if stat.InputEOSSent {
-			return stats, fmt.Errorf("round %d: client audio EOS was sent", stat.Index)
+			return fmt.Errorf("round %d: client audio EOS was sent", stat.Index)
 		}
 	}
-	return stats, nil
+	return nil
 }
 
 func configureRealtimeConversationMode(agent string, mode conversationMode) conversationMode {

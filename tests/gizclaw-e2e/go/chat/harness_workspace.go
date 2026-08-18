@@ -402,8 +402,11 @@ func (d *personaDriver) runCase(ctx context.Context, selected workspaceCase) (wo
 	case workspaceCaseDoubaoRealtimeQuality:
 		rounds, err := d.runPushToTalkRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
-	case workspaceCaseRealtimeRoundtrip, workspaceCaseEinoRealtime:
+	case workspaceCaseRealtimeRoundtrip:
 		rounds, err := d.runRealtimeRoundtrip(ctx)
+		return workspaceCaseResult{Rounds: rounds}, err
+	case workspaceCaseEinoRealtime:
+		rounds, err := d.runEinoRealtimeRoundtrip(ctx)
 		return workspaceCaseResult{Rounds: rounds}, err
 	case workspaceCaseFlowcraftRealtimeChat:
 		rounds, err := d.runFlowcraftRealtimeChatRoundtrip(ctx)

@@ -241,6 +241,31 @@ func TestRuntimeContinuityTrackerStartsAfterFirstRoundAndRejectsRestart(t *testi
 	}
 }
 
+func TestEinoRealtimeRoundtripRequiresOpenInputAndDefiniteTranscript(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		stats   []roundStats
+		wantErr string
+	}{
+		{name: "valid", stats: []roundStats{{Index: 1, FirstTranscriptBeforeEOS: true}}},
+		{name: "transcript after eos", stats: []roundStats{{Index: 1}}, wantErr: "transcript started only after client audio EOS"},
+		{name: "client eos", stats: []roundStats{{Index: 1, FirstTranscriptBeforeEOS: true, InputEOSSent: true}}, wantErr: "client audio EOS was sent"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			gotErr := validateRealtimeOpenInputStats(testCase.stats)
+			if testCase.wantErr == "" {
+				if gotErr != nil {
+					t.Fatalf("validateRealtimeOpenInputStats() error = %v", gotErr)
+				}
+				return
+			}
+			if gotErr == nil || !strings.Contains(gotErr.Error(), testCase.wantErr) {
+				t.Fatalf("validateRealtimeOpenInputStats() error = %v, want %q", gotErr, testCase.wantErr)
+			}
+		})
+	}
+}
+
 func TestDoubaoRealtimeQualityValidationIsNonRetryable(t *testing.T) {
 	err := validateDoubaoRealtimeQuality(
 		[]roundStats{{AssistantText: "旧城市苏州"}},
