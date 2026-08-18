@@ -363,6 +363,11 @@ func (h realtimeStreamHeap) Less(i, j int) bool {
 	if left.timestamp != right.timestamp {
 		return left.timestamp < right.timestamp
 	}
+	leftID, _ := realtimeChunkRoute(left.chunk)
+	rightID, _ := realtimeChunkRoute(right.chunk)
+	if leftID != rightID {
+		return left.seq < right.seq
+	}
 	if left.chunk.IsBeginOfStream() != right.chunk.IsBeginOfStream() {
 		return left.chunk.IsBeginOfStream()
 	}

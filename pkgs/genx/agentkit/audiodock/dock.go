@@ -300,7 +300,9 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	if err != nil {
 		return err
 	}
+	route.ttsEmitMu.Lock()
 	if route.closed.Load() {
+		route.ttsEmitMu.Unlock()
 		r.source.AbandonOutputObservation(chunk)
 		return nil
 	}
@@ -309,6 +311,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		route.mu.Lock()
 		route.deferredEOS = chunk
 		route.mu.Unlock()
+		route.ttsEmitMu.Unlock()
 	} else {
 		mimeType, trackedTerminal := route.trackPendingTerminal(chunk)
 		if err := r.invocation.EmitTracked(route.response, chunk, func(*genx.MessageChunk) {
@@ -318,6 +321,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 			route.clearPendingTerminal(mimeType, trackedTerminal)
 			r.source.AbandonOutputObservation(chunk)
 		}); err != nil {
+			route.ttsEmitMu.Unlock()
 			route.clearPendingTerminal(mimeType, trackedTerminal)
 			if route.closed.Load() && errors.Is(err, streamkit.ErrInactiveResponse) {
 				r.source.AbandonOutputObservation(chunk)
@@ -325,6 +329,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 			}
 			return err
 		}
+		route.ttsEmitMu.Unlock()
 	}
 
 	text, textChunk := chunk.Part.(genx.Text)
@@ -631,9 +636,9 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 	if route == nil {
 		return
 	}
+	route.ttsEmitMu.Lock()
+	defer route.ttsEmitMu.Unlock()
 	route.finish.Do(func() {
-		route.ttsEmitMu.Lock()
-		defer route.ttsEmitMu.Unlock()
 		if err := r.emitDeferredTextEOS(route, errorText); err != nil && errorText == "" {
 			errorText = err.Error()
 		}
@@ -770,29 +775,37 @@ func (r *dockRun) closeRoutes(err error) {
 
 func (r *dockRun) interruptOpenRoutes(errorText string) {
 	for _, route := range r.routeSnapshot() {
-		if route == nil || route.closed.Load() {
+		if route == nil {
 			continue
 		}
-		route.finish.Do(func() {
-			route.closed.Store(true)
-			needsControlEOS := route.hasPendingTTSWithoutOutput()
-			r.abortTTS(route, errors.New(errorText))
-			if err := r.invocation.Interrupt(route.response, errorText); err != nil {
-				return
-			}
-			if needsControlEOS {
-				_ = r.invocation.Output().Push(&genx.MessageChunk{
-					Role: route.role,
-					Name: route.name,
-					Ctrl: &genx.StreamCtrl{
-						StreamID:    route.response.StreamID(),
-						Label:       route.label,
-						Error:       errorText,
-						EndOfStream: true,
-					},
-				})
-			}
-		})
+		route.ttsEmitMu.Lock()
+		if !route.closed.Load() {
+			route.finish.Do(func() {
+				route.closed.Store(true)
+				needsControlEOS := route.hasPendingTTSWithoutOutput()
+				r.abortTTS(route, errors.New(errorText))
+				if err := r.invocation.Interrupt(route.response, errorText); err != nil {
+					return
+				}
+				if needsControlEOS {
+					_ = r.invocation.Output().Push(&genx.MessageChunk{
+						Role: route.role,
+						Name: route.name,
+						Ctrl: &genx.StreamCtrl{
+							StreamID:    route.response.StreamID(),
+							Label:       route.label,
+							Error:       errorText,
+							EndOfStream: true,
+						},
+					})
+				}
+			})
+		}
+		terminals := route.pendingTerminalInterrupts(errorText)
+		for _, terminal := range terminals {
+			_ = r.invocation.Output().Push(terminal)
+		}
+		route.ttsEmitMu.Unlock()
 	}
 }
 
@@ -823,11 +836,6 @@ func (r *dockRun) beginInputTurn(streamID string) {
 	}
 	r.stateMu.Unlock()
 	r.interruptOpenRoutes("interrupted")
-	for _, route := range r.routeSnapshot() {
-		for _, terminal := range route.pendingTerminalInterrupts("interrupted") {
-			_ = r.invocation.Output().Push(terminal)
-		}
-	}
 }
 
 func (r *dockRoute) trackPendingTerminal(chunk *genx.MessageChunk) (string, *genx.MessageChunk) {

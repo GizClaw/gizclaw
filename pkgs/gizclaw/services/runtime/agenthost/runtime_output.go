@@ -139,7 +139,8 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 			}
 		}
 		tracks.removeDrainedPending()
-		if o.WaitForAudioDrain && shouldWaitForAudioDrain(chunk) && (len(pendingObserve) > 0 || tracks.hasPending()) {
+		if o.WaitForAudioDrain && shouldWaitForAudioDrain(chunk) &&
+			(len(pendingObserve) > 0 || tracks.hasPending()) {
 			pendingObserve = append(pendingObserve, chunk)
 			if !tracks.hasPending() {
 				if err := observe(pendingObserve); err != nil {
@@ -157,9 +158,6 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 
 func shouldWaitForAudioDrain(chunk *genx.MessageChunk) bool {
 	if chunk == nil || chunk.IsBeginOfStream() {
-		return false
-	}
-	if chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 		return false
 	}
 	if chunk.Part == nil {

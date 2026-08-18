@@ -45,6 +45,14 @@ chat_live_tests=(
   TestEinoWorkflowConcurrencyInterrupt10
   TestTranslateWorkflowConcurrency10
   TestTranslateWorkflowConcurrencyInterrupt10
+  TestRealtimeWorkflowRealtimeConcurrency10
+  TestRealtimeWorkflowRealtimeConcurrencyInterrupt10
+  TestFlowcraftWorkflowRealtimeConcurrency10
+  TestFlowcraftWorkflowRealtimeConcurrencyInterrupt10
+  TestEinoWorkflowRealtimeConcurrency10
+  TestEinoWorkflowRealtimeConcurrencyInterrupt10
+  TestTranslateWorkflowRealtimeConcurrency10
+  TestTranslateWorkflowRealtimeConcurrencyInterrupt10
 )
 chat_standard_live_patterns=(
   '^TestPushToTalkRoundtrip$'

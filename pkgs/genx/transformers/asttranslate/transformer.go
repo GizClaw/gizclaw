@@ -288,6 +288,8 @@ type interruptibleOutput struct {
 	activeStream           string
 	activeStreamKeys       map[string]map[string]struct{}
 	deliveredRoutes        map[string]map[string]*astDeliveredRoute
+	pendingDelivery        []*genx.MessageChunk
+	observationDeferred    bool
 	blockedStream          map[string]bool
 	keepActiveAfterTextEOS bool
 }
@@ -328,8 +330,43 @@ retry:
 	}
 	chunk := s.queue[0]
 	s.queue = s.queue[1:]
-	s.observeDeliveredAssistantChunk(chunk)
+	s.observePulledAssistantChunk(chunk)
+	if s.observationDeferred {
+		s.pendingDelivery = append(s.pendingDelivery, chunk)
+	} else {
+		s.observeDeliveredAssistantChunk(chunk)
+	}
 	return chunk, nil
+}
+
+// DeferOutputObservation keeps response routes interruptible until the final
+// consumer confirms delivery. Composition layers can read ahead substantially
+// (especially while an audio track is playing), so Next alone is not a
+// delivery boundary.
+func (s *interruptibleOutput) DeferOutputObservation() {
+	s.mu.Lock()
+	s.observationDeferred = true
+	s.mu.Unlock()
+}
+
+func (s *interruptibleOutput) ObserveOutput(chunk *genx.MessageChunk) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	index := s.pendingDeliveryIndex(chunk)
+	if index < 0 {
+		return
+	}
+	pending := s.pendingDelivery[index]
+	s.removePendingDelivery(index)
+	s.observeDeliveredAssistantChunk(pending)
+}
+
+func (s *interruptibleOutput) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if index := s.pendingDeliveryIndex(chunk); index >= 0 {
+		s.removePendingDelivery(index)
+	}
 }
 
 func (s *interruptibleOutput) Close() error {
@@ -360,18 +397,12 @@ func (s *interruptibleOutput) push(chunk *genx.MessageChunk) error {
 	return nil
 }
 
-func (s *interruptibleOutput) interrupt(inputStreamID string) {
+func (s *interruptibleOutput) interrupt(string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.active {
+	streamID := s.pendingAssistantStream()
+	if streamID == "" {
 		return
-	}
-	streamID := strings.TrimSpace(s.activeStream)
-	if streamID == "" {
-		streamID = strings.TrimSpace(inputStreamID)
-	}
-	if streamID == "" {
-		streamID = "audio"
 	}
 	s.blockedStream[streamID] = true
 	s.active = false
@@ -380,6 +411,48 @@ func (s *interruptibleOutput) interrupt(inputStreamID string) {
 	s.queue = removeASTAssistantStreamChunks(s.queue, streamID)
 	s.queue = append(s.interruptedChunks(streamID), s.queue...)
 	s.cond.Broadcast()
+}
+
+func (s *interruptibleOutput) pendingAssistantStream() string {
+	if streamID := strings.TrimSpace(s.activeStream); streamID != "" {
+		return streamID
+	}
+	for _, chunk := range s.queue {
+		if isASTAssistantChunk(chunk) {
+			if streamID := astAssistantResponseStreamID(chunk.Ctrl.StreamID); streamID != "" {
+				return streamID
+			}
+		}
+	}
+	streamIDs := make([]string, 0, len(s.deliveredRoutes))
+	for streamID, routes := range s.deliveredRoutes {
+		for _, route := range routes {
+			if route.begun && !route.done {
+				streamIDs = append(streamIDs, streamID)
+				break
+			}
+		}
+	}
+	sort.Strings(streamIDs)
+	if len(streamIDs) != 0 {
+		return streamIDs[0]
+	}
+	return ""
+}
+
+func (s *interruptibleOutput) pendingDeliveryIndex(chunk *genx.MessageChunk) int {
+	for index, pending := range s.pendingDelivery {
+		if pending == chunk {
+			return index
+		}
+	}
+	return -1
+}
+
+func (s *interruptibleOutput) removePendingDelivery(index int) {
+	copy(s.pendingDelivery[index:], s.pendingDelivery[index+1:])
+	s.pendingDelivery[len(s.pendingDelivery)-1] = nil
+	s.pendingDelivery = s.pendingDelivery[:len(s.pendingDelivery)-1]
 }
 
 type astDeliveredRoute struct {
@@ -413,12 +486,35 @@ func (s *interruptibleOutput) observeDeliveredAssistantChunk(chunk *genx.Message
 		}
 		routes[key] = route
 	}
-	if chunk.IsBeginOfStream() {
-		route.begun = true
-	}
 	if chunk.IsEndOfStream() {
 		route.done = true
 	}
+}
+
+func (s *interruptibleOutput) observePulledAssistantChunk(chunk *genx.MessageChunk) {
+	if !isASTAssistantChunk(chunk) || !chunk.IsBeginOfStream() {
+		return
+	}
+	kind := astAssistantChunkKind(chunk)
+	if kind == "" {
+		return
+	}
+	responseStreamID := astAssistantResponseStreamID(chunk.Ctrl.StreamID)
+	routes := s.deliveredRoutes[responseStreamID]
+	if routes == nil {
+		routes = make(map[string]*astDeliveredRoute)
+		s.deliveredRoutes[responseStreamID] = routes
+	}
+	key := astAssistantActiveKey(chunk)
+	route := routes[key]
+	if route == nil {
+		route = &astDeliveredRoute{streamID: chunk.Ctrl.StreamID, kind: kind}
+		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil {
+			route.mimeType = blob.MIMEType
+		}
+		routes[key] = route
+	}
+	route.begun = true
 }
 
 func (s *interruptibleOutput) interruptedChunks(responseStreamID string) []*genx.MessageChunk {

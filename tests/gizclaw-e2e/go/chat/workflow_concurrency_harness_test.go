@@ -33,11 +33,13 @@ const (
 )
 
 type workflowConcurrencySpec struct {
-	Name         string
-	Fixture      string
-	InputMode    string
-	RequireText  bool
-	RequireAudio bool
+	Name                  string
+	Fixture               string
+	InputMode             string
+	RequireText           bool
+	RequireAudio          bool
+	KeepRealtimeInputOpen bool
+	RealtimeTailSilence   time.Duration
 }
 
 var (
@@ -52,6 +54,18 @@ var (
 	}
 	translateWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "translate", Fixture: "ast-translate.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
+	}
+	realtimeWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
+		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
+	}
+	flowcraftWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
+		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, RealtimeTailSilence: 4 * time.Second,
+	}
+	einoWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
+		Name: "eino", Fixture: "eino-concurrency.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, RealtimeTailSilence: 4 * time.Second,
+	}
+	translateWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
+		Name: "translate", Fixture: "ast-translate.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
 	}
 )
 
@@ -322,13 +336,24 @@ func prepareWorkflowConcurrencyInputs(
 		if err != nil {
 			return inputs, fmt.Errorf("prepare voice input turn %d: %w", index+1, err)
 		}
-		packets, err = realtimePacketsWithTailSilence(packets)
+		if spec.KeepRealtimeInputOpen {
+			packets, err = realtimePacketsWithTailSilenceDuration(packets, workflowConcurrencyRealtimeTailSilence(spec))
+		} else {
+			packets, err = realtimePacketsWithTailSilence(packets)
+		}
 		if err != nil {
 			return inputs, fmt.Errorf("prepare voice input turn %d tail silence: %w", index+1, err)
 		}
 		inputs.Packets[index] = cloneOpusPackets(packets)
 	}
 	return inputs, nil
+}
+
+func workflowConcurrencyRealtimeTailSilence(spec workflowConcurrencySpec) time.Duration {
+	if spec.RealtimeTailSilence > 0 {
+		return spec.RealtimeTailSilence
+	}
+	return realtimeInputTailSilence
 }
 
 func cloneOpusPackets(packets [][]byte) [][]byte {

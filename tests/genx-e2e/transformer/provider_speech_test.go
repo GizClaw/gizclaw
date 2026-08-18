@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	miniMaxAPIKeyEnv = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
+	miniMaxAPIKeyEnv  = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
+	miniMaxBaseURLEnv = "GIZCLAW_GENX_E2E_MINIMAX_BASE_URL"
 )
 
 func TestDoubaoSAUCASR(t *testing.T) {
@@ -116,10 +117,10 @@ func TestDoubaoSeedV2TTS(t *testing.T) {
 func TestMiniMaxTTS(t *testing.T) {
 	loadGenXE2EEnv(t)
 	apiKey := firstEnv(miniMaxAPIKeyEnv)
-	if apiKey == "" {
-		t.Fatalf("set %s in tests/genx-e2e/.env to run this provider e2e test", miniMaxAPIKeyEnv)
+	baseURL := firstEnv(miniMaxBaseURLEnv)
+	if apiKey == "" || baseURL == "" {
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", miniMaxAPIKeyEnv, miniMaxBaseURLEnv)
 	}
-	baseURL := "https://api.minimax.io"
 	voiceID := "female-shaonv"
 	client, err := minimax.NewClient(minimax.Config{BaseURL: baseURL, APIKey: apiKey})
 	if err != nil {

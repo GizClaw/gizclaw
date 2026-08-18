@@ -190,6 +190,36 @@ func TestRealtimeStreamNewBOSKeepsDifferentRouteAndNonAudio(t *testing.T) {
 	assertRealtimeNextTimestamp(t, stream, 1_002, false)
 }
 
+func TestRealtimeStreamKeepsInterruptBeforeReplacementBOSAtSameTimestamp(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: Text(""),
+		Ctrl: &StreamCtrl{StreamID: "turn-1", Label: "assistant", Timestamp: 1_000, Error: "interrupted"},
+	}); err != nil {
+		t.Fatalf("Push(interrupt) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: Text(""),
+		Ctrl: &StreamCtrl{StreamID: "turn-2", Label: "assistant", Timestamp: 1_000, BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(replacement BOS) error = %v", err)
+	}
+	interrupt, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next(interrupt) error = %v", err)
+	}
+	if interrupt.Ctrl == nil || interrupt.Ctrl.StreamID != "turn-1" || interrupt.Ctrl.Error != "interrupted" {
+		t.Fatalf("first chunk = %#v, want turn-1 interrupt", interrupt)
+	}
+	replacement, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next(replacement) error = %v", err)
+	}
+	if replacement.Ctrl == nil || replacement.Ctrl.StreamID != "turn-2" || !replacement.IsBeginOfStream() {
+		t.Fatalf("second chunk = %#v, want turn-2 BOS", replacement)
+	}
+}
+
 func TestRealtimeAudioChunkClassification(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

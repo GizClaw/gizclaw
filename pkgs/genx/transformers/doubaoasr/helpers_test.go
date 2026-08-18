@@ -51,7 +51,8 @@ func TestDoubaoASRRouteStateNilAndDuplicateBranches(t *testing.T) {
 	var nilState *doubaoASRRouteState
 	nilState.set("stream")
 	nilState.markTranscriptStarted()
-	if streamID, generation := nilState.current(); streamID != "" || generation != 0 || nilState.transcriptStarted() {
+	nilState.interrupt("interrupted")
+	if streamID, generation := nilState.current(); streamID != "" || generation != 0 || nilState.transcriptStarted() || nilState.interruption() != "" {
 		t.Fatalf("nil route state = (%q, %d, %t)", streamID, generation, nilState.transcriptStarted())
 	}
 
@@ -68,6 +69,10 @@ func TestDoubaoASRRouteStateNilAndDuplicateBranches(t *testing.T) {
 	state.markTranscriptStarted()
 	if !state.transcriptStarted() {
 		t.Fatal("transcript start was not recorded")
+	}
+	state.interrupt(" interrupted ")
+	if state.interruption() != "interrupted" {
+		t.Fatalf("route interruption = %q", state.interruption())
 	}
 	fromChunk := newDoubaoASRRouteState(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "chunk"}})
 	if streamID, _ := fromChunk.current(); streamID != "chunk" {

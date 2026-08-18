@@ -9,6 +9,12 @@
     "name": "eino-concurrency-assistant",
     "description": "Eino streaming text workflow for concurrency and interruption qualification",
     "eino": {
+      "voice_adapter": {
+        "asr_model": "asr",
+        "node_voices": {
+          "model": "assistant-voice"
+        }
+      },
       "graph": {
         "name": "eino-concurrency-assistant",
         "compile": {

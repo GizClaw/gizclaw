@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"iter"
 	"slices"
@@ -1631,6 +1632,108 @@ func TestTransformerRealtimeInterruptHandsUnreadAudioToReplacementSession(t *tes
 		!hasRealtimeTestText(chunks, genx.RoleModel, "second answer") ||
 		!hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("replacement response did not complete: %#v", chunks)
+	}
+}
+
+func TestTransformerRealtimeClosesInterruptedTurnsBeforeReplacementBOS(t *testing.T) {
+	newSession := func(answer string, final bool) (*fakeTransformerSession, <-chan struct{}) {
+		audioSent := make(chan struct{})
+		eventsDrained := make(chan struct{})
+		events := []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: answer + " transcript"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: answer},
+		}
+		if final {
+			events = append(events,
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventChatEnded},
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSStarted},
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSAudioData, Audio: []byte(answer)},
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSFinished},
+			)
+		}
+		return &fakeTransformerSession{
+			beforeRecv:       audioSent,
+			firstAudioSent:   audioSent,
+			eventsDrained:    eventsDrained,
+			blockAfterEvents: make(chan struct{}),
+			events:           events,
+		}, eventsDrained
+	}
+	first, firstDrained := newSession("first answer", false)
+	second, secondDrained := newSession("second answer", false)
+	third, thirdDrained := newSession("third answer", true)
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: first}, {session: second}, {session: third}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	input := newBufferStream(12)
+	output, err := tfr.transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushTurn := func(turn int) {
+		t.Helper()
+		streamID := fmt.Sprintf("turn-%d", turn)
+		for _, chunk := range []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{byte(turn), 0}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+		} {
+			if err := input.Push(chunk); err != nil {
+				t.Fatalf("Push(turn %d) error = %v", turn, err)
+			}
+		}
+	}
+	waitDrained := func(turn int, done <-chan struct{}) {
+		t.Helper()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("turn %d provider response did not start", turn)
+		}
+	}
+
+	pushTurn(1)
+	waitDrained(1, firstDrained)
+	pushTurn(2)
+	waitDrained(2, secondDrained)
+	pushTurn(3)
+	waitDrained(3, thirdDrained)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+
+	chunks := drainRealtimeTestOutput(t, output)
+	requireRealtimeAssistantHandoffOrder(t, chunks, "turn-1:rt:1", "turn-2:rt:1")
+	requireRealtimeAssistantHandoffOrder(t, chunks, "turn-2:rt:1", "turn-3:rt:1")
+}
+
+func requireRealtimeAssistantHandoffOrder(t *testing.T, chunks []*genx.MessageChunk, previousID, nextID string) {
+	t.Helper()
+	previousTextEOS, previousAudioEOS, nextBOS := -1, -1, -1
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Role != genx.RoleModel || chunk.Ctrl.Label != doubaoRealtimeAssistantLabel {
+			continue
+		}
+		if chunk.Ctrl.StreamID == previousID && chunk.IsEndOfStream() && chunk.Ctrl.Error == doubaoRealtimeInterrupted {
+			switch chunk.Part.(type) {
+			case genx.Text:
+				previousTextEOS = index
+			case *genx.Blob:
+				previousAudioEOS = index
+			}
+		}
+		if chunk.Ctrl.StreamID == nextID && chunk.IsBeginOfStream() && (nextBOS < 0 || index < nextBOS) {
+			nextBOS = index
+		}
+	}
+	if previousTextEOS < 0 || previousAudioEOS < 0 || nextBOS <= previousTextEOS || nextBOS <= previousAudioEOS {
+		t.Fatalf("assistant handoff %q -> %q indices: text EOS=%d audio EOS=%d next BOS=%d; chunks=%#v", previousID, nextID, previousTextEOS, previousAudioEOS, nextBOS, chunks)
 	}
 }
 

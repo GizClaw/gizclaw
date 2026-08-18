@@ -81,6 +81,23 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 	})
 
+	t.Run("unbound interrupted routes stay with the cut over turn", func(t *testing.T) {
+		observations := []workflowConcurrencyTurnObservation{
+			{cutoverSent: true, result: workflowConcurrencyTurnResult{InputStreamID: "turn-1", AssistantStreamID: "turn-1:text"}},
+			{result: workflowConcurrencyTurnResult{InputStreamID: "turn-2", AssistantStreamID: "turn-2:text"}},
+		}
+		label := "assistant"
+		interrupted := "interrupted"
+		oldAudioStreamID := "old-response:audio"
+		event := peerStreamEvent{
+			Type: peerStreamEventTypeEos, Kind: eventpb.StreamKind_STREAM_KIND_AUDIO,
+			StreamId: &oldAudioStreamID, Label: &label, Error: &interrupted,
+		}
+		if got := workflowConcurrencyEventTurn(observations, 1, event); got != 0 {
+			t.Fatalf("old interrupted audio route attributed to turn %d, want 0", got)
+		}
+	})
+
 	t.Run("late output after interruption fails", func(t *testing.T) {
 		observation := workflowConcurrencyTurnObservation{textInterruptedAt: time.Now()}
 		text := "late"
@@ -91,6 +108,20 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}, time.Now())
 		if err == nil || !strings.Contains(err.Error(), "continued after interrupted terminal") {
 			t.Fatalf("late output error=%v", err)
+		}
+	})
+
+	t.Run("queued audio uses receive time across channels", func(t *testing.T) {
+		interruptedAt := time.Now()
+		observation := workflowConcurrencyTurnObservation{
+			audioEpoch:         interruptedAt.Add(-time.Second),
+			audioInterruptedAt: interruptedAt,
+		}
+		if workflowConcurrencyAudioAfterInterruption(&observation, interruptedAt.Add(-time.Millisecond)) {
+			t.Fatal("pre-interrupt packet was classified as late")
+		}
+		if !workflowConcurrencyAudioAfterInterruption(&observation, interruptedAt.Add(time.Millisecond)) {
+			t.Fatal("post-interrupt packet was classified as queued")
 		}
 	})
 
@@ -127,13 +158,37 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 	})
 
-	t.Run("realtime interrupt does not wait for uplink completion", func(t *testing.T) {
+	t.Run("open realtime interrupt waits for packets but not EOS", func(t *testing.T) {
 		observation := workflowConcurrencyTurnObservation{}
 		observation.assistant.WriteString("reply")
 		observation.audioEpoch = time.Now()
+		if workflowConcurrencyInterruptGateReady(&observation, realtimeWorkflowRealtimeConcurrencySpec) {
+			t.Fatal("open realtime barge-in gate accepted interleaved old input packets")
+		}
+		observation.sendDone = true
+		if workflowConcurrencyInterruptGateReady(&observation, realtimeWorkflowRealtimeConcurrencySpec) {
+			t.Fatal("open realtime barge-in gate accepted audio BOS without a packet")
+		}
 		observation.result.AudioPackets = 1
-		if !workflowConcurrencyInterruptGateReady(&observation, realtimeWorkflowConcurrencySpec) {
-			t.Fatal("realtime barge-in gate waited for the current audio upload to finish")
+		if !workflowConcurrencyInterruptGateReady(&observation, realtimeWorkflowRealtimeConcurrencySpec) {
+			t.Fatal("open realtime barge-in gate required client audio EOS")
+		}
+	})
+
+	t.Run("open realtime contract rejects client EOS", func(t *testing.T) {
+		observation := workflowConcurrencyTurnObservation{sendDone: true, assistantTextDone: true, assistantAudioDone: true}
+		observation.assistant.WriteString("reply")
+		observation.transcript = "input"
+		observation.audioEpoch = time.Now()
+		observation.result = workflowConcurrencyTurnResult{
+			InputEOSSent: true, AudioPackets: 1, TranscriptDone: true,
+		}
+		if err := validateWorkflowConcurrencyTurns(
+			[]workflowConcurrencyTurnObservation{observation},
+			realtimeWorkflowRealtimeConcurrencySpec,
+			workflowConcurrencyConversation,
+		); err == nil || !strings.Contains(err.Error(), "sent client EOS") {
+			t.Fatalf("open realtime EOS validation error = %v", err)
 		}
 	})
 

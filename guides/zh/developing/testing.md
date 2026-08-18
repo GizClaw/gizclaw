@@ -194,11 +194,15 @@ Workflow 不会混成一个 40 路 wave。每个 wave 创建 10 个独立 Peer �
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 ```
 
-每类 Workflow 有一个单轮对话测试和一个三轮打断测试。三轮测试始终复用同一个物理
-连接、Workspace runtime 和 logical `PeerStream`，由第 2、3 轮输入 BOS 分别打断前一轮，
-并要求最后一轮完整结束。Realtime、Flowcraft 和 Translate 必须产生正确归属的非空
-Assistant text/audio；Eino 只要求 text。每轮会记录 route、stream、audio epoch、runtime
-`StartedAt`、cleanup 和可用容器资源采样到 ignored `testdata/workflow-concurrency/`。
+每类 Workflow 都有 EOS 边界的单轮对话/三轮打断测试，以及 continuous-open realtime
+单轮对话/三轮打断测试。Realtime 版本将 Workspace input 设为 `realtime`，发送语音和
+尾静音后保持客户端 audio stream 开启，不发送 audio EOS；打断版本等待本轮音频 packet
+发送完毕，但不关闭输入，再由第 2、3 轮输入 BOS 分别打断前一轮。所有测试始终复用
+同一个物理连接、Workspace runtime 和 logical `PeerStream`，并要求最后一轮完整结束。
+Realtime、Flowcraft、Eino realtime 和 Translate realtime 都必须产生正确归属的非空
+transcript、Assistant text/audio。Eino 的基础 EOS 边界测试仍保留 text-only 合同。每轮
+会记录是否发送 input EOS、route、stream、audio epoch、runtime `StartedAt`、cleanup 和
+可用容器资源采样到 ignored `testdata/workflow-concurrency/`。
 
 该入口在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
 retry、fallback 或换新 session 来制造通过。Provider、timeout、rate limit、runtime 和
@@ -383,6 +387,9 @@ Provider-backed transformer coverage 使用一份完整 credential inventory：
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+MiniMax 的 API key 必须与同一区域的 voice base URL 成对配置；runner 不会用默认区域
+替代缺失的 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL`。
 
 Provider-free Match parity 与 deterministic duplex behavior 保持为普通测试，
 由 `go test ./...` 执行。

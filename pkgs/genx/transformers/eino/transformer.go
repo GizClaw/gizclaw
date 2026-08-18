@@ -376,12 +376,6 @@ func (session *session) startTurn(user string, parts []any, previous <-chan stru
 		if output.Primary {
 			run.primary = route
 		}
-		if err := session.invocation.Emit(response, newOutputRouteBegin(response.StreamID(), output.MIMEType)); err != nil {
-			_ = session.invocation.Fail(err)
-			cancel(err)
-			close(run.done)
-			return run.done
-		}
 	}
 	session.mu.Lock()
 	for streamID := range run.streamIDs {
@@ -516,17 +510,14 @@ func (run *turnRun) execute() {
 	defer run.session.turns.Done()
 	defer close(run.done)
 	if run.previous != nil {
-		select {
-		case <-run.previous:
-		case <-run.ctx.Done():
-		}
+		<-run.previous
 	}
 	var state *runState
 	var version string
-	var runErr error
-	if run.ctx.Err() == nil {
+	runErr := run.beginRoutes()
+	if runErr == nil && run.ctx.Err() == nil {
 		state, version, runErr = run.runGraph()
-	} else {
+	} else if runErr == nil {
 		runErr = context.Cause(run.ctx)
 	}
 	run.mu.Lock()
@@ -565,6 +556,22 @@ func (run *turnRun) execute() {
 	}
 	run.session.mu.Unlock()
 	run.cancel(io.EOF)
+}
+
+func (run *turnRun) beginRoutes() error {
+	for _, output := range run.session.transformer.graph.definition.Outputs {
+		route, ok := run.routes[output.Name]
+		if !ok {
+			return fmt.Errorf("eino: output route %q is not registered", output.Name)
+		}
+		if err := run.session.invocation.Emit(
+			route.response,
+			newOutputRouteBegin(route.response.StreamID(), output.MIMEType),
+		); err != nil {
+			return fmt.Errorf("eino: begin output route %q: %w", output.Name, err)
+		}
+	}
+	return nil
 }
 
 func (run *turnRun) runGraph() (*runState, string, error) {

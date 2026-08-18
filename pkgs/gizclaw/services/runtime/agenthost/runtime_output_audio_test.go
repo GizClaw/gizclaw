@@ -289,6 +289,7 @@ func (s *blockingSliceStream) Next() (*genx.MessageChunk, error) {
 func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	var observed []*genx.MessageChunk
+	observedChunk := make(chan *genx.MessageChunk, 1)
 	normalEOS := pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, "")
 	rawOutput := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
 		normalEOS,
@@ -302,6 +303,7 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 			WaitForAudioDrain: true,
 			Observe: func(chunk *genx.MessageChunk) error {
 				observed = append(observed, chunk)
+				observedChunk <- chunk
 				return nil
 			},
 		}).ConsumeAgentOutput(t.Context(), output)
@@ -318,6 +320,11 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 		t.Fatal("consumer stopped reading while the previous track drained")
 	}
 	waitForTrackWriteError(t, track, "interrupted")
+	select {
+	case chunk := <-observedChunk:
+		t.Fatalf("observed chunk before interrupted audio drained = %#v", chunk)
+	default:
+	}
 	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
 	readDone := make(chan struct{})
 	go func() {

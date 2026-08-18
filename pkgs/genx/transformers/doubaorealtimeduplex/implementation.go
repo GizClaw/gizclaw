@@ -408,6 +408,7 @@ func (t *Transformer) processLoop(
 		lastTranscriptText := ""
 		transcriptOpen := false
 		eventsFinished := false
+		routeProduced := false
 		textDeltaSeen := make(map[string]bool)
 		assistantTextStarted := make(map[string]bool)
 		assistantTextDone := make(map[string]bool)
@@ -438,6 +439,7 @@ func (t *Transformer) processLoop(
 			}); err != nil {
 				return err
 			}
+			routeProduced = true
 			transcriptOpen = true
 			return nil
 		}
@@ -475,6 +477,98 @@ func (t *Transformer) processLoop(
 			}
 			close(eventsDone)
 		}
+		finishProviderError := func(providerErr error) {
+			if providerErr == nil {
+				return
+			}
+			errText := providerErr.Error()
+			if transcriptOpen {
+				if err := closeInputSegment(errText); err != nil {
+					finishEventError(err)
+					return
+				}
+			}
+			streamID := streamIDs.response()
+			if streamID == "" {
+				for candidate := range assistantTextStarted {
+					streamID = candidate
+					break
+				}
+			}
+			if streamID == "" {
+				for candidate := range assistantAudioStarted {
+					streamID = candidate
+					break
+				}
+			}
+			for candidate, started := range assistantTextStarted {
+				if started && !assistantTextDone[candidate] {
+					if err := output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: genx.Text(""),
+						Ctrl: &genx.StreamCtrl{StreamID: candidate, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: errText},
+					}); err != nil {
+						finishEventError(err)
+						return
+					}
+					assistantTextDone[candidate] = true
+					routeProduced = true
+					streamID = candidate
+				}
+			}
+			for candidate, started := range assistantAudioStarted {
+				if started && !assistantAudioDone[candidate] {
+					if err := output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel,
+						Part: &genx.Blob{MIMEType: t.outputMIMEType()},
+						Ctrl: &genx.StreamCtrl{StreamID: candidate, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: errText},
+					}); err != nil {
+						finishEventError(err)
+						return
+					}
+					assistantAudioDone[candidate] = true
+					routeProduced = true
+					streamID = candidate
+				}
+			}
+			if streamID != "" && !assistantCompleted[streamID] {
+				if !assistantTextStarted[streamID] {
+					for _, chunk := range []*genx.MessageChunk{
+						{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
+						{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: errText}},
+					} {
+						if err := output.Push(chunk); err != nil {
+							finishEventError(err)
+							return
+						}
+					}
+					assistantTextStarted[streamID] = true
+					assistantTextDone[streamID] = true
+					routeProduced = true
+				}
+				if !assistantAudioStarted[streamID] {
+					for _, chunk := range []*genx.MessageChunk{
+						{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: t.outputMIMEType()}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true}},
+						{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: t.outputMIMEType()}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: errText}},
+					} {
+						if err := output.Push(chunk); err != nil {
+							finishEventError(err)
+							return
+						}
+					}
+					assistantAudioStarted[streamID] = true
+					assistantAudioDone[streamID] = true
+					routeProduced = true
+				}
+			}
+			if streamID != "" && assistantTextDone[streamID] && assistantAudioDone[streamID] {
+				completeAssistantStream(streamID)
+			}
+			if routeProduced {
+				_ = output.Close()
+			}
+			finishEventError(providerErr)
+		}
 		defer finishEvents()
 		for event, err := range session.Recv() {
 			if err != nil {
@@ -483,7 +577,7 @@ func (t *Transformer) processLoop(
 					return
 				}
 				slog.Error("doubao: recv error", "error", err)
-				finishEventError(err)
+				finishProviderError(err)
 				return
 			}
 
@@ -595,6 +689,7 @@ func (t *Transformer) processLoop(
 						return
 					}
 					assistantTextStarted[streamID] = true
+					routeProduced = true
 				}
 				if err := pushAssistantOutput(epoch, &genx.MessageChunk{
 					Role: genx.RoleModel,
@@ -624,6 +719,7 @@ func (t *Transformer) processLoop(
 						return
 					}
 					assistantTextStarted[streamID] = true
+					routeProduced = true
 				}
 				if event.Text != "" && !textDeltaSeen[streamID] {
 					if err := pushAssistantOutput(epoch, &genx.MessageChunk{
@@ -661,6 +757,7 @@ func (t *Transformer) processLoop(
 					return
 				}
 				assistantAudioStarted[streamID] = true
+				routeProduced = true
 			case doubaospeech.RealtimeDuplexEventResponseOutputAudioDelta:
 				if !assistant.acceptsOutput() || len(event.Audio) == 0 {
 					continue
@@ -674,6 +771,7 @@ func (t *Transformer) processLoop(
 					return
 				}
 				assistantAudioStarted[streamID] = true
+				routeProduced = true
 				blobs, err := t.outputAudioBlobs(event.Audio)
 				if err != nil {
 					finishEventError(err)
@@ -754,7 +852,7 @@ func (t *Transformer) processLoop(
 				if event.Error != nil {
 					err = event.Error
 				}
-				finishEventError(err)
+				finishProviderError(err)
 				return
 			}
 		}

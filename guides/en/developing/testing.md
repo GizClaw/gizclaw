@@ -206,14 +206,19 @@ releases them together while they reference one already seeded Workflow:
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 ```
 
-Each Workflow has a one-turn conversation test and a three-turn interruption
-test. The interruption test keeps the same physical connection, Workspace
-runtime, and logical `PeerStream`; input BOS for turns two and three interrupts
-the preceding response, and the final response must complete. Realtime,
-Flowcraft, and Translate require correctly attributed non-empty Assistant text
-and audio. Eino requires text only. Each wave records route, stream, audio epoch,
-runtime `StartedAt`, cleanup, and available container resource samples under the
-ignored `testdata/workflow-concurrency/` directory.
+Each Workflow has EOS-bounded one-turn and three-turn interruption tests plus
+continuous-open realtime one-turn and three-turn interruption tests. Realtime
+tests select the `realtime` Workspace input, send speech and tail silence, and
+leave the client audio stream open without audio EOS. Interruption waits until
+the current input packets have been sent, but does not close the input, before
+the BOS for turns two and three interrupts the preceding response. Every test
+keeps the same physical connection, Workspace runtime, and logical `PeerStream`,
+and the final response must complete. Realtime, Flowcraft, realtime Eino, and
+realtime Translate require correctly attributed non-empty transcript, Assistant
+text, and Assistant audio. The baseline Eino EOS-boundary contract remains
+text-only. Each wave records whether input EOS was sent, route, stream, audio
+epoch, runtime `StartedAt`, cleanup, and available container resource samples
+under the ignored `testdata/workflow-concurrency/` directory.
 
 The entrypoint validates the complete `.env` before Docker setup. Environment
 variables cannot change coverage or concurrency, and retry, provider fallback,
@@ -448,6 +453,10 @@ Provider-backed transformer coverage uses one complete credential inventory:
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+The MiniMax API key must be paired with the voice base URL for the same region;
+the runner does not substitute a default region when
+`GIZCLAW_GENX_E2E_MINIMAX_BASE_URL` is missing.
 
 Provider-free Match parity and deterministic duplex behavior remain ordinary
 tests and run under `go test ./...`.

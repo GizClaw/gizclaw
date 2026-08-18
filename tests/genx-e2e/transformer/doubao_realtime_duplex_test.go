@@ -361,6 +361,7 @@ func loadGenXE2EEnv(t *testing.T) {
 		"GIZCLAW_GENX_E2E_EINO_OPENAI_API_KEY",
 		"GIZCLAW_GENX_E2E_FLOWCRAFT_OPENAI_API_KEY",
 		"GIZCLAW_GENX_E2E_MINIMAX_API_KEY",
+		"GIZCLAW_GENX_E2E_MINIMAX_BASE_URL",
 	}
 	var invalid []string
 	for _, name := range required {

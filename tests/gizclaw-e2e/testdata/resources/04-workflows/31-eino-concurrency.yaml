@@ -6,6 +6,10 @@ metadata:
 spec:
   driver: eino
   eino:
+    voice_adapter:
+      asr_model: asr
+      node_voices:
+        model: assistant-voice
     graph:
       name: eino-concurrency-assistant
       compile:

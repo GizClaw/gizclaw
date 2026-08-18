@@ -16,6 +16,7 @@ import (
 type workflowConcurrencyTurnObservation struct {
 	result             workflowConcurrencyTurnResult
 	assistant          strings.Builder
+	assistantStreams   map[string]struct{}
 	transcript         string
 	audioEpoch         time.Time
 	textInterruptedAt  time.Time
@@ -75,13 +76,13 @@ func runWorkflowConcurrencyScenario(
 					return err
 				}
 				go func() {
-					err := lane.Transport.sendAudioTurnAudioAndEOS(ctx, streamID, packets)
+					err := lane.Transport.sendAudioTurnAudioObservedMIME(ctx, streamID, "audio/opus", packets, !spec.KeepRealtimeInputOpen, nil)
 					sendResults <- workflowConcurrencySendResult{turn: index, err: err}
 				}()
 				return nil
 			}
 			go func() {
-				err := lane.Transport.sendAudioTurn(ctx, streamID, packets)
+				err := lane.Transport.sendAudioTurnObservedMIMEWithEnd(ctx, streamID, "audio/opus", packets, !spec.KeepRealtimeInputOpen, nil)
 				sendResults <- workflowConcurrencySendResult{turn: index, err: err}
 			}()
 			return nil
@@ -129,6 +130,7 @@ func runWorkflowConcurrencyScenario(
 				return fmt.Errorf("turn %d input send: %w", sent.turn+1, sent.err)
 			}
 			observations[sent.turn].sendDone = true
+			observations[sent.turn].result.InputEOSSent = !spec.KeepRealtimeInputOpen && spec.RequireAudio
 			observations[sent.turn].result.InputDoneAt = time.Now()
 		case err := <-lane.Transport.errs:
 			return fmt.Errorf("logical PeerStream: %w; recent events: %s", err, trace.String())
@@ -148,7 +150,7 @@ func runWorkflowConcurrencyScenario(
 				continue
 			}
 			observation := &observations[turn]
-			if !observation.audioInterruptedAt.IsZero() {
+			if workflowConcurrencyAudioAfterInterruption(observation, packet.receivedAt) {
 				return fmt.Errorf("turn %d audio continued after interrupted terminal", turn+1)
 			}
 			observation.result.AudioPackets++
@@ -159,6 +161,9 @@ func runWorkflowConcurrencyScenario(
 
 func workflowConcurrencyInterruptGateReady(observation *workflowConcurrencyTurnObservation, spec workflowConcurrencySpec) bool {
 	if observation == nil || strings.TrimSpace(observation.assistant.String()) == "" {
+		return false
+	}
+	if spec.KeepRealtimeInputOpen && !observation.sendDone {
 		return false
 	}
 	if !spec.RequireAudio {
@@ -188,7 +193,30 @@ func workflowConcurrencyEventTurn(observations []workflowConcurrencyTurnObservat
 			if observation.result.AssistantStreamID != "" && streamIDMatches(streamID, observation.result.AssistantStreamID) {
 				return index
 			}
+			if _, ok := observation.assistantStreams[streamID]; ok {
+				return index
+			}
 			if observation.result.TranscriptStreamID != "" && streamIDMatches(streamID, observation.result.TranscriptStreamID) {
+				return index
+			}
+		}
+	}
+	if eventLabel(event) == "assistant" && event.Error != nil && strings.TrimSpace(*event.Error) == "interrupted" {
+		for index := current - 1; index >= 0; index-- {
+			observation := &observations[index]
+			if !observation.cutoverSent {
+				continue
+			}
+			switch event.Kind {
+			case eventpb.StreamKind_STREAM_KIND_TEXT:
+				if observation.result.InterruptedText == 0 {
+					return index
+				}
+			case eventpb.StreamKind_STREAM_KIND_AUDIO:
+				if observation.result.InterruptedAudio == 0 {
+					return index
+				}
+			default:
 				return index
 			}
 		}
@@ -201,6 +229,15 @@ func workflowConcurrencyEventTurn(observations []workflowConcurrencyTurnObservat
 
 func observeWorkflowConcurrencyEvent(observation *workflowConcurrencyTurnObservation, event peerStreamEvent, receivedAt time.Time) error {
 	label := eventLabel(event)
+	if label == "assistant" {
+		streamID := eventStreamID(event)
+		if streamID != "" {
+			if observation.assistantStreams == nil {
+				observation.assistantStreams = make(map[string]struct{})
+			}
+			observation.assistantStreams[streamID] = struct{}{}
+		}
+	}
 	if label == "assistant" && event.Error != nil && strings.TrimSpace(*event.Error) == "interrupted" {
 		switch event.Kind {
 		case eventpb.StreamKind_STREAM_KIND_TEXT:
@@ -297,6 +334,11 @@ func workflowConcurrencyAudioTurn(observations []workflowConcurrencyTurnObservat
 	return -1
 }
 
+func workflowConcurrencyAudioAfterInterruption(observation *workflowConcurrencyTurnObservation, receivedAt time.Time) bool {
+	return observation != nil && !observation.audioInterruptedAt.IsZero() &&
+		!receivedAt.IsZero() && !receivedAt.Before(observation.audioInterruptedAt)
+}
+
 func validateWorkflowConcurrencyTurns(
 	observations []workflowConcurrencyTurnObservation,
 	spec workflowConcurrencySpec,
@@ -304,6 +346,9 @@ func validateWorkflowConcurrencyTurns(
 ) error {
 	for index := range observations {
 		observation := &observations[index]
+		if spec.KeepRealtimeInputOpen && observation.result.InputEOSSent {
+			return fmt.Errorf("turn %d realtime input sent client EOS", index+1)
+		}
 		text := strings.TrimSpace(observation.assistant.String())
 		if spec.RequireText && text == "" {
 			return fmt.Errorf("turn %d Assistant text is empty", index+1)

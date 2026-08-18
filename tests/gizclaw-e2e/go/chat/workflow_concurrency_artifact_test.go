@@ -33,9 +33,11 @@ type workflowConcurrencyRepository struct {
 }
 
 type workflowConcurrencyWorkflow struct {
-	Family    string `json:"family"`
-	Fixture   string `json:"fixture"`
-	InputMode string `json:"input_mode"`
+	Family                string `json:"family"`
+	Fixture               string `json:"fixture"`
+	InputMode             string `json:"input_mode"`
+	RealtimeInputKeptOpen bool   `json:"realtime_input_kept_open"`
+	RealtimeTailSilenceMS int64  `json:"realtime_tail_silence_ms,omitempty"`
 }
 
 type workflowConcurrencyBarrierArtifact struct {
@@ -77,6 +79,7 @@ type workflowConcurrencyTurnResult struct {
 	TranscriptStreamID   string    `json:"transcript_stream_id,omitempty"`
 	StartedAt            time.Time `json:"started_at"`
 	InputDoneAt          time.Time `json:"input_done_at"`
+	InputEOSSent         bool      `json:"input_eos_sent"`
 	AudioEpochAt         time.Time `json:"audio_epoch_at,omitempty"`
 	InterruptedAt        time.Time `json:"interrupted_at,omitempty"`
 	CompletedAt          time.Time `json:"completed_at,omitempty"`
@@ -110,11 +113,19 @@ func newWorkflowConcurrencyArtifact(
 	concurrency int,
 ) *workflowConcurrencyArtifact {
 	head, dirty := workflowConcurrencyRepositoryState()
+	var realtimeTailSilenceMS int64
+	if spec.KeepRealtimeInputOpen {
+		realtimeTailSilenceMS = workflowConcurrencyRealtimeTailSilence(spec).Milliseconds()
+	}
 	return &workflowConcurrencyArtifact{
-		Version:     workflowConcurrencyArtifactVersion,
-		CreatedAt:   time.Now(),
-		Repository:  workflowConcurrencyRepository{Head: head, Dirty: dirty},
-		Workflow:    workflowConcurrencyWorkflow{Family: spec.Name, Fixture: spec.Fixture, InputMode: spec.InputMode},
+		Version:    workflowConcurrencyArtifactVersion,
+		CreatedAt:  time.Now(),
+		Repository: workflowConcurrencyRepository{Head: head, Dirty: dirty},
+		Workflow: workflowConcurrencyWorkflow{
+			Family: spec.Name, Fixture: spec.Fixture, InputMode: spec.InputMode,
+			RealtimeInputKeptOpen: spec.KeepRealtimeInputOpen,
+			RealtimeTailSilenceMS: realtimeTailSilenceMS,
+		},
 		Scenario:    scenario,
 		Concurrency: concurrency,
 	}
