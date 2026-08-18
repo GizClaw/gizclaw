@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/shared"
@@ -59,6 +60,7 @@ type personaDriver struct {
 	runtimeClient       runControlClient
 	transport           *chatTransport
 	newTransport        func() (*chatTransport, error)
+	peerConn            func() giznet.Conn
 	history             []roundHistory
 	reloadAgent         func(context.Context) error
 	generateUtterance   func(context.Context, int) (string, error)
@@ -66,6 +68,7 @@ type personaDriver struct {
 	transcribeAudioFile func(context.Context, string) (string, error)
 	runtimeHistoryItems int
 	runtimeHistorySig   string
+	interruptStartedAt  time.Time
 }
 
 type roundHistory struct {
@@ -310,7 +313,6 @@ type conversationMode struct {
 	SkipTranscriptSimilarity    bool
 	SkipAssistantAudioASR       bool
 	AssistantAudioASRReason     string
-	LightweightInterrupt        bool
 	AllowSplitAssistantStreams  bool
 	AllowMissingInputTranscript bool
 	RealtimeTailSilence         time.Duration
@@ -798,8 +800,42 @@ func (d *personaDriver) runInterruptRounds(ctx context.Context, mode conversatio
 		if err := d.waitFlowcraftHistoryProgress(ctx, fmt.Sprintf("interrupt round %d", i)); err != nil {
 			return stats, err
 		}
+		if err := d.verifyInterruptRuntime(ctx, i); err != nil {
+			return stats, err
+		}
 	}
 	return stats, nil
+}
+
+func (d *personaDriver) verifyInterruptRuntime(ctx context.Context, round int) error {
+	if d == nil || d.runtimeClient == nil {
+		return nil
+	}
+	state, err := d.runtimeClient.GetServerRunWorkspace(ctx, "workspacetest.interrupt.runtime")
+	if err != nil {
+		return fmt.Errorf("interrupt round %d get runtime: %w", round, err)
+	}
+	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning {
+		message := ""
+		if state.Message != nil {
+			message = *state.Message
+		}
+		return fmt.Errorf("interrupt round %d runtime state = %s, want running: %s", round, state.RuntimeState, message)
+	}
+	if state.WorkspaceName != d.cfg.Workspace {
+		return fmt.Errorf("interrupt round %d runtime workspace = %q, want %q", round, state.WorkspaceName, d.cfg.Workspace)
+	}
+	if state.StartedAt == nil || state.StartedAt.IsZero() {
+		return fmt.Errorf("interrupt round %d runtime StartedAt is missing", round)
+	}
+	if d.interruptStartedAt.IsZero() {
+		d.interruptStartedAt = *state.StartedAt
+		return nil
+	}
+	if !state.StartedAt.Equal(d.interruptStartedAt) {
+		return fmt.Errorf("interrupt round %d runtime StartedAt changed from %s to %s", round, d.interruptStartedAt.Format(time.RFC3339Nano), state.StartedAt.Format(time.RFC3339Nano))
+	}
+	return nil
 }
 
 func (d *personaDriver) interruptRoundCount() int {
@@ -847,6 +883,9 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 		if err := d.reloadAgent(ctx); err != nil && !isAgentAlreadyRunning(err) {
 			return stat, fmt.Errorf("interrupt reload workspace: %w", err)
 		}
+		if err := d.verifyInterruptRuntime(ctx, 0); err != nil {
+			return stat, err
+		}
 	}
 	if err := d.resetTransport(); err != nil {
 		return stat, fmt.Errorf("interrupt open transport: %w", err)
@@ -888,6 +927,31 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			return nil
 		}
 		sentInterrupt = true
+		if firstSendDone != nil {
+			select {
+			case firstSendErr, ok := <-firstSendDone:
+				if ok && firstSendErr != nil {
+					return fmt.Errorf("interrupt finish first audio before transport cutover: %w", firstSendErr)
+				}
+			case <-ctx.Done():
+				return fmt.Errorf("interrupt wait for first audio before transport cutover: %w", ctx.Err())
+			}
+			firstSendDone = nil
+		}
+		if d.peerConn == nil {
+			return fmt.Errorf("interrupt physical Peer connection observer is missing")
+		}
+		peerConn := d.peerConn()
+		if peerConn == nil {
+			return fmt.Errorf("interrupt physical Peer connection is missing before logical stream cutover")
+		}
+		if err := d.resetTransport(); err != nil {
+			return fmt.Errorf("interrupt reopen logical PeerStream: %w", err)
+		}
+		if d.peerConn() != peerConn {
+			return fmt.Errorf("interrupt logical PeerStream cutover replaced the physical Peer connection")
+		}
+		fmt.Printf("workspace_progress event=interrupt_transport_cutover workspace=%s round=%d\n", d.cfg.Workspace, index)
 		if mode.Realtime {
 			if err := d.transport.sendAudioTurnBOS(ctx, secondStreamID); err != nil {
 				return fmt.Errorf("interrupt send second BOS: %w", err)
@@ -912,15 +976,14 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 	var secondTranscriptStreamID string
 	var secondAssistant strings.Builder
 	var secondAssistantStreamID string
+	secondAssistantBOSCount := 0
+	var secondAudioEpochAt time.Time
 	secondAssistantTextDone := false
 	secondAssistantAudioDone := false
 	var secondFrames [][]byte
 	var settle <-chan time.Time
 	var trace roundEventTrace
 	for {
-		if mode.LightweightInterrupt && settle == nil && !interruptedAt.IsZero() && secondTranscript != "" && stat.SecondDownlinkPackets > 0 && strings.TrimSpace(secondAssistant.String()) != "" {
-			settle = time.After(700 * time.Millisecond)
-		}
 		if !interruptedAt.IsZero() && secondTranscript != "" && stat.SecondTranscriptDone > 0 && stat.SecondDownlinkPackets > 0 && secondAssistantTextDone && secondAssistantAudioDone && settle == nil {
 			stat.SecondTranscript = strings.TrimSpace(secondTranscript)
 			stat.SecondAssistantText = strings.TrimSpace(secondAssistant.String())
@@ -957,28 +1020,6 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			return stat, fmt.Errorf("interrupt wait response: %w; recent events: %s", ctx.Err(), trace.String())
 		case <-settle:
 			settle = nil
-			if mode.LightweightInterrupt {
-				stat.SecondTranscript = strings.TrimSpace(secondTranscript)
-				stat.SecondAssistantText = strings.TrimSpace(secondAssistant.String())
-				stat.SecondResponseTotal = time.Since(interruptedAt)
-				stat.SecondAssistantAudioASR = "skipped: lightweight-interrupt"
-				if !stat.FirstAssistantStarted {
-					return stat, fmt.Errorf("interrupt did not receive first response before sending second turn; recent events: %s", trace.String())
-				}
-				if stat.InterruptedStreamID == "" {
-					return stat, fmt.Errorf("interrupt missing interrupted assistant stream id; recent events: %s", trace.String())
-				}
-				if stat.SecondTranscript == "" {
-					return stat, fmt.Errorf("interrupt missing second transcript; recent events: %s", trace.String())
-				}
-				if stat.SecondAssistantText == "" {
-					return stat, fmt.Errorf("interrupt missing second assistant text; recent events: %s", trace.String())
-				}
-				if stat.SecondDownlinkPackets == 0 {
-					return stat, fmt.Errorf("interrupt missing second assistant audio; recent events: %s", trace.String())
-				}
-				return stat, nil
-			}
 			switch {
 			case secondTranscript == "":
 				return stat, fmt.Errorf("interrupt missing second transcript after audio EOS; recent events: %s", trace.String())
@@ -1069,6 +1110,12 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 				}
 				secondTranscript = mergeTranscriptText(secondTranscript, *event.event.Text)
 			case "assistant":
+				if event.event.Type == peerStreamEventTypeBos {
+					secondAssistantBOSCount++
+					if secondAssistantBOSCount == 2 {
+						secondAudioEpochAt = event.receivedAt
+					}
+				}
 				if event.event.Type == peerStreamEventTypeEos {
 					if !secondAssistantTextDone {
 						trace.add("assistant audio segment eos before text done stream=%s", eventStreamID(event.event))
@@ -1102,7 +1149,7 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 				continue
 			}
 			if !interruptedAt.IsZero() {
-				if !packet.receivedAt.IsZero() && packet.receivedAt.Before(interruptedAt) {
+				if !packetBelongsToAudioEpoch(packet.receivedAt, secondAudioEpochAt) {
 					continue
 				}
 				if stat.SecondFirstAudio == 0 {
@@ -1119,6 +1166,10 @@ func (d *personaDriver) runInterruptScenario(ctx context.Context, index int, mod
 			}
 		}
 	}
+}
+
+func packetBelongsToAudioEpoch(receivedAt, epoch time.Time) bool {
+	return !receivedAt.IsZero() && !epoch.IsZero() && !receivedAt.Before(epoch)
 }
 
 func realtimePacketsWithTailSilence(packets [][]byte) ([][]byte, error) {

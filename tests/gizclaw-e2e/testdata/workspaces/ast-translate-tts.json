@@ -26,6 +26,9 @@
   },
   "voice": "assistant-voice",
   "rounds": 3,
+  "interrupt": {
+    "rounds": 3
+  },
   "timeout": "300s",
   "persona": "You are a concise Chinese voice translation test user. Keep every utterance short, clear, and speech friendly."
 }

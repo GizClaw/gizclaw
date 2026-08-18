@@ -49,6 +49,9 @@
   },
   "voice": "assistant-voice",
   "rounds": 3,
+  "interrupt": {
+    "rounds": 3
+  },
   "timeout": "300s",
   "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
   "utterances": [

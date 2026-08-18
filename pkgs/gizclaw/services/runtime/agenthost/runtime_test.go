@@ -1612,28 +1612,30 @@ func TestServiceKeepsRuntimeAvailableForRepeatedHistoryReplayAfterRouteEOS(t *te
 	agent.mu.Lock()
 	output := agent.output[0]
 	agent.mu.Unlock()
-	if err := output.Add(&genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text(""),
-		Ctrl: &genx.StreamCtrl{StreamID: "response-a", EndOfStream: true},
-	}); err != nil {
-		t.Fatalf("output.Add(route EOS) error = %v", err)
-	}
-	select {
-	case <-routeDone:
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for logical output route completion")
-	}
+	for _, responseID := range []string{"response-a", "response-b", "response-c"} {
+		if err := output.Add(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: responseID, EndOfStream: true, Error: "interrupted"},
+		}); err != nil {
+			t.Fatalf("output.Add(%s route EOS) error = %v", responseID, err)
+		}
+		select {
+		case <-routeDone:
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for logical output route %s completion", responseID)
+		}
 
-	state, err := svc.WorkspaceState(ctx)
-	if err != nil {
-		t.Fatalf("WorkspaceState() error = %v", err)
-	}
-	if state.RuntimeState != apitypes.PeerRunStatusStateRunning || state.StartedAt == nil || !state.StartedAt.Equal(startedAt) {
-		t.Fatalf("WorkspaceState() after route EOS = %+v, want same running runtime", state)
-	}
-	if got := svc.RuntimeRevision(); got != revision {
-		t.Fatalf("RuntimeRevision() after route EOS = %d, want %d", got, revision)
+		state, err := svc.WorkspaceState(ctx)
+		if err != nil {
+			t.Fatalf("WorkspaceState() after %s error = %v", responseID, err)
+		}
+		if state.RuntimeState != apitypes.PeerRunStatusStateRunning || state.StartedAt == nil || !state.StartedAt.Equal(startedAt) {
+			t.Fatalf("WorkspaceState() after %s route EOS = %+v, want same running runtime", responseID, state)
+		}
+		if got := svc.RuntimeRevision(); got != revision {
+			t.Fatalf("RuntimeRevision() after %s route EOS = %d, want %d", responseID, got, revision)
+		}
 	}
 	for _, historyID := range []string{"h1", "h1"} {
 		play, err := svc.PlayWorkspaceHistory(ctx, apitypes.PeerRunHistoryPlayRequest{HistoryName: historyID})
