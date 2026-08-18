@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -55,6 +56,12 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsSecretOnce(t *testing.T) {
 		})
 	}
 	server.validateAPIKeyOwner = func(context.Context, giznet.PublicKey) error { return nil }
+	server.apiKeys = apikey.NewServer(&failingGetStore{Store: kv.NewMemory(nil), err: errors.New("sensitive store detail")})
+	response, err = server.dispatch(context.Background(), request)
+	if err != nil || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError || strings.Contains(response.Error.Message, "sensitive") {
+		t.Fatalf("store failure dispatch = %#v, %v", response, err)
+	}
+	server.apiKeys = apikey.NewServer(kv.NewMemory(nil))
 	response, err = server.dispatch(context.Background(), request)
 	if err != nil || response == nil || response.Error != nil || response.Result == nil {
 		if response == nil {
