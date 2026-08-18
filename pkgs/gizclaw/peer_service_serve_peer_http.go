@@ -13,9 +13,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func (s *PeerService) servePublic(conn giznet.Conn) error {
@@ -31,40 +32,20 @@ func (s *PeerService) serveEdgePublic(conn giznet.Conn) error {
 }
 
 func (s *PeerService) serveEdgePublicWithRetiring(conn giznet.Conn, isRetiring func() bool) error {
-	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, rejectRetiringHTTP(isRetiring, s.edgeHTTPHandlerForPeer(s.sessions, conn.PublicKey().String())))
-	defer func() {
-		_ = server.Shutdown(context.Background())
-	}()
+	server := gizhttp.NewServer(conn, ServiceEdgeHTTP, rejectRetiringHTTP(isRetiring, s.edgeHTTPHandlerForPeer(s.apiKeys, conn.PublicKey().String())))
+	defer func() { _ = server.Shutdown(context.Background()) }()
 	return server.Serve()
 }
 
 func (s *PeerService) servePublicService(conn giznet.Conn, service uint64, isRetiring func() bool) error {
-	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	app.Use(observeFiberRoute)
-	app.Use(func(ctx *fiber.Ctx) error {
-		base := ctx.UserContext()
-		if base == nil {
-			base = context.Background()
-		}
-		base = withPeerHTTPContentType(base, ctx.Get(fiber.HeaderContentType))
-		base = publiclogin.WithPrincipal(base, publiclogin.Principal{Kind: publiclogin.SessionKindPrimary, PublicKey: conn.PublicKey()})
-		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, conn.PublicKey()))
-		return ctx.Next()
-	})
-	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
-
+	handler := s.publicHTTPHandler(s.apiKeys)
 	surface := observability.SurfacePeerHTTP
 	if service == ServiceEdgeHTTP {
 		surface = observability.SurfaceEdgeHTTP
 	}
-	handler := rejectRetiringHTTP(isRetiring, observeHTTPHandler(fiberHTTPHandler(app), httpObservationOptions{
-		surface:       surface,
-		peerPublicKey: conn.PublicKey().String(),
-	}))
+	handler = rejectRetiringHTTP(isRetiring, observeHTTPHandler(handler, httpObservationOptions{surface: surface, peerPublicKey: conn.PublicKey().String()}))
 	server := gizhttp.NewServer(conn, service, handler)
-	defer func() {
-		_ = server.Shutdown(context.Background())
-	}()
+	defer func() { _ = server.Shutdown(context.Background()) }()
 	return server.Serve()
 }
 
@@ -83,121 +64,57 @@ func rejectRetiringHTTP(isRetiring func() bool, next http.Handler) http.Handler 
 	})
 }
 
-type publicHTTPOptions struct {
-	requireClientPeer bool
-	login             publiclogin.PeerHTTP
+type publicHTTPOptions struct{ requireClientPeer bool }
+
+var errAPIKeyOwnerUnavailable = errors.New("API key owner is unavailable")
+
+func (s *PeerService) publicHTTPHandler(apiKeys *apikey.Server) http.Handler {
+	return s.publicHTTPHandlerWithOptions(apiKeys, publicHTTPOptions{})
 }
 
-func (s *PeerService) publicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
-	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{})
+func (s *PeerService) edgePublicHTTPHandler(apiKeys *apikey.Server) http.Handler {
+	return s.publicHTTPHandlerWithOptions(apiKeys, publicHTTPOptions{requireClientPeer: true})
 }
 
-func (s *PeerService) edgePublicHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
-	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{requireClientPeer: true})
+func (s *PeerService) edgeHTTPHandler(apiKeys *apikey.Server) http.Handler {
+	return s.edgeHTTPHandlerForPeer(apiKeys, "")
 }
 
-func (s *PeerService) edgeHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
-	return s.edgeHTTPHandlerForPeer(sessions, "")
-}
-
-func (s *PeerService) edgeHTTPHandlerForPeer(sessions *publiclogin.SessionManager, peerPublicKey string) http.Handler {
+func (s *PeerService) edgeHTTPHandlerForPeer(apiKeys *apikey.Server, peerPublicKey string) http.Handler {
 	mux := http.NewServeMux()
-	publicHandler := s.edgePublicHTTPHandler(sessions)
-	mux.Handle("/login", s.edgeLoginHTTPHandler(sessions))
+	publicHandler := s.edgePublicHTTPHandler(apiKeys)
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle("/webrtc/v1/offer", publicHandler)
-	mux.Handle("/me", publicHandler)
-	mux.Handle("/me/status", publicHandler)
-	mux.Handle("/me/runtime", publicHandler)
-	mux.Handle("/me/side-control/", publicHandler)
-	mux.Handle("/side-control/", publicHandler)
-	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(sessions))
-	return observeHTTPHandler(mux, httpObservationOptions{
-		surface:       observability.SurfaceEdgeHTTP,
-		peerPublicKey: peerPublicKey,
-		peerRole:      string(apitypes.PeerRoleEdgeNode),
-	})
+	mux.Handle("/gizclaw/v1/", publicHandler)
+	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(apiKeys))
+	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode)})
 }
 
-type loginWithoutAuthorizer interface {
-	LoginWithoutAuthorizer(context.Context, peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error)
-}
-
-type edgeLoginPeerHTTP struct {
-	publiclogin.PeerHTTP
-	allowClientPeer func(context.Context, giznet.PublicKey) bool
-	ensureAvailable func(context.Context, giznet.PublicKey) error
-}
-
-func (h edgeLoginPeerHTTP) Login(ctx context.Context, request peerhttp.LoginRequestObject) (peerhttp.LoginResponseObject, error) {
-	var publicKey giznet.PublicKey
-	if err := publicKey.UnmarshalText([]byte(request.Params.XPublicKey)); err != nil || publicKey.IsZero() {
-		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Public-Key")), nil
-	}
-	if h.ensureAvailable != nil {
-		if err := h.ensureAvailable(ctx, publicKey); err != nil {
-			switch {
-			case errors.Is(err, runtimepeer.ErrPeerPendingDeletion):
-				return peerhttp.Login409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apitypes.NewErrorResponse(runtimepeer.PeerPendingDeletionCode, err.Error()))}, nil
-			case errors.Is(err, runtimepeer.ErrPeerDeleted):
-				return peerhttp.Login409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apitypes.NewErrorResponse(runtimepeer.PeerDeletedCode, err.Error()))}, nil
-			case !errors.Is(err, runtimepeer.ErrPeerNotFound):
-				return nil, err
-			}
-		}
-	}
-	sideControlGrant := request.Body != nil && request.Body.GrantType == peerhttp.SideControl
-	if !sideControlGrant && (h.allowClientPeer == nil || !h.allowClientPeer(ctx, publicKey)) {
-		return peerhttp.Login401JSONResponse(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers")), nil
-	}
-	if login, ok := h.PeerHTTP.(loginWithoutAuthorizer); ok {
-		return login.LoginWithoutAuthorizer(ctx, request)
-	}
-	return h.PeerHTTP.Login(ctx, request)
-}
-
-func (s *PeerService) edgeLoginHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
-	var login publiclogin.PeerHTTP
-	if s != nil && s.public != nil && s.public.PeerHTTP != nil {
-		login = edgeLoginPeerHTTP{
-			PeerHTTP:        s.public.PeerHTTP,
-			allowClientPeer: s.allowEdgeClientPeer,
-			ensureAvailable: s.manager.Peers.EnsureAvailable,
-		}
-	}
-	return s.publicHTTPHandlerWithOptions(sessions, publicHTTPOptions{
-		requireClientPeer: true,
-		login:             login,
-	})
-}
-
-func (s *PeerService) edgeOpenAIHTTPHandler(sessions *publiclogin.SessionManager) http.Handler {
+func (s *PeerService) edgeOpenAIHTTPHandler(apiKeys *apikey.Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setPublicHTTPCORSHeaders(w.Header())
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		authenticated, ok := authenticatePrimaryHTTPSessionState(w, r, sessions)
+		principal, ok := authenticateHTTPAPIKey(w, r, apiKeys)
 		if !ok {
 			return
 		}
-		publicKey := authenticated.PublicKey
-		if s.rejectUnavailablePeerHTTP(w, r, publicKey) {
+		publicKey, err := parsePeerPublicKey(principal.Key.Owner)
+		if err != nil {
+			writeHTTPAPIKeyError(w, err)
 			return
 		}
-		if !s.allowEdgeClientPeer(r.Context(), publicKey) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusForbidden)
-			_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
+		if err := s.validateAPIKeyOwner(r.Context(), publicKey); err != nil {
+			writeHTTPAPIKeyOwnerError(w, err)
 			return
 		}
-		resources := s.peerResourcesForHTTPSession(publicKey, authenticated.Registration)
-		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil, resources)).ServeHTTP(w, r)
+		http.StripPrefix("/openai", s.openAIHTTPHandlerForPeer(publicKey, nil, s.peerResourcesForAPIKey(publicKey))).ServeHTTP(w, r)
 	})
 }
 
-func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.SessionManager, opts publicHTTPOptions) http.Handler {
+func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts publicHTTPOptions) http.Handler {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(func(ctx *fiber.Ctx) error {
 		base := ctx.UserContext()
@@ -205,11 +122,6 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 			base = context.Background()
 		}
 		setPeerHTTPCORSHeaders(ctx)
-		if ctx.Method() == http.MethodPost && ctx.Path() == "/login" && len(ctx.Body()) == 0 {
-			ctx.Request().Header.SetContentType(fiber.MIMEApplicationJSON)
-			ctx.Request().SetBodyString("{}")
-			base = publiclogin.WithBodylessLogin(base)
-		}
 		if ctx.Method() == http.MethodOptions && isPeerHTTPPath(ctx.Path()) {
 			return ctx.SendStatus(http.StatusNoContent)
 		}
@@ -220,130 +132,99 @@ func (s *PeerService) publicHTTPHandlerWithOptions(sessions *publiclogin.Session
 			if !ok {
 				return nil
 			}
-			if s.manager != nil && s.manager.Peers != nil {
-				if err := s.manager.Peers.EnsureAvailable(ctx.UserContext(), publicKey); err != nil && !errors.Is(err, runtimepeer.ErrPeerNotFound) {
-					code := runtimepeer.PeerPendingDeletionCode
-					if errors.Is(err, runtimepeer.ErrPeerDeleted) {
-						code = runtimepeer.PeerDeletedCode
-					}
-					ctx.Status(http.StatusConflict)
-					_ = ctx.JSON(apitypes.NewErrorResponse(code, err.Error()))
-					return nil
-				}
-			}
 			if !s.allowEdgeSignalingPeer(ctx.UserContext(), publicKey) {
 				ctx.Status(http.StatusForbidden)
-				_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
-				return nil
+				return ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies client peers"))
 			}
-			ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
 			return ctx.Next()
 		}
 		if isUnauthenticatedPeerHTTPRoute(ctx.Method(), ctx.Path()) {
 			return ctx.Next()
 		}
-		principal, ok := authenticateFiberPrincipal(ctx, sessions)
+		if !strings.HasPrefix(ctx.Path(), "/gizclaw/v1/") {
+			return ctx.Next()
+		}
+		principal, ok := authenticateFiberAPIKey(ctx, apiKeys)
 		if !ok {
 			return nil
 		}
-		if s.manager != nil && s.manager.Peers != nil {
-			if err := s.manager.Peers.EnsureAvailable(ctx.UserContext(), principal.PublicKey); err != nil && !errors.Is(err, runtimepeer.ErrPeerNotFound) {
-				code := "PEER_AVAILABILITY_FAILED"
-				status := http.StatusInternalServerError
-				if errors.Is(err, runtimepeer.ErrPeerPendingDeletion) {
-					code, status = runtimepeer.PeerPendingDeletionCode, http.StatusConflict
-				} else if errors.Is(err, runtimepeer.ErrPeerDeleted) {
-					code, status = runtimepeer.PeerDeletedCode, http.StatusConflict
-				}
-				ctx.Status(status)
-				_ = ctx.JSON(apitypes.NewErrorResponse(code, err.Error()))
-				return nil
-			}
-		}
-		if isPrimaryOnlyPeerHTTPPath(ctx.Path()) && principal.Kind != publiclogin.SessionKindPrimary {
-			ctx.Status(http.StatusForbidden)
-			_ = ctx.JSON(apitypes.NewErrorResponse("PRIMARY_SESSION_REQUIRED", "primary session required"))
+		publicKey, err := parsePeerPublicKey(principal.Key.Owner)
+		if err != nil {
+			writeFiberAPIKeyError(ctx, err)
 			return nil
 		}
-		if isSideControlPeerHTTPPath(ctx.Path()) && principal.Kind != publiclogin.SessionKindSideControl {
-			ctx.Status(http.StatusForbidden)
-			_ = ctx.JSON(apitypes.NewErrorResponse("SIDE_CONTROL_SESSION_REQUIRED", "side-control session required"))
+		if err := s.validateAPIKeyOwner(ctx.UserContext(), publicKey); err != nil {
+			writeFiberAPIKeyOwnerError(ctx, err)
 			return nil
 		}
-		if opts.requireClientPeer && principal.Kind == publiclogin.SessionKindPrimary && !s.allowEdgeClientPeer(ctx.UserContext(), principal.PublicKey) {
-			ctx.Status(http.StatusForbidden)
-			_ = ctx.JSON(apitypes.NewErrorResponse("EDGE_CLIENT_REQUIRED", "edge public HTTP only proxies active client peers"))
-			return nil
-		}
-		base = publiclogin.WithPrincipal(base, principal)
-		ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, principal.PublicKey))
-		if !opts.requireClientPeer {
-			observability.SetPeer(ctx.UserContext(), principal.PublicKey.String(), "")
-		}
+		ctx.SetUserContext(peerhttp.WithCallerPublicKey(apikey.WithPrincipal(base, principal), publicKey))
+		observability.SetPeer(ctx.UserContext(), publicKey.String(), "")
 		return ctx.Next()
 	})
 	app.Use(observeFiberRoute)
-	public := s.public
-	if opts.login != nil && public != nil {
-		copy := *public
-		copy.PeerHTTP = opts.login
-		public = &copy
-	}
-	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(public, nil))
+	peerhttp.RegisterHandlers(app, peerhttp.NewStrictHandler(s.public, nil))
 	return fiberHTTPHandler(app)
 }
 
-func (s *PeerService) rejectUnavailablePeerHTTP(w http.ResponseWriter, r *http.Request, publicKey giznet.PublicKey) bool {
-	if s == nil || s.manager == nil || s.manager.Peers == nil {
-		return false
+func (s *PeerService) validateAPIKeyOwner(ctx context.Context, publicKey giznet.PublicKey) error {
+	if s == nil || s.manager == nil || s.manager.Peers == nil || s.manager.RuntimeProfiles == nil {
+		return errors.New("API key owner services are not configured")
 	}
-	err := s.manager.Peers.EnsureAvailable(r.Context(), publicKey)
-	if err == nil || errors.Is(err, runtimepeer.ErrPeerNotFound) {
-		return false
+	if err := s.manager.Peers.EnsureAvailable(ctx, publicKey); err != nil {
+		return err
 	}
-	code := "PEER_AVAILABILITY_FAILED"
-	status := http.StatusInternalServerError
-	if errors.Is(err, runtimepeer.ErrPeerPendingDeletion) {
-		code, status = runtimepeer.PeerPendingDeletionCode, http.StatusConflict
-	} else if errors.Is(err, runtimepeer.ErrPeerDeleted) {
-		code, status = runtimepeer.PeerDeletedCode, http.StatusConflict
+	item, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	if err != nil {
+		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse(code, err.Error()))
-	return true
+	if item.Status != apitypes.PeerRegistrationStatusActive || item.Role != apitypes.PeerRoleClient {
+		return errAPIKeyOwnerUnavailable
+	}
+	if _, err := s.manager.RuntimeProfiles.ResolveOwnerProfile(ctx, publicKey.String()); err != nil {
+		if errors.Is(err, kv.ErrNotFound) {
+			return errAPIKeyOwnerUnavailable
+		}
+		return err
+	}
+	return nil
 }
 
-func (s *PeerService) allowEdgeClientPeer(ctx context.Context, publicKey giznet.PublicKey) bool {
-	if s == nil || s.manager == nil || s.manager.Peers == nil {
-		return false
+func writeFiberAPIKeyOwnerError(ctx *fiber.Ctx, err error) {
+	status, code := apiKeyOwnerHTTPError(err)
+	ctx.Status(status)
+	_ = ctx.JSON(apitypes.NewErrorResponse(code, http.StatusText(status)))
+}
+
+func writeHTTPAPIKeyOwnerError(w http.ResponseWriter, err error) {
+	status, code := apiKeyOwnerHTTPError(err)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse(code, http.StatusText(status)))
+}
+
+func apiKeyOwnerHTTPError(err error) (int, string) {
+	if errors.Is(err, runtimepeer.ErrPeerPendingDeletion) {
+		return http.StatusConflict, runtimepeer.PeerPendingDeletionCode
 	}
-	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
-	if err != nil {
-		return false
+	if errors.Is(err, runtimepeer.ErrPeerNotFound) || errors.Is(err, runtimepeer.ErrPeerDeleted) || errors.Is(err, errAPIKeyOwnerUnavailable) {
+		return http.StatusForbidden, "API_KEY_OWNER_UNAVAILABLE"
 	}
-	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
+	return http.StatusInternalServerError, "INTERNAL_ERROR"
 }
 
 func (s *PeerService) allowEdgeSignalingPeer(ctx context.Context, publicKey giznet.PublicKey) bool {
 	if s == nil || s.manager == nil || s.manager.Peers == nil {
 		return false
 	}
-	peer, err := s.manager.Peers.LoadPeer(ctx, publicKey)
+	item, err := s.manager.Peers.LoadPeer(ctx, publicKey)
 	if errors.Is(err, runtimepeer.ErrPeerNotFound) {
 		return true
 	}
-	if err != nil {
-		return false
-	}
-	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == apitypes.PeerRoleClient
+	return err == nil && item.Status == apitypes.PeerRegistrationStatusActive && item.Role == apitypes.PeerRoleClient
 }
 
 func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, bool) {
 	var publicKey giznet.PublicKey
-	if ctx == nil {
-		return publicKey, false
-	}
 	if err := publicKey.UnmarshalText([]byte(ctx.Get("X-Giznet-Public-Key"))); err != nil || publicKey.IsZero() {
 		ctx.Status(http.StatusBadRequest)
 		_ = ctx.JSON(apitypes.NewErrorResponse("INVALID_PUBLIC_KEY", "invalid X-Giznet-Public-Key"))
@@ -354,33 +235,15 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
-	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,DELETE,OPTIONS")
-	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Public-Key,"+publiclogin.RegistrationTokenHeader+",X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
+	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,DELETE,OPTIONS")
+	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type,X-Request-ID")
 }
 
 func isPeerHTTPPath(path string) bool {
-	if strings.HasPrefix(path, "/me/side-control/") || strings.HasPrefix(path, "/side-control/") {
-		return true
-	}
-	switch path {
-	case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/status", "/me/runtime":
-		return true
-	default:
-		return false
-	}
-}
-
-func isPrimaryOnlyPeerHTTPPath(path string) bool {
-	return path == "/me" || strings.HasPrefix(path, "/me/")
-}
-
-func isSideControlPeerHTTPPath(path string) bool {
-	return strings.HasPrefix(path, "/side-control/")
+	return path == "/server-info" || path == "/webrtc/v1/offer" || strings.HasPrefix(path, "/gizclaw/v1/")
 }
 
 func isUnauthenticatedPeerHTTPRoute(method, path string) bool {
-	return (method == http.MethodGet && path == "/server-info") ||
-		(method == http.MethodPost && path == "/login") ||
-		(method == http.MethodPost && path == "/webrtc/v1/offer")
+	return (method == http.MethodGet && path == "/server-info") || (method == http.MethodPost && path == "/webrtc/v1/offer")
 }

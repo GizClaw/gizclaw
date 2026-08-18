@@ -126,7 +126,7 @@ func assertServiceStoreBindings(t *testing.T, config renderedWorkspace) {
 	t.Helper()
 	expected := map[string]map[string]string{
 		"peer":             {"store": "keyvalue"},
-		"public_login":     {"store": "keyvalue"},
+		"api_key":          {"store": "keyvalue"},
 		"credential":       {"store": "keyvalue"},
 		"firmware":         {"store": "keyvalue"},
 		"runtime_profile":  {"store": "keyvalue"},

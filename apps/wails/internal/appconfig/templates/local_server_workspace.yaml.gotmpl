@@ -29,10 +29,10 @@ stores:
     storage: local-kv
     prefix: peers
 
-  public-login:
+  api-keys:
     kind: keyvalue
     storage: local-kv
-    prefix: public-login
+    prefix: api-keys
 
   flowcraft-state:
     kind: keyvalue
@@ -136,8 +136,8 @@ services:
   peer:
     store: peers
 
-  public_login:
-    store: public-login
+  api_key:
+    store: api-keys
 
   credential:
     store: credentials

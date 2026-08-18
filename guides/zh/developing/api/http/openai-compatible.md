@@ -22,7 +22,7 @@ GizClaw 通过当前兼容的 `github.com/idy/ai-server-shell` module 暴露有�
 
 ## 产品边界
 
-组合层为每个请求绑定已验证的 Peer identity、RuntimeProfile-scoped model/voice resources，以及对应 GenX Generator/Transformer。Shell authenticator 只读取该 verified binding；传入 bearer、cookie 或 dummy OpenAI API key 都不会被信任或转发。
+组合层为每个请求绑定已验证的 Peer identity、RuntimeProfile-scoped model/voice resources，以及对应 GenX Generator/Transformer。Direct/Edge `/openai/v1/*` 先校验 GizClaw API Key，并从 Key owner 建立 verified binding；`ServicePeerOpenAI` 继续使用可靠 Peer connection identity。Shell authenticator 只读取组合层建立的 binding，不会把 bearer 或 cookie 转发给模型 provider。
 
 `services/ai/openaiapi` 还把一个 Conversation 映射到一个新建的 caller-owned Workspace。创建必须提供字符串 metadata `collection` 与 `workflow_name`，后者也是兼容 Response model。Conversation item 精确关联权威 Workspace History；生命周期与不可变 input snapshot 位于 Workspace runtime prefix 下。读取不会启动 Agent；Response 只在该 turn 内 attach 共享 Workspace Agent，支持前台 JSON/SSE 和后台取消，并且不改变 PeerRun selection。
 

@@ -168,7 +168,7 @@ product-specific profiles and bind explicit tokens to either.
 
 `server.register` associates the connection with the RuntimeProfile and persists canonical RuntimeProfile and optional Firmware IDs internally. The `runtime_profile_name` wire field carries the canonical RuntimeProfile ID verbatim because RuntimeProfile has no separate Peer name; this is the normal Peer-name projection rule, not a compatibility field. Registration returns no Firmware identity. The Server resolves Firmware only from the internal `firmware_id` binding, and `server.firmware.get` returns the selected channel configuration. Owner-bound Workspaces resolve the current revision from the persisted canonical RuntimeProfile ID even while the owner is offline; a later successful registration replaces the owner's selection. Neither RegistrationToken nor Peer stores a Firmware channel: stable, beta, or develop selection remains device-owned. Updating or switching the profile changes the environment used by later operations; it does not rewrite Workspace context or persisted internal bindings.
 
-Public HTTP login may submit the same value through `X-Registration-Token`. Registration success and failure logs do not include the submitted token value.
+RegistrationToken is submitted only through `server.register` on a reliable Peer connection. Registration success and failure logs do not include the submitted token value; Public HTTP does not accept RegistrationToken.
 
 ## Peer surface and ownership
 

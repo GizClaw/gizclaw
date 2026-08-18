@@ -2,7 +2,7 @@
 
 `实现文件：server_openai_http.go`
 
-为普通 Server HTTP 入口组装 Peer-scoped OpenAI-compatible handler，并把 public-login session 接入对应 RuntimeProfile resource view。
+为普通 Server HTTP 入口组装 Peer-scoped OpenAI-compatible handler，并把认证 API Key 的 owner 接入当前 RuntimeProfile resource view。
 
 Server 在 strip `/openai` 前验证 primary session。`PeerService` 中保留的 handler 随后执行 exact method/path allowlist，绑定已验证的 canonical Peer ID 与 request-scoped resources，并把四个标准 operation 交给 AI Server Shell。`/v1/voices` 继续作为 Shell 外的 GizClaw handler。Unsupported path 只会在 ingress authentication 后返回 `404`。
 

@@ -138,7 +138,7 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 		}
 	}
 	set(&server.PeerStore, "peers")
-	set(&server.PublicLoginStore, "public-login")
+	set(&server.APIKeyStore, "api-keys")
 	set(&server.CredentialStore, "credentials")
 	set(&server.FirmwareStore, "firmwares")
 	set(&server.RuntimeProfileStore, "runtime-profiles")

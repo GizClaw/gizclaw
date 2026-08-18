@@ -1057,6 +1057,241 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
   void clearRuntimeProfileName() => $_clearField(1);
 }
 
+class APIKey extends $pb.GeneratedMessage {
+  factory APIKey({
+    $core.String? name,
+    $core.String? displayName,
+    $core.String? prefix,
+    $core.bool? manageApiKeys,
+    $core.String? createdAt,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (displayName != null) result.displayName = displayName;
+    if (prefix != null) result.prefix = prefix;
+    if (manageApiKeys != null) result.manageApiKeys = manageApiKeys;
+    if (createdAt != null) result.createdAt = createdAt;
+    return result;
+  }
+
+  APIKey._();
+
+  factory APIKey.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKey.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKey',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'displayName')
+    ..aOS(3, _omitFieldNames ? '' : 'prefix')
+    ..aOB(4, _omitFieldNames ? '' : 'manageApiKeys')
+    ..aOS(5, _omitFieldNames ? '' : 'createdAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKey clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKey copyWith(void Function(APIKey) updates) =>
+      super.copyWith((message) => updates(message as APIKey)) as APIKey;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKey create() => APIKey._();
+  @$core.override
+  APIKey createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKey getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<APIKey>(create);
+  static APIKey? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get displayName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set displayName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDisplayName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDisplayName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get prefix => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set prefix($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPrefix() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPrefix() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get manageApiKeys => $_getBF(3);
+  @$pb.TagNumber(4)
+  set manageApiKeys($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasManageApiKeys() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearManageApiKeys() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get createdAt => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set createdAt($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCreatedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCreatedAt() => $_clearField(5);
+}
+
+class APIKeyCreateRequest extends $pb.GeneratedMessage {
+  factory APIKeyCreateRequest({
+    $core.String? displayName,
+    $core.bool? manageApiKeys,
+  }) {
+    final result = create();
+    if (displayName != null) result.displayName = displayName;
+    if (manageApiKeys != null) result.manageApiKeys = manageApiKeys;
+    return result;
+  }
+
+  APIKeyCreateRequest._();
+
+  factory APIKeyCreateRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKeyCreateRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKeyCreateRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'displayName')
+    ..aOB(2, _omitFieldNames ? '' : 'manageApiKeys')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyCreateRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyCreateRequest copyWith(void Function(APIKeyCreateRequest) updates) =>
+      super.copyWith((message) => updates(message as APIKeyCreateRequest))
+          as APIKeyCreateRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKeyCreateRequest create() => APIKeyCreateRequest._();
+  @$core.override
+  APIKeyCreateRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKeyCreateRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<APIKeyCreateRequest>(create);
+  static APIKeyCreateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get displayName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set displayName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDisplayName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDisplayName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get manageApiKeys => $_getBF(1);
+  @$pb.TagNumber(2)
+  set manageApiKeys($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasManageApiKeys() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearManageApiKeys() => $_clearField(2);
+}
+
+class APIKeyCreateResponse extends $pb.GeneratedMessage {
+  factory APIKeyCreateResponse({
+    APIKey? value,
+    $core.String? apiKey,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    if (apiKey != null) result.apiKey = apiKey;
+    return result;
+  }
+
+  APIKeyCreateResponse._();
+
+  factory APIKeyCreateResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory APIKeyCreateResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'APIKeyCreateResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<APIKey>(1, _omitFieldNames ? '' : 'value', subBuilder: APIKey.create)
+    ..aOS(2, _omitFieldNames ? '' : 'apiKey')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyCreateResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  APIKeyCreateResponse copyWith(void Function(APIKeyCreateResponse) updates) =>
+      super.copyWith((message) => updates(message as APIKeyCreateResponse))
+          as APIKeyCreateResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static APIKeyCreateResponse create() => APIKeyCreateResponse._();
+  @$core.override
+  APIKeyCreateResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static APIKeyCreateResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<APIKeyCreateResponse>(create);
+  static APIKeyCreateResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  APIKey get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(APIKey value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  APIKey ensureValue() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $core.String get apiKey => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set apiKey($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasApiKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearApiKey() => $_clearField(2);
+}
+
 class ServerPeerDeleteRequest extends $pb.GeneratedMessage {
   factory ServerPeerDeleteRequest() => create();
 

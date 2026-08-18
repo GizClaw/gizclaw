@@ -1,14 +1,3 @@
-# Private HTTP
+# Public Client API 开关
 
-`实现文件：server_private_http.go`
-
-验证 private HTTP ingress 的 session headers，根据调用方 public key 执行 ingress authorization，并为 public login 构造 session authorizer。
-
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| `ErrPrivateHTTPIngressDenied` | Private ingress authorization 拒绝错误。 |
-| `Server.AuthenticateHTTPSessionHeaders` | 从 Authorization 与 public-key headers 验证 session identity。 |
-| `Server.AuthorizePrivateHTTPIngress` | 判断指定 Peer 是否允许访问 private HTTP ingress。 |
-| `PrivateHTTPIngressLoginAuthorizer` | 将 Server ingress authorization 适配为 public-login authorizer。 |
+`CmdServer.ServeHTTP` 在 Bearer 鉴权前执行 `serve-to-clients`。关闭时，`/gizclaw/v1/*` 和 `/openai/v1/*` 返回 `403 PRIVATE_INGRESS_DENIED`；`/server-info` 与 WebRTC signaling 仍可用于建立连接，不存在 private session 绕过方式。

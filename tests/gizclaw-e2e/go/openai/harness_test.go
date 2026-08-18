@@ -13,6 +13,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 	"github.com/openai/openai-go"
@@ -20,12 +21,16 @@ import (
 )
 
 type openAIHarness struct {
-	ctx    context.Context
-	h      *clitest.Harness
-	peer   *gizcli.Client
-	client openai.Client
-	other  openai.Client
-	http   *http.Client
+	ctx            context.Context
+	h              *clitest.Harness
+	peer           *gizcli.Client
+	client         openai.Client
+	other          openai.Client
+	http           *http.Client
+	baseURL        string
+	apiKey         string
+	apiKeyCreateMS int64
+	apiKeyAuthMS   int64
 }
 
 func newOpenAIHarness(t *testing.T) *openAIHarness {
@@ -79,13 +84,40 @@ func newOpenAIHarness(t *testing.T) *openAIHarness {
 	if _, err := otherPeer.Register(ctx, "openai.e2e.register.other", tokenResponse.JSON200.Token); err != nil {
 		t.Fatalf("register other Peer: %v", err)
 	}
-	httpClient := peer.HTTPClient(gizcli.ServicePeerOpenAI)
-	httpClient.Timeout = 3 * time.Minute
-	client := openai.NewClient(option.WithAPIKey("gizclaw-peer"), option.WithBaseURL("http://gizclaw/v1"), option.WithHTTPClient(httpClient))
-	otherHTTP := otherPeer.HTTPClient(gizcli.ServicePeerOpenAI)
-	otherHTTP.Timeout = 3 * time.Minute
-	other := openai.NewClient(option.WithAPIKey("gizclaw-peer"), option.WithBaseURL("http://gizclaw/v1"), option.WithHTTPClient(otherHTTP))
-	return &openAIHarness{ctx: ctx, h: h, peer: peer, client: client, other: other, http: httpClient}
+	apiKeyCreateStarted := time.Now()
+	created, err := peer.CreateAPIKey(ctx, "openai.e2e.api-key", rpcapi.APIKeyCreateRequest{DisplayName: "OpenAI compatibility"})
+	if err != nil {
+		t.Fatalf("create OpenAI API key: %v", err)
+	}
+	apiKeyCreateMS := max(time.Since(apiKeyCreateStarted).Milliseconds(), 1)
+	otherCreated, err := otherPeer.CreateAPIKey(ctx, "openai.e2e.api-key.other", rpcapi.APIKeyCreateRequest{DisplayName: "OpenAI compatibility other"})
+	if err != nil {
+		t.Fatalf("create other OpenAI API key: %v", err)
+	}
+	baseURL := strings.TrimRight(h.PublicHTTPURL(), "/") + "/openai/v1"
+	httpClient := &http.Client{Timeout: 3 * time.Minute}
+	authStarted := time.Now()
+	authRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(h.PublicHTTPURL(), "/")+"/gizclaw/v1/api-keys/self", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authRequest.Header.Set("Authorization", "Bearer "+created.APIKey)
+	authResponse, err := httpClient.Do(authRequest)
+	if err != nil {
+		t.Fatalf("measure API key auth: %v", err)
+	}
+	_ = authResponse.Body.Close()
+	if authResponse.StatusCode != http.StatusOK {
+		t.Fatalf("measure API key auth status = %d", authResponse.StatusCode)
+	}
+	apiKeyAuthMS := max(time.Since(authStarted).Milliseconds(), 1)
+	client := openai.NewClient(option.WithAPIKey(created.APIKey), option.WithBaseURL(baseURL), option.WithHTTPClient(httpClient))
+	other := openai.NewClient(option.WithAPIKey(otherCreated.APIKey), option.WithBaseURL(baseURL), option.WithHTTPClient(httpClient))
+	return &openAIHarness{
+		ctx: ctx, h: h, peer: peer, client: client, other: other, http: httpClient,
+		baseURL: baseURL, apiKey: created.APIKey,
+		apiKeyCreateMS: apiKeyCreateMS, apiKeyAuthMS: apiKeyAuthMS,
+	}
 }
 
 func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {

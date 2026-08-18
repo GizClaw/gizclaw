@@ -7,15 +7,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	externalRef0 "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	externalRef1 "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/gofiber/fiber/v2"
 	"github.com/oapi-codegen/runtime"
 )
@@ -24,91 +23,44 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
-// Defines values for LoginRequestGrantType.
-const (
-	SideControl LoginRequestGrantType = "side_control"
-)
+// APIKey defines model for APIKey.
+type APIKey struct {
+	CreatedAt time.Time `json:"created_at"`
 
-// Valid indicates whether the value is a known member of the LoginRequestGrantType enum.
-func (e LoginRequestGrantType) Valid() bool {
-	switch e {
-	case SideControl:
-		return true
-	default:
-		return false
-	}
+	// DisplayName Trimmed UTF-8 display name; the server enforces an 80-byte maximum.
+	DisplayName   string `json:"display_name"`
+	ManageApiKeys bool   `json:"manage_api_keys"`
+
+	// Name Opaque API key identity.
+	Name string `json:"name"`
+
+	// Prefix Redacted secret prefix for display only.
+	Prefix string `json:"prefix"`
 }
 
-// Defines values for LoginResultTokenType.
-const (
-	Bearer LoginResultTokenType = "Bearer"
-)
+// APIKeyCreateRequest defines model for APIKeyCreateRequest.
+type APIKeyCreateRequest struct {
+	// DisplayName Trimmed UTF-8 display name; the server enforces an 80-byte maximum.
+	DisplayName   string `json:"display_name"`
+	ManageApiKeys bool   `json:"manage_api_keys"`
+}
 
-// Valid indicates whether the value is a known member of the LoginResultTokenType enum.
-func (e LoginResultTokenType) Valid() bool {
-	switch e {
-	case Bearer:
-		return true
-	default:
-		return false
-	}
+// APIKeyCreateResult defines model for APIKeyCreateResult.
+type APIKeyCreateResult struct {
+	// ApiKey Complete API key secret returned once at creation.
+	ApiKey string `json:"api_key"`
+	Value  APIKey `json:"value"`
+}
+
+// APIKeyList defines model for APIKeyList.
+type APIKeyList struct {
+	Items      []APIKey `json:"items"`
+	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 
 // GiznetWebRTCSignalingError defines model for GiznetWebRTCSignalingError.
 type GiznetWebRTCSignalingError struct {
 	Error string `json:"error"`
-}
-
-// LoginRequest defines model for LoginRequest.
-type LoginRequest struct {
-	DeviceToken string                `json:"device_token"`
-	GrantType   LoginRequestGrantType `json:"grant_type"`
-}
-
-// LoginRequestGrantType defines model for LoginRequest.GrantType.
-type LoginRequestGrantType string
-
-// LoginResult defines model for LoginResult.
-type LoginResult struct {
-	AccessToken string               `json:"access_token"`
-	ExpiresAt   int64                `json:"expires_at"`
-	TokenType   LoginResultTokenType `json:"token_type"`
-}
-
-// LoginResultTokenType defines model for LoginResult.TokenType.
-type LoginResultTokenType string
-
-// PeerSelf defines model for PeerSelf.
-type PeerSelf struct {
-	Device             *externalRef0.DeviceInfo            `json:"device,omitempty"`
-	PublicKey          string                              `json:"public_key"`
-	RegistrationStatus externalRef0.PeerRegistrationStatus `json:"registration_status"`
-}
-
-// SideControlContactPutRequest defines model for SideControlContactPutRequest.
-type SideControlContactPutRequest struct {
-	DisplayName *string `json:"display_name,omitempty"`
-	PhoneNumber *string `json:"phone_number,omitempty"`
-}
-
-// SideControlDeviceToken defines model for SideControlDeviceToken.
-type SideControlDeviceToken struct {
-	ExpiresAt int64  `json:"expires_at"`
-	Id        string `json:"id"`
-	Token     string `json:"token"`
-}
-
-// SideControlSession defines model for SideControlSession.
-type SideControlSession struct {
-	ControllerPublicKey string `json:"controller_public_key"`
-	ExpiresAt           int64  `json:"expires_at"`
-	Id                  string `json:"id"`
-	IssuedAt            int64  `json:"issued_at"`
-}
-
-// SideControlSessionList defines model for SideControlSessionList.
-type SideControlSessionList struct {
-	Items []SideControlSession `json:"items"`
 }
 
 // BadRequest defines model for BadRequest.
@@ -132,44 +84,10 @@ type Unauthorized = externalRef0.ErrorResponse
 // bearerAuthContextKey is the context key for BearerAuth security scheme
 type bearerAuthContextKey string
 
-// LoginParams defines parameters for Login.
-type LoginParams struct {
-	XPublicKey    string `json:"X-Public-Key"`
-	Authorization string `json:"Authorization"`
-
-	// XRegistrationToken Configured RegistrationToken used to select a RuntimeProfile for the new HTTP session.
-	XRegistrationToken *string `json:"X-Registration-Token,omitempty"`
-}
-
-// ListSideControlContactsParams defines parameters for ListSideControlContacts.
-type ListSideControlContactsParams struct {
+// ListAPIKeysParams defines parameters for ListAPIKeys.
+type ListAPIKeysParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
-// QuerySideControlTelemetryParams defines parameters for QuerySideControlTelemetry.
-type QuerySideControlTelemetryParams struct {
-	Field       externalRef0.PeerTelemetryField  `form:"field" json:"field"`
-	StartTimeMs int64                            `form:"start_time_ms" json:"start_time_ms"`
-	EndTimeMs   int64                            `form:"end_time_ms" json:"end_time_ms"`
-	StepMs      *int64                           `form:"step_ms,omitempty" json:"step_ms,omitempty"`
-	Limit       *int32                           `form:"limit,omitempty" json:"limit,omitempty"`
-	Order       *externalRef0.PeerTelemetryOrder `form:"order,omitempty" json:"order,omitempty"`
-}
-
-// AggregateSideControlTelemetryParams defines parameters for AggregateSideControlTelemetry.
-type AggregateSideControlTelemetryParams struct {
-	Field       externalRef0.PeerTelemetryField     `form:"field" json:"field"`
-	StartTimeMs int64                               `form:"start_time_ms" json:"start_time_ms"`
-	EndTimeMs   int64                               `form:"end_time_ms" json:"end_time_ms"`
-	BucketMs    int64                               `form:"bucket_ms" json:"bucket_ms"`
-	Aggregate   externalRef0.PeerTelemetryAggregate `form:"aggregate" json:"aggregate"`
-}
-
-// GetSideControlTelemetryLatestParams defines parameters for GetSideControlTelemetryLatest.
-type GetSideControlTelemetryLatestParams struct {
-	// Fields Comma-separated telemetry field names. Omitted means all supported fields.
-	Fields *string `form:"fields,omitempty" json:"fields,omitempty"`
 }
 
 // CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
@@ -184,17 +102,8 @@ type CreateGiznetWebRTCOfferParams struct {
 	XGiznetNonce string `json:"X-Giznet-Nonce"`
 }
 
-// LoginJSONRequestBody defines body for Login for application/json ContentType.
-type LoginJSONRequestBody = LoginRequest
-
-// PutMeStatusJSONRequestBody defines body for PutMeStatus for application/json ContentType.
-type PutMeStatusJSONRequestBody = externalRef0.PeerStatus
-
-// CreateSideControlContactJSONRequestBody defines body for CreateSideControlContact for application/json ContentType.
-type CreateSideControlContactJSONRequestBody = externalRef1.ContactCreateRequest
-
-// PutSideControlContactJSONRequestBody defines body for PutSideControlContact for application/json ContentType.
-type PutSideControlContactJSONRequestBody = SideControlContactPutRequest
+// CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
+type CreateAPIKeyJSONRequestBody = APIKeyCreateRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -269,86 +178,35 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// Login request without the optional body
-	Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListAPIKeys request
+	ListAPIKeys(ctx context.Context, params *ListAPIKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// LoginWithBody request with any body
-	LoginWithBody(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateAPIKeyWithBody request with any body
+	CreateAPIKeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	LoginWithJSONBody(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateAPIKey(ctx context.Context, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetMe request
-	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RevokeSelfAPIKey request
+	RevokeSelfAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetMeRuntime request
-	GetMeRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetSelfAPIKey request
+	GetSelfAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateSideControlDeviceToken request
-	CreateSideControlDeviceToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RevokeAPIKey request
+	RevokeAPIKey(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RevokeSideControlDeviceToken request
-	RevokeSideControlDeviceToken(ctx context.Context, tokenId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListSideControlSessions request
-	ListSideControlSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RevokeSideControlSession request
-	RevokeSideControlSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetMeStatus request
-	GetMeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutMeStatusWithBody request with any body
-	PutMeStatusWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutMeStatus(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetAPIKey request
+	GetAPIKey(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetServerInfo request
 	GetServerInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListSideControlContacts request
-	ListSideControlContacts(ctx context.Context, params *ListSideControlContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateSideControlContactWithBody request with any body
-	CreateSideControlContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateSideControlContact(ctx context.Context, body CreateSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteSideControlContact request
-	DeleteSideControlContact(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetSideControlContact request
-	GetSideControlContact(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PutSideControlContactWithBody request with any body
-	PutSideControlContactWithBody(ctx context.Context, contactId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PutSideControlContact(ctx context.Context, contactId string, body PutSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetSideControlInfo request
-	GetSideControlInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetSideControlRuntime request
-	GetSideControlRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetSideControlStatus request
-	GetSideControlStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// QuerySideControlTelemetry request
-	QuerySideControlTelemetry(ctx context.Context, params *QuerySideControlTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// AggregateSideControlTelemetry request
-	AggregateSideControlTelemetry(ctx context.Context, params *AggregateSideControlTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetSideControlTelemetryLatest request
-	GetSideControlTelemetryLatest(ctx context.Context, params *GetSideControlTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateGiznetWebRTCOfferWithBody request with any body
 	CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) Login(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLoginRequest(c.Server, params)
+func (c *Client) ListAPIKeys(ctx context.Context, params *ListAPIKeysParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAPIKeysRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +217,8 @@ func (c *Client) Login(ctx context.Context, params *LoginParams, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) LoginWithBody(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLoginRequestWithBody(c.Server, params, contentType, body)
+func (c *Client) CreateAPIKeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAPIKeyRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -371,8 +229,8 @@ func (c *Client) LoginWithBody(ctx context.Context, params *LoginParams, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) LoginWithJSONBody(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewLoginRequestWithJSONBody(c.Server, params, body)
+func (c *Client) CreateAPIKey(ctx context.Context, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAPIKeyRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -383,8 +241,8 @@ func (c *Client) LoginWithJSONBody(ctx context.Context, params *LoginParams, bod
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetMeRequest(c.Server)
+func (c *Client) RevokeSelfAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeSelfAPIKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -395,8 +253,8 @@ func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*htt
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetMeRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetMeRuntimeRequest(c.Server)
+func (c *Client) GetSelfAPIKey(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSelfAPIKeyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -407,8 +265,8 @@ func (c *Client) GetMeRuntime(ctx context.Context, reqEditors ...RequestEditorFn
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateSideControlDeviceToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateSideControlDeviceTokenRequest(c.Server)
+func (c *Client) RevokeAPIKey(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeAPIKeyRequest(c.Server, apiKeyName)
 	if err != nil {
 		return nil, err
 	}
@@ -419,68 +277,8 @@ func (c *Client) CreateSideControlDeviceToken(ctx context.Context, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) RevokeSideControlDeviceToken(ctx context.Context, tokenId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRevokeSideControlDeviceTokenRequest(c.Server, tokenId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListSideControlSessions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSideControlSessionsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RevokeSideControlSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRevokeSideControlSessionRequest(c.Server, sessionId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetMeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetMeStatusRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutMeStatusWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutMeStatusRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutMeStatus(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutMeStatusRequest(c.Server, body)
+func (c *Client) GetAPIKey(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAPIKeyRequest(c.Server, apiKeyName)
 	if err != nil {
 		return nil, err
 	}
@@ -503,162 +301,6 @@ func (c *Client) GetServerInfo(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListSideControlContacts(ctx context.Context, params *ListSideControlContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSideControlContactsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateSideControlContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateSideControlContactRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateSideControlContact(ctx context.Context, body CreateSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateSideControlContactRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteSideControlContact(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteSideControlContactRequest(c.Server, contactId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetSideControlContact(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSideControlContactRequest(c.Server, contactId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutSideControlContactWithBody(ctx context.Context, contactId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutSideControlContactRequestWithBody(c.Server, contactId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PutSideControlContact(ctx context.Context, contactId string, body PutSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutSideControlContactRequest(c.Server, contactId, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetSideControlInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSideControlInfoRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetSideControlRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSideControlRuntimeRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetSideControlStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSideControlStatusRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) QuerySideControlTelemetry(ctx context.Context, params *QuerySideControlTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQuerySideControlTelemetryRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) AggregateSideControlTelemetry(ctx context.Context, params *AggregateSideControlTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAggregateSideControlTelemetryRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetSideControlTelemetryLatest(ctx context.Context, params *GetSideControlTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSideControlTelemetryLatestRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateGiznetWebRTCOfferRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -671,29 +313,8 @@ func (c *Client) CreateGiznetWebRTCOfferWithBody(ctx context.Context, params *Cr
 	return c.Client.Do(req)
 }
 
-// NewLoginRequest generates a request without the optional body.
-func NewLoginRequest(server string, params *LoginParams) (*http.Request, error) {
-	req, err := NewLoginRequestWithBody(server, params, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Del("Content-Type")
-	return req, nil
-}
-
-// NewLoginRequestWithJSONBody calls the generic Login builder with application/json body
-func NewLoginRequestWithJSONBody(server string, params *LoginParams, body LoginJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewLoginRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewLoginRequestWithBody generates requests for Login with any type of body
-func NewLoginRequestWithBody(server string, params *LoginParams, contentType string, body io.Reader) (*http.Request, error) {
+// NewListAPIKeysRequest generates requests for ListAPIKeys
+func NewListAPIKeysRequest(server string, params *ListAPIKeysParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -701,339 +322,7 @@ func NewLoginRequestWithBody(server string, params *LoginParams, contentType str
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/login")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	if params != nil {
-
-		var headerParam0 string
-
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Public-Key", params.XPublicKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
-		}
-
-		req.Header.Set("X-Public-Key", headerParam0)
-
-		var headerParam1 string
-
-		headerParam1, err = runtime.StyleParamWithOptions("simple", false, "Authorization", params.Authorization, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
-		}
-
-		req.Header.Set("Authorization", headerParam1)
-
-		if params.XRegistrationToken != nil {
-			var headerParam2 string
-
-			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "X-Registration-Token", *params.XRegistrationToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("X-Registration-Token", headerParam2)
-		}
-
-	}
-
-	return req, nil
-}
-
-// NewGetMeRequest generates requests for GetMe
-func NewGetMeRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetMeRuntimeRequest generates requests for GetMeRuntime
-func NewGetMeRuntimeRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/runtime")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateSideControlDeviceTokenRequest generates requests for CreateSideControlDeviceToken
-func NewCreateSideControlDeviceTokenRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/side-control/device-tokens")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewRevokeSideControlDeviceTokenRequest generates requests for RevokeSideControlDeviceToken
-func NewRevokeSideControlDeviceTokenRequest(server string, tokenId string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "tokenId", tokenId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/side-control/device-tokens/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewListSideControlSessionsRequest generates requests for ListSideControlSessions
-func NewListSideControlSessionsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/side-control/sessions")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewRevokeSideControlSessionRequest generates requests for RevokeSideControlSession
-func NewRevokeSideControlSessionRequest(server string, sessionId string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sessionId", sessionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/side-control/sessions/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetMeStatusRequest generates requests for GetMeStatus
-func NewGetMeStatusRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/status")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPutMeStatusRequest calls the generic PutMeStatus builder with application/json body
-func NewPutMeStatusRequest(server string, body PutMeStatusJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutMeStatusRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewPutMeStatusRequestWithBody generates requests for PutMeStatus with any type of body
-func NewPutMeStatusRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/me/status")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetServerInfoRequest generates requests for GetServerInfo
-func NewGetServerInfoRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/server-info")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewListSideControlContactsRequest generates requests for ListSideControlContacts
-func NewListSideControlContactsRequest(server string, params *ListSideControlContactsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/side-control/contacts")
+	operationPath := fmt.Sprintf("/gizclaw/v1/api-keys")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1090,19 +379,19 @@ func NewListSideControlContactsRequest(server string, params *ListSideControlCon
 	return req, nil
 }
 
-// NewCreateSideControlContactRequest calls the generic CreateSideControlContact builder with application/json body
-func NewCreateSideControlContactRequest(server string, body CreateSideControlContactJSONRequestBody) (*http.Request, error) {
+// NewCreateAPIKeyRequest calls the generic CreateAPIKey builder with application/json body
+func NewCreateAPIKeyRequest(server string, body CreateAPIKeyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateSideControlContactRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateAPIKeyRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewCreateSideControlContactRequestWithBody generates requests for CreateSideControlContact with any type of body
-func NewCreateSideControlContactRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateAPIKeyRequestWithBody generates requests for CreateAPIKey with any type of body
+func NewCreateAPIKeyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1110,7 +399,7 @@ func NewCreateSideControlContactRequestWithBody(server string, contentType strin
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/side-control/contacts")
+	operationPath := fmt.Sprintf("/gizclaw/v1/api-keys")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1130,23 +419,16 @@ func NewCreateSideControlContactRequestWithBody(server string, contentType strin
 	return req, nil
 }
 
-// NewDeleteSideControlContactRequest generates requests for DeleteSideControlContact
-func NewDeleteSideControlContactRequest(server string, contactId string) (*http.Request, error) {
+// NewRevokeSelfAPIKeyRequest generates requests for RevokeSelfAPIKey
+func NewRevokeSelfAPIKeyRequest(server string) (*http.Request, error) {
 	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "contactId", contactId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/side-control/contacts/%s", pathParam0)
+	operationPath := fmt.Sprintf("/gizclaw/v1/api-keys/self")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1164,13 +446,40 @@ func NewDeleteSideControlContactRequest(server string, contactId string) (*http.
 	return req, nil
 }
 
-// NewGetSideControlContactRequest generates requests for GetSideControlContact
-func NewGetSideControlContactRequest(server string, contactId string) (*http.Request, error) {
+// NewGetSelfAPIKeyRequest generates requests for GetSelfAPIKey
+func NewGetSelfAPIKeyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/api-keys/self")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRevokeAPIKeyRequest generates requests for RevokeAPIKey
+func NewRevokeAPIKeyRequest(server string, apiKeyName string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "contactId", contactId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "apiKeyName", apiKeyName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -1180,7 +489,7 @@ func NewGetSideControlContactRequest(server string, contactId string) (*http.Req
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/side-control/contacts/%s", pathParam0)
+	operationPath := fmt.Sprintf("/gizclaw/v1/api-keys/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1190,7 +499,7 @@ func NewGetSideControlContactRequest(server string, contactId string) (*http.Req
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1198,24 +507,13 @@ func NewGetSideControlContactRequest(server string, contactId string) (*http.Req
 	return req, nil
 }
 
-// NewPutSideControlContactRequest calls the generic PutSideControlContact builder with application/json body
-func NewPutSideControlContactRequest(server string, contactId string, body PutSideControlContactJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPutSideControlContactRequestWithBody(server, contactId, "application/json", bodyReader)
-}
-
-// NewPutSideControlContactRequestWithBody generates requests for PutSideControlContact with any type of body
-func NewPutSideControlContactRequestWithBody(server string, contactId string, contentType string, body io.Reader) (*http.Request, error) {
+// NewGetAPIKeyRequest generates requests for GetAPIKey
+func NewGetAPIKeyRequest(server string, apiKeyName string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "contactId", contactId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "apiKeyName", apiKeyName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -1225,36 +523,7 @@ func NewPutSideControlContactRequestWithBody(server string, contactId string, co
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/side-control/contacts/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetSideControlInfoRequest generates requests for GetSideControlInfo
-func NewGetSideControlInfoRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/side-control/info")
+	operationPath := fmt.Sprintf("/gizclaw/v1/api-keys/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1272,8 +541,8 @@ func NewGetSideControlInfoRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewGetSideControlRuntimeRequest generates requests for GetSideControlRuntime
-func NewGetSideControlRuntimeRequest(server string) (*http.Request, error) {
+// NewGetServerInfoRequest generates requests for GetServerInfo
+func NewGetServerInfoRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1281,7 +550,7 @@ func NewGetSideControlRuntimeRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/side-control/runtime")
+	operationPath := fmt.Sprintf("/server-info")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1289,271 +558,6 @@ func NewGetSideControlRuntimeRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetSideControlStatusRequest generates requests for GetSideControlStatus
-func NewGetSideControlStatusRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/side-control/status")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewQuerySideControlTelemetryRequest generates requests for QuerySideControlTelemetry
-func NewQuerySideControlTelemetryRequest(server string, params *QuerySideControlTelemetryParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/side-control/telemetry")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "field", params.Field, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if params.StepMs != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "step_ms", *params.StepMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if params.Order != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewAggregateSideControlTelemetryRequest generates requests for AggregateSideControlTelemetry
-func NewAggregateSideControlTelemetryRequest(server string, params *AggregateSideControlTelemetryParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/side-control/telemetry/aggregate")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "field", params.Field, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "bucket_ms", params.BucketMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate", params.Aggregate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else {
-			for _, qp := range strings.Split(queryFrag, "&") {
-				rawQueryFragments = append(rawQueryFragments, qp)
-			}
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetSideControlTelemetryLatestRequest generates requests for GetSideControlTelemetryLatest
-func NewGetSideControlTelemetryLatestRequest(server string, params *GetSideControlTelemetryLatestParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/side-control/telemetry/latest")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		// queryValues collects non-styled parameters (passthrough, JSON)
-		// that are safe to round-trip through url.Values.Encode().
-		queryValues := queryURL.Query()
-		// rawQueryFragments collects pre-encoded query fragments from
-		// styled parameters, preserving literal commas as delimiters
-		// per the OpenAPI spec (e.g. "color=blue,black,brown").
-		var rawQueryFragments []string
-
-		if params.Fields != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fields", *params.Fields, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else {
-				for _, qp := range strings.Split(queryFrag, "&") {
-					rawQueryFragments = append(rawQueryFragments, qp)
-				}
-			}
-
-		}
-
-		if encoded := queryValues.Encode(); encoded != "" {
-			rawQueryFragments = append(rawQueryFragments, encoded)
-		}
-		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -1667,189 +671,38 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// LoginWithResponse request without the optional body
-	LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+	// ListAPIKeysWithResponse request
+	ListAPIKeysWithResponse(ctx context.Context, params *ListAPIKeysParams, reqEditors ...RequestEditorFn) (*ListAPIKeysResponse, error)
 
-	// LoginWithBodyWithResponse request with any body
-	LoginWithBodyWithResponse(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+	// CreateAPIKeyWithBodyWithResponse request with any body
+	CreateAPIKeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error)
 
-	LoginWithJSONBodyWithResponse(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error)
+	CreateAPIKeyWithResponse(ctx context.Context, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error)
 
-	// GetMeWithResponse request
-	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
+	// RevokeSelfAPIKeyWithResponse request
+	RevokeSelfAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeSelfAPIKeyResponse, error)
 
-	// GetMeRuntimeWithResponse request
-	GetMeRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeRuntimeResponse, error)
+	// GetSelfAPIKeyWithResponse request
+	GetSelfAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSelfAPIKeyResponse, error)
 
-	// CreateSideControlDeviceTokenWithResponse request
-	CreateSideControlDeviceTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateSideControlDeviceTokenResponse, error)
+	// RevokeAPIKeyWithResponse request
+	RevokeAPIKeyWithResponse(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*RevokeAPIKeyResponse, error)
 
-	// RevokeSideControlDeviceTokenWithResponse request
-	RevokeSideControlDeviceTokenWithResponse(ctx context.Context, tokenId string, reqEditors ...RequestEditorFn) (*RevokeSideControlDeviceTokenResponse, error)
-
-	// ListSideControlSessionsWithResponse request
-	ListSideControlSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSideControlSessionsResponse, error)
-
-	// RevokeSideControlSessionWithResponse request
-	RevokeSideControlSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeSideControlSessionResponse, error)
-
-	// GetMeStatusWithResponse request
-	GetMeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeStatusResponse, error)
-
-	// PutMeStatusWithBodyWithResponse request with any body
-	PutMeStatusWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error)
-
-	PutMeStatusWithResponse(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error)
+	// GetAPIKeyWithResponse request
+	GetAPIKeyWithResponse(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*GetAPIKeyResponse, error)
 
 	// GetServerInfoWithResponse request
 	GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error)
-
-	// ListSideControlContactsWithResponse request
-	ListSideControlContactsWithResponse(ctx context.Context, params *ListSideControlContactsParams, reqEditors ...RequestEditorFn) (*ListSideControlContactsResponse, error)
-
-	// CreateSideControlContactWithBodyWithResponse request with any body
-	CreateSideControlContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSideControlContactResponse, error)
-
-	CreateSideControlContactWithResponse(ctx context.Context, body CreateSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSideControlContactResponse, error)
-
-	// DeleteSideControlContactWithResponse request
-	DeleteSideControlContactWithResponse(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*DeleteSideControlContactResponse, error)
-
-	// GetSideControlContactWithResponse request
-	GetSideControlContactWithResponse(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*GetSideControlContactResponse, error)
-
-	// PutSideControlContactWithBodyWithResponse request with any body
-	PutSideControlContactWithBodyWithResponse(ctx context.Context, contactId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutSideControlContactResponse, error)
-
-	PutSideControlContactWithResponse(ctx context.Context, contactId string, body PutSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutSideControlContactResponse, error)
-
-	// GetSideControlInfoWithResponse request
-	GetSideControlInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSideControlInfoResponse, error)
-
-	// GetSideControlRuntimeWithResponse request
-	GetSideControlRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSideControlRuntimeResponse, error)
-
-	// GetSideControlStatusWithResponse request
-	GetSideControlStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSideControlStatusResponse, error)
-
-	// QuerySideControlTelemetryWithResponse request
-	QuerySideControlTelemetryWithResponse(ctx context.Context, params *QuerySideControlTelemetryParams, reqEditors ...RequestEditorFn) (*QuerySideControlTelemetryResponse, error)
-
-	// AggregateSideControlTelemetryWithResponse request
-	AggregateSideControlTelemetryWithResponse(ctx context.Context, params *AggregateSideControlTelemetryParams, reqEditors ...RequestEditorFn) (*AggregateSideControlTelemetryResponse, error)
-
-	// GetSideControlTelemetryLatestWithResponse request
-	GetSideControlTelemetryLatestWithResponse(ctx context.Context, params *GetSideControlTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetSideControlTelemetryLatestResponse, error)
 
 	// CreateGiznetWebRTCOfferWithBodyWithResponse request with any body
 	CreateGiznetWebRTCOfferWithBodyWithResponse(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGiznetWebRTCOfferResponse, error)
 }
 
-type LoginResponse struct {
+type ListAPIKeysResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *LoginResult
+	JSON200      *APIKeyList
 	JSON400      *BadRequest
-	JSON401      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-}
-
-// Status returns HTTPResponse.Status
-func (r LoginResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r LoginResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r LoginResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetMeResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *PeerSelf
-	JSON401      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetMeResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetMeResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetMeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetMeRuntimeResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Runtime
-	JSON401      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetMeRuntimeResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetMeRuntimeResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetMeRuntimeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type CreateSideControlDeviceTokenResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *SideControlDeviceToken
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
@@ -1857,7 +710,7 @@ type CreateSideControlDeviceTokenResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateSideControlDeviceTokenResponse) Status() string {
+func (r ListAPIKeysResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1865,7 +718,7 @@ func (r CreateSideControlDeviceTokenResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateSideControlDeviceTokenResponse) StatusCode() int {
+func (r ListAPIKeysResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1873,51 +726,18 @@ func (r CreateSideControlDeviceTokenResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r CreateSideControlDeviceTokenResponse) ContentType() string {
+func (r ListAPIKeysResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type RevokeSideControlDeviceTokenResponse struct {
+type CreateAPIKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r RevokeSideControlDeviceTokenResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RevokeSideControlDeviceTokenResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RevokeSideControlDeviceTokenResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListSideControlSessionsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SideControlSessionList
+	JSON201      *APIKeyCreateResult
+	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
@@ -1925,7 +745,7 @@ type ListSideControlSessionsResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListSideControlSessionsResponse) Status() string {
+func (r CreateAPIKeyResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1933,7 +753,7 @@ func (r ListSideControlSessionsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListSideControlSessionsResponse) StatusCode() int {
+func (r CreateAPIKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1941,14 +761,81 @@ func (r ListSideControlSessionsResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListSideControlSessionsResponse) ContentType() string {
+func (r CreateAPIKeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type RevokeSideControlSessionResponse struct {
+type RevokeSelfAPIKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeSelfAPIKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeSelfAPIKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeSelfAPIKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetSelfAPIKeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *APIKey
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSelfAPIKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSelfAPIKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetSelfAPIKeyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeAPIKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *Unauthorized
@@ -1959,7 +846,7 @@ type RevokeSideControlSessionResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RevokeSideControlSessionResponse) Status() string {
+func (r RevokeAPIKeyResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1967,7 +854,7 @@ func (r RevokeSideControlSessionResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RevokeSideControlSessionResponse) StatusCode() int {
+func (r RevokeAPIKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1975,25 +862,26 @@ func (r RevokeSideControlSessionResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RevokeSideControlSessionResponse) ContentType() string {
+func (r RevokeAPIKeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type GetMeStatusResponse struct {
+type GetAPIKeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef0.PeerStatus
-	JSON401      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
+	JSON200      *APIKey
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
 	JSON409      *Conflict
-	JSON500      *externalRef0.ErrorResponse
+	JSON500      *InternalError
 }
 
 // Status returns HTTPResponse.Status
-func (r GetMeStatusResponse) Status() string {
+func (r GetAPIKeyResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -2001,7 +889,7 @@ func (r GetMeStatusResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetMeStatusResponse) StatusCode() int {
+func (r GetAPIKeyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2009,42 +897,7 @@ func (r GetMeStatusResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetMeStatusResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PutMeStatusResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.PeerStatus
-	JSON400      *externalRef0.ErrorResponse
-	JSON401      *externalRef0.ErrorResponse
-	JSON404      *externalRef0.ErrorResponse
-	JSON409      *Conflict
-	JSON500      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r PutMeStatusResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutMeStatusResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PutMeStatusResponse) ContentType() string {
+func (r GetAPIKeyResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2055,7 +908,7 @@ type GetServerInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.ServerInfo
-	JSON400      *externalRef0.ErrorResponse
+	JSON400      *BadRequest
 }
 
 // Status returns HTTPResponse.Status
@@ -2076,392 +929,6 @@ func (r GetServerInfoResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetServerInfoResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListSideControlContactsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef1.ContactListResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListSideControlContactsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListSideControlContactsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListSideControlContactsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type CreateSideControlContactResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *externalRef1.ContactObject
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateSideControlContactResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateSideControlContactResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r CreateSideControlContactResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type DeleteSideControlContactResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef1.ContactObject
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteSideControlContactResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteSideControlContactResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r DeleteSideControlContactResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetSideControlContactResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef1.ContactObject
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSideControlContactResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSideControlContactResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetSideControlContactResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type PutSideControlContactResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef1.ContactObject
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r PutSideControlContactResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PutSideControlContactResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r PutSideControlContactResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetSideControlInfoResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.DeviceInfo
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSideControlInfoResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSideControlInfoResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetSideControlInfoResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetSideControlRuntimeResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.Runtime
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSideControlRuntimeResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSideControlRuntimeResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetSideControlRuntimeResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetSideControlStatusResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.PeerStatus
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSideControlStatusResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSideControlStatusResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetSideControlStatusResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type QuerySideControlTelemetryResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.PeerTelemetryRangeResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r QuerySideControlTelemetryResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r QuerySideControlTelemetryResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r QuerySideControlTelemetryResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type AggregateSideControlTelemetryResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.PeerTelemetryAggregateResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r AggregateSideControlTelemetryResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r AggregateSideControlTelemetryResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r AggregateSideControlTelemetryResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type GetSideControlTelemetryLatestResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *externalRef0.PeerTelemetryLatestResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetSideControlTelemetryLatestResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetSideControlTelemetryLatestResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetSideControlTelemetryLatestResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2505,110 +972,66 @@ func (r CreateGiznetWebRTCOfferResponse) ContentType() string {
 	return ""
 }
 
-// LoginWithResponse request without the optional body returning *LoginResponse
-func (c *ClientWithResponses) LoginWithResponse(ctx context.Context, params *LoginParams, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
-	rsp, err := c.Login(ctx, params, reqEditors...)
+// ListAPIKeysWithResponse request returning *ListAPIKeysResponse
+func (c *ClientWithResponses) ListAPIKeysWithResponse(ctx context.Context, params *ListAPIKeysParams, reqEditors ...RequestEditorFn) (*ListAPIKeysResponse, error) {
+	rsp, err := c.ListAPIKeys(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseLoginResponse(rsp)
+	return ParseListAPIKeysResponse(rsp)
 }
 
-// LoginWithBodyWithResponse request with arbitrary body returning *LoginResponse
-func (c *ClientWithResponses) LoginWithBodyWithResponse(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
-	rsp, err := c.LoginWithBody(ctx, params, contentType, body, reqEditors...)
+// CreateAPIKeyWithBodyWithResponse request with arbitrary body returning *CreateAPIKeyResponse
+func (c *ClientWithResponses) CreateAPIKeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error) {
+	rsp, err := c.CreateAPIKeyWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseLoginResponse(rsp)
+	return ParseCreateAPIKeyResponse(rsp)
 }
 
-func (c *ClientWithResponses) LoginWithJSONBodyWithResponse(ctx context.Context, params *LoginParams, body LoginJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginResponse, error) {
-	rsp, err := c.LoginWithJSONBody(ctx, params, body, reqEditors...)
+func (c *ClientWithResponses) CreateAPIKeyWithResponse(ctx context.Context, body CreateAPIKeyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAPIKeyResponse, error) {
+	rsp, err := c.CreateAPIKey(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseLoginResponse(rsp)
+	return ParseCreateAPIKeyResponse(rsp)
 }
 
-// GetMeWithResponse request returning *GetMeResponse
-func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error) {
-	rsp, err := c.GetMe(ctx, reqEditors...)
+// RevokeSelfAPIKeyWithResponse request returning *RevokeSelfAPIKeyResponse
+func (c *ClientWithResponses) RevokeSelfAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RevokeSelfAPIKeyResponse, error) {
+	rsp, err := c.RevokeSelfAPIKey(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetMeResponse(rsp)
+	return ParseRevokeSelfAPIKeyResponse(rsp)
 }
 
-// GetMeRuntimeWithResponse request returning *GetMeRuntimeResponse
-func (c *ClientWithResponses) GetMeRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeRuntimeResponse, error) {
-	rsp, err := c.GetMeRuntime(ctx, reqEditors...)
+// GetSelfAPIKeyWithResponse request returning *GetSelfAPIKeyResponse
+func (c *ClientWithResponses) GetSelfAPIKeyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSelfAPIKeyResponse, error) {
+	rsp, err := c.GetSelfAPIKey(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetMeRuntimeResponse(rsp)
+	return ParseGetSelfAPIKeyResponse(rsp)
 }
 
-// CreateSideControlDeviceTokenWithResponse request returning *CreateSideControlDeviceTokenResponse
-func (c *ClientWithResponses) CreateSideControlDeviceTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateSideControlDeviceTokenResponse, error) {
-	rsp, err := c.CreateSideControlDeviceToken(ctx, reqEditors...)
+// RevokeAPIKeyWithResponse request returning *RevokeAPIKeyResponse
+func (c *ClientWithResponses) RevokeAPIKeyWithResponse(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*RevokeAPIKeyResponse, error) {
+	rsp, err := c.RevokeAPIKey(ctx, apiKeyName, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateSideControlDeviceTokenResponse(rsp)
+	return ParseRevokeAPIKeyResponse(rsp)
 }
 
-// RevokeSideControlDeviceTokenWithResponse request returning *RevokeSideControlDeviceTokenResponse
-func (c *ClientWithResponses) RevokeSideControlDeviceTokenWithResponse(ctx context.Context, tokenId string, reqEditors ...RequestEditorFn) (*RevokeSideControlDeviceTokenResponse, error) {
-	rsp, err := c.RevokeSideControlDeviceToken(ctx, tokenId, reqEditors...)
+// GetAPIKeyWithResponse request returning *GetAPIKeyResponse
+func (c *ClientWithResponses) GetAPIKeyWithResponse(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*GetAPIKeyResponse, error) {
+	rsp, err := c.GetAPIKey(ctx, apiKeyName, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRevokeSideControlDeviceTokenResponse(rsp)
-}
-
-// ListSideControlSessionsWithResponse request returning *ListSideControlSessionsResponse
-func (c *ClientWithResponses) ListSideControlSessionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSideControlSessionsResponse, error) {
-	rsp, err := c.ListSideControlSessions(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListSideControlSessionsResponse(rsp)
-}
-
-// RevokeSideControlSessionWithResponse request returning *RevokeSideControlSessionResponse
-func (c *ClientWithResponses) RevokeSideControlSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*RevokeSideControlSessionResponse, error) {
-	rsp, err := c.RevokeSideControlSession(ctx, sessionId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRevokeSideControlSessionResponse(rsp)
-}
-
-// GetMeStatusWithResponse request returning *GetMeStatusResponse
-func (c *ClientWithResponses) GetMeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeStatusResponse, error) {
-	rsp, err := c.GetMeStatus(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetMeStatusResponse(rsp)
-}
-
-// PutMeStatusWithBodyWithResponse request with arbitrary body returning *PutMeStatusResponse
-func (c *ClientWithResponses) PutMeStatusWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error) {
-	rsp, err := c.PutMeStatusWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutMeStatusResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutMeStatusWithResponse(ctx context.Context, body PutMeStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PutMeStatusResponse, error) {
-	rsp, err := c.PutMeStatus(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutMeStatusResponse(rsp)
+	return ParseGetAPIKeyResponse(rsp)
 }
 
 // GetServerInfoWithResponse request returning *GetServerInfoResponse
@@ -2620,121 +1043,6 @@ func (c *ClientWithResponses) GetServerInfoWithResponse(ctx context.Context, req
 	return ParseGetServerInfoResponse(rsp)
 }
 
-// ListSideControlContactsWithResponse request returning *ListSideControlContactsResponse
-func (c *ClientWithResponses) ListSideControlContactsWithResponse(ctx context.Context, params *ListSideControlContactsParams, reqEditors ...RequestEditorFn) (*ListSideControlContactsResponse, error) {
-	rsp, err := c.ListSideControlContacts(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListSideControlContactsResponse(rsp)
-}
-
-// CreateSideControlContactWithBodyWithResponse request with arbitrary body returning *CreateSideControlContactResponse
-func (c *ClientWithResponses) CreateSideControlContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSideControlContactResponse, error) {
-	rsp, err := c.CreateSideControlContactWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateSideControlContactResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateSideControlContactWithResponse(ctx context.Context, body CreateSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSideControlContactResponse, error) {
-	rsp, err := c.CreateSideControlContact(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateSideControlContactResponse(rsp)
-}
-
-// DeleteSideControlContactWithResponse request returning *DeleteSideControlContactResponse
-func (c *ClientWithResponses) DeleteSideControlContactWithResponse(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*DeleteSideControlContactResponse, error) {
-	rsp, err := c.DeleteSideControlContact(ctx, contactId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteSideControlContactResponse(rsp)
-}
-
-// GetSideControlContactWithResponse request returning *GetSideControlContactResponse
-func (c *ClientWithResponses) GetSideControlContactWithResponse(ctx context.Context, contactId string, reqEditors ...RequestEditorFn) (*GetSideControlContactResponse, error) {
-	rsp, err := c.GetSideControlContact(ctx, contactId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetSideControlContactResponse(rsp)
-}
-
-// PutSideControlContactWithBodyWithResponse request with arbitrary body returning *PutSideControlContactResponse
-func (c *ClientWithResponses) PutSideControlContactWithBodyWithResponse(ctx context.Context, contactId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutSideControlContactResponse, error) {
-	rsp, err := c.PutSideControlContactWithBody(ctx, contactId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutSideControlContactResponse(rsp)
-}
-
-func (c *ClientWithResponses) PutSideControlContactWithResponse(ctx context.Context, contactId string, body PutSideControlContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutSideControlContactResponse, error) {
-	rsp, err := c.PutSideControlContact(ctx, contactId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePutSideControlContactResponse(rsp)
-}
-
-// GetSideControlInfoWithResponse request returning *GetSideControlInfoResponse
-func (c *ClientWithResponses) GetSideControlInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSideControlInfoResponse, error) {
-	rsp, err := c.GetSideControlInfo(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetSideControlInfoResponse(rsp)
-}
-
-// GetSideControlRuntimeWithResponse request returning *GetSideControlRuntimeResponse
-func (c *ClientWithResponses) GetSideControlRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSideControlRuntimeResponse, error) {
-	rsp, err := c.GetSideControlRuntime(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetSideControlRuntimeResponse(rsp)
-}
-
-// GetSideControlStatusWithResponse request returning *GetSideControlStatusResponse
-func (c *ClientWithResponses) GetSideControlStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetSideControlStatusResponse, error) {
-	rsp, err := c.GetSideControlStatus(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetSideControlStatusResponse(rsp)
-}
-
-// QuerySideControlTelemetryWithResponse request returning *QuerySideControlTelemetryResponse
-func (c *ClientWithResponses) QuerySideControlTelemetryWithResponse(ctx context.Context, params *QuerySideControlTelemetryParams, reqEditors ...RequestEditorFn) (*QuerySideControlTelemetryResponse, error) {
-	rsp, err := c.QuerySideControlTelemetry(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseQuerySideControlTelemetryResponse(rsp)
-}
-
-// AggregateSideControlTelemetryWithResponse request returning *AggregateSideControlTelemetryResponse
-func (c *ClientWithResponses) AggregateSideControlTelemetryWithResponse(ctx context.Context, params *AggregateSideControlTelemetryParams, reqEditors ...RequestEditorFn) (*AggregateSideControlTelemetryResponse, error) {
-	rsp, err := c.AggregateSideControlTelemetry(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseAggregateSideControlTelemetryResponse(rsp)
-}
-
-// GetSideControlTelemetryLatestWithResponse request returning *GetSideControlTelemetryLatestResponse
-func (c *ClientWithResponses) GetSideControlTelemetryLatestWithResponse(ctx context.Context, params *GetSideControlTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetSideControlTelemetryLatestResponse, error) {
-	rsp, err := c.GetSideControlTelemetryLatest(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetSideControlTelemetryLatestResponse(rsp)
-}
-
 // CreateGiznetWebRTCOfferWithBodyWithResponse request with arbitrary body returning *CreateGiznetWebRTCOfferResponse
 func (c *ClientWithResponses) CreateGiznetWebRTCOfferWithBodyWithResponse(ctx context.Context, params *CreateGiznetWebRTCOfferParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGiznetWebRTCOfferResponse, error) {
 	rsp, err := c.CreateGiznetWebRTCOfferWithBody(ctx, params, contentType, body, reqEditors...)
@@ -2744,22 +1052,22 @@ func (c *ClientWithResponses) CreateGiznetWebRTCOfferWithBodyWithResponse(ctx co
 	return ParseCreateGiznetWebRTCOfferResponse(rsp)
 }
 
-// ParseLoginResponse parses an HTTP response from a LoginWithResponse call
-func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
+// ParseListAPIKeysResponse parses an HTTP response from a ListAPIKeysWithResponse call
+func ParseListAPIKeysResponse(rsp *http.Response) (*ListAPIKeysResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &LoginResponse{
+	response := &ListAPIKeysResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest LoginResult
+		var dest APIKeyList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2773,58 +1081,18 @@ func ParseLoginResponse(rsp *http.Response) (*LoginResponse, error) {
 		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest externalRef0.ErrorResponse
+		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON409 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetMeResponse parses an HTTP response from a GetMeWithResponse call
-func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetMeResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PeerSelf
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest Conflict
@@ -2834,7 +1102,7 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
+		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2845,367 +1113,198 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	return response, nil
 }
 
-// ParseGetMeRuntimeResponse parses an HTTP response from a GetMeRuntimeWithResponse call
-func ParseGetMeRuntimeResponse(rsp *http.Response) (*GetMeRuntimeResponse, error) {
+// ParseCreateAPIKeyResponse parses an HTTP response from a CreateAPIKeyWithResponse call
+func ParseCreateAPIKeyResponse(rsp *http.Response) (*CreateAPIKeyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetMeRuntimeResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Runtime
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateSideControlDeviceTokenResponse parses an HTTP response from a CreateSideControlDeviceTokenWithResponse call
-func ParseCreateSideControlDeviceTokenResponse(rsp *http.Response) (*CreateSideControlDeviceTokenResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateSideControlDeviceTokenResponse{
+	response := &CreateAPIKeyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest SideControlDeviceToken
+		var dest APIKeyCreateResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON201 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRevokeSideControlDeviceTokenResponse parses an HTTP response from a RevokeSideControlDeviceTokenWithResponse call
-func ParseRevokeSideControlDeviceTokenResponse(rsp *http.Response) (*RevokeSideControlDeviceTokenResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RevokeSideControlDeviceTokenResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListSideControlSessionsResponse parses an HTTP response from a ListSideControlSessionsWithResponse call
-func ParseListSideControlSessionsResponse(rsp *http.Response) (*ListSideControlSessionsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListSideControlSessionsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SideControlSessionList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRevokeSideControlSessionResponse parses an HTTP response from a RevokeSideControlSessionWithResponse call
-func ParseRevokeSideControlSessionResponse(rsp *http.Response) (*RevokeSideControlSessionResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RevokeSideControlSessionResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetMeStatusResponse parses an HTTP response from a GetMeStatusWithResponse call
-func ParseGetMeStatusResponse(rsp *http.Response) (*GetMeStatusResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetMeStatusResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.PeerStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutMeStatusResponse parses an HTTP response from a PutMeStatusWithResponse call
-func ParsePutMeStatusResponse(rsp *http.Response) (*PutMeStatusResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutMeStatusResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.PeerStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
+		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest externalRef0.ErrorResponse
+		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeSelfAPIKeyResponse parses an HTTP response from a RevokeSelfAPIKeyWithResponse call
+func ParseRevokeSelfAPIKeyResponse(rsp *http.Response) (*RevokeSelfAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeSelfAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSelfAPIKeyResponse parses an HTTP response from a GetSelfAPIKeyWithResponse call
+func ParseGetSelfAPIKeyResponse(rsp *http.Response) (*GetSelfAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSelfAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest APIKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeAPIKeyResponse parses an HTTP response from a RevokeAPIKeyWithResponse call
+func ParseRevokeAPIKeyResponse(rsp *http.Response) (*RevokeAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
+		var dest NotFound
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3219,7 +1318,68 @@ func ParsePutMeStatusResponse(rsp *http.Response) (*PutMeStatusResponse, error) 
 		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.ErrorResponse
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAPIKeyResponse parses an HTTP response from a GetAPIKeyWithResponse call
+func ParseGetAPIKeyResponse(rsp *http.Response) (*GetAPIKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAPIKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest APIKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3252,689 +1412,11 @@ func ParseGetServerInfoResponse(rsp *http.Response) (*GetServerInfoResponse, err
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListSideControlContactsResponse parses an HTTP response from a ListSideControlContactsWithResponse call
-func ParseListSideControlContactsResponse(rsp *http.Response) (*ListSideControlContactsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListSideControlContactsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ContactListResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateSideControlContactResponse parses an HTTP response from a CreateSideControlContactWithResponse call
-func ParseCreateSideControlContactResponse(rsp *http.Response) (*CreateSideControlContactResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateSideControlContactResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest externalRef1.ContactObject
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteSideControlContactResponse parses an HTTP response from a DeleteSideControlContactWithResponse call
-func ParseDeleteSideControlContactResponse(rsp *http.Response) (*DeleteSideControlContactResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteSideControlContactResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ContactObject
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetSideControlContactResponse parses an HTTP response from a GetSideControlContactWithResponse call
-func ParseGetSideControlContactResponse(rsp *http.Response) (*GetSideControlContactResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSideControlContactResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ContactObject
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePutSideControlContactResponse parses an HTTP response from a PutSideControlContactWithResponse call
-func ParsePutSideControlContactResponse(rsp *http.Response) (*PutSideControlContactResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PutSideControlContactResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ContactObject
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetSideControlInfoResponse parses an HTTP response from a GetSideControlInfoWithResponse call
-func ParseGetSideControlInfoResponse(rsp *http.Response) (*GetSideControlInfoResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSideControlInfoResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.DeviceInfo
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetSideControlRuntimeResponse parses an HTTP response from a GetSideControlRuntimeWithResponse call
-func ParseGetSideControlRuntimeResponse(rsp *http.Response) (*GetSideControlRuntimeResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSideControlRuntimeResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.Runtime
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetSideControlStatusResponse parses an HTTP response from a GetSideControlStatusWithResponse call
-func ParseGetSideControlStatusResponse(rsp *http.Response) (*GetSideControlStatusResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSideControlStatusResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.PeerStatus
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseQuerySideControlTelemetryResponse parses an HTTP response from a QuerySideControlTelemetryWithResponse call
-func ParseQuerySideControlTelemetryResponse(rsp *http.Response) (*QuerySideControlTelemetryResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &QuerySideControlTelemetryResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.PeerTelemetryRangeResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseAggregateSideControlTelemetryResponse parses an HTTP response from a AggregateSideControlTelemetryWithResponse call
-func ParseAggregateSideControlTelemetryResponse(rsp *http.Response) (*AggregateSideControlTelemetryResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &AggregateSideControlTelemetryResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.PeerTelemetryAggregateResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetSideControlTelemetryLatestResponse parses an HTTP response from a GetSideControlTelemetryLatestWithResponse call
-func ParseGetSideControlTelemetryLatestResponse(rsp *http.Response) (*GetSideControlTelemetryLatestResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetSideControlTelemetryLatestResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef0.PeerTelemetryLatestResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
 
 	}
 
@@ -4018,69 +1500,27 @@ func ParseCreateGiznetWebRTCOfferResponse(rsp *http.Response) (*CreateGiznetWebR
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Exchange a device assertion for a bearer session
-	// (POST /login)
-	Login(c *fiber.Ctx, params LoginParams) error
-	// Get caller peer summary
-	// (GET /me)
-	GetMe(c *fiber.Ctx) error
-	// Get caller peer runtime
-	// (GET /me/runtime)
-	GetMeRuntime(c *fiber.Ctx) error
-	// Create a single-use side-control device token
-	// (POST /me/side-control/device-tokens)
-	CreateSideControlDeviceToken(c *fiber.Ctx) error
-	// Revoke an unconsumed side-control device token
-	// (DELETE /me/side-control/device-tokens/{tokenId})
-	RevokeSideControlDeviceToken(c *fiber.Ctx, tokenId string) error
-	// List active side-control sessions for the caller device
-	// (GET /me/side-control/sessions)
-	ListSideControlSessions(c *fiber.Ctx) error
-	// Revoke an active side-control session
-	// (DELETE /me/side-control/sessions/{sessionId})
-	RevokeSideControlSession(c *fiber.Ctx, sessionId string) error
-	// Get caller peer status
-	// (GET /me/status)
-	GetMeStatus(c *fiber.Ctx) error
-	// Update caller peer status
-	// (PUT /me/status)
-	PutMeStatus(c *fiber.Ctx) error
+	// List API keys owned by the caller's device
+	// (GET /gizclaw/v1/api-keys)
+	ListAPIKeys(c *fiber.Ctx, params ListAPIKeysParams) error
+	// Create an API key for the caller's device
+	// (POST /gizclaw/v1/api-keys)
+	CreateAPIKey(c *fiber.Ctx) error
+	// Revoke the current API key
+	// (DELETE /gizclaw/v1/api-keys/self)
+	RevokeSelfAPIKey(c *fiber.Ctx) error
+	// Get metadata for the current API key
+	// (GET /gizclaw/v1/api-keys/self)
+	GetSelfAPIKey(c *fiber.Ctx) error
+	// Revoke an API key owned by the caller's device
+	// (DELETE /gizclaw/v1/api-keys/{apiKeyName})
+	RevokeAPIKey(c *fiber.Ctx, apiKeyName string) error
+	// Get API key metadata owned by the caller's device
+	// (GET /gizclaw/v1/api-keys/{apiKeyName})
+	GetAPIKey(c *fiber.Ctx, apiKeyName string) error
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(c *fiber.Ctx) error
-	// List target-owned contacts
-	// (GET /side-control/contacts)
-	ListSideControlContacts(c *fiber.Ctx, params ListSideControlContactsParams) error
-	// Create a target-owned contact
-	// (POST /side-control/contacts)
-	CreateSideControlContact(c *fiber.Ctx) error
-	// Delete a target-owned contact
-	// (DELETE /side-control/contacts/{contactId})
-	DeleteSideControlContact(c *fiber.Ctx, contactId string) error
-	// Get a target-owned contact
-	// (GET /side-control/contacts/{contactId})
-	GetSideControlContact(c *fiber.Ctx, contactId string) error
-	// Update a target-owned contact
-	// (PUT /side-control/contacts/{contactId})
-	PutSideControlContact(c *fiber.Ctx, contactId string) error
-	// Get target device information
-	// (GET /side-control/info)
-	GetSideControlInfo(c *fiber.Ctx) error
-	// Get target device runtime
-	// (GET /side-control/runtime)
-	GetSideControlRuntime(c *fiber.Ctx) error
-	// Get target device runtime status
-	// (GET /side-control/status)
-	GetSideControlStatus(c *fiber.Ctx) error
-	// Query target telemetry points
-	// (GET /side-control/telemetry)
-	QuerySideControlTelemetry(c *fiber.Ctx, params QuerySideControlTelemetryParams) error
-	// Query target telemetry aggregates
-	// (GET /side-control/telemetry/aggregate)
-	AggregateSideControlTelemetry(c *fiber.Ctx, params AggregateSideControlTelemetryParams) error
-	// Get latest target telemetry values
-	// (GET /side-control/telemetry/latest)
-	GetSideControlTelemetryLatest(c *fiber.Ctx, params GetSideControlTelemetryLatestParams) error
 	// Create a WebRTC answer for an encrypted browser offer
 	// (POST /webrtc/v1/offer)
 	CreateGiznetWebRTCOffer(c *fiber.Ctx, params CreateGiznetWebRTCOfferParams) error
@@ -4095,291 +1535,8 @@ type ServerInterfaceWrapper struct {
 type MiddlewareFunc fiber.Handler
 type HandlerMiddlewareFunc func(c *fiber.Ctx, next fiber.Handler) error
 
-// Login operation middleware
-func (siw *ServerInterfaceWrapper) Login(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params LoginParams
-
-	headers := c.GetReqHeaders()
-
-	// ------------- Required header parameter "X-Public-Key" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Public-Key")]; found {
-		var XPublicKey string
-		n := len(valueList)
-		if n != 1 {
-			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName X-Public-Key, 1 is required, but %d found", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Public-Key", valueList[0], &XPublicKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter X-Public-Key: %w", err).Error())
-		}
-
-		params.XPublicKey = XPublicKey
-
-	} else {
-		err = fmt.Errorf("Header parameter X-Public-Key is required, but not found: %w", err)
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-
-	// ------------- Required header parameter "Authorization" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
-		var Authorization string
-		n := len(valueList)
-		if n != 1 {
-			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName Authorization, 1 is required, but %d found", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter Authorization: %w", err).Error())
-		}
-
-		params.Authorization = Authorization
-
-	} else {
-		err = fmt.Errorf("Header parameter Authorization is required, but not found: %w", err)
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-
-	// ------------- Optional header parameter "X-Registration-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Registration-Token")]; found {
-		var XRegistrationToken string
-		n := len(valueList)
-		if n != 1 {
-			return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("Too many values for ParamName X-Registration-Token, 1 is required, but %d found", n))
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Registration-Token", valueList[0], &XRegistrationToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
-		if err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter X-Registration-Token: %w", err).Error())
-		}
-
-		params.XRegistrationToken = &XRegistrationToken
-
-	}
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.Login(c, params)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetMe operation middleware
-func (siw *ServerInterfaceWrapper) GetMe(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetMe(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetMeRuntime operation middleware
-func (siw *ServerInterfaceWrapper) GetMeRuntime(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetMeRuntime(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// CreateSideControlDeviceToken operation middleware
-func (siw *ServerInterfaceWrapper) CreateSideControlDeviceToken(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.CreateSideControlDeviceToken(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// RevokeSideControlDeviceToken operation middleware
-func (siw *ServerInterfaceWrapper) RevokeSideControlDeviceToken(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "tokenId" -------------
-	var tokenId string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "tokenId", c.Params("tokenId"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter tokenId: %w", err).Error())
-	}
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.RevokeSideControlDeviceToken(c, tokenId)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// ListSideControlSessions operation middleware
-func (siw *ServerInterfaceWrapper) ListSideControlSessions(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ListSideControlSessions(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// RevokeSideControlSession operation middleware
-func (siw *ServerInterfaceWrapper) RevokeSideControlSession(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "sessionId" -------------
-	var sessionId string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", c.Params("sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter sessionId: %w", err).Error())
-	}
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.RevokeSideControlSession(c, sessionId)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetMeStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetMeStatus(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetMeStatus(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// PutMeStatus operation middleware
-func (siw *ServerInterfaceWrapper) PutMeStatus(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.PutMeStatus(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetServerInfo operation middleware
-func (siw *ServerInterfaceWrapper) GetServerInfo(c *fiber.Ctx) error {
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetServerInfo(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// ListSideControlContacts operation middleware
-func (siw *ServerInterfaceWrapper) ListSideControlContacts(c *fiber.Ctx) error {
+// ListAPIKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListAPIKeys(c *fiber.Ctx) error {
 
 	var err error
 	_ = err
@@ -4387,7 +1544,7 @@ func (siw *ServerInterfaceWrapper) ListSideControlContacts(c *fiber.Ctx) error {
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListSideControlContactsParams
+	var params ListAPIKeysParams
 
 	var query url.Values
 	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
@@ -4410,7 +1567,7 @@ func (siw *ServerInterfaceWrapper) ListSideControlContacts(c *fiber.Ctx) error {
 	}
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.ListSideControlContacts(c, params)
+		return siw.Handler.ListAPIKeys(c, params)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -4424,13 +1581,13 @@ func (siw *ServerInterfaceWrapper) ListSideControlContacts(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// CreateSideControlContact operation middleware
-func (siw *ServerInterfaceWrapper) CreateSideControlContact(c *fiber.Ctx) error {
+// CreateAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateAPIKey(c *fiber.Ctx) error {
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.CreateSideControlContact(c)
+		return siw.Handler.CreateAPIKey(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -4444,24 +1601,64 @@ func (siw *ServerInterfaceWrapper) CreateSideControlContact(c *fiber.Ctx) error 
 	return handler(c)
 }
 
-// DeleteSideControlContact operation middleware
-func (siw *ServerInterfaceWrapper) DeleteSideControlContact(c *fiber.Ctx) error {
+// RevokeSelfAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeSelfAPIKey(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.RevokeSelfAPIKey(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetSelfAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) GetSelfAPIKey(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetSelfAPIKey(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// RevokeAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeAPIKey(c *fiber.Ctx) error {
 
 	var err error
 	_ = err
 
-	// ------------- Path parameter "contactId" -------------
-	var contactId string
+	// ------------- Path parameter "apiKeyName" -------------
+	var apiKeyName string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "contactId", c.Params("contactId"), &contactId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "apiKeyName", c.Params("apiKeyName"), &apiKeyName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter contactId: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter apiKeyName: %w", err).Error())
 	}
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.DeleteSideControlContact(c, contactId)
+		return siw.Handler.RevokeAPIKey(c, apiKeyName)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -4475,24 +1672,24 @@ func (siw *ServerInterfaceWrapper) DeleteSideControlContact(c *fiber.Ctx) error 
 	return handler(c)
 }
 
-// GetSideControlContact operation middleware
-func (siw *ServerInterfaceWrapper) GetSideControlContact(c *fiber.Ctx) error {
+// GetAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) GetAPIKey(c *fiber.Ctx) error {
 
 	var err error
 	_ = err
 
-	// ------------- Path parameter "contactId" -------------
-	var contactId string
+	// ------------- Path parameter "apiKeyName" -------------
+	var apiKeyName string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "contactId", c.Params("contactId"), &contactId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "apiKeyName", c.Params("apiKeyName"), &apiKeyName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter contactId: %w", err).Error())
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter apiKeyName: %w", err).Error())
 	}
 
 	c.Context().SetUserValue((BearerAuthScopes), []string{})
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetSideControlContact(c, contactId)
+		return siw.Handler.GetAPIKey(c, apiKeyName)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -4506,264 +1703,11 @@ func (siw *ServerInterfaceWrapper) GetSideControlContact(c *fiber.Ctx) error {
 	return handler(c)
 }
 
-// PutSideControlContact operation middleware
-func (siw *ServerInterfaceWrapper) PutSideControlContact(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "contactId" -------------
-	var contactId string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "contactId", c.Params("contactId"), &contactId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter contactId: %w", err).Error())
-	}
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
+// GetServerInfo operation middleware
+func (siw *ServerInterfaceWrapper) GetServerInfo(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.PutSideControlContact(c, contactId)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetSideControlInfo operation middleware
-func (siw *ServerInterfaceWrapper) GetSideControlInfo(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetSideControlInfo(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetSideControlRuntime operation middleware
-func (siw *ServerInterfaceWrapper) GetSideControlRuntime(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetSideControlRuntime(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetSideControlStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetSideControlStatus(c *fiber.Ctx) error {
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetSideControlStatus(c)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// QuerySideControlTelemetry operation middleware
-func (siw *ServerInterfaceWrapper) QuerySideControlTelemetry(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params QuerySideControlTelemetryParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "field" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "field", query, &params.Field, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter field: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "start_time_ms" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "end_time_ms" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "step_ms" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "step_ms", query, &params.StepMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter step_ms: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "order" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", query, &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
-	}
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.QuerySideControlTelemetry(c, params)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// AggregateSideControlTelemetry operation middleware
-func (siw *ServerInterfaceWrapper) AggregateSideControlTelemetry(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params AggregateSideControlTelemetryParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "field" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "field", query, &params.Field, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter field: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "start_time_ms" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "end_time_ms" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "bucket_ms" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "bucket_ms", query, &params.BucketMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter bucket_ms: %w", err).Error())
-	}
-
-	// ------------- Required query parameter "aggregate" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "aggregate", query, &params.Aggregate, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter aggregate: %w", err).Error())
-	}
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.AggregateSideControlTelemetry(c, params)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// GetSideControlTelemetryLatest operation middleware
-func (siw *ServerInterfaceWrapper) GetSideControlTelemetryLatest(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	c.Context().SetUserValue((BearerAuthScopes), []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetSideControlTelemetryLatestParams
-
-	var query url.Values
-	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
-	}
-
-	// ------------- Optional query parameter "fields" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "fields", query, &params.Fields, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter fields: %w", err).Error())
-	}
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.GetSideControlTelemetryLatest(c, params)
+		return siw.Handler.GetServerInfo(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -4886,47 +1830,19 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 		router.Use(fiber.Handler(m))
 	}
 
-	router.Post(options.BaseURL+"/login", wrapper.Login)
+	router.Get(options.BaseURL+"/gizclaw/v1/api-keys", wrapper.ListAPIKeys)
 
-	router.Get(options.BaseURL+"/me", wrapper.GetMe)
+	router.Post(options.BaseURL+"/gizclaw/v1/api-keys", wrapper.CreateAPIKey)
 
-	router.Get(options.BaseURL+"/me/runtime", wrapper.GetMeRuntime)
+	router.Delete(options.BaseURL+"/gizclaw/v1/api-keys/self", wrapper.RevokeSelfAPIKey)
 
-	router.Post(options.BaseURL+"/me/side-control/device-tokens", wrapper.CreateSideControlDeviceToken)
+	router.Get(options.BaseURL+"/gizclaw/v1/api-keys/self", wrapper.GetSelfAPIKey)
 
-	router.Delete(options.BaseURL+"/me/side-control/device-tokens/:tokenId", wrapper.RevokeSideControlDeviceToken)
+	router.Delete(options.BaseURL+"/gizclaw/v1/api-keys/:apiKeyName", wrapper.RevokeAPIKey)
 
-	router.Get(options.BaseURL+"/me/side-control/sessions", wrapper.ListSideControlSessions)
-
-	router.Delete(options.BaseURL+"/me/side-control/sessions/:sessionId", wrapper.RevokeSideControlSession)
-
-	router.Get(options.BaseURL+"/me/status", wrapper.GetMeStatus)
-
-	router.Put(options.BaseURL+"/me/status", wrapper.PutMeStatus)
+	router.Get(options.BaseURL+"/gizclaw/v1/api-keys/:apiKeyName", wrapper.GetAPIKey)
 
 	router.Get(options.BaseURL+"/server-info", wrapper.GetServerInfo)
-
-	router.Get(options.BaseURL+"/side-control/contacts", wrapper.ListSideControlContacts)
-
-	router.Post(options.BaseURL+"/side-control/contacts", wrapper.CreateSideControlContact)
-
-	router.Delete(options.BaseURL+"/side-control/contacts/:contactId", wrapper.DeleteSideControlContact)
-
-	router.Get(options.BaseURL+"/side-control/contacts/:contactId", wrapper.GetSideControlContact)
-
-	router.Put(options.BaseURL+"/side-control/contacts/:contactId", wrapper.PutSideControlContact)
-
-	router.Get(options.BaseURL+"/side-control/info", wrapper.GetSideControlInfo)
-
-	router.Get(options.BaseURL+"/side-control/runtime", wrapper.GetSideControlRuntime)
-
-	router.Get(options.BaseURL+"/side-control/status", wrapper.GetSideControlStatus)
-
-	router.Get(options.BaseURL+"/side-control/telemetry", wrapper.QuerySideControlTelemetry)
-
-	router.Get(options.BaseURL+"/side-control/telemetry/aggregate", wrapper.AggregateSideControlTelemetry)
-
-	router.Get(options.BaseURL+"/side-control/telemetry/latest", wrapper.GetSideControlTelemetryLatest)
 
 	router.Post(options.BaseURL+"/webrtc/v1/offer", wrapper.CreateGiznetWebRTCOffer)
 
@@ -4944,489 +1860,350 @@ type NotFoundJSONResponse externalRef0.ErrorResponse
 
 type UnauthorizedJSONResponse externalRef0.ErrorResponse
 
-type LoginRequestObject struct {
-	Params LoginParams
-	Body   *LoginJSONRequestBody
+type ListAPIKeysRequestObject struct {
+	Params ListAPIKeysParams
 }
 
-type LoginResponseObject interface {
-	VisitLoginResponse(ctx *fiber.Ctx) error
+type ListAPIKeysResponseObject interface {
+	VisitListAPIKeysResponse(ctx *fiber.Ctx) error
 }
 
-type Login200JSONResponse LoginResult
+type ListAPIKeys200JSONResponse APIKeyList
 
-func (response Login200JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
+func (response ListAPIKeys200JSONResponse) VisitListAPIKeysResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(200)
 
 	return ctx.JSON(&response)
 }
 
-type Login400JSONResponse struct{ BadRequestJSONResponse }
+type ListAPIKeys400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response Login400JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
+func (response ListAPIKeys400JSONResponse) VisitListAPIKeysResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
 
-type Login401JSONResponse externalRef0.ErrorResponse
+type ListAPIKeys401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response Login401JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
+func (response ListAPIKeys401JSONResponse) VisitListAPIKeysResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
 	return ctx.JSON(&response)
 }
 
-type Login409JSONResponse struct{ ConflictJSONResponse }
+type ListAPIKeys403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response Login409JSONResponse) VisitLoginResponse(ctx *fiber.Ctx) error {
+func (response ListAPIKeys403JSONResponse) VisitListAPIKeysResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListAPIKeys409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListAPIKeys409JSONResponse) VisitListAPIKeysResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
 
-type GetMeRequestObject struct {
-}
+type ListAPIKeys500JSONResponse struct{ InternalErrorJSONResponse }
 
-type GetMeResponseObject interface {
-	VisitGetMeResponse(ctx *fiber.Ctx) error
-}
-
-type GetMe200JSONResponse PeerSelf
-
-func (response GetMe200JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetMe401JSONResponse externalRef0.ErrorResponse
-
-func (response GetMe401JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetMe404JSONResponse externalRef0.ErrorResponse
-
-func (response GetMe404JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetMe409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetMe409JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetMe500JSONResponse externalRef0.ErrorResponse
-
-func (response GetMe500JSONResponse) VisitGetMeResponse(ctx *fiber.Ctx) error {
+func (response ListAPIKeys500JSONResponse) VisitListAPIKeysResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
 
-type GetMeRuntimeRequestObject struct {
+type CreateAPIKeyRequestObject struct {
+	Body *CreateAPIKeyJSONRequestBody
 }
 
-type GetMeRuntimeResponseObject interface {
-	VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error
+type CreateAPIKeyResponseObject interface {
+	VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error
 }
 
-type GetMeRuntime200JSONResponse externalRef0.Runtime
+type CreateAPIKey201JSONResponse APIKeyCreateResult
 
-func (response GetMeRuntime200JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeRuntime401JSONResponse externalRef0.ErrorResponse
-
-func (response GetMeRuntime401JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeRuntime404JSONResponse externalRef0.ErrorResponse
-
-func (response GetMeRuntime404JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeRuntime409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetMeRuntime409JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeRuntime500JSONResponse externalRef0.ErrorResponse
-
-func (response GetMeRuntime500JSONResponse) VisitGetMeRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlDeviceTokenRequestObject struct {
-}
-
-type CreateSideControlDeviceTokenResponseObject interface {
-	VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error
-}
-
-type CreateSideControlDeviceToken201JSONResponse SideControlDeviceToken
-
-func (response CreateSideControlDeviceToken201JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
+func (response CreateAPIKey201JSONResponse) VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(201)
 
 	return ctx.JSON(&response)
 }
 
-type CreateSideControlDeviceToken401JSONResponse struct{ UnauthorizedJSONResponse }
+type CreateAPIKey400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response CreateSideControlDeviceToken401JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlDeviceToken403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response CreateSideControlDeviceToken403JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlDeviceToken409JSONResponse struct{ ConflictJSONResponse }
-
-func (response CreateSideControlDeviceToken409JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlDeviceToken500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response CreateSideControlDeviceToken500JSONResponse) VisitCreateSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlDeviceTokenRequestObject struct {
-	TokenId string `json:"tokenId"`
-}
-
-type RevokeSideControlDeviceTokenResponseObject interface {
-	VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error
-}
-
-type RevokeSideControlDeviceToken204Response struct {
-}
-
-func (response RevokeSideControlDeviceToken204Response) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type RevokeSideControlDeviceToken401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response RevokeSideControlDeviceToken401JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlDeviceToken403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response RevokeSideControlDeviceToken403JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlDeviceToken404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response RevokeSideControlDeviceToken404JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlDeviceToken409JSONResponse struct{ ConflictJSONResponse }
-
-func (response RevokeSideControlDeviceToken409JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlDeviceToken500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response RevokeSideControlDeviceToken500JSONResponse) VisitRevokeSideControlDeviceTokenResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlSessionsRequestObject struct {
-}
-
-type ListSideControlSessionsResponseObject interface {
-	VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error
-}
-
-type ListSideControlSessions200JSONResponse SideControlSessionList
-
-func (response ListSideControlSessions200JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlSessions401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ListSideControlSessions401JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlSessions403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ListSideControlSessions403JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlSessions409JSONResponse struct{ ConflictJSONResponse }
-
-func (response ListSideControlSessions409JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlSessions500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ListSideControlSessions500JSONResponse) VisitListSideControlSessionsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlSessionRequestObject struct {
-	SessionId string `json:"sessionId"`
-}
-
-type RevokeSideControlSessionResponseObject interface {
-	VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error
-}
-
-type RevokeSideControlSession204Response struct {
-}
-
-func (response RevokeSideControlSession204Response) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
-	ctx.Status(204)
-	return nil
-}
-
-type RevokeSideControlSession401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response RevokeSideControlSession401JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlSession403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response RevokeSideControlSession403JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlSession404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response RevokeSideControlSession404JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlSession409JSONResponse struct{ ConflictJSONResponse }
-
-func (response RevokeSideControlSession409JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type RevokeSideControlSession500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response RevokeSideControlSession500JSONResponse) VisitRevokeSideControlSessionResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeStatusRequestObject struct {
-}
-
-type GetMeStatusResponseObject interface {
-	VisitGetMeStatusResponse(ctx *fiber.Ctx) error
-}
-
-type GetMeStatus200JSONResponse externalRef0.PeerStatus
-
-func (response GetMeStatus200JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeStatus401JSONResponse externalRef0.ErrorResponse
-
-func (response GetMeStatus401JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeStatus404JSONResponse externalRef0.ErrorResponse
-
-func (response GetMeStatus404JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeStatus409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetMeStatus409JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetMeStatus500JSONResponse externalRef0.ErrorResponse
-
-func (response GetMeStatus500JSONResponse) VisitGetMeStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PutMeStatusRequestObject struct {
-	Body *PutMeStatusJSONRequestBody
-}
-
-type PutMeStatusResponseObject interface {
-	VisitPutMeStatusResponse(ctx *fiber.Ctx) error
-}
-
-type PutMeStatus200JSONResponse externalRef0.PeerStatus
-
-func (response PutMeStatus200JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutMeStatus400JSONResponse externalRef0.ErrorResponse
-
-func (response PutMeStatus400JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+func (response CreateAPIKey400JSONResponse) VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
 
 	return ctx.JSON(&response)
 }
 
-type PutMeStatus401JSONResponse externalRef0.ErrorResponse
+type CreateAPIKey401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response PutMeStatus401JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+func (response CreateAPIKey401JSONResponse) VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(401)
 
 	return ctx.JSON(&response)
 }
 
-type PutMeStatus404JSONResponse externalRef0.ErrorResponse
+type CreateAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response PutMeStatus404JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+func (response CreateAPIKey403JSONResponse) VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
+	ctx.Status(403)
 
 	return ctx.JSON(&response)
 }
 
-type PutMeStatus409JSONResponse struct{ ConflictJSONResponse }
+type CreateAPIKey409JSONResponse struct{ ConflictJSONResponse }
 
-func (response PutMeStatus409JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+func (response CreateAPIKey409JSONResponse) VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
 
 	return ctx.JSON(&response)
 }
 
-type PutMeStatus500JSONResponse externalRef0.ErrorResponse
+type CreateAPIKey500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response PutMeStatus500JSONResponse) VisitPutMeStatusResponse(ctx *fiber.Ctx) error {
+func (response CreateAPIKey500JSONResponse) VisitCreateAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeSelfAPIKeyRequestObject struct {
+}
+
+type RevokeSelfAPIKeyResponseObject interface {
+	VisitRevokeSelfAPIKeyResponse(ctx *fiber.Ctx) error
+}
+
+type RevokeSelfAPIKey204Response struct {
+}
+
+func (response RevokeSelfAPIKey204Response) VisitRevokeSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type RevokeSelfAPIKey401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RevokeSelfAPIKey401JSONResponse) VisitRevokeSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeSelfAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RevokeSelfAPIKey403JSONResponse) VisitRevokeSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeSelfAPIKey409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RevokeSelfAPIKey409JSONResponse) VisitRevokeSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeSelfAPIKey500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RevokeSelfAPIKey500JSONResponse) VisitRevokeSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetSelfAPIKeyRequestObject struct {
+}
+
+type GetSelfAPIKeyResponseObject interface {
+	VisitGetSelfAPIKeyResponse(ctx *fiber.Ctx) error
+}
+
+type GetSelfAPIKey200JSONResponse APIKey
+
+func (response GetSelfAPIKey200JSONResponse) VisitGetSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetSelfAPIKey401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetSelfAPIKey401JSONResponse) VisitGetSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetSelfAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetSelfAPIKey403JSONResponse) VisitGetSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetSelfAPIKey409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetSelfAPIKey409JSONResponse) VisitGetSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetSelfAPIKey500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetSelfAPIKey500JSONResponse) VisitGetSelfAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeAPIKeyRequestObject struct {
+	ApiKeyName string `json:"apiKeyName"`
+}
+
+type RevokeAPIKeyResponseObject interface {
+	VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error
+}
+
+type RevokeAPIKey204Response struct {
+}
+
+func (response RevokeAPIKey204Response) VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type RevokeAPIKey401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RevokeAPIKey401JSONResponse) VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RevokeAPIKey403JSONResponse) VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeAPIKey404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RevokeAPIKey404JSONResponse) VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeAPIKey409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RevokeAPIKey409JSONResponse) VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type RevokeAPIKey500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RevokeAPIKey500JSONResponse) VisitRevokeAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetAPIKeyRequestObject struct {
+	ApiKeyName string `json:"apiKeyName"`
+}
+
+type GetAPIKeyResponseObject interface {
+	VisitGetAPIKeyResponse(ctx *fiber.Ctx) error
+}
+
+type GetAPIKey200JSONResponse APIKey
+
+func (response GetAPIKey200JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetAPIKey401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAPIKey401JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAPIKey403JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetAPIKey404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAPIKey404JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetAPIKey409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetAPIKey409JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetAPIKey500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetAPIKey500JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
 
@@ -5449,700 +2226,11 @@ func (response GetServerInfo200JSONResponse) VisitGetServerInfoResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
-type GetServerInfo400JSONResponse externalRef0.ErrorResponse
+type GetServerInfo400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response GetServerInfo400JSONResponse) VisitGetServerInfoResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlContactsRequestObject struct {
-	Params ListSideControlContactsParams
-}
-
-type ListSideControlContactsResponseObject interface {
-	VisitListSideControlContactsResponse(ctx *fiber.Ctx) error
-}
-
-type ListSideControlContacts200JSONResponse externalRef1.ContactListResponse
-
-func (response ListSideControlContacts200JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlContacts400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ListSideControlContacts400JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlContacts401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ListSideControlContacts401JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlContacts403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response ListSideControlContacts403JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlContacts409JSONResponse struct{ ConflictJSONResponse }
-
-func (response ListSideControlContacts409JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type ListSideControlContacts500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response ListSideControlContacts500JSONResponse) VisitListSideControlContactsResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlContactRequestObject struct {
-	Body *CreateSideControlContactJSONRequestBody
-}
-
-type CreateSideControlContactResponseObject interface {
-	VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error
-}
-
-type CreateSideControlContact201JSONResponse externalRef1.ContactObject
-
-func (response CreateSideControlContact201JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(201)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlContact400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response CreateSideControlContact400JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlContact401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response CreateSideControlContact401JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlContact403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response CreateSideControlContact403JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlContact409JSONResponse struct{ ConflictJSONResponse }
-
-func (response CreateSideControlContact409JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type CreateSideControlContact500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response CreateSideControlContact500JSONResponse) VisitCreateSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteSideControlContactRequestObject struct {
-	ContactId string `json:"contactId"`
-}
-
-type DeleteSideControlContactResponseObject interface {
-	VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error
-}
-
-type DeleteSideControlContact200JSONResponse externalRef1.ContactObject
-
-func (response DeleteSideControlContact200JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteSideControlContact401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response DeleteSideControlContact401JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteSideControlContact403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response DeleteSideControlContact403JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteSideControlContact404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeleteSideControlContact404JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteSideControlContact409JSONResponse struct{ ConflictJSONResponse }
-
-func (response DeleteSideControlContact409JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type DeleteSideControlContact500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response DeleteSideControlContact500JSONResponse) VisitDeleteSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlContactRequestObject struct {
-	ContactId string `json:"contactId"`
-}
-
-type GetSideControlContactResponseObject interface {
-	VisitGetSideControlContactResponse(ctx *fiber.Ctx) error
-}
-
-type GetSideControlContact200JSONResponse externalRef1.ContactObject
-
-func (response GetSideControlContact200JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlContact401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetSideControlContact401JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlContact403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetSideControlContact403JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlContact404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetSideControlContact404JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlContact409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetSideControlContact409JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlContact500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetSideControlContact500JSONResponse) VisitGetSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContactRequestObject struct {
-	ContactId string `json:"contactId"`
-	Body      *PutSideControlContactJSONRequestBody
-}
-
-type PutSideControlContactResponseObject interface {
-	VisitPutSideControlContactResponse(ctx *fiber.Ctx) error
-}
-
-type PutSideControlContact200JSONResponse externalRef1.ContactObject
-
-func (response PutSideControlContact200JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContact400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response PutSideControlContact400JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContact401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response PutSideControlContact401JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContact403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response PutSideControlContact403JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContact404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response PutSideControlContact404JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContact409JSONResponse struct{ ConflictJSONResponse }
-
-func (response PutSideControlContact409JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type PutSideControlContact500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response PutSideControlContact500JSONResponse) VisitPutSideControlContactResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlInfoRequestObject struct {
-}
-
-type GetSideControlInfoResponseObject interface {
-	VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error
-}
-
-type GetSideControlInfo200JSONResponse externalRef0.DeviceInfo
-
-func (response GetSideControlInfo200JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlInfo401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetSideControlInfo401JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlInfo403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetSideControlInfo403JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlInfo404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetSideControlInfo404JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlInfo409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetSideControlInfo409JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlInfo500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetSideControlInfo500JSONResponse) VisitGetSideControlInfoResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlRuntimeRequestObject struct {
-}
-
-type GetSideControlRuntimeResponseObject interface {
-	VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error
-}
-
-type GetSideControlRuntime200JSONResponse externalRef0.Runtime
-
-func (response GetSideControlRuntime200JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlRuntime401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetSideControlRuntime401JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlRuntime403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetSideControlRuntime403JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlRuntime404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetSideControlRuntime404JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlRuntime409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetSideControlRuntime409JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlRuntime500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetSideControlRuntime500JSONResponse) VisitGetSideControlRuntimeResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlStatusRequestObject struct {
-}
-
-type GetSideControlStatusResponseObject interface {
-	VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error
-}
-
-type GetSideControlStatus200JSONResponse externalRef0.PeerStatus
-
-func (response GetSideControlStatus200JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlStatus401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetSideControlStatus401JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlStatus403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetSideControlStatus403JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlStatus404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetSideControlStatus404JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlStatus409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetSideControlStatus409JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlStatus500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetSideControlStatus500JSONResponse) VisitGetSideControlStatusResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type QuerySideControlTelemetryRequestObject struct {
-	Params QuerySideControlTelemetryParams
-}
-
-type QuerySideControlTelemetryResponseObject interface {
-	VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error
-}
-
-type QuerySideControlTelemetry200JSONResponse externalRef0.PeerTelemetryRangeResponse
-
-func (response QuerySideControlTelemetry200JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type QuerySideControlTelemetry400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response QuerySideControlTelemetry400JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type QuerySideControlTelemetry401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response QuerySideControlTelemetry401JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type QuerySideControlTelemetry403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response QuerySideControlTelemetry403JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type QuerySideControlTelemetry409JSONResponse struct{ ConflictJSONResponse }
-
-func (response QuerySideControlTelemetry409JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type QuerySideControlTelemetry500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response QuerySideControlTelemetry500JSONResponse) VisitQuerySideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type AggregateSideControlTelemetryRequestObject struct {
-	Params AggregateSideControlTelemetryParams
-}
-
-type AggregateSideControlTelemetryResponseObject interface {
-	VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error
-}
-
-type AggregateSideControlTelemetry200JSONResponse externalRef0.PeerTelemetryAggregateResponse
-
-func (response AggregateSideControlTelemetry200JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type AggregateSideControlTelemetry400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response AggregateSideControlTelemetry400JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type AggregateSideControlTelemetry401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response AggregateSideControlTelemetry401JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type AggregateSideControlTelemetry403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response AggregateSideControlTelemetry403JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type AggregateSideControlTelemetry409JSONResponse struct{ ConflictJSONResponse }
-
-func (response AggregateSideControlTelemetry409JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type AggregateSideControlTelemetry500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response AggregateSideControlTelemetry500JSONResponse) VisitAggregateSideControlTelemetryResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlTelemetryLatestRequestObject struct {
-	Params GetSideControlTelemetryLatestParams
-}
-
-type GetSideControlTelemetryLatestResponseObject interface {
-	VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error
-}
-
-type GetSideControlTelemetryLatest200JSONResponse externalRef0.PeerTelemetryLatestResponse
-
-func (response GetSideControlTelemetryLatest200JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlTelemetryLatest400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetSideControlTelemetryLatest400JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(400)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlTelemetryLatest401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetSideControlTelemetryLatest401JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(401)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlTelemetryLatest403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response GetSideControlTelemetryLatest403JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(403)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlTelemetryLatest409JSONResponse struct{ ConflictJSONResponse }
-
-func (response GetSideControlTelemetryLatest409JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(409)
-
-	return ctx.JSON(&response)
-}
-
-type GetSideControlTelemetryLatest500JSONResponse struct{ InternalErrorJSONResponse }
-
-func (response GetSideControlTelemetryLatest500JSONResponse) VisitGetSideControlTelemetryLatestResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(500)
 
 	return ctx.JSON(&response)
 }
@@ -6249,69 +2337,27 @@ func (response CreateGiznetWebRTCOffer503JSONResponse) VisitCreateGiznetWebRTCOf
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Exchange a device assertion for a bearer session
-	// (POST /login)
-	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
-	// Get caller peer summary
-	// (GET /me)
-	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
-	// Get caller peer runtime
-	// (GET /me/runtime)
-	GetMeRuntime(ctx context.Context, request GetMeRuntimeRequestObject) (GetMeRuntimeResponseObject, error)
-	// Create a single-use side-control device token
-	// (POST /me/side-control/device-tokens)
-	CreateSideControlDeviceToken(ctx context.Context, request CreateSideControlDeviceTokenRequestObject) (CreateSideControlDeviceTokenResponseObject, error)
-	// Revoke an unconsumed side-control device token
-	// (DELETE /me/side-control/device-tokens/{tokenId})
-	RevokeSideControlDeviceToken(ctx context.Context, request RevokeSideControlDeviceTokenRequestObject) (RevokeSideControlDeviceTokenResponseObject, error)
-	// List active side-control sessions for the caller device
-	// (GET /me/side-control/sessions)
-	ListSideControlSessions(ctx context.Context, request ListSideControlSessionsRequestObject) (ListSideControlSessionsResponseObject, error)
-	// Revoke an active side-control session
-	// (DELETE /me/side-control/sessions/{sessionId})
-	RevokeSideControlSession(ctx context.Context, request RevokeSideControlSessionRequestObject) (RevokeSideControlSessionResponseObject, error)
-	// Get caller peer status
-	// (GET /me/status)
-	GetMeStatus(ctx context.Context, request GetMeStatusRequestObject) (GetMeStatusResponseObject, error)
-	// Update caller peer status
-	// (PUT /me/status)
-	PutMeStatus(ctx context.Context, request PutMeStatusRequestObject) (PutMeStatusResponseObject, error)
+	// List API keys owned by the caller's device
+	// (GET /gizclaw/v1/api-keys)
+	ListAPIKeys(ctx context.Context, request ListAPIKeysRequestObject) (ListAPIKeysResponseObject, error)
+	// Create an API key for the caller's device
+	// (POST /gizclaw/v1/api-keys)
+	CreateAPIKey(ctx context.Context, request CreateAPIKeyRequestObject) (CreateAPIKeyResponseObject, error)
+	// Revoke the current API key
+	// (DELETE /gizclaw/v1/api-keys/self)
+	RevokeSelfAPIKey(ctx context.Context, request RevokeSelfAPIKeyRequestObject) (RevokeSelfAPIKeyResponseObject, error)
+	// Get metadata for the current API key
+	// (GET /gizclaw/v1/api-keys/self)
+	GetSelfAPIKey(ctx context.Context, request GetSelfAPIKeyRequestObject) (GetSelfAPIKeyResponseObject, error)
+	// Revoke an API key owned by the caller's device
+	// (DELETE /gizclaw/v1/api-keys/{apiKeyName})
+	RevokeAPIKey(ctx context.Context, request RevokeAPIKeyRequestObject) (RevokeAPIKeyResponseObject, error)
+	// Get API key metadata owned by the caller's device
+	// (GET /gizclaw/v1/api-keys/{apiKeyName})
+	GetAPIKey(ctx context.Context, request GetAPIKeyRequestObject) (GetAPIKeyResponseObject, error)
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(ctx context.Context, request GetServerInfoRequestObject) (GetServerInfoResponseObject, error)
-	// List target-owned contacts
-	// (GET /side-control/contacts)
-	ListSideControlContacts(ctx context.Context, request ListSideControlContactsRequestObject) (ListSideControlContactsResponseObject, error)
-	// Create a target-owned contact
-	// (POST /side-control/contacts)
-	CreateSideControlContact(ctx context.Context, request CreateSideControlContactRequestObject) (CreateSideControlContactResponseObject, error)
-	// Delete a target-owned contact
-	// (DELETE /side-control/contacts/{contactId})
-	DeleteSideControlContact(ctx context.Context, request DeleteSideControlContactRequestObject) (DeleteSideControlContactResponseObject, error)
-	// Get a target-owned contact
-	// (GET /side-control/contacts/{contactId})
-	GetSideControlContact(ctx context.Context, request GetSideControlContactRequestObject) (GetSideControlContactResponseObject, error)
-	// Update a target-owned contact
-	// (PUT /side-control/contacts/{contactId})
-	PutSideControlContact(ctx context.Context, request PutSideControlContactRequestObject) (PutSideControlContactResponseObject, error)
-	// Get target device information
-	// (GET /side-control/info)
-	GetSideControlInfo(ctx context.Context, request GetSideControlInfoRequestObject) (GetSideControlInfoResponseObject, error)
-	// Get target device runtime
-	// (GET /side-control/runtime)
-	GetSideControlRuntime(ctx context.Context, request GetSideControlRuntimeRequestObject) (GetSideControlRuntimeResponseObject, error)
-	// Get target device runtime status
-	// (GET /side-control/status)
-	GetSideControlStatus(ctx context.Context, request GetSideControlStatusRequestObject) (GetSideControlStatusResponseObject, error)
-	// Query target telemetry points
-	// (GET /side-control/telemetry)
-	QuerySideControlTelemetry(ctx context.Context, request QuerySideControlTelemetryRequestObject) (QuerySideControlTelemetryResponseObject, error)
-	// Query target telemetry aggregates
-	// (GET /side-control/telemetry/aggregate)
-	AggregateSideControlTelemetry(ctx context.Context, request AggregateSideControlTelemetryRequestObject) (AggregateSideControlTelemetryResponseObject, error)
-	// Get latest target telemetry values
-	// (GET /side-control/telemetry/latest)
-	GetSideControlTelemetryLatest(ctx context.Context, request GetSideControlTelemetryLatestRequestObject) (GetSideControlTelemetryLatestResponseObject, error)
 	// Create a WebRTC answer for an encrypted browser offer
 	// (POST /webrtc/v1/offer)
 	CreateGiznetWebRTCOffer(ctx context.Context, request CreateGiznetWebRTCOfferRequestObject) (CreateGiznetWebRTCOfferResponseObject, error)
@@ -6329,34 +2375,25 @@ type strictHandler struct {
 	middlewares []StrictMiddlewareFunc
 }
 
-// Login operation middleware
-func (sh *strictHandler) Login(ctx *fiber.Ctx, params LoginParams) error {
-	var request LoginRequestObject
+// ListAPIKeys operation middleware
+func (sh *strictHandler) ListAPIKeys(ctx *fiber.Ctx, params ListAPIKeysParams) error {
+	var request ListAPIKeysRequestObject
 
 	request.Params = params
 
-	var body LoginJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		if !errors.Is(err, io.EOF) {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else {
-		request.Body = &body
-	}
-
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.Login(ctx.UserContext(), request.(LoginRequestObject))
+		return sh.ssi.ListAPIKeys(ctx.UserContext(), request.(ListAPIKeysRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Login")
+		handler = middleware(handler, "ListAPIKeys")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(LoginResponseObject); ok {
-		if err := validResponse.VisitLoginResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(ListAPIKeysResponseObject); ok {
+		if err := validResponse.VisitListAPIKeysResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -6365,208 +2402,133 @@ func (sh *strictHandler) Login(ctx *fiber.Ctx, params LoginParams) error {
 	return nil
 }
 
-// GetMe operation middleware
-func (sh *strictHandler) GetMe(ctx *fiber.Ctx) error {
-	var request GetMeRequestObject
+// CreateAPIKey operation middleware
+func (sh *strictHandler) CreateAPIKey(ctx *fiber.Ctx) error {
+	var request CreateAPIKeyRequestObject
 
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetMe(ctx.UserContext(), request.(GetMeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetMe")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetMeResponseObject); ok {
-		if err := validResponse.VisitGetMeResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetMeRuntime operation middleware
-func (sh *strictHandler) GetMeRuntime(ctx *fiber.Ctx) error {
-	var request GetMeRuntimeRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetMeRuntime(ctx.UserContext(), request.(GetMeRuntimeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetMeRuntime")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetMeRuntimeResponseObject); ok {
-		if err := validResponse.VisitGetMeRuntimeResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateSideControlDeviceToken operation middleware
-func (sh *strictHandler) CreateSideControlDeviceToken(ctx *fiber.Ctx) error {
-	var request CreateSideControlDeviceTokenRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateSideControlDeviceToken(ctx.UserContext(), request.(CreateSideControlDeviceTokenRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateSideControlDeviceToken")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateSideControlDeviceTokenResponseObject); ok {
-		if err := validResponse.VisitCreateSideControlDeviceTokenResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// RevokeSideControlDeviceToken operation middleware
-func (sh *strictHandler) RevokeSideControlDeviceToken(ctx *fiber.Ctx, tokenId string) error {
-	var request RevokeSideControlDeviceTokenRequestObject
-
-	request.TokenId = tokenId
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.RevokeSideControlDeviceToken(ctx.UserContext(), request.(RevokeSideControlDeviceTokenRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RevokeSideControlDeviceToken")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(RevokeSideControlDeviceTokenResponseObject); ok {
-		if err := validResponse.VisitRevokeSideControlDeviceTokenResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ListSideControlSessions operation middleware
-func (sh *strictHandler) ListSideControlSessions(ctx *fiber.Ctx) error {
-	var request ListSideControlSessionsRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListSideControlSessions(ctx.UserContext(), request.(ListSideControlSessionsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListSideControlSessions")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListSideControlSessionsResponseObject); ok {
-		if err := validResponse.VisitListSideControlSessionsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// RevokeSideControlSession operation middleware
-func (sh *strictHandler) RevokeSideControlSession(ctx *fiber.Ctx, sessionId string) error {
-	var request RevokeSideControlSessionRequestObject
-
-	request.SessionId = sessionId
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.RevokeSideControlSession(ctx.UserContext(), request.(RevokeSideControlSessionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RevokeSideControlSession")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(RevokeSideControlSessionResponseObject); ok {
-		if err := validResponse.VisitRevokeSideControlSessionResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetMeStatus operation middleware
-func (sh *strictHandler) GetMeStatus(ctx *fiber.Ctx) error {
-	var request GetMeStatusRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetMeStatus(ctx.UserContext(), request.(GetMeStatusRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetMeStatus")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetMeStatusResponseObject); ok {
-		if err := validResponse.VisitGetMeStatusResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutMeStatus operation middleware
-func (sh *strictHandler) PutMeStatus(ctx *fiber.Ctx) error {
-	var request PutMeStatusRequestObject
-
-	var body PutMeStatusJSONRequestBody
+	var body CreateAPIKeyJSONRequestBody
 	if err := ctx.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	request.Body = &body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutMeStatus(ctx.UserContext(), request.(PutMeStatusRequestObject))
+		return sh.ssi.CreateAPIKey(ctx.UserContext(), request.(CreateAPIKeyRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutMeStatus")
+		handler = middleware(handler, "CreateAPIKey")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutMeStatusResponseObject); ok {
-		if err := validResponse.VisitPutMeStatusResponse(ctx); err != nil {
+	} else if validResponse, ok := response.(CreateAPIKeyResponseObject); ok {
+		if err := validResponse.VisitCreateAPIKeyResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RevokeSelfAPIKey operation middleware
+func (sh *strictHandler) RevokeSelfAPIKey(ctx *fiber.Ctx) error {
+	var request RevokeSelfAPIKeyRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeSelfAPIKey(ctx.UserContext(), request.(RevokeSelfAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeSelfAPIKey")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(RevokeSelfAPIKeyResponseObject); ok {
+		if err := validResponse.VisitRevokeSelfAPIKeyResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetSelfAPIKey operation middleware
+func (sh *strictHandler) GetSelfAPIKey(ctx *fiber.Ctx) error {
+	var request GetSelfAPIKeyRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSelfAPIKey(ctx.UserContext(), request.(GetSelfAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSelfAPIKey")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetSelfAPIKeyResponseObject); ok {
+		if err := validResponse.VisitGetSelfAPIKeyResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RevokeAPIKey operation middleware
+func (sh *strictHandler) RevokeAPIKey(ctx *fiber.Ctx, apiKeyName string) error {
+	var request RevokeAPIKeyRequestObject
+
+	request.ApiKeyName = apiKeyName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeAPIKey(ctx.UserContext(), request.(RevokeAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeAPIKey")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(RevokeAPIKeyResponseObject); ok {
+		if err := validResponse.VisitRevokeAPIKeyResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetAPIKey operation middleware
+func (sh *strictHandler) GetAPIKey(ctx *fiber.Ctx, apiKeyName string) error {
+	var request GetAPIKeyRequestObject
+
+	request.ApiKeyName = apiKeyName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAPIKey(ctx.UserContext(), request.(GetAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAPIKey")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetAPIKeyResponseObject); ok {
+		if err := validResponse.VisitGetAPIKeyResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -6592,307 +2554,6 @@ func (sh *strictHandler) GetServerInfo(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetServerInfoResponseObject); ok {
 		if err := validResponse.VisitGetServerInfoResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// ListSideControlContacts operation middleware
-func (sh *strictHandler) ListSideControlContacts(ctx *fiber.Ctx, params ListSideControlContactsParams) error {
-	var request ListSideControlContactsRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.ListSideControlContacts(ctx.UserContext(), request.(ListSideControlContactsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListSideControlContacts")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(ListSideControlContactsResponseObject); ok {
-		if err := validResponse.VisitListSideControlContactsResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// CreateSideControlContact operation middleware
-func (sh *strictHandler) CreateSideControlContact(ctx *fiber.Ctx) error {
-	var request CreateSideControlContactRequestObject
-
-	var body CreateSideControlContactJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateSideControlContact(ctx.UserContext(), request.(CreateSideControlContactRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateSideControlContact")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(CreateSideControlContactResponseObject); ok {
-		if err := validResponse.VisitCreateSideControlContactResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// DeleteSideControlContact operation middleware
-func (sh *strictHandler) DeleteSideControlContact(ctx *fiber.Ctx, contactId string) error {
-	var request DeleteSideControlContactRequestObject
-
-	request.ContactId = contactId
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteSideControlContact(ctx.UserContext(), request.(DeleteSideControlContactRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteSideControlContact")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(DeleteSideControlContactResponseObject); ok {
-		if err := validResponse.VisitDeleteSideControlContactResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetSideControlContact operation middleware
-func (sh *strictHandler) GetSideControlContact(ctx *fiber.Ctx, contactId string) error {
-	var request GetSideControlContactRequestObject
-
-	request.ContactId = contactId
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetSideControlContact(ctx.UserContext(), request.(GetSideControlContactRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetSideControlContact")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetSideControlContactResponseObject); ok {
-		if err := validResponse.VisitGetSideControlContactResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// PutSideControlContact operation middleware
-func (sh *strictHandler) PutSideControlContact(ctx *fiber.Ctx, contactId string) error {
-	var request PutSideControlContactRequestObject
-
-	request.ContactId = contactId
-
-	var body PutSideControlContactJSONRequestBody
-	if err := ctx.BodyParser(&body); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	request.Body = &body
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.PutSideControlContact(ctx.UserContext(), request.(PutSideControlContactRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PutSideControlContact")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(PutSideControlContactResponseObject); ok {
-		if err := validResponse.VisitPutSideControlContactResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetSideControlInfo operation middleware
-func (sh *strictHandler) GetSideControlInfo(ctx *fiber.Ctx) error {
-	var request GetSideControlInfoRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetSideControlInfo(ctx.UserContext(), request.(GetSideControlInfoRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetSideControlInfo")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetSideControlInfoResponseObject); ok {
-		if err := validResponse.VisitGetSideControlInfoResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetSideControlRuntime operation middleware
-func (sh *strictHandler) GetSideControlRuntime(ctx *fiber.Ctx) error {
-	var request GetSideControlRuntimeRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetSideControlRuntime(ctx.UserContext(), request.(GetSideControlRuntimeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetSideControlRuntime")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetSideControlRuntimeResponseObject); ok {
-		if err := validResponse.VisitGetSideControlRuntimeResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetSideControlStatus operation middleware
-func (sh *strictHandler) GetSideControlStatus(ctx *fiber.Ctx) error {
-	var request GetSideControlStatusRequestObject
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetSideControlStatus(ctx.UserContext(), request.(GetSideControlStatusRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetSideControlStatus")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetSideControlStatusResponseObject); ok {
-		if err := validResponse.VisitGetSideControlStatusResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// QuerySideControlTelemetry operation middleware
-func (sh *strictHandler) QuerySideControlTelemetry(ctx *fiber.Ctx, params QuerySideControlTelemetryParams) error {
-	var request QuerySideControlTelemetryRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.QuerySideControlTelemetry(ctx.UserContext(), request.(QuerySideControlTelemetryRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "QuerySideControlTelemetry")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(QuerySideControlTelemetryResponseObject); ok {
-		if err := validResponse.VisitQuerySideControlTelemetryResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// AggregateSideControlTelemetry operation middleware
-func (sh *strictHandler) AggregateSideControlTelemetry(ctx *fiber.Ctx, params AggregateSideControlTelemetryParams) error {
-	var request AggregateSideControlTelemetryRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.AggregateSideControlTelemetry(ctx.UserContext(), request.(AggregateSideControlTelemetryRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AggregateSideControlTelemetry")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(AggregateSideControlTelemetryResponseObject); ok {
-		if err := validResponse.VisitAggregateSideControlTelemetryResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// GetSideControlTelemetryLatest operation middleware
-func (sh *strictHandler) GetSideControlTelemetryLatest(ctx *fiber.Ctx, params GetSideControlTelemetryLatestParams) error {
-	var request GetSideControlTelemetryLatestRequestObject
-
-	request.Params = params
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.GetSideControlTelemetryLatest(ctx.UserContext(), request.(GetSideControlTelemetryLatestRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetSideControlTelemetryLatest")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(GetSideControlTelemetryLatestResponseObject); ok {
-		if err := validResponse.VisitGetSideControlTelemetryLatestResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

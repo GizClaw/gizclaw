@@ -154,6 +154,7 @@ const RpcMethod$json = {
       '2': 95,
       '3': {}
     },
+    {'1': 'RPC_METHOD_SERVER_API_KEY_CREATE', '2': 96, '3': {}},
   ],
 };
 
@@ -366,7 +367,9 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'Y2hFeHRyYWN0UmVxdWVzdBoVU3BlZWNoRXh0cmFjdFJlc3BvbnNlEqoBCjFSUENfTUVUSE9EX1'
     'NFUlZFUl9GUklFTkRfR1JPVVBfTUVTU0FHRVNfQVVESU9fR0VUEF8ac8LzGG8KJnNlcnZlci5m'
     'cmllbmRfZ3JvdXAubWVzc2FnZXMuYXVkaW8uZ2V0EiFGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0'
-    'dldFJlcXVlc3QaIkZyaWVuZEdyb3VwTWVzc2FnZUF1ZGlvR2V0UmVzcG9uc2U=');
+    'dldFJlcXVlc3QaIkZyaWVuZEdyb3VwTWVzc2FnZUF1ZGlvR2V0UmVzcG9uc2USbAogUlBDX01F'
+    'VEhPRF9TRVJWRVJfQVBJX0tFWV9DUkVBVEUQYBpGwvMYQgoVc2VydmVyLmFwaV9rZXkuY3JlYX'
+    'RlEhNBUElLZXlDcmVhdGVSZXF1ZXN0GhRBUElLZXlDcmVhdGVSZXNwb25zZQ==');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

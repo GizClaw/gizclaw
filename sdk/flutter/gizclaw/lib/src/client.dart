@@ -72,6 +72,21 @@ class GizClawClient {
     );
   }
 
+  /// Creates a long-lived API key for this connected device. The complete
+  /// secret is returned only by this call.
+  Future<payload.APIKeyCreateResponse> createApiKey({
+    required String displayName,
+    bool manageApiKeys = false,
+  }) {
+    return rpc.call<payload.APIKeyCreateResponse>(
+      'server.api_key.create',
+      payload.APIKeyCreateRequest(
+        displayName: displayName,
+        manageApiKeys: manageApiKeys,
+      ),
+    );
+  }
+
   Future<payload.ServerGetInfoResponse> getServerInfo() {
     return rpc.call<payload.ServerGetInfoResponse>(
       'server.info.get',

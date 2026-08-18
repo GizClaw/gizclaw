@@ -38,7 +38,7 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	adapters := &peerDeletionAdapters{publicKey: key.String(), gameplayReady: true}
 	handler := DeletionHandler{
 		Server: server, Source: source, Social: adapters, Workspaces: adapters, Gameplay: adapters,
-		Sessions: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
 		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
 		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
 	}
@@ -115,7 +115,7 @@ func TestPeerDeletionDefersBeforeTombstoneWhileChildCleanupPending(t *testing.T)
 	adapters := &peerDeletionAdapters{publicKey: key.String(), gameplayReady: false}
 	handler := DeletionHandler{
 		Server: server, Source: source, Social: adapters, Workspaces: adapters, Gameplay: adapters,
-		Sessions: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
 		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
 	}
 	err := handler.Handle(ctx, claim)

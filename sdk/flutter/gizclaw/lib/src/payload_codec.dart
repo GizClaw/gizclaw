@@ -8,6 +8,8 @@ import 'method_registry.dart';
 typedef MessageFactory = GeneratedMessage Function();
 
 final _messageFactories = <String, MessageFactory>{
+  'APIKeyCreateRequest': payload.APIKeyCreateRequest.new,
+  'APIKeyCreateResponse': payload.APIKeyCreateResponse.new,
   'BadgeDefPixaDownloadRequest': payload.BadgeDefPixaDownloadRequest.new,
   'BadgeDefPixaDownloadResponse': payload.BadgeDefPixaDownloadResponse.new,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest.new,
@@ -225,6 +227,8 @@ final _messageFactories = <String, MessageFactory>{
 };
 
 final _messageTypes = <String, Type>{
+  'APIKeyCreateRequest': payload.APIKeyCreateRequest,
+  'APIKeyCreateResponse': payload.APIKeyCreateResponse,
   'BadgeDefPixaDownloadRequest': payload.BadgeDefPixaDownloadRequest,
   'BadgeDefPixaDownloadResponse': payload.BadgeDefPixaDownloadResponse,
   'ClientGetIdentifiersRequest': payload.ClientGetIdentifiersRequest,

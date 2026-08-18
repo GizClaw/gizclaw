@@ -1,14 +1,3 @@
-# Private HTTP
+# Public client API switch
 
-`Implementation file: server_private_http.go`
-
-Verify the session headers of the private HTTP ingress, perform ingress authorization based on the caller's public key, and construct a session authorizer for the public login.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| `ErrPrivateHTTPIngressDenied` | Private ingress authorization rejection error. |
-| `Server.AuthenticateHTTPSessionHeaders` | Verify session identity from Authorization and public-key headers. |
-| `Server.AuthorizePrivateHTTPIngress` | Determine whether the specified Peer is allowed to access private HTTP ingress. |
-| `PrivateHTTPIngressLoginAuthorizer` | Adapt Server ingress authorization to public-login authorizer. |
+`CmdServer.ServeHTTP` enforces `serve-to-clients` before bearer authentication. When disabled, `/gizclaw/v1/*` and `/openai/v1/*` return `403 PRIVATE_INGRESS_DENIED`; `/server-info` and WebRTC signaling remain available for connection establishment. There is no private-session bypass.

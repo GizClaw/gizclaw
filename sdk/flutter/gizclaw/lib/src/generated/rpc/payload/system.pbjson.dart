@@ -429,6 +429,59 @@ final $typed_data.Uint8List serverRegisterResponseDescriptor =
         'ChZTZXJ2ZXJSZWdpc3RlclJlc3BvbnNlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAEgASgJUh'
         'JydW50aW1lUHJvZmlsZU5hbWU=');
 
+@$core.Deprecated('Use aPIKeyDescriptor instead')
+const APIKey$json = {
+  '1': 'APIKey',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'display_name', '3': 2, '4': 1, '5': 9, '10': 'displayName'},
+    {'1': 'prefix', '3': 3, '4': 1, '5': 9, '10': 'prefix'},
+    {'1': 'manage_api_keys', '3': 4, '4': 1, '5': 8, '10': 'manageApiKeys'},
+    {'1': 'created_at', '3': 5, '4': 1, '5': 9, '10': 'createdAt'},
+  ],
+};
+
+/// Descriptor for `APIKey`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List aPIKeyDescriptor = $convert.base64Decode(
+    'CgZBUElLZXkSEgoEbmFtZRgBIAEoCVIEbmFtZRIhCgxkaXNwbGF5X25hbWUYAiABKAlSC2Rpc3'
+    'BsYXlOYW1lEhYKBnByZWZpeBgDIAEoCVIGcHJlZml4EiYKD21hbmFnZV9hcGlfa2V5cxgEIAEo'
+    'CFINbWFuYWdlQXBpS2V5cxIdCgpjcmVhdGVkX2F0GAUgASgJUgljcmVhdGVkQXQ=');
+
+@$core.Deprecated('Use aPIKeyCreateRequestDescriptor instead')
+const APIKeyCreateRequest$json = {
+  '1': 'APIKeyCreateRequest',
+  '2': [
+    {'1': 'display_name', '3': 1, '4': 1, '5': 9, '10': 'displayName'},
+    {'1': 'manage_api_keys', '3': 2, '4': 1, '5': 8, '10': 'manageApiKeys'},
+  ],
+};
+
+/// Descriptor for `APIKeyCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List aPIKeyCreateRequestDescriptor = $convert.base64Decode(
+    'ChNBUElLZXlDcmVhdGVSZXF1ZXN0EiEKDGRpc3BsYXlfbmFtZRgBIAEoCVILZGlzcGxheU5hbW'
+    'USJgoPbWFuYWdlX2FwaV9rZXlzGAIgASgIUg1tYW5hZ2VBcGlLZXlz');
+
+@$core.Deprecated('Use aPIKeyCreateResponseDescriptor instead')
+const APIKeyCreateResponse$json = {
+  '1': 'APIKeyCreateResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.APIKey',
+      '10': 'value'
+    },
+    {'1': 'api_key', '3': 2, '4': 1, '5': 9, '10': 'apiKey'},
+  ],
+};
+
+/// Descriptor for `APIKeyCreateResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List aPIKeyCreateResponseDescriptor = $convert.base64Decode(
+    'ChRBUElLZXlDcmVhdGVSZXNwb25zZRIsCgV2YWx1ZRgBIAEoCzIWLmdpemNsYXcucnBjLnYxLk'
+    'FQSUtleVIFdmFsdWUSFwoHYXBpX2tleRgCIAEoCVIGYXBpS2V5');
+
 @$core.Deprecated('Use serverPeerDeleteRequestDescriptor instead')
 const ServerPeerDeleteRequest$json = {
   '1': 'ServerPeerDeleteRequest',

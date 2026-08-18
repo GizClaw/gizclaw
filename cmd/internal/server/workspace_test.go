@@ -272,7 +272,7 @@ func TestServeContextProfilingLifecycle(t *testing.T) {
 	}
 }
 
-func TestServeContextDefaultKeepsTCPMuxAndRequiresPrivateAuth(t *testing.T) {
+func TestServeContextDefaultKeepsServerInfoPublic(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
@@ -308,12 +308,12 @@ func TestServeContextDefaultKeepsTCPMuxAndRequiresPrivateAuth(t *testing.T) {
 		}
 		lastStatus = resp.StatusCode
 		_ = resp.Body.Close()
-		if resp.StatusCode == http.StatusUnauthorized {
+		if resp.StatusCode == http.StatusOK {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("server-info status = %d err = %v, want 401 over active TCP mux when serve-to-clients is disabled", lastStatus, lastErr)
+	t.Fatalf("server-info status = %d err = %v, want 200 over active TCP mux when serve-to-clients is disabled", lastStatus, lastErr)
 }
 
 func localTCPUDPAddr(t *testing.T) string {

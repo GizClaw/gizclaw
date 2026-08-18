@@ -113,6 +113,25 @@ typedef struct _gizclaw_rpc_v1_ServerRegisterResponse {
     char runtime_profile_name[256];
 } gizclaw_rpc_v1_ServerRegisterResponse;
 
+typedef struct _gizclaw_rpc_v1_APIKey {
+    char name[27];
+    char display_name[81];
+    char prefix[27];
+    bool manage_api_keys;
+    char created_at[36];
+} gizclaw_rpc_v1_APIKey;
+
+typedef struct _gizclaw_rpc_v1_APIKeyCreateRequest {
+    char display_name[81];
+    bool manage_api_keys;
+} gizclaw_rpc_v1_APIKeyCreateRequest;
+
+typedef struct _gizclaw_rpc_v1_APIKeyCreateResponse {
+    bool has_value;
+    gizclaw_rpc_v1_APIKey value;
+    char api_key[96];
+} gizclaw_rpc_v1_APIKeyCreateResponse;
+
 typedef struct _gizclaw_rpc_v1_ServerPeerDeleteRequest {
     char dummy_field;
 } gizclaw_rpc_v1_ServerPeerDeleteRequest;
@@ -191,6 +210,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_default {""}
 #define gizclaw_rpc_v1_ServerRegisterResponse_init_default {""}
+#define gizclaw_rpc_v1_APIKey_init_default       {"", "", "", 0, ""}
+#define gizclaw_rpc_v1_APIKeyCreateRequest_init_default {"", 0}
+#define gizclaw_rpc_v1_APIKeyCreateResponse_init_default {false, gizclaw_rpc_v1_APIKey_init_default, ""}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_default {0}
 #define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
@@ -218,6 +240,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_zero {""}
 #define gizclaw_rpc_v1_ServerRegisterResponse_init_zero {""}
+#define gizclaw_rpc_v1_APIKey_init_zero          {"", "", "", 0, ""}
+#define gizclaw_rpc_v1_APIKeyCreateRequest_init_zero {"", 0}
+#define gizclaw_rpc_v1_APIKeyCreateResponse_init_zero {false, gizclaw_rpc_v1_APIKey_init_zero, ""}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_zero {0}
 #define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
@@ -267,6 +292,15 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
 #define gizclaw_rpc_v1_ServerRegisterRequest_token_tag 1
 #define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 1
+#define gizclaw_rpc_v1_APIKey_name_tag           1
+#define gizclaw_rpc_v1_APIKey_display_name_tag   2
+#define gizclaw_rpc_v1_APIKey_prefix_tag         3
+#define gizclaw_rpc_v1_APIKey_manage_api_keys_tag 4
+#define gizclaw_rpc_v1_APIKey_created_at_tag     5
+#define gizclaw_rpc_v1_APIKeyCreateRequest_display_name_tag 1
+#define gizclaw_rpc_v1_APIKeyCreateRequest_manage_api_keys_tag 2
+#define gizclaw_rpc_v1_APIKeyCreateResponse_value_tag 1
+#define gizclaw_rpc_v1_APIKeyCreateResponse_api_key_tag 2
 #define gizclaw_rpc_v1_Runtime_last_addr_tag     1
 #define gizclaw_rpc_v1_Runtime_last_seen_at_tag  2
 #define gizclaw_rpc_v1_Runtime_online_tag        3
@@ -392,6 +426,28 @@ X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   1)
 #define gizclaw_rpc_v1_ServerRegisterResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerRegisterResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_APIKey_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   name,              1) \
+X(a, STATIC,   SINGULAR, STRING,   display_name,      2) \
+X(a, STATIC,   SINGULAR, STRING,   prefix,            3) \
+X(a, STATIC,   SINGULAR, BOOL,     manage_api_keys,   4) \
+X(a, STATIC,   SINGULAR, STRING,   created_at,        5)
+#define gizclaw_rpc_v1_APIKey_CALLBACK NULL
+#define gizclaw_rpc_v1_APIKey_DEFAULT NULL
+
+#define gizclaw_rpc_v1_APIKeyCreateRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   display_name,      1) \
+X(a, STATIC,   SINGULAR, BOOL,     manage_api_keys,   2)
+#define gizclaw_rpc_v1_APIKeyCreateRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_APIKeyCreateRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_APIKeyCreateResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1) \
+X(a, STATIC,   SINGULAR, STRING,   api_key,           2)
+#define gizclaw_rpc_v1_APIKeyCreateResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_APIKeyCreateResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_APIKeyCreateResponse_value_MSGTYPE gizclaw_rpc_v1_APIKey
+
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_FIELDLIST(X, a) \
 
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_CALLBACK NULL
@@ -473,6 +529,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PingRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRegisterRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRegisterResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_APIKey_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_APIKeyCreateRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_APIKeyCreateResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Runtime_msg;
@@ -502,6 +561,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_PingResponse_fields &gizclaw_rpc_v1_PingResponse_msg
 #define gizclaw_rpc_v1_ServerRegisterRequest_fields &gizclaw_rpc_v1_ServerRegisterRequest_msg
 #define gizclaw_rpc_v1_ServerRegisterResponse_fields &gizclaw_rpc_v1_ServerRegisterResponse_msg
+#define gizclaw_rpc_v1_APIKey_fields &gizclaw_rpc_v1_APIKey_msg
+#define gizclaw_rpc_v1_APIKeyCreateRequest_fields &gizclaw_rpc_v1_APIKeyCreateRequest_msg
+#define gizclaw_rpc_v1_APIKeyCreateResponse_fields &gizclaw_rpc_v1_APIKeyCreateResponse_msg
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_fields &gizclaw_rpc_v1_ServerPeerDeleteRequest_msg
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_fields &gizclaw_rpc_v1_ServerPeerDeleteResponse_msg
 #define gizclaw_rpc_v1_Runtime_fields &gizclaw_rpc_v1_Runtime_msg
@@ -529,6 +591,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerPutInfoRequest_size
+#define gizclaw_rpc_v1_APIKeyCreateRequest_size  84
+#define gizclaw_rpc_v1_APIKeyCreateResponse_size 277
+#define gizclaw_rpc_v1_APIKey_size               177
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_DeviceProfile_size        325

@@ -108,7 +108,7 @@ func TestStoreLocalPodMaterializesPrivateProjection(t *testing.T) {
 			t.Fatalf("workspace contains forbidden default %q", forbidden)
 		}
 	}
-	for _, required := range []string{"peers", "public-login", "flowcraft-state", "credentials", "firmwares", "runtime-profiles", "models", "memory-layouts", "provider-tenants", "voices", "workspaces", "workflows", "tools"} {
+	for _, required := range []string{"peers", "api-keys", "flowcraft-state", "credentials", "firmwares", "runtime-profiles", "models", "memory-layouts", "provider-tenants", "voices", "workspaces", "workflows", "tools"} {
 		if _, ok := workspace.Stores[required]; !ok {
 			t.Fatalf("workspace required store %q is missing", required)
 		}

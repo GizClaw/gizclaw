@@ -8,7 +8,7 @@
 
 | 符号 | 作用 |
 | --- | --- |
-| [`PeerService`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerService) | 聚合 Manager、public login sessions、API handlers 与领域 services。 |
+| [`PeerService`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerService) | 聚合 Manager、API Key service、API handlers 与领域 services。 |
 | [`PeerService.ServeConn`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerService.ServeConn) | 初始化 Peer connection，并并行启动允许的 Giznet services。 |
 | `ensureConnectedPeer` | 确保连接 identity 对应的 Peer 资源存在。 |
 | `validateServices` | 在启动 connection 前验证必需 service dependencies。 |

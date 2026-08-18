@@ -83,7 +83,7 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	if distinct.ID == conversation.ID {
 		t.Fatalf("identical Conversation creates reused %q", conversation.ID)
 	}
-	warmup, warmupTiming, err := runStreamingResponse(env.ctx, env.http, distinct.ID, "compatibility warm-up")
+	warmup, warmupTiming, err := runStreamingResponse(env.ctx, env.http, env.baseURL, env.apiKey, distinct.ID, "compatibility warm-up")
 	if err != nil || warmup.Status != "completed" {
 		t.Fatalf("warm-up Response: %#v timing=%#v err=%v", warmup, warmupTiming, err)
 	}
@@ -117,7 +117,7 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	var last e2eResponse
 	for _, input := range inputs {
 		var timing responseTiming
-		last, timing, err = runStreamingResponse(env.ctx, env.http, conversation.ID, input)
+		last, timing, err = runStreamingResponse(env.ctx, env.http, env.baseURL, env.apiKey, conversation.ID, input)
 		if err != nil {
 			t.Fatalf("create Response: %v", err)
 		}
@@ -183,11 +183,11 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 		t.Fatal(err)
 	}
 	streamCtx, streamCancel := context.WithCancel(env.ctx)
-	request, err := http.NewRequestWithContext(streamCtx, http.MethodPost, "http://gizclaw/v1/responses", bytes.NewReader(streamBody))
+	request, err := http.NewRequestWithContext(streamCtx, http.MethodPost, env.baseURL+"/responses", bytes.NewReader(streamBody))
 	if err != nil {
 		t.Fatal(err)
 	}
-	request.Header.Set("Authorization", "Bearer gizclaw-peer")
+	request.Header.Set("Authorization", "Bearer "+env.apiKey)
 	request.Header.Set("Content-Type", "application/json")
 	streamResponse, err := env.http.Do(request)
 	if err != nil {
@@ -214,7 +214,7 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	deadline := time.Now().Add(10 * time.Second)
 	var recoveryTiming responseTiming
 	for {
-		last, recoveryTiming, err = runStreamingResponse(env.ctx, env.http, conversation.ID, "recover after interruption")
+		last, recoveryTiming, err = runStreamingResponse(env.ctx, env.http, env.baseURL, env.apiKey, conversation.ID, "recover after interruption")
 		if err == nil && last.Status == "completed" {
 			break
 		}
@@ -239,6 +239,7 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	recordTimingArtifact(t, env.h.RepoRoot, map[string]any{
 		"schema_version": 1, "target": "gizclaw-e2e", "case": "conversations-responses-text-audio",
 		"status": "pass", "workflow_alias": "shared", "model_alias": "shared",
+		"api_key_rpc_create_ms": env.apiKeyCreateMS, "api_key_auth_ms": env.apiKeyAuthMS,
 		"conversation_create_ms": conversationCreateMS, "conversation_get_ms": conversationGetMS,
 		"conversation_create_to_cleanup_ms": elapsedMS(started), "warmup_response": warmupTiming,
 		"response_samples": turnTimings, "response_aggregates": responseTimingAggregates(turnTimings),
@@ -279,17 +280,17 @@ func e2eResponseText(response e2eResponse) string {
 	return strings.TrimSpace(text.String())
 }
 
-func runStreamingResponse(ctx context.Context, client *http.Client, conversationID, input string) (e2eResponse, responseTiming, error) {
+func runStreamingResponse(ctx context.Context, client *http.Client, baseURL, apiKey, conversationID, input string) (e2eResponse, responseTiming, error) {
 	started := time.Now()
 	body, err := json.Marshal(map[string]any{"conversation": conversationID, "input": input, "stream": true})
 	if err != nil {
 		return e2eResponse{}, responseTiming{}, err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://gizclaw/v1/responses", bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/responses", bytes.NewReader(body))
 	if err != nil {
 		return e2eResponse{}, responseTiming{}, err
 	}
-	request.Header.Set("Authorization", "Bearer gizclaw-peer")
+	request.Header.Set("Authorization", "Bearer "+apiKey)
 	request.Header.Set("Content-Type", "application/json")
 	response, err := client.Do(request)
 	if err != nil {

@@ -39,6 +39,7 @@ type deletionPeer struct {
 	contextName string
 	publicKey   string
 	serial      string
+	apiKey      string
 	client      *gizcli.Client
 }
 
@@ -138,7 +139,11 @@ func (e *deletionHarness) newPeer(t *testing.T, contextName string) deletionPeer
 	if registered.RuntimeProfileName != deleteProfileID {
 		t.Fatalf("registered RuntimeProfile = %q, want %q", registered.RuntimeProfileName, deleteProfileID)
 	}
-	return deletionPeer{contextName: contextName, publicKey: publicKey, serial: serial, client: client}
+	createdAPIKey, err := client.CreateAPIKey(e.ctx, "delete.api-key."+contextName, rpcapi.APIKeyCreateRequest{DisplayName: "deletion test"})
+	if err != nil {
+		t.Fatalf("create deletion API key: %v", err)
+	}
+	return deletionPeer{contextName: contextName, publicKey: publicKey, serial: serial, apiKey: createdAPIKey.APIKey, client: client}
 }
 
 func (e *deletionHarness) reconnectAdmin(t *testing.T) {

@@ -9,6 +9,12 @@
 _Static_assert(
     sizeof(gzc_peer_event_t) < 10000,
     "Peer Event must retain the Nanopb oneof union layout");
+_Static_assert(
+    sizeof(((gizclaw_rpc_v1_APIKeyCreateRequest *)0)->display_name) == 81,
+    "API key display name must retain its bounded Nanopb capacity");
+_Static_assert(
+    sizeof(((gizclaw_rpc_v1_APIKeyCreateResponse *)0)->api_key) == 96,
+    "API key secret must retain its bounded Nanopb capacity");
 
 struct gzc_rtc_peer {
   int unused;
@@ -2425,6 +2431,45 @@ int main(void) {
     return 1;
   }
   if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD == 64, "badge pixa method id value") != 0) {
+    return 1;
+  }
+  if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE == 96, "API key create method id value") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_APIKeyCreateResponse api_key_response =
+      gizclaw_rpc_v1_APIKeyCreateResponse_init_zero;
+  api_key_response.has_value = true;
+  strcpy(api_key_response.value.name, "key_0123456789012345678901");
+  strcpy(api_key_response.value.display_name, "phone");
+  strcpy(api_key_response.value.prefix, "gizclaw_sk_v1_01234567...");
+  api_key_response.value.manage_api_keys = true;
+  strcpy(api_key_response.value.created_at, "2026-08-19T00:00:00Z");
+  strcpy(api_key_response.api_key, "gizclaw_sk_v1_0123456789012345678901234567890123456789012");
+  uint8_t api_key_payload[gizclaw_rpc_v1_APIKeyCreateResponse_size];
+  pb_ostream_t api_key_output =
+      pb_ostream_from_buffer(api_key_payload, sizeof(api_key_payload));
+  if (expect(
+          pb_encode(
+              &api_key_output,
+              gizclaw_rpc_v1_APIKeyCreateResponse_fields,
+              &api_key_response),
+          "API key response encode") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_APIKeyCreateResponse decoded_api_key_response =
+      gizclaw_rpc_v1_APIKeyCreateResponse_init_zero;
+  pb_istream_t api_key_input =
+      pb_istream_from_buffer(api_key_payload, api_key_output.bytes_written);
+  if (expect(
+          pb_decode(
+              &api_key_input,
+              gizclaw_rpc_v1_APIKeyCreateResponse_fields,
+              &decoded_api_key_response) &&
+              decoded_api_key_response.has_value &&
+              decoded_api_key_response.value.manage_api_keys &&
+              strcmp(decoded_api_key_response.value.name, api_key_response.value.name) == 0 &&
+              strcmp(decoded_api_key_response.api_key, api_key_response.api_key) == 0,
+          "API key response round trip") != 0) {
     return 1;
   }
 

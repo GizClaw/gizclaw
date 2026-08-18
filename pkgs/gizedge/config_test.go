@@ -839,10 +839,10 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 		called = true
 	}))
 
-	req := httptest.NewRequest(http.MethodOptions, "/me/side-control/sessions/session-id", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/api-keys/key_0123456789012345678901", nil)
 	req.Header.Set("Origin", "wails://wails.localhost")
 	req.Header.Set("Access-Control-Request-Method", http.MethodDelete)
-	req.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-public-key,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
+	req.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-giznet-nonce,x-giznet-public-key,x-giznet-timestamp")
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -855,8 +855,8 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "X-Public-Key") {
-		t.Fatalf("Access-Control-Allow-Headers = %q, want X-Public-Key", got)
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || strings.Contains(got, "X-Public-Key") {
+		t.Fatalf("Access-Control-Allow-Headers = %q", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodDelete) {
 		t.Fatalf("Access-Control-Allow-Methods = %q, want DELETE", got)

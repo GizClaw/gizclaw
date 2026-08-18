@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
@@ -36,5 +37,21 @@ func TestPublicHTTPAuthUserStory(t *testing.T) {
 		t.Fatalf("server-info ice = %+v, want Edge udp=true tcp=false", serverInfo.Ice)
 	}
 
-	_ = h.PublicHTTPLogin("device-http")
+	created, err := client.CreateAPIKey(t.Context(), "e2e-api-key", rpcapi.APIKeyCreateRequest{DisplayName: "e2e", ManageAPIKeys: true})
+	if err != nil {
+		t.Fatalf("CreateAPIKey: %v", err)
+	}
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, h.PublicHTTPURL()+"/gizclaw/v1/api-keys/self", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+created.APIKey)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("GET API key self status = %d", response.StatusCode)
+	}
 }

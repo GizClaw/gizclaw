@@ -386,6 +386,8 @@ func (h *PeerConn) initRPC() {
 		h.rpc.speechLimits = h.Service.manager.SpeechLimits
 		h.rpc.serverResources = h.peerResources()
 		h.rpc.registrations = h.Service.manager.RuntimeProfiles
+		h.rpc.apiKeys = h.Service.apiKeys
+		h.rpc.validateAPIKeyOwner = h.Service.validateAPIKeyOwner
 		h.rpc.deletePeerSelf = func(ctx context.Context) error {
 			return h.Service.manager.deleteActivePeer(ctx, h.Conn.PublicKey(), h.Conn, h.beginRetiring)
 		}

@@ -30,8 +30,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/resourcemanager"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -69,7 +69,7 @@ type Server struct {
 	WorkspaceStore         kv.Store
 	WorkflowStore          kv.Store
 	ToolStore              kv.Store
-	PublicLoginStore       kv.Store
+	APIKeyStore            kv.Store
 	ContactStore           kv.Store
 	FriendStore            kv.Store
 	FriendGroupStore       kv.Store
@@ -90,14 +90,13 @@ type Server struct {
 	BuildCommit            string
 	PublicEndpoint         string
 	PublicICETCP           bool
-	PublicLoginAuthorizer  publiclogin.SessionAuthorizer
 	ICEServers             []gizwebrtc.ICEServer
 	WebRTCSignalingHandler http.Handler
 	EdgeNodes              []giznet.PublicKey
 
 	manager                  *Manager
 	peerService              *PeerService
-	sessions                 *publiclogin.SessionManager
+	apiKeys                  *apikey.Server
 	listenerMu               sync.RWMutex
 	listeners                []giznet.Listener
 	closed                   bool
@@ -340,7 +339,7 @@ func (s *Server) init() error {
 		name  string
 		store kv.Store
 	}{
-		{"public login", s.PublicLoginStore}, {"credential", s.CredentialStore},
+		{"API key", s.APIKeyStore}, {"credential", s.CredentialStore},
 		{"firmware", s.FirmwareStore}, {"runtime profile", s.RuntimeProfileStore},
 		{"model", s.ModelStore}, {"voice", s.VoiceStore}, {"memory layout", s.MemoryLayoutStore},
 		{"provider tenant", s.ProviderTenantStore}, {"workflow", s.WorkflowStore},
@@ -374,7 +373,7 @@ func (s *Server) init() error {
 	workspaceStore := s.WorkspaceStore
 	workflowStore := s.WorkflowStore
 	toolStore := s.ToolStore
-	publicLoginStore := s.PublicLoginStore
+	apiKeyStore := s.APIKeyStore
 	contactStore := s.ContactStore
 	friendInviteTokenStore := kv.Prefixed(s.FriendStore, kv.Key{"invite-tokens"})
 	friendStore := kv.Prefixed(s.FriendStore, kv.Key{"friends"})
@@ -400,6 +399,9 @@ func (s *Server) init() error {
 	gameDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"game-defs"})
 	if !kv.SupportsCreateIfAbsent(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
+	}
+	if !kv.SupportsCreateIfAllAbsent(apiKeyStore) {
+		return fmt.Errorf("gizclaw: API key store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
 	if !kv.SupportsCompareAndMutate(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCompareAndMutateUnsupported)
@@ -432,7 +434,7 @@ func (s *Server) init() error {
 		)
 	}
 
-	publicLoginServer := publiclogin.NewServer(&s.LocalStatic, publicLoginStore)
+	apiKeyServer := apikey.NewServer(apiKeyStore)
 	peersServer := &peer.Server{
 		Store:           peerStore,
 		BuildVersion:    s.BuildVersion,
@@ -444,29 +446,6 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
-	peerAvailability := func(ctx context.Context, publicKey giznet.PublicKey) error {
-		err := peersServer.EnsureAvailable(ctx, publicKey)
-		if errors.Is(err, peer.ErrPeerNotFound) {
-			return nil
-		}
-		if errors.Is(err, peer.ErrPeerPendingDeletion) {
-			return publiclogin.ErrPeerDeletionPending
-		}
-		if errors.Is(err, peer.ErrPeerDeleted) {
-			return publiclogin.ErrPeerDeleted
-		}
-		return err
-	}
-	publicLoginServer.SessionAuthorizer = func(ctx context.Context, publicKey giznet.PublicKey) error {
-		if err := peerAvailability(ctx, publicKey); err != nil {
-			return err
-		}
-		if s.PublicLoginAuthorizer != nil {
-			return s.PublicLoginAuthorizer(ctx, publicKey)
-		}
-		return nil
-	}
-	sessions := publicLoginServer.SessionManager()
 	notifyPeer := func(_ context.Context, publicKey string, event *eventpb.PeerEvent) {
 		var recipient giznet.PublicKey
 		if err := recipient.UnmarshalText([]byte(publicKey)); err != nil || recipient.IsZero() {
@@ -520,8 +499,6 @@ func (s *Server) init() error {
 	credentialServer := &credential.Server{Store: credentialStore}
 	firmwareServer := &firmware.Server{Store: firmwareStore}
 	runtimeProfileServer := &runtimeprofile.Server{Store: runtimeProfileStore}
-	publicLoginServer.RegistrationResolver = runtimeProfileServer.ResolveRegistration
-	publicLoginServer.OwnerProfileBinder = runtimeProfileServer.BindOwnerProfileAndCommit
 	toolServer := &toolkit.Server{Store: toolStore}
 	contactServer := &contact.Server{
 		Store: contactStore,
@@ -649,7 +626,7 @@ func (s *Server) init() error {
 			Server: peersServer, Source: peerPendingDeletionSource,
 			Social:     social.PeerRetirement{Contacts: contactServer, Friends: friendServer, FriendGroups: friendGroupServer},
 			Workspaces: workspaceServer, Gameplay: gameplay.PeerRetirement{Runtime: gameplayRuntime},
-			Sessions: sessions, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,
+			APIKeys: apiKeyServer, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,
 			WorkspaceLookup: workspacePendingDeletionSource, FriendGroupLookup: friendGroupPendingDeletionSource,
 		},
 	); err != nil {
@@ -733,8 +710,8 @@ func (s *Server) init() error {
 
 	s.manager = manager
 	s.peerService = &PeerService{
-		manager:  manager,
-		sessions: sessions,
+		manager: manager,
+		apiKeys: apiKeyServer,
 		admin: &adminService{
 			Peers:                       peersServer,
 			CredentialAdminService:      credentialServer,
@@ -761,29 +738,20 @@ func (s *Server) init() error {
 		},
 		public: &peerHTTP{
 			PeerHTTPService:  peersServer,
-			Self:             peersServer,
-			Status:           manager.PeerRun,
-			Telemetry:        &peertelemetry.AdminService{Metrics: s.MetricsStore},
-			Contacts:         contactServer,
-			PeerHTTP:         publicLoginServer,
+			APIKeys:          apiKeyServer,
 			PeerAvailability: peersServer.EnsureAvailable,
 			WebRTCSignalingHandler: func() http.Handler {
 				return s.WebRTCSignalingHandler
 			},
 		},
 	}
-	s.sessions = sessions
+	s.apiKeys = apiKeyServer
 	mux := http.NewServeMux()
-	publicHandler := s.peerService.publicHTTPHandler(sessions)
-	mux.Handle("/login", publicHandler)
+	publicHandler := s.peerService.publicHTTPHandler(apiKeyServer)
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
-	mux.Handle("/me", publicHandler)
-	mux.Handle("/me/status", publicHandler)
-	mux.Handle("/me/runtime", publicHandler)
-	mux.Handle("/me/side-control/", publicHandler)
-	mux.Handle("/side-control/", publicHandler)
-	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(sessions))
+	mux.Handle("/gizclaw/v1/", publicHandler)
+	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(apiKeyServer))
 	s.httpHandler = observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceServerPublic})
 	return nil
 }

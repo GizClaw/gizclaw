@@ -1,6 +1,6 @@
 # services/system
 
-`pkgs/gizclaw/services/system` 提供多个产品领域共同依赖的系统级服务，包括 RuntimeProfile、设备注册、resource ownership、public login 和 declarative resource 管理。
+`pkgs/gizclaw/services/system` 提供多个产品领域共同依赖的系统级服务，包括 RuntimeProfile、设备注册、API Key、resource ownership 和 declarative resource 管理。
 
 ## 目录结构
 
@@ -8,7 +8,7 @@
 services/system/
 ├── ownership/         # owner context、owner index key 和写入规则
 ├── pendingdeletion/   # durable pending-deletion task 与 managed processor
-├── publiclogin/       # Public HTTP login、assertion 和 session
+├── apikey/            # 设备绑定 API Key 的创建、鉴权与清理
 ├── resourcemanager/   # Admin declarative resource 的统一入口
 └── runtimeprofile/    # RuntimeProfile 与 RegistrationToken
 ```
@@ -31,11 +31,9 @@ Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active d
 
 拥有 RuntimeProfile 和 RegistrationToken 的 KV 状态、schema validation、确定性 revision、hash 索引和注册解析。它通过安全 alias 投影 Admin 资源，不定义 reader/member role system。完整结构见 [RuntimeProfile 与设备注册](./runtime-profile)。
 
-### publiclogin
+### apikey
 
-负责 public HTTP caller 使用 GizClaw identity 完成登录并取得 typed session。Primary session 表示当前 Peer；Side Control session 使用单次 device token 授权，并同时绑定 controller identity 与目标 Peer。该 package 不拥有 browser route、Edge proxy 或业务资源实现。
-
-最终资源访问仍由 RuntimeProfile、owner 和对应领域关系共同判断。登录成功不等于拥有所有资源访问权限。
+为已注册 Peer 创建长期 Key，只保存 secret 的 SHA-256 digest，强制同 owner 管理，并在 Peer 退役时撤销该 owner 的全部 Key。该 package 不拥有 HTTP routing、Edge proxy 或业务资源实现。
 
 ### resourcemanager
 
@@ -56,13 +54,13 @@ flowchart TB
     ResourceManager --> Social["services/social"]
     ResourceManager --> Profile["runtimeprofile"]
     ResourceManager --> Ownership["ownership"]
-    Public["Public HTTP"] --> Login["publiclogin"]
-    Login --> Profile
+    Public["Public HTTP"] --> APIKey["apikey"]
+    APIKey --> Profile
 ```
 
 应该放在 `services/system`：
 
-- 跨领域统一使用的 product authorization 和 session 能力。
+- 跨领域统一使用的 product authorization 能力。
 - Declarative resource 的跨领域 dispatch 与公共管理边界。
 - System-owned migration、validation 和持久化规则。
 

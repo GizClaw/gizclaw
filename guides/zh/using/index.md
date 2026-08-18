@@ -8,5 +8,5 @@
 - [CLI](./cli)
 - [Wails App](./wails-app)
 - [Flutter App](./flutter-app)
-- [Side Control](./side-control)
+- [API Key](./api-keys)
 - SDK：[Go](./sdk/go) · [TypeScript](./sdk/typescript) · [Flutter](./sdk/flutter)

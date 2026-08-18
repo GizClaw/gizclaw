@@ -281,6 +281,8 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET');
+  static const RpcMethod RPC_METHOD_SERVER_API_KEY_CREATE =
+      RpcMethod._(96, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_CREATE');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -378,10 +380,11 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_PEER_DELETE,
     RPC_METHOD_SERVER_SPEECH_EXTRACT,
     RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET,
+    RPC_METHOD_SERVER_API_KEY_CREATE,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 95);
+      $pb.ProtobufEnum.$_initByValueList(values, 96);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
