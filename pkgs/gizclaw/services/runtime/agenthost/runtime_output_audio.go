@@ -191,15 +191,15 @@ func (o *audioOutputTracks) takeCutoverPending() bool {
 
 func (o *audioOutputTracks) closeRoute(streamID, errorText string) error {
 	var errs error
-	for key := range o.channels {
-		if key.streamID == streamID {
-			errs = errors.Join(errs, o.closeChannel(key, errorText))
-		}
-	}
 	if errorText != "" {
 		errs = errors.Join(errs, o.closePending(func(pending audioOutputPending) bool {
 			return pending.key.streamID == streamID
 		}, errorText))
+	}
+	for key := range o.channels {
+		if key.streamID == streamID {
+			errs = errors.Join(errs, o.closeChannelWithPending(key, errorText, errorText == "interrupted"))
+		}
 	}
 	for key := range o.labels {
 		if key.streamID == streamID {
@@ -210,7 +210,7 @@ func (o *audioOutputTracks) closeRoute(streamID, errorText string) error {
 }
 
 func (o *audioOutputTracks) closeChannel(key audioOutputKey, errorText string) error {
-	return o.closeChannelWithPending(key, errorText, false)
+	return o.closeChannelWithPending(key, errorText, errorText == "interrupted")
 }
 
 func (o *audioOutputTracks) closeChannelWithPending(key audioOutputKey, errorText string, retainPending bool) error {
@@ -325,6 +325,39 @@ func (o *audioOutputTracks) waitPending(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (o *audioOutputTracks) waitInterrupted(ctx context.Context, chunk *genx.MessageChunk) (bool, error) {
+	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() || chunk.Ctrl.Error != "interrupted" {
+		return false, nil
+	}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	if streamID == "" {
+		return false, nil
+	}
+	mimeType, typed := chunk.MIMEType()
+	matched := false
+	for _, pending := range o.pending {
+		match := pending.key.streamID == streamID && (!typed || pending.key.mimeType == mimeType)
+		if !match {
+			continue
+		}
+		matched = true
+		select {
+		case <-pending.ctrl.Done():
+		case <-ctx.Done():
+			return matched, ctx.Err()
+		}
+	}
+	kept := o.pending[:0]
+	for _, pending := range o.pending {
+		if pending.key.streamID == streamID && (!typed || pending.key.mimeType == mimeType) {
+			continue
+		}
+		kept = append(kept, pending)
+	}
+	o.pending = kept
+	return matched, nil
 }
 
 func (o *audioOutputTracks) closeWrite() error {

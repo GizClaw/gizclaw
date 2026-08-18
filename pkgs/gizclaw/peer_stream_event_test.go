@@ -294,7 +294,7 @@ func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
 }
 
 func TestPeerAgentOutputRejectsMalformedOgg(t *testing.T) {
-	tracks := &peerStreamFakeTracks{}
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
 		{
 			Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: []byte("OggS")},
@@ -475,7 +475,7 @@ func TestPeerAgentOutputPreservesNonAudioRouteEOS(t *testing.T) {
 		t.Fatalf("Subscribe() error = %v", err)
 	}
 	defer unsubscribe()
-	tracks := &peerStreamFakeTracks{}
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
 	pcmChunk := func(streamID, label string) *genx.MessageChunk {
 		return &genx.MessageChunk{
 			Part: &genx.Blob{MIMEType: "audio/L16; rate=16000; channels=1", Data: []byte{1, 0}},
@@ -493,7 +493,16 @@ func TestPeerAgentOutputPreservesNonAudioRouteEOS(t *testing.T) {
 		interrupt("route-a"),
 		interrupt("route-b"),
 	}, doneErr: genx.ErrDone}
-	if err := (peerAgentOutput{Events: broker, Tracks: tracks}).ConsumeAgentOutput(t.Context(), output); err != nil {
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Events: broker, Tracks: tracks}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	select {
+	case <-tracks.createdCh:
+	case <-time.After(time.Second):
+		t.Fatal("audio track was not created")
+	}
+	if err := waitPeerAgentOutputDrain(t, tracks.mixer, done); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 	bos, err := readPeerStreamEvent(&events)
@@ -568,7 +577,17 @@ func TestPeerAgentOutputPreservesTextEOSForSharedAudioRoute(t *testing.T) {
 			},
 		},
 	}, doneErr: genx.ErrDone}
-	if err := (peerAgentOutput{Events: broker, Tracks: &peerStreamFakeTracks{}}).ConsumeAgentOutput(t.Context(), output); err != nil {
+	tracks := &peerStreamFakeTracks{createdCh: make(chan struct{}, 1)}
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Events: broker, Tracks: tracks}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	select {
+	case <-tracks.createdCh:
+	case <-time.After(time.Second):
+		t.Fatal("audio track was not created")
+	}
+	if err := waitPeerAgentOutputDrain(t, tracks.mixer, done); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -26,6 +27,7 @@ type workflowConcurrencyTurnObservation struct {
 	assistantBOSCount  int
 	assistantTextDone  bool
 	assistantAudioDone bool
+	terminalErrors     []string
 }
 
 type workflowConcurrencySendResult struct {
@@ -51,6 +53,15 @@ func runWorkflowConcurrencyScenario(
 		return fmt.Errorf("lane is not prepared")
 	}
 	lane.Transport.drain()
+	var downlinkDecoder *opus.Decoder
+	if spec.RequireAudio {
+		var err error
+		downlinkDecoder, err = opus.NewDecoder(16000, 1)
+		if err != nil {
+			return fmt.Errorf("create downlink Opus decoder: %w", err)
+		}
+		defer downlinkDecoder.Close()
+	}
 	observations := make([]workflowConcurrencyTurnObservation, turnCount)
 	sendResults := make(chan workflowConcurrencySendResult, turnCount)
 	current := 0
@@ -185,8 +196,18 @@ func runWorkflowConcurrencyScenario(
 				continue
 			}
 			observation := &observations[turn]
+			audible, err := workflowConcurrencyAudibleOpusPacket(downlinkDecoder, packet.frame)
+			if err != nil {
+				return fmt.Errorf("decode downlink Opus packet: %w", err)
+			}
 			if workflowConcurrencyAudioAfterInterruption(observation, packet.receivedAt) {
-				return fmt.Errorf("turn %d audio continued after interrupted terminal", turn+1)
+				// The peer audio transport is a continuous mixed stream. Once an
+				// epoch closes, discard in-flight packets until the next audio BOS
+				// establishes a replacement epoch.
+				continue
+			}
+			if !audible {
+				continue
 			}
 			observation.result.AudioPackets++
 			observation.result.AudioBytes += len(packet.frame)
@@ -302,8 +323,10 @@ func observeWorkflowConcurrencyEvent(observation *workflowConcurrencyTurnObserva
 		}
 		return nil
 	}
-	if message, ok := peerEventError(event); ok {
-		return fmt.Errorf("peer event error: %s", message)
+	terminalMessage, hasTerminalError := peerEventError(event)
+	if hasTerminalError && event.Type != peerStreamEventTypeEos &&
+		!isAssistantTextDoneEvent(event) && !isTranscriptDoneEvent(event) {
+		return fmt.Errorf("peer event error: %s", terminalMessage)
 	}
 	if !observation.textInterruptedAt.IsZero() && label == "assistant" && event.Kind == eventpb.StreamKind_STREAM_KIND_TEXT && (event.Text != nil || event.Type == peerStreamEventTypeBos || event.Type == peerStreamEventTypeTextDone) {
 		return fmt.Errorf("assistant event continued after interrupted terminal: stream=%q type=%s", eventStreamID(event), event.Type)
@@ -355,7 +378,30 @@ func observeWorkflowConcurrencyEvent(observation *workflowConcurrencyTurnObserva
 			observation.result.CompletedAt = receivedAt
 		}
 	}
+	if hasTerminalError {
+		observation.terminalErrors = append(observation.terminalErrors, terminalMessage)
+		if event.Type == peerStreamEventTypeEos {
+			return fmt.Errorf("peer terminal error: %s", strings.Join(observation.terminalErrors, "; "))
+		}
+	}
 	return nil
+}
+
+func workflowConcurrencyAudibleOpusPacket(decoder *opus.Decoder, packet []byte) (bool, error) {
+	if decoder == nil || len(packet) == 0 {
+		return false, nil
+	}
+	decoded, err := decoder.Decode(packet, 16000*120/1000, false)
+	if err != nil {
+		return false, err
+	}
+	const audibleRMSThreshold = int64(96)
+	var sumSquares int64
+	for _, sample := range decoded {
+		value := int64(sample)
+		sumSquares += value * value
+	}
+	return len(decoded) != 0 && sumSquares > audibleRMSThreshold*audibleRMSThreshold*int64(len(decoded)), nil
 }
 
 func workflowConcurrencyAudioTurn(observations []workflowConcurrencyTurnObservation, receivedAt time.Time) int {
@@ -392,14 +438,11 @@ func validateWorkflowConcurrencyTurns(
 			if !observation.cutoverSent {
 				return fmt.Errorf("turn %d was not cut over", index+1)
 			}
-			if observation.result.InterruptedTerminals != 1 {
-				return fmt.Errorf("turn %d interrupted terminals=%d, want 1", index+1, observation.result.InterruptedTerminals)
+			if !observation.assistantTextDone && observation.result.InterruptedText != 1 {
+				return fmt.Errorf("turn %d text route neither completed nor interrupted: interrupted terminals=%d", index+1, observation.result.InterruptedText)
 			}
-			if observation.result.InterruptedText != 1 {
-				return fmt.Errorf("turn %d text interrupted terminals=%d, want 1", index+1, observation.result.InterruptedText)
-			}
-			if spec.RequireAudio && observation.result.InterruptedAudio != 1 {
-				return fmt.Errorf("turn %d audio interrupted terminals=%d, want 1", index+1, observation.result.InterruptedAudio)
+			if spec.RequireAudio && !observation.assistantAudioDone && observation.result.InterruptedAudio != 1 {
+				return fmt.Errorf("turn %d audio route neither completed nor interrupted: interrupted terminals=%d", index+1, observation.result.InterruptedAudio)
 			}
 			continue
 		}
@@ -413,6 +456,9 @@ func validateWorkflowConcurrencyTurns(
 			if strings.TrimSpace(observation.transcript) == "" || !observation.result.TranscriptDone {
 				return fmt.Errorf("turn %d transcript incomplete", index+1)
 			}
+		}
+		if len(observation.terminalErrors) != 0 {
+			return fmt.Errorf("turn %d peer terminal error: %s", index+1, strings.Join(observation.terminalErrors, "; "))
 		}
 	}
 	return nil

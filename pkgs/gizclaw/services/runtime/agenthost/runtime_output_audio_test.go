@@ -469,23 +469,33 @@ func TestMixerOutputInterruptsOneRouteWhileAnotherDrains(t *testing.T) {
 	}()
 	select {
 	case got := <-observedEOS:
-		if got != interrupted {
-			t.Fatalf("first observed EOS = %#v, want route-a interruption", got)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("route-a interruption was not observed")
-	}
-	select {
-	case got := <-observedEOS:
-		t.Fatalf("route-b EOS observed before drain: %#v", got)
+		t.Fatalf("EOS observed before interrupted route drained: %#v", got)
 	case <-time.After(20 * time.Millisecond):
 	}
 
 	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
-	readDone := make(chan struct{})
+	firstReadDone := make(chan struct{})
 	go func() {
-		defer close(readDone)
+		defer close(firstReadDone)
 		_, _ = creator.mixer.Read(buffer)
+	}()
+	select {
+	case got := <-observedEOS:
+		if got != interrupted {
+			t.Fatalf("first observed EOS = %#v, want route-a interruption", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("route-a interruption was not observed after its track drained")
+	}
+	<-firstReadDone
+	select {
+	case got := <-observedEOS:
+		t.Fatalf("route-b EOS observed before its drain: %#v", got)
+	case <-time.After(20 * time.Millisecond):
+	}
+	secondReadDone := make(chan struct{})
+	go func() {
+		defer close(secondReadDone)
 		_, _ = creator.mixer.Read(buffer)
 	}()
 	select {
@@ -507,7 +517,7 @@ func TestMixerOutputInterruptsOneRouteWhileAnotherDrains(t *testing.T) {
 	if err := creator.mixer.Close(); err != nil {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
-	<-readDone
+	<-secondReadDone
 }
 
 func TestMixerOutputClosesBlockedReaderAfterObserveError(t *testing.T) {

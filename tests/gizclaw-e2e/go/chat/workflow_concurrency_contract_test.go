@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -111,7 +112,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 	})
 
-	t.Run("queued audio uses receive time across channels", func(t *testing.T) {
+	t.Run("post-interrupt packets stay behind the next epoch gate", func(t *testing.T) {
 		interruptedAt := time.Now()
 		observation := workflowConcurrencyTurnObservation{
 			audioEpoch:         interruptedAt.Add(-time.Second),
@@ -121,7 +122,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			t.Fatal("pre-interrupt packet was classified as late")
 		}
 		if !workflowConcurrencyAudioAfterInterruption(&observation, interruptedAt.Add(time.Millisecond)) {
-			t.Fatal("post-interrupt packet was classified as queued")
+			t.Fatal("post-interrupt packet escaped the closed epoch gate")
 		}
 	})
 
@@ -240,8 +241,49 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			t.Fatal(err)
 		}
 		observations[1].result.InterruptedTerminals = 0
+		observations[1].result.InterruptedText = 0
+		observations[1].assistantTextDone = false
+		observations[1].result.AssistantTextDone = false
 		if err := validateWorkflowConcurrencyTurns(observations, einoWorkflowConcurrencySpec, workflowConcurrencyInterrupt); err == nil {
 			t.Fatal("missing interrupted terminal passed")
+		}
+	})
+
+	t.Run("continuous downlink distinguishes silence from audible audio", func(t *testing.T) {
+		encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationAudio)
+		if err != nil {
+			t.Fatalf("NewEncoder() error = %v", err)
+		}
+		defer encoder.Close()
+		decoder, err := opus.NewDecoder(16000, 1)
+		if err != nil {
+			t.Fatalf("NewDecoder() error = %v", err)
+		}
+		defer decoder.Close()
+
+		silence := make([]int16, 320)
+		packet, err := encoder.Encode(silence, len(silence))
+		if err != nil {
+			t.Fatalf("Encode(silence) error = %v", err)
+		}
+		if audible, err := workflowConcurrencyAudibleOpusPacket(decoder, packet); err != nil || audible {
+			t.Fatalf("silence audible = %v, %v; want false", audible, err)
+		}
+
+		tone := make([]int16, 320)
+		for index := range tone {
+			if index%16 < 8 {
+				tone[index] = 4000
+			} else {
+				tone[index] = -4000
+			}
+		}
+		packet, err = encoder.Encode(tone, len(tone))
+		if err != nil {
+			t.Fatalf("Encode(tone) error = %v", err)
+		}
+		if audible, err := workflowConcurrencyAudibleOpusPacket(decoder, packet); err != nil || !audible {
+			t.Fatalf("tone audible = %v, %v; want true", audible, err)
 		}
 	})
 }

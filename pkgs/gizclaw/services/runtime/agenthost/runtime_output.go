@@ -131,6 +131,14 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if err := tracks.consume(chunk); err != nil {
 			return err
 		}
+		interruptedDrained := false
+		if o.WaitForAudioDrain {
+			var err error
+			interruptedDrained, err = tracks.waitInterrupted(ctx, chunk)
+			if err != nil {
+				return err
+			}
+		}
 		if o.WaitForAudioDrain && tracks.takeCutoverPending() {
 			if err := tracks.waitPending(ctx); err != nil {
 				return err
@@ -144,7 +152,7 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 			}
 		}
 		tracks.removeDrainedPending()
-		if o.WaitForAudioDrain && shouldWaitForAudioDrain(chunk) &&
+		if o.WaitForAudioDrain && !interruptedDrained && shouldWaitForAudioDrain(chunk) &&
 			(len(pendingObserve) > 0 || tracks.hasPending()) {
 			pendingObserve = append(pendingObserve, chunk)
 			if !tracks.hasPending() {
