@@ -42,9 +42,16 @@ export function PlayFullHome({
     configurePlayRuntime(runtime);
     const testClient = window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__;
     if (testClient != null) {
+      openAIFetch = window.__GIZCLAW_DESKTOP_TEST_OPENAI_FETCH__;
       configurePlayDataClient(testClient);
+      if (openAIFetch != null) {
+        configurePlayOpenAIClient(openAIFetch);
+      }
       setReady(true);
       return () => {
+        if (openAIFetch != null) {
+          clearPlayOpenAIClient(openAIFetch);
+        }
         clearPlayDataClient(testClient);
         clearPlayRuntime(runtime);
       };
