@@ -276,6 +276,30 @@ func TestInterruptibleOutputClosesRepeatedTurnsBeforeReplacementBOS(t *testing.T
 	requireASTHandoffOrder(t, observed, "turn-2", "turn-3")
 }
 
+func TestInterruptibleOutputBlocksEveryActiveResponse(t *testing.T) {
+	output := newInterruptibleOutput()
+	for _, streamID := range []string{"first", "second"} {
+		for _, chunk := range []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant", BeginOfStream: true}},
+			{Role: genx.RoleModel, Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "assistant"}},
+		} {
+			if err := output.push(chunk); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := output.Next(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	output.interrupt("replacement")
+	for _, streamID := range []string{"first", "second"} {
+		if !output.isBlockedStream(streamID) {
+			t.Fatalf("active response %q was not blocked", streamID)
+		}
+	}
+}
+
 func TestInterruptibleOutputDropsASTSegmentFamily(t *testing.T) {
 	output := newInterruptibleOutput()
 	if err := output.push(&genx.MessageChunk{

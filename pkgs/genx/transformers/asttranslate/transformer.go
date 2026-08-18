@@ -400,44 +400,55 @@ func (s *interruptibleOutput) push(chunk *genx.MessageChunk) error {
 func (s *interruptibleOutput) interrupt(string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	streamID := s.pendingAssistantStream()
-	if streamID == "" {
+	streamIDs := s.pendingAssistantStreams()
+	if len(streamIDs) == 0 {
 		return
 	}
-	s.blockedStream[streamID] = true
 	s.active = false
 	s.activeStream = ""
-	delete(s.activeStreamKeys, streamID)
-	s.queue = removeASTAssistantStreamChunks(s.queue, streamID)
-	s.queue = append(s.interruptedChunks(streamID), s.queue...)
+	remaining := s.queue
+	interrupted := make([]*genx.MessageChunk, 0, len(streamIDs)*2)
+	for _, streamID := range streamIDs {
+		s.blockedStream[streamID] = true
+		delete(s.activeStreamKeys, streamID)
+		remaining = removeASTAssistantStreamChunks(remaining, streamID)
+		interrupted = append(interrupted, s.interruptedChunks(streamID)...)
+	}
+	s.queue = append(interrupted, remaining...)
 	s.cond.Broadcast()
 }
 
-func (s *interruptibleOutput) pendingAssistantStream() string {
+func (s *interruptibleOutput) pendingAssistantStreams() []string {
+	streamIDs := make(map[string]struct{})
 	if streamID := strings.TrimSpace(s.activeStream); streamID != "" {
-		return streamID
+		streamIDs[streamID] = struct{}{}
+	}
+	for streamID, keys := range s.activeStreamKeys {
+		if len(keys) != 0 {
+			streamIDs[streamID] = struct{}{}
+		}
 	}
 	for _, chunk := range s.queue {
 		if isASTAssistantChunk(chunk) {
 			if streamID := astAssistantResponseStreamID(chunk.Ctrl.StreamID); streamID != "" {
-				return streamID
+				streamIDs[streamID] = struct{}{}
 			}
 		}
 	}
-	streamIDs := make([]string, 0, len(s.deliveredRoutes))
 	for streamID, routes := range s.deliveredRoutes {
 		for _, route := range routes {
 			if route.begun && !route.done {
-				streamIDs = append(streamIDs, streamID)
+				streamIDs[streamID] = struct{}{}
 				break
 			}
 		}
 	}
-	sort.Strings(streamIDs)
-	if len(streamIDs) != 0 {
-		return streamIDs[0]
+	result := make([]string, 0, len(streamIDs))
+	for streamID := range streamIDs {
+		result = append(result, streamID)
 	}
-	return ""
+	sort.Strings(result)
+	return result
 }
 
 func (s *interruptibleOutput) pendingDeliveryIndex(chunk *genx.MessageChunk) int {

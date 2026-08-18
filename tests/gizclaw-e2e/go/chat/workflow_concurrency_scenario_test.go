@@ -18,6 +18,8 @@ type workflowConcurrencyTurnObservation struct {
 	result             workflowConcurrencyTurnResult
 	assistant          strings.Builder
 	assistantStreams   map[string]struct{}
+	interruptedText    map[string]struct{}
+	interruptedAudio   map[string]struct{}
 	transcript         string
 	audioEpoch         time.Time
 	textInterruptedAt  time.Time
@@ -117,7 +119,7 @@ func runWorkflowConcurrencyScenario(
 			return nil
 		}
 		if err := observeWorkflowConcurrencyEvent(&observations[turn], event, received.receivedAt); err != nil {
-			return fmt.Errorf("turn %d: %w", turn+1, err)
+			return fmt.Errorf("turn %d: %w; recent events: %s", turn+1, err, trace.String())
 		}
 		return nil
 	}
@@ -257,6 +259,18 @@ func workflowConcurrencyEventTurn(observations []workflowConcurrencyTurnObservat
 			}
 		}
 	}
+	if current > 0 && eventLabel(event) == "assistant" && event.Type == peerStreamEventTypeBos {
+		previous := &observations[current-1]
+		currentObservation := &observations[current]
+		if previous.cutoverSent && currentObservation.result.TranscriptStreamID == "" {
+			// Sending the replacement input advances current before the runtime
+			// has observed that input. Old routes may still emit one or more
+			// synthetic BOS/terminal pairs during that gap. Keep those closures
+			// on the cut-over turn; the current turn begins when its transcript
+			// stream, which derives from the input stream ID, is observed.
+			return current - 1
+		}
+	}
 	if eventLabel(event) == "assistant" && event.Error != nil && strings.TrimSpace(*event.Error) == "interrupted" {
 		for index := current - 1; index >= 0; index-- {
 			observation := &observations[index]
@@ -295,18 +309,27 @@ func observeWorkflowConcurrencyEvent(observation *workflowConcurrencyTurnObserva
 		}
 	}
 	if label == "assistant" && event.Error != nil && strings.TrimSpace(*event.Error) == "interrupted" {
+		streamID := eventStreamID(event)
 		switch event.Kind {
 		case eventpb.StreamKind_STREAM_KIND_TEXT:
-			observation.result.InterruptedText++
-			if observation.result.InterruptedText > 1 {
-				return fmt.Errorf("duplicate text interrupted terminal for stream %q", eventStreamID(event))
+			if observation.interruptedText == nil {
+				observation.interruptedText = make(map[string]struct{})
 			}
+			if _, duplicate := observation.interruptedText[streamID]; duplicate {
+				return fmt.Errorf("duplicate text interrupted terminal for stream %q", streamID)
+			}
+			observation.interruptedText[streamID] = struct{}{}
+			observation.result.InterruptedText++
 			observation.textInterruptedAt = receivedAt
 		case eventpb.StreamKind_STREAM_KIND_AUDIO:
-			observation.result.InterruptedAudio++
-			if observation.result.InterruptedAudio > 1 {
-				return fmt.Errorf("duplicate audio interrupted terminal for stream %q", eventStreamID(event))
+			if observation.interruptedAudio == nil {
+				observation.interruptedAudio = make(map[string]struct{})
 			}
+			if _, duplicate := observation.interruptedAudio[streamID]; duplicate {
+				return fmt.Errorf("duplicate audio interrupted terminal for stream %q", streamID)
+			}
+			observation.interruptedAudio[streamID] = struct{}{}
+			observation.result.InterruptedAudio++
 			observation.audioInterruptedAt = receivedAt
 		default:
 			// Some voice pipelines also emit a route-level terminal after the
@@ -328,8 +351,10 @@ func observeWorkflowConcurrencyEvent(observation *workflowConcurrencyTurnObserva
 		!isAssistantTextDoneEvent(event) && !isTranscriptDoneEvent(event) {
 		return fmt.Errorf("peer event error: %s", terminalMessage)
 	}
-	if !observation.textInterruptedAt.IsZero() && label == "assistant" && event.Kind == eventpb.StreamKind_STREAM_KIND_TEXT && (event.Text != nil || event.Type == peerStreamEventTypeBos || event.Type == peerStreamEventTypeTextDone) {
-		return fmt.Errorf("assistant event continued after interrupted terminal: stream=%q type=%s", eventStreamID(event), event.Type)
+	if label == "assistant" && event.Kind == eventpb.StreamKind_STREAM_KIND_TEXT && (event.Text != nil || event.Type == peerStreamEventTypeBos || event.Type == peerStreamEventTypeTextDone) {
+		if _, interrupted := observation.interruptedText[eventStreamID(event)]; interrupted {
+			return fmt.Errorf("assistant event continued after interrupted terminal: stream=%q type=%s", eventStreamID(event), event.Type)
+		}
 	}
 	switch label {
 	case "transcript":
@@ -438,10 +463,10 @@ func validateWorkflowConcurrencyTurns(
 			if !observation.cutoverSent {
 				return fmt.Errorf("turn %d was not cut over", index+1)
 			}
-			if !observation.assistantTextDone && observation.result.InterruptedText != 1 {
+			if !observation.assistantTextDone && observation.result.InterruptedText == 0 {
 				return fmt.Errorf("turn %d text route neither completed nor interrupted: interrupted terminals=%d", index+1, observation.result.InterruptedText)
 			}
-			if spec.RequireAudio && !observation.assistantAudioDone && observation.result.InterruptedAudio != 1 {
+			if spec.RequireAudio && !observation.assistantAudioDone && observation.result.InterruptedAudio == 0 {
 				return fmt.Errorf("turn %d audio route neither completed nor interrupted: interrupted terminals=%d", index+1, observation.result.InterruptedAudio)
 			}
 			continue

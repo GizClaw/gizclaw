@@ -377,7 +377,7 @@ func TestPeerAudioRouteAggregatorStartsLaterEpoch(t *testing.T) {
 	}
 }
 
-func TestPeerAudioRouteAggregatorCutsOverOverlappingAssistantEpoch(t *testing.T) {
+func TestPeerAudioRouteAggregatorMergesOverlappingAssistantRoutes(t *testing.T) {
 	audio := newPeerAudioRouteAggregator()
 	firstBOS := peerOutputAudioBoundary(
 		eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
@@ -394,21 +394,8 @@ func TestPeerAudioRouteAggregatorCutsOverOverlappingAssistantEpoch(t *testing.T)
 	if emit, err := audio.consume(firstBOS); err != nil || !emit {
 		t.Fatalf("consume(first BOS) = %v, %v, want emit", emit, err)
 	}
-	cutover, err := audio.cutover(secondBOS)
-	if err != nil {
-		t.Fatalf("cutover(second BOS) error = %v", err)
-	}
-	if cutover == nil || cutover.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
-		cutover.StreamID() != "first" ||
-		cutover.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO ||
-		cutover.GetEos().GetError().GetMessage() != "interrupted" {
-		t.Fatalf("cutover event = %#v, want interrupted audio EOS for first", cutover)
-	}
-	if emit, err := audio.consume(secondBOS); err != nil || !emit {
-		t.Fatalf("consume(second BOS) = %v, %v, want emit", emit, err)
-	}
-	if secondBOS.StreamID() != "second" {
-		t.Fatalf("second BOS stream = %q, want second", secondBOS.StreamID())
+	if emit, err := audio.consume(secondBOS); err != nil || emit {
+		t.Fatalf("consume(second BOS) = %v, %v, want suppressed", emit, err)
 	}
 	if emit, err := audio.consume(peerOutputAudioBoundary(
 		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
@@ -416,7 +403,7 @@ func TestPeerAudioRouteAggregatorCutsOverOverlappingAssistantEpoch(t *testing.T)
 		"assistant",
 		"audio/opus",
 	)); err != nil || emit {
-		t.Fatalf("consume(late first EOS) = %v, %v, want ignored", emit, err)
+		t.Fatalf("consume(first EOS) = %v, %v, want suppressed", emit, err)
 	}
 	secondEOS := peerOutputAudioBoundary(
 		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
@@ -427,8 +414,8 @@ func TestPeerAudioRouteAggregatorCutsOverOverlappingAssistantEpoch(t *testing.T)
 	if emit, err := audio.consume(secondEOS); err != nil || !emit {
 		t.Fatalf("consume(second EOS) = %v, %v, want emit", emit, err)
 	}
-	if secondEOS.StreamID() != "second" {
-		t.Fatalf("second EOS stream = %q, want second", secondEOS.StreamID())
+	if secondEOS.StreamID() != "first" {
+		t.Fatalf("aggregate EOS stream = %q, want first", secondEOS.StreamID())
 	}
 	if err := audio.close(); err != nil {
 		t.Fatalf("close() error = %v", err)

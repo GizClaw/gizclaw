@@ -99,8 +99,74 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 	})
 
+	t.Run("synthetic interrupted routes stay with the cut over turn until replacement transcript", func(t *testing.T) {
+		observations := []workflowConcurrencyTurnObservation{
+			{
+				cutoverSent: true,
+				result: workflowConcurrencyTurnResult{
+					InputStreamID: "turn-1", InterruptedTerminals: 1, InterruptedText: 1,
+				},
+				interruptedText: map[string]struct{}{"old-visible-route": {}},
+			},
+			{result: workflowConcurrencyTurnResult{InputStreamID: "turn-2"}},
+		}
+		label := "assistant"
+		streamID := "old-synthetic-route"
+		bos := peerStreamEvent{
+			Type: peerStreamEventTypeBos, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+			StreamId: &streamID, Label: &label,
+		}
+		if got := workflowConcurrencyEventTurn(observations, 1, bos); got != 0 {
+			t.Fatalf("synthetic old BOS attributed to turn %d, want 0", got)
+		}
+		if err := observeWorkflowConcurrencyEvent(&observations[0], bos, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		interrupted := "interrupted"
+		eos := peerStreamEvent{
+			Type: peerStreamEventTypeTextDone, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+			StreamId: &streamID, Label: &label, Error: &interrupted,
+		}
+		if got := workflowConcurrencyEventTurn(observations, 1, eos); got != 0 {
+			t.Fatalf("synthetic old EOS attributed to turn %d, want 0", got)
+		}
+		if err := observeWorkflowConcurrencyEvent(&observations[0], eos, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		secondOldStreamID := "second-old-synthetic-route"
+		bos.StreamId = &secondOldStreamID
+		if got := workflowConcurrencyEventTurn(observations, 1, bos); got != 0 {
+			t.Fatalf("second synthetic old BOS attributed to turn %d, want 0", got)
+		}
+		if err := observeWorkflowConcurrencyEvent(&observations[0], bos, time.Now()); err != nil {
+			t.Fatalf("second synthetic old BOS: %v", err)
+		}
+
+		currentTranscriptStreamID := "turn-2:ast"
+		transcriptLabel := "transcript"
+		transcriptBOS := peerStreamEvent{
+			Type: peerStreamEventTypeBos, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+			StreamId: &currentTranscriptStreamID, Label: &transcriptLabel,
+		}
+		if got := workflowConcurrencyEventTurn(observations, 1, transcriptBOS); got != 1 {
+			t.Fatalf("replacement transcript attributed to turn %d, want 1", got)
+		}
+		if err := observeWorkflowConcurrencyEvent(&observations[1], transcriptBOS, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+
+		currentStreamID := "turn-2-response"
+		bos.StreamId = &currentStreamID
+		if got := workflowConcurrencyEventTurn(observations, 1, bos); got != 1 {
+			t.Fatalf("current BOS attributed to turn %d, want 1", got)
+		}
+	})
+
 	t.Run("late output after interruption fails", func(t *testing.T) {
-		observation := workflowConcurrencyTurnObservation{textInterruptedAt: time.Now()}
+		observation := workflowConcurrencyTurnObservation{
+			textInterruptedAt: time.Now(),
+			interruptedText:   map[string]struct{}{"turn-1:assistant": {}},
+		}
 		text := "late"
 		label := "assistant"
 		streamID := "turn-1:assistant"
@@ -140,6 +206,28 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 		if observation.result.InterruptedTerminals != 1 || observation.result.InterruptedText != 1 || observation.result.InterruptedAudio != 1 {
 			t.Fatalf("interrupted terminals=%+v", observation.result)
+		}
+	})
+
+	t.Run("interruption terminals are unique per stream", func(t *testing.T) {
+		observation := workflowConcurrencyTurnObservation{}
+		label := "assistant"
+		interrupted := "interrupted"
+		for _, streamID := range []string{"response-a", "response-b"} {
+			if err := observeWorkflowConcurrencyEvent(&observation, peerStreamEvent{
+				Type: peerStreamEventTypeTextDone, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+				StreamId: &streamID, Label: &label, Error: &interrupted,
+			}, time.Now()); err != nil {
+				t.Fatalf("distinct stream %q: %v", streamID, err)
+			}
+		}
+		streamID := "response-b"
+		err := observeWorkflowConcurrencyEvent(&observation, peerStreamEvent{
+			Type: peerStreamEventTypeTextDone, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+			StreamId: &streamID, Label: &label, Error: &interrupted,
+		}, time.Now())
+		if err == nil || !strings.Contains(err.Error(), "duplicate text interrupted terminal") {
+			t.Fatalf("duplicate stream error = %v", err)
 		}
 	})
 
