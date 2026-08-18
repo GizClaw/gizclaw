@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -268,6 +270,69 @@ func TestMixerOutputPublishesEOSAfterTrackDrain(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
+}
+
+func TestMixerOutputSignalsCutoverBeforeReplacementBOS(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	mimeType := "audio/L16; rate=16000; channels=1"
+	oldBOS := pcmOutputChunk("old", mimeType, nil, false, "")
+	oldBOS.Ctrl.Label = "assistant"
+	oldBOS.Ctrl.BeginOfStream = true
+	newBOS := pcmOutputChunk("new", mimeType, nil, false, "")
+	newBOS.Ctrl.Label = "assistant"
+	newBOS.Ctrl.BeginOfStream = true
+	output := &sliceStream{chunks: []*genx.MessageChunk{
+		oldBOS,
+		pcmOutputChunk("old", mimeType, []byte{1, 0}, false, ""),
+		newBOS,
+		pcmOutputChunk("new", mimeType, []byte{2, 0}, true, ""),
+	}, doneErr: genx.ErrDone}
+	var cutoverSignaled atomic.Bool
+	done := make(chan error, 1)
+	go func() {
+		done <- (MixerOutput{
+			Tracks:            creator,
+			WaitForAudioDrain: true,
+			OnAudioCutover: func(chunk *genx.MessageChunk) error {
+				if chunk != newBOS {
+					return fmt.Errorf("cutover chunk = %p, want replacement BOS %p", chunk, newBOS)
+				}
+				cutoverSignaled.Store(true)
+				return nil
+			},
+			Observe: func(chunk *genx.MessageChunk) error {
+				if chunk == newBOS && !cutoverSignaled.Load() {
+					return errors.New("replacement BOS observed before cutover")
+				}
+				return nil
+			},
+		}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		buffer := make([]byte, creator.mixer.Output().BytesInDuration(20*time.Millisecond))
+		for {
+			if _, err := creator.mixer.Read(buffer); err != nil {
+				return
+			}
+		}
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("ConsumeAgentOutput() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ConsumeAgentOutput() did not finish")
+	}
+	if !cutoverSignaled.Load() {
+		t.Fatal("audio cutover was not signaled")
+	}
+	if err := creator.mixer.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	<-readDone
 }
 
 type recordingObservationStream struct {

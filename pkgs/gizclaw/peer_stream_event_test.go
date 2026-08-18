@@ -422,6 +422,56 @@ func TestPeerAudioRouteAggregatorMergesOverlappingAssistantRoutes(t *testing.T) 
 	}
 }
 
+func TestPeerAudioRouteAggregatorCutsEpochOnlyOnMixerCutover(t *testing.T) {
+	audio := newPeerAudioRouteAggregator()
+	firstBOS := peerOutputAudioBoundary(
+		eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		"first",
+		"assistant",
+		"audio/opus",
+	)
+	if emit, err := audio.consume(firstBOS); err != nil || !emit {
+		t.Fatalf("consume(first BOS) = %v, %v, want emit", emit, err)
+	}
+	cutover := audio.cutover(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{
+		StreamID: "second", Label: "assistant", Timestamp: 1_000, BeginOfStream: true,
+	}})
+	if cutover == nil || cutover.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
+		cutover.StreamID() != "first" || cutover.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO ||
+		cutover.GetEos().GetError().GetMessage() != "interrupted" {
+		t.Fatalf("cutover event = %#v, want interrupted audio EOS for first", cutover)
+	}
+	secondBOS := peerOutputAudioBoundary(
+		eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		"second",
+		"assistant",
+		"audio/opus",
+	)
+	if emit, err := audio.consume(secondBOS); err != nil || !emit {
+		t.Fatalf("consume(second BOS) = %v, %v, want emit", emit, err)
+	}
+	if emit, err := audio.consume(peerOutputAudioBoundary(
+		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		"first",
+		"assistant",
+		"audio/opus",
+	)); err != nil || emit {
+		t.Fatalf("consume(retired first EOS) = %v, %v, want ignored", emit, err)
+	}
+	secondEOS := peerOutputAudioBoundary(
+		eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		"second",
+		"assistant",
+		"audio/opus",
+	)
+	if emit, err := audio.consume(secondEOS); err != nil || !emit {
+		t.Fatalf("consume(second EOS) = %v, %v, want emit", emit, err)
+	}
+	if err := audio.close(); err != nil {
+		t.Fatalf("close() error = %v", err)
+	}
+}
+
 func TestPeerAudioRouteAggregatorRouteEOSClosesOnlyMatchingAudio(t *testing.T) {
 	aggregator := newPeerAudioRouteAggregator()
 	for _, event := range []*eventpb.PeerEvent{

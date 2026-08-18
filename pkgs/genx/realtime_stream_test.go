@@ -220,6 +220,34 @@ func TestRealtimeStreamKeepsInterruptBeforeReplacementBOSAtSameTimestamp(t *test
 	}
 }
 
+func TestRealtimeStreamHeapUsesTransitiveLifecycleOrderAtSameTimestamp(t *testing.T) {
+	oldData := realtimeStreamItem{
+		chunk: &MessageChunk{Part: Text("old"), Ctrl: &StreamCtrl{StreamID: "old", Timestamp: 1_000}},
+		seq:   1, timestamp: 1_000,
+	}
+	newData := realtimeStreamItem{
+		chunk: &MessageChunk{Part: Text("new"), Ctrl: &StreamCtrl{StreamID: "new", Timestamp: 1_000}},
+		seq:   2, timestamp: 1_000,
+	}
+	oldBOS := realtimeStreamItem{
+		chunk: &MessageChunk{Ctrl: &StreamCtrl{StreamID: "old", Timestamp: 1_000, BeginOfStream: true}},
+		seq:   3, timestamp: 1_000,
+	}
+	heap := realtimeStreamHeap{oldData, newData, oldBOS}
+	for i := range heap {
+		for j := range heap {
+			for k := range heap {
+				if heap.Less(i, j) && heap.Less(j, k) && !heap.Less(i, k) {
+					t.Fatalf("Less is non-transitive for indexes %d, %d, %d", i, j, k)
+				}
+			}
+		}
+	}
+	if !heap.Less(2, 0) || !heap.Less(2, 1) || !heap.Less(0, 1) {
+		t.Fatal("same-timestamp order must be BOS, then data sequence")
+	}
+}
+
 func TestRealtimeAudioChunkClassification(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

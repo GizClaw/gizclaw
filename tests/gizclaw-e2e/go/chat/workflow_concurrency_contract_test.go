@@ -73,11 +73,11 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 		streamID := "lane-1-turn-1:assistant"
 		label := "assistant"
-		if got := workflowConcurrencyEventTurn(observations, 1, peerStreamEvent{StreamId: &streamID, Label: &label}); got != 0 {
+		if got := workflowConcurrencyEventTurn(observations, 1, false, peerStreamEvent{StreamId: &streamID, Label: &label}); got != 0 {
 			t.Fatalf("old event attributed to turn %d, want 0", got)
 		}
 		streamID = "lane-1-turn-2:assistant"
-		if got := workflowConcurrencyEventTurn(observations, 1, peerStreamEvent{StreamId: &streamID, Label: &label}); got != 1 {
+		if got := workflowConcurrencyEventTurn(observations, 1, false, peerStreamEvent{StreamId: &streamID, Label: &label}); got != 1 {
 			t.Fatalf("current event attributed to turn %d, want 1", got)
 		}
 	})
@@ -94,7 +94,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			Type: peerStreamEventTypeEos, Kind: eventpb.StreamKind_STREAM_KIND_AUDIO,
 			StreamId: &oldAudioStreamID, Label: &label, Error: &interrupted,
 		}
-		if got := workflowConcurrencyEventTurn(observations, 1, event); got != 0 {
+		if got := workflowConcurrencyEventTurn(observations, 1, true, event); got != 0 {
 			t.Fatalf("old interrupted audio route attributed to turn %d, want 0", got)
 		}
 	})
@@ -116,7 +116,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			Type: peerStreamEventTypeBos, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
 			StreamId: &streamID, Label: &label,
 		}
-		if got := workflowConcurrencyEventTurn(observations, 1, bos); got != 0 {
+		if got := workflowConcurrencyEventTurn(observations, 1, true, bos); got != 0 {
 			t.Fatalf("synthetic old BOS attributed to turn %d, want 0", got)
 		}
 		if err := observeWorkflowConcurrencyEvent(&observations[0], bos, time.Now()); err != nil {
@@ -127,7 +127,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			Type: peerStreamEventTypeTextDone, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
 			StreamId: &streamID, Label: &label, Error: &interrupted,
 		}
-		if got := workflowConcurrencyEventTurn(observations, 1, eos); got != 0 {
+		if got := workflowConcurrencyEventTurn(observations, 1, true, eos); got != 0 {
 			t.Fatalf("synthetic old EOS attributed to turn %d, want 0", got)
 		}
 		if err := observeWorkflowConcurrencyEvent(&observations[0], eos, time.Now()); err != nil {
@@ -135,7 +135,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 		secondOldStreamID := "second-old-synthetic-route"
 		bos.StreamId = &secondOldStreamID
-		if got := workflowConcurrencyEventTurn(observations, 1, bos); got != 0 {
+		if got := workflowConcurrencyEventTurn(observations, 1, true, bos); got != 0 {
 			t.Fatalf("second synthetic old BOS attributed to turn %d, want 0", got)
 		}
 		if err := observeWorkflowConcurrencyEvent(&observations[0], bos, time.Now()); err != nil {
@@ -148,7 +148,7 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			Type: peerStreamEventTypeBos, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
 			StreamId: &currentTranscriptStreamID, Label: &transcriptLabel,
 		}
-		if got := workflowConcurrencyEventTurn(observations, 1, transcriptBOS); got != 1 {
+		if got := workflowConcurrencyEventTurn(observations, 1, true, transcriptBOS); got != 1 {
 			t.Fatalf("replacement transcript attributed to turn %d, want 1", got)
 		}
 		if err := observeWorkflowConcurrencyEvent(&observations[1], transcriptBOS, time.Now()); err != nil {
@@ -157,8 +157,24 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 
 		currentStreamID := "turn-2-response"
 		bos.StreamId = &currentStreamID
-		if got := workflowConcurrencyEventTurn(observations, 1, bos); got != 1 {
+		if got := workflowConcurrencyEventTurn(observations, 1, true, bos); got != 1 {
 			t.Fatalf("current BOS attributed to turn %d, want 1", got)
+		}
+	})
+
+	t.Run("text input replacement response does not wait for transcript", func(t *testing.T) {
+		observations := []workflowConcurrencyTurnObservation{
+			{cutoverSent: true, result: workflowConcurrencyTurnResult{InputStreamID: "turn-1"}},
+			{result: workflowConcurrencyTurnResult{InputStreamID: "turn-2"}},
+		}
+		label := "assistant"
+		streamID := "turn-2-response"
+		bos := peerStreamEvent{
+			Type: peerStreamEventTypeBos, Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+			StreamId: &streamID, Label: &label,
+		}
+		if got := workflowConcurrencyEventTurn(observations, 1, false, bos); got != 1 {
+			t.Fatalf("text-input replacement BOS attributed to turn %d, want 1", got)
 		}
 	})
 
@@ -261,6 +277,20 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		observation.result.AudioPackets = 1
 		if !workflowConcurrencyInterruptGateReady(&observation, realtimeWorkflowRealtimeConcurrencySpec) {
 			t.Fatal("open realtime barge-in gate required client audio EOS")
+		}
+	})
+
+	t.Run("closed input interrupt waits for input sender", func(t *testing.T) {
+		observation := workflowConcurrencyTurnObservation{}
+		observation.assistant.WriteString("reply")
+		observation.audioEpoch = time.Now()
+		observation.result.AudioPackets = 1
+		if workflowConcurrencyInterruptGateReady(&observation, translateWorkflowConcurrencySpec) {
+			t.Fatal("interrupt gate accepted overlapping input senders")
+		}
+		observation.sendDone = true
+		if !workflowConcurrencyInterruptGateReady(&observation, translateWorkflowConcurrencySpec) {
+			t.Fatal("interrupt gate rejected completed input sender with open reply")
 		}
 	})
 

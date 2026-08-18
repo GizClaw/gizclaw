@@ -206,8 +206,10 @@ releases them together while they reference one already seeded Workflow:
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 ```
 
-Each Workflow has EOS-bounded one-turn and three-turn interruption tests plus
-continuous-open realtime one-turn and three-turn interruption tests. Realtime
+The fixed entrypoint runs only the EOS-bounded one-turn and three-turn
+interruption tests for each Workflow, for eight required gates. The same package
+also provides targeted continuous-open realtime one-turn and three-turn
+interruption diagnostics; those are outside the fixed entrypoint selection. Realtime
 tests select the `realtime` Workspace input, send speech and tail silence, and
 leave the client audio stream open without audio EOS. Interruption waits until
 the current input packets have been sent, but does not close the input, before

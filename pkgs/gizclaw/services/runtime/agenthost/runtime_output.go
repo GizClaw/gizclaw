@@ -35,8 +35,11 @@ func deferOutputObservation(stream genx.Stream) OutputObservationStream {
 }
 
 type MixerOutput struct {
-	Tracks            AudioTrackCreator
-	Observe           func(*genx.MessageChunk) error
+	Tracks  AudioTrackCreator
+	Observe func(*genx.MessageChunk) error
+	// OnAudioCutover runs after the superseded audio track drains and before
+	// the replacement BOS is observed.
+	OnAudioCutover    func(*genx.MessageChunk) error
 	WaitForAudioDrain bool
 }
 
@@ -142,6 +145,11 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if o.WaitForAudioDrain && tracks.takeCutoverPending() {
 			if err := tracks.waitPending(ctx); err != nil {
 				return err
+			}
+			if o.OnAudioCutover != nil {
+				if err := o.OnAudioCutover(chunk); err != nil {
+					return err
+				}
 			}
 		}
 		var superseded []*genx.MessageChunk

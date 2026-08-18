@@ -100,7 +100,7 @@ start_resource_sampler() {
 start_resource_sampler
 echo "==> run fixed Workflow concurrency=10 selection"
 (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout 90m \
-	-run '^TestTranslateWorkflowRealtimeConcurrencyInterrupt10$' \
+	-run '^Test(Realtime|Flowcraft|Eino|Translate)WorkflowConcurrency(Interrupt)?10$' \
 	./tests/gizclaw-e2e/go/chat)
 
 stop_resource_sampler

@@ -113,7 +113,7 @@ func runWorkflowConcurrencyScenario(
 	}
 	handleEvent := func(received timedPeerEvent) error {
 		event := received.event
-		turn := workflowConcurrencyEventTurn(observations, current, event)
+		turn := workflowConcurrencyEventTurn(observations, current, spec.RequireAudio, event)
 		trace.add("turn=%d stream=%s label=%s type=%s text_chars=%d error=%s", turn+1, eventStreamID(event), eventLabel(event), event.Type, runeCount(eventText(event)), eventError(event))
 		if turn < 0 || turn >= len(observations) {
 			return nil
@@ -221,7 +221,7 @@ func workflowConcurrencyInterruptGateReady(observation *workflowConcurrencyTurnO
 	if observation == nil || strings.TrimSpace(observation.assistant.String()) == "" {
 		return false
 	}
-	if spec.KeepRealtimeInputOpen && !observation.sendDone {
+	if !observation.sendDone {
 		return false
 	}
 	if !spec.RequireAudio {
@@ -240,7 +240,7 @@ func workflowConcurrencyResponseComplete(observation *workflowConcurrencyTurnObs
 	return observation.assistantAudioDone && observation.result.AudioPackets > 0
 }
 
-func workflowConcurrencyEventTurn(observations []workflowConcurrencyTurnObservation, current int, event peerStreamEvent) int {
+func workflowConcurrencyEventTurn(observations []workflowConcurrencyTurnObservation, current int, waitForTranscript bool, event peerStreamEvent) int {
 	streamID := eventStreamID(event)
 	if streamID != "" {
 		for index := range observations {
@@ -262,7 +262,7 @@ func workflowConcurrencyEventTurn(observations []workflowConcurrencyTurnObservat
 	if current > 0 && eventLabel(event) == "assistant" && event.Type == peerStreamEventTypeBos {
 		previous := &observations[current-1]
 		currentObservation := &observations[current]
-		if previous.cutoverSent && currentObservation.result.TranscriptStreamID == "" {
+		if waitForTranscript && previous.cutoverSent && currentObservation.result.TranscriptStreamID == "" {
 			// Sending the replacement input advances current before the runtime
 			// has observed that input. Old routes may still emit one or more
 			// synthetic BOS/terminal pairs during that gap. Keep those closures

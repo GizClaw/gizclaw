@@ -194,8 +194,9 @@ Workflow 不会混成一个 40 路 wave。每个 wave 创建 10 个独立 Peer �
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 ```
 
-每类 Workflow 都有 EOS 边界的单轮对话/三轮打断测试，以及 continuous-open realtime
-单轮对话/三轮打断测试。Realtime 版本将 Workspace input 设为 `realtime`，发送语音和
+固定入口只执行每类 Workflow 的 EOS 边界单轮对话/三轮打断测试，共 8 个正式 gate。
+同一测试包还提供 continuous-open realtime 单轮对话/三轮打断的定向诊断测试；它们不在
+固定入口的 selection 内。Realtime 版本将 Workspace input 设为 `realtime`，发送语音和
 尾静音后保持客户端 audio stream 开启，不发送 audio EOS；打断版本等待本轮音频 packet
 发送完毕，但不关闭输入，再由第 2、3 轮输入 BOS 分别打断前一轮。所有测试始终复用
 同一个物理连接、Workspace runtime 和 logical `PeerStream`，并要求最后一轮完整结束。
