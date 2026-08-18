@@ -186,15 +186,15 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 
 ### Workflow 10 路并发与打断
 
-固定入口在四个独立 wave 中分别验证 Realtime、Flowcraft、Eino 和 Translate；不同
-Workflow 不会混成一个 40 路 wave。每个 wave 创建 10 个独立 Peer 和 Workspace，全部
+固定入口在五个独立 wave 中分别验证 Realtime、Realtime Duplex、Flowcraft、Eino 和
+Translate；不同 Workflow 不会混成一个 50 路 wave。每个 wave 创建 10 个独立 Peer 和 Workspace，全部
 到达 ready barrier 后同时开始，但共同引用同一个已 seed 的 Workflow：
 
 ```sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 ```
 
-固定入口只执行每类 Workflow 的 EOS 边界单轮对话/三轮打断测试，共 8 个正式 gate。
+固定入口只执行每类 Workflow 的 EOS 边界单轮对话/三轮打断测试，共 10 个正式 gate。
 同一测试包还提供 continuous-open realtime 单轮对话/三轮打断的定向诊断测试；它们不在
 固定入口的 selection 内。Realtime 版本将 Workspace input 设为 `realtime`，发送语音和
 尾静音后保持客户端 audio stream 开启，不发送 audio EOS；打断版本等待本轮音频 packet
@@ -206,9 +206,11 @@ transcript、Assistant text/audio。Eino 的基础 EOS 边界测试仍保留 tex
 可用容器资源采样到 ignored `testdata/workflow-concurrency/`。
 
 该入口在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
-retry、fallback 或换新 session 来制造通过。Provider、timeout、rate limit、runtime 和
-cleanup 问题均使选中的测试失败。资源采样用于定位，不构成内存无泄漏、provider SLA 或
-production capacity 承诺。
+retry、fallback 或换新 session 来制造通过。已确认的火山 `DialogAudioIdleTimeoutError`
+和 `AudioTTSIdleTimeoutError` 只有在 wave 内没有混入任何本地协议、timeout、setup 或
+cleanup 错误时才记为 provider-only `SKIP`，错误 artifact 仍保留；其他 provider、timeout、
+rate limit、runtime 和 cleanup 问题均使选中的测试失败。资源采样用于定位，不构成内存无
+泄漏、provider SLA 或 production capacity 承诺。
 
 人工音频判断与自动 gate 分离：
 

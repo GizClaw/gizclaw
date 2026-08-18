@@ -229,11 +229,36 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 	t.Helper()
 	var result duplexRoundResult
 	inputDone := false
+	var quietTimer *time.Timer
+	var quietC <-chan time.Time
+	defer func() {
+		if quietTimer != nil {
+			quietTimer.Stop()
+		}
+	}()
+	updateQuietTimer := func() {
+		if !inputDone || !result.done() {
+			quietC = nil
+			if quietTimer != nil {
+				quietTimer.Stop()
+			}
+			return
+		}
+		if quietTimer == nil {
+			quietTimer = time.NewTimer(1500 * time.Millisecond)
+		} else {
+			if !quietTimer.Stop() {
+				select {
+				case <-quietTimer.C:
+				default:
+				}
+			}
+			quietTimer.Reset(1500 * time.Millisecond)
+		}
+		quietC = quietTimer.C
+	}
 	for {
 		if inputDone {
-			if result.done() {
-				return result, nil
-			}
 			if result.terminalComplete() {
 				return result, result.terminalError()
 			}
@@ -247,6 +272,7 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 			if err != nil {
 				return result, err
 			}
+			updateQuietTimer()
 		case err := <-errs:
 			if err != nil {
 				return result, err
@@ -262,6 +288,9 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 			if err := result.observe(streamID, chunk); err != nil {
 				return result, err
 			}
+			updateQuietTimer()
+		case <-quietC:
+			return result, nil
 		}
 	}
 }

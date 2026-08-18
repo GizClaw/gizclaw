@@ -15,6 +15,26 @@ import (
 )
 
 func TestWorkflowConcurrencyContract(t *testing.T) {
+	t.Run("provider-only skip classification is fail closed", func(t *testing.T) {
+		providerFailure := "turn 1: peer terminal error: AudioTTSIdleTimeoutError; AudioTTSIdleTimeoutError; recent events: closed"
+		lanes := []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: providerFailure}}}
+		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
+			t.Fatal("exact provider-only failure was not classified as skippable")
+		}
+		lanes = append(lanes, &workflowConcurrencyLane{Result: workflowConcurrencyLaneResult{Error: "turn 1: audio EOS timeout"}})
+		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
+			t.Fatal("mixed provider and local failures were classified as skippable")
+		}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: AudioTTSIdleTimeoutError; audio EOS timeout"}}}
+		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
+			t.Fatal("mixed terminal causes were classified as skippable")
+		}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: audio EOS timeout; peer terminal error: AudioTTSIdleTimeoutError"}}}
+		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
+			t.Fatal("local failure before a provider terminal was classified as skippable")
+		}
+	})
+
 	t.Run("Eino concurrency fixture loads", func(t *testing.T) {
 		serverKey, err := giznet.GenerateKeyPair()
 		if err != nil {

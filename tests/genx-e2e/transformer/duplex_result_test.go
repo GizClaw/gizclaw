@@ -18,11 +18,14 @@ type duplexRoundResult struct {
 	assistantText       strings.Builder
 	lifecycles          *routeLifecycleTracker
 	terminalErrors      []string
-	assistantStreamID   string
-	transcriptDone      bool
-	assistantTextDone   bool
-	assistantAudioDone  bool
+	transcriptStreams   map[string]struct{}
+	assistantStreams    map[string]*duplexAssistantResult
 	assistantAudioBytes int
+}
+
+type duplexAssistantResult struct {
+	textDone  bool
+	audioDone bool
 }
 
 func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) error {
@@ -40,10 +43,8 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		if label == duplexTranscriptLabel && !roundStreamMatches(chunkStreamID, streamID) {
 			return nil
 		}
-		if label == duplexAssistantLabel && r.assistantStreamID != "" && chunkStreamID != r.assistantStreamID {
-			return nil
-		}
-		if label == duplexAssistantLabel && r.assistantStreamID == "" && !roundStreamMatches(chunkStreamID, streamID) {
+		if label == duplexAssistantLabel && r.assistantStream(chunkStreamID) == nil &&
+			len(r.transcriptStreams) == 0 && !roundStreamMatches(chunkStreamID, streamID) {
 			return nil
 		}
 	}
@@ -57,9 +58,10 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 		if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
 			r.transcript.WriteString(string(text))
 		}
-		if chunk.IsEndOfStream() {
-			r.transcriptDone = true
+		if r.transcriptStreams == nil {
+			r.transcriptStreams = make(map[string]struct{})
 		}
+		r.transcriptStreams[chunkStreamID] = struct{}{}
 		if chunkErr != nil {
 			r.terminalErrors = append(r.terminalErrors, chunkErr.Error())
 		}
@@ -68,14 +70,19 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 	if label != duplexAssistantLabel {
 		return nil
 	}
-	if r.assistantStreamID == "" {
+	assistant := r.assistantStream(chunkStreamID)
+	if assistant == nil {
 		if !chunk.IsBeginOfStream() || strings.TrimSpace(chunkStreamID) == "" {
 			return fmt.Errorf("duplex assistant route started without BOS and StreamID: %#v", chunk)
 		}
-		r.assistantStreamID = chunkStreamID
-	}
-	if chunkStreamID != r.assistantStreamID {
-		return nil
+		if len(r.assistantStreams) != 0 && len(r.transcriptStreams) <= len(r.assistantStreams) {
+			return nil
+		}
+		if r.assistantStreams == nil {
+			r.assistantStreams = make(map[string]*duplexAssistantResult)
+		}
+		assistant = &duplexAssistantResult{}
+		r.assistantStreams[chunkStreamID] = assistant
 	}
 	if r.lifecycles == nil {
 		r.lifecycles = newRouteLifecycleTracker()
@@ -89,20 +96,27 @@ func (r *duplexRoundResult) observe(streamID string, chunk *genx.MessageChunk) e
 			r.assistantText.WriteString(string(part))
 		}
 		if chunk.IsEndOfStream() {
-			r.assistantTextDone = true
+			assistant.textDone = true
 		}
 	case *genx.Blob:
 		if len(part.Data) > 0 {
 			r.assistantAudioBytes += len(part.Data)
 		}
 		if chunk.IsEndOfStream() {
-			r.assistantAudioDone = true
+			assistant.audioDone = true
 		}
 	}
 	if chunkErr != nil {
 		r.terminalErrors = append(r.terminalErrors, chunkErr.Error())
 	}
 	return nil
+}
+
+func (r *duplexRoundResult) assistantStream(streamID string) *duplexAssistantResult {
+	if r == nil || r.assistantStreams == nil {
+		return nil
+	}
+	return r.assistantStreams[streamID]
 }
 
 func TestDuplexRoundResultIgnoresOtherStreamTerminalError(t *testing.T) {
@@ -140,9 +154,37 @@ func TestDuplexRoundResultBindsProviderAssistantStreamID(t *testing.T) {
 			t.Fatalf("observe() error = %v", err)
 		}
 	}
-	if result.assistantStreamID != "provider-response" || result.assistantText.String() != "answer" || !result.assistantTextDone {
-		t.Fatalf("assistant result = id %q text %q done %t", result.assistantStreamID, result.assistantText.String(), result.assistantTextDone)
+	assistant := result.assistantStream("provider-response")
+	if assistant == nil || result.assistantText.String() != "answer" || !assistant.textDone {
+		t.Fatalf("assistant result = %#v text %q", result.assistantStreams, result.assistantText.String())
 	}
+}
+
+func TestDuplexRoundResultCollectsMultipleServerVADSegments(t *testing.T) {
+	var result duplexRoundResult
+	chunks := []*genx.MessageChunk{
+		{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "round-1:rt:1", Label: duplexTranscriptLabel, BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "round-1:rt:1", Label: duplexTranscriptLabel, EndOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, EndOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "response-1", Label: duplexAssistantLabel, EndOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text("again"), Ctrl: &genx.StreamCtrl{StreamID: "round-1:rt:2", Label: duplexTranscriptLabel, BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "round-1:rt:2", Label: duplexTranscriptLabel, EndOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text("second"), Ctrl: &genx.StreamCtrl{StreamID: "response-2", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{2}}, Ctrl: &genx.StreamCtrl{StreamID: "response-2", Label: duplexAssistantLabel, BeginOfStream: true}},
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "response-2", Label: duplexAssistantLabel, EndOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "response-2", Label: duplexAssistantLabel, EndOfStream: true}},
+	}
+	for index, chunk := range chunks {
+		if err := result.observe("round-1", chunk); err != nil {
+			t.Fatalf("observe(%d) error = %v", index, err)
+		}
+	}
+	if !result.done() {
+		t.Fatalf("multi-segment result did not complete: %#v", result)
+	}
+	assertDuplexRound(t, 1, result)
 }
 
 func TestDuplexRoundResultCollectsEveryRouteBeforeReturningTerminalError(t *testing.T) {
@@ -173,17 +215,23 @@ func TestDuplexRoundResultCollectsEveryRouteBeforeReturningTerminalError(t *test
 }
 
 func (r *duplexRoundResult) done() bool {
-	return strings.TrimSpace(r.transcript.String()) != "" &&
-		r.transcriptDone &&
-		strings.TrimSpace(r.assistantText.String()) != "" &&
-		r.assistantAudioBytes > 0 &&
-		r.assistantTextDone &&
-		r.assistantAudioDone
+	if r == nil || strings.TrimSpace(r.transcript.String()) == "" ||
+		strings.TrimSpace(r.assistantText.String()) == "" || r.assistantAudioBytes == 0 ||
+		len(r.transcriptStreams) == 0 || len(r.assistantStreams) == 0 ||
+		len(r.transcriptStreams) != len(r.assistantStreams) || r.lifecycles == nil || !r.lifecycles.allComplete() {
+		return false
+	}
+	for _, assistant := range r.assistantStreams {
+		if assistant == nil || !assistant.textDone || !assistant.audioDone {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *duplexRoundResult) terminalComplete() bool {
 	return len(r.terminalErrors) != 0 && r.lifecycles != nil &&
-		len(r.lifecycles.routes) == 3 && r.lifecycles.allComplete()
+		r.lifecycles.allComplete()
 }
 
 func (r *duplexRoundResult) terminalError() error {
@@ -196,8 +244,10 @@ func (r *duplexRoundResult) terminalError() error {
 func assertDuplexRound(t *testing.T, round int, result duplexRoundResult) {
 	t.Helper()
 	result.lifecycles.assertComplete(t)
-	if len(result.lifecycles.routes) != 3 {
-		t.Fatalf("round %d routes = %#v, want transcript text and assistant text/audio", round, result.lifecycles.routes)
+	wantRoutes := len(result.transcriptStreams) + 2*len(result.assistantStreams)
+	if len(result.transcriptStreams) == 0 || len(result.transcriptStreams) != len(result.assistantStreams) ||
+		len(result.lifecycles.routes) != wantRoutes {
+		t.Fatalf("round %d routes = %#v, want one transcript and assistant text/audio pair per VAD segment", round, result.lifecycles.routes)
 	}
 	if strings.TrimSpace(result.transcript.String()) == "" {
 		t.Fatalf("round %d missing transcript", round)

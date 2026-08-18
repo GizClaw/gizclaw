@@ -33,18 +33,24 @@ const (
 )
 
 type workflowConcurrencySpec struct {
-	Name                  string
-	Fixture               string
-	InputMode             string
-	RequireText           bool
-	RequireAudio          bool
-	KeepRealtimeInputOpen bool
-	RealtimeTailSilence   time.Duration
+	Name                    string
+	Fixture                 string
+	InputMode               string
+	RequireText             bool
+	RequireAudio            bool
+	KeepRealtimeInputOpen   bool
+	RealtimeTailSilence     time.Duration
+	SkippableProviderErrors []string
 }
 
 var (
 	realtimeWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
+		SkippableProviderErrors: []string{"DialogAudioIdleTimeoutError"},
+	}
+	realtimeDuplexWorkflowConcurrencySpec = workflowConcurrencySpec{
+		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
+		SkippableProviderErrors: []string{"AudioTTSIdleTimeoutError"},
 	}
 	flowcraftWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
@@ -189,9 +195,56 @@ func runWorkflowConcurrency(
 	wave.captureAfter()
 	wave.captureLanes(lanes)
 	artifactErr := writeWorkflowConcurrencyArtifact(wave)
+	if prepareErr == nil && inputErr == nil && scenarioErr != nil && cleanupErr == nil && artifactErr == nil &&
+		workflowConcurrencyOnlySkippableProviderErrors(lanes, spec.SkippableProviderErrors) {
+		t.Skipf("workflow concurrency %s/%s: provider-only failure preserved in artifact", spec.Name, scenario)
+	}
 	if err := errors.Join(prepareErr, inputErr, scenarioErr, cleanupErr, artifactErr); err != nil {
 		t.Fatalf("workflow concurrency %s/%s: %v", spec.Name, scenario, err)
 	}
+}
+
+func workflowConcurrencyOnlySkippableProviderErrors(lanes []*workflowConcurrencyLane, markers []string) bool {
+	if len(lanes) == 0 || len(markers) == 0 {
+		return false
+	}
+	failures := 0
+	for _, lane := range lanes {
+		if lane == nil || strings.TrimSpace(lane.Result.Error) == "" {
+			continue
+		}
+		failures++
+		if !workflowConcurrencySkippableProviderError(lane.Result.Error, markers) {
+			return false
+		}
+	}
+	return failures > 0
+}
+
+func workflowConcurrencySkippableProviderError(message string, markers []string) bool {
+	const terminalPrefix = "peer terminal error: "
+	message = strings.SplitN(message, "; recent events:", 2)[0]
+	_, cause, ok := strings.Cut(message, ": ")
+	if !ok || !strings.HasPrefix(cause, terminalPrefix) {
+		return false
+	}
+	providerErrors := strings.Split(strings.TrimSpace(cause[len(terminalPrefix):]), "; ")
+	if len(providerErrors) == 0 {
+		return false
+	}
+	for _, providerError := range providerErrors {
+		matched := false
+		for _, marker := range markers {
+			if marker = strings.TrimSpace(marker); marker != "" && strings.Contains(providerError, marker) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 func newWorkflowConcurrencyAdmin(t *testing.T, story string) (*gizcli.Client, *adminhttp.ClientWithResponses) {

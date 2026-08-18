@@ -197,8 +197,8 @@ Workspace history is runtime data and must not be seeded by the reset script.
 
 ### Ten-lane Workflow concurrency and interruption
 
-The fixed entrypoint validates Realtime, Flowcraft, Eino, and Translate in four
-separate waves; it does not combine them into one 40-lane wave. Each wave creates
+The fixed entrypoint validates Realtime, Realtime Duplex, Flowcraft, Eino, and
+Translate in five separate waves; it does not combine them into one 50-lane wave. Each wave creates
 ten independent Peers and Workspaces, waits for a 10/10 ready barrier, and then
 releases them together while they reference one already seeded Workflow:
 
@@ -207,7 +207,7 @@ bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 ```
 
 The fixed entrypoint runs only the EOS-bounded one-turn and three-turn
-interruption tests for each Workflow, for eight required gates. The same package
+interruption tests for each Workflow, for ten required gates. The same package
 also provides targeted continuous-open realtime one-turn and three-turn
 interruption diagnostics; those are outside the fixed entrypoint selection. Realtime
 tests select the `realtime` Workspace input, send speech and tail silence, and
@@ -224,10 +224,13 @@ under the ignored `testdata/workflow-concurrency/` directory.
 
 The entrypoint validates the complete `.env` before Docker setup. Environment
 variables cannot change coverage or concurrency, and retry, provider fallback,
-or replacement sessions cannot manufacture a pass. Provider, timeout,
-rate-limit, runtime, and cleanup failures fail the selected test. Resource
-samples support diagnosis; they are not proof of leak freedom, a provider SLA,
-or production capacity.
+or replacement sessions cannot manufacture a pass. Confirmed Volcengine
+`DialogAudioIdleTimeoutError` and `AudioTTSIdleTimeoutError` failures become a
+provider-only `SKIP` only when no local protocol, timeout, setup, or cleanup error
+is mixed into that wave; the failure artifact remains available. Other provider,
+timeout, rate-limit, runtime, and cleanup failures fail the selected test.
+Resource samples support diagnosis; they are not proof of leak freedom, a
+provider SLA, or production capacity.
 
 Human audio review is separate from the automated gate:
 
