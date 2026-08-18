@@ -186,6 +186,51 @@ test.beforeEach(async ({ page }) => {
     });
     const findByName = (items, name) =>
       items.find((item) => item.name === name) ?? null;
+    window.__GIZCLAW_DESKTOP_TEST_OPENAI_FETCH__ = async (input, init) => {
+      const request = new Request(input, init);
+      const body = (await request.clone().json()) as {
+        input?: string;
+        messages?: Array<{ content?: string; role?: string }>;
+      };
+      if (request.url.endsWith("/chat/completions")) {
+        const titleRequest = body.messages?.some(
+          (message) =>
+            message.role === "system" &&
+            message.content?.startsWith("Generate a concise chat title."),
+        );
+        actions.push(titleRequest ? "chat-title" : "chat-completion");
+        window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                index: 0,
+                message: {
+                  content: titleRequest
+                    ? "Selector test"
+                    : "Rendered assistant reply",
+                  role: "assistant",
+                },
+              },
+            ],
+            created: 0,
+            id: "chatcmpl-test",
+            model: "chat",
+            object: "chat.completion",
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      }
+      if (request.url.endsWith("/audio/speech")) {
+        actions.push(`speech:${body.input ?? ""}`);
+        window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ = actions;
+        return new Response(new Uint8Array([73, 68, 51]), {
+          headers: { "content-type": "audio/mpeg" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    };
     window.__GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__ = {
       async adoptPet(req) {
         const displayName = String(req.display_name ?? "Adopted Pet");
@@ -513,6 +558,49 @@ test("OpenAI tester keeps the thinking toggle consistent with the model level", 
   await thinking.check();
   await expect(thinking).toBeChecked();
   await expect(drawer.getByText("enabled", { exact: true })).toBeVisible();
+});
+
+test("OpenAI tester keeps message-owned edit and speech actions scoped to each message", async ({
+  page,
+}) => {
+  await page.goto("/play.html");
+  await page.getByRole("button", { name: "OpenAI", exact: true }).click();
+
+  const drawer = page.getByRole("dialog");
+  await drawer.getByRole("combobox", { name: "Voice" }).click();
+  await drawer.getByRole("option", { name: "pet" }).click();
+  await drawer
+    .getByPlaceholder("Type a test message...")
+    .fill("Rendered user prompt");
+  await drawer.getByRole("button", { name: "Send", exact: true }).click();
+
+  await expect(
+    drawer.getByText("Rendered user prompt", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    drawer.getByText("Rendered assistant reply", { exact: true }),
+  ).toBeVisible();
+
+  await drawer.getByText("Rendered user prompt", { exact: true }).hover();
+  await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(
+    drawer.getByRole("button", { name: "Save & Send" }),
+  ).toBeVisible();
+  const editComposer = drawer
+    .getByRole("button", { name: "Save & Send" })
+    .locator("xpath=../..");
+  await expect(editComposer.locator("textarea")).toHaveValue(
+    "Rendered user prompt",
+  );
+  await drawer.getByRole("button", { name: "Cancel" }).click();
+
+  await drawer.getByText("Rendered assistant reply", { exact: true }).hover();
+  await drawer.getByRole("button", { name: "Speak", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__GIZCLAW_DESKTOP_TEST_PLAY_ACTIONS__ ?? []),
+    )
+    .toContain("speech:Rendered assistant reply");
 });
 
 test("play workspace drawer sends direct RPC-backed actions", async ({

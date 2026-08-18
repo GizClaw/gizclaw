@@ -575,6 +575,7 @@ function requiredPeerIdentity(
 
 declare global {
   interface Window {
+    __GIZCLAW_DESKTOP_TEST_OPENAI_FETCH__?: typeof fetch;
     __GIZCLAW_DESKTOP_TEST_PLAY_CLIENT__?: PlayDataClient;
   }
 }
