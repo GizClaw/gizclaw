@@ -483,12 +483,14 @@ func TestGraphExecutionNewTurnInterruptsActiveGraph(t *testing.T) {
 		t.Fatalf("Transform() error = %v", err)
 	}
 	addTextTurn(t, input, "first")
+	firstStreamID := ""
 	for {
 		chunk, nextErr := output.Next()
 		if nextErr != nil {
 			t.Fatalf("Next() error = %v", nextErr)
 		}
 		if text, ok := chunk.Part.(genx.Text); ok && text == "first" {
+			firstStreamID = chunk.Ctrl.StreamID
 			break
 		}
 	}
@@ -501,8 +503,103 @@ func TestGraphExecutionNewTurnInterruptsActiveGraph(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("first Graph run was not interrupted")
 	}
-	if got := joinedText(drain(t, output)); got != "second" {
+	var remaining strings.Builder
+	interrupted := 0
+	for {
+		chunk, nextErr := output.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			t.Fatalf("Next() error = %v", nextErr)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok {
+			remaining.WriteString(string(text))
+		}
+		if chunk.IsEndOfStream() && chunk.Ctrl.StreamID == firstStreamID && chunk.Ctrl.Error == "interrupted" {
+			interrupted++
+		}
+	}
+	if got := remaining.String(); got != "second" {
 		t.Fatalf("remaining output = %q, want second turn only", got)
+	}
+	if interrupted != 1 {
+		t.Fatalf("first turn interrupted terminals = %d, want 1", interrupted)
+	}
+}
+
+func TestGraphExecutionNewTurnInterruptsAfterPublishedNodeCompletes(t *testing.T) {
+	t.Parallel()
+	verifier := &interruptingChatModel{
+		firstStarted:   make(chan struct{}),
+		firstCancelled: make(chan struct{}),
+	}
+	config := chatConfig(&namedComponentResolver{chat: map[string]model.BaseChatModel{
+		"primary":  &fakeChatModel{chunks: []*schema.Message{schema.AssistantMessage("visible", nil)}},
+		"verifier": verifier,
+	}})
+	config.Graph.Nodes[1].ChatModel.Model = "primary"
+	config.Graph.State.Fields = append(config.Graph.State.Fields,
+		StateField{Name: "verification", Type: StateString, Merge: MergeReplace},
+	)
+	config.Graph.Nodes = append(config.Graph.Nodes, NodeDefinition{
+		ID: "verifier", Inputs: map[string]Binding{"messages": {From: "messages"}},
+		Outputs:   map[string]string{"text": "verification"},
+		ChatModel: &ChatModelNode{Model: "verifier"},
+	})
+	config.Graph.Edges = []EdgeDefinition{
+		{From: "start", To: "prompt"}, {From: "prompt", To: "model"},
+		{From: "model", To: "verifier"}, {From: "verifier", To: "end"},
+	}
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	output, err := transformer.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	addTextTurn(t, input, "first")
+	firstStreamID := ""
+	for firstStreamID == "" {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("Next() error = %v", nextErr)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && text == "visible" {
+			firstStreamID = chunk.Ctrl.StreamID
+		}
+	}
+	select {
+	case <-verifier.firstStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("downstream verifier did not start")
+	}
+	addTextTurn(t, input, "second")
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatalf("Done() error = %v", err)
+	}
+	select {
+	case <-verifier.firstCancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("downstream verifier was not cancelled")
+	}
+	interrupted := 0
+	for {
+		chunk, nextErr := output.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			t.Fatalf("Next() error = %v", nextErr)
+		}
+		if chunk.IsEndOfStream() && chunk.Ctrl.StreamID == firstStreamID && chunk.Ctrl.Error == "interrupted" {
+			interrupted++
+		}
+	}
+	if interrupted != 1 {
+		t.Fatalf("first turn interrupted terminals = %d, want 1", interrupted)
 	}
 }
 
@@ -617,6 +714,7 @@ func (store adversarialRetriever) Retrieve(
 type interruptingChatModel struct {
 	mu             sync.Mutex
 	calls          int
+	firstStarted   chan struct{}
 	firstCancelled chan struct{}
 }
 
@@ -662,6 +760,9 @@ func (chat *interruptingChatModel) Stream(
 		defer writer.Close()
 		if writer.Send(schema.AssistantMessage("first", nil), nil) {
 			return
+		}
+		if chat.firstStarted != nil {
+			close(chat.firstStarted)
 		}
 		<-ctx.Done()
 		close(chat.firstCancelled)

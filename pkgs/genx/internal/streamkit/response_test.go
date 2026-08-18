@@ -41,6 +41,28 @@ func TestResponseTracksMIMERoutesAndInterruptEOS(t *testing.T) {
 	}
 }
 
+func TestResponseCompleteRequiresEveryDeclaredMIMERoute(t *testing.T) {
+	response := NewResponse(ResponseConfig{StreamID: "response"})
+	textBOS := &genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{BeginOfStream: true}}
+	audioBOS := &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}}
+	textEOS := &genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{EndOfStream: true}}
+	audioEOS := &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{EndOfStream: true}}
+	for _, chunk := range []*genx.MessageChunk{textBOS, audioBOS, textEOS} {
+		if !response.Accept(chunk) {
+			t.Fatalf("Accept(%#v) = false", chunk)
+		}
+	}
+	if response.Complete() {
+		t.Fatal("response completed while its audio route remained open")
+	}
+	if !response.Accept(audioEOS) {
+		t.Fatal("Accept(audio EOS) = false")
+	}
+	if !response.Complete() {
+		t.Fatal("response did not complete after every declared route ended")
+	}
+}
+
 func TestResponseUsesFreshIDsAndRejectsCrossResponseChunks(t *testing.T) {
 	first := NewResponse(ResponseConfig{})
 	second := NewResponse(ResponseConfig{})

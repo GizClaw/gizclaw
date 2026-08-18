@@ -195,6 +195,33 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `desktop/shell` covers the Pod shell; `desktop/admin` and `desktop/play` cover browser surfaces.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 
+### Ten-lane Workflow concurrency and interruption
+
+The fixed entrypoint validates Realtime, Flowcraft, Eino, and Translate in four
+separate waves; it does not combine them into one 40-lane wave. Each wave creates
+ten independent Peers and Workspaces, waits for a 10/10 ready barrier, and then
+releases them together while they reference one already seeded Workflow:
+
+```sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
+```
+
+Each Workflow has a one-turn conversation test and a three-turn interruption
+test. The interruption test keeps the same physical connection, Workspace
+runtime, and logical `PeerStream`; input BOS for turns two and three interrupts
+the preceding response, and the final response must complete. Realtime,
+Flowcraft, and Translate require correctly attributed non-empty Assistant text
+and audio. Eino requires text only. Each wave records route, stream, audio epoch,
+runtime `StartedAt`, cleanup, and available container resource samples under the
+ignored `testdata/workflow-concurrency/` directory.
+
+The entrypoint validates the complete `.env` before Docker setup. Environment
+variables cannot change coverage or concurrency, and retry, provider fallback,
+or replacement sessions cannot manufacture a pass. Provider, timeout,
+rate-limit, runtime, and cleanup failures fail the selected test. Resource
+samples support diagnosis; they are not proof of leak freedom, a provider SLA,
+or production capacity.
+
 Human audio review is separate from the automated gate:
 
 ```sh

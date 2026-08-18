@@ -544,6 +544,50 @@ func TestPeerAgentOutputPreservesTextEOSForSharedAudioRoute(t *testing.T) {
 	}
 }
 
+func TestPeerStreamEventsPreserveErroredTextTerminal(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name string
+		text genx.Text
+		want []eventpb.PeerEventType
+	}{
+		{name: "empty", want: []eventpb.PeerEventType{eventpb.PeerEventType_PEER_EVENT_TYPE_EOS}},
+		{name: "final text", text: "tail", want: []eventpb.PeerEventType{
+			eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+			eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			events := peerStreamEventsFromChunk(&genx.MessageChunk{
+				Role: genx.RoleModel, Part: test.text,
+				Ctrl: &genx.StreamCtrl{
+					StreamID: "answer", Label: "assistant", EndOfStream: true,
+					Error: "interrupted", ErrorCode: "STREAM_INTERRUPTED",
+				},
+			})
+			if len(events) != len(test.want) {
+				t.Fatalf("events = %#v, want types %v", events, test.want)
+			}
+			for index, wantType := range test.want {
+				if events[index].Type != wantType || events[index].StreamID() != "answer" || events[index].Label() != "assistant" {
+					t.Fatalf("event %d = %#v, want %s for answer/assistant", index, events[index], wantType)
+				}
+			}
+			terminal := events[len(events)-1]
+			if terminal.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_TEXT ||
+				terminal.GetEos().GetMimeType() != "" ||
+				terminal.GetEos().GetError().GetMessage() != "interrupted" ||
+				terminal.GetEos().GetError().GetCode() != "STREAM_INTERRUPTED" {
+				t.Fatalf("terminal kind=%s MIME=%q error=%#v", terminal.StreamKindValue(), terminal.GetEos().GetMimeType(), terminal.GetEos().GetError())
+			}
+			if test.text != "" && events[0].Text() != string(test.text) {
+				t.Fatalf("text delta = %q, want %q", events[0].Text(), test.text)
+			}
+		})
+	}
+}
+
 func TestPeerAudioRouteAggregatorRejectsMalformedLifecycle(t *testing.T) {
 	tests := []struct {
 		name   string

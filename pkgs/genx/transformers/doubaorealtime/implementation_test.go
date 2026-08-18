@@ -407,6 +407,64 @@ func TestDoubaoPushToTalkStateLifecycleAndBargeIn(t *testing.T) {
 	}
 }
 
+func TestDoubaoPushToTalkStateWaitsForDeliveredAudio(t *testing.T) {
+	state := &doubaoPushToTalkState{}
+	if _, _, err := state.begin("turn-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.end(); err != nil {
+		t.Fatal(err)
+	}
+	state.responseStarted("turn-1", true)
+	state.ttsFinished("turn-1")
+	if got := state.current(); got != doubaoPushToTalkResponding {
+		t.Fatalf("phase after provider TTS finish = %v, want responding until delivery", got)
+	}
+	bargeIn, interrupted, err := state.begin("turn-2")
+	if err != nil || !bargeIn || interrupted != "turn-1" {
+		t.Fatalf("begin() before delivery = (%v, %q, %v), want (true, turn-1, nil)", bargeIn, interrupted, err)
+	}
+
+	if err := state.end(); err != nil {
+		t.Fatal(err)
+	}
+	state.responseStarted("turn-2", true)
+	state.ttsFinished("turn-2")
+	state.observeAssistantOutput(doubaoRealtimeAssistantLabel, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-2", Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+	})
+	if got := state.current(); got != doubaoPushToTalkIdle {
+		t.Fatalf("phase after delivered audio = %v, want idle", got)
+	}
+	bargeIn, interrupted, err = state.begin("turn-3")
+	if err != nil || bargeIn || interrupted != "" {
+		t.Fatalf("begin() after delivery = (%v, %q, %v), want (false, empty, nil)", bargeIn, interrupted, err)
+	}
+}
+
+func TestDoubaoPushToTalkStateChatEndBeforeTTSRemainsInterruptible(t *testing.T) {
+	state := &doubaoPushToTalkState{}
+	if _, _, err := state.begin("turn-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.end(); err != nil {
+		t.Fatal(err)
+	}
+	state.responseStarted("turn-1", false)
+	state.chatEnded("turn-1")
+	state.responseStarted("turn-1", true)
+	state.ttsFinished("turn-1")
+	if got := state.current(); got != doubaoPushToTalkResponding {
+		t.Fatalf("phase after ChatEnded-before-TTS = %v, want responding until delivery", got)
+	}
+	bargeIn, interrupted, err := state.begin("turn-2")
+	if err != nil || !bargeIn || interrupted != "turn-1" {
+		t.Fatalf("begin() before delivered TTS = (%v, %q, %v), want (true, turn-1, nil)", bargeIn, interrupted, err)
+	}
+}
+
 func TestTransformerPTTTurnCommitsLatestHypothesisBeforeAssistantOutput(t *testing.T) {
 	output := &recordingRealtimeOutput{}
 	turn := &doubaoRealtimePTTTurn{}

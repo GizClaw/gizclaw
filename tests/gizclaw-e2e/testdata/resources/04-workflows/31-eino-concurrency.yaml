@@ -1,0 +1,58 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-concurrency-assistant
+spec:
+  driver: eino
+  eino:
+    graph:
+      name: eino-concurrency-assistant
+      compile:
+        node_trigger_mode: any_predecessor
+        max_run_steps: 6
+      state:
+        fields:
+        - name: messages
+          type: messages
+          merge: replace
+        - name: answer
+          type: string
+          merge: replace
+      nodes:
+      - id: prompt
+        type: prompt
+        inputs:
+          text:
+            from: input.text
+        outputs:
+          messages: messages
+        format: f_string
+        messages:
+        - role: system
+          template: 你是一个严格遵循用户输出格式要求的中文助手。
+        - role: user
+          template: "{text}"
+      - id: model
+        type: chat_model
+        inputs:
+          messages:
+            from: messages
+        outputs:
+          text: answer
+        model: llm
+        max_tokens: 256
+      edges:
+      - from: start
+        to: prompt
+      - from: prompt
+        to: model
+      - from: model
+        to: end
+      branches: []
+      outputs:
+      - node: model
+        field: answer
+        name: assistant
+        mime_type: text/plain
+        primary: true

@@ -121,6 +121,36 @@ func TestResponseStreamForwardsPullObservationWithUpstreamID(t *testing.T) {
 	}
 }
 
+func TestResponseStreamForwardsOutOfOrderRouteObservations(t *testing.T) {
+	var observed []*genx.MessageChunk
+	source := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) {
+		observed = append(observed, chunk)
+	}})
+	audioEOS := &genx.MessageChunk{
+		Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true},
+	}
+	textEOS := &genx.MessageChunk{
+		Role: genx.RoleModel, Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true},
+	}
+	_ = source.Push(audioEOS)
+	_ = source.Push(textEOS)
+	stream, _ := NewResponseStream(source)
+	stream.DeferOutputObservation()
+	forwardedAudio, _ := stream.Next()
+	forwardedText, _ := stream.Next()
+
+	stream.ObserveOutput(forwardedText)
+	if len(observed) != 1 || observed[0] != textEOS {
+		t.Fatalf("first observation = %#v, want text EOS", observed)
+	}
+	stream.ObserveOutput(forwardedAudio)
+	if len(observed) != 2 || observed[1] != audioEOS {
+		t.Fatalf("second observation = %#v, want audio EOS", observed)
+	}
+}
+
 func TestResponseStreamAbandonsReadAheadWithoutObservation(t *testing.T) {
 	var observed []*genx.MessageChunk
 	source := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) {

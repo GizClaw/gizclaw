@@ -2,6 +2,7 @@ package streamkit
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -34,7 +35,8 @@ type responseRouteState struct {
 }
 
 type pendingObservation struct {
-	chunk *genx.MessageChunk
+	chunk     *genx.MessageChunk
+	forwarded *genx.MessageChunk
 }
 
 type outputObservationStream interface {
@@ -86,7 +88,7 @@ func (s *ResponseStream) Next() (*genx.MessageChunk, error) {
 	if s.observationDeferred {
 		s.pendingObservations[copyCtrl.StreamID] = append(
 			s.pendingObservations[copyCtrl.StreamID],
-			pendingObservation{chunk: chunk},
+			pendingObservation{chunk: chunk, forwarded: result},
 		)
 	}
 	s.mu.Unlock()
@@ -213,13 +215,37 @@ func (s *ResponseStream) takePendingObservation(chunk *genx.MessageChunk) (pendi
 	if len(pending) == 0 {
 		return pendingObservation{}, false
 	}
-	result := pending[0]
+	index := -1
+	for candidate := range pending {
+		if pending[candidate].forwarded == chunk {
+			index = candidate
+			break
+		}
+	}
+	if index < 0 {
+		for candidate := range pending {
+			if reflect.DeepEqual(pending[candidate].forwarded, chunk) {
+				index = candidate
+				break
+			}
+		}
+	}
+	if index < 0 {
+		// Preserve the historical FIFO fallback for callers that reconstruct
+		// an acknowledgement instead of returning the delivered chunk or a
+		// defensive clone. Exact and clone matches above keep deferred routes
+		// correct when a later text terminal overtakes an audio terminal that
+		// is waiting for playback drain.
+		index = 0
+	}
+	result := pending[index]
 	if len(pending) == 1 {
 		delete(s.pendingObservations, localID)
 	} else {
 		var zero pendingObservation
-		pending[0] = zero
-		s.pendingObservations[localID] = pending[1:]
+		copy(pending[index:], pending[index+1:])
+		pending[len(pending)-1] = zero
+		s.pendingObservations[localID] = pending[:len(pending)-1]
 	}
 	return result, true
 }

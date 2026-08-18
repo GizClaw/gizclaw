@@ -242,6 +242,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"doubao-realtime-conversation":        "doubao-realtime-conversation",
 		"doubao-realtime-quality":             "doubao-realtime-quality",
 		"doubao-realtime-duplex-conversation": "doubao-realtime-duplex-conversation",
+		"eino-concurrency-assistant":          "eino-concurrency-assistant",
 		"eino-memory-assistant":               "eino-memory-assistant",
 		"eino-latency-comparison":             "eino-latency-comparison",
 		"flowcraft-configured-memory":         "flowcraft-configured-memory",

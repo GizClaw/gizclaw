@@ -256,7 +256,7 @@ func newRecordingObservationStream(stream genx.Stream) *recordingObservationStre
 	return &recordingObservationStream{
 		Stream:    stream,
 		deferred:  make(chan struct{}),
-		observed:  make(chan *genx.MessageChunk, 1),
+		observed:  make(chan *genx.MessageChunk, 16),
 		abandoned: make(chan *genx.MessageChunk, 1),
 	}
 }
@@ -289,10 +289,12 @@ func (s *blockingSliceStream) Next() (*genx.MessageChunk, error) {
 func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	creator := newRecordingAudioTrackCreator()
 	var observed []*genx.MessageChunk
-	output := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
-		pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, ""),
+	normalEOS := pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, true, "")
+	rawOutput := &notifyingSliceStream{sliceStream: sliceStream{chunks: []*genx.MessageChunk{
+		normalEOS,
 		pcmOutputChunk("answer", "audio/pcm", nil, true, "interrupted"),
 	}, doneErr: genx.ErrDone}, secondRead: make(chan struct{})}
+	output := newRecordingObservationStream(rawOutput)
 	done := make(chan error, 1)
 	go func() {
 		done <- (MixerOutput{
@@ -311,7 +313,7 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 		t.Fatal("audio track was not created")
 	}
 	select {
-	case <-output.secondRead:
+	case <-rawOutput.secondRead:
 	case <-time.After(time.Second):
 		t.Fatal("consumer stopped reading while the previous track drained")
 	}
@@ -336,6 +338,14 @@ func TestMixerOutputConsumesInterruptWhilePreviousTrackDrains(t *testing.T) {
 	<-readDone
 	if len(observed) != 1 || observed[0].Ctrl == nil || observed[0].Ctrl.Error != "interrupted" {
 		t.Fatalf("observed chunks = %#v, want only interrupted EOS", observed)
+	}
+	select {
+	case got := <-output.abandoned:
+		if got != normalEOS {
+			t.Fatalf("abandoned chunk = %#v, want superseded normal EOS %#v", got, normalEOS)
+		}
+	default:
+		t.Fatal("superseded normal EOS was not abandoned")
 	}
 }
 
@@ -734,4 +744,69 @@ func TestMixerOutputOuterCloseModes(t *testing.T) {
 			t.Fatalf("write after outer error = %v, want %v", err, wantErr)
 		}
 	})
+}
+
+func TestMixerOutputObservesTextWhileAudioDrains(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	text := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("ready"),
+		Ctrl: &genx.StreamCtrl{StreamID: "answer", Label: "assistant"},
+	}
+	audio := pcmOutputChunk("answer", "audio/pcm", []byte{1, 0}, false, "")
+	audioEOS := pcmOutputChunk("answer", "audio/pcm", nil, true, "")
+	output := &sliceStream{chunks: []*genx.MessageChunk{audio, audioEOS, text}, doneErr: genx.ErrDone}
+	observed := make(chan *genx.MessageChunk, 3)
+	done := make(chan error, 1)
+	go func() {
+		done <- (MixerOutput{
+			Tracks: creator, WaitForAudioDrain: true,
+			Observe: func(chunk *genx.MessageChunk) error {
+				observed <- chunk
+				return nil
+			},
+		}).ConsumeAgentOutput(t.Context(), output)
+	}()
+	for _, want := range []*genx.MessageChunk{audio, text} {
+		select {
+		case got := <-observed:
+			if got != want {
+				t.Fatalf("observed chunk = %#v, want %#v while audio EOS remains pending", got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("chunk %#v was not observed while audio EOS remained pending", want)
+		}
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("ConsumeAgentOutput() finished before audio drained: %v", err)
+	default:
+	}
+	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		_, _ = creator.mixer.Read(buffer)
+		_, _ = creator.mixer.Read(buffer)
+	}()
+	select {
+	case got := <-observed:
+		if got != audioEOS {
+			t.Fatalf("drained observed chunk = %#v, want audio EOS", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("audio was not observed after drain")
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ConsumeAgentOutput() did not finish after audio drain")
+	}
+	if err := creator.mixer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	<-readDone
 }

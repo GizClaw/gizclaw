@@ -897,6 +897,78 @@ func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
 	}
 }
 
+func TestDockReplacementBOSInterruptsPulledUndeliveredTerminal(t *testing.T) {
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 8})
+	response, err := invocation.StartResponse(streamkit.ResponseConfig{
+		StreamID: "assistant-1",
+		Role:     genx.RoleModel,
+		Name:     "answer",
+		Label:    "assistant",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := &dockRoute{
+		response:  response,
+		role:      genx.RoleModel,
+		name:      "answer",
+		label:     "assistant",
+		ttsRoutes: make(map[string]*dockTTSRoute),
+		ttsPipes:  make(map[string]*ttsPipe),
+	}
+	normalEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: "assistant-1", Label: "assistant", EndOfStream: true},
+	}
+	mimeType, tracked := route.trackPendingTerminal(normalEOS)
+	if err := invocation.EmitTracked(response, normalEOS, func(*genx.MessageChunk) {
+		route.clearPendingTerminal(mimeType, tracked)
+	}, func(*genx.MessageChunk) {
+		route.clearPendingTerminal(mimeType, tracked)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	route.closed.Store(true)
+	if err := invocation.FinishResponse(response, ""); err != nil {
+		t.Fatal(err)
+	}
+	invocation.Output().DeferOutputObservation()
+	pulled, err := invocation.Output().Next()
+	if err != nil || pulled.Ctrl == nil || !pulled.IsEndOfStream() {
+		t.Fatalf("pulled normal terminal = (%#v, %v)", pulled, err)
+	}
+
+	sourceOutput := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 1})
+	source, err := streamkit.NewResponseStream(sourceOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := &dockRun{
+		invocation:       invocation,
+		source:           source,
+		routes:           map[string]*dockRoute{"assistant-1": route},
+		discardSourceIDs: make(map[string]bool),
+	}
+	run.beginInputTurn("input-2")
+	interrupt, err := invocation.Output().Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if interrupt.Ctrl == nil || interrupt.Ctrl.StreamID != "assistant-1" ||
+		interrupt.Ctrl.Error != "interrupted" || !interrupt.IsEndOfStream() {
+		t.Fatalf("replacement terminal = %#v", interrupt)
+	}
+	if blob, ok := interrupt.Part.(*genx.Blob); !ok || blob.MIMEType != "audio/pcm" {
+		t.Fatalf("replacement terminal part = %#v", interrupt.Part)
+	}
+	invocation.Output().AbandonOutputObservation(pulled)
+	invocation.Output().ObserveOutput(interrupt)
+	if err := sourceOutput.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestDockInterruptsPendingTTSBeforeNextTranscript(t *testing.T) {
 	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 8})
 	response, err := invocation.StartResponse(streamkit.ResponseConfig{

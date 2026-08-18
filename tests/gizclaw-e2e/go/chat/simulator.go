@@ -47,6 +47,7 @@ const (
 type peerStreamEvent struct {
 	V         int
 	Type      peerStreamEventType
+	Kind      eventpb.StreamKind
 	StreamId  *string
 	Label     *string
 	Text      *string
@@ -2331,6 +2332,16 @@ func transportEventsFromChunk(chunk *genx.MessageChunk) []peerStreamEvent {
 
 func transportEventFromChunk(chunk *genx.MessageChunk, eventType peerStreamEventType, text *string) peerStreamEvent {
 	event := peerStreamEvent{V: 1, Type: eventType, Text: text}
+	if mimeType, ok := chunk.MIMEType(); ok {
+		switch {
+		case strings.HasPrefix(mimeType, "text/"):
+			event.Kind = eventpb.StreamKind_STREAM_KIND_TEXT
+		case strings.HasPrefix(mimeType, "audio/"):
+			event.Kind = eventpb.StreamKind_STREAM_KIND_AUDIO
+		case strings.HasPrefix(mimeType, "video/"):
+			event.Kind = eventpb.StreamKind_STREAM_KIND_VIDEO
+		}
+	}
 	if chunk == nil || chunk.Ctrl == nil {
 		return event
 	}
