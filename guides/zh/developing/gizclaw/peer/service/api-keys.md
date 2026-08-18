@@ -4,4 +4,6 @@
 
 服务在 record 和 credential index 中直接明文保存完整 API Key；有权限的 create、list、get 和 self 操作都返回完整 Key。`manage_api_keys` 允许管理同一 owner 的 Key；任何 Key 都能查看并撤销自己。Peer 退役会先调用 `CleanupPeer`，原子删除所有 Key 并写入 owner retirement marker，再删除 RuntimeProfile owner binding；该 marker 防止已完成清理的 owner 重新创建 Key。
 
+这种可恢复性是明确的 credential-store 信任边界。GizClaw 不 hash 或应用层加密这些 Key，也不引入 KMS：Server 进程、datastore operator 和 backup reader 都处于 credential authority，部署必须保护数据库访问与静态存储。应用接口仍严格限制 owner scope；管理操作只使用现有有界 operation observability，不记录 Key 值；轮换通过创建 replacement 后撤销旧 Key 完成，Peer 退役会撤销它拥有的全部 Key。
+
 已认证的 Peer RPC 连接始终是设备 owner 的根管理权限，通过 `server.api_key.create`、`server.api_key.list` 和 `server.api_key.revoke` 管理 Key。`manage_api_keys` 只把管理能力委派给已签发的 API Key，不会限制或取代 Peer RPC 根方法。
