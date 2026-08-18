@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
@@ -42,6 +44,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if public == nil {
 		return nil, fmt.Errorf("eino: workflow spec.eino is required")
 	}
+	if err := einoconfig.Validate(*public); err != nil {
+		return nil, fmt.Errorf("eino: invalid workflow config: %w", err)
+	}
 	service, err := f.serviceForWorkspace(ctx, spec)
 	if err != nil {
 		return nil, err
@@ -57,6 +62,15 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	workspaceID := spec.Workspace.Id
 	if workspaceID == "" {
 		return nil, fmt.Errorf("eino: workspace id is required")
+	}
+	inputMode, err := resolveEinoInputMode(spec.Workspace.Parameters)
+	if err != nil {
+		return nil, err
+	}
+	if public.VoiceAdapter != nil {
+		if err := preflightVoiceAdapter(ctx, service, *public.VoiceAdapter, inputMode); err != nil {
+			return nil, err
+		}
 	}
 	scope := flowcraftagent.WorkspaceAgentScope(owner, workspaceID, workspaceID)
 	config := genxeino.Config{
@@ -121,7 +135,14 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, errors.Join(err, closeMemory(memoryCloser))
 	}
-	agent := agenthost.NewTransformerAgent(transformer)
+	var composed genx.Transformer = transformer
+	if public.VoiceAdapter != nil {
+		composed, err = wrapAudio(service.Transformer(), transformer, *public.VoiceAdapter, public.Graph.Outputs, inputMode)
+		if err != nil {
+			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
+		}
+	}
+	agent := agenthost.NewTransformerAgent(composed)
 	if config.Memory != nil {
 		agent = agenthost.NewMemoryAgent(agent, config.Memory.Store, config.Memory.Scope, backend)
 	}
@@ -131,6 +152,124 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		agent = &managedAgent{Agent: agent, closer: transformer}
 	}
 	return agent, nil
+}
+
+func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.WorkspaceInputMode, error) {
+	if parameters == nil {
+		return apitypes.WorkspaceInputModePushToTalk, nil
+	}
+	value, err := parameters.AsEinoWorkspaceParameters()
+	if err != nil {
+		return "", fmt.Errorf("eino: decode workspace parameters: %w", err)
+	}
+	if value.Input == nil {
+		return apitypes.WorkspaceInputModePushToTalk, nil
+	}
+	if !value.Input.Valid() {
+		return "", fmt.Errorf("eino: unsupported workspace input %q", *value.Input)
+	}
+	return *value.Input, nil
+}
+
+func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
+	if alias := stringPointerValue(voice.AsrModel); alias != "" {
+		resolved, err := service.ResolveTransformer(ctx, einoASRPattern(alias, inputMode))
+		if err != nil {
+			return fmt.Errorf("eino: resolve voice_adapter.asr_model %q: %w", alias, err)
+		}
+		if resolved.Model == nil || resolved.Model.Kind != apitypes.ModelKindAsr {
+			return fmt.Errorf("eino: voice_adapter.asr_model %q is not an ASR model", alias)
+		}
+	}
+	aliases := make(map[string]struct{})
+	if alias := stringPointerValue(voice.DefaultVoice); alias != "" {
+		aliases[alias] = struct{}{}
+	}
+	if voice.NodeVoices != nil {
+		for _, alias := range *voice.NodeVoices {
+			aliases[strings.TrimSpace(alias)] = struct{}{}
+		}
+	}
+	for alias := range aliases {
+		resolved, err := service.ResolveTransformer(ctx, einoVoicePattern(alias))
+		if err != nil {
+			return fmt.Errorf("eino: resolve voice_adapter Voice %q: %w", alias, err)
+		}
+		if resolved.Voice == nil {
+			return fmt.Errorf("eino: voice_adapter Voice %q is not a Voice resource", alias)
+		}
+	}
+	return nil
+}
+
+func wrapAudio(
+	mux genx.TransformerMux,
+	core genx.Transformer,
+	voice apitypes.VoiceAdapter,
+	outputs []apitypes.EinoOutput,
+	inputMode apitypes.WorkspaceInputMode,
+) (genx.Transformer, error) {
+	config := audiodock.Config{Agent: core}
+	if alias := stringPointerValue(voice.AsrModel); alias != "" {
+		config.ASR = einoPatternTransformer{mux: mux, pattern: einoASRPattern(alias, inputMode)}
+	}
+	defaultVoice := stringPointerValue(voice.DefaultVoice)
+	nodeVoices := map[string]string(nil)
+	if voice.NodeVoices != nil {
+		nodeVoices = maps.Clone(*voice.NodeVoices)
+	}
+	if defaultVoice != "" || len(nodeVoices) != 0 {
+		config.TTS = mux
+		config.ResolveVoice = einoVoiceResolver(defaultVoice, nodeVoices, einoOutputNodes(outputs))
+	}
+	return audiodock.New(config)
+}
+
+func einoOutputNodes(outputs []apitypes.EinoOutput) map[string]string {
+	result := make(map[string]string, len(outputs))
+	for _, output := range outputs {
+		result[strings.TrimSpace(output.Name)] = strings.TrimSpace(output.Node)
+	}
+	return result
+}
+
+func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]string) audiodock.VoiceResolver {
+	return func(_ context.Context, request audiodock.VoiceRequest) (string, error) {
+		alias := strings.TrimSpace(nodeVoices[outputNodes[strings.TrimSpace(request.Name)]])
+		if alias == "" {
+			alias = strings.TrimSpace(defaultVoice)
+		}
+		if alias == "" {
+			return "", nil
+		}
+		return einoVoicePattern(alias), nil
+	}
+}
+
+func einoASRPattern(alias string, inputMode apitypes.WorkspaceInputMode) string {
+	pattern := "model/" + strings.TrimSpace(alias)
+	if inputMode == apitypes.WorkspaceInputModeRealtime {
+		return pattern + "?emit_interim=true"
+	}
+	return pattern
+}
+
+func einoVoicePattern(alias string) string { return "voice/" + strings.TrimSpace(alias) }
+
+func stringPointerValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+type einoPatternTransformer struct {
+	mux     genx.TransformerMux
+	pattern string
+}
+
+func (t einoPatternTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return t.mux.Transform(ctx, t.pattern, input)
 }
 
 func closeMemory(closer io.Closer) error {

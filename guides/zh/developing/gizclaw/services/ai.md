@@ -72,6 +72,8 @@ Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node
 
 `dashscope-realtime`、`doubao-realtime-duplex` 和 `eino` 都是持久化 Workflow 与 Workspace driver。对应 factory 解析 typed RuntimeProfile Model/Voice alias，并构造既有 GenX Transformer。DashScope 要求 DashScope realtime Model；Doubao Duplex 要求 Volc `realtime-duplex` Model；Eino 分别解析每个 `chat_model` node。
 
+Flowcraft 与 Eino 共用同一个 `VoiceAdapter` contract。省略 `eino.voice_adapter` 时，Eino Workflow 仍是纯文本。配置后，`asr_model` 通过 RuntimeProfile ASR Model alias 把音频输入转换为文本；`default_voice` 和 `node_voices` 通过 RuntimeProfile Voice alias 为声明为 `text/plain` 的 Graph output 合成语音。`node_voices` 以 Graph output 引用的 node ID 为 key，并优先于 `default_voice`。Eino Workspace `input` 接受 `push-to-talk` 或 `realtime`，默认值为 `push-to-talk`；realtime ASR 会输出 interim transcript。factory 在构造 Agent 前校验全部 alias，并用 AudioDock 组合 Eino Transformer，不把音频行为下沉到 provider-neutral Eino package。
+
 Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同一个 Workflow memory alias；不存在 Eino 专属的 Memory block 或 Server Config binding。`conversation.starts: agent` 支持主动开场，Workspace conversation parameters 可以选择 `on_reload` 或仅空 history 时一次开场；并发 stream 只允许一个成功 claim，失败可重试，用户输入可以沿既有 interruption 路径打断开场。产品层继续使用持久 History，但 Graph state 仍是 invocation-local。
 
 #### Pet 组合边界

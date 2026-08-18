@@ -10,6 +10,12 @@
     "description": "Eino prompt and chat model workflow with configured memory",
     "memory": "default-memory",
     "eino": {
+      "voice_adapter": {
+        "asr_model": "asr",
+        "node_voices": {
+          "publish-answer": "assistant-voice"
+        }
+      },
       "graph": {
         "name": "eino-memory-assistant",
         "compile": {
@@ -172,7 +178,7 @@
     }
   },
   "voice": "assistant-voice",
-  "rounds": 1,
+  "rounds": 3,
   "timeout": "300s",
   "persona": "You are a concise Chinese chat test user."
 }

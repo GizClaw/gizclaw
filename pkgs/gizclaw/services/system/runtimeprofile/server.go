@@ -1305,7 +1305,30 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.Eino == nil {
 			return fmt.Errorf("%s has no eino spec", path)
 		}
-		return validateEinoRuntimeAliases(path, workflow.Eino.Graph, requireModel)
+		if err := validateEinoRuntimeAliases(path, workflow.Eino.Graph, requireModel); err != nil {
+			return err
+		}
+		if workflow.Eino.VoiceAdapter != nil {
+			voiceAdapter := workflow.Eino.VoiceAdapter
+			if voiceAdapter.AsrModel != nil && strings.TrimSpace(*voiceAdapter.AsrModel) != "" {
+				if err := requireModel("voice_adapter.asr_model", *voiceAdapter.AsrModel, apitypes.ModelKindAsr); err != nil {
+					return err
+				}
+			}
+			if voiceAdapter.DefaultVoice != nil && strings.TrimSpace(*voiceAdapter.DefaultVoice) != "" {
+				if err := requireVoice("voice_adapter.default_voice", *voiceAdapter.DefaultVoice); err != nil {
+					return err
+				}
+			}
+			if voiceAdapter.NodeVoices != nil {
+				for nodeID, alias := range *voiceAdapter.NodeVoices {
+					if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
 	case apitypes.WorkflowDriverFlowcraft:
 		if workflow.Flowcraft == nil {
 			return fmt.Errorf("%s has no flowcraft spec", path)

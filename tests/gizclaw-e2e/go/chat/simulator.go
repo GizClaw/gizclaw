@@ -66,6 +66,7 @@ type personaDriver struct {
 	generateUtterance   func(context.Context, int) (string, error)
 	synthesizeAudio     func(context.Context, string) ([]byte, [][]byte, error)
 	transcribeAudioFile func(context.Context, string) (string, error)
+	afterRound          func(context.Context, int) error
 	runtimeHistoryItems int
 	runtimeHistorySig   string
 	interruptStartedAt  time.Time

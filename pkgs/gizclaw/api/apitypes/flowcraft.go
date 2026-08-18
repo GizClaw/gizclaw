@@ -186,7 +186,7 @@ func validateFlowcraftGraph(graph FlowcraftGraph) error {
 	return nil
 }
 
-func validateFlowcraftVoiceAdapter(adapter *FlowcraftVoiceAdapter) error {
+func validateFlowcraftVoiceAdapter(adapter *VoiceAdapter) error {
 	if adapter == nil {
 		return nil
 	}

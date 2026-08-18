@@ -12,6 +12,7 @@ import (
 	"github.com/cloudwego/eino/schema"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
@@ -107,6 +108,102 @@ func TestFactoryAllowsMemorylessWorkflowAndRequiresResolvedStoreForMemoryNodes(t
 		!strings.Contains(err.Error(), "Graph Memory nodes require Memory") {
 		t.Fatalf("NewAgent(memory without store) error = %v", err)
 	}
+}
+
+func TestResolveEinoInputModeAndASRPattern(t *testing.T) {
+	t.Parallel()
+	for _, testCase := range []struct {
+		name        string
+		parameters  *apitypes.WorkspaceParameters
+		wantMode    apitypes.WorkspaceInputMode
+		wantPattern string
+		wantErr     bool
+	}{
+		{name: "omitted defaults to push-to-talk", wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr"},
+		{name: "push-to-talk", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk), wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr"},
+		{name: "realtime", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModeRealtime), wantMode: apitypes.WorkspaceInputModeRealtime, wantPattern: "model/speech.asr?emit_interim=true"},
+		{name: "invalid", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputMode("invalid")), wantErr: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			mode, err := resolveEinoInputMode(testCase.parameters)
+			if testCase.wantErr {
+				if err == nil {
+					t.Fatal("resolveEinoInputMode() accepted invalid mode")
+				}
+				return
+			}
+			if err != nil || mode != testCase.wantMode {
+				t.Fatalf("resolveEinoInputMode() = %q, %v, want %q", mode, err, testCase.wantMode)
+			}
+			if got := einoASRPattern("speech.asr", mode); got != testCase.wantPattern {
+				t.Fatalf("einoASRPattern() = %q, want %q", got, testCase.wantPattern)
+			}
+		})
+	}
+}
+
+func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
+	t.Parallel()
+	mux := einoTestMux(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) { return input, nil })
+	core := einoTestTransformer(func(_ context.Context, input genx.Stream) (genx.Stream, error) { return input, nil })
+	asr, fallback := "speech.asr", "speech.default"
+	for _, voice := range []apitypes.VoiceAdapter{
+		{AsrModel: &asr},
+		{DefaultVoice: &fallback},
+		{AsrModel: &asr, DefaultVoice: &fallback},
+	} {
+		if _, err := wrapAudio(mux, core, voice, nil, apitypes.WorkspaceInputModePushToTalk); err != nil {
+			t.Fatalf("wrapAudio(%#v) error = %v", voice, err)
+		}
+	}
+
+	resolver := einoVoiceResolver(
+		fallback,
+		map[string]string{
+			"answer":      "speech.assistant",
+			"narrate":     "speech.narrator",
+			"silent-node": "",
+		},
+		map[string]string{
+			"assistant": "answer",
+			"narration": "narrate",
+			"silent":    "silent-node",
+		},
+	)
+	for _, testCase := range []struct {
+		name string
+		want string
+	}{
+		{name: "assistant", want: "voice/speech.assistant"},
+		{name: "narration", want: "voice/speech.narrator"},
+		{name: "other", want: "voice/speech.default"},
+		{name: "silent", want: "voice/speech.default"},
+	} {
+		got, err := resolver(t.Context(), audiodock.VoiceRequest{Name: testCase.name})
+		if err != nil || got != testCase.want {
+			t.Fatalf("resolve Voice(%q) = %q, %v, want %q", testCase.name, got, err, testCase.want)
+		}
+	}
+	withoutFallback := einoVoiceResolver(
+		"",
+		map[string]string{"answer": "speech.assistant"},
+		map[string]string{"assistant": "answer"},
+	)
+	if got, err := withoutFallback(t.Context(), audiodock.VoiceRequest{Name: "other"}); err != nil || got != "" {
+		t.Fatalf("resolve unmapped Voice = %q, %v, want disabled", got, err)
+	}
+}
+
+func einoWorkspaceParameters(t testing.TB, mode apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
+	t.Helper()
+	var parameters apitypes.WorkspaceParameters
+	if err := parameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{
+		AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
+		Input:     &mode,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return &parameters
 }
 
 func TestFactoryBindsOnlyWorkspaceAppAndReportsConfiguredBackend(t *testing.T) {
@@ -222,6 +319,18 @@ func einoFactorySpec(t testing.TB) agenthost.Spec {
 type einoMemoryStore struct {
 	mu    sync.Mutex
 	query memory.Query
+}
+
+type einoTestTransformer func(context.Context, genx.Stream) (genx.Stream, error)
+
+func (f einoTestTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	return f(ctx, input)
+}
+
+type einoTestMux func(context.Context, string, genx.Stream) (genx.Stream, error)
+
+func (f einoTestMux) Transform(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+	return f(ctx, pattern, input)
 }
 
 func (*einoMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {

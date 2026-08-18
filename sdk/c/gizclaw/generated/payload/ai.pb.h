@@ -249,6 +249,8 @@ typedef struct _gizclaw_rpc_v1_EinoWorkflowSpec {
     google_protobuf_Struct limits;
     bool has_conversation;
     google_protobuf_Struct conversation;
+    bool has_voice_adapter;
+    google_protobuf_Struct voice_adapter;
 } gizclaw_rpc_v1_EinoWorkflowSpec;
 
 typedef struct _gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata {
@@ -438,6 +440,8 @@ typedef struct _gizclaw_rpc_v1_EinoWorkspaceParameters {
     bool e2e;
     bool has_conversation;
     gizclaw_rpc_v1_FlowcraftConversationParameters conversation;
+    bool has_input;
+    gizclaw_rpc_v1_WorkspaceInputMode input;
 } gizclaw_rpc_v1_EinoWorkspaceParameters;
 
 typedef struct _gizclaw_rpc_v1_FlowcraftWorkflowSpec {
@@ -824,6 +828,7 @@ extern "C" {
 
 
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_EinoWorkspaceParametersAgentType
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
 
 
 
@@ -920,8 +925,8 @@ extern "C" {
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_init_default {_gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType_MIN, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_EinoWorkflowSpec_init_default {false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default}
-#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_default {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_default}
+#define gizclaw_rpc_v1_EinoWorkflowSpec_init_default {false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default, false, google_protobuf_Struct_init_default}
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_default {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -1002,8 +1007,8 @@ extern "C" {
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParametersAgentType_MIN, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_EinoWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero}
-#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_zero {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero}
+#define gizclaw_rpc_v1_EinoWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero, false, google_protobuf_Struct_init_zero}
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_init_zero {_gizclaw_rpc_v1_EinoWorkspaceParametersAgentType_MIN, false, 0, false, gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeASRContext_CorrectWordsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
@@ -1171,6 +1176,7 @@ extern "C" {
 #define gizclaw_rpc_v1_EinoWorkflowSpec_graph_tag 1
 #define gizclaw_rpc_v1_EinoWorkflowSpec_limits_tag 2
 #define gizclaw_rpc_v1_EinoWorkflowSpec_conversation_tag 3
+#define gizclaw_rpc_v1_EinoWorkflowSpec_voice_adapter_tag 4
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_content_producer_tag 1
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_content_propagator_tag 2
 #define gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata_enable_tag 3
@@ -1255,6 +1261,7 @@ extern "C" {
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_e2e_tag 2
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_conversation_tag 3
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_input_tag 4
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_fields_tag 1
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_agent_type_tag 1
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_conversation_tag 2
@@ -1624,17 +1631,20 @@ X(a, CALLBACK, OPTIONAL, STRING,   voice,            13)
 #define gizclaw_rpc_v1_EinoWorkflowSpec_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  graph,             1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  limits,            2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      3)
+X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  voice_adapter,     4)
 #define gizclaw_rpc_v1_EinoWorkflowSpec_CALLBACK NULL
 #define gizclaw_rpc_v1_EinoWorkflowSpec_DEFAULT NULL
 #define gizclaw_rpc_v1_EinoWorkflowSpec_graph_MSGTYPE google_protobuf_Struct
 #define gizclaw_rpc_v1_EinoWorkflowSpec_limits_MSGTYPE google_protobuf_Struct
 #define gizclaw_rpc_v1_EinoWorkflowSpec_conversation_MSGTYPE google_protobuf_Struct
+#define gizclaw_rpc_v1_EinoWorkflowSpec_voice_adapter_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
 X(a, STATIC,   OPTIONAL, BOOL,     e2e,               2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      3)
+X(a, STATIC,   OPTIONAL, MESSAGE,  conversation,      3) \
+X(a, STATIC,   OPTIONAL, UENUM,    input,             4)
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_EinoWorkspaceParameters_conversation_MSGTYPE gizclaw_rpc_v1_FlowcraftConversationParameters
@@ -2414,7 +2424,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define GIZCLAW_RPC_V1_PAYLOAD_AI_PB_H_MAX_SIZE  gizclaw_rpc_v1_ToolInvokeResponse_size
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioFormat_size 13
 #define gizclaw_rpc_v1_DoubaoRealtimeAudioInput_size 15
-#define gizclaw_rpc_v1_EinoWorkspaceParameters_size 10
+#define gizclaw_rpc_v1_EinoWorkspaceParameters_size 12
 #define gizclaw_rpc_v1_FlowcraftConversationParameters_size 4
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_size 12
 #define gizclaw_rpc_v1_SpeechExtractRequest_size 20782
@@ -2424,8 +2434,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_size 230
 #define gizclaw_rpc_v1_SpeechTranscribeResponse_size 8195
 #define gizclaw_rpc_v1_ToolInvokeResponse_size   65403
-#if defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size)
-#define gizclaw_rpc_v1_EinoWorkflowSpec_size     (18 + google_protobuf_Struct_size + google_protobuf_Struct_size + google_protobuf_Struct_size)
+#if defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size) && defined(google_protobuf_Struct_size)
+#define gizclaw_rpc_v1_EinoWorkflowSpec_size     (24 + google_protobuf_Struct_size + google_protobuf_Struct_size + google_protobuf_Struct_size + google_protobuf_Struct_size)
 #endif
 #if defined(google_protobuf_Struct_size)
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_size (6 + google_protobuf_Struct_size)

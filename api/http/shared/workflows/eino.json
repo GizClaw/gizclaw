@@ -15,7 +15,8 @@
         "properties": {
           "graph": { "$ref": "#/components/schemas/EinoGraph" },
           "conversation": { "$ref": "#/components/schemas/EinoConversation" },
-          "limits": { "$ref": "#/components/schemas/EinoLimits" }
+          "limits": { "$ref": "#/components/schemas/EinoLimits" },
+          "voice_adapter": { "$ref": "./voice_adapter.json#/components/schemas/VoiceAdapter" }
         }
       },
       "EinoConversation": {

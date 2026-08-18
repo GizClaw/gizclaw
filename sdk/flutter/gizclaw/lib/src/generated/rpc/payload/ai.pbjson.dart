@@ -1211,10 +1211,21 @@ const EinoWorkflowSpec$json = {
       '10': 'conversation',
       '17': true
     },
+    {
+      '1': 'voice_adapter',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '9': 2,
+      '10': 'voiceAdapter',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_limits'},
     {'1': '_conversation'},
+    {'1': '_voice_adapter'},
   ],
 };
 
@@ -1223,7 +1234,9 @@ final $typed_data.Uint8List einoWorkflowSpecDescriptor = $convert.base64Decode(
     'ChBFaW5vV29ya2Zsb3dTcGVjEi0KBWdyYXBoGAEgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cn'
     'VjdFIFZ3JhcGgSNAoGbGltaXRzGAIgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdEgAUgZs'
     'aW1pdHOIAQESQAoMY29udmVyc2F0aW9uGAMgASgLMhcuZ29vZ2xlLnByb3RvYnVmLlN0cnVjdE'
-    'gBUgxjb252ZXJzYXRpb26IAQFCCQoHX2xpbWl0c0IPCg1fY29udmVyc2F0aW9u');
+    'gBUgxjb252ZXJzYXRpb26IAQESQQoNdm9pY2VfYWRhcHRlchgEIAEoCzIXLmdvb2dsZS5wcm90'
+    'b2J1Zi5TdHJ1Y3RIAlIMdm9pY2VBZGFwdGVyiAEBQgkKB19saW1pdHNCDwoNX2NvbnZlcnNhdG'
+    'lvbkIQCg5fdm9pY2VfYWRhcHRlcg==');
 
 @$core.Deprecated('Use einoWorkspaceParametersDescriptor instead')
 const EinoWorkspaceParameters$json = {
@@ -1248,10 +1261,21 @@ const EinoWorkspaceParameters$json = {
       '10': 'conversation',
       '17': true
     },
+    {
+      '1': 'input',
+      '3': 4,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
+      '9': 2,
+      '10': 'input',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_e2e'},
     {'1': '_conversation'},
+    {'1': '_input'},
   ],
 };
 
@@ -1260,8 +1284,9 @@ final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64D
     'ChdFaW5vV29ya3NwYWNlUGFyYW1ldGVycxJPCgphZ2VudF90eXBlGAEgASgOMjAuZ2l6Y2xhdy'
     '5ycGMudjEuRWlub1dvcmtzcGFjZVBhcmFtZXRlcnNBZ2VudFR5cGVSCWFnZW50VHlwZRIVCgNl'
     'MmUYAiABKAhIAFIDZTJliAEBElgKDGNvbnZlcnNhdGlvbhgDIAEoCzIvLmdpemNsYXcucnBjLn'
-    'YxLkZsb3djcmFmdENvbnZlcnNhdGlvblBhcmFtZXRlcnNIAVIMY29udmVyc2F0aW9uiAEBQgYK'
-    'BF9lMmVCDwoNX2NvbnZlcnNhdGlvbg==');
+    'YxLkZsb3djcmFmdENvbnZlcnNhdGlvblBhcmFtZXRlcnNIAVIMY29udmVyc2F0aW9uiAEBEj0K'
+    'BWlucHV0GAQgASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucH'
+    'V0iAEBQgYKBF9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXQ=');
 
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {

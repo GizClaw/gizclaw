@@ -28,6 +28,16 @@ func TestEinoWorkflowRoundtrip(t *testing.T) {
 	runConfiguredMemoryRoundtrip(t, "eino-memory.json", workspaceCaseTextRoundtrip, "flowcraft")
 }
 
+func TestEinoPushToTalkWorkflowRoundtrip(t *testing.T) {
+	runRequiredLiveWorkspaceCase(t, workspaceCaseEinoPushToTalk,
+		selectedWorkspaceConfigPaths(t, "eino-memory.json"))
+}
+
+func TestEinoRealtimeWorkflowRoundtrip(t *testing.T) {
+	runRequiredLiveWorkspaceCase(t, workspaceCaseEinoRealtime,
+		selectedWorkspaceConfigPaths(t, "eino-memory.json"))
+}
+
 func TestFlowcraftConfiguredMemoryStoreRoundtrip(t *testing.T) {
 	runConfiguredMemoryRoundtrip(t, "flowcraft-configured-memory.json", workspaceCaseTextRoundtrip, "flowcraft")
 }

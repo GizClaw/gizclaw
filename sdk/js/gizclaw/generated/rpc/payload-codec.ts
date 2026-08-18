@@ -390,11 +390,13 @@ export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
   "limits"?: Record<string, unknown>;
   "conversation"?: Record<string, unknown>;
+  "voice_adapter"?: Record<string, unknown>;
 };
 export type EinoWorkspaceParameters = {
   "agent_type": EinoWorkspaceParametersAgentType;
   "e2e"?: boolean;
   "conversation"?: FlowcraftConversationParameters;
+  "input"?: WorkspaceInputMode;
 };
 export type FirmwareGetRequest = {
   "channel": FirmwareChannelName;
@@ -3134,6 +3136,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "voice_adapter",
+        "number": 4,
+        "optional": true,
+        "type": "google.protobuf.Struct"
       }
     ]
   },
@@ -3155,6 +3163,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "FlowcraftConversationParameters"
+      },
+      {
+        "name": "input",
+        "number": 4,
+        "optional": true,
+        "type": "WorkspaceInputMode"
       }
     ]
   },

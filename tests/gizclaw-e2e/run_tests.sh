@@ -33,6 +33,8 @@ chat_live_tests=(
   TestDoubaoRealtimeDuplexWorkflowRoundtrip
   TestEinoWorkflowInvokesHTTPAndCurrentPeerTools
   TestEinoWorkflowRoundtrip
+  TestEinoPushToTalkWorkflowRoundtrip
+  TestEinoRealtimeWorkflowRoundtrip
   TestFlowcraftConfiguredMemoryStoreRoundtrip
   TestPeerStreamWorkspaceReloadContinuity
 )
@@ -48,6 +50,8 @@ chat_standard_live_patterns=(
   '^TestDashScopeRealtimeWorkflowRoundtrip$'
   '^TestDoubaoRealtimeDuplexWorkflowRoundtrip$'
   '^TestEinoWorkflowInvokesHTTPAndCurrentPeerTools$'
+  '^TestEinoPushToTalkWorkflowRoundtrip$'
+  '^TestEinoRealtimeWorkflowRoundtrip$'
   '^TestPeerStreamWorkspaceReloadContinuity$'
 )
 chat_memory_live_patterns=(

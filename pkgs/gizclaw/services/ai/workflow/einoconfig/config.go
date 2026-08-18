@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"mime"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/eino/components/model"
@@ -13,6 +15,7 @@ import (
 
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -20,6 +23,9 @@ import (
 // construct. Runtime model resolution and Store capability checks remain
 // AgentHost responsibilities.
 func Validate(public apitypes.EinoWorkflowSpec) error {
+	if err := validateVoiceAdapter(public); err != nil {
+		return fmt.Errorf("voice_adapter: %w", err)
+	}
 	graph, err := MapGraph(public.Graph)
 	if err != nil {
 		return fmt.Errorf("graph: %w", err)
@@ -40,6 +46,48 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
 	return genxeino.ValidateConfig(config)
+}
+
+func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
+	adapter := public.VoiceAdapter
+	if adapter == nil {
+		return nil
+	}
+	asr := stringValue(adapter.AsrModel)
+	defaultVoice := stringValue(adapter.DefaultVoice)
+	var nodeVoices map[string]string
+	if adapter.NodeVoices != nil {
+		nodeVoices = *adapter.NodeVoices
+	}
+	if asr == "" && defaultVoice == "" && len(nodeVoices) == 0 {
+		return errors.New("must configure asr_model, default_voice, or node_voices")
+	}
+	if asr != "" {
+		if err := runtimealias.Validate("ASR model alias", asr); err != nil {
+			return fmt.Errorf("asr_model: %w", err)
+		}
+	}
+	if defaultVoice != "" {
+		if err := runtimealias.Validate("default Voice alias", defaultVoice); err != nil {
+			return fmt.Errorf("default_voice: %w", err)
+		}
+	}
+	textOutputNodes := make(map[string]struct{}, len(public.Graph.Outputs))
+	for _, output := range public.Graph.Outputs {
+		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(output.MimeType))
+		if err == nil && strings.EqualFold(mediaType, "text/plain") {
+			textOutputNodes[strings.TrimSpace(output.Node)] = struct{}{}
+		}
+	}
+	for nodeID, alias := range nodeVoices {
+		if _, ok := textOutputNodes[nodeID]; !ok {
+			return fmt.Errorf("node_voices.%s: node has no text/plain graph output", nodeID)
+		}
+		if err := runtimealias.Validate("node Voice alias", strings.TrimSpace(alias)); err != nil {
+			return fmt.Errorf("node_voices.%s: %w", nodeID, err)
+		}
+	}
+	return nil
 }
 
 type validationComponents struct{}

@@ -1577,12 +1577,14 @@ type EinoWorkflowSpec struct {
 	Conversation *map[string]any `json:"conversation,omitempty"`
 	Graph        map[string]any  `json:"graph"`
 	Limits       *map[string]any `json:"limits,omitempty"`
+	VoiceAdapter *map[string]any `json:"voice_adapter,omitempty"`
 }
 
 type EinoWorkspaceParameters struct {
 	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
 	Conversation *FlowcraftConversationParameters `json:"conversation,omitempty"`
 	E2e          *bool                            `json:"e2e,omitempty"`
+	Input        *WorkspaceInputMode              `json:"input,omitempty"`
 }
 
 type EinoWorkspaceParametersAgentType string

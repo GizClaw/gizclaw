@@ -1,0 +1,148 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "You are a deterministic latency benchmark client.",
+  "rounds": 1,
+  "timeout": "1200s",
+  "utterances": [
+    "请报告当前系统状态"
+  ],
+  "voice": "assistant-voice",
+  "workflow": {
+    "description": "Eino side of the matched complex workflow latency comparison",
+    "eino": {
+      "graph": {
+        "branches": [],
+        "compile": {
+          "max_run_steps": 16,
+          "node_trigger_mode": "any_predecessor"
+        },
+        "edges": [
+          {"from": "start", "to": "recall-memory"},
+          {"from": "recall-memory", "to": "capture-input"},
+          {"from": "capture-input", "to": "planner-prompt"},
+          {"from": "planner-prompt", "to": "planner-model"},
+          {"from": "planner-model", "to": "answer-prompt"},
+          {"from": "answer-prompt", "to": "answer-model"},
+          {"from": "answer-model", "to": "observe-turn"},
+          {"from": "observe-turn", "to": "completion-barrier"},
+          {"from": "completion-barrier", "to": "end"}
+        ],
+        "name": "Complex Workflow Latency Comparison",
+        "nodes": [
+          {
+            "id": "recall-memory",
+            "output": "recalled-memory",
+            "query_from": "input.text",
+            "top_k": 5,
+            "type": "memory_recall"
+          },
+          {
+            "id": "capture-input",
+            "inputs": {"value": {"from": "input.text"}},
+            "outputs": {"value": "captured-input"},
+            "type": "passthrough"
+          },
+          {
+            "format": "f_string",
+            "id": "planner-prompt",
+            "inputs": {"text": {"from": "captured-input"}},
+            "messages": [
+              {"role": "system", "template": "请把用户请求归纳成一个不超过二十个汉字的执行计划。只输出计划，不要解释。"},
+              {"role": "user", "template": "{text}"}
+            ],
+            "outputs": {"messages": "planner-messages"},
+            "type": "prompt"
+          },
+          {
+            "id": "planner-model",
+            "inputs": {"messages": {"from": "planner-messages"}},
+            "max_tokens": 64,
+            "model": "llm",
+            "outputs": {"text": "plan"},
+            "temperature": 0,
+            "type": "chat_model"
+          },
+          {
+            "format": "f_string",
+            "id": "answer-prompt",
+            "inputs": {
+              "memory": {"from": "recalled-memory"},
+              "plan": {"from": "plan"},
+              "text": {"from": "captured-input"}
+            },
+            "messages": [
+              {
+                "role": "system",
+                "template": "你是一个简短、准确的中文语音助手。\n请参考下面的长期记忆和执行计划回答用户；长期记忆为空时忽略。\n长期记忆：\n{memory}\n执行计划：\n{plan}\n回答只说一句简短中文，不要提及计划或记忆。\n"
+              },
+              {"role": "user", "template": "{text}"}
+            ],
+            "outputs": {"messages": "answer-messages"},
+            "type": "prompt"
+          },
+          {
+            "id": "answer-model",
+            "inputs": {"messages": {"from": "answer-messages"}},
+            "max_tokens": 128,
+            "model": "llm",
+            "outputs": {"text": "answer"},
+            "temperature": 0,
+            "type": "chat_model"
+          },
+          {
+            "facts": [
+              {"text_from": "captured-input"},
+              {"text_from": "answer"}
+            ],
+            "id": "observe-turn",
+            "type": "memory_observe",
+            "wait_for_completion": true
+          },
+          {
+            "id": "completion-barrier",
+            "inputs": {"value": {"from": "answer"}},
+            "outputs": {"value": "completion"},
+            "type": "passthrough"
+          }
+        ],
+        "outputs": [
+          {
+            "field": "answer",
+            "mime_type": "text/plain",
+            "name": "assistant",
+            "node": "answer-model",
+            "primary": true
+          }
+        ],
+        "state": {
+          "fields": [
+            {"merge": "replace", "name": "recalled-memory", "type": "string"},
+            {"merge": "replace", "name": "captured-input", "type": "string"},
+            {"merge": "replace", "name": "planner-messages", "type": "messages"},
+            {"merge": "replace", "name": "plan", "type": "string"},
+            {"merge": "replace", "name": "answer-messages", "type": "messages"},
+            {"merge": "replace", "name": "answer", "type": "string"},
+            {"merge": "replace", "name": "completion", "type": "string"}
+          ]
+        }
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "assistant-voice",
+        "node_voices": {
+          "answer-model": "assistant-voice"
+        }
+      }
+    },
+    "memory": "default-memory",
+    "name": "eino-latency-comparison",
+    "parameters": {
+      "input": "push-to-talk"
+    }
+  }
+}

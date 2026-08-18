@@ -153,6 +153,7 @@ func TestLoadFlowcraftConfigs(t *testing.T) {
 		"flowcraft-chat.json",
 		"flowcraft-configured-memory.json",
 		"flowcraft-journey.json",
+		"flowcraft-latency-comparison.json",
 		"flowcraft-multi-role-storyteller.json",
 		"flowcraft-murder-mystery.json",
 		"flowcraft-poetry-adventure-li-bai.json",

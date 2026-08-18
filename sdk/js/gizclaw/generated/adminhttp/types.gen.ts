@@ -2440,7 +2440,21 @@ export type ReusableFlowcraftWorkflowVariant = {
 /**
  * Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.
  */
-export type ReusableWorkflowSpec = ReusableFlowcraftWorkflowVariant | ReusableDoubaoRealtimeWorkflowVariant | ReusableDashScopeRealtimeWorkflowVariant | ReusableDoubaoRealtimeDuplexWorkflowVariant | ReusableEinoWorkflowVariant | ReusableAstTranslateWorkflowVariant | ReusableChatroomWorkflowVariant;
+export type ReusableWorkflowSpec = ({
+    driver: 'flowcraft';
+} & ReusableFlowcraftWorkflowVariant) | ({
+    driver: 'doubao-realtime';
+} & ReusableDoubaoRealtimeWorkflowVariant) | ({
+    driver: 'dashscope-realtime';
+} & ReusableDashScopeRealtimeWorkflowVariant) | ({
+    driver: 'doubao-realtime-duplex';
+} & ReusableDoubaoRealtimeDuplexWorkflowVariant) | ({
+    driver: 'eino';
+} & ReusableEinoWorkflowVariant) | ({
+    driver: 'ast-translate';
+} & ReusableAstTranslateWorkflowVariant) | ({
+    driver: 'chatroom';
+} & ReusableChatroomWorkflowVariant);
 
 /**
  * RuntimeProfile resources.memories alias resolved for the Workspace.
@@ -2450,7 +2464,23 @@ export type WorkflowMemoryAlias = string;
 /**
  * Workflow union: one reusable non-Pet variant or the Pet domain wrapper.
  */
-export type WorkflowSpec = ReusableWorkflowSpec | PetWorkflowVariant;
+export type WorkflowSpec = ({
+    driver: 'flowcraft';
+} & ReusableFlowcraftWorkflowVariant) | ({
+    driver: 'doubao-realtime';
+} & ReusableDoubaoRealtimeWorkflowVariant) | ({
+    driver: 'dashscope-realtime';
+} & ReusableDashScopeRealtimeWorkflowVariant) | ({
+    driver: 'doubao-realtime-duplex';
+} & ReusableDoubaoRealtimeDuplexWorkflowVariant) | ({
+    driver: 'eino';
+} & ReusableEinoWorkflowVariant) | ({
+    driver: 'ast-translate';
+} & ReusableAstTranslateWorkflowVariant) | ({
+    driver: 'chatroom';
+} & ReusableChatroomWorkflowVariant) | ({
+    driver: 'pet';
+} & PetWorkflowVariant);
 
 export type AstTranslateExternalVoiceParameters = {
     /**
@@ -2848,11 +2878,13 @@ export type EinoPredicate = {
 };
 
 export type EinoPromptMessage = {
-    role: 'system' | 'user' | 'assistant';
+    role?: 'system' | 'user' | 'assistant';
     template?: string;
     placeholder?: string;
     optional?: boolean;
 };
+
+export type EinoPromptMessageSchema = EinoPromptMessage;
 
 export type EinoPromptNode = EinoNodeBase & {
     id: string;
@@ -2864,7 +2896,7 @@ export type EinoPromptNode = EinoNodeBase & {
         [key: string]: string;
     };
     format: 'f_string' | 'go_template' | 'jinja2';
-    messages: Array<EinoPromptMessage>;
+    messages: Array<EinoPromptMessageSchema>;
 };
 
 export type EinoRaceBranch = {
@@ -2963,6 +2995,7 @@ export type EinoWorkflowSpec = {
     graph: EinoGraph;
     conversation?: EinoConversation;
     limits?: EinoLimits;
+    voice_adapter?: VoiceAdapter;
 };
 
 export type FlowcraftConversation = {
@@ -3101,22 +3134,22 @@ export type FlowcraftScriptNodeConfig = {
     source: string;
 };
 
-export type FlowcraftVoiceAdapter = {
+export type FlowcraftWorkflowSpec = {
+    graph: FlowcraftGraph;
+    max_iterations?: number;
+    conversation?: FlowcraftConversation;
+    voice_adapter?: VoiceAdapter;
+};
+
+export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
+
+export type VoiceAdapter = {
     asr_model?: string;
     default_voice?: string;
     node_voices?: {
         [key: string]: string;
     };
 };
-
-export type FlowcraftWorkflowSpec = {
-    graph: FlowcraftGraph;
-    max_iterations?: number;
-    conversation?: FlowcraftConversation;
-    voice_adapter?: FlowcraftVoiceAdapter;
-};
-
-export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
 
 export type Workspace = {
     id: string;
@@ -3264,6 +3297,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
 export type EinoWorkspaceParameters = {
     agent_type: 'eino';
     conversation?: FlowcraftConversationParameters;
+    input?: WorkspaceInputMode;
     e2e?: boolean;
 };
 

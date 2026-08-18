@@ -7,6 +7,10 @@ spec:
   driver: eino
   memory: default-memory
   eino:
+    voice_adapter:
+      asr_model: asr
+      node_voices:
+        publish-answer: assistant-voice
     graph:
       name: eino-memory-assistant
       compile:

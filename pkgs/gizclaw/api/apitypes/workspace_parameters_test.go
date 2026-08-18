@@ -83,8 +83,10 @@ func TestWorkspaceParametersNewWorkflowBranches(t *testing.T) {
 			name: "eino",
 			want: "eino",
 			set: func(parameters *WorkspaceParameters) error {
+				mode := WorkspaceInputModeRealtime
 				return parameters.FromEinoWorkspaceParameters(EinoWorkspaceParameters{
 					AgentType: EinoWorkspaceParametersAgentTypeEino,
+					Input:     &mode,
 				})
 			},
 		},

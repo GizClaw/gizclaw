@@ -1,0 +1,120 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: flowcraft-latency-comparison
+spec:
+  driver: flowcraft
+  memory: default-memory
+  flowcraft:
+    graph:
+      edges:
+      - from: recall-memory
+        to: capture-input
+      - from: capture-input
+        to: planner-prompt
+      - from: planner-prompt
+        to: planner-model
+      - from: planner-model
+        to: answer-prompt
+      - from: answer-prompt
+        to: answer-model
+      - from: answer-model
+        to: observe-turn
+      - from: observe-turn
+        to: completion-barrier
+      - from: completion-barrier
+        to: __end__
+      entry: recall-memory
+      name: Complex Workflow Latency Comparison
+      nodes:
+      - id: recall-memory
+        type: memory_recall
+        config:
+          query:
+            text_from: input
+          output: recalled-memory
+          top_k: 5
+      - id: capture-input
+        type: script
+        config:
+          source: |
+            const messages = board.channel(board.MAIN_CHANNEL) || [];
+            let inputText = "";
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const message = messages[i] || {};
+              if (message.role !== "user") continue;
+              if (typeof message.content === "string" && message.content.trim()) {
+                inputText = message.content.trim();
+                break;
+              }
+              const parts = Array.isArray(message.parts) ? message.parts : [];
+              inputText = parts.map(function(part) {
+                return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
+              }).join("").trim();
+              if (inputText) break;
+            }
+            board.setVar("captured-input", inputText);
+      - id: planner-prompt
+        type: script
+        config:
+          source: |
+            board.setChannel("planner-messages", [{
+              role: "user",
+              parts: [{ type: "text", text: board.getVar("captured-input") || "" }]
+            }]);
+      - id: planner-model
+        publish: false
+        type: llm
+        config:
+          max_tokens: 64
+          messages_channel: planner-messages
+          model: llm
+          output_key: plan
+          system_prompt: 请把用户请求归纳成一个不超过二十个汉字的执行计划。只输出计划，不要解释。
+          temperature: 0
+      - id: answer-prompt
+        type: script
+        config:
+          source: |
+            const memory = board.getVar("recalled-memory") || "";
+            const plan = board.getVar("plan") || "";
+            board.setVar("answer-system-prompt", [
+              "你是一个简短、准确的中文语音助手。",
+              "请参考下面的长期记忆和执行计划回答用户；长期记忆为空时忽略。",
+              "长期记忆：\n" + memory,
+              "执行计划：\n" + plan,
+              "回答只说一句简短中文，不要提及计划或记忆。"
+            ].join("\n"));
+            board.setChannel("answer-messages", [{
+              role: "user",
+              parts: [{ type: "text", text: board.getVar("captured-input") || "" }]
+            }]);
+      - id: answer-model
+        publish: true
+        type: llm
+        config:
+          max_tokens: 128
+          messages_channel: answer-messages
+          model: llm
+          output_key: answer
+          system_prompt: ${board.answer-system-prompt}
+          temperature: 0
+      - id: observe-turn
+        type: memory_observe
+        config:
+          observations:
+          - facts:
+            - text_from: captured-input
+            - text_from: answer
+          wait_for_completion: true
+      - id: completion-barrier
+        type: passthrough
+    max_iterations: 10
+    conversation:
+      starts: peer
+    voice_adapter:
+      asr_model: asr
+      default_voice: assistant-voice
+      node_voices:
+        answer-model: assistant-voice

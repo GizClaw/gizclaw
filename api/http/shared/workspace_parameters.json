@@ -223,6 +223,9 @@
           "conversation": {
             "$ref": "#/components/schemas/FlowcraftConversationParameters"
           },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          },
           "e2e": { "type": "boolean" }
         }
       },

@@ -1530,8 +1530,12 @@ func validateEinoOverrides(workspaceParameters *apitypes.WorkspaceParameters) er
 	if err := requireWorkspaceParametersVariant(workspaceParameters, "eino"); err != nil {
 		return invalidWorkspaceReference("eino parameters are required: %v", err)
 	}
-	if _, err := workspaceParameters.AsEinoWorkspaceParameters(); err != nil {
+	parameters, err := workspaceParameters.AsEinoWorkspaceParameters()
+	if err != nil {
 		return invalidWorkspaceReference("eino parameters are required: %v", err)
+	}
+	if parameters.Input != nil && !parameters.Input.Valid() {
+		return invalidWorkspaceReference("eino parameter %q input %q is unsupported", "input", *parameters.Input)
 	}
 	return nil
 }
