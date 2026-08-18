@@ -403,6 +403,114 @@ func TestNewBOSInterruptsPriorTurnAndPersistsDeliveredPrefix(t *testing.T) {
 	}
 }
 
+func TestRepeatedBOSInterruptsPriorTurnsWithoutClosingSession(t *testing.T) {
+	t.Parallel()
+	const interruptions = 3
+	generator := &repeatedInterruptGenerator{started: make(chan string, interruptions)}
+	agent, err := New(testConfig(generator))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	output, err := agent.Transform(context.Background(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+
+	type result struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan result, 32)
+	go func() {
+		for {
+			chunk, nextErr := output.Next()
+			results <- result{chunk: chunk, err: nextErr}
+			if nextErr != nil {
+				return
+			}
+		}
+	}()
+
+	responseIDs := make(map[string]int)
+	responseEOS := make(map[string]int)
+	interrupted := make(map[string]int)
+	for turn := 1; turn <= interruptions; turn++ {
+		user := fmt.Sprintf("turn-%d", turn)
+		if err := addTextTurn(input, user); err != nil {
+			t.Fatalf("add %s: %v", user, err)
+		}
+		select {
+		case started := <-generator.started:
+			if started != user {
+				t.Fatalf("started turn = %q, want %q", started, user)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("%s did not start", user)
+		}
+		for {
+			got := <-results
+			if got.err != nil {
+				t.Fatalf("read %s prefix: %v", user, got.err)
+			}
+			if got.chunk != nil && got.chunk.Ctrl != nil && got.chunk.IsEndOfStream() {
+				responseEOS[got.chunk.Ctrl.StreamID]++
+				if got.chunk.Ctrl.Error == "interrupted" {
+					interrupted[got.chunk.Ctrl.StreamID]++
+				}
+			}
+			text, ok := got.chunk.Part.(genx.Text)
+			if ok && text == genx.Text("partial: "+user) {
+				responseIDs[got.chunk.Ctrl.StreamID]++
+				break
+			}
+		}
+	}
+	if err := addTextTurn(input, "final"); err != nil {
+		t.Fatalf("add final turn: %v", err)
+	}
+	_ = input.Done(genx.Usage{})
+
+	var finalID string
+	for got := range results {
+		if got.err != nil {
+			if !errors.Is(got.err, io.EOF) && !errors.Is(got.err, genx.ErrDone) {
+				t.Fatalf("read output: %v", got.err)
+			}
+			break
+		}
+		if got.chunk == nil || got.chunk.Ctrl == nil {
+			continue
+		}
+		if got.chunk.IsEndOfStream() {
+			responseEOS[got.chunk.Ctrl.StreamID]++
+			if got.chunk.Ctrl.Error == "interrupted" {
+				interrupted[got.chunk.Ctrl.StreamID]++
+			}
+		}
+		if text, ok := got.chunk.Part.(genx.Text); ok && text == "reply: final" {
+			finalID = got.chunk.Ctrl.StreamID
+		}
+	}
+	if len(responseIDs) != interruptions {
+		t.Fatalf("interrupted response IDs = %#v, want %d fresh IDs", responseIDs, interruptions)
+	}
+	for id := range responseIDs {
+		if responseEOS[id] != 1 {
+			t.Errorf("EOS count for %s = %d, want 1", id, responseEOS[id])
+		}
+		if interrupted[id] != 1 {
+			t.Errorf("interrupted EOS count for %s = %d, want 1", id, interrupted[id])
+		}
+		if id == finalID {
+			t.Errorf("final response reused interrupted StreamID %s", id)
+		}
+	}
+	if finalID == "" {
+		t.Fatal("final replacement response was not delivered")
+	}
+}
+
 func TestTransformBypassesNonTextStream(t *testing.T) {
 	t.Parallel()
 	generator := &echoGenerator{}
@@ -1146,6 +1254,10 @@ type silentInterruptGenerator struct {
 	once    sync.Once
 }
 
+type repeatedInterruptGenerator struct {
+	started chan string
+}
+
 type waitingMemoryStore struct {
 	mu           sync.Mutex
 	observations []memory.Observation
@@ -1247,6 +1359,25 @@ func (g *silentInterruptGenerator) GenerateStream(ctx context.Context, _ string,
 }
 
 func (*silentInterruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("not supported")
+}
+
+func (g *repeatedInterruptGenerator) GenerateStream(ctx context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	user := lastUserText(modelContext)
+	if user == "final" {
+		return responseStream(modelContext, "reply: final"), nil
+	}
+	builder := genx.NewGrowableStreamBuilder(modelContext, 1)
+	go func() {
+		_ = builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial: " + user)})
+		g.started <- user
+		<-ctx.Done()
+		_ = builder.Abort(context.Cause(ctx))
+	}()
+	return builder.Stream(), nil
+}
+
+func (*repeatedInterruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
 	return genx.Usage{}, nil, errors.New("not supported")
 }
 

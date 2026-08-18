@@ -3,6 +3,7 @@ package audiodock
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"sort"
@@ -654,6 +655,245 @@ func TestDockReplacementBOSDiscardsReadAheadOutput(t *testing.T) {
 	}
 	if !interrupted || !fresh {
 		t.Fatalf("chunks = %#v, want interrupted old route and fresh new route", chunks)
+	}
+}
+
+func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
+	const interruptions = 3
+	input := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 16})
+	asr := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
+		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 16})
+		go func() {
+			defer output.Close()
+			for {
+				chunk, err := source.Next()
+				if err != nil {
+					return
+				}
+				if chunk == nil || !chunk.IsEndOfStream() {
+					continue
+				}
+				streamID := dockStreamID(chunk)
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser, Name: "transcript", Part: genx.Text("turn:" + streamID),
+					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript", BeginOfStream: true},
+				})
+				_ = output.Push(&genx.MessageChunk{
+					Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""),
+					Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript", EndOfStream: true},
+				})
+			}
+		}()
+		return output, nil
+	})
+
+	agent := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
+		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 32})
+		go func() {
+			defer output.Close()
+			var active chan struct{}
+			var turns sync.WaitGroup
+			turn := 0
+			for {
+				chunk, err := source.Next()
+				if err != nil {
+					if active != nil {
+						close(active)
+					}
+					turns.Wait()
+					return
+				}
+				if chunk == nil {
+					continue
+				}
+				if chunk.IsBeginOfStream() && chunk.Part == nil && active != nil {
+					close(active)
+					active = nil
+				}
+				if _, ok := chunk.Part.(genx.Text); !ok || !chunk.IsEndOfStream() {
+					continue
+				}
+				turn++
+				streamID := fmt.Sprintf("agent-response-%d", turn)
+				cancel := make(chan struct{})
+				active = cancel
+				turns.Add(1)
+				go func(current int, responseID string, interrupted <-chan struct{}) {
+					defer turns.Done()
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel, Name: "answer", Part: genx.Text(fmt.Sprintf("answer-%d", current)),
+						Ctrl: &genx.StreamCtrl{StreamID: responseID, Label: "assistant", BeginOfStream: true},
+					})
+					if current <= interruptions {
+						<-interrupted
+						_ = output.Push(&genx.MessageChunk{
+							Role: genx.RoleModel, Name: "answer", Part: genx.Text(""),
+							Ctrl: &genx.StreamCtrl{StreamID: responseID, Label: "assistant", EndOfStream: true, Error: "interrupted"},
+						})
+						return
+					}
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel, Name: "answer", Part: genx.Text(""),
+						Ctrl: &genx.StreamCtrl{StreamID: responseID, Label: "assistant", EndOfStream: true},
+					})
+				}(turn, streamID, cancel)
+			}
+		}()
+		return output, nil
+	})
+
+	tts := muxFunc(func(ctx context.Context, _ string, source genx.Stream) (genx.Stream, error) {
+		output := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 8})
+		go func() {
+			defer output.Close()
+			begun := false
+			for {
+				chunk, err := source.Next()
+				if err != nil {
+					return
+				}
+				if chunk == nil {
+					continue
+				}
+				if !begun {
+					begun = true
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel, Name: chunk.Name, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
+						Ctrl: &genx.StreamCtrl{StreamID: dockStreamID(chunk), Label: "assistant", BeginOfStream: true},
+					})
+				}
+				if chunk.IsEndOfStream() {
+					_ = output.Push(&genx.MessageChunk{
+						Role: genx.RoleModel, Name: chunk.Name, Part: &genx.Blob{MIMEType: "audio/opus"},
+						Ctrl: &genx.StreamCtrl{StreamID: dockStreamID(chunk), Label: "assistant", EndOfStream: true},
+					})
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+			}
+		}()
+		return output, nil
+	})
+
+	dock, err := New(Config{Agent: agent, ASR: asr, TTS: tts, ResolveVoice: fixedVoice("voice/test")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type result struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan result, 64)
+	go func() {
+		for {
+			chunk, nextErr := output.Next()
+			results <- result{chunk: chunk, err: nextErr}
+			if nextErr != nil {
+				return
+			}
+		}
+	}()
+
+	responses := make(map[string]map[string]int)
+	responseEOS := make(map[string]map[string]int)
+	for turn := 1; turn <= interruptions+1; turn++ {
+		inputID := fmt.Sprintf("input-%d", turn)
+		for _, chunk := range []*genx.MessageChunk{
+			{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: inputID, BeginOfStream: true}},
+			{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{byte(turn)}}, Ctrl: &genx.StreamCtrl{StreamID: inputID}},
+			{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: inputID, EndOfStream: true}},
+		} {
+			if err := input.Push(chunk); err != nil {
+				t.Fatalf("push turn %d: %v", turn, err)
+			}
+		}
+		responseID := ""
+		audioStarted := make(map[string]bool)
+		for {
+			select {
+			case got := <-results:
+				if got.err != nil {
+					t.Fatalf("read turn %d: %v", turn, got.err)
+				}
+				chunk := got.chunk
+				if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" {
+					continue
+				}
+				mimeType := "text/plain"
+				if value, ok := chunk.MIMEType(); ok {
+					mimeType = value
+				}
+				if responses[chunk.Ctrl.StreamID] == nil {
+					responses[chunk.Ctrl.StreamID] = make(map[string]int)
+				}
+				if responseEOS[chunk.Ctrl.StreamID] == nil {
+					responseEOS[chunk.Ctrl.StreamID] = make(map[string]int)
+				}
+				if mimeType == "audio/opus" && chunk.IsBeginOfStream() {
+					audioStarted[chunk.Ctrl.StreamID] = true
+				}
+				if chunk.IsEndOfStream() {
+					responseEOS[chunk.Ctrl.StreamID][mimeType]++
+					if chunk.Ctrl.Error == "interrupted" {
+						responses[chunk.Ctrl.StreamID][mimeType]++
+					}
+				}
+				if text, ok := chunk.Part.(genx.Text); ok && text == genx.Text(fmt.Sprintf("answer-%d", turn)) {
+					responseID = chunk.Ctrl.StreamID
+				}
+				if responseID != "" && audioStarted[responseID] {
+					goto responseStarted
+				}
+			case <-time.After(time.Second):
+				t.Fatalf("turn %d response did not start", turn)
+			}
+		}
+	responseStarted:
+	}
+	_ = input.Close()
+	for got := range results {
+		if got.err != nil {
+			if !errors.Is(got.err, io.EOF) {
+				t.Fatalf("read final output: %v", got.err)
+			}
+			break
+		}
+		chunk := got.chunk
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" || !chunk.IsEndOfStream() {
+			continue
+		}
+		mimeType := "text/plain"
+		if value, ok := chunk.MIMEType(); ok {
+			mimeType = value
+		}
+		if responses[chunk.Ctrl.StreamID] == nil {
+			responses[chunk.Ctrl.StreamID] = make(map[string]int)
+		}
+		if responseEOS[chunk.Ctrl.StreamID] == nil {
+			responseEOS[chunk.Ctrl.StreamID] = make(map[string]int)
+		}
+		responseEOS[chunk.Ctrl.StreamID][mimeType]++
+		if chunk.Ctrl.Error == "interrupted" {
+			responses[chunk.Ctrl.StreamID][mimeType]++
+		}
+	}
+	interruptedResponses := 0
+	for streamID, routes := range responses {
+		if routes["text/plain"] == 1 && routes["audio/opus"] == 1 &&
+			responseEOS[streamID]["text/plain"] == 1 && responseEOS[streamID]["audio/opus"] == 1 {
+			interruptedResponses++
+		}
+	}
+	if interruptedResponses != interruptions {
+		t.Fatalf("interrupted response routes = %#v, want %d responses with one text and audio EOS", responses, interruptions)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
@@ -120,6 +121,78 @@ func runLiveWorkspaceCase(t *testing.T, selected workspaceCase, paths []string) 
 			}
 			t.Fatalf("%s %s: %v", selected, path, err)
 		})
+	}
+}
+
+func runLiveWorkspaceConcurrentCase(t *testing.T, selected workspaceCase, paths []string) {
+	t.Helper()
+	if len(paths) == 0 || len(paths) > 4 {
+		t.Fatalf("concurrent workspace lane count = %d, want 1..4", len(paths))
+	}
+	if err := probeLiveWorkspaceSetup(); err != nil {
+		t.Fatalf("required e2e setup server is not available: %v", err)
+	}
+	t.Setenv("GIZCLAW_E2E_CHAT_REGISTRATION_TOKEN", createChatRegistrationToken(t, selected))
+
+	type lane struct {
+		path          string
+		peerPublicKey string
+		cfg           config
+	}
+	lanes := make([]lane, 0, len(paths))
+	peerPublicKeys := make(map[string]struct{}, len(paths))
+	workspaceSuffixes := make(map[string]struct{}, len(paths))
+	for index, path := range paths {
+		cfg, err := loadConfig(path, clientContextConfigPath())
+		if err != nil {
+			t.Fatalf("load concurrent lane %s: %v", filepath.Base(path), err)
+		}
+		keyPair, err := giznet.GenerateKeyPair()
+		if err != nil {
+			t.Fatalf("generate concurrent lane identity %s: %v", filepath.Base(path), err)
+		}
+		cfg.ClientPrivateKey = keyPair.Private.String()
+		cfg.workspaceSuffix = fmt.Sprintf("wave-%d-%d", os.Getpid(), index+1)
+		peerPublicKey := keyPair.Public.String()
+		if _, duplicate := peerPublicKeys[peerPublicKey]; duplicate {
+			t.Fatalf("generated duplicate concurrent Peer identity %s", peerPublicKey)
+		}
+		if _, duplicate := workspaceSuffixes[cfg.workspaceSuffix]; duplicate {
+			t.Fatalf("generated duplicate concurrent workspace suffix %s", cfg.workspaceSuffix)
+		}
+		peerPublicKeys[peerPublicKey] = struct{}{}
+		workspaceSuffixes[cfg.workspaceSuffix] = struct{}{}
+		lanes = append(lanes, lane{path: path, peerPublicKey: peerPublicKey, cfg: cfg})
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, len(lanes))
+	for _, current := range lanes {
+		current := current
+		go func() {
+			<-start
+			fmt.Printf("workspace_concurrent_lane_start case=%s config=%s peer=%s workspace_suffix=%s\n", selected, filepath.Base(current.path), current.peerPublicKey, current.cfg.workspaceSuffix)
+			err := runLoadedConfig(current.cfg, selected)
+			fmt.Printf("workspace_concurrent_lane_done case=%s config=%s peer=%s workspace_suffix=%s error=%q\n", selected, filepath.Base(current.path), current.peerPublicKey, current.cfg.workspaceSuffix, fmt.Sprint(err))
+			if err != nil {
+				errs <- fmt.Errorf("%s %s: %w", selected, filepath.Base(current.path), err)
+				return
+			}
+			errs <- nil
+		}()
+	}
+	close(start)
+	var failures []error
+	for range lanes {
+		if err := <-errs; err != nil {
+			failures = append(failures, err)
+		}
+	}
+	if len(failures) > 0 {
+		for _, err := range failures {
+			t.Errorf("concurrent lane failed: %v", err)
+		}
+		t.FailNow()
 	}
 }
 

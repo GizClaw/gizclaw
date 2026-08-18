@@ -5,5 +5,11 @@ package chat
 import "testing"
 
 func TestRealtimeInterrupt(t *testing.T) {
-	runLiveWorkspaceCase(t, workspaceCaseRealtimeInterrupt, realtimeInterruptWorkspaceConfigPaths(t))
+	paths := realtimeInterruptWorkspaceConfigPaths(t)
+	t.Run("individual", func(t *testing.T) {
+		runLiveWorkspaceCase(t, workspaceCaseRealtimeInterrupt, paths)
+	})
+	t.Run("concurrent", func(t *testing.T) {
+		runLiveWorkspaceConcurrentCase(t, workspaceCaseRealtimeInterrupt, paths)
+	})
 }

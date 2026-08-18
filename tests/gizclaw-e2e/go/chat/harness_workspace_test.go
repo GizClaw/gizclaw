@@ -393,6 +393,72 @@ func TestInterruptWorkspaceConfigPathsIncludeExternalTTS(t *testing.T) {
 	}
 }
 
+func TestInterruptWorkspaceMatricesUseThreeConsecutiveRoundsWithinConcurrencyLimit(t *testing.T) {
+	tests := []struct {
+		name  string
+		paths []string
+		want  []string
+	}{
+		{
+			name:  "push to talk",
+			paths: interruptWorkspaceConfigPaths(t),
+			want:  []string{"ast-translate-tts.json", "flowcraft-basic.json"},
+		},
+		{
+			name:  "realtime",
+			paths: realtimeInterruptWorkspaceConfigPaths(t),
+			want:  []string{"ast-translate.json", "doubao-realtime.json", "flowcraft-basic.json"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if len(tt.paths) > 4 {
+				t.Fatalf("concurrent lanes = %d, want <= 4", len(tt.paths))
+			}
+			got := make([]string, 0, len(tt.paths))
+			for _, path := range tt.paths {
+				got = append(got, filepath.Base(path))
+				data, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read %s: %v", filepath.Base(path), err)
+				}
+				var cfg config
+				if err := json.Unmarshal(data, &cfg); err != nil {
+					t.Fatalf("decode %s: %v", filepath.Base(path), err)
+				}
+				if cfg.Interrupt.Rounds != 3 {
+					t.Errorf("%s interrupt rounds = %d, want 3", filepath.Base(path), cfg.Interrupt.Rounds)
+				}
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("selected configs = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPacketBelongsToCurrentAssistantAudioEpoch(t *testing.T) {
+	epoch := time.Unix(100, 0)
+	for _, tt := range []struct {
+		name       string
+		receivedAt time.Time
+		epoch      time.Time
+		want       bool
+	}{
+		{name: "missing receive timestamp", epoch: epoch},
+		{name: "missing epoch", receivedAt: epoch},
+		{name: "stale prior response packet", receivedAt: epoch.Add(-time.Nanosecond), epoch: epoch},
+		{name: "first current response packet", receivedAt: epoch, epoch: epoch, want: true},
+		{name: "later current response packet", receivedAt: epoch.Add(time.Nanosecond), epoch: epoch, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := packetBelongsToAudioEpoch(tt.receivedAt, tt.epoch); got != tt.want {
+				t.Fatalf("packetBelongsToAudioEpoch() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDeepWorkspaceConfigPathsAreCapabilityRepresentatives(t *testing.T) {
 	tests := []struct {
 		name  string
