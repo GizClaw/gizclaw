@@ -87,6 +87,42 @@ message ServerRegisterResponse {
   string runtime_profile_name = 1;
 }
 
+message APIKey {
+  string name = 1;
+  string display_name = 2;
+  string prefix = 3;
+  bool manage_api_keys = 4;
+  string created_at = 5;
+  string api_key = 6;
+}
+
+message APIKeyCreateRequest {
+  string display_name = 1;
+  bool manage_api_keys = 2;
+}
+
+message APIKeyCreateResponse {
+  APIKey value = 1;
+  string api_key = 2;
+}
+
+message APIKeyListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message APIKeyListResponse {
+  repeated APIKey items = 1;
+  optional string next_cursor = 2;
+}
+
+message APIKeyRevokeRequest {
+  string name = 1;
+}
+
+message APIKeyRevokeResponse {
+}
+
 message ServerPeerDeleteRequest {
 }
 

@@ -359,7 +359,7 @@ func TestObserveHTTPHandlerUsesRegisteredMuxFallback(t *testing.T) {
 }
 
 func TestRegisteredHTTPOperationRejectsWrongMethod(t *testing.T) {
-	if got := registeredHTTPOperation(http.MethodDelete, "/me"); got != "" {
+	if got := registeredHTTPOperation(http.MethodPut, "/gizclaw/v1/api-keys"); got != "" {
 		t.Fatalf("registeredHTTPOperation() = %q, want empty", got)
 	}
 }
@@ -372,8 +372,8 @@ func TestObservePeerHTTPAuthAndPreflightUseAllowlistedFallback(t *testing.T) {
 		wantStatus    int
 		wantOperation string
 	}{
-		{name: "auth rejection", method: http.MethodGet, path: "/me", wantStatus: http.StatusUnauthorized, wantOperation: "getMe"},
-		{name: "preflight", method: http.MethodOptions, path: "/me/status", wantStatus: http.StatusNoContent, wantOperation: "corsPreflight"},
+		{name: "auth rejection", method: http.MethodGet, path: "/gizclaw/v1/api-keys/self", wantStatus: http.StatusUnauthorized, wantOperation: "getSelfAPIKey"},
+		{name: "preflight", method: http.MethodOptions, path: "/gizclaw/v1/api-keys", wantStatus: http.StatusNoContent, wantOperation: "corsPreflight"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

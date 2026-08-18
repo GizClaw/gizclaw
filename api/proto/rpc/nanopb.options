@@ -33,6 +33,17 @@ gizclaw.rpc.v1.FirmwareGetResponse.url max_size:2049
 gizclaw.rpc.v1.FirmwareGetResponse.sha256 max_size:65
 gizclaw.rpc.v1.ServerRegisterRequest.token max_size:256
 gizclaw.rpc.v1.ServerRegisterResponse.runtime_profile_name max_size:256
+gizclaw.rpc.v1.APIKey.name max_size:27
+gizclaw.rpc.v1.APIKey.display_name max_size:81
+gizclaw.rpc.v1.APIKey.prefix max_size:27
+gizclaw.rpc.v1.APIKey.created_at max_size:36
+gizclaw.rpc.v1.APIKey.api_key max_size:96
+gizclaw.rpc.v1.APIKeyCreateRequest.display_name max_size:81
+gizclaw.rpc.v1.APIKeyCreateResponse.api_key max_size:96
+gizclaw.rpc.v1.APIKeyListRequest.cursor max_size:27
+gizclaw.rpc.v1.APIKeyListResponse.items max_count:100
+gizclaw.rpc.v1.APIKeyListResponse.next_cursor max_size:27
+gizclaw.rpc.v1.APIKeyRevokeRequest.name max_size:27
 gizclaw.rpc.v1.SpeechTranscribeRequest.model_name max_size:64
 gizclaw.rpc.v1.SpeechTranscribeRequest.content_type max_size:129
 gizclaw.rpc.v1.SpeechTranscribeRequest.language max_size:33

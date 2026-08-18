@@ -2,419 +2,26 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Peer HTTP API",
-    "description": "Peer HTTP endpoints.",
+    "description": "Peer bootstrap and device-bound API key endpoints.",
     "version": "1.0.0"
   },
-  "servers": [
-    {
-      "url": "/"
-    }
-  ],
+  "servers": [{"url": "/"}],
   "tags": [
-    {
-      "name": "PeerHTTP",
-      "description": "Peer HTTP operations"
-    },
-    {
-      "name": "Auth",
-      "description": "Peer HTTP authentication"
-    },
-    {
-      "name": "SideControl",
-      "description": "Authorized side-control operations"
-    }
+    {"name": "Public", "description": "Unauthenticated bootstrap operations"},
+    {"name": "APIKeys", "description": "Device-bound API key management"}
   ],
   "paths": {
-    "/login": {
-      "post": {
-        "operationId": "login",
-        "summary": "Exchange a device assertion for a bearer session",
-        "tags": [
-          "Auth"
-        ],
-        "parameters": [
-          {
-            "name": "X-Public-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-Registration-Token",
-            "in": "header",
-            "required": false,
-            "description": "Configured RegistrationToken used to select a RuntimeProfile for the new HTTP session.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Login result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "description": "Invalid assertion",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/me/side-control/device-tokens": {
-      "post": {
-        "operationId": "createSideControlDeviceToken",
-        "summary": "Create a single-use side-control device token",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "201": {
-            "description": "Created device token",
-            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SideControlDeviceToken"}}}
-          },
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/me/side-control/device-tokens/{tokenId}": {
-      "delete": {
-        "operationId": "revokeSideControlDeviceToken",
-        "summary": "Revoke an unconsumed side-control device token",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "parameters": [{
-          "name": "tokenId",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "minLength": 22,
-            "maxLength": 22,
-            "pattern": "^[A-Za-z0-9_-]{22}$"
-          }
-        }],
-        "responses": {
-          "204": {"description": "Device token revoked"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/me/side-control/sessions": {
-      "get": {
-        "operationId": "listSideControlSessions",
-        "summary": "List active side-control sessions for the caller device",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "200": {
-            "description": "Active side-control sessions",
-            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SideControlSessionList"}}}
-          },
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/me/side-control/sessions/{sessionId}": {
-      "delete": {
-        "operationId": "revokeSideControlSession",
-        "summary": "Revoke an active side-control session",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "parameters": [{
-          "name": "sessionId",
-          "in": "path",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "minLength": 22,
-            "maxLength": 22,
-            "pattern": "^[A-Za-z0-9_-]{22}$"
-          }
-        }],
-        "responses": {
-          "204": {"description": "Session revoked"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/info": {
-      "get": {
-        "operationId": "getSideControlInfo",
-        "summary": "Get target device information",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "200": {"description": "Target device information", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/runtime": {
-      "get": {
-        "operationId": "getSideControlRuntime",
-        "summary": "Get target device runtime",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "200": {"description": "Target device runtime", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Runtime"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/status": {
-      "get": {
-        "operationId": "getSideControlStatus",
-        "summary": "Get target device runtime status",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "200": {"description": "Target device status", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerStatus"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/telemetry/latest": {
-      "get": {
-        "operationId": "getSideControlTelemetryLatest",
-        "summary": "Get latest target telemetry values",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "parameters": [{
-          "name": "fields",
-          "in": "query",
-          "required": false,
-          "description": "Comma-separated telemetry field names. Omitted means all supported fields.",
-          "schema": {"type": "string"}
-        }],
-        "responses": {
-          "200": {"description": "Latest target telemetry", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryLatestResponse"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/telemetry": {
-      "get": {
-        "operationId": "querySideControlTelemetry",
-        "summary": "Query target telemetry points",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "parameters": [
-          {"name": "field", "in": "query", "required": true, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
-          {"name": "start_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
-          {"name": "end_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
-          {"name": "step_ms", "in": "query", "required": false, "schema": {"type": "integer", "format": "int64"}},
-          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32"}},
-          {"name": "order", "in": "query", "required": false, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryOrder"}}
-        ],
-        "responses": {
-          "200": {"description": "Target telemetry range", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryRangeResponse"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/telemetry/aggregate": {
-      "get": {
-        "operationId": "aggregateSideControlTelemetry",
-        "summary": "Query target telemetry aggregates",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "parameters": [
-          {"name": "field", "in": "query", "required": true, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
-          {"name": "start_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
-          {"name": "end_time_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
-          {"name": "bucket_ms", "in": "query", "required": true, "schema": {"type": "integer", "format": "int64"}},
-          {"name": "aggregate", "in": "query", "required": true, "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregate"}}
-        ],
-        "responses": {
-          "200": {"description": "Target telemetry aggregate", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregateResponse"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/contacts": {
-      "get": {
-        "operationId": "listSideControlContacts",
-        "summary": "List target-owned contacts",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "parameters": [
-          {"name": "cursor", "in": "query", "required": false, "schema": {"type": "string"}},
-          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32"}}
-        ],
-        "responses": {
-          "200": {"description": "Target-owned contacts", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactListResponse"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      },
-      "post": {
-        "operationId": "createSideControlContact",
-        "summary": "Create a target-owned contact",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactCreateRequest"}}}},
-        "responses": {
-          "201": {"description": "Created contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/side-control/contacts/{contactId}": {
-      "parameters": [{"name": "contactId", "in": "path", "required": true, "schema": {"type": "string"}}],
-      "get": {
-        "operationId": "getSideControlContact",
-        "summary": "Get a target-owned contact",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "200": {"description": "Target-owned contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      },
-      "put": {
-        "operationId": "putSideControlContact",
-        "summary": "Update a target-owned contact",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SideControlContactPutRequest"}}}},
-        "responses": {
-          "200": {"description": "Updated contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      },
-      "delete": {
-        "operationId": "deleteSideControlContact",
-        "summary": "Delete a target-owned contact",
-        "tags": ["SideControl"],
-        "security": [{"BearerAuth": []}],
-        "responses": {
-          "200": {"description": "Deleted contact", "content": {"application/json": {"schema": {"$ref": "./shared/server.json#/components/schemas/ContactObject"}}}},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "404": {"$ref": "#/components/responses/NotFound"},
-          "500": {"$ref": "#/components/responses/InternalError"},
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
     "/server-info": {
       "get": {
         "operationId": "getServerInfo",
         "summary": "Get server information",
-        "tags": [
-          "Public"
-        ],
+        "tags": ["Public"],
         "responses": {
           "200": {
             "description": "Server info",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ServerInfo"
-                }
-              }
-            }
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ServerInfo"}}}
           },
-          "400": {
-            "description": "Invalid params",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
+          "400": {"$ref": "#/components/responses/BadRequest"}
         }
       }
     },
@@ -423,529 +30,207 @@
         "operationId": "createGiznetWebRTCOffer",
         "summary": "Create a WebRTC answer for an encrypted browser offer",
         "description": "Public WebRTC signaling endpoint for browser clients. The request body is an encrypted SDP offer and the 200 response body is the encrypted SDP answer.",
-        "tags": [
-          "Public"
-        ],
+        "tags": ["Public"],
         "parameters": [
           {
             "name": "X-Giznet-Public-Key",
             "in": "header",
             "required": true,
             "description": "Client public key.",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {"type": "string"}
           },
           {
             "name": "X-Giznet-Timestamp",
             "in": "header",
             "required": true,
             "description": "Unix timestamp used by signaling AEAD derivation.",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
+            "schema": {"type": "integer", "format": "int64"}
           },
           {
             "name": "X-Giznet-Nonce",
             "in": "header",
             "required": true,
             "description": "Base64url nonce used by signaling AEAD derivation and replay checks.",
-            "schema": {
-              "type": "string"
-            }
+            "schema": {"type": "string"}
           }
         ],
         "requestBody": {
           "required": true,
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          }
+          "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
         },
         "responses": {
           "200": {
             "description": "Encrypted SDP answer.",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
+            "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}
           },
-          "400": {
-            "description": "Invalid signaling request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized signaling request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Peer is not allowed to connect.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Signaling nonce was replayed, or the Peer is pending deletion or permanently deleted.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Signaling body is too large.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Unsupported signaling media type.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to create signaling answer.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "WebRTC signaling listener is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GiznetWebRTCSignalingError"
-                }
-              }
-            }
-          }
+          "400": {"description": "Invalid signaling request.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "401": {"description": "Unauthorized signaling request.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "403": {"description": "Peer is not allowed to connect.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "409": {"description": "Signaling nonce was replayed, or the Peer is pending deletion or permanently deleted.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "413": {"description": "Signaling body is too large.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "415": {"description": "Unsupported signaling media type.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "500": {"description": "Failed to create signaling answer.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}},
+          "503": {"description": "WebRTC signaling listener is unavailable.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GiznetWebRTCSignalingError"}}}}
         }
       }
     },
-    "/me": {
-      "get": {
-        "operationId": "getMe",
-        "summary": "Get caller peer summary",
-        "tags": [
-          "PeerHTTP"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Caller peer summary",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PeerSelf"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid or missing bearer session",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      }
-    },
-    "/me/status": {
-      "get": {
-        "operationId": "getMeStatus",
-        "summary": "Get caller peer status",
-        "tags": [
-          "PeerHTTP"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Caller peer status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/PeerStatus"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid or missing bearer session",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {"$ref": "#/components/responses/Conflict"}
-        }
-      },
-      "put": {
-        "operationId": "putMeStatus",
-        "summary": "Update caller peer status",
-        "tags": [
-          "PeerHTTP"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
+    "/gizclaw/v1/api-keys": {
+      "post": {
+        "operationId": "createAPIKey",
+        "summary": "Create an API key for the caller's device",
+        "tags": ["APIKeys"],
+        "security": [{"BearerAuth": []}],
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "./shared.json#/components/schemas/PeerStatus"
-              }
-            }
-          }
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyCreateRequest"}}}
         },
         "responses": {
-          "200": {
-            "description": "Updated caller peer status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/PeerStatus"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid or missing bearer session",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid status payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {"$ref": "#/components/responses/Conflict"}
+          "201": {"description": "Created API key, including its complete recoverable credential.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyCreateResult"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "get": {
+        "operationId": "listAPIKeys",
+        "summary": "List API keys owned by the caller's device",
+        "tags": ["APIKeys"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "cursor", "in": "query", "required": false, "schema": {"type": "string", "minLength": 26, "maxLength": 26, "pattern": "^key_[A-Za-z0-9_-]{22}$"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 100, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "API keys, including complete credentials, in stable name order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKeyList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
         }
       }
     },
-    "/me/runtime": {
+    "/gizclaw/v1/api-keys/self": {
       "get": {
-        "operationId": "getMeRuntime",
-        "summary": "Get caller peer runtime",
-        "tags": [
-          "PeerHTTP"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
+        "operationId": "getSelfAPIKey",
+        "summary": "Get the current API key",
+        "tags": ["APIKeys"],
+        "security": [{"BearerAuth": []}],
         "responses": {
-          "200": {
-            "description": "Caller peer runtime",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/Runtime"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid or missing bearer session",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {"$ref": "#/components/responses/Conflict"}
+          "200": {"description": "Current API key, including its complete credential.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKey"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "revokeSelfAPIKey",
+        "summary": "Revoke the current API key",
+        "tags": ["APIKeys"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "204": {"description": "API key revoked."},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/api-keys/{apiKeyName}": {
+      "parameters": [
+        {"name": "apiKeyName", "in": "path", "required": true, "schema": {"type": "string", "minLength": 26, "maxLength": 26, "pattern": "^key_[A-Za-z0-9_-]{22}$"}}
+      ],
+      "get": {
+        "operationId": "getAPIKey",
+        "summary": "Get an API key owned by the caller's device",
+        "tags": ["APIKeys"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "API key, including its complete credential.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/APIKey"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "revokeAPIKey",
+        "summary": "Revoke an API key owned by the caller's device",
+        "tags": ["APIKeys"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "204": {"description": "API key revoked."},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/NotFound"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
         }
       }
     }
   },
   "components": {
     "responses": {
-      "BadRequest": {
-        "description": "Invalid request",
-        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
-      },
-      "Unauthorized": {
-        "description": "Invalid or missing bearer session",
-        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
-      },
-      "Forbidden": {
-        "description": "Session is not authorized for this route",
-        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
-      },
-      "NotFound": {
-        "description": "Requested object was not found",
-        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
-      },
-      "InternalError": {
-        "description": "Internal error",
-        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
-      },
-      "Conflict": {
-        "description": "Peer identity is pending deletion or permanently deleted",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "./shared.json#/components/schemas/ErrorResponse"
-            }
-          }
-        }
-      }
+      "BadRequest": {"description": "Invalid request.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "Unauthorized": {"description": "Missing, invalid, or revoked API key.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "Forbidden": {"description": "The API key does not authorize this operation.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "NotFound": {"description": "The API key was not found for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "Conflict": {"description": "The API key owner is pending deletion.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "InternalError": {"description": "The API key operation failed.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}
     },
     "securitySchemes": {
-      "BearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
-      }
+      "BearerAuth": {"type": "http", "scheme": "bearer"}
     },
     "schemas": {
-      "LoginRequest": {
+      "APIKey": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["grant_type", "device_token"],
+        "required": ["name", "display_name", "prefix", "api_key", "manage_api_keys", "created_at"],
         "properties": {
-          "grant_type": {"type": "string", "enum": ["side_control"]},
-          "device_token": {"type": "string", "minLength": 1}
+          "name": {"type": "string", "description": "Opaque API key identity.", "minLength": 26, "maxLength": 26, "pattern": "^key_[A-Za-z0-9_-]{22}$"},
+          "display_name": {"type": "string", "description": "Trimmed UTF-8 display name; the server enforces an 80-byte maximum.", "minLength": 1, "maxLength": 80},
+          "prefix": {"type": "string", "description": "Short display prefix; the complete API key is also returned."},
+          "api_key": {"type": "string", "description": "Complete recoverable API key stored by the server.", "minLength": 57, "maxLength": 57, "pattern": "^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$"},
+          "manage_api_keys": {"type": "boolean"},
+          "created_at": {"type": "string", "format": "date-time"}
         }
       },
-      "SideControlDeviceToken": {
+      "APIKeyCreateRequest": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "token", "expires_at"],
+        "required": ["display_name", "manage_api_keys"],
         "properties": {
-          "id": {"type": "string"},
-          "token": {"type": "string"},
-          "expires_at": {"type": "integer", "format": "int64"}
+          "display_name": {"type": "string", "description": "Trimmed UTF-8 display name; the server enforces an 80-byte maximum.", "minLength": 1, "maxLength": 80},
+          "manage_api_keys": {"type": "boolean"}
         }
       },
-      "SideControlSession": {
+      "APIKeyCreateResult": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "controller_public_key", "issued_at", "expires_at"],
+        "required": ["value", "api_key"],
         "properties": {
-          "id": {"type": "string"},
-          "controller_public_key": {"type": "string"},
-          "issued_at": {"type": "integer", "format": "int64"},
-          "expires_at": {"type": "integer", "format": "int64"}
+          "value": {"$ref": "#/components/schemas/APIKey"},
+          "api_key": {"type": "string", "description": "Complete recoverable API key.", "minLength": 57, "maxLength": 57, "pattern": "^gizclaw_sk_v1_[A-Za-z0-9_-]{43}$"}
         }
       },
-      "SideControlSessionList": {
+      "APIKeyList": {
         "type": "object",
         "additionalProperties": false,
         "required": ["items"],
         "properties": {
-          "items": {"type": "array", "items": {"$ref": "#/components/schemas/SideControlSession"}}
-        }
-      },
-      "SideControlContactPutRequest": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "display_name": {"type": "string"},
-          "phone_number": {"type": "string"}
-        }
-      },
-      "PeerSelf": {
-        "type": "object",
-        "required": [
-          "public_key",
-          "registration_status"
-        ],
-        "properties": {
-          "public_key": {
-            "type": "string"
-          },
-          "registration_status": {
-            "$ref": "./shared.json#/components/schemas/PeerRegistrationStatus"
-          },
-          "device": {
-            "$ref": "./shared.json#/components/schemas/DeviceInfo"
-          }
-        }
-      },
-      "LoginResult": {
-        "type": "object",
-        "required": [
-          "access_token",
-          "token_type",
-          "expires_at"
-        ],
-        "properties": {
-          "access_token": {
-            "type": "string"
-          },
-          "token_type": {
-            "type": "string",
-            "enum": [
-              "Bearer"
-            ]
-          },
-          "expires_at": {
-            "type": "integer",
-            "format": "int64"
-          }
+          "items": {"type": "array", "items": {"$ref": "#/components/schemas/APIKey"}},
+          "next_cursor": {"type": "string"}
         }
       },
       "GiznetWebRTCSignalingError": {
         "type": "object",
-        "required": [
-          "error"
-        ],
-        "properties": {
-          "error": {
-            "type": "string"
-          }
-        }
+        "required": ["error"],
+        "properties": {"error": {"type": "string"}}
       }
     }
   }

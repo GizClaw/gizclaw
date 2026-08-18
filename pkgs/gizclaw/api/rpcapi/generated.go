@@ -580,6 +580,9 @@ const (
 	RPCMethodServerGameResultList               RPCMethod = "server.game_result.list"
 	RPCMethodServerInfoGet                      RPCMethod = "server.info.get"
 	RPCMethodServerInfoPut                      RPCMethod = "server.info.put"
+	RPCMethodServerAPIKeyCreate                 RPCMethod = "server.api_key.create"
+	RPCMethodServerAPIKeyList                   RPCMethod = "server.api_key.list"
+	RPCMethodServerAPIKeyRevoke                 RPCMethod = "server.api_key.revoke"
 	RPCMethodServerRegister                     RPCMethod = "server.register"
 	RPCMethodServerModelGet                     RPCMethod = "server.model.get"
 	RPCMethodServerModelList                    RPCMethod = "server.model.list"
@@ -717,6 +720,12 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerInfoGet:
 		return true
 	case RPCMethodServerInfoPut:
+		return true
+	case RPCMethodServerAPIKeyCreate:
+		return true
+	case RPCMethodServerAPIKeyList:
+		return true
+	case RPCMethodServerAPIKeyRevoke:
 		return true
 	case RPCMethodServerRegister:
 		return true

@@ -12,14 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
-
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -643,297 +640,79 @@ func TestServerInitConfiguresWorkspaceRuntimeStore(t *testing.T) {
 	}
 }
 
-func TestServerServeHTTPLoginRegisterAndPeerAPI(t *testing.T) {
+func TestServerServeHTTPAPIKeyAndRejectsLegacyLogin(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
-		t.Fatalf("GenerateKeyPair(server) error = %v", err)
+		t.Fatal(err)
 	}
 	deviceKey, err := giznet.GenerateKeyPair()
 	if err != nil {
-		t.Fatalf("GenerateKeyPair(device) error = %v", err)
+		t.Fatal(err)
 	}
-	server := &Server{
-		LocalStatic: *serverKey,
-		PeerStore:   mustBadgerInMemory(t, nil),
-		BuildCommit: "test-build",
-	}
-	completeTestServer(t, server)
+	server := completeTestServer(t, &Server{LocalStatic: *serverKey, BuildCommit: "test-build"})
 	if err := server.init(); err != nil {
 		t.Fatalf("init error = %v", err)
 	}
-	modelResponse, err := server.manager.Models.CreateModel(context.Background(), adminhttp.CreateModelRequestObject{Body: &adminhttp.ModelUpsert{
-		Id:     "profile-model",
-		Kind:   apitypes.ModelKindLlm,
-		Source: apitypes.ModelSourceManual,
-		Provider: apitypes.ModelProvider{
-			Kind: "openai-tenant",
-			Id:   "global",
-		},
-		ProviderData: mustOpenAIModelProviderData(t, "profile-model-upstream"),
-	}})
+	if _, err := server.manager.Peers.SavePeer(t.Context(), apitypes.Peer{
+		PublicKey: deviceKey.Public.String(), Role: apitypes.PeerRoleClient,
+		Status: apitypes.PeerRegistrationStatusActive,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	profiles, _ := registrationServerAndToken(t, "profile-server-http-key")
+	if err := profiles.BindOwnerProfile(t.Context(), deviceKey.Public.String(), "profile-server-http-key"); err != nil {
+		t.Fatal(err)
+	}
+	server.manager.RuntimeProfiles = profiles
+	created, err := server.apiKeys.Create(t.Context(), deviceKey.Public.String(), "test client", true)
 	if err != nil {
-		t.Fatalf("CreateModel error = %v", err)
-	}
-	createdModel, ok := modelResponse.(adminhttp.CreateModel200JSONResponse)
-	if !ok {
-		t.Fatalf("CreateModel response = %#v", modelResponse)
-	}
-	models := map[string]apitypes.RuntimeProfileBinding{
-		"primary": {ResourceId: createdModel.Id, I18n: map[string]apitypes.RuntimeProfileI18nText{
-			"en": {DisplayName: "Primary"}, "zh-CN": {DisplayName: "主要模型"},
-		}},
-	}
-	installTestSystemWorkflowResolver(server.manager.RuntimeProfiles)
-	profileResponse, err := server.manager.RuntimeProfiles.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Id: "public-http-profile",
-		Spec: apitypes.RuntimeProfileSpec{
-			Workflows: testRuntimeProfileWorkflows(),
-			Resources: apitypes.RuntimeProfileResources{
-				Models: &models,
-			},
-		},
-	}})
-	if err != nil {
-		t.Fatalf("CreateRuntimeProfile error = %v", err)
-	}
-	createdProfile, ok := profileResponse.(adminhttp.CreateRuntimeProfile200JSONResponse)
-	if !ok {
-		t.Fatalf("CreateRuntimeProfile response = %#v", profileResponse)
-	}
-	tokenResponse, err := server.manager.RuntimeProfiles.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
-		Id:               "public-http-token",
-		Token:            "public-http-registration",
-		RuntimeProfileId: createdProfile.Id,
-	}})
-	if err != nil {
-		t.Fatalf("CreateRegistrationToken error = %v", err)
-	}
-	createdToken, ok := tokenResponse.(adminhttp.CreateRegistrationToken200JSONResponse)
-	if !ok || createdToken.Token == "" {
-		t.Fatalf("CreateRegistrationToken response = %#v", tokenResponse)
-	}
-	if _, err := server.manager.EnsurePeer(context.Background(), deviceKey.Public); err != nil {
-		t.Fatalf("EnsurePeer error = %v", err)
-	}
-	ts := httptest.NewServer(server)
-	defer ts.Close()
-
-	infoResp, err := http.Get(ts.URL + "/server-info")
-	if err != nil {
-		t.Fatalf("GET server-info error = %v", err)
-	}
-	if infoResp.StatusCode != http.StatusOK {
-		t.Fatalf("GET server-info status = %d", infoResp.StatusCode)
-	}
-	_ = infoResp.Body.Close()
-
-	oldInfoResp, err := http.Get(ts.URL + "/api/public/server-info")
-	if err != nil {
-		t.Fatalf("GET old server-info error = %v", err)
-	}
-	if oldInfoResp.StatusCode != http.StatusNotFound {
-		t.Fatalf("GET old server-info status = %d, want %d", oldInfoResp.StatusCode, http.StatusNotFound)
-	}
-	_ = oldInfoResp.Body.Close()
-
-	session := publicHTTPTestLogin(t, ts.URL, serverKey.Public, deviceKey, createdToken.Token)
-
-	openAIPreflightReq, err := http.NewRequestWithContext(context.Background(), http.MethodOptions, ts.URL+"/openai/v1/models", nil)
-	if err != nil {
-		t.Fatalf("NewRequest OPTIONS /openai/v1/models error = %v", err)
-	}
-	openAIPreflightReq.Header.Set("Origin", "wails://wails.localhost")
-	openAIPreflightReq.Header.Set("Access-Control-Request-Method", http.MethodGet)
-	openAIPreflightReq.Header.Set("Access-Control-Request-Headers", "authorization,x-public-key,x-registration-token")
-	openAIPreflightResp, err := http.DefaultClient.Do(openAIPreflightReq)
-	if err != nil {
-		t.Fatalf("OPTIONS /openai/v1/models error = %v", err)
-	}
-	defer openAIPreflightResp.Body.Close()
-	if openAIPreflightResp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(openAIPreflightResp.Body)
-		t.Fatalf("OPTIONS /openai/v1/models status = %d body=%s", openAIPreflightResp.StatusCode, string(body))
-	}
-	if got := openAIPreflightResp.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, publiclogin.PublicKeyHeader) || !strings.Contains(got, publiclogin.RegistrationTokenHeader) {
-		t.Fatalf("Access-Control-Allow-Headers = %q, want session headers", got)
+		t.Fatal(err)
 	}
 
-	unauthMe, err := http.Get(ts.URL + "/me")
-	if err != nil {
-		t.Fatalf("GET unauth /me error = %v", err)
-	}
-	if unauthMe.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("GET unauth /me status = %d, want %d", unauthMe.StatusCode, http.StatusUnauthorized)
-	}
-	_ = unauthMe.Body.Close()
+	httpServer := httptest.NewServer(server)
+	defer httpServer.Close()
 
-	missingKey, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair(missing) error = %v", err)
-	}
-	missingSession := publicHTTPTestLogin(t, ts.URL, serverKey.Public, missingKey)
-	for _, tc := range []struct {
-		method string
-		path   string
-		body   string
-	}{
-		{method: http.MethodGet, path: "/me/status"},
-		{method: http.MethodPut, path: "/me/status", body: `{"battery_percent":66}`},
-		{method: http.MethodGet, path: "/me/runtime"},
-	} {
-		req, err := http.NewRequestWithContext(context.Background(), tc.method, ts.URL+tc.path, strings.NewReader(tc.body))
+	for _, path := range []string{"/login", "/me", "/side-control/sessions"} {
+		response, err := http.Get(httpServer.URL + path)
 		if err != nil {
-			t.Fatalf("NewRequest missing peer %s %s error = %v", tc.method, tc.path, err)
+			t.Fatal(err)
 		}
-		req.Header.Set("Authorization", "Bearer "+missingSession.AccessToken)
-		if tc.body != "" {
-			req.Header.Set("Content-Type", "application/json")
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("GET %s status = %d, want 404", path, response.StatusCode)
 		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatalf("missing peer %s %s error = %v", tc.method, tc.path, err)
-		}
-		if resp.StatusCode != http.StatusNotFound {
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			t.Fatalf("missing peer %s %s status = %d body=%s", tc.method, tc.path, resp.StatusCode, string(body))
-		}
-		_ = resp.Body.Close()
 	}
 
-	getMeReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me", nil)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, httpServer.URL+"/gizclaw/v1/api-keys/self", nil)
 	if err != nil {
-		t.Fatalf("NewRequest /me error = %v", err)
+		t.Fatal(err)
 	}
-	getMeReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	getMeResp, err := http.DefaultClient.Do(getMeReq)
+	request.Header.Set("Authorization", "Bearer "+created.Secret)
+	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		t.Fatalf("GET /me error = %v", err)
+		t.Fatal(err)
 	}
-	defer getMeResp.Body.Close()
-	if getMeResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(getMeResp.Body)
-		t.Fatalf("GET /me status = %d body=%s", getMeResp.StatusCode, string(body))
-	}
-	var me struct {
-		PublicKey          string `json:"public_key"`
-		RegistrationStatus string `json:"registration_status"`
-	}
-	if err := json.NewDecoder(getMeResp.Body).Decode(&me); err != nil {
-		t.Fatalf("decode /me response: %v", err)
-	}
-	if me.PublicKey != deviceKey.Public.String() || me.RegistrationStatus != string(apitypes.PeerRegistrationStatusActive) {
-		t.Fatalf("/me response = %+v", me)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("GET API key self status = %d body=%s", response.StatusCode, body)
 	}
 
-	putStatusReq, err := http.NewRequestWithContext(context.Background(), http.MethodPut, ts.URL+"/me/status", strings.NewReader(`{"battery_percent":77}`))
+	request, err = http.NewRequestWithContext(t.Context(), http.MethodGet, httpServer.URL+"/openai/v1/models", nil)
 	if err != nil {
-		t.Fatalf("NewRequest PUT /me/status error = %v", err)
+		t.Fatal(err)
 	}
-	putStatusReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	putStatusReq.Header.Set("Content-Type", "application/json")
-	putStatusResp, err := http.DefaultClient.Do(putStatusReq)
+	request.Header.Set("Authorization", "Bearer "+created.Secret)
+	response, err = http.DefaultClient.Do(request)
 	if err != nil {
-		t.Fatalf("PUT /me/status error = %v", err)
+		t.Fatal(err)
 	}
-	defer putStatusResp.Body.Close()
-	if putStatusResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(putStatusResp.Body)
-		t.Fatalf("PUT /me/status status = %d body=%s", putStatusResp.StatusCode, string(body))
-	}
-
-	getStatusReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me/status", nil)
-	if err != nil {
-		t.Fatalf("NewRequest GET /me/status error = %v", err)
-	}
-	getStatusReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	getStatusResp, err := http.DefaultClient.Do(getStatusReq)
-	if err != nil {
-		t.Fatalf("GET /me/status error = %v", err)
-	}
-	defer getStatusResp.Body.Close()
-	if getStatusResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(getStatusResp.Body)
-		t.Fatalf("GET /me/status status = %d body=%s", getStatusResp.StatusCode, string(body))
-	}
-	var status apitypes.PeerStatus
-	if err := json.NewDecoder(getStatusResp.Body).Decode(&status); err != nil {
-		t.Fatalf("decode /me/status response: %v", err)
-	}
-	if status.BatteryPercent == nil || *status.BatteryPercent != 77 {
-		t.Fatalf("/me/status = %+v", status)
-	}
-
-	getRuntimeReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/me/runtime", nil)
-	if err != nil {
-		t.Fatalf("NewRequest GET /me/runtime error = %v", err)
-	}
-	getRuntimeReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	getRuntimeResp, err := http.DefaultClient.Do(getRuntimeReq)
-	if err != nil {
-		t.Fatalf("GET /me/runtime error = %v", err)
-	}
-	defer getRuntimeResp.Body.Close()
-	if getRuntimeResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(getRuntimeResp.Body)
-		t.Fatalf("GET /me/runtime status = %d body=%s", getRuntimeResp.StatusCode, string(body))
-	}
-
-	openAIReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, ts.URL+"/openai/v1/models", nil)
-	if err != nil {
-		t.Fatalf("NewRequest GET /openai/v1/models error = %v", err)
-	}
-	openAIReq.Header.Set("Authorization", "Bearer "+session.AccessToken)
-	openAIResp, err := http.DefaultClient.Do(openAIReq)
-	if err != nil {
-		t.Fatalf("GET /openai/v1/models error = %v", err)
-	}
-	defer openAIResp.Body.Close()
-	if openAIResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(openAIResp.Body)
-		t.Fatalf("GET /openai/v1/models status = %d body=%s", openAIResp.StatusCode, string(body))
-	}
-	var modelList struct {
-		Data []apitypes.Model `json:"data"`
-	}
-	if err := json.NewDecoder(openAIResp.Body).Decode(&modelList); err != nil {
-		t.Fatalf("decode GET /openai/v1/models response: %v", err)
-	}
-	if len(modelList.Data) != 1 || modelList.Data[0].Id != "primary" {
-		t.Fatalf("GET /openai/v1/models data = %#v", modelList.Data)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("GET OpenAI models status = %d body=%s", response.StatusCode, body)
 	}
 }
-
-func publicHTTPTestLogin(t *testing.T, baseURL string, serverPublicKey giznet.PublicKey, deviceKey *giznet.KeyPair, registrationTokens ...string) peerhttp.LoginResult {
-	t.Helper()
-	assertion, err := publiclogin.NewLoginAssertion(deviceKey, serverPublicKey, time.Minute)
-	if err != nil {
-		t.Fatalf("NewLoginAssertion error = %v", err)
-	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, baseURL+"/login", nil)
-	if err != nil {
-		t.Fatalf("NewRequest login error = %v", err)
-	}
-	req.Header.Set(publiclogin.PublicKeyHeader, deviceKey.Public.String())
-	req.Header.Set("Authorization", "Bearer "+assertion)
-	if len(registrationTokens) > 0 && strings.TrimSpace(registrationTokens[0]) != "" {
-		req.Header.Set(publiclogin.RegistrationTokenHeader, registrationTokens[0])
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("POST login error = %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("POST login status = %d", resp.StatusCode)
-	}
-	var result peerhttp.LoginResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("decode login response: %v", err)
-	}
-	return result
-}
-
 func TestServerPeerEventHandlerDoesNotClearActivePeer(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

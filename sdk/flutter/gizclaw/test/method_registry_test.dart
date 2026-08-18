@@ -12,10 +12,34 @@ void main() {
     expect(rpcMethodByName('all.ping').id, 1);
     expect(rpcMethodByName('server.route.resolve').id, 85);
     expect(rpcMethodByName('server.speech.extract').id, 94);
+    expect(rpcMethodByName('server.api_key.create').id, 96);
+    expect(rpcMethodByName('server.api_key.list').id, 97);
+    expect(rpcMethodByName('server.api_key.revoke').id, 98);
     expect(
       () => rpcMethodByName('server.firmware.download'),
       throwsArgumentError,
     );
+  });
+
+  test('round-trips API key root management payloads', () {
+    final list = APIKeyListRequest(cursor: 'key_cursor', limit: Int64(25));
+    final decodedList =
+        decodeRpcRequestPayload(
+              'server.api_key.list',
+              encodeRpcRequestPayload('server.api_key.list', list),
+            )
+            as APIKeyListRequest;
+    expect(decodedList.cursor, 'key_cursor');
+    expect(decodedList.limit, Int64(25));
+
+    final revoke = APIKeyRevokeRequest(name: 'key_name');
+    final decodedRevoke =
+        decodeRpcRequestPayload(
+              'server.api_key.revoke',
+              encodeRpcRequestPayload('server.api_key.revoke', revoke),
+            )
+            as APIKeyRevokeRequest;
+    expect(decodedRevoke.name, 'key_name');
   });
 
   test('round-trips every Firmware channel and response field', () {

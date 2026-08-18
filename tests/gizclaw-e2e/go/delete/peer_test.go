@@ -19,8 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
@@ -247,20 +245,11 @@ func waitPeerTombstone(t *testing.T, env *deletionHarness, publicKey string) api
 
 func requirePeerLoginRejected(t *testing.T, env *deletionHarness, peer deletionPeer) {
 	t.Helper()
-	var serverPublicKey giznet.PublicKey
-	if err := serverPublicKey.UnmarshalText([]byte(env.h.ServerPublicKey)); err != nil {
-		t.Fatal(err)
-	}
-	assertion, err := publiclogin.NewLoginAssertion(env.h.ContextKeyPair(peer.contextName), serverPublicKey, time.Minute)
+	request, err := http.NewRequestWithContext(env.ctx, http.MethodGet, env.h.PublicHTTPURL()+"/gizclaw/v1/api-keys/self", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	request, err := http.NewRequestWithContext(env.ctx, http.MethodPost, env.h.PublicHTTPURL()+"/login", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.Header.Set("X-Public-Key", peer.publicKey)
-	request.Header.Set("Authorization", "Bearer "+assertion)
+	request.Header.Set("Authorization", "Bearer "+peer.apiKey)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)
@@ -270,8 +259,8 @@ func requirePeerLoginRejected(t *testing.T, env *deletionHarness, peer deletionP
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.StatusCode != http.StatusConflict {
-		t.Fatalf("deleted Peer login status=%d body=%s", response.StatusCode, body)
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("deleted Peer API key status=%d body=%s", response.StatusCode, body)
 	}
 }
 

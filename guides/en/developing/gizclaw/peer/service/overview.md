@@ -7,8 +7,7 @@ Peer Services exposes GizClaw product capabilities to a Giznet service that can 
 | [Core Service](./core) | `peer_service.go` |
 | [Peer HTTP · WebRTC](./webrtc) | `peer_service_webrtc.go` |
 | [HTTP Service Entrypoints](./public-http) | `peer_service_serve_peer_http.go` |
-| [Peer HTTP · /me](./peer-http-me) | `peer_service_serve_peer_http_self.go` |
-| [Peer HTTP · Side Control](./side-control) | `peer_service_serve_peer_http_side_control.go` |
+| [Peer HTTP · API keys](./api-keys) | `peer_http_api_key.go` |
 | [Admin HTTP · Resources](./admin-resources) | `peer_service_serve_admin.go` |
 | [Admin HTTP · Gameplay](./admin-gameplay) | `peer_service_serve_admin_gameplay.go` |
 | [Admin HTTP · Logs](./admin-logs) | `peer_service_serve_admin_logs.go` |

@@ -13,7 +13,7 @@ pkgs/gizclaw/services/
 ├── gameplay/    # Gameplay catalog、pet、points、reward 和 assets
 ├── runtime/     # Peer 与 Agent 的在线运行能力
 ├── social/      # Contact、friend 和 friend group
-└── system/      # RuntimeProfile、ownership、public login 和统一资源管理
+└── system/      # RuntimeProfile、ownership、API Key 和统一资源管理
 ```
 
 ## 领域关系

@@ -59,7 +59,7 @@ type AgentHostFlowcraftConfig struct {
 // storage and stores registries, service names are not operator-defined.
 type ServicesConfig struct {
 	Peer            *SingleStoreConfig     `yaml:"peer"`
-	PublicLogin     *SingleStoreConfig     `yaml:"public_login"`
+	APIKey          *SingleStoreConfig     `yaml:"api_key"`
 	Credential      *SingleStoreConfig     `yaml:"credential"`
 	Firmware        *SingleStoreConfig     `yaml:"firmware"`
 	RuntimeProfile  *SingleStoreConfig     `yaml:"runtime_profile"`
@@ -898,7 +898,7 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		present bool
 	}{
 		{"services.peer", cfg.Peer != nil},
-		{"services.public_login", cfg.PublicLogin != nil},
+		{"services.api_key", cfg.APIKey != nil},
 		{"services.credential", cfg.Credential != nil},
 		{"services.firmware", cfg.Firmware != nil},
 		{"services.runtime_profile", cfg.RuntimeProfile != nil},
@@ -920,7 +920,7 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 	}
 	references = append(references,
 		reference{"services.peer.store", cfg.Peer.Store},
-		reference{"services.public_login.store", cfg.PublicLogin.Store},
+		reference{"services.api_key.store", cfg.APIKey.Store},
 		reference{"services.credential.store", cfg.Credential.Store},
 		reference{"services.firmware.store", cfg.Firmware.Store},
 		reference{"services.runtime_profile.store", cfg.RuntimeProfile.Store},
@@ -1160,7 +1160,7 @@ func validateStorageConfigShape(value any) error {
 func validateServicesConfigShape(services map[string]any) error {
 	stringFields := map[string][]string{
 		"peer":             {"store"},
-		"public_login":     {"store"},
+		"api_key":          {"store"},
 		"credential":       {"store"},
 		"firmware":         {"store"},
 		"runtime_profile":  {"store"},

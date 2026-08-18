@@ -16,6 +16,15 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		name string
 		call func() (any, error)
 	}{
+		{"API key create", func() (any, error) {
+			return client.CreateAPIKey(ctx, "api-key-create", rpcapi.APIKeyCreateRequest{DisplayName: "phone"})
+		}},
+		{"API key list", func() (any, error) {
+			return client.ListAPIKeys(ctx, "api-key-list", rpcapi.APIKeyListRequest{Limit: 25})
+		}},
+		{"API key revoke", func() (any, error) {
+			return client.RevokeAPIKey(ctx, "api-key-revoke", rpcapi.APIKeyRevokeRequest{Name: "key-a"})
+		}},
 		{"workspace list", func() (any, error) {
 			return client.ListWorkspaces(ctx, "workspace-list", rpcapi.WorkspaceListRequest{Collection: "assistants"})
 		}},

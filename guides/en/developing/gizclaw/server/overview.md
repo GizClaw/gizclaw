@@ -27,7 +27,7 @@ flowchart TB
     HTTP --> OpenAI["OpenAI HTTP"]
     HTTP --> Signaling["WebRTC signaling"]
 
-    Private --> Login["Public login sessions"]
+    Private --> APIKeys["API key admission"]
     OpenAI --> AI["AI services"]
     Core --> Logs["Log Query contract"]
     Logs --> Backend["Host log backend"]

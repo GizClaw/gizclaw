@@ -72,6 +72,39 @@ class GizClawClient {
     );
   }
 
+  /// Creates a long-lived, recoverable API key for this connected device.
+  Future<payload.APIKeyCreateResponse> createApiKey({
+    required String displayName,
+    bool manageApiKeys = false,
+  }) {
+    return rpc.call<payload.APIKeyCreateResponse>(
+      'server.api_key.create',
+      payload.APIKeyCreateRequest(
+        displayName: displayName,
+        manageApiKeys: manageApiKeys,
+      ),
+    );
+  }
+
+  /// Lists API keys owned by this connected device, including complete keys.
+  Future<payload.APIKeyListResponse> listApiKeys({String? cursor, int? limit}) {
+    return rpc.call<payload.APIKeyListResponse>(
+      'server.api_key.list',
+      payload.APIKeyListRequest(
+        cursor: cursor,
+        limit: limit == null ? null : Int64(limit),
+      ),
+    );
+  }
+
+  /// Revokes an API key owned by this connected device.
+  Future<payload.APIKeyRevokeResponse> revokeApiKey(String name) {
+    return rpc.call<payload.APIKeyRevokeResponse>(
+      'server.api_key.revoke',
+      payload.APIKeyRevokeRequest(name: name),
+    );
+  }
+
   Future<payload.ServerGetInfoResponse> getServerInfo() {
     return rpc.call<payload.ServerGetInfoResponse>(
       'server.info.get',

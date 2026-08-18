@@ -15,6 +15,27 @@ func (c *Client) Register(ctx context.Context, id, token string) (*rpcpb.ServerR
 	})
 }
 
+// CreateAPIKey creates a long-lived, recoverable API key for the connected device.
+func (c *Client) CreateAPIKey(ctx context.Context, id string, request rpcapi.APIKeyCreateRequest) (*rpcapi.APIKeyCreateResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.APIKeyCreateResponse, error) {
+		return client.CreateAPIKey(ctx, conn, id, request)
+	})
+}
+
+// ListAPIKeys lists API keys owned by the connected device, including complete keys.
+func (c *Client) ListAPIKeys(ctx context.Context, id string, request rpcapi.APIKeyListRequest) (*rpcapi.APIKeyListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.APIKeyListResponse, error) {
+		return client.ListAPIKeys(ctx, conn, id, request)
+	})
+}
+
+// RevokeAPIKey revokes an API key owned by the connected device.
+func (c *Client) RevokeAPIKey(ctx context.Context, id string, request rpcapi.APIKeyRevokeRequest) (*rpcapi.APIKeyRevokeResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.APIKeyRevokeResponse, error) {
+		return client.RevokeAPIKey(ctx, conn, id, request)
+	})
+}
+
 // DeletePeer deletes the connected caller's active Peer. A successful call is
 // terminal for the current Peer connection; reconnect before issuing more work.
 func (c *Client) DeletePeer(ctx context.Context, id string, request rpcapi.ServerPeerDeleteRequest) (*rpcapi.ServerPeerDeleteResponse, error) {

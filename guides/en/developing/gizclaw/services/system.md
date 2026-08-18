@@ -1,6 +1,6 @@
 # services/system
 
-`pkgs/gizclaw/services/system` provides shared system services including RuntimeProfile, device registration, resource ownership, public login, and declarative resource management.
+`pkgs/gizclaw/services/system` provides shared system services including RuntimeProfile, device registration, API keys, resource ownership, and declarative resource management.
 
 ## Directory structure
 
@@ -8,7 +8,7 @@
 services/system/
 ├── ownership/         # owner context, owner index keys, and write rules
 ├── pendingdeletion/   # durable pending-deletion tasks and managed processor
-├── publiclogin/       # Public HTTP login, assertions, and sessions
+├── apikey/            # Device-bound API key issuance, authentication, and cleanup
 ├── resourcemanager/   # unified entry point for Admin declarative resources
 └── runtimeprofile/    # RuntimeProfile and RegistrationToken
 ```
@@ -31,11 +31,9 @@ Metrics report active depth, oldest active age, claims, active workers, phase la
 
 Owns RuntimeProfile and RegistrationToken KV state, schema validation, deterministic revisions, hash indexes, and registration resolution. It projects Admin resources through safe aliases and defines no reader/member role system. See [RuntimeProfile and device registration](./runtime-profile).
 
-### publiclogin
+### apikey
 
-Responsible for Public HTTP callers completing identity proof and obtaining typed sessions. A primary session represents the current Peer; a Side Control session uses a single-use device token and binds both the controller identity and target Peer. This package does not own browser routes, Edge proxying, or business resource implementations.
-
-Final resource access is decided by RuntimeProfile, ownership, and the relevant domain relationship. Successful login does not grant every resource.
+Issues long-lived keys for a registered Peer, stores complete keys in plaintext for management recovery, enforces same-owner management, and revokes all owner keys during Peer retirement. It does not own HTTP routing, Edge proxying, or business resource implementations.
 
 ### resourcemanager
 
@@ -56,13 +54,13 @@ flowchart TB
     ResourceManager --> Social["services/social"]
     ResourceManager --> Profile["runtimeprofile"]
     ResourceManager --> Ownership["ownership"]
-    Public["Public HTTP"] --> Login["publiclogin"]
-    Login --> Profile
+    Public["Public HTTP"] --> APIKey["apikey"]
+    APIKey --> Profile
 ```
 
 Should be placed at `services/system`:
 
-- Product authorization and session capabilities that are uniformly used across domains.
+- Product authorization capabilities that are uniformly used across domains.
 - Cross-domain dispatch and common management boundaries of Declarative resources.
 - System-owned migration, validation and persistence rules.
 

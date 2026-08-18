@@ -35,7 +35,7 @@ type GameplayRetirement interface {
 	RetirePeerGameplay(context.Context, gameplay.PeerGameplaySnapshot) (bool, error)
 }
 
-type PeerSessionCleanup interface {
+type PeerAPIKeyCleanup interface {
 	CleanupPeer(context.Context, string) error
 }
 
@@ -64,7 +64,7 @@ type DeletionHandler struct {
 	Social            SocialRetirement
 	Workspaces        WorkspaceRetirement
 	Gameplay          GameplayRetirement
-	Sessions          PeerSessionCleanup
+	APIKeys           PeerAPIKeyCleanup
 	RuntimeProfiles   OwnerBindingCleanup
 	Quiescer          PeerQuiescer
 	WorkspaceLookup   pendingdeletion.LookupSource
@@ -79,7 +79,7 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err != nil {
 		return pendingdeletion.Terminal("invalid_peer_marker", "Peer deletion marker is invalid", err)
 	}
-	if h.Server == nil || h.Social == nil || h.Workspaces == nil || h.Gameplay == nil || h.Sessions == nil || h.RuntimeProfiles == nil || h.Quiescer == nil || h.WorkspaceLookup == nil || h.FriendGroupLookup == nil {
+	if h.Server == nil || h.Social == nil || h.Workspaces == nil || h.Gameplay == nil || h.APIKeys == nil || h.RuntimeProfiles == nil || h.Quiescer == nil || h.WorkspaceLookup == nil || h.FriendGroupLookup == nil {
 		return pendingdeletion.Retryable("service_unavailable", "Peer retirement adapter is unavailable", nil)
 	}
 	now := time.Now().UTC()
@@ -103,8 +103,8 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err != nil {
 		return pendingdeletion.Retryable("gameplay_cleanup_failed", "Peer Gameplay cleanup failed", err)
 	}
-	if err := h.Sessions.CleanupPeer(ctx, publicKey.String()); err != nil {
-		return pendingdeletion.Retryable("session_cleanup_failed", "Peer credential cleanup failed", err)
+	if err := h.APIKeys.CleanupPeer(ctx, publicKey.String()); err != nil {
+		return pendingdeletion.Retryable("api_key_cleanup_failed", "Peer API key cleanup failed", err)
 	}
 	if err := h.RuntimeProfiles.DeleteOwnerProfileBinding(ctx, publicKey.String()); err != nil {
 		return pendingdeletion.Retryable("binding_cleanup_failed", "Peer RuntimeProfile binding cleanup failed", err)

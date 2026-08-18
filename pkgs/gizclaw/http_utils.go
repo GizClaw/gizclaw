@@ -25,106 +25,58 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 )
 
-func authenticateFiberSession(ctx *fiber.Ctx, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
-	principal, ok := authenticateFiberPrincipal(ctx, sessions)
-	if !ok {
-		return giznet.PublicKey{}, false
+func authenticateFiberAPIKey(ctx *fiber.Ctx, server *apikey.Server) (apikey.Principal, bool) {
+	if server == nil {
+		writeFiberAPIKeyError(ctx, errors.New("API key service is not configured"))
+		return apikey.Principal{}, false
 	}
-	return principal.PublicKey, true
-}
-
-func authenticateFiberPrincipal(ctx *fiber.Ctx, sessions *publiclogin.SessionManager) (publiclogin.Principal, bool) {
-	if sessions == nil {
-		writeFiberSessionError(ctx, errors.New("session manager not configured"))
-		return publiclogin.Principal{}, false
-	}
-	principal, err := sessions.AuthenticateHeadersPrincipal(ctx.Get("Authorization"), ctx.Get(publiclogin.PublicKeyHeader))
+	principal, err := server.Authenticate(ctx.UserContext(), bearerCredential(ctx.Get(fiber.HeaderAuthorization)))
 	if err != nil {
-		writeFiberSessionError(ctx, err)
-		return publiclogin.Principal{}, false
+		writeFiberAPIKeyError(ctx, err)
+		return apikey.Principal{}, false
 	}
 	return principal, true
 }
 
-func writeFiberSessionError(ctx *fiber.Ctx, err error) {
-	code := "INVALID_SESSION"
-	message := "missing or invalid bearer session"
-	status := http.StatusUnauthorized
-	if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
-		code = "PUBLIC_KEY_MISMATCH"
-		message = "x-public-key does not match bearer session"
-	} else if errors.Is(err, publiclogin.ErrPeerDeletionPending) {
-		code = "PEER_PENDING_DELETION"
-		message = err.Error()
-		status = http.StatusConflict
-	} else if errors.Is(err, publiclogin.ErrPeerDeleted) {
-		code = "PEER_DELETED"
-		message = err.Error()
-		status = http.StatusConflict
+func authenticateHTTPAPIKey(w http.ResponseWriter, r *http.Request, server *apikey.Server) (apikey.Principal, bool) {
+	if server == nil {
+		writeHTTPAPIKeyError(w, errors.New("API key service is not configured"))
+		return apikey.Principal{}, false
 	}
-	ctx.Status(status)
-	_ = ctx.JSON(map[string]any{"error": map[string]string{"code": code, "message": message}})
-}
-
-func authenticatePrimaryHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
-	authenticated, ok := authenticatePrimaryHTTPSessionState(w, r, sessions)
-	return authenticated.PublicKey, ok
-}
-
-func authenticateHTTPSession(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (giznet.PublicKey, bool) {
-	authenticated, ok := authenticateHTTPSessionState(w, r, sessions)
-	return authenticated.PublicKey, ok
-}
-
-func authenticateHTTPSessionState(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (publiclogin.AuthenticatedSession, bool) {
-	authenticated, err := sessions.AuthenticateHeadersSession(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
+	principal, err := server.Authenticate(r.Context(), bearerCredential(r.Header.Get("Authorization")))
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		status := http.StatusUnauthorized
-		if errors.Is(err, publiclogin.ErrPeerDeletionPending) || errors.Is(err, publiclogin.ErrPeerDeleted) {
-			status = http.StatusConflict
-		}
-		w.WriteHeader(status)
-		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
-			_, _ = io.WriteString(w, `{"error":{"code":"PUBLIC_KEY_MISMATCH","message":"x-public-key does not match bearer session"}}`)
-			return publiclogin.AuthenticatedSession{}, false
-		}
-		if errors.Is(err, publiclogin.ErrPeerDeletionPending) {
-			_, _ = io.WriteString(w, `{"error":{"code":"PEER_PENDING_DELETION","message":"Peer deletion pending"}}`)
-			return publiclogin.AuthenticatedSession{}, false
-		}
-		if errors.Is(err, publiclogin.ErrPeerDeleted) {
-			_, _ = io.WriteString(w, `{"error":{"code":"PEER_DELETED","message":"Peer deleted"}}`)
-			return publiclogin.AuthenticatedSession{}, false
-		}
-		_, _ = io.WriteString(w, `{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`)
-		return publiclogin.AuthenticatedSession{}, false
+		writeHTTPAPIKeyError(w, err)
+		return apikey.Principal{}, false
 	}
-	return authenticated, true
+	return principal, true
 }
 
-func authenticatePrimaryHTTPSessionState(w http.ResponseWriter, r *http.Request, sessions *publiclogin.SessionManager) (publiclogin.AuthenticatedSession, bool) {
-	authenticated, ok := authenticateHTTPSessionState(w, r, sessions)
-	if !ok {
-		return publiclogin.AuthenticatedSession{}, false
+func bearerCredential(value string) string {
+	kind, credential, ok := strings.Cut(strings.TrimSpace(value), " ")
+	if !ok || !strings.EqualFold(kind, "Bearer") {
+		return ""
 	}
-	if authenticated.Kind != publiclogin.SessionKindPrimary {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = io.WriteString(w, `{"error":{"code":"PRIMARY_SESSION_REQUIRED","message":"primary session required"}}`)
-		return publiclogin.AuthenticatedSession{}, false
-	}
-	return authenticated, true
+	return strings.TrimSpace(credential)
+}
+
+func writeFiberAPIKeyError(ctx *fiber.Ctx, _ error) {
+	ctx.Status(http.StatusUnauthorized)
+	_ = ctx.JSON(apitypes.NewErrorResponse("INVALID_API_KEY", "missing or invalid bearer API key"))
+}
+
+func writeHTTPAPIKeyError(w http.ResponseWriter, _ error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("INVALID_API_KEY", "missing or invalid bearer API key"))
 }
 
 func setPublicHTTPCORSHeaders(header http.Header) {
 	header.Set("Access-Control-Allow-Origin", "*")
 	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Public-Key,X-Registration-Token,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-Request-ID")
 }
 
@@ -269,10 +221,12 @@ func registeredHTTPFallback(request *http.Request) (string, string) {
 	pattern := request.Pattern
 	if pattern == "" && request.URL != nil {
 		switch request.URL.Path {
-		case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/runtime", "/me/status":
+		case "/server-info", "/webrtc/v1/offer", "/gizclaw/v1/api-keys", "/gizclaw/v1/api-keys/self":
 			pattern = request.URL.Path
 		default:
-			if strings.HasPrefix(request.URL.Path, "/openai/v1/") {
+			if strings.HasPrefix(request.URL.Path, "/gizclaw/v1/api-keys/") {
+				pattern = "/gizclaw/v1/api-keys/{apiKeyName}"
+			} else if strings.HasPrefix(request.URL.Path, "/openai/v1/") {
 				pattern = "/openai/v1/"
 			}
 		}
@@ -286,17 +240,13 @@ func registeredHTTPOperation(method, pattern string) string {
 	}
 	if method == http.MethodOptions {
 		switch pattern {
-		case "/login", "/server-info", "/webrtc/v1/offer", "/me", "/me/runtime", "/me/status", "/openai/v1/":
+		case "/server-info", "/webrtc/v1/offer", "/gizclaw/v1/api-keys", "/gizclaw/v1/api-keys/self", "/gizclaw/v1/api-keys/{apiKeyName}", "/openai/v1/":
 			return "corsPreflight"
 		default:
 			return ""
 		}
 	}
 	switch pattern {
-	case "/login":
-		if method == http.MethodPost {
-			return "login"
-		}
 	case "/server-info":
 		if method == http.MethodGet {
 			return "getServerInfo"
@@ -305,20 +255,26 @@ func registeredHTTPOperation(method, pattern string) string {
 		if method == http.MethodPost {
 			return "createGiznetWebRTCOffer"
 		}
-	case "/me":
-		if method == http.MethodGet {
-			return "getMe"
-		}
-	case "/me/runtime":
-		if method == http.MethodGet {
-			return "getMeRuntime"
-		}
-	case "/me/status":
+	case "/gizclaw/v1/api-keys":
 		switch method {
 		case http.MethodGet:
-			return "getMeStatus"
-		case http.MethodPut:
-			return "putMeStatus"
+			return "listAPIKeys"
+		case http.MethodPost:
+			return "createAPIKey"
+		}
+	case "/gizclaw/v1/api-keys/self":
+		switch method {
+		case http.MethodGet:
+			return "getSelfAPIKey"
+		case http.MethodDelete:
+			return "revokeSelfAPIKey"
+		}
+	case "/gizclaw/v1/api-keys/{apiKeyName}":
+		switch method {
+		case http.MethodGet:
+			return "getAPIKey"
+		case http.MethodDelete:
+			return "revokeAPIKey"
 		}
 	case "/openai/v1/":
 		return "openAIProxy"

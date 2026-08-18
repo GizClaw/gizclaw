@@ -13,7 +13,7 @@ pkgs/gizclaw/services/
 ├── gameplay/    # gameplay catalog, pets, points, rewards, and assets
 ├── runtime/     # online Peer and Agent runtime capabilities
 ├── social/      # contacts, friends, and friend groups
-└── system/      # RuntimeProfile, ownership, public login, and resource management
+└── system/      # RuntimeProfile, ownership, API keys, and resource management
 ```
 
 ## Domain relationship

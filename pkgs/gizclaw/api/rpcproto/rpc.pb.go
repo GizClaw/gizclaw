@@ -190,6 +190,9 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_PEER_DELETE                      RpcMethod = 93
 	RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT                   RpcMethod = 94
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET  RpcMethod = 95
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE                   RpcMethod = 96
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST                     RpcMethod = 97
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE                   RpcMethod = 98
 )
 
 // Enum value maps for RpcMethod.
@@ -290,6 +293,9 @@ var (
 		93: "RPC_METHOD_SERVER_PEER_DELETE",
 		94: "RPC_METHOD_SERVER_SPEECH_EXTRACT",
 		95: "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET",
+		96: "RPC_METHOD_SERVER_API_KEY_CREATE",
+		97: "RPC_METHOD_SERVER_API_KEY_LIST",
+		98: "RPC_METHOD_SERVER_API_KEY_REVOKE",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -387,6 +393,9 @@ var (
 		"RPC_METHOD_SERVER_PEER_DELETE":                      93,
 		"RPC_METHOD_SERVER_SPEECH_EXTRACT":                   94,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET":  95,
+		"RPC_METHOD_SERVER_API_KEY_CREATE":                   96,
+		"RPC_METHOD_SERVER_API_KEY_LIST":                     97,
+		"RPC_METHOD_SERVER_API_KEY_REVOKE":                   98,
 	}
 )
 
@@ -879,7 +888,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\x8eZ\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xd0\\\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1070,7 +1079,13 @@ const file_rpc_proto_rawDesc = "" +
 	" RPC_METHOD_SERVER_SPEECH_EXTRACT\x10^\x1aH\xc2\xf3\x18D\n" +
 	"\x15server.speech.extract\x12\x14SpeechExtractRequest\x1a\x15SpeechExtractResponse\x12\xaa\x01\n" +
 	"1RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET\x10_\x1as\xc2\xf3\x18o\n" +
-	"&server.friend_group.messages.audio.get\x12!FriendGroupMessageAudioGetRequest\x1a\"FriendGroupMessageAudioGetResponse:d\n" +
+	"&server.friend_group.messages.audio.get\x12!FriendGroupMessageAudioGetRequest\x1a\"FriendGroupMessageAudioGetResponse\x12l\n" +
+	" RPC_METHOD_SERVER_API_KEY_CREATE\x10`\x1aF\xc2\xf3\x18B\n" +
+	"\x15server.api_key.create\x12\x13APIKeyCreateRequest\x1a\x14APIKeyCreateResponse\x12d\n" +
+	"\x1eRPC_METHOD_SERVER_API_KEY_LIST\x10a\x1a@\xc2\xf3\x18<\n" +
+	"\x13server.api_key.list\x12\x11APIKeyListRequest\x1a\x12APIKeyListResponse\x12l\n" +
+	" RPC_METHOD_SERVER_API_KEY_REVOKE\x10b\x1aF\xc2\xf3\x18B\n" +
+	"\x15server.api_key.revoke\x12\x13APIKeyRevokeRequest\x1a\x14APIKeyRevokeResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

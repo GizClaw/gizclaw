@@ -27,7 +27,7 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		}
 	}
 	set(&server.PeerStore, "peers")
-	set(&server.PublicLoginStore, "public-login")
+	set(&server.APIKeyStore, "api-keys")
 	set(&server.CredentialStore, "credentials")
 	set(&server.FirmwareStore, "firmwares")
 	set(&server.RuntimeProfileStore, "runtime-profiles")

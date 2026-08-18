@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -61,20 +62,22 @@ type rpcServerGenXService interface {
 }
 
 type rpcServer struct {
-	peer               rpcPeerService
-	peerRun            rpcPeerRunService
-	peerRunRuntime     rpcPeerRunRuntime
-	serverResources    rpcServerResourceService
-	serverGenX         rpcServerGenXService
-	speechLimits       SpeechLimits
-	registrations      *runtimeprofile.Server
-	onRegistration     func(runtimeprofile.Registration)
-	registrationSource string
-	callerPublicKey    giznet.PublicKey
-	deletePeerSelf     func(context.Context) error
-	isPeerRetiring     func() bool
-	onPeerRetiring     func()
-	onPeerDeleted      func()
+	peer                rpcPeerService
+	peerRun             rpcPeerRunService
+	peerRunRuntime      rpcPeerRunRuntime
+	serverResources     rpcServerResourceService
+	serverGenX          rpcServerGenXService
+	speechLimits        SpeechLimits
+	registrations       *runtimeprofile.Server
+	apiKeys             *apikey.Server
+	validateAPIKeyOwner func(context.Context, giznet.PublicKey) error
+	onRegistration      func(runtimeprofile.Registration)
+	registrationSource  string
+	callerPublicKey     giznet.PublicKey
+	deletePeerSelf      func(context.Context) error
+	isPeerRetiring      func() bool
+	onPeerRetiring      func()
+	onPeerDeleted       func()
 }
 
 func (s *rpcServer) Handle(conn net.Conn) error {
@@ -137,6 +140,12 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return s.handleGetInfo(ctx, req)
 	case rpcapi.RPCMethodServerRegister:
 		return s.handleRegister(ctx, req)
+	case rpcapi.RPCMethodServerAPIKeyCreate:
+		return s.handleAPIKeyCreate(ctx, req)
+	case rpcapi.RPCMethodServerAPIKeyList:
+		return s.handleAPIKeyList(ctx, req)
+	case rpcapi.RPCMethodServerAPIKeyRevoke:
+		return s.handleAPIKeyRevoke(ctx, req)
 	case rpcapi.RPCMethodServerInfoPut:
 		return s.handlePutInfo(ctx, req)
 	case rpcapi.RPCMethodServerRuntimeGet:

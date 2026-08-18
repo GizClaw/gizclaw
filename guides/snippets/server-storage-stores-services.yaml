@@ -45,10 +45,10 @@ stores:
     storage: database
     prefix: peers
 
-  public-login:
+  api-keys:
     kind: keyvalue
     storage: database
-    prefix: public-login
+    prefix: api-keys
 
   credentials:
     kind: keyvalue
@@ -144,8 +144,8 @@ stores:
 services:
   peer:
     store: peers
-  public_login:
-    store: public-login
+  api_key:
+    store: api-keys
   credential:
     store: credentials
   firmware:

@@ -17,6 +17,18 @@ import (
 func TestRPCResourceClientWrappers(t *testing.T) {
 	client := &rpcClient{}
 
+	t.Run("API key", func(t *testing.T) {
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerAPIKeyCreate, rpcapi.APIKeyCreateResponse{}, (*rpcapi.RPCPayload).FromAPIKeyCreateResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.APIKeyCreateResponse, error) {
+			return client.CreateAPIKey(ctx, conn, "api-key-create", rpcapi.APIKeyCreateRequest{DisplayName: "phone"})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerAPIKeyList, rpcapi.APIKeyListResponse{}, (*rpcapi.RPCPayload).FromAPIKeyListResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.APIKeyListResponse, error) {
+			return client.ListAPIKeys(ctx, conn, "api-key-list", rpcapi.APIKeyListRequest{Limit: 25})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerAPIKeyRevoke, rpcapi.APIKeyRevokeResponse{}, (*rpcapi.RPCPayload).FromAPIKeyRevokeResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.APIKeyRevokeResponse, error) {
+			return client.RevokeAPIKey(ctx, conn, "api-key-revoke", rpcapi.APIKeyRevokeRequest{Name: "key-a"})
+		})
+	})
+
 	runRPCResultWrapperTest(t, rpcapi.RPCMethodServerPeerDelete, rpcapi.ServerPeerDeleteResponse{}, (*rpcapi.RPCPayload).FromServerPeerDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerPeerDeleteResponse, error) {
 		return client.DeletePeer(ctx, conn, "peer-delete", rpcapi.ServerPeerDeleteRequest{})
 	})

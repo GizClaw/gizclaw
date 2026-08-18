@@ -55,6 +55,34 @@ export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions"
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
+export type APIKey = {
+  "name": string;
+  "display_name": string;
+  "prefix": string;
+  "manage_api_keys": boolean;
+  "created_at": string;
+  "api_key": string;
+};
+export type APIKeyCreateRequest = {
+  "display_name": string;
+  "manage_api_keys": boolean;
+};
+export type APIKeyCreateResponse = {
+  "value": APIKey;
+  "api_key": string;
+};
+export type APIKeyListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type APIKeyListResponse = {
+  "items": APIKey[];
+  "next_cursor"?: string;
+};
+export type APIKeyRevokeRequest = {
+  "name": string;
+};
+export type APIKeyRevokeResponse = Record<string, never>;
 export type ASTTranslateExternalVoiceParameters = {
   "tts_voice": string;
 };
@@ -1349,6 +1377,9 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
   "runtime.adopt": "RuntimeAdoptRequest",
+  "server.api_key.create": "APIKeyCreateRequest",
+  "server.api_key.list": "APIKeyListRequest",
+  "server.api_key.revoke": "APIKeyRevokeRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1445,6 +1476,9 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
   "runtime.adopt": "RuntimeAdoptResponse",
+  "server.api_key.create": "APIKeyCreateResponse",
+  "server.api_key.list": "APIKeyListResponse",
+  "server.api_key.revoke": "APIKeyRevokeResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -1543,6 +1577,112 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       }
     ]
+  },
+  "APIKey": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "prefix",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "manage_api_keys",
+        "number": 4,
+        "type": "bool"
+      },
+      {
+        "name": "created_at",
+        "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "api_key",
+        "number": 6,
+        "type": "string"
+      }
+    ]
+  },
+  "APIKeyCreateRequest": {
+    "fields": [
+      {
+        "name": "display_name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "manage_api_keys",
+        "number": 2,
+        "type": "bool"
+      }
+    ]
+  },
+  "APIKeyCreateResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "APIKey"
+      },
+      {
+        "name": "api_key",
+        "number": 2,
+        "type": "string"
+      }
+    ]
+  },
+  "APIKeyListRequest": {
+    "fields": [
+      {
+        "name": "cursor",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "limit",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "APIKeyListResponse": {
+    "fields": [
+      {
+        "name": "items",
+        "number": 1,
+        "repeated": true,
+        "type": "APIKey"
+      },
+      {
+        "name": "next_cursor",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "APIKeyRevokeRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "APIKeyRevokeResponse": {
+    "fields": []
   },
   "ASTTranslateExternalVoiceParameters": {
     "fields": [

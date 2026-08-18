@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
-
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -77,74 +75,21 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.ServeToClients && isPublicHTTPRoute(r.URL.Path) {
-		if isPublicHTTPLoginRoute(r.Method, r.URL.Path) {
-			if isSideControlLoginRequest(r) {
-				writePrivateHTTPIngressDenied(w)
-				return
-			}
-		} else if !s.authorizePrivateHTTPIngress(w, r) {
-			return
-		}
+	if !s.ServeToClients && isProtectedPublicHTTPRoute(r.URL.Path) {
+		writePrivateHTTPIngressDenied(w)
+		return
 	}
 	s.Server.ServeHTTP(w, r)
-}
-
-func (s *CmdServer) authorizePrivateHTTPIngress(w http.ResponseWriter, r *http.Request) bool {
-	principal, err := s.Server.AuthenticateHTTPSessionPrincipalHeaders(r.Header.Get("Authorization"), r.Header.Get(publiclogin.PublicKeyHeader))
-	if err != nil {
-		if errors.Is(err, gizclaw.ErrPrivateHTTPIngressDenied) {
-			writePrivateHTTPIngressDenied(w)
-			return false
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		if errors.Is(err, publiclogin.ErrPublicKeyMismatch) {
-			_, _ = w.Write([]byte(`{"error":{"code":"PUBLIC_KEY_MISMATCH","message":"x-public-key does not match bearer session"}}`))
-			return false
-		}
-		_, _ = w.Write([]byte(`{"error":{"code":"INVALID_SESSION","message":"missing or invalid bearer session"}}`))
-		return false
-	}
-	if principal.Kind != publiclogin.SessionKindPrimary {
-		writePrivateHTTPIngressDenied(w)
-		return false
-	}
-	if err := s.Server.AuthorizePrivateHTTPIngress(r.Context(), principal.PublicKey); err != nil {
-		writePrivateHTTPIngressDenied(w)
-		return false
-	}
-	return true
 }
 
 func writePrivateHTTPIngressDenied(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusForbidden)
-	_, _ = w.Write([]byte(`{"error":{"code":"PRIVATE_INGRESS_DENIED","message":"session peer is not authorized for private server ingress"}}`))
+	_, _ = w.Write([]byte(`{"error":{"code":"PRIVATE_INGRESS_DENIED","message":"public client APIs are disabled"}}`))
 }
 
-func isSideControlLoginRequest(r *http.Request) bool {
-	if r == nil || r.Method != http.MethodPost || r.URL.Path != "/login" || r.Body == nil || r.Body == http.NoBody {
-		return false
-	}
-	return r.ContentLength != 0
-}
-
-func isPublicHTTPRoute(path string) bool {
-	if strings.HasPrefix(path, "/me/side-control/") || strings.HasPrefix(path, "/side-control/") {
-		return true
-	}
-	switch path {
-	case "/server-info", "/login", gizwebrtc.SignalingPath, "/me", "/me/status", "/me/runtime":
-		return true
-	default:
-		return strings.HasPrefix(path, "/openai/v1/")
-	}
-}
-
-func isPublicHTTPLoginRoute(method, path string) bool {
-	return (method == http.MethodPost && path == "/login") ||
-		((method == http.MethodPost || method == http.MethodOptions) && path == gizwebrtc.SignalingPath)
+func isProtectedPublicHTTPRoute(path string) bool {
+	return strings.HasPrefix(path, "/gizclaw/v1/") || strings.HasPrefix(path, "/openai/v1/")
 }
 
 // New wires an already prepared in-memory config into a command server.
@@ -244,9 +189,6 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		gizServer.SecurityPolicy = adminPublicKeySecurityPolicy{
 			PublicKey: cfg.AdminPublicKey,
 		}
-	}
-	if !cfg.ServeToClients {
-		gizServer.PublicLoginAuthorizer = gizclaw.PrivateHTTPIngressLoginAuthorizer(gizServer)
 	}
 	if gizServer.MetricsStore != nil {
 		metricsShutdown, err = gizmetrics.InstallStore(gizServer.MetricsStore)
@@ -386,7 +328,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 		return err
 	}
 	server.PeerStore = peerRoot
-	server.PublicLoginStore, err = resolveKVStore(registry, "services.public_login.store", cfg.PublicLogin.Store)
+	server.APIKeyStore, err = resolveKVStore(registry, "services.api_key.store", cfg.APIKey.Store)
 	if err != nil {
 		return err
 	}

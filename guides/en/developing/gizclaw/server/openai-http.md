@@ -2,7 +2,7 @@
 
 `Implementation file: server_openai_http.go`
 
-Assemble the Peer-scoped OpenAI-compatible handler for the ordinary Server HTTP entry, and connect the public-login session to the corresponding RuntimeProfile resource view.
+Assemble the Peer-scoped OpenAI-compatible handler for the ordinary Server HTTP entry, and connect the authenticated API key owner to the current RuntimeProfile resource view.
 
 The Server authenticates the primary session before stripping `/openai`. The retained handler in `PeerService` then applies an exact method/path allowlist, binds the verified canonical Peer ID and request-scoped resources, and delegates the four standard operations to AI Server Shell. `/v1/voices` remains a GizClaw handler outside the Shell. Unsupported paths return `404` only after ingress authentication.
 

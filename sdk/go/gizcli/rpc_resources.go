@@ -23,6 +23,18 @@ func (c *rpcClient) Register(ctx context.Context, conn net.Conn, id, token strin
 	}, nil
 }
 
+func (c *rpcClient) CreateAPIKey(ctx context.Context, conn net.Conn, id string, request rpcapi.APIKeyCreateRequest) (*rpcapi.APIKeyCreateResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerAPIKeyCreate, request, (*rpcapi.RPCPayload).FromAPIKeyCreateRequest, rpcapi.RPCPayload.AsAPIKeyCreateResponse, "API key create")
+}
+
+func (c *rpcClient) ListAPIKeys(ctx context.Context, conn net.Conn, id string, request rpcapi.APIKeyListRequest) (*rpcapi.APIKeyListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerAPIKeyList, request, (*rpcapi.RPCPayload).FromAPIKeyListRequest, rpcapi.RPCPayload.AsAPIKeyListResponse, "API key list")
+}
+
+func (c *rpcClient) RevokeAPIKey(ctx context.Context, conn net.Conn, id string, request rpcapi.APIKeyRevokeRequest) (*rpcapi.APIKeyRevokeResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerAPIKeyRevoke, request, (*rpcapi.RPCPayload).FromAPIKeyRevokeRequest, rpcapi.RPCPayload.AsAPIKeyRevokeResponse, "API key revoke")
+}
+
 func (c *rpcClient) DeletePeer(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPeerDeleteRequest) (*rpcapi.ServerPeerDeleteResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerPeerDelete, request, (*rpcapi.RPCPayload).FromServerPeerDeleteRequest, rpcapi.RPCPayload.AsServerPeerDeleteResponse, "peer delete")
 }

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -22,9 +21,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
@@ -719,39 +716,6 @@ func (h *Harness) ContextKeyPair(name string) *giznet.KeyPair {
 
 func (h *Harness) PublicHTTPURL() string {
 	return "http://" + h.clientEndpoint()
-}
-
-func (h *Harness) PublicHTTPLogin(name string) peerhttp.LoginResult {
-	h.t.Helper()
-
-	var serverPublicKey giznet.PublicKey
-	if err := serverPublicKey.UnmarshalText([]byte(h.ServerPublicKey)); err != nil {
-		h.t.Fatalf("parse server public key: %v", err)
-	}
-	assertion, err := publiclogin.NewLoginAssertion(h.ContextKeyPair(name), serverPublicKey, time.Minute)
-	if err != nil {
-		h.t.Fatalf("create login assertion: %v", err)
-	}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, h.PublicHTTPURL()+"/login", nil)
-	if err != nil {
-		h.t.Fatalf("create login request: %v", err)
-	}
-	req.Header.Set("X-Public-Key", h.ContextPublicKey(name))
-	req.Header.Set("Authorization", "Bearer "+assertion)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		h.t.Fatalf("public http login: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		h.t.Fatalf("public http login status = %d body=%s", resp.StatusCode, string(body))
-	}
-	var result peerhttp.LoginResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		h.t.Fatalf("decode public http login response: %v", err)
-	}
-	return result
 }
 
 func (h *Harness) ConnectClientFromContext(name string) *gizcli.Client {

@@ -1060,7 +1060,7 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	}
 	for _, name := range []string{
 		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers",
-		"public-login", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
+		"api-keys", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
 		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "gameplay", "agenthost",
 		"workspace-assets", "gameplay-assets", "gameplay-db",
 	} {
@@ -1100,7 +1100,7 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	services := cfg.Services
 	expect("services.peer.store", services.Peer.Store, stores.KindKeyValue)
 	for path, name := range map[string]string{
-		"services.public_login.store":     services.PublicLogin.Store,
+		"services.api_key.store":          services.APIKey.Store,
 		"services.credential.store":       services.Credential.Store,
 		"services.firmware.store":         services.Firmware.Store,
 		"services.runtime_profile.store":  services.RuntimeProfile.Store,
@@ -1377,7 +1377,7 @@ func validLayeredConfig(dir string) Config {
 		},
 		Stores: map[string]stores.Config{
 			"peers":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"public-login":     {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "public-login"},
+			"api-keys":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
 			"credentials":      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
 			"runtime-profiles": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
@@ -1404,7 +1404,7 @@ func validLayeredConfig(dir string) Config {
 func validServicesConfig() *ServicesConfig {
 	return &ServicesConfig{
 		Peer:            &SingleStoreConfig{Store: "peers"},
-		PublicLogin:     &SingleStoreConfig{Store: "public-login"},
+		APIKey:          &SingleStoreConfig{Store: "api-keys"},
 		Credential:      &SingleStoreConfig{Store: "credentials"},
 		Firmware:        &SingleStoreConfig{Store: "firmwares"},
 		RuntimeProfile:  &SingleStoreConfig{Store: "runtime-profiles"},

@@ -655,7 +655,7 @@ func (f *fakeRPCServerInfoService) GetServerInfo(ctx context.Context, _ peerhttp
 		}
 	}
 	if f.err.Error.Code != "" {
-		return peerhttp.GetServerInfo400JSONResponse(f.err), nil
+		return peerhttp.GetServerInfo400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(f.err)}, nil
 	}
 	return peerhttp.GetServerInfo200JSONResponse(f.info), nil
 }

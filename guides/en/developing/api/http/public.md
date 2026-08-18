@@ -9,8 +9,8 @@ See the [API Reference](/api/) for exact endpoints, parameters, requests, and re
 
 `/webrtc/v1/offer` Occurs before the Peer connection is established, HTTP signaling must be preserved. The Peer capability after establishing a connection can use reliable HTTP-over-service-stream or Peer RPC; when choosing a transport, avoid maintaining two sets of contracts for the same capability.
 
-The identity authentication of the Offer is completed by the signing signaling contract itself and should not additionally rely on the Public login session. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
+The Offer is authenticated by the signed signaling contract itself and does not depend on an API key. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
 
-See [Peer HTTP · Side Control](../../gizclaw/peer/service/side-control) for the route contract, session boundary, and transports. LiteLink-local capabilities such as device passwords, Wi-Fi provisioning, and playing sounds are not Public API routes.
+See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authentication and management contract. LiteLink-local capabilities such as device passwords, Wi-Fi provisioning, and playing sounds are not Public API routes.
 
 Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Server identity remains the cryptographic `public_key`. Through an Edge, the build fields remain those of the authoritative Server, while the `transport` object alone selects the Edge route.

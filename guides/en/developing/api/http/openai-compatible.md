@@ -22,7 +22,7 @@ The ordinary authenticated Server and Edge entry mounts these paths below `/open
 
 ## Product boundary
 
-The composition layer binds the already verified Peer identity, RuntimeProfile-scoped model and voice resources, and the matching GenX Generator and Transformer to each request. The Shell authenticator reads only this verified binding. It ignores and never forwards an incoming bearer value, cookie, or dummy OpenAI API key.
+The composition layer binds the verified Peer identity, RuntimeProfile-scoped model and voice resources, and the matching GenX Generator and Transformer to each request. Direct and Edge `/openai/v1/*` first authenticate a GizClaw API key and derive the binding from its owner; `ServicePeerOpenAI` continues to use reliable Peer connection identity. The Shell authenticator reads only this composition-layer binding and never forwards a bearer value or cookie to a model provider.
 
 `services/ai/openaiapi` also maps one Conversation to one newly created caller-owned Workspace. Creation requires string metadata `collection` and `workflow_name`; the latter is the compatible Response model. Conversation items correlate to authoritative Workspace History, while lifecycle and immutable input snapshots are stored below the Workspace runtime prefix. Reads never start an Agent. A Response attaches the shared Workspace Agent only for that turn, supports foreground JSON/SSE or background cancellation, and leaves PeerRun selection unchanged.
 

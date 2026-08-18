@@ -6,14 +6,11 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/publiclogin"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -42,37 +39,9 @@ const (
 
 type peerHTTP struct {
 	peer.PeerHTTPService
-	Self      peerHTTPSelfService
-	Status    peerHTTPStatusService
-	Telemetry peerHTTPTelemetryService
-	Contacts  peerHTTPContactService
-	publiclogin.PeerHTTP
+	APIKeys                *apikey.Server
 	WebRTCSignalingHandler func() http.Handler
 	PeerAvailability       func(context.Context, giznet.PublicKey) error
-}
-
-type peerHTTPSelfService interface {
-	GetSelfRegistration(context.Context, giznet.PublicKey) (peerhttp.PeerSelf, error)
-	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
-}
-
-type peerHTTPStatusService interface {
-	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
-	PutStatus(context.Context, giznet.PublicKey, apitypes.PeerStatus) (apitypes.PeerStatus, error)
-}
-
-type peerHTTPTelemetryService interface {
-	Latest(context.Context, giznet.PublicKey, []apitypes.PeerTelemetryField) (apitypes.PeerTelemetryLatestResponse, error)
-	QueryRange(context.Context, giznet.PublicKey, apitypes.PeerTelemetryField, time.Time, time.Time, time.Duration, int, apitypes.PeerTelemetryOrder) (apitypes.PeerTelemetryRangeResponse, error)
-	Aggregate(context.Context, giznet.PublicKey, apitypes.PeerTelemetryField, time.Time, time.Time, time.Duration, apitypes.PeerTelemetryAggregate) (apitypes.PeerTelemetryAggregateResponse, error)
-}
-
-type peerHTTPContactService interface {
-	ListContacts(context.Context, string, rpcapi.ContactListRequest) (rpcapi.ContactListResponse, error)
-	GetContact(context.Context, string, rpcapi.ContactGetRequest) (rpcapi.ContactObject, error)
-	CreateContact(context.Context, string, rpcapi.ContactCreateRequest) (rpcapi.ContactObject, error)
-	PutContact(context.Context, string, rpcapi.ContactPutRequest) (rpcapi.ContactObject, error)
-	DeleteContact(context.Context, string, rpcapi.ContactDeleteRequest) (rpcapi.ContactObject, error)
 }
 
 // PeerService serves one peer connection.
@@ -80,7 +49,7 @@ type PeerService struct {
 	admin              *adminService
 	public             *peerHTTP
 	manager            *Manager
-	sessions           *publiclogin.SessionManager
+	apiKeys            *apikey.Server
 	openAIOnce         sync.Once
 	openAIProtocol     http.Handler
 	openAIProtocolErr  error

@@ -32,10 +32,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: peers
-  public-login:
+  api-keys:
     kind: keyvalue
     storage: memory
-    prefix: public-login
+    prefix: api-keys
   flowcraft-state:
     kind: keyvalue
     storage: memory
@@ -116,8 +116,8 @@ stores:
 services:
   peer:
     store: peers
-  public_login:
-    store: public-login
+  api_key:
+    store: api-keys
   credential:
     store: credentials
   firmware:
