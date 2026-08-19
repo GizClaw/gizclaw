@@ -212,6 +212,31 @@ func TestOutputWaitForObserversCoversDeferredDelivery(t *testing.T) {
 	}
 }
 
+func TestOutputRejectsReconstructedDeferredObservation(t *testing.T) {
+	var observed []*genx.MessageChunk
+	output := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) {
+		observed = append(observed, chunk)
+	}})
+	output.DeferOutputObservation()
+	chunk := &genx.MessageChunk{Part: genx.Text("delivered")}
+	if err := output.Push(chunk); err != nil {
+		t.Fatal(err)
+	}
+	delivered, err := output.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output.ObserveOutput(delivered.Clone())
+	if len(observed) != 0 {
+		t.Fatalf("reconstructed chunk acknowledged deferred observation: %#v", observed)
+	}
+	output.ObserveOutput(delivered)
+	if len(observed) != 1 || observed[0] != delivered {
+		t.Fatalf("exact delivered chunk observation = %#v", observed)
+	}
+}
+
 func TestOutputAbandonsDeferredObservationOnErrorClose(t *testing.T) {
 	output := NewOutput(OutputConfig{Observe: func(*genx.MessageChunk) {}})
 	output.DeferOutputObservation()

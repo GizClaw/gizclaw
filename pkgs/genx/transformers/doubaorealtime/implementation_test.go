@@ -126,6 +126,14 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	}
 }
 
+func TestTransformerRealtimeUsesProviderKeepAliveMode(t *testing.T) {
+	transformer := newTransformer(nil, withMode(ModeRealtime))
+
+	if got := transformer.realtimeConfig().InputMode; got != doubaospeech.RealtimeInputModeKeepAlive {
+		t.Fatalf("realtime input mode = %q, want %q", got, doubaospeech.RealtimeInputModeKeepAlive)
+	}
+}
+
 func TestTransformerTextDeltaNormalizesPrefix(t *testing.T) {
 	if got := realtimeTextDelta("你好，", "你好，世界"); got != "世界" {
 		t.Fatalf("delta = %q, want 世界", got)

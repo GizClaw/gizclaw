@@ -79,7 +79,12 @@ func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, e
 	}
 	for _, event := range router.ActivateEvents() {
 		if event.begin {
-			run.beginInputTurn(event.streamID)
+			if err := run.beginInputTurn(event.streamID); err != nil {
+				closePipelineStream(agentOutput, err)
+				router.CloseWithError(err)
+				_ = invocation.Cancel(err)
+				return nil, err
+			}
 		} else {
 			run.endInputTurn(event.streamID)
 		}
@@ -154,12 +159,19 @@ func (r *dockRun) execute() {
 		for {
 			select {
 			case event := <-r.router.InputEvents():
+				var eventErr error
 				if event.begin {
-					r.beginInputTurn(event.streamID)
+					eventErr = r.beginInputTurn(event.streamID)
 				} else {
 					r.endInputTurn(event.streamID)
 				}
 				close(event.acknowledgement)
+				if eventErr != nil {
+					r.closeRoutes(eventErr)
+					r.router.CloseWithError(eventErr)
+					_ = r.invocation.Fail(eventErr)
+					return
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -773,22 +785,25 @@ func (r *dockRun) closeRoutes(err error) {
 	}
 }
 
-func (r *dockRun) interruptOpenRoutes(errorText string) {
+func (r *dockRun) interruptOpenRoutes(errorText string) error {
+	var errs error
 	for _, route := range r.routeSnapshot() {
 		if route == nil {
 			continue
 		}
 		route.ttsEmitMu.Lock()
+		var routeErr error
 		if !route.closed.Load() {
 			route.finish.Do(func() {
 				route.closed.Store(true)
 				needsControlEOS := route.hasPendingTTSWithoutOutput()
 				r.abortTTS(route, errors.New(errorText))
 				if err := r.invocation.Interrupt(route.response, errorText); err != nil {
+					routeErr = fmt.Errorf("audiodock: interrupt response %q: %w", route.response.StreamID(), err)
 					return
 				}
 				if needsControlEOS {
-					_ = r.invocation.Output().Push(&genx.MessageChunk{
+					if err := r.invocation.Output().Push(&genx.MessageChunk{
 						Role: route.role,
 						Name: route.name,
 						Ctrl: &genx.StreamCtrl{
@@ -797,16 +812,26 @@ func (r *dockRun) interruptOpenRoutes(errorText string) {
 							Error:       errorText,
 							EndOfStream: true,
 						},
-					})
+					}); err != nil {
+						routeErr = fmt.Errorf("audiodock: emit interrupted response terminal %q: %w", route.response.StreamID(), err)
+					}
 				}
 			})
 		}
 		terminals := route.pendingTerminalInterrupts(errorText)
 		for _, terminal := range terminals {
-			_ = r.invocation.Output().Push(terminal)
+			if err := r.invocation.Output().Push(terminal); err != nil {
+				routeErr = errors.Join(routeErr, fmt.Errorf(
+					"audiodock: replace pending terminal for response %q: %w",
+					route.response.StreamID(),
+					err,
+				))
+			}
 		}
 		route.ttsEmitMu.Unlock()
+		errs = errors.Join(errs, routeErr)
 	}
+	return errs
 }
 
 func (r *dockRoute) hasPendingTTSWithoutOutput() bool {
@@ -823,7 +848,7 @@ func (r *dockRoute) hasPendingTTSWithoutOutput() bool {
 	return false
 }
 
-func (r *dockRun) beginInputTurn(streamID string) {
+func (r *dockRun) beginInputTurn(streamID string) error {
 	ids := r.source.AbandonAllOutputObservations()
 	r.stateMu.Lock()
 	for _, id := range ids {
@@ -835,7 +860,10 @@ func (r *dockRun) beginInputTurn(streamID string) {
 		}
 	}
 	r.stateMu.Unlock()
-	r.interruptOpenRoutes("interrupted")
+	if err := r.interruptOpenRoutes("interrupted"); err != nil {
+		return fmt.Errorf("audiodock: begin input turn %q: %w", streamID, err)
+	}
+	return nil
 }
 
 func (r *dockRoute) trackPendingTerminal(chunk *genx.MessageChunk) (string, *genx.MessageChunk) {

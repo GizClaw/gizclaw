@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -56,6 +57,8 @@ const (
 	doubaoRealtimeDuplexFixedInputChannels    = 1
 	doubaoRealtimeDuplexFixedOutputFormat     = "ogg_opus"
 	doubaoRealtimeDuplexFixedOutputSampleRate = 24000
+	doubaoRealtimeDuplexAudioKeepalive        = 20 * time.Millisecond
+	doubaoRealtimeDuplexAudioIdleGrace        = 100 * time.Millisecond
 )
 
 const doubaoRealtimeTranscriptLabel = doubaoRealtimeDuplexTranscriptLabel
@@ -299,8 +302,8 @@ func (t *Transformer) sessionLoop(
 	toolState *toolrun.State,
 ) {
 	defer output.Close()
-	input = newDoubaoRealtimeDuplexInputReader(input)
-	defer input.Close()
+	inputReader := newDoubaoRealtimeDuplexInputReader(input)
+	defer inputReader.Close()
 	var pending *genx.MessageChunk
 	for {
 		if err := ctx.Err(); err != nil {
@@ -315,7 +318,7 @@ func (t *Transformer) sessionLoop(
 		}
 		next, err := t.processLoop(
 			ctx,
-			withDoubaoRealtimeDuplexPendingChunk(input, pending),
+			withDoubaoRealtimeDuplexPendingChunk(inputReader, pending),
 			output,
 			session,
 			toolState,
@@ -333,7 +336,7 @@ func (t *Transformer) sessionLoop(
 
 func (t *Transformer) processLoop(
 	ctx context.Context,
-	input genx.Stream,
+	input doubaoRealtimeDuplexSessionInput,
 	output *bufferStream,
 	session doubaoRealtimeDuplexSession,
 	toolState *toolrun.State,
@@ -349,11 +352,15 @@ func (t *Transformer) processLoop(
 		observeRealtimeAssistantOutput(assistant, doubaoRealtimeDuplexAssistantLabel, chunk)
 	})
 	defer output.setOutputObserver(nil)
-	interruptAssistantState := func(streamID string) bool {
+	interruptAssistantState := func(streamID string) (bool, error) {
 		return t.interruptAssistantOutput(output, assistant, streamID)
 	}
 	interruptAssistant := func(streamID string) (bool, error) {
-		if !interruptAssistantState(streamID) {
+		interrupted, err := interruptAssistantState(streamID)
+		if err != nil {
+			return interrupted, err
+		}
+		if !interrupted {
 			return false, nil
 		}
 		if err := session.CancelResponse(ctx); err != nil {
@@ -865,12 +872,37 @@ func (t *Transformer) processLoop(
 
 	// Send audio to realtime service
 	audioSent := 0
+	keepaliveInput := newDoubaoRealtimeDuplexAudioInput(
+		t.inputFormat,
+		t.inputSampleRate,
+		t.inputChannels,
+		false,
+	)
+	defer keepaliveInput.close()
+	keepaliveFrames, err := keepaliveInput.keepaliveFrames(1)
+	if err != nil {
+		return nil, fmt.Errorf("doubao realtime duplex prepare audio keepalive: %w", err)
+	}
+	if len(keepaliveFrames) != 1 || len(keepaliveFrames[0]) == 0 {
+		return nil, fmt.Errorf("doubao realtime duplex prepare audio keepalive: empty silence frame")
+	}
+	keepaliveAudio := keepaliveFrames[0]
+	keepalive := time.NewTimer(doubaoRealtimeDuplexAudioIdleGrace)
+	defer keepalive.Stop()
 	inputRouteID := ""
 	inputAudioEnded := false
-	audioInputs := newDoubaoRealtimeDuplexAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode)
+	audioInputs := newDoubaoRealtimeDuplexAudioInputs(
+		t.inputFormat,
+		t.inputSampleRate,
+		t.inputChannels,
+		t.inputTranscode,
+	)
 	defer audioInputs.close()
 	for {
-		chunk, err, done := doubaoRealtimeDuplexNextOrDone(input, eventsDone)
+		var chunk *genx.MessageChunk
+		var err error
+		var done, sendKeepalive bool
+		chunk, err, done, sendKeepalive = input.nextOrDoneOrKeepalive(eventsDone, keepalive.C)
 		if done {
 			if err := eventError(); err != nil {
 				return nil, err
@@ -893,6 +925,14 @@ func (t *Transformer) processLoop(
 					return chunk.Clone(), nil
 				}
 			}
+		}
+		if sendKeepalive {
+			if err := session.SendAudio(ctx, keepaliveAudio); err != nil {
+				return nil, fmt.Errorf("doubao realtime duplex send audio keepalive: %w", err)
+			}
+			audioSent++
+			resetDoubaoRealtimeDuplexKeepalive(keepalive, doubaoRealtimeDuplexAudioKeepalive)
+			continue
 		}
 		if err != nil {
 			if err != io.EOF && err != genx.ErrDone {
@@ -951,17 +991,17 @@ func (t *Transformer) processLoop(
 			audioInput, err := audioInputs.streamForBlob(streamID, p)
 			if err != nil {
 				slog.Error("doubao: prepare audio error", "error", err)
-				t.pushInputEOSError(output, streamID, err)
+				boundaryErr := t.pushInputEOSError(output, streamID, err)
 				audioInputs.closeStream(streamID)
-				return nil, err
+				return nil, errors.Join(err, boundaryErr)
 			}
 			if len(p.Data) > 0 {
 				frames, err := audioInput.prepareFrames(p)
 				if err != nil {
 					slog.Error("doubao: prepare audio error", "error", err)
-					t.pushInputEOSError(output, streamID, err)
+					boundaryErr := t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
-					return nil, err
+					return nil, errors.Join(err, boundaryErr)
 				}
 				for _, audio := range frames {
 					if len(audio) == 0 {
@@ -976,6 +1016,7 @@ func (t *Transformer) processLoop(
 						return nil, err
 					}
 				}
+				resetDoubaoRealtimeDuplexKeepalive(keepalive, doubaoRealtimeDuplexAudioIdleGrace)
 			}
 		case genx.Text:
 			if len(p) > 0 {
@@ -994,18 +1035,32 @@ func (t *Transformer) processLoop(
 	}
 }
 
+func resetDoubaoRealtimeDuplexKeepalive(timer *time.Timer, delay time.Duration) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(delay)
+}
+
 func isDoubaoRealtimeDuplexAssistantChunk(chunk *genx.MessageChunk, streamID string) bool {
 	return chunk != nil && chunk.Role == genx.RoleModel && chunk.Ctrl != nil &&
 		chunk.Ctrl.StreamID == streamID && chunk.Ctrl.Label == doubaoRealtimeDuplexAssistantLabel
 }
 
-func (t *Transformer) interruptAssistantOutput(output *bufferStream, assistant *realtimeAssistantLifecycle, streamID string) bool {
+func (t *Transformer) interruptAssistantOutput(
+	output *bufferStream,
+	assistant *realtimeAssistantLifecycle,
+	streamID string,
+) (bool, error) {
 	if output == nil || assistant == nil {
-		return false
+		return false, nil
 	}
 	interruption := assistant.interruptRoutes(streamID, false)
 	if !interruption.Interrupted {
-		return false
+		return false, nil
 	}
 	discarded := output.discardChunks(func(chunk *genx.MessageChunk) bool {
 		return isDoubaoRealtimeDuplexAssistantChunk(chunk, interruption.StreamID)
@@ -1023,41 +1078,52 @@ func (t *Transformer) interruptAssistantOutput(output *bufferStream, assistant *
 	}
 	if interruption.TextOpen {
 		if !interruption.TextStarted {
-			_ = output.Push(&genx.MessageChunk{
+			if err := output.Push(&genx.MessageChunk{
 				Role: genx.RoleModel,
 				Part: genx.Text(""),
 				Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true},
-			})
+			}); err != nil {
+				return true, fmt.Errorf("doubao realtime duplex emit interrupted text BOS: %w", err)
+			}
 		}
-		_ = output.Push(&genx.MessageChunk{
+		if err := output.Push(&genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: genx.Text(""),
 			Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: doubaoRealtimeDuplexInterrupted},
-		})
+		}); err != nil {
+			return true, fmt.Errorf("doubao realtime duplex emit interrupted text EOS: %w", err)
+		}
 	}
 	if interruption.AudioOpen {
 		if !interruption.AudioStarted {
-			_ = output.Push(&genx.MessageChunk{
+			if err := output.Push(&genx.MessageChunk{
 				Role: genx.RoleModel,
 				Part: &genx.Blob{MIMEType: t.outputMIMEType()},
 				Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, BeginOfStream: true},
-			})
+			}); err != nil {
+				return true, fmt.Errorf("doubao realtime duplex emit interrupted audio BOS: %w", err)
+			}
 		}
-		_ = output.Push(&genx.MessageChunk{
+		if err := output.Push(&genx.MessageChunk{
 			Role: genx.RoleModel,
 			Part: &genx.Blob{MIMEType: t.outputMIMEType()},
 			Ctrl: &genx.StreamCtrl{StreamID: interruption.StreamID, Label: doubaoRealtimeDuplexAssistantLabel, EndOfStream: true, Error: doubaoRealtimeDuplexInterrupted},
-		})
+		}); err != nil {
+			return true, fmt.Errorf("doubao realtime duplex emit interrupted audio EOS: %w", err)
+		}
 	}
-	return true
+	return true, nil
 }
 
 type doubaoRealtimeDuplexPendingChunkStream struct {
 	first *genx.MessageChunk
-	rest  genx.Stream
+	rest  doubaoRealtimeDuplexSessionInput
 }
 
-func withDoubaoRealtimeDuplexPendingChunk(rest genx.Stream, first *genx.MessageChunk) genx.Stream {
+func withDoubaoRealtimeDuplexPendingChunk(
+	rest doubaoRealtimeDuplexSessionInput,
+	first *genx.MessageChunk,
+) doubaoRealtimeDuplexSessionInput {
 	if first == nil {
 		return rest
 	}
@@ -1084,10 +1150,24 @@ func (s *doubaoRealtimeDuplexPendingChunkStream) NextOrDone(done <-chan struct{}
 		s.first = nil
 		return chunk, nil, false
 	}
-	if stream, ok := s.rest.(doubaoRealtimeDuplexDoneAwareStream); ok {
-		return stream.NextOrDone(done)
+	return s.rest.NextOrDone(done)
+}
+
+func (s *doubaoRealtimeDuplexPendingChunkStream) nextOrDoneOrKeepalive(
+	done <-chan struct{},
+	keepalive <-chan time.Time,
+) (*genx.MessageChunk, error, bool, bool) {
+	if s.first != nil {
+		select {
+		case <-done:
+			return nil, nil, true, false
+		default:
+		}
+		chunk := s.first
+		s.first = nil
+		return chunk, nil, false, false
 	}
-	return doubaoRealtimeDuplexNextOrDone(s.rest, done)
+	return s.rest.nextOrDoneOrKeepalive(done, keepalive)
 }
 
 func (s *doubaoRealtimeDuplexPendingChunkStream) Close() error {
@@ -1098,9 +1178,10 @@ func (s *doubaoRealtimeDuplexPendingChunkStream) CloseWithError(err error) error
 	return s.rest.CloseWithError(err)
 }
 
-type doubaoRealtimeDuplexDoneAwareStream interface {
+type doubaoRealtimeDuplexSessionInput interface {
 	genx.Stream
 	NextOrDone(<-chan struct{}) (*genx.MessageChunk, error, bool)
+	nextOrDoneOrKeepalive(<-chan struct{}, <-chan time.Time) (*genx.MessageChunk, error, bool, bool)
 }
 
 type doubaoRealtimeDuplexInputResult struct {
@@ -1207,6 +1288,58 @@ func (r *doubaoRealtimeDuplexInputReader) NextOrDone(done <-chan struct{}) (*gen
 	}
 }
 
+func (r *doubaoRealtimeDuplexInputReader) nextOrDoneOrKeepalive(
+	done <-chan struct{},
+	keepalive <-chan time.Time,
+) (*genx.MessageChunk, error, bool, bool) {
+	if r.pending != nil {
+		select {
+		case <-done:
+			return nil, nil, true, false
+		default:
+		}
+		result := *r.pending
+		r.pending = nil
+		return result.chunk, result.err, false, false
+	}
+	select {
+	case <-done:
+		return nil, nil, true, false
+	default:
+	}
+	select {
+	case result, ok := <-r.results:
+		if !ok {
+			return nil, io.EOF, false, false
+		}
+		select {
+		case <-done:
+			r.pending = &result
+			return nil, nil, true, false
+		default:
+		}
+		return result.chunk, result.err, false, false
+	default:
+	}
+	select {
+	case <-done:
+		return nil, nil, true, false
+	case <-keepalive:
+		return nil, nil, false, true
+	case result, ok := <-r.results:
+		if !ok {
+			return nil, io.EOF, false, false
+		}
+		select {
+		case <-done:
+			r.pending = &result
+			return nil, nil, true, false
+		default:
+		}
+		return result.chunk, result.err, false, false
+	}
+}
+
 func (r *doubaoRealtimeDuplexInputReader) Close() error {
 	return r.CloseWithError(io.EOF)
 }
@@ -1223,24 +1356,11 @@ func (r *doubaoRealtimeDuplexInputReader) CloseWithError(err error) error {
 	return nil
 }
 
-func doubaoRealtimeDuplexNextOrDone(input genx.Stream, done <-chan struct{}) (*genx.MessageChunk, error, bool) {
-	if stream, ok := input.(doubaoRealtimeDuplexDoneAwareStream); ok {
-		return stream.NextOrDone(done)
-	}
-	select {
-	case <-done:
-		return nil, nil, true
-	default:
-	}
-	chunk, err := input.Next()
-	return chunk, err, false
-}
-
-func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, err error) {
+func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, err error) error {
 	if output == nil || err == nil {
-		return
+		return nil
 	}
-	_ = output.Push(&genx.MessageChunk{
+	if pushErr := output.Push(&genx.MessageChunk{
 		Role: genx.RoleUser,
 		Part: genx.Text(""),
 		Ctrl: &genx.StreamCtrl{
@@ -1248,8 +1368,10 @@ func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, e
 			Label:         doubaoRealtimeDuplexTranscriptLabel,
 			BeginOfStream: true,
 		},
-	})
-	_ = output.Push(&genx.MessageChunk{
+	}); pushErr != nil {
+		return fmt.Errorf("doubao realtime duplex emit input error BOS: %w", pushErr)
+	}
+	if pushErr := output.Push(&genx.MessageChunk{
 		Role: genx.RoleUser,
 		Part: genx.Text(""),
 		Ctrl: &genx.StreamCtrl{
@@ -1258,7 +1380,10 @@ func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, e
 			EndOfStream: true,
 			Error:       err.Error(),
 		},
-	})
+	}); pushErr != nil {
+		return fmt.Errorf("doubao realtime duplex emit input error EOS: %w", pushErr)
+	}
+	return nil
 }
 
 func firstNonEmptyString(values ...string) string {

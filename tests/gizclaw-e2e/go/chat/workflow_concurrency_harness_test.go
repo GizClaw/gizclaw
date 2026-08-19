@@ -44,6 +44,7 @@ type workflowConcurrencySpec struct {
 	RequireText             bool
 	RequireAudio            bool
 	KeepRealtimeInputOpen   bool
+	FeedRealtimeSilence     bool
 	RealtimeTailSilence     time.Duration
 	SkippableProviderErrors []string
 }
@@ -54,8 +55,6 @@ var (
 		"AudioTTSIdleTimeoutError":           regexp.MustCompile(`^doubaospeech: sami error: codes=52000016, desc=AudioTTSIdleTimeoutError \(code=55000000, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
 		"VolcengineConcurrencyQuotaExceeded": regexp.MustCompile(`^doubaospeech: quota exceeded for types: concurrency \(code=45000292, reqid=[^,]+, trace_id=[^,]*, log_id=[^,]+, connect_id=[^,]*, http_status=0\)$`),
 		"VolcengineProviderError":            regexp.MustCompile(`^(?:buffer: read from closed buffer: )?doubaospeech: .+ \(code=[45][0-9]{7}, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=[0-9]+\)$`),
-		"VolcengineASTProviderOutputEnded":   regexp.MustCompile(`^(?:buffer: read from closed buffer: )?asttranslate: provider output completed while input remained active$`),
-		"DoubaoRealtimeResponseIdleTimeout":  regexp.MustCompile(`^(?:buffer: read from closed buffer: )?doubao realtime response idle timeout: no provider progress for 1m0s$`),
 	}
 	workflowConcurrencyProviderOnlyFailurePattern = regexp.MustCompile(`^turn [1-9][0-9]*:? peer terminal error: (.+)$`)
 	realtimeWorkflowConcurrencySpec               = workflowConcurrencySpec{
@@ -64,7 +63,7 @@ var (
 	}
 	realtimeDuplexWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
-		SkippableProviderErrors: []string{"VolcengineProviderError", "DoubaoRealtimeResponseIdleTimeout"},
+		SkippableProviderErrors: []string{"VolcengineProviderError"},
 	}
 	flowcraftWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
@@ -76,19 +75,19 @@ var (
 	}
 	translateWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "translate", Fixture: "ast-translate.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
-		SkippableProviderErrors: []string{"VolcengineProviderError", "VolcengineASTProviderOutputEnded"},
+		SkippableProviderErrors: []string{"VolcengineProviderError"},
 	}
 	realtimeWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
 	}
 	flowcraftWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
-		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, RealtimeTailSilence: 4 * time.Second,
+		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, FeedRealtimeSilence: true, RealtimeTailSilence: 4 * time.Second,
 	}
 	einoWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
-		Name: "eino", Fixture: "eino-concurrency.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, RealtimeTailSilence: 4 * time.Second,
+		Name: "eino", Fixture: "eino-concurrency.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, FeedRealtimeSilence: true, RealtimeTailSilence: 4 * time.Second,
 	}
 	translateWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
-		Name: "translate", Fixture: "ast-translate.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
+		Name: "translate", Fixture: "ast-translate.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true, FeedRealtimeSilence: true,
 	}
 )
 
@@ -434,7 +433,7 @@ func prepareWorkflowConcurrencyInputs(
 		if err != nil {
 			return inputs, fmt.Errorf("prepare voice input turn %d: %w", index+1, err)
 		}
-		if spec.KeepRealtimeInputOpen {
+		if spec.FeedRealtimeSilence {
 			packets, err = realtimePacketsWithTailSilenceDuration(packets, workflowConcurrencyRealtimeTailSilence(spec))
 		} else {
 			packets, err = realtimePacketsWithTailSilence(packets)
@@ -443,7 +442,7 @@ func prepareWorkflowConcurrencyInputs(
 			return inputs, fmt.Errorf("prepare voice input turn %d tail silence: %w", index+1, err)
 		}
 		inputs.Packets[index] = cloneOpusPackets(packets)
-		if spec.KeepRealtimeInputOpen {
+		if spec.FeedRealtimeSilence {
 			if len(packets) == 0 {
 				return inputs, fmt.Errorf("prepare voice input turn %d produced no silence packet", index+1)
 			}

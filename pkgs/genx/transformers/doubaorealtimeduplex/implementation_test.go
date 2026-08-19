@@ -116,6 +116,115 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	}
 }
 
+func TestTransformerKeepsProviderAudioInputAlive(t *testing.T) {
+	gate := make(chan struct{})
+	session := &fakeDoubaoRealtimeDuplexSession{blockAfterEvents: gate}
+	transformer := newTransformer(
+		nil,
+		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	input := newBufferStream(4)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		_ = input.Close()
+		_ = output.Close()
+		close(gate)
+	})
+	if err := input.Push(&genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 640)},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("input Push() error = %v", err)
+	}
+
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for session.audioCount() < 3 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	session.mu.Lock()
+	frames := make([][]byte, len(session.audio))
+	for index, frame := range session.audio {
+		frames[index] = append([]byte(nil), frame...)
+	}
+	session.mu.Unlock()
+	if len(frames) < 3 {
+		t.Fatalf("SendAudio calls after downstream became idle = %d, want at least 3", len(frames))
+	}
+	for index, frame := range frames[1:] {
+		if len(frame) <= 3 {
+			t.Fatalf("keepalive frame %d length = %d, want non-DTX Opus comfort noise", index+1, len(frame))
+		}
+	}
+}
+
+func TestTransformerDoesNotInterleaveKeepaliveWithActiveAudio(t *testing.T) {
+	gate := make(chan struct{})
+	session := &fakeDoubaoRealtimeDuplexSession{blockAfterEvents: gate}
+	transformer := newTransformer(
+		nil,
+		withDoubaoRealtimeDuplexOpener(&fakeDoubaoRealtimeDuplexOpener{session: session}),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+	)
+	ctx, cancel := context.WithCancel(context.Background())
+	input := newBufferStream(16)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	t.Cleanup(func() {
+		cancel()
+		_ = input.Close()
+		_ = output.Close()
+		close(gate)
+	})
+
+	for index := range 8 {
+		frame := bytes.Repeat([]byte{byte(index + 1)}, 640)
+		if err := input.Push(&genx.MessageChunk{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: frame},
+			Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: index == 0},
+		}); err != nil {
+			t.Fatalf("input Push(%d) error = %v", index, err)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for session.audioCount() < 8 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	session.mu.Lock()
+	frames := make([][]byte, len(session.audio))
+	for index, frame := range session.audio {
+		frames[index] = append([]byte(nil), frame...)
+	}
+	session.mu.Unlock()
+	if len(frames) < 8 {
+		t.Fatalf("SendAudio calls = %d, want at least 8", len(frames))
+	}
+	for index, frame := range frames[:8] {
+		want := bytes.Repeat([]byte{byte(index + 1)}, 640)
+		if !bytes.Equal(frame, want) {
+			t.Fatalf("provider frame %d was interleaved with keepalive", index+1)
+		}
+	}
+}
+
+func TestTransformerPreservesProviderOpusInput(t *testing.T) {
+	transformer := newTransformer(nil, withInputFormat("speech_opus"))
+
+	format := transformer.realtimeConfig(nil).Session.Audio.Input.Format
+	if format.Type != doubaospeech.RealtimeDuplexAudioOpus || format.Rate != 16000 {
+		t.Fatalf("provider input audio = %#v, want 16 kHz speech_opus", format)
+	}
+}
+
 func TestDoubaoRealtimeDuplexAudioInputPassesPCMThrough(t *testing.T) {
 	input := newDoubaoRealtimeDuplexAudioInput("pcm", 16000, 1, false)
 	pcm := []byte{1, 0, 2, 0}
@@ -222,7 +331,11 @@ func TestDoubaoRealtimeDuplexInterruptionKeepsOwnedRoutesComplete(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Next() error = %v", err)
 	}
-	if !tfr.interruptAssistantOutput(output, assistant, "turn-2") {
+	interrupted, err := tfr.interruptAssistantOutput(output, assistant, "turn-2")
+	if err != nil {
+		t.Fatalf("interruptAssistantOutput() error = %v", err)
+	}
+	if !interrupted {
 		t.Fatal("assistant response was not interrupted")
 	}
 	latePushCalled := false
@@ -637,31 +750,38 @@ func TestDoubaoRealtimeDuplexConfigSetsDuplexSession(t *testing.T) {
 }
 
 func TestPendingChunkStreamDelegatesClose(t *testing.T) {
-	rest := &trackingCloseStream{}
-	stream := withDoubaoRealtimeDuplexPendingChunk(rest, &genx.MessageChunk{Part: genx.Text("first")})
+	t.Run("close", func(t *testing.T) {
+		rest := &trackingCloseStream{}
+		reader := newDoubaoRealtimeDuplexInputReader(rest)
+		stream := withDoubaoRealtimeDuplexPendingChunk(reader, &genx.MessageChunk{Part: genx.Text("first")})
 
-	chunk, err := stream.Next()
-	if err != nil {
-		t.Fatalf("Next() error = %v", err)
-	}
-	if got, ok := chunk.Part.(genx.Text); !ok || got != "first" {
-		t.Fatalf("first chunk = %#v", chunk)
-	}
+		chunk, err := stream.Next()
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		if got, ok := chunk.Part.(genx.Text); !ok || got != "first" {
+			t.Fatalf("first chunk = %#v", chunk)
+		}
+		if err := stream.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+		if rest.closed != 1 {
+			t.Fatalf("rest closed = %d, want 1", rest.closed)
+		}
+	})
 
-	if err := stream.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-	if rest.closed != 1 {
-		t.Fatalf("rest closed = %d, want 1", rest.closed)
-	}
-
-	wantErr := errors.New("stop")
-	if err := stream.CloseWithError(wantErr); err != nil {
-		t.Fatalf("CloseWithError() error = %v", err)
-	}
-	if rest.closeErr != wantErr {
-		t.Fatalf("rest close error = %v, want %v", rest.closeErr, wantErr)
-	}
+	t.Run("close with error", func(t *testing.T) {
+		rest := &trackingCloseStream{}
+		reader := newDoubaoRealtimeDuplexInputReader(rest)
+		stream := withDoubaoRealtimeDuplexPendingChunk(reader, &genx.MessageChunk{Part: genx.Text("first")})
+		wantErr := errors.New("stop")
+		if err := stream.CloseWithError(wantErr); err != nil {
+			t.Fatalf("CloseWithError() error = %v", err)
+		}
+		if rest.closeErr != wantErr {
+			t.Fatalf("rest close error = %v, want %v", rest.closeErr, wantErr)
+		}
+	})
 }
 
 func TestPCM16LE(t *testing.T) {
@@ -800,7 +920,9 @@ func TestDoubaoRealtimeDuplexReturnsDuplexErrorEvent(t *testing.T) {
 		},
 	}
 	tfr := newTransformer(nil)
-	_, err := tfr.processLoop(context.Background(), emptyRealtimeStream{}, newBufferStream(1), session, nil)
+	input := newDoubaoRealtimeDuplexInputReader(emptyRealtimeStream{})
+	defer input.Close()
+	_, err := tfr.processLoop(context.Background(), input, newBufferStream(1), session, nil)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("processLoop() error = %v, want %v", err, wantErr)
 	}
@@ -928,10 +1050,12 @@ func TestDoubaoRealtimeDuplexErrorEventClosesBlockedInput(t *testing.T) {
 		},
 	}
 	tfr := newTransformer(nil)
+	reader := newDoubaoRealtimeDuplexInputReader(input)
+	defer reader.Close()
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := tfr.processLoop(context.Background(), input, newBufferStream(1), session, nil)
+		_, err := tfr.processLoop(context.Background(), reader, newBufferStream(1), session, nil)
 		done <- err
 	}()
 
@@ -1174,7 +1298,9 @@ func TestDoubaoRealtimeDuplexInputBoundariesRejectMIMEChange(t *testing.T) {
 func TestDoubaoRealtimeDuplexInputErrorCreatesCompleteTranscriptLifecycle(t *testing.T) {
 	tfr := newTransformer(nil)
 	output := newBufferStream(2)
-	tfr.pushInputEOSError(output, "turn-1", errors.New("invalid input"))
+	if err := tfr.pushInputEOSError(output, "turn-1", errors.New("invalid input")); err != nil {
+		t.Fatalf("pushInputEOSError() error = %v", err)
+	}
 	if err := output.Close(); err != nil {
 		t.Fatalf("Close(output) error = %v", err)
 	}
@@ -1308,7 +1434,9 @@ func TestDoubaoRealtimeDuplexInputReaderPrioritizesDoneOverBufferedInput(t *test
 
 func TestDoubaoRealtimeDuplexPendingChunkPrioritizesDone(t *testing.T) {
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "pending", BeginOfStream: true}}
-	stream := withDoubaoRealtimeDuplexPendingChunk(emptyRealtimeStream{}, chunk).(doubaoRealtimeDuplexDoneAwareStream)
+	reader := newDoubaoRealtimeDuplexInputReader(emptyRealtimeStream{})
+	defer reader.Close()
+	stream := withDoubaoRealtimeDuplexPendingChunk(reader, chunk)
 	done := make(chan struct{})
 	close(done)
 
@@ -1378,8 +1506,10 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 		}
 	}()
 	errCh := make(chan error, 1)
+	reader := newDoubaoRealtimeDuplexInputReader(input)
+	defer reader.Close()
 	go func() {
-		_, err := tfr.processLoop(ctx, input, output, session, nil)
+		_, err := tfr.processLoop(ctx, reader, output, session, nil)
 		errCh <- err
 	}()
 
@@ -1467,8 +1597,9 @@ func runDoubaoRealtimeDuplexProcessLoop(t *testing.T, tfr *Transformer, input ge
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	errCh := make(chan error, 1)
+	reader := &immediateDoubaoRealtimeDuplexSessionInput{Stream: input}
 	go func() {
-		_, err := tfr.processLoop(ctx, input, newBufferStream(16), session, nil)
+		_, err := tfr.processLoop(ctx, reader, newBufferStream(16), session, nil)
 		errCh <- err
 	}()
 	select {
@@ -1477,6 +1608,31 @@ func runDoubaoRealtimeDuplexProcessLoop(t *testing.T, tfr *Transformer, input ge
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// immediateDoubaoRealtimeDuplexSessionInput is a deterministic finite-stream
+// test double for processLoop. Blocking and keepalive tests use the production
+// asynchronous reader instead.
+type immediateDoubaoRealtimeDuplexSessionInput struct {
+	genx.Stream
+}
+
+func (s *immediateDoubaoRealtimeDuplexSessionInput) NextOrDone(done <-chan struct{}) (*genx.MessageChunk, error, bool) {
+	select {
+	case <-done:
+		return nil, nil, true
+	default:
+		chunk, err := s.Next()
+		return chunk, err, false
+	}
+}
+
+func (s *immediateDoubaoRealtimeDuplexSessionInput) nextOrDoneOrKeepalive(
+	done <-chan struct{},
+	_ <-chan time.Time,
+) (*genx.MessageChunk, error, bool, bool) {
+	chunk, err, finished := s.NextOrDone(done)
+	return chunk, err, finished, false
 }
 
 func testRealtimeOpusHeadPacket(sampleRate, channels int) []byte {

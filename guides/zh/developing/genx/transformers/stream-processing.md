@@ -16,7 +16,7 @@ StreamKit 是 `transformers` subtree 的内部实现，不提供 public construc
 
 每个 `Transform` invocation 独占 context、provider session、input reader、output queue 和 response state。同一个已配置 Transformer 可以并发执行多个调用；取消其中一个 invocation 不能关闭其他 invocation。
 
-Output queue 不依赖 downstream 及时调用 `Next()`。显式 byte limit 超限时返回 `streamkit.ErrOutputLimit`；pull observer 只在 `Next()` 成功返回 chunk 后执行。Interrupt 只删除匹配 response 尚未拉取的 suffix，保留已经拉取的 prefix，为仍打开的每个 MIME route 发出一次 `EOS(error="interrupted")`，并拒绝迟到事件。Model response 使用 invocation-local 的新 StreamID，不复用已结束的 user transcript route；replacement response 也使用新的 StreamID。
+Output queue 不依赖 downstream 及时调用 `Next()`。显式 byte limit 超限时返回 `streamkit.ErrOutputLimit`；pull observer 只接受 `Next()` 返回的同一个 chunk 实例，不通过内容相等或 FIFO 猜测 delivery acknowledgement。相同 timestamp 的 realtime chunk 保持 producer insertion order；generic queue 不解析 terminal error 文本来重排生命周期。Interrupt 只删除匹配 response 尚未拉取的 suffix，保留已经拉取的 prefix，为仍打开的每个 MIME route 发出一次 `EOS(error="interrupted")`，并拒绝迟到事件。Model response 使用 invocation-local 的新 StreamID，不复用已结束的 user transcript route；replacement response 也使用新的 StreamID。
 
 StreamKit 不提供 model role 或 `assistant` label。Producer 负责提供 route metadata，StreamKit 只在生成 terminal chunk 时保留这些值。
 

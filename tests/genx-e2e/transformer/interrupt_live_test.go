@@ -122,6 +122,38 @@ func TestDoubaoRealtimeModeRealtimeLiveNaturalCompletion(t *testing.T) {
 	runLiveDoubaoModeRealtimeNaturalCompletion(t, transformer)
 }
 
+func TestDoubaoRealtimeModeRealtimeLiveClientSilence(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transcode := false
+	transformer, err := doubaorealtime.New(doubaorealtime.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          string(doubaospeech.RealtimeModelO20),
+		Mode:           doubaorealtime.ModeRealtime,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtime.New() failed: %v", err)
+	}
+	runLiveRealtimeClientSilence(t, transformer, "doubao-realtime-client-silence")
+}
+
+func TestDoubaoRealtimeModeRealtimeLiveConcurrentClientSilence(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transcode := false
+	transformer, err := doubaorealtime.New(doubaorealtime.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          string(doubaospeech.RealtimeModelO20),
+		Mode:           doubaorealtime.ModeRealtime,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtime.New() failed: %v", err)
+	}
+	runLiveRealtimeClientSilenceConcurrent(t, transformer, "doubao-realtime-concurrent", 10)
+}
+
 func TestDoubaoRealtimeModeRealtimeLiveRepeatedInterrupt(t *testing.T) {
 	loadGenXE2EEnv(t)
 	transformer := newLiveDoubaoRealtimeModeRealtimeTransformer(t)
@@ -212,6 +244,212 @@ func TestDoubaoRealtimeDuplexLiveRepeatedInterrupt(t *testing.T) {
 		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
 	}
 	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-duplex", true, true, true, 1, false, false)
+}
+
+func TestDoubaoRealtimeDuplexLiveOpenInputRepeatedInterrupt(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transcode := false
+	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          "1.2.6.1",
+		InputTranscode: &transcode,
+		Instructions:   "Reply with a detailed answer so the caller can interrupt you while speaking.",
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
+	}
+	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-duplex-open", true, true, true, 1, true, true)
+}
+
+func TestDoubaoRealtimeDuplexLiveOpenInputRepeatedInterruptConcurrency10(t *testing.T) {
+	loadGenXE2EEnv(t)
+	for lane := 1; lane <= 10; lane++ {
+		lane := lane
+		t.Run(fmt.Sprintf("lane-%02d", lane), func(t *testing.T) {
+			t.Parallel()
+			transcode := false
+			transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+				Client:         liveDoubaoClient(t),
+				Model:          "1.2.6.1",
+				InputTranscode: &transcode,
+				Instructions:   "Reply with a detailed answer so the caller can interrupt you while speaking.",
+			})
+			if err != nil {
+				t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
+			}
+			runLiveAudioRepeatedInterrupt(
+				t,
+				transformer,
+				fmt.Sprintf("doubao-duplex-open-lane-%02d", lane),
+				true,
+				true,
+				true,
+				1,
+				true,
+				true,
+			)
+		})
+	}
+}
+
+func TestDoubaoRealtimeDuplexLiveClientSilence(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transcode := false
+	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          "1.2.6.1",
+		InputTranscode: &transcode,
+		Instructions:   "Reply in one short English sentence.",
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
+	}
+	runLiveRealtimeClientSilence(t, transformer, "doubao-realtime-duplex-client-silence")
+}
+
+func TestDoubaoRealtimeDuplexLiveConcurrentClientSilence(t *testing.T) {
+	loadGenXE2EEnv(t)
+	transcode := false
+	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          "1.2.6.1",
+		InputTranscode: &transcode,
+		Instructions:   "Reply in one short English sentence.",
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)
+	}
+	runLiveRealtimeClientSilenceConcurrent(t, transformer, "doubao-realtime-duplex-concurrent", 10)
+}
+
+func runLiveRealtimeClientSilence(t *testing.T, transformer genx.Transformer, streamID string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	events, outputErrors := collectDuplexOutput(output)
+	feedDone := make(chan error, 1)
+	packets := embeddedPromptOpusPackets(t)
+	go func() {
+		feedDone <- pushRealtimeSpeechThenIdle(ctx, input, streamID, packets)
+	}()
+	result, err := waitDuplexRound(t, ctx, events, outputErrors, streamID, feedDone)
+	if err != nil {
+		if result.terminalComplete() {
+			result.lifecycles.assertComplete(t)
+		}
+		t.Fatalf("client-silence response failed: %v", err)
+	}
+	assertDuplexRound(t, 1, result)
+	const providerIdleWindow = 70 * time.Second
+	assertNoRealtimeOutput(t, ctx, events, outputErrors, providerIdleWindow)
+
+	nextStreamID := streamID + "-after-idle"
+	feedDone = make(chan error, 1)
+	go func() {
+		feedDone <- pushRealtimeSpeechThenIdle(ctx, input, nextStreamID, packets)
+	}()
+	nextResult, err := waitDuplexRound(t, ctx, events, outputErrors, nextStreamID, feedDone)
+	if err != nil {
+		t.Fatalf("response after %s provider idle failed: %v", providerIdleWindow, err)
+	}
+	assertDuplexRound(t, 2, nextResult)
+}
+
+func runLiveRealtimeClientSilenceConcurrent(
+	t *testing.T,
+	transformer genx.Transformer,
+	prefix string,
+	concurrency int,
+) {
+	t.Helper()
+	for lane := 1; lane <= concurrency; lane++ {
+		lane := lane
+		t.Run(fmt.Sprintf("lane-%02d", lane), func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+			input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+			defer input.CloseWithError(context.Canceled)
+			output, err := transformer.Transform(ctx, input)
+			if err != nil {
+				t.Fatalf("Transform() failed: %v", err)
+			}
+			defer output.CloseWithError(context.Canceled)
+
+			events, outputErrors := collectDuplexOutput(output)
+			streamID := fmt.Sprintf("%s-%02d", prefix, lane)
+			feedDone := make(chan error, 1)
+			packets := embeddedPromptOpusPackets(t)
+			go func() {
+				feedDone <- pushRealtimeSpeechThenIdle(ctx, input, streamID, packets)
+			}()
+			result, err := waitDuplexRound(t, ctx, events, outputErrors, streamID, feedDone)
+			if err != nil {
+				t.Fatalf("concurrent client-silence response failed: %v", err)
+			}
+			assertDuplexRound(t, 1, result)
+			assertNoRealtimeOutput(t, ctx, events, outputErrors, 5*time.Second)
+		})
+	}
+}
+
+func assertNoRealtimeOutput(
+	t *testing.T,
+	ctx context.Context,
+	events <-chan *genx.MessageChunk,
+	errs <-chan error,
+	duration time.Duration,
+) {
+	t.Helper()
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		t.Fatalf("wait for %s provider idle: %v", duration, ctx.Err())
+	case err := <-errs:
+		if err == nil {
+			t.Fatal("provider error channel returned nil")
+		}
+		t.Fatalf("provider failed while client audio was idle: %v", err)
+	case chunk, ok := <-events:
+		if !ok {
+			t.Fatal("provider output closed while client audio was idle")
+		}
+		t.Fatalf("provider emitted an unexpected event while client audio was idle: %#v", chunk)
+	case <-timer.C:
+	}
+}
+
+func pushRealtimeSpeechThenIdle(
+	ctx context.Context,
+	input *genx.RealtimeStream,
+	streamID string,
+	packets [][]byte,
+) error {
+	chunks := duplexTurnInputChunks(streamID, packets)
+	for _, chunk := range chunks[:len(chunks)-2] {
+		if err := input.Push(ctx, chunk); err != nil {
+			return err
+		}
+		blob, hasAudio := chunk.Part.(*genx.Blob)
+		if !hasAudio || len(blob.Data) == 0 {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	return nil
 }
 
 func TestDashScopeRealtimeLiveRepeatedInterrupt(t *testing.T) {

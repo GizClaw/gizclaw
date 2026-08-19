@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -193,4 +194,24 @@ func TestRealtimeAudioInputCodecBoundaries(t *testing.T) {
 	}
 	pcm.close()
 	pcm.close()
+}
+
+func TestRealtimeAudioInputOpusKeepaliveAvoidsDTXPackets(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("native opus runtime is not available")
+	}
+	input := newDoubaoRealtimeAudioInput("speech_opus", 16000, 1, false)
+	defer input.close()
+	frames, err := input.keepaliveFrames(5)
+	if err != nil {
+		t.Fatalf("keepaliveFrames() error = %v", err)
+	}
+	if len(frames) != 5 {
+		t.Fatalf("keepaliveFrames() count = %d, want 5", len(frames))
+	}
+	for index, frame := range frames {
+		if len(frame) <= 3 {
+			t.Fatalf("keepalive frame %d length = %d, want non-DTX Opus packet", index+1, len(frame))
+		}
+	}
 }

@@ -16,9 +16,12 @@ import (
 )
 
 func TestWorkflowConcurrencyContract(t *testing.T) {
-	t.Run("ordinary realtime continuously feeds silence", func(t *testing.T) {
+	t.Run("ordinary realtime leaves silence to transformer", func(t *testing.T) {
 		if !realtimeWorkflowConcurrencySpec.KeepRealtimeInputOpen {
-			t.Fatal("ordinary realtime input closes instead of feeding silence")
+			t.Fatal("ordinary realtime input closes instead of remaining idle")
+		}
+		if realtimeWorkflowConcurrencySpec.FeedRealtimeSilence {
+			t.Fatal("ordinary realtime workflow driver masks transformer keepalive")
 		}
 		for _, pattern := range realtimeWorkflowConcurrencySpec.SkippableProviderErrors {
 			if pattern == "DialogAudioIdleTimeoutError" {
@@ -27,9 +30,12 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 	})
 
-	t.Run("duplex realtime continuously feeds silence", func(t *testing.T) {
+	t.Run("duplex realtime leaves silence to transformer", func(t *testing.T) {
 		if !realtimeDuplexWorkflowConcurrencySpec.KeepRealtimeInputOpen {
-			t.Fatal("duplex realtime input closes instead of feeding silence")
+			t.Fatal("duplex realtime input closes instead of remaining idle")
+		}
+		if realtimeDuplexWorkflowConcurrencySpec.FeedRealtimeSilence {
+			t.Fatal("duplex realtime workflow driver masks transformer keepalive")
 		}
 		for _, pattern := range realtimeDuplexWorkflowConcurrencySpec.SkippableProviderErrors {
 			if pattern == "AudioTTSIdleTimeoutError" {
@@ -132,22 +138,13 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineProviderError"}) {
 			t.Fatal("Volcengine provider failure mixed with a local deadline was classified as skippable")
 		}
-		for _, providerError := range []string{
+		for _, localError := range []string{
 			"asttranslate: provider output completed while input remained active",
-			"buffer: read from closed buffer: asttranslate: provider output completed while input remained active",
-		} {
-			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 3: peer terminal error: " + providerError}}}
-			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineASTProviderOutputEnded"}) {
-				t.Fatalf("Volcengine AST provider premature end was not classified as skippable: %q", providerError)
-			}
-		}
-		for _, providerError := range []string{
 			"doubao realtime response idle timeout: no provider progress for 1m0s",
-			"buffer: read from closed buffer: doubao realtime response idle timeout: no provider progress for 1m0s",
 		} {
-			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + providerError}}}
-			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"DoubaoRealtimeResponseIdleTimeout"}) {
-				t.Fatalf("Doubao realtime response idle timeout was not classified as skippable: %q", providerError)
+			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + localError}}}
+			if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineProviderError"}) {
+				t.Fatalf("local transformer protection error was classified as skippable: %q", localError)
 			}
 		}
 		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: providerFailure}}}

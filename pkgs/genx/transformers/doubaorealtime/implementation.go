@@ -498,6 +498,8 @@ func (t *Transformer) realtimeInputMode() doubaospeech.RealtimeInputMode {
 		return doubaospeech.RealtimeInputModePushToTalk
 	case ModeText:
 		return doubaospeech.RealtimeInputModeText
+	case ModeRealtime:
+		return doubaospeech.RealtimeInputModeKeepAlive
 	default:
 		return doubaospeech.RealtimeInputModeDefault
 	}

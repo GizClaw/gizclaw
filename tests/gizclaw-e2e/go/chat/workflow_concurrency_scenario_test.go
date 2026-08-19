@@ -100,7 +100,7 @@ func runWorkflowConcurrencyScenario(
 		}
 		if spec.RequireAudio {
 			packets := cloneOpusPackets(inputs.Packets[index])
-			if spec.KeepRealtimeInputOpen {
+			if spec.FeedRealtimeSilence {
 				if len(inputs.SilencePackets) != turnCount || len(inputs.SilencePackets[index]) == 0 {
 					return fmt.Errorf("turn %d continuous input has no silence packet", index+1)
 				}
@@ -123,6 +123,16 @@ func runWorkflowConcurrencyScenario(
 					if err != nil {
 						feederResults <- workflowConcurrencySendResult{turn: index, err: err}
 					}
+				}()
+				return nil
+			}
+			if spec.KeepRealtimeInputOpen {
+				if err := lane.Transport.sendAudioTurnBOS(ctx, streamID); err != nil {
+					return err
+				}
+				go func() {
+					err := lane.Transport.sendAudioTurnAudioObservedMIME(ctx, streamID, "audio/opus", packets, false, nil)
+					sendResults <- workflowConcurrencySendResult{turn: index, err: err}
 				}()
 				return nil
 			}

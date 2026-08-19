@@ -207,17 +207,19 @@ bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
 ```
 
-The two fixed entrypoints run only the EOS-bounded one-turn and three-turn
-interruption tests for each Workflow, for ten required gates at each concurrency
-level. The 10-lane gate must pass before the 20-lane gate on the same repository
-head. Each Workflow remains a separate wave, so the 20-lane entrypoint does not
-combine the five families into one 100-lane wave. The same package
-also provides targeted continuous-open realtime one-turn and three-turn
-interruption diagnostics; those are outside the fixed entrypoint selection. Realtime
-tests select the `realtime` Workspace input, send speech and tail silence, and
-leave the client audio stream open without audio EOS. Interruption waits until
-the current input packets have been sent, but does not close the input, before
-the BOS for turns two and three interrupts the preceding response. Every test
+Each fixed entrypoint runs ten required gates: Realtime and Realtime Duplex use
+continuous-open input, while Flowcraft, Eino, and Translate use EOS-bounded
+input; every family has a one-turn and a three-turn interruption gate. The
+10-lane gate must pass before the 20-lane gate on the same repository head. Each
+Workflow remains a separate wave, so the 20-lane entrypoint does not combine the
+five families into one 100-lane wave. Realtime and Realtime Duplex select the
+`realtime` Workspace input, send speech, and leave the client audio stream open
+without audio EOS or test-injected continuous silence; each Transformer must
+keep its own provider session alive according to that provider's protocol.
+Interruption waits until the current input packets have been sent, but does not
+close the input, before the BOS for turns two and three interrupts the preceding
+response. The package also has targeted realtime diagnostics for the other
+Workflow families; those are outside the fixed selection. Every test
 keeps the same physical connection, Workspace runtime, and logical `PeerStream`,
 and the final response must complete. Realtime, Flowcraft, realtime Eino, and
 realtime Translate require correctly attributed non-empty transcript, Assistant
@@ -229,13 +231,14 @@ under the ignored `testdata/workflow-concurrency/` directory.
 Each entrypoint validates the complete `.env` before Docker setup. Environment
 variables cannot change coverage or concurrency, and retry, provider fallback,
 or replacement sessions cannot manufacture a pass. A terminal failure becomes a
-provider-only `SKIP` only when every cause is either a complete structured
-Volcengine error with a `4xxxxxxx` or `5xxxxxxx` code, or one of the exact
-provider-completion guards owned by the transformer. Any local protocol,
+provider-only `SKIP` only when every cause is a complete structured Volcengine
+error with a `4xxxxxxx` or `5xxxxxxx` code. Transformer-owned provider-completion
+guards still fail the test. Any local protocol,
 deadline, setup, runtime, or cleanup error mixed into the wave still fails it;
-the provider failure artifact remains available.
-Resource samples support diagnosis; they are not proof of leak freedom, a
-provider SLA, or production capacity.
+the provider failure artifact remains available. The 20-lane entrypoint also
+enables runtime profiling and succeeds only when a complete non-empty
+`manifest.json` is collected. Resource samples and profiles support diagnosis;
+they are not proof of leak freedom, a provider SLA, or production capacity.
 
 Human audio review is separate from the automated gate:
 

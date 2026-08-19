@@ -37,6 +37,7 @@ type workflowConcurrencyWorkflow struct {
 	Fixture               string `json:"fixture"`
 	InputMode             string `json:"input_mode"`
 	RealtimeInputKeptOpen bool   `json:"realtime_input_kept_open"`
+	RealtimeSilenceFed    bool   `json:"realtime_silence_fed"`
 	RealtimeTailSilenceMS int64  `json:"realtime_tail_silence_ms,omitempty"`
 }
 
@@ -114,7 +115,7 @@ func newWorkflowConcurrencyArtifact(
 ) *workflowConcurrencyArtifact {
 	head, dirty := workflowConcurrencyRepositoryState()
 	var realtimeTailSilenceMS int64
-	if spec.KeepRealtimeInputOpen {
+	if spec.FeedRealtimeSilence {
 		realtimeTailSilenceMS = workflowConcurrencyRealtimeTailSilence(spec).Milliseconds()
 	}
 	return &workflowConcurrencyArtifact{
@@ -124,6 +125,7 @@ func newWorkflowConcurrencyArtifact(
 		Workflow: workflowConcurrencyWorkflow{
 			Family: spec.Name, Fixture: spec.Fixture, InputMode: spec.InputMode,
 			RealtimeInputKeptOpen: spec.KeepRealtimeInputOpen,
+			RealtimeSilenceFed:    spec.FeedRealtimeSilence,
 			RealtimeTailSilenceMS: realtimeTailSilenceMS,
 		},
 		Scenario:    scenario,

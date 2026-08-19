@@ -220,7 +220,7 @@ func TestRealtimeStreamKeepsInterruptBeforeReplacementBOSAtSameTimestamp(t *test
 	}
 }
 
-func TestRealtimeStreamHeapUsesTransitiveLifecycleOrderAtSameTimestamp(t *testing.T) {
+func TestRealtimeStreamHeapPreservesProducerOrderAtSameTimestamp(t *testing.T) {
 	oldData := realtimeStreamItem{
 		chunk: &MessageChunk{Part: Text("old"), Ctrl: &StreamCtrl{StreamID: "old", Timestamp: 1_000}},
 		seq:   1, timestamp: 1_000,
@@ -243,8 +243,27 @@ func TestRealtimeStreamHeapUsesTransitiveLifecycleOrderAtSameTimestamp(t *testin
 			}
 		}
 	}
-	if !heap.Less(2, 0) || !heap.Less(2, 1) || !heap.Less(0, 1) {
-		t.Fatal("same-timestamp order must be BOS, then data sequence")
+	if !heap.Less(0, 1) || !heap.Less(1, 2) || heap.Less(2, 0) {
+		t.Fatal("same-timestamp order must preserve producer sequence")
+	}
+}
+
+func TestRealtimeStreamDoesNotMoveInterruptedEOSBeforeSameTimestampData(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	for _, chunk := range []*MessageChunk{
+		{Part: Text("last"), Ctrl: &StreamCtrl{StreamID: "turn-1", Label: "assistant", Timestamp: 1_000}},
+		{Part: Text(""), Ctrl: &StreamCtrl{StreamID: "turn-1", Label: "assistant", Timestamp: 1_000, EndOfStream: true, Error: "interrupted"}},
+		{Part: Text(""), Ctrl: &StreamCtrl{StreamID: "turn-2", Label: "assistant", Timestamp: 1_000, BeginOfStream: true}},
+	} {
+		if err := stream.Push(context.Background(), chunk); err != nil {
+			t.Fatalf("Push() error = %v", err)
+		}
+	}
+	first, _ := stream.Next()
+	second, _ := stream.Next()
+	third, _ := stream.Next()
+	if first.Part != Text("last") || !second.IsEndOfStream() || !third.IsBeginOfStream() {
+		t.Fatalf("same-timestamp order = %#v, %#v, %#v; want data, interrupted EOS, replacement BOS", first, second, third)
 	}
 }
 

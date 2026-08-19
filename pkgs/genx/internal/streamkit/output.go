@@ -314,14 +314,15 @@ func (o *Output) DeferOutputObservation() {
 	o.mu.Unlock()
 }
 
-// ObserveOutput records one successfully delivered chunk.
+// ObserveOutput records one successfully delivered chunk. Callers must pass the
+// exact pointer returned by Next; reconstructed chunks are not acknowledgements.
 func (o *Output) ObserveOutput(chunk *genx.MessageChunk) {
 	if o == nil || chunk == nil {
 		return
 	}
 	o.mu.Lock()
 	var observe func(*genx.MessageChunk)
-	index := o.deferredObservationIndexLocked(chunk, true)
+	index := o.deferredObservationIndexLocked(chunk)
 	tracked := o.observationDeferred && index >= 0
 	if tracked {
 		observe = o.deferred[index].observe
@@ -347,7 +348,7 @@ func (o *Output) AbandonOutputObservation(chunk *genx.MessageChunk) {
 		return
 	}
 	o.mu.Lock()
-	index := o.deferredObservationIndexLocked(chunk, false)
+	index := o.deferredObservationIndexLocked(chunk)
 	var abandon func(*genx.MessageChunk)
 	if o.observationDeferred && index >= 0 {
 		abandon = o.deferred[index].abandon
@@ -370,7 +371,7 @@ func runAbandonments(observations []deferredObservation) {
 	}
 }
 
-func (o *Output) deferredObservationIndexLocked(chunk *genx.MessageChunk, allowFIFO bool) int {
+func (o *Output) deferredObservationIndexLocked(chunk *genx.MessageChunk) int {
 	if !o.observationDeferred || len(o.deferred) == 0 {
 		return -1
 	}
@@ -378,11 +379,6 @@ func (o *Output) deferredObservationIndexLocked(chunk *genx.MessageChunk, allowF
 		if o.deferred[index].chunk == chunk {
 			return index
 		}
-	}
-	if allowFIFO {
-		// Preserve the original FIFO acknowledgement contract for callers that
-		// pass a defensive clone rather than the exact chunk returned by Next.
-		return 0
 	}
 	return -1
 }

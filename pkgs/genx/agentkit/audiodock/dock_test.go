@@ -1000,7 +1000,9 @@ func TestDockReplacementBOSInterruptsPulledUndeliveredTerminal(t *testing.T) {
 		routes:           map[string]*dockRoute{"assistant-1": route},
 		discardSourceIDs: make(map[string]bool),
 	}
-	run.beginInputTurn("input-2")
+	if err := run.beginInputTurn("input-2"); err != nil {
+		t.Fatal(err)
+	}
 	interrupt, err := invocation.Output().Next()
 	if err != nil {
 		t.Fatal(err)
@@ -1076,8 +1078,12 @@ func TestDockRepeatedBOSPreservesPulledUndeliveredTextAndAudioTerminals(t *testi
 		routes:           map[string]*dockRoute{"assistant-1": route},
 		discardSourceIDs: make(map[string]bool),
 	}
-	run.beginInputTurn("input-2")
-	run.beginInputTurn("input-3")
+	if err := run.beginInputTurn("input-2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.beginInputTurn("input-3"); err != nil {
+		t.Fatal(err)
+	}
 
 	interrupts := make(map[string]int)
 	for range 2 {
@@ -1148,6 +1154,7 @@ func TestDockForwardModelChunkRacingInterruptDoesNotLeakOrFail(t *testing.T) {
 		}
 		start := make(chan struct{})
 		errs := make(chan error, 1)
+		interruptErrs := make(chan error, 1)
 		var wg sync.WaitGroup
 		wg.Go(func() {
 			<-start
@@ -1158,12 +1165,15 @@ func TestDockForwardModelChunkRacingInterruptDoesNotLeakOrFail(t *testing.T) {
 		})
 		wg.Go(func() {
 			<-start
-			run.beginInputTurn("input-2")
+			interruptErrs <- run.beginInputTurn("input-2")
 		})
 		close(start)
 		wg.Wait()
 		if err := <-errs; err != nil {
 			t.Fatalf("iteration %d: forwardModelChunk: %v", iteration, err)
+		}
+		if err := <-interruptErrs; err != nil {
+			t.Fatalf("iteration %d: beginInputTurn: %v", iteration, err)
 		}
 		if err := invocation.Output().Close(); err != nil {
 			t.Fatalf("iteration %d: close output: %v", iteration, err)
@@ -1215,7 +1225,9 @@ func TestDockInterruptsPendingTTSBeforeNextTranscript(t *testing.T) {
 		invocation: invocation,
 		routes:     map[string]*dockRoute{"assistant-1": route},
 	}
-	run.interruptOpenRoutes("interrupted")
+	if err := run.interruptOpenRoutes("interrupted"); err != nil {
+		t.Fatal(err)
+	}
 	if pipeCtx.Err() == nil {
 		t.Fatal("pending TTS was not cancelled")
 	}
@@ -1251,6 +1263,27 @@ func TestDockInterruptsPendingTTSBeforeNextTranscript(t *testing.T) {
 	}
 	if controlEOSIndex < 0 || transcriptIndex <= controlEOSIndex {
 		t.Fatalf("control EOS index = %d, transcript index = %d; chunks=%#v", controlEOSIndex, transcriptIndex, chunks)
+	}
+}
+
+func TestDockInterruptOpenRoutesReturnsTerminalFailure(t *testing.T) {
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 1})
+	response, err := invocation.StartResponse(streamkit.ResponseConfig{StreamID: "assistant-1", Role: genx.RoleModel})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := invocation.Emit(response, &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := invocation.Output().Close(); err != nil {
+		t.Fatal(err)
+	}
+	run := &dockRun{invocation: invocation, routes: map[string]*dockRoute{
+		"assistant-1": {response: response, role: genx.RoleModel},
+	}}
+
+	if err := run.interruptOpenRoutes("interrupted"); err == nil {
+		t.Fatal("interruptOpenRoutes() succeeded after output closed")
 	}
 }
 

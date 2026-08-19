@@ -2,7 +2,6 @@ package streamkit
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -131,8 +130,9 @@ func (s *ResponseStream) DeferOutputObservation() {
 	observer.DeferOutputObservation()
 }
 
-// ObserveOutput acknowledges a chunk at the final pull boundary. The wrapped
-// producer receives its original provider StreamID rather than the local ID.
+// ObserveOutput acknowledges a chunk at the final pull boundary. Callers must
+// pass the exact pointer returned by Next. The wrapped producer receives its
+// original provider StreamID rather than the local ID.
 func (s *ResponseStream) ObserveOutput(chunk *genx.MessageChunk) {
 	if s == nil || chunk == nil {
 		return
@@ -223,20 +223,7 @@ func (s *ResponseStream) takePendingObservation(chunk *genx.MessageChunk) (pendi
 		}
 	}
 	if index < 0 {
-		for candidate := range pending {
-			if reflect.DeepEqual(pending[candidate].forwarded, chunk) {
-				index = candidate
-				break
-			}
-		}
-	}
-	if index < 0 {
-		// Preserve the historical FIFO fallback for callers that reconstruct
-		// an acknowledgement instead of returning the delivered chunk or a
-		// defensive clone. Exact and clone matches above keep deferred routes
-		// correct when a later text terminal overtakes an audio terminal that
-		// is waiting for playback drain.
-		index = 0
+		return pendingObservation{}, false
 	}
 	result := pending[index]
 	if len(pending) == 1 {

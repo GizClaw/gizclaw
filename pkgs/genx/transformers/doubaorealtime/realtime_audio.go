@@ -302,6 +302,30 @@ func (a *doubaoRealtimeAudioInput) silenceFrames(frameCount int) ([][]byte, erro
 	}
 }
 
+func (a *doubaoRealtimeAudioInput) keepaliveFrames(frameCount int) ([][]byte, error) {
+	if frameCount <= 0 {
+		return nil, nil
+	}
+	if a.format != "speech_opus" && a.format != "opus" {
+		return a.silenceFrames(frameCount)
+	}
+	frames := make([][]byte, 0, frameCount)
+	state := uint32(1)
+	for range frameCount {
+		samples := make([]int16, a.frameSize*a.channels)
+		for index := range samples {
+			state = state*1664525 + 1013904223
+			samples[index] = int16(int32(state>>16)%3) - 1
+		}
+		frame, err := a.encodeOpusSamples(samples)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, frame)
+	}
+	return frames, nil
+}
+
 func (a *doubaoRealtimeAudioInput) encodeOpus(pcm []byte) ([]byte, error) {
 	frames, err := a.encodeOpusFrames(pcm)
 	if err != nil {

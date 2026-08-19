@@ -363,28 +363,7 @@ func (h realtimeStreamHeap) Less(i, j int) bool {
 	if left.timestamp != right.timestamp {
 		return left.timestamp < right.timestamp
 	}
-	leftLifecycle := realtimeChunkLifecycle(left.chunk)
-	rightLifecycle := realtimeChunkLifecycle(right.chunk)
-	if leftLifecycle != rightLifecycle {
-		return leftLifecycle < rightLifecycle
-	}
 	return left.seq < right.seq
-}
-
-func realtimeChunkLifecycle(chunk *MessageChunk) uint8 {
-	if chunk == nil {
-		return 2
-	}
-	if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Error) == "interrupted" {
-		return 0
-	}
-	if chunk.IsBeginOfStream() {
-		return 1
-	}
-	if chunk.IsEndOfStream() {
-		return 3
-	}
-	return 2
 }
 
 func (h realtimeStreamHeap) Swap(i, j int) {

@@ -45,6 +45,31 @@ export GIZCLAW_E2E_TURN_CREDENTIAL="$container_turn_credential"
 envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_E2E_TURN_USERNAME} ${GIZCLAW_E2E_TURN_CREDENTIAL}' \
   < "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template" \
   > "$workspace_dir/config.yaml"
+if [[ "${GIZCLAW_E2E_PROFILING:-}" == "1" ]]; then
+  awk '
+/^stores:/ {
+  print "  profiling-files:"
+  print "    kind: filesystem.dir"
+  print "    dir: data/profiling"
+  print $0
+  next
+}
+/^services:/ {
+  print "  runtime-profiling:"
+  print "    kind: objectstore"
+  print "    storage: profiling-files"
+  print "    prefix: pprof"
+  print ""
+  print "profiling:"
+  print "  enabled: true"
+  print "  store: runtime-profiling"
+  print $0
+  next
+}
+{ print }
+  ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
+  mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
+fi
 if [[ "${GIZCLAW_E2E_PERSISTENT_KV:-}" == "1" ]]; then
 
   perl -0pi -e 's/  memory:\n    kind: memory/  memory:\n    kind: badger\n    dir: data\/state.badger/' \
