@@ -254,9 +254,11 @@ func TestDoubaoRealtimeDuplexReturnsFunctionCallOutputError(t *testing.T) {
 	}
 	invoker := &doubaoTestToolInvoker{definitions: doubaoToolDefinitions()}
 	transformer := newTransformer(nil, withToolInvoker(invoker))
+	input := newDoubaoRealtimeDuplexInputReader(emptyRealtimeStream{})
+	defer input.Close()
 	_, err := transformer.processLoop(
 		t.Context(),
-		emptyRealtimeStream{},
+		input,
 		newBufferStream(1),
 		session,
 		toolrun.New(invoker, 0),

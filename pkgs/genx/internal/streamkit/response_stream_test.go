@@ -115,9 +115,57 @@ func TestResponseStreamForwardsPullObservationWithUpstreamID(t *testing.T) {
 	if observed != nil {
 		t.Fatalf("observed before acknowledgement: %#v", observed)
 	}
-	stream.ObserveOutput(chunk.Clone())
+	stream.ObserveOutput(chunk)
 	if observed == nil || observed.Ctrl == nil || observed.Ctrl.StreamID != "provider" {
 		t.Fatalf("forwarded observation = %#v", observed)
+	}
+}
+
+func TestResponseStreamRejectsReconstructedObservation(t *testing.T) {
+	var observed *genx.MessageChunk
+	source := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) { observed = chunk }})
+	_ = source.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "provider"}})
+	stream, _ := NewResponseStream(source)
+	stream.DeferOutputObservation()
+	chunk, _ := stream.Next()
+
+	stream.ObserveOutput(chunk.Clone())
+	if observed != nil {
+		t.Fatalf("reconstructed observation acknowledged source chunk: %#v", observed)
+	}
+	stream.ObserveOutput(chunk)
+	if observed == nil {
+		t.Fatal("exact delivered chunk was not acknowledged")
+	}
+}
+
+func TestResponseStreamForwardsOutOfOrderRouteObservations(t *testing.T) {
+	var observed []*genx.MessageChunk
+	source := NewOutput(OutputConfig{Observe: func(chunk *genx.MessageChunk) {
+		observed = append(observed, chunk)
+	}})
+	audioEOS := &genx.MessageChunk{
+		Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true},
+	}
+	textEOS := &genx.MessageChunk{
+		Role: genx.RoleModel, Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true},
+	}
+	_ = source.Push(audioEOS)
+	_ = source.Push(textEOS)
+	stream, _ := NewResponseStream(source)
+	stream.DeferOutputObservation()
+	forwardedAudio, _ := stream.Next()
+	forwardedText, _ := stream.Next()
+
+	stream.ObserveOutput(forwardedText)
+	if len(observed) != 1 || observed[0] != textEOS {
+		t.Fatalf("first observation = %#v, want text EOS", observed)
+	}
+	stream.ObserveOutput(forwardedAudio)
+	if len(observed) != 2 || observed[1] != audioEOS {
+		t.Fatalf("second observation = %#v, want audio EOS", observed)
 	}
 }
 

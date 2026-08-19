@@ -229,7 +229,7 @@ PY
   return 2
 }
 
-pick_free_udp_port() {
+pick_free_turn_port() {
   local exclude_min="$1"
   local exclude_max="$2"
   shift 2
@@ -249,12 +249,12 @@ pick_free_udp_port() {
     if [[ "$excluded" == "1" ]]; then
       continue
     fi
-    if udp_port_available "$port"; then
+    if tcp_udp_port_available "$port"; then
       echo "$port"
       return 0
     fi
   done
-  echo "failed to find a free local UDP port outside relay range $exclude_min-$exclude_max" >&2
+  echo "failed to find a free local TURN TCP/UDP port outside relay range $exclude_min-$exclude_max" >&2
   return 1
 }
 
@@ -547,7 +547,7 @@ if [[ -z "${GIZCLAW_E2E_TURN_RELAY_MAX_PORT:-}" ]]; then
   GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$((GIZCLAW_E2E_TURN_RELAY_MIN_PORT + default_turn_relay_port_count - 1))
 fi
 if [[ -z "${GIZCLAW_E2E_DOCKER_TURN_PORT:-}" ]]; then
-  GIZCLAW_E2E_DOCKER_TURN_PORT="$(pick_free_udp_port "$GIZCLAW_E2E_TURN_RELAY_MIN_PORT" "$GIZCLAW_E2E_TURN_RELAY_MAX_PORT")"
+  GIZCLAW_E2E_DOCKER_TURN_PORT="$(pick_free_turn_port "$GIZCLAW_E2E_TURN_RELAY_MIN_PORT" "$GIZCLAW_E2E_TURN_RELAY_MAX_PORT")"
 fi
 if [[ -z "${GIZCLAW_E2E_TURN_RELAY_ADDRESS:-}" ]]; then
   GIZCLAW_E2E_TURN_RELAY_ADDRESS="$(detect_turn_host)"
@@ -566,8 +566,8 @@ if ((GIZCLAW_E2E_DOCKER_TURN_PORT >= GIZCLAW_E2E_TURN_RELAY_MIN_PORT &&
   echo "TURN listener port overlaps relay range: $GIZCLAW_E2E_DOCKER_TURN_PORT in $GIZCLAW_E2E_TURN_RELAY_MIN_PORT-$GIZCLAW_E2E_TURN_RELAY_MAX_PORT" >&2
   exit 2
 fi
-if ! udp_port_available "$GIZCLAW_E2E_DOCKER_TURN_PORT"; then
-  echo "TURN listener UDP port is unavailable: $GIZCLAW_E2E_DOCKER_TURN_PORT" >&2
+if ! tcp_udp_port_available "$GIZCLAW_E2E_DOCKER_TURN_PORT"; then
+  echo "TURN listener TCP/UDP port is unavailable: $GIZCLAW_E2E_DOCKER_TURN_PORT" >&2
   exit 2
 fi
 if [[ "$GIZCLAW_E2E_DOCKER_ADMIN_PORT" == "$GIZCLAW_E2E_DOCKER_EDGE_PORT" ||

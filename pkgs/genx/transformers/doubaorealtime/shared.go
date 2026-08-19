@@ -107,6 +107,9 @@ func (a *SharedAudioInput) Prepare(blob *genx.Blob) ([]byte, error) {
 func (a *SharedAudioInput) PrepareFrames(blob *genx.Blob) ([][]byte, error) {
 	return a.inner.prepareFrames(blob)
 }
+func (a *SharedAudioInput) KeepaliveFrames(frameCount int) ([][]byte, error) {
+	return a.inner.keepaliveFrames(frameCount)
+}
 func (a *SharedAudioInput) Format() string { return a.inner.format }
 func (a *SharedAudioInput) Close()         { a.inner.close() }
 

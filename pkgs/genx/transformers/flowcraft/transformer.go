@@ -421,15 +421,6 @@ func (s *session) startTurn(user string, previous <-chan struct{}) <-chan struct
 		session: s, user: user, response: response, ctx: runCtx, cancel: cancel,
 		accepting: true, changed: make(chan struct{}, 1), done: make(chan struct{}), previous: previous,
 	}
-	if err := s.invocation.Emit(response, &genx.MessageChunk{
-		Part: genx.Text(""),
-		Ctrl: &genx.StreamCtrl{StreamID: response.StreamID(), BeginOfStream: true},
-	}); err != nil {
-		_ = s.invocation.FinishResponse(response, err.Error())
-		done := make(chan struct{})
-		close(done)
-		return done
-	}
 	s.mu.Lock()
 	s.runs[response.StreamID()] = run
 	s.active = run
@@ -511,17 +502,16 @@ func (r *turnRun) execute() {
 	defer r.session.turns.Done()
 	defer close(r.done)
 	if r.previous != nil {
-		select {
-		case <-r.previous:
-		case <-r.ctx.Done():
-		}
+		<-r.previous
 	}
 	var result *flowagent.Result
-	var runErr error
-	if r.ctx.Err() != nil {
-		runErr = context.Cause(r.ctx)
-	} else {
-		result, runErr = r.runGraph()
+	runErr := r.beginResponse()
+	if runErr == nil {
+		if r.ctx.Err() != nil {
+			runErr = context.Cause(r.ctx)
+		} else {
+			result, runErr = r.runGraph()
+		}
 	}
 	r.mu.Lock()
 	r.accepting = false
@@ -564,6 +554,16 @@ func (r *turnRun) execute() {
 	}
 	r.session.mu.Unlock()
 	r.cancel(io.EOF)
+}
+
+func (r *turnRun) beginResponse() error {
+	if err := r.session.invocation.Emit(r.response, &genx.MessageChunk{
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: r.response.StreamID(), BeginOfStream: true},
+	}); err != nil {
+		return fmt.Errorf("flowcraft: begin response: %w", err)
+	}
+	return nil
 }
 
 func (r *turnRun) runGraph() (*flowagent.Result, error) {

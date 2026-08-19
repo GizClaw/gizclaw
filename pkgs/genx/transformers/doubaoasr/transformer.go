@@ -432,6 +432,15 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		return err
 	}
+	interruptSession := func() error {
+		if session == nil {
+			return nil
+		}
+		if sessionRoute != nil {
+			sessionRoute.interrupt("interrupted")
+		}
+		return finishSession()
+	}
 
 	// Process input stream
 	for {
@@ -474,7 +483,14 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 
 		lastChunk = chunk
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.StreamID) != "" {
-			activeStreamID = strings.TrimSpace(chunk.Ctrl.StreamID)
+			nextStreamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+			if session != nil && activeStreamID != "" && nextStreamID != activeStreamID {
+				if err := interruptSession(); err != nil {
+					output.CloseWithError(err)
+					return
+				}
+			}
+			activeStreamID = nextStreamID
 			if sessionRoute != nil {
 				sessionRoute.set(activeStreamID)
 			}
@@ -763,6 +779,7 @@ type doubaoASRRouteState struct {
 	streamID        string
 	generation      uint64
 	transcriptBegan bool
+	terminalError   string
 }
 
 func newDoubaoASRRouteState(chunk *genx.MessageChunk) *doubaoASRRouteState {
@@ -815,6 +832,24 @@ func (s *doubaoASRRouteState) transcriptStarted() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.transcriptBegan
+}
+
+func (s *doubaoASRRouteState) interrupt(errorText string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.terminalError = strings.TrimSpace(errorText)
+	s.mu.Unlock()
+}
+
+func (s *doubaoASRRouteState) interruption() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.terminalError
 }
 
 func newDoubaoASRHistoryAudioBuffer(cfg doubaoASRSessionConfig) *doubaoASRHistoryAudioBuffer {
@@ -1166,6 +1201,9 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 		if !t.emitInterim || !transcriptOpen {
 			return
 		}
+		if interrupted := route.interruption(); interrupted != "" {
+			errText = interrupted
+		}
 		if errText == "" && !transcriptDefinite {
 			errText = "asr transcript ended before definite result"
 		}
@@ -1186,8 +1224,18 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 
 	for result, err := range session.Recv() {
 		if err != nil {
+			if interrupted := route.interruption(); interrupted != "" {
+				closeTranscript(interrupted)
+				done <- nil
+				return
+			}
 			closeTranscript(err.Error())
 			done <- err
+			return
+		}
+		if interrupted := route.interruption(); interrupted != "" {
+			closeTranscript(interrupted)
+			done <- nil
 			return
 		}
 		resultCount++
@@ -1238,6 +1286,11 @@ func (t *Transformer) receiveResults(session doubaoASRSession, lastChunk *genx.M
 			textCount++
 			closeTranscript("")
 		}
+	}
+	if interrupted := route.interruption(); interrupted != "" {
+		closeTranscript(interrupted)
+		done <- nil
+		return
 	}
 	if textCount == 0 {
 		if !sawInterimText {

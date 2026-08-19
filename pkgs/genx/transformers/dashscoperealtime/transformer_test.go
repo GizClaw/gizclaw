@@ -2,10 +2,14 @@ package dashscoperealtime
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"iter"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
@@ -171,6 +175,233 @@ func TestTransformerCreatesCompleteEmptyTranscriptLifecycle(t *testing.T) {
 	}
 }
 
+func TestTransformerClosesInterruptedTurnsBeforeReplacementBOS(t *testing.T) {
+	session := newScriptedDashScopeSession()
+	transformer := newTransformer(nil, withOutputAudioFormat(dashscope.AudioFormatPCM16))
+	transformer.realtime = &dashScopeBranchOpener{session: session}
+	input := newBufferStream(8)
+	output, err := transformer.Transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	type nextResult struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan nextResult, 32)
+	go func() {
+		for {
+			chunk, nextErr := output.Next()
+			results <- nextResult{chunk: chunk, err: nextErr}
+			if nextErr != nil {
+				return
+			}
+		}
+	}()
+	var chunks []*genx.MessageChunk
+	waitForPart := func(wantText string, wantAudio bool) {
+		t.Helper()
+		for {
+			select {
+			case result := <-results:
+				if result.err != nil {
+					t.Fatalf("read output for %q: %v", wantText, result.err)
+				}
+				chunks = append(chunks, result.chunk)
+				switch part := result.chunk.Part.(type) {
+				case genx.Text:
+					if !wantAudio && part == genx.Text(wantText) {
+						return
+					}
+				case *genx.Blob:
+					if wantAudio && part != nil && string(part.Data) == wantText {
+						return
+					}
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatalf("output part %q audio=%t did not arrive", wantText, wantAudio)
+			}
+		}
+	}
+	pushInputBOS := func(turn int) {
+		t.Helper()
+		if err := input.Push(&genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{
+			StreamID: fmt.Sprintf("turn-%d", turn), BeginOfStream: true,
+		}}); err != nil {
+			t.Fatalf("Push(turn %d BOS) error = %v", turn, err)
+		}
+	}
+	startResponse := func(turn int, answer string) {
+		t.Helper()
+		providerID := fmt.Sprintf("response-%d", turn)
+		session.send(
+			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseCreated, ResponseID: providerID},
+			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDelta, ResponseID: providerID, Delta: answer},
+			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: providerID, Audio: []byte(answer)},
+		)
+		waitForPart(answer, false)
+		waitForPart(answer, true)
+	}
+
+	pushInputBOS(1)
+	session.waitCancels(t, 1)
+	startResponse(1, "answer-1")
+	pushInputBOS(2)
+	session.waitCancels(t, 2)
+	session.send(
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "response-1", Delta: "late-answer-1"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: "response-1", Audio: []byte("late-answer-1")},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-1"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-1"},
+	)
+	startResponse(2, "answer-2")
+	pushInputBOS(3)
+	session.waitCancels(t, 3)
+	session.send(
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "response-2", Delta: "late-answer-2"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: "response-2", Audio: []byte("late-answer-2")},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-2"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-2"},
+	)
+	startResponse(3, "answer-3")
+	session.send(
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-3"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-3"},
+	)
+	close(session.events)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	for result := range results {
+		if errors.Is(result.err, io.EOF) || errors.Is(result.err, genx.ErrDone) {
+			break
+		}
+		if result.err != nil {
+			t.Fatalf("read output: %v", result.err)
+		}
+		chunks = append(chunks, result.chunk)
+	}
+
+	responseIDs := make([]string, 3)
+	for _, chunk := range chunks {
+		text, ok := chunk.Part.(genx.Text)
+		if !ok || chunk.Ctrl == nil {
+			continue
+		}
+		for turn := range responseIDs {
+			if text == genx.Text(fmt.Sprintf("answer-%d", turn+1)) {
+				responseIDs[turn] = chunk.Ctrl.StreamID
+			}
+		}
+	}
+	for _, chunk := range chunks {
+		switch part := chunk.Part.(type) {
+		case genx.Text:
+			if strings.HasPrefix(string(part), "late-") {
+				t.Fatalf("late interrupted text escaped: %#v", chunk)
+			}
+		case *genx.Blob:
+			if part != nil && strings.HasPrefix(string(part.Data), "late-") {
+				t.Fatalf("late interrupted audio escaped: %#v", chunk)
+			}
+		}
+	}
+	for turn, responseID := range responseIDs {
+		if responseID == "" {
+			t.Fatalf("turn %d response StreamID missing", turn+1)
+		}
+		if turn > 0 {
+			requireDashScopeHandoffOrder(t, chunks, responseIDs[turn-1], responseID)
+		}
+	}
+}
+
+func TestDashScopeOutputRoutesInterruptQueuedResponse(t *testing.T) {
+	output := newBufferStream(8)
+	routes := newDashScopeOutputRoutes(output)
+	const streamID = "response-1"
+	for _, item := range []struct {
+		mimeType string
+		chunk    *genx.MessageChunk
+	}{
+		{mimeType: "text/plain", chunk: &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: streamID}}},
+		{mimeType: "audio/pcm", chunk: &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte("stale")}, Ctrl: &genx.StreamCtrl{StreamID: streamID}}},
+	} {
+		if err := routes.emit(genx.RoleModel, streamID, item.mimeType, item.chunk); err != nil {
+			t.Fatalf("emit queued %s: %v", item.mimeType, err)
+		}
+	}
+	if err := routes.interrupt("", streamID); err != nil {
+		t.Fatalf("interrupt queued response: %v", err)
+	}
+	if err := routes.interrupt(streamID); err != nil {
+		t.Fatalf("repeat interrupt: %v", err)
+	}
+	if err := routes.emit(genx.RoleModel, streamID, "text/plain", &genx.MessageChunk{
+		Role: genx.RoleModel, Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: streamID},
+	}); err != nil {
+		t.Fatalf("emit late text: %v", err)
+	}
+	if err := routes.finish(genx.RoleModel, streamID, "audio/pcm", ""); err != nil {
+		t.Fatalf("finish late audio: %v", err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatalf("close output: %v", err)
+	}
+
+	chunks, err := collectDashScopeToolOutput(output)
+	if err != nil {
+		t.Fatalf("collect output: %v", err)
+	}
+	if len(chunks) != 4 {
+		t.Fatalf("interrupted queued chunks = %#v, want two BOS/EOS routes", chunks)
+	}
+	routeChunks := make(map[string][]*genx.MessageChunk)
+	for _, chunk := range chunks {
+		mimeType, ok := chunk.MIMEType()
+		if !ok || chunk.Ctrl == nil || chunk.Ctrl.StreamID != streamID {
+			t.Fatalf("queued interrupt chunk = %#v", chunk)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && text != "" {
+			t.Fatalf("stale text escaped: %#v", chunk)
+		}
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) != 0 {
+			t.Fatalf("stale audio escaped: %#v", chunk)
+		}
+		routeChunks[mimeType] = append(routeChunks[mimeType], chunk)
+	}
+	for _, mimeType := range []string{"text/plain", "audio/pcm"} {
+		route := routeChunks[mimeType]
+		if len(route) != 2 || !route[0].IsBeginOfStream() || !route[1].IsEndOfStream() || route[1].Ctrl.Error != "interrupted" {
+			t.Fatalf("route %s = %#v, want BOS/interrupted EOS", mimeType, route)
+		}
+	}
+}
+
+func requireDashScopeHandoffOrder(t *testing.T, chunks []*genx.MessageChunk, previousID, nextID string) {
+	t.Helper()
+	previousTextEOS, previousAudioEOS, nextBOS := -1, -1, -1
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Role != genx.RoleModel {
+			continue
+		}
+		if chunk.Ctrl.StreamID == previousID && chunk.IsEndOfStream() && chunk.Ctrl.Error == "interrupted" {
+			switch chunk.Part.(type) {
+			case genx.Text:
+				previousTextEOS = index
+			case *genx.Blob:
+				previousAudioEOS = index
+			}
+		}
+		if chunk.Ctrl.StreamID == nextID && chunk.IsBeginOfStream() && (nextBOS < 0 || index < nextBOS) {
+			nextBOS = index
+		}
+	}
+	if previousTextEOS < 0 || previousAudioEOS < 0 || nextBOS <= previousTextEOS || nextBOS <= previousAudioEOS {
+		t.Fatalf("assistant handoff %q -> %q indices: text EOS=%d audio EOS=%d next BOS=%d; chunks=%#v", previousID, nextID, previousTextEOS, previousAudioEOS, nextBOS, chunks)
+	}
+}
+
 func TestPrepareInputAudioDecodesPeerOpusToPCM16(t *testing.T) {
 	encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationAudio)
 	if err != nil {
@@ -259,6 +490,70 @@ type fakeDashScopeSession struct {
 	responseCreates      int
 	pendingToolResponses int
 	toolResponseCreates  int
+}
+
+type scriptedDashScopeSession struct {
+	mu         sync.Mutex
+	eventCalls int
+	events     chan *dashscope.RealtimeEvent
+	cancels    int
+}
+
+func newScriptedDashScopeSession() *scriptedDashScopeSession {
+	return &scriptedDashScopeSession{events: make(chan *dashscope.RealtimeEvent, 16)}
+}
+
+func (*scriptedDashScopeSession) UpdateSession(*dashscope.SessionConfig) error { return nil }
+func (*scriptedDashScopeSession) AppendAudio([]byte) error                     { return nil }
+func (*scriptedDashScopeSession) CommitInput() error                           { return nil }
+func (*scriptedDashScopeSession) ClearInput() error                            { return nil }
+func (*scriptedDashScopeSession) CreateResponse(*dashscope.ResponseCreateOptions) error {
+	return nil
+}
+func (*scriptedDashScopeSession) SubmitFunctionCallOutput(string, string) error { return nil }
+func (s *scriptedDashScopeSession) CancelResponse() error {
+	s.mu.Lock()
+	s.cancels++
+	s.mu.Unlock()
+	return nil
+}
+func (*scriptedDashScopeSession) Close() error { return nil }
+func (s *scriptedDashScopeSession) Events() iter.Seq2[*dashscope.RealtimeEvent, error] {
+	s.mu.Lock()
+	call := s.eventCalls
+	s.eventCalls++
+	s.mu.Unlock()
+	return func(yield func(*dashscope.RealtimeEvent, error) bool) {
+		if call == 0 {
+			yield(&dashscope.RealtimeEvent{Type: dashscope.EventTypeSessionCreated}, nil)
+			return
+		}
+		for event := range s.events {
+			if !yield(event, nil) {
+				return
+			}
+		}
+	}
+}
+func (s *scriptedDashScopeSession) send(events ...*dashscope.RealtimeEvent) {
+	for _, event := range events {
+		s.events <- event
+	}
+}
+
+func (s *scriptedDashScopeSession) waitCancels(t *testing.T, want int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		s.mu.Lock()
+		cancels := s.cancels
+		s.mu.Unlock()
+		if cancels >= want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("CancelResponse calls did not reach %d", want)
 }
 
 func (s *fakeDashScopeSession) UpdateSession(config *dashscope.SessionConfig) error {

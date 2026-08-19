@@ -511,6 +511,140 @@ func TestRepeatedBOSInterruptsPriorTurnsWithoutClosingSession(t *testing.T) {
 	}
 }
 
+func TestRepeatedBOSClosesInterruptedTurnBeforeReplacementBOS(t *testing.T) {
+	t.Parallel()
+	generator := newOrderedInterruptGenerator(3)
+	agent, err := New(testConfig(generator))
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	input := newInputBuilder()
+	output, err := agent.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	type nextResult struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan nextResult, 16)
+	go func() {
+		for {
+			chunk, nextErr := output.Next()
+			results <- nextResult{chunk: chunk, err: nextErr}
+			if nextErr != nil {
+				return
+			}
+		}
+	}()
+	var chunks []*genx.MessageChunk
+	waitForText := func(want string) {
+		t.Helper()
+		for {
+			select {
+			case result := <-results:
+				if result.err != nil {
+					t.Fatalf("read output before %q: %v", want, result.err)
+				}
+				chunks = append(chunks, result.chunk)
+				if text, ok := result.chunk.Part.(genx.Text); ok && text == genx.Text(want) {
+					return
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatalf("output %q did not arrive", want)
+			}
+		}
+	}
+
+	if err := addTextTurn(input, "turn-1"); err != nil {
+		t.Fatal(err)
+	}
+	waitForText("partial: turn-1")
+	if err := addTextTurn(input, "turn-2"); err != nil {
+		t.Fatal(err)
+	}
+	generator.waitCancelled(t, 0)
+	close(generator.release[0])
+	waitForText("partial: turn-2")
+	if err := addTextTurn(input, "turn-3"); err != nil {
+		t.Fatal(err)
+	}
+	generator.waitCancelled(t, 1)
+	close(generator.release[1])
+	waitForText("reply: turn-3")
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	for result := range results {
+		if errors.Is(result.err, io.EOF) || errors.Is(result.err, genx.ErrDone) {
+			break
+		}
+		if result.err != nil {
+			t.Fatalf("read output: %v", result.err)
+		}
+		chunks = append(chunks, result.chunk)
+	}
+
+	type lifecycle struct {
+		streamID string
+		bosIndex int
+		eosIndex int
+		bosCount int
+		eosCount int
+		error    string
+	}
+	turns := []lifecycle{{bosIndex: -1, eosIndex: -1}, {bosIndex: -1, eosIndex: -1}, {bosIndex: -1, eosIndex: -1}}
+	wantText := []genx.Text{"partial: turn-1", "partial: turn-2", "reply: turn-3"}
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		text, ok := chunk.Part.(genx.Text)
+		if !ok {
+			continue
+		}
+		for turn := range turns {
+			if text == wantText[turn] {
+				turns[turn].streamID = chunk.Ctrl.StreamID
+			}
+		}
+	}
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		for turn := range turns {
+			if turns[turn].streamID == "" || chunk.Ctrl.StreamID != turns[turn].streamID {
+				continue
+			}
+			if chunk.IsBeginOfStream() {
+				turns[turn].bosIndex = index
+				turns[turn].bosCount++
+			}
+			if chunk.IsEndOfStream() {
+				turns[turn].eosIndex = index
+				turns[turn].eosCount++
+				turns[turn].error = chunk.Ctrl.Error
+			}
+		}
+	}
+	for turn, lifecycle := range turns {
+		if lifecycle.streamID == "" || lifecycle.bosCount != 1 || lifecycle.eosCount != 1 || lifecycle.bosIndex >= lifecycle.eosIndex {
+			t.Fatalf("turn %d lifecycle = %#v; chunks=%#v", turn+1, lifecycle, chunks)
+		}
+		wantError := ""
+		if turn < len(turns)-1 {
+			wantError = "interrupted"
+		}
+		if lifecycle.error != wantError {
+			t.Errorf("turn %d EOS error = %q, want %q", turn+1, lifecycle.error, wantError)
+		}
+		if turn > 0 && turns[turn-1].eosIndex >= lifecycle.bosIndex {
+			t.Errorf("turn %d BOS index %d preceded turn %d EOS index %d", turn+1, lifecycle.bosIndex, turn, turns[turn-1].eosIndex)
+		}
+	}
+}
+
 func TestTransformBypassesNonTextStream(t *testing.T) {
 	t.Parallel()
 	generator := &echoGenerator{}
@@ -1258,6 +1392,30 @@ type repeatedInterruptGenerator struct {
 	started chan string
 }
 
+type orderedInterruptGenerator struct {
+	mu        sync.Mutex
+	calls     int
+	started   []chan struct{}
+	cancelled []chan struct{}
+	release   []chan struct{}
+}
+
+func newOrderedInterruptGenerator(turns int) *orderedInterruptGenerator {
+	generator := &orderedInterruptGenerator{
+		started:   make([]chan struct{}, turns),
+		cancelled: make([]chan struct{}, turns-1),
+		release:   make([]chan struct{}, turns-1),
+	}
+	for index := range generator.started {
+		generator.started[index] = make(chan struct{})
+	}
+	for index := range generator.cancelled {
+		generator.cancelled[index] = make(chan struct{})
+		generator.release[index] = make(chan struct{})
+	}
+	return generator
+}
+
 type waitingMemoryStore struct {
 	mu           sync.Mutex
 	observations []memory.Observation
@@ -1379,6 +1537,44 @@ func (g *repeatedInterruptGenerator) GenerateStream(ctx context.Context, _ strin
 
 func (*repeatedInterruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
 	return genx.Usage{}, nil, errors.New("not supported")
+}
+
+func (g *orderedInterruptGenerator) GenerateStream(ctx context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	g.mu.Lock()
+	turn := g.calls
+	g.calls++
+	g.mu.Unlock()
+	if turn >= len(g.started) {
+		return nil, fmt.Errorf("unexpected generator turn %d", turn+1)
+	}
+	user := lastUserText(modelContext)
+	if turn == len(g.started)-1 {
+		close(g.started[turn])
+		return responseStream(modelContext, "reply: "+user), nil
+	}
+	builder := genx.NewGrowableStreamBuilder(modelContext, 1)
+	go func() {
+		_ = builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial: " + user)})
+		close(g.started[turn])
+		<-ctx.Done()
+		close(g.cancelled[turn])
+		<-g.release[turn]
+		_ = builder.Abort(context.Cause(ctx))
+	}()
+	return builder.Stream(), nil
+}
+
+func (*orderedInterruptGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("not supported")
+}
+
+func (g *orderedInterruptGenerator) waitCancelled(t *testing.T, turn int) {
+	t.Helper()
+	select {
+	case <-g.cancelled[turn]:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("turn %d was not cancelled", turn+1)
+	}
 }
 
 func responseStream(modelContext genx.ModelContext, text string) genx.Stream {

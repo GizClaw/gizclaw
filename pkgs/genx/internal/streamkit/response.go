@@ -47,6 +47,28 @@ func (r *Response) StreamID() string {
 	return r.config.StreamID
 }
 
+// Complete reports whether the response has reached a terminal boundary or
+// every MIME route declared so far has emitted EOS.
+func (r *Response) Complete() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.terminal {
+		return true
+	}
+	if len(r.routes) == 0 {
+		return false
+	}
+	for _, done := range r.routes {
+		if !done {
+			return false
+		}
+	}
+	return true
+}
+
 // Declare marks a canonical MIME channel as open.
 func (r *Response) Declare(mimeType string) bool {
 	if r == nil {

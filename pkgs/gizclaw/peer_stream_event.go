@@ -172,6 +172,13 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
+		OnAudioCutover: func(chunk *genx.MessageChunk) error {
+			event := audio.cutover(chunk)
+			if event == nil {
+				return nil
+			}
+			return o.Events.Broadcast(event)
+		},
 		Observe: func(chunk *genx.MessageChunk) error {
 			routeEOS := audio.consumeRouteEOS(chunk)
 			if routeEOS != nil {
@@ -195,16 +202,16 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		},
 	}).ConsumeAgentOutput(ctx, output)
 	if err != nil {
-		return errors.Join(err, o.broadcastAudioAbort(audio))
+		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	if err := audio.close(); err != nil {
-		return errors.Join(err, o.broadcastAudioAbort(audio))
+		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	return nil
 }
 
-func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator) error {
-	event := audio.abort()
+func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator, cause error) error {
+	event := audio.abort(cause)
 	if event == nil {
 		return nil
 	}
@@ -222,12 +229,42 @@ type peerAudioRoute struct {
 }
 
 type peerAudioRouteAggregator struct {
-	active map[peerAudioRouteKey]struct{}
-	epoch  peerAudioRoute
+	active  map[peerAudioRouteKey]struct{}
+	retired map[peerAudioRouteKey]struct{}
+	epoch   peerAudioRoute
 }
 
 func newPeerAudioRouteAggregator() *peerAudioRouteAggregator {
-	return &peerAudioRouteAggregator{active: make(map[peerAudioRouteKey]struct{})}
+	return &peerAudioRouteAggregator{
+		active:  make(map[peerAudioRouteKey]struct{}),
+		retired: make(map[peerAudioRouteKey]struct{}),
+	}
+}
+
+func (a *peerAudioRouteAggregator) cutover(chunk *genx.MessageChunk) *eventpb.PeerEvent {
+	if a == nil || chunk == nil || chunk.Ctrl == nil || a.epoch.streamID == "" || len(a.active) == 0 {
+		return nil
+	}
+	for key := range a.active {
+		a.retired[key] = struct{}{}
+	}
+	clear(a.active)
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId:        a.epoch.streamID,
+			TimestampUnixMs: chunk.Ctrl.Timestamp,
+			Kind:            eventpb.StreamKind_STREAM_KIND_AUDIO,
+			Label:           a.epoch.label,
+			Error: &eventpb.EventError{
+				Code:    "STREAM_INTERRUPTED",
+				Message: "interrupted",
+			},
+		}},
+	}
+	a.epoch = peerAudioRoute{}
+	return event
 }
 
 func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, error) {
@@ -252,6 +289,10 @@ func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, erro
 		return true, nil
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
 		if _, exists := a.active[key]; !exists {
+			if _, retired := a.retired[key]; retired {
+				delete(a.retired, key)
+				return false, nil
+			}
 			return false, fmt.Errorf("gizclaw: unmatched audio EOS stream_id=%q mime=%q", key.streamID, key.mimeType)
 		}
 		delete(a.active, key)
@@ -281,6 +322,11 @@ func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) *ev
 			removed = true
 		}
 	}
+	for key := range a.retired {
+		if key.streamID == streamID {
+			delete(a.retired, key)
+		}
+	}
 	if !removed || len(a.active) != 0 {
 		return nil
 	}
@@ -297,9 +343,13 @@ func (a *peerAudioRouteAggregator) close() error {
 	return fmt.Errorf("gizclaw: agent output ended with %d open audio route(s)", len(a.active))
 }
 
-func (a *peerAudioRouteAggregator) abort() *eventpb.PeerEvent {
+func (a *peerAudioRouteAggregator) abort(cause error) *eventpb.PeerEvent {
 	if a == nil || len(a.active) == 0 || a.epoch.streamID == "" {
 		return nil
+	}
+	message := "agent audio output ended unexpectedly"
+	if cause != nil {
+		message = cause.Error()
 	}
 	event := &eventpb.PeerEvent{
 		Version: eventpb.Version,
@@ -307,7 +357,7 @@ func (a *peerAudioRouteAggregator) abort() *eventpb.PeerEvent {
 		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
 			Error: &eventpb.EventError{
 				Code:      "AGENT_AUDIO_OUTPUT_ERROR",
-				Message:   "agent audio output ended unexpectedly",
+				Message:   message,
 				Retryable: true,
 			},
 		}},
@@ -439,6 +489,10 @@ func peerStreamEventToChunk(event *eventpb.PeerEvent) (*genx.MessageChunk, error
 
 func peerStreamEventControlChunk(ctrl *genx.StreamCtrl, event *eventpb.PeerEvent) *genx.MessageChunk {
 	chunk := &genx.MessageChunk{Ctrl: ctrl}
+	if event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_TEXT {
+		chunk.Part = genx.Text("")
+		return chunk
+	}
 	if blob := peerStreamEventBlobPart(event); blob != nil {
 		chunk.Part = blob
 	}
@@ -476,6 +530,13 @@ func peerStreamEventsFromChunk(chunk *genx.MessageChunk) []*eventpb.PeerEvent {
 	}
 	if text, ok := chunk.Part.(genx.Text); ok {
 		value := string(text)
+		if chunk.IsEndOfStream() && chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "") {
+			if value != "" {
+				out = append(out, peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA, &value))
+			}
+			out = append(out, peerStreamEventFromChunk(chunk, eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, nil))
+			return out
+		}
 		eventType := eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA
 		if chunk.IsEndOfStream() {
 			eventType = eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE

@@ -242,6 +242,7 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"doubao-realtime-conversation":        "doubao-realtime-conversation",
 		"doubao-realtime-quality":             "doubao-realtime-quality",
 		"doubao-realtime-duplex-conversation": "doubao-realtime-duplex-conversation",
+		"eino-concurrency-assistant":          "eino-concurrency-assistant",
 		"eino-memory-assistant":               "eino-memory-assistant",
 		"eino-latency-comparison":             "eino-latency-comparison",
 		"flowcraft-configured-memory":         "flowcraft-configured-memory",
@@ -265,10 +266,10 @@ func createChatRegistrationToken(t *testing.T, selected workspaceCase) string {
 		"translation":     "volc-ast-translate",
 	}
 	voiceResources := map[string]string{
-		"assistant-voice":  "volc-tenant:volc-main:zh_female_vv_mars_bigtts",
+		"assistant-voice":  "volc-tenant:volc-main:zh_female_vv_uranus_bigtts",
 		"japanese-voice":   "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts",
 		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
-		"narrator":         "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts",
+		"narrator":         "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts",
 		"cute-pet":         "volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts",
 		"monster":          "volc-tenant:volc-main:ICL_zh_female_bingjiao3_tob",
 		"game-master":      "volc-tenant:volc-main:zh_male_changtianyi_mars_bigtts",

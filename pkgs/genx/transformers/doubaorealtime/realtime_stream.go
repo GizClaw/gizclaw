@@ -1071,10 +1071,11 @@ const (
 // provider session. In particular, WaitingResponse is interruptible even when
 // the provider has not emitted its first assistant event yet.
 type doubaoPushToTalkState struct {
-	mu         sync.Mutex
-	phase      doubaoPushToTalkPhase
-	streamID   string
-	ttsStarted bool
+	mu                  sync.Mutex
+	phase               doubaoPushToTalkPhase
+	streamID            string
+	ttsStarted          bool
+	providerTTSFinished bool
 }
 
 func (s *doubaoPushToTalkState) begin(streamID string) (bool, string, error) {
@@ -1094,6 +1095,7 @@ func (s *doubaoPushToTalkState) begin(streamID string) (bool, string, error) {
 	s.phase = doubaoPushToTalkCapturing
 	s.streamID = strings.TrimSpace(streamID)
 	s.ttsStarted = false
+	s.providerTTSFinished = false
 	return bargeIn, interruptedStreamID, nil
 }
 
@@ -1166,9 +1168,8 @@ func (s *doubaoPushToTalkState) chatEnded(streamID string) {
 	if s.streamID != strings.TrimSpace(streamID) {
 		return
 	}
-	if s.phase == doubaoPushToTalkResponding && !s.ttsStarted {
-		s.phase = doubaoPushToTalkIdle
-	}
+	// ChatEnded can arrive before TTSStarted. It closes the text route but does
+	// not prove that the voice response has reached the final consumer.
 }
 
 func (s *doubaoPushToTalkState) ttsFinished(streamID string) {
@@ -1178,8 +1179,30 @@ func (s *doubaoPushToTalkState) ttsFinished(streamID string) {
 		return
 	}
 	if s.phase == doubaoPushToTalkResponding {
+		s.providerTTSFinished = true
+	}
+	// Provider completion does not mean the response has reached the user.
+	// Keep Responding interruptible until the audio EOS crosses the final
+	// output-observation boundary after playback drain.
+}
+
+func (s *doubaoPushToTalkState) observeAssistantOutput(label string, chunk *genx.MessageChunk) {
+	if chunk == nil || chunk.Ctrl == nil || chunk.Role != genx.RoleModel ||
+		chunk.Ctrl.Label != label || !chunk.IsEndOfStream() {
+		return
+	}
+	if _, ok := chunk.Part.(*genx.Blob); !ok {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.streamID != strings.TrimSpace(chunk.Ctrl.StreamID) {
+		return
+	}
+	if s.phase == doubaoPushToTalkResponding && s.providerTTSFinished {
 		s.phase = doubaoPushToTalkIdle
 		s.ttsStarted = false
+		s.providerTTSFinished = false
 	}
 }
 

@@ -229,9 +229,39 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 	t.Helper()
 	var result duplexRoundResult
 	inputDone := false
+	var quietTimer *time.Timer
+	var quietC <-chan time.Time
+	defer func() {
+		if quietTimer != nil {
+			quietTimer.Stop()
+		}
+	}()
+	updateQuietTimer := func() {
+		if !inputDone || !result.done() {
+			quietC = nil
+			if quietTimer != nil {
+				quietTimer.Stop()
+			}
+			return
+		}
+		if quietTimer == nil {
+			quietTimer = time.NewTimer(1500 * time.Millisecond)
+		} else {
+			if !quietTimer.Stop() {
+				select {
+				case <-quietTimer.C:
+				default:
+				}
+			}
+			quietTimer.Reset(1500 * time.Millisecond)
+		}
+		quietC = quietTimer.C
+	}
 	for {
-		if inputDone && result.done() {
-			return result, nil
+		if inputDone {
+			if result.terminalComplete() {
+				return result, result.terminalError()
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -242,6 +272,7 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 			if err != nil {
 				return result, err
 			}
+			updateQuietTimer()
 		case err := <-errs:
 			if err != nil {
 				return result, err
@@ -257,6 +288,9 @@ func waitDuplexRound(t *testing.T, ctx context.Context, events <-chan *genx.Mess
 			if err := result.observe(streamID, chunk); err != nil {
 				return result, err
 			}
+			updateQuietTimer()
+		case <-quietC:
+			return result, nil
 		}
 	}
 }
@@ -361,6 +395,7 @@ func loadGenXE2EEnv(t *testing.T) {
 		"GIZCLAW_GENX_E2E_EINO_OPENAI_API_KEY",
 		"GIZCLAW_GENX_E2E_FLOWCRAFT_OPENAI_API_KEY",
 		"GIZCLAW_GENX_E2E_MINIMAX_API_KEY",
+		"GIZCLAW_GENX_E2E_MINIMAX_BASE_URL",
 	}
 	var invalid []string
 	for _, name := range required {

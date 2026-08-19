@@ -3,6 +3,7 @@ package eino
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -259,6 +261,214 @@ func TestPeerBOSInterruptsInitiativeWithoutMixingTurns(t *testing.T) {
 	}
 	if !sawInterrupted || !sawPeer {
 		t.Fatalf("interrupted=%v peer_output=%v chunks=%#v", sawInterrupted, sawPeer, chunks)
+	}
+}
+
+func TestRepeatedBOSClosesInterruptedTurnBeforeReplacementBOS(t *testing.T) {
+	t.Parallel()
+	chat := newOrderedInterruptChatModel(3)
+	transformer, err := New(t.Context(), chatConfig(&componentMapResolver{chat: chat}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := newInputBuilder()
+	output, err := transformer.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatal(err)
+	}
+	type nextResult struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	results := make(chan nextResult, 16)
+	go func() {
+		for {
+			chunk, nextErr := output.Next()
+			results <- nextResult{chunk: chunk, err: nextErr}
+			if nextErr != nil {
+				return
+			}
+		}
+	}()
+	var chunks []*genx.MessageChunk
+	waitForText := func(want string) {
+		t.Helper()
+		for {
+			select {
+			case result := <-results:
+				if result.err != nil {
+					t.Fatalf("read output before %q: %v", want, result.err)
+				}
+				chunks = append(chunks, result.chunk)
+				if text, ok := result.chunk.Part.(genx.Text); ok && text == genx.Text(want) {
+					return
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatalf("output %q did not arrive", want)
+			}
+		}
+	}
+
+	addTextTurn(t, input, "turn-1")
+	waitForText("reply-1")
+	addTextTurn(t, input, "turn-2")
+	chat.waitCancelled(t, 0)
+	close(chat.release[0])
+	waitForText("reply-2")
+	addTextTurn(t, input, "turn-3")
+	chat.waitCancelled(t, 1)
+	close(chat.release[1])
+	waitForText("reply-3")
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	for result := range results {
+		if errors.Is(result.err, io.EOF) {
+			break
+		}
+		if result.err != nil {
+			t.Fatalf("read output: %v", result.err)
+		}
+		chunks = append(chunks, result.chunk)
+	}
+	type lifecycle struct {
+		streamID string
+		bosIndex int
+		eosIndex int
+		bosCount int
+		eosCount int
+		error    string
+	}
+	turns := []lifecycle{{bosIndex: -1, eosIndex: -1}, {bosIndex: -1, eosIndex: -1}, {bosIndex: -1, eosIndex: -1}}
+	for _, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		if text, ok := chunk.Part.(genx.Text); ok {
+			for turn := range turns {
+				if text == genx.Text(fmt.Sprintf("reply-%d", turn+1)) {
+					turns[turn].streamID = chunk.Ctrl.StreamID
+				}
+			}
+		}
+	}
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil {
+			continue
+		}
+		for turn := range turns {
+			if turns[turn].streamID == "" || chunk.Ctrl.StreamID != turns[turn].streamID {
+				continue
+			}
+			if chunk.IsBeginOfStream() {
+				turns[turn].bosIndex = index
+				turns[turn].bosCount++
+			}
+			if chunk.IsEndOfStream() {
+				turns[turn].eosIndex = index
+				turns[turn].eosCount++
+				turns[turn].error = chunk.Ctrl.Error
+			}
+		}
+	}
+	for turn, lifecycle := range turns {
+		if lifecycle.streamID == "" || lifecycle.bosCount != 1 || lifecycle.eosCount != 1 || lifecycle.bosIndex >= lifecycle.eosIndex {
+			t.Fatalf("turn %d lifecycle = %#v; chunks=%#v", turn+1, lifecycle, chunks)
+		}
+		wantError := ""
+		if turn < len(turns)-1 {
+			wantError = "interrupted"
+		}
+		if lifecycle.error != wantError {
+			t.Errorf("turn %d EOS error = %q, want %q", turn+1, lifecycle.error, wantError)
+		}
+		if turn > 0 && turns[turn-1].eosIndex >= lifecycle.bosIndex {
+			t.Errorf("turn %d BOS index %d preceded turn %d EOS index %d", turn+1, lifecycle.bosIndex, turn, turns[turn-1].eosIndex)
+		}
+	}
+}
+
+type orderedInterruptChatModel struct {
+	mu        sync.Mutex
+	calls     int
+	started   []chan struct{}
+	cancelled []chan struct{}
+	release   []chan struct{}
+}
+
+func newOrderedInterruptChatModel(turns int) *orderedInterruptChatModel {
+	chat := &orderedInterruptChatModel{
+		started:   make([]chan struct{}, turns),
+		cancelled: make([]chan struct{}, turns-1),
+		release:   make([]chan struct{}, turns-1),
+	}
+	for index := range chat.started {
+		chat.started[index] = make(chan struct{})
+	}
+	for index := range chat.cancelled {
+		chat.cancelled[index] = make(chan struct{})
+		chat.release[index] = make(chan struct{})
+	}
+	return chat
+}
+
+func (chat *orderedInterruptChatModel) Generate(
+	ctx context.Context,
+	input []*schema.Message,
+	options ...model.Option,
+) (*schema.Message, error) {
+	reader, err := chat.Stream(ctx, input, options...)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return reader.Recv()
+}
+
+func (chat *orderedInterruptChatModel) Stream(
+	ctx context.Context,
+	_ []*schema.Message,
+	_ ...model.Option,
+) (*schema.StreamReader[*schema.Message], error) {
+	chat.mu.Lock()
+	turn := chat.calls
+	chat.calls++
+	chat.mu.Unlock()
+	if turn >= len(chat.started) {
+		return nil, fmt.Errorf("unexpected chat turn %d", turn+1)
+	}
+	reader, writer := schema.Pipe[*schema.Message](0)
+	go func() {
+		defer writer.Close()
+		if writer.Send(schema.AssistantMessage(fmt.Sprintf("reply-%d", turn+1), nil), nil) {
+			return
+		}
+		close(chat.started[turn])
+		if turn >= len(chat.cancelled) {
+			return
+		}
+		<-ctx.Done()
+		close(chat.cancelled[turn])
+		<-chat.release[turn]
+	}()
+	return reader, nil
+}
+
+func (chat *orderedInterruptChatModel) waitStarted(t *testing.T, turn int) {
+	t.Helper()
+	select {
+	case <-chat.started[turn]:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("turn %d did not start", turn+1)
+	}
+}
+
+func (chat *orderedInterruptChatModel) waitCancelled(t *testing.T, turn int) {
+	t.Helper()
+	select {
+	case <-chat.cancelled[turn]:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("turn %d was not cancelled", turn+1)
 	}
 }
 

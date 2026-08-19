@@ -14,4 +14,4 @@ spec:
   provider_data:
     api_mode: realtime_duplex
     resource_id: volc.speech.dialog
-    upstream_model: "1.2.6.0"
+    upstream_model: "1.2.6.1"

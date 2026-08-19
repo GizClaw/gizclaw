@@ -184,6 +184,40 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
 
+### Workflow 10 路和 20 路并发与打断
+
+固定入口在五个独立 wave 中分别验证 Realtime、Realtime Duplex、Flowcraft、Eino 和
+Translate；不同 Workflow 不会混成一个 20 路 wave。每个 wave 创建 10 个或 20 个独立 Peer 和 Workspace，全部
+到达 ready barrier 后同时开始，但共同引用同一个已 seed 的 Workflow：
+
+```sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
+```
+
+两个固定入口每个并发档位各执行 10 个正式 gate：Realtime 和 Realtime Duplex 验证
+continuous-open input，Flowcraft、Eino 和 Translate 验证 EOS-bounded input；每类都包含
+单轮对话和三轮打断。同一 repository head 必须先通过 10 路档位，再执行 20 路档位。每类
+Workflow 仍使用独立 wave，因此 20 路入口不会把五类 Workflow 混成一个 100 路 wave。
+Realtime 与 Realtime Duplex 将 Workspace input 设为 `realtime`，发送语音后保持客户端
+audio stream 开启，不发送 audio EOS，也不由测试持续注入静音；对应 Transformer 必须按
+自己的 provider 协议维持 session。打断版本等待本轮音频 packet 发送完毕，但不关闭输入，
+再由第 2、3 轮输入 BOS 分别打断前一轮。测试包另有其他 Workflow 的 realtime 定向诊断，
+不属于固定入口。所有测试始终复用
+同一个物理连接、Workspace runtime 和 logical `PeerStream`，并要求最后一轮完整结束。
+Realtime、Flowcraft、Eino realtime 和 Translate realtime 都必须产生正确归属的非空
+transcript、Assistant text/audio。Eino 的基础 EOS 边界测试仍保留 text-only 合同。每轮
+会记录是否发送 input EOS、route、stream、audio epoch、runtime `StartedAt`、cleanup 和
+可用容器资源采样到 ignored `testdata/workflow-concurrency/`。
+
+每个入口都在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
+retry、fallback 或换新 session 来制造通过。只有当每个 terminal cause 都是带完整结构化
+trailer 的火山云 `4xxxxxxx`/`5xxxxxxx` 错误时，整个 wave 才记为 provider-only `SKIP`。
+Transformer 本地生成的 provider-completion 保护错误仍然使测试失败。任何混入的本地协议、deadline、setup、
+runtime 或 cleanup 错误仍使测试失败；provider 错误 artifact 会保留。20 路入口同时启用
+runtime profiling，并且只有采集到完整的非空 `manifest.json` 才算成功。资源采样和 profile
+用于定位，不构成内存无泄漏、provider SLA 或 production capacity 承诺。
+
 人工音频判断与自动 gate 分离：
 
 ```sh
@@ -362,6 +396,9 @@ Provider-backed transformer coverage 使用一份完整 credential inventory：
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+MiniMax 的 API key 必须与同一区域的 voice base URL 成对配置；runner 不会用默认区域
+替代缺失的 `GIZCLAW_GENX_E2E_MINIMAX_BASE_URL`。
 
 Provider-free Match parity 与 deterministic duplex behavior 保持为普通测试，
 由 `go test ./...` 执行。

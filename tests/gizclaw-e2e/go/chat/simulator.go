@@ -47,6 +47,7 @@ const (
 type peerStreamEvent struct {
 	V         int
 	Type      peerStreamEventType
+	Kind      eventpb.StreamKind
 	StreamId  *string
 	Label     *string
 	Text      *string
@@ -2274,6 +2275,47 @@ func (t *chatTransport) sendAudioTurnAudioObservedMIME(ctx context.Context, stre
 	})
 }
 
+// sendAudioTurnAudioContinuously sends the prepared utterance, reports when
+// that prefix has been delivered, then keeps the realtime input active with a
+// silence frame at the transport's audio cadence until ctx is canceled.
+func (t *chatTransport) sendAudioTurnAudioContinuously(
+	ctx context.Context,
+	streamID string,
+	mimeType string,
+	packets [][]byte,
+	silencePacket []byte,
+	onPrefixSent func(),
+) error {
+	if len(silencePacket) == 0 {
+		return fmt.Errorf("continuous audio requires a silence packet")
+	}
+	if err := t.sendAudioTurnAudioObservedMIME(ctx, streamID, mimeType, packets, false, nil); err != nil {
+		return err
+	}
+	if onPrefixSent != nil {
+		onPrefixSent()
+	}
+	interval := t.packetInterval
+	if interval <= 0 {
+		interval = 20 * time.Millisecond
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := t.sendAudioTurnAudioObservedMIME(ctx, streamID, mimeType, [][]byte{silencePacket}, false, nil); err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+}
+
 func rawOpusPacketsToPCM16(packets [][]byte, sampleRate, channels int) ([][]byte, error) {
 	decoder, err := opus.NewDecoder(sampleRate, channels)
 	if err != nil {
@@ -2331,6 +2373,16 @@ func transportEventsFromChunk(chunk *genx.MessageChunk) []peerStreamEvent {
 
 func transportEventFromChunk(chunk *genx.MessageChunk, eventType peerStreamEventType, text *string) peerStreamEvent {
 	event := peerStreamEvent{V: 1, Type: eventType, Text: text}
+	if mimeType, ok := chunk.MIMEType(); ok {
+		switch {
+		case strings.HasPrefix(mimeType, "text/"):
+			event.Kind = eventpb.StreamKind_STREAM_KIND_TEXT
+		case strings.HasPrefix(mimeType, "audio/"):
+			event.Kind = eventpb.StreamKind_STREAM_KIND_AUDIO
+		case strings.HasPrefix(mimeType, "video/"):
+			event.Kind = eventpb.StreamKind_STREAM_KIND_VIDEO
+		}
+	}
 	if chunk == nil || chunk.Ctrl == nil {
 		return event
 	}

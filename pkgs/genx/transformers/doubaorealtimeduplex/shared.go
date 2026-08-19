@@ -63,6 +63,9 @@ func (a *doubaoRealtimeDuplexAudioInput) prepare(blob *genx.Blob) ([]byte, error
 func (a *doubaoRealtimeDuplexAudioInput) prepareFrames(blob *genx.Blob) ([][]byte, error) {
 	return a.shared.PrepareFrames(blob)
 }
+func (a *doubaoRealtimeDuplexAudioInput) keepaliveFrames(frameCount int) ([][]byte, error) {
+	return a.shared.KeepaliveFrames(frameCount)
+}
 func (a *doubaoRealtimeDuplexAudioInput) close() { a.shared.Close() }
 
 type doubaoRealtimeDuplexAudioInputs struct {

@@ -804,6 +804,8 @@ func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
 
 	responses := make(map[string]map[string]int)
 	responseEOS := make(map[string]map[string]int)
+	responseIDs := make([]string, interruptions+1)
+	var assistantChunks []*genx.MessageChunk
 	for turn := 1; turn <= interruptions+1; turn++ {
 		inputID := fmt.Sprintf("input-%d", turn)
 		for _, chunk := range []*genx.MessageChunk{
@@ -827,6 +829,7 @@ func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
 				if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" {
 					continue
 				}
+				assistantChunks = append(assistantChunks, chunk.Clone())
 				mimeType := "text/plain"
 				if value, ok := chunk.MIMEType(); ok {
 					mimeType = value
@@ -848,6 +851,7 @@ func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
 				}
 				if text, ok := chunk.Part.(genx.Text); ok && text == genx.Text(fmt.Sprintf("answer-%d", turn)) {
 					responseID = chunk.Ctrl.StreamID
+					responseIDs[turn-1] = responseID
 				}
 				if responseID != "" && audioStarted[responseID] {
 					goto responseStarted
@@ -870,6 +874,7 @@ func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
 		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" || !chunk.IsEndOfStream() {
 			continue
 		}
+		assistantChunks = append(assistantChunks, chunk.Clone())
 		mimeType := "text/plain"
 		if value, ok := chunk.MIMEType(); ok {
 			mimeType = value
@@ -894,6 +899,299 @@ func TestDockKeepsCompositionAliveAcrossRepeatedInterruptions(t *testing.T) {
 	}
 	if interruptedResponses != interruptions {
 		t.Fatalf("interrupted response routes = %#v, want %d responses with one text and audio EOS", responses, interruptions)
+	}
+	for turn := range interruptions {
+		assertDockHandoffOrder(t, assistantChunks, responseIDs[turn], responseIDs[turn+1])
+	}
+}
+
+func assertDockHandoffOrder(t *testing.T, chunks []*genx.MessageChunk, previousID, nextID string) {
+	t.Helper()
+	if previousID == "" || nextID == "" {
+		t.Fatalf("response IDs = %q -> %q, want both populated", previousID, nextID)
+	}
+	lastPreviousEOS := -1
+	firstNextBOS := -1
+	previousEOS := make(map[string]bool)
+	ended := make(map[string]bool)
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.Label != "assistant" {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		if chunk.Ctrl.StreamID == previousID {
+			if ended[mimeType] {
+				t.Fatalf("%s emitted %s after EOS at index %d: %#v", previousID, mimeType, index, chunks)
+			}
+			if chunk.IsEndOfStream() {
+				if chunk.Ctrl.Error != "interrupted" {
+					t.Fatalf("%s %s EOS error = %q, want interrupted", previousID, mimeType, chunk.Ctrl.Error)
+				}
+				ended[mimeType] = true
+				previousEOS[mimeType] = true
+				lastPreviousEOS = max(lastPreviousEOS, index)
+			}
+		}
+		if chunk.Ctrl.StreamID == nextID && chunk.IsBeginOfStream() && firstNextBOS < 0 {
+			firstNextBOS = index
+		}
+	}
+	if !previousEOS["text/plain"] || !previousEOS["audio/opus"] {
+		t.Fatalf("%s interrupted EOS routes = %#v, want text/plain and audio/opus: %#v", previousID, previousEOS, chunks)
+	}
+	if firstNextBOS < 0 || lastPreviousEOS >= firstNextBOS {
+		t.Fatalf("%s last EOS index = %d, %s first BOS index = %d: %#v", previousID, lastPreviousEOS, nextID, firstNextBOS, chunks)
+	}
+}
+
+func TestDockReplacementBOSInterruptsPulledUndeliveredTerminal(t *testing.T) {
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 8})
+	response, err := invocation.StartResponse(streamkit.ResponseConfig{
+		StreamID: "assistant-1",
+		Role:     genx.RoleModel,
+		Name:     "answer",
+		Label:    "assistant",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := &dockRoute{
+		response:  response,
+		role:      genx.RoleModel,
+		name:      "answer",
+		label:     "assistant",
+		ttsRoutes: make(map[string]*dockTTSRoute),
+		ttsPipes:  make(map[string]*ttsPipe),
+	}
+	normalEOS := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: "assistant-1", Label: "assistant", EndOfStream: true},
+	}
+	mimeType, tracked := route.trackPendingTerminal(normalEOS)
+	if err := invocation.EmitTracked(response, normalEOS, func(*genx.MessageChunk) {
+		route.clearPendingTerminal(mimeType, tracked)
+	}, func(*genx.MessageChunk) {
+		route.clearPendingTerminal(mimeType, tracked)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	route.closed.Store(true)
+	if err := invocation.FinishResponse(response, ""); err != nil {
+		t.Fatal(err)
+	}
+	invocation.Output().DeferOutputObservation()
+	pulled, err := invocation.Output().Next()
+	if err != nil || pulled.Ctrl == nil || !pulled.IsEndOfStream() {
+		t.Fatalf("pulled normal terminal = (%#v, %v)", pulled, err)
+	}
+
+	sourceOutput := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 1})
+	source, err := streamkit.NewResponseStream(sourceOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := &dockRun{
+		invocation:       invocation,
+		source:           source,
+		routes:           map[string]*dockRoute{"assistant-1": route},
+		discardSourceIDs: make(map[string]bool),
+	}
+	if err := run.beginInputTurn("input-2"); err != nil {
+		t.Fatal(err)
+	}
+	interrupt, err := invocation.Output().Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if interrupt.Ctrl == nil || interrupt.Ctrl.StreamID != "assistant-1" ||
+		interrupt.Ctrl.Error != "interrupted" || !interrupt.IsEndOfStream() {
+		t.Fatalf("replacement terminal = %#v", interrupt)
+	}
+	if blob, ok := interrupt.Part.(*genx.Blob); !ok || blob.MIMEType != "audio/pcm" {
+		t.Fatalf("replacement terminal part = %#v", interrupt.Part)
+	}
+	invocation.Output().AbandonOutputObservation(pulled)
+	invocation.Output().ObserveOutput(interrupt)
+	if err := sourceOutput.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDockRepeatedBOSPreservesPulledUndeliveredTextAndAudioTerminals(t *testing.T) {
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 8})
+	response, err := invocation.StartResponse(streamkit.ResponseConfig{
+		StreamID: "assistant-1",
+		Role:     genx.RoleModel,
+		Name:     "answer",
+		Label:    "assistant",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := &dockRoute{
+		response:  response,
+		role:      genx.RoleModel,
+		name:      "answer",
+		label:     "assistant",
+		ttsRoutes: make(map[string]*dockTTSRoute),
+		ttsPipes:  make(map[string]*ttsPipe),
+	}
+	for _, terminal := range []*genx.MessageChunk{
+		{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "assistant-1", Label: "assistant", EndOfStream: true}},
+		{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "assistant-1", Label: "assistant", EndOfStream: true}},
+	} {
+		mimeType, tracked := route.trackPendingTerminal(terminal)
+		if err := invocation.EmitTracked(response, terminal, func(*genx.MessageChunk) {
+			route.clearPendingTerminal(mimeType, tracked)
+		}, func(*genx.MessageChunk) {
+			route.clearPendingTerminal(mimeType, tracked)
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	route.closed.Store(true)
+	if err := invocation.FinishResponse(response, ""); err != nil {
+		t.Fatal(err)
+	}
+	invocation.Output().DeferOutputObservation()
+	var pulled []*genx.MessageChunk
+	for range 2 {
+		chunk, err := invocation.Output().Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		pulled = append(pulled, chunk)
+	}
+
+	sourceOutput := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 1})
+	source, err := streamkit.NewResponseStream(sourceOutput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := &dockRun{
+		invocation:       invocation,
+		source:           source,
+		routes:           map[string]*dockRoute{"assistant-1": route},
+		discardSourceIDs: make(map[string]bool),
+	}
+	if err := run.beginInputTurn("input-2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.beginInputTurn("input-3"); err != nil {
+		t.Fatal(err)
+	}
+
+	interrupts := make(map[string]int)
+	for range 2 {
+		chunk, err := invocation.Output().Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok || chunk.Ctrl == nil || !chunk.IsEndOfStream() || chunk.Ctrl.Error != "interrupted" {
+			t.Fatalf("replacement terminal = %#v", chunk)
+		}
+		interrupts[mimeType]++
+		invocation.Output().ObserveOutput(chunk)
+	}
+	if interrupts["text/plain"] != 1 || interrupts["audio/pcm"] != 1 {
+		t.Fatalf("replacement terminals = %#v, want one text and one audio", interrupts)
+	}
+	for _, chunk := range pulled {
+		invocation.Output().AbandonOutputObservation(chunk)
+	}
+	if err := sourceOutput.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDockForwardModelChunkRacingInterruptDoesNotLeakOrFail(t *testing.T) {
+	for iteration := range 100 {
+		invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 8})
+		response, err := invocation.StartResponse(streamkit.ResponseConfig{
+			StreamID: "assistant-1",
+			Role:     genx.RoleModel,
+			Name:     "answer",
+			Label:    "assistant",
+		})
+		if err != nil {
+			t.Fatalf("iteration %d: StartResponse: %v", iteration, err)
+		}
+		if err := invocation.Emit(response, &genx.MessageChunk{
+			Role: genx.RoleModel, Name: "answer", Part: genx.Text("partial"),
+			Ctrl: &genx.StreamCtrl{StreamID: "assistant-1", Label: "assistant", BeginOfStream: true},
+		}); err != nil {
+			t.Fatalf("iteration %d: emit partial: %v", iteration, err)
+		}
+		first, err := invocation.Output().Next()
+		if err != nil || first == nil || !first.IsBeginOfStream() {
+			t.Fatalf("iteration %d: first output = (%#v, %v)", iteration, first, err)
+		}
+
+		sourceOutput := streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: 1})
+		source, err := streamkit.NewResponseStream(sourceOutput)
+		if err != nil {
+			t.Fatalf("iteration %d: source: %v", iteration, err)
+		}
+		route := &dockRoute{
+			response:  response,
+			role:      genx.RoleModel,
+			name:      "answer",
+			label:     "assistant",
+			ttsRoutes: make(map[string]*dockTTSRoute),
+			ttsPipes:  make(map[string]*ttsPipe),
+		}
+		run := &dockRun{
+			dock:             &Dock{},
+			invocation:       invocation,
+			source:           source,
+			routes:           map[string]*dockRoute{"assistant-1": route},
+			discardSourceIDs: make(map[string]bool),
+		}
+		start := make(chan struct{})
+		errs := make(chan error, 1)
+		interruptErrs := make(chan error, 1)
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			<-start
+			errs <- run.forwardModelChunk(t.Context(), &genx.MessageChunk{
+				Role: genx.RoleModel, Name: "answer", Part: genx.Text("racy"),
+				Ctrl: &genx.StreamCtrl{StreamID: "assistant-1", Label: "assistant"},
+			})
+		})
+		wg.Go(func() {
+			<-start
+			interruptErrs <- run.beginInputTurn("input-2")
+		})
+		close(start)
+		wg.Wait()
+		if err := <-errs; err != nil {
+			t.Fatalf("iteration %d: forwardModelChunk: %v", iteration, err)
+		}
+		if err := <-interruptErrs; err != nil {
+			t.Fatalf("iteration %d: beginInputTurn: %v", iteration, err)
+		}
+		if err := invocation.Output().Close(); err != nil {
+			t.Fatalf("iteration %d: close output: %v", iteration, err)
+		}
+		chunks := readAll(t, invocation.Output())
+		interruptedEOS := 0
+		for _, chunk := range chunks {
+			if chunk.Part == genx.Text("racy") {
+				t.Fatalf("iteration %d: racy output leaked after replacement: %#v", iteration, chunks)
+			}
+			if chunk.Ctrl != nil && chunk.Ctrl.StreamID == "assistant-1" && chunk.IsEndOfStream() && chunk.Ctrl.Error == "interrupted" {
+				interruptedEOS++
+			}
+		}
+		if interruptedEOS != 1 {
+			t.Fatalf("iteration %d: interrupted EOS = %d, chunks=%#v", iteration, interruptedEOS, chunks)
+		}
+		_ = sourceOutput.Close()
 	}
 }
 
@@ -927,7 +1225,9 @@ func TestDockInterruptsPendingTTSBeforeNextTranscript(t *testing.T) {
 		invocation: invocation,
 		routes:     map[string]*dockRoute{"assistant-1": route},
 	}
-	run.interruptOpenRoutes("interrupted")
+	if err := run.interruptOpenRoutes("interrupted"); err != nil {
+		t.Fatal(err)
+	}
 	if pipeCtx.Err() == nil {
 		t.Fatal("pending TTS was not cancelled")
 	}
@@ -963,6 +1263,27 @@ func TestDockInterruptsPendingTTSBeforeNextTranscript(t *testing.T) {
 	}
 	if controlEOSIndex < 0 || transcriptIndex <= controlEOSIndex {
 		t.Fatalf("control EOS index = %d, transcript index = %d; chunks=%#v", controlEOSIndex, transcriptIndex, chunks)
+	}
+}
+
+func TestDockInterruptOpenRoutesReturnsTerminalFailure(t *testing.T) {
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{InitialCapacity: 1})
+	response, err := invocation.StartResponse(streamkit.ResponseConfig{StreamID: "assistant-1", Role: genx.RoleModel})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := invocation.Emit(response, &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("partial")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := invocation.Output().Close(); err != nil {
+		t.Fatal(err)
+	}
+	run := &dockRun{invocation: invocation, routes: map[string]*dockRoute{
+		"assistant-1": {response: response, role: genx.RoleModel},
+	}}
+
+	if err := run.interruptOpenRoutes("interrupted"); err == nil {
+		t.Fatal("interruptOpenRoutes() succeeded after output closed")
 	}
 }
 
@@ -1312,6 +1633,46 @@ func TestDockSurfacesTTSFailureAfterTextEOS(t *testing.T) {
 	t.Fatalf("TTS failure was not surfaced: %#v", chunks)
 }
 
+func TestDockClosesStartedTTSAudioWhenProviderStreamFails(t *testing.T) {
+	want := errors.New("doubaospeech: quota exceeded for types: concurrency (code=45000292)")
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+		),
+		TTS: muxFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+			return &chunksThenErrorStream{
+				chunks: []*genx.MessageChunk{{
+					Role: genx.RoleModel,
+					Part: &genx.Blob{MIMEType: "audio/opus"},
+					Ctrl: &genx.StreamCtrl{BeginOfStream: true},
+				}},
+				err: want,
+			}, nil
+		}),
+		ResolveVoice: fixedVoice("voice/narrator"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	var audio []*genx.MessageChunk
+	for _, chunk := range chunks {
+		if mimeType, ok := chunk.MIMEType(); ok && mimeType == "audio/opus" {
+			audio = append(audio, chunk)
+		}
+	}
+	if len(audio) != 2 || !audio[0].IsBeginOfStream() || audio[0].IsEndOfStream() ||
+		audio[1].IsBeginOfStream() || !audio[1].IsEndOfStream() || audio[1].Ctrl.Error != want.Error() ||
+		audio[0].Ctrl.StreamID == "" || audio[1].Ctrl.StreamID != audio[0].Ctrl.StreamID {
+		t.Fatalf("failed TTS audio lifecycle = %#v, want BOS/error EOS", audio)
+	}
+}
+
 func TestDockBoundsTTSCompletionAfterTextEOS(t *testing.T) {
 	dock, err := New(Config{
 		Agent: fixedAgentOutput(
@@ -1617,6 +1978,23 @@ type errorStream struct{ err error }
 func (s errorStream) Next() (*genx.MessageChunk, error) { return nil, s.err }
 func (errorStream) Close() error                        { return nil }
 func (errorStream) CloseWithError(error) error          { return nil }
+
+type chunksThenErrorStream struct {
+	chunks []*genx.MessageChunk
+	err    error
+}
+
+func (s *chunksThenErrorStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) == 0 {
+		return nil, s.err
+	}
+	chunk := s.chunks[0]
+	s.chunks = s.chunks[1:]
+	return chunk, nil
+}
+
+func (*chunksThenErrorStream) Close() error               { return nil }
+func (*chunksThenErrorStream) CloseWithError(error) error { return nil }
 
 type passthroughTransformer struct{}
 

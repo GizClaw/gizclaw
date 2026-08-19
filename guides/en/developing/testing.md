@@ -195,6 +195,51 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `desktop/shell` covers the Pod shell; `desktop/admin` and `desktop/play` cover browser surfaces.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 
+### Ten- and twenty-lane Workflow concurrency and interruption
+
+The fixed entrypoint validates Realtime, Realtime Duplex, Flowcraft, Eino, and
+Translate in five separate waves; it does not combine them into one 20-lane wave. Each wave creates
+10 or 20 independent Peers and Workspaces, waits for the complete ready barrier, and then
+releases them together while they reference one already seeded Workflow:
+
+```sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
+```
+
+Each fixed entrypoint runs ten required gates: Realtime and Realtime Duplex use
+continuous-open input, while Flowcraft, Eino, and Translate use EOS-bounded
+input; every family has a one-turn and a three-turn interruption gate. The
+10-lane gate must pass before the 20-lane gate on the same repository head. Each
+Workflow remains a separate wave, so the 20-lane entrypoint does not combine the
+five families into one 100-lane wave. Realtime and Realtime Duplex select the
+`realtime` Workspace input, send speech, and leave the client audio stream open
+without audio EOS or test-injected continuous silence; each Transformer must
+keep its own provider session alive according to that provider's protocol.
+Interruption waits until the current input packets have been sent, but does not
+close the input, before the BOS for turns two and three interrupts the preceding
+response. The package also has targeted realtime diagnostics for the other
+Workflow families; those are outside the fixed selection. Every test
+keeps the same physical connection, Workspace runtime, and logical `PeerStream`,
+and the final response must complete. Realtime, Flowcraft, realtime Eino, and
+realtime Translate require correctly attributed non-empty transcript, Assistant
+text, and Assistant audio. The baseline Eino EOS-boundary contract remains
+text-only. Each wave records whether input EOS was sent, route, stream, audio
+epoch, runtime `StartedAt`, cleanup, and available container resource samples
+under the ignored `testdata/workflow-concurrency/` directory.
+
+Each entrypoint validates the complete `.env` before Docker setup. Environment
+variables cannot change coverage or concurrency, and retry, provider fallback,
+or replacement sessions cannot manufacture a pass. A terminal failure becomes a
+provider-only `SKIP` only when every cause is a complete structured Volcengine
+error with a `4xxxxxxx` or `5xxxxxxx` code. Transformer-owned provider-completion
+guards still fail the test. Any local protocol,
+deadline, setup, runtime, or cleanup error mixed into the wave still fails it;
+the provider failure artifact remains available. The 20-lane entrypoint also
+enables runtime profiling and succeeds only when a complete non-empty
+`manifest.json` is collected. Resource samples and profiles support diagnosis;
+they are not proof of leak freedom, a provider SLA, or production capacity.
+
 Human audio review is separate from the automated gate:
 
 ```sh
@@ -421,6 +466,10 @@ Provider-backed transformer coverage uses one complete credential inventory:
 cp tests/genx-e2e/.env.example tests/genx-e2e/.env
 bash tests/genx-e2e/run_tests.sh
 ```
+
+The MiniMax API key must be paired with the voice base URL for the same region;
+the runner does not substitute a default region when
+`GIZCLAW_GENX_E2E_MINIMAX_BASE_URL` is missing.
 
 Provider-free Match parity and deterministic duplex behavior remain ordinary
 tests and run under `go test ./...`.

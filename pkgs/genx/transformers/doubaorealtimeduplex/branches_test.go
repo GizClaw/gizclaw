@@ -65,32 +65,19 @@ func TestDoubaoRealtimeDuplexBufferDiscardBranches(t *testing.T) {
 
 func TestPendingChunkStreamDelegationBranches(t *testing.T) {
 	rest := &trackingCloseStream{}
-	if got := withDoubaoRealtimeDuplexPendingChunk(rest, nil); got != rest {
-		t.Fatalf("nil pending stream = %#v, want rest", got)
+	reader := newDoubaoRealtimeDuplexInputReader(rest)
+	if got := withDoubaoRealtimeDuplexPendingChunk(reader, nil); got != reader {
+		t.Fatalf("nil pending stream = %#v, want input reader", got)
 	}
 
 	first := &genx.MessageChunk{Part: genx.Text("first")}
-	stream := withDoubaoRealtimeDuplexPendingChunk(rest, first).(*doubaoRealtimeDuplexPendingChunkStream)
+	stream := withDoubaoRealtimeDuplexPendingChunk(reader, first).(*doubaoRealtimeDuplexPendingChunkStream)
 	chunk, err, done := stream.NextOrDone(make(chan struct{}))
 	if chunk != first || err != nil || done {
 		t.Fatalf("pending NextOrDone() = (%#v, %v, %t)", chunk, err, done)
 	}
 	if _, err := stream.Next(); !errors.Is(err, io.EOF) {
 		t.Fatalf("delegated Next() error = %v, want EOF", err)
-	}
-
-	doneAware := &doneAwareRealtimeStream{chunk: &genx.MessageChunk{Part: genx.Text("delegated")}}
-	stream = &doubaoRealtimeDuplexPendingChunkStream{rest: doneAware}
-	chunk, err, done = stream.NextOrDone(make(chan struct{}))
-	if chunk != doneAware.chunk || err != nil || done || doneAware.calls != 1 {
-		t.Fatalf("done-aware delegation = (%#v, %v, %t), calls %d", chunk, err, done, doneAware.calls)
-	}
-
-	fallback := &sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("fallback")}}}
-	stream = &doubaoRealtimeDuplexPendingChunkStream{rest: fallback}
-	chunk, err, done = stream.NextOrDone(make(chan struct{}))
-	if chunk == nil || err != nil || done {
-		t.Fatalf("fallback delegation = (%#v, %v, %t)", chunk, err, done)
 	}
 }
 
@@ -161,11 +148,17 @@ func TestDoubaoRealtimeDuplexSmallHelperBranches(t *testing.T) {
 	}
 
 	transformer := newTransformer(nil)
-	transformer.pushInputEOSError(nil, "stream", errors.New("ignored"))
+	if err := transformer.pushInputEOSError(nil, "stream", errors.New("ignored")); err != nil {
+		t.Fatalf("pushInputEOSError(nil) error = %v", err)
+	}
 	output := newBufferStream(2)
-	transformer.pushInputEOSError(output, "stream", nil)
+	if err := transformer.pushInputEOSError(output, "stream", nil); err != nil {
+		t.Fatalf("pushInputEOSError(nil error) = %v", err)
+	}
 	wantErr := errors.New("failed")
-	transformer.pushInputEOSError(output, "stream", wantErr)
+	if err := transformer.pushInputEOSError(output, "stream", wantErr); err != nil {
+		t.Fatalf("pushInputEOSError() error = %v", err)
+	}
 	for index := range 2 {
 		chunk, err := output.Next()
 		if err != nil || chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.StreamID != "stream" {
@@ -178,17 +171,10 @@ func TestDoubaoRealtimeDuplexSmallHelperBranches(t *testing.T) {
 			t.Fatalf("last chunk = %#v, want error EOS", chunk)
 		}
 	}
-}
-
-type doneAwareRealtimeStream struct {
-	chunk *genx.MessageChunk
-	calls int
-}
-
-func (s *doneAwareRealtimeStream) Next() (*genx.MessageChunk, error) { return nil, io.EOF }
-func (s *doneAwareRealtimeStream) Close() error                      { return nil }
-func (s *doneAwareRealtimeStream) CloseWithError(error) error        { return nil }
-func (s *doneAwareRealtimeStream) NextOrDone(<-chan struct{}) (*genx.MessageChunk, error, bool) {
-	s.calls++
-	return s.chunk, nil, false
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close(output) error = %v", err)
+	}
+	if err := transformer.pushInputEOSError(output, "stream", wantErr); err == nil {
+		t.Fatal("pushInputEOSError() error = nil after output close")
+	}
 }

@@ -37,6 +37,22 @@ chat_live_tests=(
   TestEinoRealtimeWorkflowRoundtrip
   TestFlowcraftConfiguredMemoryStoreRoundtrip
   TestPeerStreamWorkspaceReloadContinuity
+  TestRealtimeWorkflowConcurrency10
+  TestRealtimeWorkflowConcurrencyInterrupt10
+  TestFlowcraftWorkflowConcurrency10
+  TestFlowcraftWorkflowConcurrencyInterrupt10
+  TestEinoWorkflowConcurrency10
+  TestEinoWorkflowConcurrencyInterrupt10
+  TestTranslateWorkflowConcurrency10
+  TestTranslateWorkflowConcurrencyInterrupt10
+  TestRealtimeWorkflowRealtimeConcurrency10
+  TestRealtimeWorkflowRealtimeConcurrencyInterrupt10
+  TestFlowcraftWorkflowRealtimeConcurrency10
+  TestFlowcraftWorkflowRealtimeConcurrencyInterrupt10
+  TestEinoWorkflowRealtimeConcurrency10
+  TestEinoWorkflowRealtimeConcurrencyInterrupt10
+  TestTranslateWorkflowRealtimeConcurrency10
+  TestTranslateWorkflowRealtimeConcurrencyInterrupt10
 )
 chat_standard_live_patterns=(
   '^TestPushToTalkRoundtrip$'

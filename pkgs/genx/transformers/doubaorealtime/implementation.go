@@ -498,6 +498,8 @@ func (t *Transformer) realtimeInputMode() doubaospeech.RealtimeInputMode {
 		return doubaospeech.RealtimeInputModePushToTalk
 	case ModeText:
 		return doubaospeech.RealtimeInputModeText
+	case ModeRealtime:
+		return doubaospeech.RealtimeInputModeKeepAlive
 	default:
 		return doubaospeech.RealtimeInputModeDefault
 	}
@@ -821,6 +823,7 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 	defer runtime.close()
 	output.setOutputObserver(func(chunk *genx.MessageChunk) {
 		observeRealtimeAssistantOutput(runtime.assistant, doubaoRealtimeAssistantLabel, chunk)
+		runtime.pushToTalk.observeAssistantOutput(doubaoRealtimeAssistantLabel, chunk)
 	})
 	defer output.setOutputObserver(nil)
 	defer output.Close()

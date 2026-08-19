@@ -411,6 +411,10 @@ func peerStreamEventToChunk(event *eventpb.PeerEvent) (*genx.MessageChunk, error
 
 func peerStreamEventControlChunk(ctrl *genx.StreamCtrl, event *eventpb.PeerEvent) *genx.MessageChunk {
 	chunk := &genx.MessageChunk{Ctrl: ctrl}
+	if event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_TEXT {
+		chunk.Part = genx.Text("")
+		return chunk
+	}
 	if blob := peerStreamEventBlobPart(event); blob != nil {
 		chunk.Part = blob
 	}

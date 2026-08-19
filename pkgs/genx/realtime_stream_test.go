@@ -190,6 +190,83 @@ func TestRealtimeStreamNewBOSKeepsDifferentRouteAndNonAudio(t *testing.T) {
 	assertRealtimeNextTimestamp(t, stream, 1_002, false)
 }
 
+func TestRealtimeStreamKeepsInterruptBeforeReplacementBOSAtSameTimestamp(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: Text(""),
+		Ctrl: &StreamCtrl{StreamID: "turn-1", Label: "assistant", Timestamp: 1_000, Error: "interrupted"},
+	}); err != nil {
+		t.Fatalf("Push(interrupt) error = %v", err)
+	}
+	if err := stream.Push(context.Background(), &MessageChunk{
+		Part: Text(""),
+		Ctrl: &StreamCtrl{StreamID: "turn-2", Label: "assistant", Timestamp: 1_000, BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(replacement BOS) error = %v", err)
+	}
+	interrupt, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next(interrupt) error = %v", err)
+	}
+	if interrupt.Ctrl == nil || interrupt.Ctrl.StreamID != "turn-1" || interrupt.Ctrl.Error != "interrupted" {
+		t.Fatalf("first chunk = %#v, want turn-1 interrupt", interrupt)
+	}
+	replacement, err := stream.Next()
+	if err != nil {
+		t.Fatalf("Next(replacement) error = %v", err)
+	}
+	if replacement.Ctrl == nil || replacement.Ctrl.StreamID != "turn-2" || !replacement.IsBeginOfStream() {
+		t.Fatalf("second chunk = %#v, want turn-2 BOS", replacement)
+	}
+}
+
+func TestRealtimeStreamHeapPreservesProducerOrderAtSameTimestamp(t *testing.T) {
+	oldData := realtimeStreamItem{
+		chunk: &MessageChunk{Part: Text("old"), Ctrl: &StreamCtrl{StreamID: "old", Timestamp: 1_000}},
+		seq:   1, timestamp: 1_000,
+	}
+	newData := realtimeStreamItem{
+		chunk: &MessageChunk{Part: Text("new"), Ctrl: &StreamCtrl{StreamID: "new", Timestamp: 1_000}},
+		seq:   2, timestamp: 1_000,
+	}
+	oldBOS := realtimeStreamItem{
+		chunk: &MessageChunk{Ctrl: &StreamCtrl{StreamID: "old", Timestamp: 1_000, BeginOfStream: true}},
+		seq:   3, timestamp: 1_000,
+	}
+	heap := realtimeStreamHeap{oldData, newData, oldBOS}
+	for i := range heap {
+		for j := range heap {
+			for k := range heap {
+				if heap.Less(i, j) && heap.Less(j, k) && !heap.Less(i, k) {
+					t.Fatalf("Less is non-transitive for indexes %d, %d, %d", i, j, k)
+				}
+			}
+		}
+	}
+	if !heap.Less(0, 1) || !heap.Less(1, 2) || heap.Less(2, 0) {
+		t.Fatal("same-timestamp order must preserve producer sequence")
+	}
+}
+
+func TestRealtimeStreamDoesNotMoveInterruptedEOSBeforeSameTimestampData(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	for _, chunk := range []*MessageChunk{
+		{Part: Text("last"), Ctrl: &StreamCtrl{StreamID: "turn-1", Label: "assistant", Timestamp: 1_000}},
+		{Part: Text(""), Ctrl: &StreamCtrl{StreamID: "turn-1", Label: "assistant", Timestamp: 1_000, EndOfStream: true, Error: "interrupted"}},
+		{Part: Text(""), Ctrl: &StreamCtrl{StreamID: "turn-2", Label: "assistant", Timestamp: 1_000, BeginOfStream: true}},
+	} {
+		if err := stream.Push(context.Background(), chunk); err != nil {
+			t.Fatalf("Push() error = %v", err)
+		}
+	}
+	first, _ := stream.Next()
+	second, _ := stream.Next()
+	third, _ := stream.Next()
+	if first.Part != Text("last") || !second.IsEndOfStream() || !third.IsBeginOfStream() {
+		t.Fatalf("same-timestamp order = %#v, %#v, %#v; want data, interrupted EOS, replacement BOS", first, second, third)
+	}
+}
+
 func TestRealtimeAudioChunkClassification(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

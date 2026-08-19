@@ -1054,6 +1054,84 @@ func TestTransformerInterruptsActiveSessionOnNewInputStream(t *testing.T) {
 	}
 }
 
+func TestTransformerClosesRepeatedInterruptedTurnsBeforeReplacementBOS(t *testing.T) {
+	input := newBufferStream(16)
+	tr := newTransformer(doubaospeech.NewClient("app-id"),
+		withMode(doubaospeech.ASTTranslateModeS2S),
+	)
+	first := &fakeASTTranslateSession{
+		closeCh:           make(chan struct{}),
+		sentAudioNotify:   make(chan struct{}),
+		notifySentAudioAt: 1,
+	}
+	second := &fakeASTTranslateSession{
+		closeCh:           make(chan struct{}),
+		sentAudioNotify:   make(chan struct{}),
+		notifySentAudioAt: 1,
+	}
+	third := &fakeASTTranslateSession{
+		sentAudioNotify:   make(chan struct{}),
+		notifySentAudioAt: 1,
+		events: []*doubaospeech.ASTTranslateEvent{
+			{Type: doubaospeech.ASTEventTranslationSubtitleStart},
+			{Type: doubaospeech.ASTEventTranslationSubtitleResponse, Text: "third"},
+			{Type: doubaospeech.ASTEventTranslationSubtitleEnd, Text: "third"},
+			{Type: doubaospeech.ASTEventTTSSentenceStart},
+			{Type: doubaospeech.ASTEventTTSResponse, Audio: buildASTTranslateOggPackets(t, astTranslateOpusHeadPacket(48000, 1), astTranslateOpusTagsPacket("test"), []byte{1, 2, 3})},
+			{Type: doubaospeech.ASTEventTTSSentenceEnd},
+			{Type: doubaospeech.ASTEventSessionFinished},
+		},
+	}
+	sessions := []*fakeASTTranslateSession{first, second, third}
+	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+		if len(sessions) == 0 {
+			t.Fatal("unexpected extra AST session")
+		}
+		next := sessions[0]
+		sessions = sessions[1:]
+		return next, nil
+	}
+	out, err := tr.transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+
+	pushTurn := func(streamID string, sample byte) {
+		t.Helper()
+		for _, chunk := range []*genx.MessageChunk{
+			genx.NewBeginOfStream(streamID),
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{sample, 0, sample + 1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+		} {
+			if err := input.Push(chunk); err != nil {
+				t.Fatalf("Push(%s): %v", streamID, err)
+			}
+		}
+	}
+
+	pushTurn("turn-1", 1)
+	first.waitSentAudio(t)
+	pushTurn("turn-2", 3)
+	second.waitSentAudio(t)
+	pushTurn("turn-3", 5)
+	third.waitSentAudio(t)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input): %v", err)
+	}
+
+	chunks := readAllASTTranslateChunks(t, out)
+	for _, session := range []*fakeASTTranslateSession{first, second} {
+		if !session.closed || !session.finished {
+			t.Fatalf("interrupted session closed/finished = %t/%t", session.closed, session.finished)
+		}
+	}
+	if !third.finished {
+		t.Fatal("third session was not finished")
+	}
+	assertASTTranslateHandoffOrder(t, chunks, "turn-1", "turn-2")
+	assertASTTranslateHandoffOrder(t, chunks, "turn-2", "turn-3")
+}
+
 func TestTransformerRealtimeStartsNextSessionAfterPreviousFinished(t *testing.T) {
 	input := newBufferStream(8)
 	tr := newTransformer(doubaospeech.NewClient("app-id"),
@@ -1526,6 +1604,44 @@ func assertASTTranslateInterruptedLifecycles(t *testing.T, chunks []*genx.Messag
 			route[1].IsBeginOfStream() || !route[1].IsEndOfStream() || route[1].Ctrl.Error != "interrupted" {
 			t.Fatalf("interrupted route %q = %#v, want BOS/error EOS", mimeType, route)
 		}
+	}
+}
+
+func assertASTTranslateHandoffOrder(t *testing.T, chunks []*genx.MessageChunk, previousID, nextID string) {
+	t.Helper()
+	lastPreviousEOS := -1
+	firstNextBOS := -1
+	previousEOS := make(map[string]int)
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Role != genx.RoleModel ||
+			chunk.Ctrl.Label != doubaoASTTranslateAssistantLabel {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		if chunk.Ctrl.StreamID == previousID {
+			if endedAt, ended := previousEOS[mimeType]; ended && index > endedAt {
+				t.Fatalf("%s emitted %s after EOS at indexes %d and %d: %#v", previousID, mimeType, endedAt, index, chunks)
+			}
+			if chunk.IsEndOfStream() {
+				if chunk.Ctrl.Error != "interrupted" {
+					t.Fatalf("%s %s EOS error = %q, want interrupted", previousID, mimeType, chunk.Ctrl.Error)
+				}
+				previousEOS[mimeType] = index
+				lastPreviousEOS = max(lastPreviousEOS, index)
+			}
+		}
+		if chunk.Ctrl.StreamID == nextID && chunk.IsBeginOfStream() && firstNextBOS < 0 {
+			firstNextBOS = index
+		}
+	}
+	if len(previousEOS) != 2 || previousEOS["text/plain"] == 0 || previousEOS["audio/opus"] == 0 {
+		t.Fatalf("%s interrupted EOS routes = %#v, want text/plain and audio/opus: %#v", previousID, previousEOS, chunks)
+	}
+	if firstNextBOS < 0 || lastPreviousEOS >= firstNextBOS {
+		t.Fatalf("%s last EOS index = %d, %s first BOS index = %d: %#v", previousID, lastPreviousEOS, nextID, firstNextBOS, chunks)
 	}
 }
 

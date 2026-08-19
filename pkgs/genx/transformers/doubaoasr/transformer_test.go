@@ -335,6 +335,83 @@ func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
 	}
 }
 
+func TestTransformerEmitInterimInterruptsActiveRouteBeforeReplacement(t *testing.T) {
+	first := newFakeDoubaoASRSession()
+	second := newFakeDoubaoASRSession()
+	configure := func(session *fakeDoubaoASRSession, interim, final string) {
+		session.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
+			session.sends = append(session.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
+			if isLast {
+				session.result <- &doubaospeech.ASRV2Result{Text: final, IsFinal: true}
+				close(session.result)
+				return nil
+			}
+			session.result <- &doubaospeech.ASRV2Result{Text: interim}
+			return nil
+		}
+	}
+	configure(first, "first interim", "first final")
+	configure(second, "second interim", "second final")
+	transformer := newTransformer(Config{Format: "pcm", EmitInterim: true, RealtimePacing: new(false)})
+	sessions := []*fakeDoubaoASRSession{first, second}
+	openCalls := 0
+	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		session := sessions[openCalls]
+		openCalls++
+		return session, nil
+	}
+
+	input := newBufferStream(8)
+	output, err := transformer.Transform(context.Background(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	push := func(streamID string, data byte) {
+		t.Helper()
+		if err := input.Push(&genx.MessageChunk{
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{data, 0}},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+		}); err != nil {
+			t.Fatalf("push %s: %v", streamID, err)
+		}
+	}
+
+	push("turn-1", 1)
+	firstBOS := nextNonHistoryChunk(t, output)
+	firstText := nextNonHistoryChunk(t, output)
+	if !firstBOS.IsBeginOfStream() || firstBOS.Ctrl.StreamID != "turn-1" || firstText.Part != genx.Text("first interim") {
+		t.Fatalf("first route output = %#v / %#v", firstBOS, firstText)
+	}
+	push("turn-2", 2)
+	firstEOS := nextNonHistoryChunk(t, output)
+	secondBOS := nextNonHistoryChunk(t, output)
+	if !firstEOS.IsEndOfStream() || firstEOS.Ctrl.StreamID != "turn-1" || firstEOS.Ctrl.Error != "interrupted" {
+		t.Fatalf("first route terminal = %#v, want interrupted EOS", firstEOS)
+	}
+	if !secondBOS.IsBeginOfStream() || secondBOS.Ctrl.StreamID != "turn-2" {
+		t.Fatalf("replacement route first output = %#v, want turn-2 BOS", secondBOS)
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("close input: %v", err)
+	}
+	chunks := collectTransformerChunks(t, output)
+	if openCalls != 2 {
+		t.Fatalf("provider session opens = %d, want 2", openCalls)
+	}
+	foundSecondEOS := false
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == "turn-2" && chunk.IsEndOfStream() {
+			foundSecondEOS = true
+			if chunk.Ctrl.Error != "" {
+				t.Fatalf("final route EOS error = %q", chunk.Ctrl.Error)
+			}
+		}
+	}
+	if !foundSecondEOS {
+		t.Fatalf("replacement route did not close: %#v", chunks)
+	}
+}
+
 func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T) {
 	first := newFakeDoubaoASRSession()
 	first.recvErr = &doubaospeech.Error{Code: doubaoASRPacketWaitTimeout, Message: "waiting next packet timeout"}

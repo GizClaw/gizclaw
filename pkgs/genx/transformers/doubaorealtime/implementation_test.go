@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"iter"
 	"slices"
@@ -122,6 +123,14 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 		if session == nil {
 			t.Fatalf("session %d is nil", i)
 		}
+	}
+}
+
+func TestTransformerRealtimeUsesProviderKeepAliveMode(t *testing.T) {
+	transformer := newTransformer(nil, withMode(ModeRealtime))
+
+	if got := transformer.realtimeConfig().InputMode; got != doubaospeech.RealtimeInputModeKeepAlive {
+		t.Fatalf("realtime input mode = %q, want %q", got, doubaospeech.RealtimeInputModeKeepAlive)
 	}
 }
 
@@ -407,6 +416,64 @@ func TestDoubaoPushToTalkStateLifecycleAndBargeIn(t *testing.T) {
 	}
 }
 
+func TestDoubaoPushToTalkStateWaitsForDeliveredAudio(t *testing.T) {
+	state := &doubaoPushToTalkState{}
+	if _, _, err := state.begin("turn-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.end(); err != nil {
+		t.Fatal(err)
+	}
+	state.responseStarted("turn-1", true)
+	state.ttsFinished("turn-1")
+	if got := state.current(); got != doubaoPushToTalkResponding {
+		t.Fatalf("phase after provider TTS finish = %v, want responding until delivery", got)
+	}
+	bargeIn, interrupted, err := state.begin("turn-2")
+	if err != nil || !bargeIn || interrupted != "turn-1" {
+		t.Fatalf("begin() before delivery = (%v, %q, %v), want (true, turn-1, nil)", bargeIn, interrupted, err)
+	}
+
+	if err := state.end(); err != nil {
+		t.Fatal(err)
+	}
+	state.responseStarted("turn-2", true)
+	state.ttsFinished("turn-2")
+	state.observeAssistantOutput(doubaoRealtimeAssistantLabel, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-2", Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+	})
+	if got := state.current(); got != doubaoPushToTalkIdle {
+		t.Fatalf("phase after delivered audio = %v, want idle", got)
+	}
+	bargeIn, interrupted, err = state.begin("turn-3")
+	if err != nil || bargeIn || interrupted != "" {
+		t.Fatalf("begin() after delivery = (%v, %q, %v), want (false, empty, nil)", bargeIn, interrupted, err)
+	}
+}
+
+func TestDoubaoPushToTalkStateChatEndBeforeTTSRemainsInterruptible(t *testing.T) {
+	state := &doubaoPushToTalkState{}
+	if _, _, err := state.begin("turn-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.end(); err != nil {
+		t.Fatal(err)
+	}
+	state.responseStarted("turn-1", false)
+	state.chatEnded("turn-1")
+	state.responseStarted("turn-1", true)
+	state.ttsFinished("turn-1")
+	if got := state.current(); got != doubaoPushToTalkResponding {
+		t.Fatalf("phase after ChatEnded-before-TTS = %v, want responding until delivery", got)
+	}
+	bargeIn, interrupted, err := state.begin("turn-2")
+	if err != nil || !bargeIn || interrupted != "turn-1" {
+		t.Fatalf("begin() before delivered TTS = (%v, %q, %v), want (true, turn-1, nil)", bargeIn, interrupted, err)
+	}
+}
+
 func TestTransformerPTTTurnCommitsLatestHypothesisBeforeAssistantOutput(t *testing.T) {
 	output := &recordingRealtimeOutput{}
 	turn := &doubaoRealtimePTTTurn{}
@@ -492,6 +559,186 @@ func TestTransformerProviderLossClosesOnlyOpenAssistantRoutes(t *testing.T) {
 	}
 	if _, ok := chunk.Part.(genx.Text); !ok {
 		t.Fatalf("provider-loss chunk part = %T, want text route", chunk.Part)
+	}
+}
+
+func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	providerErr := errors.New("sami error: DialogAudioIdleTimeoutError (code=55000001)")
+	session := &fakeTransformerSession{
+		beforeRecv:     firstAudioSent,
+		firstAudioSent: firstAudioSent,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+		},
+		recvErr: providerErr,
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(4)
+	defer input.Close()
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	type routeKey struct {
+		role     genx.Role
+		mimeType string
+	}
+	routes := make(map[routeKey][]*genx.MessageChunk)
+	for completed := 0; completed < 3; {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("Next() before all routes closed = %v; routes=%#v", nextErr, routes)
+		}
+		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := routeKey{role: chunk.Role, mimeType: mimeType}
+		routes[key] = append(routes[key], chunk)
+		if chunk.IsEndOfStream() {
+			completed++
+		}
+	}
+
+	transcript := routes[routeKey{role: genx.RoleUser, mimeType: "text/plain"}]
+	assistantText := routes[routeKey{role: genx.RoleModel, mimeType: "text/plain"}]
+	assistantAudio := routes[routeKey{role: genx.RoleModel, mimeType: "audio/pcm"}]
+	for name, route := range map[string][]*genx.MessageChunk{
+		"transcript":      transcript,
+		"assistant text":  assistantText,
+		"assistant audio": assistantAudio,
+	} {
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("%s route = %#v, want BOS...EOS", name, route)
+		}
+	}
+	if got := transcript[len(transcript)-1].Ctrl.Error; got != "" {
+		t.Fatalf("transcript EOS error = %q, want success", got)
+	}
+	for name, route := range map[string][]*genx.MessageChunk{
+		"assistant text":  assistantText,
+		"assistant audio": assistantAudio,
+	} {
+		if got := route[len(route)-1].Ctrl.Error; !strings.Contains(got, "DialogAudioIdleTimeoutError") {
+			t.Fatalf("%s EOS error = %q, want DialogAudioIdleTimeoutError", name, got)
+		}
+	}
+	if !hasRealtimeTestText(assistantText, genx.RoleModel, "answer") {
+		t.Fatalf("assistant text route = %#v, want answer", assistantText)
+	}
+	if hasRealtimeTestBlob(assistantAudio, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("assistant audio route = %#v, want zero audio data before error EOS", assistantAudio)
+	}
+}
+
+func TestTransformerRealtimeResponseIdleClosesEveryOpenedRoute(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+		},
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+		withResponseIdleTimeout(20*time.Millisecond),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(4)
+	defer input.Close()
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	type routeKey struct {
+		role     genx.Role
+		mimeType string
+	}
+	routes := make(map[routeKey][]*genx.MessageChunk)
+	for completed := 0; completed < 3; {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("Next() before all routes closed = %v; routes=%#v", nextErr, routes)
+		}
+		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := routeKey{role: chunk.Role, mimeType: mimeType}
+		routes[key] = append(routes[key], chunk)
+		if chunk.IsEndOfStream() {
+			completed++
+		}
+	}
+
+	for name, key := range map[string]routeKey{
+		"assistant text":  {role: genx.RoleModel, mimeType: "text/plain"},
+		"assistant audio": {role: genx.RoleModel, mimeType: "audio/pcm"},
+	} {
+		route := routes[key]
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("%s route = %#v, want BOS...EOS", name, route)
+		}
+		if got := route[len(route)-1].Ctrl.Error; !strings.Contains(got, "response idle timeout") {
+			t.Fatalf("%s EOS error = %q, want response idle timeout", name, got)
+		}
 	}
 }
 
@@ -1576,6 +1823,108 @@ func TestTransformerRealtimeInterruptHandsUnreadAudioToReplacementSession(t *tes
 	}
 }
 
+func TestTransformerRealtimeClosesInterruptedTurnsBeforeReplacementBOS(t *testing.T) {
+	newSession := func(answer string, final bool) (*fakeTransformerSession, <-chan struct{}) {
+		audioSent := make(chan struct{})
+		eventsDrained := make(chan struct{})
+		events := []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: answer + " transcript"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: answer},
+		}
+		if final {
+			events = append(events,
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventChatEnded},
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSStarted},
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSAudioData, Audio: []byte(answer)},
+				&doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSFinished},
+			)
+		}
+		return &fakeTransformerSession{
+			beforeRecv:       audioSent,
+			firstAudioSent:   audioSent,
+			eventsDrained:    eventsDrained,
+			blockAfterEvents: make(chan struct{}),
+			events:           events,
+		}, eventsDrained
+	}
+	first, firstDrained := newSession("first answer", false)
+	second, secondDrained := newSession("second answer", false)
+	third, thirdDrained := newSession("third answer", true)
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: first}, {session: second}, {session: third}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	input := newBufferStream(12)
+	output, err := tfr.transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushTurn := func(turn int) {
+		t.Helper()
+		streamID := fmt.Sprintf("turn-%d", turn)
+		for _, chunk := range []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{byte(turn), 0}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}},
+			{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}},
+		} {
+			if err := input.Push(chunk); err != nil {
+				t.Fatalf("Push(turn %d) error = %v", turn, err)
+			}
+		}
+	}
+	waitDrained := func(turn int, done <-chan struct{}) {
+		t.Helper()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("turn %d provider response did not start", turn)
+		}
+	}
+
+	pushTurn(1)
+	waitDrained(1, firstDrained)
+	pushTurn(2)
+	waitDrained(2, secondDrained)
+	pushTurn(3)
+	waitDrained(3, thirdDrained)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+
+	chunks := drainRealtimeTestOutput(t, output)
+	requireRealtimeAssistantHandoffOrder(t, chunks, "turn-1:rt:1", "turn-2:rt:1")
+	requireRealtimeAssistantHandoffOrder(t, chunks, "turn-2:rt:1", "turn-3:rt:1")
+}
+
+func requireRealtimeAssistantHandoffOrder(t *testing.T, chunks []*genx.MessageChunk, previousID, nextID string) {
+	t.Helper()
+	previousTextEOS, previousAudioEOS, nextBOS := -1, -1, -1
+	for index, chunk := range chunks {
+		if chunk == nil || chunk.Ctrl == nil || chunk.Role != genx.RoleModel || chunk.Ctrl.Label != doubaoRealtimeAssistantLabel {
+			continue
+		}
+		if chunk.Ctrl.StreamID == previousID && chunk.IsEndOfStream() && chunk.Ctrl.Error == doubaoRealtimeInterrupted {
+			switch chunk.Part.(type) {
+			case genx.Text:
+				previousTextEOS = index
+			case *genx.Blob:
+				previousAudioEOS = index
+			}
+		}
+		if chunk.Ctrl.StreamID == nextID && chunk.IsBeginOfStream() && (nextBOS < 0 || index < nextBOS) {
+			nextBOS = index
+		}
+	}
+	if previousTextEOS < 0 || previousAudioEOS < 0 || nextBOS <= previousTextEOS || nextBOS <= previousAudioEOS {
+		t.Fatalf("assistant handoff %q -> %q indices: text EOS=%d audio EOS=%d next BOS=%d; chunks=%#v", previousID, nextID, previousTextEOS, previousAudioEOS, nextBOS, chunks)
+	}
+}
+
 func TestTransformerPTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T) {
 	first := &fakeTransformerSession{
 		blockAfterEvents: make(chan struct{}),
@@ -2078,6 +2427,7 @@ func (o *fakeTransformerOpener) waitForCalls(want int, timeout time.Duration) bo
 
 type fakeTransformerSession struct {
 	events           []*doubaospeech.RealtimeEvent
+	recvErr          error
 	eventInterval    time.Duration
 	beforeRecv       <-chan struct{}
 	endASR           chan struct{}
@@ -2208,6 +2558,9 @@ func (s *fakeTransformerSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent, e
 			if !yield(event, nil) {
 				return
 			}
+		}
+		if s.recvErr != nil && !yield(nil, s.recvErr) {
+			return
 		}
 		if s.eventsDrained != nil {
 			s.eventsDrainedOnce.Do(func() {

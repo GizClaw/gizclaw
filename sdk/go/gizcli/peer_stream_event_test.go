@@ -252,6 +252,25 @@ func TestPeerStreamEventToChunkPreservesTypedEOS(t *testing.T) {
 	}
 }
 
+func TestPeerStreamEventToChunkPreservesTextEOSKind(t *testing.T) {
+	event := &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: "s1", Label: "assistant", Kind: eventpb.StreamKind_STREAM_KIND_TEXT,
+			Error: &eventpb.EventError{Code: "STREAM_INTERRUPTED", Message: "interrupted"},
+		}},
+	}
+	chunk, err := peerStreamEventToChunk(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, ok := chunk.Part.(genx.Text)
+	if !ok || text != "" || !chunk.IsEndOfStream() || chunk.Ctrl.Error != "interrupted" {
+		t.Fatalf("text EOS chunk = %#v", chunk)
+	}
+}
+
 func TestPeerStreamEventToChunkAcceptsWorkspaceHistoryUpdated(t *testing.T) {
 	lastUpdated := time.Date(2026, 6, 22, 12, 0, 0, 123000000, time.UTC)
 	event := &eventpb.PeerEvent{
