@@ -66,8 +66,24 @@ func runWorkflowConcurrencyScenario(
 	}
 	observations := make([]workflowConcurrencyTurnObservation, turnCount)
 	sendResults := make(chan workflowConcurrencySendResult, turnCount)
+	feederResults := make(chan workflowConcurrencySendResult, turnCount)
+	feederStops := make([]context.CancelFunc, turnCount)
+	feederDone := make([]chan error, turnCount)
 	current := 0
 	var trace roundEventTrace
+	stopFeeder := func(index int) error {
+		if index < 0 || index >= len(feederStops) || feederStops[index] == nil {
+			return nil
+		}
+		feederStops[index]()
+		feederStops[index] = nil
+		return <-feederDone[index]
+	}
+	defer func() {
+		for index := range feederStops {
+			_ = stopFeeder(index)
+		}
+	}()
 	defer func() {
 		lane.Result.Turns = make([]workflowConcurrencyTurnResult, len(observations))
 		for index := range observations {
@@ -84,6 +100,32 @@ func runWorkflowConcurrencyScenario(
 		}
 		if spec.RequireAudio {
 			packets := cloneOpusPackets(inputs.Packets[index])
+			if spec.KeepRealtimeInputOpen {
+				if len(inputs.SilencePackets) != turnCount || len(inputs.SilencePackets[index]) == 0 {
+					return fmt.Errorf("turn %d continuous input has no silence packet", index+1)
+				}
+				if err := lane.Transport.sendAudioTurnBOS(ctx, streamID); err != nil {
+					return err
+				}
+				turnCtx, cancel := context.WithCancel(ctx)
+				feederStops[index] = cancel
+				feederDone[index] = make(chan error, 1)
+				go func() {
+					err := lane.Transport.sendAudioTurnAudioContinuously(
+						turnCtx,
+						streamID,
+						"audio/opus",
+						packets,
+						inputs.SilencePackets[index],
+						func() { sendResults <- workflowConcurrencySendResult{turn: index} },
+					)
+					feederDone[index] <- err
+					if err != nil {
+						feederResults <- workflowConcurrencySendResult{turn: index, err: err}
+					}
+				}()
+				return nil
+			}
 			if cutover {
 				if err := lane.Transport.sendAudioTurnBOS(ctx, streamID); err != nil {
 					return err
@@ -131,6 +173,9 @@ func runWorkflowConcurrencyScenario(
 			}
 			if workflowConcurrencyInterruptGateReady(observation, spec) && !observation.cutoverSent {
 				observation.cutoverSent = true
+				if err := stopFeeder(current); err != nil {
+					return fmt.Errorf("turn %d stop continuous input: %w", current+1, err)
+				}
 				if err := sendTurn(current+1, true); err != nil {
 					return fmt.Errorf("turn %d interrupt BOS: %w", current+2, err)
 				}
@@ -141,6 +186,9 @@ func runWorkflowConcurrencyScenario(
 			}
 		}
 		if current == turnCount-1 && workflowConcurrencyResponseComplete(&observations[current], spec) {
+			if err := stopFeeder(current); err != nil {
+				return fmt.Errorf("turn %d stop continuous input: %w", current+1, err)
+			}
 			if err := validateWorkflowConcurrencyTurns(observations, spec, scenario); err != nil {
 				return fmt.Errorf("%w; recent events: %s", err, trace.String())
 			}
@@ -171,6 +219,8 @@ func runWorkflowConcurrencyScenario(
 			observations[sent.turn].sendDone = true
 			observations[sent.turn].result.InputEOSSent = !spec.KeepRealtimeInputOpen && spec.RequireAudio
 			observations[sent.turn].result.InputDoneAt = time.Now()
+		case fed := <-feederResults:
+			return fmt.Errorf("turn %d continuous input: %w", fed.turn+1, fed.err)
 		case err := <-lane.Transport.errs:
 			return fmt.Errorf("logical PeerStream: %w; recent events: %s", err, trace.String())
 		case received := <-lane.Transport.events:

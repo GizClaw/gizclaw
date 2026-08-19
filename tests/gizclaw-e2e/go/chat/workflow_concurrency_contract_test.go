@@ -10,11 +10,73 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func TestWorkflowConcurrencyContract(t *testing.T) {
+	t.Run("ordinary realtime continuously feeds silence", func(t *testing.T) {
+		if !realtimeWorkflowConcurrencySpec.KeepRealtimeInputOpen {
+			t.Fatal("ordinary realtime input closes instead of feeding silence")
+		}
+		for _, pattern := range realtimeWorkflowConcurrencySpec.SkippableProviderErrors {
+			if pattern == "DialogAudioIdleTimeoutError" {
+				t.Fatal("ordinary realtime still masks an audio idle timeout")
+			}
+		}
+	})
+
+	t.Run("continuous input repeats silence until canceled", func(t *testing.T) {
+		stream := newFakePeerStream()
+		pushed := make(chan struct{}, 8)
+		stream.push = func(*genx.MessageChunk) error {
+			pushed <- struct{}{}
+			return nil
+		}
+		transport := &chatTransport{stream: stream, packetInterval: time.Millisecond}
+		ctx, cancel := context.WithCancel(context.Background())
+		prefixSent := make(chan struct{})
+		done := make(chan error, 1)
+		go func() {
+			done <- transport.sendAudioTurnAudioContinuously(
+				ctx,
+				"continuous-input",
+				"audio/opus",
+				[][]byte{{0x01}},
+				[]byte{0x00},
+				func() { close(prefixSent) },
+			)
+		}()
+		select {
+		case <-prefixSent:
+		case <-time.After(time.Second):
+			t.Fatal("prepared audio prefix was not reported")
+		}
+		for range 4 {
+			select {
+			case <-pushed:
+			case <-time.After(time.Second):
+				t.Fatal("continuous silence stopped before cancellation")
+			}
+		}
+		cancel()
+		if err := <-done; err != nil {
+			t.Fatalf("continuous input stop error = %v", err)
+		}
+		if got := len(stream.pushed); got < 4 {
+			t.Fatalf("pushed chunks = %d, want at least 4", got)
+		}
+		for index, chunk := range stream.pushed {
+			if chunk.Ctrl == nil || chunk.Ctrl.EndOfStream {
+				t.Fatalf("chunk %d closed the realtime input", index)
+			}
+			if index > 0 && string(chunk.Part.(*genx.Blob).Data) != string([]byte{0x00}) {
+				t.Fatalf("chunk %d data = %v, want silence", index, chunk.Part.(*genx.Blob).Data)
+			}
+		}
+	})
+
 	t.Run("provider-only skip classification is fail closed", func(t *testing.T) {
 		providerError := "doubaospeech: sami error: codes=52000016, desc=AudioTTSIdleTimeoutError (code=55000000, reqid=, trace_id=, log_id=, connect_id=, http_status=0)"
 		providerFailure := "turn 1: peer terminal error: " + providerError + "; " + providerError + "; recent events: closed"

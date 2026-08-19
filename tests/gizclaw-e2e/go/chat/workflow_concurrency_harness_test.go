@@ -59,8 +59,8 @@ var (
 	}
 	workflowConcurrencyProviderOnlyFailurePattern = regexp.MustCompile(`^turn [1-9][0-9]*:? peer terminal error: (.+)$`)
 	realtimeWorkflowConcurrencySpec               = workflowConcurrencySpec{
-		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
-		SkippableProviderErrors: []string{"DialogAudioIdleTimeoutError", "VolcengineProviderError"},
+		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
+		SkippableProviderErrors: []string{"VolcengineProviderError"},
 	}
 	realtimeDuplexWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
@@ -105,8 +105,9 @@ type workflowConcurrencyLane struct {
 }
 
 type workflowConcurrencyInputs struct {
-	Texts   []string
-	Packets [][][]byte
+	Texts          []string
+	Packets        [][][]byte
+	SilencePackets [][]byte
 }
 
 type workflowConcurrencyBarrier struct {
@@ -427,6 +428,7 @@ func prepareWorkflowConcurrencyInputs(
 		return inputs, fmt.Errorf("voice input preparation requires lane 1")
 	}
 	inputs.Packets = make([][][]byte, turns)
+	inputs.SilencePackets = make([][]byte, turns)
 	for index, text := range texts {
 		_, packets, err := lanes[0].Driver.synthesizeOpusOnce(ctx, text)
 		if err != nil {
@@ -441,6 +443,12 @@ func prepareWorkflowConcurrencyInputs(
 			return inputs, fmt.Errorf("prepare voice input turn %d tail silence: %w", index+1, err)
 		}
 		inputs.Packets[index] = cloneOpusPackets(packets)
+		if spec.KeepRealtimeInputOpen {
+			if len(packets) == 0 {
+				return inputs, fmt.Errorf("prepare voice input turn %d produced no silence packet", index+1)
+			}
+			inputs.SilencePackets[index] = append([]byte(nil), packets[len(packets)-1]...)
+		}
 	}
 	return inputs, nil
 }
