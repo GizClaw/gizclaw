@@ -63,8 +63,8 @@ var (
 		SkippableProviderErrors: []string{"VolcengineProviderError"},
 	}
 	realtimeDuplexWorkflowConcurrencySpec = workflowConcurrencySpec{
-		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
-		SkippableProviderErrors: []string{"AudioTTSIdleTimeoutError", "VolcengineProviderError", "DoubaoRealtimeResponseIdleTimeout"},
+		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
+		SkippableProviderErrors: []string{"VolcengineProviderError", "DoubaoRealtimeResponseIdleTimeout"},
 	}
 	flowcraftWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,

@@ -27,6 +27,17 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		}
 	})
 
+	t.Run("duplex realtime continuously feeds silence", func(t *testing.T) {
+		if !realtimeDuplexWorkflowConcurrencySpec.KeepRealtimeInputOpen {
+			t.Fatal("duplex realtime input closes instead of feeding silence")
+		}
+		for _, pattern := range realtimeDuplexWorkflowConcurrencySpec.SkippableProviderErrors {
+			if pattern == "AudioTTSIdleTimeoutError" {
+				t.Fatal("duplex realtime still masks an audio TTS idle timeout")
+			}
+		}
+	})
+
 	t.Run("continuous input repeats silence until canceled", func(t *testing.T) {
 		stream := newFakePeerStream()
 		pushed := make(chan struct{}, 8)
