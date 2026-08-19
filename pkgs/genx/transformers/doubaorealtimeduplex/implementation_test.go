@@ -1456,12 +1456,13 @@ func TestDoubaoRealtimeDuplexPendingChunkPrioritizesDone(t *testing.T) {
 func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) {
 	const responseStreamID = "turn-1:rt:1"
 
-	firstInputDrained := make(chan struct{})
+	firstAudioSent := make(chan struct{})
 	allowNextInput := make(chan struct{})
 	releaseEvents := make(chan struct{})
 	eventsDrained := make(chan struct{})
 	session := &fakeDoubaoRealtimeDuplexSession{
-		beforeRecv: firstInputDrained,
+		beforeRecv: firstAudioSent,
+		audioSent:  firstAudioSent,
 		events: []*doubaospeech.RealtimeDuplexEvent{
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioStarted, ResponseID: "turn-1"},
 			{Type: doubaospeech.RealtimeDuplexEventResponseOutputAudioDone, ResponseID: "turn-1"},
@@ -1482,8 +1483,7 @@ func TestDoubaoRealtimeDuplexTextDoneAfterAudioDoneAllowsNextTurn(t *testing.T) 
 			{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
 		},
-		firstDrained: firstInputDrained,
-		gate:         allowNextInput,
+		gate: allowNextInput,
 		rest: []*genx.MessageChunk{
 			{Ctrl: &genx.StreamCtrl{StreamID: "turn-2", BeginOfStream: true}},
 		},
