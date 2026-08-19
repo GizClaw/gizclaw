@@ -896,6 +896,28 @@ func TestDoubaoRealtimeDuplexProviderErrorClosesOpenAssistantRoutes(t *testing.T
 	}
 }
 
+func TestDoubaoRealtimeDuplexProviderErrorAddsHandshakeLogID(t *testing.T) {
+	providerErr := &doubaospeech.Error{Code: 55000000, Message: "AudioTTSIdleTimeoutError"}
+	wrapped := fmt.Errorf("receive duplex event: %w", providerErr)
+
+	got := doubaoRealtimeDuplexProviderErrorWithLogID(wrapped, " log-duplex-1 ")
+	if !errors.Is(got, providerErr) {
+		t.Fatalf("error = %v, want wrapped provider error", got)
+	}
+	if providerErr.LogID != "log-duplex-1" {
+		t.Fatalf("provider log ID = %q, want %q", providerErr.LogID, "log-duplex-1")
+	}
+	if !strings.Contains(got.Error(), "log_id=log-duplex-1") {
+		t.Fatalf("error = %q, want handshake log ID", got)
+	}
+
+	existing := &doubaospeech.Error{Code: 55000000, Message: "provider failed", LogID: "event-log"}
+	doubaoRealtimeDuplexProviderErrorWithLogID(existing, "handshake-log")
+	if existing.LogID != "event-log" {
+		t.Fatalf("provider log ID = %q, want event log ID preserved", existing.LogID)
+	}
+}
+
 func TestDoubaoRealtimeDuplexErrorEventClosesBlockedInput(t *testing.T) {
 	wantErr := &doubaospeech.Error{Code: 500, Message: "duplex failed"}
 	input := newBlockingRealtimeStream()
@@ -1497,6 +1519,7 @@ func (o *fakeDoubaoRealtimeDuplexOpener) openCount() int {
 }
 
 type fakeDoubaoRealtimeDuplexSession struct {
+	logID            string
 	events           []*doubaospeech.RealtimeDuplexEvent
 	recvErr          error
 	beforeRecv       <-chan struct{}
@@ -1513,6 +1536,10 @@ type fakeDoubaoRealtimeDuplexSession struct {
 	cancels           int
 	eventsDrainedOnce sync.Once
 	audioSentOnce     sync.Once
+}
+
+func (s *fakeDoubaoRealtimeDuplexSession) LogID() string {
+	return s.logID
 }
 
 func (s *fakeDoubaoRealtimeDuplexSession) SendAudio(ctx context.Context, audio []byte) error {

@@ -65,6 +65,7 @@ type doubaoRealtimeDuplexOpener interface {
 }
 
 type doubaoRealtimeDuplexSession interface {
+	LogID() string
 	SendAudio(context.Context, []byte) error
 	CancelResponse(context.Context) error
 	SendFunctionCallOutputs(context.Context, ...doubaospeech.RealtimeDuplexFunctionCallOutput) error
@@ -572,6 +573,7 @@ func (t *Transformer) processLoop(
 		defer finishEvents()
 		for event, err := range session.Recv() {
 			if err != nil {
+				err = doubaoRealtimeDuplexProviderErrorWithLogID(err, session.LogID())
 				if restarting.Load() {
 					slog.Info("doubao: realtime duplex session stopped for restart", "error", err)
 					return
@@ -852,6 +854,7 @@ func (t *Transformer) processLoop(
 				if event.Error != nil {
 					err = event.Error
 				}
+				err = doubaoRealtimeDuplexProviderErrorWithLogID(err, session.LogID())
 				finishProviderError(err)
 				return
 			}
@@ -1265,6 +1268,24 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func doubaoRealtimeDuplexProviderErrorWithLogID(err error, logID string) error {
+	logID = strings.TrimSpace(logID)
+	if err == nil || logID == "" {
+		return err
+	}
+	var providerErr *doubaospeech.Error
+	if !errors.As(err, &providerErr) {
+		return err
+	}
+	if strings.TrimSpace(providerErr.LogID) == "" {
+		providerErr.LogID = logID
+	}
+	// Return the provider error itself so its formatted metadata reflects the
+	// newly attached handshake log ID. fmt-wrapped errors cache their message
+	// when created and would otherwise continue to print an empty log_id.
+	return providerErr
 }
 
 func resolveDoubaoRealtimeDuplexTools(
