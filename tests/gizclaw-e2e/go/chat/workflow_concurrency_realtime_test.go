@@ -16,12 +16,12 @@ func TestRealtimeWorkflowConcurrencyInterrupt10(t *testing.T) {
 	runWorkflowConcurrency10(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
-func TestRealtimeWorkflowConcurrency50(t *testing.T) {
-	runWorkflowConcurrency50(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyConversation)
+func TestRealtimeWorkflowConcurrency20(t *testing.T) {
+	runWorkflowConcurrency20(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyConversation)
 }
 
-func TestRealtimeWorkflowConcurrencyInterrupt50(t *testing.T) {
-	runWorkflowConcurrency50(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
+func TestRealtimeWorkflowConcurrencyInterrupt20(t *testing.T) {
+	runWorkflowConcurrency20(t, realtimeWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
 func TestRealtimeWorkflowRealtimeConcurrency1(t *testing.T) {

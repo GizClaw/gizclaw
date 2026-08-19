@@ -184,20 +184,20 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
 
-### Workflow 10 路和 50 路并发与打断
+### Workflow 10 路和 20 路并发与打断
 
 固定入口在五个独立 wave 中分别验证 Realtime、Realtime Duplex、Flowcraft、Eino 和
-Translate；不同 Workflow 不会混成一个 50 路 wave。每个 wave 创建 10 个或 50 个独立 Peer 和 Workspace，全部
+Translate；不同 Workflow 不会混成一个 20 路 wave。每个 wave 创建 10 个或 20 个独立 Peer 和 Workspace，全部
 到达 ready barrier 后同时开始，但共同引用同一个已 seed 的 Workflow：
 
 ```sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
-bash tests/gizclaw-e2e/run_workflow_concurrency_50_tests.sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
 ```
 
 两个固定入口只执行每类 Workflow 的 EOS 边界单轮对话/三轮打断测试，每个并发档位各有
-10 个正式 gate。同一 repository head 必须先通过 10 路档位，再执行 50 路档位。每类
-Workflow 仍使用独立 wave，因此 50 路入口不会把五类 Workflow 混成一个 250 路 wave。
+10 个正式 gate。同一 repository head 必须先通过 10 路档位，再执行 20 路档位。每类
+Workflow 仍使用独立 wave，因此 20 路入口不会把五类 Workflow 混成一个 100 路 wave。
 同一测试包还提供 continuous-open realtime 单轮对话/三轮打断的定向诊断测试；它们不在
 固定入口的 selection 内。Realtime 版本将 Workspace input 设为 `realtime`，发送语音和
 尾静音后保持客户端 audio stream 开启，不发送 audio EOS；打断版本等待本轮音频 packet

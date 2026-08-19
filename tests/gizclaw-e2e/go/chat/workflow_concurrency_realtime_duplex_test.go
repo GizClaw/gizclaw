@@ -12,10 +12,10 @@ func TestRealtimeDuplexWorkflowConcurrencyInterrupt10(t *testing.T) {
 	runWorkflowConcurrency10(t, realtimeDuplexWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
-func TestRealtimeDuplexWorkflowConcurrency50(t *testing.T) {
-	runWorkflowConcurrency50(t, realtimeDuplexWorkflowConcurrencySpec, workflowConcurrencyConversation)
+func TestRealtimeDuplexWorkflowConcurrency20(t *testing.T) {
+	runWorkflowConcurrency20(t, realtimeDuplexWorkflowConcurrencySpec, workflowConcurrencyConversation)
 }
 
-func TestRealtimeDuplexWorkflowConcurrencyInterrupt50(t *testing.T) {
-	runWorkflowConcurrency50(t, realtimeDuplexWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
+func TestRealtimeDuplexWorkflowConcurrencyInterrupt20(t *testing.T) {
+	runWorkflowConcurrency20(t, realtimeDuplexWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }

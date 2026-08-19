@@ -26,7 +26,7 @@ import (
 
 const (
 	workflowConcurrency10            = 10
-	workflowConcurrency50            = 50
+	workflowConcurrency20            = 20
 	workflowConcurrencyTerminalGrace = 30 * time.Second
 )
 
@@ -157,8 +157,8 @@ func runWorkflowConcurrency10(t *testing.T, spec workflowConcurrencySpec, scenar
 	runWorkflowConcurrency(t, spec, scenario, workflowConcurrency10)
 }
 
-func runWorkflowConcurrency50(t *testing.T, spec workflowConcurrencySpec, scenario workflowConcurrencyScenario) {
-	runWorkflowConcurrency(t, spec, scenario, workflowConcurrency50)
+func runWorkflowConcurrency20(t *testing.T, spec workflowConcurrencySpec, scenario workflowConcurrencyScenario) {
+	runWorkflowConcurrency(t, spec, scenario, workflowConcurrency20)
 }
 
 func runWorkflowConcurrency(

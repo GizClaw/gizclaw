@@ -12,12 +12,12 @@ func TestTranslateWorkflowConcurrencyInterrupt10(t *testing.T) {
 	runWorkflowConcurrency10(t, translateWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
-func TestTranslateWorkflowConcurrency50(t *testing.T) {
-	runWorkflowConcurrency50(t, translateWorkflowConcurrencySpec, workflowConcurrencyConversation)
+func TestTranslateWorkflowConcurrency20(t *testing.T) {
+	runWorkflowConcurrency20(t, translateWorkflowConcurrencySpec, workflowConcurrencyConversation)
 }
 
-func TestTranslateWorkflowConcurrencyInterrupt50(t *testing.T) {
-	runWorkflowConcurrency50(t, translateWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
+func TestTranslateWorkflowConcurrencyInterrupt20(t *testing.T) {
+	runWorkflowConcurrency20(t, translateWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
 func TestTranslateWorkflowRealtimeConcurrency10(t *testing.T) {

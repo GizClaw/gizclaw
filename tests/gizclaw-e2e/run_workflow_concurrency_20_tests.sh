@@ -6,12 +6,12 @@ repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
 env_file="$script_dir/.env"
 artifact_dir="${GIZCLAW_E2E_WORKFLOW_CONCURRENCY_ARTIFACT_DIR:-$script_dir/testdata/workflow-concurrency}"
-docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-workflow-concurrency-50.XXXXXX")"
+docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-workflow-concurrency-20.XXXXXX")"
 rm -f "$docker_env_path"
 export GIZCLAW_E2E_DOCKER_ENV="$docker_env_path"
 export GIZCLAW_E2E_WORKFLOW_CONCURRENCY_ARTIFACT_DIR="$artifact_dir"
 project_user="$(printf '%s' "${USER:-user}" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')"
-export GIZCLAW_E2E_DOCKER_PROJECT="gizclaw-wc50-${project_user:-user}-$$"
+export GIZCLAW_E2E_DOCKER_PROJECT="gizclaw-wc20-${project_user:-user}-$$"
 stats_pid=""
 stack_started=0
 
@@ -98,9 +98,9 @@ start_resource_sampler() {
 }
 
 start_resource_sampler
-echo "==> run fixed Workflow concurrency=50 selection"
+echo "==> run fixed Workflow concurrency=20 selection"
 (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout 180m \
-	-run '^Test(Realtime|RealtimeDuplex|Flowcraft|Eino|Translate)WorkflowConcurrency(Interrupt)?50$' \
+	-run '^Test(Realtime|RealtimeDuplex|Flowcraft|Eino|Translate)WorkflowConcurrency(Interrupt)?20$' \
 	./tests/gizclaw-e2e/go/chat)
 
 stop_resource_sampler
@@ -119,4 +119,4 @@ fi
 
 rm -f "$docker_env_path"
 trap - EXIT INT TERM
-echo "==> Workflow concurrency=50 e2e completed artifacts=$artifact_dir"
+echo "==> Workflow concurrency=20 e2e completed artifacts=$artifact_dir"

@@ -5,6 +5,24 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Voice
     metadata:
+      id: volc-tenant:volc-main:zh_female_vv_uranus_bigtts
+    spec:
+      source: manual
+      provider: {kind: volc-tenant, id: volc-main}
+      display_name: Assistant 2.0
+      provider_data: {resource_id: seed-tts-2.0, voice_id: zh_female_vv_uranus_bigtts}
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Voice
+    metadata:
+      id: volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts
+    spec:
+      source: manual
+      provider: {kind: volc-tenant, id: volc-main}
+      display_name: Narrator 2.0
+      provider_data: {resource_id: seed-tts-2.0, voice_id: zh_female_xiaohe_uranus_bigtts}
+  - apiVersion: gizclaw.admin/v1alpha1
+    kind: Voice
+    metadata:
       id: volc-tenant:volc-main:zh_female_vv_mars_bigtts
     spec:
       source: manual
