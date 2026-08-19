@@ -47,18 +47,22 @@ envsubst '${GIZCLAW_E2E_SERVER_ENDPOINT} ${GIZCLAW_E2E_TURN_ENDPOINT} ${GIZCLAW_
   > "$workspace_dir/config.yaml"
 if [[ "${GIZCLAW_E2E_PROFILING:-}" == "1" ]]; then
   awk '
-/^stores:/ {
+/^storage:/ {
+  print $0
   print "  profiling-files:"
   print "    kind: filesystem.dir"
   print "    dir: data/profiling"
-  print $0
   next
 }
-/^services:/ {
+/^stores:/ {
+  print $0
   print "  runtime-profiling:"
   print "    kind: objectstore"
   print "    storage: profiling-files"
   print "    prefix: pprof"
+  next
+}
+/^services:/ {
   print ""
   print "profiling:"
   print "  enabled: true"

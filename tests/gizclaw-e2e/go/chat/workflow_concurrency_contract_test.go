@@ -42,6 +42,10 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 				t.Fatal("duplex realtime still masks an audio TTS idle timeout")
 			}
 		}
+		if len(realtimeDuplexWorkflowConcurrencySpec.SkippableProviderErrors) != 1 ||
+			realtimeDuplexWorkflowConcurrencySpec.SkippableProviderErrors[0] != workflowConcurrencyVolcProviderExceptAudioIdle {
+			t.Fatal("duplex realtime does not exclude audio TTS idle timeout from generic provider skips")
+		}
 	})
 
 	t.Run("continuous input repeats silence until canceled", func(t *testing.T) {
@@ -101,6 +105,9 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
 			t.Fatal("exact provider-only failure was not classified as skippable")
 		}
+		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{workflowConcurrencyVolcProviderExceptAudioIdle}) {
+			t.Fatal("duplex audio TTS idle timeout was classified as skippable")
+		}
 		regularProviderError := "doubao realtime receive events: realtime event 153: doubaospeech: sami error: codes=52000042, desc=DialogAudioIdleTimeoutError (code=55000001, reqid=, trace_id=, log_id=, connect_id=rt-test, http_status=0)"
 		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + regularProviderError}}}
 		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"DialogAudioIdleTimeoutError"}) {
@@ -132,6 +139,9 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + providerError}}}
 			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineProviderError"}) {
 				t.Fatalf("exact Volcengine provider failure was not classified as skippable: %q", providerError)
+			}
+			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{workflowConcurrencyVolcProviderExceptAudioIdle}) {
+				t.Fatalf("non-idle Duplex provider failure was not classified as skippable: %q", providerError)
 			}
 		}
 		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + quotaError + "; context deadline exceeded"}}}

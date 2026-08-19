@@ -30,6 +30,8 @@ const (
 	workflowConcurrencyTerminalGrace = 30 * time.Second
 )
 
+const workflowConcurrencyVolcProviderExceptAudioIdle = "VolcengineProviderErrorExceptAudioTTSIdleTimeout"
+
 type workflowConcurrencyScenario string
 
 const (
@@ -63,7 +65,7 @@ var (
 	}
 	realtimeDuplexWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
-		SkippableProviderErrors: []string{"VolcengineProviderError"},
+		SkippableProviderErrors: []string{workflowConcurrencyVolcProviderExceptAudioIdle},
 	}
 	flowcraftWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
@@ -264,8 +266,7 @@ func workflowConcurrencySkippableProviderError(message string, markers []string)
 	for _, providerError := range providerErrors {
 		matched := false
 		for _, marker := range markers {
-			pattern := workflowConcurrencyProviderErrorPatterns[strings.TrimSpace(marker)]
-			if pattern != nil && pattern.MatchString(providerError) {
+			if workflowConcurrencyProviderErrorMatches(strings.TrimSpace(marker), providerError) {
 				matched = true
 				break
 			}
@@ -275,6 +276,16 @@ func workflowConcurrencySkippableProviderError(message string, markers []string)
 		}
 	}
 	return true
+}
+
+func workflowConcurrencyProviderErrorMatches(marker, providerError string) bool {
+	if marker == workflowConcurrencyVolcProviderExceptAudioIdle {
+		generic := workflowConcurrencyProviderErrorPatterns["VolcengineProviderError"]
+		idle := workflowConcurrencyProviderErrorPatterns["AudioTTSIdleTimeoutError"]
+		return generic.MatchString(providerError) && !idle.MatchString(providerError)
+	}
+	pattern := workflowConcurrencyProviderErrorPatterns[marker]
+	return pattern != nil && pattern.MatchString(providerError)
 }
 
 func newWorkflowConcurrencyAdmin(t *testing.T, story string) (*gizcli.Client, *adminhttp.ClientWithResponses) {
