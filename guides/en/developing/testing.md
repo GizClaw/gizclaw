@@ -195,19 +195,23 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `desktop/shell` covers the Pod shell; `desktop/admin` and `desktop/play` cover browser surfaces.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 
-### Ten-lane Workflow concurrency and interruption
+### Ten- and fifty-lane Workflow concurrency and interruption
 
 The fixed entrypoint validates Realtime, Realtime Duplex, Flowcraft, Eino, and
 Translate in five separate waves; it does not combine them into one 50-lane wave. Each wave creates
-ten independent Peers and Workspaces, waits for a 10/10 ready barrier, and then
+10 or 50 independent Peers and Workspaces, waits for the complete ready barrier, and then
 releases them together while they reference one already seeded Workflow:
 
 ```sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_50_tests.sh
 ```
 
-The fixed entrypoint runs only the EOS-bounded one-turn and three-turn
-interruption tests for each Workflow, for ten required gates. The same package
+The two fixed entrypoints run only the EOS-bounded one-turn and three-turn
+interruption tests for each Workflow, for ten required gates at each concurrency
+level. The 10-lane gate must pass before the 50-lane gate on the same repository
+head. Each Workflow remains a separate wave, so the 50-lane entrypoint does not
+combine the five families into one 250-lane wave. The same package
 also provides targeted continuous-open realtime one-turn and three-turn
 interruption diagnostics; those are outside the fixed entrypoint selection. Realtime
 tests select the `realtime` Workspace input, send speech and tail silence, and
@@ -222,13 +226,14 @@ text-only. Each wave records whether input EOS was sent, route, stream, audio
 epoch, runtime `StartedAt`, cleanup, and available container resource samples
 under the ignored `testdata/workflow-concurrency/` directory.
 
-The entrypoint validates the complete `.env` before Docker setup. Environment
+Each entrypoint validates the complete `.env` before Docker setup. Environment
 variables cannot change coverage or concurrency, and retry, provider fallback,
-or replacement sessions cannot manufacture a pass. Confirmed Volcengine
-`DialogAudioIdleTimeoutError` and `AudioTTSIdleTimeoutError` failures become a
-provider-only `SKIP` only when no local protocol, timeout, setup, or cleanup error
-is mixed into that wave; the failure artifact remains available. Other provider,
-timeout, rate-limit, runtime, and cleanup failures fail the selected test.
+or replacement sessions cannot manufacture a pass. A terminal failure becomes a
+provider-only `SKIP` only when every cause is either a complete structured
+Volcengine error with a `4xxxxxxx` or `5xxxxxxx` code, or one of the exact
+provider-completion guards owned by the transformer. Any local protocol,
+deadline, setup, runtime, or cleanup error mixed into the wave still fails it;
+the provider failure artifact remains available.
 Resource samples support diagnosis; they are not proof of leak freedom, a
 provider SLA, or production capacity.
 

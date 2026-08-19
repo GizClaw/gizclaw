@@ -1600,6 +1600,46 @@ func TestDockSurfacesTTSFailureAfterTextEOS(t *testing.T) {
 	t.Fatalf("TTS failure was not surfaced: %#v", chunks)
 }
 
+func TestDockClosesStartedTTSAudioWhenProviderStreamFails(t *testing.T) {
+	want := errors.New("doubaospeech: quota exceeded for types: concurrency (code=45000292)")
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "one"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "one", EndOfStream: true}},
+		),
+		TTS: muxFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+			return &chunksThenErrorStream{
+				chunks: []*genx.MessageChunk{{
+					Role: genx.RoleModel,
+					Part: &genx.Blob{MIMEType: "audio/opus"},
+					Ctrl: &genx.StreamCtrl{BeginOfStream: true},
+				}},
+				err: want,
+			}, nil
+		}),
+		ResolveVoice: fixedVoice("voice/narrator"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	var audio []*genx.MessageChunk
+	for _, chunk := range chunks {
+		if mimeType, ok := chunk.MIMEType(); ok && mimeType == "audio/opus" {
+			audio = append(audio, chunk)
+		}
+	}
+	if len(audio) != 2 || !audio[0].IsBeginOfStream() || audio[0].IsEndOfStream() ||
+		audio[1].IsBeginOfStream() || !audio[1].IsEndOfStream() || audio[1].Ctrl.Error != want.Error() ||
+		audio[0].Ctrl.StreamID == "" || audio[1].Ctrl.StreamID != audio[0].Ctrl.StreamID {
+		t.Fatalf("failed TTS audio lifecycle = %#v, want BOS/error EOS", audio)
+	}
+}
+
 func TestDockBoundsTTSCompletionAfterTextEOS(t *testing.T) {
 	dock, err := New(Config{
 		Agent: fixedAgentOutput(
@@ -1905,6 +1945,23 @@ type errorStream struct{ err error }
 func (s errorStream) Next() (*genx.MessageChunk, error) { return nil, s.err }
 func (errorStream) Close() error                        { return nil }
 func (errorStream) CloseWithError(error) error          { return nil }
+
+type chunksThenErrorStream struct {
+	chunks []*genx.MessageChunk
+	err    error
+}
+
+func (s *chunksThenErrorStream) Next() (*genx.MessageChunk, error) {
+	if len(s.chunks) == 0 {
+		return nil, s.err
+	}
+	chunk := s.chunks[0]
+	s.chunks = s.chunks[1:]
+	return chunk, nil
+}
+
+func (*chunksThenErrorStream) Close() error               { return nil }
+func (*chunksThenErrorStream) CloseWithError(error) error { return nil }
 
 type passthroughTransformer struct{}
 

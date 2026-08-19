@@ -27,6 +27,56 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"DialogAudioIdleTimeoutError"}) {
 			t.Fatal("exact regular realtime provider-only failure was not classified as skippable")
 		}
+		quotaError := "doubaospeech: quota exceeded for types: concurrency (code=45000292, reqid=request-id, trace_id=, log_id=log-id, connect_id=, http_status=0)"
+		for _, failure := range []string{
+			"turn 1: peer terminal error: " + quotaError,
+			"turn 1 peer terminal error: " + quotaError,
+			"turn 3 peer terminal error: " + quotaError,
+		} {
+			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: failure}}}
+			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineConcurrencyQuotaExceeded"}) {
+				t.Fatalf("exact Volcengine concurrency quota failure was not classified as skippable: %q", failure)
+			}
+		}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + quotaError + "; audio EOS timeout"}}}
+		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineConcurrencyQuotaExceeded"}) {
+			t.Fatal("Volcengine quota failure mixed with a local timeout was classified as skippable")
+		}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + quotaError + "; " + quotaError}}}
+		if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineProviderError"}) {
+			t.Fatal("duplicated exact Volcengine provider failures were not classified as skippable")
+		}
+		for _, providerError := range []string{
+			"buffer: read from closed buffer: doubaospeech: ServerError:BigASRHeadFailedCode:-999 (code=55000000, reqid=, trace_id=, log_id=, connect_id=, http_status=0)",
+			"buffer: read from closed buffer: doubaospeech: sami error: codes=52000072, desc=[VS2TDuplex] stream err is:omni error: codes=50000000, desc=ServerError:LLMReconnectExhausted:recv_failed (code=55000000, reqid=, trace_id=, log_id=, connect_id=, http_status=0)",
+		} {
+			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + providerError}}}
+			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineProviderError"}) {
+				t.Fatalf("exact Volcengine provider failure was not classified as skippable: %q", providerError)
+			}
+		}
+		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + quotaError + "; context deadline exceeded"}}}
+		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineProviderError"}) {
+			t.Fatal("Volcengine provider failure mixed with a local deadline was classified as skippable")
+		}
+		for _, providerError := range []string{
+			"asttranslate: provider output completed while input remained active",
+			"buffer: read from closed buffer: asttranslate: provider output completed while input remained active",
+		} {
+			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 3: peer terminal error: " + providerError}}}
+			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"VolcengineASTProviderOutputEnded"}) {
+				t.Fatalf("Volcengine AST provider premature end was not classified as skippable: %q", providerError)
+			}
+		}
+		for _, providerError := range []string{
+			"doubao realtime response idle timeout: no provider progress for 1m0s",
+			"buffer: read from closed buffer: doubao realtime response idle timeout: no provider progress for 1m0s",
+		} {
+			lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: "turn 1: peer terminal error: " + providerError}}}
+			if !workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"DoubaoRealtimeResponseIdleTimeout"}) {
+				t.Fatalf("Doubao realtime response idle timeout was not classified as skippable: %q", providerError)
+			}
+		}
 		lanes = []*workflowConcurrencyLane{{Result: workflowConcurrencyLaneResult{Error: providerFailure}}}
 		lanes = append(lanes, &workflowConcurrencyLane{Result: workflowConcurrencyLaneResult{Error: "turn 1: audio EOS timeout"}})
 		if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
@@ -48,6 +98,47 @@ func TestWorkflowConcurrencyContract(t *testing.T) {
 			if workflowConcurrencyOnlySkippableProviderErrors(lanes, []string{"AudioTTSIdleTimeoutError"}) {
 				t.Fatalf("marker-prefixed or marker-suffixed mixed cause was classified as skippable: %q", mixed)
 			}
+		}
+	})
+
+	t.Run("execution timeout leaves terminal propagation grace", func(t *testing.T) {
+		if got, want := workflowConcurrencyExecutionTimeout(time.Minute), time.Minute+workflowConcurrencyTerminalGrace; got != want {
+			t.Fatalf("execution timeout = %s, want %s", got, want)
+		}
+	})
+
+	t.Run("assistant audio EOS is retained before text terminal", func(t *testing.T) {
+		label := "assistant"
+		streamID := "response"
+		observation := workflowConcurrencyTurnObservation{}
+		audioEOS := peerStreamEvent{
+			Type:     peerStreamEventTypeEos,
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+			StreamId: &streamID,
+			Label:    &label,
+		}
+		if err := observeWorkflowConcurrencyEvent(&observation, audioEOS, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+		if !observation.assistantAudioDone || !observation.result.AssistantAudioDone {
+			t.Fatalf("audio EOS before text terminal was discarded: %#v", observation.result)
+		}
+	})
+
+	t.Run("provider audio error before text terminal fails promptly", func(t *testing.T) {
+		label := "assistant"
+		streamID := "response"
+		providerError := "doubaospeech: quota exceeded for types: concurrency (code=45000292, reqid=request-id, trace_id=, log_id=log-id, connect_id=, http_status=0)"
+		observation := workflowConcurrencyTurnObservation{}
+		err := observeWorkflowConcurrencyEvent(&observation, peerStreamEvent{
+			Type:     peerStreamEventTypeEos,
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+			StreamId: &streamID,
+			Label:    &label,
+			Error:    &providerError,
+		}, time.Now())
+		if err == nil || !strings.Contains(err.Error(), "peer terminal error: "+providerError) {
+			t.Fatalf("provider audio EOS error = %v, want prompt terminal failure", err)
 		}
 	})
 

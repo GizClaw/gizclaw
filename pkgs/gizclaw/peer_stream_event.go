@@ -202,16 +202,16 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		},
 	}).ConsumeAgentOutput(ctx, output)
 	if err != nil {
-		return errors.Join(err, o.broadcastAudioAbort(audio))
+		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	if err := audio.close(); err != nil {
-		return errors.Join(err, o.broadcastAudioAbort(audio))
+		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	return nil
 }
 
-func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator) error {
-	event := audio.abort()
+func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator, cause error) error {
+	event := audio.abort(cause)
 	if event == nil {
 		return nil
 	}
@@ -343,9 +343,13 @@ func (a *peerAudioRouteAggregator) close() error {
 	return fmt.Errorf("gizclaw: agent output ended with %d open audio route(s)", len(a.active))
 }
 
-func (a *peerAudioRouteAggregator) abort() *eventpb.PeerEvent {
+func (a *peerAudioRouteAggregator) abort(cause error) *eventpb.PeerEvent {
 	if a == nil || len(a.active) == 0 || a.epoch.streamID == "" {
 		return nil
+	}
+	message := "agent audio output ended unexpectedly"
+	if cause != nil {
+		message = cause.Error()
 	}
 	event := &eventpb.PeerEvent{
 		Version: eventpb.Version,
@@ -353,7 +357,7 @@ func (a *peerAudioRouteAggregator) abort() *eventpb.PeerEvent {
 		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
 			Error: &eventpb.EventError{
 				Code:      "AGENT_AUDIO_OUTPUT_ERROR",
-				Message:   "agent audio output ended unexpectedly",
+				Message:   message,
 				Retryable: true,
 			},
 		}},

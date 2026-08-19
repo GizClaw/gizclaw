@@ -184,17 +184,20 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 
 成功运行会在 ignored `tests/gizclaw-e2e/testdata/openai-compatibility/` 下写入脱敏 monotonic timing evidence。Artifact 只含 schema/version、target/case、受限 media size、数字 phase timing 与 status，不能包含 credential、ID、prompt、transcript、generated text、media、URL 或 provider error。仅做 tagged compile 只是诊断，不能代替 `bash tests/gizclaw-e2e/run_tests.sh`。
 
-### Workflow 10 路并发与打断
+### Workflow 10 路和 50 路并发与打断
 
 固定入口在五个独立 wave 中分别验证 Realtime、Realtime Duplex、Flowcraft、Eino 和
-Translate；不同 Workflow 不会混成一个 50 路 wave。每个 wave 创建 10 个独立 Peer 和 Workspace，全部
+Translate；不同 Workflow 不会混成一个 50 路 wave。每个 wave 创建 10 个或 50 个独立 Peer 和 Workspace，全部
 到达 ready barrier 后同时开始，但共同引用同一个已 seed 的 Workflow：
 
 ```sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
+bash tests/gizclaw-e2e/run_workflow_concurrency_50_tests.sh
 ```
 
-固定入口只执行每类 Workflow 的 EOS 边界单轮对话/三轮打断测试，共 10 个正式 gate。
+两个固定入口只执行每类 Workflow 的 EOS 边界单轮对话/三轮打断测试，每个并发档位各有
+10 个正式 gate。同一 repository head 必须先通过 10 路档位，再执行 50 路档位。每类
+Workflow 仍使用独立 wave，因此 50 路入口不会把五类 Workflow 混成一个 250 路 wave。
 同一测试包还提供 continuous-open realtime 单轮对话/三轮打断的定向诊断测试；它们不在
 固定入口的 selection 内。Realtime 版本将 Workspace input 设为 `realtime`，发送语音和
 尾静音后保持客户端 audio stream 开启，不发送 audio EOS；打断版本等待本轮音频 packet
@@ -205,11 +208,11 @@ transcript、Assistant text/audio。Eino 的基础 EOS 边界测试仍保留 tex
 会记录是否发送 input EOS、route、stream、audio epoch、runtime `StartedAt`、cleanup 和
 可用容器资源采样到 ignored `testdata/workflow-concurrency/`。
 
-该入口在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
-retry、fallback 或换新 session 来制造通过。已确认的火山 `DialogAudioIdleTimeoutError`
-和 `AudioTTSIdleTimeoutError` 只有在 wave 内没有混入任何本地协议、timeout、setup 或
-cleanup 错误时才记为 provider-only `SKIP`，错误 artifact 仍保留；其他 provider、timeout、
-rate limit、runtime 和 cleanup 问题均使选中的测试失败。资源采样用于定位，不构成内存无
+每个入口都在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
+retry、fallback 或换新 session 来制造通过。只有当每个 terminal cause 都是带完整结构化
+trailer 的火山云 `4xxxxxxx`/`5xxxxxxx` 错误，或 Transformer 明确定义的 provider-completion
+保护错误时，整个 wave 才记为 provider-only `SKIP`。任何混入的本地协议、deadline、setup、
+runtime 或 cleanup 错误仍使测试失败；provider 错误 artifact 会保留。资源采样用于定位，不构成内存无
 泄漏、provider SLA 或 production capacity 承诺。
 
 人工音频判断与自动 gate 分离：

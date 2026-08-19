@@ -390,17 +390,16 @@ func observeWorkflowConcurrencyEvent(observation *workflowConcurrencyTurnObserva
 			if strings.TrimSpace(observation.assistant.String()) == "" {
 				return fmt.Errorf("assistant text response is empty")
 			}
-			if !observation.result.InputDoneAt.IsZero() && observation.audioEpoch.IsZero() {
+			if !observation.result.InputDoneAt.IsZero() && (observation.audioEpoch.IsZero() || observation.assistantAudioDone) {
 				observation.result.CompletedAt = receivedAt
 			}
 		}
 		if event.Type == peerStreamEventTypeEos {
-			if !observation.assistantTextDone {
-				return nil
-			}
 			observation.assistantAudioDone = true
 			observation.result.AssistantAudioDone = true
-			observation.result.CompletedAt = receivedAt
+			if observation.assistantTextDone {
+				observation.result.CompletedAt = receivedAt
+			}
 		}
 	}
 	if hasTerminalError {
@@ -483,7 +482,7 @@ func validateWorkflowConcurrencyTurns(
 			}
 		}
 		if len(observation.terminalErrors) != 0 {
-			return fmt.Errorf("turn %d peer terminal error: %s", index+1, strings.Join(observation.terminalErrors, "; "))
+			return fmt.Errorf("turn %d: peer terminal error: %s", index+1, strings.Join(observation.terminalErrors, "; "))
 		}
 	}
 	return nil

@@ -652,6 +652,88 @@ func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *test
 	}
 }
 
+func TestTransformerRealtimeResponseIdleClosesEveryOpenedRoute(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+		},
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+		withResponseIdleTimeout(20*time.Millisecond),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(4)
+	defer input.Close()
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	type routeKey struct {
+		role     genx.Role
+		mimeType string
+	}
+	routes := make(map[routeKey][]*genx.MessageChunk)
+	for completed := 0; completed < 3; {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("Next() before all routes closed = %v; routes=%#v", nextErr, routes)
+		}
+		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
+			continue
+		}
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			continue
+		}
+		key := routeKey{role: chunk.Role, mimeType: mimeType}
+		routes[key] = append(routes[key], chunk)
+		if chunk.IsEndOfStream() {
+			completed++
+		}
+	}
+
+	for name, key := range map[string]routeKey{
+		"assistant text":  {role: genx.RoleModel, mimeType: "text/plain"},
+		"assistant audio": {role: genx.RoleModel, mimeType: "audio/pcm"},
+	} {
+		route := routes[key]
+		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
+			t.Fatalf("%s route = %#v, want BOS...EOS", name, route)
+		}
+		if got := route[len(route)-1].Ctrl.Error; !strings.Contains(got, "response idle timeout") {
+			t.Fatalf("%s EOS error = %q, want response idle timeout", name, got)
+		}
+	}
+}
+
 func TestTransformerPTTResponsesMatchQuestionAndReplyIDs(t *testing.T) {
 	response := &doubaoRealtimePTTResponse{
 		streamID: "turn-1",

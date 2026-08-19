@@ -12,6 +12,14 @@ func TestFlowcraftWorkflowConcurrencyInterrupt10(t *testing.T) {
 	runWorkflowConcurrency10(t, flowcraftWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
+func TestFlowcraftWorkflowConcurrency50(t *testing.T) {
+	runWorkflowConcurrency50(t, flowcraftWorkflowConcurrencySpec, workflowConcurrencyConversation)
+}
+
+func TestFlowcraftWorkflowConcurrencyInterrupt50(t *testing.T) {
+	runWorkflowConcurrency50(t, flowcraftWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
+}
+
 func TestFlowcraftWorkflowRealtimeConcurrency10(t *testing.T) {
 	runWorkflowConcurrency10(t, flowcraftWorkflowRealtimeConcurrencySpec, workflowConcurrencyConversation)
 }

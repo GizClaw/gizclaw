@@ -23,7 +23,7 @@ type Invocation struct {
 	mu sync.Mutex
 
 	ctx       context.Context
-	cancel    context.CancelFunc
+	cancel    context.CancelCauseFunc
 	output    *Output
 	responses map[string]*Response
 	closed    bool
@@ -34,7 +34,7 @@ func NewInvocation(parent context.Context, outputConfig OutputConfig) *Invocatio
 	if parent == nil {
 		parent = context.Background()
 	}
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithCancelCause(parent)
 	invocation := &Invocation{
 		ctx:       ctx,
 		cancel:    cancel,
@@ -48,7 +48,7 @@ func NewInvocation(parent context.Context, outputConfig OutputConfig) *Invocatio
 	go func() {
 		select {
 		case <-parent.Done():
-			_ = invocation.Cancel(parent.Err())
+			_ = invocation.Cancel(context.Cause(parent))
 		case <-invocation.output.Done():
 			invocation.stopFromOutput()
 		}
@@ -64,7 +64,7 @@ func (i *Invocation) stopFromOutput() {
 	}
 	i.closed = true
 	clear(i.responses)
-	i.cancel()
+	i.cancel(context.Canceled)
 }
 
 // Context returns the invocation-local cancellation context.
@@ -139,7 +139,7 @@ func (i *Invocation) EmitTracked(response *Response, chunk *genx.MessageChunk, o
 	if err := i.output.PushTracked(chunk, observe, abandon); err != nil {
 		i.closed = true
 		clear(i.responses)
-		i.cancel()
+		i.cancel(err)
 		return err
 	}
 	return nil
@@ -207,7 +207,7 @@ func (i *Invocation) Fail(cause error) error {
 		return nil
 	}
 	i.closed = true
-	i.cancel()
+	i.cancel(cause)
 	errorText := "failed"
 	if cause != nil {
 		errorText = cause.Error()
@@ -233,7 +233,7 @@ func (i *Invocation) Cancel(cause error) error {
 		return nil
 	}
 	i.closed = true
-	i.cancel()
+	i.cancel(cause)
 	i.output.AbandonDeferredObservations()
 	discarded := i.output.discardChunks(func(*genx.MessageChunk) bool { return true })
 	errorText := "cancelled"
@@ -266,7 +266,7 @@ func (i *Invocation) Close() error {
 		return nil
 	}
 	i.closed = true
-	i.cancel()
+	i.cancel(context.Canceled)
 	for _, response := range i.responses {
 		if err := i.pushTerminalLocked(response.End("")); err != nil {
 			return err
@@ -279,7 +279,7 @@ func (i *Invocation) Close() error {
 func (i *Invocation) pushTerminalLocked(chunks []*genx.MessageChunk) error {
 	for _, chunk := range chunks {
 		if err := i.output.Push(chunk); err != nil {
-			i.cancel()
+			i.cancel(err)
 			return fmt.Errorf("streamkit: emit terminal chunk: %w", err)
 		}
 	}

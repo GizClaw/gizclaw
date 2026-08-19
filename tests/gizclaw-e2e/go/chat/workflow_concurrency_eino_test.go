@@ -12,6 +12,14 @@ func TestEinoWorkflowConcurrencyInterrupt10(t *testing.T) {
 	runWorkflowConcurrency10(t, einoWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
 }
 
+func TestEinoWorkflowConcurrency50(t *testing.T) {
+	runWorkflowConcurrency50(t, einoWorkflowConcurrencySpec, workflowConcurrencyConversation)
+}
+
+func TestEinoWorkflowConcurrencyInterrupt50(t *testing.T) {
+	runWorkflowConcurrency50(t, einoWorkflowConcurrencySpec, workflowConcurrencyInterrupt)
+}
+
 func TestEinoWorkflowRealtimeConcurrency10(t *testing.T) {
 	runWorkflowConcurrency10(t, einoWorkflowRealtimeConcurrencySpec, workflowConcurrencyConversation)
 }

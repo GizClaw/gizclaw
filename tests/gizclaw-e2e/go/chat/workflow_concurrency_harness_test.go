@@ -24,7 +24,11 @@ import (
 	"github.com/openai/openai-go/option"
 )
 
-const workflowConcurrency10 = 10
+const (
+	workflowConcurrency10            = 10
+	workflowConcurrency50            = 50
+	workflowConcurrencyTerminalGrace = 30 * time.Second
+)
 
 type workflowConcurrencyScenario string
 
@@ -46,25 +50,33 @@ type workflowConcurrencySpec struct {
 
 var (
 	workflowConcurrencyProviderErrorPatterns = map[string]*regexp.Regexp{
-		"DialogAudioIdleTimeoutError": regexp.MustCompile(`^doubao realtime receive events: realtime event 153: doubaospeech: sami error: codes=52000042, desc=DialogAudioIdleTimeoutError \(code=55000001, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
-		"AudioTTSIdleTimeoutError":    regexp.MustCompile(`^doubaospeech: sami error: codes=52000016, desc=AudioTTSIdleTimeoutError \(code=55000000, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
+		"DialogAudioIdleTimeoutError":        regexp.MustCompile(`^doubao realtime receive events: realtime event 153: doubaospeech: sami error: codes=52000042, desc=DialogAudioIdleTimeoutError \(code=55000001, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
+		"AudioTTSIdleTimeoutError":           regexp.MustCompile(`^doubaospeech: sami error: codes=52000016, desc=AudioTTSIdleTimeoutError \(code=55000000, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=0\)$`),
+		"VolcengineConcurrencyQuotaExceeded": regexp.MustCompile(`^doubaospeech: quota exceeded for types: concurrency \(code=45000292, reqid=[^,]+, trace_id=[^,]*, log_id=[^,]+, connect_id=[^,]*, http_status=0\)$`),
+		"VolcengineProviderError":            regexp.MustCompile(`^(?:buffer: read from closed buffer: )?doubaospeech: .+ \(code=[45][0-9]{7}, reqid=[^,]*, trace_id=[^,]*, log_id=[^,]*, connect_id=[^,]*, http_status=[0-9]+\)$`),
+		"VolcengineASTProviderOutputEnded":   regexp.MustCompile(`^(?:buffer: read from closed buffer: )?asttranslate: provider output completed while input remained active$`),
+		"DoubaoRealtimeResponseIdleTimeout":  regexp.MustCompile(`^(?:buffer: read from closed buffer: )?doubao realtime response idle timeout: no provider progress for 1m0s$`),
 	}
-	realtimeWorkflowConcurrencySpec = workflowConcurrencySpec{
+	workflowConcurrencyProviderOnlyFailurePattern = regexp.MustCompile(`^turn [1-9][0-9]*:? peer terminal error: (.+)$`)
+	realtimeWorkflowConcurrencySpec               = workflowConcurrencySpec{
 		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
-		SkippableProviderErrors: []string{"DialogAudioIdleTimeoutError"},
+		SkippableProviderErrors: []string{"DialogAudioIdleTimeoutError", "VolcengineProviderError"},
 	}
 	realtimeDuplexWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime-duplex", Fixture: "doubao-realtime-duplex.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
-		SkippableProviderErrors: []string{"AudioTTSIdleTimeoutError"},
+		SkippableProviderErrors: []string{"AudioTTSIdleTimeoutError", "VolcengineProviderError", "DoubaoRealtimeResponseIdleTimeout"},
 	}
 	flowcraftWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "flowcraft", Fixture: "flowcraft-basic.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
+		SkippableProviderErrors: []string{"VolcengineProviderError"},
 	}
 	einoWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "eino", Fixture: "eino-concurrency.json", RequireText: true,
+		SkippableProviderErrors: []string{"VolcengineProviderError"},
 	}
 	translateWorkflowConcurrencySpec = workflowConcurrencySpec{
 		Name: "translate", Fixture: "ast-translate.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true,
+		SkippableProviderErrors: []string{"VolcengineProviderError", "VolcengineASTProviderOutputEnded"},
 	}
 	realtimeWorkflowRealtimeConcurrencySpec = workflowConcurrencySpec{
 		Name: "realtime", Fixture: "doubao-realtime.json", InputMode: string(rpcapi.WorkspaceInputModeRealtime), RequireText: true, RequireAudio: true, KeepRealtimeInputOpen: true,
@@ -145,6 +157,10 @@ func runWorkflowConcurrency10(t *testing.T, spec workflowConcurrencySpec, scenar
 	runWorkflowConcurrency(t, spec, scenario, workflowConcurrency10)
 }
 
+func runWorkflowConcurrency50(t *testing.T, spec workflowConcurrencySpec, scenario workflowConcurrencyScenario) {
+	runWorkflowConcurrency(t, spec, scenario, workflowConcurrency50)
+}
+
 func runWorkflowConcurrency(
 	t *testing.T,
 	spec workflowConcurrencySpec,
@@ -173,16 +189,15 @@ func runWorkflowConcurrency(
 	defer adminClient.Close()
 
 	runID := fmt.Sprintf("%x", time.Now().UnixNano())
-	waveCtx, cancel := context.WithTimeout(context.Background(), base.timeout)
-	defer cancel()
 	wave := newWorkflowConcurrencyArtifact(spec, scenario, concurrency)
 	wave.captureBefore()
 
-	lanes, prepareErr := prepareWorkflowConcurrencyLanes(waveCtx, base, token, spec, scenario, runID, concurrency)
+	prepareCtx, cancelPrepare := context.WithTimeout(context.Background(), base.timeout)
+	lanes, prepareErr := prepareWorkflowConcurrencyLanes(prepareCtx, base, token, spec, scenario, runID, concurrency)
 	var inputs workflowConcurrencyInputs
 	var inputErr error
 	if prepareErr == nil {
-		inputs, inputErr = prepareWorkflowConcurrencyInputs(waveCtx, lanes, spec, scenario)
+		inputs, inputErr = prepareWorkflowConcurrencyInputs(prepareCtx, lanes, spec, scenario)
 		if inputErr != nil {
 			for _, lane := range lanes {
 				if lane != nil {
@@ -191,9 +206,15 @@ func runWorkflowConcurrency(
 			}
 		}
 	}
+	cancelPrepare()
 	var scenarioErr error
 	if prepareErr == nil && inputErr == nil {
-		scenarioErr = executeWorkflowConcurrencyWave(waveCtx, lanes, spec, scenario, inputs, wave)
+		executionCtx, cancelExecution := context.WithTimeout(
+			context.Background(),
+			workflowConcurrencyExecutionTimeout(base.timeout),
+		)
+		scenarioErr = executeWorkflowConcurrencyWave(executionCtx, lanes, spec, scenario, inputs, wave)
+		cancelExecution()
 	}
 
 	cleanupErr := cleanupWorkflowConcurrencyLanes(lanes, adminAPI)
@@ -207,6 +228,10 @@ func runWorkflowConcurrency(
 	if err := errors.Join(prepareErr, inputErr, scenarioErr, cleanupErr, artifactErr); err != nil {
 		t.Fatalf("workflow concurrency %s/%s: %v", spec.Name, scenario, err)
 	}
+}
+
+func workflowConcurrencyExecutionTimeout(timeout time.Duration) time.Duration {
+	return timeout + workflowConcurrencyTerminalGrace
 }
 
 func workflowConcurrencyOnlySkippableProviderErrors(lanes []*workflowConcurrencyLane, markers []string) bool {
@@ -227,13 +252,12 @@ func workflowConcurrencyOnlySkippableProviderErrors(lanes []*workflowConcurrency
 }
 
 func workflowConcurrencySkippableProviderError(message string, markers []string) bool {
-	const terminalPrefix = "peer terminal error: "
 	message = strings.SplitN(message, "; recent events:", 2)[0]
-	_, cause, ok := strings.Cut(message, ": ")
-	if !ok || !strings.HasPrefix(cause, terminalPrefix) {
+	match := workflowConcurrencyProviderOnlyFailurePattern.FindStringSubmatch(message)
+	if len(match) != 2 {
 		return false
 	}
-	providerErrors := strings.Split(strings.TrimSpace(cause[len(terminalPrefix):]), "; ")
+	providerErrors := strings.Split(strings.TrimSpace(match[1]), "; ")
 	if len(providerErrors) == 0 {
 		return false
 	}

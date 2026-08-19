@@ -561,6 +561,20 @@ func TestInterruptibleTransformerBranches(t *testing.T) {
 	}
 }
 
+func TestInterruptibleTransformerRejectsProviderEOFWhileInputRemainsActive(t *testing.T) {
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	transformer := interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+		return emptyStream{}, nil
+	})}
+	out, err := transformer.Transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	if _, err := out.Next(); !errors.Is(err, errProviderOutputEndedWhileInputActive) {
+		t.Fatalf("Next() error = %v, want %v", err, errProviderOutputEndedWhileInputActive)
+	}
+}
+
 func TestInterruptibleTransformerObservesInputBeforeInnerReads(t *testing.T) {
 	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
 	innerOutput := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))

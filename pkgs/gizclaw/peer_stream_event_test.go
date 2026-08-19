@@ -789,6 +789,35 @@ func TestPeerAgentOutputClosesAggregateAudioEpochOnMalformedLifecycle(t *testing
 	}
 }
 
+func TestPeerAgentOutputPreservesProviderFailureOnSyntheticAudioEOS(t *testing.T) {
+	providerErr := errors.New("doubaospeech: quota exceeded for types: concurrency (code=45000292, reqid=request-a, trace_id=, log_id=log-a, connect_id=, http_status=0)")
+	var events bytes.Buffer
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(&events)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer unsubscribe()
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "route-a", Label: "assistant", BeginOfStream: true},
+	}}, doneErr: providerErr}
+	err = (peerAgentOutput{Events: broker}).ConsumeAgentOutput(t.Context(), output)
+	if !errors.Is(err, providerErr) {
+		t.Fatalf("ConsumeAgentOutput() error = %v, want provider error", err)
+	}
+	if _, err := readPeerStreamEvent(&events); err != nil {
+		t.Fatalf("read BOS error = %v", err)
+	}
+	eos, err := readPeerStreamEvent(&events)
+	if err != nil {
+		t.Fatalf("read EOS error = %v", err)
+	}
+	if got := eos.GetEos().GetError().GetMessage(); got != providerErr.Error() {
+		t.Fatalf("synthetic audio EOS error = %q, want %q", got, providerErr)
+	}
+}
+
 func peerOutputAudioBoundary(eventType eventpb.PeerEventType, streamID, label, mimeType string) *eventpb.PeerEvent {
 	if eventType == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
 		return &eventpb.PeerEvent{

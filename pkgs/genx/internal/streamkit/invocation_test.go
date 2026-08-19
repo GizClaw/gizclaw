@@ -175,6 +175,22 @@ func TestInvocationCancellationDoesNotCrossInvocationBoundary(t *testing.T) {
 	}
 }
 
+func TestInvocationFailurePreservesCancellationCause(t *testing.T) {
+	want := errors.New("provider failed")
+	invocation := NewInvocation(context.Background(), OutputConfig{})
+	if err := invocation.Fail(want); err != nil {
+		t.Fatalf("Fail() error = %v", err)
+	}
+	select {
+	case <-invocation.Context().Done():
+		if !errors.Is(context.Cause(invocation.Context()), want) {
+			t.Fatalf("Context cause = %v, want %v", context.Cause(invocation.Context()), want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("invocation context was not cancelled")
+	}
+}
+
 func TestInvocationParentCancellationClosesOutput(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	invocation := NewInvocation(ctx, OutputConfig{})

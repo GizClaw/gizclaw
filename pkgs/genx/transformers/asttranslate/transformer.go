@@ -29,6 +29,8 @@ const interruptibleAssistantChunkGrace = 160 * time.Millisecond
 // to interrupt stale translated output.
 const observedInputQueueCapacity = 256
 
+var errProviderOutputEndedWhileInputActive = errors.New("asttranslate: provider output completed while input remained active")
+
 // Config configures an AST Translate Transformer. Model is a RuntimeProfile
 // model alias; Params contain provider-supported AST parameters such as
 // lang_pair, mode, input, and the internal-speaker fields. ExternalVoice asks
@@ -110,30 +112,36 @@ func (t interruptibleTransformer) Transform(ctx context.Context, input genx.Stre
 	if input == nil {
 		return nil, fmt.Errorf("asttranslate: input stream is required")
 	}
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancelCause(ctx)
 	out := newInterruptibleOutput(t.keepActiveAfterTextEOS)
 	observedInput := newObservedInputStream(ctx, input, out.interrupt)
 	inner, err := t.Transformer.Transform(ctx, observedInput)
 	if err != nil {
-		cancel()
+		cancel(err)
 		observedInput.CloseWithError(err)
 		return nil, err
 	}
 	go func() {
-		defer cancel()
+		defer cancel(context.Canceled)
 		defer inner.Close()
 		for {
 			if err := ctx.Err(); err != nil {
-				out.closeWithError(err)
+				out.closeWithError(context.Cause(ctx))
 				return
 			}
 			chunk, err := inner.Next()
 			if err != nil {
 				if isStreamDone(err) {
-					out.close()
+					if observedInput.closedNormally() {
+						out.close()
+					} else {
+						out.closeWithError(errProviderOutputEndedWhileInputActive)
+						cancel(errProviderOutputEndedWhileInputActive)
+					}
 					return
 				}
 				out.closeWithError(err)
+				cancel(err)
 				return
 			}
 			if chunk == nil {
@@ -166,7 +174,7 @@ func newObservedInputStream(ctx context.Context, source genx.Stream, onBOS func(
 	}
 	stream.cond = sync.NewCond(&stream.mu)
 	stream.stopCtx = context.AfterFunc(ctx, func() {
-		_ = stream.CloseWithError(ctx.Err())
+		_ = stream.CloseWithError(context.Cause(ctx))
 	})
 	go stream.copy(ctx)
 	return stream
@@ -276,6 +284,12 @@ func (s *observedInputStream) closeWithError(err error) {
 		s.queue = nil
 		s.cond.Broadcast()
 	}
+}
+
+func (s *observedInputStream) closedNormally() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed && s.closeErr == nil
 }
 
 type interruptibleOutput struct {
