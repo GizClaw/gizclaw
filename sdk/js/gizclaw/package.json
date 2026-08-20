@@ -22,7 +22,7 @@
     "@noble/hashes": "^2.3.0"
   },
   "devDependencies": {
-    "@bufbuild/protoc-gen-es": "^2.13.0",
+    "@bufbuild/protoc-gen-es": "^2.14.0",
     "@roamhq/wrtc": "^0.10.0"
   }
 }
