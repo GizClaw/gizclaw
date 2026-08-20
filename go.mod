@@ -56,7 +56,7 @@ require (
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
 	github.com/valyala/fasthttp v1.72.0
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.8
-	github.com/volcengine/volc-sdk-golang v1.0.253
+	github.com/volcengine/volc-sdk-golang v1.0.254
 	github.com/volcengine/volcengine-go-sdk v1.2.46
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/crypto v0.54.0
