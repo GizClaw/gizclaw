@@ -5,6 +5,24 @@ import (
 	"time"
 )
 
+func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
+	for _, tc := range []struct {
+		mode    string
+		wantEOS bool
+	}{
+		{mode: "push-to-talk", wantEOS: true},
+		{mode: "realtime", wantEOS: false},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			chunks := audioInputChunks(tc.mode, "turn", "audio/opus", [][]byte{{1, 2, 3}})
+			last := chunks[len(chunks)-1]
+			if got := last.IsEndOfStream(); got != tc.wantEOS {
+				t.Fatalf("last chunk EndOfStream = %t, want %t", got, tc.wantEOS)
+			}
+		})
+	}
+}
+
 func TestDecodeOpusPacketsRejectsEmptyInput(t *testing.T) {
 	if _, err := decodeOpusPackets(nil); err == nil {
 		t.Fatal("empty Opus input accepted")

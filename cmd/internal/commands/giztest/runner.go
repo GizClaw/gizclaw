@@ -113,14 +113,17 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 	defer vars.release()
 	redactions := vars.redactions(item.doc.Report.Redact)
 	clients, err := connectClients(ctx, item.doc.Clients, item.doc.Steps, vars)
+	if clients != nil {
+		result.Clients = clients.fingerprints()
+		defer clients.Close()
+	}
 	if err != nil {
 		item.barrier.Abort(err)
 		result.Error = safeError(err, redactions...)
+		result.Cleanup, _ = runFinalizers(parent, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
-	result.Clients = clients.fingerprints()
-	defer clients.Close()
 	failed := false
 	for _, step := range item.doc.Steps {
 		stepResult, err := runStep(ctx, step, clients, vars, item.barrier, opts, redactions)
@@ -132,24 +135,35 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 			break
 		}
 	}
-	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
-	defer cleanupCancel()
-	for _, step := range item.doc.Finally {
-		stepResult, err := runStep(cleanupCtx, step, clients, vars, item.barrier, opts, redactions)
-		stepResult.Stage = "cleanup"
-		result.Cleanup = append(result.Cleanup, stepResult)
-		if err != nil && result.Error == "" {
-			result.Error = safeError(err, redactions...)
+	var cleanupErr error
+	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
+	if cleanupErr != nil {
+		if result.Error == "" {
+			result.Error = safeError(cleanupErr, redactions...)
 		}
-		if err != nil {
-			failed = true
-		}
+		failed = true
 	}
 	if !failed {
 		result.Status = "passed"
 	}
 	result.DurationMS = time.Since(started).Milliseconds()
 	return result
+}
+
+func runFinalizers(parent context.Context, steps []Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) ([]StepReport, error) {
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
+	defer cleanupCancel()
+	results := make([]StepReport, 0, len(steps))
+	var firstErr error
+	for _, step := range steps {
+		stepResult, err := runStep(cleanupCtx, step, clients, vars, barrier, opts, redactions)
+		stepResult.Stage = "cleanup"
+		results = append(results, stepResult)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return results, firstErr
 }
 
 func runStep(ctx context.Context, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {

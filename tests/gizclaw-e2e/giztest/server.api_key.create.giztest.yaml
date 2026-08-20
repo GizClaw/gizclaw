@@ -23,6 +23,9 @@ variables:
     direction: input
     type: string
     generate: token
+  api_key_name:
+    direction: output
+    type: string
 steps:
   - id: register_peer
     client: peer
@@ -36,7 +39,14 @@ steps:
       method: server.api_key.create
       request:
         display_name: ${resource_name}
+    capture:
+      api_key_name: /value/name
 finally:
+  - client: peer
+    rpc:
+      method: server.api_key.revoke
+      request:
+        name: ${api_key_name}
   - client: peer
     rpc:
       method: server.peer.delete

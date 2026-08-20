@@ -3,7 +3,10 @@ package giztest
 import (
 	"fmt"
 	"io"
+	"unicode/utf8"
 )
+
+const maxOutputTextBytes = 4096
 
 func emitOutput(w io.Writer, vars *variables, name string) (map[string]any, error) {
 	item, ok := vars.values[name]
@@ -16,6 +19,14 @@ func emitOutput(w io.Writer, vars *variables, name string) (map[string]any, erro
 	if item.spec.Type == "audio" || item.spec.Type == "binary" || item.spec.Type == "object" {
 		return nil, fmt.Errorf("variable %q type %s cannot be emitted", name, item.spec.Type)
 	}
-	fmt.Fprintf(w, "%s=%v\n", name, item.data)
-	return map[string]any{"variable": name, "type": item.spec.Type}, nil
+	text := fmt.Sprint(item.data)
+	truncated := len(text) > maxOutputTextBytes
+	if truncated {
+		text = text[:maxOutputTextBytes]
+		for !utf8.ValidString(text) {
+			text = text[:len(text)-1]
+		}
+	}
+	fmt.Fprintf(w, "%s=%s\n", name, text)
+	return map[string]any{"variable": name, "type": item.spec.Type, "bytes": len(text), "truncated": truncated}, nil
 }

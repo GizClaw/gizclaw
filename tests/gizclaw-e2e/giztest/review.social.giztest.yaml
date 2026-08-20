@@ -1,11 +1,15 @@
 # User Story:
-# As a registered device using the chatroom Workflow,
-# I want complete the independent review.social scenario,
-# So that conversation behavior and cleanup remain reproducible.
+# As a pair of independently registered devices that become friends,
+# I want send a direct-chat text turn and inspect its bounded persisted transcript evidence,
+# So that a human can confirm the relationship-owned social history before cleanup.
 version: gizclaw.test/v1alpha1
 name: review.social
 clients:
-  peer:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  bob:
     identity: ephemeral
     connection: webrtc
     access_point: ${endpoint}
@@ -19,84 +23,106 @@ variables:
     type: string
     env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
-  resource_name:
-    direction: input
-    type: string
-    generate: token
-  workspace_name:
-    direction: input
-    type: string
-    generate: token
-  prompt:
-    direction: input
-    type: string
-    value: Hello from an independent Giztest workflow task.
-  input_audio:
+  bob_invite_token:
     direction: output
-    type: audio
-    max_bytes: 16777216
-    media_type: audio/ogg
-    codec: opus
+    type: string
+    secret: true
+  friend_name:
+    direction: output
+    type: string
+  alice_workspace:
+    direction: output
+    type: string
+  social_message:
+    direction: input
+    type: string
+    value: Hello Bob, this is the bounded social review turn.
+  review_evidence:
+    direction: output
+    type: string
 review: true
 steps:
-  - id: register_peer
-    client: peer
+  - id: register_alice
+    client: alice
     rpc:
       method: server.register
       request:
         token: ${registration_token}
-  - id: create_workspace
-    client: peer
+  - id: register_bob
+    client: bob
     rpc:
-      method: server.workspace.create
+      method: server.register
       request:
-        name: ${workspace_name}
-        collection: assistants
-        workflow_name: chatroom
-        parameters:
-          chat_room_workspace_parameters:
-            agent_type: CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_CHATROOM
-            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-            mode: CHAT_ROOM_MODE_DIRECT
-  - id: select_workspace
-    client: peer
+        token: ${registration_token}
+  - id: create_bob_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite_token: /invite_token
+  - id: add_bob
+    client: alice
+    rpc:
+      method: server.friend.add
+      request:
+        invite_token: ${bob_invite_token}
+    capture:
+      friend_name: /name
+      alice_workspace: /workspace_name
+  - id: select_alice_workspace
+    client: alice
     rpc:
       method: server.run.workspace.set
       request:
-        workspace_name: ${workspace_name}
-  - id: synthesize_input
-    client: peer
-    speech:
-      method: server.speech.synthesize
-      request:
-        voice_name: narrator
-        text: Giztest audio input
-        accepted_content_types: [audio/ogg]
-    save_as: input_audio
-  - id: exercise_workflow
-    client: peer
+        workspace_name: ${alice_workspace}
+  - id: exercise_social_flow
+    client: alice
     peer_stream:
-      mode: push-to-talk
-      input: ${input_audio}
-      pacing: 20ms
+      mode: text
+      input: ${social_message}
+      terminal_label: transcript
+      wait_for_history: true
       max_events: 1024
     expect:
       /events:
         non_empty: true
+      /history_name:
+        non_empty: true
+  - id: read_persisted_transcript
+    client: alice
+    rpc:
+      method: server.run.workspace.history
+      request:
+        limit: 20
+    expect:
+      /items:
+        non_empty: true
+    capture:
+      review_evidence: /items/0/text
+  - id: show_review_evidence
+    output:
+      variable: review_evidence
   - id: confirm_review
     review_op:
-      message: Confirm the ASR-backed evidence and observed behavior
+      message: Confirm the bounded transcript above matches the direct-chat text and persisted social history
 finally:
-  - client: peer
+  - client: alice
     rpc:
       method: server.run.stop
       request: {}
-  - client: peer
+  - client: alice
     rpc:
-      method: server.workspace.delete
+      method: server.friend.delete
       request:
-        name: ${workspace_name}
-  - client: peer
+        name: ${friend_name}
+  - client: alice
     rpc:
       method: server.peer.delete
       request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact: [registration_token, bob_invite_token]

@@ -37,6 +37,15 @@ variables:
     max_bytes: 16777216
     media_type: audio/ogg
     codec: opus
+  review_evidence:
+    direction: output
+    type: string
+  assistant_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
 review: true
 steps:
   - id: register_peer
@@ -82,9 +91,28 @@ steps:
     expect:
       /events:
         non_empty: true
+    capture:
+      assistant_audio: /audio
+  - id: transcribe_review_evidence
+    client: peer
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        content_type: audio/L16;rate=16000;channels=1
+        language: en
+      input: ${assistant_audio}
+    capture:
+      review_evidence: /transcript
+    expect:
+      /transcript:
+        non_empty: true
+  - id: show_review_evidence
+    output:
+      variable: review_evidence
   - id: confirm_review
     review_op:
-      message: Confirm the ASR-backed evidence and observed behavior
+      message: Confirm the bounded transcript/assistant text above matches the observed audio behavior
 finally:
   - client: peer
     rpc:

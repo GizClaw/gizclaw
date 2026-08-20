@@ -29,3 +29,18 @@ func TestEmitOutputWritesOnlyDeclaredScalar(t *testing.T) {
 		t.Fatalf("output = %q", output.String())
 	}
 }
+
+func TestEmitOutputBoundsUntrustedText(t *testing.T) {
+	vars, err := newVariables(map[string]VariableSpec{"evidence": {Direction: "input", Type: "string", Value: strings.Repeat("界", maxOutputTextBytes)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	evidence, err := emitOutput(&out, vars, "evidence")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evidence["truncated"] != true || !strings.HasSuffix(out.String(), "\n") || !strings.Contains(out.String(), "evidence=") {
+		t.Fatalf("bounded output = %q, evidence = %#v", out.String(), evidence)
+	}
+}

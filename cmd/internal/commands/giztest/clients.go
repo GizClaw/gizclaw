@@ -42,34 +42,29 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 		spec := specs[name]
 		endpointValue, err := vars.resolve(spec.AccessPoint)
 		if err != nil {
-			set.Close()
-			return nil, err
+			return set, err
 		}
 		endpoint, ok := endpointValue.(string)
 		if !ok {
-			set.Close()
-			return nil, fmt.Errorf("client %s access_point must resolve to string", name)
+			return set, fmt.Errorf("client %s access_point must resolve to string", name)
 		}
 		info, err := fetchServerInfo(ctx, endpoint)
 		if err != nil {
-			set.Close()
-			return nil, fmt.Errorf("client %s: %w", name, err)
+			return set, fmt.Errorf("client %s: %w", name, err)
 		}
 		key, err := giznet.GenerateKeyPair()
 		if err != nil {
-			set.Close()
-			return nil, err
+			return set, err
 		}
 		client := &gizcli.Client{KeyPair: key, DialTransport: func(key *giznet.KeyPair, _ giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
 			return gizwebrtc.Dial(ctx, key, info.transportKey, gizwebrtc.DialConfig{SignalingURL: info.signalingURL, ICEServers: info.ice, SecurityPolicy: policy})
 		}}
 		if err := configureClientRPC(client, name, steps, vars, set.inbound); err != nil {
-			set.Close()
-			return nil, err
+			return set, err
 		}
 		if err := client.Dial(info.publicKey, endpoint); err != nil {
-			set.Close()
-			return nil, fmt.Errorf("client %s dial: %w", name, err)
+			_ = client.Close()
+			return set, fmt.Errorf("client %s dial: %w", name, err)
 		}
 		errCh := make(chan error, 1)
 		go func() { errCh <- client.Serve() }()
@@ -77,17 +72,14 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 		if spec.RegistrationToken != "" {
 			tokenValue, err := vars.resolve(spec.RegistrationToken)
 			if err != nil {
-				set.Close()
-				return nil, err
+				return set, err
 			}
 			token, ok := tokenValue.(string)
 			if !ok {
-				set.Close()
-				return nil, fmt.Errorf("client %s registration_token must resolve to string", name)
+				return set, fmt.Errorf("client %s registration_token must resolve to string", name)
 			}
 			if _, err := client.Register(ctx, "giztest.register."+name, token); err != nil {
-				set.Close()
-				return nil, fmt.Errorf("client %s register: %w", name, err)
+				return set, fmt.Errorf("client %s register: %w", name, err)
 			}
 		}
 	}

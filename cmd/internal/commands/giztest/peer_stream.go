@@ -10,8 +10,14 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+)
+
+const (
+	realtimeTailSilence    = 4 * time.Second
+	maxAssistantAudioBytes = 16 << 20
 )
 
 func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, input any) (operationResult, error) {
@@ -61,7 +67,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			return operationResult{}, err
 		}
 		if op.Mode == "realtime" {
-			packets, err = appendRealtimeTailSilence(packets, 1200*time.Millisecond)
+			packets, err = appendRealtimeTailSilence(packets, realtimeTailSilence)
 			if err != nil {
 				return operationResult{}, fmt.Errorf("prepare realtime tail silence: %w", err)
 			}
@@ -74,11 +80,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			}
 		}
 		pushTurn := func(sendCtx context.Context, id string) error {
-			chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", BeginOfStream: true}}}
-			for _, packet := range packets {
-				chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType, Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user"}})
-			}
-			chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", EndOfStream: true}})
+			chunks := audioInputChunks(op.Mode, id, mimeType, packets)
 			for _, chunk := range chunks {
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
@@ -129,6 +131,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 		}()
 	}
 	var texts []string
+	var assistantPackets [][]byte
 	audioBytes, events := 0, 0
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
@@ -214,6 +217,10 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			case *genx.Blob:
 				if label == "assistant" && len(part.Data) > 0 {
 					assistantAudioEvents++
+					if audioBytes > maxAssistantAudioBytes-len(part.Data) {
+						return operationResult{}, fmt.Errorf("assistant audio exceeds %d bytes", maxAssistantAudioBytes)
+					}
+					assistantPackets = append(assistantPackets, append([]byte(nil), part.Data...))
 				}
 				if firstAudioMS == 0 && len(part.Data) > 0 {
 					firstAudioMS = time.Since(started).Milliseconds()
@@ -259,6 +266,13 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 					}
 				}
 				object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+				if len(assistantPackets) > 0 {
+					var audio bytes.Buffer
+					if err := codecconv.OpusPacketsToOgg(&audio, int(opus.SampleRate16K), 1, assistantPackets); err != nil {
+						return operationResult{}, fmt.Errorf("encode assistant audio evidence: %w", err)
+					}
+					object["audio"] = append([]byte(nil), audio.Bytes()...)
+				}
 				if op.WaitForHistory {
 					historyName, err := waitForWorkspaceHistory(ctx, client, step.ID)
 					if err != nil {
@@ -273,6 +287,17 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 		}
 	}
 	return operationResult{}, fmt.Errorf("peer_stream exceeded max_events %d", maxEvents)
+}
+
+func audioInputChunks(mode, streamID, mimeType string, packets [][]byte) []*genx.MessageChunk {
+	chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", BeginOfStream: true}}}
+	for _, packet := range packets {
+		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType, Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user"}})
+	}
+	if mode == "push-to-talk" {
+		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", EndOfStream: true}})
+	}
+	return chunks
 }
 
 func streamIDMatches(actual, expected string) bool {
