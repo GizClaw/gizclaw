@@ -67,8 +67,10 @@ type Client struct {
 	packetSubscribers map[byte]map[chan []byte]struct{}
 	openPeerStream    func(int) (*PeerStream, error)
 
-	toolMu       sync.RWMutex
-	toolHandlers map[string]ToolHandler
+	toolMu            sync.RWMutex
+	toolHandlers      map[string]ToolHandler
+	clientRPCMu       sync.RWMutex
+	clientRPCObserver func(rpcapi.RPCMethod)
 }
 
 type DialTransportFunc func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error)

@@ -1,0 +1,252 @@
+package giztest
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+type value struct {
+	data any
+	spec VariableSpec
+}
+
+type variables struct{ values map[string]value }
+
+func (v *variables) release() {
+	if v == nil {
+		return
+	}
+	for name, item := range v.values {
+		if data, ok := item.data.([]byte); ok {
+			clear(data)
+		}
+		item.data = nil
+		v.values[name] = item
+	}
+}
+
+func (v *variables) redactions(names []string) []string {
+	if v == nil {
+		return nil
+	}
+	explicit := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		explicit[name] = struct{}{}
+	}
+	var redactions []string
+	for name, item := range v.values {
+		_, requested := explicit[name]
+		if !item.spec.Secret && !requested {
+			continue
+		}
+		if text, ok := item.data.(string); ok && text != "" {
+			redactions = append(redactions, text)
+		}
+	}
+	sort.Slice(redactions, func(i, j int) bool {
+		return len(redactions[i]) > len(redactions[j])
+	})
+	return redactions
+}
+
+func newVariables(specs map[string]VariableSpec) (*variables, error) {
+	v := &variables{values: make(map[string]value, len(specs))}
+	for name, spec := range specs {
+		if spec.Direction == "output" {
+			v.values[name] = value{spec: spec}
+			continue
+		}
+		var data any
+		switch {
+		case spec.Env != "":
+			var ok bool
+			data, ok = os.LookupEnv(spec.Env)
+			if !ok {
+				return nil, fmt.Errorf("input variable %s requires environment %s", name, spec.Env)
+			}
+		case spec.Generate != "":
+			generated, err := generateValue(spec.Generate)
+			if err != nil {
+				return nil, fmt.Errorf("variable %s: %w", name, err)
+			}
+			data = generated
+		default:
+			data = spec.Value
+		}
+		if err := checkValueType(spec, data); err != nil {
+			return nil, fmt.Errorf("variable %s: %w", name, err)
+		}
+		v.values[name] = value{data: data, spec: spec}
+	}
+	return v, nil
+}
+
+func generateValue(kind string) (string, error) {
+	size := 16
+	b := make([]byte, size)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	if kind == "uuid" {
+		b[6] = b[6]&0x0f | 0x40
+		b[8] = b[8]&0x3f | 0x80
+		s := hex.EncodeToString(b)
+		return s[:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:], nil
+	}
+	return "g" + hex.EncodeToString(b), nil
+}
+
+func checkValueType(spec VariableSpec, data any) error {
+	if data == nil && spec.Direction == "output" {
+		return nil
+	}
+	switch spec.Type {
+	case "string":
+		if _, ok := data.(string); !ok {
+			return fmt.Errorf("want string")
+		}
+	case "boolean":
+		if _, ok := data.(bool); !ok {
+			return fmt.Errorf("want boolean")
+		}
+	case "integer":
+		if !isInteger(data) {
+			return fmt.Errorf("want integer")
+		}
+	case "number":
+		if !isNumber(data) {
+			return fmt.Errorf("want number")
+		}
+	case "object":
+		if _, ok := data.(map[string]any); !ok {
+			return fmt.Errorf("want object")
+		}
+	case "audio", "binary":
+		if _, ok := data.([]byte); !ok {
+			return fmt.Errorf("want in-memory bytes")
+		}
+	default:
+		return fmt.Errorf("unsupported type %q", spec.Type)
+	}
+	if b, ok := data.([]byte); ok && spec.MaxBytes > 0 && len(b) > spec.MaxBytes {
+		return fmt.Errorf("value exceeds max_bytes")
+	}
+	return nil
+}
+
+func isNumber(v any) bool {
+	switch v.(type) {
+	case int, int64, float64, json.Number:
+		return true
+	}
+	return false
+}
+func isInteger(v any) bool {
+	switch x := v.(type) {
+	case int, int64:
+		return true
+	case float64:
+		return x == float64(int64(x))
+	case json.Number:
+		_, err := x.Int64()
+		return err == nil
+	}
+	return false
+}
+
+func (v *variables) assign(name string, data any) error {
+	current, ok := v.values[name]
+	if !ok {
+		return fmt.Errorf("unknown variable %q", name)
+	}
+	if current.spec.Direction != "output" {
+		return fmt.Errorf("variable %q is not output", name)
+	}
+	if current.data != nil {
+		return fmt.Errorf("variable %q already assigned", name)
+	}
+	if err := checkValueType(current.spec, data); err != nil {
+		return err
+	}
+	current.data = data
+	v.values[name] = current
+	return nil
+}
+
+func (v *variables) resolve(input any) (any, error) {
+	switch x := input.(type) {
+	case string:
+		if m := referencePattern.FindStringSubmatch(x); m != nil {
+			item, ok := v.values[m[1]]
+			if !ok || item.data == nil {
+				return nil, fmt.Errorf("variable %q unavailable", m[1])
+			}
+			return item.data, nil
+		}
+		result := x
+		for _, m := range regexpReferences(x) {
+			item, ok := v.values[m]
+			if !ok || item.data == nil {
+				return nil, fmt.Errorf("variable %q unavailable", m)
+			}
+			scalar, ok := item.data.(string)
+			if !ok {
+				return nil, fmt.Errorf("embedded variable %q must be string", m)
+			}
+			result = strings.ReplaceAll(result, "${"+m+"}", scalar)
+		}
+		return result, nil
+	case []any:
+		out := make([]any, len(x))
+		for i := range x {
+			value, err := v.resolve(x[i])
+			if err != nil {
+				return nil, err
+			}
+			out[i] = value
+		}
+		return out, nil
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, raw := range x {
+			value, err := v.resolve(raw)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = value
+		}
+		return out, nil
+	default:
+		return input, nil
+	}
+}
+
+func (v *variables) referencedSpec(input any) (VariableSpec, bool) {
+	text, ok := input.(string)
+	if !ok {
+		return VariableSpec{}, false
+	}
+	match := referencePattern.FindStringSubmatch(text)
+	if match == nil {
+		return VariableSpec{}, false
+	}
+	item, ok := v.values[match[1]]
+	return item.spec, ok
+}
+
+func regexpReferences(s string) []string {
+	matches := regexpReferenceAll.FindAllStringSubmatch(s, -1)
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+var regexpReferenceAll = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)

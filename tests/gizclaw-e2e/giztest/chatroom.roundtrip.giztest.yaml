@@ -1,0 +1,89 @@
+# User Story:
+# As a pair of independently registered devices in one friend group,
+# I want each member to send a group message that the other member receives,
+# So that group-chat Workspace ownership, shared history visibility, and cleanup are verified.
+version: gizclaw.test/v1alpha1
+name: chatroom.roundtrip
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  bob: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  group_name: {direction: input, type: string, generate: token}
+  invite_token: {direction: output, type: string}
+  alice_workspace: {direction: output, type: string}
+  bob_workspace: {direction: output, type: string}
+  alice_prompt: {direction: input, type: string, value: Alice says hello to the group.}
+  bob_prompt: {direction: input, type: string, value: Bob replies to the group.}
+steps:
+  - id: register_alice
+    client: alice
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: register_bob
+    client: bob
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create_group
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: "${group_name}", display_name: Giztest Group}}
+    capture:
+      alice_workspace: /workspace_name
+  - id: create_invite
+    client: alice
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: "${group_name}"}}
+    capture:
+      invite_token: /invite_token
+  - id: join_group
+    client: bob
+    rpc: {method: server.friend_group.join, request: {name: "${group_name}", invite_token: "${invite_token}"}}
+    capture:
+      bob_workspace: /group/workspace_name
+  - id: select_alice_group
+    client: alice
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${alice_workspace}"}}
+  - id: select_bob_group
+    client: bob
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${bob_workspace}"}}
+  - id: alice_to_bob
+    client: alice
+    peer_stream:
+      mode: text
+      input: "${alice_prompt}"
+      terminal_label: transcript
+      wait_for_history: true
+      max_events: 1024
+    expect:
+      /events: {non_empty: true}
+  - id: bob_reads_alice_message
+    client: bob
+    rpc: {method: server.friend_group.messages.list, request: {friend_group_name: "${group_name}", limit: 20}}
+    expect:
+      /items: {non_empty: true}
+  - id: bob_to_alice
+    client: bob
+    peer_stream:
+      mode: text
+      input: "${bob_prompt}"
+      terminal_label: transcript
+      wait_for_history: true
+      max_events: 1024
+    expect:
+      /events: {non_empty: true}
+  - id: alice_reads_bob_message
+    client: alice
+    rpc: {method: server.friend_group.messages.list, request: {friend_group_name: "${group_name}", limit: 20}}
+    expect:
+      /items: {non_empty: true}
+finally:
+  - client: alice
+    rpc: {method: server.run.stop, request: {}}
+  - client: bob
+    rpc: {method: server.run.stop, request: {}}
+  - client: alice
+    rpc: {method: server.friend_group.delete, request: {name: "${group_name}"}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: bob
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token, invite_token]

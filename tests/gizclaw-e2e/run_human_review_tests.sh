@@ -32,7 +32,9 @@ set -a
 source "$script_dir/testdata/docker/current.env"
 set +a
 
-run_pkg "./tests/gizclaw-e2e/go/chat" '^TestHumanReview$'
-run_pkg "./tests/gizclaw-e2e/go/social" '^TestServerSocialRPCHumanReview$'
+"$script_dir/testdata/bin/gizclaw" test run \
+  "$script_dir/giztest/review.chat.giztest.yaml" \
+  "$script_dir/giztest/review.social.giztest.yaml" \
+  --parallel 1 --output "$script_dir/testdata/giztest-human-review-report.json"
 
 echo "==> human-review e2e run completed"

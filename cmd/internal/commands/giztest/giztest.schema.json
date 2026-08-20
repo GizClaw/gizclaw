@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gizclaw.dev/schemas/gizclaw.test-v1alpha1.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["version", "name", "clients", "variables", "steps"],
+  "properties": {
+    "version": {"const": "gizclaw.test/v1alpha1"},
+    "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"},
+    "repeat": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "timeout": {"type": "string", "minLength": 2},
+    "clients": {"type": "object", "minProperties": 1, "maxProperties": 32, "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"}, "additionalProperties": {"$ref": "#/$defs/client"}},
+    "variables": {"type": "object", "maxProperties": 256, "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"}, "additionalProperties": {"$ref": "#/$defs/variable"}},
+    "steps": {"type": "array", "minItems": 1, "maxItems": 512, "items": {"$ref": "#/$defs/step"}},
+    "finally": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/finalizer"}},
+    "review": {"type": "boolean"},
+    "report": {"type": "object", "additionalProperties": false, "properties": {"redact": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}}}
+  },
+  "$defs": {
+    "client": {"type": "object", "additionalProperties": false, "required": ["identity", "connection", "access_point"], "properties": {"identity": {"const": "ephemeral"}, "connection": {"const": "webrtc"}, "access_point": {"type": "string", "minLength": 1}, "registration_token": {"type": "string"}}},
+    "variable": {
+      "type": "object", "additionalProperties": false, "required": ["direction", "type"],
+      "properties": {"direction": {"enum": ["input", "output"]}, "type": {"enum": ["string", "integer", "number", "boolean", "object", "audio", "binary"]}, "value": {}, "env": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"}, "generate": {"enum": ["uuid", "token", "string"]}, "secret": {"type": "boolean"}, "max_bytes": {"type": "integer", "minimum": 1, "maximum": 16777216}, "media_type": {"type": "string"}, "codec": {"type": "string"}},
+      "allOf": [
+        {"if": {"properties": {"direction": {"const": "input"}}}, "then": {"oneOf": [{"required": ["value"]}, {"required": ["env"]}, {"required": ["generate"]}]}},
+        {"if": {"properties": {"direction": {"const": "output"}}}, "then": {"not": {"anyOf": [{"required": ["value"]}, {"required": ["env"]}, {"required": ["generate"]}]}}},
+        {"if": {"properties": {"type": {"enum": ["audio", "binary"]}}}, "then": {"required": ["max_bytes", "media_type", "codec"]}}
+      ]
+    },
+    "expectation": {"type": "object", "additionalProperties": false, "properties": {"equals": {"not": {"type": "null"}}, "present": {"type": "boolean"}, "non_empty": {"type": "boolean"}, "count": {"type": "integer", "minimum": 0}}, "minProperties": 1, "maxProperties": 1},
+    "error_expectation": {"type": "object", "additionalProperties": false, "required": ["code"], "properties": {"code": {"type": "integer"}, "message_contains": {"type": "string", "minLength": 1}}},
+    "rpc": {"type": "object", "additionalProperties": false, "required": ["method", "request"], "properties": {"method": {"type": "string"}, "request": {}}},
+    "rpc_stream": {"type": "object", "additionalProperties": false, "required": ["method", "request"], "properties": {"method": {"type": "string"}, "request": {}, "max_bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824}}},
+    "client_rpc": {"type": "object", "additionalProperties": false, "required": ["method"], "properties": {"method": {"enum": ["client.info.get", "client.identifiers.get", "client.tool.invoke"]}, "response": {}, "expect_calls": {"type": "integer", "minimum": 1, "maximum": 1024}}},
+    "speech": {"type": "object", "additionalProperties": false, "required": ["method", "request"], "properties": {"method": {"enum": ["server.speech.synthesize", "server.speech.transcribe", "server.speech.extract"]}, "request": {}, "input": {}}},
+    "peer_stream": {"type": "object", "additionalProperties": false, "required": ["mode", "input"], "properties": {"mode": {"enum": ["text", "push-to-talk", "realtime"]}, "input": {}, "pacing": {"type": "string"}, "interrupt_after": {"type": "string"}, "terminal_label": {"enum": ["assistant", "transcript"]}, "wait_for_history": {"type": "boolean"}, "max_events": {"type": "integer", "minimum": 1, "maximum": 10000}}},
+    "output": {"type": "object", "additionalProperties": false, "required": ["variable"], "properties": {"variable": {"type": "string"}}},
+    "review_op": {"type": "object", "additionalProperties": false, "required": ["message"], "properties": {"message": {"type": "string", "minLength": 1}}},
+    "barrier": {"type": "object", "additionalProperties": false, "properties": {"participants": {"type": "integer", "minimum": 1, "maximum": 1000}}},
+    "step": {
+      "type": "object", "additionalProperties": false, "required": ["id"],
+      "properties": {"id": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"}, "client": {"type": "string"}, "timeout": {"type": "string"}, "save_as": {"type": "string"}, "capture": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^(/([^/~]|~[01])*)*$"}}, "expect": {"type": "object", "propertyNames": {"pattern": "^(/([^/~]|~[01])*)*$"}, "additionalProperties": {"$ref": "#/$defs/expectation"}}, "expect_error": {"$ref": "#/$defs/error_expectation"}, "rpc": {"$ref": "#/$defs/rpc"}, "rpc_stream": {"$ref": "#/$defs/rpc_stream"}, "client_rpc": {"$ref": "#/$defs/client_rpc"}, "speech": {"$ref": "#/$defs/speech"}, "peer_stream": {"$ref": "#/$defs/peer_stream"}, "output": {"$ref": "#/$defs/output"}, "review_op": {"$ref": "#/$defs/review_op"}, "barrier": {"$ref": "#/$defs/barrier"}},
+      "oneOf": [{"required": ["rpc"]}, {"required": ["rpc_stream"]}, {"required": ["client_rpc"]}, {"required": ["speech"]}, {"required": ["peer_stream"]}, {"required": ["output"]}, {"required": ["review_op"]}, {"required": ["barrier"]}]
+    },
+    "finalizer": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"id": {"type": "string"}, "client": {"type": "string"}, "timeout": {"type": "string"}, "save_as": {"type": "string"}, "capture": {"type": "object", "additionalProperties": {"type": "string"}}, "expect": {"type": "object", "additionalProperties": {"$ref": "#/$defs/expectation"}}, "rpc": {"$ref": "#/$defs/rpc"}, "rpc_stream": {"$ref": "#/$defs/rpc_stream"}, "peer_stream": {"$ref": "#/$defs/peer_stream"}, "output": {"$ref": "#/$defs/output"}},
+      "oneOf": [{"required": ["rpc"]}, {"required": ["rpc_stream"]}, {"required": ["peer_stream"]}, {"required": ["output"]}]
+    }
+  }
+}

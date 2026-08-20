@@ -1,0 +1,45 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the all.speed_test.run behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: all.speed-test.run
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: primary_rpc_stream
+    client: peer
+    rpc_stream:
+      method: all.speed_test.run
+      request:
+        up_content_length: 65536
+        down_content_length: 65536
+      max_bytes: 16777216
+finally:
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

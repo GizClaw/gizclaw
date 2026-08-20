@@ -1,0 +1,131 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: RuntimeProfile
+metadata:
+  id: e2e-giztest
+spec:
+  workflows:
+    system:
+      friend_chatroom: chatroom-direct
+      group_chatroom: chatroom
+      pet: pet-care
+    collections:
+      assistants:
+        volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}}
+        volc-ast-translate-zh-jp: {resource_id: volc-ast-translate-zh-jp, i18n: {en: {display_name: Chinese Japanese Translate}, zh-CN: {display_name: 中日翻译}}}
+        volc-ast-translate: {resource_id: volc-ast-translate, i18n: {en: {display_name: AST Translate}, zh-CN: {display_name: AST 翻译}}}
+        chatroom: {resource_id: chatroom, i18n: {en: {display_name: Chatroom}, zh-CN: {display_name: 聊天室}}}
+        doubao-realtime-conversation: {resource_id: doubao-realtime-conversation, i18n: {en: {display_name: Doubao Realtime}, zh-CN: {display_name: 豆包实时对话}}}
+        flowcraft-voice-assistant: {resource_id: flowcraft-voice-assistant, i18n: {en: {display_name: Flowcraft Voice Assistant}, zh-CN: {display_name: Flowcraft 语音助手}}}
+        flowcraft-chat-assistant: {resource_id: flowcraft-chat-assistant, i18n: {en: {display_name: Flowcraft Chat Assistant}, zh-CN: {display_name: Flowcraft 对话助手}}}
+        doubao-realtime-quality: {resource_id: doubao-realtime-quality, i18n: {en: {display_name: Doubao Quality}, zh-CN: {display_name: 豆包质量测试}}}
+        flowcraft-journey-guide: {resource_id: flowcraft-journey-guide, i18n: {en: {display_name: Journey Guide}, zh-CN: {display_name: 旅程向导}}}
+        flowcraft-multi-role-storyteller: {resource_id: flowcraft-multi-role-storyteller, i18n: {en: {display_name: Storyteller}, zh-CN: {display_name: 多角色故事}}}
+        flowcraft-murder-mystery: {resource_id: flowcraft-murder-mystery, i18n: {en: {display_name: Murder Mystery}, zh-CN: {display_name: 剧本杀}}}
+        flowcraft-poetry-adventure-li-bai: {resource_id: flowcraft-poetry-adventure-li-bai, i18n: {en: {display_name: Poetry Adventure}, zh-CN: {display_name: 李白诗词冒险}}}
+        flowcraft-werewolf-game: {resource_id: flowcraft-werewolf-game, i18n: {en: {display_name: Werewolf Game}, zh-CN: {display_name: 狼人杀}}}
+        volc-ast-translate-zh-en: {resource_id: volc-ast-translate-zh-en, i18n: {en: {display_name: Chinese English Translate}, zh-CN: {display_name: 中英翻译}}}
+        dashscope-realtime-conversation: {resource_id: dashscope-realtime-conversation, i18n: {en: {display_name: DashScope Realtime}, zh-CN: {display_name: 百炼实时对话}}}
+        doubao-realtime-duplex-conversation: {resource_id: doubao-realtime-duplex-conversation, i18n: {en: {display_name: Doubao Realtime Duplex}, zh-CN: {display_name: 豆包双工对话}}}
+        eino-memory-assistant: {resource_id: eino-memory-assistant, i18n: {en: {display_name: Eino Memory Assistant}, zh-CN: {display_name: Eino 记忆助手}}}
+        flowcraft-configured-memory: {resource_id: flowcraft-configured-memory, i18n: {en: {display_name: Configured Memory}, zh-CN: {display_name: 配置记忆}}}
+        flowcraft-realtime-chat: {resource_id: flowcraft-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}}
+        flowcraft-latency-comparison: {resource_id: flowcraft-latency-comparison, i18n: {en: {display_name: Flowcraft Latency}, zh-CN: {display_name: Flowcraft 延迟}}}
+        eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}}
+        chatroom-direct: {resource_id: chatroom-direct, i18n: {en: {display_name: Direct Chatroom}, zh-CN: {display_name: 单聊}}}
+        pet-care: {resource_id: pet-care, i18n: {en: {display_name: Pet Care}, zh-CN: {display_name: 宠物照护}}}
+        pet-chatroom: {resource_id: pet-chatroom, i18n: {en: {display_name: Pet Chatroom}, zh-CN: {display_name: 宠物聊天}}}
+        family-circle-chatroom: {resource_id: family-circle-chatroom, i18n: {en: {display_name: Family Circle}, zh-CN: {display_name: 家庭群聊}}}
+        eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}}
+  resources:
+    models:
+      asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}
+      llm: {resource_id: doubao-lite-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
+      tts: {resource_id: volc-bigtts, i18n: {en: {display_name: Speech Synthesis}, zh-CN: {display_name: 语音合成}}}
+      translation: {resource_id: volc-ast-translate, i18n: {en: {display_name: Translation}, zh-CN: {display_name: 翻译}}}
+      realtime: {resource_id: doubao-realtime-dialog, i18n: {en: {display_name: Realtime Conversation}, zh-CN: {display_name: 实时对话}}}
+      realtime-duplex: {resource_id: doubao-realtime-duplex-dialog, i18n: {en: {display_name: Realtime Duplex}, zh-CN: {display_name: 实时双工}}}
+      dash-realtime: {resource_id: qwen-realtime-dialog, i18n: {en: {display_name: DashScope Realtime}, zh-CN: {display_name: 百炼实时对话}}}
+      qwen3-asr-flash-realtime: {resource_id: qwen-realtime-dialog, i18n: {en: {display_name: DashScope Realtime ASR}, zh-CN: {display_name: 百炼实时识别}}}
+      pet-chat: {resource_id: pet-flowcraft-workflow-chat, i18n: {en: {display_name: Pet Chat}, zh-CN: {display_name: 宠物对话}}}
+      pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet Extraction}, zh-CN: {display_name: 宠物提取}}}
+      pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
+    voices:
+      narrator: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Narrator}, zh-CN: {display_name: 旁白}}}
+      assistant-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Assistant}, zh-CN: {display_name: 助手}}}
+      japanese-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Japanese Assistant}, zh-CN: {display_name: 日语助手}}}
+      pet: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Pet Voice}, zh-CN: {display_name: 宠物音色}}}
+      doubao-assistant: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Doubao Assistant}, zh-CN: {display_name: 豆包助手}}}
+      sun-wukong: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Sun Wukong}, zh-CN: {display_name: 孙悟空}}}
+      tang-sanzang: {resource_id: "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts", i18n: {en: {display_name: Tang Sanzang}, zh-CN: {display_name: 唐三藏}}}
+      zhu-bajie: {resource_id: "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts", i18n: {en: {display_name: Zhu Bajie}, zh-CN: {display_name: 猪八戒}}}
+      monster: {resource_id: "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob", i18n: {en: {display_name: Monster}, zh-CN: {display_name: 妖怪}}}
+    tools:
+      giztest-echo: {resource_id: giztest-client-echo, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
+    memories:
+      default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      voice-assistant-memory: {layout_id: voice-assistant-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      chat-memory: {layout_id: chat-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      journey-memory: {layout_id: journey-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      storyteller-memory: {layout_id: storyteller-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      murder-mystery-memory: {layout_id: murder-mystery-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      poetry-memory: {layout_id: poetry-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      werewolf-memory: {layout_id: werewolf-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+    pet_defs:
+      starter-pet: {resource_id: petdef-starter, i18n: {en: {display_name: Starter Pet}, zh-CN: {display_name: 初始宠物}}}
+    badge_defs:
+      starter-badge: {resource_id: badge-starter, i18n: {en: {display_name: Starter Badge}, zh-CN: {display_name: 初始徽章}}}
+    game_defs:
+      starter-game: {resource_id: game-starter, i18n: {en: {display_name: Starter Game}, zh-CN: {display_name: 初始游戏}}}
+  gameplay:
+    points:
+      initial_balance: 100
+    workspace_reward:
+      enabled: true
+      workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+      debounce: {quiet_period: 1s, max_window_age: 1m}
+      transcript: {max_entries: 100, max_text_bytes: 65536}
+      evaluation:
+        model: pet-chat
+        points_prompt: Score constructive conversation and demonstrated learning progress.
+        score_min: 0
+        score_max: 100
+        qualifying_score: 0
+      points:
+        tiers:
+          - {min_score: 0, delta: 1}
+          - {min_score: 80, delta: 3}
+      badges:
+        starter-badge: {max_exp_per_window: 5}
+      rolling_budget: {period: 24h, points_max: 30, badge_exp_max: 50}
+    adoption:
+      pool:
+        - pet_def: starter-pet
+          weight: 100
+          rarity: common
+          adoption_cost: 10
+    pet:
+      time:
+        care_decay_per_hour: {health: 0.5, satiety: 1.3888888889, hygiene: 0.7, mood: 1}
+        energy_recovery_per_hour: 10
+        life_decay:
+          max_loss_per_hour: 4
+          exponent: 2
+          contributing_weights: {health: 0.25, satiety: 0.25, hygiene: 0.25, mood: 0.25}
+      experience:
+        energy_per_pet_exp: 5
+        leveling: {base_exp: 30, log_scale: 10}
+      actions:
+        feed: {energy_cost: 10, stat_delta: 10}
+        bathe: {energy_cost: 10, stat_delta: 10}
+        play: {energy_cost: 10, stat_delta: 10}
+        heal: {energy_cost: 10, stat_delta: 10}
+      games:
+        starter-game:
+          energy_cost: 10
+          points_cost: 10
+          reward:
+            model: pet-chat
+            pet_exp_max: 25
+            badge_exp_max_per_badge: 100
+            prompt: Evaluate the validated starter game result and award only demonstrated progress.

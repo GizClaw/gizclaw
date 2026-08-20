@@ -28,3 +28,26 @@ A valid list reports its item count without printing any item specs:
 Invalid input exits non-zero and reports the input plus value-redacted JSON Pointer diagnostics. The command never prints Resource spec values or expanded environment values, so Credential Resources can be checked in CI without exposing their body.
 
 Validation is completely offline: it does not read a GizClaw context, contact Server, or mutate storage. Passing means that the expanded document matches the Resource OpenAPI schema embedded in that binary and can be decoded as its declared kind. It does not prove that referenced IDs exist, credentials authenticate, provider/body combinations pass Server business rules, dependencies are reachable, or the Resource can be applied or run successfully.
+
+## Run Giztest
+
+`test validate` recursively validates strict `*.giztest.yaml` documents offline.
+`test run` connects to the endpoint declared by each file. The complete
+selection must validate before any ephemeral identity or remote operation is
+created:
+
+```sh
+gizclaw test validate -f tests/gizclaw-e2e/giztest
+gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
+```
+
+YAML `repeat` is the task count for that file. `--parallel` is the maximum
+worker count shared by all files. Directory discovery is recursive and stable.
+Every task owns isolated clients, variables, and cleanup. `save_as` assigns a
+declared in-memory output variable; file Save As is unsupported.
+
+Local Docker E2E applies Admin resources once before testing. For an already
+deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
+`GIZCLAW_TEST_REGISTRATION_TOKEN`; the command has no Admin authority.
+Interactive `review.*` scenarios require an attached terminal and
+`--parallel 1`.

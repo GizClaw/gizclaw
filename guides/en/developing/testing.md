@@ -94,7 +94,8 @@ tests/gizclaw-e2e/
 ├── setup/       # environment lifecycle and seed scripts
 ├── testdata/    # committed identities/resources and ignored runtime output
 ├── cmd/         # real gizclaw CLI tests
-├── go/          # Admin, chat, gameplay, RPC, and social tests
+├── giztest/     # declarative Peer RPC, Workflow, and benchmark scenarios
+├── go/          # focused Admin, delete, Edge, and OpenAI tests
 └── js/          # JavaScript/TypeScript WebRTC tests
 ```
 
@@ -126,9 +127,9 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
 The full gate installs locked Node workspaces, initializes nanopb, builds the
-E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo,
-Admin, chat, gameplay, RPC, social, and CLI phases in order, and performs
-bounded cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
+E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo, Go
+Admin/OpenAI, CLI, and Giztest phases in order, and performs one bounded
+cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
 are 15 minutes, with 30 minutes for Docker setup and CLI, 45 minutes for live
 chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
 
@@ -187,44 +188,68 @@ Workspace history is runtime data and must not be seeded by the reset script.
 ### Suite ownership
 
 - `go/admin` validates typed contracts with the generated Admin HTTP client.
-- `go/rpc` groups typed RPC tests by module.
-- `go/chat` covers workspace voice, interruption, history, and memory.
-- `go/social` covers relations, domain workspaces, messages, and history events from clients.
+- `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
+- `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
+- `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
+- `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, gameplay, and Workflow behavior.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 
+### Giztest scenarios
+
+Each Giztest file is an independent user story. It creates its own mutable
+Peers, Workspaces, invites, groups, and related resources and removes them in
+`finally`. Device identities are generated per task; files do not share fixed
+device keys or outputs. `clients` may keep several devices connected within one
+task.
+
+`repeat` only expands a file into tasks. CLI `--parallel` is the sole global
+parallelism control. Files prefixed with `benchmark.` own repeat, barrier,
+concurrency, or latency measurements. Recursive directory runs use one fixed
+worker pool and write every task and cleanup result to a redacted JSON report:
+
+```sh
+gizclaw test validate -f tests/gizclaw-e2e/giztest
+gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
+  --output tests/gizclaw-e2e/testdata/giztest-report.json
+```
+
+Giztest never performs Admin Apply. Standard Docker setup applies all fixtures,
+including the dedicated RuntimeProfile and run-scoped registration token, once
+before JavaScript, C/cgo, Go, CLI, or Giztest starts. A pre-provisioned remote
+target may instead provide `GIZCLAW_TEST_ENDPOINT` and
+`GIZCLAW_TEST_REGISTRATION_TOKEN` directly.
+
+Audio and binary values remain in bounded memory with declared `media_type`,
+`codec`, and `max_bytes`. `save_as` assigns a variable and never writes a file.
+`peer_stream.terminal_label` defaults to `assistant`; that completion requires
+observed text and audio EOS boundaries. Chatroom turns that complete on the
+persisted user transcript declare `transcript` explicitly.
+Interactive `review` files must run alone in an attached terminal with
+`--parallel 1`.
+
 ### Ten- and twenty-lane Workflow concurrency and interruption
 
-The fixed entrypoint validates Realtime, Realtime Duplex, Flowcraft, Eino, and
-Translate in five separate waves; it does not combine them into one 20-lane wave. Each wave creates
-10 or 20 independent Peers and Workspaces, waits for the complete ready barrier, and then
-releases them together while they reference one already seeded Workflow:
+The fixed entrypoint selects ten explicit `benchmark.*-10|-20.giztest.yaml`
+files. Each file's `repeat` creates 10 or 20 independent Peers and Workspaces;
+tasks wait at that file's barrier, and CLI `--parallel` is the only concurrency
+control:
 
 ```sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
 ```
 
-Each fixed entrypoint runs ten required gates: Realtime and Realtime Duplex use
-continuous-open input, while Flowcraft, Eino, and Translate use EOS-bounded
-input; every family has a one-turn and a three-turn interruption gate. The
-10-lane gate must pass before the 20-lane gate on the same repository head. Each
-Workflow remains a separate wave, so the 20-lane entrypoint does not combine the
-five families into one 100-lane wave. Realtime and Realtime Duplex select the
-`realtime` Workspace input, send speech, and leave the client audio stream open
-without audio EOS or test-injected continuous silence; each Transformer must
-keep its own provider session alive according to that provider's protocol.
-Interruption waits until the current input packets have been sent, but does not
-close the input, before the BOS for turns two and three interrupts the preceding
-response. The package also has targeted realtime diagnostics for the other
-Workflow families; those are outside the fixed selection. Every test
-keeps the same physical connection, Workspace runtime, and logical `PeerStream`,
-and the final response must complete. Realtime, Flowcraft, realtime Eino, and
-realtime Translate require correctly attributed non-empty transcript, Assistant
-text, and Assistant audio. The baseline Eino EOS-boundary contract remains
-text-only. Each wave records whether input EOS was sent, route, stream, audio
-epoch, runtime `StartedAt`, cleanup, and available container resource samples
-under the ignored `testdata/workflow-concurrency/` directory.
+Each fixed entrypoint selects ten required files covering ordinary and
+interruption scenarios for Realtime, Realtime Duplex, Flowcraft, Eino, and
+Translate. The 10-lane gate must pass before the 20-lane gate on the same
+repository head. Repeats within one file share one barrier, while one global
+worker pool schedules tasks from every selected file. Reports therefore retain
+document and repeat ownership rather than presenting the total task count as
+one Workflow's concurrency. Every task keeps its own physical connection,
+Workspace runtime, and PeerStream until terminal output and cleanup complete.
+Redacted task/step evidence, container resource samples, and 20-lane runtime
+profiles are stored under ignored `testdata/workflow-concurrency/`.
 
 Each entrypoint validates the complete `.env` before Docker setup. Environment
 variables cannot change coverage or concurrency, and retry, provider fallback,

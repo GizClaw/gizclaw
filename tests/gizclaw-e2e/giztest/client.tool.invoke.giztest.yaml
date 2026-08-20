@@ -1,0 +1,96 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the client.tool.invoke behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: client.tool.invoke
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: You must call the giztest_echo tool exactly once with key current-peer.
+      After it returns, answer only TOOL_OK.
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+      toolkit:
+        tool_names:
+          value:
+          - giztest_echo
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+- id: trigger_tool
+  client: peer
+  peer_stream:
+    mode: text
+    input: "${prompt}"
+    max_events: 1024
+- id: primary_client_rpc
+  client: peer
+  timeout: 30s
+  client_rpc:
+    method: client.tool.invoke
+    response:
+      name: giztest_echo
+      result:
+        ok: true
+    expect_calls: 1
+finally:
+- id: cleanup_run
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

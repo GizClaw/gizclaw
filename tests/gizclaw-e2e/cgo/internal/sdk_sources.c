@@ -13,8 +13,12 @@
 #include "../../../../sdk/c/gizclaw/src/gzc_buffer.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_client.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_common.c"
+#define ascii_is_space gzc_event_ascii_is_space
 #include "../../../../sdk/c/gizclaw/src/gzc_event.c"
+#undef ascii_is_space
+#define ascii_is_space gzc_json_ascii_is_space
 #include "../../../../sdk/c/gizclaw/src/gzc_json.c"
+#undef ascii_is_space
 #include "../../../../sdk/c/gizclaw/src/gzc_keys.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_platform.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_rpc.c"

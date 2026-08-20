@@ -1,0 +1,58 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.contact.put behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.contact.put
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_contact
+  client: peer
+  rpc:
+    method: server.contact.create
+    request:
+      name: "${resource_name}"
+      display_name: Giztest Contact
+- id: primary_rpc
+  client: peer
+  rpc:
+    method: server.contact.put
+    request:
+      name: "${resource_name}"
+      display_name: Updated Giztest Contact
+finally:
+- id: cleanup_contact
+  client: peer
+  rpc:
+    method: server.contact.delete
+    request:
+      name: "${resource_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

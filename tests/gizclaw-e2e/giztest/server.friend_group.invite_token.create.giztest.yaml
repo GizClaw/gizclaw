@@ -1,0 +1,85 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.friend_group.invite_token.create behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.friend-group.invite-token.create
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  group_name:
+    direction: input
+    type: string
+    generate: token
+  group_invite_token:
+    direction: output
+    type: string
+  bob_member_name:
+    direction: output
+    type: string
+  bob_group_name:
+    direction: output
+    type: string
+steps:
+- id: register_alice
+  client: alice
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: register_bob
+  client: bob
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_group
+  client: alice
+  rpc:
+    method: server.friend_group.create
+    request:
+      name: "${group_name}"
+      display_name: Giztest Group
+- id: primary_rpc
+  client: alice
+  rpc:
+    method: server.friend_group.invite_token.create
+    request:
+      friend_group_name: "${group_name}"
+finally:
+- id: cleanup_group
+  client: alice
+  rpc:
+    method: server.friend_group.delete
+    request:
+      name: "${group_name}"
+- id: cleanup_alice
+  client: alice
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_bob
+  client: bob
+  rpc:
+    method: server.peer.delete
+    request: {}

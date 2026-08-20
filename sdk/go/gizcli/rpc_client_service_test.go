@@ -71,6 +71,36 @@ func TestRPCClientHandleDeviceInfoMethods(t *testing.T) {
 	}
 }
 
+func TestObserveClientRPC(t *testing.T) {
+	client := &Client{}
+	var observed rpcapi.RPCMethod
+	if err := client.ObserveClientRPC(func(method rpcapi.RPCMethod) { observed = method }); err != nil {
+		t.Fatal(err)
+	}
+	client.observeClientRPC(rpcapi.RPCMethodClientInfoGet)
+	if observed != rpcapi.RPCMethodClientInfoGet {
+		t.Fatalf("observed = %q", observed)
+	}
+}
+
+func TestObserveClientRPCSkipsInvalidRequest(t *testing.T) {
+	client := &Client{}
+	var calls atomic.Int32
+	if err := client.ObserveClientRPC(func(rpcapi.RPCMethod) { calls.Add(1) }); err != nil {
+		t.Fatal(err)
+	}
+	var params rpcapi.RPCPayload
+	if err := params.FromPingRequest(rpcapi.PingRequest{ClientSendTime: 1}); err != nil {
+		t.Fatal(err)
+	}
+	response, err := (&rpcClient{peer: client}).dispatch(t.Context(), &rpcapi.RPCRequest{
+		Id: "invalid", Method: rpcapi.RPCMethodClientInfoGet, Params: &params,
+	})
+	if err != nil || response.Error == nil || calls.Load() != 0 {
+		t.Fatalf("invalid dispatch = %#v, %v; observed calls = %d", response, err, calls.Load())
+	}
+}
+
 func TestRPCClientHandleToolInvoke(t *testing.T) {
 	device := &Client{}
 	if err := device.HandleTool("music_play", func(_ context.Context, args json.RawMessage) (json.RawMessage, error) {

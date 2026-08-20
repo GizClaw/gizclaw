@@ -21,6 +21,31 @@ var clientToolNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]{0,63}$`)
 
 type ToolHandler func(context.Context, json.RawMessage) (json.RawMessage, error)
 
+// ObserveClientRPC installs an optional observer for valid Server-to-Client
+// RPC dispatch. The observer must return quickly and must not call Client
+// lifecycle methods.
+func (c *Client) ObserveClientRPC(observer func(rpcapi.RPCMethod)) error {
+	if c == nil {
+		return errors.New("gizclaw: nil client")
+	}
+	c.clientRPCMu.Lock()
+	defer c.clientRPCMu.Unlock()
+	c.clientRPCObserver = observer
+	return nil
+}
+
+func (c *Client) observeClientRPC(method rpcapi.RPCMethod) {
+	if c == nil {
+		return
+	}
+	c.clientRPCMu.RLock()
+	observer := c.clientRPCObserver
+	c.clientRPCMu.RUnlock()
+	if observer != nil {
+		observer(method)
+	}
+}
+
 // HandleTool mounts one current-Client Tool handler by canonical Resource name.
 func (c *Client) HandleTool(name string, handler ToolHandler) error {
 	if c == nil {
@@ -75,6 +100,7 @@ func (c *rpcClient) handleGetClientInfo(ctx context.Context, req *rpcapi.RPCRequ
 	if c.peer == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
 	}
+	c.peer.observeClientRPC(req.Method)
 	result, err := convertRPCType[rpcapi.ClientGetInfoResponse](peerDeviceToPeerRefreshInfo(c.peer.Device))
 	if err != nil {
 		return nil, err
@@ -92,6 +118,7 @@ func (c *rpcClient) handleGetClientIdentifiers(ctx context.Context, req *rpcapi.
 	if c.peer == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
 	}
+	c.peer.observeClientRPC(req.Method)
 	result, err := convertRPCType[rpcapi.ClientGetIdentifiersResponse](peerDeviceToPeerRefreshIdentifiers(c.peer.Device))
 	if err != nil {
 		return nil, err
@@ -120,6 +147,7 @@ func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest
 	if handler == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "Tool unavailable"}.RPCResponse(), nil
 	}
+	c.peer.observeClientRPC(req.Method)
 	args, err := json.Marshal(params.Args)
 	if err != nil || len(args) > maxClientToolArgumentsBytes {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid Tool arguments"}.RPCResponse(), nil

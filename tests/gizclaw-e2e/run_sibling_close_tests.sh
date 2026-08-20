@@ -52,6 +52,6 @@ echo "==> C/cgo sibling-close attempts 1-3/3"
 echo "==> Go sibling-close attempts 1-3/3"
 (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=3 -timeout 45m \
   -run '^TestConcurrentServiceStreams$' \
-  ./tests/gizclaw-e2e/go/rpc)
+  ./tests/gizclaw-e2e/go/edge)
 
 echo "==> sibling-close e2e run completed"

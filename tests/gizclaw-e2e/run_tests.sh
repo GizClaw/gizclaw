@@ -19,61 +19,7 @@ full_watchdog_pid=""
 active_command_pid=""
 active_phase=""
 failure_diagnostics_collected=0
-chat_pkg="./tests/gizclaw-e2e/go/chat"
-chat_live_tests=(
-  TestPushToTalkRoundtrip
-  TestDoubaoRealtimeResponseQuality
-  TestHistoryReplay
-  TestRealtimeRoundtrip
-  TestFlowcraftRealtimeChatRoundtrip
-  TestRealtimeInterrupt
-  TestRealtimeAutoSplitHistory
-  TestPushToTalkInterrupt
-  TestDashScopeRealtimeWorkflowRoundtrip
-  TestDoubaoRealtimeDuplexWorkflowRoundtrip
-  TestEinoWorkflowInvokesHTTPAndCurrentPeerTools
-  TestEinoWorkflowRoundtrip
-  TestEinoPushToTalkWorkflowRoundtrip
-  TestEinoRealtimeWorkflowRoundtrip
-  TestFlowcraftConfiguredMemoryStoreRoundtrip
-  TestPeerStreamWorkspaceReloadContinuity
-  TestRealtimeWorkflowConcurrency10
-  TestRealtimeWorkflowConcurrencyInterrupt10
-  TestFlowcraftWorkflowConcurrency10
-  TestFlowcraftWorkflowConcurrencyInterrupt10
-  TestEinoWorkflowConcurrency10
-  TestEinoWorkflowConcurrencyInterrupt10
-  TestTranslateWorkflowConcurrency10
-  TestTranslateWorkflowConcurrencyInterrupt10
-  TestRealtimeWorkflowRealtimeConcurrency10
-  TestRealtimeWorkflowRealtimeConcurrencyInterrupt10
-  TestFlowcraftWorkflowRealtimeConcurrency10
-  TestFlowcraftWorkflowRealtimeConcurrencyInterrupt10
-  TestEinoWorkflowRealtimeConcurrency10
-  TestEinoWorkflowRealtimeConcurrencyInterrupt10
-  TestTranslateWorkflowRealtimeConcurrency10
-  TestTranslateWorkflowRealtimeConcurrencyInterrupt10
-)
-chat_standard_live_patterns=(
-  '^TestPushToTalkRoundtrip$'
-  '^TestDoubaoRealtimeResponseQuality$'
-  '^TestRealtimeRoundtrip$'
-  '^TestFlowcraftRealtimeChatRoundtrip$'
-  '^TestHistoryReplay$'
-  '^TestRealtimeInterrupt$'
-  '^TestRealtimeAutoSplitHistory$'
-  '^TestPushToTalkInterrupt$'
-  '^TestDashScopeRealtimeWorkflowRoundtrip$'
-  '^TestDoubaoRealtimeDuplexWorkflowRoundtrip$'
-  '^TestEinoWorkflowInvokesHTTPAndCurrentPeerTools$'
-  '^TestEinoPushToTalkWorkflowRoundtrip$'
-  '^TestEinoRealtimeWorkflowRoundtrip$'
-  '^TestPeerStreamWorkspaceReloadContinuity$'
-)
-chat_memory_live_patterns=(
-  '^TestEinoWorkflowRoundtrip$'
-  '^TestFlowcraftConfiguredMemoryStoreRoundtrip$'
-)
+stack_started=0
 
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
@@ -83,8 +29,9 @@ cleanup() {
     active_command_pid=""
   fi
   stop_full_watchdog
-  if [[ -f "$docker_env_path" ]]; then
-    run_timed "docker:cleanup" bash "$setup_dir/docker-compose-down.sh" || true
+	if [[ "$stack_started" == "1" && -f "$docker_env_path" ]]; then
+		run_timed "docker:cleanup" bash "$setup_dir/docker-compose-down.sh" || true
+		stack_started=0
   fi
   rm -f "$docker_env_path"
   echo "==> e2e cleanup done total_elapsed_seconds=$((SECONDS - gate_started))"
@@ -143,7 +90,7 @@ phase_deadline_seconds() {
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
 		docker:setup) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
-		go:chat | chat:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
+		giztest:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
 		*) echo "${GIZCLAW_E2E_PHASE_DEADLINE_SECONDS:-900}" ;;
 	esac
@@ -171,7 +118,7 @@ stop_full_watchdog() {
 validate_deadlines() {
 	require_positive_seconds GIZCLAW_E2E_FULL_DEADLINE_SECONDS "$full_deadline_seconds"
 	local phase deadline
-	for phase in preflight:validate docker:setup docker:cleanup go:chat cli go:validate; do
+	for phase in preflight:validate docker:setup docker:cleanup giztest:standard cli go:validate; do
 		deadline="$(phase_deadline_seconds "$phase")"
 		require_positive_seconds "deadline for $phase" "$deadline"
 	done
@@ -355,44 +302,6 @@ run_pkg_serial() {
 	(cd "$repo_root" && go test -p 1 -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$default_skip_regexp" "$pkg")
 }
 
-run_pkg_test() {
-	local pkg="$1"
-	local test_name="$2"
-	echo "==> go test $pkg -run ^${test_name}$"
-	(cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -run "^${test_name}$" -skip "$default_skip_regexp" "$pkg")
-}
-
-run_pkg_test_regex() {
-	local pkg="$1"
-	local test_regex="$2"
-	echo "==> go test $pkg -run ${test_regex}"
-	(cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -run "$test_regex" -skip "$default_skip_regexp" "$pkg")
-}
-
-run_chat_pkg() {
-	local chat_skip_regexp
-	local status=0
-	chat_skip_regexp="^($(IFS='|'; echo "${chat_live_tests[*]}")|TestHumanReview|TestServerSocialRPCHumanReview)$"
-
-  echo "==> go test $chat_pkg unit"
-  (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" -skip "$chat_skip_regexp" "$chat_pkg") || status=$?
-
-	local test_regex
-	for test_regex in "${chat_standard_live_patterns[@]}"; do
-		run_timed "chat:$test_regex" run_pkg_test_regex "$chat_pkg" "$test_regex" || status=$?
-	done
-	return "$status"
-}
-
-run_memory_chat_pkg() {
-	local status=0
-	local test_regex
-	for test_regex in "${chat_memory_live_patterns[@]}"; do
-		run_timed "chat-memory:$test_regex" run_pkg_test_regex "$chat_pkg" "$test_regex" || status=$?
-	done
-	return "$status"
-}
-
 run_js_rpc_tests() {
 	echo "==> npm test --workspace @gizclaw/gizclaw"
 	(cd "$repo_root" && npm test --workspace @gizclaw/gizclaw)
@@ -410,6 +319,57 @@ run_js_rpc_tests() {
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:streams)
 }
 
+run_standard_giztest() {
+	local giztest_dir="$script_dir/giztest"
+	local report="$script_dir/testdata/giztest-standard-report.json"
+	local -a files=()
+	while IFS= read -r file; do files+=("$file"); done < <(
+		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
+			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
+	)
+	files+=(
+		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-1.giztest.yaml"
+		"$giztest_dir/benchmark.doubao-realtime-conversation.realtime-concurrency-1.giztest.yaml"
+		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.flowcraft-voice-assistant.concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.flowcraft-voice-assistant.concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.eino-concurrency-assistant.concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.eino-concurrency-assistant.concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.volc-ast-translate.concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.volc-ast-translate.concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.doubao-realtime-conversation.realtime-concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.doubao-realtime-conversation.realtime-concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.flowcraft-voice-assistant.realtime-concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.flowcraft-voice-assistant.realtime-concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.eino-concurrency-assistant.realtime-concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.eino-concurrency-assistant.realtime-concurrency-interrupt-10.giztest.yaml"
+		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-10.giztest.yaml"
+		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-interrupt-10.giztest.yaml"
+	)
+	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --output "$report")
+}
+
+run_failure_cleanup_giztest() {
+	local report="$script_dir/testdata/giztest-failure-cleanup-report.json"
+	if (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
+		"$script_dir/giztest/all.ping.giztest.yaml" \
+		"$script_dir/giztest/failure-cleanup.giztest.yaml" \
+		--parallel 2 --output "$report"); then
+		echo "failure-cleanup Giztest unexpectedly passed" >&2
+		return 1
+	fi
+	python3 - "$report" <<'PY'
+import json, sys
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+tasks = {task["name"]: task for task in report["tasks"]}
+assert tasks["all.ping"]["status"] == "passed"
+failed = tasks["failure-cleanup"]
+assert failed["status"] == "failed" and failed.get("cleanup")
+assert all(step["status"] == "passed" for step in failed["cleanup"])
+PY
+}
+
 validate_deadlines
 start_full_watchdog
 
@@ -419,6 +379,7 @@ run_timed "preflight:nanopb" prepare_nanopb
 
 run_timed "preflight:host-cli" build_host_cli
 
+stack_started=1
 run_timed "docker:setup" start_docker_stack
 set -a
 # shellcheck disable=SC1090
@@ -432,14 +393,12 @@ run_timed "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
 run_timed "cgo:media" run_pkg "./tests/gizclaw-e2e/cgo/media"
 run_timed "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
 run_timed "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
-run_timed "go:chat" run_chat_pkg
-run_timed "go:gameplay" run_pkg "./tests/gizclaw-e2e/go/gameplay"
 run_timed "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
-run_timed "go:rpc" run_pkg "./tests/gizclaw-e2e/go/rpc"
-run_timed "go:social" run_pkg "./tests/gizclaw-e2e/go/social"
 run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
-run_timed "go:chat-memory" run_memory_chat_pkg
+run_timed "giztest:standard" run_standard_giztest
+run_timed "giztest:failure-cleanup" run_failure_cleanup_giztest
 
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
+stack_started=0
 
 echo "==> e2e run completed"

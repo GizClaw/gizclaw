@@ -1,0 +1,16 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Tool
+metadata:
+  id: giztest-client-echo
+spec:
+  type: client_rpc
+  invoke_name: giztest_echo
+  description: Return a deterministic marker from the currently connected Giztest client.
+  input_schema:
+    type: object
+    properties:
+      key:
+        type: string
+    required: [key]
+    additionalProperties: false

@@ -1,0 +1,84 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.reward_grant.get behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.reward-grant.get
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  reward_grant_name:
+    direction: output
+    type: string
+  pet_name:
+    direction: input
+    type: string
+    generate: token
+  adoption_transaction_name:
+    direction: output
+    type: string
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: adopt_pet
+  client: peer
+  rpc:
+    method: runtime.adopt
+    request:
+      name: "${pet_name}"
+      display_name: Giztest Pet
+  capture:
+    adoption_transaction_name: "/transaction/name"
+- id: drive_pet
+  client: peer
+  rpc:
+    method: server.pet.drive
+    request:
+      pet_name: "${pet_name}"
+      game_result:
+        game_name: starter-game
+        score: 42
+        max_score: 100
+        outcome: win
+        duration_ms: 1234
+        idempotency_key: "${pet_name}"
+  capture:
+    reward_grant_name: "/reward_grants/0/name"
+- id: primary_rpc
+  client: peer
+  rpc:
+    method: server.reward_grant.get
+    request:
+      name: "${reward_grant_name}"
+finally:
+- id: cleanup_pet
+  client: peer
+  rpc:
+    method: server.pet.delete
+    request:
+      name: "${pet_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

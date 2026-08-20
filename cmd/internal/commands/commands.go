@@ -10,6 +10,7 @@ import (
 	contextcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/context"
 	edgecmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/edge"
 	genkeycmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/genkey"
+	giztestcmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/giztest"
 	servecmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/serve"
 	servicecmd "github.com/GizClaw/gizclaw-go/cmd/internal/commands/service"
 	"github.com/spf13/cobra"
@@ -31,6 +32,7 @@ func New() *cobra.Command {
 		connectcmd.NewCmd(),
 		admincmd.NewCmd(),
 		edgecmd.NewCmd(),
+		giztestcmd.NewCmd(),
 	)
 
 	return root
