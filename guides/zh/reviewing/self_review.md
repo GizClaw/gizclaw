@@ -47,7 +47,7 @@ Guides and workflows
 - Go 行为变化默认运行 `go test ./...`。
 - 并发改动根据风险增加 `go test -race`。
 - Schema 变化先重新生成，再运行所有受影响 SDK 和调用方测试。
-- JavaScript、Dart/Flutter、C 和 Wails 使用各 package 已定义的 build/test。
+- JavaScript、Dart/Flutter 和 C 使用各 package 已定义的 build/test。
 - 文档至少运行 `git diff --check` 和对应站点 build。
 
 记录命令、结果以及没有运行的验证和原因。

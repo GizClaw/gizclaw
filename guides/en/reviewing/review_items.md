@@ -37,8 +37,6 @@ When multiple ownership roots are involved in a review, all applicable documents
 | `sdk/js/**` | Corresponds to [HTTP API](/en/developing/api/http/overview) or [Proto API](/en/developing/api/proto/overview), and [JavaScript and TypeScript](/en/coding-styles/js) | SDK surface, client generation, runtime differences and error handling |
 | `sdk/flutter/**` | Corresponding API/Proto documentation, and [Dart and Flutter](/en/coding-styles/dart-flutter) | Dart SDK contract, WebRTC transport, Stream and generated message |
 | `sdk/c/**` | Corresponds to [Peer RPC](/en/developing/api/proto/rpc/overview), and [C and cgo](/en/coding-styles/c) | C API/ABI, nanopb generated code, ownership and cgo bridge |
-| `apps/gizclaw-app/**` | [Dart and Flutter](/en/coding-styles/dart-flutter) and the SDK/API documentation used by App | App and SDK boundaries, Widget lifecycle, platform behavior |
-| `apps/wails/**` | [JavaScript and TypeScript](/en/coding-styles/js), [Go](/en/coding-styles/go) and API documentation used by App | Go bridge, frontend runtime, generate client and desktop lifecycle |
 | `guides/**`, `README.md`, `AGENTS.md` | [Document Coding Specifications](/en/coding-styles/docs) | Final form, source of truth, links, navigation, commands and repetitions source of truth |
 | `.github/**` | [Document Coding Specification](/en/coding-styles/docs) and repository root `AGENTS.md` | Workflow permissions, SHA pin, secret boundary and actual execution commands |
 | `tests/**`, `examples/**` | All development documents and corresponding coding specifications of the module being tested or demonstrated | Testing whether to prove the production contract rather than establishing a second set of behaviors |
@@ -125,14 +123,12 @@ Paths in the table are matched by ownership and do not require that a subdirecto
 ### JavaScript and TypeScript
 
 - Whether Promise is processed, and whether AbortSignal, subscription and effect are cleared.
-- Whether the external payload bypasses type boundaries and whether the browser/Wails/Node runtime assumptions hold.
+- Whether the external payload bypasses type boundaries and whether the browser/Node runtime assumptions hold.
 - Whether the UI overrides loading, empty, error, stale and permission denied.
 
 ### Dart and Flutter
 
 - Whether Future, StreamSubscription, controller and peer connections are closed correctly.
-- `BuildContext`/`setState` after `await` Check whether `mounted`.
-- Whether the SDK and App ownership are separated, and whether the Widget copies the transport or contract implementation.
 
 ### C and cgo- Whether public header, ABI, struct layout, enum and callback signature are compatible.
 - Whether pointer, buffer, length, allocator and ownership are explicitly safe.

@@ -226,8 +226,6 @@ const zhDevelopingSidebar = [
       { text: "CLI", link: "/zh/developing/cli/" },
       { text: "测试与 E2E", link: "/zh/developing/testing" },
       { text: "开发工具与示例", link: "/zh/developing/tooling" },
-      { text: "Wails App", link: "/zh/developing/apps/wails" },
-      { text: "Flutter App", link: "/zh/developing/apps/flutter" },
       {
         text: "SDK",
         collapsed: false,
@@ -423,8 +421,6 @@ export default withMermaid(
               { text: "总览", link: "/zh/using/" },
               { text: "API", link: "/zh/using/api" },
               { text: "CLI", link: "/zh/using/cli" },
-              { text: "Wails App", link: "/zh/using/wails-app" },
-              { text: "Flutter App", link: "/zh/using/flutter-app" },
               {
                 text: "SDK",
                 collapsed: false,
@@ -444,8 +440,6 @@ export default withMermaid(
               { text: "Overview", link: "/en/using/" },
               { text: "API", link: "/en/using/api" },
               { text: "CLI", link: "/en/using/cli" },
-              { text: "Wails App", link: "/en/using/wails-app" },
-              { text: "Flutter App", link: "/en/using/flutter-app" },
               {
                 text: "SDK",
                 collapsed: false,

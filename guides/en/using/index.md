@@ -6,7 +6,5 @@ This section is intended for GizClaw users and SDK users and explains how to con
 
 - [API](./api): choose and call the Admin API and Peer RPC
 - [CLI](./cli)
-- [Wails App](./wails-app)
-- [Flutter App](./flutter-app)
 - [API keys](./api-keys)
 - SDK: [Go](./sdk/go) · [TypeScript](./sdk/typescript) · [Flutter](./sdk/flutter)

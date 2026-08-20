@@ -86,8 +86,7 @@ tests/gizclaw-e2e/
 ├── testdata/    # committed identities、resources 与 ignored runtime output
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── go/          # Admin、chat、gameplay、RPC 与 social 测试
-├── js/          # JavaScript/TypeScript WebRTC 测试
-└── desktop/     # Wails shell、Admin 与 Play 测试
+└── js/          # JavaScript/TypeScript WebRTC 测试
 ```
 
 先复制 provider credential 模板。`.env` 只能保存 provider credential，不能保存
@@ -115,7 +114,7 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
-启动 Compose、等待 Server/Desktop，然后依次运行 JS、Desktop、C/cgo、Admin、chat、
+启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Admin、chat、
 gameplay、RPC、social 和 CLI 套件，最后执行有界清理。总 deadline 默认 90 分钟；
 各 phase 默认 15 分钟，Docker setup 和 CLI 为 30 分钟，live chat 为 45 分钟，
 cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
@@ -158,7 +157,7 @@ set +a
 其中 `GIZCLAW_E2E_EDGE_ENDPOINT` 同时是面向 client 的 HTTP/signaling 与 WebRTC ICE
 endpoint，
 `GIZCLAW_E2E_SERVER_ENDPOINT` 面向 host Admin，其他变量提供 CLI config home、
-identity home、Desktop URL 和 Compose project。需要重置标准资源时使用：
+identity home 和 Compose project。需要重置标准资源时使用：
 
 ```sh
 bash tests/gizclaw-e2e/setup/reset-data.sh reset --context remote-admin
@@ -175,7 +174,6 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `go/chat` 验证 workspace voice、stream interruption、history 和 memory。
 - `go/social` 从 client 侧验证 relation、domain workspace、message 和 history event。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
-- `desktop/shell` 验证 Pod shell；`desktop/admin` 和 `desktop/play` 验证浏览器 surface。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 
 ### OpenAI Conversations 与 Responses E2E

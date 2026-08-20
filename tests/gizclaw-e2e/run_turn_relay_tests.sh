@@ -30,7 +30,7 @@ trap cleanup EXIT
 
 mkdir -p "$script_dir/testdata/bin"
 (cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
-bash "$setup_dir/docker-compose-up.sh" -d --build turn server edge edge2 desktop
+bash "$setup_dir/docker-compose-up.sh" -d --build turn server edge edge2
 set -a
 # shellcheck disable=SC1090
 source "$GIZCLAW_E2E_DOCKER_ENV"

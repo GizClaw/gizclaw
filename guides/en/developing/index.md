@@ -1,6 +1,6 @@
 # GizClaw Development Guidelines
 
-GizClaw is an agent runtime and edge server for GizClaw devices, desktop clients, and browser integrations. It provides WebRTC connectivity, device and runtime management, agent workflows, AI model adapters, Admin and Public HTTP APIs, Peer RPC, telemetry, OTA, digital-content, social, and gameplay domain services. The same contracts generate Go, JavaScript, C, and Flutter SDK surfaces.
+GizClaw is an agent runtime and edge server for GizClaw devices, browser clients, and SDK integrations. It provides WebRTC connectivity, device and runtime management, agent workflows, AI model adapters, Admin and Public HTTP APIs, Peer RPC, telemetry, OTA, digital-content, social, and gameplay domain services. The same contracts generate Go, JavaScript, C, and Flutter SDK surfaces.
 
 The development guides support day-to-day implementation, code review, and troubleshooting. They explain the project structure, module boundaries, request paths, code ownership, and where to begin when diagnosing connectivity, protocol, runtime, storage, or provider problems.
 
@@ -29,7 +29,7 @@ flowchart TB
     subgraph Clients["Clients"]
         direction LR
         Device["Device"]
-        Browser["Browser / Desktop / SDK"]
+        Browser["Browser / SDK"]
     end
 
     subgraph Ingress["Connectivity and ingress"]
@@ -86,7 +86,6 @@ gizclaw/
 │   ├── store/        # storage and index primitives
 │   └── audio/        # codec, PCM, and signal processing
 ├── sdk/              # Go, JavaScript, C, and Flutter SDK surfaces
-├── apps/             # desktop and application entry points
 ├── examples/         # standalone capability examples
 ├── tests/            # integration and e2e harnesses
 └── guides/           # Project Guide
@@ -114,8 +113,8 @@ flowchart TB
     Generated --> GizClaw["pkgs/gizclaw"]
     Generated --> SDK["sdk"]
 
-    Apps["cmd / apps"] --> GizClaw
-    Apps --> Edge["pkgs/gizedge"]
+    Command["cmd"] --> GizClaw
+    Command --> Edge["pkgs/gizedge"]
     GizClaw --> Giznet["pkgs/giznet"]
     Edge --> Giznet
     GizClaw --> GenX["pkgs/genx"]
@@ -128,7 +127,7 @@ flowchart TB
 
 Dependencies must flow in the direction of basic capabilities:
 
-- `cmd` and `apps` are responsible for assembling packages; reusable business logic cannot be put into the command layer in reverse.
+- `cmd` is responsible for assembling packages; reusable business logic cannot be put into the command layer in reverse.
 - `pkgs/gizclaw` can rely on Giznet, GenX, Store and Audio; these basic packages cannot rely on GizClaw domain services.
 - `pkgs/gizedge` can rely on Giznet and generate contracts, but cannot directly own Server domain store.
 - `api/` contains wire-level source contracts. Generated code depends on those contracts; handwritten changes must not bypass the source schema by editing generated outputs.

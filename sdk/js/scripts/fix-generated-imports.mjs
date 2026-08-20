@@ -1,9 +1,6 @@
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 
-const roots = [
-  new URL("../gizclaw/generated/", import.meta.url),
-  new URL("../../../apps/wails/frontend/src/generated/", import.meta.url),
-];
+const roots = [new URL("../gizclaw/generated/", import.meta.url)];
 
 for (const root of roots) {
   await rewriteTree(root);

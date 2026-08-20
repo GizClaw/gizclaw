@@ -10,8 +10,6 @@ GizClaw Server 对外维护两个仓库自有 OpenAPI surface，以及一个由 
 | `peer.json` | Public/Peer 登录、自身状态、Server info 与 WebRTC offer | `pkgs/gizclaw/api/peerhttp` |
 | `github.com/idy/ai-server-shell` | OpenAI-compatible model、chat 与 audio subset | `services/ai/openaiapi` backend adapter |
 
-Desktop application contract 属于 `apps/wails`，不属于 GizClaw Server HTTP API。
-
 ## 请求流
 
 ```mermaid

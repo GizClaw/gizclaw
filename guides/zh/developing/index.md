@@ -1,6 +1,6 @@
 # GizClaw 开发指引
 
-GizClaw 是面向 GizClaw 设备、桌面客户端和浏览器集成的 Agent Runtime 与 Edge Server。它提供 WebRTC 连接、设备与运行时管理、Agent workflow、AI 模型适配、Admin/Public HTTP API、Peer RPC、遥测、OTA、数字内容、社交与 Gameplay 领域服务，并从同一套 contract 生成 Go、JavaScript、C 和 Flutter SDK surface。
+GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Runtime 与 Edge Server。它提供 WebRTC 连接、设备与运行时管理、Agent workflow、AI 模型适配、Admin/Public HTTP API、Peer RPC、遥测、OTA、数字内容、社交与 Gameplay 领域服务，并从同一套 contract 生成 Go、JavaScript、C 和 Flutter SDK surface。
 
 开发指引用于指导日常开发、代码审查和问题排查。它解释项目如何组成、模块边界在哪里、一次请求如何穿过系统、新代码应该放到哪个目录，以及出现连接、协议、运行时、存储或 Provider 问题时应从哪一层开始定位。
 
@@ -29,7 +29,7 @@ flowchart TB
     subgraph Clients["连接方"]
         direction LR
         Device["Device"]
-        Browser["Browser / Desktop / SDK"]
+        Browser["Browser / SDK"]
     end
 
     subgraph Ingress["连接与入口"]
@@ -86,7 +86,6 @@ gizclaw/
 │   ├── store/        # Storage 与 index primitives
 │   └── audio/        # Codec、PCM 与 signal processing
 ├── sdk/              # Go、JavaScript、C、Flutter SDK surfaces
-├── apps/             # Desktop 与应用入口
 ├── examples/         # 独立能力示例
 ├── tests/            # Integration 与 e2e harnesses
 └── guides/           # Project Guide
@@ -114,8 +113,8 @@ flowchart TB
     Generated --> GizClaw["pkgs/gizclaw"]
     Generated --> SDK["sdk"]
 
-    Apps["cmd / apps"] --> GizClaw
-    Apps --> Edge["pkgs/gizedge"]
+    Command["cmd"] --> GizClaw
+    Command --> Edge["pkgs/gizedge"]
     GizClaw --> Giznet["pkgs/giznet"]
     Edge --> Giznet
     GizClaw --> GenX["pkgs/genx"]
@@ -128,7 +127,7 @@ flowchart TB
 
 依赖必须朝基础能力方向流动：
 
-- `cmd` 和 `apps` 负责组装 packages；可复用业务逻辑不能反向放入 command 层。
+- `cmd` 负责组装 packages；可复用业务逻辑不能反向放入 command 层。
 - `pkgs/gizclaw` 可以依赖 Giznet、GenX、Store 和 Audio；这些基础 packages 不能依赖 GizClaw 领域服务。
 - `pkgs/gizedge` 可以依赖 Giznet 和生成 contract，但不能直接拥有 Server domain store。
 - `api/` 是 wire/source contract；生成代码依赖它，手写代码不能修改生成产物来绕过 source schema。

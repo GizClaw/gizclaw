@@ -47,7 +47,7 @@ Execute the command that best proves the change is correct, rather than just run
 - Go behavior change runs `go test ./...` by default.
 - Concurrent changes are subject to increased risk `go test -race`.
 - Schema changes are regenerated before running all affected SDK and caller tests.
-- JavaScript, Dart/Flutter, C and Wails use the build/test defined for each package.
+- JavaScript, Dart/Flutter, and C use the build/test defined for each package.
 - Documentation runs at least `git diff --check` and the corresponding site build.
 
 Document the command, results, and verification and reasons why it did not run.

@@ -20,11 +20,6 @@ updates:
       interval: weekly
 
   - package-ecosystem: gomod
-    directory: /apps/wails
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: gomod
     directory: /examples/audio_player
     schedule:
       interval: weekly
@@ -58,17 +53,7 @@ updates:
       workspace-tooling:
         patterns:
           - typescript
-          - vite
-          - "@vitejs/*"
           - "@hey-api/*"
-      workspace-ui:
-        patterns:
-          - lucide-react
-          - react
-          - react-dom
-          - react-router-dom
-          - "@radix-ui/*"
-          - radix-ui
       workspace-noble:
         patterns:
           - "@noble/curves"

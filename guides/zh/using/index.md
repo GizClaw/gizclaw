@@ -6,7 +6,5 @@
 
 - [API](./api)：选择和调用 Admin API、Peer RPC
 - [CLI](./cli)
-- [Wails App](./wails-app)
-- [Flutter App](./flutter-app)
 - [API Key](./api-keys)
 - SDK：[Go](./sdk/go) · [TypeScript](./sdk/typescript) · [Flutter](./sdk/flutter)

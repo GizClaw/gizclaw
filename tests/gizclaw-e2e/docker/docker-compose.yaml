@@ -151,23 +151,3 @@ services:
       timeout: 1s
       retries: 60
       start_period: 300s
-
-  desktop:
-    build:
-      context: ../../..
-      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.desktop
-      args:
-        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
-    depends_on:
-      edge:
-        condition: service_healthy
-      edge2:
-        condition: service_healthy
-    ports:
-      - "${GIZCLAW_E2E_DOCKER_DESKTOP_BIND:-0.0.0.0}::4191/tcp"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:4191/ >/dev/null"]
-      interval: 2s
-      timeout: 1s
-      retries: 60
-      start_period: 5s
