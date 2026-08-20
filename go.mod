@@ -27,7 +27,7 @@ require (
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/getkin/kin-openapi v0.135.0
 	github.com/goccy/go-yaml v1.19.2
-	github.com/gofiber/fiber/v2 v2.52.14
+	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/google/jsonschema-go v0.4.3
