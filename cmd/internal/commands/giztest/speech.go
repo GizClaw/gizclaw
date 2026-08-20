@@ -11,6 +11,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
+const speechPCM16ContentType = "audio/L16;rate=16000;channels=1"
+
 func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request, input any, inputSpec, outputSpec VariableSpec) (operationResult, error) {
 	op := step.Speech
 	if op == nil {
@@ -51,12 +53,12 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 		if inputSpec.Type != "audio" || inputSpec.MediaType == "" || inputSpec.Codec == "" {
 			return operationResult{}, fmt.Errorf("speech transcription input requires typed audio media metadata")
 		}
-		audio, err := speechPCMInput(audio, inputSpec)
-		if err != nil {
-			return operationResult{}, err
-		}
 		var req rpcapi.SpeechTranscribeRequest
 		if err := decodeRequest(request, &req); err != nil {
+			return operationResult{}, err
+		}
+		audio, err := transcriptionInput(audio, inputSpec, req.ContentType)
+		if err != nil {
 			return operationResult{}, err
 		}
 		result, err := client.TranscribeSpeech(ctx, step.ID, req, bytes.NewReader(audio))
@@ -90,6 +92,19 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 	default:
 		return operationResult{}, fmt.Errorf("unsupported speech method %q", op.Method)
 	}
+}
+
+func transcriptionInput(audio []byte, spec VariableSpec, contentType string) ([]byte, error) {
+	if spec.Codec == "opus" {
+		if contentType != speechPCM16ContentType {
+			return nil, fmt.Errorf("Opus transcription input is decoded to %s before RPC", speechPCM16ContentType)
+		}
+		return speechPCMInput(audio, spec)
+	}
+	if contentType != spec.MediaType {
+		return nil, fmt.Errorf("speech transcription content_type %q does not match input media_type %q", contentType, spec.MediaType)
+	}
+	return audio, nil
 }
 
 func speechPCMInput(audio []byte, spec VariableSpec) ([]byte, error) {

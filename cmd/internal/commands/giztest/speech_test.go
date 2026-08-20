@@ -13,3 +13,11 @@ func TestSpeechTranscribeRejectsUntypedInputBeforeRPC(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestTranscriptionInputRequiresPCMLabelForDecodedOpus(t *testing.T) {
+	spec := VariableSpec{Type: "audio", MediaType: "audio/ogg", Codec: "opus"}
+	_, err := transcriptionInput([]byte("not-decoded"), spec, "audio/ogg")
+	if err == nil || !strings.Contains(err.Error(), speechPCM16ContentType) {
+		t.Fatalf("error = %v", err)
+	}
+}
