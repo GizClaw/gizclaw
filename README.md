@@ -24,13 +24,13 @@ ingress; a self-organizing multi-server mesh remains future work.
 It provides the server, CLI, WebRTC transport, Admin/RPC APIs, workflow-backed
 agent runtime, device telemetry, state monitoring, OTA firmware delivery,
 digital content distribution, social graph, gameplay services, and shared SDK
-contracts for connected devices, desktop clients, browser integrations, and
+contracts for connected devices, browser integrations, external clients, and
 test harnesses.
 
-GizClaw is designed for both developers and end users. Developers can build
-devices, services, and browser integrations on top of the shared API contracts,
-while desktop users can run a local server, use the UI directly, and customize
-their own agents through workspace runtimes.
+GizClaw is designed for both developers and operators. Developers can build
+devices, services, browser integrations, and clients on top of the shared API
+contracts, while operators can run local or deployed servers and manage
+workspace-backed agents through the CLI and APIs.
 
 ## Features
 
@@ -100,8 +100,6 @@ their own agents through workspace runtimes.
   derived from these files.
 - `sdk/`: Go, JavaScript/TypeScript, Dart/Flutter, and C-facing SDK surfaces.
 - `js/`: shared JavaScript packages and browser/runtime tooling.
-- `apps/wails/`: desktop shell and frontend.
-- `apps/gizclaw-app/`: Flutter mobile client for iOS and Android.
 - `guides/`: localized development, review, coding, usage, and Reference
   documentation.
 - `skills/`: project-level Agent Skills installable with `npx skills`.
@@ -147,14 +145,14 @@ or Simplified Chinese from the browser language. Direct locale entrypoints are
 [简体中文](https://gizclaw.github.io/gizclaw/zh/).
 
 - [Development Guide](https://gizclaw.github.io/gizclaw/en/developing/):
-  architecture, API design, package boundaries, CLI, applications, and SDK
+  architecture, API design, package boundaries, CLI, and SDK
   development.
 - [Review Guide](https://gizclaw.github.io/gizclaw/en/reviewing/): review
   workflow, review items, self-review, PR Agent review, and issue review.
 - [Coding Conventions](https://gizclaw.github.io/gizclaw/en/coding-styles/): Go,
   JavaScript/TypeScript, Dart/Flutter, C/cgo, and documentation conventions.
-- [Usage Guide](https://gizclaw.github.io/gizclaw/en/using/): CLI, Wails,
-  Flutter, and SDK usage.
+- [Usage Guide](https://gizclaw.github.io/gizclaw/en/using/): CLI, API, and SDK
+  usage.
 - [References](https://gizclaw.github.io/gizclaw/references/): Go references
   plus local Flutter Dartdoc and TypeScript TypeDoc generation.
 - [API Design](https://gizclaw.github.io/gizclaw/en/developing/api/overview):

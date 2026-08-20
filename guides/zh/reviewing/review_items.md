@@ -37,8 +37,6 @@
 | `sdk/js/**` | 对应 [HTTP API](/zh/developing/api/http/overview) 或 [Proto API](/zh/developing/api/proto/overview)，以及 [JavaScript 与 TypeScript](/zh/coding-styles/js) | SDK surface、生成 client、runtime 差异和错误处理 |
 | `sdk/flutter/**` | 对应 API/Proto 文档，以及 [Dart 与 Flutter](/zh/coding-styles/dart-flutter) | Dart SDK contract、WebRTC transport、Stream 与生成 message |
 | `sdk/c/**` | 对应 [Peer RPC](/zh/developing/api/proto/rpc/overview)，以及 [C 与 cgo](/zh/coding-styles/c) | C API/ABI、nanopb 生成代码、ownership 与 cgo bridge |
-| `apps/gizclaw-app/**` | [Dart 与 Flutter](/zh/coding-styles/dart-flutter) 和 App 使用的 SDK/API 文档 | App 与 SDK 边界、Widget lifecycle、平台行为 |
-| `apps/wails/**` | [JavaScript 与 TypeScript](/zh/coding-styles/js)、[Go](/zh/coding-styles/go) 和 App 使用的 API 文档 | Go bridge、frontend runtime、生成 client 与 desktop lifecycle |
 | `guides/**`、`README.md`、`AGENTS.md` | [文档编码规范](/zh/coding-styles/docs) | 最终形态、事实来源、链接、导航、命令和重复 source of truth |
 | `.github/**` | [文档编码规范](/zh/coding-styles/docs) 和仓库根 `AGENTS.md` | Workflow 权限、SHA pin、secret boundary 与实际执行命令 |
 | `tests/**`、`examples/**` | 被测试或演示模块的全部开发文档及对应编码规范 | 测试是否证明 production contract，而非建立第二套行为 |
@@ -125,14 +123,12 @@
 ### JavaScript 与 TypeScript
 
 - Promise 是否被处理，AbortSignal、subscription 和 effect 是否清理。
-- 外部 payload 是否绕过类型边界，browser/Wails/Node runtime 假设是否成立。
+- 外部 payload 是否绕过类型边界，browser/Node runtime 假设是否成立。
 - UI 是否覆盖 loading、empty、error、stale 和 permission denied。
 
 ### Dart 与 Flutter
 
 - Future、StreamSubscription、controller 和 peer connection 是否正确关闭。
-- `await` 后的 `BuildContext`/`setState` 是否检查 `mounted`。
-- SDK 与 App ownership 是否分离，Widget 是否复制 transport 或 contract 实现。
 
 ### C 与 cgo
 

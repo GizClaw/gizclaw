@@ -92,7 +92,6 @@ Each `resources/<kind>.json` also has:
 - `admin.json` refers to Shared values and Resource graph via `shared.json`.
 - `peer.json` only quotes `shared.json`, not Admin Resources. Public-only DTO is defined directly at `peer.json`.
 - OpenAI-compatible wire models stay in AI Server Shell and do not reference the repository-owned Shared graph.
-- Desktop application contract belongs to `apps/wails` and does not enter the Server HTTP API schema graph.
 
 ## File boundaries
 

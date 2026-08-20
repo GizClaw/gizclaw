@@ -1,6 +1,6 @@
 # 编码规范
 
-GizClaw 是 Go-first、但并非 Go-only 的仓库。代码、Schema、生成 SDK、C binding、Wails 前端和文档共同组成一个产品 contract；编码时必须同时维护其实际跨越的边界。
+GizClaw 是 Go-first、但并非 Go-only 的仓库。代码、Schema、生成 SDK、C binding 和文档共同组成一个产品 contract；编码时必须同时维护其实际跨越的边界。
 
 ## 选择对应规范
 
@@ -8,7 +8,7 @@ GizClaw 是 Go-first、但并非 Go-only 的仓库。代码、Schema、生成 SD
 | --- | --- |
 | Go package、服务、并发与生命周期 | [Go](./go) |
 | JavaScript、TypeScript、SDK 与前端 | [JavaScript 与 TypeScript](./js) |
-| Dart SDK 与 Flutter App | [Dart 与 Flutter](./dart-flutter) |
+| Dart 与 Flutter SDK | [Dart 与 Flutter](./dart-flutter) |
 | C SDK、C binding 与 cgo bridge | [C 与 cgo](./c) |
 | Guide、README、配置说明与架构文档 | [文档](./docs) |
 

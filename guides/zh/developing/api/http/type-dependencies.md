@@ -92,7 +92,6 @@ Schema 只有满足以下至少一个条件才能进入 `shared/`：
 - `admin.json` 通过 `shared.json` 引用 Shared values 与 Resource graph。
 - `peer.json` 只引用 `shared.json`，不引用 Admin Resources。Public-only DTO 直接定义在 `peer.json`。
 - OpenAI-compatible wire models 留在 AI Server Shell，不引用仓库自有 Shared graph。
-- Desktop application contract 属于 `apps/wails`，不进入 Server HTTP API schema graph。
 
 ## 文件边界
 

@@ -385,8 +385,7 @@ write_runtime_env() {
   local state_dir="$1"
   local config_home="$2"
   local identities_home="$3"
-  local desktop_url="${4:-}"
-  local server_public_key="${5:-}"
+  local server_public_key="${4:-}"
 
   cat >"$state_dir/docker.env" <<EOF
 GIZCLAW_E2E_CONFIG_HOME=$config_home
@@ -404,7 +403,6 @@ GIZCLAW_E2E_TURN_CREDENTIAL=$GIZCLAW_E2E_TURN_CREDENTIAL
 GIZCLAW_E2E_TURN_RELAY_MIN_PORT=$GIZCLAW_E2E_TURN_RELAY_MIN_PORT
 GIZCLAW_E2E_TURN_RELAY_MAX_PORT=$GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 GIZCLAW_E2E_SERVER_PUBLIC_KEY=$server_public_key
-GIZCLAW_E2E_DESKTOP_URL=$desktop_url
 GIZCLAW_E2E_DOCKER_PROJECT=$GIZCLAW_E2E_DOCKER_PROJECT
 GIZCLAW_E2E_DOCKER_ADMIN_PORT=$GIZCLAW_E2E_DOCKER_ADMIN_PORT
 GIZCLAW_E2E_DOCKER_EDGE_PORT=$GIZCLAW_E2E_DOCKER_EDGE_PORT
@@ -455,7 +453,7 @@ materialize_runtime_config() {
   rewrite_endpoint_configs "$config_home" "$GIZCLAW_E2E_EDGE_ENDPOINT"
   rewrite_endpoint_config_file "$identities_home/${GIZCLAW_E2E_ADMIN_IDENTITY:-admin}/config.yaml" "$GIZCLAW_E2E_SERVER_ENDPOINT"
   rewrite_endpoint_config_file "$config_home/gizclaw/${GIZCLAW_E2E_ADMIN_CONTEXT:-admin}/config.yaml" "$GIZCLAW_E2E_SERVER_ENDPOINT"
-  write_runtime_env "$state_dir" "$config_home" "$identities_home" ""
+  write_runtime_env "$state_dir" "$config_home" "$identities_home"
   echo "$state_dir/docker.env"
 }
 
@@ -771,12 +769,6 @@ edge2_tcp_port=""
 if [[ "$GIZCLAW_E2E_SINGLE_EDGE" != "1" ]]; then
   edge2_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge2 9821 | awk -F: '{print $NF}')"
 fi
-desktop_url=""
-if [[ "$topology_mode" == "full" ]]; then
-  desktop_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port desktop 4191 | awk -F: '{print $NF}')"
-  desktop_url="http://127.0.0.1:${desktop_port}"
-fi
-
 wait_docker_ready_file "server" "/tmp/gizclaw-e2e-server-ready" "docker server"
 wait_http_ready "http://$GIZCLAW_E2E_SERVER_ENDPOINT/server-info" "docker server admin" "server"
 wait_http_ready "http://127.0.0.1:${edge_tcp_port}/server-info" "docker edge" "edge"
@@ -790,10 +782,6 @@ if [[ -z "$server_public_key" ]]; then
   echo "docker edge /server-info did not return server public_key" >&2
   exit 2
 fi
-if [[ "$topology_mode" == "full" ]]; then
-  wait_http_ready "$desktop_url" "docker desktop" "desktop"
-fi
-
 state_dir="$state_root/$GIZCLAW_E2E_DOCKER_PROJECT"
-write_runtime_env "$state_dir" "$state_dir/cmd-config-home" "$state_dir/identities" "$desktop_url" "$server_public_key"
+write_runtime_env "$state_dir" "$state_dir/cmd-config-home" "$state_dir/identities" "$server_public_key"
 echo "==> docker e2e ready: $state_dir/docker.env"

@@ -5,18 +5,18 @@
     "node": "^22.13.0 || >=23.5.0"
   },
   "workspaces": [
-    "apps/wails/frontend",
     "sdk/js",
     "sdk/js/gizclaw"
   ],
   "devDependencies": {
+    "@types/node": "26.2.0",
     "oxlint": "1.75.0",
     "prettier": "3.9.6",
-    "typescript": "7.0.2"
+    "typescript": "6.0.3"
   },
   "scripts": {
-    "quality:typescript": "tsc --noEmit -p apps/wails/frontend/tsconfig.json && tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && tsc --noEmit -p tests/gizclaw-e2e/js/tsconfig.json",
-    "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore apps/wails/frontend sdk/js tests/gizclaw-e2e/js",
-    "quality:format": "prettier --check apps/wails/frontend sdk/js tests/gizclaw-e2e/js"
+    "quality:typescript": "tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && tsc --noEmit -p tests/gizclaw-e2e/js/tsconfig.json",
+    "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore sdk/js tests/gizclaw-e2e/js",
+    "quality:format": "prettier --check sdk/js tests/gizclaw-e2e/js"
   }
 }

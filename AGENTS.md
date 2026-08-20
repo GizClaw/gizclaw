@@ -3,8 +3,8 @@
 ## Always
 
 - GizClaw is a Go-first repository that also owns OpenAPI/RPC schemas,
-  generated SDKs, JavaScript packages, C bindings, Wails and Flutter apps,
-  documentation, GitHub Actions, and e2e harnesses.
+  generated SDKs, JavaScript packages, C bindings, documentation, GitHub
+  Actions, and e2e harnesses.
 - Inspect the current Issue, code, Schema, generated output, docs, and workflow
   before changing behavior. Keep the change inside the requested scope.
 - Describe the final supported state. Do not present roadmap items, migration

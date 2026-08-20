@@ -1,16 +1,13 @@
 package server
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
-	"text/template"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
@@ -1151,46 +1148,6 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 		if _, exists := physicalConsumers[name]; !exists {
 			t.Fatalf("storage.%s has no logical Store consumer", name)
 		}
-	}
-}
-
-func TestWailsWorkspaceTemplateUsesStrictServerConfiguration(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "apps", "wails", "internal", "appconfig", "templates", "local_server_workspace.yaml.gotmpl")
-	source, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	quote := func(value string) string {
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(encoded)
-	}
-	tmpl, err := template.New("workspace").Funcs(template.FuncMap{"quote": quote}).Option("missingkey=error").Parse(string(source))
-	if err != nil {
-		t.Fatal(err)
-	}
-	key := testKeyPair(t, 0x73)
-	var rendered bytes.Buffer
-	if err := tmpl.Execute(&rendered, struct {
-		PrivateKey     string
-		Listen         string
-		Endpoint       string
-		ServeToClients bool
-		AdminPublicKey string
-	}{
-		PrivateKey: key.Private.String(), Listen: "0.0.0.0:19820",
-		Endpoint: "127.0.0.1:19820", ServeToClients: true,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := parseConfigData(rendered.Bytes())
-	if err != nil {
-		t.Fatalf("rendered Wails template does not satisfy Server parsing: %v", err)
-	}
-	if err := validateServicesConfig(cfg.Services); err != nil {
-		t.Fatalf("rendered Wails services are incomplete: %v", err)
 	}
 }
 

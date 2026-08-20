@@ -10,8 +10,6 @@ GizClaw Server maintains two repository-owned OpenAPI surfaces plus one limited 
 | `peer.json` | Public/Peer login, own status, Server info and WebRTC offer | `pkgs/gizclaw/api/peerhttp` |
 | `github.com/idy/ai-server-shell` | OpenAI-compatible model, chat and audio subset | `services/ai/openaiapi` backend adapter |
 
-Desktop application contract belongs to `apps/wails` and does not belong to GizClaw Server HTTP API.
-
 ## Request flow
 
 ```mermaid

@@ -95,8 +95,7 @@ tests/gizclaw-e2e/
 ├── testdata/    # committed identities/resources and ignored runtime output
 ├── cmd/         # real gizclaw CLI tests
 ├── go/          # Admin, chat, gameplay, RPC, and social tests
-├── js/          # JavaScript/TypeScript WebRTC tests
-└── desktop/     # Wails shell, Admin, and Play tests
+└── js/          # JavaScript/TypeScript WebRTC tests
 ```
 
 Copy the provider credential template first. `.env` is only for provider
@@ -127,7 +126,7 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
 The full gate installs locked Node workspaces, initializes nanopb, builds the
-E2E CLI, starts Compose, waits for Server/Desktop, runs JS, Desktop, C/cgo,
+E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo,
 Admin, chat, gameplay, RPC, social, and CLI phases in order, and performs
 bounded cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
 are 15 minutes, with 30 minutes for Docker setup and CLI, 45 minutes for live
@@ -173,7 +172,7 @@ set +a
 `GIZCLAW_E2E_EDGE_ENDPOINT` is the client-facing HTTP/signaling and WebRTC ICE
 endpoint, and
 `GIZCLAW_E2E_SERVER_ENDPOINT` is host-Admin-facing. The remaining generated
-variables provide the CLI config home, identity home, Desktop URL, and Compose
+variables provide the CLI config home, identity home, and Compose
 project. Reset the standard resource set with:
 
 ```sh
@@ -192,7 +191,6 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `go/chat` covers workspace voice, interruption, history, and memory.
 - `go/social` covers relations, domain workspaces, messages, and history events from clients.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
-- `desktop/shell` covers the Pod shell; `desktop/admin` and `desktop/play` cover browser surfaces.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 
 ### Ten- and twenty-lane Workflow concurrency and interruption

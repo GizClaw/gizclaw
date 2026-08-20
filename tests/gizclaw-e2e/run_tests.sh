@@ -279,7 +279,7 @@ collect_failure_diagnostics() {
 	tail_service_log "$project" edge2 \
 		/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log \
 		"${compose_args[@]}"
-	for service in turn server edge edge2 desktop; do
+	for service in turn server edge edge2; do
 		echo "==> diagnostic container log service=$service tail=80" >&2
 		docker compose -p "$project" "${compose_args[@]}" logs \
 			--no-color --tail=80 "$service" 2>&1 | redact_failure_diagnostics >&2 || true
@@ -410,11 +410,6 @@ run_js_rpc_tests() {
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:streams)
 }
 
-run_desktop_tests() {
-	echo "==> go test tests/gizclaw-e2e/desktop"
-	(cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$go_test_timeout" ./tests/gizclaw-e2e/desktop/...)
-}
-
 validate_deadlines
 start_full_watchdog
 
@@ -431,7 +426,6 @@ source "$docker_env_path"
 set +a
 
 run_timed "javascript" run_js_rpc_tests
-run_timed "desktop" run_desktop_tests
 run_timed "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
 run_timed "cgo:telemetry" run_pkg "./tests/gizclaw-e2e/cgo/telemetry"
 run_timed "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"

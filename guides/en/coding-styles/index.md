@@ -1,6 +1,6 @@
 # Coding Conventions
 
-GizClaw is a Go-first, but not Go-only, repository. Source code, schemas, generated SDKs, C bindings, the Wails frontend, and documentation together form the product contract. Changes must preserve every boundary they cross.
+GizClaw is a Go-first, but not Go-only, repository. Source code, schemas, generated SDKs, C bindings, and documentation together form the product contract. Changes must preserve every boundary they cross.
 
 ## Choose the applicable convention
 
@@ -8,7 +8,7 @@ GizClaw is a Go-first, but not Go-only, repository. Source code, schemas, genera
 | --- | --- |
 | Go packages, services, concurrency and lifecycle | [Go](./go) |
 | JavaScript, TypeScript, SDK and front-end | [JavaScript and TypeScript](./js) |
-| Dart SDK and Flutter App | [Dart and Flutter](./dart-flutter) |
+| Dart and Flutter SDK | [Dart and Flutter](./dart-flutter) |
 | C SDK, C binding and cgo bridge | [C and cgo](./c) |
 | Guide, README, configuration instructions and architecture documentation | [Documentation](./docs) |
 
