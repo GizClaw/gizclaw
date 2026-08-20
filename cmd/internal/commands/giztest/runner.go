@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,9 +17,10 @@ import (
 )
 
 type runOptions struct {
-	parallel int
-	in       io.Reader
-	out      io.Writer
+	parallel    int
+	in          io.Reader
+	out         io.Writer
+	speechCache *speechFixtureCache
 }
 type task struct {
 	doc     *Document
@@ -29,7 +31,11 @@ type task struct {
 func runDocuments(ctx context.Context, docs []*Document, opts runOptions) Report {
 	started := time.Now()
 	report := Report{Version: "v1", StartedAt: started}
-	var tasks []task
+	if opts.speechCache == nil {
+		opts.speechCache = newSpeechFixtureCache()
+	}
+	var groups [][]task
+	taskCount := 0
 	for _, doc := range docs {
 		var barrier *taskBarrier
 		if documentHasBarrier(doc) {
@@ -41,34 +47,59 @@ func runDocuments(ctx context.Context, docs []*Document, opts runOptions) Report
 				continue
 			}
 		}
+		group := make([]task, 0, doc.Repeat)
 		for i := range doc.Repeat {
-			tasks = append(tasks, task{doc: doc, index: i, barrier: barrier})
+			item := task{doc: doc, index: i, barrier: barrier}
+			if barrier == nil {
+				groups = append(groups, []task{item})
+			} else {
+				group = append(group, item)
+			}
+			taskCount++
+		}
+		if barrier != nil {
+			groups = append(groups, group)
 		}
 	}
-	queue := make(chan task)
-	results := make(chan TaskReport, len(tasks))
+	results := make(chan TaskReport, taskCount)
+	slots := make(chan struct{}, opts.parallel)
 	var wg sync.WaitGroup
-	for range opts.parallel {
-		wg.Go(func() {
-			for item := range queue {
-				results <- runTask(ctx, item, opts)
-			}
-		})
-	}
 	go func() {
-		defer close(queue)
-		for position, item := range tasks {
-			select {
-			case queue <- item:
-			case <-ctx.Done():
-				for _, skipped := range tasks[position:] {
-					results <- cancelledTaskReport(skipped, ctx)
+		defer func() {
+			wg.Wait()
+			close(results)
+		}()
+		for groupIndex, group := range groups {
+			acquired := 0
+			for acquired < len(group) {
+				if ctx.Err() != nil {
+					break
+				}
+				select {
+				case slots <- struct{}{}:
+					acquired++
+				case <-ctx.Done():
+				}
+			}
+			if acquired != len(group) {
+				for range acquired {
+					<-slots
+				}
+				for _, remaining := range groups[groupIndex:] {
+					for _, item := range remaining {
+						results <- cancelledTaskReport(item, ctx)
+					}
 				}
 				return
 			}
+			for _, item := range group {
+				wg.Go(func() {
+					defer func() { <-slots }()
+					results <- runTask(ctx, item, opts)
+				})
+			}
 		}
 	}()
-	go func() { wg.Wait(); close(results) }()
 	for result := range results {
 		report.Tasks = append(report.Tasks, result)
 	}
@@ -120,13 +151,13 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 	if err != nil {
 		item.barrier.Abort(err)
 		result.Error = safeError(err, redactions...)
-		result.Cleanup, _ = runFinalizers(parent, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
+		result.Cleanup, _ = runFinalizers(parent, item.doc.Path, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
 	failed := false
 	for _, step := range item.doc.Steps {
-		stepResult, err := runStep(ctx, step, clients, vars, item.barrier, opts, redactions)
+		stepResult, err := runStep(ctx, item.doc.Path, step, clients, vars, item.barrier, opts, redactions)
 		result.Steps = append(result.Steps, stepResult)
 		if err != nil {
 			item.barrier.Abort(err)
@@ -136,7 +167,7 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 		}
 	}
 	var cleanupErr error
-	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
+	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Path, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
 	if cleanupErr != nil {
 		if result.Error == "" {
 			result.Error = safeError(cleanupErr, redactions...)
@@ -150,13 +181,13 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 	return result
 }
 
-func runFinalizers(parent context.Context, steps []Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) ([]StepReport, error) {
+func runFinalizers(parent context.Context, documentPath string, steps []Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) ([]StepReport, error) {
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cleanupCancel()
 	results := make([]StepReport, 0, len(steps))
 	var firstErr error
 	for _, step := range steps {
-		stepResult, err := runStep(cleanupCtx, step, clients, vars, barrier, opts, redactions)
+		stepResult, err := runStep(cleanupCtx, documentPath, step, clients, vars, barrier, opts, redactions)
 		stepResult.Stage = "cleanup"
 		results = append(results, stepResult)
 		if err != nil && firstErr == nil {
@@ -166,7 +197,7 @@ func runFinalizers(parent context.Context, steps []Step, clients *clientSet, var
 	return results, firstErr
 }
 
-func runStep(ctx context.Context, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
+func runStep(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
 	started := time.Now()
 	op := step.operation()
 	report := StepReport{ID: step.ID, Operation: op, Client: step.Client, Status: "failed", Stage: op}
@@ -234,7 +265,31 @@ func runStep(ctx context.Context, step Step, clients *clientSet, vars *variables
 			outputSpec = vars.values[step.SaveAs].spec
 		}
 		inputSpec, _ := vars.referencedSpec(step.Speech.Input)
-		speechResult, invokeErr := invokeSpeech(stepCtx, client, step, request, input, inputSpec, outputSpec)
+		invoke := func() (operationResult, error) {
+			return invokeSpeech(stepCtx, client, step, request, input, inputSpec, outputSpec)
+		}
+		var speechResult operationResult
+		var invokeErr error
+		if step.Speech.Cache == "run" {
+			key, keyErr := speechFixtureKey(documentPath, step, request, outputSpec)
+			if keyErr != nil {
+				err = keyErr
+				break
+			}
+			var hit bool
+			speechResult, hit, invokeErr = opts.speechCache.Do(stepCtx, key, invoke)
+			speechResult.evidence = maps.Clone(speechResult.evidence)
+			if speechResult.evidence == nil {
+				speechResult.evidence = make(map[string]any)
+			}
+			if hit {
+				speechResult.evidence["cache"] = "hit"
+			} else {
+				speechResult.evidence["cache"] = "miss"
+			}
+		} else {
+			speechResult, invokeErr = invoke()
+		}
 		err = invokeErr
 		value, saved, evidence = speechResult.assertion, speechResult.saved, speechResult.evidence
 	case "peer_stream":
@@ -254,7 +309,12 @@ func runStep(ctx context.Context, step Step, clients *clientSet, vars *variables
 				break
 			}
 		}
-		streamResult, invokeErr := invokePeerStream(stepCtx, client, step, input)
+		audioCaptureMaxBytes, captureErr := peerStreamAudioCaptureMaxBytes(step, vars)
+		if captureErr != nil {
+			err = captureErr
+			break
+		}
+		streamResult, invokeErr := invokePeerStream(stepCtx, client, step, input, audioCaptureMaxBytes)
 		err = invokeErr
 		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
 	case "barrier":
@@ -338,6 +398,26 @@ func runStep(ctx context.Context, step Step, clients *clientSet, vars *variables
 	}
 	report.DurationMS = time.Since(started).Milliseconds()
 	return report, err
+}
+
+func peerStreamAudioCaptureMaxBytes(step Step, vars *variables) (int, error) {
+	limit := 0
+	for name, pointer := range step.Capture {
+		if pointer != "/audio" {
+			continue
+		}
+		item, ok := vars.values[name]
+		if !ok {
+			return 0, fmt.Errorf("capture references unknown variable %q", name)
+		}
+		if item.spec.Type != "audio" || item.spec.MaxBytes <= 0 {
+			return 0, fmt.Errorf("peer_stream /audio capture variable %q must be audio with max_bytes", name)
+		}
+		if limit == 0 || item.spec.MaxBytes < limit {
+			limit = item.spec.MaxBytes
+		}
+	}
+	return limit, nil
 }
 
 func structuredRPCError(err error) (int32, string, bool) {

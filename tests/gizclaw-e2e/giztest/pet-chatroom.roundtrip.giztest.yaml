@@ -58,7 +58,6 @@ steps:
       mode: text
       input: ${prompt}
       terminal_label: transcript
-      max_events: 1024
     expect:
       /events:
         non_empty: true

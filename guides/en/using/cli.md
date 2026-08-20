@@ -45,6 +45,10 @@ YAML `repeat` is the task count for that file. `--parallel` is the maximum
 worker count shared by all files. Directory discovery is recursive and stable.
 Every task owns isolated clients, variables, and cleanup. `save_as` assigns a
 declared in-memory output variable; file Save As is unsupported.
+For repeated voice benchmarks, `speech.cache: run` may cache a successful saved
+synthesis fixture for that document and resolved request. Each task receives a
+separate byte copy; the cache is bounded by the declared output `max_bytes` and
+is discarded when the command exits.
 
 Local Docker E2E applies Admin resources once before testing. For an already
 deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and

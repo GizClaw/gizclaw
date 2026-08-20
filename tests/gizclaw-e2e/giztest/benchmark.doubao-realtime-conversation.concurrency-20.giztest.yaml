@@ -45,9 +45,6 @@ steps:
       method: server.register
       request:
         token: ${registration_token}
-  - id: synchronize_repeats
-    barrier:
-      participants: 20
   - id: create_workspace
     client: peer
     rpc:
@@ -69,6 +66,7 @@ steps:
   - id: synthesize_input
     client: peer
     speech:
+      cache: run
       method: server.speech.synthesize
       request:
         voice_name: narrator
@@ -81,7 +79,6 @@ steps:
       mode: realtime
       input: ${input_audio}
       pacing: 20ms
-      max_events: 1024
     expect:
       /events:
         non_empty: true

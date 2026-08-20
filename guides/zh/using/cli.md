@@ -42,6 +42,8 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 YAML 的 `repeat` 是每个文件的任务数，`--parallel` 是所有文件共享的最大 worker 数。
 目录输入递归发现文件并稳定排序。每个任务有独立的临时 clients、variables 和 cleanup；
 `save_as` 只写入顶部声明的内存 output 变量，不支持 Save As 文件。
+重复语音 Benchmark 可在合成步骤声明 `speech.cache: run`，按文档和展开后的请求缓存成功的
+输入 fixture；每个 task 得到独立字节副本，缓存受 output `max_bytes` 限制，并在命令退出时释放。
 
 本地 Docker E2E 会先统一 Apply Admin resources。直接测试已部署环境时，预先准备资源并设置
 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；命令本身没有 Admin 权限。

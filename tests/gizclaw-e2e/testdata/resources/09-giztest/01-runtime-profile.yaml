@@ -51,15 +51,15 @@ spec:
       pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet Extraction}, zh-CN: {display_name: 宠物提取}}}
       pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
     voices:
-      narrator: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Narrator}, zh-CN: {display_name: 旁白}}}
-      assistant-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Assistant}, zh-CN: {display_name: 助手}}}
-      japanese-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Japanese Assistant}, zh-CN: {display_name: 日语助手}}}
-      pet: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Pet Voice}, zh-CN: {display_name: 宠物音色}}}
+      narrator: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Narrator}, zh-CN: {display_name: 旁白}}}
+      assistant-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Assistant}, zh-CN: {display_name: 助手}}}
+      japanese-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Japanese Assistant}, zh-CN: {display_name: 日语助手}}}
+      pet: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Pet Voice}, zh-CN: {display_name: 宠物音色}}}
       doubao-assistant: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Doubao Assistant}, zh-CN: {display_name: 豆包助手}}}
-      sun-wukong: {resource_id: "volc-tenant:volc-main:zh_male_sunwukong_mars_bigtts", i18n: {en: {display_name: Sun Wukong}, zh-CN: {display_name: 孙悟空}}}
-      tang-sanzang: {resource_id: "volc-tenant:volc-main:zh_male_tangseng_mars_bigtts", i18n: {en: {display_name: Tang Sanzang}, zh-CN: {display_name: 唐三藏}}}
-      zhu-bajie: {resource_id: "volc-tenant:volc-main:zh_male_zhubajie_mars_bigtts", i18n: {en: {display_name: Zhu Bajie}, zh-CN: {display_name: 猪八戒}}}
-      monster: {resource_id: "volc-tenant:volc-main:ICL_zh_male_lengjungaozhi_tob", i18n: {en: {display_name: Monster}, zh-CN: {display_name: 妖怪}}}
+      sun-wukong: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Sun Wukong}, zh-CN: {display_name: 孙悟空}}}
+      tang-sanzang: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Tang Sanzang}, zh-CN: {display_name: 唐三藏}}}
+      zhu-bajie: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Zhu Bajie}, zh-CN: {display_name: 猪八戒}}}
+      monster: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Monster}, zh-CN: {display_name: 妖怪}}}
     tools:
       giztest-echo: {resource_id: giztest-client-echo, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
     memories:

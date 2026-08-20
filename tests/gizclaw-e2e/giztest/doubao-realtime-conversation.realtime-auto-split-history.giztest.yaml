@@ -78,7 +78,6 @@ steps:
       input: ${input_audio}
       pacing: 20ms
       wait_for_history: true
-      max_events: 1024
     expect:
       /events:
         non_empty: true

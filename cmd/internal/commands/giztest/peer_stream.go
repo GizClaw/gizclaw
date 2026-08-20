@@ -16,11 +16,10 @@ import (
 )
 
 const (
-	realtimeTailSilence    = 4 * time.Second
-	maxAssistantAudioBytes = 16 << 20
+	realtimeTailSilence = 4 * time.Second
 )
 
-func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, input any) (operationResult, error) {
+func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, input any, audioCaptureMaxBytes int) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
@@ -46,15 +45,29 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 		if !ok {
 			return operationResult{}, fmt.Errorf("text peer_stream input must be string")
 		}
-		chunks := []*genx.MessageChunk{
-			{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", BeginOfStream: true}},
-			{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user"}},
-			{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", EndOfStream: true}},
-		}
-		for _, chunk := range chunks {
-			if err := stream.Push(ctx, chunk); err != nil {
-				return operationResult{}, err
+		pushTextTurn := func(sendCtx context.Context, id string) error {
+			chunks := []*genx.MessageChunk{
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", BeginOfStream: true}},
+				{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user"}},
+				{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "user", EndOfStream: true}},
 			}
+			for _, chunk := range chunks {
+				if err := stream.Push(sendCtx, chunk); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if err := pushTextTurn(ctx, streamID); err != nil {
+			return operationResult{}, err
+		}
+		sendInterrupt = func() error {
+			replacementID, err := generateValue("string")
+			if err != nil {
+				return err
+			}
+			interrupted = true
+			return pushTextTurn(ctx, replacementID)
 		}
 	case "push-to-talk", "realtime":
 		audio, ok := input.([]byte)
@@ -135,17 +148,16 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 	audioBytes, events := 0, 0
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
+	var terminalErrors []string
 	var firstTextMS, firstAudioMS, textEOSMS, audioEOSMS int64
 	textEOS, audioEOS := false, false
-	maxEvents := op.MaxEvents
-	if maxEvents == 0 {
-		maxEvents = 1024
-	}
 	terminalLabel := strings.TrimSpace(op.TerminalLabel)
 	if terminalLabel == "" {
 		terminalLabel = "assistant"
 	}
-	for events < maxEvents {
+	requireText := op.RequireText == nil || *op.RequireText
+	requireAudio := op.RequireAudio == nil || *op.RequireAudio
+	for {
 		select {
 		case <-interrupt:
 			interrupt = nil
@@ -178,6 +190,10 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			if result.chunk.Ctrl != nil {
 				label = strings.TrimSpace(result.chunk.Ctrl.Label)
 				actualStreamID = strings.TrimSpace(result.chunk.Ctrl.StreamID)
+				terminalError := peerStreamTerminalError(result.chunk)
+				if terminalError != "" {
+					terminalErrors = append(terminalErrors, terminalError)
+				}
 				if label == "assistant" && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted") {
 					observedInterrupted = true
 				}
@@ -217,10 +233,12 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			case *genx.Blob:
 				if label == "assistant" && len(part.Data) > 0 {
 					assistantAudioEvents++
-					if audioBytes > maxAssistantAudioBytes-len(part.Data) {
-						return operationResult{}, fmt.Errorf("assistant audio exceeds %d bytes", maxAssistantAudioBytes)
+					if audioCaptureMaxBytes > 0 {
+						if audioBytes > audioCaptureMaxBytes-len(part.Data) {
+							return operationResult{}, fmt.Errorf("captured assistant audio exceeds output variable max_bytes %d", audioCaptureMaxBytes)
+						}
+						assistantPackets = append(assistantPackets, append([]byte(nil), part.Data...))
 					}
-					assistantPackets = append(assistantPackets, append([]byte(nil), part.Data...))
 				}
 				if firstAudioMS == 0 && len(part.Data) > 0 {
 					firstAudioMS = time.Since(started).Milliseconds()
@@ -228,6 +246,9 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 				audioBytes += len(part.Data)
 			}
 			if result.chunk.IsEndOfStream() {
+				if len(terminalErrors) != 0 {
+					return operationResult{evidence: map[string]any{"events": events, "terminal_errors": len(terminalErrors)}}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
+				}
 				switch label {
 				case "assistant":
 					assistantEOS++
@@ -261,7 +282,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 						audioEOS = true
 						audioEOSMS = nowMS
 					}
-					if !textEOS || !audioEOS {
+					if (requireText && !textEOS) || (requireAudio && !audioEOS) {
 						continue
 					}
 				}
@@ -286,7 +307,17 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			return operationResult{}, fmt.Errorf("%w (events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t)", context.Cause(ctx), events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
 		}
 	}
-	return operationResult{}, fmt.Errorf("peer_stream exceeded max_events %d", maxEvents)
+}
+
+func peerStreamTerminalError(chunk *genx.MessageChunk) string {
+	if chunk == nil || chunk.Ctrl == nil {
+		return ""
+	}
+	err := strings.TrimSpace(chunk.Ctrl.Error)
+	if strings.EqualFold(err, "interrupted") {
+		return ""
+	}
+	return err
 }
 
 func audioInputChunks(mode, streamID, mimeType string, packets [][]byte) []*genx.MessageChunk {

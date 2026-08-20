@@ -3,6 +3,8 @@ package giztest
 import (
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
 func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
@@ -18,6 +20,42 @@ func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 			last := chunks[len(chunks)-1]
 			if got := last.IsEndOfStream(); got != tc.wantEOS {
 				t.Fatalf("last chunk EndOfStream = %t, want %t", got, tc.wantEOS)
+			}
+		})
+	}
+}
+
+func TestPeerStreamTerminalErrorIsNotInterruption(t *testing.T) {
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{Error: "provider quota exceeded"}}
+	if got := peerStreamTerminalError(chunk); got != "provider quota exceeded" {
+		t.Fatalf("terminal error classification = %q", got)
+	}
+	chunk.Ctrl.Error = "interrupted"
+	if got := peerStreamTerminalError(chunk); got != "" {
+		t.Fatalf("interruption classified as terminal error %q", got)
+	}
+}
+
+func TestPeerStreamAudioCaptureMaxBytes(t *testing.T) {
+	vars := &variables{values: map[string]value{
+		"audio": {spec: VariableSpec{Direction: "output", Type: "audio", MaxBytes: 4096}},
+	}}
+	for _, tc := range []struct {
+		name string
+		step Step
+		want int
+	}{
+		{name: "streamed without buffering", step: Step{}, want: 0},
+		{name: "explicit audio capture", step: Step{Capture: map[string]string{"audio": "/audio"}}, want: 4096},
+		{name: "unrelated capture", step: Step{Capture: map[string]string{"audio": "/text"}}, want: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := peerStreamAudioCaptureMaxBytes(tc.step, vars)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Fatalf("capture max bytes = %d, want %d", got, tc.want)
 			}
 		})
 	}

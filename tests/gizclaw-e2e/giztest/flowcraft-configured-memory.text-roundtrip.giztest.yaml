@@ -61,7 +61,6 @@ steps:
     peer_stream:
       mode: text
       input: ${prompt}
-      max_events: 1024
     expect:
       /events:
         non_empty: true

@@ -200,7 +200,10 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 `GIZCLAW_TEST_ENDPOINT` 与 `GIZCLAW_TEST_REGISTRATION_TOKEN`。
 
 音频和 binary 只作为带 `media_type`、`codec`、`max_bytes` 的内存变量传递；`save_as`
-只赋值变量，不写文件。`peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
+只赋值变量，不写文件。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
+CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
+复制独立字节，避免把输入准备阶段的 TTS 容量误当成 Workflow 并发目标。
+`peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
 Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。人工 `review` 文件必须单独用
 `--parallel 1` 在终端运行。
 
@@ -228,6 +231,8 @@ pool 调度；因此报告必须保留 document 和 repeat 归属，不能把总
 Workflow 的并发数。每个 task 始终复用自己的物理连接、Workspace runtime 和
 PeerStream，并要求 terminal output 与 cleanup 完成。Runner 将脱敏 task/step evidence、
 容器资源采样和 20 路 runtime profile 写到 ignored `testdata/workflow-concurrency/`。
+语音输入 Benchmark 在内存中缓存不可变的合成输入，并把 barrier 放在 Workspace 和输入准备
+完成之后，确保真正同时开始的是 10 或 20 条已就绪 PeerStream，而不是并发压测 TTS。
 
 每个入口都在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
 retry、fallback 或换新 session 来制造通过。只有当每个 terminal cause 都是带完整结构化

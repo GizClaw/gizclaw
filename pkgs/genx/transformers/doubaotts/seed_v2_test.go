@@ -18,7 +18,7 @@ import (
 
 func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprintln(w, `{"reqid":"req-final-only","code":20000000,"message":"ok","data":null}`)
+		_, _ = fmt.Fprintln(w, `{"reqid":"req-final-only","trace_id":"trace-final-only","log_id":"log-final-only","code":20000000,"message":"ok","data":null}`)
 	}))
 	defer server.Close()
 
@@ -41,6 +41,10 @@ func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
 	})
 	if !errors.Is(err, errSeedV2EmptyAudio) {
 		t.Fatalf("synthesize() error = %v, want empty-audio error", err)
+	}
+	wantError := "doubaotts: seed v2 completed without audio (request_id=req-final-only, trace_id=trace-final-only, log_id=log-final-only)"
+	if err.Error() != wantError {
+		t.Fatalf("synthesize() error = %q, want %q", err, wantError)
 	}
 	if emittedBytes != 0 {
 		t.Fatalf("synthesize() emitted %d bytes, want 0", emittedBytes)
@@ -107,7 +111,8 @@ func TestSeedV2ReturnsEmptyAudioFailureOnStreamRoute(t *testing.T) {
 		t.Fatalf("initial chunk = %#v, want BOS", chunks[0])
 	}
 	terminal := chunks[1]
-	if !terminal.IsEndOfStream() || terminal.Ctrl.Error != errSeedV2EmptyAudio.Error() {
+	wantError := "doubaotts: seed v2 completed without audio (request_id=req-final-only)"
+	if !terminal.IsEndOfStream() || terminal.Ctrl.Error != wantError {
 		t.Fatalf("terminal chunk = %#v, want empty-audio error EOS", terminal)
 	}
 	if blob, ok := terminal.Part.(*genx.Blob); !ok || len(blob.Data) != 0 {

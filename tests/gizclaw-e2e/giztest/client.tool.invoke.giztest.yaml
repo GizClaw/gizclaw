@@ -66,7 +66,6 @@ steps:
   peer_stream:
     mode: text
     input: "${prompt}"
-    max_events: 1024
 - id: primary_client_rpc
   client: peer
   timeout: 30s

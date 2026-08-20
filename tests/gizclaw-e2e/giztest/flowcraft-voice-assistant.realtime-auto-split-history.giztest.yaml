@@ -79,7 +79,6 @@ steps:
       pacing: 20ms
       terminal_label: transcript
       wait_for_history: true
-      max_events: 1024
     expect:
       /events:
         non_empty: true

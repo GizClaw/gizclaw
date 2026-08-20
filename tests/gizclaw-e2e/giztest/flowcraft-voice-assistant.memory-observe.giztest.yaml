@@ -78,7 +78,6 @@ steps:
     mode: push-to-talk
     input: "${input_audio}"
     pacing: 20ms
-    max_events: 1024
   expect:
     "/events":
       non_empty: true

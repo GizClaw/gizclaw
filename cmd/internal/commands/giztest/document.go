@@ -100,6 +100,7 @@ type SpeechOperation struct {
 	Method  string `json:"method" yaml:"method"`
 	Request any    `json:"request" yaml:"request"`
 	Input   any    `json:"input,omitempty" yaml:"input,omitempty"`
+	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
 	Mode           string `json:"mode" yaml:"mode"`
@@ -107,8 +108,9 @@ type PeerStreamOperation struct {
 	Pacing         string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	InterruptAfter string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
 	TerminalLabel  string `json:"terminal_label,omitempty" yaml:"terminal_label,omitempty"`
+	RequireText    *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
+	RequireAudio   *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
 	WaitForHistory bool   `json:"wait_for_history,omitempty" yaml:"wait_for_history,omitempty"`
-	MaxEvents      int    `json:"max_events,omitempty" yaml:"max_events,omitempty"`
 }
 type OutputOperation struct {
 	Variable string `json:"variable" yaml:"variable"`
@@ -277,13 +279,24 @@ func (d *Document) validateSemantics() error {
 				}
 			}
 			if step.PeerStream.InterruptAfter != "" {
-				if duration, err := time.ParseDuration(step.PeerStream.InterruptAfter); err != nil || duration <= 0 || (step.PeerStream.Mode != "push-to-talk" && step.PeerStream.Mode != "realtime") {
+				if duration, err := time.ParseDuration(step.PeerStream.InterruptAfter); err != nil || duration <= 0 {
 					return fmt.Errorf("step %s has invalid interrupt_after %q", step.ID, step.PeerStream.InterruptAfter)
 				}
+			}
+			if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio {
+				return fmt.Errorf("step %s peer_stream must require text, audio, or both", step.ID)
 			}
 		}
 		if step.Speech != nil && step.Speech.Method != "server.speech.synthesize" && step.Speech.Input == nil {
 			return fmt.Errorf("step %s speech %s requires input", step.ID, step.Speech.Method)
+		}
+		if step.Speech != nil && step.Speech.Cache != "" {
+			if step.Speech.Method != "server.speech.synthesize" {
+				return fmt.Errorf("step %s speech cache is only supported for synthesis", step.ID)
+			}
+			if step.SaveAs == "" {
+				return fmt.Errorf("step %s cached speech synthesis requires save_as", step.ID)
+			}
 		}
 		if step.RPC != nil {
 			if err := validateRPCRequestShape(step.RPC.Method, step.RPC.Request, d.Variables); err != nil {

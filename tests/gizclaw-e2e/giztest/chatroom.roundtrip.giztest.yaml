@@ -51,7 +51,6 @@ steps:
       input: "${alice_prompt}"
       terminal_label: transcript
       wait_for_history: true
-      max_events: 1024
     expect:
       /events: {non_empty: true}
   - id: bob_reads_alice_message
@@ -66,7 +65,6 @@ steps:
       input: "${bob_prompt}"
       terminal_label: transcript
       wait_for_history: true
-      max_events: 1024
     expect:
       /events: {non_empty: true}
   - id: alice_reads_bob_message

@@ -3,7 +3,11 @@ package giztest
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"maps"
+	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -12,6 +16,79 @@ import (
 )
 
 const speechPCM16ContentType = "audio/L16;rate=16000;channels=1"
+
+type speechFixtureCache struct {
+	mu      sync.Mutex
+	entries map[string]*speechFixtureEntry
+}
+
+type speechFixtureEntry struct {
+	ready  chan struct{}
+	result operationResult
+	err    error
+}
+
+func newSpeechFixtureCache() *speechFixtureCache {
+	return &speechFixtureCache{entries: make(map[string]*speechFixtureEntry)}
+}
+
+func (c *speechFixtureCache) Do(ctx context.Context, key string, invoke func() (operationResult, error)) (operationResult, bool, error) {
+	if c == nil {
+		result, err := invoke()
+		return result, false, err
+	}
+	c.mu.Lock()
+	entry, ok := c.entries[key]
+	if !ok {
+		entry = &speechFixtureEntry{ready: make(chan struct{})}
+		c.entries[key] = entry
+	}
+	c.mu.Unlock()
+	if ok {
+		select {
+		case <-entry.ready:
+			return cloneOperationResult(entry.result), true, entry.err
+		case <-ctx.Done():
+			return operationResult{}, true, context.Cause(ctx)
+		}
+	}
+
+	result, err := invoke()
+	c.mu.Lock()
+	entry.result = cloneOperationResult(result)
+	entry.err = err
+	if err != nil {
+		delete(c.entries, key)
+	}
+	close(entry.ready)
+	c.mu.Unlock()
+	return cloneOperationResult(result), false, err
+}
+
+func speechFixtureKey(documentPath string, step Step, request any, outputSpec VariableSpec) (string, error) {
+	payload, err := json.Marshal(struct {
+		Document string
+		Step     string
+		Request  any
+		Output   VariableSpec
+	}{Document: documentPath, Step: step.ID, Request: request, Output: outputSpec})
+	if err != nil {
+		return "", fmt.Errorf("encode speech fixture cache key: %w", err)
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(payload)), nil
+}
+
+func cloneOperationResult(input operationResult) operationResult {
+	result := input
+	if value, ok := input.saved.([]byte); ok {
+		result.saved = bytes.Clone(value)
+	}
+	if value, ok := input.assertion.(map[string]any); ok {
+		result.assertion = maps.Clone(value)
+	}
+	result.evidence = maps.Clone(input.evidence)
+	return result
+}
 
 func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request, input any, inputSpec, outputSpec VariableSpec) (operationResult, error) {
 	op := step.Speech

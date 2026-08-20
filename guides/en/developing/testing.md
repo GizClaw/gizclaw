@@ -222,6 +222,11 @@ target may instead provide `GIZCLAW_TEST_ENDPOINT` and
 
 Audio and binary values remain in bounded memory with declared `media_type`,
 `codec`, and `max_bytes`. `save_as` assigns a variable and never writes a file.
+`speech.cache: run` is limited to saved synthesis steps. It caches one successful
+immutable input fixture per document, step, and resolved request for the current
+CLI invocation, then gives every repeated task its own byte copy. This preserves
+isolated task variables without turning input-fixture TTS capacity into the
+Workflow concurrency target.
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
 observed text and audio EOS boundaries. Chatroom turns that complete on the
 persisted user transcript declare `transcript` explicitly.
@@ -248,6 +253,9 @@ worker pool schedules tasks from every selected file. Reports therefore retain
 document and repeat ownership rather than presenting the total task count as
 one Workflow's concurrency. Every task keeps its own physical connection,
 Workspace runtime, and PeerStream until terminal output and cleanup complete.
+Voice-input benchmarks cache the immutable synthesized input in memory and place
+their barrier after Workspace and input preparation, so the measured wave starts
+10 or 20 ready PeerStreams together rather than concurrently load-testing TTS.
 Redacted task/step evidence, container resource samples, and 20-lane runtime
 profiles are stored under ignored `testdata/workflow-concurrency/`.
 

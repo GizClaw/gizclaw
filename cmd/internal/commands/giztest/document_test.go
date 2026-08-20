@@ -104,3 +104,27 @@ func TestLoadDocumentAssignsStableFinalizerID(t *testing.T) {
 		t.Fatalf("finalizer id = %q", got)
 	}
 }
+
+func TestDocumentRejectsSpeechCacheOutsideSavedSynthesis(t *testing.T) {
+	doc := &Document{
+		Version: "gizclaw.test/v1alpha1",
+		Name:    "cached-speech",
+		Repeat:  1,
+		Clients: map[string]ClientSpec{"peer": {Identity: "ephemeral", Connection: "webrtc", AccessPoint: "127.0.0.1:8080"}},
+		Variables: map[string]VariableSpec{
+			"audio": {Direction: "output", Type: "audio", MaxBytes: 1024, MediaType: "audio/ogg", Codec: "opus"},
+		},
+		Steps: []Step{{
+			ID: "speech", Client: "peer", SaveAs: "audio",
+			Speech: &SpeechOperation{Method: "server.speech.synthesize", Request: map[string]any{}, Cache: "run"},
+		}},
+	}
+	if err := doc.validateSemantics(); err != nil {
+		t.Fatalf("cached synthesis rejected: %v", err)
+	}
+	doc.Steps[0].Speech.Method = "server.speech.transcribe"
+	doc.Steps[0].Speech.Input = []byte("audio")
+	if err := doc.validateSemantics(); err == nil || !strings.Contains(err.Error(), "only supported for synthesis") {
+		t.Fatalf("transcription cache error = %v", err)
+	}
+}
