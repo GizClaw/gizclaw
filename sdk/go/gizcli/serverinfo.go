@@ -54,9 +54,9 @@ func IsRetryableServerInfoError(err error) bool {
 // endpoint must be host[:port] without a scheme. Transient failures are
 // classified by IsRetryableServerInfoError.
 func FetchServerInfo(ctx context.Context, endpoint string) (ServerInfoMetadata, error) {
-	endpoint = strings.TrimSpace(endpoint)
-	if endpoint == "" || strings.Contains(endpoint, "://") {
-		return ServerInfoMetadata{}, fmt.Errorf("server-info endpoint must be host[:port]")
+	endpoint, err := normalizeServerInfoEndpoint(endpoint)
+	if err != nil {
+		return ServerInfoMetadata{}, fmt.Errorf("server-info invalid endpoint: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+endpoint+"/server-info", nil)
 	if err != nil {

@@ -143,7 +143,15 @@ func TestFetchServerInfoRejectsInvalidGatewayTransport(t *testing.T) {
 }
 
 func TestFetchServerInfoRejectsURLEndpoint(t *testing.T) {
-	for _, endpoint := range []string{"", "   ", "https://example.test"} {
+	for _, endpoint := range []string{
+		"",
+		"   ",
+		"https://example.test",
+		"server.example/other-path",
+		"server.example?query=1",
+		"server.example#fragment",
+		"user@server.example",
+	} {
 		if _, err := FetchServerInfo(context.Background(), endpoint); err == nil {
 			t.Fatalf("endpoint %q accepted", endpoint)
 		}
