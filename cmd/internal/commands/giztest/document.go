@@ -217,7 +217,7 @@ func (e Expectation) validate() error {
 			return fmt.Errorf("pattern must be at most %d bytes", maxPatternBytes)
 		}
 		if _, err := regexp.Compile(e.Pattern); err != nil {
-			return fmt.Errorf("pattern does not compile: %w", err)
+			return fmt.Errorf("pattern does not compile as RE2")
 		}
 	}
 	for matcher, bound := range map[string]*int{"min_length": e.MinLength, "max_length": e.MaxLength} {

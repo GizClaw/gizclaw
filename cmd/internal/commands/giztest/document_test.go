@@ -180,3 +180,13 @@ func TestExpectationValidateRejectsMalformedOperandsInGo(t *testing.T) {
 		})
 	}
 }
+
+func TestExpectationValidateDoesNotEchoInvalidPattern(t *testing.T) {
+	err := Expectation{Pattern: "secret-operand(["}.validate()
+	if err == nil || !strings.Contains(err.Error(), "pattern does not compile") {
+		t.Fatalf("error = %v", err)
+	}
+	if strings.Contains(err.Error(), "secret-operand") {
+		t.Fatalf("validation error leaks the pattern operand: %v", err)
+	}
+}
