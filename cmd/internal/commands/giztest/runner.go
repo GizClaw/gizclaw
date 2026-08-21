@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
@@ -479,8 +482,146 @@ func assertValue(assertions map[string]Expectation, input any) error {
 				return fmt.Errorf("assert %s non_empty failed", path)
 			}
 		}
+		if err := assertStringMatchers(path, a, value); err != nil {
+			return err
+		}
+		if err := assertNumericBounds(path, a, value); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// assertStringMatchers evaluates the content, pattern, and rune-length
+// matchers against a string value or the empty-separator join of a
+// text-fragment array. Failure messages never include the asserted content.
+func assertStringMatchers(path string, a Expectation, value any) error {
+	notContains, err := a.notContainsList()
+	if err != nil {
+		return fmt.Errorf("assert %s: %w", path, err)
+	}
+	hasStringMatcher := a.Contains != "" || len(a.ContainsAll) > 0 || len(a.ContainsAny) > 0 ||
+		len(notContains) > 0 || a.Pattern != "" || a.MinLength != nil || a.MaxLength != nil
+	if !hasStringMatcher {
+		return nil
+	}
+	text, ok := stringTarget(value)
+	if !ok {
+		return fmt.Errorf("assert %s requires a string or text-fragment array target", path)
+	}
+	if a.Contains != "" && !strings.Contains(text, a.Contains) {
+		return fmt.Errorf("assert %s contains failed", path)
+	}
+	for _, needle := range a.ContainsAll {
+		if !strings.Contains(text, needle) {
+			return fmt.Errorf("assert %s contains_all failed", path)
+		}
+	}
+	if len(a.ContainsAny) > 0 {
+		matched := false
+		for _, needle := range a.ContainsAny {
+			if strings.Contains(text, needle) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return fmt.Errorf("assert %s contains_any failed", path)
+		}
+	}
+	for _, needle := range notContains {
+		if strings.Contains(text, needle) {
+			return fmt.Errorf("assert %s not_contains failed", path)
+		}
+	}
+	if a.Pattern != "" {
+		matcher, err := regexp.Compile(a.Pattern)
+		if err != nil {
+			return fmt.Errorf("assert %s pattern does not compile", path)
+		}
+		if !matcher.MatchString(text) {
+			return fmt.Errorf("assert %s pattern failed", path)
+		}
+	}
+	if a.MinLength != nil || a.MaxLength != nil {
+		runes := utf8.RuneCountInString(text)
+		if a.MinLength != nil && runes < *a.MinLength {
+			return fmt.Errorf("assert %s min_length failed: %d runes < %d", path, runes, *a.MinLength)
+		}
+		if a.MaxLength != nil && runes > *a.MaxLength {
+			return fmt.Errorf("assert %s max_length failed: %d runes > %d", path, runes, *a.MaxLength)
+		}
+	}
+	return nil
+}
+
+func assertNumericBounds(path string, a Expectation, value any) error {
+	if a.Minimum == nil && a.Maximum == nil {
+		return nil
+	}
+	number, ok := numericTarget(value)
+	if !ok {
+		return fmt.Errorf("assert %s requires a numeric target", path)
+	}
+	if a.Minimum != nil && number < *a.Minimum {
+		return fmt.Errorf("assert %s minimum failed: %v < %v", path, number, *a.Minimum)
+	}
+	if a.Maximum != nil && number > *a.Maximum {
+		return fmt.Errorf("assert %s maximum failed: %v > %v", path, number, *a.Maximum)
+	}
+	return nil
+}
+
+func stringTarget(value any) (string, bool) {
+	switch x := value.(type) {
+	case string:
+		return x, true
+	case []string:
+		return strings.Join(x, ""), true
+	case []any:
+		var joined strings.Builder
+		for _, item := range x {
+			s, ok := item.(string)
+			if !ok {
+				return "", false
+			}
+			joined.WriteString(s)
+		}
+		return joined.String(), true
+	}
+	return "", false
+}
+
+func numericTarget(value any) (float64, bool) {
+	number, ok := rawNumericTarget(value)
+	if !ok || math.IsNaN(number) || math.IsInf(number, 0) {
+		return 0, false
+	}
+	return number, true
+}
+
+func rawNumericTarget(value any) (float64, bool) {
+	switch x := value.(type) {
+	case int:
+		return float64(x), true
+	case int32:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case float32:
+		return float64(x), true
+	case float64:
+		return x, true
+	case json.Number:
+		number, err := x.Float64()
+		return number, err == nil
+	case string:
+		// protojson encodes int64/uint64 fields as decimal strings, so numeric
+		// RPC fields such as timestamps and byte counts arrive as strings.
+		number, err := strconv.ParseFloat(strings.TrimSpace(x), 64)
+		return number, err == nil
+	}
+	return 0, false
 }
 func jsonPointer(input any, pointer string) (any, bool) {
 	if pointer == "" {

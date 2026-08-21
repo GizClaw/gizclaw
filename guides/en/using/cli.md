@@ -50,6 +50,33 @@ synthesis fixture for that document and resolved request. Each task receives a
 separate byte copy; the cache is bounded by the declared output `max_bytes` and
 is discarded when the command exits.
 
+Step `expect` maps JSON Pointers to expectation objects. One expectation object
+may combine several matchers; the step passes only when every matcher passes:
+
+| Matcher | Operand | Semantics |
+| --- | --- | --- |
+| `equals` | any non-null value | JSON equality |
+| `present` | boolean | pointer resolves (or, with `false`, does not) |
+| `non_empty` | boolean | value is a non-empty string, array, or object |
+| `count` | integer ≥ 0 | array length equals the operand |
+| `contains` | non-empty string, ≤ 256 runes | string target contains the substring |
+| `contains_all` | 1–16 such strings | every listed substring occurs |
+| `contains_any` | 1–16 such strings | at least one listed substring occurs |
+| `not_contains` | one such string or 1–16 of them | no listed substring occurs |
+| `pattern` | RE2 source, 1–256 bytes | string target matches the pattern |
+| `minimum` / `maximum` | number | numeric target (JSON number, or a decimal string such as a protojson int64) is within the inclusive bound |
+| `min_length` / `max_length` | integer 0–1048576 | string target's rune count is within the bound |
+
+String matchers accept a string value or an array whose elements are all
+strings; an array is joined with the empty separator first, so `peer_stream`
+`/text` fragments are asserted as one logical response. Lengths count Unicode
+runes, not bytes. `minimum`/`maximum` fit numeric fields such as `peer_stream`
+`/first_text_ms`. Validation rejects, offline and before any connection, a
+non-compiling `pattern`, `min_length` above `max_length`, `minimum` above
+`maximum`, and `present: false` combined with any value matcher. Failed content
+matchers report only the pointer and matcher name — never the asserted text —
+so redacted reports stay free of response content.
+
 Local Docker E2E applies Admin resources once before testing. For an already
 deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
 `GIZCLAW_TEST_REGISTRATION_TOKEN`; the command has no Admin authority.

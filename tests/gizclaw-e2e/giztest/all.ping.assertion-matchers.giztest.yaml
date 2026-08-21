@@ -1,0 +1,83 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want assert live RPC results with content, pattern, and bound matchers,
+# So that keyword, length, and threshold gates stay declarative end to end.
+version: gizclaw.test/v1alpha1
+name: all.ping.assertion-matchers
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: ping_with_bounds
+  client: peer
+  rpc:
+    method: all.ping
+    request:
+      client_send_time: 0
+  expect:
+    "/server_time":
+      minimum: 1
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: get_workspace_with_matchers
+  client: peer
+  rpc:
+    method: server.workspace.get
+    request:
+      name: "${resource_name}"
+  expect:
+    "/value/name":
+      pattern: "^g[0-9a-f]{32}$"
+      min_length: 33
+      max_length: 33
+      not_contains: ["/", " "]
+    "/value/workflow_name":
+      contains: flowcraft
+      contains_all: [flowcraft, chat, assistant]
+      contains_any: [assistant, helper]
+    "/runtime_profile_name":
+      non_empty: true
+finally:
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${resource_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

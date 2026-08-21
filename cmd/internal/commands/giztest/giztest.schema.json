@@ -26,7 +26,9 @@
         {"if": {"properties": {"type": {"enum": ["audio", "binary"]}}}, "then": {"required": ["max_bytes", "media_type", "codec"]}}
       ]
     },
-    "expectation": {"type": "object", "additionalProperties": false, "properties": {"equals": {"not": {"type": "null"}}, "present": {"type": "boolean"}, "non_empty": {"type": "boolean"}, "count": {"type": "integer", "minimum": 0}}, "minProperties": 1, "maxProperties": 1},
+    "needle": {"type": "string", "minLength": 1, "maxLength": 256},
+    "needles": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/needle"}},
+    "expectation": {"type": "object", "additionalProperties": false, "properties": {"equals": {"not": {"type": "null"}}, "present": {"type": "boolean"}, "non_empty": {"type": "boolean"}, "count": {"type": "integer", "minimum": 0}, "contains": {"$ref": "#/$defs/needle"}, "contains_all": {"$ref": "#/$defs/needles"}, "contains_any": {"$ref": "#/$defs/needles"}, "not_contains": {"oneOf": [{"$ref": "#/$defs/needle"}, {"$ref": "#/$defs/needles"}]}, "pattern": {"type": "string", "minLength": 1, "maxLength": 256}, "minimum": {"type": "number"}, "maximum": {"type": "number"}, "min_length": {"type": "integer", "minimum": 0, "maximum": 1048576}, "max_length": {"type": "integer", "minimum": 0, "maximum": 1048576}}, "minProperties": 1, "maxProperties": 13},
     "error_expectation": {"type": "object", "additionalProperties": false, "required": ["code"], "properties": {"code": {"type": "integer"}, "message_contains": {"type": "string", "minLength": 1}}},
     "rpc": {"type": "object", "additionalProperties": false, "required": ["method", "request"], "properties": {"method": {"type": "string"}, "request": {}}},
     "rpc_stream": {"type": "object", "additionalProperties": false, "required": ["method", "request"], "properties": {"method": {"type": "string"}, "request": {}, "max_bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824}}},
