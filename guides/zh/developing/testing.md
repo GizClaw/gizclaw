@@ -207,6 +207,17 @@ CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输�
 Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。人工 `review` 文件必须单独用
 `--parallel 1` 在终端运行。
 
+`workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
+tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、
+封帧、`max_turns` 与固定字节/事件上限、归因、失败阶段和清理。转发是流式的——源端
+响应尚未结束，第一个符合条件的文本 fragment 或按到达节奏的 Opus packet 就已带着
+接收侧 stream ID 与 user 角色进入对侧 Workspace——终轮响应只捕获、不再转发。报告
+保留每个 client 的轮次计数、`{min, max}` 时延/大小聚合和终端侧，但绝不包含被转发的
+内容、prompt、tester 推理或音频。`workspace-relay.workflow-tester.giztest.yaml`
+在标准 gate 中运行真实 candidate/tester 配对；`run_workspace_relay_tests.sh` 启动
+一套隔离栈，先后运行 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
+`benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
+
 ### OpenAI Conversations 与 Responses E2E
 
 标准 GizClaw Docker runner 包含必须执行的 `go:openai` phase，目录为 `tests/gizclaw-e2e/go/openai`。它使用 pinned 官方 OpenAI Go SDK 通过 authenticated `ServicePeerOpenAI` 创建隔离的 Peer-owned Conversation Workspace，完成三轮文本、组合 transcription 到 Response 再到 speech，并验证 background cancel、stream client abort 与同 Conversation 恢复；所有 mutation 前先注册 Workspace cleanup。
