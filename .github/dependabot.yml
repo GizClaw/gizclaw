@@ -49,6 +49,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # @hey-api/openapi-ts (sdk/js gen:sdk) declares typescript >=5.5.3 || >=6.0.0
+      # and crashes on the TypeScript 7 native compiler; revisit when it supports 7.
+      - dependency-name: typescript
+        versions: [">=7"]
     groups:
       workspace-tooling:
         patterns:
