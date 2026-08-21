@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"testing"
@@ -106,6 +107,9 @@ func TestAssertValueExtendedMatchers(t *testing.T) {
 		"first_text_ms": int64(1200),
 		"ratio":         2.5,
 		"server_time":   "1755763200123",
+		"nan_string":    "NaN",
+		"inf_string":    "+Inf",
+		"nan_float":     math.NaN(),
 	}
 	minInt := func(v int) *int { return &v }
 	minFloat := func(v float64) *float64 { return &v }
@@ -143,6 +147,9 @@ func TestAssertValueExtendedMatchers(t *testing.T) {
 		"string matcher on number":   {"/first_text_ms": {Contains: "1"}},
 		"numeric matcher on string":  {"/joined": {Maximum: minFloat(1)}},
 		"numeric string above bound": {"/server_time": {Maximum: minFloat(10)}},
+		"NaN string never satisfies": {"/nan_string": {Minimum: minFloat(0), Maximum: minFloat(1)}},
+		"Inf string never satisfies": {"/inf_string": {Minimum: minFloat(0)}},
+		"NaN float never satisfies":  {"/nan_float": {Maximum: minFloat(1)}},
 	}
 	for name, assertions := range fail {
 		t.Run("fail "+name, func(t *testing.T) {

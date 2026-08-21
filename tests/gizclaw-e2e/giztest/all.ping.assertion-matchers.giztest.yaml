@@ -1,6 +1,6 @@
 # User Story:
 # As a GizClaw Peer API consumer,
-# I want assert live RPC and speech results with content, pattern, and bound matchers,
+# I want assert live RPC results with content, pattern, and bound matchers,
 # So that keyword, length, and threshold gates stay declarative end to end.
 version: gizclaw.test/v1alpha1
 name: all.ping.assertion-matchers
@@ -19,12 +19,10 @@ variables:
     type: string
     env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
-  input_audio:
-    direction: output
-    type: audio
-    max_bytes: 16777216
-    media_type: audio/ogg
-    codec: opus
+  resource_name:
+    direction: input
+    type: string
+    generate: token
 steps:
 - id: register_peer
   client: peer
@@ -41,37 +39,43 @@ steps:
   expect:
     "/server_time":
       minimum: 1
-- id: prepare_audio
+- id: create_workspace
   client: peer
-  speech:
-    method: server.speech.synthesize
+  rpc:
+    method: server.workspace.create
     request:
-      voice_name: narrator
-      text: The Giztest verification color is cobalt blue.
-      accepted_content_types:
-      - audio/ogg
-  save_as: input_audio
-- id: transcribe_with_matchers
+      name: "${resource_name}"
+      collection: assistants
+      workflow_name: flowcraft-chat-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: get_workspace_with_matchers
   client: peer
-  speech:
-    method: server.speech.transcribe
+  rpc:
+    method: server.workspace.get
     request:
-      model_name: asr
-      # content_type names the RPC payload, not the saved variable: for an Opus
-      # input the CLI decodes the Ogg/Opus fixture to PCM16 before the RPC and
-      # requires exactly this value (see speech.go transcriptionInput), matching
-      # server.speech.transcribe.giztest.yaml.
-      content_type: audio/L16;rate=16000;channels=1
-      language: en
-    input: "${input_audio}"
+      name: "${resource_name}"
   expect:
-    "/transcript":
-      contains_all: [verification, color]
-      not_contains: ["###", "```"]
-      pattern: "[A-Za-z]"
-      min_length: 5
-      max_length: 200
+    "/value/name":
+      pattern: "^g[0-9a-f]{32}$"
+      min_length: 33
+      max_length: 33
+      not_contains: ["/", " "]
+    "/value/workflow_name":
+      contains: flowcraft
+      contains_all: [flowcraft, chat, assistant]
+      contains_any: [assistant, helper]
+    "/runtime_profile_name":
+      non_empty: true
 finally:
+- id: cleanup_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${resource_name}"
 - id: cleanup_peer
   client: peer
   rpc:

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -592,6 +593,14 @@ func stringTarget(value any) (string, bool) {
 }
 
 func numericTarget(value any) (float64, bool) {
+	number, ok := rawNumericTarget(value)
+	if !ok || math.IsNaN(number) || math.IsInf(number, 0) {
+		return 0, false
+	}
+	return number, true
+}
+
+func rawNumericTarget(value any) (float64, bool) {
 	switch x := value.(type) {
 	case int:
 		return float64(x), true
