@@ -89,13 +89,6 @@ type cliContextConfig struct {
 	iceServers         []gizwebrtc.ICEServer
 }
 
-type e2eServerInfo struct {
-	PublicKey          giznet.PublicKey
-	TransportPublicKey giznet.PublicKey
-	SignalingURL       string
-	ICEServers         []gizwebrtc.ICEServer
-}
-
 type contextAlias struct {
 	ConfigHome string
 	Name       string
@@ -1211,112 +1204,28 @@ func cliContextSignalingURL(cfg cliContextConfig) string {
 	return "http://" + cliContextDialAddr(cfg) + gizwebrtc.SignalingPath
 }
 
-func fetchE2EServerInfo(endpoint string) (e2eServerInfo, error) {
+func fetchE2EServerInfo(endpoint string) (gizcli.ServerInfoMetadata, error) {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
-		return e2eServerInfo{}, fmt.Errorf("server endpoint is empty")
+		return gizcli.ServerInfoMetadata{}, fmt.Errorf("server endpoint is empty")
 	}
 	deadline := time.Now().Add(serverInfoRetryTimeout)
 	for {
-		info, retryable, err := fetchE2EServerInfoOnce(endpoint)
+		info, err := fetchE2EServerInfoOnce(endpoint)
 		if err == nil {
 			return info, nil
 		}
-		if !retryable || !time.Now().Before(deadline) {
-			return e2eServerInfo{}, err
+		if !gizcli.IsRetryableServerInfoError(err) || !time.Now().Before(deadline) {
+			return gizcli.ServerInfoMetadata{}, err
 		}
 		time.Sleep(pollInterval)
 	}
 }
 
-func fetchE2EServerInfoOnce(endpoint string) (e2eServerInfo, bool, error) {
-	client := http.Client{Timeout: probeTimeout}
-	resp, err := client.Get("http://" + endpoint + "/server-info")
-	if err != nil {
-		return e2eServerInfo{}, true, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return e2eServerInfo{}, resp.StatusCode >= http.StatusInternalServerError, fmt.Errorf("server-info status=%d", resp.StatusCode)
-	}
-	var body struct {
-		PublicKey     string                `json:"public_key"`
-		Protocol      string                `json:"protocol"`
-		SignalingPath string                `json:"signaling_path"`
-		ICEServers    []gizwebrtc.ICEServer `json:"ice_servers"`
-		Transport     *struct {
-			Mode          string `json:"mode"`
-			Endpoint      string `json:"endpoint"`
-			PublicKey     string `json:"public_key"`
-			SignalingPath string `json:"signaling_path"`
-		} `json:"transport"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return e2eServerInfo{}, false, err
-	}
-	if body.Protocol != "" && body.Protocol != "gizclaw-webrtc" {
-		return e2eServerInfo{}, false, fmt.Errorf("server-info protocol=%q", body.Protocol)
-	}
-	var serverPublicKey giznet.PublicKey
-	if err := serverPublicKey.UnmarshalText([]byte(strings.TrimSpace(body.PublicKey))); err != nil {
-		return e2eServerInfo{}, false, fmt.Errorf("server-info public_key: %w", err)
-	}
-	if serverPublicKey.IsZero() {
-		return e2eServerInfo{}, false, fmt.Errorf("server-info public_key is zero")
-	}
-	transportPublicKey := serverPublicKey
-	signalingEndpoint := endpoint
-	signalingPath := strings.TrimSpace(body.SignalingPath)
-	iceServers := body.ICEServers
-	if body.Transport != nil {
-		if body.Transport.Mode != "edge-gateway" {
-			return e2eServerInfo{}, false, fmt.Errorf("server-info unsupported transport mode %q", body.Transport.Mode)
-		}
-		signalingEndpoint, err = normalizeE2EServerInfoEndpoint(body.Transport.Endpoint)
-		if err != nil {
-			return e2eServerInfo{}, false, fmt.Errorf("server-info transport.endpoint: %w", err)
-		}
-		if err := transportPublicKey.UnmarshalText([]byte(strings.TrimSpace(body.Transport.PublicKey))); err != nil {
-			return e2eServerInfo{}, false, fmt.Errorf("server-info transport.public_key: %w", err)
-		}
-		if transportPublicKey.IsZero() {
-			return e2eServerInfo{}, false, fmt.Errorf("server-info transport.public_key is zero")
-		}
-		if transportPublicKey.Equal(serverPublicKey) {
-			return e2eServerInfo{}, false, fmt.Errorf("server-info transport.public_key conflicts with public_key")
-		}
-		signalingPath = strings.TrimSpace(body.Transport.SignalingPath)
-		iceServers = nil
-	}
-	if signalingPath == "" {
-		signalingPath = gizwebrtc.SignalingPath
-	}
-	if !strings.HasPrefix(signalingPath, "/") || strings.HasPrefix(signalingPath, "//") {
-		return e2eServerInfo{}, false, fmt.Errorf("server-info signaling_path=%q", signalingPath)
-	}
-	signalingURL := url.URL{Scheme: "http", Host: signalingEndpoint, Path: signalingPath}
-	return e2eServerInfo{
-		PublicKey:          serverPublicKey,
-		TransportPublicKey: transportPublicKey,
-		SignalingURL:       signalingURL.String(),
-		ICEServers:         iceServers,
-	}, false, nil
-}
-
-func normalizeE2EServerInfoEndpoint(endpoint string) (string, error) {
-	value := strings.TrimSpace(endpoint)
-	if value == "" {
-		return "", errors.New("empty endpoint")
-	}
-	if strings.Contains(value, "://") {
-		return "", errors.New("endpoint must be host[:port]")
-	}
-	parsed, err := url.Parse("http://" + value)
-	if err != nil || parsed.Host == "" || parsed.Hostname() == "" ||
-		parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("endpoint must be host[:port]")
-	}
-	return parsed.Host, nil
+func fetchE2EServerInfoOnce(endpoint string) (gizcli.ServerInfoMetadata, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), probeTimeout)
+	defer cancel()
+	return gizcli.FetchServerInfo(ctx, endpoint)
 }
 
 func serverWorkspaceEndpoint(cfg serverWorkspaceConfig) string {

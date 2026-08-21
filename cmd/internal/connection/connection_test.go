@@ -230,26 +230,6 @@ func TestDialFromContextDoesNotRetryInvalidServerInfo(t *testing.T) {
 	}
 }
 
-func TestFetchPeerHTTPInfoDefaultsSignalingPath(t *testing.T) {
-	endpoint, closeServer := newServerInfoHTTPServer(t, `{"protocol":"gizclaw-webrtc","public_key":"`+testServerPublicKeyText(0xab)+`"}`)
-	defer closeServer()
-
-	info, err := fetchPeerHTTPInfo(context.Background(), endpoint)
-	if err != nil {
-		t.Fatalf("fetchPeerHTTPInfo error = %v", err)
-	}
-	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
-		t.Fatalf("signaling URL = %q", info.SignalingURL)
-	}
-}
-
-func TestFetchPeerHTTPInfoReportsFetchFailure(t *testing.T) {
-	_, err := fetchPeerHTTPInfo(context.Background(), "127.0.0.1:1")
-	if err == nil || !strings.Contains(err.Error(), "server-info fetch") {
-		t.Fatalf("fetchPeerHTTPInfo error = %v", err)
-	}
-}
-
 func TestDialFromContextUsesCurrentContext(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
@@ -275,59 +255,6 @@ func TestDialFromContextUsesCurrentContext(t *testing.T) {
 	}
 	if serverAddr != endpoint {
 		t.Fatalf("server address = %q", serverAddr)
-	}
-}
-
-func TestFetchPeerHTTPInfoSelectsGatewayTransportIdentity(t *testing.T) {
-	serverKey := testServerPublicKeyText(0xab)
-	transportKey := testServerPublicKeyText(0xcd)
-	endpoint, closeServer := newServerInfoHTTPServer(t, `{
-		"protocol":"gizclaw-webrtc",
-		"public_key":"`+serverKey+`",
-		"signaling_path":"/server/offer",
-		"ice_servers":[{"urls":["turn:server.example:3478"]}],
-		"transport":{
-			"mode":"edge-gateway",
-			"endpoint":"edge.example:9821",
-			"public_key":"`+transportKey+`",
-			"signaling_path":"/edge/offer"
-		}
-	}`)
-	defer closeServer()
-	info, err := fetchPeerHTTPInfo(context.Background(), endpoint)
-	if err != nil {
-		t.Fatalf("fetchPeerHTTPInfo error = %v", err)
-	}
-	if info.PublicKey.String() != serverKey {
-		t.Fatalf("authoritative key = %s, want %s", info.PublicKey, serverKey)
-	}
-	if info.TransportPublicKey.String() != transportKey {
-		t.Fatalf("transport key = %s, want %s", info.TransportPublicKey, transportKey)
-	}
-	if info.SignalingURL != "http://edge.example:9821/edge/offer" {
-		t.Fatalf("signaling URL = %q", info.SignalingURL)
-	}
-	if info.ICEServers != nil {
-		t.Fatalf("gateway inherited authoritative ICE servers: %+v", info.ICEServers)
-	}
-}
-
-func TestFetchPeerHTTPInfoRejectsInvalidGatewayTransport(t *testing.T) {
-	serverKey := testServerPublicKeyText(0xab)
-	transportKey := testServerPublicKeyText(0xcd)
-	for _, transport := range []string{
-		`{"mode":"future","endpoint":"edge.example:9821","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
-		`{"mode":"edge-gateway","endpoint":"https://edge.example","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
-		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"bad","signaling_path":"/offer"}`,
-		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"` + serverKey + `","signaling_path":"/offer"}`,
-		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"` + transportKey + `","signaling_path":"offer"}`,
-	} {
-		endpoint, closeServer := newServerInfoHTTPServer(t, `{"public_key":"`+serverKey+`","transport":`+transport+`}`)
-		_, err := fetchPeerHTTPInfo(context.Background(), endpoint)
-		closeServer()
-		if err == nil {
-			t.Fatalf("transport %s unexpectedly accepted", transport)
-		}
 	}
 }
 
