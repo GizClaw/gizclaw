@@ -553,7 +553,8 @@ func TestWorkspaceRelayRejectsNonOpusAudioMedia(t *testing.T) {
 
 func TestRelayOpusMIME(t *testing.T) {
 	for mimeType, want := range map[string]bool{
-		"audio/opus": true, "audio/opus; rate=48000": true, "audio/ogg; codecs=opus": true, "audio/ogg;codecs=OPUS": true,
+		"audio/opus": true, "audio/opus; rate=48000": true, "audio/opus; codecs=opus": true, "audio/ogg; codecs=opus": true, "audio/ogg;codecs=OPUS": true,
+		"audio/opus; codecs=vorbis": false, "audio/opus; codecs=pcm": false,
 		"audio/ogg": false, "audio/ogg; codecs=vorbis": false, "audio/mpeg": false, "audio/L16;rate=16000;channels=1": false, "application/ogg": false, "": false,
 	} {
 		if got := relayOpusMIME(mimeType); got != want {

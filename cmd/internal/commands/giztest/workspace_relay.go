@@ -479,11 +479,13 @@ func relayOpusMIME(mimeType string) bool {
 	if err != nil {
 		return false
 	}
+	codecs, declared := params["codecs"]
 	switch mediaType {
 	case "audio/opus":
-		return true
+		// A codecs parameter that contradicts the media type is unsupported.
+		return !declared || strings.EqualFold(strings.TrimSpace(codecs), "opus")
 	case "audio/ogg":
-		return strings.EqualFold(strings.TrimSpace(params["codecs"]), "opus")
+		return declared && strings.EqualFold(strings.TrimSpace(codecs), "opus")
 	}
 	return false
 }
