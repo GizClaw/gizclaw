@@ -3,6 +3,7 @@ package giztest
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -19,13 +20,36 @@ const (
 	realtimeTailSilence = 4 * time.Second
 )
 
-func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, input any, audioCaptureMaxBytes int) (operationResult, error) {
+// peerStream is the PeerStream surface invokePeerStream drives.
+// *gizcli.PeerStream satisfies it; tests substitute an in-memory fake.
+type peerStream interface {
+	Push(ctx context.Context, chunk *genx.MessageChunk) error
+	Next() (*genx.MessageChunk, error)
+	Close() error
+}
+
+// peerStreamOpener dials one logical PeerStream for a peer_stream step.
+type peerStreamOpener func() (peerStream, error)
+
+func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
+	return func() (peerStream, error) { return client.OpenPeerStream(64) }
+}
+
+func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
 		return operationResult{}, fmt.Errorf("peer_stream operation required")
 	}
-	stream, err := client.OpenPeerStream(64)
+	var idleTimeout time.Duration
+	if op.IdleTimeout != "" {
+		duration, parseErr := time.ParseDuration(op.IdleTimeout)
+		if parseErr != nil || duration <= 0 {
+			return operationResult{}, fmt.Errorf("invalid idle_timeout %q", op.IdleTimeout)
+		}
+		idleTimeout = duration
+	}
+	stream, err := open()
 	if err != nil {
 		return operationResult{}, err
 	}
@@ -128,6 +152,29 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 		return operationResult{}, fmt.Errorf("peer_stream mode %q requires an existing stream", op.Mode)
 	}
 	next := readPeerStream(ctx, stream)
+	// The inactivity timer is armed once the turn input has been pushed and is
+	// reset on every chunk the PeerStream delivers, regardless of label or part.
+	var idle <-chan time.Time
+	var idleTimer *time.Timer
+	armIdle := func() {
+		if idleTimeout <= 0 {
+			return
+		}
+		if idleTimer == nil {
+			idleTimer = time.NewTimer(idleTimeout)
+			idle = idleTimer.C
+			return
+		}
+		idleTimer.Reset(idleTimeout)
+	}
+	stopIdle := func() {
+		if idleTimer != nil {
+			idleTimer.Stop()
+			idle = nil
+		}
+	}
+	defer stopIdle()
+	armIdle()
 	var interrupt <-chan time.Time
 	var interruptTimer *time.Timer
 	var interruptDelay time.Duration
@@ -149,8 +196,23 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
 	var terminalErrors []string
-	var firstTextMS, firstAudioMS, textEOSMS, audioEOSMS int64
+	var firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
 	textEOS, audioEOS := false, false
+	counters := func() string {
+		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
+	}
+	baseEvidence := func() map[string]any {
+		evidence := map[string]any{"events": events, "last_event_ms": lastEventMS}
+		if idleTimeout > 0 {
+			evidence["idle_timeout_ms"] = idleTimeout.Milliseconds()
+		}
+		return evidence
+	}
+	failedEvidence := func(deadline string) map[string]any {
+		evidence := baseEvidence()
+		evidence["deadline"] = deadline
+		return evidence
+	}
 	terminalLabel := strings.TrimSpace(op.TerminalLabel)
 	if terminalLabel == "" {
 		terminalLabel = "assistant"
@@ -164,7 +226,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			if err := stream.Close(); err != nil {
 				return operationResult{}, fmt.Errorf("close interrupted PeerStream: %w", err)
 			}
-			stream, err = client.OpenPeerStream(64)
+			stream, err = open()
 			if err != nil {
 				return operationResult{}, fmt.Errorf("reopen PeerStream after interrupt: %w", err)
 			}
@@ -174,17 +236,22 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			}
 			textEOS, audioEOS = false, false
 			textEOSMS, audioEOSMS = 0, 0
+			armIdle()
+		case <-idle:
+			return operationResult{evidence: failedEvidence("idle_timeout")}, fmt.Errorf("peer_stream idle timeout exceeded after %s (deadline=idle_timeout last_event_ms=%d %s)", op.IdleTimeout, lastEventMS, counters())
 		case result := <-next:
 			if result.err != nil {
 				if result.err == io.EOF {
-					return operationResult{}, fmt.Errorf("peer_stream closed before terminal output")
+					return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream closed before terminal output")
 				}
-				return operationResult{}, result.err
+				return operationResult{evidence: baseEvidence()}, result.err
 			}
 			if result.chunk == nil {
-				return operationResult{}, fmt.Errorf("peer_stream returned an empty chunk")
+				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream returned an empty chunk")
 			}
 			events++
+			lastEventMS = time.Since(started).Milliseconds()
+			armIdle()
 			label := ""
 			actualStreamID := ""
 			if result.chunk.Ctrl != nil {
@@ -247,7 +314,9 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 			}
 			if result.chunk.IsEndOfStream() {
 				if len(terminalErrors) != 0 {
-					return operationResult{evidence: map[string]any{"events": events, "terminal_errors": len(terminalErrors)}}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
+					evidence := baseEvidence()
+					evidence["terminal_errors"] = len(terminalErrors)
+					return operationResult{evidence: evidence}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
 				}
 				switch label {
 				case "assistant":
@@ -294,6 +363,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 					}
 					object["audio"] = append([]byte(nil), audio.Bytes()...)
 				}
+				stopIdle()
 				if op.WaitForHistory {
 					historyName, err := waitForWorkspaceHistory(ctx, client, step.ID)
 					if err != nil {
@@ -301,10 +371,21 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, step Step, inp
 					}
 					object["history_name"] = historyName
 				}
-				return operationResult{assertion: object, saved: object, evidence: map[string]any{"events": events, "audio_bytes": audioBytes, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}}, nil
+				evidence := baseEvidence()
+				evidence["audio_bytes"] = audioBytes
+				evidence["first_text_ms"] = firstTextMS
+				evidence["first_audio_ms"] = firstAudioMS
+				evidence["text_eos_ms"] = textEOSMS
+				evidence["audio_eos_ms"] = audioEOSMS
+				return operationResult{assertion: object, saved: object, evidence: evidence}, nil
 			}
 		case <-ctx.Done():
-			return operationResult{}, fmt.Errorf("%w (events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t)", context.Cause(ctx), events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
+			cause := context.Cause(ctx)
+			deadline := "cancelled"
+			if errors.Is(cause, context.DeadlineExceeded) {
+				deadline = "timeout"
+			}
+			return operationResult{evidence: failedEvidence(deadline)}, fmt.Errorf("%w (deadline=%s %s)", cause, deadline, counters())
 		}
 	}
 }
@@ -368,7 +449,7 @@ type nextPeerStreamResult struct {
 	err   error
 }
 
-func readPeerStream(ctx context.Context, stream *gizcli.PeerStream) <-chan nextPeerStreamResult {
+func readPeerStream(ctx context.Context, stream peerStream) <-chan nextPeerStreamResult {
 	next := make(chan nextPeerStreamResult, 1)
 	go func() {
 		for {

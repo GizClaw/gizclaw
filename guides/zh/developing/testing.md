@@ -204,8 +204,16 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
 复制独立字节，避免把输入准备阶段的 TTS 容量误当成 Workflow 并发目标。
 `peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
-Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。人工 `review` 文件必须单独用
-`--parallel 1` 在终端运行。
+Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
+`peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
+turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
+的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以
+`peer_stream idle timeout exceeded` 失败，而持续在流式输出的长回复会通过。步骤 `timeout`
+与文档 `timeout` 仍是绝对上限；两类同时设置时先到者生效。`peer_stream` 证据始终包含
+`events` 与 `last_event_ms`，设置了该字段时增加 `idle_timeout_ms`，失败时用 `deadline`
+指明触发的上限（`idle_timeout`、`timeout` 或 `cancelled`）。失败步骤会在 `error` 旁保留
+操作返回的证据，报告因此能区分停滞与过长回复。`gizclaw test validate` 拒绝无法解析或非正的
+`idle_timeout`。人工 `review` 文件必须单独用 `--parallel 1` 在终端运行。
 
 `workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
 tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、

@@ -109,6 +109,7 @@ type PeerStreamOperation struct {
 	Input          any    `json:"input,omitempty" yaml:"input,omitempty"`
 	Pacing         string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	InterruptAfter string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
+	IdleTimeout    string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
 	TerminalLabel  string `json:"terminal_label,omitempty" yaml:"terminal_label,omitempty"`
 	RequireText    *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
 	RequireAudio   *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
@@ -423,6 +424,11 @@ func (d *Document) validateSemantics() error {
 			if step.PeerStream.InterruptAfter != "" {
 				if duration, err := time.ParseDuration(step.PeerStream.InterruptAfter); err != nil || duration <= 0 {
 					return fmt.Errorf("step %s has invalid interrupt_after %q", step.ID, step.PeerStream.InterruptAfter)
+				}
+			}
+			if step.PeerStream.IdleTimeout != "" {
+				if duration, err := time.ParseDuration(step.PeerStream.IdleTimeout); err != nil || duration <= 0 {
+					return fmt.Errorf("step %s has invalid idle_timeout %q", step.ID, step.PeerStream.IdleTimeout)
 				}
 			}
 			if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio {

@@ -230,6 +230,19 @@ Workflow concurrency target.
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
 observed text and audio EOS boundaries. Chatroom turns that complete on the
 persisted user transcript declare `transcript` explicitly.
+`peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
+total length: the runner arms the timer after the turn input is pushed, resets
+it on every received chunk regardless of label, re-arms it after an
+`interrupt_after` replacement turn, and stops it once the terminal EOS is
+accepted. A stall fails the step with `peer_stream idle timeout exceeded`,
+while a long reply that keeps streaming passes. The step `timeout` and the
+document `timeout` remain absolute bounds; when both kinds are set the earlier
+expiry wins. `peer_stream` evidence always carries `events` and
+`last_event_ms`, adds `idle_timeout_ms` when the field is set, and on failure
+names the bound that fired as `deadline` (`idle_timeout`, `timeout`, or
+`cancelled`). Failed steps keep the evidence their operation returned next to
+`error`, so reports distinguish a stall from an over-long reply. `gizclaw test
+validate` rejects unparsable or non-positive `idle_timeout` values.
 Interactive `review` files must run alone in an attached terminal with
 `--parallel 1`.
 

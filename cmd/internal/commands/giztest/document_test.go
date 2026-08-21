@@ -89,6 +89,25 @@ func TestLoadDocumentRejectsInvalidStepDurationOffline(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentValidatesPeerStreamIdleTimeoutOffline(t *testing.T) {
+	peerStreamStep := func(idleTimeout string) string {
+		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      input: hello\n      idle_timeout: " + idleTimeout + "\n"
+	}
+	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("15s")))
+	if err != nil {
+		t.Fatalf("idle_timeout 15s rejected: %v", err)
+	}
+	if got := doc.Steps[len(doc.Steps)-1].PeerStream.IdleTimeout; got != "15s" {
+		t.Fatalf("idle_timeout = %q", got)
+	}
+	for _, invalid := range []string{"0s", "soon"} {
+		_, err := loadDocument(writeTestDocument(t, peerStreamStep(invalid)))
+		if err == nil || !strings.Contains(err.Error(), "step turn has invalid idle_timeout") {
+			t.Fatalf("idle_timeout %q error = %v", invalid, err)
+		}
+	}
+}
+
 func TestLoadDocumentAssignsStableFinalizerID(t *testing.T) {
 	content := validDocument + `finally:
   - client: peer
