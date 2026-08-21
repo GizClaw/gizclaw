@@ -77,6 +77,60 @@ non-compiling `pattern`, `min_length` above `max_length`, `minimum` above
 matchers report only the pointer and matcher name — never the asserted text —
 so redacted reports stay free of response content.
 
+A `workspace_relay` step connects two declared clients' selected Workspaces as
+one bounded conversation. Both named clients must be distinct and must each
+have an earlier `server.run.workspace.set` step; validation rejects anything
+else offline. `first_client` receives `input`; its assistant output is
+forwarded incrementally — fragment by fragment for `media: text`, arrival-paced
+Opus packet by packet for `media: audio` — as user input for the other side
+under a fresh receiving-side stream ID, then ownership alternates after each
+completed assistant response. `max_turns` (2–256) counts completed assistant
+responses across both sides, and `terminal_client` must match the parity of
+`first_client` and `max_turns`; the terminal response is captured without being
+forwarded again. `media: audio` requires both Workspaces to accept push-to-talk
+input and forwards only Opus media (`audio/opus`, or `audio/ogg` with
+`codecs=opus`); any other assistant audio MIME type or codec from the active
+side fails the relay, and continuous realtime relay is unsupported.
+
+```yaml
+- id: run_test_dialogue
+  workspace_relay:
+    first_client: tester
+    second_client: candidate
+    input: "${test_brief}"
+    media: text
+    max_turns: 15
+    terminal_client: tester
+  capture:
+    verdict: /terminal/text
+  expect:
+    /terminal/client: {equals: tester}
+    /terminal/text: {equals: PASS}
+    /completed_turns: {equals: 15}
+    /turns/candidate/first_text_ms/max: {maximum: 6000}
+    /turns/candidate/text_runes/min: {minimum: 15}
+```
+
+The relay result exposes `completed_turns`, `terminal.client`,
+`terminal.text` (`media: text`), `turns.<client>.count`, and per-turn
+`{min, max}` aggregates — `first_text_ms`/`text_runes` for text,
+`first_audio_ms`/`audio_bytes` for audio — plus aggregate event and byte
+counts. `capture` may assign only `/terminal/text` to a string output variable
+or, for audio, `/terminal/audio` to an `audio/ogg` Opus output variable.
+Fixed v1 safety limits — 4,096 received events per completed turn, 1 MiB
+joined text, and 16 MiB audio per relay — fail the relay when exceeded and
+expose no tuning fields; the event limit is per turn because voice-enabled
+Workspaces stream hundreds of Opus packets per response. A self-start
+reply emitted by a Workspace before its first relay turn is consumed and
+discarded (its `interrupted` marker is benign); once a side has held a turn,
+any output on the relayed media (text for `media: text`, audio for
+`media: audio`) while the other side is active fails the relay as turn
+mixing; the other channel of a voice Workspace — for example TTS audio that
+trails its own completed text turn — is consumed and counted only. Failures
+name the responsible client and turn index. Reports carry only the client-name
+attribution, counts, timings, and byte aggregates: relayed text, prompts,
+tester reasoning, and audio bytes never appear in report evidence.
+
 Local Docker E2E applies Admin resources once before testing. For an already
 deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
 `GIZCLAW_TEST_REGISTRATION_TOKEN`; the command has no Admin authority.

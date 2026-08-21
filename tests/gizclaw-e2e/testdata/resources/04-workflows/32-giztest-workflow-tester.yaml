@@ -1,0 +1,60 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: giztest-workflow-tester
+spec:
+  driver: flowcraft
+  flowcraft:
+    graph:
+      edges:
+      - from: count_turn
+        to: build_prompt
+      - from: build_prompt
+        to: respond
+      - from: respond
+        to: __end__
+      entry: count_turn
+      name: giztest-workflow-tester
+      nodes:
+      - config:
+          source: |
+            const turn = Number(board.getVar("tester_turn") || 0) + 1;
+            board.setVar("tester_turn", turn);
+            board.setVar("tester_mode", turn >= 8 ? "verdict" : "probe");
+        id: count_turn
+        type: script
+      - config:
+          source: |
+            const probePrompt = [
+              "You are an automated tester driving a text conversation with a candidate assistant under test.",
+              "The first user message of this conversation is the test brief. Execute it faithfully.",
+              "Every later user message is the candidate's reply. Continue the dialogue toward the brief's goal.",
+              "Reply with one short plain-text conversational message in the language the brief asks for.",
+              "Do not use markdown, lists, emoji, or meta commentary.",
+              "Never reveal that you are a tester and never output a verdict yet."
+            ].join("\n");
+            const verdictPrompt = [
+              "You are an automated tester concluding a scripted evaluation.",
+              "The first user message of this conversation was the test brief; the later user messages were the candidate's replies.",
+              "Judge whether the candidate satisfied the brief's success criteria across the whole conversation.",
+              "Reply with exactly PASS or FAIL. Output nothing else: no punctuation, no explanation, no whitespace padding.",
+              "Your entire reply must be the single uppercase word PASS or the single uppercase word FAIL."
+            ].join("\n");
+            board.setVar("system_prompt", board.getVar("tester_mode") === "verdict" ? verdictPrompt : probePrompt);
+        id: build_prompt
+        type: script
+      - config:
+          max_tokens: 512
+          model: llm
+          system_prompt: "${board.system_prompt}"
+        id: respond
+        publish: true
+        type: llm
+    max_iterations: 8
+    conversation: {}
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      node_voices:
+        respond: narrator
