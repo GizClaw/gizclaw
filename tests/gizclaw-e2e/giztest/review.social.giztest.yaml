@@ -1,0 +1,127 @@
+# User Story:
+# As a pair of independently registered devices that become friends,
+# I want send a direct-chat text turn and inspect its bounded persisted transcript evidence,
+# So that a human can confirm the relationship-owned social history before cleanup.
+version: gizclaw.test/v1alpha1
+name: review.social
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  bob_invite_token:
+    direction: output
+    type: string
+    secret: true
+  friend_name:
+    direction: output
+    type: string
+  alice_workspace:
+    direction: output
+    type: string
+  social_message:
+    direction: input
+    type: string
+    value: Hello Bob, this is the bounded social review turn.
+  review_evidence:
+    direction: output
+    type: string
+review: true
+steps:
+  - id: register_alice
+    client: alice
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: register_bob
+    client: bob
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_bob_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite_token: /invite_token
+  - id: add_bob
+    client: alice
+    rpc:
+      method: server.friend.add
+      request:
+        invite_token: ${bob_invite_token}
+    capture:
+      friend_name: /name
+      alice_workspace: /workspace_name
+  - id: select_alice_workspace
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+  - id: exercise_social_flow
+    client: alice
+    peer_stream:
+      mode: text
+      input: ${social_message}
+      terminal_label: transcript
+      wait_for_history: true
+    expect:
+      /events:
+        non_empty: true
+      /history_name:
+        non_empty: true
+  - id: read_persisted_transcript
+    client: alice
+    rpc:
+      method: server.run.workspace.history
+      request:
+        limit: 20
+    expect:
+      /items:
+        non_empty: true
+    capture:
+      review_evidence: /items/0/text
+  - id: show_review_evidence
+    output:
+      variable: review_evidence
+  - id: confirm_review
+    review_op:
+      message: Confirm the bounded transcript above matches the direct-chat text and persisted social history
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend.delete
+      request:
+        name: ${friend_name}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact: [registration_token, bob_invite_token]

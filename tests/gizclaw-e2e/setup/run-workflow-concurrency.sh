@@ -21,8 +21,6 @@ case "$concurrency" in
 	exit 2
 	;;
 esac
-test_pattern="^Test(Realtime|RealtimeDuplex|Flowcraft|Eino|Translate)WorkflowConcurrency(Interrupt)?${concurrency}$"
-
 setup_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 script_dir="$(cd "$setup_dir/.." && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
@@ -162,9 +160,42 @@ start_resource_sampler() {
 
 start_resource_sampler
 echo "==> run fixed Workflow concurrency=$concurrency selection"
-(cd "$repo_root" && go test -v -tags gizclaw_e2e -count=1 -timeout "$test_timeout" \
-	-run "$test_pattern" \
-	./tests/gizclaw-e2e/go/chat)
+workflow_cases=(
+	"benchmark.doubao-realtime-conversation.concurrency-${concurrency}.giztest.yaml"
+	"benchmark.doubao-realtime-conversation.concurrency-interrupt-${concurrency}.giztest.yaml"
+	"benchmark.doubao-realtime-duplex-conversation.concurrency-${concurrency}.giztest.yaml"
+	"benchmark.doubao-realtime-duplex-conversation.concurrency-interrupt-${concurrency}.giztest.yaml"
+	"benchmark.flowcraft-voice-assistant.concurrency-${concurrency}.giztest.yaml"
+	"benchmark.flowcraft-voice-assistant.concurrency-interrupt-${concurrency}.giztest.yaml"
+	"benchmark.eino-concurrency-assistant.concurrency-${concurrency}.giztest.yaml"
+	"benchmark.eino-concurrency-assistant.concurrency-interrupt-${concurrency}.giztest.yaml"
+	"benchmark.volc-ast-translate.concurrency-${concurrency}.giztest.yaml"
+	"benchmark.volc-ast-translate.concurrency-interrupt-${concurrency}.giztest.yaml"
+)
+workflow_paths=()
+for workflow_case in "${workflow_cases[@]}"; do
+	workflow_paths+=("$script_dir/giztest/$workflow_case")
+done
+report_path="$artifact_dir/giztest-concurrency-${concurrency}.json"
+(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
+	--parallel "$concurrency" \
+	--output "$report_path" \
+	"${workflow_paths[@]}")
+python3 - "$report_path" "$concurrency" <<'PY'
+import json
+import sys
+
+path, concurrency = sys.argv[1], int(sys.argv[2])
+with open(path, encoding="utf-8") as handle:
+    report = json.load(handle)
+expected = 10 * concurrency
+tasks = report.get("tasks", [])
+if report.get("status") != "passed" or len(tasks) != expected:
+    raise SystemExit(
+        f"invalid Giztest concurrency report: status={report.get('status')} "
+        f"tasks={len(tasks)} expected={expected}"
+    )
+PY
 
 stop_resource_sampler
 if [[ ! -s "$stats_output" ]]; then

@@ -1,0 +1,124 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.friend_group.members.add behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.friend-group.members.add
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  charlie:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  group_name:
+    direction: input
+    type: string
+    generate: token
+  group_invite_token:
+    direction: output
+    type: string
+  bob_member_name:
+    direction: output
+    type: string
+  bob_group_name:
+    direction: output
+    type: string
+  charlie_invite_token:
+    direction: output
+    type: string
+  charlie_name:
+    direction: output
+    type: string
+steps:
+- id: register_alice
+  client: alice
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: register_bob
+  client: bob
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: register_charlie
+  client: charlie
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_group
+  client: alice
+  rpc:
+    method: server.friend_group.create
+    request:
+      name: "${group_name}"
+      display_name: Giztest Group
+- id: charlie_invite
+  client: charlie
+  rpc:
+    method: server.friend.invite_token.create
+    request: {}
+  capture:
+    charlie_invite_token: "/invite_token"
+- id: charlie_add
+  client: alice
+  rpc:
+    method: server.friend.add
+    request:
+      invite_token: "${charlie_invite_token}"
+  capture:
+    charlie_name: "/name"
+- id: primary_rpc
+  client: alice
+  rpc:
+    method: server.friend_group.members.add
+    request:
+      friend_group_name: "${group_name}"
+      peer_public_key: "${charlie_name}"
+      member_name: charlie
+      role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
+finally:
+- id: cleanup_group
+  client: alice
+  rpc:
+    method: server.friend_group.delete
+    request:
+      name: "${group_name}"
+- id: cleanup_alice
+  client: alice
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_bob
+  client: bob
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_charlie
+  client: charlie
+  rpc:
+    method: server.peer.delete
+    request: {}

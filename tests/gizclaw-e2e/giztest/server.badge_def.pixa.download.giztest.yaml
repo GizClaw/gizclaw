@@ -1,0 +1,47 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.badge_def.pixa.download behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.badge-def.pixa.download
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: primary_rpc
+  client: peer
+  rpc_stream:
+    method: server.badge_def.pixa.download
+    request:
+      name: starter-badge
+    max_bytes: 16777216
+  expect_error:
+    code: 404
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

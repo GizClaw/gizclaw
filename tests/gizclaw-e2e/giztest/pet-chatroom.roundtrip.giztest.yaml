@@ -1,0 +1,77 @@
+# User Story:
+# As a registered device using the pet-chatroom Workflow,
+# I want complete the independent pet-chatroom.roundtrip scenario,
+# So that conversation behavior and cleanup remain reproducible.
+version: gizclaw.test/v1alpha1
+name: pet-chatroom.roundtrip
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  workspace_name:
+    direction: output
+    type: string
+  prompt:
+    direction: input
+    type: string
+    value: Hello from an independent Giztest workflow task.
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: adopt_pet
+    client: peer
+    rpc:
+      method: runtime.adopt
+      request:
+        name: ${resource_name}
+        display_name: Giztest Chatroom Pet
+    capture:
+      workspace_name: /pet/workspace_name
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: exercise_workflow
+    client: peer
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      terminal_label: transcript
+    expect:
+      /events:
+        non_empty: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.pet.delete
+      request:
+        name: ${resource_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

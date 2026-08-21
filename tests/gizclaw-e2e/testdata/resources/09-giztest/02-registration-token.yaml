@@ -1,0 +1,9 @@
+---
+apiVersion: gizclaw.admin/v1alpha1
+kind: RegistrationToken
+metadata:
+  id: e2e-giztest
+spec:
+  token: ${GIZCLAW_TEST_REGISTRATION_TOKEN}
+  runtime_profile_id: e2e-giztest
+  firmware_id: devkit-firmware-main

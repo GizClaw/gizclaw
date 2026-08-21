@@ -85,7 +85,8 @@ tests/gizclaw-e2e/
 ├── setup/       # 环境启动、停止和 seed 脚本
 ├── testdata/    # committed identities、resources 与 ignored runtime output
 ├── cmd/         # 真实 gizclaw CLI 测试
-├── go/          # Admin、chat、gameplay、RPC 与 social 测试
+├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
+├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
 └── js/          # JavaScript/TypeScript WebRTC 测试
 ```
 
@@ -114,8 +115,8 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 ```
 
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
-启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Admin、chat、
-gameplay、RPC、social 和 CLI 套件，最后执行有界清理。总 deadline 默认 90 分钟；
+启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Go Admin/OpenAI、CLI
+和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 90 分钟；
 各 phase 默认 15 分钟，Docker setup 和 CLI 为 30 分钟，live chat 为 45 分钟，
 cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 
@@ -170,11 +171,41 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 ### Suite ownership
 
 - `go/admin` 使用 generated Admin HTTP client 验证 typed contract。
-- `go/rpc` 按 RPC module 划分 typed RPC 测试。
-- `go/chat` 验证 workspace voice、stream interruption、history 和 memory。
-- `go/social` 从 client 侧验证 relation、domain workspace、message 和 history event。
+- `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
+- `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
+- `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
+- `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
+
+### Giztest 场景
+
+每个 Giztest 文件是独立 user story：文件自行创建临时 Peer、Workspace、invite、group
+等可变资源，并在 `finally` 中清理。设备身份按任务随机生成；测试之间不共享固定 device
+key 或输出。`clients` 可声明同一任务内同时在线的多个设备。
+
+`repeat` 只决定一个文件展开多少个任务；全局并行度只能由 CLI `--parallel` 决定。
+文件名以 `benchmark.` 开头的场景用于重复、barrier、并发或延迟测量。Runner 递归读取目录，
+固定 worker pool 对所有文件统一调度，并把每个任务和 cleanup 写入脱敏 JSON report：
+
+```sh
+gizclaw test validate -f tests/gizclaw-e2e/giztest
+gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
+  --output tests/gizclaw-e2e/testdata/giztest-report.json
+```
+
+Giztest 不执行 Admin Apply。标准 Docker setup 先一次性 apply 全部 fixture（包括专用
+RuntimeProfile 和 run-scoped registration token），随后 JavaScript、C/cgo、Go、CLI 和
+Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
+`GIZCLAW_TEST_ENDPOINT` 与 `GIZCLAW_TEST_REGISTRATION_TOKEN`。
+
+音频和 binary 只作为带 `media_type`、`codec`、`max_bytes` 的内存变量传递；`save_as`
+只赋值变量，不写文件。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
+CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
+复制独立字节，避免把输入准备阶段的 TTS 容量误当成 Workflow 并发目标。
+`peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
+Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。人工 `review` 文件必须单独用
+`--parallel 1` 在终端运行。
 
 ### OpenAI Conversations 与 Responses E2E
 
@@ -184,29 +215,24 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 
 ### Workflow 10 路和 20 路并发与打断
 
-固定入口在五个独立 wave 中分别验证 Realtime、Realtime Duplex、Flowcraft、Eino 和
-Translate；不同 Workflow 不会混成一个 20 路 wave。每个 wave 创建 10 个或 20 个独立 Peer 和 Workspace，全部
-到达 ready barrier 后同时开始，但共同引用同一个已 seed 的 Workflow：
+固定入口选择十个明确的 `benchmark.*-10|-20.giztest.yaml` 文件。每个文件的
+`repeat` 创建 10 或 20 个独立 Peer 和 Workspace；任务到达该文件自己的 barrier 后开始，
+`--parallel` 是唯一并行度来源：
 
 ```sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_10_tests.sh
 bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
 ```
 
-两个固定入口每个并发档位各执行 10 个正式 gate：Realtime 和 Realtime Duplex 验证
-continuous-open input，Flowcraft、Eino 和 Translate 验证 EOS-bounded input；每类都包含
-单轮对话和三轮打断。同一 repository head 必须先通过 10 路档位，再执行 20 路档位。每类
-Workflow 仍使用独立 wave，因此 20 路入口不会把五类 Workflow 混成一个 100 路 wave。
-Realtime 与 Realtime Duplex 将 Workspace input 设为 `realtime`，发送语音后保持客户端
-audio stream 开启，不发送 audio EOS，也不由测试持续注入静音；对应 Transformer 必须按
-自己的 provider 协议维持 session。打断版本等待本轮音频 packet 发送完毕，但不关闭输入，
-再由第 2、3 轮输入 BOS 分别打断前一轮。测试包另有其他 Workflow 的 realtime 定向诊断，
-不属于固定入口。所有测试始终复用
-同一个物理连接、Workspace runtime 和 logical `PeerStream`，并要求最后一轮完整结束。
-Realtime、Flowcraft、Eino realtime 和 Translate realtime 都必须产生正确归属的非空
-transcript、Assistant text/audio。Eino 的基础 EOS 边界测试仍保留 text-only 合同。每轮
-会记录是否发送 input EOS、route、stream、audio epoch、runtime `StartedAt`、cleanup 和
-可用容器资源采样到 ignored `testdata/workflow-concurrency/`。
+两个固定入口每个并发档位各选择 10 个正式文件，覆盖 Realtime、Realtime Duplex、
+Flowcraft、Eino 和 Translate 的普通与打断场景。同一 repository head 必须先通过 10 路，
+再执行 20 路。每个文件内部的任务共享一个 barrier，但所有文件仍由同一个全局 worker
+pool 调度；因此报告必须保留 document 和 repeat 归属，不能把总任务数误报成单一
+Workflow 的并发数。每个 task 始终复用自己的物理连接、Workspace runtime 和
+PeerStream，并要求 terminal output 与 cleanup 完成。Runner 将脱敏 task/step evidence、
+容器资源采样和 20 路 runtime profile 写到 ignored `testdata/workflow-concurrency/`。
+语音输入 Benchmark 在内存中缓存不可变的合成输入，并把 barrier 放在 Workspace 和输入准备
+完成之后，确保真正同时开始的是 10 或 20 条已就绪 PeerStream，而不是并发压测 TTS。
 
 每个入口都在 Docker setup 前校验完整 `.env`，不接受环境变量改变 coverage 或并发数，不会
 retry、fallback 或换新 session 来制造通过。只有当每个 terminal cause 都是带完整结构化

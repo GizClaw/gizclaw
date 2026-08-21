@@ -13,7 +13,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	cgointernal "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cgo/internal"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
-	gochat "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/go/chat"
 )
 
 func TestCSDKBidirectionalOpusRTP(t *testing.T) {
@@ -26,7 +25,7 @@ func TestCSDKBidirectionalOpusRTP(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	workspaceName, err := gochat.PrepareCgoPushToTalkWorkspace(
+	workspaceName, err := cgointernal.PreparePushToTalkWorkspace(
 		ctx,
 		filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "workspaces", "doubao-realtime.json"),
 		filepath.Join(identityDir, "config.yaml"),
@@ -39,7 +38,7 @@ func TestCSDKBidirectionalOpusRTP(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cleanupCancel()
-		if err := gochat.CleanupCgoPushToTalkWorkspaces(
+		if err := cgointernal.CleanupPushToTalkWorkspaces(
 			cleanupCtx,
 			filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "workspaces", "doubao-realtime.json"),
 			filepath.Join(identityDir, "config.yaml"),

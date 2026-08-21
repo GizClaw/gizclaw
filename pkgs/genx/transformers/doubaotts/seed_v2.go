@@ -118,6 +118,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 	start := time.Now()
 	firstAudio := false
 	emittedBytes := 0
+	var lastChunk *doubaospeech.TTSV2Chunk
 	emitAudio := func(audio []byte) error {
 		if len(audio) == 0 {
 			return nil
@@ -132,6 +133,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 		if err != nil {
 			return err
 		}
+		lastChunk = chunk
 
 		if chunk.Audio != nil && len(chunk.Audio) > 0 {
 			audio := normalizer.Normalize(chunk.Audio)
@@ -168,9 +170,29 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 		return err
 	}
 	if emittedBytes == 0 {
-		return errSeedV2EmptyAudio
+		return seedV2EmptyAudioError(lastChunk)
 	}
 	return nil
+}
+
+func seedV2EmptyAudioError(chunk *doubaospeech.TTSV2Chunk) error {
+	if chunk == nil {
+		return errSeedV2EmptyAudio
+	}
+	metadata := make([]string, 0, 3)
+	if chunk.ReqID != "" {
+		metadata = append(metadata, "request_id="+chunk.ReqID)
+	}
+	if chunk.TraceID != "" {
+		metadata = append(metadata, "trace_id="+chunk.TraceID)
+	}
+	if chunk.LogID != "" {
+		metadata = append(metadata, "log_id="+chunk.LogID)
+	}
+	if len(metadata) == 0 {
+		return errSeedV2EmptyAudio
+	}
+	return fmt.Errorf("%w (%s)", errSeedV2EmptyAudio, strings.Join(metadata, ", "))
 }
 
 func firstString(value, fallback string) string {

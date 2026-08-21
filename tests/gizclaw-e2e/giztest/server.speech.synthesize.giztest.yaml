@@ -1,0 +1,57 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.speech.synthesize behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.speech.synthesize
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  synthesized_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: primary_speech
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    request:
+      voice_name: narrator
+      text: Giztest synthesis check
+      accepted_content_types:
+      - audio/ogg
+  save_as: synthesized_audio
+  expect:
+    "/bytes":
+      non_empty: true
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

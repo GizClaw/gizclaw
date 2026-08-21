@@ -36,9 +36,9 @@ set +a
 go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   ./tests/gizclaw-e2e/go/admin \
   -run '^(TestAdminAPIFirmwaresListGetAndConfigurePackages|TestAdminAPIFirmwareResourceLifecycle)$'
-go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
-  ./tests/gizclaw-e2e/go/rpc \
-  -run '^TestRegistrationBindsFirmwareRPC$'
+"$script_dir/testdata/bin/gizclaw" test run \
+  "$script_dir/giztest/server.firmware.get.giztest.yaml" \
+  --parallel 1 --output "$script_dir/testdata/giztest-firmware-report.json"
 go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   ./tests/gizclaw-e2e/cgo/rpc \
   -run '^(TestCSDKFirmwareRPC|TestCSDKFirmwareRPCMaximumID|TestCSDKFirmwareRequiresBinding)$'

@@ -1,0 +1,63 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want exercise the server.speech.transcribe behavior through its real transport,
+# So that the generated RPC contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.speech.transcribe
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: prepare_audio
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    request:
+      voice_name: narrator
+      text: The Giztest intent is greeting.
+      accepted_content_types:
+      - audio/ogg
+  save_as: input_audio
+- id: primary_speech
+  client: peer
+  speech:
+    method: server.speech.transcribe
+    request:
+      model_name: asr
+      content_type: audio/L16;rate=16000;channels=1
+      language: en
+    input: "${input_audio}"
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

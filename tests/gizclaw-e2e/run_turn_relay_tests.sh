@@ -38,7 +38,7 @@ set +a
 
 (cd "$repo_root" && go test -count=1 -v -tags gizclaw_e2e \
   -run '^TestCoturnRelay$' \
-  ./tests/gizclaw-e2e/go/rpc)
+  ./tests/gizclaw-e2e/go/edge)
 
 project="$GIZCLAW_E2E_DOCKER_PROJECT"
 state_dir="$script_dir/testdata/docker/$project"

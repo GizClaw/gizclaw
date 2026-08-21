@@ -1,0 +1,74 @@
+# User Story:
+# As a registered GizClaw device,
+# I want to add another simultaneously connected device using its invite token,
+# So that both ephemeral devices can verify their bidirectional friendship.
+version: gizclaw.test/v1alpha1
+name: server.friend.add
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  bob_invite_token:
+    direction: output
+    type: string
+steps:
+  - id: register_alice
+    client: alice
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: register_bob
+    client: bob
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: bob_create_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite_token: /invite_token
+  - id: primary_rpc
+    client: alice
+    rpc:
+      method: server.friend.add
+      request: {invite_token: "${bob_invite_token}"}
+    expect:
+      /name: {non_empty: true}
+  - id: verify_alice
+    client: alice
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items: {non_empty: true}
+  - id: verify_bob
+    client: bob
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items: {non_empty: true}
+finally:
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: bob
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]

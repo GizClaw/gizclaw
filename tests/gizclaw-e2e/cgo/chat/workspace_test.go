@@ -14,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	cgointernal "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cgo/internal"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
-	gochat "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/go/chat"
 )
 
 func TestCSDKChatWorkspaceRPC(t *testing.T) {
@@ -34,7 +33,7 @@ func TestCSDKChatRoundtrip(t *testing.T) {
 	configPath := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "testdata", "workspaces", "doubao-realtime.json")
 	contextConfigPath := filepath.Join(identityDir, "config.yaml")
 	registrationToken := createCSDKChatRegistrationToken(t, h, "roundtrip")
-	workspaceName, err := gochat.PrepareCgoPushToTalkWorkspace(ctx, configPath, contextConfigPath, "realtime-workflow", registrationToken)
+	workspaceName, err := cgointernal.PreparePushToTalkWorkspace(ctx, configPath, contextConfigPath, "realtime-workflow", registrationToken)
 	if err != nil {
 		t.Fatalf("prepare cgo chat workspace: %v", err)
 	}
@@ -44,7 +43,7 @@ func TestCSDKChatRoundtrip(t *testing.T) {
 	t.Cleanup(func() {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 45*time.Second)
 		defer cleanupCancel()
-		if err := gochat.CleanupCgoPushToTalkWorkspaces(
+		if err := cgointernal.CleanupPushToTalkWorkspaces(
 			cleanupCtx,
 			configPath,
 			contextConfigPath,
@@ -90,7 +89,7 @@ func TestCSDKPeerStreamWorkspaceReloadContinuity(t *testing.T) {
 			45*time.Second,
 		)
 		defer cleanupCancel()
-		if err := gochat.CleanupCgoPushToTalkWorkspaces(
+		if err := cgointernal.CleanupPushToTalkWorkspaces(
 			cleanupCtx,
 			configPath,
 			contextConfigPath,
@@ -101,7 +100,7 @@ func TestCSDKPeerStreamWorkspaceReloadContinuity(t *testing.T) {
 		}
 	}()
 	workspaceSuffix := fmt.Sprintf("%x", time.Now().UnixNano())
-	firstWorkspace, err := gochat.PrepareCgoPushToTalkWorkspace(
+	firstWorkspace, err := cgointernal.PreparePushToTalkWorkspace(
 		ctx,
 		configPath,
 		contextConfigPath,
@@ -112,7 +111,7 @@ func TestCSDKPeerStreamWorkspaceReloadContinuity(t *testing.T) {
 		t.Fatalf("prepare first C SDK lifecycle Workspace: %v", err)
 	}
 	generatedWorkspaces = append(generatedWorkspaces, firstWorkspace)
-	alternateWorkspace, err := gochat.PrepareCgoPushToTalkWorkspaceNamed(
+	alternateWorkspace, err := cgointernal.PreparePushToTalkWorkspaceNamed(
 		ctx,
 		configPath,
 		contextConfigPath,
@@ -144,7 +143,7 @@ func TestCSDKPeerStreamWorkspaceReloadContinuity(t *testing.T) {
 		context.Background(),
 		45*time.Second,
 	)
-	cleanupErr := gochat.CleanupCgoPushToTalkWorkspaces(
+	cleanupErr := cgointernal.CleanupPushToTalkWorkspaces(
 		cleanupCtx,
 		configPath,
 		contextConfigPath,

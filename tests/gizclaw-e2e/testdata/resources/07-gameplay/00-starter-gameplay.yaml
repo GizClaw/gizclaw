@@ -67,7 +67,7 @@ spec:
           pet-extract: {resource_id: pet-flowcraft-workflow-extract, i18n: {en: {display_name: Pet extraction}, zh-CN: {display_name: 宠物提取}}}
           pet-asr: {resource_id: pet-flowcraft-workflow-asr, i18n: {en: {display_name: Pet ASR}, zh-CN: {display_name: 宠物语音识别}}}
         voices:
-          pet: {resource_id: "volc-tenant:volc-main:zh_female_shaoergushi_mars_bigtts", i18n: {en: {display_name: Pet voice}, zh-CN: {display_name: 宠物音色}}}
+          pet: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Pet voice}, zh-CN: {display_name: 宠物音色}}}
         pet_defs:
           starter-pet: {resource_id: petdef-starter, i18n: {en: {display_name: Starter Pet}, zh-CN: {display_name: 初始宠物}}}
         badge_defs:

@@ -1,0 +1,95 @@
+# User Story:
+# As a registered device using the eino-memory-assistant Workflow,
+# I want complete the independent eino-memory-assistant.tools scenario,
+# So that conversation behavior and cleanup remain reproducible.
+version: gizclaw.test/v1alpha1
+name: eino-memory-assistant.tools
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: You must call the giztest_echo tool exactly once with key current-peer.
+      Then answer only TOOL_OK.
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: eino-memory-assistant
+      parameters:
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+      toolkit:
+        tool_names:
+          value:
+          - giztest_echo
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+- id: exercise_workflow
+  client: peer
+  peer_stream:
+    mode: text
+    input: "${prompt}"
+  expect:
+    "/events":
+      non_empty: true
+- id: verify_client_tool
+  client: peer
+  timeout: 30s
+  client_rpc:
+    method: client.tool.invoke
+    response:
+      name: giztest_echo
+      result:
+        ok: true
+    expect_calls: 1
+finally:
+- client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

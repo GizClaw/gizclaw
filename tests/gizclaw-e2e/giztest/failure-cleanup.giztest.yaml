@@ -1,0 +1,41 @@
+# User Story:
+# As a maintainer of the end-to-end suite,
+# I want a deliberate failure after partial multi-client setup,
+# So that every started client still performs bounded cleanup without blocking siblings.
+version: gizclaw.test/v1alpha1
+name: failure-cleanup
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  bob: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace_name: {direction: input, type: string, generate: token}
+steps:
+  - id: register_alice
+    client: alice
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: register_bob
+    client: bob
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create_workspace
+    client: alice
+    rpc:
+      method: server.workspace.create
+      request: {name: "${workspace_name}", collection: assistants, workflow_name: flowcraft-voice-assistant}
+  - id: deliberate_failure
+    client: alice
+    rpc: {method: all.ping, request: {}}
+    expect:
+      /deliberately_missing: {present: true}
+finally:
+  - client: alice
+    rpc: {method: server.run.stop, request: {}}
+  - client: alice
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_name}"}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: bob
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]
