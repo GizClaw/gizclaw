@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -290,7 +291,13 @@ func runWorkspaceRelay(ctx context.Context, op *WorkspaceRelayOperation, firstSt
 				return fail(receiver, "forward text failed: %v", err)
 			}
 		case *genx.Blob:
-			if label != "assistant" || len(part.Data) == 0 {
+			if label != "assistant" {
+				break
+			}
+			if op.Media == "audio" && isActive && !relayOpusMIME(part.MIMEType) {
+				return fail(side, "unsupported relay media type")
+			}
+			if len(part.Data) == 0 {
 				break
 			}
 			totalAudioBytes += len(part.Data)
@@ -462,7 +469,23 @@ func relayTerminalMedia(media, mimeType string) bool {
 	if media == "text" {
 		return mimeType == "text/plain"
 	}
-	return strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg")
+	return relayOpusMIME(mimeType)
+}
+
+// relayOpusMIME reports whether a MIME type names the Opus media an audio
+// relay may forward: audio/opus, or audio/ogg with codecs=opus.
+func relayOpusMIME(mimeType string) bool {
+	mediaType, params, err := mime.ParseMediaType(strings.TrimSpace(mimeType))
+	if err != nil {
+		return false
+	}
+	switch mediaType {
+	case "audio/opus":
+		return true
+	case "audio/ogg":
+		return strings.EqualFold(strings.TrimSpace(params["codecs"]), "opus")
+	}
+	return false
 }
 
 // relayResult builds the assertion object with the terminal capture surface

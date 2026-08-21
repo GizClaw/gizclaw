@@ -88,7 +88,9 @@ completed assistant response. `max_turns` (2–256) counts completed assistant
 responses across both sides, and `terminal_client` must match the parity of
 `first_client` and `max_turns`; the terminal response is captured without being
 forwarded again. `media: audio` requires both Workspaces to accept push-to-talk
-input; continuous realtime relay is unsupported.
+input and forwards only Opus media (`audio/opus`, or `audio/ogg` with
+`codecs=opus`); any other assistant audio MIME type or codec from the active
+side fails the relay, and continuous realtime relay is unsupported.
 
 ```yaml
 - id: run_test_dialogue

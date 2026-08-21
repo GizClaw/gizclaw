@@ -516,3 +516,48 @@ func TestWorkspaceRelayInterruptedSelfStartNeverCompletesATurn(t *testing.T) {
 		t.Fatalf("terminal = %#v", terminal)
 	}
 }
+
+func TestWorkspaceRelayRejectsNonOpusAudioMedia(t *testing.T) {
+	cases := map[string]*genx.MessageChunk{
+		"pcm packet":     {Part: &genx.Blob{MIMEType: "audio/L16;rate=16000;channels=1", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
+		"mp3 eos":        {Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", EndOfStream: true}},
+		"ogg vorbis bos": {Part: &genx.Blob{MIMEType: "audio/ogg; codecs=vorbis"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", BeginOfStream: true}},
+		"non-audio blob": {Part: &genx.Blob{MIMEType: "application/octet-stream", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
+	}
+	for name, chunk := range cases {
+		t.Run(name, func(t *testing.T) {
+			tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+			op := textRelayOperation(3)
+			op.Media = "audio"
+			done := make(chan error, 1)
+			go func() {
+				_, err := runWorkspaceRelay(context.Background(), op, tester, candidate, []byte{0x11}, 0)
+				done <- err
+			}()
+			for range 3 { // BOS, packet, EOS of the initial input
+				nextPush(t, tester)
+			}
+			tester.in <- chunk
+			err := <-done
+			if err == nil || !strings.Contains(err.Error(), "unsupported relay media type") || !strings.Contains(err.Error(), "client tester") {
+				t.Fatalf("error = %v", err)
+			}
+			select {
+			case forwarded := <-candidate.pushes:
+				t.Fatalf("unsupported media was forwarded: %#v", forwarded)
+			default:
+			}
+		})
+	}
+}
+
+func TestRelayOpusMIME(t *testing.T) {
+	for mimeType, want := range map[string]bool{
+		"audio/opus": true, "audio/opus; rate=48000": true, "audio/ogg; codecs=opus": true, "audio/ogg;codecs=OPUS": true,
+		"audio/ogg": false, "audio/ogg; codecs=vorbis": false, "audio/mpeg": false, "audio/L16;rate=16000;channels=1": false, "application/ogg": false, "": false,
+	} {
+		if got := relayOpusMIME(mimeType); got != want {
+			t.Fatalf("relayOpusMIME(%q) = %v, want %v", mimeType, got, want)
+		}
+	}
+}

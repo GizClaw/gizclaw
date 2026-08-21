@@ -77,7 +77,9 @@ matcher，全部通过时该断言才通过：
 stream ID 作为对侧的 user 输入，每完成一次 assistant 响应后所有权交替。
 `max_turns`（2–256）统计双侧完成的 assistant 响应总数，`terminal_client` 必须匹配
 `first_client` 与 `max_turns` 的奇偶；终轮响应只捕获、不再转发。`media: audio`
-要求双方 Workspace 接受 push-to-talk 输入，不支持连续 realtime 转发。
+要求双方 Workspace 接受 push-to-talk 输入，且只转发 Opus 媒体（`audio/opus`，或带
+`codecs=opus` 的 `audio/ogg`）；active 侧出现任何其他音频 MIME 类型或编码都会使 relay
+失败；不支持连续 realtime 转发。
 
 ```yaml
 - id: run_test_dialogue
