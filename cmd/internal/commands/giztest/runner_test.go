@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -94,5 +95,71 @@ func TestRunDocumentsReportsEveryCancelledTask(t *testing.T) {
 	report := runDocuments(ctx, []*Document{doc}, runOptions{parallel: 3, out: io.Discard})
 	if len(report.Tasks) != 3 || report.Status != "failed" {
 		t.Fatalf("report = %#v", report)
+	}
+}
+
+func TestAssertValueExtendedMatchers(t *testing.T) {
+	value := map[string]any{
+		"text":          []string{"乌龟把种", "子交给小鸟，", "小鸟种下了种子。"},
+		"joined":        "PASS",
+		"fragments_any": []any{"hello ", "world"},
+		"first_text_ms": int64(1200),
+		"ratio":         2.5,
+	}
+	minInt := func(v int) *int { return &v }
+	minFloat := func(v float64) *float64 { return &v }
+	pass := map[string]map[string]Expectation{
+		"contains on joined fragments":  {"/text": {Contains: "小鸟种下"}},
+		"contains_all across fragments": {"/text": {ContainsAll: []string{"乌龟", "小鸟", "种子"}}},
+		"contains_any single hit":       {"/text": {ContainsAny: []string{"发芽", "种子"}}},
+		"not_contains clean":            {"/text": {NotContains: []any{"###", "```"}}},
+		"not_contains scalar operand":   {"/joined": {NotContains: "FAIL"}},
+		"pattern on plain string":       {"/joined": {Pattern: "^PASS$"}},
+		"rune window":                   {"/text": {MinLength: minInt(10), MaxLength: minInt(20)}},
+		"maximum on int64":              {"/first_text_ms": {Maximum: minFloat(6000)}},
+		"minimum on float":              {"/ratio": {Minimum: minFloat(1)}},
+		"combined matchers":             {"/joined": {Contains: "PAS", Pattern: "^[A-Z]+$", MaxLength: minInt(4)}},
+		"any-typed fragment join":       {"/fragments_any": {Contains: "hello world"}},
+	}
+	for name, assertions := range pass {
+		t.Run("pass "+name, func(t *testing.T) {
+			if err := assertValue(assertions, value); err != nil {
+				t.Fatalf("assertValue() error = %v", err)
+			}
+		})
+	}
+	fail := map[string]map[string]Expectation{
+		"contains missing":          {"/text": {Contains: "恐龙"}},
+		"contains_all partial":      {"/text": {ContainsAll: []string{"乌龟", "恐龙"}}},
+		"contains_any all missing":  {"/text": {ContainsAny: []string{"恐龙", "大象"}}},
+		"not_contains hit":          {"/text": {NotContains: []any{"种子"}}},
+		"pattern mismatch":          {"/joined": {Pattern: "^FAIL$"}},
+		"min_length short":          {"/joined": {MinLength: minInt(10)}},
+		"max_length long":           {"/text": {MaxLength: minInt(3)}},
+		"maximum exceeded":          {"/first_text_ms": {Maximum: minFloat(1000)}},
+		"minimum unmet":             {"/ratio": {Minimum: minFloat(3)}},
+		"string matcher on number":  {"/first_text_ms": {Contains: "1"}},
+		"numeric matcher on string": {"/joined": {Maximum: minFloat(1)}},
+	}
+	for name, assertions := range fail {
+		t.Run("fail "+name, func(t *testing.T) {
+			if err := assertValue(assertions, value); err == nil {
+				t.Fatal("assertValue() accepted a failing matcher")
+			}
+		})
+	}
+}
+
+func TestAssertValueContentMatcherFailuresAreContentFree(t *testing.T) {
+	value := map[string]any{"text": []string{"secret story about 乌龟"}}
+	assertions := map[string]Expectation{"/text": {NotContains: []any{"乌龟"}, Contains: "乌龟"}}
+	err := assertValue(assertions, value)
+	if err == nil {
+		t.Fatal("assertValue() accepted a failing matcher")
+	}
+	for _, banned := range []string{"secret", "乌龟"} {
+		if strings.Contains(err.Error(), banned) {
+			t.Fatalf("failure message leaks content: %v", err)
+		}
 	}
 }

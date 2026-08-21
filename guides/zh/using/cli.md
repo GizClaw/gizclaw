@@ -45,6 +45,31 @@ YAML 的 `repeat` 是每个文件的任务数，`--parallel` 是所有文件共�
 重复语音 Benchmark 可在合成步骤声明 `speech.cache: run`，按文档和展开后的请求缓存成功的
 输入 fixture；每个 task 得到独立字节副本，缓存受 output `max_bytes` 限制，并在命令退出时释放。
 
+步骤的 `expect` 把 JSON Pointer 映射到 expectation 对象。一个 expectation 对象可以组合多个
+matcher，全部通过时该断言才通过：
+
+| Matcher | 操作数 | 语义 |
+| --- | --- | --- |
+| `equals` | 任意非 null 值 | JSON 相等 |
+| `present` | boolean | pointer 可解析（`false` 表示必须不存在） |
+| `non_empty` | boolean | 值是非空 string、array 或 object |
+| `count` | ≥ 0 的整数 | 数组长度等于操作数 |
+| `contains` | 非空 string，≤ 256 rune | 字符串目标包含该子串 |
+| `contains_all` | 1–16 个上述 string | 所有子串都必须出现 |
+| `contains_any` | 1–16 个上述 string | 至少一个子串出现 |
+| `not_contains` | 一个上述 string 或 1–16 个 | 任何子串都不得出现 |
+| `pattern` | RE2 源码，1–256 字节 | 字符串目标匹配该正则 |
+| `minimum` / `maximum` | number | 数值目标落在闭区间边界内 |
+| `min_length` / `max_length` | 0–1048576 的整数 | 字符串目标的 rune 数落在边界内 |
+
+字符串类 matcher 接受 string 值，或元素全部为 string 的数组；数组先按空分隔符 join，
+因此 `peer_stream` 的 `/text` fragment 会作为一条完整响应断言。长度按 Unicode rune 计数
+而不是字节。`minimum`/`maximum` 适用于 `peer_stream` 的 `/first_text_ms` 等数值字段。
+校验在离线阶段、任何连接建立之前拒绝：无法编译的 `pattern`、`min_length` 大于
+`max_length`、`minimum` 大于 `maximum`，以及 `present: false` 与任何取值 matcher 的组合。
+内容类 matcher 失败时只报告 pointer 和 matcher 名，绝不回显被断言的文本，脱敏报告因此
+不包含响应内容。
+
 本地 Docker E2E 会先统一 Apply Admin resources。直接测试已部署环境时，预先准备资源并设置
 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；命令本身没有 Admin 权限。
 人工 `review.*` 场景要求 attached terminal 和 `--parallel 1`。

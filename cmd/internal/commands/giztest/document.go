@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/goccy/go-yaml"
 )
@@ -122,10 +123,125 @@ type BarrierOperation struct {
 	Participants int `json:"participants,omitempty" yaml:"participants,omitempty"`
 }
 type Expectation struct {
-	Equals   any   `json:"equals,omitempty" yaml:"equals,omitempty"`
-	Present  *bool `json:"present,omitempty" yaml:"present,omitempty"`
-	NonEmpty *bool `json:"non_empty,omitempty" yaml:"non_empty,omitempty"`
-	Count    *int  `json:"count,omitempty" yaml:"count,omitempty"`
+	Equals      any      `json:"equals,omitempty" yaml:"equals,omitempty"`
+	Present     *bool    `json:"present,omitempty" yaml:"present,omitempty"`
+	NonEmpty    *bool    `json:"non_empty,omitempty" yaml:"non_empty,omitempty"`
+	Count       *int     `json:"count,omitempty" yaml:"count,omitempty"`
+	Contains    string   `json:"contains,omitempty" yaml:"contains,omitempty"`
+	ContainsAll []string `json:"contains_all,omitempty" yaml:"contains_all,omitempty"`
+	ContainsAny []string `json:"contains_any,omitempty" yaml:"contains_any,omitempty"`
+	NotContains any      `json:"not_contains,omitempty" yaml:"not_contains,omitempty"`
+	Pattern     string   `json:"pattern,omitempty" yaml:"pattern,omitempty"`
+	Minimum     *float64 `json:"minimum,omitempty" yaml:"minimum,omitempty"`
+	Maximum     *float64 `json:"maximum,omitempty" yaml:"maximum,omitempty"`
+	MinLength   *int     `json:"min_length,omitempty" yaml:"min_length,omitempty"`
+	MaxLength   *int     `json:"max_length,omitempty" yaml:"max_length,omitempty"`
+}
+
+const (
+	maxNeedleRunes  = 256
+	maxNeedleCount  = 16
+	maxLengthBound  = 1 << 20
+	maxPatternBytes = 256
+)
+
+// notContainsList normalizes the YAML string-or-list operand into one list.
+func (e Expectation) notContainsList() ([]string, error) {
+	switch v := e.NotContains.(type) {
+	case nil:
+		return nil, nil
+	case string:
+		return []string{v}, nil
+	case []string:
+		return v, nil
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("not_contains entries must be strings")
+			}
+			out = append(out, s)
+		}
+		return out, nil
+	}
+	return nil, fmt.Errorf("not_contains must be a string or a list of strings")
+}
+
+func (e Expectation) hasValueMatcher() bool {
+	notContains, _ := e.notContainsList()
+	return e.Equals != nil || e.NonEmpty != nil || e.Count != nil ||
+		e.Contains != "" || len(e.ContainsAll) > 0 || len(e.ContainsAny) > 0 ||
+		len(notContains) > 0 || e.Pattern != "" ||
+		e.Minimum != nil || e.Maximum != nil || e.MinLength != nil || e.MaxLength != nil
+}
+
+func validateNeedles(matcher string, needles []string) error {
+	if len(needles) > maxNeedleCount {
+		return fmt.Errorf("%s allows at most %d entries", matcher, maxNeedleCount)
+	}
+	for _, needle := range needles {
+		if needle == "" {
+			return fmt.Errorf("%s entries must be non-empty", matcher)
+		}
+		if utf8.RuneCountInString(needle) > maxNeedleRunes {
+			return fmt.Errorf("%s entries must be at most %d runes", matcher, maxNeedleRunes)
+		}
+	}
+	return nil
+}
+
+func (e Expectation) validate() error {
+	notContains, err := e.notContainsList()
+	if err != nil {
+		return err
+	}
+	if e.NotContains != nil && len(notContains) == 0 {
+		return fmt.Errorf("not_contains requires at least one entry")
+	}
+	for matcher, needles := range map[string][]string{
+		"contains":     nonEmptyList(e.Contains),
+		"contains_all": e.ContainsAll,
+		"contains_any": e.ContainsAny,
+		"not_contains": notContains,
+	} {
+		if err := validateNeedles(matcher, needles); err != nil {
+			return err
+		}
+	}
+	if (e.ContainsAll != nil && len(e.ContainsAll) == 0) || (e.ContainsAny != nil && len(e.ContainsAny) == 0) {
+		return fmt.Errorf("contains_all and contains_any require at least one entry")
+	}
+	if e.Pattern != "" {
+		if len(e.Pattern) > maxPatternBytes {
+			return fmt.Errorf("pattern must be at most %d bytes", maxPatternBytes)
+		}
+		if _, err := regexp.Compile(e.Pattern); err != nil {
+			return fmt.Errorf("pattern does not compile: %w", err)
+		}
+	}
+	for matcher, bound := range map[string]*int{"min_length": e.MinLength, "max_length": e.MaxLength} {
+		if bound != nil && (*bound < 0 || *bound > maxLengthBound) {
+			return fmt.Errorf("%s must be between 0 and %d", matcher, maxLengthBound)
+		}
+	}
+	if e.MinLength != nil && e.MaxLength != nil && *e.MinLength > *e.MaxLength {
+		return fmt.Errorf("min_length exceeds max_length")
+	}
+	if e.Minimum != nil && e.Maximum != nil && *e.Minimum > *e.Maximum {
+		return fmt.Errorf("minimum exceeds maximum")
+	}
+	if e.Present != nil && !*e.Present && e.hasValueMatcher() {
+		return fmt.Errorf("present: false cannot combine with value matchers")
+	}
+	return nil
+}
+
+func nonEmptyList(v string) []string {
+	if v == "" {
+		return nil
+	}
+	return []string{v}
 }
 
 func loadDocument(path string) (*Document, error) {
@@ -267,6 +383,11 @@ func (d *Document) validateSemantics() error {
 		if step.Timeout != "" {
 			if duration, err := time.ParseDuration(step.Timeout); err != nil || duration <= 0 {
 				return fmt.Errorf("step %s has invalid timeout %q", step.ID, step.Timeout)
+			}
+		}
+		for path, expectation := range step.Expect {
+			if err := expectation.validate(); err != nil {
+				return fmt.Errorf("step %s expect %s: %w", step.ID, path, err)
 			}
 		}
 		if step.PeerStream != nil {

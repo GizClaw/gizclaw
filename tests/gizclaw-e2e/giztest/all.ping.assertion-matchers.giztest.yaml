@@ -1,0 +1,75 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want assert live RPC and speech results with content, pattern, and bound matchers,
+# So that keyword, length, and threshold gates stay declarative end to end.
+version: gizclaw.test/v1alpha1
+name: all.ping.assertion-matchers
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: ping_with_bounds
+  client: peer
+  rpc:
+    method: all.ping
+    request:
+      client_send_time: 0
+  expect:
+    "/server_time":
+      minimum: 1
+- id: prepare_audio
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    request:
+      voice_name: narrator
+      text: The Giztest verification color is cobalt blue.
+      accepted_content_types:
+      - audio/ogg
+  save_as: input_audio
+- id: transcribe_with_matchers
+  client: peer
+  speech:
+    method: server.speech.transcribe
+    request:
+      model_name: asr
+      content_type: audio/L16;rate=16000;channels=1
+      language: en
+    input: "${input_audio}"
+  expect:
+    "/transcript":
+      contains_any: [cobalt, Cobalt, blue, Blue]
+      not_contains: ["###", "```"]
+      pattern: "[A-Za-z]"
+      min_length: 5
+      max_length: 200
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

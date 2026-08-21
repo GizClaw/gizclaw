@@ -128,3 +128,55 @@ func TestDocumentRejectsSpeechCacheOutsideSavedSynthesis(t *testing.T) {
 		t.Fatalf("transcription cache error = %v", err)
 	}
 }
+
+func TestLoadDocumentAcceptsCombinedMatchers(t *testing.T) {
+	content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time:\n        pattern: \"^[0-9TZ:.-]+$\"\n        min_length: 4\n        max_length: 64\n        not_contains: [ERROR]\n", 1)
+	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+}
+
+func TestLoadDocumentRejectsInvalidExpectationsOffline(t *testing.T) {
+	cases := map[string]struct {
+		expect string
+		want   string
+	}{
+		"pattern must compile":          {"{pattern: \"[\"}", "pattern does not compile"},
+		"length bounds must cohere":     {"{min_length: 10, max_length: 2}", "min_length exceeds max_length"},
+		"numeric bounds must cohere":    {"{minimum: 10, maximum: 2}", "minimum exceeds maximum"},
+		"absent excludes value matcher": {"{present: false, contains: x}", "cannot combine with value matchers"},
+		"needle list must be non-empty": {"{contains_all: []}", "schema"},
+		"needles must be non-empty":     {"{contains: \"\"}", "schema"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time: "+tc.expect+"\n", 1)
+			_, err := loadDocument(writeTestDocument(t, content))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestExpectationValidateRejectsMalformedOperandsInGo(t *testing.T) {
+	tooMany := make([]string, 17)
+	for i := range tooMany {
+		tooMany[i] = "x"
+	}
+	cases := map[string]Expectation{
+		"oversize needle list":     {ContainsAll: tooMany},
+		"empty needle":             {ContainsAny: []string{""}},
+		"oversize needle":          {Contains: strings.Repeat("字", 257)},
+		"not_contains wrong type":  {NotContains: 7},
+		"not_contains empty list":  {NotContains: []any{}},
+		"not_contains wrong entry": {NotContains: []any{1}},
+	}
+	for name, expectation := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := expectation.validate(); err == nil {
+				t.Fatalf("validate() accepted %#v", expectation)
+			}
+		})
+	}
+}
