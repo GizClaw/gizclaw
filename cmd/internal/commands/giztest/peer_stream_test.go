@@ -273,3 +273,43 @@ func TestInvokePeerStreamIdleTimeoutRearmsAfterInterrupt(t *testing.T) {
 		t.Fatalf("evidence = %#v", result.evidence)
 	}
 }
+
+func TestInvokePeerStreamIdleTimeoutSuspendedDuringInterruptReplacement(t *testing.T) {
+	first := newFakeRelayStream()
+	second := newFakeRelayStream()
+	// Unbuffered pushes make the replacement turn block until the test drains
+	// it, which happens only after the whole idle_timeout has elapsed.
+	second.pushes = make(chan *genx.MessageChunk)
+	go func() {
+		drainPushes(first, 3)
+		first.in <- assistantText("s1", "first reply", false)
+		time.Sleep(150 * time.Millisecond)
+		drainPushes(second, 3)
+		finishAssistantTurn(second, "s2")
+	}()
+	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", InterruptAfter: "40ms", IdleTimeout: "100ms"}, first, second)
+	if err != nil {
+		t.Fatalf("blocked replacement push tripped the idle bound: %v", err)
+	}
+	if object, _ := result.assertion.(map[string]any); object["interrupted"] != true {
+		t.Fatalf("assertion = %#v", object)
+	}
+}
+
+func TestInvokePeerStreamIdleTimeoutAppliesAfterInterruptReplacement(t *testing.T) {
+	first := newFakeRelayStream()
+	second := newFakeRelayStream()
+	go func() {
+		drainPushes(first, 3)
+		first.in <- assistantText("s1", "first reply", false)
+		drainPushes(second, 3)
+		// The reopened stream never answers the interrupting turn.
+	}()
+	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", InterruptAfter: "40ms", IdleTimeout: "80ms"}, first, second)
+	if err == nil || !strings.Contains(err.Error(), "deadline=idle_timeout") || !strings.Contains(err.Error(), "interrupt_sent=true") {
+		t.Fatalf("error = %v", err)
+	}
+	if result.evidence["deadline"] != "idle_timeout" {
+		t.Fatalf("evidence = %#v", result.evidence)
+	}
+}

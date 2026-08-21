@@ -162,10 +162,10 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		}
 		if idleTimer == nil {
 			idleTimer = time.NewTimer(idleTimeout)
-			idle = idleTimer.C
-			return
+		} else {
+			idleTimer.Reset(idleTimeout)
 		}
-		idleTimer.Reset(idleTimeout)
+		idle = idleTimer.C
 	}
 	stopIdle := func() {
 		if idleTimer != nil {
@@ -223,6 +223,9 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		select {
 		case <-interrupt:
 			interrupt = nil
+			// The inactivity bound covers received output, not the reopen and
+			// replacement push; it restarts once the interrupting turn is sent.
+			stopIdle()
 			if err := stream.Close(); err != nil {
 				return operationResult{}, fmt.Errorf("close interrupted PeerStream: %w", err)
 			}
