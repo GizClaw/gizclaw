@@ -320,6 +320,26 @@ func runStep(ctx context.Context, documentPath string, step Step, clients *clien
 		streamResult, invokeErr := invokePeerStream(stepCtx, client, step, input, audioCaptureMaxBytes)
 		err = invokeErr
 		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
+	case "workspace_relay":
+		input, resolveErr := vars.resolve(step.WorkspaceRelay.Input)
+		if resolveErr != nil {
+			err = resolveErr
+			break
+		}
+		if spec, ok := vars.referencedSpec(step.WorkspaceRelay.Input); ok && step.WorkspaceRelay.Media == "audio" {
+			if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
+				err = fmt.Errorf("workspace_relay audio input must declare audio/ogg or audio/opus with opus codec")
+				break
+			}
+		}
+		audioCaptureMaxBytes, captureErr := relayAudioCaptureMaxBytes(step, vars)
+		if captureErr != nil {
+			err = captureErr
+			break
+		}
+		relayOutcome, invokeErr := invokeWorkspaceRelay(stepCtx, clients, step, input, audioCaptureMaxBytes)
+		err = invokeErr
+		value, saved, evidence = relayOutcome.assertion, relayOutcome.saved, relayOutcome.evidence
 	case "barrier":
 		if barrier == nil {
 			err = fmt.Errorf("barrier not initialized")
@@ -415,6 +435,26 @@ func peerStreamAudioCaptureMaxBytes(step Step, vars *variables) (int, error) {
 		}
 		if item.spec.Type != "audio" || item.spec.MaxBytes <= 0 {
 			return 0, fmt.Errorf("peer_stream /audio capture variable %q must be audio with max_bytes", name)
+		}
+		if limit == 0 || item.spec.MaxBytes < limit {
+			limit = item.spec.MaxBytes
+		}
+	}
+	return limit, nil
+}
+
+func relayAudioCaptureMaxBytes(step Step, vars *variables) (int, error) {
+	limit := 0
+	for name, pointer := range step.Capture {
+		if pointer != "/terminal/audio" {
+			continue
+		}
+		item, ok := vars.values[name]
+		if !ok {
+			return 0, fmt.Errorf("capture references unknown variable %q", name)
+		}
+		if item.spec.Type != "audio" || item.spec.MaxBytes <= 0 || item.spec.MaxBytes > relayMaxAudioBytes {
+			return 0, fmt.Errorf("workspace_relay /terminal/audio capture variable %q must be audio with max_bytes up to %d", name, relayMaxAudioBytes)
 		}
 		if limit == 0 || item.spec.MaxBytes < limit {
 			limit = item.spec.MaxBytes

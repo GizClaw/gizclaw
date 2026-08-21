@@ -233,6 +233,22 @@ persisted user transcript declare `transcript` explicitly.
 Interactive `review` files must run alone in an attached terminal with
 `--parallel 1`.
 
+`workspace_relay` connects two selected Workspaces in one task as one bounded
+conversation: the tester Workflow owns test intent, generated user behavior,
+semantic evaluation, and its final verdict, while Giztest owns transport,
+framing, `max_turns` and fixed byte/event bounds, attribution, failure stages,
+and cleanup. Forwarding is streaming — the first eligible text fragment or
+arrival-paced Opus packet reaches the receiving Workspace before the source
+response completes, with a receiving-side stream ID and user role — and the
+terminal response is captured without being forwarded. Reports keep per-client
+turn counts, `{min, max}` latency/size aggregates, and the terminal side, but
+never relayed content, prompts, tester reasoning, or audio.
+`workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
+pair inside the standard gate, and `run_workspace_relay_tests.sh` starts one
+isolated stack, runs the repeat-1 and repeat-20 relay gates
+(`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
+`--parallel 20`), and always cleans the stack up.
+
 ### Ten- and twenty-lane Workflow concurrency and interruption
 
 The fixed entrypoint selects ten explicit `benchmark.*-10|-20.giztest.yaml`

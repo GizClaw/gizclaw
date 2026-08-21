@@ -37,6 +37,7 @@ spec:
         pet-chatroom: {resource_id: pet-chatroom, i18n: {en: {display_name: Pet Chatroom}, zh-CN: {display_name: 宠物聊天}}}
         family-circle-chatroom: {resource_id: family-circle-chatroom, i18n: {en: {display_name: Family Circle}, zh-CN: {display_name: 家庭群聊}}}
         eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}}
+        giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}}
   resources:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}

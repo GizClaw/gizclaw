@@ -61,21 +61,22 @@ type VariableSpec struct {
 }
 
 type Step struct {
-	ID          string                 `json:"id,omitempty" yaml:"id,omitempty"`
-	Client      string                 `json:"client,omitempty" yaml:"client,omitempty"`
-	RPC         *RPCOperation          `json:"rpc,omitempty" yaml:"rpc,omitempty"`
-	RPCStream   *RPCStreamOperation    `json:"rpc_stream,omitempty" yaml:"rpc_stream,omitempty"`
-	ClientRPC   *ClientRPCOperation    `json:"client_rpc,omitempty" yaml:"client_rpc,omitempty"`
-	Speech      *SpeechOperation       `json:"speech,omitempty" yaml:"speech,omitempty"`
-	PeerStream  *PeerStreamOperation   `json:"peer_stream,omitempty" yaml:"peer_stream,omitempty"`
-	Output      *OutputOperation       `json:"output,omitempty" yaml:"output,omitempty"`
-	ReviewOp    *ReviewOperation       `json:"review_op,omitempty" yaml:"review_op,omitempty"`
-	Barrier     *BarrierOperation      `json:"barrier,omitempty" yaml:"barrier,omitempty"`
-	SaveAs      string                 `json:"save_as,omitempty" yaml:"save_as,omitempty"`
-	Capture     map[string]string      `json:"capture,omitempty" yaml:"capture,omitempty"`
-	Expect      map[string]Expectation `json:"expect,omitempty" yaml:"expect,omitempty"`
-	ExpectError *ErrorExpectation      `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
-	Timeout     string                 `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	ID             string                   `json:"id,omitempty" yaml:"id,omitempty"`
+	Client         string                   `json:"client,omitempty" yaml:"client,omitempty"`
+	RPC            *RPCOperation            `json:"rpc,omitempty" yaml:"rpc,omitempty"`
+	RPCStream      *RPCStreamOperation      `json:"rpc_stream,omitempty" yaml:"rpc_stream,omitempty"`
+	ClientRPC      *ClientRPCOperation      `json:"client_rpc,omitempty" yaml:"client_rpc,omitempty"`
+	Speech         *SpeechOperation         `json:"speech,omitempty" yaml:"speech,omitempty"`
+	PeerStream     *PeerStreamOperation     `json:"peer_stream,omitempty" yaml:"peer_stream,omitempty"`
+	Output         *OutputOperation         `json:"output,omitempty" yaml:"output,omitempty"`
+	ReviewOp       *ReviewOperation         `json:"review_op,omitempty" yaml:"review_op,omitempty"`
+	Barrier        *BarrierOperation        `json:"barrier,omitempty" yaml:"barrier,omitempty"`
+	WorkspaceRelay *WorkspaceRelayOperation `json:"workspace_relay,omitempty" yaml:"workspace_relay,omitempty"`
+	SaveAs         string                   `json:"save_as,omitempty" yaml:"save_as,omitempty"`
+	Capture        map[string]string        `json:"capture,omitempty" yaml:"capture,omitempty"`
+	Expect         map[string]Expectation   `json:"expect,omitempty" yaml:"expect,omitempty"`
+	ExpectError    *ErrorExpectation        `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
+	Timeout        string                   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
 type ErrorExpectation struct {
@@ -121,6 +122,14 @@ type ReviewOperation struct {
 }
 type BarrierOperation struct {
 	Participants int `json:"participants,omitempty" yaml:"participants,omitempty"`
+}
+type WorkspaceRelayOperation struct {
+	FirstClient    string `json:"first_client" yaml:"first_client"`
+	SecondClient   string `json:"second_client" yaml:"second_client"`
+	Input          any    `json:"input" yaml:"input"`
+	Media          string `json:"media" yaml:"media"`
+	MaxTurns       int    `json:"max_turns" yaml:"max_turns"`
+	TerminalClient string `json:"terminal_client" yaml:"terminal_client"`
 }
 type Expectation struct {
 	Equals      any      `json:"equals,omitempty" yaml:"equals,omitempty"`
@@ -338,8 +347,20 @@ func (d *Document) validateSemantics() error {
 		}
 	}
 	ids := map[string]bool{}
+	workspaceSelected := map[string]bool{}
 	all := append(append([]Step(nil), d.Steps...), d.Finally...)
 	for i, step := range all {
+		if i < len(d.Steps) && step.RPC != nil && step.RPC.Method == "server.run.workspace.set" && step.Client != "" {
+			workspaceSelected[step.Client] = true
+		}
+		if step.WorkspaceRelay != nil {
+			if i >= len(d.Steps) {
+				return fmt.Errorf("step %s workspace_relay is not allowed in finally", step.ID)
+			}
+			if err := d.validateWorkspaceRelay(step, workspaceSelected); err != nil {
+				return err
+			}
+		}
 		if step.ID == "" {
 			return fmt.Errorf("step %d requires id", i+1)
 		}
@@ -433,6 +454,62 @@ func (d *Document) validateSemantics() error {
 	return nil
 }
 
+func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) error {
+	op := step.WorkspaceRelay
+	if step.Client != "" {
+		return fmt.Errorf("step %s workspace_relay names its clients through first_client and second_client", step.ID)
+	}
+	if op.FirstClient == op.SecondClient {
+		return fmt.Errorf("step %s workspace_relay requires two distinct clients", step.ID)
+	}
+	for _, name := range []string{op.FirstClient, op.SecondClient} {
+		if _, ok := d.Clients[name]; !ok {
+			return fmt.Errorf("step %s workspace_relay references unknown client %q", step.ID, name)
+		}
+		if !selected[name] {
+			return fmt.Errorf("step %s workspace_relay requires a preceding server.run.workspace.set for client %q", step.ID, name)
+		}
+	}
+	if op.Media != "text" && op.Media != "audio" {
+		return fmt.Errorf("step %s workspace_relay media must be text or audio", step.ID)
+	}
+	if op.MaxTurns < 2 || op.MaxTurns > 256 {
+		return fmt.Errorf("step %s workspace_relay max_turns must be between 2 and 256", step.ID)
+	}
+	if op.Input == nil {
+		return fmt.Errorf("step %s workspace_relay requires input", step.ID)
+	}
+	terminal := op.FirstClient
+	if op.MaxTurns%2 == 0 {
+		terminal = op.SecondClient
+	}
+	if op.TerminalClient != terminal {
+		return fmt.Errorf("step %s workspace_relay terminal_client %q does not match first_client with max_turns %d (want %q)", step.ID, op.TerminalClient, op.MaxTurns, terminal)
+	}
+	if step.SaveAs != "" {
+		return fmt.Errorf("step %s workspace_relay does not support save_as", step.ID)
+	}
+	for name, pointer := range step.Capture {
+		spec, ok := d.Variables[name]
+		if !ok {
+			continue // the shared step loop reports unknown capture variables
+		}
+		switch {
+		case pointer == "/terminal/text" && op.Media == "text":
+			if spec.Type != "string" {
+				return fmt.Errorf("step %s capture %q of /terminal/text must target a string output variable", step.ID, name)
+			}
+		case pointer == "/terminal/audio" && op.Media == "audio":
+			if spec.Type != "audio" || spec.Codec != "opus" || spec.MediaType != "audio/ogg" || spec.MaxBytes <= 0 || spec.MaxBytes > relayMaxAudioBytes {
+				return fmt.Errorf("step %s capture %q of /terminal/audio must target audio/ogg opus output with max_bytes up to %d", step.ID, name, relayMaxAudioBytes)
+			}
+		default:
+			return fmt.Errorf("step %s workspace_relay allows capturing only the terminal %s", step.ID, op.Media)
+		}
+	}
+	return nil
+}
+
 func (d *Document) taskTimeout() (time.Duration, error) {
 	if d.Timeout == "" {
 		return defaultTaskTimeout, nil
@@ -444,7 +521,9 @@ func (d *Document) taskTimeout() (time.Duration, error) {
 	return v, nil
 }
 
-func operationNeedsClient(op string) bool { return op != "barrier" && op != "output" && op != "review" }
+func operationNeedsClient(op string) bool {
+	return op != "barrier" && op != "output" && op != "review" && op != "workspace_relay"
+}
 func (s Step) operation() string {
 	switch {
 	case s.RPC != nil:
@@ -463,6 +542,8 @@ func (s Step) operation() string {
 		return "review"
 	case s.Barrier != nil:
 		return "barrier"
+	case s.WorkspaceRelay != nil:
+		return "workspace_relay"
 	}
 	return ""
 }

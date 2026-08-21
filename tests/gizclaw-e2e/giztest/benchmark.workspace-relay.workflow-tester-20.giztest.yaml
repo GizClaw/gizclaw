@@ -1,0 +1,128 @@
+# User Story:
+# As a Workflow catalog maintainer,
+# I want a tester Workflow to exercise one candidate Workflow over a live relay,
+# So that the scenario, attribution, bounds, and cleanup remain declarative.
+version: gizclaw.test/v1alpha1
+name: benchmark.workspace-relay.workflow-tester-20
+clients:
+  candidate:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  tester:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  candidate_workspace:
+    direction: input
+    type: string
+    generate: token
+  tester_workspace:
+    direction: input
+    type: string
+    generate: token
+  test_brief:
+    direction: input
+    type: string
+    value: >-
+      你正在测试一个中文剧本杀主持人。以一名玩家的身份与它对话：先请它介绍案情，
+      然后每轮根据它的回复继续调查，例如询问线索、检查现场或提出推理。
+      评判标准：它每轮都用中文、以主持人身份、针对你的输入给出非空回应。
+      如果每一轮都满足，最终裁决只输出 PASS；否则只输出 FAIL。
+  verdict:
+    direction: output
+    type: string
+repeat: 20
+timeout: 10m
+steps:
+  - id: register_candidate
+    client: candidate
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: register_tester
+    client: tester
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: create_candidate_workspace
+    client: candidate
+    rpc:
+      method: server.workspace.create
+      request:
+        name: "${candidate_workspace}"
+        collection: assistants
+        workflow_name: flowcraft-murder-mystery
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: create_tester_workspace
+    client: tester
+    rpc:
+      method: server.workspace.create
+      request:
+        name: "${tester_workspace}"
+        collection: assistants
+        workflow_name: giztest-workflow-tester
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_candidate_workspace
+    client: candidate
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${candidate_workspace}"}
+  - id: select_tester_workspace
+    client: tester
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${tester_workspace}"}
+  - id: run_test_dialogue
+    workspace_relay:
+      first_client: tester
+      second_client: candidate
+      input: "${test_brief}"
+      media: text
+      max_turns: 15
+      terminal_client: tester
+    capture:
+      verdict: /terminal/text
+    expect:
+      /terminal/client: {equals: tester}
+      /terminal/text: {contains_any: [PASS, FAIL]}
+      /completed_turns: {equals: 15}
+      /turns/candidate/first_text_ms/max: {maximum: 30000}
+      /turns/candidate/text_runes/min: {minimum: 1}
+  - id: emit_verdict
+    output: {variable: verdict}
+finally:
+  - client: candidate
+    rpc: {method: server.run.stop, request: {}}
+  - client: tester
+    rpc: {method: server.run.stop, request: {}}
+  - client: candidate
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${candidate_workspace}"}
+  - client: tester
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${tester_workspace}"}
+  - client: candidate
+    rpc: {method: server.peer.delete, request: {}}
+  - client: tester
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]
