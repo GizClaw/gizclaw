@@ -121,7 +121,10 @@ expose no tuning fields; the event limit is per turn because voice-enabled
 Workspaces stream hundreds of Opus packets per response. A self-start
 reply emitted by a Workspace before its first relay turn is consumed and
 discarded (its `interrupted` marker is benign); once a side has held a turn,
-any output while the other side is active fails the relay. Failures
+any output on the relayed media (text for `media: text`, audio for
+`media: audio`) while the other side is active fails the relay as turn
+mixing; the other channel of a voice Workspace — for example TTS audio that
+trails its own completed text turn — is consumed and counted only. Failures
 name the responsible client and turn index. Reports carry only the client-name
 attribution, counts, timings, and byte aggregates: relayed text, prompts,
 tester reasoning, and audio bytes never appear in report evidence.

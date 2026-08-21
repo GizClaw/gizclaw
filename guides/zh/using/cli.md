@@ -106,7 +106,9 @@ relay 结果暴露 `completed_turns`、`terminal.client`、`terminal.text`
 个接收事件、整个 relay 1 MiB 拼接文本与 16 MiB 音频——超限即失败且不暴露调节字段；
 事件上限按轮计数，因为带语音的 Workspace 每次响应会流出数百个 Opus 包。Workspace 在
 自己第一个 relay 轮之前 self-start 的响应会被消费并丢弃（其 `interrupted` 标记视为
-良性）；一旦某侧持有过轮次，它在对侧 active 期间的任何输出都会使 relay 失败。失败会
+良性）；一旦某侧持有过轮次，它在对侧 active 期间于 relay 媒体上（`media: text` 为文本、`media: audio` 为音频）
+的任何输出都会被视为串轮而使 relay 失败；语音 Workspace 的另一条通道（例如自己已完成
+文本轮之后拖尾的 TTS 音频）只消费计数。失败会
 标注责任 client 和轮次序号。报告只保留 client 名称归因、计数、时延和字节聚合：被转发的
 文本、prompt、tester 推理和音频字节绝不进入报告 evidence。
 
