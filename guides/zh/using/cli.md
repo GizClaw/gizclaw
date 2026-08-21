@@ -59,7 +59,7 @@ matcher，全部通过时该断言才通过：
 | `contains_any` | 1–16 个上述 string | 至少一个子串出现 |
 | `not_contains` | 一个上述 string 或 1–16 个 | 任何子串都不得出现 |
 | `pattern` | RE2 源码，1–256 字节 | 字符串目标匹配该正则 |
-| `minimum` / `maximum` | number | 数值目标落在闭区间边界内 |
+| `minimum` / `maximum` | number | 数值目标（JSON number，或 protojson int64 之类的十进制字符串）落在闭区间边界内 |
 | `min_length` / `max_length` | 0–1048576 的整数 | 字符串目标的 rune 数落在边界内 |
 
 字符串类 matcher 接受 string 值，或元素全部为 string 的数组；数组先按空分隔符 join，

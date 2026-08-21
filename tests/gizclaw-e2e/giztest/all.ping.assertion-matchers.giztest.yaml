@@ -57,12 +57,16 @@ steps:
     method: server.speech.transcribe
     request:
       model_name: asr
+      # content_type names the RPC payload, not the saved variable: for an Opus
+      # input the CLI decodes the Ogg/Opus fixture to PCM16 before the RPC and
+      # requires exactly this value (see speech.go transcriptionInput), matching
+      # server.speech.transcribe.giztest.yaml.
       content_type: audio/L16;rate=16000;channels=1
       language: en
     input: "${input_audio}"
   expect:
     "/transcript":
-      contains_any: [cobalt, Cobalt, blue, Blue]
+      contains_all: [verification, color]
       not_contains: ["###", "```"]
       pattern: "[A-Za-z]"
       min_length: 5

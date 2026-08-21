@@ -105,6 +105,7 @@ func TestAssertValueExtendedMatchers(t *testing.T) {
 		"fragments_any": []any{"hello ", "world"},
 		"first_text_ms": int64(1200),
 		"ratio":         2.5,
+		"server_time":   "1755763200123",
 	}
 	minInt := func(v int) *int { return &v }
 	minFloat := func(v float64) *float64 { return &v }
@@ -118,6 +119,7 @@ func TestAssertValueExtendedMatchers(t *testing.T) {
 		"rune window":                   {"/text": {MinLength: minInt(10), MaxLength: minInt(20)}},
 		"maximum on int64":              {"/first_text_ms": {Maximum: minFloat(6000)}},
 		"minimum on float":              {"/ratio": {Minimum: minFloat(1)}},
+		"bounds on protojson int64":     {"/server_time": {Minimum: minFloat(1), Maximum: minFloat(1e15)}},
 		"combined matchers":             {"/joined": {Contains: "PAS", Pattern: "^[A-Z]+$", MaxLength: minInt(4)}},
 		"any-typed fragment join":       {"/fragments_any": {Contains: "hello world"}},
 	}
@@ -129,17 +131,18 @@ func TestAssertValueExtendedMatchers(t *testing.T) {
 		})
 	}
 	fail := map[string]map[string]Expectation{
-		"contains missing":          {"/text": {Contains: "恐龙"}},
-		"contains_all partial":      {"/text": {ContainsAll: []string{"乌龟", "恐龙"}}},
-		"contains_any all missing":  {"/text": {ContainsAny: []string{"恐龙", "大象"}}},
-		"not_contains hit":          {"/text": {NotContains: []any{"种子"}}},
-		"pattern mismatch":          {"/joined": {Pattern: "^FAIL$"}},
-		"min_length short":          {"/joined": {MinLength: minInt(10)}},
-		"max_length long":           {"/text": {MaxLength: minInt(3)}},
-		"maximum exceeded":          {"/first_text_ms": {Maximum: minFloat(1000)}},
-		"minimum unmet":             {"/ratio": {Minimum: minFloat(3)}},
-		"string matcher on number":  {"/first_text_ms": {Contains: "1"}},
-		"numeric matcher on string": {"/joined": {Maximum: minFloat(1)}},
+		"contains missing":           {"/text": {Contains: "恐龙"}},
+		"contains_all partial":       {"/text": {ContainsAll: []string{"乌龟", "恐龙"}}},
+		"contains_any all missing":   {"/text": {ContainsAny: []string{"恐龙", "大象"}}},
+		"not_contains hit":           {"/text": {NotContains: []any{"种子"}}},
+		"pattern mismatch":           {"/joined": {Pattern: "^FAIL$"}},
+		"min_length short":           {"/joined": {MinLength: minInt(10)}},
+		"max_length long":            {"/text": {MaxLength: minInt(3)}},
+		"maximum exceeded":           {"/first_text_ms": {Maximum: minFloat(1000)}},
+		"minimum unmet":              {"/ratio": {Minimum: minFloat(3)}},
+		"string matcher on number":   {"/first_text_ms": {Contains: "1"}},
+		"numeric matcher on string":  {"/joined": {Maximum: minFloat(1)}},
+		"numeric string above bound": {"/server_time": {Maximum: minFloat(10)}},
 	}
 	for name, assertions := range fail {
 		t.Run("fail "+name, func(t *testing.T) {

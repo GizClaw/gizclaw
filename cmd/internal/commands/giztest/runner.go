@@ -606,6 +606,11 @@ func numericTarget(value any) (float64, bool) {
 	case json.Number:
 		number, err := x.Float64()
 		return number, err == nil
+	case string:
+		// protojson encodes int64/uint64 fields as decimal strings, so numeric
+		// RPC fields such as timestamps and byte counts arrive as strings.
+		number, err := strconv.ParseFloat(strings.TrimSpace(x), 64)
+		return number, err == nil
 	}
 	return 0, false
 }

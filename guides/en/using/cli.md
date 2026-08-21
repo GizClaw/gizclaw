@@ -64,7 +64,7 @@ may combine several matchers; the step passes only when every matcher passes:
 | `contains_any` | 1–16 such strings | at least one listed substring occurs |
 | `not_contains` | one such string or 1–16 of them | no listed substring occurs |
 | `pattern` | RE2 source, 1–256 bytes | string target matches the pattern |
-| `minimum` / `maximum` | number | numeric target is within the inclusive bound |
+| `minimum` / `maximum` | number | numeric target (JSON number, or a decimal string such as a protojson int64) is within the inclusive bound |
 | `min_length` / `max_length` | integer 0–1048576 | string target's rune count is within the bound |
 
 String matchers accept a string value or an array whose elements are all
