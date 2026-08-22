@@ -38,10 +38,14 @@ var (
 )
 
 const (
-	peerConnMixerFormat          = pcm.L16Mono16K
-	peerConnOpusFrameDuration    = 20 * time.Millisecond
-	peerConnTelemetryQueueSize   = 32
-	peerConnRuntimeStopTimeout   = 2 * time.Second
+	peerConnMixerFormat        = pcm.L16Mono16K
+	peerConnOpusFrameDuration  = 20 * time.Millisecond
+	peerConnTelemetryQueueSize = 32
+	peerConnRuntimeStopTimeout = 2 * time.Second
+	// peerConnInputAbortTimeout bounds how long a denied-turn abort may wait for
+	// input-queue capacity. The abort holds agentInputMu, so an unbounded wait
+	// would block teardown and later input transitions behind a flooding peer.
+	peerConnInputAbortTimeout    = 2 * time.Second
 	peerEventStreamAcceptTimeout = 10 * time.Second
 	maxDeniedInputStreams        = 256
 )
@@ -719,6 +723,7 @@ func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.Pe
 	workspaceName, workspaceErr := h.currentInputWorkspace(ctx)
 	if workspaceErr != nil {
 		return h.rejectChatroomEvent(
+			ctx,
 			event,
 			streamID,
 			chatroom.AccessCheckFailedError(),
@@ -733,7 +738,7 @@ func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.Pe
 		var err error
 		workspace, err = h.peerResources().ResolveWorkspaceForAccessCheck(ctx, workspaceName)
 		if err != nil {
-			return h.rejectChatroomEvent(event, streamID, chatroom.AccessCheckFailedError())
+			return h.rejectChatroomEvent(ctx, event, streamID, chatroom.AccessCheckFailedError())
 		}
 	}
 	isChatroom, denial := h.Service.manager.chatroomAccessStateForWorkspace(ctx, h.Conn.PublicKey(), workspace)
@@ -741,10 +746,11 @@ func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.Pe
 		h.acceptInputEvent(event, streamID, workspaceName, isChatroom)
 		return true, nil
 	}
-	return h.rejectChatroomEvent(event, streamID, denial)
+	return h.rejectChatroomEvent(ctx, event, streamID, denial)
 }
 
 func (h *PeerConn) rejectChatroomEvent(
+	ctx context.Context,
 	event *eventpb.PeerEvent,
 	streamID string,
 	denial *chatroom.AccessError,
@@ -757,7 +763,7 @@ func (h *PeerConn) rejectChatroomEvent(
 	}
 	var abortErr error
 	if abortCurrentTurn {
-		abortErr = h.abortAgentInputTurn()
+		abortErr = h.abortAgentInputTurn(ctx)
 	}
 	broadcastErr := h.events.Broadcast(&eventpb.PeerEvent{
 		Version: eventpb.Version,
@@ -781,13 +787,23 @@ func (h *PeerConn) rejectChatroomEvent(
 // Audio Dock interrupt the open assistant routes, and resets the text Agent's
 // pending input. Closing the source instead ended the whole Agent pipeline with
 // a clean EOF, which the runtime then reported as an unexpected output end.
-func (h *PeerConn) abortAgentInputTurn() error {
+//
+// The push runs under a bounded child of ctx because an input source may wait
+// for queue capacity while this call holds agentInputMu. Without that bound a
+// flooding peer, or a runtime that stopped consuming input, would block peer
+// teardown and every later input transition behind the same lock.
+func (h *PeerConn) abortAgentInputTurn(ctx context.Context) error {
 	if h == nil || h.agentInput == nil {
 		return nil
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, peerConnInputAbortTimeout)
+	defer cancel()
 	h.agentInputMu.Lock()
 	defer h.agentInputMu.Unlock()
-	err := h.agentInput.Push(context.Background(), agentInputInterruptChunk())
+	err := h.agentInput.Push(ctx, agentInputInterruptChunk())
 	if errors.Is(err, agenthost.ErrNoActiveInput) {
 		return nil
 	}
@@ -1012,7 +1028,7 @@ func (h *PeerConn) rejectChatroomAudioFromInvalidation(
 	if !h.markDeniedInputStream(streamID, event.StreamKindValue()) {
 		return
 	}
-	if err := h.abortAgentInputTurn(); err != nil {
+	if err := h.abortAgentInputTurn(context.Background()); err != nil {
 		slog.Warn("gizclaw: abort invalid Chatroom audio turn", "error", err)
 	}
 	if h.events != nil {

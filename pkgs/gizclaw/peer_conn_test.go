@@ -1884,7 +1884,7 @@ type peerConnTestHost struct {
 func TestAbortAgentInputTurnInterruptsWithoutClosingSource(t *testing.T) {
 	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
 	peer := &PeerConn{Conn: &testGiznetConn{publicKey: giznet.PublicKey{1}}, agentInput: input}
-	if err := peer.abortAgentInputTurn(); err != nil {
+	if err := peer.abortAgentInputTurn(context.Background()); err != nil {
 		t.Fatalf("abortAgentInputTurn() error = %v", err)
 	}
 	assertAgentInputInterrupt(t, input)
@@ -1895,10 +1895,65 @@ func TestAbortAgentInputTurnInterruptsWithoutClosingSource(t *testing.T) {
 
 func TestAbortAgentInputTurnTreatsMissingInputAsNoop(t *testing.T) {
 	peer := &PeerConn{Conn: &testGiznetConn{publicKey: giznet.PublicKey{1}}, agentInput: noActiveAgentInput{}}
-	if err := peer.abortAgentInputTurn(); err != nil {
+	if err := peer.abortAgentInputTurn(context.Background()); err != nil {
 		t.Fatalf("abortAgentInputTurn() with no active input error = %v, want nil", err)
 	}
 }
+
+// TestAbortAgentInputTurnDoesNotBlockOnAFullInputQueue proves the denied-turn
+// abort cannot pin agentInputMu behind an input source that never accepts the
+// chunk: a cancelled caller context returns immediately, and an uncancelled
+// caller is still bounded by peerConnInputAbortTimeout.
+func TestAbortAgentInputTurnDoesNotBlockOnAFullInputQueue(t *testing.T) {
+	input := &fullQueuePeerAgentInput{released: make(chan struct{})}
+	defer close(input.released)
+	peer := &PeerConn{Conn: &testGiznetConn{publicKey: giznet.PublicKey{1}}, agentInput: input}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	done := make(chan error, 1)
+	go func() { done <- peer.abortAgentInputTurn(ctx) }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("abortAgentInputTurn(cancelled) error = %v, want %v", err, context.Canceled)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("abortAgentInputTurn() blocked on a full input queue despite a cancelled context")
+	}
+
+	// The lock must be free for a following caller.
+	locked := make(chan struct{})
+	go func() {
+		peer.agentInputMu.Lock()
+		peer.agentInputMu.Unlock()
+		close(locked)
+	}()
+	select {
+	case <-locked:
+	case <-time.After(time.Second):
+		t.Fatal("agentInputMu remained held after a cancelled abort")
+	}
+}
+
+// fullQueuePeerAgentInput models an input source that waits for queue capacity:
+// Push blocks until the caller's context ends or the queue is released.
+type fullQueuePeerAgentInput struct{ released chan struct{} }
+
+func (s *fullQueuePeerAgentInput) OpenAgentInput(context.Context) (genx.Stream, error) {
+	return nil, agenthost.ErrNoActiveInput
+}
+
+func (s *fullQueuePeerAgentInput) Push(ctx context.Context, _ *genx.MessageChunk) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.released:
+		return nil
+	}
+}
+
+func (s *fullQueuePeerAgentInput) Close() error { return nil }
 
 type noActiveAgentInput struct{}
 
