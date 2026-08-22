@@ -981,15 +981,19 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 			_ = rt.input.Close()
 		}
 	}()
-	err := s.Consumer.ConsumeAgentOutput(ctx, rt.output)
+	probe := newOutputProbe(rt.output)
+	err := s.Consumer.ConsumeAgentOutput(ctx, probe)
 	if err == nil && ctx.Err() == nil {
-		err = errUnexpectedOutputEnd
+		// A clean end of the agent output while the runtime is active means an
+		// upstream stage closed its stream without reporting an error. Name the
+		// last observed route so operators can tell which pipeline stage ended.
+		err = fmt.Errorf("%w (%s)", errUnexpectedOutputEnd, probe.summary())
 	}
 	if err != nil && ctx.Err() == nil && !errors.Is(err, errWorkspaceQuiesced) {
 		if !s.failRuntime(rt, err) {
 			return
 		}
-		s.logger().Error("agenthost: output consumer failed", "workspace", rt.workspace, "error", err)
+		s.logger().Error("agenthost: output consumer failed", append([]any{"workspace", rt.workspace, "error", err}, probe.logAttrs()...)...)
 		if s.OnConsumerError != nil {
 			s.OnConsumerError(context.WithoutCancel(ctx), rt.workspace, err)
 		}

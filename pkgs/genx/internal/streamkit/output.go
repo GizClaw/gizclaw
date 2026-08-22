@@ -44,6 +44,7 @@ type Output struct {
 	maxBytes    int64
 	closed      bool
 	closeErr    error
+	failErr     error
 	done        chan struct{}
 	closeOnce   sync.Once
 
@@ -85,7 +86,11 @@ func (o *Output) Next() (*genx.MessageChunk, error) {
 		return nil, err
 	}
 	if len(o.queue) == 0 {
+		err := o.failErr
 		o.mu.Unlock()
+		if err != nil {
+			return nil, err
+		}
 		return nil, io.EOF
 	}
 	entry := o.queue[0]
@@ -221,6 +226,25 @@ func (o *Output) Close() error {
 	o.mu.Lock()
 	if !o.closed && o.closeErr == nil {
 		o.closed = true
+		o.signalDoneLocked()
+		o.cond.Broadcast()
+	}
+	o.mu.Unlock()
+	return nil
+}
+
+// Fail marks production complete like Close while preserving already queued
+// chunks, then reports cause instead of io.EOF once the queue drains. Consumers
+// therefore receive every terminal chunk a producer emitted before failing and
+// still learn which stage failed and why. A nil cause behaves like Close.
+func (o *Output) Fail(cause error) error {
+	if o == nil {
+		return nil
+	}
+	o.mu.Lock()
+	if !o.closed && o.closeErr == nil {
+		o.closed = true
+		o.failErr = cause
 		o.signalDoneLocked()
 		o.cond.Broadcast()
 	}

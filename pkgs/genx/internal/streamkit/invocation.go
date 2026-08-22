@@ -196,7 +196,9 @@ func (i *Invocation) Interrupt(response *Response, errorText string) error {
 }
 
 // Fail emits terminal EOS/error for every active response and closes output
-// without discarding already-buffered chunks.
+// without discarding already-buffered chunks. After the buffered chunks drain,
+// the output reports cause instead of io.EOF so downstream stages and the
+// final consumer can name the failing stage rather than observing a clean end.
 func (i *Invocation) Fail(cause error) error {
 	if i == nil {
 		return nil
@@ -218,7 +220,7 @@ func (i *Invocation) Fail(cause error) error {
 		}
 	}
 	clear(i.responses)
-	return i.output.Close()
+	return i.output.Fail(cause)
 }
 
 // Cancel terminates the complete invocation. Active responses receive

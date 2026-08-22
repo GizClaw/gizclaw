@@ -142,7 +142,7 @@ func TestTTSStreamPassesThroughNonTextWithoutFlushing(t *testing.T) {
 	t.Fatalf("non-text chunk was not passed through: %#v", chunks)
 }
 
-func TestTTSStreamReturnsProviderFailureAsRouteEOS(t *testing.T) {
+func TestTTSStreamReturnsProviderFailureAsRouteEOSThenStreamError(t *testing.T) {
 	wantErr := errors.New("provider failed")
 	input := &testStream{chunks: []*genx.MessageChunk{
 		{Part: genx.Text("hello."), Ctrl: &genx.StreamCtrl{StreamID: "failed"}},
@@ -150,9 +150,15 @@ func TestTTSStreamReturnsProviderFailureAsRouteEOS(t *testing.T) {
 	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/mpeg", func(context.Context, string, TTSMeta, string, func([]byte) error) error {
 		return wantErr
 	})
-	chunks := collectTransformerChunks(t, output)
+	chunks, err := collectTransformerChunksUntilError(output)
 	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != wantErr.Error() {
 		t.Fatalf("failure output = %#v", chunks)
+	}
+	// The route EOS carries the error for the device; the stream itself then
+	// reports the same cause so composition layers do not mistake a provider
+	// failure for a clean end of output.
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("terminal stream error = %v, want %v", err, wantErr)
 	}
 }
 
@@ -177,6 +183,17 @@ func TestTTSStreamInterruptDiscardsUnpulledAudio(t *testing.T) {
 		if blob := chunk.Part.(*genx.Blob); len(blob.Data) != 0 {
 			t.Fatalf("interruption chunk %d retained discarded audio %q", index, blob.Data)
 		}
+	}
+}
+
+func collectTransformerChunksUntilError(stream genx.Stream) ([]*genx.MessageChunk, error) {
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := stream.Next()
+		if err != nil {
+			return chunks, err
+		}
+		chunks = append(chunks, chunk)
 	}
 }
 

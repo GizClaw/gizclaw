@@ -470,7 +470,10 @@ func selectSpeechSynthesisFormat(provider string, accepted []string) (format, co
 	case string(apitypes.VoiceProviderKindVolcTenant):
 		supported = map[string]string{"audio/ogg": "ogg_opus", "audio/mpeg": "mp3", "audio/pcm": "pcm"}
 	case string(apitypes.VoiceProviderKindMinimaxTenant):
-		supported = map[string]string{"audio/mpeg": "mp3", "audio/pcm": "pcm", "audio/flac": "flac", "audio/wav": "wav"}
+		// MiniMax has no Opus container; "ogg_opus" makes the MiniMax
+		// transformer request PCM and encode Ogg/Opus locally so callers such
+		// as Giztest peer_stream receive the same container as Volc voices.
+		supported = map[string]string{"audio/ogg": "ogg_opus", "audio/mpeg": "mp3", "audio/pcm": "pcm", "audio/flac": "flac", "audio/wav": "wav"}
 	default:
 		return "", "", false, fmt.Errorf("%w: speech synthesis provider %q", ErrUnsupported, provider)
 	}

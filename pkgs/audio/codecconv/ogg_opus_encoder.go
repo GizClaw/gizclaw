@@ -28,13 +28,22 @@ type PCMToOggOpusEncoder struct {
 	closed     bool
 }
 
-// NewPCMToOggOpusEncoder creates a streaming PCM16LE -> Ogg/Opus encoder.
+// NewPCMToOggOpusEncoder creates a streaming PCM16LE -> Ogg/Opus encoder using
+// the default logical bitstream serial.
 func NewPCMToOggOpusEncoder(w io.Writer, sampleRate, channels int, app opus.Application) (*PCMToOggOpusEncoder, error) {
+	return NewPCMToOggOpusEncoderWithSerial(w, sampleRate, channels, app, defaultOggOpusSerial)
+}
+
+// NewPCMToOggOpusEncoderWithSerial is NewPCMToOggOpusEncoder with an explicit
+// logical bitstream serial. Callers that concatenate several encoded streams
+// into one output (a chained Ogg stream) must give each stream a distinct
+// serial so the result is a valid Ogg physical bitstream.
+func NewPCMToOggOpusEncoderWithSerial(w io.Writer, sampleRate, channels int, app opus.Application, serial uint32) (*PCMToOggOpusEncoder, error) {
 	encoder, err := opus.NewEncoder(sampleRate, channels, app)
 	if err != nil {
 		return nil, err
 	}
-	stream, err := ogg.NewStreamWriter(w, defaultOggOpusSerial)
+	stream, err := ogg.NewStreamWriter(w, serial)
 	if err != nil {
 		_ = encoder.Close()
 		return nil, err

@@ -45,6 +45,9 @@ YAML `repeat` is the task count for that file. `--parallel` is the maximum
 worker count shared by all files. Directory discovery is recursive and stable.
 Every task owns isolated clients, variables, and cleanup. `save_as` assigns a
 declared in-memory output variable; file Save As is unsupported.
+A `speech` step that feeds `peer_stream` requests `audio/ogg`; both Volc and
+MiniMax voices deliver Ogg/Opus for it (MiniMax output is transcoded on the
+Server), so translation documents do not depend on the Workflow's provider.
 For repeated voice benchmarks, `speech.cache: run` may cache a successful saved
 synthesis fixture for that document and resolved request. Each task receives a
 separate byte copy; the cache is bounded by the declared output `max_bytes` and

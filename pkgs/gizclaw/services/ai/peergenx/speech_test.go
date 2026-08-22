@@ -730,16 +730,76 @@ func TestSelectSpeechSynthesisFormatHonorsOrderedPreference(t *testing.T) {
 
 	format, contentType, raw, err = selectSpeechSynthesisFormat(
 		string(apitypes.VoiceProviderKindMinimaxTenant),
-		[]string{"audio/ogg", "audio/pcm"},
+		[]string{"audio/pcm", "audio/ogg"},
 	)
 	if err != nil || format != "pcm" || contentType != "audio/pcm" || !raw {
 		t.Fatalf("selectSpeechSynthesisFormat(raw) = (%q, %q, %t, %v)", format, contentType, raw, err)
 	}
 
+	// MiniMax has no native Opus container; audio/ogg maps to the locally
+	// encoded ogg_opus format and is not raw PCM.
+	format, contentType, raw, err = selectSpeechSynthesisFormat(
+		string(apitypes.VoiceProviderKindMinimaxTenant),
+		[]string{"audio/ogg; codecs=opus", "audio/pcm"},
+	)
+	if err != nil || format != "ogg_opus" || contentType != "audio/ogg" || raw {
+		t.Fatalf("selectSpeechSynthesisFormat(minimax ogg) = (%q, %q, %t, %v)", format, contentType, raw, err)
+	}
+
 	if _, _, _, err := selectSpeechSynthesisFormat(
 		string(apitypes.VoiceProviderKindMinimaxTenant),
-		[]string{"audio/ogg"},
+		[]string{"audio/aac"},
 	); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("selectSpeechSynthesisFormat(unsupported) error = %v, want %v", err, ErrUnsupported)
 	}
+}
+
+func TestSynthesizeMiniMaxOggRequestsLocalOpusEncoding(t *testing.T) {
+	events := []string{}
+	sampleRate := 32000
+	builder := &capturingSpeechBuilder{fakeBuilder: fakeBuilder{events: &events}}
+	svc := New(Service{
+		Voices: aliasVoices{
+			fakeVoices: fakeVoices{
+				events:       &events,
+				providerKind: apitypes.VoiceProviderKindMinimaxTenant,
+				sampleRate:   &sampleRate,
+			},
+			aliases: map[string]string{"narrator": "canonical-voice"},
+		},
+		Credentials:     fakeCredentials{events: &events},
+		ProviderTenants: fakeTenants{events: &events},
+		Builder:         builder,
+	})
+
+	result, err := svc.Synthesize(context.Background(), "narrator", "hello", []string{"audio/ogg", "audio/mpeg"})
+	if err != nil {
+		t.Fatalf("Synthesize() error = %v", err)
+	}
+	_ = result.Stream.Close()
+	if result.ContentType != "audio/ogg" || result.SampleRateHz != nil || result.Channels != nil {
+		t.Fatalf("Synthesize() metadata = %+v, want audio/ogg without raw decoding metadata", result)
+	}
+	if builder.params["format"] != "ogg_opus" {
+		t.Fatalf("MiniMax transformer format = %v, want ogg_opus", builder.params["format"])
+	}
+
+	result, err = svc.Synthesize(context.Background(), "narrator", "hello", []string{"audio/mpeg"})
+	if err != nil {
+		t.Fatalf("Synthesize(mp3) error = %v", err)
+	}
+	_ = result.Stream.Close()
+	if result.ContentType != "audio/mpeg" || builder.params["format"] != "mp3" {
+		t.Fatalf("Synthesize(mp3) = %+v with format %v", result, builder.params["format"])
+	}
+}
+
+type capturingSpeechBuilder struct {
+	fakeBuilder
+	params map[string]any
+}
+
+func (b *capturingSpeechBuilder) BuildTransformer(ctx context.Context, cfg TransformerConfig) (genx.Transformer, error) {
+	b.params = cfg.Params
+	return b.fakeBuilder.BuildTransformer(ctx, cfg)
 }

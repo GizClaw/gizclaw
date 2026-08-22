@@ -96,11 +96,13 @@ func TestSeedV2ReturnsEmptyAudioFailureOnStreamRoute(t *testing.T) {
 	var chunks []*genx.MessageChunk
 	for {
 		chunk, nextErr := output.Next()
-		if errors.Is(nextErr, io.EOF) || errors.Is(nextErr, genx.ErrDone) {
-			break
-		}
 		if nextErr != nil {
-			t.Fatalf("output.Next() error = %v", nextErr)
+			// The route reports the failure on its EOS and the stream itself then
+			// surfaces the same cause instead of a clean end.
+			if !errors.Is(nextErr, errSeedV2EmptyAudio) {
+				t.Fatalf("output.Next() error = %v, want %v", nextErr, errSeedV2EmptyAudio)
+			}
+			break
 		}
 		chunks = append(chunks, chunk)
 	}

@@ -32,6 +32,12 @@ var errSeedV2EmptyAudio = errors.New("doubaotts: seed v2 completed without audio
 // EoS Handling:
 //   - When receiving a text/plain EoS marker, finish synthesis, emit audio chunks, then emit audio/* EoS
 //   - Non-text chunks are passed through unchanged
+//
+// Stream termination: a synthesize error (including a provider stream that ends
+// before delivering audio) is returned from the synthesizer, so the shared TTS
+// pipeline closes the route with that error EoS and then terminates the output
+// stream with the same cause rather than a clean end. The runtime therefore
+// distinguishes a provider fault from an unexpected output completion.
 type SeedV2 struct {
 	client      *doubaospeech.Client
 	speaker     string
