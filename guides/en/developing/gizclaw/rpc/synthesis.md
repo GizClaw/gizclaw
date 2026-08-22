@@ -9,9 +9,9 @@ The selected format is the first accepted MIME type that the Voice provider can 
 | Provider | `audio/ogg` (Ogg/Opus) | `audio/mpeg` | `audio/pcm` | `audio/flac` | `audio/wav` |
 | --- | --- | --- | --- | --- | --- |
 | Volc | native | native | native, `sample_rate_hz`/`channels` reported | - | - |
-| MiniMax | PCM transcoded on the Server | native | native, `sample_rate_hz`/`channels` reported | native | native |
+| MiniMax | 16 kHz mono, PCM transcoded on the Server (Volc parity) | native | native, `sample_rate_hz`/`channels` reported | native | native |
 
-MiniMax offers no Opus container, so for `audio/ogg` the Server requests PCM from MiniMax and encodes Ogg/Opus itself, keeping the configured voice sample rate when Opus supports it (8, 16, or 24 kHz) and otherwise encoding at 24 kHz mono. The response carries `content_type: audio/ogg` without raw decoding metadata, exactly like the Volc path, so a device or Giztest `peer_stream` document cannot tell the providers apart. Any other media type, or a list without a deliverable type, is `BAD_REQUEST`.
+MiniMax offers no Opus container, so for `audio/ogg` the Server requests 16 kHz mono PCM from MiniMax and encodes Ogg/Opus itself at the same 16 kHz mono the Volc `ogg_opus` path uses (each synthesized segment is a complete Ogg logical bitstream with a distinct serial, so concatenated segments form a valid chained stream). The response carries `content_type: audio/ogg` without raw decoding metadata, exactly like the Volc path, so a device or Giztest `peer_stream` document cannot tell the providers apart. Any other media type, or a list without a deliverable type, is `BAD_REQUEST`.
 
 The output remains backpressured from the TTS Transformer through the RPC writer to the Client reader. The Server does not buffer the full output, create a media track, call `server.run.say`, write history, or create a Workspace.
 

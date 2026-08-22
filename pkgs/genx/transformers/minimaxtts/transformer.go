@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -17,12 +18,17 @@ import (
 
 const (
 	// FormatOggOpus selects locally encoded Ogg/Opus output. MiniMax does not
-	// offer an Opus container, so the Transformer requests raw PCM at an
-	// Opus-compatible sample rate and encodes each synthesized segment itself.
+	// offer an Opus container, so the Transformer requests raw PCM from MiniMax
+	// and encodes Ogg/Opus itself.
 	FormatOggOpus = "ogg_opus"
 
-	defaultOggOpusSampleRate = 24000
-	providerFormatPCM        = "pcm"
+	// oggOpusSampleRate is the canonical Ogg/Opus output rate. It matches the
+	// gizclaw Volc ogg_opus path (16 kHz mono), so a caller cannot tell the two
+	// providers apart from the synthesized audio. It is also a native Opus rate,
+	// so no resampling is required.
+	oggOpusSampleRate = 16000
+	oggOpusChannels   = 1
+	providerFormatPCM = "pcm"
 )
 
 // Transformer is a TTS transformer using MiniMax text-to-speech API.
@@ -33,10 +39,11 @@ const (
 // Output type: audio/* (audio/mpeg by default)
 //
 // Format "ogg_opus" (alias "ogg") is not a MiniMax provider format: the
-// Transformer requests PCM from MiniMax and encodes Ogg/Opus locally so the
-// output matches what Volc voices return for audio/ogg. PCM is requested at the
-// configured sample rate when Opus supports it (8, 16, or 24 kHz); other
-// MiniMax rates fall back to 24 kHz mono.
+// Transformer requests 16 kHz mono PCM from MiniMax and encodes Ogg/Opus
+// locally so the output is byte-for-byte indistinguishable in container, codec,
+// sample rate, and channel layout from what Volc voices return for audio/ogg.
+// Each synthesized segment is a complete Ogg logical bitstream with a distinct
+// serial, so concatenating segments yields a valid chained Ogg stream.
 //
 // EoS Handling:
 //   - When receiving a text/plain EoS marker, finish synthesis, emit audio chunks, then emit audio/* EoS
@@ -52,6 +59,10 @@ type Transformer struct {
 	format     string
 	sampleRate int
 	bitrate    int
+
+	// oggSerial hands each encoded Ogg segment a distinct logical bitstream
+	// serial so concatenated segments form a valid chained Ogg stream.
+	oggSerial atomic.Uint32
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -127,9 +138,9 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	var encoder *oggOpusSegmentEncoder
 	if t.format == FormatOggOpus {
 		providerFormat = providerFormatPCM
-		sampleRate = t.oggOpusSampleRate()
+		sampleRate = oggOpusSampleRate
 		var err error
-		encoder, err = newOggOpusSegmentEncoder(sampleRate, emit)
+		encoder, err = newOggOpusSegmentEncoder(emit, t.nextOggSerial())
 		if err != nil {
 			return err
 		}
@@ -186,17 +197,10 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	return nil
 }
 
-// oggOpusSampleRate picks the PCM sample rate requested from MiniMax when the
-// output is Ogg/Opus. Opus only encodes 8/12/16/24/48 kHz and MiniMax only
-// offers 8/16/22.05/24/32/44.1 kHz, so the intersection is honored and every
-// other configured rate falls back to 24 kHz.
-func (t *Transformer) oggOpusSampleRate() int {
-	switch t.sampleRate {
-	case 8000, 16000, 24000:
-		return t.sampleRate
-	default:
-		return defaultOggOpusSampleRate
-	}
+// nextOggSerial returns a distinct Ogg logical bitstream serial for the next
+// synthesized segment so concatenated segments form a valid chained stream.
+func (t *Transformer) nextOggSerial() uint32 {
+	return t.oggSerial.Add(1)
 }
 
 // oggOpusSegmentEncoder turns one synthesized PCM16LE mono segment into a
@@ -209,9 +213,9 @@ type oggOpusSegmentEncoder struct {
 	done    bool
 }
 
-func newOggOpusSegmentEncoder(sampleRate int, emit func([]byte) error) (*oggOpusSegmentEncoder, error) {
+func newOggOpusSegmentEncoder(emit func([]byte) error, serial uint32) (*oggOpusSegmentEncoder, error) {
 	segment := &oggOpusSegmentEncoder{emit: emit}
-	encoder, err := codecconv.NewPCMToOggOpusEncoder(&segment.buffer, sampleRate, 1, opus.ApplicationVoIP)
+	encoder, err := codecconv.NewPCMToOggOpusEncoderWithSerial(&segment.buffer, oggOpusSampleRate, oggOpusChannels, opus.ApplicationVoIP, serial)
 	if err != nil {
 		return nil, fmt.Errorf("minimaxtts: create ogg opus encoder: %w", err)
 	}
