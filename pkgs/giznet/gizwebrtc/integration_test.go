@@ -229,12 +229,18 @@ func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	start := make(chan struct{})
 	errorsCh := make(chan error, streamCount*2)
 	var workers sync.WaitGroup
+	streamDeadline, hasStreamDeadline := t.Deadline()
+	if hasStreamDeadline {
+		streamDeadline = streamDeadline.Add(-time.Second)
+	}
 	for index := range streamCount {
-		if err := clientStreams[index].SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
-			t.Fatalf("SetDeadline(client %d) error = %v", index, err)
-		}
-		if err := serverStreams[index].SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
-			t.Fatalf("SetDeadline(server %d) error = %v", index, err)
+		if hasStreamDeadline {
+			if err := clientStreams[index].SetDeadline(streamDeadline); err != nil {
+				t.Fatalf("SetDeadline(client %d) error = %v", index, err)
+			}
+			if err := serverStreams[index].SetDeadline(streamDeadline); err != nil {
+				t.Fatalf("SetDeadline(server %d) error = %v", index, err)
+			}
 		}
 		workers.Go(func() {
 			<-start
