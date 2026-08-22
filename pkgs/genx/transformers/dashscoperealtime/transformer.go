@@ -2,6 +2,7 @@ package dashscoperealtime
 
 import (
 	"fmt"
+	"strings"
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -37,13 +38,14 @@ func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
 		return nil, fmt.Errorf("dashscope realtime: client is required")
 	}
+	config.Model = strings.TrimSpace(config.Model)
+	if config.Model == "" {
+		return nil, fmt.Errorf("dashscope realtime: model is required")
+	}
 	if config.MaxToolCalls < 0 {
 		return nil, fmt.Errorf("dashscope realtime: MaxToolCalls cannot be negative")
 	}
 	if config.ToolInvoker != nil {
-		if config.Model == "" {
-			config.Model = dashscope.ModelQwen35OmniFlashRealtime
-		}
 		if !dashScopeModelSupportsFunctionCalling(config.Model) {
 			return nil, fmt.Errorf(
 				"dashscope realtime: model %q does not support function calling",
@@ -63,9 +65,7 @@ func New(config Config) (*Transformer, error) {
 		config.TurnDetection = &turnDetection
 	}
 	opts := make([]option, 0, 14)
-	if config.Model != "" {
-		opts = append(opts, withModel(config.Model))
-	}
+	opts = append(opts, withModel(config.Model))
 	if config.Voice != "" {
 		opts = append(opts, withVoice(config.Voice))
 	}

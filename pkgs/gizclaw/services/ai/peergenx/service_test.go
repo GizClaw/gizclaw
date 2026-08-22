@@ -1028,7 +1028,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 					Id: "minimax-voice",
 					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
 						VoiceId: new("voice-id"),
-						Model:   new("speech-02-hd"),
+						Model:   new("speech-2.6-hd"),
 					}),
 				},
 				Tenant: Tenant{
@@ -1039,7 +1039,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 			},
 			wantFormat:     defaultMiniMaxTTSAudioFormat,
 			wantSampleRate: defaultTTSAudioSampleRate,
-			wantModel:      "speech-02-hd",
+			wantModel:      "speech-2.6-hd",
 			wantBaseURL:    baseURL,
 		},
 		{
@@ -1049,6 +1049,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 					Id: "minimax-voice",
 					ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
 						VoiceId: new("voice-id"),
+						Model:   new("speech-2.6-turbo"),
 					}),
 				},
 				Tenant: Tenant{
@@ -1059,6 +1060,7 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 			},
 			wantFormat:     defaultMiniMaxTTSAudioFormat,
 			wantSampleRate: defaultTTSAudioSampleRate,
+			wantModel:      "speech-2.6-turbo",
 			wantBaseURL:    defaultMiniMaxBaseURL,
 		},
 	} {
@@ -1092,6 +1094,29 @@ func TestDefaultBuilderBuildsVoiceTransformers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDefaultBuilderRejectsMiniMaxVoiceWithoutModel(t *testing.T) {
+	for _, model := range []*string{nil, new(" \t\n ")} {
+		cfg := TransformerConfig{
+			Voice: &apitypes.Voice{
+				Id: "minimax-voice-without-model",
+				ProviderData: mustMiniMaxVoiceProviderData(t, apitypes.MiniMaxTenantVoiceProviderData{
+					VoiceId: new("voice-id"),
+					Model:   model,
+				}),
+			},
+			Tenant: Tenant{
+				Kind:    string(apitypes.VoiceProviderKindMinimaxTenant),
+				MiniMax: &apitypes.MiniMaxTenant{Id: "main"},
+			},
+			Credential: apitypes.Credential{Id: "minimax-key", Body: testMiniMaxCredentialBody("sk-test")},
+		}
+		_, err := (DefaultBuilder{}).BuildTransformer(context.Background(), cfg)
+		if !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), cfg.Voice.Id) || !strings.Contains(err.Error(), "provider_data.model") {
+			t.Fatalf("BuildTransformer(Model: %v) error = %v, want contextual ErrInvalid", model, err)
+		}
 	}
 }
 
@@ -1837,7 +1862,8 @@ func (f fakeVoices) GetVoice(_ context.Context, request adminhttp.GetVoiceReques
 	var err error
 	switch providerKind {
 	case apitypes.VoiceProviderKindMinimaxTenant:
-		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID, SampleRate: f.sampleRate})
+		model := "speech-2.6-turbo"
+		err = providerData.FromMiniMaxTenantVoiceProviderData(apitypes.MiniMaxTenantVoiceProviderData{VoiceId: &voiceID, Model: &model, SampleRate: f.sampleRate})
 	default:
 		err = providerData.FromVolcTenantVoiceProviderData(apitypes.VolcTenantVoiceProviderData{VoiceId: &voiceID})
 	}

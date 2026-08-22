@@ -2,7 +2,7 @@
 
 DashScope Adapter 通过 `dashscoperealtime.Transformer` 将 DashScope realtime multimodal session 适配为 `genx.Transformer`。
 
-公共构造入口为 `dashscoperealtime.New(dashscoperealtime.Config{Client: client})`。Config 保存已解析的 DashScope client、model、voice、modalities、VAD 和 audio format 等不可变选项；constructor 不建立 WebSocket，每个并发 `Transform` 调用建立自己的 session。
+公共 constructor 要求同时传入 client 和显式 model。Config 保存已解析的 DashScope client、model、voice、modalities、VAD 和 audio format 等不可变选项；constructor 不建立 WebSocket，每个并发 `Transform` 调用建立自己的 session。
 
 ```go
 transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
@@ -13,7 +13,7 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 })
 ```
 
-启用 function tools 时应选择 DashScope Qwen 3.5 Omni Realtime model；旧版 Qwen Omni Turbo Realtime 和 Qwen 3 Omni Flash Realtime model 不支持 provider Function Calling。配置 `ToolInvoker` 且 `Model` 为空时，constructor 自动选择 `ModelQwen35OmniFlashRealtime`；显式配置不支持的 model 会被拒绝。
+`Model` 是必填项，Adapter 不会推断默认值。启用 function tools 时应选择 DashScope Qwen 3.5 Omni Realtime model；旧版 Qwen Omni Turbo Realtime 和 Qwen 3 Omni Flash Realtime model 不支持 provider Function Calling，并会在配置 `ToolInvoker` 时被拒绝。
 
 默认输出音色随所选 model family 变化：Qwen 3.5 Omni Realtime 使用 `Tina`，旧版 Qwen Omni Turbo Realtime 仍使用 `Chelsie`。显式配置的 `Voice` 保持不变。
 

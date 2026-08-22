@@ -494,7 +494,8 @@ func withMaxToolCalls(maximum int) option {
 	}
 }
 
-// newTransformer creates a Transformer.
+// newTransformer creates a Transformer. Production callers supply the model
+// through withModel after validating it in New.
 //
 // Parameters:
 //   - client: DashScope client
@@ -503,7 +504,6 @@ func newTransformer(client *dashscope.Client, opts ...option) *Transformer {
 	t := &Transformer{
 		client:                        client,
 		realtime:                      dashScopeRealtimeClient{client: client},
-		model:                         dashscope.ModelQwenOmniTurboRealtimeLatest,
 		voice:                         dashscope.VoiceChelsie,
 		modalities:                    []string{dashscope.ModalityAudio, dashscope.ModalityText},
 		vadType:                       "",   // Empty means manual mode (no auto VAD)

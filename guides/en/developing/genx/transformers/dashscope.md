@@ -2,7 +2,7 @@
 
 DashScope Adapter adapts a DashScope realtime multimodal session to `genx.Transformer` through `dashscoperealtime.Transformer`.
 
-The public constructor is `dashscoperealtime.New(dashscoperealtime.Config{Client: client})`. It stores immutable provider options without opening a WebSocket; each concurrent `Transform` call creates its own session.
+The public constructor requires both the client and an explicit model. It stores immutable provider options without opening a WebSocket; each concurrent `Transform` call creates its own session.
 
 ```go
 transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
@@ -13,7 +13,7 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 })
 ```
 
-Select a DashScope Qwen 3.5 Omni Realtime model when enabling function tools; legacy Qwen Omni Turbo Realtime and Qwen 3 Omni Flash Realtime models do not support provider Function Calling. When `ToolInvoker` is configured and `Model` is empty, the constructor selects `ModelQwen35OmniFlashRealtime`; it rejects an explicitly configured unsupported model.
+`Model` is required and is never inferred by the adapter. Select a DashScope Qwen 3.5 Omni Realtime model when enabling function tools; legacy Qwen Omni Turbo Realtime and Qwen 3 Omni Flash Realtime models do not support provider Function Calling and are rejected when `ToolInvoker` is configured.
 
 The default output voice follows the selected model family. Qwen 3.5 Omni Realtime uses `Tina`; the legacy Qwen Omni Turbo Realtime default remains `Chelsie`. An explicitly configured `Voice` is preserved.
 
