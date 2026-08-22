@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 func TestRunTaskRunsFinalizersAfterClientSetupFailure(t *testing.T) {
@@ -28,6 +30,30 @@ func TestRunTaskRunsFinalizersAfterClientSetupFailure(t *testing.T) {
 	}
 	if output.String() != "evidence=cleanup-ran\n" {
 		t.Fatalf("cleanup output = %q", output.String())
+	}
+}
+
+func TestRunStepKeepsOperationEvidenceOnFailure(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantText("s1", "hello", false)
+	}()
+	vars, err := newVariables(map[string]VariableSpec{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello", IdleTimeout: "40ms"}}
+	opts := runOptions{out: io.Discard, openPeerStream: func(*gizcli.Client) peerStreamOpener {
+		return func() (peerStream, error) { return stream, nil }
+	}}
+	report, err := runStep(context.Background(), "idle.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err == nil || report.Status != "failed" || !strings.Contains(report.Error, "peer_stream idle timeout exceeded") {
+		t.Fatalf("report = %#v err = %v", report, err)
+	}
+	if report.Evidence["deadline"] != "idle_timeout" || report.Evidence["events"] != 1 {
+		t.Fatalf("failed step evidence = %#v", report.Evidence)
 	}
 }
 

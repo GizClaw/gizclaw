@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 type runOptions struct {
@@ -24,6 +25,9 @@ type runOptions struct {
 	in          io.Reader
 	out         io.Writer
 	speechCache *speechFixtureCache
+	// openPeerStream overrides how peer_stream steps dial the PeerStream;
+	// nil uses the selected client's real PeerStream.
+	openPeerStream func(client *gizcli.Client) peerStreamOpener
 }
 type task struct {
 	doc     *Document
@@ -317,7 +321,11 @@ func runStep(ctx context.Context, documentPath string, step Step, clients *clien
 			err = captureErr
 			break
 		}
-		streamResult, invokeErr := invokePeerStream(stepCtx, client, step, input, audioCaptureMaxBytes)
+		open := openClientPeerStream(client)
+		if opts.openPeerStream != nil {
+			open = opts.openPeerStream(client)
+		}
+		streamResult, invokeErr := invokePeerStream(stepCtx, client, open, step, input, audioCaptureMaxBytes)
 		err = invokeErr
 		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
 	case "workspace_relay":
@@ -418,6 +426,9 @@ func runStep(ctx context.Context, documentPath string, step Step, clients *clien
 		report.Evidence = evidence
 	} else {
 		report.Error = safeError(err, redactions...)
+		if len(evidence) != 0 {
+			report.Evidence = evidence
+		}
 	}
 	report.DurationMS = time.Since(started).Milliseconds()
 	return report, err
