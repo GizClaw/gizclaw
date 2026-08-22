@@ -525,51 +525,61 @@ func TestMixerOutputInterruptsOneRouteWhileAnotherDrains(t *testing.T) {
 			Tracks:            creator,
 			WaitForAudioDrain: true,
 			Observe: func(chunk *genx.MessageChunk) error {
-				if chunk.IsEndOfStream() {
-					observedEOS <- chunk
+				if !chunk.IsEndOfStream() {
+					return nil
 				}
+				var ctrl *pcm.TrackCtrl
+				switch chunk {
+				case interrupted:
+					ctrl = creator.ctrls[0]
+				case drained:
+					ctrl = creator.ctrls[1]
+				default:
+					return fmt.Errorf("unexpected EOS: %#v", chunk)
+				}
+				select {
+				case <-ctrl.Done():
+				default:
+					return fmt.Errorf("EOS observed before track drained: %#v", chunk)
+				}
+				observedEOS <- chunk
 				return nil
 			},
 		}).ConsumeAgentOutput(t.Context(), output)
 	}()
-	select {
-	case got := <-observedEOS:
-		t.Fatalf("EOS observed before interrupted route drained: %#v", got)
-	case <-time.After(20 * time.Millisecond):
+	for index := range 2 {
+		select {
+		case <-creator.created:
+		case <-time.After(time.Second):
+			t.Fatalf("audio track %d was not created", index)
+		}
 	}
-
+	if len(creator.ctrls) != 2 {
+		t.Fatalf("created controls = %d, want 2", len(creator.ctrls))
+	}
 	buffer := make([]byte, creator.mixer.Output().BytesInDuration(60*time.Millisecond))
-	firstReadDone := make(chan struct{})
+	readDone := make(chan struct{})
 	go func() {
-		defer close(firstReadDone)
-		_, _ = creator.mixer.Read(buffer)
-	}()
-	select {
-	case got := <-observedEOS:
-		if got != interrupted {
-			t.Fatalf("first observed EOS = %#v, want route-a interruption", got)
+		defer close(readDone)
+		for {
+			if _, err := creator.mixer.Read(buffer); err != nil {
+				return
+			}
 		}
-	case <-time.After(time.Second):
-		t.Fatal("route-a interruption was not observed after its track drained")
-	}
-	<-firstReadDone
-	select {
-	case got := <-observedEOS:
-		t.Fatalf("route-b EOS observed before its drain: %#v", got)
-	case <-time.After(20 * time.Millisecond):
-	}
-	secondReadDone := make(chan struct{})
-	go func() {
-		defer close(secondReadDone)
-		_, _ = creator.mixer.Read(buffer)
 	}()
-	select {
-	case got := <-observedEOS:
-		if got != drained {
-			t.Fatalf("final observed EOS = %#v, want route-b drain", got)
+	t.Cleanup(func() {
+		_ = creator.mixer.Close()
+		<-readDone
+	})
+	for index, want := range []*genx.MessageChunk{interrupted, drained} {
+		select {
+		case got := <-observedEOS:
+			if got != want {
+				t.Fatalf("observed EOS %d = %#v, want %#v", index, got, want)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("EOS %d was not observed after mixer drain", index)
 		}
-	case <-time.After(time.Second):
-		t.Fatal("route-b EOS was not observed after drain")
 	}
 	select {
 	case err := <-done:
@@ -582,7 +592,7 @@ func TestMixerOutputInterruptsOneRouteWhileAnotherDrains(t *testing.T) {
 	if err := creator.mixer.Close(); err != nil {
 		t.Fatalf("mixer.Close() error = %v", err)
 	}
-	<-secondReadDone
+	<-readDone
 }
 
 func TestMixerOutputClosesBlockedReaderAfterObserveError(t *testing.T) {
@@ -759,13 +769,14 @@ func pcmOutputChunk(streamID, mimeType string, data []byte, eos bool, errorText 
 type recordingAudioTrackCreator struct {
 	mixer   *pcm.Mixer
 	tracks  []pcm.Track
+	ctrls   []*pcm.TrackCtrl
 	created chan pcm.Track
 }
 
 func newRecordingAudioTrackCreator() *recordingAudioTrackCreator {
 	return &recordingAudioTrackCreator{
 		mixer:   pcm.NewMixer(pcm.L16Mono16K),
-		created: make(chan pcm.Track, 1),
+		created: make(chan pcm.Track, 2),
 	}
 }
 
@@ -773,6 +784,7 @@ func (c *recordingAudioTrackCreator) CreateAudioTrack(opts ...pcm.TrackOption) (
 	track, ctrl, err := c.mixer.CreateTrack(opts...)
 	if err == nil {
 		c.tracks = append(c.tracks, track)
+		c.ctrls = append(c.ctrls, ctrl)
 		select {
 		case c.created <- track:
 		default:
