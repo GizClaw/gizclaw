@@ -61,6 +61,7 @@ func TestMIMEAndDefaultHelperBranches(t *testing.T) {
 		{format: "pcm", want: "audio/pcm"},
 		{format: "flac", want: "audio/flac"},
 		{format: "wav", want: "audio/wav"},
+		{format: FormatOggOpus, want: "audio/ogg"},
 		{format: "unknown", want: "audio/mpeg"},
 	}
 	for _, test := range tests {
@@ -192,6 +193,13 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 
 func newMiniMaxTTSTestServer(t *testing.T, requests chan<- map[string]any) *httptest.Server {
 	t.Helper()
+	return newMiniMaxTTSTestServerWithAudio(t, requests, []string{"01", "02"})
+}
+
+// newMiniMaxTTSTestServerWithAudio serves one WebSocket synthesis whose
+// task_result events carry the given hex audio payloads in order.
+func newMiniMaxTTSTestServerWithAudio(t *testing.T, requests chan<- map[string]any, audioHex []string) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		conn, err := websocket.Accept(w, request, nil)
 		if err != nil {
@@ -232,7 +240,7 @@ func newMiniMaxTTSTestServer(t *testing.T, requests chan<- map[string]any) *http
 			t.Errorf("read finish message: %v", err)
 			return
 		}
-		for _, audio := range []string{"01", "02"} {
+		for _, audio := range audioHex {
 			if err := writeMiniMaxWebSocketJSON(conn, map[string]any{
 				"event":     "task_result",
 				"data":      map[string]any{"audio": audio},

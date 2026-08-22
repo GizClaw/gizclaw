@@ -42,6 +42,8 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 YAML 的 `repeat` 是每个文件的任务数，`--parallel` 是所有文件共享的最大 worker 数。
 目录输入递归发现文件并稳定排序。每个任务有独立的临时 clients、variables 和 cleanup；
 `save_as` 只写入顶部声明的内存 output 变量，不支持 Save As 文件。
+给 `peer_stream` 喂音频的 `speech` 步骤请求 `audio/ogg`；Volc 和 MiniMax voice 都会返回
+Ogg/Opus（MiniMax 输出由 Server 转码），翻译类文档不依赖 Workflow 的 provider。
 重复语音 Benchmark 可在合成步骤声明 `speech.cache: run`，按文档和展开后的请求缓存成功的
 输入 fixture；每个 task 得到独立字节副本，缓存受 output `max_bytes` 限制，并在命令退出时释放。
 

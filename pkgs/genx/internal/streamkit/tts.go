@@ -103,15 +103,20 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 	}
 
 	closeState := func(key string, state *ttsStreamState, errorText string) error {
+		var cause error
 		if errorText == "" {
 			if err := flushState(state, true); err != nil {
 				errorText = err.Error()
+				cause = err
 			}
 		}
 		if err := invocation.FinishResponse(state.response, errorText); err != nil {
 			return err
 		}
 		delete(states, key)
+		if cause != nil {
+			return cause
+		}
 		if errorText != "" {
 			return errors.New(errorText)
 		}

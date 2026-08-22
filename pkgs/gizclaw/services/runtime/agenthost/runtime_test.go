@@ -1560,6 +1560,70 @@ func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	}
 }
 
+func TestServiceNamesLastRouteWhenOutputEndsWhileActive(t *testing.T) {
+	ctx := context.Background()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	input := NewInputStream(1)
+	// The output ends cleanly (io.EOF) after a mid-turn assistant audio route,
+	// exactly the shape of the reported failure where a stage closed the stream
+	// without an error while the runtime was still active.
+	output := &sliceStream{chunks: []*genx.MessageChunk{
+		{Role: genx.RoleModel, Name: "narrator", Part: &genx.Blob{MIMEType: "audio/ogg"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", Label: "assistant", BeginOfStream: true}},
+		{Role: genx.RoleModel, Name: "narrator", Part: &genx.Blob{MIMEType: "audio/ogg", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-2", Label: "assistant"}},
+	}}
+	hookCh := make(chan error, 1)
+	svc := &Service{
+		Host:      &fakeHost{output: output},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return input, nil
+		}),
+		Consumer: StreamConsumerFunc(func(_ context.Context, stream genx.Stream) error {
+			for {
+				_, err := stream.Next()
+				if err != nil {
+					if IsStreamDone(err) {
+						return nil
+					}
+					return err
+				}
+			}
+		}),
+		OnConsumerError: func(_ context.Context, _ string, err error) {
+			hookCh <- err
+		},
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	select {
+	case err := <-hookCh:
+		if !errors.Is(err, errUnexpectedOutputEnd) {
+			t.Fatalf("OnConsumerError() error = %v, want %v", err, errUnexpectedOutputEnd)
+		}
+		message := err.Error()
+		for _, want := range []string{`last_stream_id="turn-2"`, `last_label="assistant"`, `last_mime="audio/ogg"`, "chunks=2"} {
+			if !strings.Contains(message, want) {
+				t.Fatalf("diagnostic %q missing %q", message, want)
+			}
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for consumer error hook")
+	}
+	status, err := svc.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	if status.State != apitypes.PeerRunStatusStateError || status.Message == nil || !strings.Contains(*status.Message, `last_stream_id="turn-2"`) {
+		t.Fatalf("Status() after active output completion = %+v, want route-named error", status)
+	}
+}
+
 func TestServiceKeepsRuntimeAvailableForRepeatedHistoryReplayAfterRouteEOS(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)

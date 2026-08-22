@@ -4,6 +4,15 @@
 
 Request 包含 RuntimeProfile scoped `voice_name`、最多 4096 UTF-8 bytes 的文字，以及一到八个可接受 MIME type。Server 在内部把 name 解析为真实 Voice、Model、tenant 与 credential。发送 binary audio 前，Server 先返回 `SpeechSynthesizeResponse`，声明选中的 `content_type` 和可选 sample rate/channels。Binary frame 只是 transport chunk，不代表 codec packet 边界；response EOS 结束流。
 
+选中的格式是可接受 MIME type 列表里第一个 Voice provider 能交付的类型：
+
+| Provider | `audio/ogg`（Ogg/Opus） | `audio/mpeg` | `audio/pcm` | `audio/flac` | `audio/wav` |
+| --- | --- | --- | --- | --- | --- |
+| Volc | 原生 | 原生 | 原生，返回 `sample_rate_hz`/`channels` | - | - |
+| MiniMax | Server 从 PCM 转码 | 原生 | 原生，返回 `sample_rate_hz`/`channels` | 原生 | 原生 |
+
+MiniMax 没有 Opus 容器，所以 `audio/ogg` 时 Server 向 MiniMax 请求 PCM 并自行编码 Ogg/Opus：Opus 支持配置的 voice 采样率（8、16 或 24 kHz）时沿用，否则按 24 kHz 单声道编码。Response 声明 `content_type: audio/ogg` 且不带 raw decoding metadata，与 Volc 路径完全一致，设备或 Giztest `peer_stream` 文档无法区分 provider。其他媒体类型或列表中没有可交付类型时返回 `BAD_REQUEST`。
+
 Backpressure 从 TTS Transformer 一直保持到 RPC writer 和 Client reader。Server 不缓存完整输出、不创建 media track、不调用 `server.run.say`、不写 history，也不创建 Workspace。
 
 运行限制属于 Server config：

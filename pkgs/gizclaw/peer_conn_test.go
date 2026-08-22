@@ -356,9 +356,13 @@ func TestPeerConnReauthorizesAudioPacketsAfterChatroomAccessIsRevoked(t *testing
 	if authorized {
 		t.Fatal("Opus packet after revocation was admitted")
 	}
-	if got := input.closeCount(); got != 1 {
-		t.Fatalf("Agent input close calls = %d, want 1", got)
+	// Revocation aborts the in-flight turn by pushing a control-only interrupt
+	// BOS into the live input source, not by closing the source (which would
+	// end the whole Agent pipeline and surface a spurious output-end failure).
+	if got := input.closeCount(); got != 0 {
+		t.Fatalf("Agent input close calls = %d, want 0", got)
 	}
+	assertAgentInputInterrupt(t, input)
 	waitForPeerStreamBytes(t, &output)
 	denial := readLockedPeerStreamEvent(t, &output)
 	if got := denial.GetEos().GetError().GetCode(); got != chatroom.AccessCodeFriendRemoved {
@@ -1877,6 +1881,37 @@ type peerConnTestHost struct {
 	output genx.Stream
 }
 
+func TestAbortAgentInputTurnInterruptsWithoutClosingSource(t *testing.T) {
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{Conn: &testGiznetConn{publicKey: giznet.PublicKey{1}}, agentInput: input}
+	if err := peer.abortAgentInputTurn(); err != nil {
+		t.Fatalf("abortAgentInputTurn() error = %v", err)
+	}
+	assertAgentInputInterrupt(t, input)
+	if got := input.closeCount(); got != 0 {
+		t.Fatalf("input close calls = %d, want 0", got)
+	}
+}
+
+func TestAbortAgentInputTurnTreatsMissingInputAsNoop(t *testing.T) {
+	peer := &PeerConn{Conn: &testGiznetConn{publicKey: giznet.PublicKey{1}}, agentInput: noActiveAgentInput{}}
+	if err := peer.abortAgentInputTurn(); err != nil {
+		t.Fatalf("abortAgentInputTurn() with no active input error = %v, want nil", err)
+	}
+}
+
+type noActiveAgentInput struct{}
+
+func (noActiveAgentInput) OpenAgentInput(context.Context) (genx.Stream, error) {
+	return nil, agenthost.ErrNoActiveInput
+}
+
+func (noActiveAgentInput) Push(context.Context, *genx.MessageChunk) error {
+	return agenthost.ErrNoActiveInput
+}
+
+func (noActiveAgentInput) Close() error { return nil }
+
 type countingPeerAgentInput struct {
 	mu         sync.Mutex
 	pushed     chan *genx.MessageChunk
@@ -1897,6 +1932,21 @@ func (s *countingPeerAgentInput) Close() error {
 	defer s.mu.Unlock()
 	s.closeCalls++
 	return nil
+}
+
+func assertAgentInputInterrupt(t *testing.T, input *countingPeerAgentInput) {
+	t.Helper()
+	select {
+	case chunk := <-input.pushed:
+		if chunk == nil || chunk.Ctrl == nil || !chunk.IsBeginOfStream() || chunk.Part != nil {
+			t.Fatalf("abort pushed %#v, want control-only interrupt BOS", chunk)
+		}
+		if strings.TrimSpace(chunk.Ctrl.StreamID) == "" {
+			t.Fatal("interrupt BOS is missing a fresh StreamID")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for the interrupt chunk")
+	}
 }
 
 func (s *countingPeerAgentInput) closeCount() int {

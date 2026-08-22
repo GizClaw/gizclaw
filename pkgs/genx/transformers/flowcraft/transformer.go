@@ -116,6 +116,12 @@ func (owner *taskOwner) Close() error {
 
 // Transform consumes a long-lived GenX stream. Each completed text BOS/EOS
 // route runs one graph turn and produces a fresh output StreamID.
+//
+// A finished turn emits its end-of-turn chunks but does not end the output
+// stream: run() closes the invocation only when the input stream ends or an
+// input turn reports an error. Concurrent turns therefore never let one turn's
+// completion close the stream out from under a later turn, which the runtime
+// would otherwise observe as an unexpected output end.
 func (t *Agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t == nil || t.engine == nil {
 		return nil, fmt.Errorf("flowcraft: Transformer is nil")

@@ -175,6 +175,60 @@ func TestInvocationCancellationDoesNotCrossInvocationBoundary(t *testing.T) {
 	}
 }
 
+func TestInvocationFailureDrainsTerminalsThenReportsCause(t *testing.T) {
+	want := errors.New("audiodock: read ASR output: provider closed")
+	invocation := NewInvocation(context.Background(), OutputConfig{})
+	response, err := invocation.StartResponse(ResponseConfig{Role: genx.RoleModel, Label: "assistant"}, "text/plain")
+	if err != nil {
+		t.Fatalf("StartResponse() error = %v", err)
+	}
+	if err := invocation.Emit(response, &genx.MessageChunk{Part: genx.Text("partial")}); err != nil {
+		t.Fatalf("Emit() error = %v", err)
+	}
+	if err := invocation.Fail(want); err != nil {
+		t.Fatalf("Fail() error = %v", err)
+	}
+	output := invocation.Output()
+	data, err := output.Next()
+	if err != nil || data.Part != genx.Text("partial") {
+		t.Fatalf("buffered chunk = (%#v, %v), want preserved data", data, err)
+	}
+	terminal, err := output.Next()
+	if err != nil || terminal.Ctrl == nil || !terminal.Ctrl.EndOfStream || terminal.Ctrl.Error != want.Error() {
+		t.Fatalf("terminal chunk = (%#v, %v), want error EOS", terminal, err)
+	}
+	if _, err := output.Next(); !errors.Is(err, want) {
+		t.Fatalf("drained Next() error = %v, want %v", err, want)
+	}
+	if _, err := output.Next(); !errors.Is(err, want) {
+		t.Fatalf("repeated Next() error = %v, want sticky %v", err, want)
+	}
+	if err := output.Push(&genx.MessageChunk{Part: genx.Text("late")}); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("Push() after Fail error = %v, want %v", err, io.ErrClosedPipe)
+	}
+	select {
+	case <-output.Done():
+	default:
+		t.Fatal("Done() is not closed after Fail")
+	}
+	if err := invocation.Fail(errors.New("second")); err != nil {
+		t.Fatalf("second Fail() error = %v", err)
+	}
+	if _, err := output.Next(); !errors.Is(err, want) {
+		t.Fatalf("Next() after second Fail error = %v, want first cause %v", err, want)
+	}
+}
+
+func TestOutputFailWithNilCauseBehavesLikeClose(t *testing.T) {
+	output := NewOutput(OutputConfig{})
+	if err := output.Fail(nil); err != nil {
+		t.Fatalf("Fail(nil) error = %v", err)
+	}
+	if _, err := output.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("Next() error = %v, want EOF", err)
+	}
+}
+
 func TestInvocationFailurePreservesCancellationCause(t *testing.T) {
 	want := errors.New("provider failed")
 	invocation := NewInvocation(context.Background(), OutputConfig{})

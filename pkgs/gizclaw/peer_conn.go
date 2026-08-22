@@ -775,13 +775,33 @@ func (h *PeerConn) rejectChatroomEvent(
 	return false, nil
 }
 
+// abortAgentInputTurn interrupts the Agent turn fed by a denied input stream
+// without closing the runtime input source. A control-only BOS with a fresh
+// StreamID supersedes denied audio still buffered in the realtime source, makes
+// Audio Dock interrupt the open assistant routes, and resets the text Agent's
+// pending input. Closing the source instead ended the whole Agent pipeline with
+// a clean EOF, which the runtime then reported as an unexpected output end.
 func (h *PeerConn) abortAgentInputTurn() error {
 	if h == nil || h.agentInput == nil {
 		return nil
 	}
 	h.agentInputMu.Lock()
 	defer h.agentInputMu.Unlock()
-	return h.agentInput.Close()
+	err := h.agentInput.Push(context.Background(), agentInputInterruptChunk())
+	if errors.Is(err, agenthost.ErrNoActiveInput) {
+		return nil
+	}
+	return err
+}
+
+// agentInputInterruptChunk is the control-only BOS that aborts the in-flight
+// input turn. It carries no MIME type so Audio Dock treats it as a text-turn
+// boundary rather than audio, and its fresh StreamID matches no device stream.
+func agentInputInterruptChunk() *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Ctrl: &genx.StreamCtrl{StreamID: genx.NewStreamID(), BeginOfStream: true},
+	}
 }
 
 func chatroomEventError(err *chatroom.AccessError) *eventpb.EventError {
