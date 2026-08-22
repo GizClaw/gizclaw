@@ -224,12 +224,10 @@ func (a *turnScopedAgent) run(ctx context.Context, input genx.Stream, output *ag
 		text.Reset()
 		turnCtx, cancel := context.WithCancel(ctx)
 		cancelTurn = cancel
-		turn.Add(1)
-		go func() {
-			defer turn.Done()
+		turn.Go(func() {
 			defer cancel()
 			a.emitTurn(turnCtx, output)
-		}()
+		})
 	}
 }
 
