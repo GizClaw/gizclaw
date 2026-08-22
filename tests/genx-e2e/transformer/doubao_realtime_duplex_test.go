@@ -53,6 +53,7 @@ func TestDoubaoRealtimeDuplexConversation(t *testing.T) {
 	transcode := false
 	config := doubaorealtimeduplex.Config{
 		Client:         client,
+		Model:          doubaospeech.RealtimeDuplexModelDefault,
 		Instructions:   "Reply in one short English sentence.",
 		InputTranscode: &transcode,
 	}
@@ -82,6 +83,7 @@ func TestDoubaoRealtimeDuplexToolInvokerContinuation(t *testing.T) {
 	transcode := false
 	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
 		Client:         client,
+		Model:          doubaospeech.RealtimeDuplexModelDefault,
 		Instructions:   realtimeToolInstructions,
 		InputTranscode: &transcode,
 		ToolInvoker:    invoker,

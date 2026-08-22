@@ -237,8 +237,10 @@ func TestDoubaoRealtimeDuplexLiveRepeatedInterrupt(t *testing.T) {
 	loadGenXE2EEnv(t)
 	transcode := false
 	transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
-		Client: liveDoubaoClient(t), InputTranscode: &transcode,
-		Instructions: "Reply with a detailed answer so the caller can interrupt you while speaking.",
+		Client:         liveDoubaoClient(t),
+		Model:          doubaospeech.RealtimeDuplexModelDefault,
+		InputTranscode: &transcode,
+		Instructions:   "Reply with a detailed answer so the caller can interrupt you while speaking.",
 	})
 	if err != nil {
 		t.Fatalf("doubaorealtimeduplex.New() failed: %v", err)

@@ -92,7 +92,7 @@ func TestMiniMaxTTSLiveRepeatedInterrupt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() failed: %v", err)
 	}
-	transformer, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: "female-shaonv"})
+	transformer, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: "female-shaonv", Model: miniMaxTTSModel})
 	if err != nil {
 		t.Fatalf("minimaxtts.New() failed: %v", err)
 	}

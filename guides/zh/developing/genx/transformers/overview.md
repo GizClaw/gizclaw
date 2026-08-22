@@ -34,6 +34,8 @@ pkgs/genx/transformers/
 
 每个 provider package 都提供 typed constructor，例如 `doubaoasr.New`、`doubaotts.NewSeedV2` 和 `minimaxtts.New`。Constructor 只解析不可变配置，不建立连接；每次 `Transform(ctx, input)` 单独建立并管理 provider session。Provider adapter 不再通过 flat `transformers.New*` constructor 暴露。
 
+Provider model 必须由调用方显式选择。Model-backed constructor 会拒绝空字符串或纯空白 model，不会选择 provider 默认值；显式值经 trim 后原样传给 provider request 或 session。
+
 ASR、TTS、AST 和 Doubao Realtime Dialogue 都只是 Stream-to-Stream Transformer，不属于 agent-capable runtime。当前 provider 协议能够支持 Toolkit continuation 的 package 是 Doubao Realtime Duplex 与 DashScope Realtime。StreamKit 与该分类无关，也不拥有 Tool 或 Toolkit。
 
 ```mermaid

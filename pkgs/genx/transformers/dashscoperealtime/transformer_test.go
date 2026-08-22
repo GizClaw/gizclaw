@@ -625,21 +625,15 @@ func TestNew(t *testing.T) {
 	if _, err := New(Config{}); err == nil {
 		t.Fatal("New(Config{}) succeeded without a client")
 	}
-	transformer, err := New(Config{Client: dashscope.NewClient("")})
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	if transformer == nil {
-		t.Fatal("New() returned nil")
-	}
-	if transformer.model != dashscope.ModelQwenOmniTurboRealtimeLatest {
-		t.Fatalf("model without tools = %q, want legacy default", transformer.model)
-	}
-	if transformer.voice != dashscope.VoiceChelsie {
-		t.Fatalf("voice without tools = %q, want legacy default", transformer.voice)
+	client := dashscope.NewClient("")
+	for _, model := range []string{"", " \t\n "} {
+		if _, err := New(Config{Client: client, Model: model}); err == nil || !strings.Contains(err.Error(), "model is required") {
+			t.Fatalf("New(Model: %q) error = %v, want model is required", model, err)
+		}
 	}
 	if _, err := New(Config{
-		Client:       dashscope.NewClient(""),
+		Client:       client,
+		Model:        dashscope.ModelQwenOmniTurboRealtimeLatest,
 		MaxToolCalls: -1,
 	}); err == nil {
 		t.Fatal("New() succeeded with negative MaxToolCalls")
@@ -647,13 +641,14 @@ func TestNew(t *testing.T) {
 	invoker := &dashScopeTestToolInvoker{definitions: dashScopeToolDefinitions()}
 	withTools, err := New(Config{
 		Client:      dashscope.NewClient(""),
+		Model:       " " + dashscope.ModelQwen35OmniFlashRealtime + " ",
 		ToolInvoker: invoker,
 	})
 	if err != nil {
-		t.Fatalf("New() with default tool model error = %v", err)
+		t.Fatalf("New() with explicit tool model error = %v", err)
 	}
 	if withTools.model != dashscope.ModelQwen35OmniFlashRealtime {
-		t.Fatalf("default tool model = %q", withTools.model)
+		t.Fatalf("explicit tool model = %q", withTools.model)
 	}
 	if withTools.voice != dashScopeQwen35DefaultVoice {
 		t.Fatalf("default tool voice = %q, want Tina", withTools.voice)

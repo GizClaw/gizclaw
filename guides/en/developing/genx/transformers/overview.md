@@ -34,6 +34,8 @@ pkgs/genx/transformers/
 
 Each provider package supplies a typed constructor such as `doubaoasr.New`, `doubaotts.NewSeedV2`, or `minimaxtts.New`. Constructors only resolve immutable configuration and do not connect to the provider; each `Transform(ctx, input)` call creates and owns its provider session. Provider adapters are no longer exposed through flat `transformers.New*` constructors.
 
+Provider model selection belongs to the caller. Model-backed constructors reject an empty or whitespace-only model instead of choosing a provider default; they trim and pass the explicit value unchanged to the provider session or request.
+
 ASR, TTS, AST, and Doubao Realtime Dialogue are Stream-to-Stream Transformers, not agent-capable runtimes. Doubao Realtime Duplex and DashScope Realtime are the current provider packages whose protocols can support Toolkit continuation. StreamKit is independent of that classification and never owns tools.
 
 ```mermaid

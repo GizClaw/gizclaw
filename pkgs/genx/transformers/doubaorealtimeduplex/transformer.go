@@ -3,6 +3,7 @@ package doubaorealtimeduplex
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -36,6 +37,10 @@ type Config struct {
 func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
 		return nil, fmt.Errorf("doubao realtime duplex: client is required")
+	}
+	config.Model = strings.TrimSpace(config.Model)
+	if config.Model == "" {
+		return nil, fmt.Errorf("doubao realtime duplex: model is required")
 	}
 	if config.MaxToolCalls < 0 {
 		return nil, fmt.Errorf("doubao realtime duplex: MaxToolCalls cannot be negative")
@@ -72,9 +77,7 @@ func New(config Config) (*Transformer, error) {
 	if config.InputTranscode != nil {
 		opts = append(opts, withInputTranscode(*config.InputTranscode))
 	}
-	if config.Model != "" {
-		opts = append(opts, withModel(config.Model))
-	}
+	opts = append(opts, withModel(config.Model))
 	if config.SessionID != "" {
 		opts = append(opts, withSessionID(config.SessionID))
 	}

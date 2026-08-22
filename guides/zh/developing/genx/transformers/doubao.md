@@ -9,11 +9,11 @@ doubaoasr.New(doubaoasr.Config{Client: client})
 doubaotts.NewSeedV2(doubaotts.SeedV2Config{Client: client, Speaker: speaker})
 doubaotts.NewICLV2(doubaotts.ICLV2Config{Client: client, Speaker: speaker})
 doubaoast.New(doubaoast.Config{Client: client})
-doubaorealtime.New(doubaorealtime.Config{Client: client})
-doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
+doubaorealtime.New(doubaorealtime.Config{Client: client, Model: realtimeModel})
+doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: duplexModel})
 ```
 
-每个 constructor 返回实现 `genx.Transformer` 的具体类型，不接收 Workspace 或 Workflow。Config 只包含已解析的 provider client 和不可变 session option；每次 `Transform` 使用独立 session/WebSocket。ASR、TTS、AST 和 Realtime Dialogue 都不接收 Toolkit 配置；Realtime Duplex 的 provider protocol 支持 function-call output continuation，因此属于 agent-capable runtime。
+每个 constructor 返回实现 `genx.Transformer` 的具体类型，不接收 Workspace 或 Workflow。Config 只包含已解析的 provider client 和不可变 session option；每次 `Transform` 使用独立 session/WebSocket。Realtime Dialogue 和 Realtime Duplex 都要求显式 `Model`，空字符串或纯空白值会失败，不会使用 SDK 默认值。ASR、TTS、AST 和 Realtime Dialogue 都不接收 Toolkit 配置；Realtime Duplex 的 provider protocol 支持 function-call output continuation，因此属于 agent-capable runtime。
 
 ## 能力
 
@@ -83,6 +83,7 @@ Provider 的 `ResponseID` 与 `QuestionID` 是协议元数据，同一逻辑 res
 ```go
 transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
     Client:       client,
+    Model:        duplexModel,
     ToolInvoker: runtimeTools,
     MaxToolCalls: 32,
 })

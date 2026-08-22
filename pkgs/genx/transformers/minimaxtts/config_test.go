@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -25,14 +27,19 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	if _, err := New(Config{Client: client}); err == nil {
+	if _, err := New(Config{Client: client, Model: "speech-model"}); err == nil {
 		t.Fatal("New() accepted an empty voice ID")
 	}
-	transformer, err := New(Config{Client: client, VoiceID: " voice "})
+	for _, model := range []string{"", " \t\n "} {
+		if _, err := New(Config{Client: client, VoiceID: "voice", Model: model}); err == nil || !strings.Contains(err.Error(), "model is required") {
+			t.Fatalf("New(Model: %q) error = %v, want model is required", model, err)
+		}
+	}
+	transformer, err := New(Config{Client: client, VoiceID: " voice ", Model: " speech-model "})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
-	if transformer.voiceID != "voice" || transformer.model != "speech-2.6-hd" || transformer.format != "mp3" || transformer.sampleRate != 32000 || transformer.bitrate != 128000 {
+	if transformer.voiceID != "voice" || transformer.model != "speech-model" || transformer.format != "mp3" || transformer.sampleRate != 32000 || transformer.bitrate != 128000 {
 		t.Fatalf("defaults = %#v", transformer)
 	}
 	if transformer.speed != 1 || transformer.vol != 1 || transformer.pitch != 0 {
@@ -42,7 +49,7 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	speed := 0.0
 	volume := 0.0
 	pitch := -2
-	configured, err := New(Config{Client: client, VoiceID: "voice", Speed: &speed, Volume: &volume, Pitch: &pitch})
+	configured, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-2.6-turbo", Speed: &speed, Volume: &volume, Pitch: &pitch})
 	if err != nil {
 		t.Fatalf("New(explicit values) error = %v", err)
 	}
@@ -71,8 +78,7 @@ func TestMIMEAndDefaultHelperBranches(t *testing.T) {
 	}
 	zeroFloat := 0.0
 	zeroInt := 0
-	if stringDefault(" value ", "fallback") != "value" || stringDefault(" ", "fallback") != "fallback" ||
-		floatDefault(nil, 1) != 1 || floatDefault(&zeroFloat, 1) != 0 ||
+	if floatDefault(nil, 1) != 1 || floatDefault(&zeroFloat, 1) != 0 ||
 		intDefault(nil, 1) != 1 || intDefault(&zeroInt, 1) != 0 ||
 		positiveDefault(2, 1) != 2 || positiveDefault(0, 1) != 1 {
 		t.Fatal("default helpers returned unexpected values")
@@ -94,7 +100,7 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	transformer, err := New(Config{
 		Client:     client,
 		VoiceID:    "voice",
-		Model:      "speech-model",
+		Model:      " speech-model ",
 		Speed:      &speed,
 		Volume:     &volume,
 		Pitch:      &pitch,
@@ -106,6 +112,11 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
+	var logs bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
 	var audio []byte
 	emissions := 0
 	if err := transformer.synthesize(context.Background(), "hello", streamkit.TTSMeta{}, "audio/pcm", func(data []byte) error {
@@ -125,6 +136,17 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	if body["model"] != "speech-model" || body["text"] != "hello" {
 		t.Fatalf("request identity = %#v", body)
 	}
+	logOutput := logs.String()
+	for _, want := range []string{`"msg":"minimax tts: synthesize"`, `"model":"speech-model"`, `"voice_id":"voice"`} {
+		if !strings.Contains(logOutput, want) {
+			t.Fatalf("structured log %q does not contain %q", logOutput, want)
+		}
+	}
+	for _, forbidden := range []string{"hello", "test"} {
+		if strings.Contains(logOutput, forbidden) {
+			t.Fatalf("structured log contains sensitive value %q: %q", forbidden, logOutput)
+		}
+	}
 	voice, ok := body["voice_setting"].(map[string]any)
 	if !ok || voice["voice_id"] != "voice" || voice["emotion"] != "happy" || voice["speed"] != speed || voice["vol"] != volume || voice["pitch"] != float64(pitch) {
 		t.Fatalf("voice_setting = %#v", body["voice_setting"])
@@ -143,7 +165,7 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	transformer, err := New(Config{Client: client, VoiceID: "voice"})
+	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

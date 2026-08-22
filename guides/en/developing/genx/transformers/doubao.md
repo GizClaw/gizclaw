@@ -9,11 +9,11 @@ doubaoasr.New(doubaoasr.Config{Client: client})
 doubaotts.NewSeedV2(doubaotts.SeedV2Config{Client: client, Speaker: speaker})
 doubaotts.NewICLV2(doubaotts.ICLV2Config{Client: client, Speaker: speaker})
 doubaoast.New(doubaoast.Config{Client: client})
-doubaorealtime.New(doubaorealtime.Config{Client: client})
-doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client})
+doubaorealtime.New(doubaorealtime.Config{Client: client, Model: realtimeModel})
+doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: duplexModel})
 ```
 
-Constructors do not open provider sessions; each concurrent `Transform` call owns its session and runtime state. ASR, TTS, AST, and Realtime Dialogue do not accept Toolkit configuration. Realtime Duplex is agent-capable because its provider protocol supports function-call output continuation.
+Constructors do not open provider sessions; each concurrent `Transform` call owns its session and runtime state. Realtime Dialogue and Realtime Duplex require an explicit `Model` and reject an empty or whitespace-only value instead of using an SDK default. ASR, TTS, AST, and Realtime Dialogue do not accept Toolkit configuration. Realtime Duplex is agent-capable because its provider protocol supports function-call output continuation.
 
 ## Abilities
 
@@ -83,6 +83,7 @@ Provider `ResponseID` and `QuestionID` values are protocol metadata and may diff
 ```go
 transformer, err := doubaorealtimeduplex.New(doubaorealtimeduplex.Config{
     Client:       client,
+    Model:        duplexModel,
     ToolInvoker: runtimeTools,
     MaxToolCalls: 32,
 })

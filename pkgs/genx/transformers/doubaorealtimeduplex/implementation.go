@@ -199,7 +199,6 @@ func withDoubaoRealtimeDuplexOpener(opener doubaoRealtimeDuplexOpener) option {
 func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 	t := &Transformer{
 		client:           client,
-		model:            doubaospeech.RealtimeDuplexModelDefault,
 		inputFormat:      doubaoRealtimeDuplexFixedInputFormat,
 		inputSampleRate:  doubaoRealtimeDuplexFixedInputSampleRate,
 		inputChannels:    doubaoRealtimeDuplexFixedInputChannels,

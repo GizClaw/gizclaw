@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"sync/atomic"
 
@@ -33,7 +34,7 @@ const (
 
 // Transformer is a TTS transformer using MiniMax text-to-speech API.
 //
-// Model: speech-2.6-hd (default)
+// Model must be selected explicitly by the caller.
 //
 // Input type: text/plain
 // Output type: audio/* (audio/mpeg by default)
@@ -88,6 +89,10 @@ func New(config Config) (*Transformer, error) {
 	if config.Client == nil {
 		return nil, fmt.Errorf("minimaxtts: client is required")
 	}
+	config.Model = strings.TrimSpace(config.Model)
+	if config.Model == "" {
+		return nil, fmt.Errorf("minimaxtts: model is required")
+	}
 	if strings.TrimSpace(config.VoiceID) == "" {
 		return nil, fmt.Errorf("minimaxtts: voice ID is required")
 	}
@@ -97,7 +102,7 @@ func New(config Config) (*Transformer, error) {
 func newTransformer(config Config) *Transformer {
 	return &Transformer{
 		client:     config.Client,
-		model:      stringDefault(config.Model, "speech-2.6-hd"),
+		model:      config.Model,
 		voiceID:    strings.TrimSpace(config.VoiceID),
 		speed:      floatDefault(config.Speed, 1),
 		vol:        floatDefault(config.Volume, 1),
@@ -129,6 +134,13 @@ func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.St
 }
 
 func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {
+	slog.LogAttrs(
+		ctx,
+		slog.LevelInfo,
+		"minimax tts: synthesize",
+		slog.String("model", t.model),
+		slog.String("voice_id", t.voiceID),
+	)
 	speed := t.speed
 	vol := t.vol
 	pitch := t.pitch
@@ -266,13 +278,6 @@ func (s *oggOpusSegmentEncoder) flush() error {
 	data := append([]byte(nil), s.buffer.Bytes()...)
 	s.buffer.Reset()
 	return s.emit(data)
-}
-
-func stringDefault(value, fallback string) string {
-	if value = strings.TrimSpace(value); value != "" {
-		return value
-	}
-	return fallback
 }
 
 func floatDefault(value *float64, fallback float64) float64 {

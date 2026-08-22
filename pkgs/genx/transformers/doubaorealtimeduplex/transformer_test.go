@@ -1,6 +1,7 @@
 package doubaorealtimeduplex
 
 import (
+	"strings"
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
@@ -10,15 +11,25 @@ func TestNew(t *testing.T) {
 	if _, err := New(Config{}); err == nil {
 		t.Fatal("New(Config{}) succeeded without a client")
 	}
-	transformer, err := New(Config{Client: doubaospeech.NewClient("")})
+	client := doubaospeech.NewClient("")
+	for _, model := range []string{"", " \t\n "} {
+		if _, err := New(Config{Client: client, Model: model}); err == nil || !strings.Contains(err.Error(), "model is required") {
+			t.Fatalf("New(Model: %q) error = %v, want model is required", model, err)
+		}
+	}
+	transformer, err := New(Config{Client: client, Model: " 1.2.6.1 "})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	if transformer == nil {
 		t.Fatal("New() returned nil")
 	}
+	if transformer.model != "1.2.6.1" {
+		t.Fatalf("New() model = %q, want trimmed explicit model", transformer.model)
+	}
 	if _, err := New(Config{
 		Client:       doubaospeech.NewClient(""),
+		Model:        "1.2.6.1",
 		MaxToolCalls: -1,
 	}); err == nil {
 		t.Fatal("New() succeeded with negative MaxToolCalls")

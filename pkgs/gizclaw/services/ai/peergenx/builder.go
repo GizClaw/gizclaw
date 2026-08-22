@@ -949,6 +949,10 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 	if voiceID == "" {
 		return nil, fmt.Errorf("%w: voice %q missing voice_id", ErrInvalid, cfg.Voice.Id)
 	}
+	model := firstString(providerData.Model)
+	if model == "" {
+		return nil, fmt.Errorf("%w: voice %q missing provider_data.model", ErrInvalid, cfg.Voice.Id)
+	}
 	clientConfig := minimax.Config{
 		APIKey:  apiKey,
 		BaseURL: firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL),
@@ -960,11 +964,9 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 	transformerConfig := minimaxtts.Config{
 		Client:     client,
 		VoiceID:    voiceID,
+		Model:      model,
 		Format:     defaultMiniMaxTTSAudioFormat,
 		SampleRate: defaultTTSAudioSampleRate,
-	}
-	if model := firstString(providerData.Model); model != "" {
-		transformerConfig.Model = model
 	}
 	if format := firstString(providerData.Format); format != "" {
 		transformerConfig.Format = format

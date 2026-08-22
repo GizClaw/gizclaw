@@ -25,6 +25,7 @@ import (
 const (
 	miniMaxAPIKeyEnv  = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
 	miniMaxBaseURLEnv = "GIZCLAW_GENX_E2E_MINIMAX_BASE_URL"
+	miniMaxTTSModel   = "speech-2.6-hd"
 )
 
 func TestDoubaoSAUCASR(t *testing.T) {
@@ -129,7 +130,7 @@ func TestMiniMaxTTS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() failed: %v", err)
 	}
-	transformer, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: voiceID})
+	transformer, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: voiceID, Model: miniMaxTTSModel})
 	if err != nil {
 		t.Fatalf("minimaxtts.New() failed: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestMiniMaxOggOpusTTS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() failed: %v", err)
 	}
-	transformer, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: "female-shaonv", Format: minimaxtts.FormatOggOpus})
+	transformer, err := minimaxtts.New(minimaxtts.Config{Client: client, VoiceID: "female-shaonv", Model: miniMaxTTSModel, Format: minimaxtts.FormatOggOpus})
 	if err != nil {
 		t.Fatalf("minimaxtts.New() failed: %v", err)
 	}

@@ -44,7 +44,7 @@ func TestSynthesizeOggOpusTranscodesProviderPCMAtVolcParityRate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	transformer, err := New(Config{Client: client, VoiceID: "voice", Format: "ogg", SampleRate: 32000})
+	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model", Format: "ogg", SampleRate: 32000})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -110,7 +110,7 @@ func TestSynthesizeOggOpusSegmentsAreValidChainedStreams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	transformer, err := New(Config{Client: client, VoiceID: "voice", Format: FormatOggOpus})
+	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model", Format: FormatOggOpus})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -172,7 +172,7 @@ func TestSynthesizeOggOpusIsCanonicalRegardlessOfVoiceRate(t *testing.T) {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
 	// A voice declaring 8000 Hz still yields canonical 16 kHz Ogg output.
-	transformer, err := New(Config{Client: client, VoiceID: "voice", Format: FormatOggOpus, SampleRate: 8000})
+	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model", Format: FormatOggOpus, SampleRate: 8000})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -208,7 +208,7 @@ func TestSynthesizeOggOpusEmitsNothingForEmptyProviderAudio(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	transformer, err := New(Config{Client: client, VoiceID: "voice", Format: FormatOggOpus})
+	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model", Format: FormatOggOpus})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
