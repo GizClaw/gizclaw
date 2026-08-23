@@ -679,6 +679,9 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 }
 
 func (c *Conn) enqueueRemoteOpusFrame(frame []byte) {
+	if len(frame) == 0 {
+		return
+	}
 	c.enqueuePacket(directPacket{protocol: giznet.ProtocolOpusPacket, payload: append([]byte(nil), frame...)})
 }
 
