@@ -2,6 +2,7 @@ package memorystore
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -63,6 +64,84 @@ func TestBuildAcceptsCanonicalLayoutID(t *testing.T) {
 	}
 	if result.Closer != nil {
 		t.Cleanup(func() { _ = result.Closer.Close() })
+	}
+}
+
+func TestBuildManagedFlowcraftUsesSQLiteCanonicalStore(t *testing.T) {
+	request := managedTestRequest(t)
+	root, err := managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := Build(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := first.Store.Observe(t.Context(), memory.Observation{
+		Scope: memory.Scope{AppID: request.WorkspaceID},
+		Facts: []memory.FactCandidate{{Text: "sqlite canonical fact"}},
+		ID:    "sqlite-observation",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, flowcraftSQLiteName)); err != nil {
+		t.Fatalf("memory.db: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, legacyFlowcraftStateName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("state.json exists or cannot be inspected: %v", err)
+	}
+
+	second, err := Build(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = second.Closer.Close() })
+	recalled, err := second.Store.Recall(t.Context(), memory.Query{
+		Scope: memory.Scope{AppID: request.WorkspaceID}, Text: "canonical", Limit: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recalled.Matches) != 1 {
+		t.Fatalf("Recall() matches = %d, want 1 after SQLite reopen", len(recalled.Matches))
+	}
+}
+
+func TestBuildFlowcraftObjectStoreRetainsWorkspaceCanonicalFormat(t *testing.T) {
+	request := managedTestRequest(t)
+	dir := t.TempDir()
+	connection := apitypes.RuntimeProfileMemoryConnection{}
+	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(
+		apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
+			Type:      apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
+			Directory: dir,
+		},
+	); err != nil {
+		t.Fatal(err)
+	}
+	request.Binding.Connection = connection
+	result, err := Build(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := result.Store.Observe(t.Context(), memory.Observation{
+		Scope: memory.Scope{AppID: request.WorkspaceID},
+		Facts: []memory.FactCandidate{{Text: "object store fact"}},
+		ID:    "object-store-observation",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := result.Closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, legacyFlowcraftStateName)); err != nil {
+		t.Fatalf("object-store state.json: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, flowcraftSQLiteName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("object-store memory.db exists or cannot be inspected: %v", err)
 	}
 }
 

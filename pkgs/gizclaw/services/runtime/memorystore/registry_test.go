@@ -174,6 +174,14 @@ func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) 
 	if len(registry.entries) != 1 {
 		t.Fatalf("physical backends = %d, want 1", len(registry.entries))
 	}
+	key, err := registryKey(firstRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared := registry.entries[key].backend.(*sharedFlowcraftBackend)
+	if shared.temporal == nil || shared.index == nil {
+		t.Fatal("registry entry does not share the canonical backend and BBH index")
+	}
 	recalled, err := second.Store.Recall(t.Context(), memory.Query{Text: "salmon", Limit: 5})
 	if err != nil {
 		t.Fatal(err)

@@ -138,7 +138,7 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 		if err != nil {
 			return nil, nil, err
 		}
-		return openFlowcraftLocal(ctx, dir, policy, config)
+		return openFlowcraftSQLite(ctx, dir, policy, config)
 	case "flowcraft_object_store":
 		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
 		if err != nil {
@@ -277,10 +277,47 @@ func openFlowcraftLocal(ctx context.Context, dir string, policy apitypes.Flowcra
 	fail := func(err error) (*memoryflowcraft.Store, io.Closer, error) {
 		return nil, nil, errors.Join(err, closeAll(owned))
 	}
-	if err := ensureLocalProjection(ctx, dir, backend, policy, config); err != nil {
+	if err := ensureLocalProjection(ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config); err != nil {
 		return fail(err)
 	}
 	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(dir, "retrieval"))
+	if err != nil {
+		return fail(err)
+	}
+	index, err := bbh.New(retrievalWorkspace, bbh.WithConfig(mapBBHConfig(policy.Bbh)))
+	if err != nil {
+		return fail(err)
+	}
+	owned = append(owned, index)
+	config.TemporalStore = backend.TemporalStore()
+	config.EvidenceStore = backend.EvidenceStore()
+	config.SideEffectOutbox = backend.SideEffectOutbox()
+	config.RetrievalIndex = index
+	if policy.Write.Mode == apitypes.FlowcraftMemoryWritePolicyModeAsyncSemantic {
+		config.AsyncQueue = backend.AsyncSemanticQueue()
+	}
+	store, err := memoryflowcraft.New(ctx, config)
+	if err != nil {
+		return fail(err)
+	}
+	return store, multiCloser(append(owned, store)), nil
+}
+
+func openFlowcraftSQLite(ctx context.Context, dir string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
+	backend, err := openManagedSQLite(ctx, dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	owned := []io.Closer{backend}
+	fail := func(err error) (*memoryflowcraft.Store, io.Closer, error) {
+		return nil, nil, errors.Join(err, closeAll(owned))
+	}
+	if err := ensureLocalProjection(
+		ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config,
+	); err != nil {
+		return fail(err)
+	}
+	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDirectory(dir))
 	if err != nil {
 		return fail(err)
 	}
@@ -339,11 +376,13 @@ const projectionManifestName = ".gizclaw-retrieval-layout"
 func ensureLocalProjection(
 	ctx context.Context,
 	dir string,
-	backend *flowworkspace.Backend,
+	temporal flowrecall.TemporalStore,
+	evidence flowrecall.EvidenceStore,
+	outbox flowrecall.SideEffectOutbox,
 	policy apitypes.FlowcraftMemoryLayoutPolicy,
 	config memoryflowcraft.Config,
 ) error {
-	prepared, err := prepareLocalProjection(ctx, dir, backend, policy, config)
+	prepared, err := prepareLocalProjection(ctx, dir, temporal, evidence, outbox, policy, config)
 	if err != nil || prepared == nil {
 		return err
 	}
@@ -365,7 +404,9 @@ type preparedLocalProjection struct {
 func prepareLocalProjection(
 	ctx context.Context,
 	dir string,
-	backend *flowworkspace.Backend,
+	temporal flowrecall.TemporalStore,
+	evidence flowrecall.EvidenceStore,
+	outbox flowrecall.SideEffectOutbox,
 	policy apitypes.FlowcraftMemoryLayoutPolicy,
 	config memoryflowcraft.Config,
 ) (*preparedLocalProjection, error) {
@@ -403,16 +444,16 @@ func prepareLocalProjection(
 		return fail(err)
 	}
 	stagingConfig := config
-	stagingConfig.TemporalStore = backend.TemporalStore()
-	stagingConfig.EvidenceStore = backend.EvidenceStore()
-	stagingConfig.SideEffectOutbox = backend.SideEffectOutbox()
+	stagingConfig.TemporalStore = temporal
+	stagingConfig.EvidenceStore = evidence
+	stagingConfig.SideEffectOutbox = outbox
 	stagingConfig.AsyncQueue = nil
 	stagingConfig.RetrievalIndex = index
 	store, err := memoryflowcraft.New(ctx, stagingConfig)
 	if err != nil {
 		return fail(errors.Join(err, index.Close()))
 	}
-	rebuildErr := rebuildAllScopes(ctx, store, backend.TemporalStore())
+	rebuildErr := rebuildAllScopes(ctx, store, temporal)
 	closeErr := errors.Join(store.Close(), index.Close())
 	if rebuildErr != nil || closeErr != nil {
 		return fail(errors.Join(rebuildErr, closeErr))

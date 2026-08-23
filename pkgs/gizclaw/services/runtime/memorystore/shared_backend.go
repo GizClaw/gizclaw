@@ -106,6 +106,9 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		if err != nil {
 			return nil, err
 		}
+		if connectionType == "flowcraft_bbh" {
+			return openSharedFlowcraftSQLite(ctx, dir, policy, config)
+		}
 		metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(dir)
 		if err != nil {
 			return nil, err
@@ -114,7 +117,7 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		if err != nil {
 			return nil, err
 		}
-		if err := ensureLocalProjection(ctx, dir, backend, policy, config); err != nil {
+		if err := ensureLocalProjection(ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config); err != nil {
 			return nil, errors.Join(err, backend.Close())
 		}
 		retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDirectory(dir))
@@ -160,6 +163,43 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 	}
 }
 
+func openSharedFlowcraftSQLite(
+	ctx context.Context,
+	dir string,
+	policy apitypes.FlowcraftMemoryLayoutPolicy,
+	config memoryflowcraft.Config,
+) (sharedBackend, error) {
+	backend, err := openManagedSQLite(ctx, dir)
+	if err != nil {
+		return nil, err
+	}
+	if err := ensureLocalProjection(
+		ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config,
+	); err != nil {
+		return nil, errors.Join(err, backend.Close())
+	}
+	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDirectory(dir))
+	if err != nil {
+		return nil, errors.Join(err, backend.Close())
+	}
+	rawIndex, err := bbh.New(retrievalWorkspace, bbh.WithConfig(mapBBHConfig(policy.Bbh)))
+	if err != nil {
+		return nil, errors.Join(err, backend.Close())
+	}
+	signature, err := projectionSignature(policy)
+	if err != nil {
+		return nil, errors.Join(err, rawIndex.Close(), backend.Close())
+	}
+	index := newSharedBBHIndex(rawIndex, mapBBHConfig(policy.Bbh))
+	return &sharedFlowcraftBackend{
+		temporal: backend.TemporalStore(), evidence: backend.EvidenceStore(),
+		queue: backend.AsyncSemanticQueue(), outbox: backend.SideEffectOutbox(),
+		backendCloser: backend, index: index, indexCloser: index,
+		local:               &sharedLocalProjection{dir: dir, index: index},
+		projectionSignature: signature,
+	}, nil
+}
+
 func sharedLocalDirectory(request Request, connectionType string) (string, error) {
 	if connectionType == "flowcraft_bbh" {
 		return managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
@@ -189,14 +229,12 @@ func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Req
 		return Result{}, nil, err
 	}
 	if backend.local != nil && signature != backend.projectionSignature {
-		workspaceBackend, ok := backend.backendCloser.(*flowworkspace.Backend)
-		if !ok {
-			return Result{}, nil, errors.New("memory store: invalid shared Flowcraft workspace backend")
-		}
 		if err := backend.local.index.Rebuild(
 			ctx,
 			backend.local.dir,
-			workspaceBackend,
+			backend.temporal,
+			backend.evidence,
+			backend.outbox,
 			policy,
 			config,
 		); err != nil {
@@ -263,12 +301,14 @@ func newSharedBBHIndex(index *bbh.Index, config bbh.Config) *sharedBBHIndex {
 func (index *sharedBBHIndex) Rebuild(
 	ctx context.Context,
 	dir string,
-	backend *flowworkspace.Backend,
+	temporal flowrecall.TemporalStore,
+	evidence flowrecall.EvidenceStore,
+	outbox flowrecall.SideEffectOutbox,
 	policy apitypes.FlowcraftMemoryLayoutPolicy,
 	config memoryflowcraft.Config,
 ) error {
 	// Build and validate the complete replacement before blocking live users.
-	prepared, err := prepareLocalProjection(ctx, dir, backend, policy, config)
+	prepared, err := prepareLocalProjection(ctx, dir, temporal, evidence, outbox, policy, config)
 	if err != nil {
 		return err
 	}
