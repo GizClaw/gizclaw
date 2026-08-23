@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -15,10 +16,11 @@ import (
 )
 
 type fakeRelayStream struct {
-	in        chan *genx.MessageChunk
-	pushes    chan *genx.MessageChunk
-	closeOnce sync.Once
-	closed    chan struct{}
+	in           chan *genx.MessageChunk
+	pushes       chan *genx.MessageChunk
+	closeOnce    sync.Once
+	closed       chan struct{}
+	nextExitGate <-chan struct{}
 }
 
 func newFakeRelayStream() *fakeRelayStream {
@@ -33,6 +35,9 @@ func (f *fakeRelayStream) Next() (*genx.MessageChunk, error) {
 		}
 		return chunk, nil
 	case <-f.closed:
+		if f.nextExitGate != nil {
+			<-f.nextExitGate
+		}
 		return nil, io.EOF
 	}
 }
@@ -227,6 +232,178 @@ func TestWorkspaceRelayEvidenceExcludesContent(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRelayFullEvidenceIncludesBoundedTexts(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	done := make(chan operationResult, 1)
+	go func() {
+		result, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "private input", 0, true)
+		if err != nil {
+			t.Errorf("relay error = %v", err)
+		}
+		done <- result
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- assistantText("t1", "question", true)
+	drainUserTurn(t, candidate)
+	candidate.in <- assistantText("c1", "FAIL: actual answer", true)
+	evidence := (<-done).evidence
+	terminal := evidence["terminal"].(map[string]any)
+	if terminal["text"] != "FAIL: actual answer" {
+		t.Fatalf("terminal evidence = %#v", terminal)
+	}
+	turns := evidence["turns"].(map[string]any)
+	texts := turns["candidate"].(map[string]any)["texts"].([]any)
+	if len(texts) != 1 || texts[0] != "FAIL: actual answer" {
+		t.Fatalf("candidate texts = %#v", texts)
+	}
+	data, _ := json.Marshal(evidence)
+	if strings.Contains(string(data), "private input") {
+		t.Fatalf("full evidence leaks initial input: %s", data)
+	}
+}
+
+func TestWorkspaceRelayIdleTimeoutAttributesActiveTurn(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(3)
+	op.IdleTimeout = "40ms"
+	done := make(chan struct {
+		result operationResult
+		err    error
+	}, 1)
+	go func() {
+		result, err := runWorkspaceRelay(context.Background(), op, tester, candidate, "brief", 0)
+		done <- struct {
+			result operationResult
+			err    error
+		}{result, err}
+	}()
+	drainUserTurn(t, tester)
+	got := <-done
+	_ = tester.Close()
+	_ = candidate.Close()
+	if got.err == nil || !errors.Is(got.err, context.DeadlineExceeded) || !strings.Contains(got.err.Error(), "client tester turn 1") {
+		t.Fatalf("error = %v", got.err)
+	}
+	if got.result.evidence["deadline"] != "idle_timeout" || got.result.evidence["active_client"] != "tester" || got.result.evidence["active_turn"] != 1 {
+		t.Fatalf("evidence = %#v", got.result.evidence)
+	}
+	if got.result.evidence["idle_timeout_ms"] != int64(40) || got.result.evidence["observed_text"] != false {
+		t.Fatalf("evidence = %#v", got.result.evidence)
+	}
+}
+
+func TestWorkspaceRelayIdleTimeoutResetsOnActiveProgress(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	op.IdleTimeout = "100ms"
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelay(context.Background(), op, tester, candidate, "brief", 0)
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	time.Sleep(60 * time.Millisecond)
+	tester.in <- assistantText("t1", "still working", false)
+	if chunk := nextPush(t, candidate); !chunk.Ctrl.BeginOfStream {
+		t.Fatalf("forwarded turn missing BOS: %#v", chunk)
+	}
+	expectUserText(t, candidate, "still working", false)
+	time.Sleep(60 * time.Millisecond)
+	tester.in <- assistantText("t1", "", true)
+	expectUserText(t, candidate, "", true)
+	candidate.in <- assistantText("c1", "PASS", true)
+	if err := <-done; err != nil {
+		t.Fatalf("relay failed after active progress reset: %v", err)
+	}
+}
+
+func TestWorkspaceRelayIdleTimeoutIgnoresInactiveTraffic(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	op.IdleTimeout = "80ms"
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelay(context.Background(), op, tester, candidate, "brief", 0)
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+
+	deadline := time.Now().Add(160 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		candidate.in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{Label: "control"}}
+		time.Sleep(15 * time.Millisecond)
+	}
+	if err := <-done; err == nil || !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "client tester turn 1") {
+		t.Fatalf("inactive traffic extended idle deadline: %v", err)
+	}
+}
+
+func TestWorkspaceRelayIdleTimeoutIgnoresDiscardedControlStream(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(3)
+	op.IdleTimeout = "80ms"
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelay(context.Background(), op, tester, candidate, "brief", 0)
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+
+	candidate.in <- assistantText("self-start", "discard me", false)
+	candidate.settle(t)
+	tester.in <- assistantText("t1", "question", true)
+	drainUserTurn(t, candidate)
+
+	deadline := time.Now().Add(160 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		candidate.in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "self-start", Label: "control"}}
+		time.Sleep(15 * time.Millisecond)
+	}
+	if err := <-done; err == nil || !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "client candidate turn 2") {
+		t.Fatalf("discarded control stream extended idle deadline: %v", err)
+	}
+}
+
+func TestWorkspaceRelayTextCompletesOnAudioTerminal(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	op.TerminalMedia = "audio"
+	done := make(chan operationResult, 1)
+	go func() {
+		result, err := runWorkspaceRelay(context.Background(), op, tester, candidate, "brief", 0)
+		if err != nil {
+			t.Errorf("relay error = %v", err)
+		}
+		done <- result
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- assistantText("t1", "question", false)
+	if chunk := nextPush(t, candidate); !chunk.Ctrl.BeginOfStream {
+		t.Fatalf("forwarded turn missing BOS: %#v", chunk)
+	}
+	expectUserText(t, candidate, "question", false)
+	tester.in <- assistantText("t1", "", true)
+	tester.settle(t)
+	select {
+	case chunk := <-candidate.pushes:
+		t.Fatalf("text EOS completed an audio-terminal turn: %#v", chunk)
+	default:
+	}
+	tester.in <- assistantBlob("t1", nil, true)
+	expectUserText(t, candidate, "", true)
+	candidate.in <- assistantText("c1", "answer", false)
+	candidate.in <- assistantBlob("c1", nil, true)
+	result := <-done
+	terminal := result.assertion.(map[string]any)["terminal"].(map[string]any)
+	if terminal["text"] != "answer" {
+		t.Fatalf("terminal = %#v", terminal)
+	}
+	if result.evidence["completed_turns"] != 2 {
+		t.Fatalf("evidence = %#v", result.evidence)
+	}
+}
+
 func TestWorkspaceRelayFailsOnDisconnectAndStreamError(t *testing.T) {
 	t.Run("disconnect", func(t *testing.T) {
 		tester, candidate := newFakeRelayStream(), newFakeRelayStream()
@@ -361,6 +538,7 @@ func TestWorkspaceRelayForwardsAudioIncrementally(t *testing.T) {
 		t.Fatalf("input missing EOS: %#v", chunk)
 	}
 	// Tester audio turn: the first packet is forwarded before the source EOS.
+	tester.in <- assistantText("t1-text", "question", true)
 	tester.in <- assistantBlob("t1", []byte{0xAA}, false)
 	if chunk := nextPush(t, candidate); !chunk.Ctrl.BeginOfStream || chunk.Ctrl.Label != "user" {
 		t.Fatalf("forwarded audio missing user BOS: %#v", chunk)
@@ -374,12 +552,14 @@ func TestWorkspaceRelayForwardsAudioIncrementally(t *testing.T) {
 		t.Fatalf("forwarded audio missing EOS: %#v", chunk)
 	}
 	// Candidate answers with one packet.
+	candidate.in <- assistantText("c1-text", "answer", true)
 	candidate.in <- assistantBlob("c1", []byte{0xBB}, false)
 	nextPush(t, tester)
 	nextPush(t, tester)
 	candidate.in <- assistantBlob("c1", nil, true)
 	nextPush(t, tester)
 	// Terminal tester audio turn is captured, not forwarded.
+	tester.in <- assistantText("t2-text", "PASS", true)
 	tester.in <- assistantBlob("t2", []byte{0xCC, 0xDD}, false)
 	tester.in <- assistantBlob("t2", nil, true)
 	got := <-done
@@ -392,8 +572,15 @@ func TestWorkspaceRelayForwardsAudioIncrementally(t *testing.T) {
 	if !ok || !bytes.HasPrefix(audio, []byte("OggS")) {
 		t.Fatalf("terminal audio = %#v", terminal["audio"])
 	}
+	if terminal["text"] != "PASS" {
+		t.Fatalf("terminal text = %#v", terminal)
+	}
 	turns := assertion["turns"].(map[string]any)
 	testerTurns := turns["tester"].(map[string]any)
+	testerTexts := testerTurns["texts"].([]any)
+	if len(testerTexts) != 2 || testerTexts[0] != "question" || testerTexts[1] != "PASS" {
+		t.Fatalf("tester texts = %#v", testerTexts)
+	}
 	audioAgg := testerTurns["audio_bytes"].(map[string]any)
 	if audioAgg["min"] != int64(1) || audioAgg["max"] != int64(2) {
 		t.Fatalf("tester audio_bytes = %#v", audioAgg)
@@ -548,6 +735,28 @@ func TestWorkspaceRelayRejectsNonOpusAudioMedia(t *testing.T) {
 			default:
 			}
 		})
+	}
+}
+
+func TestWorkspaceRelayRejectsNonOpusTerminalAudioForTextRelay(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	op.TerminalMedia = "audio"
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelay(context.Background(), op, tester, candidate, "brief", 0)
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/mpeg"},
+		Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", EndOfStream: true},
+	}
+	err := <-done
+	_ = tester.Close()
+	_ = candidate.Close()
+	if err == nil || !strings.Contains(err.Error(), "unsupported relay media type") {
+		t.Fatalf("error = %v", err)
 	}
 }
 

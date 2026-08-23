@@ -254,11 +254,21 @@ and cleanup. Forwarding is streaming — the first eligible text fragment or
 arrival-paced Opus packet reaches the receiving Workspace before the source
 response completes, with a receiving-side stream ID and user role — and the
 terminal response is captured without being forwarded. Reports keep per-client
-turn counts, `{min, max}` latency/size aggregates, and the terminal side, but
-never relayed content, prompts, tester reasoning, or audio.
+turn counts, `{min, max}` latency/size aggregates, and the terminal side.
+`terminal_media` may explicitly separate a text-forwarded turn from its Opus
+audio EOS boundary. `idle_timeout` bounds inactivity per active turn, resets on
+active-side progress, and records deadline, client, turn, last-event, and
+observed-media evidence when it fires. Audio relays retain bounded assistant
+text for assertion and terminal capture without forwarding duplicate text.
+Reports remain content-free by default; local `--evidence full --output <path>`
+adds bounded relay text and produces a sensitive artifact without adding inputs,
+credentials, IDs, or audio payloads.
 `workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
-pair inside the standard gate, and `run_workspace_relay_tests.sh` starts one
-isolated stack, runs the repeat-1 and repeat-20 relay gates
+pair inside the standard gate;
+`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml` proves text
+forwarding with audio EOS completion against a multimodal candidate; and
+`run_workspace_relay_tests.sh` starts one isolated stack, runs both repeat-1
+gates and the repeat-20 relay gate
 (`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
 `--parallel 20`), and always cleans the stack up.
 

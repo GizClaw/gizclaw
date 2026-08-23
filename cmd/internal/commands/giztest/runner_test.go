@@ -3,6 +3,7 @@ package giztest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -56,6 +57,148 @@ func TestRunStepKeepsOperationEvidenceOnFailure(t *testing.T) {
 	}
 	if report.Evidence["deadline"] != "idle_timeout" || report.Evidence["events"] != 1 {
 		t.Fatalf("failed step evidence = %#v", report.Evidence)
+	}
+}
+
+func TestRunStepSelectsWorkspaceRelayEvidenceOnAssertionFailure(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		t.Run(fmt.Sprintf("full=%t", full), func(t *testing.T) {
+			tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+			go func() {
+				drainPushes(tester, 3)
+				tester.in <- assistantText("t1", "question", true)
+				drainPushes(candidate, 3)
+				candidate.in <- assistantText("c1", "FAIL: actual verdict", true)
+			}()
+			vars, err := newVariables(map[string]VariableSpec{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			step := Step{
+				ID: "relay",
+				WorkspaceRelay: &WorkspaceRelayOperation{
+					FirstClient: "tester", SecondClient: "candidate", Input: "brief", Media: "text", MaxTurns: 2, TerminalClient: "candidate",
+				},
+				Expect: map[string]Expectation{"/terminal/text": {Pattern: "^PASS$"}},
+			}
+			opts := runOptions{out: io.Discard, fullEvidence: full, openRelayStreams: func() (relayStream, relayStream, error) {
+				return tester, candidate, nil
+			}}
+			report, err := runStep(context.Background(), "relay.giztest.yaml", step, &clientSet{}, vars, nil, opts, nil)
+			if err == nil || report.Status != "failed" || !strings.Contains(report.Error, "pattern failed") {
+				t.Fatalf("report = %#v err = %v", report, err)
+			}
+			data, _ := json.Marshal(report.Evidence)
+			if full {
+				if !strings.Contains(string(data), "FAIL: actual verdict") {
+					t.Fatalf("full evidence = %s", data)
+				}
+			} else if strings.Contains(string(data), "actual verdict") {
+				t.Fatalf("redacted evidence = %s", data)
+			}
+		})
+	}
+}
+
+func TestRunStepClosesWorkspaceRelayStreamsOnIdleTimeout(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	readerExit := make(chan struct{})
+	tester.nextExitGate = readerExit
+	candidate.nextExitGate = readerExit
+	go drainPushes(tester, 3)
+	vars, err := newVariables(map[string]VariableSpec{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	step := Step{ID: "relay", WorkspaceRelay: &WorkspaceRelayOperation{
+		FirstClient: "tester", SecondClient: "candidate", Input: "brief", Media: "text",
+		IdleTimeout: "40ms", MaxTurns: 2, TerminalClient: "candidate",
+	}}
+	opts := runOptions{out: io.Discard, openRelayStreams: func() (relayStream, relayStream, error) {
+		return tester, candidate, nil
+	}}
+	type outcome struct {
+		report StepReport
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		report, err := runStep(context.Background(), "relay.giztest.yaml", step, &clientSet{}, vars, nil, opts, nil)
+		done <- outcome{report: report, err: err}
+	}()
+	for name, stream := range map[string]*fakeRelayStream{"tester": tester, "candidate": candidate} {
+		select {
+		case <-stream.closed:
+		case <-time.After(time.Second):
+			t.Fatalf("%s stream was not closed", name)
+		}
+	}
+	select {
+	case got := <-done:
+		t.Fatalf("runStep returned before relay readers exited: %#v", got)
+	default:
+	}
+	close(readerExit)
+	select {
+	case got := <-done:
+		if got.err == nil || got.report.Evidence["deadline"] != "idle_timeout" {
+			t.Fatalf("report = %#v err = %v", got.report, got.err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("runStep did not return after relay readers exited")
+	}
+	for name, stream := range map[string]*fakeRelayStream{"tester": tester, "candidate": candidate} {
+		select {
+		case <-stream.closed:
+		default:
+			t.Fatalf("%s stream was not closed", name)
+		}
+	}
+}
+
+func TestRunStepRetryPreservesSelectedWorkspaceRelayEvidence(t *testing.T) {
+	for _, full := range []bool{false, true} {
+		t.Run(fmt.Sprintf("full=%t", full), func(t *testing.T) {
+			pairs := [][2]*fakeRelayStream{{newFakeRelayStream(), newFakeRelayStream()}, {newFakeRelayStream(), newFakeRelayStream()}}
+			for i, pair := range pairs {
+				verdict := "FAIL first attempt"
+				if i == 1 {
+					verdict = "PASS"
+				}
+				go func(tester, candidate *fakeRelayStream, terminal string) {
+					drainPushes(tester, 3)
+					tester.in <- assistantText("t1", "question", true)
+					drainPushes(candidate, 3)
+					candidate.in <- assistantText("c1", terminal, true)
+				}(pair[0], pair[1], verdict)
+			}
+			opened := 0
+			vars, _ := newVariables(map[string]VariableSpec{})
+			step := Step{
+				ID: "relay",
+				WorkspaceRelay: &WorkspaceRelayOperation{
+					FirstClient: "tester", SecondClient: "candidate", Input: "brief", Media: "text", MaxTurns: 2, TerminalClient: "candidate",
+				},
+				Expect: map[string]Expectation{"/terminal/text": {Pattern: "^PASS$"}},
+				Retry:  &RetrySpec{Attempts: 2, On: []string{"assertion"}},
+			}
+			opts := runOptions{out: io.Discard, fullEvidence: full, openRelayStreams: func() (relayStream, relayStream, error) {
+				pair := pairs[opened]
+				opened++
+				return pair[0], pair[1], nil
+			}}
+			report, err := runStep(context.Background(), "relay.giztest.yaml", step, &clientSet{}, vars, nil, opts, nil)
+			if err != nil || report.Status != "passed" || len(report.Attempts) != 2 {
+				t.Fatalf("report = %#v err = %v", report, err)
+			}
+			first, _ := json.Marshal(report.Attempts[0].Evidence)
+			if full && !strings.Contains(string(first), "FAIL first attempt") {
+				t.Fatalf("full retry evidence = %s", first)
+			}
+			if !full && strings.Contains(string(first), "FAIL first attempt") {
+				t.Fatalf("redacted retry evidence = %s", first)
+			}
+		})
 	}
 }
 

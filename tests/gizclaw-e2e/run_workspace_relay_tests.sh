@@ -89,6 +89,8 @@ for task in tasks:
         evidence = step.get("evidence") or {}
         if "terminal_client" not in evidence or "completed_turns" not in evidence:
             raise SystemExit(f"task {task.get('task_id')} relay evidence is incomplete: {evidence}")
+        if "terminal" in evidence or any("texts" in turn for turn in (evidence.get("turns") or {}).values()):
+            raise SystemExit(f"task {task.get('task_id')} default evidence contains relay text")
 PY
 }
 
@@ -99,6 +101,14 @@ single_report="$artifact_dir/workspace-relay-1.json"
 	--output "$single_report" \
 	"$script_dir/giztest/workspace-relay.workflow-tester.giztest.yaml")
 verify_report "$single_report" 1
+
+echo "==> run multimodal realtime workspace relay gate"
+multimodal_report="$artifact_dir/workspace-relay-multimodal-1.json"
+(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
+	--parallel 1 \
+	--output "$multimodal_report" \
+	"$script_dir/giztest/workspace-relay.doubao-realtime-workflow-tester.giztest.yaml")
+verify_report "$multimodal_report" 1
 
 echo "==> run repeat-20 workspace relay gate"
 benchmark_report="$artifact_dir/workspace-relay-20.json"
