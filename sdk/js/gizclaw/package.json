@@ -1,18 +1,58 @@
 {
   "name": "@gizclaw/gizclaw",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./index.ts",
-    "./admin": "./admin.ts",
-    "./rpc": "./rpc.ts",
-    "./peerhttp": "./peerhttp.ts",
-    "./signaling": "./signaling.ts",
-    "./events": "./events.ts",
-    "./telemetry": "./telemetry.ts"
+  "version": "0.7.1",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GizClaw/gizclaw.git"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=23.5.0"
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "import": "./dist/admin.js"
+    },
+    "./rpc": {
+      "types": "./dist/rpc.d.ts",
+      "import": "./dist/rpc.js"
+    },
+    "./peerhttp": {
+      "types": "./dist/peerhttp.d.ts",
+      "import": "./dist/peerhttp.js"
+    },
+    "./signaling": {
+      "types": "./dist/signaling.d.ts",
+      "import": "./dist/signaling.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry.d.ts",
+      "import": "./dist/telemetry.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node ../scripts/prepare-published-sdk.mjs",
     "generate:events": "mkdir -p generated/events && protoc -I ../../../api/proto/events --plugin=protoc-gen-es=../../../node_modules/.bin/protoc-gen-es --es_out=generated/events --es_opt=target=js+dts,import_extension=js ../../../api/proto/events/peer_event.proto && prettier --write --ignore-path /dev/null generated/events/peer_event_pb.js generated/events/peer_event_pb.d.ts",
+    "prepack": "npm run build",
     "test": "node --test --experimental-strip-types *.test.ts"
   },
   "dependencies": {
@@ -23,6 +63,8 @@
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.14.0",
-    "@roamhq/wrtc": "^0.10.0"
+    "@roamhq/wrtc": "^0.10.0",
+    "@types/node": "26.2.0",
+    "typescript": "6.0.3"
   }
 }

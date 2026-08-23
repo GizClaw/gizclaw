@@ -14,6 +14,7 @@ guides/.vitepress/dist/
 guides/public/api/specs/
 guides/references/flutter/
 guides/references/typescript/
+sdk/js/gizclaw/dist/
 *.dll
 *.dylib
 *.exe
