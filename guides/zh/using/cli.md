@@ -72,6 +72,56 @@ matcher，全部通过时该断言才通过：
 内容类 matcher 失败时只报告 pointer 和 matcher 名，绝不回显被断言的文本，脱敏报告因此
 不包含响应内容。
 
+`equals`、`contains`、`contains_all`、`contains_any` 和 `not_contains` 可以在各自
+expectation 对象中显式启用确定性规范化：
+
+```yaml
+expect:
+  /text:
+    contains_all: [四点, G7105]
+    normalize: [whitespace, punctuation, case, digits]
+```
+
+四个选项分别删除 Unicode 空白（`unicode.IsSpace`）、删除 Unicode 标点
+（`unicode.IsPunct`，不删除 symbol 或 emoji）、使用 Go Unicode mapping 转小写，以及把
+全角数字和 `零一二三四五六七八九` 逐字符映射为 ASCII 数字；不会解析 `十` 等中文数量词，
+也不执行 locale-specific case folding。Fragment array 先 join，再对目标和每个操作数应用
+同组选项；选项书写顺序不影响结果。`pattern` 和 rune 长度 matcher 仍读取原始 join 文本。
+`normalize` 必须与上述五个 matcher 中至少一个一起声明；默认仍为 byte-exact。
+
+远端步骤可以显式启用有界 retry：
+
+```yaml
+- id: translated_turn
+  client: peer
+  timeout: 2m
+  retry:
+    attempts: 3
+    on: [timeout, assertion]
+    delay: 5s
+  peer_stream:
+    mode: text
+    input: Translate this sentence.
+```
+
+`attempts` 是 2–10 的总尝试次数。`on` 默认 `[timeout]`，还可包含 `assertion`；`delay`
+默认为零，显式值必须是大于零且不超过五分钟的 Go duration。只有普通 `steps` 中的
+`rpc`、`rpc_stream`、`speech`、`peer_stream` 和 `workspace_relay` 可以 retry；finalizer、
+`client_rpc`、`barrier`、`output` 和交互 review 步骤不能 retry。
+
+每次 attempt 重新获得 step timeout，但 task timeout 和调用方取消会限制全部 attempts 与
+delay。Timeout 必须保留可由 `errors.Is` 识别的 `context.DeadlineExceeded`，只有相似错误文本
+不会被归类；assertion 包括 `expect` 和 `expect_error` mismatch。其他 operation、变量解析、
+capture 和取消错误立即终止。失败 attempt 不提交 `save_as` 或 capture，只有成功 attempt
+才一次性向后续步骤发布全部输出。
+
+Retry 复用同一 clients、variables、Workspace 和远端状态；不会重连、清空 history、重跑前置
+步骤或撤销 RPC/provider 副作用，因此只有在重复当前 operation 符合场景语义时才能启用。
+Retry step 保留现有顶层最终 status、error 和 evidence，并增加按顺序排列的 `attempts`，记录
+attempt 序号、status、duration、安全 evidence，以及 `timeout`、`assertion`、`operation` 或
+`cancelled` failure kind；顶层 duration 包含 retry delay。没有 `retry` 的步骤保持现有报告
+结构并省略 `attempts`。
+
 `workspace_relay` 步骤把两个已声明 client 各自选中的 Workspace 接成一场有界对话。
 两个 client 必须不同，且各自都要有一个更早的 `server.run.workspace.set` 步骤，
 否则离线校验直接拒绝。`first_client` 接收 `input`；它的 assistant 输出被增量转发——

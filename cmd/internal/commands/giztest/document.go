@@ -77,6 +77,13 @@ type Step struct {
 	Expect         map[string]Expectation   `json:"expect,omitempty" yaml:"expect,omitempty"`
 	ExpectError    *ErrorExpectation        `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
 	Timeout        string                   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Retry          *RetrySpec               `json:"retry,omitempty" yaml:"retry,omitempty"`
+}
+
+type RetrySpec struct {
+	Attempts int      `json:"attempts" yaml:"attempts"`
+	On       []string `json:"on,omitempty" yaml:"on,omitempty"`
+	Delay    string   `json:"delay,omitempty" yaml:"delay,omitempty"`
 }
 
 type ErrorExpectation struct {
@@ -146,13 +153,17 @@ type Expectation struct {
 	Maximum     *float64 `json:"maximum,omitempty" yaml:"maximum,omitempty"`
 	MinLength   *int     `json:"min_length,omitempty" yaml:"min_length,omitempty"`
 	MaxLength   *int     `json:"max_length,omitempty" yaml:"max_length,omitempty"`
+	Normalize   []string `json:"normalize,omitempty" yaml:"normalize,omitempty"`
 }
 
 const (
-	maxNeedleRunes  = 256
-	maxNeedleCount  = 16
-	maxLengthBound  = 1 << 20
-	maxPatternBytes = 256
+	maxNeedleRunes    = 256
+	maxNeedleCount    = 16
+	maxLengthBound    = 1 << 20
+	maxPatternBytes   = 256
+	maxNormalizeKinds = 4
+	maxRetryAttempts  = 10
+	maxRetryDelay     = 5 * time.Minute
 )
 
 // notContainsList normalizes the YAML string-or-list operand into one list.
@@ -244,7 +255,59 @@ func (e Expectation) validate() error {
 	if e.Present != nil && !*e.Present && e.hasValueMatcher() {
 		return fmt.Errorf("present: false cannot combine with value matchers")
 	}
+	if err := e.validateNormalization(notContains); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (e Expectation) validateNormalization(notContains []string) error {
+	if e.Normalize == nil {
+		return nil
+	}
+	if len(e.Normalize) == 0 || len(e.Normalize) > maxNormalizeKinds {
+		return fmt.Errorf("normalize requires between 1 and %d options", maxNormalizeKinds)
+	}
+	seen := make(map[string]struct{}, len(e.Normalize))
+	for _, kind := range e.Normalize {
+		if !validNormalizationKind(kind) {
+			return fmt.Errorf("normalize contains unsupported option")
+		}
+		if _, ok := seen[kind]; ok {
+			return fmt.Errorf("normalize options must be unique")
+		}
+		seen[kind] = struct{}{}
+	}
+	if e.Equals == nil && e.Contains == "" && len(e.ContainsAll) == 0 && len(e.ContainsAny) == 0 && len(notContains) == 0 {
+		return fmt.Errorf("normalize requires a supported string matcher")
+	}
+	if e.Equals != nil {
+		if _, ok := e.Equals.(string); !ok {
+			return fmt.Errorf("normalize requires equals to be a string")
+		}
+	}
+	for matcher, needles := range map[string][]string{
+		"contains":     nonEmptyList(e.Contains),
+		"contains_all": e.ContainsAll,
+		"contains_any": e.ContainsAny,
+		"not_contains": notContains,
+	} {
+		for _, needle := range needles {
+			if normalizeString(needle, e.Normalize) == "" {
+				return fmt.Errorf("%s entry becomes empty after normalization", matcher)
+			}
+		}
+	}
+	return nil
+}
+
+func validNormalizationKind(kind string) bool {
+	switch kind {
+	case "case", "digits", "punctuation", "whitespace":
+		return true
+	default:
+		return false
+	}
 }
 
 func nonEmptyList(v string) []string {
@@ -407,6 +470,9 @@ func (d *Document) validateSemantics() error {
 				return fmt.Errorf("step %s has invalid timeout %q", step.ID, step.Timeout)
 			}
 		}
+		if err := validateRetry(step, i >= len(d.Steps)); err != nil {
+			return err
+		}
 		for path, expectation := range step.Expect {
 			if err := expectation.validate(); err != nil {
 				return fmt.Errorf("step %s expect %s: %w", step.ID, path, err)
@@ -458,6 +524,50 @@ func (d *Document) validateSemantics() error {
 		}
 	}
 	return nil
+}
+
+func validateRetry(step Step, finalizer bool) error {
+	if step.Retry == nil {
+		return nil
+	}
+	if finalizer {
+		return fmt.Errorf("step %s retry is not allowed in finally", step.ID)
+	}
+	if step.Retry.Attempts < 2 || step.Retry.Attempts > maxRetryAttempts {
+		return fmt.Errorf("step %s retry attempts must be between 2 and %d", step.ID, maxRetryAttempts)
+	}
+	if !retryableOperation(step.operation()) {
+		return fmt.Errorf("step %s operation %s does not support retry", step.ID, step.operation())
+	}
+	seen := make(map[string]struct{}, len(step.Retry.On))
+	for _, kind := range step.Retry.On {
+		if kind != "timeout" && kind != "assertion" {
+			return fmt.Errorf("step %s retry contains unsupported failure kind", step.ID)
+		}
+		if _, ok := seen[kind]; ok {
+			return fmt.Errorf("step %s retry failure kinds must be unique", step.ID)
+		}
+		seen[kind] = struct{}{}
+	}
+	if step.Retry.On != nil && len(step.Retry.On) == 0 {
+		return fmt.Errorf("step %s retry on must not be empty", step.ID)
+	}
+	if step.Retry.Delay != "" {
+		delay, err := time.ParseDuration(step.Retry.Delay)
+		if err != nil || delay <= 0 || delay > maxRetryDelay {
+			return fmt.Errorf("step %s retry has invalid delay %q", step.ID, step.Retry.Delay)
+		}
+	}
+	return nil
+}
+
+func retryableOperation(op string) bool {
+	switch op {
+	case "rpc", "rpc_stream", "speech", "peer_stream", "workspace_relay":
+		return true
+	default:
+		return false
+	}
 }
 
 func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) error {

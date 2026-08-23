@@ -8,12 +8,15 @@ import (
 	"io"
 	"maps"
 	"math"
+	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -204,7 +207,200 @@ func runFinalizers(parent context.Context, documentPath string, steps []Step, cl
 	return results, firstErr
 }
 
+type assertionFailure struct{ err error }
+
+func (e *assertionFailure) Error() string { return e.err.Error() }
+func (e *assertionFailure) Unwrap() error { return e.err }
+
 func runStep(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
+	if step.Retry == nil {
+		return runStepOnce(ctx, documentPath, step, clients, vars, barrier, opts, redactions)
+	}
+	return runStepWithRetry(ctx, documentPath, step, clients, vars, barrier, opts, redactions)
+}
+
+func runStepWithRetry(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
+	started := time.Now()
+	retryOn := step.Retry.On
+	if retryOn == nil {
+		retryOn = []string{"timeout"}
+	}
+	var delay time.Duration
+	if step.Retry.Delay != "" {
+		delay, _ = time.ParseDuration(step.Retry.Delay)
+	}
+	attempts := make([]AttemptReport, 0, step.Retry.Attempts)
+	var report StepReport
+	var finalErr error
+	for attempt := 1; attempt <= step.Retry.Attempts; attempt++ {
+		attemptVars := cloneVariables(vars)
+		attemptReport, err := runStepOnce(ctx, documentPath, step, clients, attemptVars, barrier, opts, redactions)
+		if err == nil {
+			if commitErr := commitAttemptVariables(vars, attemptVars); commitErr != nil {
+				err = commitErr
+				attemptReport.Status = "failed"
+				attemptReport.Error = safeError(err, redactions...)
+			}
+		}
+		kind := failureKind(err)
+		attempts = append(attempts, AttemptReport{
+			Attempt: attempt, Status: attemptReport.Status, FailureKind: kind,
+			DurationMS: attemptReport.DurationMS, Error: attemptReport.Error,
+			Evidence: maps.Clone(attemptReport.Evidence),
+		})
+		releaseAttemptVariables(vars, attemptVars)
+		report, finalErr = attemptReport, err
+		if err == nil || attempt == step.Retry.Attempts || !slices.Contains(retryOn, kind) || ctx.Err() != nil {
+			break
+		}
+		if delay > 0 {
+			if delayErr := waitRetryDelay(ctx, delay); delayErr != nil {
+				finalErr = delayErr
+				break
+			}
+		}
+	}
+	report.Attempts = attempts
+	report.DurationMS = time.Since(started).Milliseconds()
+	return report, finalErr
+}
+
+func waitRetryDelay(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	}
+}
+
+func cloneVariables(input *variables) *variables {
+	return &variables{values: maps.Clone(input.values)}
+}
+
+func releaseAttemptVariables(base, attempt *variables) {
+	protected := make(map[variableDataIdentity]struct{})
+	for _, current := range base.values {
+		collectVariableDataIdentities(current.data, protected)
+	}
+	seen := make(map[variableDataIdentity]struct{})
+	for name, original := range base.values {
+		candidate := attempt.values[name]
+		if original.data != nil || candidate.data == nil {
+			continue
+		}
+		clearDiscardedVariableData(candidate.data, protected, seen)
+		candidate.data = nil
+		attempt.values[name] = candidate
+	}
+}
+
+type variableDataIdentity struct {
+	typeOf  reflect.Type
+	pointer uintptr
+}
+
+func collectVariableDataIdentities(input any, identities map[variableDataIdentity]struct{}) {
+	switch value := input.(type) {
+	case []byte:
+		identities[variableDataIdentity{typeOf: reflect.TypeFor[[]byte](), pointer: reflect.ValueOf(value).Pointer()}] = struct{}{}
+	case map[string]any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[map[string]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := identities[identity]; ok {
+			return
+		}
+		identities[identity] = struct{}{}
+		for _, item := range value {
+			collectVariableDataIdentities(item, identities)
+		}
+	case []any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[[]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := identities[identity]; ok {
+			return
+		}
+		identities[identity] = struct{}{}
+		for _, item := range value {
+			collectVariableDataIdentities(item, identities)
+		}
+	}
+}
+
+func clearDiscardedVariableData(input any, protected, seen map[variableDataIdentity]struct{}) {
+	switch value := input.(type) {
+	case []byte:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[[]byte](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := protected[identity]; !ok {
+			clear(value)
+		}
+	case map[string]any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[map[string]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := protected[identity]; ok {
+			return
+		}
+		if _, ok := seen[identity]; ok {
+			return
+		}
+		seen[identity] = struct{}{}
+		for key, item := range value {
+			clearDiscardedVariableData(item, protected, seen)
+			value[key] = nil
+		}
+	case []any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[[]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := protected[identity]; ok {
+			return
+		}
+		if _, ok := seen[identity]; ok {
+			return
+		}
+		seen[identity] = struct{}{}
+		for index, item := range value {
+			clearDiscardedVariableData(item, protected, seen)
+			value[index] = nil
+		}
+	}
+}
+
+func commitAttemptVariables(dst, src *variables) error {
+	pending := make(map[string]any)
+	for name, current := range dst.values {
+		candidate := src.values[name]
+		if current.data != nil || candidate.data == nil {
+			continue
+		}
+		if err := checkValueType(current.spec, candidate.data); err != nil {
+			return fmt.Errorf("variable %q: %w", name, err)
+		}
+		pending[name] = candidate.data
+	}
+	for name, data := range pending {
+		current := dst.values[name]
+		current.data = data
+		dst.values[name] = current
+	}
+	return nil
+}
+
+func failureKind(err error) string {
+	if err == nil {
+		return ""
+	}
+	var assertion *assertionFailure
+	if errors.As(err, &assertion) {
+		return "assertion"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "cancelled"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timeout"
+	}
+	return "operation"
+}
+
+func runStepOnce(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
 	started := time.Now()
 	op := step.operation()
 	report := StepReport{ID: step.ID, Operation: op, Client: step.Client, Status: "failed", Stage: op}
@@ -393,12 +589,12 @@ func runStep(ctx context.Context, documentPath string, step Step, clients *clien
 		code, message, matched := structuredRPCError(err)
 		if !matched {
 			if err == nil {
-				err = fmt.Errorf("expected RPC error code %d, got success", step.ExpectError.Code)
+				err = &assertionFailure{err: fmt.Errorf("expected RPC error code %d, got success", step.ExpectError.Code)}
 			}
 		} else if code != step.ExpectError.Code {
-			err = fmt.Errorf("expected RPC error code %d, got %d", step.ExpectError.Code, code)
+			err = &assertionFailure{err: fmt.Errorf("expected RPC error code %d, got %d", step.ExpectError.Code, code)}
 		} else if step.ExpectError.MessageContains != "" && !strings.Contains(message, step.ExpectError.MessageContains) {
-			err = fmt.Errorf("RPC error message does not contain expected text")
+			err = &assertionFailure{err: fmt.Errorf("RPC error message does not contain expected text")}
 		} else {
 			err = nil
 			evidence = map[string]any{"rpc_error_code": code}
@@ -415,7 +611,9 @@ func runStep(ctx context.Context, documentPath string, step Step, clients *clien
 			err = applyCaptures(vars, step.Capture, value)
 		}
 		if err == nil {
-			err = assertValue(step.Expect, value)
+			if assertionErr := assertValue(step.Expect, value); assertionErr != nil {
+				err = &assertionFailure{err: assertionErr}
+			}
 		}
 		if evidence == nil {
 			evidence = map[string]any{"result": "captured"}
@@ -510,8 +708,16 @@ func assertValue(assertions map[string]Expectation, input any) error {
 			}
 			return fmt.Errorf("assert path %q not found", path)
 		}
-		if a.Equals != nil && !jsonEqual(value, a.Equals) {
-			return fmt.Errorf("assert %s equals failed", path)
+		if a.Equals != nil {
+			matched := jsonEqual(value, a.Equals)
+			if a.Normalize != nil {
+				text, ok := stringTarget(value)
+				operand, operandOK := a.Equals.(string)
+				matched = ok && operandOK && normalizeString(text, a.Normalize) == normalizeString(operand, a.Normalize)
+			}
+			if !matched {
+				return fmt.Errorf("assert %s equals failed", path)
+			}
 		}
 		if a.Count != nil {
 			array, ok := value.([]any)
@@ -560,18 +766,19 @@ func assertStringMatchers(path string, a Expectation, value any) error {
 	if !ok {
 		return fmt.Errorf("assert %s requires a string or text-fragment array target", path)
 	}
-	if a.Contains != "" && !strings.Contains(text, a.Contains) {
+	matchText := normalizeString(text, a.Normalize)
+	if a.Contains != "" && !strings.Contains(matchText, normalizeString(a.Contains, a.Normalize)) {
 		return fmt.Errorf("assert %s contains failed", path)
 	}
 	for _, needle := range a.ContainsAll {
-		if !strings.Contains(text, needle) {
+		if !strings.Contains(matchText, normalizeString(needle, a.Normalize)) {
 			return fmt.Errorf("assert %s contains_all failed", path)
 		}
 	}
 	if len(a.ContainsAny) > 0 {
 		matched := false
 		for _, needle := range a.ContainsAny {
-			if strings.Contains(text, needle) {
+			if strings.Contains(matchText, normalizeString(needle, a.Normalize)) {
 				matched = true
 				break
 			}
@@ -581,7 +788,7 @@ func assertStringMatchers(path string, a Expectation, value any) error {
 		}
 	}
 	for _, needle := range notContains {
-		if strings.Contains(text, needle) {
+		if strings.Contains(matchText, normalizeString(needle, a.Normalize)) {
 			return fmt.Errorf("assert %s not_contains failed", path)
 		}
 	}
@@ -604,6 +811,45 @@ func assertStringMatchers(path string, a Expectation, value any) error {
 		}
 	}
 	return nil
+}
+
+func normalizeString(input string, options []string) string {
+	if len(options) == 0 {
+		return input
+	}
+	whitespace := slices.Contains(options, "whitespace")
+	punctuation := slices.Contains(options, "punctuation")
+	digits := slices.Contains(options, "digits")
+	caseFold := slices.Contains(options, "case")
+	return strings.Map(func(r rune) rune {
+		if whitespace && unicode.IsSpace(r) {
+			return -1
+		}
+		if punctuation && unicode.IsPunct(r) {
+			return -1
+		}
+		if digits {
+			r = normalizeDigit(r)
+		}
+		if caseFold {
+			r = unicode.ToLower(r)
+		}
+		return r
+	}, input)
+}
+
+func normalizeDigit(r rune) rune {
+	const asciiDigits = "0123456789"
+	for _, digits := range []string{"０１２３４５６７８９", "零一二三四五六七八九"} {
+		index := 0
+		for _, candidate := range digits {
+			if r == candidate {
+				return rune(asciiDigits[index])
+			}
+			index++
+		}
+	}
+	return r
 }
 
 func assertNumericBounds(path string, a Expectation, value any) error {

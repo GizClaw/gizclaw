@@ -80,6 +80,66 @@ non-compiling `pattern`, `min_length` above `max_length`, `minimum` above
 matchers report only the pointer and matcher name — never the asserted text —
 so redacted reports stay free of response content.
 
+`equals`, `contains`, `contains_all`, `contains_any`, and `not_contains` may opt
+into deterministic normalization on their expectation object:
+
+```yaml
+expect:
+  /text:
+    contains_all: [四点, G7105]
+    normalize: [whitespace, punctuation, case, digits]
+```
+
+The options remove Unicode whitespace (`unicode.IsSpace`), remove Unicode
+punctuation (`unicode.IsPunct`, but not symbols or emoji), lowercase with Go's
+Unicode mapping, and map full-width digits plus
+`零一二三四五六七八九` one-for-one to ASCII digits. They do not parse Chinese
+quantities such as `十` or apply locale-specific case folding. Fragment arrays
+are joined before normalization, and the same selected rules apply to the
+target and every operand. Configuration order does not change the result.
+`pattern` and rune-length matchers continue to inspect the original joined
+text. Normalization is opt-in and cannot be declared without one of the five
+affected matchers; byte-exact matching remains the default.
+
+Remote steps may opt into bounded retries:
+
+```yaml
+- id: translated_turn
+  client: peer
+  timeout: 2m
+  retry:
+    attempts: 3
+    on: [timeout, assertion]
+    delay: 5s
+  peer_stream:
+    mode: text
+    input: Translate this sentence.
+```
+
+`attempts` is the total count from 2 through 10. `on` defaults to `[timeout]`
+and may also include `assertion`; `delay` defaults to zero and, when present,
+must be a positive Go duration no greater than five minutes. Retry is available
+only for `rpc`, `rpc_stream`, `speech`, `peer_stream`, and `workspace_relay` in
+the ordinary `steps` list. Finalizers, `client_rpc`, `barrier`, `output`, and
+interactive review steps cannot retry.
+
+Each attempt gets a fresh step timeout, while the task timeout and caller
+cancellation bound all attempts and delays. Timeout classification requires a
+wrapped `context.DeadlineExceeded`; matching error text alone is not enough.
+Assertion failures include `expect` and `expect_error` mismatches. Other
+operation, resolution, capture, and cancellation failures stop immediately.
+Failed attempts do not commit `save_as` or captures; only the successful
+attempt publishes all outputs to later steps.
+
+Retry reuses the same clients, variables, Workspace, and remote state. It does
+not reconnect, reset history, rerun earlier steps, or roll back RPC/provider
+side effects, so scenario authors must opt in only when repeating that step is
+valid. A retrying step retains its existing top-level final status, error, and
+evidence and adds ordered `attempts` records with the attempt number, status,
+duration, safe evidence, and a failure kind of `timeout`, `assertion`,
+`operation`, or `cancelled`. The top-level duration includes retry delays.
+Steps without `retry` keep the existing report shape and omit `attempts`.
+
 A `workspace_relay` step connects two declared clients' selected Workspaces as
 one bounded conversation. Both named clients must be distinct and must each
 have an earlier `server.run.workspace.set` step; validation rejects anything

@@ -3,6 +3,8 @@ package giztest
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"math"
 	"strings"
@@ -197,5 +199,303 @@ func TestAssertValueContentMatcherFailuresAreContentFree(t *testing.T) {
 		if strings.Contains(err.Error(), banned) {
 			t.Fatalf("failure message leaks content: %v", err)
 		}
+	}
+}
+
+func TestAssertValueNormalizedMatchers(t *testing.T) {
+	value := map[string]any{
+		"text":    []any{"下午 四点，", "G"},
+		"route":   "今天的观点？",
+		"verdict": "ＰＡＳＳ。",
+	}
+	all := []string{"whitespace", "punctuation", "case", "digits"}
+	pass := map[string]Expectation{
+		"/text":    {ContainsAll: []string{"四点", "g"}, ContainsAny: []string{"missing", "四 点"}, NotContains: []any{"五点"}, Normalize: all},
+		"/route":   {Contains: "今天的观点?", Normalize: []string{"punctuation"}, MinLength: new(6)},
+		"/verdict": {Equals: "ｐａｓｓ", Normalize: []string{"case", "punctuation"}},
+	}
+	if err := assertValue(pass, value); err != nil {
+		t.Fatalf("normalized assertion failed: %v", err)
+	}
+	if err := assertValue(map[string]Expectation{"/route": {Equals: "今天的观点?"}}, value); err == nil {
+		t.Fatal("byte-exact equals unexpectedly normalized punctuation")
+	}
+	if err := assertValue(map[string]Expectation{"/text": {MaxLength: new(5), Contains: "四点", Normalize: []string{"whitespace", "punctuation"}}}, value); err == nil || !strings.Contains(err.Error(), "max_length") {
+		t.Fatalf("raw length matcher did not observe original text: %v", err)
+	}
+	for name, test := range map[string]struct {
+		option string
+		want   string
+	}{
+		"whitespace only":  {option: "whitespace", want: "A？１"},
+		"punctuation only": {option: "punctuation", want: " A１"},
+		"case only":        {option: "case", want: " a？１"},
+		"digits only":      {option: "digits", want: " A？1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := normalizeString(" A？１", []string{test.option}); got != test.want {
+				t.Fatalf("normalizeString() = %q, want %q", got, test.want)
+			}
+		})
+	}
+	for _, options := range [][]string{{"digits", "case"}, {"case", "digits"}} {
+		if got := normalizeString("Ａ１２三", options); got != "ａ123" {
+			t.Fatalf("normalizeString() = %q", got)
+		}
+	}
+}
+
+func TestFailureKind(t *testing.T) {
+	tests := map[string]struct {
+		err  error
+		want string
+	}{
+		"none":              {want: ""},
+		"assertion":         {err: &assertionFailure{err: context.DeadlineExceeded}, want: "assertion"},
+		"wrapped timeout":   {err: fmt.Errorf("step timed out: %w", context.DeadlineExceeded), want: "timeout"},
+		"wrapped cancelled": {err: fmt.Errorf("step cancelled: %w", context.Canceled), want: "cancelled"},
+		"operation":         {err: errors.New("provider rejected request"), want: "operation"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := failureKind(test.err); got != test.want {
+				t.Fatalf("failureKind() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func finishRetryTextTurn(stream *fakeRelayStream, text string) {
+	stream.in <- assistantText("turn", text, false)
+	stream.in <- assistantBlob("turn", []byte{1}, false)
+	stream.in <- assistantText("turn", "", true)
+	stream.in <- assistantBlob("turn", nil, true)
+}
+
+func TestRunStepRetriesAssertionAndCommitsOnlyWinningOutput(t *testing.T) {
+	streams := []*fakeRelayStream{newFakeRelayStream(), newFakeRelayStream()}
+	for index, stream := range streams {
+		text := "FAIL"
+		if index == 1 {
+			text = "PASS"
+		}
+		go func() {
+			drainPushes(stream, 3)
+			finishRetryTextTurn(stream, text)
+		}()
+	}
+	vars, err := newVariables(map[string]VariableSpec{"result": {Direction: "output", Type: "object"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	opened := 0
+	step := Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"},
+		SaveAs: "result", Expect: map[string]Expectation{"/text": {Contains: "PASS"}},
+		Retry: &RetrySpec{Attempts: 2, On: []string{"assertion"}},
+	}
+	opts := runOptions{out: io.Discard, openPeerStream: func(*gizcli.Client) peerStreamOpener {
+		stream := streams[opened]
+		opened++
+		return func() (peerStream, error) { return stream, nil }
+	}}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err != nil || report.Status != "passed" || opened != 2 {
+		t.Fatalf("report = %#v, opened = %d, err = %v", report, opened, err)
+	}
+	if len(report.Attempts) != 2 || report.Attempts[0].FailureKind != "assertion" || report.Attempts[1].Status != "passed" {
+		t.Fatalf("attempts = %#v", report.Attempts)
+	}
+	if strings.Contains(report.Attempts[0].Error, "FAIL") || strings.Contains(report.Attempts[0].Error, "PASS") {
+		t.Fatalf("attempt error leaks matcher content: %q", report.Attempts[0].Error)
+	}
+	result, _ := vars.values["result"].data.(map[string]any)
+	if text, _ := stringTarget(result["text"]); text != "PASS" {
+		t.Fatalf("winning output = %#v", result)
+	}
+}
+
+func TestRunStepRetryReportsExhaustedAttempts(t *testing.T) {
+	streams := []*fakeRelayStream{newFakeRelayStream(), newFakeRelayStream()}
+	for _, stream := range streams {
+		go func() {
+			drainPushes(stream, 3)
+			finishRetryTextTurn(stream, "FAIL")
+		}()
+	}
+	opened := 0
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, ExpectError: &ErrorExpectation{Code: 7}, Retry: &RetrySpec{Attempts: 2, On: []string{"assertion"}}}
+	opts := runOptions{out: io.Discard, openPeerStream: func(*gizcli.Client) peerStreamOpener {
+		stream := streams[opened]
+		opened++
+		return func() (peerStream, error) { return stream, nil }
+	}}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err == nil || report.Status != "failed" || opened != 2 || len(report.Attempts) != 2 {
+		t.Fatalf("report = %#v, opened = %d, err = %v", report, opened, err)
+	}
+	for _, attempt := range report.Attempts {
+		if attempt.FailureKind != "assertion" || attempt.Status != "failed" {
+			t.Fatalf("attempt = %#v", attempt)
+		}
+	}
+}
+
+func TestRunStepRetriesTimeoutWithFreshStepDeadline(t *testing.T) {
+	first := newFakeRelayStream()
+	second := newFakeRelayStream()
+	go func() {
+		drainPushes(first, 3)
+	}()
+	go func() {
+		drainPushes(second, 3)
+		finishRetryTextTurn(second, "PASS")
+	}()
+	streams := []*fakeRelayStream{first, second}
+	opened := 0
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	step := Step{ID: "turn", Client: "peer", Timeout: "30ms", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, Retry: &RetrySpec{Attempts: 2}}
+	opts := runOptions{out: io.Discard, openPeerStream: func(*gizcli.Client) peerStreamOpener {
+		stream := streams[opened]
+		opened++
+		return func() (peerStream, error) { return stream, nil }
+	}}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err != nil || report.Status != "passed" || opened != 2 || report.Attempts[0].FailureKind != "timeout" {
+		t.Fatalf("report = %#v, opened = %d, err = %v", report, opened, err)
+	}
+}
+
+func TestRunStepRetryStopsOnOperationFailure(t *testing.T) {
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	opened := 0
+	step := Step{ID: "turn", Client: "missing", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, ExpectError: &ErrorExpectation{Code: 7}, Retry: &RetrySpec{Attempts: 3, On: []string{"assertion"}}}
+	opts := runOptions{out: io.Discard, openPeerStream: func(*gizcli.Client) peerStreamOpener {
+		opened++
+		return func() (peerStream, error) { return nil, errors.New("provider unavailable") }
+	}}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err == nil || opened != 0 || len(report.Attempts) != 1 || report.Attempts[0].FailureKind != "operation" {
+		t.Fatalf("report = %#v, opened = %d, err = %v", report, opened, err)
+	}
+}
+
+func TestRunStepRetryDelayHonorsCancellation(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		finishRetryTextTurn(stream, "FAIL")
+	}()
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	opened := 0
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, Expect: map[string]Expectation{"/text": {Contains: "PASS"}}, Retry: &RetrySpec{Attempts: 2, On: []string{"assertion"}, Delay: "1s"}}
+	opts := runOptions{out: io.Discard, openPeerStream: func(*gizcli.Client) peerStreamOpener {
+		opened++
+		return func() (peerStream, error) { return stream, nil }
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	report, err := runStep(ctx, "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if !errors.Is(err, context.DeadlineExceeded) || opened != 1 || len(report.Attempts) != 1 {
+		t.Fatalf("report = %#v, opened = %d, err = %v", report, opened, err)
+	}
+	if report.Error != report.Attempts[0].Error || report.Evidence["events"] != report.Attempts[0].Evidence["events"] {
+		t.Fatalf("top-level report no longer reflects the last actual attempt: %#v", report)
+	}
+}
+
+func TestAttemptVariableCopiesClearFailedBytes(t *testing.T) {
+	input := []byte{9, 8}
+	vars, _ := newVariables(map[string]VariableSpec{
+		"input": {Direction: "input", Type: "audio", Value: input, MaxBytes: 4, MediaType: "audio/ogg", Codec: "opus"},
+		"audio": {Direction: "output", Type: "audio", MaxBytes: 4, MediaType: "audio/ogg", Codec: "opus"},
+	})
+	attempt := cloneVariables(vars)
+	buffer := []byte{1, 2, 3}
+	if err := attempt.assign("audio", buffer); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 0 || vars.values["audio"].data != nil || input[0] != 9 {
+		t.Fatalf("failed buffer = %v, committed = %#v, input = %v", buffer, vars.values["audio"].data, input)
+	}
+}
+
+func TestAttemptVariableCopiesClearNestedFailedBytes(t *testing.T) {
+	vars, _ := newVariables(map[string]VariableSpec{
+		"result": {Direction: "output", Type: "object"},
+	})
+	attempt := cloneVariables(vars)
+	buffer := []byte{1, 2, 3}
+	object := map[string]any{"parts": []any{buffer}}
+	object["cycle"] = object
+	if err := attempt.assign("result", object); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 0 || object["parts"] != nil || object["cycle"] != nil || vars.values["result"].data != nil {
+		t.Fatalf("discarded object was not cleared: buffer = %v, object = %#v", buffer, object)
+	}
+}
+
+func TestAttemptVariableCopiesPreserveAliasedInputBytes(t *testing.T) {
+	buffer := []byte{1, 2, 3}
+	input := map[string]any{"parts": []any{buffer}}
+	vars, _ := newVariables(map[string]VariableSpec{
+		"input":  {Direction: "input", Type: "object", Value: input},
+		"result": {Direction: "output", Type: "object"},
+	})
+	attempt := cloneVariables(vars)
+	if err := attempt.assign("result", input); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 1 || input["parts"] == nil || vars.values["result"].data != nil {
+		t.Fatalf("input alias was cleared: buffer = %v, input = %#v", buffer, input)
+	}
+}
+
+func TestAttemptVariableCommitTransfersNestedBytes(t *testing.T) {
+	vars, _ := newVariables(map[string]VariableSpec{
+		"result": {Direction: "output", Type: "object"},
+	})
+	attempt := cloneVariables(vars)
+	buffer := []byte{1, 2, 3}
+	object := map[string]any{"parts": []any{buffer}}
+	if err := attempt.assign("result", object); err != nil {
+		t.Fatal(err)
+	}
+	if err := commitAttemptVariables(vars, attempt); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 1 || vars.values["result"].data == nil {
+		t.Fatalf("committed object was cleared: buffer = %v, committed = %#v", buffer, vars.values["result"].data)
+	}
+}
+
+func TestCommitAttemptVariablesValidatesBeforePublishing(t *testing.T) {
+	vars, _ := newVariables(map[string]VariableSpec{
+		"first":  {Direction: "output", Type: "string"},
+		"second": {Direction: "output", Type: "integer"},
+	})
+	attempt := cloneVariables(vars)
+	first := attempt.values["first"]
+	first.data = "ready"
+	attempt.values["first"] = first
+	second := attempt.values["second"]
+	second.data = "wrong type"
+	attempt.values["second"] = second
+	if err := commitAttemptVariables(vars, attempt); err == nil {
+		t.Fatal("commitAttemptVariables() accepted an invalid pending value")
+	}
+	if vars.values["first"].data != nil || vars.values["second"].data != nil {
+		t.Fatalf("partial outputs published: %#v", vars.values)
 	}
 }

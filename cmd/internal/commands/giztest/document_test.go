@@ -210,6 +210,76 @@ func TestExpectationValidateDoesNotEchoInvalidPattern(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentAcceptsNormalizationAndRetry(t *testing.T) {
+	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry:\n      attempts: 3\n      on: [timeout, assertion]\n      delay: 5s\n", 1)
+	content = strings.Replace(content, "        present: true\n", "        equals: １２三\n        normalize: [digits, case]\n", 1)
+	doc, err := loadDocument(writeTestDocument(t, content))
+	if err != nil {
+		t.Fatalf("loadDocument() error = %v", err)
+	}
+	if doc.Steps[0].Retry.Attempts != 3 || len(doc.Steps[0].Expect["/server_time"].Normalize) != 2 {
+		t.Fatalf("document = %#v", doc)
+	}
+}
+
+func TestLoadDocumentRejectsInvalidNormalizationOffline(t *testing.T) {
+	cases := map[string]string{
+		"empty options":             "{contains: x, normalize: []}",
+		"duplicate options":         "{contains: x, normalize: [case, case]}",
+		"unknown option":            "{contains: x, normalize: [accent]}",
+		"no affected matcher":       "{pattern: x, normalize: [case]}",
+		"non-string equals":         "{equals: 7, normalize: [case]}",
+		"normalized empty contains": "{contains: \"。\", normalize: [punctuation]}",
+	}
+	for name, expectation := range cases {
+		t.Run(name, func(t *testing.T) {
+			content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time: "+expectation+"\n", 1)
+			if _, err := loadDocument(writeTestDocument(t, content)); err == nil {
+				t.Fatal("loadDocument() accepted invalid normalization")
+			}
+		})
+	}
+}
+
+func TestLoadDocumentRejectsInvalidRetryOffline(t *testing.T) {
+	cases := map[string]string{
+		"too few attempts":  "{attempts: 1}",
+		"too many attempts": "{attempts: 11}",
+		"empty on":          "{attempts: 2, on: []}",
+		"duplicate on":      "{attempts: 2, on: [timeout, timeout]}",
+		"unknown kind":      "{attempts: 2, on: [provider]}",
+		"zero delay":        "{attempts: 2, delay: 0s}",
+		"oversize delay":    "{attempts: 2, delay: 6m}",
+	}
+	for name, retry := range cases {
+		t.Run(name, func(t *testing.T) {
+			content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry: "+retry+"\n", 1)
+			if _, err := loadDocument(writeTestDocument(t, content)); err == nil {
+				t.Fatal("loadDocument() accepted invalid retry")
+			}
+		})
+	}
+}
+
+func TestValidateRetryRejectsLocalAndFinalizerOperations(t *testing.T) {
+	for name, step := range map[string]Step{
+		"output":     {ID: "emit", Output: &OutputOperation{Variable: "value"}, Retry: &RetrySpec{Attempts: 2}},
+		"review":     {ID: "review", ReviewOp: &ReviewOperation{Message: "check"}, Retry: &RetrySpec{Attempts: 2}},
+		"barrier":    {ID: "sync", Barrier: &BarrierOperation{}, Retry: &RetrySpec{Attempts: 2}},
+		"client_rpc": {ID: "callback", ClientRPC: &ClientRPCOperation{Method: "client.info.get"}, Retry: &RetrySpec{Attempts: 2}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := validateRetry(step, false); err == nil {
+				t.Fatal("validateRetry() accepted local operation")
+			}
+		})
+	}
+	step := Step{ID: "cleanup", RPC: &RPCOperation{Method: "server.run.stop"}, Retry: &RetrySpec{Attempts: 2}}
+	if err := validateRetry(step, true); err == nil {
+		t.Fatal("validateRetry() accepted finalizer")
+	}
+}
+
 const relayDocument = `# User Story:
 # As a Workflow catalog maintainer,
 # I want a tester Workspace to exercise a candidate Workspace,
