@@ -8,6 +8,7 @@ import (
 	"io"
 	"maps"
 	"math"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -280,16 +281,85 @@ func cloneVariables(input *variables) *variables {
 }
 
 func releaseAttemptVariables(base, attempt *variables) {
+	protected := make(map[variableDataIdentity]struct{})
+	for _, current := range base.values {
+		collectVariableDataIdentities(current.data, protected)
+	}
+	seen := make(map[variableDataIdentity]struct{})
 	for name, original := range base.values {
 		candidate := attempt.values[name]
 		if original.data != nil || candidate.data == nil {
 			continue
 		}
-		if data, ok := candidate.data.([]byte); ok {
-			clear(data)
-		}
+		clearDiscardedVariableData(candidate.data, protected, seen)
 		candidate.data = nil
 		attempt.values[name] = candidate
+	}
+}
+
+type variableDataIdentity struct {
+	typeOf  reflect.Type
+	pointer uintptr
+}
+
+func collectVariableDataIdentities(input any, identities map[variableDataIdentity]struct{}) {
+	switch value := input.(type) {
+	case []byte:
+		identities[variableDataIdentity{typeOf: reflect.TypeFor[[]byte](), pointer: reflect.ValueOf(value).Pointer()}] = struct{}{}
+	case map[string]any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[map[string]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := identities[identity]; ok {
+			return
+		}
+		identities[identity] = struct{}{}
+		for _, item := range value {
+			collectVariableDataIdentities(item, identities)
+		}
+	case []any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[[]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := identities[identity]; ok {
+			return
+		}
+		identities[identity] = struct{}{}
+		for _, item := range value {
+			collectVariableDataIdentities(item, identities)
+		}
+	}
+}
+
+func clearDiscardedVariableData(input any, protected, seen map[variableDataIdentity]struct{}) {
+	switch value := input.(type) {
+	case []byte:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[[]byte](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := protected[identity]; !ok {
+			clear(value)
+		}
+	case map[string]any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[map[string]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := protected[identity]; ok {
+			return
+		}
+		if _, ok := seen[identity]; ok {
+			return
+		}
+		seen[identity] = struct{}{}
+		for key, item := range value {
+			clearDiscardedVariableData(item, protected, seen)
+			value[key] = nil
+		}
+	case []any:
+		identity := variableDataIdentity{typeOf: reflect.TypeFor[[]any](), pointer: reflect.ValueOf(value).Pointer()}
+		if _, ok := protected[identity]; ok {
+			return
+		}
+		if _, ok := seen[identity]; ok {
+			return
+		}
+		seen[identity] = struct{}{}
+		for index, item := range value {
+			clearDiscardedVariableData(item, protected, seen)
+			value[index] = nil
+		}
 	}
 }
 
@@ -303,7 +373,7 @@ func commitAttemptVariables(dst, src *variables) error {
 		if err := checkValueType(current.spec, candidate.data); err != nil {
 			return fmt.Errorf("variable %q: %w", name, err)
 		}
-		pending[name] = cloneVariableData(candidate.data)
+		pending[name] = candidate.data
 	}
 	for name, data := range pending {
 		current := dst.values[name]
@@ -311,13 +381,6 @@ func commitAttemptVariables(dst, src *variables) error {
 		dst.values[name] = current
 	}
 	return nil
-}
-
-func cloneVariableData(input any) any {
-	if data, ok := input.([]byte); ok {
-		return append([]byte(nil), data...)
-	}
-	return input
 }
 
 func failureKind(err error) string {

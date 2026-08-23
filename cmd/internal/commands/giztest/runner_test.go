@@ -427,6 +427,59 @@ func TestAttemptVariableCopiesClearFailedBytes(t *testing.T) {
 	}
 }
 
+func TestAttemptVariableCopiesClearNestedFailedBytes(t *testing.T) {
+	vars, _ := newVariables(map[string]VariableSpec{
+		"result": {Direction: "output", Type: "object"},
+	})
+	attempt := cloneVariables(vars)
+	buffer := []byte{1, 2, 3}
+	object := map[string]any{"parts": []any{buffer}}
+	object["cycle"] = object
+	if err := attempt.assign("result", object); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 0 || object["parts"] != nil || object["cycle"] != nil || vars.values["result"].data != nil {
+		t.Fatalf("discarded object was not cleared: buffer = %v, object = %#v", buffer, object)
+	}
+}
+
+func TestAttemptVariableCopiesPreserveAliasedInputBytes(t *testing.T) {
+	buffer := []byte{1, 2, 3}
+	input := map[string]any{"parts": []any{buffer}}
+	vars, _ := newVariables(map[string]VariableSpec{
+		"input":  {Direction: "input", Type: "object", Value: input},
+		"result": {Direction: "output", Type: "object"},
+	})
+	attempt := cloneVariables(vars)
+	if err := attempt.assign("result", input); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 1 || input["parts"] == nil || vars.values["result"].data != nil {
+		t.Fatalf("input alias was cleared: buffer = %v, input = %#v", buffer, input)
+	}
+}
+
+func TestAttemptVariableCommitTransfersNestedBytes(t *testing.T) {
+	vars, _ := newVariables(map[string]VariableSpec{
+		"result": {Direction: "output", Type: "object"},
+	})
+	attempt := cloneVariables(vars)
+	buffer := []byte{1, 2, 3}
+	object := map[string]any{"parts": []any{buffer}}
+	if err := attempt.assign("result", object); err != nil {
+		t.Fatal(err)
+	}
+	if err := commitAttemptVariables(vars, attempt); err != nil {
+		t.Fatal(err)
+	}
+	releaseAttemptVariables(vars, attempt)
+	if buffer[0] != 1 || vars.values["result"].data == nil {
+		t.Fatalf("committed object was cleared: buffer = %v, committed = %#v", buffer, vars.values["result"].data)
+	}
+}
+
 func TestCommitAttemptVariablesValidatesBeforePublishing(t *testing.T) {
 	vars, _ := newVariables(map[string]VariableSpec{
 		"first":  {Direction: "output", Type: "string"},
