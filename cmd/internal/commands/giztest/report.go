@@ -29,14 +29,23 @@ type TaskReport struct {
 	Error       string            `json:"error,omitempty"`
 }
 type StepReport struct {
-	ID         string         `json:"id"`
-	Operation  string         `json:"operation"`
-	Client     string         `json:"client,omitempty"`
-	Status     string         `json:"status"`
-	Stage      string         `json:"stage"`
-	DurationMS int64          `json:"duration_ms"`
-	Error      string         `json:"error,omitempty"`
-	Evidence   map[string]any `json:"evidence,omitempty"`
+	ID         string          `json:"id"`
+	Operation  string          `json:"operation"`
+	Client     string          `json:"client,omitempty"`
+	Status     string          `json:"status"`
+	Stage      string          `json:"stage"`
+	DurationMS int64           `json:"duration_ms"`
+	Error      string          `json:"error,omitempty"`
+	Evidence   map[string]any  `json:"evidence,omitempty"`
+	Attempts   []AttemptReport `json:"attempts,omitempty"`
+}
+type AttemptReport struct {
+	Attempt     int            `json:"attempt"`
+	Status      string         `json:"status"`
+	FailureKind string         `json:"failure_kind,omitempty"`
+	DurationMS  int64          `json:"duration_ms"`
+	Error       string         `json:"error,omitempty"`
+	Evidence    map[string]any `json:"evidence,omitempty"`
 }
 
 func (r *Report) finish(start time.Time) {

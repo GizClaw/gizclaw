@@ -21,6 +21,35 @@ func TestWriteReportIsRedactedAndAtomic(t *testing.T) {
 	if strings.Contains(string(data), "secret") || !strings.Contains(string(data), `"status": "passed"`) {
 		t.Fatalf("report = %s", data)
 	}
+	if strings.Contains(string(data), `"attempts"`) {
+		t.Fatalf("single-attempt report changed shape: %s", data)
+	}
+}
+
+func TestWriteReportIncludesExplicitRetryAttempts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "report.json")
+	r := Report{
+		Version: "v1", Status: "passed",
+		Tasks: []TaskReport{{
+			Name: "case", Status: "passed",
+			Steps: []StepReport{{
+				ID: "turn", Operation: "peer_stream", Status: "passed", Stage: "peer_stream",
+				Attempts: []AttemptReport{{Attempt: 1, Status: "failed", FailureKind: "timeout", Error: "deadline exceeded"}, {Attempt: 2, Status: "passed"}},
+			}},
+		}},
+	}
+	if err := writeReport(path, r); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"attempts"`, `"attempt": 1`, `"failure_kind": "timeout"`, `"attempt": 2`} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("report lacks %s: %s", want, data)
+		}
+	}
 }
 
 func TestSafeErrorRedactsExactValues(t *testing.T) {
