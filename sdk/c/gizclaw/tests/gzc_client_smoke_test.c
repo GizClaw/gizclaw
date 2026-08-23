@@ -103,6 +103,8 @@ typedef struct {
   bool speed_response_eos_sent;
   bool speed_full_duplex_observed;
   bool speed_flood_download;
+  bool defer_next_service_open;
+  bool close_peer_on_poll;
 } fake_webrtc_t;
 
 typedef struct {
@@ -485,7 +487,9 @@ static int test_peer_create_data_channel(gzc_rtc_peer_t *peer, const gzc_rtc_cha
       return GZC_ERR_CHANNEL_LIMIT;
     }
     *out_channel = channel;
-    if (fake->callbacks.on_channel_state != NULL) {
+    if (fake->defer_next_service_open) {
+      fake->defer_next_service_open = false;
+    } else if (fake->callbacks.on_channel_state != NULL) {
       gzc_rtc_channel_info_t info;
       memset(&info, 0, sizeof(info));
       info.label = config->label;
@@ -535,6 +539,13 @@ static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
     int rc = fake->poll_result_once;
     fake->poll_result_once = GZC_OK;
     return rc;
+  }
+  if (fake->close_peer_on_poll) {
+    fake->close_peer_on_poll = false;
+    fake->callbacks.on_peer_state(
+        fake->callbacks.userdata,
+        &fake->peer,
+        GZC_RTC_PEER_CLOSED);
   }
   if (fake->pending_opus_len != 0u && fake->opus_callback != NULL) {
     size_t len = fake->pending_opus_len;
@@ -4644,6 +4655,22 @@ int main(void) {
   if (expect(
           rc == GZC_OK && fake_webrtc_gateway.opus_send_count == 1,
           "gateway client uses the mandatory Opus media extension") != 0) {
+    gzc_client_destroy(client_gateway);
+    gzc_buf_free(&fake_webrtc_gateway.sent, platform);
+    gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
+    gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
+    gzc_buf_free(&fake_webrtc_gateway.opus_sent, platform);
+    return 1;
+  }
+  fake_webrtc_gateway.defer_next_service_open = true;
+  fake_webrtc_gateway.close_peer_on_poll = true;
+  gzc_service_channel_t *closing_channel = NULL;
+  rc = gzc_client_open_service_channel(
+      client_gateway, 49u, 1000, &closing_channel);
+  if (expect(
+          rc == GZC_ERR_CLOSED && closing_channel == NULL &&
+              fake_webrtc_gateway.stale_close_count == 0,
+          "peer close while opening a service channel does not reuse the freed handle") != 0) {
     gzc_client_destroy(client_gateway);
     gzc_buf_free(&fake_webrtc_gateway.sent, platform);
     gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
