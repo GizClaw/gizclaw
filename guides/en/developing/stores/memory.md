@@ -70,6 +70,8 @@ Mem0 is constructed with one `mem0.Config`. `FlavorPlatform` uses `Authorization
 
 Volcengine AgentKit/Viking MEM0 is constructed with one `volc.Config`. It accepts either an explicit Mem0 data-plane key or a credential resolver. The adapter explicitly selects Volc's v1 add/search routes, extracts one authoritative job ID from `results`, and makes `Wait` poll `/v1/job/{id}/`. If a successful job omits facts, it lists only the same scope and selects records owned by the observation ID. The Volc v1 service requires `user_id`, so an App-, Agent-, or Run-only logical scope receives a reserved encoded transport user while retaining every original native field; returned records are decoded and checked against the unchanged logical scope. Generic Mem0 Platform continues to use v3 add/search, its top-level event ID, and `/v1/event/{id}/`. Endpoint hostnames are never used to infer the protocol. A Volc data-plane endpoint is mandatory.
 
+An Eino `memory_observe` node assigns each Graph-authored direct Fact a stable observation identity derived from the current turn and Graph node. A following `memory_recall` node in the same Workspace therefore reads the Fact through the same complete `Scope.AppID`, including with `volc_mem0`. Volc search results must have a native Fact ID and a compatible encoded scope; provider routing metadata such as project and strategy bookkeeping is not returned as business attributes.
+
 ## MemoryLayout, RuntimeProfile, and Workflow
 
 Memory is no longer a `stores.kind: memory` Server Config entry. Portable policy, deployment connection, and Graph consumption belong to three separate resource surfaces:

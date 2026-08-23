@@ -42,3 +42,5 @@ only canonical Resource names to `http_request` or the current connection's
 assistant stream.
 
 OpenAI Responses use a request-scoped direct Workspace attachment through the same canonical Resolver and shared Runtime Registry. It does not read or update the PeerRun selection. Server-side tools keep normal Workflow policy; connection-scoped client tools fail closed because an OpenAI request has no stable client-tool transport contract. A bounded History observer returns the exact persisted assistant entry used by the Response projection.
+
+When an assistant route ends with a provider or runtime error EOS, the Peer output adapter forwards the original EOS unchanged and emits one structured Server error record with Peer, active Workspace, stream, error-code, and retryability correlation. The expected `interrupted` replacement EOS is a control event and is not logged as a failure. Logging does not fail the long-lived output consumer, add another EOS, or prevent a later turn or Workspace reload.

@@ -106,7 +106,8 @@ func compileRace(
 					captureEmitter: captureEmitter{values: make(map[string]any)},
 					index:          index, started: started,
 				}
-				childState, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs), inputs, capture)
+				observationID := fmt.Sprintf("%s:race:%s", parent.input.ObservationID, node.Race.Branches[index].ID)
+				childState, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs, observationID), inputs, capture)
 				if childErr == nil {
 					childErr = graph.execute(branchCtx, childState)
 				}

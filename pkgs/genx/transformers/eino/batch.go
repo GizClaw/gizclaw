@@ -47,7 +47,8 @@ func compileBatch(
 				defer func() { <-sem }()
 				inputs := map[string]any{"item": item}
 				capture := &captureEmitter{values: make(map[string]any)}
-				child, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs), inputs, capture)
+				observationID := fmt.Sprintf("%s:batch:%d", parent.input.ObservationID, index)
+				child, childErr := newRunState(graph.fields, graphInputFromNodeInputs(inputs, observationID), inputs, capture)
 				if childErr == nil {
 					childErr = graph.execute(batchCtx, child)
 				}

@@ -693,7 +693,8 @@ func compileNode(
 				WaitForCompletion: node.MemoryObserve.WaitForCompletion,
 				Facts:             node.MemoryObserve.Facts,
 			}
-			if err := observeMemory(ctx, &memoryConfig, state, "", "", "", false); err != nil {
+			observationID := strings.Join([]string{state.input.ObservationID, path, node.ID}, ":")
+			if err := observeMemory(ctx, &memoryConfig, state, observationID, "", "", false); err != nil {
 				return nil, nil, err
 			}
 			return nil, nil, nil
@@ -764,7 +765,7 @@ func childRunner(node NodeDefinition, child *compiledGraph) func(context.Context
 		if err != nil {
 			return nil, nil, err
 		}
-		childState, err := newRunState(child.fields, graphInputFromNodeInputs(inputs), inputs, &captureEmitter{})
+		childState, err := newRunState(child.fields, graphInputFromNodeInputs(inputs, parent.input.ObservationID), inputs, &captureEmitter{})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -777,8 +778,8 @@ func childRunner(node NodeDefinition, child *compiledGraph) func(context.Context
 	}
 }
 
-func graphInputFromNodeInputs(inputs map[string]any) graphInput {
-	result := graphInput{}
+func graphInputFromNodeInputs(inputs map[string]any, observationID string) graphInput {
+	result := graphInput{ObservationID: observationID}
 	if text, ok := inputs["text"].(string); ok {
 		result.Text = text
 	}

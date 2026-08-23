@@ -589,7 +589,11 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	}
 	messages := append(cloneMessages(history), schemaUserMessage(run.user, run.parts))
 	state, err := newRunState(config.fields, graphInput{
-		Text: run.user, Messages: messages, Parts: run.parts, History: history,
+		ObservationID: run.primary.response.StreamID(),
+		Text:          run.user,
+		Messages:      messages,
+		Parts:         run.parts,
+		History:       history,
 	}, initial, run)
 	if err != nil {
 		return nil, "", err
