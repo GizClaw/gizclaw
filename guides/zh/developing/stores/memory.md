@@ -123,8 +123,11 @@ spec:
           type: flowcraft_bbh
 ```
 
-`flowcraft_bbh` 是不需要外部服务的 portable connection。它使用
-`<server-workspace>/data/memory/<runtime-profile>/<memory-alias>`，Workspace 名作为 `Scope.AppID` 隔离数据。其他合法 connection 是 `flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）、`mem0`（`project_id`、`endpoint`、`api_key`）和 `volc_mem0`（`memory_project_id`、`endpoint`、`api_key`）。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
+`flowcraft_bbh` 是不需要外部服务的 portable connection。一个 RuntimeProfile memory binding 共享一个 Flowcraft client、一个 SQLite canonical backend 和一个 BBH retrieval index。Canonical Fact、Evidence、Async Semantic Queue 与 Side-effect Outbox 存在 `<server-workspace>/data/memory/<runtime-profile>/<memory-alias>/memory.db`；Workspace 名经 `Scope.AppID` 映射到 SQLite 的 `runtime_id`，因此同一物理数据库中的 Workspace 仍按 scope 隔离。BBH 的 Badger、Bleve 和 HNSW 数据位于同 binding 的 `retrieval/`，只是可从 SQLite Fact 重建的派生 projection，不是 canonical source of truth。
+
+旧版 binding 如果只有 v1 `state.json`，会在首次打开时先把完整 canonical state 迁移到临时 SQLite 数据库，校验 source digest、各 scope 的记录、状态和 counter 后原子发布 `memory.db`。原 `state.json` 保留为恢复证据；之后若其内容与已完成迁移的 digest 不同，启动会失败而不会使用空库或部分迁移结果。新 binding 不创建或读取 `state.json`。该 SQLite backend 只适用于一个 GizClaw Server process 管理的本地 binding；多进程或多节点共享使用 `flowcraft_postgresql`。
+
+其他合法 connection 是 `flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）、`mem0`（`project_id`、`endpoint`、`api_key`）和 `volc_mem0`（`memory_project_id`、`endpoint`、`api_key`）。`flowcraft_object_store` 保持其显式目录下的 workspace-backed canonical format。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
 
 对于 Mem0 和火山云，Project ID 记录与所选数据面 API key 配套的部署/控制面身份。运行时 Fact 请求通过该 key 完成 Project 路由，不会再发送独立的 Project ID 字段。
 

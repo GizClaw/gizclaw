@@ -123,8 +123,11 @@ spec:
           type: flowcraft_bbh
 ```
 
-`flowcraft_bbh` is the portable connection that requires no external service. It uses
-`<server-workspace>/data/memory/<runtime-profile>/<memory-alias>` and isolates Workspaces through `Scope.AppID`. Other valid connections are `flowcraft_object_store` (`directory`), `flowcraft_postgresql` (`dsn`), `mem0` (`project_id`, `endpoint`, `api_key`), and `volc_mem0` (`memory_project_id`, `endpoint`, `api_key`). Driver and connection type must match. Unknown fields, missing keys, and invalid endpoints are rejected when a RuntimeProfile is written or resolved.
+`flowcraft_bbh` is the portable connection that requires no external service. One RuntimeProfile memory binding shares one Flowcraft client, one SQLite canonical backend, and one BBH retrieval index. Canonical Facts, Evidence, the Async Semantic Queue, and the Side-effect Outbox live in `<server-workspace>/data/memory/<runtime-profile>/<memory-alias>/memory.db`. The Workspace name maps from `Scope.AppID` to SQLite `runtime_id`, so Workspaces remain scope-isolated inside the shared physical database. BBH Badger, Bleve, and HNSW data live under the binding's `retrieval/` directory and are derived projections rebuildable from SQLite Facts, not canonical truth.
+
+When a legacy binding contains only a v1 `state.json`, its complete canonical state is first imported into a temporary SQLite database. Startup verifies the source digest and per-scope records, statuses, and counters before atomically publishing `memory.db`. The original `state.json` remains as recovery evidence; a later digest mismatch fails startup instead of selecting an empty or partially migrated database. Fresh bindings neither create nor read `state.json`. This SQLite backend is local to one GizClaw Server process; multi-process or multi-node sharing uses `flowcraft_postgresql`.
+
+Other valid connections are `flowcraft_object_store` (`directory`), `flowcraft_postgresql` (`dsn`), `mem0` (`project_id`, `endpoint`, `api_key`), and `volc_mem0` (`memory_project_id`, `endpoint`, `api_key`). `flowcraft_object_store` retains the workspace-backed canonical format in its explicit directory. Driver and connection type must match. Unknown fields, missing keys, and invalid endpoints are rejected when a RuntimeProfile is written or resolved.
 
 For Mem0 and Volc, the Project ID records the deployment/control-plane identity paired with the selected data-plane API key. Runtime fact requests authenticate with that key; they do not send a separate Project ID field.
 
