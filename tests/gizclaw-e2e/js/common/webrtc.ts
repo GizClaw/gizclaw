@@ -56,6 +56,16 @@ export async function connectSetupPeerWithTransports(
   identityDir: string,
 ): Promise<SetupPeerTransports> {
   const identity = await loadIdentity(identityDir);
+  return connectPeerWithTransports(
+    identity.clientPrivateKey,
+    identity.endpoint,
+  );
+}
+
+export async function connectPeerWithTransports(
+  clientPrivateKey: Uint8Array,
+  endpoint: string,
+): Promise<SetupPeerTransports> {
   const pc = new wrtc.RTCPeerConnection();
   const createdChannels: ObservedDataChannel[] = [];
   const createDataChannel = pc.createDataChannel.bind(pc);
@@ -72,8 +82,8 @@ export async function connectSetupPeerWithTransports(
   });
   try {
     await connectGiznetWebRTCFromEndpoint({
-      clientPrivateKey: identity.clientPrivateKey,
-      endpoint: identity.endpoint,
+      clientPrivateKey,
+      endpoint,
       pc: pc as unknown as RTCPeerConnection,
       signal: AbortSignal.timeout(setupConnectTimeoutMs),
     });

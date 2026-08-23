@@ -68,6 +68,21 @@ func TestRemoteOpusFrameRoutesThroughConnReadAsRawOpus(t *testing.T) {
 	}
 }
 
+func TestRemoteOpusFrameIgnoresEmptyRTPPayload(t *testing.T) {
+	conn := &Conn{
+		readCh:  make(chan directPacket, 1),
+		closeCh: make(chan struct{}),
+	}
+
+	conn.enqueueRemoteOpusFrame(nil)
+
+	select {
+	case packet := <-conn.readCh:
+		t.Fatalf("empty RTP payload enqueued packet = %+v", packet)
+	default:
+	}
+}
+
 type fakeSampleWriter struct {
 	samples []media.Sample
 }

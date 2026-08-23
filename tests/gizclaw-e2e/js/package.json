@@ -6,6 +6,6 @@
     "test:admin": "node --experimental-strip-types admin/admin_fetch_e2e.test.ts",
     "test:admin-telemetry": "node --experimental-strip-types admin/telemetry_fetch_e2e.test.ts",
     "test:rpc": "node --experimental-strip-types rpc/webrtc_rpc_e2e.test.ts && node --experimental-strip-types rpc/server_initiated_rpc_e2e.test.ts",
-    "test:streams": "node --experimental-strip-types streams/peer_streams_e2e.test.ts"
+    "test:streams": "node --experimental-strip-types streams/peer_conversation_lifecycle_e2e.test.ts && node --experimental-strip-types streams/peer_streams_e2e.test.ts"
   }
 }
