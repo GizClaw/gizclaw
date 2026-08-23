@@ -233,6 +233,58 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	}
 }
 
+func TestStoreValidatesVolcSearchEnvelopes(t *testing.T) {
+	t.Parallel()
+	const secretResponseBody = "secret-response-body"
+	scope := memorystore.Scope{AppID: "app", UserID: "user", AgentID: "agent", RunID: "run"}
+	for _, test := range []struct {
+		name      string
+		response  string
+		wantError error
+	}{
+		{name: "empty results", response: `{"results":[]}`},
+		{name: "missing results", response: `{"status":"ok","detail":"secret-response-body"}`, wantError: memorystore.ErrUnavailable},
+		{name: "malformed nesting", response: `{"results":{"items":[{"id":"fact","memory":"secret-response-body"}]}}`, wantError: memorystore.ErrUnavailable},
+		{name: "missing native id", response: `{"results":[{"memory":"secret-response-body"}]}`, wantError: memorystore.ErrUnavailable},
+		{name: "conflicting app", response: `{"results":[{"id":"fact","memory":"secret-response-body","app_id":"other"}]}`, wantError: memorystore.ErrInvalidInput},
+		{name: "conflicting user", response: `{"results":[{"id":"fact","memory":"secret-response-body","user_id":"other"}]}`, wantError: memorystore.ErrInvalidInput},
+		{name: "conflicting agent", response: `{"results":[{"id":"fact","memory":"secret-response-body","agent_id":"other"}]}`, wantError: memorystore.ErrInvalidInput},
+		{name: "conflicting run", response: `{"results":[{"id":"fact","memory":"secret-response-body","run_id":"other"}]}`, wantError: memorystore.ErrInvalidInput},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.Method != http.MethodPost || r.URL.Path != "/v1/memories/search/" {
+					http.NotFound(w, r)
+					return
+				}
+				_, _ = io.WriteString(w, test.response)
+			}))
+			defer server.Close()
+			store, err := Open(t.Context(), Config{Mem0: mem0.Config{
+				Endpoint: server.URL, APIKey: "synthetic-key", HTTPClient: server.Client(),
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := store.Recall(t.Context(), memorystore.Query{Scope: scope, Text: "direct", Limit: 5})
+			if test.wantError == nil {
+				if err != nil || len(result.Matches) != 0 {
+					t.Fatalf("Recall() = %#v, %v, want empty success", result, err)
+				}
+				return
+			}
+			if !errors.Is(err, test.wantError) {
+				t.Fatalf("Recall() error = %v, want %v", err, test.wantError)
+			}
+			if strings.Contains(err.Error(), secretResponseBody) {
+				t.Fatalf("Recall() error exposed response body: %v", err)
+			}
+		})
+	}
+}
+
 func TestStoreRejectsVolcJobWithoutCorrelatedFacts(t *testing.T) {
 	t.Parallel()
 	var operationMarker string

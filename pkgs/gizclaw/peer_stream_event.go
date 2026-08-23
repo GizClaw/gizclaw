@@ -173,6 +173,7 @@ type peerAgentOutput struct {
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
 	audio := newPeerAudioRouteAggregator()
+	loggedRouteErrors := make(map[string]struct{})
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
@@ -184,7 +185,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			return o.Events.Broadcast(event)
 		},
 		Observe: func(chunk *genx.MessageChunk) error {
-			o.logTerminalRouteError(ctx, chunk)
+			o.logTerminalRouteError(ctx, chunk, loggedRouteErrors)
 			routeEOS := audio.consumeRouteEOS(chunk)
 			if routeEOS != nil {
 				if err := o.Events.Broadcast(routeEOS); err != nil {
@@ -215,12 +216,25 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	return nil
 }
 
-func (o peerAgentOutput) logTerminalRouteError(ctx context.Context, chunk *genx.MessageChunk) {
+func (o peerAgentOutput) logTerminalRouteError(
+	ctx context.Context,
+	chunk *genx.MessageChunk,
+	logged map[string]struct{},
+) {
 	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() ||
 		(strings.TrimSpace(chunk.Ctrl.Error) == "" && strings.TrimSpace(chunk.Ctrl.ErrorCode) == "") ||
-		strings.EqualFold(strings.TrimSpace(chunk.Ctrl.Error), "interrupted") {
+		isRouteControlError(chunk.Ctrl) {
 		return
 	}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	logKey := streamID
+	if logKey == "" {
+		logKey = "\x00" + strings.TrimSpace(chunk.Ctrl.Label)
+	}
+	if _, exists := logged[logKey]; exists {
+		return
+	}
+	logged[logKey] = struct{}{}
 	logger := o.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -236,12 +250,27 @@ func (o peerAgentOutput) logTerminalRouteError(ctx context.Context, chunk *genx.
 	logger.ErrorContext(ctx, "gizclaw: assistant route failed",
 		"peer_public_key", o.PeerPublicKey,
 		"workspace", workspaceName,
-		"stream_id", chunk.Ctrl.StreamID,
+		"stream_id", streamID,
 		"stream_label", chunk.Ctrl.Label,
 		"error_code", code,
 		"retryable", chunk.Ctrl.ErrorRetryable,
-		"error", chunk.Ctrl.Error,
 	)
+}
+
+func isRouteControlError(ctrl *genx.StreamCtrl) bool {
+	if ctrl == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(ctrl.Error)) {
+	case "interrupted", context.Canceled.Error():
+		return true
+	}
+	switch strings.ToUpper(strings.TrimSpace(ctrl.ErrorCode)) {
+	case "STREAM_INTERRUPTED", "CANCELED", "CANCELLED", "CONTEXT_CANCELED", "CONTEXT_CANCELLED", "STREAM_CANCELED", "STREAM_CANCELLED":
+		return true
+	default:
+		return false
+	}
 }
 
 func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator, cause error) error {

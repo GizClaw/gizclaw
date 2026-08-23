@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -295,6 +296,7 @@ func TestPeerAgentOutputDecodesOpusIntoPCMTrack(t *testing.T) {
 }
 
 func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
+	const credentialBearingError = "authorization: Bearer secret-token; api_key=secret-value"
 	var events bytes.Buffer
 	broker := newPeerStreamEventBroker()
 	unsubscribe, err := broker.Subscribe(&events)
@@ -308,7 +310,7 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 			Part: genx.Text(""),
 			Ctrl: &genx.StreamCtrl{
 				StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
-				Error: "memory: unavailable", ErrorCode: "MEMORY_UNAVAILABLE", ErrorRetryable: true,
+				Error: credentialBearingError, ErrorCode: "MEMORY_UNAVAILABLE", ErrorRetryable: true,
 			},
 		},
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "later-turn", Label: "assistant", BeginOfStream: true}},
@@ -337,7 +339,7 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read later text: %v", err)
 	}
-	if got := failedEOS.GetEos().GetError(); got.GetCode() != "MEMORY_UNAVAILABLE" || got.GetMessage() != "memory: unavailable" {
+	if got := failedEOS.GetEos().GetError(); got.GetCode() != "MEMORY_UNAVAILABLE" || got.GetMessage() != credentialBearingError {
 		t.Errorf("failed EOS error = %#v", got)
 	}
 	if laterBOS.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
@@ -353,33 +355,57 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if record.Level != slog.LevelError || record.Message != "gizclaw: assistant route failed" {
 		t.Fatalf("record = (%v, %q)", record.Level, record.Message)
 	}
-	if len(attrs) != 7 {
+	if len(attrs) != 6 {
 		t.Fatalf("route error log attributes = %#v, want only correlation and error fields", attrs)
 	}
 	for key, want := range map[string]any{
 		"peer_public_key": "peer-key", "workspace": "workspace-a",
 		"stream_id": "failed-turn", "stream_label": "assistant",
-		"error_code": "MEMORY_UNAVAILABLE", "retryable": true, "error": "memory: unavailable",
+		"error_code": "MEMORY_UNAVAILABLE", "retryable": true,
 	} {
 		if got := attrs[key]; got != want {
 			t.Errorf("%s = %#v, want %#v", key, got, want)
 		}
 	}
+	if strings.Contains(fmt.Sprint(attrs), "secret-token") || strings.Contains(fmt.Sprint(attrs), "secret-value") {
+		t.Fatalf("route error log exposed credential-bearing error: %#v", attrs)
+	}
 }
 
-func TestPeerAgentOutputDoesNotLogInterruptedControlEOS(t *testing.T) {
+func TestPeerAgentOutputLogsMultiChannelRouteErrorOnce(t *testing.T) {
 	capture := &slogCapture{}
-	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{{
-		Part: genx.Text(""),
-		Ctrl: &genx.StreamCtrl{StreamID: "replaced-turn", Label: "assistant", EndOfStream: true, Error: "interrupted"},
-	}}, doneErr: genx.ErrDone}
+	output := peerAgentOutput{Logger: slog.New(capture)}
+	logged := make(map[string]struct{})
+	for _, part := range []genx.Part{genx.Text(""), &genx.Blob{MIMEType: "audio/opus"}} {
+		output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+			Part: part,
+			Ctrl: &genx.StreamCtrl{
+				StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
+				Error: "provider failed", ErrorCode: "PROVIDER_FAILURE",
+			},
+		}, logged)
+	}
+	capture.mu.Lock()
+	defer capture.mu.Unlock()
+	if len(capture.records) != 1 {
+		t.Fatalf("multi-channel route error records = %d, want 1", len(capture.records))
+	}
+}
+
+func TestPeerAgentOutputDoesNotLogLifecycleControlEOS(t *testing.T) {
+	capture := &slogCapture{}
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "replaced-turn", Label: "assistant", EndOfStream: true, Error: "interrupted"}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "canceled-turn", Label: "assistant", EndOfStream: true, Error: context.Canceled.Error()}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "coded-cancel", Label: "assistant", EndOfStream: true, Error: "route closed", ErrorCode: "STREAM_CANCELED"}},
+	}, doneErr: genx.ErrDone}
 	if err := (peerAgentOutput{Logger: slog.New(capture)}).ConsumeAgentOutput(t.Context(), output); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 	capture.mu.Lock()
 	defer capture.mu.Unlock()
 	if len(capture.records) != 0 {
-		t.Fatalf("interrupted control records = %d, want 0", len(capture.records))
+		t.Fatalf("lifecycle control records = %d, want 0", len(capture.records))
 	}
 }
 

@@ -354,6 +354,12 @@ func (s *Store) Recall(ctx context.Context, query memorystore.Query) (memorystor
 		return recallResult{}, err
 	}
 	entries := response.entries()
+	if s.config.Flavor == VolcPlatform {
+		entries, err = decodeVolcSearchResults(response.Results)
+		if err != nil {
+			return recallResult{}, err
+		}
+	}
 	result := recallResult{Matches: make([]match, len(entries))}
 	for index, entry := range entries {
 		fact, err := s.scopedFact(entry, scope)
@@ -928,6 +934,13 @@ func decodeVolcResults(raw json.RawMessage) ([]mem0Envelope, error) {
 		return nil, fmt.Errorf("%w: volc mem0 results must be an array", errUnavailable)
 	}
 	return entries, nil
+}
+
+func decodeVolcSearchResults(raw json.RawMessage) ([]mem0Envelope, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, fmt.Errorf("%w: volc mem0 search response must contain a results array", errUnavailable)
+	}
+	return decodeVolcResults(raw)
 }
 
 func (e mem0Envelope) facts() []fact {
