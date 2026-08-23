@@ -77,9 +77,12 @@ func TestBuilderAdversarialDefensiveBoundaries(t *testing.T) {
 		"messages": []*schema.Message{schema.UserMessage("message")},
 		"parts":    []any{"part"},
 	}
-	graphInput := graphInputFromNodeInputs(inputs)
+	graphInput := graphInputFromNodeInputs(inputs, "observation")
 	if graphInput.Text != "text" || len(graphInput.Messages) != 1 || len(graphInput.Parts) != 1 {
 		t.Fatalf("graphInputFromNodeInputs() = %#v", graphInput)
+	}
+	if graphInput.ObservationID != "observation" {
+		t.Fatalf("graphInput observation ID = %q", graphInput.ObservationID)
 	}
 	emitter := &captureEmitter{}
 	output := OutputDefinition{Name: "answer"}

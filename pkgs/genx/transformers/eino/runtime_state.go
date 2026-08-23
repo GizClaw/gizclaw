@@ -16,11 +16,12 @@ import (
 const maxStateValueDepth = 64
 
 type graphInput struct {
-	Text     string
-	Messages []*schema.Message
-	Parts    []any
-	History  []*schema.Message
-	Memory   string
+	ObservationID string
+	Text          string
+	Messages      []*schema.Message
+	Parts         []any
+	History       []*schema.Message
+	Memory        string
 }
 
 type outputEmitter interface {

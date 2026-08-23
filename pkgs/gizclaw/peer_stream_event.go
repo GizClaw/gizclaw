@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"strings"
 	"sync"
@@ -163,8 +164,11 @@ func (b *peerStreamEventBroker) removeSubscriber(subscriber *peerStreamEventSubs
 }
 
 type peerAgentOutput struct {
-	Events *peerStreamEventBroker
-	Tracks agenthost.AudioTrackCreator
+	Events        *peerStreamEventBroker
+	Tracks        agenthost.AudioTrackCreator
+	Logger        *slog.Logger
+	PeerPublicKey string
+	WorkspaceName func(context.Context) string
 }
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
@@ -180,6 +184,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			return o.Events.Broadcast(event)
 		},
 		Observe: func(chunk *genx.MessageChunk) error {
+			o.logTerminalRouteError(ctx, chunk)
 			routeEOS := audio.consumeRouteEOS(chunk)
 			if routeEOS != nil {
 				if err := o.Events.Broadcast(routeEOS); err != nil {
@@ -208,6 +213,35 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	return nil
+}
+
+func (o peerAgentOutput) logTerminalRouteError(ctx context.Context, chunk *genx.MessageChunk) {
+	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() ||
+		(strings.TrimSpace(chunk.Ctrl.Error) == "" && strings.TrimSpace(chunk.Ctrl.ErrorCode) == "") ||
+		strings.EqualFold(strings.TrimSpace(chunk.Ctrl.Error), "interrupted") {
+		return
+	}
+	logger := o.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	workspaceName := ""
+	if o.WorkspaceName != nil {
+		workspaceName = strings.TrimSpace(o.WorkspaceName(ctx))
+	}
+	code := strings.TrimSpace(chunk.Ctrl.ErrorCode)
+	if code == "" {
+		code = "STREAM_ERROR"
+	}
+	logger.ErrorContext(ctx, "gizclaw: assistant route failed",
+		"peer_public_key", o.PeerPublicKey,
+		"workspace", workspaceName,
+		"stream_id", chunk.Ctrl.StreamID,
+		"stream_label", chunk.Ctrl.Label,
+		"error_code", code,
+		"retryable", chunk.Ctrl.ErrorRetryable,
+		"error", chunk.Ctrl.Error,
+	)
 }
 
 func (o peerAgentOutput) broadcastAudioAbort(audio *peerAudioRouteAggregator, cause error) error {

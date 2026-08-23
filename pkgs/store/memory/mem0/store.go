@@ -730,6 +730,11 @@ func (s *Store) scopedFact(entry mem0Envelope, scope scope) (fact, error) {
 		return fact{}, err
 	}
 	result := entry.fact()
+	if s.config.Flavor == VolcPlatform {
+		for _, key := range []string{"project_id", "__fraq__", "__freq__", "__strategy__"} {
+			delete(result.Attributes, key)
+		}
+	}
 	result.ID = encodeFactLocator(scope, result.ID)
 	return result, nil
 }

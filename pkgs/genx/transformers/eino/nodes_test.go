@@ -106,6 +106,9 @@ func TestMemoryObserveNodeRunsBeforePublishedAnswer(t *testing.T) {
 		memories.observations[0].Facts[0].Text != "hello" {
 		t.Fatalf("observations = %#v", memories.observations)
 	}
+	if !strings.HasSuffix(memories.observations[0].ID, ":Graph:observe") {
+		t.Fatalf("observation ID = %q, want turn-scoped Graph node identity", memories.observations[0].ID)
+	}
 }
 
 func TestRetrieverUsesNativeComponent(t *testing.T) {

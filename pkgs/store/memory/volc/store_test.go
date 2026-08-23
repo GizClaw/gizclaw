@@ -177,6 +177,7 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	var (
 		transportUser string
 		operationMark string
+		encodedScope  string
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -191,10 +192,20 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 			transportUser, _ = body["user_id"].(string)
 			metadata, _ := body["metadata"].(map[string]any)
 			operationMark, _ = metadata["gizclaw.operation_marker"].(string)
-			if body["infer"] != false || body["async_mode"] != false || body["agent_id"] != "agent" || transportUser == "" || operationMark == "" {
+			encodedScope, _ = metadata["gizclaw.entity_scope"].(string)
+			if body["infer"] != false || body["async_mode"] != false || body["app_id"] != "workspace" || transportUser == "" || operationMark == "" || encodedScope == "" {
 				t.Errorf("unexpected direct add payload")
 			}
 			_, _ = io.WriteString(w, `{"results":[{"id":"fact","memory":"direct","event":"ADD"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/memories/search/":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode search: %v", err)
+			}
+			if body["query"] != "direct" || body["top_k"] != float64(5) || body["app_id"] != "workspace" || body["user_id"] != transportUser {
+				t.Errorf("unexpected search payload: %#v", body)
+			}
+			_, _ = fmt.Fprintf(w, `{"results":[{"id":"fact","memory":"direct","user_id":%q,"metadata":{"gizclaw.entity_scope":%q,"kind":"state","project_id":"provider-owned"},"score":0.9}]}`, transportUser, encodedScope)
 		default:
 			http.NotFound(w, r)
 		}
@@ -206,12 +217,19 @@ func TestStoreUsesVolcV1DirectFactProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope := memorystore.Scope{AgentID: "agent"}
+	scope := memorystore.Scope{AppID: "workspace"}
 	observed, err := store.Observe(context.Background(), memorystore.Observation{
-		Scope: scope, ID: "direct-observation", Facts: []memorystore.FactCandidate{{Text: "direct"}},
+		Scope: scope, ID: "direct-observation", Facts: []memorystore.FactCandidate{{Text: "direct", Attributes: map[string]any{"kind": "state"}}},
 	})
 	if err != nil || observed.Operation != nil || len(observed.Facts) != 1 || observed.Facts[0].Text != "direct" {
 		t.Fatalf("Observe() = %#v, %v", observed, err)
+	}
+	recalled, err := store.Recall(context.Background(), memorystore.Query{Scope: scope, Text: "direct", Limit: 5})
+	if err != nil || len(recalled.Matches) != 1 || recalled.Matches[0].Fact.Text != "direct" || recalled.Matches[0].Fact.Attributes["kind"] != "state" {
+		t.Fatalf("Recall() = %#v, %v", recalled, err)
+	}
+	if _, exposed := recalled.Matches[0].Fact.Attributes["project_id"]; exposed {
+		t.Fatalf("Recall() exposed provider metadata: %#v", recalled.Matches[0].Fact.Attributes)
 	}
 }
 

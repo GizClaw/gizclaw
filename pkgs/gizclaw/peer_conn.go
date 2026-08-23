@@ -474,8 +474,14 @@ func (h *PeerConn) initAgentHost() {
 		AllowRestrictedReload: manager.isChatroomWorkspace,
 		Source:                h.agentInput,
 		Consumer: peerAgentOutput{
-			Events: h.events,
-			Tracks: h,
+			Events:        h.events,
+			Tracks:        h,
+			Logger:        slog.Default(),
+			PeerPublicKey: h.Conn.PublicKey().String(),
+			WorkspaceName: func(ctx context.Context) string {
+				workspaceName, _ := h.currentInputWorkspace(ctx)
+				return workspaceName
+			},
 		},
 		OnConsumerError:           h.broadcastAgentOutputError,
 		OnWorkspaceActivated:      manager.handleWorkspaceActivated,

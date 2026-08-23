@@ -70,6 +70,8 @@ Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorizati
 
 Volcengine AgentKit/Viking MEM0 只通过一个 `volc.Config` 构造。它接收显式的 Mem0 data-plane key 或 credential resolver。Adapter 显式选择火山云 v1 add/search 路径，从 `results` 读取唯一权威 job ID，并让 `Wait` 轮询 `/v1/job/{id}/`。成功 job 不带 facts 时，Adapter 只列出同一 scope，并按 observation ID 选择该次写入的记录。火山云 v1 服务要求 `user_id`，因此 App-only、Agent-only 或 Run-only 逻辑 scope 会得到一个保留的完整 scope 编码 transport user，同时仍保留所有原始 native 字段；读取后会还原并按未改变的逻辑 scope 校验。普通 Mem0 Platform 仍使用 v3 add/search、顶层 event ID 和 `/v1/event/{id}/`。不能根据 endpoint hostname 推断协议。火山云 data-plane endpoint 必填。
 
+Eino `memory_observe` node 会为每个 Graph 写入的 direct Fact 分配由当前 turn 与 Graph node 派生的稳定 observation identity。因此，同一 Workspace 的后续 `memory_recall` node 会使用相同完整 `Scope.AppID` 读到该 Fact，`volc_mem0` 绑定也遵守这一保证。火山云 search result 必须带 native Fact ID，并与编码后的 scope 兼容；project、strategy 等 provider routing metadata 不会作为业务 attributes 返回。
+
 ## MemoryLayout、RuntimeProfile 与 Workflow
 
 Memory 不再是 Server Config 中的 `stores.kind: memory`。Portable policy、部署连接和 Graph 消费行为分属三个资源面：

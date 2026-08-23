@@ -93,6 +93,37 @@ func TestPeerConnBroadcastAgentOutputErrorUsesValidLogicalStream(t *testing.T) {
 	}
 }
 
+func TestPeerConnInitAgentHostWiresRouteErrorContext(t *testing.T) {
+	ctx := t.Context()
+	publicKey := giznet.PublicKey{42}
+	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := runs.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "workspace-a"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	peerConn := &PeerConn{
+		Conn: &testGiznetConn{publicKey: publicKey},
+		Service: &PeerService{manager: &Manager{
+			AgentHost: agenthost.New(nil),
+			PeerRun:   runs,
+		}},
+		events: newPeerStreamEventBroker(),
+	}
+	peerConn.initAgentHost()
+	if peerConn.agentHost == nil {
+		t.Fatal("initAgentHost() did not initialize AgentHost")
+	}
+	output, ok := peerConn.agentHost.Consumer.(peerAgentOutput)
+	if !ok {
+		t.Fatalf("AgentHost consumer type = %T", peerConn.agentHost.Consumer)
+	}
+	if output.Logger == nil || output.PeerPublicKey != publicKey.String() || output.WorkspaceName == nil {
+		t.Fatalf("route error context = %#v", output)
+	}
+	if got := output.WorkspaceName(ctx); got != "workspace-a" {
+		t.Fatalf("route error Workspace = %q, want workspace-a", got)
+	}
+}
+
 func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T) {
 	ctx := t.Context()
 	caller := giznet.PublicKey{31}
