@@ -1344,7 +1344,9 @@ func (t *Transformer) processSession(
 						responseStreamID = streamIDs.response()
 					}
 					markAssistantPending(responseStreamID, epoch)
-					responseDeadline.start(epoch)
+					if t.mode == ModeRealtime {
+						responseDeadline.start(epoch)
+					}
 
 				case doubaospeech.EventTTSStarted:
 					var response *doubaoRealtimePTTResponse
