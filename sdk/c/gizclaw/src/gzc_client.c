@@ -221,6 +221,22 @@ static gzc_service_channel_t *service_channel_for_rtc(
   return NULL;
 }
 
+static bool service_channel_is_tracked(
+    const gzc_client_t *client,
+    const gzc_service_channel_t *target) {
+  if (client == NULL || target == NULL) {
+    return false;
+  }
+  for (const gzc_service_channel_t *channel = client->service_channels;
+       channel != NULL;
+       channel = channel->next) {
+    if (channel == target) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static int service_write_ready(
     gzc_client_t *client,
     gzc_rtc_channel_t *channel,
@@ -1170,6 +1186,31 @@ static int wait_until(gzc_client_t *client, bool *flag, int timeout_ms) {
   return GZC_OK;
 }
 
+static int wait_for_service_channel_open(
+    gzc_client_t *client,
+    gzc_service_channel_t *channel,
+    int timeout_ms) {
+  const int64_t start = now_ms(client);
+  for (;;) {
+    if (!service_channel_is_tracked(client, channel)) {
+      return GZC_ERR_CLOSED;
+    }
+    if (channel->open) {
+      return GZC_OK;
+    }
+    if (client->closed || channel->closed) {
+      return GZC_ERR_CLOSED;
+    }
+    int rc = gzc_client_poll(client, 10);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+    if (timeout_ms >= 0 && now_ms(client) - start >= timeout_ms) {
+      return GZC_ERR_TIMEOUT;
+    }
+  }
+}
+
 static void close_rpc_channel(gzc_client_t *client);
 static int create_service_channel(
     gzc_client_t *client,
@@ -1446,7 +1487,8 @@ int gzc_client_connect(gzc_client_t *client) {
   if (rc != GZC_OK) {
     goto fail;
   }
-  rc = wait_until(client, &client->event_channel->open, timeout);
+  rc = wait_for_service_channel_open(
+      client, client->event_channel, timeout);
   if (rc != GZC_OK) {
     goto fail;
   }
@@ -2057,9 +2099,11 @@ int gzc_client_open_service_channel(
     return rc;
   }
   gzc_service_channel_t *channel = *out_channel;
-  rc = wait_until(client, &channel->open, timeout_ms);
+  rc = wait_for_service_channel_open(client, channel, timeout_ms);
   if (rc != GZC_OK) {
-    gzc_service_channel_close(channel);
+    if (service_channel_is_tracked(client, channel)) {
+      gzc_service_channel_close(channel);
+    }
     *out_channel = NULL;
     return rc;
   }
