@@ -67,6 +67,7 @@ typedef struct {
 #define GZC_SERVICE_WRITE_LOW_WATER_DEFAULT (64u * 1024u)
 #define GZC_PROTOCOL_OPUS_PACKET 0x10u
 #define GZC_OPUS_MAX_PACKET_SIZE 1275u
+#define GZC_OPUS_RX_CAPACITY_DEFAULT 64u
 
 typedef struct {
   gzc_str_t server_endpoint;
@@ -91,6 +92,16 @@ typedef struct {
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);
 int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn);
+/*
+ * Replaces the bounded Opus receive ring before connect. The SDK allocates
+ * capacity fixed-size packet slots once through the configured platform
+ * allocator. A full ring discards the oldest Opus packet.
+ */
+int gzc_client_set_opus_rx_capacity(
+    gzc_client_t *client,
+    size_t capacity);
+/* Discards every queued Opus packet on the serialized poll-owner thread. */
+int gzc_client_discard_opus_rx(gzc_client_t *client);
 /*
  * Registers the borrowed v1 media extension before connect. A normal connect
  * requires this extension. NULL clears the registration before connect.
@@ -129,6 +140,19 @@ void gzc_service_channel_close(gzc_service_channel_t *channel);
 
 int gzc_client_send_packet(gzc_client_t *client, uint8_t protocol, const uint8_t *payload, size_t len);
 int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_protocol, gzc_buf_t *out_payload);
+/*
+ * Copies one packet into caller-owned storage without allocating. On
+ * GZC_ERR_BUFFER_TOO_SMALL, out_payload_len reports the required capacity and
+ * the packet remains queued for retry. out_payload may be NULL only when
+ * payload_capacity is zero.
+ */
+int gzc_client_read_packet_into(
+    gzc_client_t *client,
+    int timeout_ms,
+    uint8_t *out_protocol,
+    uint8_t *out_payload,
+    size_t payload_capacity,
+    size_t *out_payload_len);
 
 #ifdef __cplusplus
 }

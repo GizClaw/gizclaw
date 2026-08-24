@@ -38,6 +38,8 @@ Direct packet、Telemetry 和 RTP 不走这套 service stream writer，也不继
 
 C SDK 保留独立的 `gzc_webrtc_media_vtable_t` 扩展以公开双向 Opus RTP 能力，不改变既有 public struct 的布局。应用在 connect 前注册扩展，之后继续用 `gzc_client_send_packet` / `gzc_client_read_packet` 收发 `GZC_PROTOCOL_OPUS_PACKET`；SDK 对 `0x10` 单独分流，既不写入也不伪装成 packet DataChannel message。WebRTC backend 持有 connection-scoped sendrecv track、RTP header 与时钟，并根据每个 Opus packet 的实际时长推进 48 kHz timestamp。
 
+C SDK 用一次连续 platform allocation 持有固定槽位的 Opus 接收 ring，默认容量为 64 个 packet，在普通 20 ms packet cadence 下覆盖约 1.28 秒。调用方可以在 connect 前用 `gzc_client_set_opus_rx_capacity` 选择其他容量；connect 后容量固定，满队列只覆盖最旧 Opus，不影响 Direct Packet。client close 立即丢弃剩余 ring 内容；保持连接的 conversation cancel 可以在串行 poll-owner 线程调用 `gzc_client_discard_opus_rx`，避免旧音频延后交付。每个槽位最多保存 `GZC_OPUS_MAX_PACKET_SIZE` bytes，接收 callback、入队和 `gzc_client_read_packet_into` 均不为单个 packet 动态分配；后者写入 caller-owned storage，容量不足时返回 `GZC_ERR_BUFFER_TOO_SMALL`、报告所需长度并保留同一 packet 供重试。既有 `gzc_client_read_packet` 继续使用 allocator-owned `gzc_buf_t` 以保持兼容。
+
 C SDK 的并发 unary requester 不新增 connection-scoped transport：每个
 `gzc_rpc_request_t` 独占一条动态 RPC service DataChannel，client 只按 channel
 identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，request result 不会

@@ -54,6 +54,15 @@ struct gzc_service_channel {
   bool write_blocked;
 };
 
+typedef struct {
+  uint16_t len;
+  uint8_t data[GZC_OPUS_MAX_PACKET_SIZE];
+} gzc_opus_rx_slot_t;
+
+_Static_assert(
+    GZC_OPUS_MAX_PACKET_SIZE <= UINT16_MAX,
+    "Opus receive slot length must fit in uint16_t");
+
 typedef int (*gzc_rpc_frame_handler_internal_fn)(
     void *userdata,
     const uint8_t *frame_bytes,
@@ -74,7 +83,9 @@ struct gzc_client {
   gzc_public_key_t server_public_key;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
-  gzc_buf_t opus_rx[8];
+  gzc_opus_rx_slot_t *opus_rx;
+  size_t opus_rx_capacity;
+  size_t opus_rx_head;
   size_t opus_rx_count;
   int opus_rx_error;
   bool read_opus_next;
@@ -139,12 +150,29 @@ static bool valid_opus_packet(const uint8_t *opus, size_t len) {
 }
 
 static void clear_opus_rx(gzc_client_t *client) {
-  for (size_t i = 0; i < 8u; i++) {
-    gzc_buf_reset(&client->opus_rx[i]);
-  }
+  client->opus_rx_head = 0u;
   client->opus_rx_count = 0u;
   client->opus_rx_error = GZC_OK;
   client->read_opus_next = false;
+}
+
+static int allocate_opus_rx(gzc_client_t *client) {
+  if (client == NULL || client->opus_rx_capacity == 0u ||
+      client->opus_rx_capacity > SIZE_MAX / sizeof(gzc_opus_rx_slot_t)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (client->opus_rx != NULL) {
+    return GZC_OK;
+  }
+  const gzc_platform_t *platform = client->config.platform;
+  gzc_opus_rx_slot_t *slots = (gzc_opus_rx_slot_t *)platform->malloc(
+      platform->userdata, client->opus_rx_capacity * sizeof(*slots));
+  if (slots == NULL) {
+    return GZC_ERR_NO_MEMORY;
+  }
+  client->opus_rx = slots;
+  clear_opus_rx(client);
+  return GZC_OK;
 }
 
 static void on_opus_frame(
@@ -161,24 +189,21 @@ static void on_opus_frame(
     client->opus_rx_error = GZC_ERR_WEBRTC;
     return;
   }
-  gzc_buf_t incoming;
-  gzc_buf_init(&incoming);
-  int rc = gzc_buf_append(
-      &incoming, client->config.platform, opus, opus_len);
-  if (rc != GZC_OK) {
-    gzc_buf_free(&incoming, client->config.platform);
+  if (client->opus_rx == NULL || client->opus_rx_capacity == 0u) {
     client->opus_rx_error = GZC_ERR_NO_MEMORY;
     return;
   }
-  if (client->opus_rx_count == 8u) {
-    gzc_buf_free(&client->opus_rx[0], client->config.platform);
-    memmove(&client->opus_rx[0], &client->opus_rx[1], 7u * sizeof(client->opus_rx[0]));
-    client->opus_rx[7] = incoming;
-    return;
+  if (client->opus_rx_count == client->opus_rx_capacity) {
+    client->opus_rx_head =
+        (client->opus_rx_head + 1u) % client->opus_rx_capacity;
+    client->opus_rx_count--;
   }
-  gzc_buf_t *frame = &client->opus_rx[client->opus_rx_count];
-  gzc_buf_free(frame, client->config.platform);
-  *frame = incoming;
+  const size_t tail =
+      (client->opus_rx_head + client->opus_rx_count) %
+      client->opus_rx_capacity;
+  gzc_opus_rx_slot_t *slot = &client->opus_rx[tail];
+  memcpy(slot->data, opus, opus_len);
+  slot->len = (uint16_t)opus_len;
   client->opus_rx_count++;
 }
 
@@ -1320,11 +1345,9 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   client->rpc_rx_error = GZC_OK;
   gzc_buf_init(&client->local_sdp);
   gzc_buf_init(&client->packet_rx);
-  for (size_t i = 0; i < 8u; i++) {
-    gzc_buf_init(&client->opus_rx[i]);
-  }
   gzc_buf_init(&client->rpc_rx);
   gzc_buf_init(&client->rpc_response);
+  client->opus_rx_capacity = GZC_OPUS_RX_CAPACITY_DEFAULT;
   *out_client = client;
   return GZC_OK;
 }
@@ -1334,6 +1357,29 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
     return GZC_ERR_INVALID_ARGUMENT;
   }
   client->peer_add_ice_server = fn;
+  return GZC_OK;
+}
+
+int gzc_client_set_opus_rx_capacity(
+    gzc_client_t *client,
+    size_t capacity) {
+  if (client == NULL || client->closed || client->peer != NULL ||
+      client->packet_channel != NULL || client->rpc_channel != NULL ||
+      client->service_channels != NULL || client->opus_rx != NULL ||
+      capacity == 0u ||
+      capacity > SIZE_MAX / sizeof(gzc_opus_rx_slot_t)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  client->opus_rx_capacity = capacity;
+  clear_opus_rx(client);
+  return GZC_OK;
+}
+
+int gzc_client_discard_opus_rx(gzc_client_t *client) {
+  if (client == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  clear_opus_rx(client);
   return GZC_OK;
 }
 
@@ -1366,6 +1412,10 @@ int gzc_client_connect(gzc_client_t *client) {
   if (client->media == NULL) {
     return GZC_ERR_UNSUPPORTED;
   }
+  int rc = allocate_opus_rx(client);
+  if (rc != GZC_OK) {
+    return rc;
+  }
   client->has_local_sdp = false;
   client->packet_channel_open = false;
   client->rpc_rx_limit = 0;
@@ -1387,7 +1437,7 @@ int gzc_client_connect(gzc_client_t *client) {
   callbacks.on_channel_buffered_amount_low = on_channel_buffered_amount_low;
   callbacks.on_remote_channel = on_remote_channel;
 
-  int rc = client->config.webrtc->peer_create(client->config.webrtc->userdata, &callbacks, &client->peer);
+  rc = client->config.webrtc->peer_create(client->config.webrtc->userdata, &callbacks, &client->peer);
   if (rc != GZC_OK) {
     goto fail;
   }
@@ -1723,8 +1773,9 @@ void gzc_client_destroy(gzc_client_t *client) {
   (void)gzc_client_close(client);
   gzc_buf_free(&client->local_sdp, platform);
   gzc_buf_free(&client->packet_rx, platform);
-  for (size_t i = 0; i < 8u; i++) {
-    gzc_buf_free(&client->opus_rx[i], platform);
+  if (client->opus_rx != NULL) {
+    platform->free(platform->userdata, client->opus_rx);
+    client->opus_rx = NULL;
   }
   gzc_buf_free(&client->rpc_rx, platform);
   gzc_buf_free(&client->rpc_response, platform);
@@ -2285,13 +2336,23 @@ int gzc_client_send_packet(gzc_client_t *client, uint8_t protocol, const uint8_t
   return rc;
 }
 
-int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_protocol, gzc_buf_t *out_payload) {
-  if (client == NULL || out_protocol == NULL || out_payload == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
+typedef struct {
+  const uint8_t *data;
+  size_t len;
+  size_t packet_message_size;
+  uint8_t protocol;
+  bool opus;
+  bool alternate_after_consume;
+} gzc_packet_view_t;
+
+static int wait_packet_view(
+    gzc_client_t *client,
+    int timeout_ms,
+    gzc_packet_view_t *out_view) {
   const int64_t start = now_ms(client);
   size_t message_size = 0;
   bool read_opus = false;
+  bool alternate_after_consume = false;
   for (;;) {
     if (client->opus_rx_error != GZC_OK) {
       int rc = client->opus_rx_error;
@@ -2304,7 +2365,7 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
     if (packet_ready || opus_ready) {
       if (packet_ready && opus_ready) {
         read_opus = client->read_opus_next;
-        client->read_opus_next = !client->read_opus_next;
+        alternate_after_consume = true;
       } else {
         read_opus = opus_ready;
       }
@@ -2327,23 +2388,15 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
       return rc;
     }
   }
+  memset(out_view, 0, sizeof(*out_view));
+  out_view->opus = read_opus;
+  out_view->alternate_after_consume = alternate_after_consume;
   if (read_opus) {
-    *out_protocol = GZC_PROTOCOL_OPUS_PACKET;
-    gzc_buf_reset(out_payload);
-    int rc = gzc_buf_append(
-        out_payload,
-        client->config.platform,
-        client->opus_rx[0].data,
-        client->opus_rx[0].len);
-    if (rc != GZC_OK) {
-      return rc;
-    }
-    gzc_buf_t consumed = client->opus_rx[0];
-    memmove(&client->opus_rx[0], &client->opus_rx[1],
-            7u * sizeof(client->opus_rx[0]));
-    client->opus_rx[7] = consumed;
-    gzc_buf_reset(&client->opus_rx[7]);
-    client->opus_rx_count--;
+    const gzc_opus_rx_slot_t *slot =
+        &client->opus_rx[client->opus_rx_head];
+    out_view->protocol = GZC_PROTOCOL_OPUS_PACKET;
+    out_view->data = slot->data;
+    out_view->len = slot->len;
     return GZC_OK;
   }
   size_t payload_len = message_size - 3;
@@ -2352,12 +2405,76 @@ int gzc_client_read_packet(gzc_client_t *client, int timeout_ms, uint8_t *out_pr
     consume_rx(&client->packet_rx, message_size);
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  *out_protocol = protocol;
-  gzc_buf_reset(out_payload);
-  int rc = gzc_buf_append(out_payload, client->config.platform, client->packet_rx.data + 3, payload_len);
+  out_view->protocol = protocol;
+  out_view->data = client->packet_rx.data + 3;
+  out_view->len = payload_len;
+  out_view->packet_message_size = message_size;
+  return GZC_OK;
+}
+
+static void consume_packet_view(
+    gzc_client_t *client,
+    const gzc_packet_view_t *view) {
+  if (view->opus) {
+    client->opus_rx_head =
+        (client->opus_rx_head + 1u) % client->opus_rx_capacity;
+    client->opus_rx_count--;
+  } else {
+    consume_rx(&client->packet_rx, view->packet_message_size);
+  }
+  if (view->alternate_after_consume) {
+    client->read_opus_next = !client->read_opus_next;
+  }
+}
+
+int gzc_client_read_packet(
+    gzc_client_t *client,
+    int timeout_ms,
+    uint8_t *out_protocol,
+    gzc_buf_t *out_payload) {
+  if (client == NULL || out_protocol == NULL || out_payload == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_packet_view_t view;
+  int rc = wait_packet_view(client, timeout_ms, &view);
   if (rc != GZC_OK) {
     return rc;
   }
-  consume_rx(&client->packet_rx, message_size);
+  gzc_buf_reset(out_payload);
+  rc = gzc_buf_append(
+      out_payload, client->config.platform, view.data, view.len);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out_protocol = view.protocol;
+  consume_packet_view(client, &view);
+  return GZC_OK;
+}
+
+int gzc_client_read_packet_into(
+    gzc_client_t *client,
+    int timeout_ms,
+    uint8_t *out_protocol,
+    uint8_t *out_payload,
+    size_t payload_capacity,
+    size_t *out_payload_len) {
+  if (client == NULL || out_protocol == NULL || out_payload_len == NULL ||
+      (out_payload == NULL && payload_capacity != 0u)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_packet_view_t view;
+  int rc = wait_packet_view(client, timeout_ms, &view);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  *out_protocol = view.protocol;
+  *out_payload_len = view.len;
+  if (view.len > payload_capacity) {
+    return GZC_ERR_BUFFER_TOO_SMALL;
+  }
+  if (view.len != 0u) {
+    memcpy(out_payload, view.data, view.len);
+  }
+  consume_packet_view(client, &view);
   return GZC_OK;
 }

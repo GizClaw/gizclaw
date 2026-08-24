@@ -22,7 +22,8 @@ typedef enum {
   GZC_ERR_UNSUPPORTED = -9,
   GZC_ERR_JSON = -10,
   GZC_ERR_WOULD_BLOCK = -11,
-  GZC_ERR_CHANNEL_LIMIT = -12
+  GZC_ERR_CHANNEL_LIMIT = -12,
+  GZC_ERR_BUFFER_TOO_SMALL = -13
 } gzc_status_t;
 
 const char *gzc_status_string(gzc_status_t status);
