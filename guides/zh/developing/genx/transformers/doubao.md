@@ -111,7 +111,11 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 
 长连接生命周期由 transformer 持有。`Transform` 启动后即开始连接，并在普通 input turn 和 BOS/EOS 边界之间复用同一个健康的 Realtime Dialogue session。Realtime 模式的 BOS 打断 active response 时，会在本地关闭该 provider session，并立即使用相同的 instructions、model 和 `DialogID` 打开 replacement session；不会发送只允许 Push-to-Talk 使用的 `ClientInterrupt` event。新 route 中尚未读取的 audio 只由 replacement 消费。Realtime response 开始后，如果 provider 连续一分钟没有任何进展，transformer 会把它视为 provider loss：向仍打开的 transcript 或 assistant route 发送带 error 的 EOS，关闭 stalled session 并开始重连。Provider terminal event、transport error 或 session I/O error 同样走这条带上限指数退避的 replacement 路径；只要 transform context 和 output stream 尚未结束，就不限制尝试次数。
 
-已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。
+Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 trim 后的 ASR hypothesis 分类。空 hypothesis 是成功的无输入 turn：transformer 先发布空 transcript lifecycle，再为同一 StreamID 发布完整的空 assistant text 与 audio lifecycle，并立即让状态机回到 Idle。它不会启动 response inactivity、报告 provider loss、发送 interrupt 或替换健康 session；后续 turn 正常复用该 session。
+
+累积 hypothesis 非空时，`ASREnded` 才绑定当前 assistant response，并启动相同的一分钟 response inactivity 边界。匹配当前 response 的 Chat 与 TTS start、data 和 terminal event 会重置区间；usage-only、nil、ID 冲突、未匹配以及已打断 turn 的 event 不会续期。只收到 Chat 或 TTS 其中一侧的 terminal event 时 watchdog 仍保持 active，两侧都结束后才停止。超时后，已经提交的语义 transcript 保持不变，assistant text 与 audio channel 则收到带 `doubao realtime response idle timeout` 的 error EOS；stalled session 使用相同 `DialogID` replacement。已经发送到该 session 的 input 不会重放，下一个 Push-to-Talk BOS 会在 replacement 上开始全新 turn。
+
+已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 commit 前的 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。Commit 后的 response inactivity 则遵守上一段的 terminal 行为，不撤回已经发布的 transcript。
 
 Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。唯一由 BOS 触发的 session replacement 是上述本地 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 在 response pending 时执行同样的本地 close-and-replace handoff；closed epoch 的重复或迟到 event 不能影响 replacement。Text 模式永不发送 `EndASR` 或 `ClientInterrupt`，只有 Push-to-Talk 使用这两个 provider operation。
 
@@ -133,7 +137,7 @@ stateDiagram-v2
 
 `doubaorealtime.Transformer` 的 Push-to-Talk 适配必须显式跟踪当前 turn：Idle 状态不能接收 audio 或 EOS；Capturing 中每个 turn 只能接受一次 EOS；EOS 后不能继续向同一 turn 发送 audio。新 BOS 到达时，如果上一轮 assistant 仍在输出，应调用 Realtime Dialogue session 的 `Interrupt`，再为新 turn 建立输入边界。
 
-Push-to-Talk 会保留最新 ASR hypothesis 和全部 assistant output，直到 input audio EOS 与 provider `ASREnded` 都已发生；随后只发布一次最终 transcript 和 transcript EOS，再按 provider 顺序释放 assistant chunks。Retained assistant Opus 以规范化 packet duration 计算，最多两分钟；超过限制时丢弃整个未提交 turn，只发送一个 assistant error EOS，并保持 transformer 可供后续 turn 使用。
+Push-to-Talk 会保留最新 ASR hypothesis 和全部 assistant output，直到 input audio EOS 与 provider `ASREnded` 都已发生；随后只发布一次最终 transcript 和 transcript EOS，再按 provider 顺序释放 assistant chunks。如果累积 hypothesis 不包含语义文本，则改为成功关闭空 assistant text 与 audio route，并直接完成 turn，不等待 provider response event。语义 turn 的 retained assistant Opus 以规范化 packet duration 计算，最多两分钟；超过限制时丢弃整个未提交 turn，只发送一个 assistant error EOS，并保持 transformer 可供后续 turn 使用。
 
 所有 `OpenSession`、`SendAudio`、`SendText`、`EndASR`、interrupt/cancel 和 function-call output 操作都必须使用 `Transform` 收到的 context。取消 Transform 必须能够终止 provider I/O、event receiver 和 input reader，不能启动脱离调用生命周期的 `context.Background()` 请求。
 

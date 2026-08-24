@@ -742,22 +742,23 @@ func (t *doubaoRealtimePTTTurn) markInputEnded() error {
 }
 
 func (t *doubaoRealtimePTTTurn) markASREnded() error {
-	_, err := t.markASREndedFor(t.currentGeneration())
+	_, _, err := t.markASREndedFor(t.currentGeneration())
 	return err
 }
 
-func (t *doubaoRealtimePTTTurn) markASREndedFor(generation uint64) (bool, error) {
+func (t *doubaoRealtimePTTTurn) markASREndedFor(generation uint64) (matched, semantic bool, err error) {
 	if t == nil {
-		return false, nil
+		return false, false, nil
 	}
 	t.mu.Lock()
 	if !t.active || t.generation != generation {
 		t.mu.Unlock()
-		return false, nil
+		return false, false, nil
 	}
 	t.asrEnded = true
+	semantic = strings.TrimSpace(t.hypothesis) != ""
 	t.mu.Unlock()
-	return true, t.commitIfReady()
+	return true, semantic, t.commitIfReady()
 }
 
 func (t *doubaoRealtimePTTTurn) commitIfReady() error {
@@ -811,6 +812,63 @@ func (t *doubaoRealtimePTTTurn) pushAssistant(chunk *genx.MessageChunk) error {
 	output := t.assistantOut
 	t.mu.Unlock()
 	return output.Push(chunk)
+}
+
+func (t *doubaoRealtimePTTTurn) completeEmptyFor(generation uint64, audioMIMEType string) (string, bool, error) {
+	if t == nil {
+		return "", false, nil
+	}
+	t.mu.Lock()
+	if !t.active || t.generation != generation || !t.committed ||
+		strings.TrimSpace(t.hypothesis) != "" || t.assistantOut == nil {
+		t.mu.Unlock()
+		return "", false, nil
+	}
+	streamID := t.streamID
+	output := t.assistantOut
+	completion := t.completion
+	t.mu.Unlock()
+
+	for _, chunk := range []*genx.MessageChunk{
+		{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+		},
+		{
+			Role: genx.RoleModel,
+			Part: genx.Text(""),
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+		},
+		{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: audioMIMEType},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, BeginOfStream: true},
+		},
+		{
+			Role: genx.RoleModel,
+			Part: &genx.Blob{MIMEType: audioMIMEType},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: doubaoRealtimeAssistantLabel, EndOfStream: true},
+		},
+	} {
+		if err := output.Push(chunk); err != nil {
+			return streamID, false, err
+		}
+	}
+
+	t.mu.Lock()
+	if !t.active || t.generation != generation || t.assistantOut != output {
+		t.mu.Unlock()
+		return streamID, false, nil
+	}
+	t.active = false
+	t.committed = false
+	t.hypothesis = ""
+	t.assistantOut = nil
+	t.completion = nil
+	t.mu.Unlock()
+	completion.complete()
+	return streamID, true, nil
 }
 
 func (t *doubaoRealtimePTTTurn) bindResponseFor(generation, epoch uint64, identity doubaoRealtimePTTResponseIdentity) *doubaoRealtimePTTResponse {
@@ -1184,6 +1242,18 @@ func (s *doubaoPushToTalkState) ttsFinished(streamID string) {
 	// Provider completion does not mean the response has reached the user.
 	// Keep Responding interruptible until the audio EOS crosses the final
 	// output-observation boundary after playback drain.
+}
+
+func (s *doubaoPushToTalkState) completeEmpty(streamID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.streamID != strings.TrimSpace(streamID) || s.phase != doubaoPushToTalkWaitingResponse {
+		return
+	}
+	s.phase = doubaoPushToTalkIdle
+	s.streamID = ""
+	s.ttsStarted = false
+	s.providerTTSFinished = false
 }
 
 func (s *doubaoPushToTalkState) observeAssistantOutput(label string, chunk *genx.MessageChunk) {

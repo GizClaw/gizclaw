@@ -969,11 +969,13 @@ func (t *Transformer) processSession(
 	markAssistantStarted := func(streamID string) uint64 {
 		return assistant.markStarted(streamID)
 	}
+	stopResponseIdle := func() {}
 	interruptAssistantState := func(streamID string, force bool) bool {
 		interruption := assistant.interruptRoutes(streamID, force)
 		if !interruption.interrupted {
 			return false
 		}
+		stopResponseIdle()
 		pttUncommitted := t.mode == ModePushToTalk && !pttTurn.outputCommitted()
 		discarded := output.discardChunks(func(chunk *genx.MessageChunk) bool {
 			return isDoubaoRealtimeAssistantChunk(chunk, interruption.streamID)
@@ -1060,6 +1062,7 @@ func (t *Transformer) processSession(
 		if _, active, _ := pttTurn.discardResponse(response); active {
 			_, _, _ = pushToTalk.abort()
 		}
+		stopResponseIdle()
 		assistant.setAccept(false)
 		assistant.nextEpoch()
 		if interruptErr := session.Interrupt(ctx); interruptErr != nil {
@@ -1152,16 +1155,18 @@ func (t *Transformer) processSession(
 	var responseIdleMu sync.Mutex
 	var responseIdleTimer *time.Timer
 	var responseIdleGeneration uint64
+	var responseIdleEpoch uint64
 	responseIdleActive := false
-	resetResponseIdle := func(start bool) {
-		if t.mode != ModeRealtime {
+	resetResponseIdle := func(start bool, epoch uint64) {
+		if t.mode == ModeText {
 			return
 		}
 		responseIdleMu.Lock()
 		if start {
 			responseIdleActive = true
+			responseIdleEpoch = epoch
 		}
-		if !responseIdleActive {
+		if !responseIdleActive || (t.mode == ModePushToTalk && responseIdleEpoch != epoch) {
 			responseIdleMu.Unlock()
 			return
 		}
@@ -1185,15 +1190,23 @@ func (t *Transformer) processSession(
 		})
 		responseIdleMu.Unlock()
 	}
-	stopResponseIdle := func() {
+	stopResponseIdleFor := func(epoch uint64) {
 		responseIdleMu.Lock()
+		if t.mode == ModePushToTalk && epoch != 0 && responseIdleActive && responseIdleEpoch != epoch {
+			responseIdleMu.Unlock()
+			return
+		}
 		responseIdleActive = false
+		responseIdleEpoch = 0
 		responseIdleGeneration++
 		if responseIdleTimer != nil {
 			responseIdleTimer.Stop()
 			responseIdleTimer = nil
 		}
 		responseIdleMu.Unlock()
+	}
+	stopResponseIdle = func() {
+		stopResponseIdleFor(0)
 	}
 	responseIdleError := func() error {
 		select {
@@ -1308,7 +1321,7 @@ func (t *Transformer) processSession(
 							return err
 						}
 						transcriptOpen = true
-						resetResponseIdle(true)
+						resetResponseIdle(true, 0)
 						if t.mode == ModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
 							if err := closeInputSegment(""); err != nil {
 								return err
@@ -1330,12 +1343,24 @@ func (t *Transformer) processSession(
 							text = realtimeASRText(event.Payload)
 						}
 						pttTurn.updateHypothesisFor(pttGeneration, text)
-						matched, err := pttTurn.markASREndedFor(pttGeneration)
+						matched, semantic, err := pttTurn.markASREndedFor(pttGeneration)
 						if err != nil {
 							pttControl.Unlock()
 							return err
 						}
 						if !matched {
+							pttControl.Unlock()
+							continue
+						}
+						if !semantic {
+							streamID, completed, err := pttTurn.completeEmptyFor(pttGeneration, t.outputMIMEType())
+							if err != nil {
+								pttControl.Unlock()
+								return err
+							}
+							if completed {
+								pushToTalk.completeEmpty(streamID)
+							}
 							pttControl.Unlock()
 							continue
 						}
@@ -1348,11 +1373,12 @@ func (t *Transformer) processSession(
 						}
 						pttResponses.add(response)
 						markAssistantPending(response.streamID, epoch)
+						resetResponseIdle(true, epoch)
 						pttControl.Unlock()
 						continue
 					}
 					assistant.setAccept(true)
-					resetResponseIdle(true)
+					resetResponseIdle(true, 0)
 					epoch := assistant.nextEpoch()
 					realtimeSpoken = &doubaoRealtimeSpokenResponse{}
 					responseStreamID := ""
@@ -1397,7 +1423,7 @@ func (t *Transformer) processSession(
 					if err := applySpokenTransition(epoch, response, streamID, state.ttsStarted(event.Text)); err != nil {
 						return err
 					}
-					resetResponseIdle(true)
+					resetResponseIdle(t.mode == ModeRealtime, epoch)
 
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
@@ -1419,6 +1445,9 @@ func (t *Transformer) processSession(
 					}
 					if err := applySpokenTransition(epoch, response, streamID, state.chat(event.Text)); err != nil {
 						return err
+					}
+					if t.mode == ModePushToTalk {
+						resetResponseIdle(false, epoch)
 					}
 
 				case doubaospeech.EventTTSAudioData:
@@ -1461,11 +1490,13 @@ func (t *Transformer) processSession(
 								return err
 							}
 						}
-						resetResponseIdle(true)
+						resetResponseIdle(t.mode == ModeRealtime, epoch)
 					}
 
 				case doubaospeech.EventTTSFinished:
-					stopResponseIdle()
+					if t.mode == ModeRealtime {
+						stopResponseIdle()
+					}
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
 					if t.mode == ModePushToTalk {
@@ -1491,7 +1522,12 @@ func (t *Transformer) processSession(
 					if t.mode == ModePushToTalk {
 						pushToTalk.ttsFinished(streamID)
 						response.ttsFinished = true
-						pttResponses.finish(response)
+						if response.done() {
+							stopResponseIdleFor(epoch)
+							pttResponses.finish(response)
+						} else {
+							resetResponseIdle(false, epoch)
+						}
 					} else if t.mode == ModeText {
 						textResponses.markTTSFinished()
 					}
@@ -1522,7 +1558,12 @@ func (t *Transformer) processSession(
 					}
 					if response != nil {
 						response.chatEnded = true
-						pttResponses.finish(response)
+						if response.done() {
+							stopResponseIdleFor(epoch)
+							pttResponses.finish(response)
+						} else {
+							resetResponseIdle(false, epoch)
+						}
 					} else if t.mode == ModeText {
 						textResponses.markChatEnded()
 					}
@@ -1771,12 +1812,14 @@ func (t *Transformer) processSession(
 					return err
 				}
 				pttASR.add(pttTurn.currentGeneration())
+				// Record the local input boundary before asking the provider to
+				// finish ASR. EndASR may synchronously release ASREnded to Recv.
+				if err := pttTurn.markInputEnded(); err != nil {
+					return err
+				}
 				if err := session.EndASR(ctx); err != nil {
 					slog.Error("doubao: end ASR error", "error", err)
 					return doubaoRealtimeRecoverable("end ASR", err)
-				}
-				if err := pttTurn.markInputEnded(); err != nil {
-					return err
 				}
 			} else if !inputAudioEnded && t.mode != ModeText {
 				slog.Info("doubao: received realtime EOS, closing local audio input", "streamID", streamID, "audioSent", audioSent)
