@@ -1,12 +1,17 @@
 package giztest
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 func TestSpeechTranscribeRejectsUntypedInputBeforeRPC(t *testing.T) {
@@ -17,10 +22,56 @@ func TestSpeechTranscribeRejectsUntypedInputBeforeRPC(t *testing.T) {
 	}
 }
 
-func TestTranscriptionInputRequiresPCMLabelForDecodedOpus(t *testing.T) {
-	spec := VariableSpec{Type: "audio", MediaType: "audio/ogg", Codec: "opus"}
-	_, err := transcriptionInput([]byte("not-decoded"), spec, "audio/ogg")
-	if err == nil || !strings.Contains(err.Error(), speechPCM16ContentType) {
+func TestPrepareTranscriptionRequestDerivesWireContentType(t *testing.T) {
+	t.Run("decoded Ogg Opus", func(t *testing.T) {
+		var encoded bytes.Buffer
+		encoder, err := codecconv.NewPCMToOggOpusEncoder(&encoded, opus.SampleRate16K.Int(), 1, opus.ApplicationVoIP)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := encoder.Write(make([]byte, 640)); err != nil {
+			t.Fatal(err)
+		}
+		if err := encoder.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		audio, request, err := prepareTranscriptionRequest(encoded.Bytes(), VariableSpec{
+			Type: "audio", MediaType: "audio/ogg", Codec: "opus", MaxBytes: 4096,
+		}, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
+		if err != nil {
+			t.Fatalf("prepareTranscriptionRequest() error = %v", err)
+		}
+		if len(audio) == 0 {
+			t.Fatal("prepareTranscriptionRequest() returned empty PCM")
+		}
+		if request.ContentType != speechPCM16ContentType {
+			t.Fatalf("ContentType = %q, want %q", request.ContentType, speechPCM16ContentType)
+		}
+	})
+
+	t.Run("pass through", func(t *testing.T) {
+		input := []byte("pcm")
+		audio, request, err := prepareTranscriptionRequest(input, VariableSpec{
+			Type: "audio", MediaType: speechPCM16ContentType, Codec: "pcm_s16le",
+		}, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
+		if err != nil {
+			t.Fatalf("prepareTranscriptionRequest() error = %v", err)
+		}
+		if !bytes.Equal(audio, input) {
+			t.Fatalf("audio = %q, want %q", audio, input)
+		}
+		if request.ContentType != speechPCM16ContentType {
+			t.Fatalf("ContentType = %q, want %q", request.ContentType, speechPCM16ContentType)
+		}
+	})
+}
+
+func TestPrepareTranscriptionRequestPropagatesConversionError(t *testing.T) {
+	_, _, err := prepareTranscriptionRequest([]byte("not-ogg"), VariableSpec{
+		Type: "audio", MediaType: "audio/ogg", Codec: "opus", MaxBytes: 1024,
+	}, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
+	if err == nil || !strings.Contains(err.Error(), "decode synthesized Ogg Opus for speech input") {
 		t.Fatalf("error = %v", err)
 	}
 }

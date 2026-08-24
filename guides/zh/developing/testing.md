@@ -203,6 +203,11 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 只赋值变量，不写文件。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
 CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
 复制独立字节，避免把输入准备阶段的 TTS 容量误当成 Workflow 并发目标。
+
+对于 `server.speech.transcribe`，Giztest 根据 typed audio variable 与 runner 的实际转换推导
+上传 `content_type`：Ogg/Opus 解码成 16 kHz 单声道 PCM，未转换的输入沿用声明的 media
+type；文档不拥有这项 wire metadata。
+
 `peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
 Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在

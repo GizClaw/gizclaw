@@ -227,6 +227,12 @@ immutable input fixture per document, step, and resolved request for the current
 CLI invocation, then gives every repeated task its own byte copy. This preserves
 isolated task variables without turning input-fixture TTS capacity into the
 Workflow concurrency target.
+
+For `server.speech.transcribe`, Giztest derives the upload `content_type` from
+the typed audio variable and the runner's conversion: Ogg/Opus is decoded to
+16 kHz mono PCM, while pass-through input keeps its declared media type. The
+document does not own this wire metadata.
+
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
 observed text and audio EOS boundaries. Chatroom turns that complete on the
 persisted user transcript declare `transcript` explicitly.

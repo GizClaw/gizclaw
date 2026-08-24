@@ -52,6 +52,10 @@ Ogg/Opus（MiniMax 输出由 Server 转码），翻译类文档不依赖 Workflo
 重复语音 Benchmark 可在合成步骤声明 `speech.cache: run`，按文档和展开后的请求缓存成功的
 输入 fixture；每个 task 得到独立字节副本，缓存受 output `max_bytes` 限制，并在命令退出时释放。
 
+`server.speech.transcribe` 步骤从引用的 typed variable 获取音频格式。Runner 在需要时把
+Ogg/Opus 解码成 16 kHz 单声道 PCM，并按实际发送的 bytes 设置 RPC `content_type`；文档
+request 只填写 model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
+
 步骤的 `expect` 把 JSON Pointer 映射到 expectation 对象。一个 expectation 对象可以组合多个
 matcher，全部通过时该断言才通过：
 

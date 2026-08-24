@@ -134,7 +134,7 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 		if err := decodeRequest(request, &req); err != nil {
 			return operationResult{}, err
 		}
-		audio, err := transcriptionInput(audio, inputSpec, req.ContentType)
+		audio, req, err := prepareTranscriptionRequest(audio, inputSpec, req)
 		if err != nil {
 			return operationResult{}, err
 		}
@@ -171,17 +171,17 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 	}
 }
 
-func transcriptionInput(audio []byte, spec VariableSpec, contentType string) ([]byte, error) {
+func prepareTranscriptionRequest(audio []byte, spec VariableSpec, request rpcapi.SpeechTranscribeRequest) ([]byte, rpcapi.SpeechTranscribeRequest, error) {
 	if spec.Codec == "opus" {
-		if contentType != speechPCM16ContentType {
-			return nil, fmt.Errorf("Opus transcription input is decoded to %s before RPC", speechPCM16ContentType)
+		decoded, err := speechPCMInput(audio, spec)
+		if err != nil {
+			return nil, rpcapi.SpeechTranscribeRequest{}, err
 		}
-		return speechPCMInput(audio, spec)
+		request.ContentType = speechPCM16ContentType
+		return decoded, request, nil
 	}
-	if contentType != spec.MediaType {
-		return nil, fmt.Errorf("speech transcription content_type %q does not match input media_type %q", contentType, spec.MediaType)
-	}
-	return audio, nil
+	request.ContentType = spec.MediaType
+	return audio, request, nil
 }
 
 func speechPCMInput(audio []byte, spec VariableSpec) ([]byte, error) {
