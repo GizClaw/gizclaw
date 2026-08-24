@@ -76,6 +76,38 @@ func TestPrepareTranscriptionRequestPropagatesConversionError(t *testing.T) {
 	}
 }
 
+func TestPrepareTranscriptionRequestRejectsUnsupportedAudioBeforeRPC(t *testing.T) {
+	tests := []struct {
+		name string
+		spec VariableSpec
+		want string
+	}{
+		{
+			name: "Opus without Ogg container",
+			spec: VariableSpec{Type: "audio", MediaType: "audio/opus", Codec: "opus", MaxBytes: 1024},
+			want: "Opus input media_type must be audio/ogg",
+		},
+		{
+			name: "unsupported codec",
+			spec: VariableSpec{Type: "audio", MediaType: "audio/mpeg", Codec: "mp3", MaxBytes: 1024},
+			want: "input must be Ogg/Opus or 16 kHz mono PCM",
+		},
+		{
+			name: "PCM with unsupported metadata",
+			spec: VariableSpec{Type: "audio", MediaType: "audio/L16;rate=48000;channels=2", Codec: "pcm_s16le", MaxBytes: 1024},
+			want: "input must be Ogg/Opus or 16 kHz mono PCM",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, err := prepareTranscriptionRequest([]byte("audio"), test.spec, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want substring %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestSpeechFixtureCacheRunsOnceAndReturnsOwnedAudio(t *testing.T) {
 	cache := newSpeechFixtureCache()
 	var calls atomic.Int32

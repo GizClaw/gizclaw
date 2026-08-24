@@ -173,6 +173,9 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 
 func prepareTranscriptionRequest(audio []byte, spec VariableSpec, request rpcapi.SpeechTranscribeRequest) ([]byte, rpcapi.SpeechTranscribeRequest, error) {
 	if spec.Codec == "opus" {
+		if spec.MediaType != "audio/ogg" {
+			return nil, rpcapi.SpeechTranscribeRequest{}, fmt.Errorf("speech transcription Opus input media_type must be audio/ogg, got %q", spec.MediaType)
+		}
 		decoded, err := speechPCMInput(audio, spec)
 		if err != nil {
 			return nil, rpcapi.SpeechTranscribeRequest{}, err
@@ -180,7 +183,10 @@ func prepareTranscriptionRequest(audio []byte, spec VariableSpec, request rpcapi
 		request.ContentType = speechPCM16ContentType
 		return decoded, request, nil
 	}
-	request.ContentType = spec.MediaType
+	if spec.Codec != "pcm_s16le" || spec.MediaType != speechPCM16ContentType {
+		return nil, rpcapi.SpeechTranscribeRequest{}, fmt.Errorf("speech transcription input must be Ogg/Opus or 16 kHz mono PCM, got codec %q and media_type %q", spec.Codec, spec.MediaType)
+	}
+	request.ContentType = speechPCM16ContentType
 	return audio, request, nil
 }
 

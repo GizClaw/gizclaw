@@ -229,9 +229,10 @@ isolated task variables without turning input-fixture TTS capacity into the
 Workflow concurrency target.
 
 For `server.speech.transcribe`, Giztest derives the upload `content_type` from
-the typed audio variable and the runner's conversion: Ogg/Opus is decoded to
-16 kHz mono PCM, while pass-through input keeps its declared media type. The
-document does not own this wire metadata.
+the typed audio variable and the runner's conversion. Ogg/Opus is decoded to
+16 kHz mono PCM; matching `pcm_s16le` input passes through with that same wire
+type. Other audio formats fail before the RPC opens. The document does not own
+this wire metadata.
 
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
 observed text and audio EOS boundaries. Chatroom turns that complete on the

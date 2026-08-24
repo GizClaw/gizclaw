@@ -60,9 +60,11 @@ separate byte copy; the cache is bounded by the declared output `max_bytes` and
 is discarded when the command exits.
 
 A `server.speech.transcribe` step takes its audio format from the referenced
-typed variable. The runner decodes Ogg/Opus to 16 kHz mono PCM when needed and
-sets the RPC `content_type` for the bytes it sends; the document request contains
-the model and optional language, not this runner-owned wire metadata.
+typed variable. The runner accepts Ogg/Opus, which it decodes to 16 kHz mono
+PCM, or matching `pcm_s16le` input for direct upload. It rejects other audio
+formats before opening the RPC and sets `content_type` for the prepared bytes;
+the document request contains the model and optional language, not this
+runner-owned wire metadata.
 
 Step `expect` maps JSON Pointers to expectation objects. One expectation object
 may combine several matchers; the step passes only when every matcher passes:
