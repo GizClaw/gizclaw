@@ -66,6 +66,25 @@ formats before opening the RPC and sets `content_type` for the prepared bytes;
 the document request contains the model and optional language, not this
 runner-owned wire metadata.
 
+An `rpc_stream` step for `all.speed_test.run` exposes these stable result paths
+to `expect`, `capture`, and an object `save_as`. The same canonical measurement
+fields, plus `method`, appear in redacted step evidence:
+
+| Path | Unit and meaning |
+| --- | --- |
+| `/up_content_length`, `/down_content_length` | Requested and acknowledged bytes for each direction. |
+| `/up_bytes`, `/down_bytes` | Bytes actually transferred in each direction. |
+| `/up_duration_ms`, `/down_duration_ms` | Each direction's measured duration, truncated to integer milliseconds. |
+| `/duration_ms` | Whole-call wall time, truncated to integer milliseconds. |
+| `/up_mbps`, `/down_mbps` | Measured megabits per second as finite non-negative numbers. |
+| `/bytes` | Received bytes; for this operation it equals `/down_bytes`. |
+
+An omitted direction keeps explicit numeric zero values. PascalCase paths
+`/UpContentLength`, `/DownContentLength`, `/UpBytes`, `/DownBytes`,
+`/UpDuration`, `/DownDuration`, and `/Duration` remain compatibility aliases;
+new documents must use the canonical paths above. The three legacy duration
+aliases retain raw nanoseconds.
+
 Step `expect` maps JSON Pointers to expectation objects. One expectation object
 may combine several matchers; the step passes only when every matcher passes:
 

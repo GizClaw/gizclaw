@@ -57,6 +57,23 @@ Ogg/Opus（MiniMax 输出由 Server 转码），翻译类文档不依赖 Workflo
 打开 RPC 前被拒绝。Runner 按准备完成的 bytes 设置 `content_type`；文档 request 只填写
 model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
 
+`rpc_stream` 的 `all.speed_test.run` 步骤向 `expect`、`capture` 和 object `save_as` 暴露以下
+稳定结果路径；同一组 canonical 测量字段还会与 `method` 一起进入脱敏 step evidence：
+
+| 路径 | 单位与语义 |
+| --- | --- |
+| `/up_content_length`、`/down_content_length` | 各方向请求并由测速确认的 bytes。 |
+| `/up_bytes`、`/down_bytes` | 各方向实际传输的 bytes。 |
+| `/up_duration_ms`、`/down_duration_ms` | 各方向测量耗时，截断为整数毫秒。 |
+| `/duration_ms` | 整次调用 wall time，截断为整数毫秒。 |
+| `/up_mbps`、`/down_mbps` | 有限且非负的实测 megabits per second。 |
+| `/bytes` | 接收 bytes；对该操作等于 `/down_bytes`。 |
+
+未启用的方向仍显式保留数值零。PascalCase 路径 `/UpContentLength`、
+`/DownContentLength`、`/UpBytes`、`/DownBytes`、`/UpDuration`、`/DownDuration` 和
+`/Duration` 仅作为 compatibility aliases 保留；新文档必须使用上面的 canonical 路径。
+三个旧 duration alias 仍使用原始纳秒值。
+
 步骤的 `expect` 把 JSON Pointer 映射到 expectation 对象。一个 expectation 对象可以组合多个
 matcher，全部通过时该断言才通过：
 

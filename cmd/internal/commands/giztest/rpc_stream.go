@@ -73,7 +73,7 @@ func invokeRPCStream(ctx context.Context, client *gizcli.Client, step Step, requ
 		if err != nil {
 			return operationResult{}, err
 		}
-		metadata = result
+		return speedTestOperationResult(result), nil
 	case "server.pet.pixa.download":
 		var req rpcapi.PetPixaDownloadRequest
 		if err := decodeRequest(request, &req); err != nil {
@@ -146,6 +146,32 @@ func invokeRPCStream(ctx context.Context, client *gizcli.Client, step Step, requ
 		saved = append([]byte(nil), buf.Bytes()...)
 	}
 	return operationResult{assertion: object, saved: saved, evidence: map[string]any{"method": op.Method, "bytes": buf.Len()}}, nil
+}
+
+func speedTestOperationResult(result gizcli.SpeedTestResult) operationResult {
+	evidence := map[string]any{
+		"method":              "all.speed_test.run",
+		"bytes":               result.DownBytes,
+		"up_content_length":   result.UpContentLength,
+		"down_content_length": result.DownContentLength,
+		"up_bytes":            result.UpBytes,
+		"down_bytes":          result.DownBytes,
+		"up_duration_ms":      result.UpDuration.Milliseconds(),
+		"down_duration_ms":    result.DownDuration.Milliseconds(),
+		"duration_ms":         result.Duration.Milliseconds(),
+		"up_mbps":             result.UpMbps(),
+		"down_mbps":           result.DownMbps(),
+	}
+	object := maps.Clone(evidence)
+	delete(object, "method")
+	object["UpContentLength"] = result.UpContentLength
+	object["DownContentLength"] = result.DownContentLength
+	object["UpBytes"] = result.UpBytes
+	object["DownBytes"] = result.DownBytes
+	object["UpDuration"] = int64(result.UpDuration)
+	object["DownDuration"] = int64(result.DownDuration)
+	object["Duration"] = int64(result.Duration)
+	return operationResult{assertion: object, saved: object, evidence: evidence}
 }
 
 func cloneMap(input map[string]any) map[string]any {
