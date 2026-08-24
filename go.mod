@@ -22,7 +22,7 @@ require (
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15
-	github.com/dgraph-io/badger/v4 v4.9.5
+	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/eino-contrib/jsonschema v1.0.3
 	github.com/felixge/httpsnoop v1.1.0
 	github.com/getkin/kin-openapi v0.135.0
