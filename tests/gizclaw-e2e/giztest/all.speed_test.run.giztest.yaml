@@ -38,6 +38,14 @@ steps:
         up_content_length: 65536
         down_content_length: 65536
       max_bytes: 16777216
+    expect:
+      /up_content_length: {equals: 65536}
+      /down_content_length: {equals: 65536}
+      /up_bytes: {equals: 65536}
+      /down_bytes: {equals: 65536}
+      /bytes: {equals: 65536}
+      /up_mbps: {minimum: 0.000001}
+      /down_mbps: {minimum: 0.000001}
 finally:
   - client: peer
     rpc:
