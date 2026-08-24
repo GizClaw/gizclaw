@@ -64,7 +64,7 @@ require (
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/api v0.287.1
 	google.golang.org/genai v1.68.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.56.0
 )
 
