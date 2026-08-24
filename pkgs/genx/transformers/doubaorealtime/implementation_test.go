@@ -1296,6 +1296,55 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T
 	}
 }
 
+func TestTransformerPTTSemanticResponseDoesNotUseRealtimeIdleDeadline(t *testing.T) {
+	endASR := make(chan struct{})
+	const idleTimeout = 20 * time.Millisecond
+	session := &fakeTransformerSession{
+		beforeRecv: endASR,
+		endASR:     endASR,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question", QuestionID: "q-1"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+			{Type: doubaospeech.EventChatResponse, Text: "answer", QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "q-1", ReplyID: "r-1"},
+			{Type: doubaospeech.EventTTSFinished, QuestionID: "q-1", ReplyID: "r-1"},
+		},
+		eventInterval: 3 * idleTimeout,
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModePushToTalk),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+		withResponseIdleTimeout(idleTimeout),
+	)
+	input := newBufferStream(8)
+	output, err := tfr.transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushPTTTestTurn(t, input, "turn-1", 1)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	if got := opener.callCount(); got != 1 {
+		t.Fatalf("OpenSession calls = %d, want no replacement after delayed PTT response", got)
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "question") ||
+		!hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
+		t.Fatalf("delayed semantic PTT response did not complete: %#v", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.Ctrl != nil && strings.Contains(chunk.Ctrl.Error, "response idle timeout") {
+			t.Fatalf("semantic PTT response used the Realtime idle deadline: %#v", chunks)
+		}
+	}
+}
+
 func TestTransformerSessionLoopRetriesAndReusesDialogID(t *testing.T) {
 	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{
 		{err: errors.New("connect-1")},
