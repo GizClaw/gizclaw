@@ -660,20 +660,25 @@ func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *test
 	}
 }
 
-func TestTransformerRealtimeResponseIdleClosesEveryOpenedRoute(t *testing.T) {
+func TestTransformerRealtimeResponseDeadlineClosesEveryOpenedRoute(t *testing.T) {
 	firstAudioSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	events := []*doubaospeech.RealtimeEvent{
+		{Type: doubaospeech.EventASRResponse, Text: "question"},
+		{Type: doubaospeech.EventASREnded},
+		{Type: doubaospeech.EventChatResponse, Text: "answer"},
+		{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+	}
+	for range 20 {
+		events = append(events, &doubaospeech.RealtimeEvent{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}})
+	}
 	session := &fakeTransformerSession{
 		beforeRecv:       firstAudioSent,
 		firstAudioSent:   firstAudioSent,
+		eventInterval:    5 * time.Millisecond,
+		eventsDrained:    eventsDrained,
 		blockAfterEvents: make(chan struct{}),
-		events: []*doubaospeech.RealtimeEvent{
-			{Type: doubaospeech.EventASRResponse, Text: "question"},
-			{Type: doubaospeech.EventASREnded},
-			{Type: doubaospeech.EventChatResponse, Text: "answer"},
-			{Type: doubaospeech.EventChatEnded},
-			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
-			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
-		},
+		events:           events,
 	}
 	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
 	tfr := newTransformer(nil,
@@ -682,7 +687,7 @@ func TestTransformerRealtimeResponseIdleClosesEveryOpenedRoute(t *testing.T) {
 		withInputFormat("pcm"),
 		withInputTranscode(false),
 		withFormat("pcm"),
-		withResponseIdleTimeout(20*time.Millisecond),
+		withResponseDeadline(30*time.Millisecond),
 	)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -736,8 +741,72 @@ func TestTransformerRealtimeResponseIdleClosesEveryOpenedRoute(t *testing.T) {
 		if len(route) < 2 || !route[0].IsBeginOfStream() || !route[len(route)-1].IsEndOfStream() {
 			t.Fatalf("%s route = %#v, want BOS...EOS", name, route)
 		}
-		if got := route[len(route)-1].Ctrl.Error; !strings.Contains(got, "response idle timeout") {
-			t.Fatalf("%s EOS error = %q, want response idle timeout", name, got)
+		if got := route[len(route)-1].Ctrl.Error; !strings.Contains(got, "response deadline exceeded") {
+			t.Fatalf("%s EOS error = %q, want response deadline exceeded", name, got)
+		}
+	}
+	select {
+	case <-eventsDrained:
+		t.Fatal("continuous provider progress extended the absolute response deadline")
+	default:
+	}
+}
+
+func TestTransformerRealtimeTerminalCompletionStopsResponseDeadline(t *testing.T) {
+	firstAudioSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       firstAudioSent,
+		firstAudioSent:   firstAudioSent,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+		withResponseDeadline(20*time.Millisecond),
+	)
+	input := newBufferStream(4)
+	for _, chunk := range []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+	} {
+		if err := input.Push(chunk); err != nil {
+			t.Fatalf("Push(input) error = %v", err)
+		}
+	}
+	output, err := tfr.Transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	select {
+	case <-eventsDrained:
+	case <-time.After(2 * time.Second):
+		t.Fatal("provider response did not reach terminal completion")
+	}
+	time.Sleep(60 * time.Millisecond)
+	if session.isClosed() {
+		t.Fatal("terminal response left its deadline armed")
+	}
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	chunks := drainRealtimeTestOutput(t, output)
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.Ctrl != nil && strings.Contains(chunk.Ctrl.Error, "response deadline exceeded") {
+			t.Fatalf("completed response received a deadline error: %#v", chunks)
 		}
 	}
 }
@@ -1121,7 +1190,7 @@ func TestTransformerASRInfoHandsRealtimeInterruptionToReplacementWithoutProvider
 	}
 }
 
-func TestTransformerRealtimeBoundsStalledPartialTranscript(t *testing.T) {
+func TestTransformerRealtimePartialTranscriptDoesNotStartResponseDeadline(t *testing.T) {
 	firstAudioSent := make(chan struct{})
 	eventsDrained := make(chan struct{})
 	events := []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventASRResponse, Text: "partial transcript"}}
@@ -1140,7 +1209,7 @@ func TestTransformerRealtimeBoundsStalledPartialTranscript(t *testing.T) {
 		withMode(ModeRealtime),
 		withInputFormat("pcm"),
 		withInputTranscode(false),
-		withResponseIdleTimeout(20*time.Millisecond),
+		withResponseDeadline(20*time.Millisecond),
 	)
 	input := newBufferStream(4)
 	for _, chunk := range []*genx.MessageChunk{
@@ -1157,19 +1226,21 @@ func TestTransformerRealtimeBoundsStalledPartialTranscript(t *testing.T) {
 	defer runtime.close()
 	reader := newDoubaoRealtimeInputReader(input)
 	defer reader.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	err := tfr.processSession(ctx, reader, output, session, runtime)
-	if !isDoubaoRealtimeRecoverable(err) || !strings.Contains(err.Error(), "response idle timeout") {
-		t.Fatalf("processSession() error = %v, want recoverable response idle timeout", err)
-	}
-	if !session.isClosed() {
-		t.Fatal("stalled provider session was not closed")
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- tfr.processSession(ctx, reader, output, session, runtime) }()
+	time.Sleep(80 * time.Millisecond)
+	if session.isClosed() {
+		t.Fatal("partial ASR armed a response deadline before ASREnded")
 	}
 	select {
 	case <-eventsDrained:
-		t.Fatal("non-progress usage events kept the response idle deadline alive")
+		t.Fatal("provider events drained before the pre-response observation completed")
 	default:
+	}
+	cancel()
+	if err := <-errCh; !errors.Is(err, context.Canceled) {
+		t.Fatalf("processSession() error = %v, want context cancellation", err)
 	}
 	if err := output.Close(); err != nil {
 		t.Fatalf("Close(output) error = %v", err)
@@ -1186,8 +1257,8 @@ func TestTransformerRealtimeBoundsStalledPartialTranscript(t *testing.T) {
 			break
 		}
 	}
-	if transcriptEOS == nil || !strings.Contains(transcriptEOS.Ctrl.Error, "response idle timeout") {
-		t.Fatalf("transcript EOS = %#v, want response idle timeout", transcriptEOS)
+	if transcriptEOS == nil || strings.Contains(transcriptEOS.Ctrl.Error, "response deadline exceeded") {
+		t.Fatalf("transcript EOS = %#v, want no response deadline error", transcriptEOS)
 	}
 }
 
@@ -1223,7 +1294,7 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T
 		withInputFormat("pcm"),
 		withInputTranscode(false),
 		withFormat("pcm"),
-		withResponseIdleTimeout(idleTimeout),
+		withResponseDeadline(idleTimeout),
 	)
 	input := newBufferStream(16)
 	output, err := tfr.transform(t.Context(), input)
@@ -1296,7 +1367,7 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T
 	}
 }
 
-func TestTransformerPTTSemanticResponseDoesNotUseRealtimeIdleDeadline(t *testing.T) {
+func TestTransformerPTTSemanticResponseDoesNotUseRealtimeDeadline(t *testing.T) {
 	endASR := make(chan struct{})
 	const idleTimeout = 20 * time.Millisecond
 	session := &fakeTransformerSession{
@@ -1319,7 +1390,7 @@ func TestTransformerPTTSemanticResponseDoesNotUseRealtimeIdleDeadline(t *testing
 		withInputFormat("pcm"),
 		withInputTranscode(false),
 		withFormat("pcm"),
-		withResponseIdleTimeout(idleTimeout),
+		withResponseDeadline(idleTimeout),
 	)
 	input := newBufferStream(8)
 	output, err := tfr.transform(t.Context(), input)
@@ -1339,8 +1410,8 @@ func TestTransformerPTTSemanticResponseDoesNotUseRealtimeIdleDeadline(t *testing
 		t.Fatalf("delayed semantic PTT response did not complete: %#v", chunks)
 	}
 	for _, chunk := range chunks {
-		if chunk != nil && chunk.Ctrl != nil && strings.Contains(chunk.Ctrl.Error, "response idle timeout") {
-			t.Fatalf("semantic PTT response used the Realtime idle deadline: %#v", chunks)
+		if chunk != nil && chunk.Ctrl != nil && strings.Contains(chunk.Ctrl.Error, "response deadline exceeded") {
+			t.Fatalf("semantic PTT response used the Realtime response deadline: %#v", chunks)
 		}
 	}
 }

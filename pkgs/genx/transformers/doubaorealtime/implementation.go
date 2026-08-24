@@ -31,34 +31,34 @@ import (
 //
 // Internally uses ASR → LLM → TTS pipeline.
 type Transformer struct {
-	client              *doubaospeech.Client
-	realtime            doubaoRealtimeOpener
-	speaker             string
-	format              string
-	sampleRate          int
-	channels            int
-	speechRate          *int
-	loudnessRate        *int
-	inputFormat         string
-	inputSampleRate     int
-	inputChannels       int
-	inputTranscode      bool
-	asrExtra            *doubaospeech.RealtimeASRExtra
-	ttsExtra            *doubaospeech.RealtimeTTSExtra
-	botName             string
-	instructions        string
-	systemRole          string
-	vadWindowMs         int
-	speakingStyle       string
-	characterManifest   string
-	dialogID            string
-	dialogExtra         *doubaospeech.RealtimeDialogExtra
-	model               string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
-	mode                Mode
-	retryInitial        time.Duration
-	retryMax            time.Duration
-	retryWait           func(context.Context, <-chan struct{}, time.Duration) bool
-	responseIdleTimeout time.Duration
+	client            *doubaospeech.Client
+	realtime          doubaoRealtimeOpener
+	speaker           string
+	format            string
+	sampleRate        int
+	channels          int
+	speechRate        *int
+	loudnessRate      *int
+	inputFormat       string
+	inputSampleRate   int
+	inputChannels     int
+	inputTranscode    bool
+	asrExtra          *doubaospeech.RealtimeASRExtra
+	ttsExtra          *doubaospeech.RealtimeTTSExtra
+	botName           string
+	instructions      string
+	systemRole        string
+	vadWindowMs       int
+	speakingStyle     string
+	characterManifest string
+	dialogID          string
+	dialogExtra       *doubaospeech.RealtimeDialogExtra
+	model             string // Model version: O, SC, 1.2.1.0 (O2.0), 2.2.0.0 (SC2.0)
+	mode              Mode
+	retryInitial      time.Duration
+	retryMax          time.Duration
+	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
+	responseDeadline  time.Duration
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -75,11 +75,11 @@ const (
 	doubaoRealtimeFixedOutputSampleRate = 24000
 	doubaoRealtimeFixedOutputChannels   = 1
 
-	doubaoRealtimePTTOutputLimit      = 2 * time.Minute
-	doubaoRealtimePTTOutputMaxBytes   = 32 << 20
-	doubaoRealtimeRetryInitial        = 100 * time.Millisecond
-	doubaoRealtimeRetryMax            = 5 * time.Second
-	doubaoRealtimeResponseIdleTimeout = time.Minute
+	doubaoRealtimePTTOutputLimit    = 2 * time.Minute
+	doubaoRealtimePTTOutputMaxBytes = 32 << 20
+	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
+	doubaoRealtimeRetryMax          = 5 * time.Second
+	doubaoRealtimeResponseDeadline  = time.Minute
 )
 
 var errDoubaoRealtimeInterruptHandoff = errors.New("replace provider session after realtime interruption")
@@ -294,9 +294,9 @@ func withDoubaoRealtimeOpener(opener doubaoRealtimeOpener) option {
 	}
 }
 
-func withResponseIdleTimeout(timeout time.Duration) option {
+func withResponseDeadline(timeout time.Duration) option {
 	return func(t *Transformer) {
-		t.responseIdleTimeout = timeout
+		t.responseDeadline = timeout
 	}
 }
 
@@ -307,19 +307,19 @@ func withResponseIdleTimeout(timeout time.Duration) option {
 //   - opts: Optional configuration
 func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 	t := &Transformer{
-		client:              client,
-		speaker:             "zh_female_vv_jupiter_bigtts", // O version default voice
-		format:              doubaoRealtimeFixedOutputFormat,
-		sampleRate:          doubaoRealtimeFixedOutputSampleRate,
-		channels:            doubaoRealtimeFixedOutputChannels,
-		inputFormat:         doubaoRealtimeFixedInputFormat,
-		inputSampleRate:     doubaoRealtimeFixedInputSampleRate,
-		inputChannels:       doubaoRealtimeFixedInputChannels,
-		inputTranscode:      true,
-		mode:                ModePushToTalk,
-		retryInitial:        doubaoRealtimeRetryInitial,
-		retryMax:            doubaoRealtimeRetryMax,
-		responseIdleTimeout: doubaoRealtimeResponseIdleTimeout,
+		client:           client,
+		speaker:          "zh_female_vv_jupiter_bigtts", // O version default voice
+		format:           doubaoRealtimeFixedOutputFormat,
+		sampleRate:       doubaoRealtimeFixedOutputSampleRate,
+		channels:         doubaoRealtimeFixedOutputChannels,
+		inputFormat:      doubaoRealtimeFixedInputFormat,
+		inputSampleRate:  doubaoRealtimeFixedInputSampleRate,
+		inputChannels:    doubaoRealtimeFixedInputChannels,
+		inputTranscode:   true,
+		mode:             ModePushToTalk,
+		retryInitial:     doubaoRealtimeRetryInitial,
+		retryMax:         doubaoRealtimeRetryMax,
+		responseDeadline: doubaoRealtimeResponseDeadline,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -951,6 +951,20 @@ func (t *Transformer) processSession(
 			_ = session.Close()
 		})
 	}
+	responseDeadlineTimeout := t.responseDeadline
+	if responseDeadlineTimeout <= 0 {
+		responseDeadlineTimeout = doubaoRealtimeResponseDeadline
+	}
+	responseDeadline := newRealtimeResponseDeadline(responseDeadlineTimeout, closeSession)
+	responseDeadlineError := func() error {
+		if !responseDeadline.didExpire() {
+			return nil
+		}
+		return doubaoRealtimeRecoverable(
+			"response deadline exceeded",
+			fmt.Errorf("response did not complete within %s", responseDeadlineTimeout),
+		)
+	}
 
 	assistant := runtime.assistant
 	pushToTalk := runtime.pushToTalk
@@ -970,10 +984,12 @@ func (t *Transformer) processSession(
 		return assistant.markStarted(streamID)
 	}
 	interruptAssistantState := func(streamID string, force bool) bool {
+		epoch := assistant.currentEpoch()
 		interruption := assistant.interruptRoutes(streamID, force)
 		if !interruption.interrupted {
 			return false
 		}
+		responseDeadline.finish(epoch)
 		pttUncommitted := t.mode == ModePushToTalk && !pttTurn.outputCommitted()
 		discarded := output.discardChunks(func(chunk *genx.MessageChunk) bool {
 			return isDoubaoRealtimeAssistantChunk(chunk, interruption.streamID)
@@ -1143,72 +1159,9 @@ func (t *Transformer) processSession(
 	}
 	eventsDone := make(chan struct{})
 	eventsResult := make(chan error, 1)
-	responseIdleTimeout := t.responseIdleTimeout
-	if responseIdleTimeout <= 0 {
-		responseIdleTimeout = doubaoRealtimeResponseIdleTimeout
-	}
-	responseIdleTimedOut := make(chan struct{})
-	var responseIdleTimeoutOnce sync.Once
-	var responseIdleMu sync.Mutex
-	var responseIdleTimer *time.Timer
-	var responseIdleGeneration uint64
-	responseIdleActive := false
-	resetResponseIdle := func(start bool) {
-		if t.mode != ModeRealtime {
-			return
-		}
-		responseIdleMu.Lock()
-		if start {
-			responseIdleActive = true
-		}
-		if !responseIdleActive {
-			responseIdleMu.Unlock()
-			return
-		}
-		responseIdleGeneration++
-		generation := responseIdleGeneration
-		if responseIdleTimer != nil {
-			responseIdleTimer.Stop()
-		}
-		responseIdleTimer = time.AfterFunc(responseIdleTimeout, func() {
-			responseIdleMu.Lock()
-			if !responseIdleActive || responseIdleGeneration != generation {
-				responseIdleMu.Unlock()
-				return
-			}
-			responseIdleActive = false
-			responseIdleMu.Unlock()
-			responseIdleTimeoutOnce.Do(func() {
-				close(responseIdleTimedOut)
-				closeSession()
-			})
-		})
-		responseIdleMu.Unlock()
-	}
-	stopResponseIdle := func() {
-		responseIdleMu.Lock()
-		responseIdleActive = false
-		responseIdleGeneration++
-		if responseIdleTimer != nil {
-			responseIdleTimer.Stop()
-			responseIdleTimer = nil
-		}
-		responseIdleMu.Unlock()
-	}
-	responseIdleError := func() error {
-		select {
-		case <-responseIdleTimedOut:
-			return doubaoRealtimeRecoverable(
-				"response idle timeout",
-				fmt.Errorf("no provider progress for %s", responseIdleTimeout),
-			)
-		default:
-			return nil
-		}
-	}
 	go func() {
 		defer close(eventsDone)
-		defer stopResponseIdle()
+		defer responseDeadline.stop()
 		lastTranscriptText := ""
 		transcriptOpen := false
 		closeInputSegment := func(errText string) error {
@@ -1244,7 +1197,7 @@ func (t *Transformer) processSession(
 			}()
 			for event, err := range session.Recv() {
 				if err != nil {
-					if timeoutErr := responseIdleError(); timeoutErr != nil {
+					if timeoutErr := responseDeadlineError(); timeoutErr != nil {
 						return timeoutErr
 					}
 					if ctx.Err() != nil {
@@ -1308,7 +1261,6 @@ func (t *Transformer) processSession(
 							return err
 						}
 						transcriptOpen = true
-						resetResponseIdle(true)
 						if t.mode == ModeRealtime && realtimeASRResponseEndsSegment(event, delta) {
 							if err := closeInputSegment(""); err != nil {
 								return err
@@ -1364,7 +1316,6 @@ func (t *Transformer) processSession(
 						continue
 					}
 					assistant.setAccept(true)
-					resetResponseIdle(true)
 					epoch := assistant.nextEpoch()
 					realtimeSpoken = &doubaoRealtimeSpokenResponse{}
 					responseStreamID := ""
@@ -1380,6 +1331,7 @@ func (t *Transformer) processSession(
 						responseStreamID = streamIDs.response()
 					}
 					markAssistantPending(responseStreamID, epoch)
+					responseDeadline.start(epoch)
 
 				case doubaospeech.EventTTSStarted:
 					var response *doubaoRealtimePTTResponse
@@ -1409,7 +1361,6 @@ func (t *Transformer) processSession(
 					if err := applySpokenTransition(epoch, response, streamID, state.ttsStarted(event.Text)); err != nil {
 						return err
 					}
-					resetResponseIdle(true)
 
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
@@ -1473,11 +1424,9 @@ func (t *Transformer) processSession(
 								return err
 							}
 						}
-						resetResponseIdle(true)
 					}
 
 				case doubaospeech.EventTTSFinished:
-					stopResponseIdle()
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
 					if t.mode == ModePushToTalk {
@@ -1499,6 +1448,9 @@ func (t *Transformer) processSession(
 					}
 					if err := applySpokenTransition(epoch, response, streamID, state.finishTTS()); err != nil {
 						return err
+					}
+					if t.mode == ModeRealtime && state.done() {
+						responseDeadline.finish(epoch)
 					}
 					if t.mode == ModePushToTalk {
 						pushToTalk.ttsFinished(streamID)
@@ -1532,6 +1484,9 @@ func (t *Transformer) processSession(
 					if err := applySpokenTransition(epoch, response, streamID, state.finishChat()); err != nil {
 						return err
 					}
+					if t.mode == ModeRealtime && state.done() {
+						responseDeadline.finish(epoch)
+					}
 					if response != nil {
 						response.chatEnded = true
 						pttResponses.finish(response)
@@ -1544,7 +1499,7 @@ func (t *Transformer) processSession(
 					return doubaoRealtimeRecoverable("session finished", io.EOF)
 				}
 			}
-			if timeoutErr := responseIdleError(); timeoutErr != nil {
+			if timeoutErr := responseDeadlineError(); timeoutErr != nil {
 				return timeoutErr
 			}
 			if ctx.Err() != nil {

@@ -25,6 +25,93 @@ type realtimeAssistantLifecycle struct {
 	audioDone    bool
 }
 
+type realtimeResponseDeadline struct {
+	mu sync.Mutex
+
+	timeout     time.Duration
+	activeEpoch uint64
+	timer       *time.Timer
+	expired     chan struct{}
+	expireOnce  sync.Once
+	onExpire    func()
+}
+
+func newRealtimeResponseDeadline(timeout time.Duration, onExpire func()) *realtimeResponseDeadline {
+	return &realtimeResponseDeadline{
+		timeout:  timeout,
+		expired:  make(chan struct{}),
+		onExpire: onExpire,
+	}
+}
+
+func (d *realtimeResponseDeadline) start(epoch uint64) {
+	if d == nil || epoch == 0 || d.timeout <= 0 {
+		return
+	}
+	d.mu.Lock()
+	if d.timer != nil {
+		d.timer.Stop()
+	}
+	d.activeEpoch = epoch
+	d.timer = time.AfterFunc(d.timeout, func() {
+		d.mu.Lock()
+		if d.activeEpoch != epoch {
+			d.mu.Unlock()
+			return
+		}
+		d.activeEpoch = 0
+		d.timer = nil
+		d.mu.Unlock()
+		d.expireOnce.Do(func() {
+			close(d.expired)
+			if d.onExpire != nil {
+				d.onExpire()
+			}
+		})
+	})
+	d.mu.Unlock()
+}
+
+func (d *realtimeResponseDeadline) finish(epoch uint64) {
+	if d == nil || epoch == 0 {
+		return
+	}
+	d.mu.Lock()
+	if d.activeEpoch == epoch {
+		d.activeEpoch = 0
+		if d.timer != nil {
+			d.timer.Stop()
+			d.timer = nil
+		}
+	}
+	d.mu.Unlock()
+}
+
+func (d *realtimeResponseDeadline) stop() {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	d.activeEpoch = 0
+	if d.timer != nil {
+		d.timer.Stop()
+		d.timer = nil
+	}
+	d.mu.Unlock()
+}
+
+func (d *realtimeResponseDeadline) didExpire() bool {
+	if d == nil {
+		return false
+	}
+	select {
+	case <-d.expired:
+		return true
+	default:
+		return false
+	}
+}
+
 type realtimeAssistantInterruption struct {
 	streamID     string
 	interrupted  bool
@@ -489,6 +576,10 @@ func (r *doubaoRealtimeSpokenResponse) finishChat() doubaoRealtimeSpokenTransiti
 	transition := doubaoRealtimeSpokenTransition{}
 	r.finishTextIfReady(&transition)
 	return transition
+}
+
+func (r *doubaoRealtimeSpokenResponse) done() bool {
+	return r != nil && r.ttsFinished && r.textFinished
 }
 
 func (r *doubaoRealtimeSpokenResponse) openAudio() bool {
