@@ -83,6 +83,7 @@ const (
 )
 
 var errDoubaoRealtimeInterruptHandoff = errors.New("replace provider session after realtime interruption")
+var errDoubaoRealtimeEmptyPTTHandoff = errors.New("replace provider session after empty push-to-talk turn")
 
 type doubaoRealtimeOpener interface {
 	OpenSession(context.Context, *doubaospeech.RealtimeConfig) (doubaoRealtimeSession, error)
@@ -879,6 +880,11 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 			retryDelay = retryInitial
 			continue
 		}
+		if errors.Is(err, errDoubaoRealtimeEmptyPTTHandoff) {
+			slog.Info("doubao: empty push-to-talk turn handed off to replacement provider session")
+			retryDelay = retryInitial
+			continue
+		}
 		if isDoubaoRealtimeRecoverable(err) {
 			runtime.providerLost(t, output, err)
 			if stopForTerminalInput() {
@@ -1301,6 +1307,13 @@ func (t *Transformer) processSession(
 								pushToTalk.completeEmpty(streamID)
 							}
 							pttControl.Unlock()
+							if completed {
+								// The provider does not accept another PTT ASR turn after an
+								// empty ASREnded on this session. Complete the owned routes
+								// first, then replace only the provider session while keeping
+								// the caller's Transformer stream alive.
+								return errDoubaoRealtimeEmptyPTTHandoff
+							}
 							continue
 						}
 						assistant.setAccept(true)

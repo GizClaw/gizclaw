@@ -24,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -956,6 +957,164 @@ func CSDKChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceNa
 	}
 	defer eventStream.Close()
 	runCSDKChatTurn(t, client, eventStream, "cgo-chat", oggPath)
+}
+
+func CSDKEmptyPushToTalkThenChatRoundtrip(t *testing.T, identityDir, registrationToken, workspaceName, oggPath string) {
+	t.Helper()
+	client := newTestClient(t, identityDir)
+	defer client.Close()
+	registerClient(t, client, registrationToken)
+	setChatWorkspace(t, client, workspaceName)
+	eventStream, err := client.OpenEventStream(15 * time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer eventStream.Close()
+	runCSDKEmptyPushToTalkTurn(t, client, eventStream, "cgo-empty-ptt")
+	runCSDKChatTurn(t, client, eventStream, "cgo-chat-after-empty-ptt", oggPath)
+}
+
+func runCSDKEmptyPushToTalkTurn(t *testing.T, client *Client, eventStream *EventStream, streamID string) {
+	t.Helper()
+	if err := eventStream.SendAudioBoundary(streamID, true); err != nil {
+		t.Fatalf("send empty PTT BOS: %v", err)
+	}
+	for _, packet := range cSDKSilentOpusPackets(t, 500*time.Millisecond) {
+		if err := client.SendPacket(0x10, packet); err != nil {
+			t.Fatalf("send empty PTT Opus packet: %v", err)
+		}
+		if err := client.Poll(20 * time.Millisecond); err != nil {
+			t.Fatalf("pace empty PTT Opus packet: %v", err)
+		}
+	}
+	if err := eventStream.SendAudioBoundary(streamID, false); err != nil {
+		t.Fatalf("send empty PTT EOS: %v", err)
+	}
+
+	type routeKey struct {
+		label string
+		kind  eventpb.StreamKind
+	}
+	type routeState struct {
+		begun bool
+		ended bool
+	}
+	want := map[routeKey]*routeState{
+		{label: "transcript", kind: eventpb.StreamKind_STREAM_KIND_TEXT}: {},
+		{label: "assistant", kind: eventpb.StreamKind_STREAM_KIND_TEXT}:  {},
+		{label: "assistant", kind: eventpb.StreamKind_STREAM_KIND_AUDIO}: {},
+	}
+	assistantStreamID := ""
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		event, err := eventStream.ReadEvent(50 * time.Millisecond)
+		if err == nil {
+			switch event.GetType() {
+			case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+				eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+				eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+				eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+			default:
+				continue
+			}
+			switch event.Label() {
+			case "transcript":
+				if event.StreamID() != streamID {
+					t.Fatalf("empty PTT transcript StreamID = %q, want %q: %#v", event.StreamID(), streamID, event)
+				}
+			case "assistant":
+				if strings.TrimSpace(event.StreamID()) == "" {
+					t.Fatalf("empty PTT assistant event has no StreamID: %#v", event)
+				}
+				if assistantStreamID == "" && event.GetType() == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
+					assistantStreamID = event.StreamID()
+				}
+				if event.StreamID() != assistantStreamID {
+					t.Fatalf("empty PTT assistant StreamID changed from %q to %q: %#v", assistantStreamID, event.StreamID(), event)
+				}
+			}
+			if event.StreamError() != nil {
+				t.Fatalf("empty PTT terminal error: %#v", event.StreamError())
+			}
+			key := routeKey{label: event.Label(), kind: event.StreamKindValue()}
+			if event.GetType() == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA ||
+				event.GetType() == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE {
+				key.kind = eventpb.StreamKind_STREAM_KIND_TEXT
+			}
+			state := want[key]
+			if state == nil {
+				t.Fatalf("unexpected empty PTT route: %#v", event)
+			}
+			switch event.GetType() {
+			case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+				if state.begun || state.ended {
+					t.Fatalf("duplicate empty PTT route BOS: %#v", event)
+				}
+				state.begun = true
+			case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
+				if !state.begun || state.ended {
+					t.Fatalf("empty PTT text delta outside its lifecycle: %#v", event)
+				}
+				if strings.TrimSpace(event.Text()) != "" {
+					t.Fatalf("empty PTT emitted text data %q", event.Text())
+				}
+			case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+				if !state.begun || state.ended {
+					t.Fatalf("empty PTT text terminal outside its lifecycle: %#v", event)
+				}
+				if strings.TrimSpace(event.Text()) != "" {
+					t.Fatalf("empty PTT emitted terminal text data %q", event.Text())
+				}
+				state.ended = true
+			case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+				if !state.begun || state.ended {
+					t.Fatalf("empty PTT audio terminal outside its lifecycle: %#v", event)
+				}
+				state.ended = true
+			}
+		} else if !errors.Is(err, errCSDKTimeout) {
+			t.Fatalf("read empty PTT event: %v", err)
+		}
+		protocol, payload, err := client.ReadPacket(10 * time.Millisecond)
+		if err == nil {
+			if protocol == 0x10 && len(payload) != 0 {
+				t.Fatalf("empty PTT emitted %d bytes of assistant audio", len(payload))
+			}
+		} else if !errors.Is(err, errCSDKTimeout) {
+			t.Fatalf("read empty PTT packet: %v", err)
+		}
+		complete := true
+		for _, state := range want {
+			complete = complete && state.begun && state.ended
+		}
+		if complete {
+			return
+		}
+	}
+	t.Fatalf("empty PTT did not complete transcript and assistant text/audio routes: %#v", want)
+}
+
+func cSDKSilentOpusPackets(t *testing.T, duration time.Duration) [][]byte {
+	t.Helper()
+	const sampleRate = 16000
+	const frameDuration = 20 * time.Millisecond
+	frameSize := sampleRate / 50
+	encoder, err := opus.NewEncoder(sampleRate, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("create C SDK Opus silence encoder: %v", err)
+	}
+	defer func() { _ = encoder.Close() }()
+	frame := make([]int16, frameSize)
+	packetCount := int((duration + frameDuration - 1) / frameDuration)
+	packets := make([][]byte, 0, packetCount)
+	for range packetCount {
+		packet, err := encoder.Encode(frame, frameSize)
+		if err != nil {
+			t.Fatalf("encode C SDK Opus silence: %v", err)
+		}
+		packets = append(packets, packet)
+	}
+	return packets
 }
 
 func CSDKPeerStreamWorkspaceReloadContinuity(

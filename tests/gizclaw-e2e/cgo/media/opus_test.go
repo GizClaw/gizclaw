@@ -53,10 +53,10 @@ func TestCSDKBidirectionalOpusRTP(t *testing.T) {
 		"tests", "genx-e2e", "transformer", "testdata",
 		"doubao_realtime_duplex_prompt.ogg",
 	)
-	// CSDKChatRoundtrip asserts that uplink Opus increments only the RTP
+	// CSDKEmptyPushToTalkThenChatRoundtrip asserts that uplink Opus increments only the RTP
 	// counter, never the packet-DataChannel counter, and that remote RTP is
 	// returned through gzc_client_read_packet as protocol 0x10.
-	cgointernal.CSDKChatRoundtrip(
+	cgointernal.CSDKEmptyPushToTalkThenChatRoundtrip(
 		t, identityDir, registrationToken, workspaceName, fixture,
 	)
 }

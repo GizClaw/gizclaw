@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
@@ -104,6 +106,196 @@ func TestDoubaoRealtimeLiveRepeatedInterrupt(t *testing.T) {
 		t.Fatalf("doubaorealtime.New() failed: %v", err)
 	}
 	runLiveAudioRepeatedInterrupt(t, transformer, "doubao-realtime", true, true, true, 1, false, false)
+}
+
+func TestDoubaoRealtimePushToTalkLiveEmptyASRCompletesAndReusesTransformer(t *testing.T) {
+	requireLiveDoubaoCredentials(t)
+	transcode := false
+	transformer, err := doubaorealtime.New(doubaorealtime.Config{
+		Client:         liveDoubaoClient(t),
+		Model:          string(doubaospeech.RealtimeModelO20),
+		Mode:           doubaorealtime.ModePushToTalk,
+		Instructions:   "Reply in one short English sentence.",
+		InputTranscode: &transcode,
+	})
+	if err != nil {
+		t.Fatalf("doubaorealtime.New() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+	events, outputErrors := collectDuplexOutput(output)
+
+	const silentStreamID = "doubao-realtime-empty-ptt"
+	feedDone := make(chan error, 1)
+	silentPackets := liveSilentOpusPackets(t, 500*time.Millisecond)
+	go func() {
+		feedDone <- pushDuplexTurn(ctx, input, silentStreamID, silentPackets)
+	}()
+	waitLiveEmptyPTTCompletion(t, ctx, events, outputErrors, silentStreamID, feedDone)
+
+	const semanticStreamID = "doubao-realtime-after-empty-ptt"
+	feedDone = make(chan error, 1)
+	semanticPackets := embeddedPromptOpusPackets(t)
+	go func() {
+		feedDone <- pushDuplexTurn(ctx, input, semanticStreamID, semanticPackets)
+	}()
+	result, err := waitDuplexRound(t, ctx, events, outputErrors, semanticStreamID, feedDone)
+	if err != nil {
+		t.Fatalf("semantic response after empty PTT failed: %v", err)
+	}
+	assertDuplexRound(t, 1, result)
+}
+
+func requireLiveDoubaoCredentials(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{doubaoAppIDEnv, doubaoAPIKeyEnv} {
+		value := strings.TrimSpace(os.Getenv(name))
+		lower := strings.ToLower(value)
+		if value == "" || strings.Contains(lower, "dummy") ||
+			strings.Contains(lower, "example") ||
+			strings.Contains(lower, "placeholder") ||
+			strings.Contains(lower, "replace") ||
+			strings.Contains(lower, "changeme") {
+			t.Fatalf("set a real %s for the live Doubao provider test", name)
+		}
+	}
+}
+
+func waitLiveEmptyPTTCompletion(
+	t *testing.T,
+	ctx context.Context,
+	events <-chan *genx.MessageChunk,
+	errs <-chan error,
+	streamID string,
+	feedDone <-chan error,
+) {
+	t.Helper()
+	type routeKey struct {
+		role     genx.Role
+		label    string
+		mimeType string
+	}
+	type routeState struct {
+		begun bool
+		ended bool
+	}
+	want := map[routeKey]*routeState{
+		{role: genx.RoleUser, label: duplexTranscriptLabel, mimeType: "text/plain"}: {},
+		{role: genx.RoleModel, label: duplexAssistantLabel, mimeType: "text/plain"}: {},
+		{role: genx.RoleModel, label: duplexAssistantLabel, mimeType: "audio/*"}:    {},
+	}
+	assistantStreamID := ""
+	inputDone := false
+	allComplete := func() bool {
+		for _, state := range want {
+			if !state.begun || !state.ended {
+				return false
+			}
+		}
+		return true
+	}
+	for !inputDone || !allComplete() {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("wait empty PTT completion: %v; routes=%#v", ctx.Err(), want)
+		case err := <-feedDone:
+			feedDone = nil
+			inputDone = true
+			if err != nil {
+				t.Fatalf("feed empty PTT audio: %v", err)
+			}
+		case err := <-errs:
+			if err != nil {
+				t.Fatalf("empty PTT output error: %v", err)
+			}
+		case chunk, ok := <-events:
+			if !ok {
+				t.Fatalf("provider output closed before empty PTT terminal; routes=%#v", want)
+			}
+			if chunk == nil || chunk.Ctrl == nil {
+				t.Fatalf("empty PTT emitted an unowned chunk: %#v", chunk)
+			}
+			if chunk.Ctrl.Label != duplexTranscriptLabel && chunk.Ctrl.Label != duplexAssistantLabel {
+				continue
+			}
+			switch chunk.Ctrl.Label {
+			case duplexTranscriptLabel:
+				if chunk.Ctrl.StreamID != streamID {
+					t.Fatalf("empty PTT transcript StreamID = %q, want %q: %#v", chunk.Ctrl.StreamID, streamID, chunk)
+				}
+			case duplexAssistantLabel:
+				if strings.TrimSpace(chunk.Ctrl.StreamID) == "" {
+					t.Fatalf("empty PTT assistant route has no StreamID: %#v", chunk)
+				}
+				if assistantStreamID == "" && chunk.IsBeginOfStream() {
+					assistantStreamID = chunk.Ctrl.StreamID
+				}
+				if chunk.Ctrl.StreamID != assistantStreamID {
+					t.Fatalf("empty PTT assistant StreamID changed from %q to %q: %#v", assistantStreamID, chunk.Ctrl.StreamID, chunk)
+				}
+			}
+			if chunk.Ctrl.Error != "" || routeChunkHasData(chunk) {
+				t.Fatalf("empty PTT emitted data or error: %#v", chunk)
+			}
+			mimeType, ok := chunk.MIMEType()
+			if !ok {
+				t.Fatalf("empty PTT route has no MIME type: %#v", chunk)
+			}
+			if strings.HasPrefix(mimeType, "audio/") {
+				mimeType = "audio/*"
+			}
+			key := routeKey{role: chunk.Role, label: chunk.Ctrl.Label, mimeType: mimeType}
+			state := want[key]
+			if state == nil {
+				t.Fatalf("unexpected empty PTT route: %#v", chunk)
+			}
+			if chunk.IsBeginOfStream() {
+				if state.begun || state.ended {
+					t.Fatalf("duplicate empty PTT route BOS: %#v", chunk)
+				}
+				state.begun = true
+			} else if !state.begun {
+				t.Fatalf("empty PTT route emitted EOS before BOS: %#v", chunk)
+			}
+			if chunk.IsEndOfStream() {
+				if state.ended {
+					t.Fatalf("duplicate empty PTT route EOS: %#v", chunk)
+				}
+				state.ended = true
+			}
+		}
+	}
+}
+
+func liveSilentOpusPackets(t *testing.T, duration time.Duration) [][]byte {
+	t.Helper()
+	const sampleRate = 16000
+	const frameDuration = 20 * time.Millisecond
+	frameSize := sampleRate / 50
+	encoder, err := opus.NewEncoder(sampleRate, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("create Opus silence encoder: %v", err)
+	}
+	defer func() { _ = encoder.Close() }()
+	frame := make([]int16, frameSize)
+	packetCount := int((duration + frameDuration - 1) / frameDuration)
+	packets := make([][]byte, 0, packetCount)
+	for range packetCount {
+		packet, err := encoder.Encode(frame, frameSize)
+		if err != nil {
+			t.Fatalf("encode Opus silence: %v", err)
+		}
+		packets = append(packets, packet)
+	}
+	return packets
 }
 
 func TestDoubaoRealtimeModeRealtimeLiveNaturalCompletion(t *testing.T) {

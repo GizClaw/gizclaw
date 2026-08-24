@@ -1262,21 +1262,22 @@ func TestTransformerRealtimePartialTranscriptDoesNotStartResponseDeadline(t *tes
 	}
 }
 
-func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T) {
-	endASR := make(chan struct{})
-	eventPaused := make(chan struct{})
-	resumeEvents := make(chan struct{})
+func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t *testing.T) {
+	firstEndASR := make(chan struct{})
+	secondEndASR := make(chan struct{})
 	eventsDrained := make(chan struct{})
-	session := &fakeTransformerSession{
-		beforeRecv:       endASR,
-		endASR:           endASR,
-		pauseBeforeEvent: 1,
-		eventPaused:      eventPaused,
-		resumeEvents:     resumeEvents,
-		eventsDrained:    eventsDrained,
-		endASRReturn:     eventPaused,
+	firstSession := &fakeTransformerSession{
+		beforeRecv: firstEndASR,
+		endASR:     firstEndASR,
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASREnded, Text: " \t ", QuestionID: "q-1"},
+		},
+	}
+	secondSession := &fakeTransformerSession{
+		beforeRecv:    secondEndASR,
+		endASR:        secondEndASR,
+		eventsDrained: eventsDrained,
+		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "second transcript", QuestionID: "q-2"},
 			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
 			{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
@@ -1286,7 +1287,10 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T
 		},
 		blockAfterEvents: make(chan struct{}),
 	}
-	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{
+		{session: firstSession},
+		{session: secondSession},
+	}}
 	const idleTimeout = 30 * time.Millisecond
 	tfr := newTransformer(nil,
 		withDoubaoRealtimeOpener(opener),
@@ -1302,27 +1306,24 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T
 		t.Fatalf("Transform() error = %v", err)
 	}
 	pushPTTTestTurn(t, input, "turn-1", 1)
-	select {
-	case <-eventPaused:
-	case <-time.After(2 * time.Second):
-		t.Fatal("provider did not finish the empty ASR turn")
+	if !opener.waitForCalls(2, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want replacement after empty ASR", opener.callCount())
 	}
 	time.Sleep(3 * idleTimeout)
-	if session.isClosed() {
-		t.Fatal("empty ASR armed response inactivity and closed the healthy session")
+	if !firstSession.isClosed() {
+		t.Fatal("empty ASR provider session was not replaced")
 	}
-	if got := opener.callCount(); got != 1 {
-		t.Fatalf("OpenSession calls = %d, want one reused session", got)
+	if secondSession.isClosed() {
+		t.Fatal("replacement provider session closed before the next turn")
 	}
-	if got := session.interruptCount(); got != 0 {
-		t.Fatalf("Interrupt calls = %d, want none for empty ASR", got)
+	if got := firstSession.interruptCount(); got != 0 {
+		t.Fatalf("Interrupt calls = %d, want deterministic session replacement", got)
 	}
 
 	pushPTTTestTurn(t, input, "turn-2", 2)
-	if !session.waitForEndASRCount(2, 2*time.Second) {
-		t.Fatalf("EndASR calls = %d, want second turn submitted before its events", session.endASRCount())
+	if !secondSession.waitForEndASRCount(1, 2*time.Second) {
+		t.Fatalf("replacement EndASR calls = %d, want second turn submitted", secondSession.endASRCount())
 	}
-	close(resumeEvents)
 	select {
 	case <-eventsDrained:
 	case <-time.After(2 * time.Second):
@@ -1363,7 +1364,7 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReusesSession(t *testing.T
 	}
 	if !hasRealtimeTestText(chunks, genx.RoleUser, "second transcript") ||
 		!hasRealtimeTestText(chunks, genx.RoleModel, "second answer") {
-		t.Fatalf("second turn did not complete on the reused session: %#v", chunks)
+		t.Fatalf("second turn did not complete on the replacement provider session: %#v", chunks)
 	}
 }
 
