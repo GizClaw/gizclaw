@@ -98,8 +98,6 @@ steps:
       method: server.speech.transcribe
       request:
         model_name: asr
-        # The runner decodes typed Ogg/Opus input to 16 kHz PCM before this RPC.
-        content_type: audio/L16;rate=16000;channels=1
         language: en
       input: ${assistant_audio}
     capture:

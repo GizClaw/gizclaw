@@ -52,7 +52,6 @@ steps:
     method: server.speech.transcribe
     request:
       model_name: asr
-      content_type: audio/L16;rate=16000;channels=1
       language: en
     input: "${input_audio}"
 finally:

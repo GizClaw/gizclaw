@@ -134,7 +134,7 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 		if err := decodeRequest(request, &req); err != nil {
 			return operationResult{}, err
 		}
-		audio, err := transcriptionInput(audio, inputSpec, req.ContentType)
+		audio, req, err := prepareTranscriptionRequest(audio, inputSpec, req)
 		if err != nil {
 			return operationResult{}, err
 		}
@@ -171,17 +171,23 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 	}
 }
 
-func transcriptionInput(audio []byte, spec VariableSpec, contentType string) ([]byte, error) {
+func prepareTranscriptionRequest(audio []byte, spec VariableSpec, request rpcapi.SpeechTranscribeRequest) ([]byte, rpcapi.SpeechTranscribeRequest, error) {
 	if spec.Codec == "opus" {
-		if contentType != speechPCM16ContentType {
-			return nil, fmt.Errorf("Opus transcription input is decoded to %s before RPC", speechPCM16ContentType)
+		if spec.MediaType != "audio/ogg" {
+			return nil, rpcapi.SpeechTranscribeRequest{}, fmt.Errorf("speech transcription Opus input media_type must be audio/ogg, got %q", spec.MediaType)
 		}
-		return speechPCMInput(audio, spec)
+		decoded, err := speechPCMInput(audio, spec)
+		if err != nil {
+			return nil, rpcapi.SpeechTranscribeRequest{}, err
+		}
+		request.ContentType = speechPCM16ContentType
+		return decoded, request, nil
 	}
-	if contentType != spec.MediaType {
-		return nil, fmt.Errorf("speech transcription content_type %q does not match input media_type %q", contentType, spec.MediaType)
+	if spec.Codec != "pcm_s16le" || spec.MediaType != speechPCM16ContentType {
+		return nil, rpcapi.SpeechTranscribeRequest{}, fmt.Errorf("speech transcription input must be Ogg/Opus or 16 kHz mono PCM, got codec %q and media_type %q", spec.Codec, spec.MediaType)
 	}
-	return audio, nil
+	request.ContentType = speechPCM16ContentType
+	return audio, request, nil
 }
 
 func speechPCMInput(audio []byte, spec VariableSpec) ([]byte, error) {
