@@ -24,13 +24,16 @@ import (
 )
 
 type runOptions struct {
-	parallel    int
-	in          io.Reader
-	out         io.Writer
-	speechCache *speechFixtureCache
+	parallel     int
+	in           io.Reader
+	out          io.Writer
+	fullEvidence bool
+	speechCache  *speechFixtureCache
 	// openPeerStream overrides how peer_stream steps dial the PeerStream;
 	// nil uses the selected client's real PeerStream.
 	openPeerStream func(client *gizcli.Client) peerStreamOpener
+	// openRelayStreams substitutes paired in-memory streams in runner tests.
+	openRelayStreams func() (relayStream, relayStream, error)
 }
 type task struct {
 	doc     *Document
@@ -541,7 +544,18 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 			err = captureErr
 			break
 		}
-		relayOutcome, invokeErr := invokeWorkspaceRelay(stepCtx, clients, step, input, audioCaptureMaxBytes)
+		var relayOutcome operationResult
+		var invokeErr error
+		if opts.openRelayStreams == nil {
+			relayOutcome, invokeErr = invokeWorkspaceRelay(stepCtx, clients, step, input, audioCaptureMaxBytes, opts.fullEvidence)
+		} else {
+			firstStream, secondStream, openErr := opts.openRelayStreams()
+			if openErr != nil {
+				invokeErr = openErr
+			} else {
+				relayOutcome, invokeErr = runWorkspaceRelayWithEvidence(stepCtx, step.WorkspaceRelay, firstStream, secondStream, input, audioCaptureMaxBytes, opts.fullEvidence)
+			}
+		}
 		err = invokeErr
 		value, saved, evidence = relayOutcome.assertion, relayOutcome.saved, relayOutcome.evidence
 	case "barrier":

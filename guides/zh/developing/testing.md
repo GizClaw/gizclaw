@@ -220,10 +220,15 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 封帧、`max_turns` 与固定字节/事件上限、归因、失败阶段和清理。转发是流式的——源端
 响应尚未结束，第一个符合条件的文本 fragment 或按到达节奏的 Opus packet 就已带着
 接收侧 stream ID 与 user 角色进入对侧 Workspace——终轮响应只捕获、不再转发。报告
-保留每个 client 的轮次计数、`{min, max}` 时延/大小聚合和终端侧，但绝不包含被转发的
-内容、prompt、tester 推理或音频。`workspace-relay.workflow-tester.giztest.yaml`
-在标准 gate 中运行真实 candidate/tester 配对；`run_workspace_relay_tests.sh` 启动
-一套隔离栈，先后运行 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
+保留每个 client 的轮次计数、`{min, max}` 时延/大小聚合和终端侧。`terminal_media` 可显式
+把 text 转发与 Opus audio EOS 轮次边界分开；`idle_timeout` 按 active 轮次限制不活动时间，
+由 active 侧进展重置，触发时记录 deadline、client、turn、最后事件和已观察媒体。audio relay
+保留有界 assistant 文本用于断言和终轮 capture，但不重复转发文本。默认 report 不含内容；
+本地 `--evidence full --output <path>` 才写入有界 relay 文本，产物属于敏感文件，但仍不包含
+输入、凭据、ID 或音频 payload。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
+运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
+验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
+一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
 
 ### OpenAI Conversations 与 Responses E2E

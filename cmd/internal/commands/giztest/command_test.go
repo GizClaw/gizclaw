@@ -2,6 +2,7 @@ package giztest
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -29,5 +30,31 @@ func TestRunCommandRejectsNonPositiveParallelismBeforeConnect(t *testing.T) {
 	}
 	if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitValidation {
 		t.Fatalf("error = %#v", err)
+	}
+}
+
+func TestValidateRunOptionsEvidenceModes(t *testing.T) {
+	for name, tc := range map[string]struct {
+		parallel int
+		output   string
+		evidence string
+		wantErr  string
+	}{
+		"redacted default": {parallel: 1, evidence: "redacted"},
+		"full with output": {parallel: 1, output: "report.json", evidence: "full"},
+		"unknown mode":     {parallel: 1, evidence: "verbose", wantErr: "redacted or full"},
+		"full without output": {
+			parallel: 1, evidence: "full", wantErr: "requires --output",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := validateRunOptions(tc.parallel, tc.output, tc.evidence)
+			if tc.wantErr == "" && err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("error = %v, want %q", err, tc.wantErr)
+			}
+		})
 	}
 }

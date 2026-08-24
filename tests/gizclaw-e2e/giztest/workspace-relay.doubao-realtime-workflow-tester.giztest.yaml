@@ -1,0 +1,128 @@
+# User Story:
+# As a Workflow catalog maintainer,
+# I want a tester Workspace to drive a multimodal realtime Workspace over text,
+# So that provider text is asserted without ASR and audio EOS still bounds turns.
+version: gizclaw.test/v1alpha1
+name: workspace-relay.doubao-realtime-workflow-tester
+clients:
+  candidate:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  tester:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  candidate_workspace:
+    direction: input
+    type: string
+    generate: token
+  tester_workspace:
+    direction: input
+    type: string
+    generate: token
+  test_brief:
+    direction: input
+    type: string
+    value: >-
+      你正在测试一个中文语音助手。与它进行七轮简短对话，确认它始终使用中文、回答切题且
+      每轮都有非空文本。全部满足时最终只输出 PASS，否则只输出 FAIL。
+  verdict:
+    direction: output
+    type: string
+repeat: 1
+timeout: 15m
+steps:
+  - id: register_candidate
+    client: candidate
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: register_tester
+    client: tester
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: create_candidate_workspace
+    client: candidate
+    rpc:
+      method: server.workspace.create
+      request:
+        name: "${candidate_workspace}"
+        collection: assistants
+        workflow_name: doubao-realtime-conversation
+        parameters:
+          doubao_realtime_workspace_parameters:
+            agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: create_tester_workspace
+    client: tester
+    rpc:
+      method: server.workspace.create
+      request:
+        name: "${tester_workspace}"
+        collection: assistants
+        workflow_name: giztest-workflow-tester
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_candidate_workspace
+    client: candidate
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${candidate_workspace}"}
+  - id: select_tester_workspace
+    client: tester
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${tester_workspace}"}
+  - id: run_test_dialogue
+    workspace_relay:
+      first_client: tester
+      second_client: candidate
+      input: "${test_brief}"
+      media: text
+      terminal_media: audio
+      idle_timeout: 90s
+      max_turns: 15
+      terminal_client: tester
+    capture:
+      verdict: /terminal/text
+    expect:
+      /terminal/client: {equals: tester}
+      /terminal/text: {pattern: "^\\s*PASS\\s*$"}
+      /completed_turns: {equals: 15}
+      /turns/candidate/first_text_ms/max: {maximum: 30000}
+      /turns/candidate/text_runes/min: {minimum: 1}
+  - id: emit_verdict
+    output: {variable: verdict}
+finally:
+  - client: candidate
+    rpc: {method: server.run.stop, request: {}}
+  - client: tester
+    rpc: {method: server.run.stop, request: {}}
+  - client: candidate
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${candidate_workspace}"}
+  - client: tester
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${tester_workspace}"}
+  - client: candidate
+    rpc: {method: server.peer.delete, request: {}}
+  - client: tester
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]

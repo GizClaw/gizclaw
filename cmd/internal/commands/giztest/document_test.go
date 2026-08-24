@@ -341,6 +341,25 @@ func TestLoadDocumentAcceptsWorkspaceRelay(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentAcceptsMultimodalWorkspaceRelay(t *testing.T) {
+	content := strings.Replace(relayDocument, "      media: text\n", "      media: text\n      terminal_media: audio\n      idle_timeout: 45s\n", 1)
+	doc, err := loadDocument(writeTestDocument(t, content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := doc.Steps[2].WorkspaceRelay
+	if op.TerminalMedia != "audio" || op.IdleTimeout != "45s" {
+		t.Fatalf("workspace_relay = %#v", op)
+	}
+}
+
+func TestLoadDocumentAllowsTerminalTextCaptureForAudioRelay(t *testing.T) {
+	content := strings.Replace(relayDocument, "      media: text\n", "      media: audio\n", 1)
+	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLoadDocumentRejectsInvalidWorkspaceRelay(t *testing.T) {
 	cases := map[string]struct {
 		mutate func(string) string
@@ -364,8 +383,24 @@ func TestLoadDocumentRejectsInvalidWorkspaceRelay(t *testing.T) {
 		"unsupported media": {func(s string) string {
 			return strings.Replace(s, "media: text", "media: video", 1)
 		}, "schema"},
+		"unsupported terminal media": {func(s string) string {
+			return strings.Replace(s, "media: text", "media: text\n      terminal_media: video", 1)
+		}, "schema"},
+		"audio terminates on text": {func(s string) string {
+			return strings.Replace(s, "media: text", "media: audio\n      terminal_media: text", 1)
+		}, "requires terminal_media audio"},
+		"zero idle timeout": {func(s string) string {
+			return strings.Replace(s, "media: text", "media: text\n      idle_timeout: 0s", 1)
+		}, "invalid idle_timeout"},
+		"invalid idle timeout": {func(s string) string {
+			return strings.Replace(s, "media: text", "media: text\n      idle_timeout: soon", 1)
+		}, "invalid idle_timeout"},
 		"unsafe capture": {func(s string) string {
 			return strings.Replace(s, "verdict: /terminal/text", "verdict: /turns", 1)
+		}, "capturing only the terminal"},
+		"audio capture for text relay": {func(s string) string {
+			s = strings.Replace(s, "    type: string\nsteps:", "    type: audio\n    media_type: audio/ogg\n    codec: opus\n    max_bytes: 1024\nsteps:", 1)
+			return strings.Replace(s, "verdict: /terminal/text", "verdict: /terminal/audio", 1)
 		}, "capturing only the terminal"},
 		"unknown field": {func(s string) string {
 			return strings.Replace(s, "media: text", "media: text\n      pacing: 20ms", 1)

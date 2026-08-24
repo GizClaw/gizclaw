@@ -41,6 +41,12 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 ```
 
+`--evidence redacted` is the default. `--evidence full` requires `--output`
+and writes bounded `workspace_relay` per-turn and terminal text into that JSON
+report without printing it to the terminal. Treat a full-evidence report as
+sensitive; it still excludes inputs, expanded variables, credentials, IDs, and
+audio payloads, but model or tester text may contain private content.
+
 YAML `repeat` is the task count for that file. `--parallel` is the maximum
 worker count shared by all files. Directory discovery is recursive and stable.
 Every task owns isolated clients, variables, and cleanup. `save_as` assigns a
@@ -150,8 +156,14 @@ under a fresh receiving-side stream ID, then ownership alternates after each
 completed assistant response. `max_turns` (2–256) counts completed assistant
 responses across both sides, and `terminal_client` must match the parity of
 `first_client` and `max_turns`; the terminal response is captured without being
-forwarded again. `media: audio` requires both Workspaces to accept push-to-talk
-input and forwards only Opus media (`audio/opus`, or `audio/ogg` with
+forwarded again. Optional `terminal_media` defaults to `media`. A text relay may
+set `terminal_media: audio` to forward text while completing each turn on Opus
+audio EOS; an audio relay must terminate on audio to avoid truncating packets.
+Optional positive Go-duration `idle_timeout` starts after the initial input and
+each handoff, resets only on non-discarded active-side progress, and fails a
+silent turn with its active client and one-based turn. Step and document
+timeouts remain absolute bounds. `media: audio` requires both Workspaces to
+accept push-to-talk input and forwards only Opus media (`audio/opus`, or `audio/ogg` with
 `codecs=opus`); any other assistant audio MIME type or codec from the active
 side fails the relay, and continuous realtime relay is unsupported.
 
@@ -162,6 +174,8 @@ side fails the relay, and continuous realtime relay is unsupported.
     second_client: candidate
     input: "${test_brief}"
     media: text
+    terminal_media: audio
+    idle_timeout: 90s
     max_turns: 15
     terminal_client: tester
   capture:
@@ -175,11 +189,14 @@ side fails the relay, and continuous realtime relay is unsupported.
 ```
 
 The relay result exposes `completed_turns`, `terminal.client`,
-`terminal.text` (`media: text`), `turns.<client>.count`, and per-turn
+`terminal.text` whenever the terminal response produced text,
+`turns.<client>.texts`, `turns.<client>.count`, and per-turn
 `{min, max}` aggregates — `first_text_ms`/`text_runes` for text,
 `first_audio_ms`/`audio_bytes` for audio — plus aggregate event and byte
-counts. `capture` may assign only `/terminal/text` to a string output variable
-or, for audio, `/terminal/audio` to an `audio/ogg` Opus output variable.
+counts. `capture` may assign `/terminal/text` to a string output variable for
+either relay media or, for audio, `/terminal/audio` to an `audio/ogg` Opus
+output variable. Text observed during an audio relay is retained for assertions
+and capture but is not forwarded alongside audio as duplicate user input.
 Fixed v1 safety limits — 4,096 received events per completed turn, 1 MiB
 joined text, and 16 MiB audio per relay — fail the relay when exceeded and
 expose no tuning fields; the event limit is per turn because voice-enabled
@@ -190,9 +207,11 @@ any output on the relayed media (text for `media: text`, audio for
 `media: audio`) while the other side is active fails the relay as turn
 mixing; the other channel of a voice Workspace — for example TTS audio that
 trails its own completed text turn — is consumed and counted only. Failures
-name the responsible client and turn index. Reports carry only the client-name
-attribution, counts, timings, and byte aggregates: relayed text, prompts,
-tester reasoning, and audio bytes never appear in report evidence.
+name the responsible client and turn index. Idle failures additionally report
+`deadline`, `idle_timeout_ms`, active client/turn, last event time, and observed
+media without content. Default reports carry only attribution, counts, timings,
+and byte aggregates. Full evidence explicitly adds the bounded per-turn and
+terminal relay text; neither mode includes inputs, secrets, IDs, or audio payloads.
 
 Local Docker E2E applies Admin resources once before testing. For an already
 deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and

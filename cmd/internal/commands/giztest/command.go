@@ -60,14 +60,15 @@ func newValidateCmd() *cobra.Command {
 func newRunCmd() *cobra.Command {
 	var parallel int
 	var output string
+	var evidence string
 	cmd := &cobra.Command{Use: "run <file-or-directory>...", Short: "Run Giztest documents", Args: func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return codedError(exitValidation, fmt.Errorf("run requires at least one file or directory"))
 		}
 		return nil
 	}, RunE: func(cmd *cobra.Command, args []string) error {
-		if parallel < 1 {
-			return codedError(exitValidation, fmt.Errorf("parallel must be positive"))
+		if err := validateRunOptions(parallel, output, evidence); err != nil {
+			return codedError(exitValidation, err)
 		}
 		paths, err := discover(args)
 		if err != nil {
@@ -82,7 +83,7 @@ func newRunCmd() *cobra.Command {
 				return codedError(exitValidation, fmt.Errorf("review document %s requires --parallel 1", doc.Name))
 			}
 		}
-		report := runDocuments(cmd.Context(), docs, runOptions{parallel: parallel, in: os.Stdin, out: cmd.OutOrStdout()})
+		report := runDocuments(cmd.Context(), docs, runOptions{parallel: parallel, in: os.Stdin, out: cmd.OutOrStdout(), fullEvidence: evidence == "full"})
 		if err := writeReport(output, report); err != nil {
 			return codedError(exitExecution, err)
 		}
@@ -96,8 +97,22 @@ func newRunCmd() *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().IntVar(&parallel, "parallel", 1, "maximum concurrent tasks across all selected documents")
-	cmd.Flags().StringVar(&output, "output", "", "write an atomic redacted JSON report")
+	cmd.Flags().StringVar(&output, "output", "", "write an atomic JSON report")
+	cmd.Flags().StringVar(&evidence, "evidence", "redacted", "report evidence mode: redacted or full (full may contain sensitive relay text)")
 	return cmd
+}
+
+func validateRunOptions(parallel int, output, evidence string) error {
+	if parallel < 1 {
+		return fmt.Errorf("parallel must be positive")
+	}
+	if evidence != "redacted" && evidence != "full" {
+		return fmt.Errorf("evidence must be redacted or full")
+	}
+	if evidence == "full" && output == "" {
+		return fmt.Errorf("full evidence requires --output")
+	}
+	return nil
 }
 
 func reportHasReviewFailure(report Report) bool {

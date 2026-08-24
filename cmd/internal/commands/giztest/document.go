@@ -136,6 +136,8 @@ type WorkspaceRelayOperation struct {
 	SecondClient   string `json:"second_client" yaml:"second_client"`
 	Input          any    `json:"input" yaml:"input"`
 	Media          string `json:"media" yaml:"media"`
+	TerminalMedia  string `json:"terminal_media,omitempty" yaml:"terminal_media,omitempty"`
+	IdleTimeout    string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
 	MaxTurns       int    `json:"max_turns" yaml:"max_turns"`
 	TerminalClient string `json:"terminal_client" yaml:"terminal_client"`
 }
@@ -589,6 +591,21 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 	if op.Media != "text" && op.Media != "audio" {
 		return fmt.Errorf("step %s workspace_relay media must be text or audio", step.ID)
 	}
+	terminalMedia := op.TerminalMedia
+	if terminalMedia == "" {
+		terminalMedia = op.Media
+	}
+	if terminalMedia != "text" && terminalMedia != "audio" {
+		return fmt.Errorf("step %s workspace_relay terminal_media must be text or audio", step.ID)
+	}
+	if op.Media == "audio" && terminalMedia != "audio" {
+		return fmt.Errorf("step %s audio workspace_relay requires terminal_media audio", step.ID)
+	}
+	if op.IdleTimeout != "" {
+		if duration, err := time.ParseDuration(op.IdleTimeout); err != nil || duration <= 0 {
+			return fmt.Errorf("step %s has invalid idle_timeout %q", step.ID, op.IdleTimeout)
+		}
+	}
 	if op.MaxTurns < 2 || op.MaxTurns > 256 {
 		return fmt.Errorf("step %s workspace_relay max_turns must be between 2 and 256", step.ID)
 	}
@@ -611,7 +628,7 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 			continue // the shared step loop reports unknown capture variables
 		}
 		switch {
-		case pointer == "/terminal/text" && op.Media == "text":
+		case pointer == "/terminal/text":
 			if spec.Type != "string" {
 				return fmt.Errorf("step %s capture %q of /terminal/text must target a string output variable", step.ID, name)
 			}
@@ -620,7 +637,7 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 				return fmt.Errorf("step %s capture %q of /terminal/audio must target audio/ogg opus output with max_bytes up to %d", step.ID, name, relayMaxAudioBytes)
 			}
 		default:
-			return fmt.Errorf("step %s workspace_relay allows capturing only the terminal %s", step.ID, op.Media)
+			return fmt.Errorf("step %s workspace_relay allows capturing only the terminal text and relayed audio", step.ID)
 		}
 	}
 	return nil
