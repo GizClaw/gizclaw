@@ -547,3 +547,17 @@ It is not a complete server mesh:
 - This package does not replicate data or events between Servers.
 
 Therefore, when adding a capability, you must first determine whether it is the responsibility of the current Edge ingress or the future work of the server mesh control plane; you cannot directly write `pkgs/gizedge` just because the capability is related to the public network entry point.
+
+## Gateway lifecycle logs
+
+For every logical-session attempt, the gateway emits
+`gizclaw: peer stream lifecycle` at `session_establishing` and either a bounded
+`terminal` failure or `session_accepted`, `bridge_started`, and `terminal`.
+These records carry the generated `tunnel_session_id`, authenticated
+logical `peer_public_key`, and bounded upstream `entry_id`. Terminal `result`
+and `reason` distinguish completion, cancellation, timeout, transport close, and
+bridge error without recording the raw error. The Edge never logs the declared
+remote address or tunnel payload.
+
+The Server receives the same tunnel session identifier in its accepted
+`SessionDeclaration`; that identifier is the supported cross-process query key.

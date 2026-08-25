@@ -65,3 +65,11 @@ Before any RPC, HTTP, Event, packet, or audio loop starts, `PeerConn` atomically
 `streamMixedAudio` is the sole send-pacing owner for generated audio. When an ordinary Go ticker is late, the sender continues with the next frame without dropping, reordering, or batch-replaying PCM and without creating a provider epoch. Pion owns SSRC, RTP sequence numbers, and timestamps for the live WebRTC track; each 20 ms Opus sample advances the 48 kHz RTP clock by 960 ticks, and a new connection starts an independent RTP timeline. Arrival jitter, adaptive playout delay, packet-loss concealment, and Opus FEC belong to the WebRTC receiver.
 
 `PeerConn` does not infer logical BOS/EOS from paced packets or mixer reads. It owns only the fixed mixed PCM-to-Opus downlink and its real-time pacing. The Agent output bridge emits the aggregate audio lifecycle after Mixer drain, so no transport sequence number, MIME fallback, or per-source boundary state belongs here.
+
+For Edge-routed connections, `PeerConn` carries the accepted tunnel lifecycle
+context. It records the mandatory Event Stream acceptance, the first decoded
+Peer input event, Agent input opening, and the first successful Agent input
+push. Each transition is recorded once. The Server terminal snapshot reports
+which transitions were observed, allowing a zero-event timeout to be separated
+from a failure after Agent input began. The Peer input owner also emits one
+terminal record with its own last stage and bounded result.

@@ -54,6 +54,18 @@ sequenceDiagram
 
 Edge 不在本地执行 GizClaw domain handler，也不建立第二套业务权限模型。
 
+### Gateway lifecycle 日志
+
+每次 logical-session attempt 都以 `gizclaw: peer stream lifecycle` 记录
+`session_establishing`，随后记录有界的失败 `terminal`，或者依次记录
+`session_accepted`、`bridge_started` 和 `terminal`。这些记录携带 gateway 生成的
+`tunnel_session_id`、认证后的 logical `peer_public_key` 与有界的 upstream `entry_id`。
+Terminal `result` 与 `reason` 区分完成、取消、超时、transport close 和 bridge error，
+不记录 raw error。Edge 也不记录声明的 remote address 或 tunnel payload。
+
+Server 从 accepted `SessionDeclaration` 取得同一个 tunnel session identifier；该 identifier
+是跨进程查询这条生命周期的正式关联键。
+
 ## 目录职责
 
 ### Edge 配置

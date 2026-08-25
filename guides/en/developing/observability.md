@@ -261,3 +261,21 @@ configuration alone would not.
 3. Keep safe correlation data in logs and only low-cardinality dimensions in metrics.
 4. Put generic HTTP measurement in `pkgs/gizmetrics/httpmetrics`, GizClaw product fields in `pkgs/gizclaw/internal/observability`, and GenX or WebRTC measurements in their owner packages.
 5. Test success, client/server errors, cancellation, panic, streaming, backend failure, redaction, and the no-store path without changing response or lifecycle behavior.
+
+## Edge-routed Peer stream lifecycle
+
+`gizclaw: peer stream lifecycle` correlates one Edge-routed logical Peer from
+gateway admission through Server input and Agent output. Edge and Server use the
+same `tunnel_session_id`; the authenticated logical identity is recorded as
+`peer_public_key`. `component`, `stage`, `result`, `reason`, `last_stage`, and
+`duration_ms` are bounded scalar attributes. A terminal Server record also
+contains the booleans `input_event_observed`, `agent_input_opened`,
+`agent_input_pushed`, and `output_event_observed`, so a zero-event failure can be
+localized without host journal access.
+
+Lifecycle stages are emitted once per logical session, not per packet, chunk,
+or text delta. `workspace_name` and `stream_id` appear only after safe parsing.
+Session, Peer, Workspace, and stream identifiers remain log-only dimensions and
+must never become metric labels. Lifecycle records must not contain remote
+addresses, payloads, audio, prompts, conversation events, SDP, ICE candidate
+bodies, credentials, raw provider errors, or panic values.

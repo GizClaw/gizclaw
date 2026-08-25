@@ -84,6 +84,7 @@ type PeerConn struct {
 	retiring               atomic.Bool
 	registration           atomic.Pointer[runtimeprofile.Registration]
 	tunnelRouter           *giztunnel.Router
+	streamLifecycle        *peerStreamLifecycle
 }
 
 type peerAgentInput interface {
@@ -155,6 +156,7 @@ func (h *PeerConn) serve() error {
 		_ = h.close()
 		return err
 	}
+	h.streamLifecycle.eventStreamAccepted()
 	unsubscribeEvent, err := h.events.Subscribe(eventStream)
 	if err != nil {
 		_ = eventStream.Close()
@@ -446,7 +448,7 @@ func (h *PeerConn) initAgentHost() {
 		return
 	}
 	resources := h.peerResources()
-	h.agentInput = newPeerRealtimeSource()
+	h.agentInput = newPeerRealtimeSourceWithLifecycle(h.streamLifecycle)
 	host := newPeerAgentHost(
 		manager.AgentHost,
 		resources,
@@ -482,6 +484,7 @@ func (h *PeerConn) initAgentHost() {
 				workspaceName, _ := h.currentInputWorkspace(ctx)
 				return workspaceName
 			},
+			Lifecycle: h.streamLifecycle,
 		},
 		OnConsumerError:           h.broadcastAgentOutputError,
 		OnWorkspaceActivated:      manager.handleWorkspaceActivated,
@@ -658,10 +661,11 @@ func (h *PeerConn) handleEventStream(stream net.Conn) error {
 	return h.readEventStream(stream)
 }
 
-func (h *PeerConn) readEventStream(stream net.Conn) error {
+func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 	if stream == nil {
 		return nil
 	}
+	defer func() { h.streamLifecycle.finish("peer_input", err) }()
 	for {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
@@ -676,6 +680,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) error {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
 		}
+		h.streamLifecycle.observeInput(event)
 		authorized, err := h.authorizeChatroomEvent(context.Background(), event)
 		if err != nil {
 			return err

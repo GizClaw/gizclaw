@@ -286,3 +286,18 @@ relay path，而不是 Edge/Server resource owner。这里的 counter 支撑有�
 3. 日志保留诊断所需的安全关联信息；metrics 只保留低 cardinality labels。
 4. HTTP 通用测量放在 `pkgs/gizmetrics/httpmetrics`，GizClaw 产品字段放在 `pkgs/gizclaw/internal/observability`，GenX 与 WebRTC 指标留在各自 owner package。
 5. 测试成功、4xx/5xx、取消、panic、streaming、backend failure、redaction 和 no-store 路径，并证明 instrumentation 不改变业务 response 或 lifecycle。
+
+## 经 Edge 路由的 Peer stream 生命周期
+
+`gizclaw: peer stream lifecycle` 把一个经 Edge 路由的 logical Peer 从 gateway admission、
+Server input 一直关联到 Agent output。Edge 与 Server 使用相同的 `tunnel_session_id`，认证后的
+logical identity 记录为 `peer_public_key`。`component`、`stage`、`result`、`reason`、
+`last_stage` 与 `duration_ms` 都是有界的 scalar attribute。Server terminal record 还记录
+`input_event_observed`、`agent_input_opened`、`agent_input_pushed` 和
+`output_event_observed`，因此没有 host journal 时也能定位 zero-event failure 停在哪一步。
+
+每个 logical session 的 lifecycle stage 只记录一次，不按 packet、chunk 或 text delta 逐条
+记录。`workspace_name` 与 `stream_id` 只在安全解析后出现。Session、Peer、Workspace 和
+stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含
+remote address、payload、audio、prompt、conversation event、SDP、ICE candidate body、
+credential、provider raw error 或 panic value。

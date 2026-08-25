@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
@@ -50,20 +51,29 @@ func (h *PeerConn) serveEdgeTunnel() error {
 		return err
 	}
 	for {
-		logical, _, err := router.Accept(context.Background())
+		logical, declaration, err := router.Accept(context.Background())
 		if err != nil {
 			if isPeerServiceClosed(err) {
 				return nil
 			}
 			return err
 		}
+		lifecycle := newPeerStreamLifecycle(
+			slog.Default(),
+			declaration.SessionID.String(),
+			declaration.ClientPublicKey.String(),
+		)
+		lifecycle.accepted()
 		host := &PeerConn{
 			Conn:            logical,
 			Service:         h.Service,
 			ServerPublicKey: h.ServerPublicKey,
+			streamLifecycle: lifecycle,
 		}
 		go func() {
-			if err := host.serve(); err != nil {
+			err := host.serve()
+			lifecycle.finish("server_tunnel", err)
+			if err != nil {
 				_ = logical.Close()
 			}
 		}()
