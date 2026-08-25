@@ -2,6 +2,8 @@ package gizclaw
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"log/slog"
@@ -63,7 +65,7 @@ func (l *peerStreamLifecycle) observeInput(event *eventpb.PeerEvent) {
 	l.inputEventObserved = true
 	l.mu.Unlock()
 	l.recordOnce("peer_input/input_first_event", "peer_input", "input_first_event",
-		slog.String("stream_id", strings.TrimSpace(event.StreamID())))
+		slog.String("stream_id_hash", safeStreamIDHash(event.StreamID())))
 }
 
 func (l *peerStreamLifecycle) observeAgentInputOpen() {
@@ -88,7 +90,7 @@ func (l *peerStreamLifecycle) observeAgentInputPush(chunk *genx.MessageChunk) {
 		return
 	}
 	l.recordOnce("peer_input/agent_input_first_push", "peer_input", "agent_input_first_push",
-		slog.String("stream_id", strings.TrimSpace(chunk.Ctrl.StreamID)))
+		slog.String("stream_id_hash", safeStreamIDHash(chunk.Ctrl.StreamID)))
 }
 
 func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.MessageChunk, workspaceName func(context.Context) string) {
@@ -100,7 +102,7 @@ func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.Mes
 	l.mu.Unlock()
 	attrs := make([]slog.Attr, 0, 2)
 	if chunk.Ctrl != nil {
-		attrs = append(attrs, slog.String("stream_id", strings.TrimSpace(chunk.Ctrl.StreamID)))
+		attrs = append(attrs, slog.String("stream_id_hash", safeStreamIDHash(chunk.Ctrl.StreamID)))
 	}
 	if workspaceName != nil {
 		attrs = append(attrs, slog.String("workspace_name", strings.TrimSpace(workspaceName(ctx))))
@@ -200,4 +202,13 @@ func peerStreamLifecycleResult(err error) (string, string) {
 	default:
 		return "runtime_error", "internal_error"
 	}
+}
+
+func safeStreamIDHash(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:16])
 }

@@ -665,7 +665,13 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 	if stream == nil {
 		return nil
 	}
-	defer func() { h.streamLifecycle.finish("peer_input", err) }()
+	var terminalErr error
+	defer func() {
+		if terminalErr == nil {
+			terminalErr = err
+		}
+		h.streamLifecycle.finish("peer_input", terminalErr)
+	}()
 	for {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
@@ -673,6 +679,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		event, err := readPeerStreamEvent(stream)
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+				terminalErr = err
 				return nil
 			}
 			return err

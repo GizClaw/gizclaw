@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
@@ -18,7 +19,7 @@ func TestPeerStreamLifecycleRecordsOrderedFirstEventsAndSafeTerminal(t *testing.
 	event := &eventpb.PeerEvent{
 		Version: eventpb.Version,
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
-		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{StreamId: "input-1"}},
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{StreamId: "input-1-secret"}},
 	}
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-1", BeginOfStream: true}}
 	output := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "output-1", BeginOfStream: true}}
@@ -59,6 +60,11 @@ func TestPeerStreamLifecycleRecordsOrderedFirstEventsAndSafeTerminal(t *testing.
 		if attrs["tunnel_session_id"] != "session-1" || attrs["peer_public_key"] != "peer-1" {
 			t.Errorf("record[%d] correlation = %#v", i, attrs)
 		}
+		if value, ok := attrs["stream_id_hash"]; ok {
+			if value != safeStreamIDHash(map[int]string{2: "input-1-secret", 4: "input-1", 5: "output-1"}[i]) {
+				t.Errorf("record[%d].stream_id_hash = %#v", i, value)
+			}
+		}
 		for key, value := range attrs {
 			switch value.(type) {
 			case string, int64, bool:
@@ -77,8 +83,49 @@ func TestPeerStreamLifecycleRecordsOrderedFirstEventsAndSafeTerminal(t *testing.
 			t.Errorf("terminal.%s = %#v, want %#v", key, got, want)
 		}
 	}
-	if strings.Contains(fmt.Sprint(records), "secret-provider-error") {
-		t.Fatal("lifecycle logs exposed the raw terminal error")
+	for _, record := range records {
+		attrs := lifecycleRecordAttrs(record)
+		formatted := fmt.Sprint(attrs)
+		if strings.Contains(formatted, "secret-provider-error") || strings.Contains(formatted, "input-1-secret") {
+			t.Fatalf("lifecycle logs exposed raw untrusted data: %s", formatted)
+		}
+	}
+}
+
+func TestSafeStreamIDHashIsBoundedAndStable(t *testing.T) {
+	const untrusted = "  prompt-secret\nBearer credential-secret  "
+	first := safeStreamIDHash(untrusted)
+	second := safeStreamIDHash(strings.TrimSpace(untrusted))
+	if first == "" || first != second || len(first) != 32 {
+		t.Fatalf("safeStreamIDHash() = %q / %q", first, second)
+	}
+	if strings.Contains(first, "secret") || safeStreamIDHash("  ") != "" {
+		t.Fatalf("safeStreamIDHash() exposed input or retained empty input: %q", first)
+	}
+}
+
+func TestPeerStreamLifecycleResultIsExhaustiveAndBounded(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		err        error
+		wantResult string
+		wantReason string
+	}{
+		{name: "success", wantResult: "success", wantReason: "completed"},
+		{name: "canceled", err: context.Canceled, wantResult: "canceled", wantReason: "context_canceled"},
+		{name: "timeout", err: context.DeadlineExceeded, wantResult: "timeout", wantReason: "deadline_exceeded"},
+		{name: "closed", err: io.EOF, wantResult: "closed", wantReason: "stream_closed"},
+		{name: "runtime", err: errors.New("provider secret"), wantResult: "runtime_error", wantReason: "internal_error"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, reason := peerStreamLifecycleResult(test.err)
+			if result != test.wantResult || reason != test.wantReason {
+				t.Fatalf("peerStreamLifecycleResult() = (%q, %q), want (%q, %q)", result, reason, test.wantResult, test.wantReason)
+			}
+			if strings.Contains(result+reason, "secret") {
+				t.Fatal("bounded lifecycle result exposed raw error")
+			}
+		})
 	}
 }
 

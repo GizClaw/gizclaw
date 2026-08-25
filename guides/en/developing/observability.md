@@ -274,7 +274,9 @@ contains the booleans `input_event_observed`, `agent_input_opened`,
 localized without host journal access.
 
 Lifecycle stages are emitted once per logical session, not per packet, chunk,
-or text delta. `workspace_name` and `stream_id` appear only after safe parsing.
+or text delta. `workspace_name` appears only after safe parsing. Untrusted stream
+identifiers are represented only by a stable 128-bit `stream_id_hash`; raw
+`stream_id` values are never logged.
 Session, Peer, Workspace, and stream identifiers remain log-only dimensions and
 must never become metric labels. Lifecycle records must not contain remote
 addresses, payloads, audio, prompts, conversation events, SDP, ICE candidate
