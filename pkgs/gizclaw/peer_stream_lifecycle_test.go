@@ -102,6 +102,9 @@ func TestSafeStreamIDHashIsBoundedAndStable(t *testing.T) {
 	if strings.Contains(first, "secret") || safeStreamIDHash("  ") != "" {
 		t.Fatalf("safeStreamIDHash() exposed input or retained empty input: %q", first)
 	}
+	if got := safeStreamIDHash("  stream-42\n"); got != "0f3a788cbbee0b932cfcac7d71645f31" {
+		t.Fatalf("safeStreamIDHash(test vector) = %q", got)
+	}
 }
 
 func TestPeerStreamLifecycleResultIsExhaustiveAndBounded(t *testing.T) {

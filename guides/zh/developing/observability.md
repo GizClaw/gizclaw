@@ -298,7 +298,13 @@ logical identity 记录为 `peer_public_key`。`component`、`stage`、`result`�
 
 每个 logical session 的 lifecycle stage 只记录一次，不按 packet、chunk 或 text delta 逐条
 记录。`workspace_name` 只在安全解析后出现。不可信的 stream identifier 只记录为稳定的
-128-bit `stream_id_hash`，绝不记录 raw `stream_id`。Session、Peer、Workspace 和
+128-bit `stream_id_hash`，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾
+Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16
+字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或
+Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到
+`0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，
+不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream
+ID。Session、Peer、Workspace 和
 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含
 remote address、payload、audio、prompt、conversation event、SDP、ICE candidate body、
 credential、provider raw error 或 panic value。

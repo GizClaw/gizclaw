@@ -276,7 +276,14 @@ localized without host journal access.
 Lifecycle stages are emitted once per logical session, not per packet, chunk,
 or text delta. `workspace_name` appears only after safe parsing. Untrusted stream
 identifiers are represented only by a stable 128-bit `stream_id_hash`; raw
-`stream_id` values are never logged.
+`stream_id` values are never logged. The hash contract trims leading and trailing
+Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the
+first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty
+normalized IDs are omitted. It performs no case folding or Unicode normalization
+and uses no salt or HMAC key. For example, `stream-42` maps to
+`0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids
+accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are
+dictionary-testable, so producers must not put credentials or secrets in stream IDs.
 Session, Peer, Workspace, and stream identifiers remain log-only dimensions and
 must never become metric labels. Lifecycle records must not contain remote
 addresses, payloads, audio, prompts, conversation events, SDP, ICE candidate
