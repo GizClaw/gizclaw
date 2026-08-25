@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -78,6 +79,40 @@ func TestDoubaoRealtimeSpokenResponseFallsBackToChatAfterBothTerminals(t *testin
 	if got := response.finishChat(); got.closeText || len(got.text) != 0 {
 		t.Fatalf("duplicate ChatEnded transition = %#v, want idempotent", got)
 	}
+}
+
+func TestRealtimeResponseDeadlineUsesResponseEpoch(t *testing.T) {
+	t.Run("matching completion cancels deadline", func(t *testing.T) {
+		expired := make(chan struct{}, 1)
+		deadline := newRealtimeResponseDeadline(10*time.Millisecond, func() { expired <- struct{}{} })
+		deadline.start(1)
+		deadline.finish(1)
+		time.Sleep(30 * time.Millisecond)
+		if deadline.didExpire() {
+			t.Fatal("completed response deadline expired")
+		}
+		select {
+		case <-expired:
+			t.Fatal("completed response invoked expiry callback")
+		default:
+		}
+	})
+
+	t.Run("stale completion cannot cancel current epoch", func(t *testing.T) {
+		expired := make(chan struct{}, 1)
+		deadline := newRealtimeResponseDeadline(20*time.Millisecond, func() { expired <- struct{}{} })
+		deadline.start(1)
+		deadline.start(2)
+		deadline.finish(1)
+		select {
+		case <-expired:
+		case <-time.After(time.Second):
+			t.Fatal("current response deadline did not expire")
+		}
+		if !deadline.didExpire() {
+			t.Fatal("deadline did not record current epoch expiry")
+		}
+	})
 }
 
 func TestDoubaoRealtimeHistoryRouteUsesCanonicalMIMEForCompleteLifecycle(t *testing.T) {
