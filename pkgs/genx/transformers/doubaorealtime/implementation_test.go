@@ -1264,13 +1264,17 @@ func TestTransformerRealtimePartialTranscriptDoesNotStartResponseDeadline(t *tes
 
 func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t *testing.T) {
 	firstEndASR := make(chan struct{})
+	allowFirstEndASRReturn := make(chan struct{})
+	firstEventHandled := make(chan struct{})
 	secondEndASR := make(chan struct{})
 	eventsDrained := make(chan struct{})
 	retryWaiting := make(chan struct{})
 	allowRetry := make(chan struct{})
 	firstSession := &fakeTransformerSession{
-		beforeRecv: firstEndASR,
-		endASR:     firstEndASR,
+		beforeRecv:   firstEndASR,
+		endASR:       firstEndASR,
+		endASRReturn: allowFirstEndASRReturn,
+		eventHandled: firstEventHandled,
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASREnded, Text: " \t ", QuestionID: "q-1"},
 		},
@@ -1342,6 +1346,15 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 		}
 	}()
 	pushPTTTestTurn(t, input, "turn-1", 1)
+	// Hold EndASR until ASREnded has been handled. This forces the completed
+	// route's control-only EOS to remain unread when the provider handoff is
+	// committed, so the replacement session must consume that exact boundary.
+	select {
+	case <-firstEventHandled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("empty ASREnded was not processed while EndASR remained blocked")
+	}
+	close(allowFirstEndASRReturn)
 	select {
 	case <-retryWaiting:
 	case <-time.After(2 * time.Second):
@@ -2804,6 +2817,7 @@ type fakeTransformerSession struct {
 	endASR           chan struct{}
 	endASRReturn     <-chan struct{}
 	eventsDrained    chan<- struct{}
+	eventHandled     chan<- struct{}
 	blockAfterEvents <-chan struct{}
 	interruptErr     error
 	sendAudioErr     error
@@ -2828,6 +2842,7 @@ type fakeTransformerSession struct {
 	firstTextOnce     sync.Once
 	closeOnce         sync.Once
 	eventsDrainedOnce sync.Once
+	eventHandledOnce  sync.Once
 	eventPauseOnce    sync.Once
 }
 
@@ -2934,7 +2949,11 @@ func (s *fakeTransformerSession) Recv() iter.Seq2[*doubaospeech.RealtimeEvent, e
 					return
 				}
 			}
-			if !yield(event, nil) {
+			keep := yield(event, nil)
+			if s.eventHandled != nil {
+				s.eventHandledOnce.Do(func() { close(s.eventHandled) })
+			}
+			if !keep {
 				return
 			}
 		}
