@@ -110,9 +110,12 @@ protected tag `vMAJOR.MINOR.PATCH` is pushed. A push to `main` does not build or
 publish a Release.
 
 Each Release contains exactly two Debian packages, the two Darwin executables,
+one standalone C SDK source archive, its checksum sidecar,
 `release-manifest.json`, and `SHA256SUMS`; it does not publish raw Linux
 executables. The Debian packages use `<version>` from the tag in
-`gizclaw_<version>_{amd64,arm64}.deb`.
+`gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
+named `gizclaw-c-sdk-<version>.tar.gz`; its adjacent `.sha256` contains the
+archive digest and canonical filename.
 
 For formal releases, the Git tag is the only source version. It is both the Go
 module version and GitHub Release tag; removing its leading `v` gives the Debian
@@ -147,10 +150,11 @@ build/check-release.sh semver ".tmp/$tag" "$tag" "$(git rev-list -n 1 "$tag")"
 ```
 
 `release-manifest.json` identifies the stable channel and binds every payload
-name, platform, architecture, byte size, and SHA-256 to the full source commit.
-Debian entries also bind package metadata and
+name, byte size, and SHA-256 to the full source commit. Native payloads also
+bind platform and architecture; the C SDK source entry binds module
+`gizclaw_c_sdk`, version, and source commit. Debian entries also bind package metadata and
 `/usr/bin/gizclaw`. A formal rerun accepts an existing published Release only
-when its metadata and all six downloaded files match byte-for-byte. An
+when its metadata and all eight downloaded files match byte-for-byte. An
 exact-tag draft left by an interrupted first upload must pass the same metadata,
 inventory, digest, and byte-for-byte checks before the workflow publishes that
 same draft. Partial, moved, duplicate exact-tag, or mismatched Releases fail

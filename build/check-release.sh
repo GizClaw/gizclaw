@@ -52,6 +52,8 @@ version="${tag#v}"
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
 release_expected="$(printf '%s\n' \
   SHA256SUMS \
+  "gizclaw-c-sdk-${version}.tar.gz" \
+  "gizclaw-c-sdk-${version}.tar.gz.sha256" \
   gizclaw-darwin-amd64 \
   gizclaw-darwin-arm64 \
   "gizclaw_${version}_amd64.deb" \
@@ -64,7 +66,7 @@ jq -e \
   --arg tag "$tag" \
   --arg version "$version" --arg source_commit "$source_commit" '
   keys == ["assets","debian_version","go_module","go_module_version","release_channel","repository","schema_version","source_commit","tag","workflow"] and
-  .schema_version == 2 and
+  .schema_version == 3 and
   .repository == "GizClaw/gizclaw" and
   .go_module == "github.com/GizClaw/gizclaw-go" and
   .release_channel == "stable" and
@@ -72,33 +74,38 @@ jq -e \
   .go_module_version == $tag and
   .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
-  (.assets | length == 4) and
+  (.assets | length == 5) and
   ([.assets[].name] == ([.assets[].name] | sort)) and
-  ([.assets[].name] | unique | length == 4) and
+  ([.assets[].name] | unique | length == 5) and
   ([.assets[] | {name,kind,os,architecture}] == [
+    {name:("gizclaw-c-sdk-" + $version + ".tar.gz"),kind:"source",os:null,architecture:null},
     {name:"gizclaw-darwin-amd64",kind:"executable",os:"darwin",architecture:"amd64"},
     {name:"gizclaw-darwin-arm64",kind:"executable",os:"darwin",architecture:"arm64"},
     {name:("gizclaw_" + $version + "_amd64.deb"),kind:"deb",os:"linux",architecture:"amd64"},
     {name:("gizclaw_" + $version + "_arm64.deb"),kind:"deb",os:"linux",architecture:"arm64"}
   ]) and
   all(.assets[];
-    (keys | all(. == "architecture" or . == "installed_path" or . == "kind" or . == "name" or . == "os" or . == "package" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
+    (keys | all(. == "architecture" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
     (.name | type == "string" and length > 0) and
-    (.kind == "deb" or .kind == "executable") and
-    (.os == "linux" or .os == "darwin") and
-    (.architecture == "amd64" or .architecture == "arm64") and
+    (.kind == "deb" or .kind == "executable" or .kind == "source") and
     (.size | type == "number" and . > 0 and floor == .) and
     (.sha256 | test("^[0-9a-f]{64}$")) and
     (if .kind == "deb" then
       .os == "linux" and .package == "gizclaw" and .version == $version and
       .installed_path == "/usr/bin/gizclaw" and .source_commit == $source_commit
-     else
+     elif .kind == "executable" then
       .os == "darwin" and
-      ((has("package") or has("version") or has("installed_path") or has("source_commit")) | not)
+      (.architecture == "amd64" or .architecture == "arm64") and
+      ((has("package") or has("version") or has("installed_path") or has("source_commit") or has("module")) | not)
+     else
+      .name == ("gizclaw-c-sdk-" + $version + ".tar.gz") and
+      .module == "gizclaw_c_sdk" and .version == $version and .source_commit == $source_commit and
+      ((has("os") or has("architecture") or has("package") or has("installed_path")) | not)
      end))
   ' "$manifest" >/dev/null
 
 expected_payloads="$(printf '%s\n' \
+  "gizclaw-c-sdk-${version}.tar.gz" \
   gizclaw-darwin-amd64 gizclaw-darwin-arm64 \
   "gizclaw_${version}_amd64.deb" "gizclaw_${version}_arm64.deb" | LC_ALL=C sort)"
 manifest_payloads="$(jq -r '.assets[].name' "$manifest")"
@@ -111,10 +118,18 @@ while IFS= read -r name; do
   [[ "$(sha256sum "$asset_dir/$name" | awk '{print $1}')" == "$expected_digest" ]] || { echo "digest mismatch: $name" >&2; exit 1; }
 done <<<"$expected_payloads"
 
+c_sdk_archive="gizclaw-c-sdk-${version}.tar.gz"
+c_sdk_checksum="${c_sdk_archive}.sha256"
+expected_c_sdk_checksum="$(sha256sum "$asset_dir/$c_sdk_archive" | awk '{print $1}')  $c_sdk_archive"
+cmp -s <(printf '%s\n' "$expected_c_sdk_checksum") "$asset_dir/$c_sdk_checksum" || {
+  echo "C SDK archive checksum sidecar mismatch" >&2
+  exit 1
+}
+
 checksums_expected="$(
   while IFS= read -r name; do
     printf '%s  %s\n' "$(sha256sum "$asset_dir/$name" | awk '{print $1}')" "$name"
-  done < <(printf '%s\n%s\n' "$expected_payloads" release-manifest.json | LC_ALL=C sort)
+  done < <(printf '%s\n%s\n%s\n' "$expected_payloads" "$c_sdk_checksum" release-manifest.json | LC_ALL=C sort)
 )"
 if ! cmp -s <(printf '%s\n' "$checksums_expected") "$asset_dir/SHA256SUMS"; then
   echo "SHA256SUMS mismatch" >&2
@@ -151,8 +166,8 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
       .target_commitish == $source_commit and
       .draft == $expected_draft and
       .prerelease == false and
-      (.assets | length == 6) and
-      ([.assets[].name] | unique | length == 6) and
+      (.assets | length == 8) and
+      ([.assets[].name] | unique | length == 8) and
       all(.assets[];
         (keys | all(. == "name" or . == "size")) and
         (.name | type == "string" and length > 0) and

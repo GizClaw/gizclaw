@@ -13,6 +13,8 @@ API changes must start from the source schema of the root `api/`. Direct modific
 | RPC Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
 | Telemetry Protobuf | Go/JavaScript telemetry | `go generate ./pkgs/gizclaw/api/telemetry` and `npm --prefix sdk/js run gen:telemetry` |
 
+The standalone C SDK release archive copies the committed nanopb output after this generation check. Packaging does not run a second generator or treat the archive as another protocol source. The archive also copies the nanopb runtime at the exact submodule gitlink of the selected GizClaw commit.
+
 The full Go API is available:
 
 ```sh

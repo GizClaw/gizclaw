@@ -47,6 +47,9 @@ draft_transition="gh api --method PATCH \"repos/\$GH_REPO/releases/\$release_id\
 }
 grep -Fq "build/find-release-by-tag.sh \"\$GH_REPO\" \"\$TAG\"" <<<"$semver_publisher"
 grep -Fq "repos/\$GH_REPO/releases/assets/\$asset_id" <<<"$semver_publisher"
+grep -Fq -- '- c-sdk' <<<"$semver_publisher"
+grep -Fq 'pattern: "*"' <<<"$semver_publisher"
+grep -Fq 'merge-multiple: true' <<<"$semver_publisher"
 if grep -Fq "releases/tags/\$TAG" <<<"$semver_publisher"; then
   echo "SemVer publisher must not use the published-only tag endpoint for draft lookup" >&2
   exit 1
@@ -144,12 +147,16 @@ EOF
 }
 
 make_formal_payloads() {
-  local directory="$1"
+  local directory="$1" c_sdk_archive
   mkdir -p "$directory"
   make_fixture_deb amd64 "$directory/gizclaw_${version}_amd64.deb"
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
   install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-amd64"
   install -m 0755 "$fixture_binary" "$directory/gizclaw-darwin-arm64"
+  c_sdk_archive="gizclaw-c-sdk-${version}.tar.gz"
+  printf '%s\n' "C SDK source archive fixture for $source_commit" >"$directory/$c_sdk_archive"
+  printf '%s  %s\n' "$(sha256sum "$directory/$c_sdk_archive" | awk '{print $1}')" "$c_sdk_archive" \
+    >"$directory/$c_sdk_archive.sha256"
 }
 
 payloads="$fixture_root/formal"
@@ -231,6 +238,18 @@ formal_checksums="$fixture_root/formal-checksums"
 cp -a "$payloads" "$formal_checksums"
 printf '\n' >>"$formal_checksums/SHA256SUMS"
 expect_failure "non-canonical checksum file" "$repo_root/build/check-release.sh" semver "$formal_checksums" "$tag" "$source_commit"
+
+formal_c_sdk_checksum="$fixture_root/formal-c-sdk-checksum"
+cp -a "$payloads" "$formal_c_sdk_checksum"
+printf '\n' >>"$formal_c_sdk_checksum/gizclaw-c-sdk-${version}.tar.gz.sha256"
+expect_failure "non-canonical C SDK checksum sidecar" "$repo_root/build/check-release.sh" \
+  semver "$formal_c_sdk_checksum" "$tag" "$source_commit"
+
+formal_c_sdk_digest="$fixture_root/formal-c-sdk-digest"
+cp -a "$payloads" "$formal_c_sdk_digest"
+printf '%s\n' tampered >>"$formal_c_sdk_digest/gizclaw-c-sdk-${version}.tar.gz"
+expect_failure "altered C SDK archive digest" "$repo_root/build/check-release.sh" \
+  semver "$formal_c_sdk_digest" "$tag" "$source_commit"
 
 formal_arch="$fixture_root/formal-architecture"
 cp -a "$payloads" "$formal_arch"

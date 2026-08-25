@@ -7,4 +7,4 @@
 - [API](./api)：选择和调用 Admin API、Peer RPC
 - [CLI](./cli)
 - [API Key](./api-keys)
-- SDK：[Go](./sdk/go) · [TypeScript](./sdk/typescript) · [Flutter](./sdk/flutter)
+- SDK：[Go](./sdk/go) · [TypeScript](./sdk/typescript) · [Flutter](./sdk/flutter) · [C](./sdk/c)
