@@ -164,7 +164,7 @@ func requireLiveDoubaoCredentials(t *testing.T) {
 			strings.Contains(lower, "placeholder") ||
 			strings.Contains(lower, "replace") ||
 			strings.Contains(lower, "changeme") {
-			t.Fatalf("set a real %s for the live Doubao provider test", name)
+			t.Skipf("set a real %s for the live Doubao provider test", name)
 		}
 	}
 }

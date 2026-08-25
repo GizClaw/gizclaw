@@ -541,12 +541,14 @@ func isDoubaoRealtimeRecoverable(err error) bool {
 }
 
 type doubaoRealtimeRuntime struct {
-	assistant   *realtimeAssistantLifecycle
-	pushToTalk  *doubaoPushToTalkState
-	pttTurn     *doubaoRealtimePTTTurn
-	streamIDs   *doubaoRealtimeStreamIDs
-	audioInputs *doubaoRealtimeAudioInputs
-	history     *doubaoRealtimeHistoryRoutes
+	assistant              *realtimeAssistantLifecycle
+	pushToTalk             *doubaoPushToTalkState
+	pttTurn                *doubaoRealtimePTTTurn
+	streamIDs              *doubaoRealtimeStreamIDs
+	audioInputs            *doubaoRealtimeAudioInputs
+	history                *doubaoRealtimeHistoryRoutes
+	emptyPTTTrailingRoute  string
+	emptyPTTTrailingRouteM sync.Mutex
 }
 
 func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
@@ -558,6 +560,38 @@ func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
 		audioInputs: newDoubaoRealtimeAudioInputs(t.inputFormat, t.inputSampleRate, t.inputChannels, t.inputTranscode),
 		history:     newDoubaoRealtimeHistoryRoutes(),
 	}
+}
+
+func (r *doubaoRealtimeRuntime) markEmptyPTTTrailingRoute(streamID string) {
+	if r == nil {
+		return
+	}
+	r.emptyPTTTrailingRouteM.Lock()
+	r.emptyPTTTrailingRoute = strings.TrimSpace(streamID)
+	r.emptyPTTTrailingRouteM.Unlock()
+}
+
+func (r *doubaoRealtimeRuntime) consumeEmptyPTTTrailingEOS(chunk *genx.MessageChunk) bool {
+	if r == nil || chunk == nil || chunk.Ctrl == nil {
+		return false
+	}
+	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
+	r.emptyPTTTrailingRouteM.Lock()
+	defer r.emptyPTTTrailingRouteM.Unlock()
+	if r.emptyPTTTrailingRoute == "" {
+		return false
+	}
+	// ASREnded can race ahead of the caller's control-only route EOS. The
+	// provider handoff must not let that already-completed boundary enter the
+	// replacement session as an EOS-before-BOS error.
+	if chunk.Part == nil && chunk.IsEndOfStream() && streamID == r.emptyPTTTrailingRoute {
+		r.emptyPTTTrailingRoute = ""
+		return true
+	}
+	if chunk.IsBeginOfStream() && streamID != "" {
+		r.emptyPTTTrailingRoute = ""
+	}
+	return false
 }
 
 func (r *doubaoRealtimeRuntime) close() {
@@ -1305,6 +1339,7 @@ func (t *Transformer) processSession(
 							}
 							if completed {
 								pushToTalk.completeEmpty(streamID)
+								runtime.markEmptyPTTTrailingRoute(streamID)
 							}
 							pttControl.Unlock()
 							if completed {
@@ -1593,6 +1628,9 @@ func (t *Transformer) processSession(
 		}
 
 		if chunk == nil {
+			continue
+		}
+		if t.mode == ModePushToTalk && runtime.consumeEmptyPTTTrailingEOS(chunk) {
 			continue
 		}
 		if t.mode == ModePushToTalk && pushToTalk.discard(chunk) {

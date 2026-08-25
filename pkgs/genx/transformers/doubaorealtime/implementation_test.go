@@ -1266,6 +1266,8 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 	firstEndASR := make(chan struct{})
 	secondEndASR := make(chan struct{})
 	eventsDrained := make(chan struct{})
+	retryWaiting := make(chan struct{})
+	allowRetry := make(chan struct{})
 	firstSession := &fakeTransformerSession{
 		beforeRecv: firstEndASR,
 		endASR:     firstEndASR,
@@ -1289,6 +1291,7 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 	}
 	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{
 		{session: firstSession},
+		{err: errors.New("replacement unavailable")},
 		{session: secondSession},
 	}}
 	const idleTimeout = 30 * time.Millisecond
@@ -1300,27 +1303,67 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 		withFormat("pcm"),
 		withResponseDeadline(idleTimeout),
 	)
+	var retryWaitingOnce sync.Once
+	tfr.retryWait = func(ctx context.Context, outputDone <-chan struct{}, _ time.Duration) bool {
+		retryWaitingOnce.Do(func() { close(retryWaiting) })
+		select {
+		case <-allowRetry:
+			return true
+		case <-ctx.Done():
+			return false
+		case <-outputDone:
+			return false
+		}
+	}
 	input := newBufferStream(16)
 	output, err := tfr.transform(t.Context(), input)
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	pushPTTTestTurn(t, input, "turn-1", 1)
-	if !opener.waitForCalls(2, 2*time.Second) {
-		t.Fatalf("OpenSession calls = %d, want replacement after empty ASR", opener.callCount())
+	type outputResult struct {
+		chunks []*genx.MessageChunk
+		err    error
 	}
-	time.Sleep(3 * idleTimeout)
+	outputResultCh := make(chan outputResult, 1)
+	go func() {
+		var chunks []*genx.MessageChunk
+		for {
+			chunk, err := output.Next()
+			if err != nil {
+				if err == io.EOF || err == genx.ErrDone {
+					err = nil
+				}
+				outputResultCh <- outputResult{chunks: chunks, err: err}
+				return
+			}
+			if chunk != nil {
+				chunks = append(chunks, chunk)
+			}
+		}
+	}()
+	pushPTTTestTurn(t, input, "turn-1", 1)
+	select {
+	case <-retryWaiting:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("OpenSession calls = %d, want failed replacement attempt", opener.callCount())
+	}
 	if !firstSession.isClosed() {
 		t.Fatal("empty ASR provider session was not replaced")
-	}
-	if secondSession.isClosed() {
-		t.Fatal("replacement provider session closed before the next turn")
 	}
 	if got := firstSession.interruptCount(); got != 0 {
 		t.Fatalf("Interrupt calls = %d, want deterministic session replacement", got)
 	}
 
+	// Submit the next turn while the replacement provider is unavailable. The
+	// unread input must remain buffered for the successful retry.
 	pushPTTTestTurn(t, input, "turn-2", 2)
+	if err := input.Close(); err != nil {
+		t.Fatalf("Close(input) error = %v", err)
+	}
+	close(allowRetry)
+	if !opener.waitForCalls(3, 2*time.Second) {
+		t.Fatalf("OpenSession calls = %d, want failed handoff plus successful retry", opener.callCount())
+	}
 	if !secondSession.waitForEndASRCount(1, 2*time.Second) {
 		t.Fatalf("replacement EndASR calls = %d, want second turn submitted", secondSession.endASRCount())
 	}
@@ -1329,10 +1372,16 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 	case <-time.After(2 * time.Second):
 		t.Fatal("second provider response did not complete")
 	}
-	if err := input.Close(); err != nil {
-		t.Fatalf("Close(input) error = %v", err)
+	var chunks []*genx.MessageChunk
+	select {
+	case result := <-outputResultCh:
+		if result.err != nil {
+			t.Fatalf("output Next() error = %v", result.err)
+		}
+		chunks = result.chunks
+	case <-time.After(2 * time.Second):
+		t.Fatal("transform output did not close")
 	}
-	chunks := drainRealtimeTestOutput(t, output)
 
 	var turnOne []*genx.MessageChunk
 	transcriptEOSIndex := -1
@@ -1365,6 +1414,81 @@ func TestTransformerPTTEmptyASRCompletesImmediatelyAndReplacesProviderSession(t 
 	if !hasRealtimeTestText(chunks, genx.RoleUser, "second transcript") ||
 		!hasRealtimeTestText(chunks, genx.RoleModel, "second answer") {
 		t.Fatalf("second turn did not complete on the replacement provider session: %#v", chunks)
+	}
+}
+
+func TestTransformerPTTEmptyASRHandoffStopsRetryOnCancellation(t *testing.T) {
+	endASR := make(chan struct{})
+	retryWaiting := make(chan struct{})
+	firstSession := &fakeTransformerSession{
+		beforeRecv: endASR,
+		endASR:     endASR,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+		},
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{
+		{session: firstSession},
+		{err: errors.New("replacement unavailable")},
+	}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModePushToTalk),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+	)
+	var retryWaitingOnce sync.Once
+	tfr.retryWait = func(ctx context.Context, _ <-chan struct{}, _ time.Duration) bool {
+		retryWaitingOnce.Do(func() { close(retryWaiting) })
+		<-ctx.Done()
+		return false
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	input := newBufferStream(8)
+	output, err := tfr.transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	pushPTTTestTurn(t, input, "turn-1", 1)
+	select {
+	case <-retryWaiting:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("OpenSession calls = %d, want failed replacement attempt", opener.callCount())
+	}
+	var chunks []*genx.MessageChunk
+	terminalRoutes := 0
+	for terminalRoutes < 3 {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("output Next() before cancellation error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+		if chunk != nil && chunk.Ctrl != nil && chunk.IsEndOfStream() &&
+			(chunk.Ctrl.Label == doubaoRealtimeTranscriptLabel || chunk.Ctrl.Label == doubaoRealtimeAssistantLabel) {
+			terminalRoutes++
+		}
+	}
+	cancel()
+	for {
+		chunk, err := output.Next()
+		if errors.Is(err, context.Canceled) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("output Next() error = %v, want context canceled", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleUser, doubaoRealtimeTranscriptLabel, 1)
+	requireRealtimeOwnedRouteLifecycles(t, chunks, genx.RoleModel, doubaoRealtimeAssistantLabel, 2)
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+			t.Fatalf("successful empty-turn terminal was rewritten on cancellation: %#v", chunk)
+		}
+	}
+	if got := opener.callCount(); got != 2 {
+		t.Fatalf("OpenSession calls after cancellation = %d, want 2", got)
 	}
 }
 
