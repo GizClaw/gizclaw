@@ -13,6 +13,8 @@ API 变更必须从根 `api/` 的 source schema 开始。禁止直接修改由�
 | RPC Protobuf | C nanopb SDK | `go generate ./sdk/c/gizclaw` |
 | Telemetry Protobuf | Go/JavaScript telemetry | `go generate ./pkgs/gizclaw/api/telemetry` 与 `npm --prefix sdk/js run gen:telemetry` |
 
+独立 C SDK Release 源码包会在完成该生成检查后复制已提交的 nanopb output。打包过程不会运行第二套 generator，也不会把源码包作为另一份协议来源；源码包同时复制所选 GizClaw commit 的 submodule gitlink 指向的精确 nanopb runtime。
+
 全量 Go API 可以使用：
 
 ```sh

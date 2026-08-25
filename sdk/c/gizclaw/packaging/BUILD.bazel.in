@@ -1,0 +1,92 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:private"])
+
+config_setting(
+    name = "is_windows_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+)
+
+c_only_options = select({
+    ":is_windows_x86_64": [
+        "/experimental:c11atomics",
+        "/std:c11",
+    ],
+    "//conditions:default": ["-std=c11"],
+})
+
+warning_options = select({
+    ":is_windows_x86_64": [
+        "/W4",
+        "/WX",
+    ],
+    "//conditions:default": [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+})
+
+cc_library(
+    name = "nanopb",
+    srcs = [
+        "third_party/nanopb/pb_common.c",
+        "third_party/nanopb/pb_decode.c",
+        "third_party/nanopb/pb_encode.c",
+    ],
+    hdrs = glob(["third_party/nanopb/*.h"]),
+    includes = ["third_party/nanopb"],
+)
+
+cc_library(
+    name = "gizclaw_headers",
+    hdrs = glob([
+        "generated/**/*.h",
+        "include/**/*.h",
+        "src/*.h",
+    ]),
+    includes = [
+        "generated",
+        "include",
+    ],
+    deps = [":nanopb"],
+)
+
+cc_library(
+    name = "gizclaw_core",
+    srcs = glob(
+        [
+            "generated/**/*.c",
+            "src/*.c",
+        ],
+        exclude = ["src/gzc_platform.c"],
+    ),
+    conlyopts = c_only_options,
+    copts = warning_options,
+    deps = [
+        ":gizclaw_headers",
+        ":nanopb",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "default_platform",
+    srcs = ["src/gzc_platform.c"],
+    conlyopts = c_only_options,
+    copts = warning_options,
+    deps = [":gizclaw_headers"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "gizclaw",
+    deps = [
+        ":default_platform",
+        ":gizclaw_core",
+    ],
+    visibility = ["//visibility:public"],
+)

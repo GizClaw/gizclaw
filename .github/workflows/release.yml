@@ -217,12 +217,74 @@ jobs:
           path: .tmp/release/gizclaw-darwin-${{ matrix.arch }}
           if-no-files-found: error
 
+  c-sdk:
+    name: C SDK Source Release Asset
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out selected source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+
+      - name: Initialize nanopb submodule
+        run: git submodule update --init --depth=1 third_party/nanopb/upstream
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install C SDK validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libprotobuf-dev \
+            protobuf-compiler
+
+      - name: Verify committed C SDK generation
+        run: |
+          go generate ./sdk/c/gizclaw
+          git diff --exit-code -- sdk/c/gizclaw/generated
+
+      - name: Build and verify C SDK source archive
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
+        run: |
+          mkdir -p .tmp/release
+          archive=".tmp/release/gizclaw-c-sdk-${VERSION}.tar.gz"
+          tools/c-sdk/package_source.sh \
+            --version "$VERSION" \
+            --source-commit "$SOURCE_COMMIT" \
+            --source-epoch "$SOURCE_EPOCH" \
+            --output "$archive"
+          tools/c-sdk/verify_source_archive.sh \
+            --archive "$archive" \
+            --version "$VERSION" \
+            --source-commit "$SOURCE_COMMIT"
+
+      - name: Upload C SDK source release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: c-sdk-source
+          path: |
+            .tmp/release/gizclaw-c-sdk-*.tar.gz
+            .tmp/release/gizclaw-c-sdk-*.tar.gz.sha256
+          if-no-files-found: error
+
   publish-semver:
     name: Publish Protected SemVer Release
     needs:
       - prepare
       - linux
       - darwin
+      - c-sdk
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -234,10 +296,12 @@ jobs:
           ref: ${{ needs.prepare.outputs.source_commit }}
           fetch-depth: 0
 
-      - name: Download workflow artifacts
+      - name: Download and merge all required release artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           path: .tmp/download
+          pattern: "*"
+          merge-multiple: true
 
       - name: Build and validate closed formal staging directory
         env:

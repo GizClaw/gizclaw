@@ -42,6 +42,8 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             binutils \
             dpkg-dev \
+            libprotobuf-dev \
+            protobuf-compiler \
             shellcheck
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
@@ -55,6 +57,9 @@ jobs:
           build/check-release.sh
           build/find-release-by-tag.sh
           build/release-contract-test.sh
+          tools/c-sdk/package_source.sh
+          tools/c-sdk/source_archive_test.sh
+          tools/c-sdk/verify_source_archive.sh
 
       - name: Check workflow syntax and embedded shell
         run: |
@@ -62,6 +67,14 @@ jobs:
 
       - name: Test offline release contracts
         run: build/release-contract-test.sh
+
+      - name: Verify committed C SDK generation
+        run: |
+          go generate ./sdk/c/gizclaw
+          git diff --exit-code -- sdk/c/gizclaw/generated
+
+      - name: Test standalone C SDK source archive
+        run: tools/c-sdk/source_archive_test.sh
 
       - name: Build native validation executable
         env:
