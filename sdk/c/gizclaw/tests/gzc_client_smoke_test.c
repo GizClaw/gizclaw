@@ -150,9 +150,20 @@ typedef struct {
 } fake_tool_handler_t;
 
 static fake_webrtc_t *global_fake_webrtc;
+static bool fail_next_malloc;
 static bool fail_next_realloc;
 
 static int send_fake_speed_download(fake_webrtc_t *fake);
+
+static void *test_malloc(void *userdata, size_t size) {
+  (void)userdata;
+  if (fail_next_malloc) {
+    fail_next_malloc = false;
+    return NULL;
+  }
+  const gzc_platform_t *platform = gzc_default_platform();
+  return platform->malloc(platform->userdata, size);
+}
 
 static void *test_realloc(void *userdata, void *ptr, size_t size) {
   (void)userdata;
@@ -1618,6 +1629,7 @@ int main(void) {
   };
   gzc_platform_t test_platform = *gzc_default_platform();
   test_platform.userdata = &clock;
+  test_platform.malloc = test_malloc;
   test_platform.realloc = test_realloc;
   test_platform.time_instant_ms = test_time_instant_ms;
   test_platform.time_unix_ms = test_time_unix_ms;
@@ -1765,7 +1777,12 @@ int main(void) {
              "channel-limit status value") != 0 ||
       expect(strcmp(gzc_status_string(GZC_ERR_CHANNEL_LIMIT),
                     "data channel limit reached") == 0,
-             "channel-limit status string") != 0) {
+             "channel-limit status string") != 0 ||
+      expect(GZC_ERR_BUFFER_TOO_SMALL == -13,
+             "buffer-too-small status value") != 0 ||
+      expect(strcmp(gzc_status_string(GZC_ERR_BUFFER_TOO_SMALL),
+                    "buffer too small") == 0,
+             "buffer-too-small status string") != 0) {
     return 1;
   }
   invalid_config = config;
@@ -1777,6 +1794,22 @@ int main(void) {
   }
   rc = gzc_client_create(&config, &client);
   if (expect(rc == GZC_OK, "client create") != 0) {
+    return 1;
+  }
+  rc = gzc_client_set_opus_rx_capacity(client, 0u);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
+             "reject an empty Opus receive ring") != 0) {
+    return 1;
+  }
+  rc = gzc_client_set_opus_rx_capacity(client, 32u);
+  if (expect(rc == GZC_OK,
+             "configure a smaller Opus receive ring") != 0) {
+    return 1;
+  }
+  rc = gzc_client_set_opus_rx_capacity(
+      client, GZC_OPUS_RX_CAPACITY_DEFAULT);
+  if (expect(rc == GZC_OK && GZC_OPUS_RX_CAPACITY_DEFAULT == 64u,
+             "restore the 64-packet default Opus receive ring") != 0) {
     return 1;
   }
   fake_webrtc.client = client;
@@ -1841,6 +1874,12 @@ int main(void) {
   rc = gzc_client_set_peer_add_ice_server(client, test_peer_add_ice_server);
   if (expect(rc == GZC_OK, "client ICE hook") != 0) {
     gzc_client_destroy(client);
+    return 1;
+  }
+  fail_next_malloc = true;
+  rc = gzc_client_connect(client);
+  if (expect(rc == GZC_ERR_NO_MEMORY && !fail_next_malloc,
+             "connect reports fixed Opus ring allocation failure") != 0) {
     return 1;
   }
   fake_webrtc.opus_register_result = GZC_ERR_WEBRTC;
@@ -3302,6 +3341,11 @@ int main(void) {
              "reject late media registration") != 0) {
     return 1;
   }
+  rc = gzc_client_set_opus_rx_capacity(client, 32u);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
+             "reject late Opus receive ring changes") != 0) {
+    return 1;
+  }
   rc = gzc_client_send_packet(
       client, GZC_PROTOCOL_OPUS_PACKET, NULL, 0u);
   if (expect(rc == GZC_ERR_INVALID_ARGUMENT,
@@ -3347,6 +3391,64 @@ int main(void) {
   }
   gzc_buf_free(&received_opus_payload, platform);
 
+  fake_webrtc.opus_callback(
+      fake_webrtc.opus_callback_userdata,
+      &fake_webrtc.peer,
+      opus_payload,
+      sizeof(opus_payload));
+  uint8_t fixed_opus_payload[GZC_OPUS_MAX_PACKET_SIZE];
+  size_t fixed_opus_len = 0u;
+  rc = gzc_client_read_packet_into(
+      client,
+      0,
+      &received_opus_protocol,
+      fixed_opus_payload,
+      1u,
+      &fixed_opus_len);
+  if (expect(
+          rc == GZC_ERR_BUFFER_TOO_SMALL &&
+              received_opus_protocol == GZC_PROTOCOL_OPUS_PACKET &&
+              fixed_opus_len == sizeof(opus_payload),
+          "fixed read reports required capacity without consuming Opus") != 0) {
+    return 1;
+  }
+  rc = gzc_client_read_packet_into(
+      client,
+      0,
+      &received_opus_protocol,
+      fixed_opus_payload,
+      sizeof(fixed_opus_payload),
+      &fixed_opus_len);
+  if (expect(
+          rc == GZC_OK &&
+              received_opus_protocol == GZC_PROTOCOL_OPUS_PACKET &&
+              fixed_opus_len == sizeof(opus_payload) &&
+              memcmp(fixed_opus_payload, opus_payload, fixed_opus_len) == 0,
+          "fixed read copies queued Opus without allocation") != 0) {
+    return 1;
+  }
+  fake_webrtc.opus_callback(
+      fake_webrtc.opus_callback_userdata,
+      &fake_webrtc.peer,
+      opus_payload,
+      sizeof(opus_payload));
+  rc = gzc_client_discard_opus_rx(client);
+  if (expect(rc == GZC_OK,
+             "explicit Opus discard clears the receive ring") != 0) {
+    return 1;
+  }
+  rc = gzc_client_read_packet_into(
+      client,
+      0,
+      &received_opus_protocol,
+      fixed_opus_payload,
+      sizeof(fixed_opus_payload),
+      &fixed_opus_len);
+  if (expect(rc == GZC_ERR_TIMEOUT,
+             "discarded Opus is not delivered later") != 0) {
+    return 1;
+  }
+
   const uint8_t direct_for_fairness[] = {0x40, 0xd0};
   fake_webrtc.callbacks.on_channel_message(
       fake_webrtc.callbacks.userdata,
@@ -3362,10 +3464,17 @@ int main(void) {
       opus_payload,
       sizeof(opus_payload));
   gzc_buf_init(&received_opus_payload);
-  rc = gzc_client_read_packet(
-      client, 0, &received_opus_protocol, &received_opus_payload);
-  if (expect(rc == GZC_OK && received_opus_protocol == 0x40,
-             "simultaneous packet and Opus reads packet first") != 0) {
+  rc = gzc_client_read_packet_into(
+      client,
+      0,
+      &received_opus_protocol,
+      fixed_opus_payload,
+      sizeof(fixed_opus_payload),
+      &fixed_opus_len);
+  if (expect(
+          rc == GZC_OK && received_opus_protocol == 0x40 &&
+              fixed_opus_len == 1u && fixed_opus_payload[0] == 0xd0,
+          "fixed read handles Direct Packet before simultaneous Opus") != 0) {
     return 1;
   }
   rc = gzc_client_read_packet(
@@ -3387,8 +3496,8 @@ int main(void) {
       direct_during_opus_overflow,
       sizeof(direct_during_opus_overflow),
       false);
-  for (uint8_t i = 0; i < 10u; i++) {
-    const uint8_t queued_opus[] = {0xf8, i};
+  for (uint16_t i = 0; i < 66u; i++) {
+    const uint8_t queued_opus[] = {0xf8, (uint8_t)i};
     fake_webrtc.opus_callback(
         fake_webrtc.opus_callback_userdata,
         &fake_webrtc.peer,
@@ -3396,9 +3505,9 @@ int main(void) {
         sizeof(queued_opus));
   }
   gzc_buf_init(&received_opus_payload);
-  uint8_t overflow_opus_index = 0u;
+  uint16_t overflow_opus_index = 0u;
   uint8_t overflow_direct_count = 0u;
-  for (uint8_t i = 0; i < 9u; i++) {
+  for (uint16_t i = 0; i < 65u; i++) {
     rc = gzc_client_read_packet(
         client, 0, &received_opus_protocol, &received_opus_payload);
     if (rc == GZC_OK &&
@@ -3422,7 +3531,7 @@ int main(void) {
     }
   }
   if (expect(
-          overflow_opus_index == 8u && overflow_direct_count == 1u,
+          overflow_opus_index == 64u && overflow_direct_count == 1u,
           "Opus overflow never evicts Direct Packet") != 0) {
     return 1;
   }
@@ -3432,18 +3541,21 @@ int main(void) {
       &fake_webrtc.peer,
       opus_payload,
       sizeof(opus_payload));
-  rc = gzc_client_read_packet(
-      client, 0, &received_opus_protocol, &received_opus_payload);
-  if (expect(rc == GZC_ERR_NO_MEMORY,
-             "Opus allocation failure reports one no-memory error") != 0) {
+  rc = gzc_client_read_packet_into(
+      client,
+      0,
+      &received_opus_protocol,
+      fixed_opus_payload,
+      sizeof(fixed_opus_payload),
+      &fixed_opus_len);
+  if (expect(
+          rc == GZC_OK && fail_next_realloc &&
+              received_opus_protocol == GZC_PROTOCOL_OPUS_PACKET &&
+              fixed_opus_len == sizeof(opus_payload),
+          "Opus callback and fixed read perform no packet allocation") != 0) {
     return 1;
   }
-  rc = gzc_client_read_packet(
-      client, 0, &received_opus_protocol, &received_opus_payload);
-  if (expect(rc == GZC_ERR_TIMEOUT,
-             "Opus allocation error clears after one read") != 0) {
-    return 1;
-  }
+  fail_next_realloc = false;
   const uint8_t invalid_remote_opus[] = {0xfb, 0x00};
   fake_webrtc.opus_callback(
       fake_webrtc.opus_callback_userdata,

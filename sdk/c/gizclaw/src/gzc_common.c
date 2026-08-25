@@ -28,6 +28,8 @@ const char *gzc_status_string(gzc_status_t status) {
     return "would block";
   case GZC_ERR_CHANNEL_LIMIT:
     return "data channel limit reached";
+  case GZC_ERR_BUFFER_TOO_SMALL:
+    return "buffer too small";
   default:
     return "unknown";
   }

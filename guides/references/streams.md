@@ -187,4 +187,4 @@ pending 返回 `GZC_ERR_WOULD_BLOCK`。完成、取消、超时、远端关闭�
 response view 由 request 持有，直到 `gzc_rpc_request_destroy`；platform allocator
 必须比 request handle 活得更久。
 
-Unreliable/unordered direct packet DataChannel、Telemetry packet 与 RTP media 不使用 service writer，也不继承上述 water marks。BOS/EOS 等业务边界仍由各自上层协议定义。
+Unreliable/unordered direct packet DataChannel、Telemetry packet 与 RTP media 不使用 service writer，也不继承上述 water marks。C SDK 的 Opus RTP 接收使用一次连续分配的固定槽位 ring，默认 64 packets；调用方只能在 connect 前通过 `gzc_client_set_opus_rx_capacity` 调整容量。队列满时覆盖最旧 Opus，client close 或显式 `gzc_client_discard_opus_rx` 立即清空队列；`gzc_client_read_packet_into` 可以直接写入 caller storage，并在 buffer 太小时保留 packet 供重试。BOS/EOS 等业务边界仍由各自上层协议定义。
