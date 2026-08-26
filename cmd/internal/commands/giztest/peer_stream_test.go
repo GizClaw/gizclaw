@@ -331,6 +331,61 @@ func TestInvokePeerStreamFirstResponseDeadlineStartsAfterInput(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamTerminalLatencyKeepsOperationClock(t *testing.T) {
+	stream := newFakeRelayStream()
+	stream.pushes = make(chan *genx.MessageChunk)
+	go func() {
+		for range 3 {
+			time.Sleep(20 * time.Millisecond)
+			<-stream.pushes
+		}
+		finishAssistantTurn(stream, "s1")
+	}()
+	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text"}, stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if textMS := result.evidence["first_text_ms"].(int64); textMS < 60 {
+		t.Fatalf("terminal first_text_ms = %d, want operation clock including input push", textMS)
+	}
+}
+
+func TestPeerStreamFirstResponseArrivalWinsSchedulingRace(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		chunk  *genx.MessageChunk
+		within func(*peerStreamFirstResponseArrivals, time.Duration) bool
+	}{
+		{name: "text", chunk: assistantText("s1", "hello", false), within: (*peerStreamFirstResponseArrivals).firstTextWithin},
+		{name: "audio", chunk: assistantBlob("s1", []byte{1}, false), within: (*peerStreamFirstResponseArrivals).firstAudioWithin},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			defer func() { _ = stream.Close() }()
+			arrivals := &peerStreamFirstResponseArrivals{started: time.Now()}
+			next := readPeerStream(t.Context(), stream, arrivals)
+			stream.in <- tc.chunk
+			deadline := time.NewTimer(40 * time.Millisecond)
+			defer deadline.Stop()
+			for !tc.within(arrivals, 40*time.Millisecond) {
+				select {
+				case <-deadline.C:
+					t.Fatal("reader did not record the response before its deadline")
+				default:
+					time.Sleep(time.Millisecond)
+				}
+			}
+			time.Sleep(50 * time.Millisecond)
+			if !tc.within(arrivals, 40*time.Millisecond) {
+				t.Fatal("an on-time queued response became a scheduling timeout")
+			}
+			if result := <-next; result.chunk != tc.chunk {
+				t.Fatalf("queued result = %#v", result)
+			}
+		})
+	}
+}
+
 func TestInvokePeerStreamIdleTimeoutRearmsAfterInterrupt(t *testing.T) {
 	first := newFakeRelayStream()
 	second := newFakeRelayStream()
