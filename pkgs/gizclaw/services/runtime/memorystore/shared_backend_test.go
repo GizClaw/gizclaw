@@ -1,13 +1,17 @@
 package memorystore
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
 )
 
 func TestOpenSharedFlowcraftAcceptsCanonicalLayoutID(t *testing.T) {
@@ -18,6 +22,67 @@ func TestOpenSharedFlowcraftAcceptsCanonicalLayoutID(t *testing.T) {
 		t.Fatalf("openSharedFlowcraft() error = %v", err)
 	}
 	t.Cleanup(func() { _ = backend.Close() })
+}
+
+func TestSharedFlowcraftSameSignatureStoresConstructConcurrently(t *testing.T) {
+	request := managedTestRequest(t)
+	opened, err := openSharedFlowcraft(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := opened.(*sharedFlowcraftBackend)
+	t.Cleanup(func() { _ = backend.Close() })
+
+	entered := make(chan struct{}, 2)
+	release := make(chan struct{})
+	backend.newStore = func(ctx context.Context, config memoryflowcraft.Config) (*memoryflowcraft.Store, error) {
+		entered <- struct{}{}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		return memoryflowcraft.New(ctx, config)
+	}
+	type constructed struct {
+		result Result
+		closer io.Closer
+		err    error
+	}
+	results := make(chan constructed, 2)
+	construct := func(workspace string) {
+		workspaceRequest := request
+		workspaceRequest.WorkspaceID = workspace
+		result, closer, err := backend.NewStore(t.Context(), workspaceRequest)
+		results <- constructed{result: result, closer: closer, err: err}
+	}
+	go construct("workspace-a")
+	wantFlowcraftConstructor(t, entered)
+	go construct("workspace-b")
+	wantFlowcraftConstructor(t, entered)
+	close(release)
+
+	for range 2 {
+		constructed := <-results
+		if constructed.err != nil {
+			t.Fatal(constructed.err)
+		}
+		if constructed.result.Store == nil || constructed.closer == nil {
+			t.Fatal("logical Flowcraft Store was not constructed")
+		}
+		if err := constructed.closer.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func wantFlowcraftConstructor(t *testing.T, entered <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("same-signature logical Store constructor did not overlap")
+	}
 }
 
 func TestSharedFlowcraftSQLiteKeepsConcurrentWorkspacesIsolated(t *testing.T) {
