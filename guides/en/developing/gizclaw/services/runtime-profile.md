@@ -155,6 +155,8 @@ new windows. It does not register an Admin Tool, built-in Tool, or Toolkit.
 
 The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile ID and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 
+RuntimeProfile create and update validate the complete dependency graph before publishing a revision. Snapshot reads, including Workspace reload, trust that persisted revision and do not traverse Workflow, Model, Voice, Tool, Memory, or gameplay dependencies again. Each consumer resolves only the exact bindings it uses; an unavailable selected dependency fails in that consumer, while unrelated unavailable resources do not block the snapshot or an unaffected Workspace. Operators that need a full dependency audit run it explicitly instead of adding it to every read.
+
 ## RegistrationToken
 
 A `RegistrationToken` is an ordinary Admin-managed binding resource with caller-supplied `metadata.id`. Its required `spec.token` uses `runtime_profile_id` to select one canonical RuntimeProfile ID and may independently use `firmware_id` to bind one Firmware ID. Admin create, put, get, list, delete, apply, and show all use the same readable state. The Server persists that complete state and maintains a SHA-256 lookup index; changing the token atomically replaces the index, and applying the same ID and configuration is unchanged.
