@@ -73,8 +73,4 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 
 `PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期，因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
 
-经 Edge 路由的 connection 会由 `PeerConn` 持有 accepted tunnel lifecycle context。它依次
-记录 mandatory Event Stream 接受、首个已解码 Peer input event、Agent input 打开，以及首次
-成功推送 Agent input；每个 transition 只记录一次。Server terminal snapshot 会标明这些
-transition 是否发生，从而区分 zero-event timeout 与 Agent input 已开始后的故障。Peer
-input owner 还会输出一条带自身 last stage 和有界 result 的 terminal record。
+经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。

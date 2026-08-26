@@ -13,82 +13,161 @@ import (
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 )
 
-func TestPeerStreamLifecycleRecordsOrderedFirstEventsAndSafeTerminal(t *testing.T) {
+func TestPeerStreamLifecycleCorrelatesSequentialTurns(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-1", "peer-1")
-	event := &eventpb.PeerEvent{
-		Version: eventpb.Version,
-		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
-		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{StreamId: "input-1-secret"}},
+	for index := 1; index <= 2; index++ {
+		inputID := fmt.Sprintf("input-%d-secret", index)
+		outputID := fmt.Sprintf("output-%d-secret", index)
+		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, inputID, nil))
+		lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: inputID}})
+		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, inputID, nil))
+		lifecycle.observeOutput(context.Background(), &genx.MessageChunk{
+			Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: outputID, BeginOfStream: true},
+		}, func(context.Context) string { return "workspace-1" })
+		lifecycle.observeOutput(context.Background(), &genx.MessageChunk{
+			Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: outputID, EndOfStream: true},
+		}, nil)
 	}
-	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-1", BeginOfStream: true}}
-	output := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "output-1", BeginOfStream: true}}
 
-	lifecycle.accepted()
-	lifecycle.eventStreamAccepted()
-	lifecycle.observeInput(event)
-	lifecycle.observeInput(event)
-	lifecycle.observeAgentInputOpen()
-	lifecycle.observeAgentInputPush(chunk)
-	lifecycle.observeAgentInputPush(chunk)
-	lifecycle.observeOutput(context.Background(), output, func(context.Context) string { return "workspace-1" })
-	lifecycle.observeOutput(context.Background(), output, nil)
-	lifecycle.finish("server_tunnel", errors.New("authorization: Bearer secret-provider-error"))
-	lifecycle.finish("server_tunnel", nil)
-
-	records := capturedLifecycleRecords(t, capture)
+	records := capturedTurnLifecycleRecords(t, capture)
 	wantStages := []string{
-		"session_accepted",
-		"event_stream_accepted",
-		"input_first_event",
-		"agent_input_opened",
-		"agent_input_first_push",
-		"output_first_event",
-		"terminal",
+		"turn_started", "input_first_event", "agent_input_first_push", "input_terminal",
+		"output_first_event", "output_terminal", "turn_terminal",
+		"turn_started", "input_first_event", "agent_input_first_push", "input_terminal",
+		"output_first_event", "output_terminal", "turn_terminal",
 	}
 	if len(records) != len(wantStages) {
 		t.Fatalf("records = %d, want %d", len(records), len(wantStages))
 	}
 	for i, record := range records {
 		attrs := lifecycleRecordAttrs(record)
-		if record.Message != peerStreamLifecycleMessage {
-			t.Fatalf("record[%d].Message = %q", i, record.Message)
-		}
 		if got := attrs["stage"]; got != wantStages[i] {
 			t.Errorf("record[%d].stage = %#v, want %q", i, got, wantStages[i])
+		}
+		wantTurn := uint64(i/7 + 1)
+		if got := attrs["turn_index"]; got != wantTurn {
+			t.Errorf("record[%d].turn_index = %#v, want %d", i, got, wantTurn)
 		}
 		if attrs["tunnel_session_id"] != "session-1" || attrs["peer_public_key"] != "peer-1" {
 			t.Errorf("record[%d] correlation = %#v", i, attrs)
 		}
-		if value, ok := attrs["stream_id_hash"]; ok {
-			if value != safeStreamIDHash(map[int]string{2: "input-1-secret", 4: "input-1", 5: "output-1"}[i]) {
-				t.Errorf("record[%d].stream_id_hash = %#v", i, value)
-			}
-		}
 		for key, value := range attrs {
 			switch value.(type) {
-			case string, int64, bool:
+			case string, int64, uint64, bool:
 			default:
 				t.Errorf("record[%d].%s has non-scalar value %T", i, key, value)
 			}
 		}
 	}
-	terminal := lifecycleRecordAttrs(records[len(records)-1])
-	for key, want := range map[string]any{
-		"result": "runtime_error", "reason": "internal_error", "last_stage": "output_first_event",
-		"input_event_observed": true, "agent_input_opened": true,
-		"agent_input_pushed": true, "output_event_observed": true,
-	} {
-		if got := terminal[key]; got != want {
-			t.Errorf("terminal.%s = %#v, want %#v", key, got, want)
-		}
-	}
 	for _, record := range records {
 		attrs := lifecycleRecordAttrs(record)
 		formatted := fmt.Sprint(attrs)
-		if strings.Contains(formatted, "secret-provider-error") || strings.Contains(formatted, "input-1-secret") {
+		if strings.Contains(formatted, "input-1-secret") || strings.Contains(formatted, "output-1-secret") {
 			t.Fatalf("lifecycle logs exposed raw untrusted data: %s", formatted)
 		}
+	}
+}
+
+func TestPeerStreamLifecycleKeepsLateOutputTerminalOnReplacedTurn(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-replace", "peer-replace")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-old"}})
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text("old"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
+	}, nil)
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text("new"), Ctrl: &genx.StreamCtrl{StreamID: "output-new", BeginOfStream: true},
+	}, nil)
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{
+			StreamID: "output-old", EndOfStream: true, Error: "interrupted", ErrorCode: "STREAM_INTERRUPTED",
+		},
+	}, nil)
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "output-new", EndOfStream: true},
+	}, nil)
+
+	var oldOutputTerminal, oldTurnTerminal, newOutputTerminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		switch {
+		case attrs["stage"] == "output_terminal" && attrs["turn_index"] == uint64(1):
+			oldOutputTerminal = attrs
+		case attrs["stage"] == "turn_terminal" && attrs["turn_index"] == uint64(1):
+			oldTurnTerminal = attrs
+		case attrs["stage"] == "output_terminal" && attrs["turn_index"] == uint64(2):
+			newOutputTerminal = attrs
+		}
+	}
+	if oldOutputTerminal["output_stream_id_hash"] != safeStreamIDHash("output-old") ||
+		oldOutputTerminal["reason"] != "expected_interruption" {
+		t.Fatalf("old output terminal = %#v", oldOutputTerminal)
+	}
+	if oldTurnTerminal["result"] != "replaced" || oldTurnTerminal["reason"] != "input_replaced" {
+		t.Fatalf("old turn terminal = %#v", oldTurnTerminal)
+	}
+	if newOutputTerminal["output_stream_id_hash"] != safeStreamIDHash("output-new") {
+		t.Fatalf("new output terminal = %#v", newOutputTerminal)
+	}
+}
+
+func TestPeerStreamLifecycleSecondTurnStallHasIndependentTerminal(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-stall", "peer-stall")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "first", nil))
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "first-output", EndOfStream: true}}, nil)
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "second", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "second"}})
+	lifecycle.finish("peer_input", io.EOF)
+
+	var terminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "turn_terminal" && attrs["turn_index"] == uint64(2) {
+			terminal = attrs
+		}
+	}
+	for key, want := range map[string]any{
+		"result": "closed", "reason": "stream_closed", "agent_input_pushed": true,
+		"output_event_observed": false, "output_terminal_observed": false,
+	} {
+		if got := terminal[key]; got != want {
+			t.Errorf("terminal.%s = %#v, want %#v; terminal=%#v", key, got, want, terminal)
+		}
+	}
+}
+
+func TestPeerStreamLifecycleStateAndRecordVolumeAreBounded(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-bounded", "peer-bounded")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-0", nil))
+	for range 100 {
+		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA, "input-0", nil))
+		lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-0"}})
+		lifecycle.observeOutput(t.Context(), &genx.MessageChunk{Part: genx.Text("delta"), Ctrl: &genx.StreamCtrl{StreamID: "output-0"}}, nil)
+	}
+	if got := len(capturedTurnLifecycleRecords(t, capture)); got != 4 {
+		t.Fatalf("records after repeated chunks = %d, want fixed four stages", got)
+	}
+	for index := 1; index <= peerStreamLifecycleMaxRetainedTurns+20; index++ {
+		inputID := fmt.Sprintf("input-%d", index)
+		outputID := fmt.Sprintf("output-%d", index)
+		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, inputID, nil))
+		lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+			Part: genx.Text("open"), Ctrl: &genx.StreamCtrl{StreamID: outputID, BeginOfStream: true},
+		}, nil)
+	}
+	lifecycle.mu.Lock()
+	defer lifecycle.mu.Unlock()
+	if len(lifecycle.turns) > peerStreamLifecycleMaxRetainedTurns ||
+		len(lifecycle.turnOrder) > peerStreamLifecycleMaxRetainedTurns ||
+		len(lifecycle.outputTurns) > peerStreamLifecycleMaxOutputRoutes ||
+		len(lifecycle.outputOrder) > peerStreamLifecycleMaxOutputRoutes {
+		t.Fatalf("retained state turns=%d order=%d routes=%d route_order=%d", len(lifecycle.turns), len(lifecycle.turnOrder), len(lifecycle.outputTurns), len(lifecycle.outputOrder))
 	}
 }
 
@@ -132,6 +211,33 @@ func TestPeerStreamLifecycleResultIsExhaustiveAndBounded(t *testing.T) {
 	}
 }
 
+func TestPeerStreamControlOutcomeUsesClosedValues(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		message    string
+		code       string
+		wantResult string
+		wantReason string
+	}{
+		{name: "completed", wantResult: "success", wantReason: "completed"},
+		{name: "interrupted", message: "interrupted", wantResult: "interrupted", wantReason: "expected_interruption"},
+		{name: "caller cancellation", code: "STREAM_CANCELED", wantResult: "canceled", wantReason: "caller_canceled"},
+		{name: "deadline", message: context.DeadlineExceeded.Error(), wantResult: "timeout", wantReason: "deadline_exceeded"},
+		{name: "closed", code: "STREAM_CLOSED", wantResult: "closed", wantReason: "stream_closed"},
+		{name: "runtime", message: "Bearer raw-provider-secret", code: "PROVIDER_FAILURE", wantResult: "runtime_error", wantReason: "internal_error"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, reason := peerStreamControlOutcome(test.message, test.code)
+			if result != test.wantResult || reason != test.wantReason {
+				t.Fatalf("peerStreamControlOutcome() = (%q, %q), want (%q, %q)", result, reason, test.wantResult, test.wantReason)
+			}
+			if strings.Contains(result+reason, "secret") {
+				t.Fatal("bounded outcome exposed raw error")
+			}
+		})
+	}
+}
+
 func TestPeerStreamLifecycleTerminalLocalizesZeroEvent(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-zero", "peer-zero")
@@ -155,6 +261,39 @@ func TestPeerStreamLifecycleTerminalLocalizesZeroEvent(t *testing.T) {
 			t.Errorf("terminal.%s = %#v, want %#v", key, got, want)
 		}
 	}
+}
+
+func peerInputEvent(eventType eventpb.PeerEventType, streamID string, eventErr *eventpb.EventError) *eventpb.PeerEvent {
+	if eventType == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
+		return &eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventType,
+			Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{StreamId: streamID}},
+		}
+	}
+	if eventType == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
+		return &eventpb.PeerEvent{
+			Version: eventpb.Version,
+			Type:    eventType,
+			Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{StreamId: streamID, Error: eventErr}},
+		}
+	}
+	return &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventType,
+		Payload: &eventpb.PeerEvent_TextDelta{TextDelta: &eventpb.TextDelta{StreamId: streamID}},
+	}
+}
+
+func capturedTurnLifecycleRecords(t *testing.T, capture *slogCapture) []slog.Record {
+	t.Helper()
+	var records []slog.Record
+	for _, record := range capturedLifecycleRecords(t, capture) {
+		if _, ok := lifecycleRecordAttrs(record)["turn_index"]; ok {
+			records = append(records, record)
+		}
+	}
+	return records
 }
 
 func capturedLifecycleRecords(t *testing.T, capture *slogCapture) []slog.Record {

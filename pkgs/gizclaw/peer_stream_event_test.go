@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -92,6 +93,43 @@ func TestPeerAgentOutputLifecycleLocalizesZeroOutput(t *testing.T) {
 	terminal := lifecycleRecordAttrs(records[0])
 	if terminal["component"] != "agent_output" || terminal["last_stage"] != "" || terminal["output_event_observed"] != false {
 		t.Fatalf("zero-output terminal = %#v", terminal)
+	}
+}
+
+func TestPeerAgentOutputLifecycleBoundsPerTurnChunkLogs(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-output", "peer-output")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-output", nil))
+	chunks := []*genx.MessageChunk{{
+		Part: genx.Text("begin"),
+		Ctrl: &genx.StreamCtrl{StreamID: "assistant-output", BeginOfStream: true},
+	}}
+	for range 100 {
+		chunks = append(chunks, &genx.MessageChunk{
+			Part: genx.Text("delta"), Ctrl: &genx.StreamCtrl{StreamID: "assistant-output"},
+		})
+	}
+	chunks = append(chunks, &genx.MessageChunk{
+		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "assistant-output", EndOfStream: true},
+	})
+	if err := (peerAgentOutput{Lifecycle: lifecycle}).ConsumeAgentOutput(
+		t.Context(),
+		&peerStreamSliceStream{chunks: chunks, doneErr: genx.ErrDone},
+	); err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+	var outputStages []string
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["component"] == "agent_output" {
+			outputStages = append(outputStages, attrs["stage"].(string))
+			if attrs["output_stream_id_hash"] != safeStreamIDHash("assistant-output") {
+				t.Fatalf("output lifecycle = %#v", attrs)
+			}
+		}
+	}
+	if !slices.Equal(outputStages, []string{"output_first_event", "output_terminal"}) {
+		t.Fatalf("output stages = %v, want one first and one terminal", outputStages)
 	}
 }
 

@@ -687,7 +687,6 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
 		}
-		h.streamLifecycle.observeInput(event)
 		authorized, err := h.authorizeChatroomEvent(context.Background(), event)
 		if err != nil {
 			return err
@@ -695,6 +694,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if !authorized {
 			continue
 		}
+		h.streamLifecycle.observeInput(event)
 		chunk, err := peerStreamEventToChunk(event)
 		if err != nil {
 			return err
@@ -824,6 +824,9 @@ func (h *PeerConn) abortAgentInputTurn(ctx context.Context) error {
 	err := h.agentInput.Push(ctx, agentInputInterruptChunk())
 	if errors.Is(err, agenthost.ErrNoActiveInput) {
 		return nil
+	}
+	if err == nil {
+		h.streamLifecycle.observeInterrupt()
 	}
 	return err
 }
