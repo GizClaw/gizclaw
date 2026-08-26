@@ -3,15 +3,202 @@ package memorystore
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/flowcraft/sdk/embedding"
 	"github.com/GizClaw/flowcraft/sdk/llm"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
+
+func TestRegistrySameBindingLogicalStoresConstructConcurrently(t *testing.T) {
+	request := managedTestRequest(t)
+	physical, err := openSharedBackend(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan string, 2)
+	release := make(chan struct{})
+	backend := &blockingRegistryBackend{
+		sharedBackend: physical,
+		entered:       entered,
+		release:       release,
+	}
+	registry := NewRegistry()
+	var opens atomic.Int32
+	registry.open = func(context.Context, Request) (sharedBackend, error) {
+		opens.Add(1)
+		return backend, nil
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+
+	type resolved struct {
+		result Result
+		err    error
+	}
+	results := make(chan resolved, 2)
+	resolve := func(workspace string) {
+		workspaceRequest := request
+		workspaceRequest.WorkspaceID = workspace
+		result, err := registry.Resolve(t.Context(), workspaceRequest)
+		results <- resolved{result: result, err: err}
+	}
+	go resolve("workspace-a")
+	wantEntered(t, entered, "workspace-a")
+	go resolve("workspace-b")
+	wantEntered(t, entered, "workspace-b")
+	close(release)
+
+	for range 2 {
+		resolved := <-results
+		if resolved.err != nil {
+			t.Fatal(resolved.err)
+		}
+		if err := resolved.result.Closer.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := opens.Load(); got != 1 {
+		t.Fatalf("physical backend opens = %d, want 1", got)
+	}
+	if got := backend.closes.Load(); got != 1 {
+		t.Fatalf("physical backend closes = %d, want 1", got)
+	}
+}
+
+func TestRegistryCloseWaitsForInFlightLogicalStore(t *testing.T) {
+	request := managedTestRequest(t)
+	physical, err := openSharedBackend(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan string, 1)
+	release := make(chan struct{})
+	backend := &blockingRegistryBackend{
+		sharedBackend: physical,
+		entered:       entered,
+		release:       release,
+		logicalClosed: make(chan struct{}),
+	}
+	registry := NewRegistry()
+	registry.open = func(context.Context, Request) (sharedBackend, error) {
+		return backend, nil
+	}
+	resolved := make(chan error, 1)
+	go func() {
+		_, err := registry.Resolve(t.Context(), request)
+		resolved <- err
+	}()
+	wantEntered(t, entered, request.WorkspaceID)
+
+	closed := make(chan error, 1)
+	go func() { closed <- registry.Close() }()
+	waitForRegistryClosing(t, registry)
+	select {
+	case err := <-closed:
+		t.Fatalf("Registry.Close() returned before the in-flight constructor left: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-resolved; !errors.Is(err, errRegistryEntryClosed) {
+		t.Fatalf("Resolve() error = %v, want %v", err, errRegistryEntryClosed)
+	}
+	if err := <-closed; err != nil {
+		t.Fatal(err)
+	}
+	if got := backend.closes.Load(); got != 1 {
+		t.Fatalf("physical backend closes = %d, want 1", got)
+	}
+	if backend.physicalClosedFirst.Load() {
+		t.Fatal("physical backend closed before the rejected logical Store")
+	}
+}
+
+func waitForRegistryClosing(t *testing.T, registry *Registry) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		registry.mu.Lock()
+		closing := len(registry.entries) == 0
+		registry.mu.Unlock()
+		if closing {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("Registry.Close() did not detach the active entry")
+}
+
+func wantEntered(t *testing.T, entered <-chan string, want string) {
+	t.Helper()
+	select {
+	case got := <-entered:
+		if got != want {
+			t.Fatalf("constructor entered for %q, want %q", got, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("constructor for %q did not enter while the other Workspace remained blocked", want)
+	}
+}
+
+type blockingRegistryBackend struct {
+	sharedBackend
+	entered             chan<- string
+	release             <-chan struct{}
+	logicalClosed       chan struct{}
+	closes              atomic.Int32
+	physicalClosedFirst atomic.Bool
+}
+
+func (backend *blockingRegistryBackend) NewStore(
+	ctx context.Context,
+	request Request,
+) (Result, io.Closer, error) {
+	select {
+	case backend.entered <- request.WorkspaceID:
+	case <-ctx.Done():
+		return Result{}, nil, ctx.Err()
+	}
+	select {
+	case <-backend.release:
+	case <-ctx.Done():
+		return Result{}, nil, ctx.Err()
+	}
+	result, closer, err := backend.sharedBackend.NewStore(ctx, request)
+	if err == nil && backend.logicalClosed != nil {
+		closer = &signalingCloser{Closer: closer, closed: backend.logicalClosed}
+	}
+	return result, closer, err
+}
+
+func (backend *blockingRegistryBackend) Close() error {
+	if backend.logicalClosed != nil {
+		select {
+		case <-backend.logicalClosed:
+		default:
+			backend.physicalClosedFirst.Store(true)
+		}
+	}
+	backend.closes.Add(1)
+	return backend.sharedBackend.Close()
+}
+
+type signalingCloser struct {
+	io.Closer
+	closed chan struct{}
+	once   sync.Once
+}
+
+func (closer *signalingCloser) Close() error {
+	err := closer.Closer.Close()
+	closer.once.Do(func() { close(closer.closed) })
+	return err
+}
 
 func TestRegistrySharesBindingUntilFinalRelease(t *testing.T) {
 	t.Parallel()

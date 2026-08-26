@@ -75,6 +75,7 @@ type sharedFlowcraftBackend struct {
 	index         retrieval.Index
 	indexCloser   io.Closer
 	local         *sharedLocalProjection
+	newStore      func(context.Context, memoryflowcraft.Config) (*memoryflowcraft.Store, error)
 
 	mu                  sync.Mutex
 	projectionSignature string
@@ -216,9 +217,6 @@ func retrievalDirectory(dir string) string {
 }
 
 func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Request) (Result, io.Closer, error) {
-	backend.mu.Lock()
-	defer backend.mu.Unlock()
-
 	policy := request.Layout.Spec.Flowcraft
 	config, err := flowcraftConfig(policy, request.ModelLoader)
 	if err != nil {
@@ -228,7 +226,9 @@ func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Req
 	if err != nil {
 		return Result{}, nil, err
 	}
-	if backend.local != nil && signature != backend.projectionSignature {
+
+	backend.mu.Lock()
+	if signature != backend.projectionSignature && backend.local != nil {
 		if err := backend.local.index.Rebuild(
 			ctx,
 			backend.local.dir,
@@ -238,11 +238,45 @@ func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Req
 			policy,
 			config,
 		); err != nil {
+			backend.mu.Unlock()
 			return Result{}, nil, err
 		}
 		backend.projectionSignature = signature
 	}
 
+	// A remote projection must be rebuilt from the newly configured logical
+	// Store. Keep this rare signature-changing path serialized, but let the
+	// normal unchanged-signature path construct independent Workspace Stores
+	// without holding the physical backend mutex.
+	if signature != backend.projectionSignature {
+		backend.configure(&config, policy)
+		store, err := backend.construct(ctx, config)
+		if err != nil {
+			backend.mu.Unlock()
+			return Result{}, nil, err
+		}
+		if err := rebuildAllScopes(ctx, store, backend.temporal); err != nil {
+			backend.mu.Unlock()
+			return Result{}, nil, errors.Join(err, store.Close())
+		}
+		backend.projectionSignature = signature
+		backend.mu.Unlock()
+		return flowcraftStoreResult(store), store, nil
+	}
+
+	backend.configure(&config, policy)
+	backend.mu.Unlock()
+	store, err := backend.construct(ctx, config)
+	if err != nil {
+		return Result{}, nil, err
+	}
+	return flowcraftStoreResult(store), store, nil
+}
+
+func (backend *sharedFlowcraftBackend) configure(
+	config *memoryflowcraft.Config,
+	policy apitypes.FlowcraftMemoryLayoutPolicy,
+) {
 	config.TemporalStore = backend.temporal
 	config.EvidenceStore = backend.evidence
 	config.SideEffectOutbox = backend.outbox
@@ -250,19 +284,22 @@ func (backend *sharedFlowcraftBackend) NewStore(ctx context.Context, request Req
 	if policy.Write.Mode == apitypes.FlowcraftMemoryWritePolicyModeAsyncSemantic {
 		config.AsyncQueue = backend.queue
 	}
-	store, err := memoryflowcraft.New(ctx, config)
-	if err != nil {
-		return Result{}, nil, err
+}
+
+func (backend *sharedFlowcraftBackend) construct(
+	ctx context.Context,
+	config memoryflowcraft.Config,
+) (*memoryflowcraft.Store, error) {
+	if backend.newStore != nil {
+		return backend.newStore(ctx, config)
 	}
-	if backend.local == nil && signature != backend.projectionSignature {
-		if err := rebuildAllScopes(ctx, store, backend.temporal); err != nil {
-			return Result{}, nil, errors.Join(err, store.Close())
-		}
-		backend.projectionSignature = signature
-	}
+	return memoryflowcraft.New(ctx, config)
+}
+
+func flowcraftStoreResult(store *memoryflowcraft.Store) Result {
 	return Result{
 		Store: store, Driver: string(apitypes.RuntimeProfileMemoryDriverFlowcraft),
-	}, store, nil
+	}
 }
 
 func (backend *sharedFlowcraftBackend) Close() error {
