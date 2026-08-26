@@ -47,7 +47,7 @@ func escape(mu *sync.Mutex) func() {
 	if len(records) != 4 {
 		t.Fatalf("inventory length = %d, want 4: %#v", len(records), records)
 	}
-	want := []string{"defer", "manual", "unresolved", "caller"}
+	want := []string{"defer", "manual", "caller", "caller"}
 	got := make([]string, 0, len(records))
 	for _, record := range records {
 		got = append(got, record.Release)
@@ -93,10 +93,11 @@ func TestValidateMutexScopeReviewFailsClosed(t *testing.T) {
 		t.Fatalf("valid review: %v", err)
 	}
 	tests := map[string][]mutexScopeRecord{
-		"duplicate":         {valid, valid},
-		"wildcard":          {func() mutexScopeRecord { copy := valid; copy.File = "*.go"; return copy }()},
-		"missing rationale": {func() mutexScopeRecord { copy := valid; copy.Rationale = ""; return copy }()},
-		"unresolved":        {func() mutexScopeRecord { copy := valid; copy.Classification = "unresolved"; return copy }()},
+		"duplicate":          {valid, valid},
+		"wildcard":           {func() mutexScopeRecord { copy := valid; copy.File = "*.go"; return copy }()},
+		"missing rationale":  {func() mutexScopeRecord { copy := valid; copy.Rationale = ""; return copy }()},
+		"unresolved":         {func() mutexScopeRecord { copy := valid; copy.Classification = "unresolved"; return copy }()},
+		"unresolved release": {func() mutexScopeRecord { copy := valid; copy.Release = "unresolved"; return copy }()},
 	}
 	for name, records := range tests {
 		t.Run(name, func(t *testing.T) {

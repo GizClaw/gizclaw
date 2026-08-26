@@ -153,6 +153,7 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 		}
 	}
 	parents := make(map[ast.Node]ast.Node)
+	functionReturnsUnlock := false
 	var stack []ast.Node
 	ast.Inspect(function.body, func(node ast.Node) bool {
 		if node == nil {
@@ -164,6 +165,11 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 		}
 		stack = append(stack, node)
 		call, ok := node.(*ast.CallExpr)
+		if statement, ok := node.(*ast.ReturnStmt); ok {
+			for _, result := range statement.Results {
+				functionReturnsUnlock = functionReturnsUnlock || isUnlockEscape(result)
+			}
+		}
 		if !ok {
 			return true
 		}
@@ -199,6 +205,23 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 				end = candidate.call.End()
 			}
 			break
+		}
+		if release == "unresolved" {
+			for previous := index - 1; previous >= 0; previous-- {
+				candidate := calls[previous]
+				if candidate.receiver != call.receiver || !matchingUnlock(call.method, candidate.method) {
+					continue
+				}
+				if candidate.deferred {
+					release = "defer"
+				} else {
+					release = "caller"
+				}
+				break
+			}
+		}
+		if release == "unresolved" && (functionReturnsUnlock || assignedToUnlock(parents[call.call], call.call) || returnedLockHelper(parents[call.call])) {
+			release = "caller"
 		}
 		startOffset := fileSet.Position(call.call.Pos()).Offset
 		endOffset := fileSet.Position(end).Offset
@@ -242,6 +265,26 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 		return true
 	})
 	return records, nil
+}
+
+func returnedLockHelper(parent ast.Node) bool {
+	_, ok := parent.(*ast.ReturnStmt)
+	return ok
+}
+
+func assignedToUnlock(parent ast.Node, call *ast.CallExpr) bool {
+	assignment, ok := parent.(*ast.AssignStmt)
+	if !ok {
+		return false
+	}
+	for index, expression := range assignment.Rhs {
+		if expression != call || index >= len(assignment.Lhs) {
+			continue
+		}
+		identifier, ok := assignment.Lhs[index].(*ast.Ident)
+		return ok && strings.Contains(strings.ToLower(identifier.Name), "unlock")
+	}
+	return false
 }
 
 func isUnlockEscape(expression ast.Expr) bool {
@@ -365,6 +408,9 @@ func validateMutexScopeReview(records []mutexScopeRecord) error {
 		previous = key
 		if record.Classification != "intentional" || strings.TrimSpace(record.Rationale) == "" {
 			return fmt.Errorf("mutexscope review line %d must contain an intentional classification and rationale", index+1)
+		}
+		if record.Release == "unresolved" {
+			return fmt.Errorf("mutexscope review line %d has unresolved lock ownership", index+1)
 		}
 		if strings.ContainsAny(record.File, "*?[") {
 			return fmt.Errorf("mutexscope review line %d contains a wildcard", index+1)
