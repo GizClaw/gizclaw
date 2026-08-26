@@ -5,7 +5,11 @@ package portaudio
 import (
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
+	"unsafe"
 )
 
 func TestNativeBackendNameAndDeviceQueries(t *testing.T) {
@@ -203,5 +207,74 @@ func TestNativeStreamGuardBranches(t *testing.T) {
 	}
 	if _, err := out.Write([]byte{0, 0}); err == nil {
 		t.Fatal("Write on closed output stream should fail")
+	}
+}
+
+func TestNativeStreamLifecycleCancelsBlockedReadBeforeHandleClose(t *testing.T) {
+	for _, lifecycle := range []string{"stop", "close"} {
+		t.Run(lifecycle, func(t *testing.T) {
+			entered := make(chan struct{})
+			release := make(chan struct{})
+			aborted := make(chan struct{})
+			var releaseOnce sync.Once
+			var active atomic.Bool
+			var freedWhileActive atomic.Bool
+			operations := &nativeStreamOperations{
+				read: func(unsafe.Pointer, unsafe.Pointer, int) int {
+					active.Store(true)
+					close(entered)
+					<-release
+					active.Store(false)
+					return 0
+				},
+				abort: func(unsafe.Pointer) int {
+					close(aborted)
+					releaseOnce.Do(func() { close(release) })
+					return 0
+				},
+				stop: func(unsafe.Pointer) int { return 0 },
+				close: func(unsafe.Pointer) int {
+					freedWhileActive.Store(active.Load())
+					return 0
+				},
+			}
+			handle := new(byte)
+			stream := &nativeStream{
+				stream: unsafe.Pointer(handle), direction: directionInput, frameSize: 2,
+				operations: operations,
+			}
+			readDone := make(chan error, 1)
+			go func() {
+				_, err := stream.Read(make([]byte, 2))
+				readDone <- err
+			}()
+			<-entered
+			lifecycleDone := make(chan error, 1)
+			go func() {
+				if lifecycle == "stop" {
+					lifecycleDone <- stream.Stop()
+					return
+				}
+				lifecycleDone <- stream.Close()
+			}()
+
+			select {
+			case <-aborted:
+			case <-time.After(time.Second):
+				releaseOnce.Do(func() { close(release) })
+				<-readDone
+				<-lifecycleDone
+				t.Fatalf("%s could not signal cancellation while native Read was blocked", lifecycle)
+			}
+			if err := <-readDone; err != nil {
+				t.Fatalf("Read() error = %v", err)
+			}
+			if err := <-lifecycleDone; err != nil {
+				t.Fatalf("%s error = %v", lifecycle, err)
+			}
+			if freedWhileActive.Load() {
+				t.Fatal("native handle was closed while Read still used it")
+			}
+		})
 	}
 }

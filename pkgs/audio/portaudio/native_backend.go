@@ -8,6 +8,7 @@ package portaudio
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -175,7 +176,11 @@ func buildPaStreamParameters(direction streamDirection, cfg StreamConfig) (*C.Pa
 }
 
 type nativeStream struct {
-	mu sync.Mutex
+	lifecycleMu sync.Mutex
+	mu          sync.Mutex
+	cond        *sync.Cond
+	activeIO    int
+	draining    bool
 
 	stream     unsafe.Pointer
 	direction  streamDirection
@@ -214,10 +219,15 @@ func (s *nativeStream) ops() nativeStreamOperations {
 }
 
 func (s *nativeStream) Start() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed || s.stream == nil {
 		return fmt.Errorf("portaudio: stream is closed")
+	}
+	if s.activeIO != 0 || s.draining {
+		return errors.New("portaudio: stream I/O is active")
 	}
 	if code := s.ops().start(s.stream); code != int(C.paNoError) {
 		return paErr(C.PaError(code), "start stream")
@@ -226,33 +236,71 @@ func (s *nativeStream) Start() error {
 }
 
 func (s *nativeStream) Stop() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed || s.stream == nil {
+		s.mu.Unlock()
 		return nil
 	}
-	if code := s.ops().stop(s.stream); code != int(C.paNoError) {
-		return paErr(C.PaError(code), "stop stream")
+	s.draining = true
+	stream := s.stream
+	operations := s.ops()
+	active := s.activeIO
+	s.mu.Unlock()
+
+	operation := "stop stream"
+	code := 0
+	if active > 0 {
+		operation = "abort stream"
+		code = operations.abort(stream)
+	} else {
+		code = operations.stop(stream)
+	}
+	s.mu.Lock()
+	s.waitForIOLocked()
+	s.draining = false
+	s.mu.Unlock()
+	if code != int(C.paNoError) {
+		return paErr(C.PaError(code), operation)
 	}
 	return nil
 }
 
 func (s *nativeStream) Close() error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed {
+		s.mu.Unlock()
 		return nil
 	}
 	s.closed = true
+	s.draining = true
 	if s.stream == nil {
+		s.mu.Unlock()
 		return nil
 	}
-	code := s.ops().close(s.stream)
-	s.stream = nil
-	if code != int(C.paNoError) {
-		return paErr(C.PaError(code), "close stream")
+	stream := s.stream
+	operations := s.ops()
+	active := s.activeIO
+	s.mu.Unlock()
+
+	var abortErr error
+	if active > 0 {
+		if code := operations.abort(stream); code != int(C.paNoError) {
+			abortErr = paErr(C.PaError(code), "abort stream")
+		}
 	}
-	return nil
+	s.mu.Lock()
+	s.waitForIOLocked()
+	s.stream = nil
+	s.mu.Unlock()
+	code := operations.close(stream)
+	if code != int(C.paNoError) {
+		return errors.Join(abortErr, paErr(C.PaError(code), "close stream"))
+	}
+	return abortErr
 }
 
 func (s *nativeStream) Read(p []byte) (int, error) {
@@ -263,14 +311,13 @@ func (s *nativeStream) Read(p []byte) (int, error) {
 		return 0, fmt.Errorf("portaudio: read called on output stream")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed || s.stream == nil {
-		return 0, fmt.Errorf("portaudio: stream is closed")
+	stream, operations, err := s.beginIO()
+	if err != nil {
+		return 0, err
 	}
-
+	defer s.endIO()
 	frames := len(p) / s.frameSize
-	if code := s.ops().read(s.stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
+	if code := operations.read(stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
 		return 0, paErr(C.PaError(code), "read stream")
 	}
 	return frames * s.frameSize, nil
@@ -284,17 +331,47 @@ func (s *nativeStream) Write(p []byte) (int, error) {
 		return 0, fmt.Errorf("portaudio: write called on input stream")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed || s.stream == nil {
-		return 0, fmt.Errorf("portaudio: stream is closed")
+	stream, operations, err := s.beginIO()
+	if err != nil {
+		return 0, err
 	}
-
+	defer s.endIO()
 	frames := len(p) / s.frameSize
-	if code := s.ops().write(s.stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
+	if code := operations.write(stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
 		return 0, paErr(C.PaError(code), "write stream")
 	}
 	return frames * s.frameSize, nil
+}
+
+func (s *nativeStream) beginIO() (unsafe.Pointer, nativeStreamOperations, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed || s.stream == nil {
+		return nil, nativeStreamOperations{}, errors.New("portaudio: stream is closed")
+	}
+	if s.draining {
+		return nil, nativeStreamOperations{}, errors.New("portaudio: stream is stopping")
+	}
+	s.activeIO++
+	return s.stream, s.ops(), nil
+}
+
+func (s *nativeStream) endIO() {
+	s.mu.Lock()
+	s.activeIO--
+	if s.cond != nil {
+		s.cond.Broadcast()
+	}
+	s.mu.Unlock()
+}
+
+func (s *nativeStream) waitForIOLocked() {
+	if s.cond == nil {
+		s.cond = sync.NewCond(&s.mu)
+	}
+	for s.activeIO > 0 {
+		s.cond.Wait()
+	}
 }
 
 func paErr(code C.PaError, op string) error {
