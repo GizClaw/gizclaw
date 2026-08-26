@@ -1541,6 +1541,56 @@ func TestBindOwnerProfileAndCommitRestoresPreviousBinding(t *testing.T) {
 	}
 }
 
+func TestBindOwnerProfileDoesNotBlockIndependentOwnerAndProfile(t *testing.T) {
+	server := &Server{Store: kv.NewMemory(nil)}
+	createProfile(t, server, "profile-a", nil)
+	createProfile(t, server, "profile-b", nil)
+	firstEntered := make(chan struct{})
+	firstRelease := make(chan struct{})
+	firstDone := make(chan error, 1)
+	go func() {
+		firstDone <- server.BindOwnerProfileAndCommit(t.Context(), "peer-a", "profile-a", func() error {
+			close(firstEntered)
+			<-firstRelease
+			return nil
+		})
+	}()
+	<-firstEntered
+
+	sameDone := make(chan error, 1)
+	go func() {
+		_, err := server.ResolveOwnerProfile(t.Context(), "peer-a")
+		sameDone <- err
+	}()
+	secondDone := make(chan error, 1)
+	go func() {
+		secondDone <- server.BindOwnerProfile(t.Context(), "peer-b", "profile-b")
+	}()
+	select {
+	case err := <-secondDone:
+		if err != nil {
+			t.Fatalf("independent BindOwnerProfile() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		close(firstRelease)
+		t.Fatal("independent owner/profile binding could not commit while first owner callback was blocked")
+	}
+	select {
+	case err := <-sameDone:
+		close(firstRelease)
+		t.Fatalf("same-owner ResolveOwnerProfile completed before commit: %v", err)
+	default:
+	}
+
+	close(firstRelease)
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first BindOwnerProfileAndCommit() error = %v", err)
+	}
+	if err := <-sameDone; err != nil {
+		t.Fatalf("same-owner ResolveOwnerProfile() error = %v", err)
+	}
+}
+
 func TestBindOwnerProfileAndCommitRestoresBindingAfterRequestCancellation(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}

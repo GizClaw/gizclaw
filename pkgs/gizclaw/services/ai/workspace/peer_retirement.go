@@ -25,8 +25,11 @@ func (s *Server) SnapshotPeerWorkspaces(ctx context.Context, publicKey string, p
 	if publicKey == "" || publicKey != strings.TrimSpace(publicKey) {
 		return PeerRetirementSnapshot{}, errors.New("workspace: Peer public key is required and must be canonical")
 	}
-	s.createMu.Lock()
-	defer s.createMu.Unlock()
+	release, err := s.ownerCreateLocks.Acquire(ctx, publicKey)
+	if err != nil {
+		return PeerRetirementSnapshot{}, err
+	}
+	defer release()
 	store, err := s.store()
 	if err != nil {
 		return PeerRetirementSnapshot{}, err

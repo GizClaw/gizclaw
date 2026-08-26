@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -36,9 +36,14 @@ type Config struct {
 
 // Store adapts Mem0's fact-centric remote API to Store.
 type Store struct {
-	config   Config
-	client   *mem0Client
-	directMu sync.Mutex
+	config      Config
+	client      *mem0Client
+	directLocks keyedlock.Locker[directObservationKey]
+}
+
+type directObservationKey struct {
+	scope         scope
+	observationID string
 }
 
 const (
@@ -180,8 +185,11 @@ func (s *Store) observeDirectFact(ctx context.Context, scope scope, observation 
 	if err != nil {
 		return observeResult{}, err
 	}
-	s.directMu.Lock()
-	defer s.directMu.Unlock()
+	release, err := s.directLocks.Acquire(ctx, directObservationKey{scope: scope, observationID: observation.ID})
+	if err != nil {
+		return observeResult{}, err
+	}
+	defer release()
 	if existing, found, err := s.findDirectObservation(ctx, scope, observation.ID, digest); err != nil {
 		return observeResult{}, err
 	} else if found {

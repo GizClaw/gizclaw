@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -41,6 +42,91 @@ func TestCreatePeerWorkspaceRequiresOwnerAndRollsBackInitializerFailure(t *testi
 		t.Fatalf("failed initializer Workspace lookup error = %v, want not found", err)
 	}
 }
+
+func TestCreatePeerWorkspaceDoesNotBlockIndependentOwner(t *testing.T) {
+	server := newTestServer(t)
+	seedWorkflow(t, server, "workflow-1")
+	server.RuntimeStore = concurrentRuntimeStore{}
+	ownerA := ownership.WithOwner(t.Context(), "peer-a")
+	ownerB := ownership.WithOwner(t.Context(), "peer-b")
+	firstEntered := make(chan struct{})
+	firstRelease := make(chan struct{})
+
+	type createResult struct {
+		workspace apitypes.Workspace
+		err       error
+	}
+	firstDone := make(chan createResult, 1)
+	go func() {
+		workspace, err := server.createPeerWorkspace(ownerA, PeerWorkspaceCreateRequest{
+			Name: "first-workspace", WorkflowID: "workflow-1",
+			Initialize: func(context.Context, Runtime) error {
+				close(firstEntered)
+				<-firstRelease
+				return nil
+			},
+		}, "workspace-a")
+		firstDone <- createResult{workspace: workspace, err: err}
+	}()
+	<-firstEntered
+
+	snapshotDone := make(chan struct {
+		snapshot PeerRetirementSnapshot
+		err      error
+	}, 1)
+	go func() {
+		snapshot, err := server.SnapshotPeerWorkspaces(ownerA, "peer-a", nil)
+		snapshotDone <- struct {
+			snapshot PeerRetirementSnapshot
+			err      error
+		}{snapshot: snapshot, err: err}
+	}()
+	secondDone := make(chan createResult, 1)
+	go func() {
+		workspace, err := server.createPeerWorkspace(ownerB, PeerWorkspaceCreateRequest{
+			Name: "second-workspace", WorkflowID: "workflow-1",
+		}, "workspace-b")
+		secondDone <- createResult{workspace: workspace, err: err}
+	}()
+
+	select {
+	case got := <-secondDone:
+		if got.err != nil || got.workspace.Id != "workspace-b" {
+			t.Fatalf("independent create = %#v, %v", got.workspace, got.err)
+		}
+	case <-time.After(time.Second):
+		close(firstRelease)
+		t.Fatal("independent owner could not create a Workspace while first owner initializer was blocked")
+	}
+	select {
+	case got := <-snapshotDone:
+		close(firstRelease)
+		t.Fatalf("same-owner retirement snapshot completed before admitted create: %#v", got)
+	default:
+	}
+
+	close(firstRelease)
+	first := <-firstDone
+	if first.err != nil || first.workspace.Id != "workspace-a" {
+		t.Fatalf("first create = %#v, %v", first.workspace, first.err)
+	}
+	snapshot := <-snapshotDone
+	if snapshot.err != nil || len(snapshot.snapshot.Workspaces) != 1 || snapshot.snapshot.Workspaces[0].ID != "workspace-a" {
+		t.Fatalf("retirement snapshot = %#v, %v", snapshot.snapshot, snapshot.err)
+	}
+}
+
+type concurrentRuntimeStore struct{}
+
+func (concurrentRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {
+	return Runtime{ObjectPrefix: ObjectPrefix(workspace)}, nil
+}
+
+func (concurrentRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspace string) (Runtime, error) {
+	return Runtime{ObjectPrefix: ObjectPrefix(workspace)}, nil
+}
+
+func (concurrentRuntimeStore) DeleteWorkspaceRuntime(context.Context, string) error { return nil }
 
 type createWorkspaceRequestObject struct {
 	Body *adminhttp.WorkspaceUpsert

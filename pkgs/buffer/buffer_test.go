@@ -373,3 +373,44 @@ func TestBuffer_DoubleCloseWithError(t *testing.T) {
 		t.Fatalf("Error() = %v, want %v", buf.Error(), err1)
 	}
 }
+
+func TestBufferRemoveIfAllowsPredicateReentry(t *testing.T) {
+	buf := N[int](3)
+	for _, value := range []int{1, 2} {
+		if err := buf.Add(value); err != nil {
+			t.Fatalf("Add(%d) error = %v", value, err)
+		}
+	}
+
+	type result struct {
+		removed int
+		addErr  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		var addErr error
+		removed := buf.RemoveIf(func(value int) bool {
+			if value == 1 {
+				addErr = buf.Add(3)
+			}
+			return value == 1
+		})
+		done <- result{removed: removed, addErr: addErr}
+	}()
+
+	select {
+	case got := <-done:
+		if got.addErr != nil {
+			t.Fatalf("predicate Add() error = %v", got.addErr)
+		}
+		if got.removed != 1 {
+			t.Fatalf("RemoveIf() = %d, want 1", got.removed)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("RemoveIf predicate could not re-enter Add")
+	}
+
+	if got := buf.Bytes(); len(got) != 2 || got[0] != 2 || got[1] != 3 {
+		t.Fatalf("Bytes() = %v, want [2 3]", got)
+	}
+}

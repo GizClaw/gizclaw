@@ -8,7 +8,6 @@ import (
 	"maps"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -21,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
@@ -66,7 +66,7 @@ type Server struct {
 	PeerAvailability func(context.Context, string) error
 	DeletionFencer   WorkspaceDeletionFencer
 
-	createMu sync.Mutex
+	ownerCreateLocks keyedlock.Locker[string]
 }
 
 // WorkspaceDeletionFencer serializes authoritative PendingDeletion marker
@@ -435,8 +435,16 @@ func (s *Server) createWorkspaceRecord(
 	system bool,
 	initialize func(context.Context, Runtime) error,
 ) (apitypes.Workspace, error) {
-	s.createMu.Lock()
-	defer s.createMu.Unlock()
+	owner := optionalWorkspaceOwner(ctx)
+	ownerKey := ""
+	if owner != nil {
+		ownerKey = *owner
+	}
+	release, err := s.ownerCreateLocks.Acquire(ctx, ownerKey)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	defer release()
 	if err := s.ensureContextPeerAvailable(ctx); err != nil {
 		return apitypes.Workspace{}, err
 	}
@@ -445,7 +453,7 @@ func (s *Server) createWorkspaceRecord(
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return apitypes.Workspace{}, err
 	}
-	nameKey := workspaceScopeNameKey(optionalWorkspaceOwner(ctx), normalized.Name)
+	nameKey := workspaceScopeNameKey(owner, normalized.Name)
 	if _, err := store.Get(ctx, nameKey); err == nil {
 		return apitypes.Workspace{}, fmt.Errorf("%w: %q", errWorkspaceNameExists, normalized.Name)
 	} else if !errors.Is(err, kv.ErrNotFound) {

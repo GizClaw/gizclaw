@@ -9,6 +9,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -18,6 +19,8 @@ import (
 type Registry struct {
 	mu      sync.Mutex
 	entries map[string]*registryEntry
+	epoch   uint64
+	gates   keyedlock.Locker[string]
 }
 
 type registryEntry struct {
@@ -40,26 +43,31 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	if err != nil {
 		return Result{}, err
 	}
+	release, err := registry.gates.Acquire(ctx, key)
+	if err != nil {
+		return Result{}, err
+	}
+	defer release()
+
 	registry.mu.Lock()
-	defer registry.mu.Unlock()
 	if registry.entries == nil {
 		registry.entries = make(map[string]*registryEntry)
 	}
+	epoch := registry.epoch
 	entry := registry.entries[key]
+	registry.mu.Unlock()
+	created := false
 	if entry == nil {
 		backend, err := openSharedBackend(ctx, request)
 		if err != nil {
 			return Result{}, err
 		}
 		entry = &registryEntry{backend: backend}
-		registry.entries[key] = entry
+		created = true
 	}
 	result, logicalCloser, err := entry.backend.NewStore(ctx, request)
 	if err != nil {
-		if entry.refs == 0 {
-			delete(registry.entries, key)
-			_ = entry.backend.Close()
-		}
+		registry.discardUnused(key, entry, created)
 		return Result{}, err
 	}
 	bound, err := memory.BindApp(result.Store, request.WorkspaceID)
@@ -67,13 +75,35 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 		if logicalCloser != nil {
 			_ = logicalCloser.Close()
 		}
-		if entry.refs == 0 {
-			delete(registry.entries, key)
-			_ = entry.backend.Close()
-		}
+		registry.discardUnused(key, entry, created)
 		return Result{}, fmt.Errorf("memory store: bind Workspace scope: %w", err)
 	}
+	registry.mu.Lock()
+	if registry.epoch != epoch {
+		registry.mu.Unlock()
+		if logicalCloser != nil {
+			_ = logicalCloser.Close()
+		}
+		if created {
+			_ = entry.backend.Close()
+		}
+		return Result{}, errors.New("memory store: registry changed during resolve")
+	}
+	current := registry.entries[key]
+	if current == nil && created {
+		registry.entries[key] = entry
+	} else if current != entry {
+		registry.mu.Unlock()
+		if logicalCloser != nil {
+			_ = logicalCloser.Close()
+		}
+		if created {
+			_ = entry.backend.Close()
+		}
+		return Result{}, errors.New("memory store: binding changed during resolve")
+	}
 	entry.refs++
+	registry.mu.Unlock()
 	result.Store = bound
 	result.Closer = &registryLease{
 		registry: registry,
@@ -82,6 +112,23 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 		logical:  logicalCloser,
 	}
 	return result, nil
+}
+
+func (registry *Registry) discardUnused(key string, entry *registryEntry, created bool) {
+	if created {
+		_ = entry.backend.Close()
+		return
+	}
+	var backend sharedBackend
+	registry.mu.Lock()
+	if registry.entries[key] == entry && entry.refs == 0 {
+		delete(registry.entries, key)
+		backend = entry.backend
+	}
+	registry.mu.Unlock()
+	if backend != nil {
+		_ = backend.Close()
+	}
 }
 
 func registryKey(request Request) (string, error) {
@@ -123,6 +170,8 @@ func (lease *registryLease) Close() error {
 		if lease.registry == nil || lease.entry == nil {
 			return
 		}
+		release, _ := lease.registry.gates.Acquire(context.Background(), lease.key)
+		defer release()
 		if lease.logical != nil {
 			lease.err = lease.logical.Close()
 		}
@@ -150,12 +199,15 @@ func (registry *Registry) Close() error {
 	registry.mu.Lock()
 	entries := registry.entries
 	registry.entries = make(map[string]*registryEntry)
+	registry.epoch++
 	registry.mu.Unlock()
 	var result error
-	for _, entry := range entries {
+	for key, entry := range entries {
+		release, _ := registry.gates.Acquire(context.Background(), key)
 		if entry != nil && entry.backend != nil {
 			result = errors.Join(result, entry.backend.Close())
 		}
+		release()
 	}
 	return result
 }

@@ -87,6 +87,59 @@ func TestOutputDiscardAndPullObservation(t *testing.T) {
 	}
 }
 
+func TestOutputDiscardAllowsPredicateReentry(t *testing.T) {
+	output := NewOutput(OutputConfig{})
+	for _, text := range []string{"one", "two"} {
+		if err := output.Push(&genx.MessageChunk{Part: genx.Text(text)}); err != nil {
+			t.Fatalf("Push(%q) error = %v", text, err)
+		}
+	}
+
+	type result struct {
+		removed int
+		pushErr error
+	}
+	done := make(chan result, 1)
+	go func() {
+		var pushErr error
+		removed := output.Discard(func(chunk *genx.MessageChunk) bool {
+			if chunk.Part == genx.Text("one") {
+				pushErr = output.Push(&genx.MessageChunk{Part: genx.Text("three")})
+			}
+			return chunk.Part == genx.Text("one")
+		})
+		done <- result{removed: removed, pushErr: pushErr}
+	}()
+
+	select {
+	case got := <-done:
+		if got.pushErr != nil {
+			t.Fatalf("predicate Push() error = %v", got.pushErr)
+		}
+		if got.removed != 1 {
+			t.Fatalf("Discard() = %d, want 1", got.removed)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Discard predicate could not re-enter Push")
+	}
+
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	for _, want := range []genx.Text{"two", "three"} {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		if got := chunk.Part.(genx.Text); got != want {
+			t.Fatalf("Next() text = %q, want %q", got, want)
+		}
+	}
+	if _, err := output.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("Next() terminal error = %v, want EOF", err)
+	}
+}
+
 func TestOutputWaitForObserversCoversDequeuedChunk(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})

@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -71,9 +72,10 @@ type ListResult struct {
 type Server struct {
 	Store kv.Store
 
-	mu     sync.Mutex
-	now    func() time.Time
-	random io.Reader
+	ownerLocks keyedlock.Locker[string]
+	randomMu   sync.Mutex
+	now        func() time.Time
+	random     io.Reader
 }
 
 // NewServer creates an API key service over store.
@@ -94,19 +96,18 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		return Created{}, err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	release, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return Created{}, err
+	}
+	defer release()
 	if _, err := s.Store.Get(ctx, retiredKey(owner)); err == nil {
 		return Created{}, ErrOwnerRetired
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return Created{}, err
 	}
 	for range 8 {
-		nameRandom, err := randomText(s.random, 16)
-		if err != nil {
-			return Created{}, err
-		}
-		secretRandom, err := randomText(s.random, 32)
+		nameRandom, secretRandom, err := s.randomParts()
 		if err != nil {
 			return Created{}, err
 		}
@@ -195,8 +196,11 @@ func (s *Server) ListOwner(ctx context.Context, owner, cursor string, limit int)
 	if limit > maxListLimit {
 		limit = maxListLimit
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	release, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return ListResult{}, err
+	}
+	defer release()
 	var items []Key
 	for entry, err := range s.Store.List(ctx, ownerPrefix(owner)) {
 		if err != nil {
@@ -275,8 +279,11 @@ func (s *Server) CleanupPeer(ctx context.Context, owner string) error {
 	if err := validateOwner(owner); err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	release, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return err
+	}
+	defer release()
 	var deletes []kv.Key
 	for entry, err := range s.Store.List(ctx, ownerPrefix(owner)) {
 		if err != nil {
@@ -298,8 +305,11 @@ func (s *Server) CleanupPeer(ctx context.Context, owner string) error {
 }
 
 func (s *Server) revoke(ctx context.Context, owner, name string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	release, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return err
+	}
+	defer release()
 	item, err := s.load(ctx, name)
 	if err != nil {
 		return err
@@ -308,6 +318,20 @@ func (s *Server) revoke(ctx context.Context, owner, name string) error {
 		return ErrNotFound
 	}
 	return s.Store.BatchDelete(ctx, []kv.Key{recordKey(name), secretKey(item.APIKey), ownerKey(owner, name)})
+}
+
+func (s *Server) randomParts() (string, string, error) {
+	s.randomMu.Lock()
+	defer s.randomMu.Unlock()
+	name, err := randomText(s.random, 16)
+	if err != nil {
+		return "", "", err
+	}
+	secret, err := randomText(s.random, 32)
+	if err != nil {
+		return "", "", err
+	}
+	return name, secret, nil
 }
 
 func (s *Server) load(ctx context.Context, name string) (Key, error) {

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -35,7 +35,7 @@ type Server struct {
 	ServerPublicKey giznet.PublicKey
 	ServerEndpoint  string
 
-	mu sync.Mutex
+	assignmentLocks keyedlock.Locker[giznet.PublicKey]
 }
 
 func (s *Server) Lookup(ctx context.Context, publicKey giznet.PublicKey) (apitypes.PeerAssignment, error) {
@@ -63,8 +63,11 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 		return apitypes.PeerAssignment{}, err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	release, err := s.assignmentLocks.Acquire(ctx, target)
+	if err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
+	defer release()
 
 	current, err := s.get(ctx, target)
 	if err != nil {
@@ -102,8 +105,11 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 		return apitypes.PeerAssignment{}, err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	release, err := s.assignmentLocks.Acquire(ctx, publicKey)
+	if err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
+	defer release()
 
 	current, err := s.get(ctx, publicKey)
 	switch {

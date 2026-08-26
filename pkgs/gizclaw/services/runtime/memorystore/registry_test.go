@@ -3,9 +3,11 @@ package memorystore
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/flowcraft/sdk/embedding"
 	"github.com/GizClaw/flowcraft/sdk/llm"
@@ -100,6 +102,126 @@ func TestRegistryConcurrentResolveConstructsOneStore(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistryResolveDoesNotBlockIndependentBinding(t *testing.T) {
+	registry := NewRegistry()
+	firstRequest := managedTestRequest(t)
+	secondRequest := managedTestRequest(t)
+	secondRequest.BindingName = "other-memory"
+
+	firstKey, err := registryKey(firstRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondKey, err := registryKey(secondRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRelease := make(chan struct{})
+	firstBackend := &blockingRegistryBackend{
+		entered: make(chan int, 2),
+		release: firstRelease,
+	}
+	secondBackend := &blockingRegistryBackend{entered: make(chan int, 1)}
+	registry.entries[firstKey] = &registryEntry{backend: firstBackend}
+	registry.entries[secondKey] = &registryEntry{backend: secondBackend}
+
+	type resolveResult struct {
+		result Result
+		err    error
+	}
+	firstDone := make(chan resolveResult, 1)
+	go func() {
+		result, err := registry.Resolve(t.Context(), firstRequest)
+		firstDone <- resolveResult{result: result, err: err}
+	}()
+	if call := <-firstBackend.entered; call != 1 {
+		t.Fatalf("first backend call = %d, want 1", call)
+	}
+
+	sameDone := make(chan resolveResult, 1)
+	go func() {
+		result, err := registry.Resolve(t.Context(), firstRequest)
+		sameDone <- resolveResult{result: result, err: err}
+	}()
+	secondDone := make(chan resolveResult, 1)
+	go func() {
+		result, err := registry.Resolve(t.Context(), secondRequest)
+		secondDone <- resolveResult{result: result, err: err}
+	}()
+
+	select {
+	case call := <-secondBackend.entered:
+		if call != 1 {
+			t.Fatalf("second backend call = %d, want 1", call)
+		}
+	case <-time.After(time.Second):
+		close(firstRelease)
+		t.Fatal("independent binding could not enter NewStore while first binding was blocked")
+	}
+	select {
+	case call := <-firstBackend.entered:
+		close(firstRelease)
+		t.Fatalf("same binding entered concurrent NewStore call %d", call)
+	default:
+	}
+
+	close(firstRelease)
+	for name, done := range map[string]<-chan resolveResult{
+		"first": firstDone,
+		"same":  sameDone,
+		"other": secondDone,
+	} {
+		got := <-done
+		if got.err != nil {
+			t.Fatalf("%s Resolve() error = %v", name, got.err)
+		}
+		if err := got.result.Closer.Close(); err != nil {
+			t.Fatalf("%s Close() error = %v", name, err)
+		}
+	}
+	if call := <-firstBackend.entered; call != 2 {
+		t.Fatalf("second same-binding backend call = %d, want 2", call)
+	}
+}
+
+type blockingRegistryBackend struct {
+	entered chan int
+	release <-chan struct{}
+
+	mu    sync.Mutex
+	calls int
+}
+
+func (backend *blockingRegistryBackend) NewStore(context.Context, Request) (Result, io.Closer, error) {
+	backend.mu.Lock()
+	backend.calls++
+	call := backend.calls
+	backend.mu.Unlock()
+	backend.entered <- call
+	if call == 1 && backend.release != nil {
+		<-backend.release
+	}
+	return Result{Store: registryNoopStore{}, Driver: "test"}, nil, nil
+}
+
+func (*blockingRegistryBackend) Close() error { return nil }
+
+type registryNoopStore struct{}
+
+func (registryNoopStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
+	return memory.ObserveResult{}, nil
+}
+
+func (registryNoopStore) Recall(context.Context, memory.Query) (memory.RecallResult, error) {
+	return memory.RecallResult{}, nil
+}
+
+func (registryNoopStore) Update(context.Context, memory.UpdateRequest) (memory.Fact, error) {
+	return memory.Fact{}, nil
+}
+
+func (registryNoopStore) Delete(context.Context, memory.DeleteRequest) error { return nil }
 
 func TestRegistryIdentityIncludesPhysicalConnection(t *testing.T) {
 	t.Parallel()

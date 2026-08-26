@@ -402,6 +402,74 @@ func TestPutAndDeleteContactAreSerialized(t *testing.T) {
 	}
 }
 
+func TestPutContactDoesNotBlockIndependentOwner(t *testing.T) {
+	s := newTestServer()
+	first, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{
+		Name: "alice001", DisplayName: new("Alice"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.CreateContact(t.Context(), "peer-b", rpcapi.ContactCreateRequest{
+		Name: "bob001", DisplayName: new("Bob"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstID, err := s.resolveContactName(t.Context(), "peer-a", first.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked := &blockingContactGetStore{
+		Store:   s.Store,
+		key:     socialutil.ContactKey("peer-a", firstID).String(),
+		reached: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	s.Store = blocked
+
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := s.PutContact(t.Context(), "peer-a", rpcapi.ContactPutRequest{Name: first.Name, DisplayName: new("Alice Updated")})
+		firstDone <- err
+	}()
+	<-blocked.reached
+	sameDone := make(chan error, 1)
+	go func() {
+		_, err := s.DeleteContact(t.Context(), "peer-a", rpcapi.ContactDeleteRequest{Name: first.Name})
+		sameDone <- err
+	}()
+	secondDone := make(chan error, 1)
+	go func() {
+		_, err := s.PutContact(t.Context(), "peer-b", rpcapi.ContactPutRequest{Name: second.Name, DisplayName: new("Bob Updated")})
+		secondDone <- err
+	}()
+
+	select {
+	case err := <-secondDone:
+		if err != nil {
+			t.Fatalf("independent PutContact() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		close(blocked.release)
+		t.Fatal("independent Contact owner could not complete Put while first owner Store.Get was blocked")
+	}
+	select {
+	case <-blocked.reached:
+		close(blocked.release)
+		t.Fatal("same owner entered a second Contact mutation before first release")
+	default:
+	}
+
+	close(blocked.release)
+	if err := <-firstDone; err != nil {
+		t.Fatalf("first PutContact() error = %v", err)
+	}
+	if err := <-sameDone; err != nil {
+		t.Fatalf("same-owner DeleteContact() error = %v", err)
+	}
+}
+
 func TestContactMutationsRejectUnavailableOwner(t *testing.T) {
 	blocked := false
 	s := &Server{

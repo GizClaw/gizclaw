@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -46,7 +46,10 @@ type Server struct {
 	Store           kv.Store
 	Now             func() time.Time
 	ResolveResource func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
-	mutationMu      sync.Mutex
+	ownerLocks      keyedlock.Locker[string]
+	profileLocks    keyedlock.Locker[string]
+	tokenLocks      keyedlock.Locker[string]
+	tokenHashLocks  keyedlock.Locker[string]
 }
 
 type AdminService interface {
@@ -114,8 +117,16 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileID
 	if err := customid.ValidateResourceID(profileID); err != nil {
 		return fmt.Errorf("runtime profile id: %w", err)
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	releaseOwner, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return err
+	}
+	defer releaseOwner()
+	releaseProfile, err := s.profileLocks.Acquire(ctx, profileID)
+	if err != nil {
+		return err
+	}
+	defer releaseProfile()
 	if _, err := s.ResolveProfile(ctx, profileID); err != nil {
 		return err
 	}
@@ -162,12 +173,20 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 	if owner == "" {
 		return apitypes.RuntimeProfile{}, errors.New("runtime profile owner is required")
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	releaseOwner, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	defer releaseOwner()
 	profileID, err := store.Get(ctx, ownerProfileKey(owner))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
+	releaseProfile, err := s.profileLocks.Acquire(ctx, string(profileID))
+	if err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
+	defer releaseProfile()
 	profile, err := getProfileByID(ctx, store, string(profileID))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
@@ -189,8 +208,11 @@ func (s *Server) DeleteOwnerProfileBinding(ctx context.Context, owner string) er
 	if err := publicKey.UnmarshalText([]byte(owner)); err != nil || publicKey.IsZero() || publicKey.String() != owner {
 		return errors.New("runtime profile owner must be a canonical public key")
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return err
+	}
+	defer release()
 	key := ownerProfileKey(owner)
 	if err := store.Delete(ctx, key); err != nil {
 		return err
@@ -272,8 +294,11 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	if err := s.validateResources(ctx, item.Spec); err != nil {
 		return adminhttp.CreateRuntimeProfile400JSONResponse(invalid(err.Error())), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.profileLocks.Acquire(ctx, item.Id)
+	if err != nil {
+		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	defer release()
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = now, now
 	if err := setProfileRevision(&item); err != nil {
@@ -331,8 +356,11 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	if err := s.validateResources(ctx, item.Spec); err != nil {
 		return adminhttp.PutRuntimeProfile400JSONResponse(invalid(err.Error())), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.profileLocks.Acquire(ctx, id)
+	if err != nil {
+		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	defer release()
 	previous, getErr := getProfileByID(ctx, store, id)
 	if errors.Is(getErr, kv.ErrNotFound) {
 		return adminhttp.PutRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
@@ -357,8 +385,11 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 	if err != nil {
 		return nil, err
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.profileLocks.Acquire(ctx, id)
+	if err != nil {
+		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	defer release()
 	item, err := getProfileByID(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.DeleteRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
@@ -401,15 +432,28 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 		}
 		return adminhttp.CreateRegistrationToken400JSONResponse(invalid(err.Error())), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	releaseToken, err := s.tokenLocks.Acquire(ctx, item.Id)
+	if err != nil {
+		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseToken()
+	releaseProfile, err := s.profileLocks.Acquire(ctx, item.RuntimeProfileId)
+	if err != nil {
+		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseProfile()
+	digest := tokenDigest(item.Token)
+	releaseHash, err := s.tokenHashLocks.Acquire(ctx, digest)
+	if err != nil {
+		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseHash()
 	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
 		}
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	digest := tokenDigest(item.Token)
 	if existing, err := store.Get(ctx, tokenHashKey(digest)); err == nil {
 		return adminhttp.CreateRegistrationToken409JSONResponse(conflict(fmt.Sprintf("token is already used by registration token %q", string(existing)))), nil
 	} else if !errors.Is(err, kv.ErrNotFound) {
@@ -456,8 +500,11 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 		}
 		return adminhttp.PutRegistrationToken400JSONResponse(invalid(err.Error())), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	releaseToken, err := s.tokenLocks.Acquire(ctx, id)
+	if err != nil {
+		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseToken()
 	previous, getErr := getRegistrationTokenByID(ctx, store, id)
 	if errors.Is(getErr, kv.ErrNotFound) {
 		return adminhttp.PutRegistrationToken404JSONResponse(notFound("registration token", id)), nil
@@ -465,13 +512,24 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 	if getErr != nil {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(getErr)), nil
 	}
+	releaseProfile, err := s.profileLocks.Acquire(ctx, item.RuntimeProfileId)
+	if err != nil {
+		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseProfile()
+	digest := tokenDigest(item.Token)
+	previousDigest := tokenDigest(previous.Token)
+	releaseHashes, err := s.acquireTokenHashes(ctx, digest, previousDigest)
+	if err != nil {
+		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseHashes()
 	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return adminhttp.PutRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
 		}
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	digest := tokenDigest(item.Token)
 	if existing, err := store.Get(ctx, tokenHashKey(digest)); err == nil && string(existing) != id {
 		return adminhttp.PutRegistrationToken409JSONResponse(conflict(fmt.Sprintf("token is already used by registration token %q", string(existing)))), nil
 	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
@@ -484,7 +542,6 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	deletes := make([]kv.Key, 0, 1)
-	previousDigest := tokenDigest(previous.Token)
 	if previousDigest != digest {
 		deletes = append(deletes, tokenHashKey(previousDigest))
 	}
@@ -530,8 +587,11 @@ func (s *Server) DeleteRegistrationToken(ctx context.Context, request adminhttp.
 	if err != nil {
 		return nil, err
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	releaseToken, err := s.tokenLocks.Acquire(ctx, id)
+	if err != nil {
+		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseToken()
 	item, err := getRegistrationTokenByID(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.DeleteRegistrationToken404JSONResponse(notFound("registration token", id)), nil
@@ -539,10 +599,36 @@ func (s *Server) DeleteRegistrationToken(ctx context.Context, request adminhttp.
 	if err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
+	releaseHash, err := s.tokenHashLocks.Acquire(ctx, tokenDigest(item.Token))
+	if err != nil {
+		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
+	}
+	defer releaseHash()
 	if err := store.BatchDelete(ctx, []kv.Key{tokenKey(id), tokenHashKey(tokenDigest(item.Token))}); err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRegistrationToken200JSONResponse(item), nil
+}
+
+func (s *Server) acquireTokenHashes(ctx context.Context, digests ...string) (func(), error) {
+	slices.Sort(digests)
+	digests = slices.Compact(digests)
+	releases := make([]func(), 0, len(digests))
+	for _, digest := range digests {
+		release, err := s.tokenHashLocks.Acquire(ctx, digest)
+		if err != nil {
+			for index := len(releases) - 1; index >= 0; index-- {
+				releases[index]()
+			}
+			return nil, err
+		}
+		releases = append(releases, release)
+	}
+	return func() {
+		for index := len(releases) - 1; index >= 0; index-- {
+			releases[index]()
+		}
+	}, nil
 }
 
 func GetProfile(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {

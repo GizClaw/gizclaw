@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -197,6 +198,95 @@ func TestConcurrentCleanupDoesNotResurrectAPIKey(t *testing.T) {
 			t.Fatalf("Authenticate(concurrently created) error = %v", err)
 		}
 	}
+}
+
+func TestCreateDoesNotBlockIndependentOwner(t *testing.T) {
+	ownerA := testOwner(t)
+	ownerB := testOwner(t)
+	store := &blockingAPIKeyGetStore{
+		Store:   kv.NewMemory(nil),
+		key:     retiredKey(ownerA).String(),
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	server := NewServer(store)
+
+	type createResult struct {
+		created Created
+		err     error
+	}
+	firstDone := make(chan createResult, 1)
+	go func() {
+		created, err := server.Create(t.Context(), ownerA, "first", false)
+		firstDone <- createResult{created: created, err: err}
+	}()
+	<-store.entered
+	sameDone := make(chan createResult, 1)
+	go func() {
+		created, err := server.Create(t.Context(), ownerA, "same owner", false)
+		sameDone <- createResult{created: created, err: err}
+	}()
+	secondDone := make(chan createResult, 1)
+	go func() {
+		created, err := server.Create(t.Context(), ownerB, "other owner", false)
+		secondDone <- createResult{created: created, err: err}
+	}()
+
+	select {
+	case got := <-secondDone:
+		if got.err != nil || got.created.Key.Owner != ownerB {
+			t.Fatalf("independent Create() = %#v, %v", got.created, got.err)
+		}
+	case <-time.After(time.Second):
+		close(store.release)
+		t.Fatal("independent owner could not create an API key while first owner Store.Get was blocked")
+	}
+	store.mu.Lock()
+	ownerCalls := store.calls
+	store.mu.Unlock()
+	if ownerCalls != 1 {
+		close(store.release)
+		t.Fatalf("same owner reached retired marker %d times before release, want 1", ownerCalls)
+	}
+
+	close(store.release)
+	for name, done := range map[string]<-chan createResult{"first": firstDone, "same": sameDone} {
+		got := <-done
+		if got.err != nil || got.created.Key.Owner != ownerA {
+			t.Fatalf("%s Create() = %#v, %v", name, got.created, got.err)
+		}
+	}
+}
+
+type blockingAPIKeyGetStore struct {
+	kv.Store
+	key     string
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+	mu      sync.Mutex
+	calls   int
+}
+
+func (store *blockingAPIKeyGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if key.String() == store.key {
+		store.mu.Lock()
+		store.calls++
+		store.mu.Unlock()
+		store.once.Do(func() {
+			close(store.entered)
+			<-store.release
+		})
+	}
+	return store.Store.Get(ctx, key)
+}
+
+func (store *blockingAPIKeyGetStore) CreateIfAllAbsent(
+	ctx context.Context,
+	guards []kv.Entry,
+	entries []kv.Entry,
+) (kv.Key, []byte, bool, error) {
+	return kv.CreateIfAllAbsent(ctx, store.Store, guards, entries)
 }
 
 func TestConcurrentListCreateAndRevokeIsConsistent(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -27,8 +27,8 @@ const (
 )
 
 type Server struct {
-	Store      kv.Store
-	mutationMu sync.Mutex
+	Store         kv.Store
+	mutationLocks keyedlock.Locker[string]
 }
 
 type MemoryLayoutAdminService interface {
@@ -87,8 +87,11 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.mutationLocks.Acquire(ctx, item.Id)
+	if err != nil {
+		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	defer release()
 	_, created, err := kv.CreateIfAbsent(ctx, s.Store, kv.Entry{Key: layoutKey(item.Id), Value: raw}, nil)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -132,8 +135,11 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return nil, err
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.mutationLocks.Acquire(ctx, id)
+	if err != nil {
+		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	defer release()
 	previousRaw, err := s.Store.Get(ctx, layoutKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.PutMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
@@ -166,8 +172,11 @@ func (s *Server) DeleteMemoryLayout(ctx context.Context, request adminhttp.Delet
 	if s == nil || s.Store == nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
 	}
-	s.mutationMu.Lock()
-	defer s.mutationMu.Unlock()
+	release, err := s.mutationLocks.Acquire(ctx, id)
+	if err != nil {
+		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	defer release()
 	raw, err := s.Store.Get(ctx, layoutKey(id))
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.DeleteMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
