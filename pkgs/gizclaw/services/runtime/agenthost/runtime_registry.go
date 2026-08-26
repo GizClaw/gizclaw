@@ -30,6 +30,7 @@ func NewRuntimeRegistry() *RuntimeRegistry {
 type workspaceConstruction struct {
 	done        chan struct{}
 	invalidated bool
+	signaled    bool
 }
 
 type workspaceRuntime struct {
@@ -292,9 +293,6 @@ func (replacement *preparedAgentReplacement) Release() {
 		}
 	}
 	replacement.mu.Unlock()
-	if uncommitted {
-		registry.finishConstruction(key, construction)
-	}
 	if lease != nil {
 		lease()
 	}
@@ -303,6 +301,9 @@ func (replacement *preparedAgentReplacement) Release() {
 	}
 	if releaseWorkspace != nil {
 		releaseWorkspace()
+	}
+	if uncommitted {
+		registry.finishConstruction(key, construction)
 	}
 }
 
@@ -508,7 +509,10 @@ func (r *RuntimeRegistry) finishConstructionLocked(key string, construction *wor
 		return
 	}
 	delete(r.constructions, key)
-	close(construction.done)
+	if !construction.signaled {
+		construction.signaled = true
+		close(construction.done)
+	}
 }
 
 func releaseConstructedWorkspace(current *workspaceRuntime) {
@@ -603,6 +607,10 @@ func (r *RuntimeRegistry) Quiesce(workspaceID string) {
 	key := runtimeKey(workspaceID)
 	if construction := r.constructions[key]; construction != nil {
 		construction.invalidated = true
+		if !construction.signaled {
+			construction.signaled = true
+			close(construction.done)
+		}
 	}
 	current := r.runtimes[key]
 	if current != nil {

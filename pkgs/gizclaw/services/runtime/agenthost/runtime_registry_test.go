@@ -120,6 +120,49 @@ func TestRuntimeRegistryCanceledWaiterDoesNotCancelWorkspaceConstruction(t *test
 	}
 }
 
+func TestRuntimeRegistryReleasesWorkspaceBeforeSignalingAbandonedConstruction(t *testing.T) {
+	t.Parallel()
+	spec := Spec{Workspace: apitypes.Workspace{Id: "workspace-a", Name: "demo"}, AgentType: "shared"}
+	coordinator := newBlockingReleaseCoordinator()
+	host := New(fakeResolver{spec: spec})
+	host.Coordinator = coordinator
+	if err := host.Register("shared", agentFactoryFunc(func(context.Context, Spec) (Agent, error) {
+		return &pointerTestAgent{Agent: NewTransformerAgent(passthroughTransformer{})}, nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := host.PrepareReloadAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	constructionDone := first.construction.done
+	releaseDone := make(chan struct{})
+	go func() {
+		first.Release()
+		close(releaseDone)
+	}()
+	<-coordinator.releaseStarted
+	select {
+	case <-constructionDone:
+		t.Fatal("construction was signaled before its workspace lease was released")
+	default:
+	}
+	close(coordinator.allowFirstRelease)
+	<-releaseDone
+	select {
+	case <-constructionDone:
+	case <-time.After(time.Second):
+		t.Fatal("construction was not signaled after its workspace lease was released")
+	}
+
+	second, err := host.PrepareReloadAgent(t.Context(), "demo")
+	if err != nil {
+		t.Fatalf("prepare after abandoned construction: %v", err)
+	}
+	second.Release()
+}
+
 func TestRuntimeRegistryPropagatesQuiesceToConstructionWaiters(t *testing.T) {
 	t.Parallel()
 	spec := Spec{Workspace: apitypes.Workspace{Id: "workspace-a", Name: "demo"}, AgentType: "shared"}
@@ -160,16 +203,77 @@ func TestRuntimeRegistryPropagatesQuiesceToConstructionWaiters(t *testing.T) {
 	if err := host.QuiesceWorkspace(t.Context(), "workspace-a"); err != nil {
 		t.Fatal(err)
 	}
+	select {
+	case err := <-waiterResult:
+		if !errors.Is(err, errWorkspaceQuiesced) {
+			t.Fatalf("waitForWorkspaceConstruction() error = %v, want %v", err, errWorkspaceQuiesced)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Quiesce did not wake the construction waiter")
+	}
+	select {
+	case err := <-ownerResult:
+		t.Fatalf("constructor returned before factory release: %v", err)
+	default:
+	}
 	close(releaseFactory)
 	if err := <-ownerResult; !errors.Is(err, errWorkspaceQuiesced) {
 		t.Fatalf("OpenAgent() error = %v, want %v", err, errWorkspaceQuiesced)
 	}
-	if err := <-waiterResult; !errors.Is(err, errWorkspaceQuiesced) {
-		t.Fatalf("waitForWorkspaceConstruction() error = %v, want %v", err, errWorkspaceQuiesced)
-	}
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("factory call count = %d, want 1", got)
 	}
+}
+
+type blockingReleaseCoordinator struct {
+	mu                sync.Mutex
+	active            bool
+	releaseCalls      atomic.Int32
+	releaseStarted    chan struct{}
+	allowFirstRelease chan struct{}
+}
+
+func newBlockingReleaseCoordinator() *blockingReleaseCoordinator {
+	return &blockingReleaseCoordinator{
+		releaseStarted:    make(chan struct{}),
+		allowFirstRelease: make(chan struct{}),
+	}
+}
+
+func (c *blockingReleaseCoordinator) Acquire(ctx context.Context, workspace string) (Lease, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.active {
+		return nil, ErrWorkspaceBusy
+	}
+	c.active = true
+	return &blockingReleaseLease{coordinator: c, workspace: workspace}, nil
+}
+
+type blockingReleaseLease struct {
+	coordinator *blockingReleaseCoordinator
+	workspace   string
+	once        sync.Once
+}
+
+func (l *blockingReleaseLease) Workspace() string { return l.workspace }
+
+func (l *blockingReleaseLease) Token() string { return "blocking-release" }
+
+func (l *blockingReleaseLease) Release(context.Context) error {
+	l.once.Do(func() {
+		if l.coordinator.releaseCalls.Add(1) == 1 {
+			close(l.coordinator.releaseStarted)
+			<-l.coordinator.allowFirstRelease
+		}
+		l.coordinator.mu.Lock()
+		l.coordinator.active = false
+		l.coordinator.mu.Unlock()
+	})
+	return nil
 }
 
 func TestRuntimeRegistrySerializesPreparedReplacementsUntilCommit(t *testing.T) {
