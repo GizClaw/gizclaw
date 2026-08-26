@@ -24,3 +24,9 @@ See the [Events Reference](/references/events) for event types, fields, directio
 Downlink audio has no raw Direct Opus branch. `MixerOutput` owns one decoder and PCM track per `(StreamID, canonical MIME)` key. MIME EOS closes only the matching track, while control-only EOS closes every track on that route. Normal EOS uses `CloseWrite` to drain buffered PCM; error EOS uses `CloseWithError` to discard the matching track buffer.
 
 `peerAgentOutput` observes those source boundaries only after `MixerOutput` has drained the corresponding track. It emits one logical mixed-audio epoch: the first active source emits `BOS(kind=AUDIO)`, overlapping source boundaries are suppressed, and only removal of the last active source emits `EOS(kind=AUDIO)`. A route-level interruption removes only that route. The aggregate boundary keeps the first source's stream ID and label, sets sequence to zero, and leaves MIME empty because the connection has one fixed Opus downlink channel. Source MIME remains private decoder metadata and never describes the mixed wire channel.
+
+For an Edge-routed Peer, `peerAgentOutput` records the first observed Agent
+output chunk with the tunnel correlation context, safely resolved Workspace,
+and stable hash of the untrusted stream identifier. When the connection-scoped output consumer ends, it
+emits one bounded terminal lifecycle record. Raw provider errors remain in the
+product error path and are never copied into lifecycle logs.

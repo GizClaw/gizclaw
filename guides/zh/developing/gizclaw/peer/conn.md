@@ -72,3 +72,9 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。
 
 `PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期，因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
+
+经 Edge 路由的 connection 会由 `PeerConn` 持有 accepted tunnel lifecycle context。它依次
+记录 mandatory Event Stream 接受、首个已解码 Peer input event、Agent input 打开，以及首次
+成功推送 Agent input；每个 transition 只记录一次。Server terminal snapshot 会标明这些
+transition 是否发生，从而区分 zero-event timeout 与 Agent input 已开始后的故障。Peer
+input owner 还会输出一条带自身 last stage 和有界 result 的 terminal record。

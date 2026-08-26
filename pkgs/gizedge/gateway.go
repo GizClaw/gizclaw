@@ -430,7 +430,7 @@ func (g *Gateway) handleClient(client giznet.Conn, admission *gatewayAdmission) 
 		if entry == nil {
 			break
 		}
-		logical, retry := g.openLogicalSession(establishCtx, client, admission, entry)
+		logical, sessionID, retry := g.openLogicalSession(establishCtx, client, admission, entry)
 		if logical != nil {
 			if attempt > 0 {
 				slog.InfoContext(g.ctx, "gateway logical session alternate succeeded",
@@ -438,7 +438,7 @@ func (g *Gateway) handleClient(client giznet.Conn, admission *gatewayAdmission) 
 					"attempt", attempt+1,
 				)
 			}
-			g.bridgeLogicalSession(client, logical)
+			g.bridgeLogicalSession(client, logical, entry.id, sessionID)
 			return
 		}
 		if !retry || attempt+1 >= gatewaySessionMaxAttempts || establishCtx.Err() != nil {
@@ -464,17 +464,26 @@ func (g *Gateway) openLogicalSession(
 	client giznet.Conn,
 	admission *gatewayAdmission,
 	entry *gatewayUpstream,
-) (*giztunnel.Conn, bool) {
+) (*giztunnel.Conn, string, bool) {
 	if entry == nil || entry.router == nil {
-		return nil, false
+		return nil, "", false
 	}
 	sessionID, err := giztunnel.NewSessionID()
 	if err != nil {
-		return nil, false
+		return nil, "", false
 	}
 	handshakeCtx, cancelHandshake, completeHandshakeBudget := boundedAttemptContext(
 		ctx,
 		gatewaySessionHandshakeTimeout,
+	)
+	handshakeStarted := time.Now()
+	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+		"component", "edge_gateway",
+		"stage", "session_establishing",
+		"result", "success",
+		"tunnel_session_id", sessionID.String(),
+		"peer_public_key", client.PublicKey().String(),
+		"entry_id", entry.id,
 	)
 	logical, err := entry.router.Dial(
 		handshakeCtx,
@@ -486,13 +495,34 @@ func (g *Gateway) openLogicalSession(
 	)
 	cancelHandshake()
 	if err != nil {
+		reason := preSessionHandshakeFailureCategory(err, completeHandshakeBudget)
 		slog.InfoContext(g.ctx, "gateway logical session establishment failed",
 			"entry_id", entry.id,
-			"reason", preSessionHandshakeFailureCategory(err, completeHandshakeBudget),
+			"reason", reason,
 		)
-		return nil, g.classifySessionHandshakeFailure(ctx, entry, err, completeHandshakeBudget)
+		slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+			"component", "edge_gateway",
+			"stage", "terminal",
+			"result", gatewaySessionEstablishmentResult(err, completeHandshakeBudget),
+			"reason", reason,
+			"last_stage", "session_establishing",
+			"duration_ms", time.Since(handshakeStarted).Milliseconds(),
+			"tunnel_session_id", sessionID.String(),
+			"peer_public_key", client.PublicKey().String(),
+			"entry_id", entry.id,
+		)
+		return nil, sessionID.String(), g.classifySessionHandshakeFailure(ctx, entry, err, completeHandshakeBudget)
 	}
-	return logical, false
+	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+		"component", "edge_gateway",
+		"stage", "session_accepted",
+		"result", "success",
+		"tunnel_session_id", sessionID.String(),
+		"peer_public_key", client.PublicKey().String(),
+		"entry_id", entry.id,
+		"duration_ms", time.Since(handshakeStarted).Milliseconds(),
+	)
+	return logical, sessionID.String(), false
 }
 
 func preSessionHandshakeFailureCategory(err error, completeBudget bool) string {
@@ -566,7 +596,16 @@ func isPreAcceptHandshakeTimeout(err error) bool {
 	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
-func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Conn) {
+func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Conn, entryID uint64, sessionID string) {
+	started := time.Now()
+	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+		"component", "edge_gateway",
+		"stage", "bridge_started",
+		"result", "success",
+		"tunnel_session_id", sessionID,
+		"peer_public_key", client.PublicKey().String(),
+		"entry_id", entryID,
+	)
 	session := &gatewaySession{client: client, logical: logical}
 	g.addSession(session)
 	defer g.removeSession(session)
@@ -574,8 +613,47 @@ func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Co
 	go g.enforceIdle(session, done)
 	err := giztunnel.Bridge(client, logical)
 	close(done)
-	if err != nil && !errors.Is(err, context.Canceled) {
-		return
+	result, reason := gatewayBridgeLifecycleResult(err)
+	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+		"component", "edge_gateway",
+		"stage", "terminal",
+		"result", result,
+		"reason", reason,
+		"last_stage", "bridge_started",
+		"duration_ms", time.Since(started).Milliseconds(),
+		"tunnel_session_id", sessionID,
+		"peer_public_key", client.PublicKey().String(),
+		"entry_id", entryID,
+	)
+}
+
+const peerStreamLifecycleMessage = "gizclaw: peer stream lifecycle"
+
+func gatewayBridgeLifecycleResult(err error) (string, string) {
+	switch {
+	case err == nil:
+		return "success", "completed"
+	case errors.Is(err, context.Canceled):
+		return "canceled", "context_canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout", "deadline_exceeded"
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.ErrClosedPipe), errors.Is(err, giznet.ErrConnClosed):
+		return "closed", "transport_closed"
+	default:
+		return "transport_error", "bridge_error"
+	}
+}
+
+func gatewaySessionEstablishmentResult(err error, completeBudget bool) string {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.Is(err, context.DeadlineExceeded), completeBudget && isPreAcceptHandshakeTimeout(err):
+		return "timeout"
+	case isPreAcceptStreamClose(err), errors.Is(err, giznet.ErrConnClosed):
+		return "closed"
+	default:
+		return "transport_error"
 	}
 }
 

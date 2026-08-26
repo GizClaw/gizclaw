@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +38,61 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"google.golang.org/protobuf/proto"
 )
+
+func TestPeerConnLifecycleRecordsInputAndClosedTerminal(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-1", "peer-1")
+	lifecycle.eventStreamAccepted()
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{agentInput: input, streamLifecycle: lifecycle}
+	serverSide, clientSide := net.Pipe()
+	done := make(chan error, 1)
+	go func() { done <- peer.readEventStream(serverSide) }()
+
+	const untrustedStreamID = "turn-secret-Bearer-credential"
+	if err := writePeerStreamEvent(clientSide, &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_BOS,
+		Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{
+			StreamId: untrustedStreamID,
+			Kind:     eventpb.StreamKind_STREAM_KIND_TEXT,
+		}},
+	}); err != nil {
+		t.Fatalf("writePeerStreamEvent() error = %v", err)
+	}
+	select {
+	case <-input.pushed:
+	case <-time.After(time.Second):
+		t.Fatal("Peer input did not reach the Agent input pusher")
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("clientSide.Close() error = %v", err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("readEventStream() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("readEventStream did not stop after peer close")
+	}
+
+	records := capturedLifecycleRecords(t, capture)
+	if len(records) != 3 {
+		t.Fatalf("lifecycle records = %d, want accept, first input, and terminal", len(records))
+	}
+	inputAttrs := lifecycleRecordAttrs(records[1])
+	if inputAttrs["stage"] != "input_first_event" || inputAttrs["stream_id_hash"] != safeStreamIDHash(untrustedStreamID) {
+		t.Fatalf("input lifecycle record = %#v", inputAttrs)
+	}
+	if strings.Contains(fmt.Sprint(inputAttrs), untrustedStreamID) {
+		t.Fatalf("input lifecycle record exposed raw stream ID: %#v", inputAttrs)
+	}
+	terminal := lifecycleRecordAttrs(records[2])
+	if terminal["component"] != "peer_input" || terminal["result"] != "closed" || terminal["last_stage"] != "input_first_event" || terminal["input_event_observed"] != true {
+		t.Fatalf("Peer input terminal = %#v", terminal)
+	}
+}
 
 func TestPeerConnRetireDetachesOnlyItsActiveConnection(t *testing.T) {
 	key := giznet.PublicKey{44}

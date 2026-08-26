@@ -2,10 +2,45 @@ package gizclaw
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func TestPeerRealtimeSourceRecordsFirstOpenAndPushOnce(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-1", "peer-1")
+	source := newPeerRealtimeSourceWithLifecycle(lifecycle, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(second) error = %v", err)
+	}
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "untrusted-stream-secret", BeginOfStream: true}}
+	if err := source.Push(t.Context(), chunk); err != nil {
+		t.Fatalf("Push(first) error = %v", err)
+	}
+	if err := source.Push(t.Context(), chunk); err != nil {
+		t.Fatalf("Push(second) error = %v", err)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	records := capturedLifecycleRecords(t, capture)
+	if len(records) != 2 {
+		t.Fatalf("lifecycle records = %d, want one open and one push", len(records))
+	}
+	if attrs := lifecycleRecordAttrs(records[0]); attrs["stage"] != "agent_input_opened" {
+		t.Fatalf("first lifecycle record = %#v", attrs)
+	}
+	attrs := lifecycleRecordAttrs(records[1])
+	if attrs["stage"] != "agent_input_first_push" || attrs["stream_id_hash"] != safeStreamIDHash("untrusted-stream-secret") {
+		t.Fatalf("second lifecycle record = %#v", attrs)
+	}
+}
 
 func TestPeerRealtimeSourceBindsDirectOpusToActiveAudioStream(t *testing.T) {
 	ctx := context.Background()

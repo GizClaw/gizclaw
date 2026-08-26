@@ -261,3 +261,30 @@ configuration alone would not.
 3. Keep safe correlation data in logs and only low-cardinality dimensions in metrics.
 4. Put generic HTTP measurement in `pkgs/gizmetrics/httpmetrics`, GizClaw product fields in `pkgs/gizclaw/internal/observability`, and GenX or WebRTC measurements in their owner packages.
 5. Test success, client/server errors, cancellation, panic, streaming, backend failure, redaction, and the no-store path without changing response or lifecycle behavior.
+
+## Edge-routed Peer stream lifecycle
+
+`gizclaw: peer stream lifecycle` correlates one Edge-routed logical Peer from
+gateway admission through Server input and Agent output. Edge and Server use the
+same `tunnel_session_id`; the authenticated logical identity is recorded as
+`peer_public_key`. `component`, `stage`, `result`, `reason`, `last_stage`, and
+`duration_ms` are bounded scalar attributes. A terminal Server record also
+contains the booleans `input_event_observed`, `agent_input_opened`,
+`agent_input_pushed`, and `output_event_observed`, so a zero-event failure can be
+localized without host journal access.
+
+Lifecycle stages are emitted once per logical session, not per packet, chunk,
+or text delta. `workspace_name` appears only after safe parsing. Untrusted stream
+identifiers are represented only by a stable 128-bit `stream_id_hash`; raw
+`stream_id` values are never logged. The hash contract trims leading and trailing
+Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the
+first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty
+normalized IDs are omitted. It performs no case folding or Unicode normalization
+and uses no salt or HMAC key. For example, `stream-42` maps to
+`0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids
+accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are
+dictionary-testable, so producers must not put credentials or secrets in stream IDs.
+Session, Peer, Workspace, and stream identifiers remain log-only dimensions and
+must never become metric labels. Lifecycle records must not contain remote
+addresses, payloads, audio, prompts, conversation events, SDP, ICE candidate
+bodies, credentials, raw provider errors, or panic values.

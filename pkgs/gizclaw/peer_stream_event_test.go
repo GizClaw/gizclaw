@@ -42,6 +42,59 @@ func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPeerAgentOutputLifecycleRecordsFirstOutputAndTerminal(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-1", "peer-1")
+	const untrustedStreamID = "output-secret-Bearer-credential"
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
+		{Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: untrustedStreamID, BeginOfStream: true}},
+		{Part: genx.Text("world"), Ctrl: &genx.StreamCtrl{StreamID: untrustedStreamID}},
+	}, doneErr: genx.ErrDone}
+	if err := (peerAgentOutput{
+		Lifecycle: lifecycle,
+		WorkspaceName: func(context.Context) string {
+			return "workspace-1"
+		},
+	}).ConsumeAgentOutput(t.Context(), output); err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+
+	records := capturedLifecycleRecords(t, capture)
+	if len(records) != 2 {
+		t.Fatalf("lifecycle records = %d, want first output and terminal", len(records))
+	}
+	first := lifecycleRecordAttrs(records[0])
+	if first["stage"] != "output_first_event" || first["workspace_name"] != "workspace-1" || first["stream_id_hash"] != safeStreamIDHash(untrustedStreamID) {
+		t.Fatalf("first output lifecycle = %#v", first)
+	}
+	if strings.Contains(fmt.Sprint(first), untrustedStreamID) {
+		t.Fatalf("first output lifecycle exposed raw stream ID: %#v", first)
+	}
+	terminal := lifecycleRecordAttrs(records[1])
+	if terminal["component"] != "agent_output" || terminal["result"] != "success" || terminal["last_stage"] != "output_first_event" || terminal["output_event_observed"] != true {
+		t.Fatalf("Agent output terminal = %#v", terminal)
+	}
+}
+
+func TestPeerAgentOutputLifecycleLocalizesZeroOutput(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-zero", "peer-zero")
+	if err := (peerAgentOutput{Lifecycle: lifecycle}).ConsumeAgentOutput(
+		t.Context(),
+		&peerStreamSliceStream{doneErr: genx.ErrDone},
+	); err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+	records := capturedLifecycleRecords(t, capture)
+	if len(records) != 1 {
+		t.Fatalf("lifecycle records = %d, want terminal only", len(records))
+	}
+	terminal := lifecycleRecordAttrs(records[0])
+	if terminal["component"] != "agent_output" || terminal["last_stage"] != "" || terminal["output_event_observed"] != false {
+		t.Fatalf("zero-output terminal = %#v", terminal)
+	}
+}
+
 func TestPeerStreamEventRejectsJSONFrame(t *testing.T) {
 	payload := []byte(`{"v":1,"type":"text.delta","stream_id":"s1","text":"hello"}`)
 	var buf bytes.Buffer

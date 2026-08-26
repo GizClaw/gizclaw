@@ -169,6 +169,7 @@ type peerAgentOutput struct {
 	Logger        *slog.Logger
 	PeerPublicKey string
 	WorkspaceName func(context.Context) string
+	Lifecycle     *peerStreamLifecycle
 }
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
@@ -185,6 +186,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			return o.Events.Broadcast(event)
 		},
 		Observe: func(chunk *genx.MessageChunk) error {
+			o.Lifecycle.observeOutput(ctx, chunk, o.WorkspaceName)
 			o.logTerminalRouteError(ctx, chunk, loggedRouteErrors)
 			routeEOS := audio.consumeRouteEOS(chunk)
 			if routeEOS != nil {
@@ -208,11 +210,14 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		},
 	}).ConsumeAgentOutput(ctx, output)
 	if err != nil {
+		o.Lifecycle.finish("agent_output", err)
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	if err := audio.close(); err != nil {
+		o.Lifecycle.finish("agent_output", err)
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
+	o.Lifecycle.finish("agent_output", nil)
 	return nil
 }
 

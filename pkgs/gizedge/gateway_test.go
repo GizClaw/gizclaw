@@ -27,6 +27,21 @@ import (
 
 type gatewayAllowAllPolicy struct{}
 
+type gatewayLogCapture struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (*gatewayLogCapture) Enabled(context.Context, slog.Level) bool { return true }
+func (h *gatewayLogCapture) WithAttrs([]slog.Attr) slog.Handler     { return h }
+func (h *gatewayLogCapture) WithGroup(string) slog.Handler          { return h }
+func (h *gatewayLogCapture) Handle(_ context.Context, record slog.Record) error {
+	h.mu.Lock()
+	h.records = append(h.records, record.Clone())
+	h.mu.Unlock()
+	return nil
+}
+
 type gatewayHandshakeTimeoutError struct{}
 
 type gatewayWaitSignalContext struct {
@@ -95,7 +110,60 @@ func TestLogUpstreamICEIsAddressFree(t *testing.T) {
 	}
 }
 
+func TestGatewayBridgeLifecycleResultIsBounded(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantResult string
+		wantReason string
+	}{
+		{name: "success", wantResult: "success", wantReason: "completed"},
+		{name: "canceled", err: context.Canceled, wantResult: "canceled", wantReason: "context_canceled"},
+		{name: "timeout", err: context.DeadlineExceeded, wantResult: "timeout", wantReason: "deadline_exceeded"},
+		{name: "closed", err: io.ErrUnexpectedEOF, wantResult: "closed", wantReason: "transport_closed"},
+		{name: "transport error", err: errors.New("authorization: Bearer secret"), wantResult: "transport_error", wantReason: "bridge_error"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, reason := gatewayBridgeLifecycleResult(test.err)
+			if result != test.wantResult || reason != test.wantReason {
+				t.Fatalf("gatewayBridgeLifecycleResult() = (%q, %q), want (%q, %q)", result, reason, test.wantResult, test.wantReason)
+			}
+			if strings.Contains(result+reason, "secret") {
+				t.Fatal("gateway lifecycle result exposed a raw error")
+			}
+		})
+	}
+}
+
+func TestGatewaySessionEstablishmentResultIsBounded(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		err            error
+		completeBudget bool
+		want           string
+	}{
+		{name: "canceled", err: context.Canceled, want: "canceled"},
+		{name: "deadline", err: context.DeadlineExceeded, want: "timeout"},
+		{name: "complete handshake timeout", err: gatewayHandshakeTimeoutError{}, completeBudget: true, want: "timeout"},
+		{name: "partial handshake timeout", err: gatewayHandshakeTimeoutError{}, want: "transport_error"},
+		{name: "closed", err: io.EOF, want: "closed"},
+		{name: "rejected", err: giztunnel.ErrSessionRejected, want: "transport_error"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := gatewaySessionEstablishmentResult(test.err, test.completeBudget); got != test.want {
+				t.Fatalf("gatewaySessionEstablishmentResult() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
+	capture := &gatewayLogCapture{}
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(capture))
+	t.Cleanup(func() { slog.SetDefault(previousLogger) })
+
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -292,6 +360,59 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	if err != nil || protocol != giznet.ProtocolOpusPacket ||
 		string(packet[:n]) != string(opusFrame) {
 		t.Fatalf("logical opus = %x %v %v", protocol, packet[:n], err)
+	}
+
+	capture.mu.Lock()
+	records := append([]slog.Record(nil), capture.records...)
+	capture.mu.Unlock()
+	wantStages := map[string]bool{
+		"session_establishing": false,
+		"session_accepted":     false,
+		"bridge_started":       false,
+	}
+	var sessionID string
+	for _, record := range records {
+		if record.Message != peerStreamLifecycleMessage {
+			continue
+		}
+		attrs := make(map[string]any)
+		record.Attrs(func(attr slog.Attr) bool {
+			attrs[attr.Key] = attr.Value.Any()
+			return true
+		})
+		stage, ok := attrs["stage"].(string)
+		if !ok || !strings.HasPrefix(stage, "session_") && stage != "bridge_started" {
+			continue
+		}
+		if _, ok := wantStages[stage]; !ok {
+			continue
+		}
+		wantStages[stage] = true
+		gotSessionID, _ := attrs["tunnel_session_id"].(string)
+		if sessionID == "" {
+			sessionID = gotSessionID
+		}
+		if gotSessionID == "" || gotSessionID != sessionID {
+			t.Errorf("stage %q tunnel_session_id = %q, want shared %q", stage, gotSessionID, sessionID)
+		}
+		if attrs["peer_public_key"] != clientKey.Public.String() {
+			t.Errorf("stage %q peer_public_key = %#v", stage, attrs["peer_public_key"])
+		}
+		if _, exists := attrs["remote_addr"]; exists {
+			t.Errorf("stage %q exposed remote_addr", stage)
+		}
+		for key, value := range attrs {
+			switch value.(type) {
+			case string, int64, uint64, bool:
+			default:
+				t.Errorf("stage %q attribute %q is non-scalar %T", stage, key, value)
+			}
+		}
+	}
+	for stage, found := range wantStages {
+		if !found {
+			t.Errorf("missing gateway lifecycle stage %q", stage)
+		}
 	}
 }
 

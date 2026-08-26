@@ -16,10 +16,15 @@ type peerRealtimeSource struct {
 	options []genx.RealtimeStreamOption
 
 	audioStreamID string
+	lifecycle     *peerStreamLifecycle
 }
 
 func newPeerRealtimeSource(options ...genx.RealtimeStreamOption) *peerRealtimeSource {
 	return &peerRealtimeSource{options: options}
+}
+
+func newPeerRealtimeSourceWithLifecycle(lifecycle *peerStreamLifecycle, options ...genx.RealtimeStreamOption) *peerRealtimeSource {
+	return &peerRealtimeSource{options: options, lifecycle: lifecycle}
 }
 
 func (s *peerRealtimeSource) OpenAgentInput(context.Context) (genx.Stream, error) {
@@ -35,6 +40,7 @@ func (s *peerRealtimeSource) OpenAgentInput(context.Context) (genx.Stream, error
 	if previous != nil {
 		_ = previous.Close()
 	}
+	s.lifecycle.observeAgentInputOpen()
 	return next, nil
 }
 
@@ -55,6 +61,9 @@ func (s *peerRealtimeSource) Push(ctx context.Context, chunk *genx.MessageChunk)
 	err := current.Push(ctx, chunk)
 	if errors.Is(err, io.ErrClosedPipe) {
 		return agenthost.ErrNoActiveInput
+	}
+	if err == nil {
+		s.lifecycle.observeAgentInputPush(chunk)
 	}
 	return err
 }
