@@ -66,6 +66,29 @@ formats before opening the RPC and sets `content_type` for the prepared bytes;
 the document request contains the model and optional language, not this
 runner-owned wire metadata.
 
+A latency-only `peer_stream` probe can stop after the first assistant text and
+audio instead of waiting for terminal output:
+
+```yaml
+- id: deployment_response_probe
+  client: peer
+  peer_stream:
+    mode: push-to-talk
+    input: ${turn_audio}
+    pacing: 20ms
+    completion: first_response
+    first_text_timeout: 2s
+    first_audio_timeout: 3s
+  expect:
+    /events: {non_empty: true}
+    /first_text_ms: {maximum: 2000}
+    /first_audio_ms: {maximum: 3000}
+```
+
+Both deadlines begin after the complete input turn has been pushed. Once both
+first-response events arrive, the runner closes that logical stream immediately;
+text/audio EOS and the remainder of the response are outside this probe.
+
 An `rpc_stream` step for `all.speed_test.run` exposes these stable result paths
 to `expect`, `capture`, and an object `save_as`. The same canonical measurement
 fields, plus `method`, appear in redacted step evidence:

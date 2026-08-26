@@ -9,9 +9,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
+
+var errRegistryEntryClosed = errors.New("memory store: registry entry closed")
 
 // Registry shares physical backends and transports by RuntimeProfile binding.
 // Every Resolve call constructs a Workspace-scoped logical Store and returns a
@@ -19,17 +20,21 @@ import (
 type Registry struct {
 	mu      sync.Mutex
 	entries map[string]*registryEntry
-	epoch   uint64
-	gates   keyedlock.Locker[string]
+	open    func(context.Context, Request) (sharedBackend, error)
 }
 
 type registryEntry struct {
 	backend sharedBackend
+	ready   chan struct{}
+	err     error
 	refs    int
+	active  int
+	closing bool
+	idle    chan struct{}
 }
 
 func NewRegistry() *Registry {
-	return &Registry{entries: make(map[string]*registryEntry)}
+	return &Registry{entries: make(map[string]*registryEntry), open: openSharedBackend}
 }
 
 func (registry *Registry) Resolve(ctx context.Context, request Request) (Result, error) {
@@ -43,68 +48,68 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	if err != nil {
 		return Result{}, err
 	}
-	release, err := registry.gates.Acquire(ctx, key)
-	if err != nil {
-		return Result{}, err
+
+	entry, owner, opener := registry.reserve(key)
+	if owner {
+		backend, openErr := opener(ctx, request)
+		registry.publish(key, entry, backend, openErr)
 	}
-	defer release()
+	select {
+	case <-entry.ready:
+	case <-ctx.Done():
+		return Result{}, ctx.Err()
+	}
 
 	registry.mu.Lock()
-	if registry.entries == nil {
-		registry.entries = make(map[string]*registryEntry)
-	}
-	epoch := registry.epoch
-	entry := registry.entries[key]
-	registry.mu.Unlock()
-	created := false
-	if entry == nil {
-		backend, err := openSharedBackend(ctx, request)
-		if err != nil {
-			return Result{}, err
-		}
-		entry = &registryEntry{backend: backend}
-		created = true
-	}
-	result, logicalCloser, err := entry.backend.NewStore(ctx, request)
-	if err != nil {
-		registry.discardUnused(key, entry, created)
+	if entry.err != nil {
+		err := entry.err
+		registry.mu.Unlock()
 		return Result{}, err
 	}
-	bound, err := memory.BindApp(result.Store, request.WorkspaceID)
-	if err != nil {
-		if logicalCloser != nil {
-			_ = logicalCloser.Close()
-		}
-		registry.discardUnused(key, entry, created)
-		return Result{}, fmt.Errorf("memory store: bind Workspace scope: %w", err)
-	}
-	registry.mu.Lock()
-	if registry.epoch != epoch {
+	if entry.closing || registry.entries[key] != entry {
 		registry.mu.Unlock()
-		if logicalCloser != nil {
-			_ = logicalCloser.Close()
-		}
-		if created {
-			_ = entry.backend.Close()
-		}
-		return Result{}, errors.New("memory store: registry changed during resolve")
+		return Result{}, errRegistryEntryClosed
 	}
-	current := registry.entries[key]
-	if current == nil && created {
-		registry.entries[key] = entry
-	} else if current != entry {
-		registry.mu.Unlock()
-		if logicalCloser != nil {
-			_ = logicalCloser.Close()
-		}
-		if created {
-			_ = entry.backend.Close()
-		}
-		return Result{}, errors.New("memory store: binding changed during resolve")
-	}
-	entry.refs++
+	entry.active++
+	backend := entry.backend
 	registry.mu.Unlock()
-	result.Store = bound
+
+	result, logicalCloser, resolveErr := backend.NewStore(ctx, request)
+	if resolveErr == nil {
+		var bound memory.Store
+		bound, resolveErr = memory.BindApp(result.Store, request.WorkspaceID)
+		if resolveErr != nil {
+			resolveErr = fmt.Errorf("memory store: bind Workspace scope: %w", resolveErr)
+		} else {
+			result.Store = bound
+		}
+	}
+	if resolveErr != nil && logicalCloser != nil {
+		resolveErr = errors.Join(resolveErr, logicalCloser.Close())
+		logicalCloser = nil
+	}
+
+	if resolveErr == nil && !registry.acceptResolve(key, entry) {
+		var closeErr error
+		if logicalCloser != nil {
+			closeErr = logicalCloser.Close()
+		}
+		backendToClose := registry.finishFailedResolve(key, entry)
+		if backendToClose != nil {
+			closeErr = errors.Join(closeErr, backendToClose.Close())
+		}
+		return Result{}, errors.Join(errRegistryEntryClosed, closeErr)
+	}
+	var backendToClose sharedBackend
+	if resolveErr != nil {
+		backendToClose = registry.finishFailedResolve(key, entry)
+	}
+	if backendToClose != nil {
+		resolveErr = errors.Join(resolveErr, backendToClose.Close())
+	}
+	if resolveErr != nil {
+		return Result{}, resolveErr
+	}
 	result.Closer = &registryLease{
 		registry: registry,
 		key:      key,
@@ -114,21 +119,61 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	return result, nil
 }
 
-func (registry *Registry) discardUnused(key string, entry *registryEntry, created bool) {
-	if created {
-		_ = entry.backend.Close()
-		return
-	}
-	var backend sharedBackend
+func (registry *Registry) reserve(key string) (*registryEntry, bool, func(context.Context, Request) (sharedBackend, error)) {
 	registry.mu.Lock()
-	if registry.entries[key] == entry && entry.refs == 0 {
+	defer registry.mu.Unlock()
+	if registry.entries == nil {
+		registry.entries = make(map[string]*registryEntry)
+	}
+	entry := registry.entries[key]
+	if entry != nil {
+		return entry, false, nil
+	}
+	entry = &registryEntry{ready: make(chan struct{}), idle: make(chan struct{})}
+	registry.entries[key] = entry
+	opener := registry.open
+	if opener == nil {
+		opener = openSharedBackend
+	}
+	return entry, true, opener
+}
+
+func (registry *Registry) publish(key string, entry *registryEntry, backend sharedBackend, err error) {
+	registry.mu.Lock()
+	entry.backend = backend
+	entry.err = err
+	if err != nil && registry.entries[key] == entry {
 		delete(registry.entries, key)
-		backend = entry.backend
 	}
+	close(entry.ready)
 	registry.mu.Unlock()
-	if backend != nil {
-		_ = backend.Close()
+}
+
+func (registry *Registry) acceptResolve(key string, entry *registryEntry) bool {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	if entry.closing || registry.entries[key] != entry {
+		return false
 	}
+	entry.active--
+	entry.refs++
+	return true
+}
+
+func (registry *Registry) finishFailedResolve(key string, entry *registryEntry) sharedBackend {
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	entry.active--
+	if entry.closing && entry.active == 0 {
+		close(entry.idle)
+	}
+	if !entry.closing && entry.active == 0 && entry.refs == 0 && registry.entries[key] == entry {
+		delete(registry.entries, key)
+		entry.closing = true
+		close(entry.idle)
+		return entry.backend
+	}
+	return nil
 }
 
 func registryKey(request Request) (string, error) {
@@ -170,17 +215,17 @@ func (lease *registryLease) Close() error {
 		if lease.registry == nil || lease.entry == nil {
 			return
 		}
-		release, _ := lease.registry.gates.Acquire(context.Background(), lease.key)
-		defer release()
 		if lease.logical != nil {
 			lease.err = lease.logical.Close()
 		}
 		var backend sharedBackend
 		lease.registry.mu.Lock()
-		if lease.registry.entries[lease.key] == lease.entry {
+		if lease.registry.entries[lease.key] == lease.entry && !lease.entry.closing {
 			lease.entry.refs--
-			if lease.entry.refs == 0 {
+			if lease.entry.refs == 0 && lease.entry.active == 0 {
 				delete(lease.registry.entries, lease.key)
+				lease.entry.closing = true
+				close(lease.entry.idle)
 				backend = lease.entry.backend
 			}
 		}
@@ -199,15 +244,26 @@ func (registry *Registry) Close() error {
 	registry.mu.Lock()
 	entries := registry.entries
 	registry.entries = make(map[string]*registryEntry)
-	registry.epoch++
+	for _, entry := range entries {
+		if entry == nil || entry.closing {
+			continue
+		}
+		entry.closing = true
+		if entry.active == 0 {
+			close(entry.idle)
+		}
+	}
 	registry.mu.Unlock()
 	var result error
-	for key, entry := range entries {
-		release, _ := registry.gates.Acquire(context.Background(), key)
-		if entry != nil && entry.backend != nil {
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		<-entry.ready
+		<-entry.idle
+		if entry.backend != nil {
 			result = errors.Join(result, entry.backend.Close())
 		}
-		release()
 	}
 	return result
 }

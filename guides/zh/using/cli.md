@@ -57,6 +57,28 @@ Ogg/Opus（MiniMax 输出由 Server 转码），翻译类文档不依赖 Workflo
 打开 RPC 前被拒绝。Runner 按准备完成的 bytes 设置 `content_type`；文档 request 只填写
 model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
 
+只验证时延的 `peer_stream` 探针可以在收到第一段 assistant 文本和音频后停止，不等待终止
+输出：
+
+```yaml
+- id: deployment_response_probe
+  client: peer
+  peer_stream:
+    mode: push-to-talk
+    input: ${turn_audio}
+    pacing: 20ms
+    completion: first_response
+    first_text_timeout: 2s
+    first_audio_timeout: 3s
+  expect:
+    /events: {non_empty: true}
+    /first_text_ms: {maximum: 2000}
+    /first_audio_ms: {maximum: 3000}
+```
+
+两个 deadline 都在完整输入 turn 推送完成后开始。两种首响应都到达后，runner 立即关闭该
+逻辑 stream；文本/音频 EOS 和剩余回复不属于这个探针。
+
 `rpc_stream` 的 `all.speed_test.run` 步骤向 `expect`、`capture` 和 object `save_as` 暴露以下
 稳定结果路径；同一组 canonical 测量字段还会与 `method` 一起进入脱敏 step evidence：
 

@@ -112,15 +112,18 @@ type SpeechOperation struct {
 	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
-	Mode           string `json:"mode" yaml:"mode"`
-	Input          any    `json:"input,omitempty" yaml:"input,omitempty"`
-	Pacing         string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
-	InterruptAfter string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
-	IdleTimeout    string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
-	TerminalLabel  string `json:"terminal_label,omitempty" yaml:"terminal_label,omitempty"`
-	RequireText    *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
-	RequireAudio   *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
-	WaitForHistory bool   `json:"wait_for_history,omitempty" yaml:"wait_for_history,omitempty"`
+	Mode              string `json:"mode" yaml:"mode"`
+	Input             any    `json:"input,omitempty" yaml:"input,omitempty"`
+	Pacing            string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
+	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
+	IdleTimeout       string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
+	Completion        string `json:"completion,omitempty" yaml:"completion,omitempty"`
+	FirstTextTimeout  string `json:"first_text_timeout,omitempty" yaml:"first_text_timeout,omitempty"`
+	FirstAudioTimeout string `json:"first_audio_timeout,omitempty" yaml:"first_audio_timeout,omitempty"`
+	TerminalLabel     string `json:"terminal_label,omitempty" yaml:"terminal_label,omitempty"`
+	RequireText       *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
+	RequireAudio      *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
+	WaitForHistory    bool   `json:"wait_for_history,omitempty" yaml:"wait_for_history,omitempty"`
 }
 type OutputOperation struct {
 	Variable string `json:"variable" yaml:"variable"`
@@ -498,6 +501,32 @@ func (d *Document) validateSemantics() error {
 				if duration, err := time.ParseDuration(step.PeerStream.IdleTimeout); err != nil || duration <= 0 {
 					return fmt.Errorf("step %s has invalid idle_timeout %q", step.ID, step.PeerStream.IdleTimeout)
 				}
+			}
+			switch step.PeerStream.Completion {
+			case "", "terminal":
+				if step.PeerStream.FirstTextTimeout != "" || step.PeerStream.FirstAudioTimeout != "" {
+					return fmt.Errorf("step %s first-response timeouts require completion first_response", step.ID)
+				}
+			case "first_response":
+				for _, deadline := range []struct {
+					field string
+					value string
+				}{
+					{field: "first_text_timeout", value: step.PeerStream.FirstTextTimeout},
+					{field: "first_audio_timeout", value: step.PeerStream.FirstAudioTimeout},
+				} {
+					if duration, err := time.ParseDuration(deadline.value); err != nil || duration <= 0 {
+						return fmt.Errorf("step %s has invalid %s %q", step.ID, deadline.field, deadline.value)
+					}
+				}
+				if step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" || step.PeerStream.WaitForHistory {
+					return fmt.Errorf("step %s first_response completion cannot interrupt or wait for terminal output/history", step.ID)
+				}
+				if step.PeerStream.RequireText != nil && !*step.PeerStream.RequireText || step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireAudio {
+					return fmt.Errorf("step %s first_response completion requires text and audio", step.ID)
+				}
+			default:
+				return fmt.Errorf("step %s has unsupported peer_stream completion %q", step.ID, step.PeerStream.Completion)
 			}
 			if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio {
 				return fmt.Errorf("step %s peer_stream must require text, audio, or both", step.ID)
