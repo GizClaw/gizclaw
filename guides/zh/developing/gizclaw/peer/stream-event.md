@@ -31,7 +31,4 @@ conversation、Workspace reload/set 和 controller disposal 只管理本地订�
 
 `peerAgentOutput` 只在 `MixerOutput` 排空对应 track 后观察这些 source boundary，并把它们聚合成一条 mixed-audio epoch：第一条 active source 触发 `BOS(kind=AUDIO)`，重叠 source 的 boundary 不下发，只有最后一条 active source 被移除时才触发 `EOS(kind=AUDIO)`。route-level interruption 只移除对应 route。总 boundary 沿用第一条 source 的 stream ID 与 label，sequence 归零，MIME 留空；原因是连接只有一条固定 Opus 下行 channel。source MIME 只供 decoder 使用，不描述混音后的 wire channel。
 
-对经 Edge 路由的 Peer，`peerAgentOutput` 使用 tunnel correlation context 记录首个 Agent
-output chunk，并只附加安全解析出的 Workspace 与不可信 stream identifier 的稳定 hash。Connection-scoped output
-consumer 结束时只输出一条有界 terminal lifecycle record。Provider raw error 仍留在产品错误
-路径中，绝不复制到 lifecycle 日志。
+对经 Edge 路由的 Peer，`peerAgentOutput` 使用 tunnel correlation context 记录当前 logical turn 的第一个 Agent output，并只附加安全解析出的 Workspace 与稳定的 `output_stream_id_hash`。内部 output route 到 turn 的关联跨越 input replacement 存活，因此旧 route 的迟到 EOS 仍归属旧 `turn_index`，replacement output 则归属新 turn。Output EOS 只输出一次有界的 `output_terminal` 分类，并在适用时完成 owning turn；重复 chunk 与 media channel 不会增加 lifecycle stage record。Connection-scoped output consumer 继续输出兼容的 terminal record，Provider raw error 仍留在产品错误路径中，绝不复制到 lifecycle 日志。

@@ -289,22 +289,12 @@ relay path，而不是 Edge/Server resource owner。这里的 counter 支撑有�
 
 ## 经 Edge 路由的 Peer stream 生命周期
 
-`gizclaw: peer stream lifecycle` 把一个经 Edge 路由的 logical Peer 从 gateway admission、
-Server input 一直关联到 Agent output。Edge 与 Server 使用相同的 `tunnel_session_id`，认证后的
-logical identity 记录为 `peer_public_key`。`component`、`stage`、`result`、`reason`、
-`last_stage` 与 `duration_ms` 都是有界的 scalar attribute。Server terminal record 还记录
-`input_event_observed`、`agent_input_opened`、`agent_input_pushed` 和
-`output_event_observed`，因此没有 host journal 时也能定位 zero-event failure 停在哪一步。
+`gizclaw: peer stream lifecycle` 把一个经 Edge 路由的 logical Peer 从 gateway admission、Server input 一直关联到 Agent output。Edge 与 Server 使用相同的 `tunnel_session_id`，认证后的 logical identity 记录为 `peer_public_key`。原有 connection-level `component`、`stage`、`result`、`reason`、`last_stage` 与 `duration_ms` record 保持兼容；connection terminal 继续包含 `input_event_observed`、`agent_input_opened`、`agent_input_pushed` 和 `output_event_observed`，用于区分 zero-event connection failure。
 
-每个 logical session 的 lifecycle stage 只记录一次，不按 packet、chunk 或 text delta 逐条
-记录。`workspace_name` 只在安全解析后出现。不可信的 stream identifier 只记录为稳定的
-128-bit `stream_id_hash`，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾
-Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16
-字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或
-Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到
-`0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，
-不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream
-ID。Session、Peer、Workspace 和
-stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含
-remote address、payload、audio、prompt、conversation event、SDP、ICE candidate body、
-credential、provider raw error 或 panic value。
+每个授权通过的 input BOS 都在当前 tunnel 内分配一个单调递增的正数 `turn_index`。`(tunnel_session_id, turn_index)` 是单个 logical turn 的查询 identity，不进入 wire contract，也不能成为 metric label。Input 与 assistant output 的 stream identifier 可以不同，分别记录为安全的 `input_stream_id_hash` 和 `output_stream_id_hash`。Observer 在内部保留 output route 到 turn 的关联，因此被替换 output 的迟到 terminal 仍归属旧 turn，不会错误落到 replacement turn。
+
+有界的 per-turn stage 包括 `turn_started`、`input_first_event`、`input_terminal`、`interrupt_observed`、`agent_input_first_push`、`output_first_event`、`output_terminal` 和 `turn_terminal`。Turn boundary 使用 `component=peer_turn`，input stage 使用 `component=peer_input`，output stage 使用 `component=agent_output`；每个适用 stage 在一个 turn 中最多输出一次。`turn_terminal` 包含 `input_terminal_observed`、`interrupt_observed`、`agent_input_pushed`、`output_event_observed` 和 `output_terminal_observed`，因此 operator 可以识别“后续 turn 已到达 Agent input 但没有 output”，而不会误用之前成功 turn 的 stage。封闭的 `result` 取值为 `success`、`replaced`、`interrupted`、`canceled`、`timeout`、`closed`、`runtime_error` 和 `incomplete`；terminal 或 interruption 的封闭 `reason` 取值为 `completed`、`input_replaced`、`control_interrupt`、`expected_interruption`、`caller_canceled`、`deadline_exceeded`、`stream_closed`、`internal_error` 和 `state_limit`。Raw error 绝不被复制。
+
+成功日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。Instrumentation 不阻塞、不重试、不重排，也不改变 Peer、AgentHost、provider、interruption、timeout 或 cleanup 行为。
+
+不可信 stream identifier 使用稳定的 128-bit hash，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、payload、audio、transcript、prompt、conversation event、SDP、ICE candidate body、credential、provider raw error 或 panic value。

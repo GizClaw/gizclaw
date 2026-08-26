@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -78,19 +79,63 @@ func TestPeerConnLifecycleRecordsInputAndClosedTerminal(t *testing.T) {
 	}
 
 	records := capturedLifecycleRecords(t, capture)
-	if len(records) != 3 {
-		t.Fatalf("lifecycle records = %d, want accept, first input, and terminal", len(records))
+	if len(records) != 6 {
+		t.Fatalf("lifecycle records = %d, want connection and turn lifecycle", len(records))
 	}
-	inputAttrs := lifecycleRecordAttrs(records[1])
+	inputAttrs := lifecycleRecordAttrs(records[3])
 	if inputAttrs["stage"] != "input_first_event" || inputAttrs["stream_id_hash"] != safeStreamIDHash(untrustedStreamID) {
 		t.Fatalf("input lifecycle record = %#v", inputAttrs)
 	}
 	if strings.Contains(fmt.Sprint(inputAttrs), untrustedStreamID) {
 		t.Fatalf("input lifecycle record exposed raw stream ID: %#v", inputAttrs)
 	}
-	terminal := lifecycleRecordAttrs(records[2])
+	turnTerminal := lifecycleRecordAttrs(records[4])
+	if turnTerminal["turn_index"] != uint64(1) || turnTerminal["input_stream_id_hash"] != safeStreamIDHash(untrustedStreamID) ||
+		turnTerminal["result"] != "closed" || turnTerminal["output_event_observed"] != false {
+		t.Fatalf("turn terminal = %#v", turnTerminal)
+	}
+	terminal := lifecycleRecordAttrs(records[5])
 	if terminal["component"] != "peer_input" || terminal["result"] != "closed" || terminal["last_stage"] != "input_first_event" || terminal["input_event_observed"] != true {
 		t.Fatalf("Peer input terminal = %#v", terminal)
+	}
+}
+
+func TestPeerConnLifecycleIndexesSequentialAcceptedTurns(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-sequential", "peer-sequential")
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 4)}
+	peer := &PeerConn{agentInput: input, streamLifecycle: lifecycle}
+	serverSide, clientSide := net.Pipe()
+	done := make(chan error, 1)
+	go func() { done <- peer.readEventStream(serverSide) }()
+	for _, streamID := range []string{"turn-first", "turn-second"} {
+		if err := writePeerStreamEvent(clientSide, peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, streamID, nil)); err != nil {
+			t.Fatalf("write BOS %q: %v", streamID, err)
+		}
+		if err := writePeerStreamEvent(clientSide, peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, streamID, nil)); err != nil {
+			t.Fatalf("write EOS %q: %v", streamID, err)
+		}
+	}
+	if err := clientSide.Close(); err != nil {
+		t.Fatalf("clientSide.Close() error = %v", err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("readEventStream() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("readEventStream did not stop")
+	}
+	var started []uint64
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "turn_started" {
+			started = append(started, attrs["turn_index"].(uint64))
+		}
+	}
+	if !slices.Equal(started, []uint64{1, 2}) {
+		t.Fatalf("started turns = %v, want [1 2]", started)
 	}
 }
 
@@ -209,11 +254,14 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 		PeerRun: runs,
 	}
 	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-chatroom", caller.String())
 	peer := &PeerConn{
-		Conn:       &testGiznetConn{publicKey: caller},
-		Service:    &PeerService{manager: manager},
-		agentInput: input,
-		events:     newPeerStreamEventBroker(),
+		Conn:            &testGiznetConn{publicKey: caller},
+		Service:         &PeerService{manager: manager},
+		agentInput:      input,
+		events:          newPeerStreamEventBroker(),
+		streamLifecycle: lifecycle,
 	}
 	serverSide, clientSide := net.Pipe()
 	defer clientSide.Close()
@@ -304,6 +352,17 @@ func TestPeerConnRejectsRevokedChatroomTurnWithoutPushingAgentInput(t *testing.T
 		}
 	case <-time.After(time.Second):
 		t.Fatal("handleEventStream did not stop")
+	}
+	var started []map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "turn_started" {
+			started = append(started, attrs)
+		}
+	}
+	if len(started) != 1 || started[0]["turn_index"] != uint64(1) ||
+		started[0]["input_stream_id_hash"] != safeStreamIDHash("turn-2") {
+		t.Fatalf("authorized turn starts = %#v, want only restored turn", started)
 	}
 }
 
