@@ -113,3 +113,21 @@ func TestMutexScopeRiskClassificationIsStable(t *testing.T) {
 		t.Fatalf("risks = %q", got)
 	}
 }
+
+func TestIsUnlockEscapeRejectsStringComparisons(t *testing.T) {
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, "fixture.go", `package p
+func f(mu interface{ Unlock() }, unlock string) (func(), bool) {
+	return mu.Unlock, unlock == "Unlock"
+}`, parser.SkipObjectResolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statement := file.Decls[0].(*ast.FuncDecl).Body.List[0].(*ast.ReturnStmt)
+	if !isUnlockEscape(statement.Results[0]) {
+		t.Fatal("returned Unlock method was not classified as an ownership transfer")
+	}
+	if isUnlockEscape(statement.Results[1]) {
+		t.Fatal("string comparison was classified as an unlock ownership transfer")
+	}
+}

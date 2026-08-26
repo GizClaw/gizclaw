@@ -228,7 +228,7 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 		}
 		for resultIndex, result := range statement.Results {
 			text := expressionString(fileSet, result)
-			if !strings.Contains(text, "Unlock") && !strings.Contains(strings.ToLower(text), "unlock") {
+			if !isUnlockEscape(result) {
 				continue
 			}
 			input := strings.Join([]string{file, function.name, "lock_escape", fmt.Sprint(resultIndex), normalizeMutexScopeSource(text)}, "\x00")
@@ -242,6 +242,32 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 		return true
 	})
 	return records, nil
+}
+
+func isUnlockEscape(expression ast.Expr) bool {
+	switch value := expression.(type) {
+	case *ast.SelectorExpr:
+		return value.Sel.Name == "Unlock" || value.Sel.Name == "RUnlock"
+	case *ast.Ident:
+		return strings.Contains(strings.ToLower(value.Name), "unlock")
+	case *ast.FuncLit:
+		found := false
+		ast.Inspect(value.Body, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			if ok && (selector.Sel.Name == "Unlock" || selector.Sel.Name == "RUnlock") {
+				found = true
+				return false
+			}
+			return true
+		})
+		return found
+	default:
+		return false
+	}
 }
 
 func matchingUnlock(lock, unlock string) bool {
