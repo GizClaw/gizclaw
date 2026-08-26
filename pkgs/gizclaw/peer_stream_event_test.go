@@ -451,14 +451,15 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	}
 	for key, want := range map[string]any{
 		"peer_public_key": "peer-key", "workspace": "workspace-a",
-		"stream_id": "failed-turn", "stream_label": "assistant",
+		"stream_id_hash": safeStreamIDHash("failed-turn"), "stream_label_hash": safeStreamIDHash("assistant"),
 		"error_code": "MEMORY_UNAVAILABLE", "retryable": true,
 	} {
 		if got := attrs[key]; got != want {
 			t.Errorf("%s = %#v, want %#v", key, got, want)
 		}
 	}
-	if strings.Contains(fmt.Sprint(attrs), "secret-token") || strings.Contains(fmt.Sprint(attrs), "secret-value") {
+	if strings.Contains(fmt.Sprint(attrs), "failed-turn") || strings.Contains(fmt.Sprint(attrs), "assistant") ||
+		strings.Contains(fmt.Sprint(attrs), "secret-token") || strings.Contains(fmt.Sprint(attrs), "secret-value") {
 		t.Fatalf("route error log exposed credential-bearing error: %#v", attrs)
 	}
 }

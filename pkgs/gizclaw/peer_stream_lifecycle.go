@@ -269,7 +269,9 @@ func (l *peerStreamLifecycle) finish(component string, err error) {
 	inputOpened := l.agentInputOpened
 	inputPushed := l.agentInputPushed
 	outputObserved := l.outputEventObserved
-	if component == "peer_input" || component == "server_tunnel" {
+	if component == "agent_output" {
+		turnRecords = l.terminateOutputTurnsLocked(result, reason)
+	} else if component == "peer_input" || component == "server_tunnel" {
 		turnRecords = l.terminateAllTurnsLocked(result, reason)
 	}
 	l.mu.Unlock()
@@ -295,11 +297,10 @@ func (l *peerStreamLifecycle) startTurnLocked(streamID string) []peerStreamLifec
 		if record := l.turnRecordOnceLocked(previous, "peer_input", "interrupt_observed", "interrupted", "input_replaced"); record != nil {
 			records = append(records, *record)
 		}
-		if previous.outputEventObserved && !previous.outputTerminalObserved {
-			previous.terminalPending = true
-		} else {
-			records = append(records, l.terminateTurnLocked(previous, "replaced", "input_replaced"))
-		}
+		// Keep the replaced turn until its output route is observed or an owner
+		// closes. Output is a single ordered stream, so the oldest replaced turn
+		// without an assigned route owns the next previously unseen route.
+		previous.terminalPending = true
 	}
 	l.nextTurnIndex++
 	turn := &peerStreamTurn{
@@ -342,7 +343,10 @@ func (l *peerStreamLifecycle) outputTurnLocked(streamID string) *peerStreamTurn 
 			return turn
 		}
 	}
-	turn := l.turns[l.currentTurn]
+	turn := l.oldestPendingOutputTurnLocked()
+	if turn == nil {
+		turn = l.turns[l.currentTurn]
+	}
 	if turn != nil && streamID != "" {
 		l.outputTurns[streamID] = turn.index
 		l.outputOrder = append(l.outputOrder, streamID)
@@ -353,6 +357,16 @@ func (l *peerStreamLifecycle) outputTurnLocked(streamID string) *peerStreamTurn 
 		}
 	}
 	return turn
+}
+
+func (l *peerStreamLifecycle) oldestPendingOutputTurnLocked() *peerStreamTurn {
+	for _, index := range l.turnOrder {
+		turn := l.turns[index]
+		if turn != nil && turn.terminalPending && !turn.outputEventObserved {
+			return turn
+		}
+	}
+	return nil
 }
 
 func (l *peerStreamLifecycle) oldestTurnLocked() *peerStreamTurn {
@@ -415,6 +429,28 @@ func (l *peerStreamLifecycle) terminateAllTurnsLocked(result, reason string) []p
 		if !seen[index] {
 			records = append(records, l.terminateTurnLocked(turn, result, reason))
 		}
+	}
+	return records
+}
+
+func (l *peerStreamLifecycle) terminateOutputTurnsLocked(result, reason string) []peerStreamLifecycleRecord {
+	records := make([]peerStreamLifecycleRecord, 0, len(l.turns)*2)
+	for len(l.turns) > 0 {
+		turn := l.oldestTurnLocked()
+		if turn == nil {
+			for _, candidate := range l.turns {
+				turn = candidate
+				break
+			}
+		}
+		if turn == nil {
+			break
+		}
+		turn.outputTerminalObserved = true
+		if record := l.turnRecordOnceLocked(turn, "agent_output", "output_terminal", result, reason); record != nil {
+			records = append(records, *record)
+		}
+		records = append(records, l.terminateTurnLocked(turn, result, reason))
 	}
 	return records
 }

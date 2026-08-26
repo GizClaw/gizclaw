@@ -115,6 +115,71 @@ func TestPeerStreamLifecycleKeepsLateOutputTerminalOnReplacedTurn(t *testing.T) 
 	}
 }
 
+func TestPeerStreamLifecycleKeepsDelayedFirstOutputOnReplacedTurn(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-delayed", "peer-delayed")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-old"}})
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text("late old output"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
+	}, nil)
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "output-old", EndOfStream: true},
+	}, nil)
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text("new output"), Ctrl: &genx.StreamCtrl{StreamID: "output-new", BeginOfStream: true},
+	}, nil)
+
+	var oldOutput, newOutput map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		switch {
+		case attrs["stage"] == "output_first_event" && attrs["turn_index"] == uint64(1):
+			oldOutput = attrs
+		case attrs["stage"] == "output_first_event" && attrs["turn_index"] == uint64(2):
+			newOutput = attrs
+		}
+	}
+	if oldOutput["output_stream_id_hash"] != safeStreamIDHash("output-old") {
+		t.Fatalf("old delayed output = %#v", oldOutput)
+	}
+	if newOutput["output_stream_id_hash"] != safeStreamIDHash("output-new") {
+		t.Fatalf("new output = %#v", newOutput)
+	}
+}
+
+func TestPeerStreamLifecycleAgentOutputFailureTerminatesOpenTurns(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-failure", "peer-failure")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-failure", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-failure"}})
+	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: "output-failure", BeginOfStream: true},
+	}, nil)
+	lifecycle.finish("agent_output", errors.New("credential-bearing provider failure"))
+
+	var outputTerminal, turnTerminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		switch attrs["stage"] {
+		case "output_terminal":
+			outputTerminal = attrs
+		case "turn_terminal":
+			turnTerminal = attrs
+		}
+	}
+	for _, attrs := range []map[string]any{outputTerminal, turnTerminal} {
+		if attrs["result"] != "runtime_error" || attrs["reason"] != "internal_error" {
+			t.Fatalf("failure terminal = %#v", attrs)
+		}
+		if strings.Contains(fmt.Sprint(attrs), "credential-bearing") {
+			t.Fatalf("failure terminal exposed raw error: %#v", attrs)
+		}
+	}
+}
+
 func TestPeerStreamLifecycleSecondTurnStallHasIndependentTerminal(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-stall", "peer-stall")

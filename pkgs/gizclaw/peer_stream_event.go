@@ -255,8 +255,8 @@ func (o peerAgentOutput) logTerminalRouteError(
 	logger.ErrorContext(ctx, "gizclaw: assistant route failed",
 		"peer_public_key", o.PeerPublicKey,
 		"workspace", workspaceName,
-		"stream_id", streamID,
-		"stream_label", chunk.Ctrl.Label,
+		"stream_id_hash", safeStreamIDHash(streamID),
+		"stream_label_hash", safeStreamIDHash(chunk.Ctrl.Label),
 		"error_code", code,
 		"retryable", chunk.Ctrl.ErrorRetryable,
 	)
