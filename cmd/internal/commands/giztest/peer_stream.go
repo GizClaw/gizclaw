@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
@@ -41,6 +42,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	if op == nil {
 		return operationResult{}, fmt.Errorf("peer_stream operation required")
 	}
+	firstResponse := op.Completion == "first_response"
 	var idleTimeout time.Duration
 	if op.IdleTimeout != "" {
 		duration, parseErr := time.ParseDuration(op.IdleTimeout)
@@ -151,7 +153,12 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	default:
 		return operationResult{}, fmt.Errorf("peer_stream mode %q requires an existing stream", op.Mode)
 	}
-	next := readPeerStream(ctx, stream)
+	responseStarted := time.Now()
+	var arrivals *peerStreamFirstResponseArrivals
+	if firstResponse {
+		arrivals = &peerStreamFirstResponseArrivals{started: responseStarted}
+	}
+	next := readPeerStream(ctx, stream, arrivals)
 	// The inactivity timer is armed once the turn input has been pushed and is
 	// reset on every chunk the PeerStream delivers, regardless of label or part.
 	var idle <-chan time.Time
@@ -197,6 +204,8 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
 	var terminalErrors []string
 	var firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
+	var firstTextElapsed, firstAudioElapsed time.Duration
+	firstTextObserved, firstAudioObserved := false, false
 	textEOS, audioEOS := false, false
 	counters := func() string {
 		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
@@ -211,6 +220,8 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	failedEvidence := func(deadline string) map[string]any {
 		evidence := baseEvidence()
 		evidence["deadline"] = deadline
+		evidence["first_text_ms"] = firstTextMS
+		evidence["first_audio_ms"] = firstAudioMS
 		return evidence
 	}
 	terminalLabel := strings.TrimSpace(op.TerminalLabel)
@@ -219,6 +230,44 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	}
 	requireText := op.RequireText == nil || *op.RequireText
 	requireAudio := op.RequireAudio == nil || *op.RequireAudio
+	var firstTextDeadline, firstAudioDeadline <-chan time.Time
+	var firstTextTimer, firstAudioTimer *time.Timer
+	var firstTextTimeout, firstAudioTimeout time.Duration
+	if firstResponse {
+		firstTextTimeout, _ = time.ParseDuration(op.FirstTextTimeout)
+		firstAudioTimeout, _ = time.ParseDuration(op.FirstAudioTimeout)
+		firstTextTimer = time.NewTimer(firstTextTimeout)
+		firstAudioTimer = time.NewTimer(firstAudioTimeout)
+		firstTextDeadline = firstTextTimer.C
+		firstAudioDeadline = firstAudioTimer.C
+		defer firstTextTimer.Stop()
+		defer firstAudioTimer.Stop()
+	}
+	finish := func() (operationResult, error) {
+		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		if len(assistantPackets) > 0 {
+			var audio bytes.Buffer
+			if err := codecconv.OpusPacketsToOgg(&audio, int(opus.SampleRate16K), 1, assistantPackets); err != nil {
+				return operationResult{}, fmt.Errorf("encode assistant audio evidence: %w", err)
+			}
+			object["audio"] = append([]byte(nil), audio.Bytes()...)
+		}
+		stopIdle()
+		if op.WaitForHistory {
+			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID)
+			if err != nil {
+				return operationResult{}, err
+			}
+			object["history_name"] = historyName
+		}
+		evidence := baseEvidence()
+		evidence["audio_bytes"] = audioBytes
+		evidence["first_text_ms"] = firstTextMS
+		evidence["first_audio_ms"] = firstAudioMS
+		evidence["text_eos_ms"] = textEOSMS
+		evidence["audio_eos_ms"] = audioEOSMS
+		return operationResult{assertion: object, saved: object, evidence: evidence}, nil
+	}
 	for {
 		select {
 		case <-interrupt:
@@ -233,7 +282,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			if err != nil {
 				return operationResult{}, fmt.Errorf("reopen PeerStream after interrupt: %w", err)
 			}
-			next = readPeerStream(ctx, stream)
+			next = readPeerStream(ctx, stream, arrivals)
 			if err := sendInterrupt(); err != nil {
 				return operationResult{}, fmt.Errorf("send interrupting turn: %w", err)
 			}
@@ -242,7 +291,23 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			armIdle()
 		case <-idle:
 			return operationResult{evidence: failedEvidence("idle_timeout")}, fmt.Errorf("peer_stream idle timeout exceeded after %s (deadline=idle_timeout last_event_ms=%d %s)", op.IdleTimeout, lastEventMS, counters())
+		case <-firstTextDeadline:
+			if arrivals.firstTextWithin(firstTextTimeout) {
+				firstTextDeadline = nil
+				continue
+			}
+			return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
+		case <-firstAudioDeadline:
+			if arrivals.firstAudioWithin(firstAudioTimeout) {
+				firstAudioDeadline = nil
+				continue
+			}
+			return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 		case result := <-next:
+			eventElapsed := time.Since(started)
+			if firstResponse {
+				eventElapsed = result.receivedAt.Sub(responseStarted)
+			}
 			if result.err != nil {
 				if result.err == io.EOF {
 					return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream closed before terminal output")
@@ -253,7 +318,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream returned an empty chunk")
 			}
 			events++
-			lastEventMS = time.Since(started).Milliseconds()
+			lastEventMS = eventElapsed.Milliseconds()
 			armIdle()
 			label := ""
 			actualStreamID := ""
@@ -292,8 +357,14 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				} else if label == "transcript" && strings.TrimSpace(string(part)) != "" {
 					transcriptTextEvents++
 				}
-				if firstTextMS == 0 && label == "assistant" && strings.TrimSpace(string(part)) != "" {
-					firstTextMS = time.Since(started).Milliseconds()
+				if !firstTextObserved && label == "assistant" && strings.TrimSpace(string(part)) != "" {
+					firstTextObserved = true
+					firstTextElapsed = eventElapsed
+					firstTextMS = firstTextElapsed.Milliseconds()
+					if firstTextTimer != nil {
+						firstTextTimer.Stop()
+						firstTextDeadline = nil
+					}
 					if interruptDelay > 0 && interruptTimer == nil {
 						interruptTimer = time.NewTimer(interruptDelay)
 						interrupt = interruptTimer.C
@@ -310,10 +381,30 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 						assistantPackets = append(assistantPackets, append([]byte(nil), part.Data...))
 					}
 				}
-				if firstAudioMS == 0 && len(part.Data) > 0 {
-					firstAudioMS = time.Since(started).Milliseconds()
+				if !firstAudioObserved && label == "assistant" && len(part.Data) > 0 {
+					firstAudioObserved = true
+					firstAudioElapsed = eventElapsed
+					firstAudioMS = firstAudioElapsed.Milliseconds()
+					if firstAudioTimer != nil {
+						firstAudioTimer.Stop()
+						firstAudioDeadline = nil
+					}
 				}
 				audioBytes += len(part.Data)
+			}
+			if firstResponse && firstTextObserved && firstAudioObserved {
+				if len(terminalErrors) != 0 {
+					evidence := baseEvidence()
+					evidence["terminal_errors"] = len(terminalErrors)
+					return operationResult{evidence: evidence}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
+				}
+				if firstTextElapsed > firstTextTimeout {
+					return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
+				}
+				if firstAudioElapsed > firstAudioTimeout {
+					return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
+				}
+				return finish()
 			}
 			if result.chunk.IsEndOfStream() {
 				if len(terminalErrors) != 0 {
@@ -343,7 +434,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 						continue
 					}
 				}
-				nowMS := time.Since(started).Milliseconds()
+				nowMS := eventElapsed.Milliseconds()
 				if label == "assistant" {
 					mimeType, _ := result.chunk.MIMEType()
 					switch {
@@ -358,29 +449,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 						continue
 					}
 				}
-				object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
-				if len(assistantPackets) > 0 {
-					var audio bytes.Buffer
-					if err := codecconv.OpusPacketsToOgg(&audio, int(opus.SampleRate16K), 1, assistantPackets); err != nil {
-						return operationResult{}, fmt.Errorf("encode assistant audio evidence: %w", err)
-					}
-					object["audio"] = append([]byte(nil), audio.Bytes()...)
-				}
-				stopIdle()
-				if op.WaitForHistory {
-					historyName, err := waitForWorkspaceHistory(ctx, client, step.ID)
-					if err != nil {
-						return operationResult{}, err
-					}
-					object["history_name"] = historyName
-				}
-				evidence := baseEvidence()
-				evidence["audio_bytes"] = audioBytes
-				evidence["first_text_ms"] = firstTextMS
-				evidence["first_audio_ms"] = firstAudioMS
-				evidence["text_eos_ms"] = textEOSMS
-				evidence["audio_eos_ms"] = audioEOSMS
-				return operationResult{assertion: object, saved: object, evidence: evidence}, nil
+				return finish()
 			}
 		case <-ctx.Done():
 			cause := context.Cause(ctx)
@@ -448,17 +517,69 @@ func appendRealtimeTailSilence(packets [][]byte, duration time.Duration) ([][]by
 }
 
 type nextPeerStreamResult struct {
-	chunk *genx.MessageChunk
-	err   error
+	chunk      *genx.MessageChunk
+	err        error
+	receivedAt time.Time
 }
 
-func readPeerStream(ctx context.Context, stream peerStream) <-chan nextPeerStreamResult {
+type peerStreamFirstResponseArrivals struct {
+	started    time.Time
+	firstText  atomic.Int64
+	firstAudio atomic.Int64
+}
+
+func (a *peerStreamFirstResponseArrivals) observe(chunk *genx.MessageChunk, receivedAt time.Time) {
+	if a == nil || chunk == nil {
+		return
+	}
+	label := ""
+	if chunk.Ctrl != nil {
+		label = strings.TrimSpace(chunk.Ctrl.Label)
+	}
+	if label == "" {
+		switch chunk.Part.(type) {
+		case genx.Text, *genx.Blob:
+			label = "assistant"
+		}
+	}
+	if label != "assistant" {
+		return
+	}
+	elapsed := receivedAt.Sub(a.started).Nanoseconds() + 1
+	switch part := chunk.Part.(type) {
+	case genx.Text:
+		if strings.TrimSpace(string(part)) != "" {
+			a.firstText.CompareAndSwap(0, elapsed)
+		}
+	case *genx.Blob:
+		if len(part.Data) > 0 {
+			a.firstAudio.CompareAndSwap(0, elapsed)
+		}
+	}
+}
+
+func (a *peerStreamFirstResponseArrivals) firstTextWithin(timeout time.Duration) bool {
+	return firstResponseArrivalWithin(&a.firstText, timeout)
+}
+
+func (a *peerStreamFirstResponseArrivals) firstAudioWithin(timeout time.Duration) bool {
+	return firstResponseArrivalWithin(&a.firstAudio, timeout)
+}
+
+func firstResponseArrivalWithin(arrival *atomic.Int64, timeout time.Duration) bool {
+	elapsed := arrival.Load()
+	return elapsed > 0 && time.Duration(elapsed-1) <= timeout
+}
+
+func readPeerStream(ctx context.Context, stream peerStream, arrivals *peerStreamFirstResponseArrivals) <-chan nextPeerStreamResult {
 	next := make(chan nextPeerStreamResult, 1)
 	go func() {
 		for {
 			chunk, err := stream.Next()
+			receivedAt := time.Now()
+			arrivals.observe(chunk, receivedAt)
 			select {
-			case next <- nextPeerStreamResult{chunk: chunk, err: err}:
+			case next <- nextPeerStreamResult{chunk: chunk, err: err, receivedAt: receivedAt}:
 			case <-ctx.Done():
 				return
 			}

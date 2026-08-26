@@ -237,6 +237,16 @@ this wire metadata.
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
 observed text and audio EOS boundaries. Chatroom turns that complete on the
 persisted user transcript declare `transcript` explicitly.
+`peer_stream.completion: first_response` is the bounded deployment-probe
+alternative. It requires positive `first_text_timeout` and
+`first_audio_timeout` Go durations. Both deadlines start only after the whole
+turn input has been pushed. The runner succeeds and closes that logical stream
+as soon as it has observed the first non-empty assistant text and first
+non-empty assistant audio chunk; it does not wait for either EOS. A missing
+modality fails with `deadline=first_text_timeout` or
+`deadline=first_audio_timeout`. This completion cannot be combined with
+`interrupt_after`, `terminal_label`, disabled text/audio requirements, or
+`wait_for_history`.
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets
 it on every received chunk regardless of label, re-arms it after an
@@ -246,8 +256,9 @@ while a long reply that keeps streaming passes. The step `timeout` and the
 document `timeout` remain absolute bounds; when both kinds are set the earlier
 expiry wins. `peer_stream` evidence always carries `events` and
 `last_event_ms`, adds `idle_timeout_ms` when the field is set, and on failure
-names the bound that fired as `deadline` (`idle_timeout`, `timeout`, or
-`cancelled`). Failed steps keep the evidence their operation returned next to
+names the bound that fired as `deadline` (`idle_timeout`,
+`first_text_timeout`, `first_audio_timeout`, `timeout`, or `cancelled`). Failed
+steps keep the evidence their operation returned next to
 `error`, so reports distinguish a stall from an over-long reply. `gizclaw test
 validate` rejects unparsable or non-positive `idle_timeout` values.
 Interactive `review` files must run alone in an attached terminal with

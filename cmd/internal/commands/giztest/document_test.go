@@ -108,6 +108,38 @@ func TestLoadDocumentValidatesPeerStreamIdleTimeoutOffline(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
+	peerStreamStep := func(extra string) string {
+		return validDocument + `  - id: turn
+    client: peer
+    peer_stream:
+      mode: text
+      input: hello
+` + extra
+	}
+	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n")))
+	if err != nil {
+		t.Fatalf("first_response completion rejected: %v", err)
+	}
+	op := doc.Steps[len(doc.Steps)-1].PeerStream
+	if op.Completion != "first_response" || op.FirstTextTimeout != "2s" || op.FirstAudioTimeout != "3s" {
+		t.Fatalf("peer_stream operation = %#v", op)
+	}
+	for name, extra := range map[string]string{
+		"missing text deadline":  "      completion: first_response\n      first_audio_timeout: 3s\n",
+		"invalid audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: soon\n",
+		"deadline without mode":  "      first_text_timeout: 2s\n",
+		"terminal dependency":    "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      wait_for_history: true\n",
+		"missing modality":       "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
+				t.Fatal("invalid first_response completion accepted")
+			}
+		})
+	}
+}
+
 func TestLoadDocumentAssignsStableFinalizerID(t *testing.T) {
 	content := validDocument + `finally:
   - client: peer
