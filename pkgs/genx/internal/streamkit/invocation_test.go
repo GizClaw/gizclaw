@@ -176,7 +176,8 @@ func TestInvocationCancellationDoesNotCrossInvocationBoundary(t *testing.T) {
 }
 
 func TestInvocationFailureDrainsTerminalsThenReportsCause(t *testing.T) {
-	want := errors.New("audiodock: read ASR output: provider closed")
+	raw := errors.New("audiodock: read ASR output: provider closed")
+	want := genx.ClassifyFailure(raw, genx.FailureClassProvider)
 	invocation := NewInvocation(context.Background(), OutputConfig{})
 	response, err := invocation.StartResponse(ResponseConfig{Role: genx.RoleModel, Label: "assistant"}, "text/plain")
 	if err != nil {
@@ -196,6 +197,9 @@ func TestInvocationFailureDrainsTerminalsThenReportsCause(t *testing.T) {
 	terminal, err := output.Next()
 	if err != nil || terminal.Ctrl == nil || !terminal.Ctrl.EndOfStream || terminal.Ctrl.Error != want.Error() {
 		t.Fatalf("terminal chunk = (%#v, %v), want error EOS", terminal, err)
+	}
+	if terminal.Ctrl.FailureClass != genx.FailureClassProvider {
+		t.Fatalf("terminal FailureClass = %q, want provider", terminal.Ctrl.FailureClass)
 	}
 	if _, err := output.Next(); !errors.Is(err, want) {
 		t.Fatalf("drained Next() error = %v, want %v", err, want)

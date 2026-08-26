@@ -2,6 +2,7 @@ package genx
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -46,6 +47,21 @@ func TestMessageChunkConstructorsAndClone(t *testing.T) {
 	cloneBlob.Data[0] = 9
 	if orig.Part.(*Blob).Data[0] == 9 {
 		t.Fatal("clone should deep-copy blob data")
+	}
+}
+
+func TestStreamCtrlDoesNotSerializeInternalFailureClass(t *testing.T) {
+	encoded, err := json.Marshal(StreamCtrl{
+		StreamID:     "response",
+		ErrorCode:    "SAFE_CODE",
+		FailureClass: FailureClassProvider,
+		EndOfStream:  true,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(encoded), "failure_class") || strings.Contains(string(encoded), string(FailureClassProvider)) {
+		t.Fatalf("serialized StreamCtrl exposed internal failure provenance: %s", encoded)
 	}
 }
 

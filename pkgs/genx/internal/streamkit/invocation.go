@@ -214,8 +214,15 @@ func (i *Invocation) Fail(cause error) error {
 	if cause != nil {
 		errorText = cause.Error()
 	}
+	class, _ := genx.FailureClassOf(cause)
 	for _, response := range i.responses {
-		if err := i.pushTerminalLocked(response.End(errorText)); err != nil {
+		terminals := response.End(errorText)
+		for _, terminal := range terminals {
+			if terminal != nil && terminal.Ctrl != nil {
+				terminal.Ctrl.FailureClass = class
+			}
+		}
+		if err := i.pushTerminalLocked(terminals); err != nil {
 			return err
 		}
 	}

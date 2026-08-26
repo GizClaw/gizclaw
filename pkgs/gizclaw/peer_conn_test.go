@@ -79,7 +79,7 @@ func TestPeerConnLifecycleRecordsInputAndClosedTerminal(t *testing.T) {
 	}
 
 	records := capturedLifecycleRecords(t, capture)
-	if len(records) != 6 {
+	if len(records) != 7 {
 		t.Fatalf("lifecycle records = %d, want connection and turn lifecycle", len(records))
 	}
 	inputAttrs := lifecycleRecordAttrs(records[3])
@@ -89,12 +89,16 @@ func TestPeerConnLifecycleRecordsInputAndClosedTerminal(t *testing.T) {
 	if strings.Contains(fmt.Sprint(inputAttrs), untrustedStreamID) {
 		t.Fatalf("input lifecycle record exposed raw stream ID: %#v", inputAttrs)
 	}
-	turnTerminal := lifecycleRecordAttrs(records[4])
+	agentTerminal := lifecycleRecordAttrs(records[4])
+	if agentTerminal["stage"] != "agent_terminal" || agentTerminal["terminal_class"] != "caller_canceled" {
+		t.Fatalf("Agent terminal = %#v", agentTerminal)
+	}
+	turnTerminal := lifecycleRecordAttrs(records[5])
 	if turnTerminal["turn_index"] != uint64(1) || turnTerminal["input_stream_id_hash"] != safeStreamIDHash(untrustedStreamID) ||
 		turnTerminal["result"] != "closed" || turnTerminal["output_event_observed"] != false {
 		t.Fatalf("turn terminal = %#v", turnTerminal)
 	}
-	terminal := lifecycleRecordAttrs(records[5])
+	terminal := lifecycleRecordAttrs(records[6])
 	if terminal["component"] != "peer_input" || terminal["result"] != "closed" || terminal["last_stage"] != "input_first_event" || terminal["input_event_observed"] != true {
 		t.Fatalf("Peer input terminal = %#v", terminal)
 	}

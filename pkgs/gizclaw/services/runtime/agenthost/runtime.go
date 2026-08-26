@@ -69,6 +69,12 @@ type StreamConsumerPreparer interface {
 	PrepareAgentOutput(genx.Stream)
 }
 
+// RuntimeTerminalObserver receives the final output-consumer result after
+// AgentHost has classified a clean-but-unexpected runtime stream end.
+type RuntimeTerminalObserver interface {
+	ObserveAgentRuntimeTerminal(error)
+}
+
 type StreamConsumerFunc func(context.Context, genx.Stream) error
 
 func (f StreamConsumerFunc) ConsumeAgentOutput(ctx context.Context, stream genx.Stream) error {
@@ -632,13 +638,13 @@ func (s *Service) openAgentOutput(ctx context.Context, pattern string, input gen
 			if release != nil {
 				release()
 			}
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, genx.ClassifyFailure(err, genx.FailureClassTransform)
 		}
 		return agent, release, output, commit, nil
 	}
 	output, err := s.Host.Transform(ctx, pattern, input)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, genx.ClassifyFailure(err, genx.FailureClassTransform)
 	}
 	return asAgent(boundTransformer{mux: s.Host, pattern: pattern}), nil, output, func() error { return nil }, nil
 }
@@ -1005,6 +1011,13 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 		// upstream stage closed its stream without reporting an error. Name the
 		// last observed route so operators can tell which pipeline stage ended.
 		err = fmt.Errorf("%w (%s)", errUnexpectedOutputEnd, probe.summary())
+	}
+	terminalErr := err
+	if terminalErr == nil {
+		terminalErr = ctx.Err()
+	}
+	if observer, ok := s.Consumer.(RuntimeTerminalObserver); ok && !errors.Is(terminalErr, errWorkspaceQuiesced) {
+		observer.ObserveAgentRuntimeTerminal(terminalErr)
 	}
 	if err != nil && ctx.Err() == nil && !errors.Is(err, errWorkspaceQuiesced) {
 		if !s.failRuntime(rt, err) {
