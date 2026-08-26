@@ -177,10 +177,40 @@ func buildPaStreamParameters(direction streamDirection, cfg StreamConfig) (*C.Pa
 type nativeStream struct {
 	mu sync.Mutex
 
-	stream    unsafe.Pointer
-	direction streamDirection
-	frameSize int
-	closed    bool
+	stream     unsafe.Pointer
+	direction  streamDirection
+	frameSize  int
+	closed     bool
+	operations *nativeStreamOperations
+}
+
+type nativeStreamOperations struct {
+	start func(unsafe.Pointer) int
+	stop  func(unsafe.Pointer) int
+	abort func(unsafe.Pointer) int
+	close func(unsafe.Pointer) int
+	read  func(unsafe.Pointer, unsafe.Pointer, int) int
+	write func(unsafe.Pointer, unsafe.Pointer, int) int
+}
+
+var defaultNativeStreamOperations = nativeStreamOperations{
+	start: func(stream unsafe.Pointer) int { return int(C.Pa_StartStream(stream)) },
+	stop:  func(stream unsafe.Pointer) int { return int(C.Pa_StopStream(stream)) },
+	abort: func(stream unsafe.Pointer) int { return int(C.Pa_AbortStream(stream)) },
+	close: func(stream unsafe.Pointer) int { return int(C.Pa_CloseStream(stream)) },
+	read: func(stream unsafe.Pointer, buffer unsafe.Pointer, frames int) int {
+		return int(C.Pa_ReadStream(stream, buffer, C.ulong(frames)))
+	},
+	write: func(stream unsafe.Pointer, buffer unsafe.Pointer, frames int) int {
+		return int(C.Pa_WriteStream(stream, buffer, C.ulong(frames)))
+	},
+}
+
+func (s *nativeStream) ops() nativeStreamOperations {
+	if s.operations != nil {
+		return *s.operations
+	}
+	return defaultNativeStreamOperations
 }
 
 func (s *nativeStream) Start() error {
@@ -189,8 +219,8 @@ func (s *nativeStream) Start() error {
 	if s.closed || s.stream == nil {
 		return fmt.Errorf("portaudio: stream is closed")
 	}
-	if code := C.Pa_StartStream(s.stream); code != C.paNoError {
-		return paErr(code, "start stream")
+	if code := s.ops().start(s.stream); code != int(C.paNoError) {
+		return paErr(C.PaError(code), "start stream")
 	}
 	return nil
 }
@@ -201,8 +231,8 @@ func (s *nativeStream) Stop() error {
 	if s.closed || s.stream == nil {
 		return nil
 	}
-	if code := C.Pa_StopStream(s.stream); code != C.paNoError {
-		return paErr(code, "stop stream")
+	if code := s.ops().stop(s.stream); code != int(C.paNoError) {
+		return paErr(C.PaError(code), "stop stream")
 	}
 	return nil
 }
@@ -217,10 +247,10 @@ func (s *nativeStream) Close() error {
 	if s.stream == nil {
 		return nil
 	}
-	code := C.Pa_CloseStream(s.stream)
+	code := s.ops().close(s.stream)
 	s.stream = nil
-	if code != C.paNoError {
-		return paErr(code, "close stream")
+	if code != int(C.paNoError) {
+		return paErr(C.PaError(code), "close stream")
 	}
 	return nil
 }
@@ -240,8 +270,8 @@ func (s *nativeStream) Read(p []byte) (int, error) {
 	}
 
 	frames := len(p) / s.frameSize
-	if code := C.Pa_ReadStream(s.stream, unsafe.Pointer(&p[0]), C.ulong(frames)); code != C.paNoError {
-		return 0, paErr(code, "read stream")
+	if code := s.ops().read(s.stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
+		return 0, paErr(C.PaError(code), "read stream")
 	}
 	return frames * s.frameSize, nil
 }
@@ -261,8 +291,8 @@ func (s *nativeStream) Write(p []byte) (int, error) {
 	}
 
 	frames := len(p) / s.frameSize
-	if code := C.Pa_WriteStream(s.stream, unsafe.Pointer(&p[0]), C.ulong(frames)); code != C.paNoError {
-		return 0, paErr(code, "write stream")
+	if code := s.ops().write(s.stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
+		return 0, paErr(C.PaError(code), "write stream")
 	}
 	return frames * s.frameSize, nil
 }
