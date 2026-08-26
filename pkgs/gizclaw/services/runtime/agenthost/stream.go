@@ -14,6 +14,7 @@ type leaseStream struct {
 
 var _ OutputObservationStream = (*leaseStream)(nil)
 var _ outputObservationAbandoner = (*leaseStream)(nil)
+var _ OutputProductionObserver = (*leaseStream)(nil)
 
 func (s *leaseStream) Next() (*genx.MessageChunk, error) {
 	chunk, err := s.Stream.Next()
@@ -50,6 +51,12 @@ func (s *leaseStream) ObserveOutput(chunk *genx.MessageChunk) {
 func (s *leaseStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
 	if abandoner, ok := s.Stream.(outputObservationAbandoner); ok {
 		abandoner.AbandonOutputObservation(chunk)
+	}
+}
+
+func (s *leaseStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+	if observer, ok := s.Stream.(OutputProductionObserver); ok {
+		observer.SetOutputProductionObserver(observe)
 	}
 }
 

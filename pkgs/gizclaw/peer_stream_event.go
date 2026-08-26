@@ -175,6 +175,11 @@ type peerAgentOutput struct {
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
 	audio := newPeerAudioRouteAggregator()
 	loggedRouteErrors := make(map[string]struct{})
+	ownedOutput := output
+	if output != nil {
+		bindOnNext := !o.prepareAgentOutput(output)
+		ownedOutput = &peerLifecycleOutputStream{Stream: output, lifecycle: o.Lifecycle, bindOnNext: bindOnNext}
+	}
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
@@ -208,7 +213,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			}
 			return nil
 		},
-	}).ConsumeAgentOutput(ctx, output)
+	}).ConsumeAgentOutput(ctx, ownedOutput)
 	if err != nil {
 		o.Lifecycle.finish("agent_output", err)
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
@@ -219,6 +224,56 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	}
 	o.Lifecycle.finish("agent_output", nil)
 	return nil
+}
+
+func (o peerAgentOutput) PrepareAgentOutput(output genx.Stream) {
+	o.prepareAgentOutput(output)
+}
+
+func (o peerAgentOutput) prepareAgentOutput(output genx.Stream) bool {
+	observer, ok := output.(agenthost.OutputProductionObserver)
+	if !ok {
+		return false
+	}
+	observer.SetOutputProductionObserver(o.Lifecycle.bindOutputOwner)
+	return true
+}
+
+type peerLifecycleOutputStream struct {
+	genx.Stream
+	lifecycle  *peerStreamLifecycle
+	bindOnNext bool
+}
+
+func (s *peerLifecycleOutputStream) Next() (*genx.MessageChunk, error) {
+	if s == nil || s.Stream == nil {
+		return nil, io.ErrClosedPipe
+	}
+	chunk, err := s.Stream.Next()
+	if err == nil && s.bindOnNext {
+		s.lifecycle.bindOutputOwner(chunk)
+	}
+	return chunk, err
+}
+
+func (s *peerLifecycleOutputStream) DeferOutputObservation() {
+	if observer, ok := s.Stream.(agenthost.OutputObservationStream); ok {
+		observer.DeferOutputObservation()
+	}
+}
+
+func (s *peerLifecycleOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if observer, ok := s.Stream.(agenthost.OutputObservationStream); ok {
+		observer.ObserveOutput(chunk)
+	}
+}
+
+func (s *peerLifecycleOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if abandoner, ok := s.Stream.(interface {
+		AbandonOutputObservation(*genx.MessageChunk)
+	}); ok {
+		abandoner.AbandonOutputObservation(chunk)
+	}
 }
 
 func (o peerAgentOutput) logTerminalRouteError(
@@ -255,8 +310,8 @@ func (o peerAgentOutput) logTerminalRouteError(
 	logger.ErrorContext(ctx, "gizclaw: assistant route failed",
 		"peer_public_key", o.PeerPublicKey,
 		"workspace", workspaceName,
-		"stream_id", streamID,
-		"stream_label", chunk.Ctrl.Label,
+		"stream_id_hash", safeStreamIDHash(streamID),
+		"stream_label_hash", safeStreamIDHash(chunk.Ctrl.Label),
 		"error_code", code,
 		"retryable", chunk.Ctrl.ErrorRetryable,
 	)

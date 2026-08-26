@@ -25,8 +25,4 @@ Downlink audio has no raw Direct Opus branch. `MixerOutput` owns one decoder and
 
 `peerAgentOutput` observes those source boundaries only after `MixerOutput` has drained the corresponding track. It emits one logical mixed-audio epoch: the first active source emits `BOS(kind=AUDIO)`, overlapping source boundaries are suppressed, and only removal of the last active source emits `EOS(kind=AUDIO)`. A route-level interruption removes only that route. The aggregate boundary keeps the first source's stream ID and label, sets sequence to zero, and leaves MIME empty because the connection has one fixed Opus downlink channel. Source MIME remains private decoder metadata and never describes the mixed wire channel.
 
-For an Edge-routed Peer, `peerAgentOutput` records the first observed Agent
-output chunk with the tunnel correlation context, safely resolved Workspace,
-and stable hash of the untrusted stream identifier. When the connection-scoped output consumer ends, it
-emits one bounded terminal lifecycle record. Raw provider errors remain in the
-product error path and are never copied into lifecycle logs.
+For an Edge-routed Peer, `peerAgentOutput` records the first observed Agent output for the current logical turn with the tunnel correlation context, safely resolved Workspace, and stable `output_stream_id_hash`. Its internal route-to-turn association survives input replacement, so an old route's late EOS remains on the old `turn_index` while the replacement output belongs to the new turn. Output EOS records one bounded `output_terminal` classification and completes the owning turn when applicable. Repeated chunks and media channels do not create additional lifecycle stage records. The connection-scoped output consumer still emits its compatible terminal record; raw provider errors remain in the product error path and are never copied into lifecycle logs.

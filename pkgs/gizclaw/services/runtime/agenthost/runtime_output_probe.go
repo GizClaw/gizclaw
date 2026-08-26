@@ -89,6 +89,12 @@ func (p *outputProbe) AbandonOutputObservation(chunk *genx.MessageChunk) {
 	}
 }
 
+func (p *outputProbe) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+	if observer, ok := p.Stream.(OutputProductionObserver); ok {
+		observer.SetOutputProductionObserver(observe)
+	}
+}
+
 // summary describes the last observed route for diagnostics.
 func (p *outputProbe) summary() string {
 	p.mu.Lock()

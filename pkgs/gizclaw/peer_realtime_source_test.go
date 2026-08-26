@@ -3,9 +3,11 @@ package gizclaw
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 )
 
 func TestPeerRealtimeSourceRecordsFirstOpenAndPushOnce(t *testing.T) {
@@ -39,6 +41,33 @@ func TestPeerRealtimeSourceRecordsFirstOpenAndPushOnce(t *testing.T) {
 	attrs := lifecycleRecordAttrs(records[1])
 	if attrs["stage"] != "agent_input_first_push" || attrs["stream_id_hash"] != safeStreamIDHash("untrusted-stream-secret") {
 		t.Fatalf("second lifecycle record = %#v", attrs)
+	}
+}
+
+func TestPeerRealtimeSourceRecordsFirstPushForEachTurn(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-turns", "peer-turns")
+	source := newPeerRealtimeSourceWithLifecycle(lifecycle, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput() error = %v", err)
+	}
+	for index, streamID := range []string{"input-first", "input-second"} {
+		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, streamID, nil))
+		for range 20 {
+			if err := source.Push(t.Context(), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: streamID}}); err != nil {
+				t.Fatalf("Push(turn %d) error = %v", index+1, err)
+			}
+		}
+	}
+	var pushTurns []uint64
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "agent_input_first_push" {
+			pushTurns = append(pushTurns, attrs["turn_index"].(uint64))
+		}
+	}
+	if !slices.Equal(pushTurns, []uint64{1, 2}) {
+		t.Fatalf("Agent input push turns = %v, want [1 2]", pushTurns)
 	}
 }
 

@@ -264,27 +264,12 @@ configuration alone would not.
 
 ## Edge-routed Peer stream lifecycle
 
-`gizclaw: peer stream lifecycle` correlates one Edge-routed logical Peer from
-gateway admission through Server input and Agent output. Edge and Server use the
-same `tunnel_session_id`; the authenticated logical identity is recorded as
-`peer_public_key`. `component`, `stage`, `result`, `reason`, `last_stage`, and
-`duration_ms` are bounded scalar attributes. A terminal Server record also
-contains the booleans `input_event_observed`, `agent_input_opened`,
-`agent_input_pushed`, and `output_event_observed`, so a zero-event failure can be
-localized without host journal access.
+`gizclaw: peer stream lifecycle` correlates one Edge-routed logical Peer from gateway admission through Server input and Agent output. Edge and Server use the same `tunnel_session_id`; the authenticated logical identity is recorded as `peer_public_key`. The connection-level `component`, `stage`, `result`, `reason`, `last_stage`, and `duration_ms` records remain available. A connection terminal also contains `input_event_observed`, `agent_input_opened`, `agent_input_pushed`, and `output_event_observed` so a zero-event connection failure remains distinguishable.
 
-Lifecycle stages are emitted once per logical session, not per packet, chunk,
-or text delta. `workspace_name` appears only after safe parsing. Untrusted stream
-identifiers are represented only by a stable 128-bit `stream_id_hash`; raw
-`stream_id` values are never logged. The hash contract trims leading and trailing
-Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the
-first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty
-normalized IDs are omitted. It performs no case folding or Unicode normalization
-and uses no salt or HMAC key. For example, `stream-42` maps to
-`0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids
-accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are
-dictionary-testable, so producers must not put credentials or secrets in stream IDs.
-Session, Peer, Workspace, and stream identifiers remain log-only dimensions and
-must never become metric labels. Lifecycle records must not contain remote
-addresses, payloads, audio, prompts, conversation events, SDP, ICE candidate
-bodies, credentials, raw provider errors, or panic values.
+Each authorized input BOS allocates a positive, monotonically increasing `turn_index` within the tunnel. `(tunnel_session_id, turn_index)` is the query identity for one logical turn and is never placed on the wire or used as a metric label. Input and assistant output identifiers are independent: their safe correlation fields are `input_stream_id_hash` and `output_stream_id_hash`. The observer keeps an internal output-route association so a late terminal from a replaced output stays on its original turn instead of being attributed to the replacement.
+
+The bounded per-turn stages are `turn_started`, `input_first_event`, `input_terminal`, `interrupt_observed`, `agent_input_first_push`, `output_first_event`, `output_terminal`, and `turn_terminal`. Turn boundaries use `component=peer_turn`, input stages use `component=peer_input`, and output stages use `component=agent_output`. Each applicable stage is emitted at most once for a turn. `turn_terminal` includes `input_terminal_observed`, `interrupt_observed`, `agent_input_pushed`, `output_event_observed`, and `output_terminal_observed`, which lets an operator distinguish a later turn that reached Agent input but produced no output from evidence belonging to an earlier successful turn. Closed `result` values are `success`, `replaced`, `interrupted`, `canceled`, `timeout`, `closed`, `runtime_error`, and `incomplete`; closed terminal or interruption `reason` values are `completed`, `input_replaced`, `control_interrupt`, `expected_interruption`, `caller_canceled`, `deadline_exceeded`, `stream_closed`, `internal_error`, and `state_limit`. Raw errors are never copied.
+
+Success log volume is bounded by turns times this fixed stage set, not by packets, audio frames, text deltas, or control fragments. Active and recently replaced state is capped, completed state is released, and connection teardown emits one terminal summary for every retained incomplete turn before clearing the correlation maps. Instrumentation does not block, retry, reorder, or alter Peer, AgentHost, provider, interruption, timeout, or cleanup behavior.
+
+Untrusted stream identifiers use a stable 128-bit hash; raw `stream_id` values are never logged. The hash contract trims leading and trailing Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty normalized IDs are omitted. It performs no case folding or Unicode normalization and uses no salt or HMAC key. For example, `stream-42` maps to `0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are dictionary-testable, so producers must not put credentials or secrets in stream IDs. Session, turn, Peer, Workspace, and stream identifiers remain log-only dimensions and must never become metric labels. Lifecycle records must not contain remote addresses, payloads, audio, transcripts, prompts, conversation events, SDP, ICE candidate bodies, credentials, raw provider errors, or panic values.
