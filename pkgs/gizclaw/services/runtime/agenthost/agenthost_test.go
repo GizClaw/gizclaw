@@ -125,7 +125,12 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 		Id:       "owner-profile",
 		Revision: "revision-1",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-			Collections: apitypes.RuntimeProfileWorkflowCollections{"assistants": {"chat": {ResourceId: "owner-workflow"}}},
+			Collections: apitypes.RuntimeProfileWorkflowCollections{
+				"assistants": {
+					"chat":               {ResourceId: "owner-workflow"},
+					"unavailable-helper": {ResourceId: "missing-workflow"},
+				},
+			},
 		}},
 	}
 	resolver := ServiceResolver{
@@ -148,6 +153,22 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	}
 	if spec.Workflow.Id != "owner-workflow" {
 		t.Fatalf("workflow = %q, want owner-workflow", spec.Workflow.Id)
+	}
+}
+
+func TestServiceResolverFailsWhenSelectedWorkflowIsUnavailable(t *testing.T) {
+	owner := "owner-public-key"
+	ws := systemWorkspace("shared", "missing-workflow", nil)
+	ws.OwnerPublicKey = &owner
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"shared": ws}},
+		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{}},
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Id: "owner-profile", Revision: "revision-1"}, nil
+		},
+	}
+	if _, err := resolver.Resolve(t.Context(), "shared"); err == nil || !strings.Contains(err.Error(), `workflow "missing-workflow" not found`) {
+		t.Fatalf("Resolve() error = %v, want selected Workflow not found", err)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -163,6 +164,30 @@ type failingBatchMutateStore struct {
 
 func (f failingBatchMutateStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
 	return errors.New("injected BatchMutate failure")
+}
+
+type blockingProfileGetStore struct {
+	kv.Store
+	key     string
+	enabled atomic.Bool
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingProfileGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if s.enabled.Load() && key.String() == s.key {
+		s.entered <- struct{}{}
+		select {
+		case <-s.release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return s.Store.Get(ctx, key)
+}
+
+func (s *blockingProfileGetStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
 }
 
 func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T) {
@@ -1418,41 +1443,105 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	}
 }
 
-func TestResolveProfileRevalidatesCurrentSystemWorkflows(t *testing.T) {
+func TestResolveProfileReturnsPersistedSnapshotWithoutResolvingResources(t *testing.T) {
 	t.Parallel()
 	s := &Server{Store: kv.NewMemory(nil)}
 	createProfile(t, s, "owner-profile", nil)
-	s.ResolveResource = func(_ context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
-		if kind != apitypes.ResourceKindWorkflow {
-			return apitypes.Resource{}, kv.ErrNotFound
+	s.ResolveResource = func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
+		t.Fatal("ResolveProfile() resolved a RuntimeProfile dependency")
+		return apitypes.Resource{}, errors.New("unexpected resource resolution")
+	}
+	profile, err := s.ResolveProfile(t.Context(), "owner-profile")
+	if err != nil {
+		t.Fatalf("ResolveProfile() error = %v", err)
+	}
+	if profile.Id != "owner-profile" || profile.Revision == "" {
+		t.Fatalf("ResolveProfile() = %#v, want persisted owner-profile snapshot", profile)
+	}
+}
+
+func TestResolveOwnerProfileReturnsPersistedSnapshotWithoutResolvingResources(t *testing.T) {
+	t.Parallel()
+	s := &Server{Store: kv.NewMemory(nil)}
+	createProfile(t, s, "owner-profile", nil)
+	if err := s.BindOwnerProfile(t.Context(), "peer-a", "owner-profile"); err != nil {
+		t.Fatalf("BindOwnerProfile() error = %v", err)
+	}
+	s.ResolveResource = func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
+		t.Fatal("ResolveOwnerProfile() resolved a RuntimeProfile dependency")
+		return apitypes.Resource{}, errors.New("unexpected resource resolution")
+	}
+	profile, err := s.ResolveOwnerProfile(t.Context(), "peer-a")
+	if err != nil {
+		t.Fatalf("ResolveOwnerProfile() error = %v", err)
+	}
+	if profile.Id != "owner-profile" || profile.Revision == "" {
+		t.Fatalf("ResolveOwnerProfile() = %#v, want persisted owner-profile snapshot", profile)
+	}
+}
+
+func TestResolveOwnerProfileReadsSharedProfileConcurrently(t *testing.T) {
+	t.Parallel()
+	store := &blockingProfileGetStore{
+		Store:   kv.NewMemory(nil),
+		key:     profileKey("shared-profile").String(),
+		entered: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	s := &Server{Store: store}
+	createProfile(t, s, "shared-profile", nil)
+	for _, owner := range []string{"peer-a", "peer-b"} {
+		if err := s.BindOwnerProfile(t.Context(), owner, "shared-profile"); err != nil {
+			t.Fatalf("BindOwnerProfile(%q) error = %v", owner, err)
 		}
-		spec := apitypes.WorkflowSpec{
-			Driver:   apitypes.WorkflowDriverChatroom,
-			Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+	}
+	store.enabled.Store(true)
+	results := make(chan error, 2)
+	for _, owner := range []string{"peer-a", "peer-b"} {
+		go func() {
+			_, err := s.ResolveOwnerProfile(t.Context(), owner)
+			results <- err
+		}()
+	}
+	for range 2 {
+		select {
+		case <-store.entered:
+		case <-time.After(time.Second):
+			close(store.release)
+			t.Fatal("shared RuntimeProfile reads did not enter the store concurrently")
 		}
-		if resourceName == "chatroom" {
-			spec = apitypes.WorkflowSpec{
-				Driver: apitypes.WorkflowDriverPet,
-				Pet: &apitypes.PetWorkflowSpec{
-					Driver:   apitypes.ReusableWorkflowDriverChatroom,
-					Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
-				},
+	}
+	close(store.release)
+	for range 2 {
+		if err := <-results; err != nil {
+			t.Fatalf("ResolveOwnerProfile() error = %v", err)
+		}
+	}
+}
+
+func BenchmarkResolveOwnerProfile(b *testing.B) {
+	s := &Server{Store: kv.NewMemory(nil)}
+	createProfile(b, s, "shared-profile", nil)
+	owners := []string{"peer-0", "peer-1", "peer-2", "peer-3", "peer-4", "peer-5", "peer-6", "peer-7"}
+	for _, owner := range owners {
+		if err := s.BindOwnerProfile(b.Context(), owner, "shared-profile"); err != nil {
+			b.Fatalf("BindOwnerProfile(%q) error = %v", owner, err)
+		}
+	}
+	s.ResolveResource = func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
+		b.Fatal("ResolveOwnerProfile() resolved a RuntimeProfile dependency")
+		return apitypes.Resource{}, errors.New("unexpected resource resolution")
+	}
+	b.ResetTimer()
+	var nextOwner atomic.Uint64
+	b.RunParallel(func(pb *testing.PB) {
+		owner := owners[(nextOwner.Add(1)-1)%uint64(len(owners))]
+		for pb.Next() {
+			if _, err := s.ResolveOwnerProfile(b.Context(), owner); err != nil {
+				b.Fatal(err)
 			}
 		}
-		var resource apitypes.Resource
-		if err := resource.FromWorkflowResource(apitypes.WorkflowResource{
-			ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
-			Kind:       apitypes.WorkflowResourceKindWorkflow,
-			Metadata:   apitypes.ResourceMetadata{Id: resourceName},
-			Spec:       spec,
-		}); err != nil {
-			t.Fatal(err)
-		}
-		return resource, nil
-	}
-	if _, err := s.ResolveProfile(t.Context(), "owner-profile"); err == nil || !strings.Contains(err.Error(), `workflows.system.friend_chatroom "chatroom" has driver "pet"`) {
-		t.Fatalf("ResolveProfile() error = %v, want current system Workflow validation", err)
-	}
+	})
 }
 
 func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t *testing.T) {
@@ -1614,7 +1703,7 @@ func TestBindOwnerProfileAndCommitRestoresBindingAfterRequestCancellation(t *tes
 	}
 }
 
-func createProfile(t *testing.T, s *Server, name string, models map[string]string) {
+func createProfile(t testing.TB, s *Server, name string, models map[string]string) {
 	t.Helper()
 	previousResolver := s.ResolveResource
 	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {

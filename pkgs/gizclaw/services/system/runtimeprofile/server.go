@@ -74,8 +74,9 @@ type Registration struct {
 	FirmwareID     *string
 }
 
-// ResolveProfile returns the current persisted revision for a profile ID.
-// Registrations pin the ID, not a configuration snapshot.
+// ResolveProfile returns the current persisted revision for a profile ID
+// without revalidating its dependencies. Registrations pin the ID, not a
+// configuration snapshot.
 func (s *Server) ResolveProfile(ctx context.Context, id string) (apitypes.RuntimeProfile, error) {
 	store, err := s.store()
 	if err != nil {
@@ -87,9 +88,6 @@ func (s *Server) ResolveProfile(ctx context.Context, id string) (apitypes.Runtim
 	profile, err := GetProfile(ctx, store, id)
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
-	}
-	if err := s.validateResources(ctx, profile.Spec); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Id, err)
 	}
 	return profile, nil
 }
@@ -163,7 +161,8 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileID
 }
 
 // ResolveOwnerProfile returns the current persisted revision of the profile
-// most recently selected by an authenticated owner registration.
+// most recently selected by an authenticated owner registration without
+// revalidating its dependencies.
 func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitypes.RuntimeProfile, error) {
 	store, err := s.store()
 	if err != nil {
@@ -182,17 +181,9 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
-	releaseProfile, err := s.profileLocks.Acquire(ctx, string(profileID))
-	if err != nil {
-		return apitypes.RuntimeProfile{}, err
-	}
-	defer releaseProfile()
 	profile, err := getProfileByID(ctx, store, string(profileID))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
-	}
-	if err := s.validateResources(ctx, profile.Spec); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile %q dependencies are invalid: %w", profile.Id, err)
 	}
 	return profile, nil
 }
