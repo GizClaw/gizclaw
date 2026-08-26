@@ -62,6 +62,42 @@ func escape(mu *sync.Mutex) func() {
 	}
 }
 
+func TestInventoryFunctionMutexScopesFailsClosedOnMethodValues(t *testing.T) {
+	source := []byte(`package fixture
+import "sync"
+func methodValues(mu *sync.RWMutex) {
+	lock := mu.Lock
+	lock()
+	unlock := mu.Unlock
+	unlock()
+}
+`)
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, "fixture.go", source, parser.SkipObjectResolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	function := file.Decls[1].(*ast.FuncDecl)
+	records, err := inventoryFunctionMutexScopes(fileSet, "fixture.go", source, mutexScopeFunction{name: function.Name.Name, body: function.Body})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("inventory length = %d, want 2: %#v", len(records), records)
+	}
+	for _, record := range records {
+		if record.Kind != "lock_method_value" || record.Release != "unresolved" || !slices.Equal(record.Risks, []string{"ownership-transfer"}) {
+			t.Fatalf("method-value record = %#v, want unresolved ownership transfer", record.mutexScopeRecord)
+		}
+	}
+	review := records[0].mutexScopeRecord
+	review.Classification = mutexScopeClassification(review)
+	review.Rationale = mutexScopeRationale(review)
+	if err := validateMutexScopeReview([]mutexScopeRecord{review}); err == nil || !strings.Contains(err.Error(), "unresolved lock ownership") {
+		t.Fatalf("method-value review error = %v, want unresolved ownership rejection", err)
+	}
+}
+
 func TestMutexScopeFingerprintChangesWithCriticalSection(t *testing.T) {
 	fingerprint := func(source string) string {
 		t.Helper()

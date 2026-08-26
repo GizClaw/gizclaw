@@ -154,6 +154,7 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 	}
 	parents := make(map[ast.Node]ast.Node)
 	functionReturnsUnlock := false
+	var unsupportedMethodValues []*ast.SelectorExpr
 	var stack []ast.Node
 	ast.Inspect(function.body, func(node ast.Node) bool {
 		if node == nil {
@@ -164,6 +165,9 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 			parents[node] = stack[len(stack)-1]
 		}
 		stack = append(stack, node)
+		if selector, ok := node.(*ast.SelectorExpr); ok && isLockMethod(selector.Sel.Name) && !directMethodCall(parents[selector], selector) && !returnedUnlockMethod(parents[selector], selector) {
+			unsupportedMethodValues = append(unsupportedMethodValues, selector)
+		}
 		call, ok := node.(*ast.CallExpr)
 		if statement, ok := node.(*ast.ReturnStmt); ok {
 			for _, result := range statement.Results {
@@ -264,7 +268,32 @@ func inventoryFunctionMutexScopes(fileSet *token.FileSet, file string, source []
 		}
 		return true
 	})
+	for index, selector := range unsupportedMethodValues {
+		receiver := expressionString(fileSet, selector.X)
+		text := expressionString(fileSet, selector)
+		input := strings.Join([]string{file, function.name, "lock_method_value", fmt.Sprint(index), normalizeMutexScopeSource(text)}, "\x00")
+		sum := sha256.Sum256([]byte(input))
+		records = append(records, mutexScopeCandidate{mutexScopeRecord: mutexScopeRecord{
+			Fingerprint: hex.EncodeToString(sum[:]), File: file, Line: fileSet.Position(selector.Pos()).Line,
+			Function: function.name, Kind: "lock_method_value", Receiver: receiver, Release: "unresolved",
+			Risks: []string{"ownership-transfer"},
+		}, criticalSource: text})
+	}
 	return records, nil
+}
+
+func isLockMethod(name string) bool {
+	return name == "Lock" || name == "RLock" || name == "Unlock" || name == "RUnlock"
+}
+
+func directMethodCall(parent ast.Node, selector *ast.SelectorExpr) bool {
+	call, ok := parent.(*ast.CallExpr)
+	return ok && call.Fun == selector
+}
+
+func returnedUnlockMethod(parent ast.Node, selector *ast.SelectorExpr) bool {
+	_, returned := parent.(*ast.ReturnStmt)
+	return returned && (selector.Sel.Name == "Unlock" || selector.Sel.Name == "RUnlock")
 }
 
 func returnedLockHelper(parent ast.Node) bool {
