@@ -15,13 +15,7 @@ Universal WebRTC, packet transport and service stream belong to `pkgs/giznet`; u
 
 The [Streams Reference](/references/streams) owns the direction, reliability, service IDs, framing, and lifecycle of audio, direct packets, the Peer Event Stream, and RPC/HTTP service streams. The [Events Reference](/references/events) owns event wire types and fields. This page only explains how `PeerConn` implements those contracts and does not duplicate their protocol tables.
 
-For an activated physical `edge-node`, `PeerConn` registers the v2 tunnel
-namespace and accepts logical connections assembled from labeled native control,
-packet, and service DataChannels. The resulting value is a normal `giznet.Conn`:
-its key and endpoint come from the trusted Edge's canonical control label, while
-all service authorization and the mandatory Event-before-activation rule run as
-that logical client. Closing its control or packet channel closes the complete
-logical Peer without closing the physical Edge or sibling logical sessions.
+For an activated physical `edge-node`, `PeerConn` registers the v2 tunnel namespace and accepts logical connections assembled from labeled native control, packet, and service DataChannels. The resulting value is a normal `giznet.Conn`: its key and endpoint come from the trusted Edge's canonical control label, while all service authorization and the mandatory Event-before-activation rule run as that logical client. Closing its control or packet channel closes the complete logical Peer without closing the physical Edge or sibling logical sessions.
 
 ## Service stream write flow control
 
@@ -35,13 +29,7 @@ The C SDK retains the separate `gzc_webrtc_media_vtable_t` extension for bidirec
 
 The C SDK keeps received Opus in a fixed-slot ring backed by one contiguous platform allocation. Its default 64-packet capacity covers about 1.28 seconds at the ordinary 20 ms packet cadence. A caller may select another capacity with `gzc_client_set_opus_rx_capacity` before connect; capacity is fixed after connect, and a full ring overwrites only its oldest Opus packet without affecting Direct Packet. Client close immediately discards the remaining ring contents; a conversation cancel that keeps the connection can call `gzc_client_discard_opus_rx` on the serialized poll-owner thread so stale audio is not delivered later. Each slot holds at most `GZC_OPUS_MAX_PACKET_SIZE` bytes, so the receive callback, enqueue path, and `gzc_client_read_packet_into` allocate no per-packet memory. The latter writes caller-owned storage; insufficient capacity returns `GZC_ERR_BUFFER_TOO_SMALL`, reports the required length, and retains the same packet for retry. The existing `gzc_client_read_packet` keeps its allocator-owned `gzc_buf_t` contract for compatibility.
 
-The C SDK concurrent unary requester adds no connection-scoped transport.
-Each `gzc_rpc_request_t` exclusively owns one dynamic RPC service DataChannel,
-while the client keeps only a non-owning channel-identity dispatch link. One
-caller owns `gzc_client_poll`; request result lookup never re-enters polling.
-Client close first marks pending requests closed and detaches their channels,
-but the caller still destroys each request handle and its response buffers
-while the configured platform allocator remains alive.
+The C SDK concurrent unary requester adds no connection-scoped transport. Each `gzc_rpc_request_t` exclusively owns one dynamic RPC service DataChannel, while the client keeps only a non-owning channel-identity dispatch link. One caller owns `gzc_client_poll`; request result lookup never re-enters polling. Client close first marks pending requests closed and detaches their channels, but the caller still destroys each request handle and its response buffers while the configured platform allocator remains alive.
 
 ## Core structure and main function
 
@@ -66,10 +54,4 @@ Before any RPC, HTTP, Event, packet, or audio loop starts, `PeerConn` atomically
 
 `PeerConn` does not infer logical BOS/EOS from paced packets or mixer reads. It owns only the fixed mixed PCM-to-Opus downlink and its real-time pacing. The Agent output bridge emits the aggregate audio lifecycle after Mixer drain, so no transport sequence number, MIME fallback, or per-source boundary state belongs here.
 
-For Edge-routed connections, `PeerConn` carries the accepted tunnel lifecycle
-context. It records the mandatory Event Stream acceptance, the first decoded
-Peer input event, Agent input opening, and the first successful Agent input
-push. Each transition is recorded once. The Server terminal snapshot reports
-which transitions were observed, allowing a zero-event timeout to be separated
-from a failure after Agent input began. The Peer input owner also emits one
-terminal record with its own last stage and bounded result.
+For Edge-routed connections, `PeerConn` carries the accepted tunnel lifecycle context. It records the mandatory Event Stream acceptance, the first decoded Peer input event, Agent input opening, and the first successful Agent input push. Each transition is recorded once. The Server terminal snapshot reports which transitions were observed, allowing a zero-event timeout to be separated from a failure after Agent input began. The Peer input owner also emits one terminal record with its own last stage and bounded result.
