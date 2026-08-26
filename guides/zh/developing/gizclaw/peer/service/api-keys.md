@@ -7,3 +7,5 @@
 这种可恢复性是明确的 credential-store 信任边界。GizClaw 不 hash 或应用层加密这些 Key，也不引入 KMS：Server 进程、datastore operator 和 backup reader 都处于 credential authority，部署必须保护数据库访问与静态存储。应用接口仍严格限制 owner scope；管理操作只使用现有有界 operation observability，不记录 Key 值；轮换通过创建 replacement 后撤销旧 Key 完成，Peer 退役会撤销它拥有的全部 Key。
 
 已认证的 Peer RPC 连接始终是设备 owner 的根管理权限，通过 `server.api_key.create`、`server.api_key.list` 和 `server.api_key.revoke` 管理 Key。`manage_api_keys` 只把管理能力委派给已签发的 API Key，不会限制或取代 Peer RPC 根方法。
+
+Create、list、revoke 与 Peer cleanup 按 owner 协调。持久化 retirement marker 仍阻止同 owner 的迟到 publication，无关 owner 可在 Store scan 期间继续。只有注入的非线程安全 random source 使用独立短 mutex；全局唯一性仍由原子 KV guard 保证。

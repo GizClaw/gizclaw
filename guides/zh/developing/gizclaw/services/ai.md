@@ -119,3 +119,5 @@ flowchart LR
 - Agent instance、peer connection 和在线运行生命周期。
 - Provider credential 明文日志或跨领域复制。
 - 仅属于 Admin/Peer HTTP route 注册的接线代码。
+
+Workspace 创建按 owner 注册并 drain in-flight 工作。Runtime preparation 与调用者 initializer 在 coordinator mutex 外执行；退休只关闭目标 owner 的 admission，并在快照前等待该 owner 的创建。MemoryLayout 的 read-modify-write 按 canonical layout ID 串行，而不是按整个 Server 串行。

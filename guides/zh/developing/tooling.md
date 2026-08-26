@@ -148,3 +148,9 @@ draft 也必须通过相同的 metadata、inventory、digest 与逐字节校验�
 同一个 draft。Partial、tag moved、重复 exact-tag Release 或任何 mismatch 都会 fail
 closed；workflow 从不删除、替换或覆盖已发布的 SemVer Release。下游 Homebrew 与 APT
 channel 各自负责签名、托管、保留策略和 live installation acceptance。
+
+## Mutex scope inventory
+
+`go run ./tools/quality mutexscope` 扫描所有 Git 跟踪的手写 Go 文件和维护 module，也包括当前主机未激活但已跟踪的平台文件。它为可达的 `Lock`/`RLock` 临界区、release 形式、嵌套/风险操作与返回 unlock 的 ownership transfer 建立 fingerprint，并与 `tools/quality/mutexscope.reviewed.jsonl` 精确比较。缺失、stale、重复、未排序、通配或非 intentional 的记录都会 fail closed。
+
+只有逐项审查变更并完成确定性并发测试与 race 测试后才能使用 `-write-reviewed`。该命令是 source inventory，不证明不存在 deadlock、starvation、race 或性能问题。

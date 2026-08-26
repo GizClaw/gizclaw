@@ -18,3 +18,5 @@ Provide native PortAudio capture/playback backend, and adapt the device stream t
 | `NativeRuntimeSupported` / `BackendName` | Describe the current platform backend availability. |
 
 Platform and CGO support are determined by the backend matrix; unsupported builds must return explicit capability status or errors.
+
+Native blocking reads and writes run outside the stream state mutex. `Stop` and `Close` first prevent new I/O, abort an active native call, wait for all users to leave, and only then close the native handle. `Close` is idempotent and no PortAudio function may observe a freed handle. Unit tests use injected native operations; `portaudio_device` tests are opt-in and report an unsupported host as unsupported rather than passing it.

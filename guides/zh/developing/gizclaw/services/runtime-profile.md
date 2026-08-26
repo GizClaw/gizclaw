@@ -176,3 +176,5 @@ RegistrationToken 只通过可靠 Peer connection 上的 `server.register` 提�
 - Pet 实例仍是 Peer/领域状态；领养与所有 reward 数值都来自 `gameplay`，Server config 只保存运行参数。
 
 Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。RegistrationToken 可以独立绑定 Firmware ID，但不绑定 channel。Credential 与 ProviderTenant 只是真实 Model、Voice 在 Server 侧使用的依赖，不会暴露给设备。
+
+Mutation coordination 分别归属 owner、profile ID、token ID 与 token hash。跨 key mutation 按 canonical 顺序取锁，在保留 binding commit/rollback 和 token index 原子性的同时允许无关 owner/profile/token 继续。Registration commit 仍处于同 owner transaction 边界，但不持有 Server 全局 mutation mutex。

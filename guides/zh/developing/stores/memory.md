@@ -171,3 +171,5 @@ spec:
 Provider adapter 不关闭注入的 dependency。构造 workspace、index、HTTP client 或 credential dependency 的 composition root 拥有它们，并按构造顺序的逆序关闭资源。
 
 稳定的 sentinel errors 是 `ErrInvalidInput`、`ErrNotFound`、`ErrUnsupported`、`ErrConflict` 和 `ErrUnavailable`。Provider 保留 `errors.Is` 语义。无法完整保持 filter、attribute patch 或 conditional-write 语义时，必须返回 `ErrUnsupported`，不能静默丢弃条件。错误不得暴露 API key、access-key credential 或带 credential 的 response body。
+
+物理 Memory Store 构造按完整 binding key 协调：相同 key 的调用者共享一个 backend，无关 binding 可以独立构造。Direct Mem0 Fact 幂等边界是完整 canonical Scope 加 observation ID，因此慢 provider 请求不会停止无关 scope/observation；相同 key 的 retry 仍会 reconcile 或返回 `ErrConflict`。

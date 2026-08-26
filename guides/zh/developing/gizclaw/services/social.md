@@ -70,3 +70,5 @@ flowchart LR
 - Admin/Peer route registration。
 
 新增 social 能力时，应先判断它属于 contact、friend 还是 friend group；只有形成新的独立资源与生命周期时才增加新的子 package。
+
+Contact mutation 与 retirement 按 owner 协调。Friend retirement 快照只持有目标 Peer admission gate，双向关系变化仍按 relation key 串行。Friend Group 快照使用相同的目标 Peer admission 边界；删除群时按 canonical 顺序获取 owner/全部 member Peer 集合及 group lock。退休扫描不会停止与目标 Peer 无关的关系或群。

@@ -171,3 +171,5 @@ All streams for one Workspace share one Agent generation. Stable data visibility
 Provider adapters do not close injected dependencies. The composition root that constructs a workspace, index, HTTP client, or credential dependency owns it and closes resources in reverse construction order.
 
 The stable sentinel errors are `ErrInvalidInput`, `ErrNotFound`, `ErrUnsupported`, `ErrConflict`, and `ErrUnavailable`. Providers preserve `errors.Is` behavior. If a provider cannot preserve a filter, attribute patch, or conditional-write semantic, it returns `ErrUnsupported` rather than discarding the condition. Errors must not expose API keys, access-key credentials, or credential-bearing response bodies.
+
+Physical Memory Store construction is coordinated per complete binding key: callers for the same key share one backend, while unrelated bindings construct independently. Direct Mem0 Fact idempotency is coordinated by complete canonical Scope plus observation ID, so a slow provider request does not stop unrelated scopes or observations; same-key retries still reconcile or return `ErrConflict`.

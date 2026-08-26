@@ -180,3 +180,5 @@ RegistrationToken is submitted only through `server.register` on a reliable Peer
 - Pet instances remain Peer/domain state. Adoption and all reward values come from `gameplay`; Server config contains only operational settings.
 
 Firmware remains an independent Admin resource and is not part of the RuntimeProfile projection. A RegistrationToken may bind its Firmware ID independently of the RuntimeProfile, without binding a channel. Credentials and ProviderTenants remain Server-only dependencies of canonical Model and Voice resources.
+
+Mutation coordination follows owner, profile ID, token ID, and token hash ownership. Multi-key mutations acquire canonical ordered keys, preserving binding commit/rollback and token-index atomicity while unrelated owners, profiles, and tokens continue. A registration commit remains inside its same-owner transaction boundary but never holds a Server-global mutation mutex.

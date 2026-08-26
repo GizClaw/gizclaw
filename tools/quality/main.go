@@ -45,7 +45,7 @@ const (
 
 func main() {
 	if len(os.Args) < 2 {
-		fatal("usage: quality <gofmt|modernize|vet|files> [flags]")
+		fatal("usage: quality <gofmt|modernize|vet|files|mutexscope> [flags]")
 	}
 
 	root, err := repositoryRoot()
@@ -90,6 +90,14 @@ func main() {
 		}
 		for _, file := range files {
 			_, _ = fmt.Fprint(os.Stdout, file, separator)
+		}
+	case "mutexscope":
+		flags := flag.NewFlagSet("mutexscope", flag.ExitOnError)
+		reviewed := flags.String("reviewed", "tools/quality/mutexscope.reviewed.jsonl", "repository-relative reviewed critical-section inventory")
+		writeReviewed := flags.Bool("write-reviewed", false, "replace the reviewed inventory after semantic review")
+		_ = flags.Parse(os.Args[2:])
+		if err := runMutexScope(root, *reviewed, *writeReviewed); err != nil {
+			fatal("mutexscope: %v", err)
 		}
 	default:
 		fatal("unknown command %q", os.Args[1])
