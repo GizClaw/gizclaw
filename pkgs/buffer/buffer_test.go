@@ -3,11 +3,32 @@ package buffer
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"testing"
 	"time"
 )
+
+func BenchmarkBufferRemoveIfSnapshot(b *testing.B) {
+	for _, size := range []int{64, 1024} {
+		b.Run(fmt.Sprintf("entries-%d", size), func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(size), "entries/op")
+			for b.Loop() {
+				buffer := N[int](size)
+				for value := range size {
+					if err := buffer.Add(value); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if removed := buffer.RemoveIf(func(value int) bool { return value%2 == 0 }); removed != size/2 {
+					b.Fatalf("RemoveIf() = %d, want %d", removed, size/2)
+				}
+			}
+		})
+	}
+}
 
 func TestBuffer_WriteRead(t *testing.T) {
 	buf := N[byte](10)

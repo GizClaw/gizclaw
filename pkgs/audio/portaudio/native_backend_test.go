@@ -12,6 +12,48 @@ import (
 	"unsafe"
 )
 
+func BenchmarkNativeStreamTransfer(b *testing.B) {
+	const (
+		frames    = 320
+		frameSize = 2
+	)
+	for _, benchmark := range []struct {
+		name      string
+		direction streamDirection
+	}{
+		{name: "read-320-frames", direction: directionInput},
+		{name: "write-320-frames", direction: directionOutput},
+	} {
+		b.Run(benchmark.name, func(b *testing.B) {
+			operations := &nativeStreamOperations{
+				readAvailable:  func(unsafe.Pointer) int { return frames },
+				writeAvailable: func(unsafe.Pointer) int { return frames },
+				read:           func(unsafe.Pointer, unsafe.Pointer, int) int { return 0 },
+				write:          func(unsafe.Pointer, unsafe.Pointer, int) int { return 0 },
+			}
+			stream := &nativeStream{
+				stream: unsafe.Pointer(new(byte)), direction: benchmark.direction,
+				frameSize: frameSize, ioChunkFrames: frames, operations: operations,
+			}
+			payload := make([]byte, frames*frameSize)
+			b.ReportAllocs()
+			b.SetBytes(int64(len(payload)))
+			for b.Loop() {
+				var n int
+				var err error
+				if benchmark.direction == directionInput {
+					n, err = stream.Read(payload)
+				} else {
+					n, err = stream.Write(payload)
+				}
+				if err != nil || n != len(payload) {
+					b.Fatalf("transfer = (%d, %v), want (%d, nil)", n, err, len(payload))
+				}
+			}
+		})
+	}
+}
+
 func TestNativeBackendNameAndDeviceQueries(t *testing.T) {
 	b := nativeBackend{}
 	if got := b.Name(); !strings.HasPrefix(got, "portaudio/native") {

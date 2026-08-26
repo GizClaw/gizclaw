@@ -17,6 +17,94 @@ type testPeers struct {
 	err   error
 }
 
+func BenchmarkAssignResourceContention(b *testing.B) {
+	const (
+		width = 8
+		delay = time.Millisecond
+	)
+	peers := make(map[giznet.PublicKey]apitypes.Peer, width)
+	keys := make([]giznet.PublicKey, width)
+	for index := range width {
+		keys[index] = giznet.PublicKey{byte(index + 1)}
+		peers[keys[index]] = activeClientPeer()
+	}
+	service := &Server{
+		Store:           &delayedPeerRouteStore{Store: kv.NewMemory(nil), delay: delay},
+		Peers:           testPeers{items: peers},
+		ServerPublicKey: giznet.PublicKey{99},
+		ServerEndpoint:  "https://server.example",
+	}
+	for _, benchmark := range []struct {
+		name     string
+		parallel bool
+		samePeer bool
+		global   bool
+	}{
+		{name: "serial-distinct-8"},
+		{name: "parallel-global-distinct-8", parallel: true, global: true},
+		{name: "parallel-same-8", parallel: true, samePeer: true},
+		{name: "parallel-distinct-8", parallel: true},
+	} {
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(delay), "store-delay-ns")
+			for b.Loop() {
+				if err := assignPeerBatch(b.Context(), service, keys, benchmark.parallel, benchmark.samePeer, benchmark.global); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N*width), "ns/peer")
+		})
+	}
+}
+
+func assignPeerBatch(ctx context.Context, service *Server, keys []giznet.PublicKey, parallel, samePeer, global bool) error {
+	var globalLock sync.Mutex
+	assign := func(index int) error {
+		key := keys[index]
+		if samePeer {
+			key = keys[0]
+		}
+		if global {
+			globalLock.Lock()
+			defer globalLock.Unlock()
+		}
+		_, err := service.Assign(ctx, key, nil)
+		return err
+	}
+	if !parallel {
+		for index := range keys {
+			if err := assign(index); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	errs := make([]error, len(keys))
+	var wait sync.WaitGroup
+	for index := range keys {
+		wait.Go(func() { errs[index] = assign(index) })
+	}
+	wait.Wait()
+	return errors.Join(errs...)
+}
+
+type delayedPeerRouteStore struct {
+	kv.Store
+	delay time.Duration
+}
+
+func (store *delayedPeerRouteStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	timer := time.NewTimer(store.delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return store.Store.Get(ctx, key)
+}
+
 func (p testPeers) LoadPeer(_ context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
 	if p.err != nil {
 		return apitypes.Peer{}, p.err

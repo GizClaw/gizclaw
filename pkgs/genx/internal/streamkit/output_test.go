@@ -3,6 +3,7 @@ package streamkit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"testing"
@@ -10,6 +11,33 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func BenchmarkOutputDiscardSnapshot(b *testing.B) {
+	for _, size := range []int{64, 1024} {
+		chunks := make([]*genx.MessageChunk, size)
+		remove := make(map[*genx.MessageChunk]bool, size/2)
+		for index := range size {
+			chunk := &genx.MessageChunk{Part: genx.Text(fmt.Sprintf("chunk-%d", index))}
+			chunks[index] = chunk
+			remove[chunk] = index%2 == 0
+		}
+		b.Run(fmt.Sprintf("entries-%d", size), func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(size), "entries/op")
+			for b.Loop() {
+				output := NewOutput(OutputConfig{InitialCapacity: size})
+				for _, chunk := range chunks {
+					if err := output.Push(chunk); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if removed := output.Discard(func(chunk *genx.MessageChunk) bool { return remove[chunk] }); removed != size/2 {
+					b.Fatalf("Discard() = %d, want %d", removed, size/2)
+				}
+			}
+		})
+	}
+}
 
 func TestOutputGrowsWithoutDownstreamPull(t *testing.T) {
 	output := NewOutput(OutputConfig{InitialCapacity: 1})

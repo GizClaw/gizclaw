@@ -3,8 +3,82 @@ package keyedlock
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
+	"time"
 )
+
+func BenchmarkLockerResourceContention(b *testing.B) {
+	const (
+		width = 8
+		delay = time.Millisecond
+	)
+	type acquireFunc func(context.Context, int) (func(), error)
+	var global sync.Mutex
+	var keyed Locker[int]
+	benchmarks := []struct {
+		name    string
+		acquire acquireFunc
+		sameKey bool
+	}{
+		{
+			name: "global-distinct-8",
+			acquire: func(context.Context, int) (func(), error) {
+				global.Lock()
+				return global.Unlock, nil
+			},
+		},
+		{name: "keyed-same-8", acquire: keyed.Acquire, sameKey: true},
+		{name: "keyed-distinct-8", acquire: keyed.Acquire},
+	}
+	for _, benchmark := range benchmarks {
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(delay), "critical-delay-ns")
+			for b.Loop() {
+				if err := runLockBatch(b.Context(), width, delay, benchmark.sameKey, benchmark.acquire); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N*width), "ns/resource")
+		})
+	}
+}
+
+func runLockBatch(
+	ctx context.Context,
+	width int,
+	delay time.Duration,
+	sameKey bool,
+	acquire func(context.Context, int) (func(), error),
+) error {
+	errs := make([]error, width)
+	var wait sync.WaitGroup
+	for index := range width {
+		wait.Go(func() {
+			key := index
+			if sameKey {
+				key = 0
+			}
+			release, err := acquire(ctx, key)
+			if err != nil {
+				errs[index] = err
+				return
+			}
+			timer := time.NewTimer(delay)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				err = ctx.Err()
+			}
+			timer.Stop()
+			release()
+			errs[index] = err
+		})
+	}
+	wait.Wait()
+	return errors.Join(errs...)
+}
 
 func TestLockerSeparatesKeysAndReclaimsEntries(t *testing.T) {
 	var locker Locker[string]
