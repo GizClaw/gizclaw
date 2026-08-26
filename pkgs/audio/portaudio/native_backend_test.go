@@ -278,3 +278,50 @@ func TestNativeStreamLifecycleCancelsBlockedReadBeforeHandleClose(t *testing.T) 
 		})
 	}
 }
+
+func TestNativeStreamSerializesSameDirectionIO(t *testing.T) {
+	entered := make(chan int, 2)
+	release := make(chan struct{}, 2)
+	var calls atomic.Int32
+	stream := &nativeStream{
+		stream: unsafe.Pointer(new(byte)), direction: directionInput, frameSize: 2,
+		operations: &nativeStreamOperations{
+			read: func(unsafe.Pointer, unsafe.Pointer, int) int {
+				call := int(calls.Add(1))
+				entered <- call
+				<-release
+				return 0
+			},
+		},
+	}
+	readDone := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := stream.Read(make([]byte, 2))
+			readDone <- err
+		}()
+	}
+	if call := <-entered; call != 1 {
+		t.Fatalf("first native read call = %d", call)
+	}
+	select {
+	case call := <-entered:
+		release <- struct{}{}
+		release <- struct{}{}
+		<-readDone
+		<-readDone
+		t.Fatalf("second native read entered concurrently as call %d", call)
+	default:
+	}
+	release <- struct{}{}
+	if err := <-readDone; err != nil {
+		t.Fatal(err)
+	}
+	if call := <-entered; call != 2 {
+		t.Fatalf("second native read call = %d", call)
+	}
+	release <- struct{}{}
+	if err := <-readDone; err != nil {
+		t.Fatal(err)
+	}
+}

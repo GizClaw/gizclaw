@@ -177,6 +177,7 @@ func buildPaStreamParameters(direction streamDirection, cfg StreamConfig) (*C.Pa
 
 type nativeStream struct {
 	lifecycleMu sync.Mutex
+	ioMu        sync.Mutex
 	mu          sync.Mutex
 	cond        *sync.Cond
 	activeIO    int
@@ -259,8 +260,12 @@ func (s *nativeStream) Stop() error {
 	}
 	s.mu.Lock()
 	s.waitForIOLocked()
+	s.mu.Unlock()
+	s.ioMu.Lock()
+	s.mu.Lock()
 	s.draining = false
 	s.mu.Unlock()
+	s.ioMu.Unlock()
 	if code != int(C.paNoError) {
 		return paErr(C.PaError(code), operation)
 	}
@@ -311,6 +316,8 @@ func (s *nativeStream) Read(p []byte) (int, error) {
 		return 0, fmt.Errorf("portaudio: read called on output stream")
 	}
 
+	s.ioMu.Lock()
+	defer s.ioMu.Unlock()
 	stream, operations, err := s.beginIO()
 	if err != nil {
 		return 0, err
@@ -331,6 +338,8 @@ func (s *nativeStream) Write(p []byte) (int, error) {
 		return 0, fmt.Errorf("portaudio: write called on input stream")
 	}
 
+	s.ioMu.Lock()
+	defer s.ioMu.Unlock()
 	stream, operations, err := s.beginIO()
 	if err != nil {
 		return 0, err
