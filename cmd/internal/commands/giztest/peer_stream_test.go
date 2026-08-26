@@ -249,6 +249,88 @@ func TestInvokePeerStreamWithoutIdleTimeoutWaitsThroughGaps(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamFirstResponseReturnsWithoutEOS(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantText("s1", "hello", false)
+		stream.in <- assistantBlob("s1", []byte{1, 2, 3}, false)
+	}()
+	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
+		Mode: "text", Completion: "first_response", FirstTextTimeout: "100ms", FirstAudioTimeout: "150ms",
+	}, stream)
+	if err != nil {
+		t.Fatalf("first response failed: %v", err)
+	}
+	object, _ := result.assertion.(map[string]any)
+	if object["text_eos"] != false || object["audio_eos"] != false {
+		t.Fatalf("first response waited for terminal output: %#v", object)
+	}
+	if object["events"] != 2 || object["first_text_ms"] == nil || object["first_audio_ms"] == nil {
+		t.Fatalf("first response assertion = %#v", object)
+	}
+	select {
+	case <-stream.closed:
+	case <-time.After(time.Second):
+		t.Fatal("first response did not close its probe stream")
+	}
+}
+
+func TestInvokePeerStreamFirstResponseDeadlines(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		send       func(*fakeRelayStream)
+		textLimit  string
+		audioLimit string
+		deadline   string
+	}{
+		{
+			name: "text", textLimit: "30ms", audioLimit: "100ms", deadline: "first_text_timeout",
+			send: func(stream *fakeRelayStream) { stream.in <- assistantBlob("s1", []byte{1}, false) },
+		},
+		{
+			name: "audio", textLimit: "100ms", audioLimit: "30ms", deadline: "first_audio_timeout",
+			send: func(stream *fakeRelayStream) { stream.in <- assistantText("s1", "hello", false) },
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			go func() {
+				drainPushes(stream, 3)
+				tc.send(stream)
+			}()
+			result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
+				Mode: "text", Completion: "first_response", FirstTextTimeout: tc.textLimit, FirstAudioTimeout: tc.audioLimit,
+			}, stream)
+			if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != tc.deadline || !strings.Contains(err.Error(), "deadline="+tc.deadline) {
+				t.Fatalf("result = %#v, error = %v", result, err)
+			}
+		})
+	}
+}
+
+func TestInvokePeerStreamFirstResponseDeadlineStartsAfterInput(t *testing.T) {
+	stream := newFakeRelayStream()
+	stream.pushes = make(chan *genx.MessageChunk)
+	go func() {
+		for range 3 {
+			time.Sleep(30 * time.Millisecond)
+			<-stream.pushes
+		}
+		stream.in <- assistantText("s1", "hello", false)
+		stream.in <- assistantBlob("s1", []byte{1}, false)
+	}()
+	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
+		Mode: "text", Completion: "first_response", FirstTextTimeout: "20ms", FirstAudioTimeout: "20ms",
+	}, stream)
+	if err != nil {
+		t.Fatalf("input time counted against first response deadline: %v", err)
+	}
+	if textMS := result.evidence["first_text_ms"].(int64); textMS >= 20 {
+		t.Fatalf("first_text_ms = %d, want response-only latency", textMS)
+	}
+}
+
 func TestInvokePeerStreamIdleTimeoutRearmsAfterInterrupt(t *testing.T) {
 	first := newFakeRelayStream()
 	second := newFakeRelayStream()

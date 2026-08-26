@@ -210,13 +210,20 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 
 `peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
 Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
+`peer_stream.completion: first_response` 是面向部署探针的有界替代模式，必须同时声明正数
+Go duration `first_text_timeout` 和 `first_audio_timeout`。两个 deadline 只在完整 turn 输入
+推送完成后开始；runner 一旦同时观察到第一段非空 assistant 文本和第一段非空 assistant
+音频就成功并关闭该逻辑 stream，不等待任何 EOS。缺少某种输出时分别以
+`deadline=first_text_timeout` 或 `deadline=first_audio_timeout` 失败。该模式不能与
+`interrupt_after`、`terminal_label`、禁用 text/audio requirement 或 `wait_for_history` 组合。
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以
 `peer_stream idle timeout exceeded` 失败，而持续在流式输出的长回复会通过。步骤 `timeout`
 与文档 `timeout` 仍是绝对上限；两类同时设置时先到者生效。`peer_stream` 证据始终包含
 `events` 与 `last_event_ms`，设置了该字段时增加 `idle_timeout_ms`，失败时用 `deadline`
-指明触发的上限（`idle_timeout`、`timeout` 或 `cancelled`）。失败步骤会在 `error` 旁保留
+指明触发的上限（`idle_timeout`、`first_text_timeout`、`first_audio_timeout`、`timeout` 或
+`cancelled`）。失败步骤会在 `error` 旁保留
 操作返回的证据，报告因此能区分停滞与过长回复。`gizclaw test validate` 拒绝无法解析或非正的
 `idle_timeout`。人工 `review` 文件必须单独用 `--parallel 1` 在终端运行。
 
