@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"iter"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1350,6 +1354,65 @@ func TestPeerRetirementSnapshotsAndRetiresReciprocalFriend(t *testing.T) {
 	}
 }
 
+func TestPeerRetirementSnapshotOnlyBlocksRelationsForTargetPeer(t *testing.T) {
+	s := newTestServer()
+	var nextID atomic.Int32
+	s.NewID = func() string { return fmt.Sprintf("id-concurrent-%d", nextID.Add(1)) }
+	if _, err := s.AdminCreateFriend(t.Context(), "peer-a", "peer-b"); err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	s.Friends = &blockingFriendListStore{
+		Store: s.Friends, prefix: socialutil.OwnerPrefix(socialutil.FriendsRoot, "peer-a"),
+		entered: entered, release: release,
+	}
+	snapshotDone := make(chan error, 1)
+	go func() {
+		_, err := s.SnapshotPeerFriends(t.Context(), "peer-a")
+		snapshotDone <- err
+	}()
+	<-entered
+
+	unrelatedDone := make(chan error, 1)
+	go func() {
+		_, err := s.AdminCreateFriend(t.Context(), "peer-c", "peer-d")
+		unrelatedDone <- err
+	}()
+	targetDone := make(chan error, 1)
+	go func() {
+		_, err := s.AdminCreateFriend(t.Context(), "peer-a", "peer-e")
+		targetDone <- err
+	}()
+
+	select {
+	case err := <-unrelatedDone:
+		if err != nil {
+			t.Fatalf("unrelated Friend mutation: %v", err)
+		}
+	case <-time.After(time.Second):
+		close(release)
+		<-snapshotDone
+		<-unrelatedDone
+		<-targetDone
+		t.Fatal("unrelated Friend mutation was blocked by peer-a retirement snapshot")
+	}
+	select {
+	case err := <-targetDone:
+		close(release)
+		<-snapshotDone
+		t.Fatalf("peer-a Friend mutation crossed accepted snapshot: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-snapshotDone; err != nil {
+		t.Fatalf("SnapshotPeerFriends(): %v", err)
+	}
+	if err := <-targetDone; err != nil {
+		t.Fatalf("target Friend mutation after snapshot: %v", err)
+	}
+}
+
 func TestFriendCreationFailsClosedWhenTargetUnavailable(t *testing.T) {
 	s := newTestServer()
 	wantErr := errors.New("PEER_PENDING_DELETION")
@@ -1579,6 +1642,26 @@ func newTestServer() *Server {
 
 type failingBatchSetStore struct {
 	kv.Store
+}
+
+type blockingFriendListStore struct {
+	kv.Store
+	prefix           kv.Key
+	entered, release chan struct{}
+	once             sync.Once
+}
+
+func (s *blockingFriendListStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
+	entries := s.Store.List(ctx, prefix)
+	return func(yield func(kv.Entry, error) bool) {
+		if slices.Equal(prefix, s.prefix) {
+			s.once.Do(func() {
+				close(s.entered)
+				<-s.release
+			})
+		}
+		entries(yield)
+	}
 }
 
 func (s failingBatchSetStore) BatchSet(context.Context, []kv.Entry) error {
