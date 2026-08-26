@@ -22,6 +22,12 @@ type OutputObservationStream interface {
 	ObserveOutput(*genx.MessageChunk)
 }
 
+// OutputProductionObserver lets the final producer boundary report a chunk
+// before it becomes available to an independently scheduled consumer.
+type OutputProductionObserver interface {
+	SetOutputProductionObserver(func(*genx.MessageChunk))
+}
+
 type outputObservationAbandoner interface {
 	AbandonOutputObservation(*genx.MessageChunk)
 }

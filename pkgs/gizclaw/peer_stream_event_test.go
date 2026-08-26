@@ -133,6 +133,73 @@ func TestPeerAgentOutputLifecycleBoundsPerTurnChunkLogs(t *testing.T) {
 	}
 }
 
+func TestPeerAgentOutputBindsProducerBeforeConcurrentReplacement(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-producer-race", "peer-producer-race")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
+	stream := &peerProductionObservedStream{
+		chunk: &genx.MessageChunk{
+			Part: genx.Text("delayed"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
+		},
+		produced: make(chan struct{}),
+		release:  make(chan struct{}),
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- (peerAgentOutput{Lifecycle: lifecycle}).ConsumeAgentOutput(t.Context(), stream)
+	}()
+	select {
+	case <-stream.produced:
+	case <-time.After(time.Second):
+		t.Fatal("producer did not publish output")
+	}
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
+	close(stream.release)
+	if err := <-done; err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+
+	var output map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "output_first_event" {
+			output = attrs
+		}
+	}
+	if output["turn_index"] != uint64(1) || output["output_stream_id_hash"] != safeStreamIDHash("output-old") {
+		t.Fatalf("producer-bound output = %#v", output)
+	}
+}
+
+type peerProductionObservedStream struct {
+	chunk    *genx.MessageChunk
+	produced chan struct{}
+	release  chan struct{}
+	observe  func(*genx.MessageChunk)
+	once     sync.Once
+}
+
+func (s *peerProductionObservedStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+	s.observe = observe
+}
+
+func (s *peerProductionObservedStream) Next() (*genx.MessageChunk, error) {
+	first := false
+	s.once.Do(func() { first = true })
+	if !first {
+		return nil, genx.ErrDone
+	}
+	if s.observe != nil {
+		s.observe(s.chunk)
+	}
+	close(s.produced)
+	<-s.release
+	return s.chunk, nil
+}
+
+func (s *peerProductionObservedStream) Close() error               { return nil }
+func (s *peerProductionObservedStream) CloseWithError(error) error { return nil }
+
 func TestPeerStreamEventRejectsJSONFrame(t *testing.T) {
 	payload := []byte(`{"v":1,"type":"text.delta","stream_id":"s1","text":"hello"}`)
 	var buf bytes.Buffer

@@ -98,6 +98,8 @@ type historyOutput struct {
 
 	observationMu      sync.Mutex
 	pendingObservation map[*genx.MessageChunk]*genx.MessageChunk
+	productionMu       sync.RWMutex
+	productionObserver func(*genx.MessageChunk)
 
 	replayMu       sync.Mutex
 	replayCancel   context.CancelFunc
@@ -172,6 +174,7 @@ type historyOutputStream struct {
 }
 
 var _ OutputObservationStream = (*historyOutputStream)(nil)
+var _ OutputProductionObserver = (*historyOutputStream)(nil)
 
 func (s *historyOutputStream) Next() (*genx.MessageChunk, error) {
 	chunk, err := s.Stream.Next()
@@ -218,6 +221,15 @@ func (s *historyOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk)
 	if ok {
 		abandoner.AbandonOutputObservation(upstream)
 	}
+}
+
+func (s *historyOutputStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
+	if s == nil || s.output == nil {
+		return
+	}
+	s.output.productionMu.Lock()
+	s.output.productionObserver = observe
+	s.output.productionMu.Unlock()
 }
 
 func (s *historyOutputStream) Close() error {
@@ -341,12 +353,25 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 		}
 		forwarded := chunk.Clone()
 		outputState.addPendingObservation(forwarded, chunk)
+		outputState.observeProduction(forwarded)
 		if err := output.Add(forwarded); err != nil {
 			outputState.abandonPendingObservation(forwarded)
 			_ = recorder.Flush(ctx)
 			a.clearOutput(outputKey, outputState)
 			return
 		}
+	}
+}
+
+func (o *historyOutput) observeProduction(chunk *genx.MessageChunk) {
+	if o == nil || chunk == nil {
+		return
+	}
+	o.productionMu.RLock()
+	observe := o.productionObserver
+	o.productionMu.RUnlock()
+	if observe != nil {
+		observe(chunk)
 	}
 }
 

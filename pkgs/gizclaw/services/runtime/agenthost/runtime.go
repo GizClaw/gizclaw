@@ -63,6 +63,12 @@ type StreamConsumer interface {
 	ConsumeAgentOutput(context.Context, genx.Stream) error
 }
 
+// StreamConsumerPreparer lets a consumer attach process-local observation to
+// an output before the runtime is published and can accept input.
+type StreamConsumerPreparer interface {
+	PrepareAgentOutput(genx.Stream)
+}
+
 type StreamConsumerFunc func(context.Context, genx.Stream) error
 
 func (f StreamConsumerFunc) ConsumeAgentOutput(ctx context.Context, stream genx.Stream) error {
@@ -218,6 +224,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		err := errors.New("agenthost: output stream is required")
 		return s.reloadFailure(ctx, workspaceName, err)
 	}
+	s.prepareAgentOutput(output)
 	if err := ctx.Err(); err != nil {
 		cancel()
 		if release != nil {
@@ -326,6 +333,7 @@ func (s *Service) installReloadErrorRuntime(ctx context.Context, workspaceName s
 		_ = input.Close()
 		return s.setErrorStatus(workspaceName, cause), errors.New("agenthost: reload error output stream is required")
 	}
+	s.prepareAgentOutput(output)
 	now := s.now()
 	next := &runtime{
 		cancel:    cancel,
@@ -345,6 +353,15 @@ func (s *Service) installReloadErrorRuntime(ctx context.Context, workspaceName s
 	}
 	go s.consume(runCtx, next)
 	return status, nil
+}
+
+func (s *Service) prepareAgentOutput(output genx.Stream) {
+	if s == nil || output == nil {
+		return
+	}
+	if preparer, ok := s.Consumer.(StreamConsumerPreparer); ok {
+		preparer.PrepareAgentOutput(output)
+	}
 }
 
 func profileTools(profile *apitypes.RuntimeProfile) *map[string]apitypes.RuntimeProfileBinding {

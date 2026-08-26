@@ -177,7 +177,8 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	loggedRouteErrors := make(map[string]struct{})
 	ownedOutput := output
 	if output != nil {
-		ownedOutput = &peerLifecycleOutputStream{Stream: output, lifecycle: o.Lifecycle}
+		bindOnNext := !o.prepareAgentOutput(output)
+		ownedOutput = &peerLifecycleOutputStream{Stream: output, lifecycle: o.Lifecycle, bindOnNext: bindOnNext}
 	}
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
@@ -225,9 +226,23 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	return nil
 }
 
+func (o peerAgentOutput) PrepareAgentOutput(output genx.Stream) {
+	o.prepareAgentOutput(output)
+}
+
+func (o peerAgentOutput) prepareAgentOutput(output genx.Stream) bool {
+	observer, ok := output.(agenthost.OutputProductionObserver)
+	if !ok {
+		return false
+	}
+	observer.SetOutputProductionObserver(o.Lifecycle.bindOutputOwner)
+	return true
+}
+
 type peerLifecycleOutputStream struct {
 	genx.Stream
-	lifecycle *peerStreamLifecycle
+	lifecycle  *peerStreamLifecycle
+	bindOnNext bool
 }
 
 func (s *peerLifecycleOutputStream) Next() (*genx.MessageChunk, error) {
@@ -235,7 +250,7 @@ func (s *peerLifecycleOutputStream) Next() (*genx.MessageChunk, error) {
 		return nil, io.ErrClosedPipe
 	}
 	chunk, err := s.Stream.Next()
-	if err == nil {
+	if err == nil && s.bindOnNext {
 		s.lifecycle.bindOutputOwner(chunk)
 	}
 	return chunk, err
