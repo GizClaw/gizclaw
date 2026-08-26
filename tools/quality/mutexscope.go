@@ -348,7 +348,7 @@ func mutexScopeRisks(source string) []string {
 	var risks []string
 	checks := []struct{ value, risk string }{
 		{" go ", "goroutine"}, {"<-", "channel"}, {"http.", "network-io"},
-		{".do(", "external-call"}, {".list(", "store-scan"}, {".get(", "store-io"},
+		{".do(", "external-call"}, {".push(", "external-call"}, {".list(", "store-scan"}, {".get(", "store-io"},
 		{".set(", "store-io"}, {".put(", "store-io"}, {".lock(", "nested-lock"},
 	}
 	for _, check := range checks {

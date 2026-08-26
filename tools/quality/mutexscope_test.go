@@ -116,8 +116,8 @@ func TestValidateMutexScopeReviewFailsClosed(t *testing.T) {
 }
 
 func TestMutexScopeRiskClassificationIsStable(t *testing.T) {
-	risks := mutexScopeRisks("mu.Lock(); store.List(ctx, key); <-ready; other.Lock(); mu.Unlock()")
-	if got := strings.Join(risks, ","); got != "channel,nested-lock,store-scan" {
+	risks := mutexScopeRisks("mu.Lock(); queue.Push(ctx, value); store.List(ctx, key); <-ready; other.Lock(); mu.Unlock()")
+	if got := strings.Join(risks, ","); got != "channel,external-call,nested-lock,store-scan" {
 		t.Fatalf("risks = %q", got)
 	}
 	if risks := mutexScopeRisks("mu.Lock(); value++; mu.Unlock()"); len(risks) != 0 {
