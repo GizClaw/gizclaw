@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -122,12 +123,13 @@ func (nativeBackend) OpenStream(direction streamDirection, cfg StreamConfig) (st
 	}
 
 	var stream unsafe.Pointer
+	ioChunkFrames := max(1, int(cfg.SampleRate/50))
 	code := C.Pa_OpenStream(
 		(*unsafe.Pointer)(unsafe.Pointer(&stream)),
 		input,
 		output,
 		C.double(cfg.SampleRate),
-		C.ulong(cfg.FramesPerBuffer),
+		C.ulong(min(cfg.FramesPerBuffer, uint32(ioChunkFrames))),
 		C.paNoFlag,
 		nil,
 		nil,
@@ -137,9 +139,10 @@ func (nativeBackend) OpenStream(direction streamDirection, cfg StreamConfig) (st
 	}
 
 	return &nativeStream{
-		stream:    stream,
-		direction: direction,
-		frameSize: cfg.frameBytes(),
+		stream:        stream,
+		direction:     direction,
+		frameSize:     cfg.frameBytes(),
+		ioChunkFrames: ioChunkFrames,
 	}, nil
 }
 
@@ -183,20 +186,23 @@ type nativeStream struct {
 	activeIO    int
 	draining    bool
 
-	stream     unsafe.Pointer
-	direction  streamDirection
-	frameSize  int
-	closed     bool
-	operations *nativeStreamOperations
+	stream        unsafe.Pointer
+	direction     streamDirection
+	frameSize     int
+	ioChunkFrames int
+	closed        bool
+	operations    *nativeStreamOperations
 }
 
 type nativeStreamOperations struct {
-	start func(unsafe.Pointer) int
-	stop  func(unsafe.Pointer) int
-	abort func(unsafe.Pointer) int
-	close func(unsafe.Pointer) int
-	read  func(unsafe.Pointer, unsafe.Pointer, int) int
-	write func(unsafe.Pointer, unsafe.Pointer, int) int
+	start          func(unsafe.Pointer) int
+	stop           func(unsafe.Pointer) int
+	abort          func(unsafe.Pointer) int
+	close          func(unsafe.Pointer) int
+	read           func(unsafe.Pointer, unsafe.Pointer, int) int
+	write          func(unsafe.Pointer, unsafe.Pointer, int) int
+	readAvailable  func(unsafe.Pointer) int
+	writeAvailable func(unsafe.Pointer) int
 }
 
 var defaultNativeStreamOperations = nativeStreamOperations{
@@ -210,6 +216,8 @@ var defaultNativeStreamOperations = nativeStreamOperations{
 	write: func(stream unsafe.Pointer, buffer unsafe.Pointer, frames int) int {
 		return int(C.Pa_WriteStream(stream, buffer, C.ulong(frames)))
 	},
+	readAvailable:  func(stream unsafe.Pointer) int { return int(C.Pa_GetStreamReadAvailable(stream)) },
+	writeAvailable: func(stream unsafe.Pointer) int { return int(C.Pa_GetStreamWriteAvailable(stream)) },
 }
 
 func (s *nativeStream) ops() nativeStreamOperations {
@@ -323,11 +331,7 @@ func (s *nativeStream) Read(p []byte) (int, error) {
 		return 0, err
 	}
 	defer s.endIO()
-	frames := len(p) / s.frameSize
-	if code := operations.read(stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
-		return 0, paErr(C.PaError(code), "read stream")
-	}
-	return frames * s.frameSize, nil
+	return s.transfer(p, stream, operations.read, operations.readAvailable, "read stream")
 }
 
 func (s *nativeStream) Write(p []byte) (int, error) {
@@ -345,11 +349,60 @@ func (s *nativeStream) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	defer s.endIO()
-	frames := len(p) / s.frameSize
-	if code := operations.write(stream, unsafe.Pointer(&p[0]), frames); code != int(C.paNoError) {
-		return 0, paErr(C.PaError(code), "write stream")
+	return s.transfer(p, stream, operations.write, operations.writeAvailable, "write stream")
+}
+
+func (s *nativeStream) transfer(
+	p []byte,
+	stream unsafe.Pointer,
+	operation func(unsafe.Pointer, unsafe.Pointer, int) int,
+	available func(unsafe.Pointer) int,
+	name string,
+) (int, error) {
+	totalFrames := len(p) / s.frameSize
+	chunkFrames := s.ioChunkFrames
+	if chunkFrames <= 0 {
+		chunkFrames = totalFrames
 	}
-	return frames * s.frameSize, nil
+	completedFrames := 0
+	for completedFrames < totalFrames {
+		s.mu.Lock()
+		stopping := s.draining || s.closed
+		s.mu.Unlock()
+		if stopping {
+			return completedFrames * s.frameSize, errors.New("portaudio: stream is stopping")
+		}
+		frames := min(chunkFrames, totalFrames-completedFrames)
+		if available != nil {
+			ready := available(stream)
+			if ready < 0 {
+				return completedFrames * s.frameSize, paErr(C.PaError(ready), name+" availability")
+			}
+			if ready == 0 {
+				time.Sleep(5 * time.Millisecond)
+				continue
+			}
+			frames = min(frames, ready)
+		}
+		offset := completedFrames * s.frameSize
+		if code := operation(stream, unsafe.Pointer(&p[offset]), frames); !successfulTransferCode(name, code) {
+			return completedFrames * s.frameSize, paErr(C.PaError(code), name)
+		}
+		completedFrames += frames
+		s.mu.Lock()
+		stopping = s.draining || s.closed
+		s.mu.Unlock()
+		if stopping && completedFrames < totalFrames {
+			return completedFrames * s.frameSize, errors.New("portaudio: stream is stopping")
+		}
+	}
+	return completedFrames * s.frameSize, nil
+}
+
+func successfulTransferCode(operation string, code int) bool {
+	return code == int(C.paNoError) ||
+		operation == "read stream" && code == int(C.paInputOverflowed) ||
+		operation == "write stream" && code == int(C.paOutputUnderflowed)
 }
 
 func (s *nativeStream) beginIO() (unsafe.Pointer, nativeStreamOperations, error) {
