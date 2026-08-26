@@ -15,12 +15,22 @@ var errWorkspaceQuiesced = errors.New("agenthost: Workspace runtime quiesced")
 // out reference-counted stream attachments. A reload can publish a replacement
 // generation while attachments to the previous generation drain.
 type RuntimeRegistry struct {
-	mu       sync.Mutex
-	runtimes map[string]*workspaceRuntime
+	mu            sync.Mutex
+	runtimes      map[string]*workspaceRuntime
+	constructions map[string]*workspaceConstruction
 }
 
 func NewRuntimeRegistry() *RuntimeRegistry {
-	return &RuntimeRegistry{runtimes: make(map[string]*workspaceRuntime)}
+	return &RuntimeRegistry{
+		runtimes:      make(map[string]*workspaceRuntime),
+		constructions: make(map[string]*workspaceConstruction),
+	}
+}
+
+type workspaceConstruction struct {
+	done        chan struct{}
+	invalidated bool
+	signaled    bool
 }
 
 type workspaceRuntime struct {
@@ -162,6 +172,7 @@ type preparedAgentReplacement struct {
 	previous     *agentGeneration
 	next         *agentGeneration
 	newWorkspace bool
+	construction *workspaceConstruction
 
 	committed bool
 	released  bool
@@ -191,27 +202,32 @@ func (replacement *preparedAgentReplacement) Commit() error {
 
 	registry := replacement.registry
 	registry.mu.Lock()
-	if replacement.newWorkspace {
+	var commitErr error
+	var publishedNew bool
+	var publishedReplacement bool
+	switch {
+	case registry.constructions[replacement.key] != replacement.construction:
+		commitErr = fmt.Errorf("agenthost: Workspace generation changed before replacement commit")
+	case replacement.construction.invalidated:
+		commitErr = errWorkspaceQuiesced
+	case replacement.newWorkspace:
 		if registry.runtimes[replacement.key] != nil {
-			registry.mu.Unlock()
-			replacement.mu.Unlock()
-			replacement.Release()
-			return fmt.Errorf("agenthost: Workspace generation changed before replacement commit")
+			commitErr = fmt.Errorf("agenthost: Workspace generation changed before replacement commit")
+		} else {
+			registry.runtimes[replacement.key] = replacement.workspace
+			publishedNew = true
 		}
-		registry.runtimes[replacement.key] = replacement.workspace
-	} else if registry.runtimes[replacement.key] != replacement.workspace ||
-		replacement.workspace.current != replacement.previous {
-		registry.mu.Unlock()
-		replacement.mu.Unlock()
-		replacement.Release()
-		return fmt.Errorf("agenthost: Workspace generation changed before replacement commit")
-	} else {
+	case registry.runtimes[replacement.key] != replacement.workspace ||
+		replacement.workspace.current != replacement.previous:
+		commitErr = fmt.Errorf("agenthost: Workspace generation changed before replacement commit")
+	default:
 		replacement.workspace.current = replacement.next
 		replacement.workspace.generations[replacement.next] = struct{}{}
+		publishedReplacement = true
 	}
 
 	var releasePrevious func()
-	if replacement.previous != nil {
+	if commitErr == nil && replacement.previous != nil {
 		replacement.previous.retired = true
 		if replacement.previous.refs == 0 {
 			replacement.previous.closed = true
@@ -219,11 +235,14 @@ func (replacement *preparedAgentReplacement) Commit() error {
 			releasePrevious = replacement.previous.release
 		}
 	}
-	_, lease, err := registry.attachLocked(replacement.key, replacement.workspace, replacement.next)
-	if err != nil {
-		if replacement.newWorkspace {
+	var lease func()
+	if commitErr == nil {
+		_, lease, commitErr = registry.attachLocked(replacement.key, replacement.workspace, replacement.next)
+	}
+	if commitErr != nil {
+		if publishedNew {
 			delete(registry.runtimes, replacement.key)
-		} else {
+		} else if publishedReplacement {
 			replacement.workspace.current = replacement.previous
 			delete(replacement.workspace.generations, replacement.next)
 			if replacement.previous != nil {
@@ -235,10 +254,11 @@ func (replacement *preparedAgentReplacement) Commit() error {
 		registry.mu.Unlock()
 		replacement.mu.Unlock()
 		replacement.Release()
-		return err
+		return commitErr
 	}
 	replacement.lease = lease
 	replacement.committed = true
+	registry.finishConstructionLocked(replacement.key, replacement.construction)
 	registry.mu.Unlock()
 	replacement.mu.Unlock()
 	if releasePrevious != nil {
@@ -258,9 +278,13 @@ func (replacement *preparedAgentReplacement) Release() {
 	}
 	replacement.released = true
 	lease := replacement.lease
+	registry := replacement.registry
+	key := replacement.key
+	construction := replacement.construction
 	var releaseCandidate func()
 	var releaseWorkspace func()
-	if !replacement.committed {
+	uncommitted := !replacement.committed
+	if uncommitted {
 		if replacement.next != nil {
 			releaseCandidate = replacement.next.release
 		}
@@ -278,27 +302,69 @@ func (replacement *preparedAgentReplacement) Release() {
 	if releaseWorkspace != nil {
 		releaseWorkspace()
 	}
+	if uncommitted {
+		registry.finishConstruction(key, construction)
+	}
 }
 
 func (r *RuntimeRegistry) Acquire(ctx context.Context, host *Host, workspaceName string, spec Spec) (Agent, func(), error) {
 	if r == nil {
 		r = NewRuntimeRegistry()
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.runtimes == nil {
-		r.runtimes = make(map[string]*workspaceRuntime)
-	}
 	key := runtimeKey(workspaceName)
-	if current := r.runtimes[key]; current != nil && current.current != nil {
-		return r.attachLocked(key, current, current.current)
+	for {
+		r.mu.Lock()
+		r.initLocked()
+		if current := r.runtimes[key]; current != nil && current.current != nil {
+			agent, release, err := r.attachLocked(key, current, current.current)
+			r.mu.Unlock()
+			return agent, release, err
+		}
+		if construction := r.constructions[key]; construction != nil {
+			r.mu.Unlock()
+			if err := r.waitForWorkspaceConstruction(ctx, construction); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
+		construction := &workspaceConstruction{done: make(chan struct{})}
+		r.constructions[key] = construction
+		r.mu.Unlock()
+
+		current, err := r.constructWorkspace(ctx, host, workspaceName, spec)
+		if err != nil {
+			if r.finishFailedConstruction(key, construction) {
+				return nil, nil, errWorkspaceQuiesced
+			}
+			return nil, nil, err
+		}
+
+		r.mu.Lock()
+		if r.constructions[key] != construction || construction.invalidated {
+			r.finishConstructionLocked(key, construction)
+			r.mu.Unlock()
+			releaseConstructedWorkspace(current)
+			return nil, nil, errWorkspaceQuiesced
+		}
+		if existing := r.runtimes[key]; existing != nil && existing.current != nil {
+			r.finishConstructionLocked(key, construction)
+			agent, release, attachErr := r.attachLocked(key, existing, existing.current)
+			r.mu.Unlock()
+			releaseConstructedWorkspace(current)
+			return agent, release, attachErr
+		}
+		r.runtimes[key] = current
+		r.finishConstructionLocked(key, construction)
+		agent, release, attachErr := r.attachLocked(key, current, current.current)
+		if attachErr != nil {
+			delete(r.runtimes, key)
+		}
+		r.mu.Unlock()
+		if attachErr != nil {
+			releaseConstructedWorkspace(current)
+		}
+		return agent, release, attachErr
 	}
-	current, err := r.constructWorkspaceLocked(ctx, host, workspaceName, spec)
-	if err != nil {
-		return nil, nil, err
-	}
-	r.runtimes[key] = current
-	return r.attachLocked(key, current, current.current)
 }
 
 // PrepareReplacement constructs a complete candidate generation without
@@ -309,35 +375,66 @@ func (r *RuntimeRegistry) PrepareReplacement(ctx context.Context, host *Host, wo
 	if r == nil {
 		r = NewRuntimeRegistry()
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.runtimes == nil {
-		r.runtimes = make(map[string]*workspaceRuntime)
-	}
 	key := runtimeKey(workspaceName)
-	current := r.runtimes[key]
-	if current == nil {
-		constructed, err := r.constructWorkspaceLocked(ctx, host, workspaceName, spec)
+	for {
+		r.mu.Lock()
+		r.initLocked()
+		if construction := r.constructions[key]; construction != nil {
+			r.mu.Unlock()
+			if err := r.waitForWorkspaceConstruction(ctx, construction); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		construction := &workspaceConstruction{done: make(chan struct{})}
+		r.constructions[key] = construction
+		current := r.runtimes[key]
+		r.mu.Unlock()
+
+		if current == nil {
+			constructed, err := r.constructWorkspace(ctx, host, workspaceName, spec)
+			if err != nil {
+				if r.finishFailedConstruction(key, construction) {
+					return nil, errWorkspaceQuiesced
+				}
+				return nil, err
+			}
+			if r.constructionInvalidated(key, construction) {
+				r.finishConstruction(key, construction)
+				releaseConstructedWorkspace(constructed)
+				return nil, errWorkspaceQuiesced
+			}
+			return &preparedAgentReplacement{
+				registry: r, key: key, workspace: constructed,
+				next: constructed.current, newWorkspace: true,
+				construction: construction,
+			}, nil
+		}
+
+		agent, release, err := host.newWorkspaceAgent(ctx, spec)
 		if err != nil {
+			if r.finishFailedConstruction(key, construction) {
+				return nil, errWorkspaceQuiesced
+			}
 			return nil, err
 		}
+		if r.constructionInvalidated(key, construction) {
+			r.finishConstruction(key, construction)
+			if release != nil {
+				release()
+			}
+			return nil, errWorkspaceQuiesced
+		}
+		next := r.newGeneration(agent, release)
 		return &preparedAgentReplacement{
-			registry: r, key: key, workspace: constructed,
-			next: constructed.current, newWorkspace: true,
+			registry: r, key: key, workspace: current,
+			previous: current.current, next: next,
+			construction: construction,
 		}, nil
 	}
-	agent, release, err := host.newWorkspaceAgent(ctx, spec)
-	if err != nil {
-		return nil, err
-	}
-	next := r.newGeneration(agent, release)
-	return &preparedAgentReplacement{
-		registry: r, key: key, workspace: current,
-		previous: current.current, next: next,
-	}, nil
 }
 
-func (r *RuntimeRegistry) constructWorkspaceLocked(ctx context.Context, host *Host, workspaceName string, spec Spec) (*workspaceRuntime, error) {
+func (r *RuntimeRegistry) constructWorkspace(ctx context.Context, host *Host, workspaceName string, spec Spec) (*workspaceRuntime, error) {
 	if host == nil {
 		return nil, fmt.Errorf("agenthost: host is required")
 	}
@@ -361,6 +458,75 @@ func (r *RuntimeRegistry) constructWorkspaceLocked(ctx context.Context, host *Ho
 		generations:      map[*agentGeneration]struct{}{generation: {}},
 		releaseWorkspace: releaseWorkspace,
 	}, nil
+}
+
+func (r *RuntimeRegistry) initLocked() {
+	if r.runtimes == nil {
+		r.runtimes = make(map[string]*workspaceRuntime)
+	}
+	if r.constructions == nil {
+		r.constructions = make(map[string]*workspaceConstruction)
+	}
+}
+
+func (r *RuntimeRegistry) waitForWorkspaceConstruction(ctx context.Context, construction *workspaceConstruction) error {
+	select {
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	case <-construction.done:
+	}
+	r.mu.Lock()
+	invalidated := construction.invalidated
+	r.mu.Unlock()
+	if invalidated {
+		return errWorkspaceQuiesced
+	}
+	return nil
+}
+
+func (r *RuntimeRegistry) constructionInvalidated(key string, construction *workspaceConstruction) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.constructions[key] != construction || construction.invalidated
+}
+
+func (r *RuntimeRegistry) finishFailedConstruction(key string, construction *workspaceConstruction) bool {
+	r.mu.Lock()
+	invalidated := r.constructions[key] != construction || construction.invalidated
+	r.finishConstructionLocked(key, construction)
+	r.mu.Unlock()
+	return invalidated
+}
+
+func (r *RuntimeRegistry) finishConstruction(key string, construction *workspaceConstruction) {
+	r.mu.Lock()
+	r.finishConstructionLocked(key, construction)
+	r.mu.Unlock()
+}
+
+func (r *RuntimeRegistry) finishConstructionLocked(key string, construction *workspaceConstruction) {
+	if construction == nil || r.constructions[key] != construction {
+		return
+	}
+	delete(r.constructions, key)
+	if !construction.signaled {
+		construction.signaled = true
+		close(construction.done)
+	}
+}
+
+func releaseConstructedWorkspace(current *workspaceRuntime) {
+	if current == nil {
+		return
+	}
+	for generation := range current.generations {
+		if generation.release != nil {
+			generation.release()
+		}
+	}
+	if current.releaseWorkspace != nil {
+		current.releaseWorkspace()
+	}
 }
 
 func (r *RuntimeRegistry) newGeneration(agent Agent, release func()) *agentGeneration {
@@ -438,9 +604,17 @@ func (r *RuntimeRegistry) Quiesce(workspaceID string) {
 	var releases []func()
 	var transforms []*runtimeTransform
 	r.mu.Lock()
-	current := r.runtimes[runtimeKey(workspaceID)]
+	key := runtimeKey(workspaceID)
+	if construction := r.constructions[key]; construction != nil {
+		construction.invalidated = true
+		if !construction.signaled {
+			construction.signaled = true
+			close(construction.done)
+		}
+	}
+	current := r.runtimes[key]
 	if current != nil {
-		delete(r.runtimes, runtimeKey(workspaceID))
+		delete(r.runtimes, key)
 		for generation := range current.generations {
 			if generation.closed {
 				continue

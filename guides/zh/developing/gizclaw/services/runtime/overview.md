@@ -26,6 +26,8 @@ services/runtime/
 
 负责 Agent instance 的在线运行，包括 runtime 创建与清理、输入输出、source、stream、history 和 toolkit 接线。Workflow driver 可以接入 Agent Host，但第三方 workflow 的持久化配置仍属于 AI 领域。
 
+`RuntimeRegistry` 的全局 mutex 只保护 runtime map、generation 引用计数和发布状态，不覆盖 coordinator lease 获取或 Agent factory 构建。每个 workspace 另有一个短期 construction 占位：不同 workspace 可以并行构建；同一 workspace 的 reload 会串行到前一个候选 `Commit` 或 `Release`，避免候选乱序发布。`Quiesce` 会使尚未提交的 construction 失效，候选完成后必须释放 Agent 和 coordinator lease，不能重新发布已删除的 workspace。
+
 ### [peer](./peer)
 
 拥有 Server 侧 Peer 资源、identity、registration 和基础状态。Transport public key 是 peer identity 的基础，但 `giznet` connection lifecycle 不由这个 package 实现。
