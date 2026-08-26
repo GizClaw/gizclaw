@@ -14,3 +14,5 @@
 | `ToRPC` | Convert internal `PeerAssignment` to RPC message. |
 
 Route assignment, Peer online connection and persistent Peer are three different states. Code cannot infer that the target is currently online just because the assignment exists.
+
+Assignment read/version/write transitions serialize by canonical Peer public key. Different Peers can overlap Store I/O; same-Peer expected-version checks remain linearized. Idle keyed-lock entries are removed, and a canceled waiter returns its context error without changing the holder's operation.

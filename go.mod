@@ -61,6 +61,7 @@ require (
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	golang.org/x/crypto v0.55.0
 	golang.org/x/sync v0.22.0
+	golang.org/x/tools v0.48.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/api v0.290.0
 	google.golang.org/genai v1.68.0
@@ -244,7 +245,6 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.48.0 // indirect
 	google.golang.org/genproto v0.0.0-20260519071638-aa98bba5eb94 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260724162435-b2f20204f0df // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260720155508-bb71a54f79dc // indirect

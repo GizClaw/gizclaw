@@ -3,11 +3,32 @@ package buffer
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"testing"
 	"time"
 )
+
+func BenchmarkBufferRemoveIfSnapshot(b *testing.B) {
+	for _, size := range []int{64, 1024} {
+		b.Run(fmt.Sprintf("entries-%d", size), func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(size), "entries/op")
+			for b.Loop() {
+				buffer := N[int](size)
+				for value := range size {
+					if err := buffer.Add(value); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if removed := buffer.RemoveIf(func(value int) bool { return value%2 == 0 }); removed != size/2 {
+					b.Fatalf("RemoveIf() = %d, want %d", removed, size/2)
+				}
+			}
+		})
+	}
+}
 
 func TestBuffer_WriteRead(t *testing.T) {
 	buf := N[byte](10)
@@ -371,5 +392,46 @@ func TestBuffer_DoubleCloseWithError(t *testing.T) {
 
 	if buf.Error() != err1 {
 		t.Fatalf("Error() = %v, want %v", buf.Error(), err1)
+	}
+}
+
+func TestBufferRemoveIfAllowsPredicateReentry(t *testing.T) {
+	buf := N[int](3)
+	for _, value := range []int{1, 2} {
+		if err := buf.Add(value); err != nil {
+			t.Fatalf("Add(%d) error = %v", value, err)
+		}
+	}
+
+	type result struct {
+		removed int
+		addErr  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		var addErr error
+		removed := buf.RemoveIf(func(value int) bool {
+			if value == 1 {
+				addErr = buf.Add(3)
+			}
+			return value == 1
+		})
+		done <- result{removed: removed, addErr: addErr}
+	}()
+
+	select {
+	case got := <-done:
+		if got.addErr != nil {
+			t.Fatalf("predicate Add() error = %v", got.addErr)
+		}
+		if got.removed != 1 {
+			t.Fatalf("RemoveIf() = %d, want 1", got.removed)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("RemoveIf predicate could not re-enter Add")
+	}
+
+	if got := buf.Bytes(); len(got) != 2 || got[0] != 2 || got[1] != 3 {
+		t.Fatalf("Bytes() = %v, want [2 3]", got)
 	}
 }

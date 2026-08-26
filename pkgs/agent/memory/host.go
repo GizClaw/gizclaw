@@ -9,6 +9,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/agent/embed"
 	"github.com/GizClaw/gizclaw-go/pkgs/agent/recall"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/vecstore"
@@ -83,9 +84,14 @@ type embedMeta struct {
 type Host struct {
 	cfg HostConfig
 
-	mu       sync.Mutex
-	memories map[string]*Memory
+	mu           sync.Mutex
+	memories     map[string]*Memory
+	closed       bool
+	operations   sync.WaitGroup
+	personaLocks keyedlock.Locker[string]
 }
+
+var errHostClosed = errors.New("memory: host is closed")
 
 // NewHost creates a new Host and validates configuration.
 //
@@ -154,13 +160,22 @@ func (h *Host) Open(id string, opts ...OpenOption) (*Memory, error) {
 	if err := validateKeySegment("id", id, h.cfg.Separator); err != nil {
 		return nil, err
 	}
+	release, err := h.personaLocks.Acquire(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	if !h.beginOperation() {
+		return nil, errHostClosed
+	}
+	defer h.operations.Done()
 
 	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	if m, ok := h.memories[id]; ok {
+		h.mu.Unlock()
 		return m, nil
 	}
+	h.mu.Unlock()
 
 	// Apply options.
 	var oc openConfig
@@ -213,8 +228,25 @@ func (h *Host) Open(id string, opts ...OpenOption) (*Memory, error) {
 	})
 
 	m := newMemory(id, h.cfg.Store, idx, compressor, policy, h.cfg.Separator)
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		_ = idx.Close()
+		return nil, errHostClosed
+	}
 	h.memories[id] = m
+	h.mu.Unlock()
 	return m, nil
+}
+
+func (h *Host) beginOperation() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return false
+	}
+	h.operations.Add(1)
+	return true
 }
 
 // openVec creates or loads a per-persona vector index.
@@ -250,14 +282,24 @@ func (h *Host) resolveVecName(ctx context.Context, key kv.Key, id string) (strin
 // Close releases all resources. After Close, the Host should not be used.
 func (h *Host) Close() error {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+	if h.closed {
+		h.mu.Unlock()
+		return nil
+	}
+	h.closed = true
+	h.mu.Unlock()
+	h.operations.Wait()
+
+	h.mu.Lock()
+	memories := h.memories
+	h.memories = nil
+	h.mu.Unlock()
 	var errs []error
-	for _, m := range h.memories {
+	for _, m := range memories {
 		if err := m.index.Close(); err != nil {
 			errs = append(errs, err)
 		}
 	}
-	h.memories = nil
 	return errors.Join(errs...)
 }
 
@@ -268,6 +310,15 @@ func (h *Host) Delete(ctx context.Context, id string) error {
 	if err := validateKeySegment("id", id, h.cfg.Separator); err != nil {
 		return err
 	}
+	release, err := h.personaLocks.Acquire(ctx, id)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if !h.beginOperation() {
+		return errHostClosed
+	}
+	defer h.operations.Done()
 
 	// Read the vec file name BEFORE we delete KV entries, because
 	// vecPathKey lives under the same prefix that batch-delete removes.
@@ -297,11 +348,11 @@ func (h *Host) Delete(ctx context.Context, id string) error {
 
 	// Close the in-memory vec index and remove its backing file.
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	if m, ok := h.memories[id]; ok {
 		_ = m.index.Close()
 		delete(h.memories, id)
 	}
+	h.mu.Unlock()
 	if vecName != "" {
 		_ = h.cfg.ObjectStore.Delete(vecName)
 	}

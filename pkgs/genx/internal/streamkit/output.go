@@ -20,6 +20,7 @@ type OutputConfig struct {
 }
 
 type outputEntry struct {
+	id      uint64
 	chunk   *genx.MessageChunk
 	bytes   int64
 	observe func(*genx.MessageChunk)
@@ -41,6 +42,7 @@ type Output struct {
 
 	queue       []outputEntry
 	queuedBytes int64
+	nextEntryID uint64
 	maxBytes    int64
 	closed      bool
 	closeErr    error
@@ -171,6 +173,8 @@ func (o *Output) PushTracked(chunk *genx.MessageChunk, observe, abandon func(*ge
 		runAbandonments(abandoned)
 		return err
 	}
+	o.nextEntryID++
+	entry.id = o.nextEntryID
 	o.queue = append(o.queue, entry)
 	o.queuedBytes += entry.bytes
 	o.cond.Signal()
@@ -195,11 +199,22 @@ func (o *Output) discardChunks(predicate func(*genx.MessageChunk) bool) []*genx.
 		return nil
 	}
 	o.mu.Lock()
+	snapshot := append([]outputEntry(nil), o.queue...)
+	o.mu.Unlock()
+
+	removeIDs := make(map[uint64]struct{})
+	for _, entry := range snapshot {
+		if predicate(entry.chunk) {
+			removeIDs[entry.id] = struct{}{}
+		}
+	}
+
+	o.mu.Lock()
 	kept := o.queue[:0]
 	removed := make([]*genx.MessageChunk, 0)
 	abandoned := make([]outputEntry, 0)
 	for _, entry := range o.queue {
-		if predicate(entry.chunk) {
+		if _, remove := removeIDs[entry.id]; remove {
 			o.queuedBytes -= entry.bytes
 			removed = append(removed, entry.chunk)
 			if entry.abandon != nil {

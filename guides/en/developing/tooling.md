@@ -161,3 +161,9 @@ same draft. Partial, moved, duplicate exact-tag, or mismatched Releases fail
 closed. The workflow never deletes, replaces, or overwrites a published SemVer
 Release. Downstream Homebrew and APT channels independently own their signing,
 hosting, retention, and live installation acceptance.
+
+## Mutex scope inventory
+
+`go run ./tools/quality mutexscope` scans every Git-tracked handwritten Go file in maintained modules, including tracked platform files that are inactive on the current host. It fingerprints reachable `Lock`/`RLock` critical sections, their release form, nested/risk operations, and returned unlock ownership transfers, then compares them with `tools/quality/mutexscope.reviewed.jsonl`. Missing, stale, duplicate, unsorted, wildcard, or non-intentional entries fail closed.
+
+Use `-write-reviewed` only after inspecting every reported change and running deterministic concurrency plus race tests. The command is a source inventory, not a deadlock, starvation, race, or performance proof.

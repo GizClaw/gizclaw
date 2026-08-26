@@ -74,3 +74,5 @@ Shouldn't be placed here:
 - Admin/Peer route registration.
 
 When adding social capabilities, you should first determine whether it belongs to contact, friend, or friend group; only add new sub-packages when new independent resources and life cycles are formed.
+
+Contact mutation and retirement coordinate per owner. Friend retirement snapshots hold only the target Peer admission gate while reciprocal relation changes retain relation-key serialization. Friend Group snapshots use the same target-Peer admission boundary; group deletion acquires the canonical ordered owner/member Peer set plus the group lock. A retirement scan never stops relations or groups that do not involve the target Peer.

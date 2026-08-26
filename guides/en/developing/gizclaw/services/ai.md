@@ -119,3 +119,5 @@ Shouldn't be placed here:
 - Agent instance, peer connection and online operation life cycle.
 - Provider credential plain text log or cross-domain replication.
 - Wiring codes that belong only to the Admin/Peer HTTP route registration.
+
+Workspace creation registers and drains in-flight work per owner. Runtime preparation and caller initialization run outside the coordinator mutex; retirement closes only the target owner's admission and waits for that owner's creations before snapshotting. MemoryLayout read-modify-write operations serialize per canonical layout ID, not per Server.

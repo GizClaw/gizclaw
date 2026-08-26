@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -238,6 +239,77 @@ func TestHostOpen(t *testing.T) {
 	}
 	if m3.ID() != "robot_boy" {
 		t.Fatalf("ID() = %q, want %q", m3.ID(), "robot_boy")
+	}
+}
+
+func TestHostOpenDoesNotBlockIndependentPersona(t *testing.T) {
+	host := newTestHost(t)
+	defer host.Close()
+	firstEntered := make(chan struct{})
+	firstRelease := make(chan struct{})
+	blockingOption := func(*openConfig) {
+		close(firstEntered)
+		<-firstRelease
+	}
+
+	type openResult struct {
+		memory *Memory
+		err    error
+	}
+	firstDone := make(chan openResult, 1)
+	go func() {
+		memory, err := host.Open("persona-a", blockingOption)
+		firstDone <- openResult{memory: memory, err: err}
+	}()
+	<-firstEntered
+	sameDone := make(chan openResult, 1)
+	go func() {
+		memory, err := host.Open("persona-a")
+		sameDone <- openResult{memory: memory, err: err}
+	}()
+	secondDone := make(chan openResult, 1)
+	go func() {
+		memory, err := host.Open("persona-b")
+		secondDone <- openResult{memory: memory, err: err}
+	}()
+
+	select {
+	case got := <-secondDone:
+		if got.err != nil || got.memory == nil {
+			t.Fatalf("independent Open() = %#v, %v", got.memory, got.err)
+		}
+	case <-time.After(time.Second):
+		close(firstRelease)
+		t.Fatal("independent persona could not complete Open while first persona option was blocked")
+	}
+	select {
+	case got := <-sameDone:
+		close(firstRelease)
+		t.Fatalf("same persona completed Open before first construction: %#v", got)
+	default:
+	}
+
+	close(firstRelease)
+	first := <-firstDone
+	same := <-sameDone
+	if first.err != nil || same.err != nil {
+		t.Fatalf("same-persona Open errors = %v, %v", first.err, same.err)
+	}
+	if first.memory == nil || first.memory != same.memory {
+		t.Fatalf("same persona memories = %#v and %#v, want one instance", first.memory, same.memory)
+	}
+}
+
+func TestHostRejectsOperationsAfterClose(t *testing.T) {
+	host := newTestHost(t)
+	if err := host.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := host.Open("persona"); !errors.Is(err, errHostClosed) {
+		t.Fatalf("Open() error = %v, want errHostClosed", err)
+	}
+	if err := host.Delete(t.Context(), "persona"); !errors.Is(err, errHostClosed) {
+		t.Fatalf("Delete() error = %v, want errHostClosed", err)
 	}
 }
 

@@ -36,12 +36,15 @@ Go code should keep package boundaries clear, control flow simple, and life cycl
 - timer, ticker, stream, connection and worker must be released during success, failure and cancellation paths.
 - Check lock granularity, blocking paths, race and goroutine leaks when shared state, callbacks or long-lived workers are involved.
 
+Lock ownership must match the smallest persistent invariant. Independent resource IDs use keyed coordination with bounded entry cleanup; multi-resource operations acquire canonical sorted keys. Do not execute caller callbacks or blocking native/network I/O while holding an internal state mutex. Lifecycle code must cancel blocking I/O, wait for users to drain, and only then free the handle. Every lock-boundary change needs a deterministic progress test, a same-resource serialization control, and `go test -race`.
+
 ## Testing and Verification
 
 - Unit tests using the smallest effective package for pure logic, boundary value, error path and regression scenarios.
 - table-driven tests and subtests should only be used when it makes input, expectation, and failure messages clearer.
 - HTTP, RPC, database, file system, serialization, timeout and retry behavior use integration test.
 - Concurrent changes should be run according to risks `go test -race`; performance-sensitive paths should be benchmarked as needed.
+- Run `go run ./tools/quality mutexscope` after changing handwritten Go critical sections. A changed fingerprint requires semantic review and an exact reviewed-file update; the inventory is not proof that races or deadlocks are absent.
 - Run `go vet` when it comes to generated types, Protobuf or cross-package APIs. The diagnosis in the output of the repository's own generator should be returned to the generator for processing; the source of the diagnosis in the third-party generated file should be recorded, and the output should not be manually modified to eliminate the diagnosis. Ownership issues may not be hidden through handwritten aliases, wrappers, or suppressions.
 - When changing Go, run the repository-pinned `modernize` through `go run ./tools/quality modernize -binary "$(go env GOPATH)/bin/modernize"`. Every handwritten Go diagnostic in every maintained module must be fixed; it cannot remain as historical debt or be admitted by editing `tools/quality/modernize.exemptions`.
 - `tools/quality/modernize.exemptions` is an exact diagnostic allowlist for generated and third-party code. It is not a baseline, history snapshot, path wildcard, or package suppression. Every entry must be a complete diagnostic currently emitted by the analyzer, and its source must be a regular (not symlinked) repository file tracked by Git and have one of these provenances: a standard `// Code generated ... DO NOT EDIT.` marker in the comment preamble before the Go package clause, an explicit generator-owned output rule, or an explicit third-party ownership root such as `third_party/`. A filename, marker text inside a string/template or test fixture, an arbitrary directory named `generated` or `vendor`, and prior presence in the exemption list do not establish provenance.

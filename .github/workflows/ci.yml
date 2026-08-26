@@ -152,6 +152,9 @@ jobs:
       - name: Check handwritten Go formatting
         run: go run ./tools/quality gofmt
 
+      - name: Check reviewed mutex scopes
+        run: go run ./tools/quality mutexscope
+
       - name: Check handwritten Go modernization and exemptions
         run: go run ./tools/quality modernize -binary "$(go env GOPATH)/bin/modernize"
 

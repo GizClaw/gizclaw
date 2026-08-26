@@ -354,6 +354,124 @@ func TestStoreDirectFactObservationIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestStoreDirectFactDoesNotBlockIndependentScope(t *testing.T) {
+	var (
+		mu           sync.Mutex
+		saved        = make(map[string]mem0Envelope)
+		addCalls     = make(map[string]int)
+		firstSearch  int
+		firstEntered = make(chan struct{})
+		firstRelease = make(chan struct{})
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		defer request.Body.Close()
+		var body map[string]any
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		encoded, _ := json.Marshal(body)
+		isFirst := strings.Contains(string(encoded), "scope-a")
+		w.Header().Set("Content-Type", "application/json")
+		if request.URL.Path == "/v3/memories/" {
+			if isFirst {
+				mu.Lock()
+				firstSearch++
+				call := firstSearch
+				mu.Unlock()
+				if call == 1 {
+					close(firstEntered)
+					<-firstRelease
+				}
+			}
+			key := "scope-b"
+			if isFirst {
+				key = "scope-a"
+			}
+			mu.Lock()
+			entry, ok := saved[key]
+			mu.Unlock()
+			if !ok {
+				_, _ = io.WriteString(w, `{"results":[]}`)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"results": []mem0Envelope{entry}})
+			return
+		}
+
+		appID, _ := body["app_id"].(string)
+		metadata, _ := body["metadata"].(map[string]any)
+		entry := mem0Envelope{
+			ID: appID + "-fact", Memory: "remembered", AppID: appID,
+			Metadata: metadata, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+		}
+		mu.Lock()
+		saved[appID] = entry
+		addCalls[appID]++
+		mu.Unlock()
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": []mem0Envelope{entry}})
+	}))
+	defer server.Close()
+	store, err := New(Config{Endpoint: server.URL, APIKey: "secret", Flavor: Platform, HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := func(appID string) Observation {
+		return Observation{
+			Scope: Scope{AppID: appID}, ID: "observation",
+			Facts: []FactCandidate{{Text: "remembered"}},
+		}
+	}
+
+	type observeCall struct {
+		result observeResult
+		err    error
+	}
+	firstDone := make(chan observeCall, 1)
+	go func() {
+		result, err := store.Observe(t.Context(), observation("scope-a"))
+		firstDone <- observeCall{result: result, err: err}
+	}()
+	<-firstEntered
+	sameDone := make(chan observeCall, 1)
+	go func() {
+		result, err := store.Observe(t.Context(), observation("scope-a"))
+		sameDone <- observeCall{result: result, err: err}
+	}()
+	secondDone := make(chan observeCall, 1)
+	go func() {
+		result, err := store.Observe(t.Context(), observation("scope-b"))
+		secondDone <- observeCall{result: result, err: err}
+	}()
+
+	select {
+	case got := <-secondDone:
+		if got.err != nil || len(got.result.Facts) != 1 {
+			t.Fatalf("independent Observe() = %#v, %v", got.result, got.err)
+		}
+	case <-time.After(time.Second):
+		close(firstRelease)
+		t.Fatal("independent direct-Fact scope could not reach Mem0 while first scope was blocked")
+	}
+	mu.Lock()
+	searchesBeforeRelease := firstSearch
+	mu.Unlock()
+	if searchesBeforeRelease != 1 {
+		close(firstRelease)
+		t.Fatalf("same direct-Fact key reached Mem0 %d times before release, want 1", searchesBeforeRelease)
+	}
+
+	close(firstRelease)
+	for name, done := range map[string]<-chan observeCall{"first": firstDone, "same": sameDone} {
+		got := <-done
+		if got.err != nil || len(got.result.Facts) != 1 {
+			t.Fatalf("%s Observe() = %#v, %v", name, got.result, got.err)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if addCalls["scope-a"] != 1 || addCalls["scope-b"] != 1 {
+		t.Fatalf("add calls = %#v, want one per scope", addCalls)
+	}
+}
+
 func TestStoreDirectFactReconcilesLostProviderResponse(t *testing.T) {
 	var (
 		mu    sync.Mutex

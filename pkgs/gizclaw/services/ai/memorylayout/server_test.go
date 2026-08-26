@@ -227,6 +227,65 @@ func TestServerSerializesPutWithDelete(t *testing.T) {
 	}
 }
 
+func TestServerAllowsPutForIndependentMemoryLayout(t *testing.T) {
+	server := newTestServer(t)
+	first := testLayout(t, "first-memory")
+	second := testLayout(t, "second-memory")
+	for _, layout := range []*adminhttp.MemoryLayoutUpsert{&first, &second} {
+		response, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: layout})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := response.(adminhttp.CreateMemoryLayout200JSONResponse); !ok {
+			t.Fatalf("CreateMemoryLayout(%q) = %#v", layout.Id, response)
+		}
+	}
+
+	blocked := &blockingMemoryLayoutGetStore{
+		Store:   server.Store,
+		key:     layoutKey(first.Id).String(),
+		reached: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	server.Store = blocked
+	first.Spec.Mem0.CustomInstructions = new("first updated")
+	firstDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
+	go func() {
+		response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: first.Id, Body: &first})
+		if err != nil {
+			t.Errorf("first PutMemoryLayout() error = %v", err)
+		}
+		firstDone <- response
+	}()
+	<-blocked.reached
+
+	second.Spec.Mem0.CustomInstructions = new("second updated")
+	secondDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
+	go func() {
+		response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: second.Id, Body: &second})
+		if err != nil {
+			t.Errorf("second PutMemoryLayout() error = %v", err)
+		}
+		secondDone <- response
+	}()
+	select {
+	case response := <-secondDone:
+		if _, ok := response.(adminhttp.PutMemoryLayout200JSONResponse); !ok {
+			t.Fatalf("second PutMemoryLayout() = %#v", response)
+		}
+	case <-time.After(time.Second):
+		close(blocked.release)
+		<-firstDone
+		<-secondDone
+		t.Fatal("independent MemoryLayout could not complete Put while first ID was blocked")
+	}
+
+	close(blocked.release)
+	if response := <-firstDone; response == nil {
+		t.Fatal("first PutMemoryLayout() response = nil")
+	}
+}
+
 func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 	tests := []struct {
 		name   string

@@ -5,8 +5,54 @@ package portaudio
 import (
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
+	"unsafe"
 )
+
+func BenchmarkNativeStreamTransfer(b *testing.B) {
+	const (
+		frames    = 320
+		frameSize = 2
+	)
+	for _, benchmark := range []struct {
+		name      string
+		direction streamDirection
+	}{
+		{name: "read-320-frames", direction: directionInput},
+		{name: "write-320-frames", direction: directionOutput},
+	} {
+		b.Run(benchmark.name, func(b *testing.B) {
+			operations := &nativeStreamOperations{
+				readAvailable:  func(unsafe.Pointer) int { return frames },
+				writeAvailable: func(unsafe.Pointer) int { return frames },
+				read:           func(unsafe.Pointer, unsafe.Pointer, int) int { return 0 },
+				write:          func(unsafe.Pointer, unsafe.Pointer, int) int { return 0 },
+			}
+			stream := &nativeStream{
+				stream: unsafe.Pointer(new(byte)), direction: benchmark.direction,
+				frameSize: frameSize, ioChunkFrames: frames, operations: operations,
+			}
+			payload := make([]byte, frames*frameSize)
+			b.ReportAllocs()
+			b.SetBytes(int64(len(payload)))
+			for b.Loop() {
+				var n int
+				var err error
+				if benchmark.direction == directionInput {
+					n, err = stream.Read(payload)
+				} else {
+					n, err = stream.Write(payload)
+				}
+				if err != nil || n != len(payload) {
+					b.Fatalf("transfer = (%d, %v), want (%d, nil)", n, err, len(payload))
+				}
+			}
+		})
+	}
+}
 
 func TestNativeBackendNameAndDeviceQueries(t *testing.T) {
 	b := nativeBackend{}
@@ -203,5 +249,152 @@ func TestNativeStreamGuardBranches(t *testing.T) {
 	}
 	if _, err := out.Write([]byte{0, 0}); err == nil {
 		t.Fatal("Write on closed output stream should fail")
+	}
+}
+
+func TestNativeStreamLifecycleCancelsBlockedReadBeforeHandleClose(t *testing.T) {
+	for _, lifecycle := range []string{"stop", "close"} {
+		t.Run(lifecycle, func(t *testing.T) {
+			entered := make(chan struct{})
+			release := make(chan struct{})
+			aborted := make(chan struct{})
+			var releaseOnce sync.Once
+			var active atomic.Bool
+			var freedWhileActive atomic.Bool
+			operations := &nativeStreamOperations{
+				read: func(unsafe.Pointer, unsafe.Pointer, int) int {
+					active.Store(true)
+					close(entered)
+					<-release
+					active.Store(false)
+					return 0
+				},
+				abort: func(unsafe.Pointer) int {
+					close(aborted)
+					releaseOnce.Do(func() { close(release) })
+					return 0
+				},
+				stop: func(unsafe.Pointer) int { return 0 },
+				close: func(unsafe.Pointer) int {
+					freedWhileActive.Store(active.Load())
+					return 0
+				},
+			}
+			handle := new(byte)
+			stream := &nativeStream{
+				stream: unsafe.Pointer(handle), direction: directionInput, frameSize: 2,
+				operations: operations,
+			}
+			readDone := make(chan error, 1)
+			go func() {
+				_, err := stream.Read(make([]byte, 2))
+				readDone <- err
+			}()
+			<-entered
+			lifecycleDone := make(chan error, 1)
+			go func() {
+				if lifecycle == "stop" {
+					lifecycleDone <- stream.Stop()
+					return
+				}
+				lifecycleDone <- stream.Close()
+			}()
+
+			select {
+			case <-aborted:
+			case <-time.After(time.Second):
+				releaseOnce.Do(func() { close(release) })
+				<-readDone
+				<-lifecycleDone
+				t.Fatalf("%s could not signal cancellation while native Read was blocked", lifecycle)
+			}
+			<-readDone
+			if err := <-lifecycleDone; err != nil {
+				t.Fatalf("%s error = %v", lifecycle, err)
+			}
+			if freedWhileActive.Load() {
+				t.Fatal("native handle was closed while Read still used it")
+			}
+		})
+	}
+}
+
+func TestNativeStreamSerializesSameDirectionIO(t *testing.T) {
+	entered := make(chan int, 2)
+	release := make(chan struct{}, 2)
+	var calls atomic.Int32
+	stream := &nativeStream{
+		stream: unsafe.Pointer(new(byte)), direction: directionInput, frameSize: 2,
+		operations: &nativeStreamOperations{
+			read: func(unsafe.Pointer, unsafe.Pointer, int) int {
+				call := int(calls.Add(1))
+				entered <- call
+				<-release
+				return 0
+			},
+		},
+	}
+	readDone := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := stream.Read(make([]byte, 2))
+			readDone <- err
+		}()
+	}
+	if call := <-entered; call != 1 {
+		t.Fatalf("first native read call = %d", call)
+	}
+	select {
+	case call := <-entered:
+		release <- struct{}{}
+		release <- struct{}{}
+		<-readDone
+		<-readDone
+		t.Fatalf("second native read entered concurrently as call %d", call)
+	default:
+	}
+	release <- struct{}{}
+	if err := <-readDone; err != nil {
+		t.Fatal(err)
+	}
+	if call := <-entered; call != 2 {
+		t.Fatalf("second native read call = %d", call)
+	}
+	release <- struct{}{}
+	if err := <-readDone; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNativeStreamLifecycleStopsAvailabilityWait(t *testing.T) {
+	entered := make(chan struct{})
+	var enteredOnce sync.Once
+	var readCalled atomic.Bool
+	stream := &nativeStream{
+		stream: unsafe.Pointer(new(byte)), direction: directionInput, frameSize: 2, ioChunkFrames: 1,
+		operations: &nativeStreamOperations{
+			readAvailable: func(unsafe.Pointer) int {
+				enteredOnce.Do(func() { close(entered) })
+				return 0
+			},
+			read:  func(unsafe.Pointer, unsafe.Pointer, int) int { readCalled.Store(true); return 0 },
+			abort: func(unsafe.Pointer) int { return 0 },
+			stop:  func(unsafe.Pointer) int { return 0 },
+		},
+	}
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := stream.Read(make([]byte, 4))
+		readDone <- err
+	}()
+	<-entered
+	if err := stream.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-readDone; err == nil {
+		t.Fatal("availability wait completed without lifecycle cancellation")
+	}
+	if readCalled.Load() {
+		t.Fatal("native Read was called without immediately available frames")
 	}
 }

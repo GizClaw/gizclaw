@@ -3,6 +3,7 @@ package streamkit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"sync"
 	"testing"
@@ -10,6 +11,33 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func BenchmarkOutputDiscardSnapshot(b *testing.B) {
+	for _, size := range []int{64, 1024} {
+		chunks := make([]*genx.MessageChunk, size)
+		remove := make(map[*genx.MessageChunk]bool, size/2)
+		for index := range size {
+			chunk := &genx.MessageChunk{Part: genx.Text(fmt.Sprintf("chunk-%d", index))}
+			chunks[index] = chunk
+			remove[chunk] = index%2 == 0
+		}
+		b.Run(fmt.Sprintf("entries-%d", size), func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(size), "entries/op")
+			for b.Loop() {
+				output := NewOutput(OutputConfig{InitialCapacity: size})
+				for _, chunk := range chunks {
+					if err := output.Push(chunk); err != nil {
+						b.Fatal(err)
+					}
+				}
+				if removed := output.Discard(func(chunk *genx.MessageChunk) bool { return remove[chunk] }); removed != size/2 {
+					b.Fatalf("Discard() = %d, want %d", removed, size/2)
+				}
+			}
+		})
+	}
+}
 
 func TestOutputGrowsWithoutDownstreamPull(t *testing.T) {
 	output := NewOutput(OutputConfig{InitialCapacity: 1})
@@ -84,6 +112,59 @@ func TestOutputDiscardAndPullObservation(t *testing.T) {
 	}
 	if got := observed; len(got) != 2 || got[0] != "keep" || got[1] != "last" {
 		t.Fatalf("observed = %v", got)
+	}
+}
+
+func TestOutputDiscardAllowsPredicateReentry(t *testing.T) {
+	output := NewOutput(OutputConfig{})
+	for _, text := range []string{"one", "two"} {
+		if err := output.Push(&genx.MessageChunk{Part: genx.Text(text)}); err != nil {
+			t.Fatalf("Push(%q) error = %v", text, err)
+		}
+	}
+
+	type result struct {
+		removed int
+		pushErr error
+	}
+	done := make(chan result, 1)
+	go func() {
+		var pushErr error
+		removed := output.Discard(func(chunk *genx.MessageChunk) bool {
+			if chunk.Part == genx.Text("one") {
+				pushErr = output.Push(&genx.MessageChunk{Part: genx.Text("three")})
+			}
+			return chunk.Part == genx.Text("one")
+		})
+		done <- result{removed: removed, pushErr: pushErr}
+	}()
+
+	select {
+	case got := <-done:
+		if got.pushErr != nil {
+			t.Fatalf("predicate Push() error = %v", got.pushErr)
+		}
+		if got.removed != 1 {
+			t.Fatalf("Discard() = %d, want 1", got.removed)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Discard predicate could not re-enter Push")
+	}
+
+	if err := output.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	for _, want := range []genx.Text{"two", "three"} {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		if got := chunk.Part.(genx.Text); got != want {
+			t.Fatalf("Next() text = %q, want %q", got, want)
+		}
+	}
+	if _, err := output.Next(); !errors.Is(err, io.EOF) {
+		t.Fatalf("Next() terminal error = %v, want EOF", err)
 	}
 }
 

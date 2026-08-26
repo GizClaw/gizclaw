@@ -14,3 +14,5 @@
 | `ToRPC` | 将内部 `PeerAssignment` 转换为 RPC message。 |
 
 Route assignment、Peer 在线 connection 和持久化 Peer 是三个不同状态。代码不能因为存在 assignment 就推断目标当前在线。
+
+Assignment 的 read/version/write transition 按 canonical Peer public key 串行。不同 Peer 可以重叠 Store I/O；同 Peer 的 expected-version 检查保持线性化。空闲 keyed-lock entry 会被清理，取消的 waiter 返回自己的 context error，不改变 holder 的操作。

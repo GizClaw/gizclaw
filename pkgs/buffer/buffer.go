@@ -18,6 +18,8 @@ type Buffer[T any] struct {
 	closeWrite bool
 	closeErr   error
 	buf        []T
+	ids        []uint64
+	nextID     uint64
 }
 
 // N creates a new Buffer with the specified initial capacity.
@@ -43,6 +45,10 @@ func (b *Buffer[T]) Write(p []T) (n int, err error) {
 	}
 
 	b.buf = append(b.buf, p...)
+	for range p {
+		b.nextID++
+		b.ids = append(b.ids, b.nextID)
+	}
 	return len(p), nil
 }
 
@@ -54,9 +60,11 @@ func (b *Buffer[T]) Discard(n int) (err error) {
 	}
 	if n > len(b.buf) {
 		b.buf = b.buf[:0]
+		b.ids = b.ids[:0]
 		return nil
 	}
 	b.buf = b.buf[n:]
+	b.ids = b.ids[n:]
 	return nil
 }
 
@@ -80,6 +88,7 @@ func (b *Buffer[T]) Read(p []T) (n int, err error) {
 	}
 	n = copy(p, b.buf)
 	b.buf = b.buf[n:]
+	b.ids = b.ids[n:]
 	return n, nil
 }
 
@@ -89,6 +98,7 @@ func (b *Buffer[T]) closeWithErrorLocked(err error) error {
 	}
 	b.closeErr = err
 	b.buf = nil
+	b.ids = nil
 	if !b.closeWrite {
 		b.closeWrite = true
 		close(b.writeNotify)
@@ -148,6 +158,7 @@ func (b *Buffer[T]) Next() (t T, err error) {
 	}
 	t = b.buf[0]
 	b.buf = b.buf[1:]
+	b.ids = b.ids[1:]
 	return
 }
 
@@ -161,6 +172,8 @@ func (b *Buffer[T]) Add(t T) error {
 		return fmt.Errorf("buffer: write to closed buffer: %w", io.ErrClosedPipe)
 	}
 	b.buf = append(b.buf, t)
+	b.nextID++
+	b.ids = append(b.ids, b.nextID)
 	select {
 	case b.writeNotify <- struct{}{}:
 	default:
@@ -172,6 +185,7 @@ func (b *Buffer[T]) Reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.buf = b.buf[:0]
+	b.ids = b.ids[:0]
 }
 
 // RemoveIf removes buffered values that match predicate while preserving the order of the rest.
@@ -180,21 +194,37 @@ func (b *Buffer[T]) RemoveIf(predicate func(T) bool) int {
 		return 0
 	}
 	b.mu.Lock()
+	values := append([]T(nil), b.buf...)
+	ids := append([]uint64(nil), b.ids...)
+	b.mu.Unlock()
+
+	removeIDs := make(map[uint64]struct{})
+	for i, value := range values {
+		if predicate(value) {
+			removeIDs[ids[i]] = struct{}{}
+		}
+	}
+
+	b.mu.Lock()
 	defer b.mu.Unlock()
 	kept := b.buf[:0]
+	keptIDs := b.ids[:0]
 	removed := 0
-	for _, value := range b.buf {
-		if predicate(value) {
+	for i, value := range b.buf {
+		if _, remove := removeIDs[b.ids[i]]; remove {
 			removed++
 			continue
 		}
 		kept = append(kept, value)
+		keptIDs = append(keptIDs, b.ids[i])
 	}
 	var zero T
 	for i := len(kept); i < len(b.buf); i++ {
 		b.buf[i] = zero
 	}
 	b.buf = kept
+	clear(b.ids[len(keptIDs):])
+	b.ids = keptIDs
 	return removed
 }
 
