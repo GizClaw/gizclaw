@@ -275,6 +275,8 @@ func TestServerAllowsPutForIndependentMemoryLayout(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		close(blocked.release)
+		<-firstDone
+		<-secondDone
 		t.Fatal("independent MemoryLayout could not complete Put while first ID was blocked")
 	}
 
