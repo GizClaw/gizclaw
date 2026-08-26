@@ -46,3 +46,33 @@ func TestLockerSameKeyWaitHonorsCancellation(t *testing.T) {
 		t.Fatalf("ActiveKeys() after release = %d, want 0", got)
 	}
 }
+
+func TestLockerCancellationWinsReleaseRace(t *testing.T) {
+	for range 100 {
+		var locker Locker[string]
+		release, err := locker.Acquire(t.Context(), "same")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		result := make(chan error, 1)
+		start := make(chan struct{})
+		go func() {
+			<-start
+			acquiredRelease, err := locker.Acquire(ctx, "same")
+			if acquiredRelease != nil {
+				acquiredRelease()
+			}
+			result <- err
+		}()
+		cancel()
+		release()
+		close(start)
+		if err := <-result; !errors.Is(err, context.Canceled) {
+			t.Fatalf("Acquire() error = %v, want context.Canceled", err)
+		}
+		if got := locker.ActiveKeys(); got != 0 {
+			t.Fatalf("ActiveKeys() after canceled release race = %d, want 0", got)
+		}
+	}
+}

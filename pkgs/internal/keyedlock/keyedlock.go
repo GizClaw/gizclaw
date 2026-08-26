@@ -39,6 +39,14 @@ func (locker *Locker[K]) Acquire(ctx context.Context, key K) (func(), error) {
 
 	select {
 	case item.token <- struct{}{}:
+		// Cancellation may race with the previous holder returning the token.
+		// A select can choose the token even when ctx.Done is also ready, so
+		// recheck after acquisition before publishing ownership to the caller.
+		if err := ctx.Err(); err != nil {
+			<-item.token
+			locker.releaseReference(key, item)
+			return nil, err
+		}
 		var once sync.Once
 		return func() {
 			once.Do(func() {

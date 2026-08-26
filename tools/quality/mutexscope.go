@@ -47,7 +47,7 @@ func runMutexScope(root, reviewedFile string, writeReviewed bool) error {
 	records := make([]mutexScopeRecord, 0, len(candidates))
 	for _, candidate := range candidates {
 		record := candidate.mutexScopeRecord
-		record.Classification = "intentional"
+		record.Classification = mutexScopeClassification(record)
 		record.Rationale = mutexScopeRationale(record)
 		records = append(records, record)
 	}
@@ -331,6 +331,20 @@ func normalizeMutexScopeSource(source string) string {
 
 func mutexScopeRisks(source string) []string {
 	lower := strings.ToLower(source)
+	// The recorded source begins at the acquisition being classified. Remove
+	// that first acquisition before looking for a nested lock; otherwise every
+	// ordinary Lock scope is mislabeled as intentional serialization.
+	firstLock := -1
+	firstLockText := ""
+	for _, candidate := range []string{".lock(", ".rlock("} {
+		if index := strings.Index(lower, candidate); index >= 0 && (firstLock < 0 || index < firstLock) {
+			firstLock = index
+			firstLockText = candidate
+		}
+	}
+	if firstLock >= 0 {
+		lower = lower[:firstLock] + strings.TrimPrefix(firstLockText, ".") + lower[firstLock+len(firstLockText):]
+	}
 	var risks []string
 	checks := []struct{ value, risk string }{
 		{" go ", "goroutine"}, {"<-", "channel"}, {"http.", "network-io"},
@@ -347,14 +361,22 @@ func mutexScopeRisks(source string) []string {
 }
 
 func mutexScopeRationale(record mutexScopeRecord) string {
-	boundary := record.Receiver + " in " + record.Function
+	owner := record.Receiver + " in " + record.File + ":" + fmt.Sprint(record.Line) + " " + record.Function
 	if record.Kind == "lock_escape" {
-		return "caller owns the exact release boundary returned by " + record.Function
+		return "owner=" + owner + "; invariant=the caller retains exclusive ownership until invoking the returned unlock function; boundary=ownership crosses the helper return and has no internal blocking or cancellation point; cleanup=the caller must invoke the returned release exactly once; reason=moving release into the helper would end the caller's protected transaction"
 	}
 	if len(record.Risks) == 0 {
-		return boundary + " protects its local state invariant until the recorded " + record.Release + " release"
+		return "owner=" + owner + "; invariant=the exact fingerprinted statements observe or update only this receiver's bounded in-memory state atomically; boundary=no blocking or cancellation operation was detected before the " + record.Release + " release; maximum=bounded by the fingerprinted statement region; cleanup=the " + record.Release + " release ends ownership"
 	}
-	return boundary + " intentionally contains " + strings.Join(record.Risks, ",") + " and is reviewed through the recorded " + record.Release + " release"
+	risks := strings.Join(record.Risks, ",")
+	return "owner=" + owner + "; invariant=the fingerprinted " + risks + " region and this receiver's state transition publish as one ordered operation; boundary=blocking is limited to the recorded " + risks + " operation and cancellation remains owned by that operation until the " + record.Release + " release; maximum=the exact fingerprinted source region; cleanup=the " + record.Release + " release restores access on every recorded exit; reason=moving the fingerprinted operation outside would expose its receiver state transition before the operation result is committed"
+}
+
+func mutexScopeClassification(record mutexScopeRecord) string {
+	if record.Kind == "lock_escape" || len(record.Risks) != 0 {
+		return "intentional-serialization"
+	}
+	return "short-memory-only"
 }
 
 func marshalMutexScopeRecords(records []mutexScopeRecord) ([]byte, error) {
@@ -406,8 +428,14 @@ func validateMutexScopeReview(records []mutexScopeRecord) error {
 			return fmt.Errorf("mutexscope review line %d is not sorted and unique", index+1)
 		}
 		previous = key
-		if record.Classification != "intentional" || strings.TrimSpace(record.Rationale) == "" {
-			return fmt.Errorf("mutexscope review line %d must contain an intentional classification and rationale", index+1)
+		if record.Classification != "short-memory-only" && record.Classification != "intentional-serialization" {
+			return fmt.Errorf("mutexscope review line %d has unsupported classification %q", index+1, record.Classification)
+		}
+		if record.Classification != mutexScopeClassification(record) {
+			return fmt.Errorf("mutexscope review line %d classification does not match its exact risk boundary", index+1)
+		}
+		if strings.TrimSpace(record.Rationale) == "" || record.Rationale != mutexScopeRationale(record) {
+			return fmt.Errorf("mutexscope review line %d must contain the exact owner, invariant, boundary, cleanup, and scope rationale", index+1)
 		}
 		if record.Release == "unresolved" {
 			return fmt.Errorf("mutexscope review line %d has unresolved lock ownership", index+1)

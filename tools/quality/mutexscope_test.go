@@ -87,16 +87,23 @@ func TestMutexScopeFingerprintChangesWithCriticalSection(t *testing.T) {
 func TestValidateMutexScopeReviewFailsClosed(t *testing.T) {
 	valid := mutexScopeRecord{
 		Fingerprint: "abc", File: "fixture.go", Line: 1, Function: "f", Kind: "lock",
-		Receiver: "mu", Release: "defer", Classification: "intentional", Rationale: "mu protects f state",
+		Receiver: "mu", Release: "defer", Classification: "short-memory-only",
 	}
+	valid.Rationale = mutexScopeRationale(valid)
 	if err := validateMutexScopeReview([]mutexScopeRecord{valid}); err != nil {
 		t.Fatalf("valid review: %v", err)
 	}
 	tests := map[string][]mutexScopeRecord{
-		"duplicate":          {valid, valid},
-		"wildcard":           {func() mutexScopeRecord { copy := valid; copy.File = "*.go"; return copy }()},
-		"missing rationale":  {func() mutexScopeRecord { copy := valid; copy.Rationale = ""; return copy }()},
-		"unresolved":         {func() mutexScopeRecord { copy := valid; copy.Classification = "unresolved"; return copy }()},
+		"duplicate":         {valid, valid},
+		"wildcard":          {func() mutexScopeRecord { copy := valid; copy.File = "*.go"; return copy }()},
+		"missing rationale": {func() mutexScopeRecord { copy := valid; copy.Rationale = ""; return copy }()},
+		"unresolved":        {func() mutexScopeRecord { copy := valid; copy.Classification = "unresolved"; return copy }()},
+		"generic rationale": {func() mutexScopeRecord { copy := valid; copy.Rationale = "mu protects state"; return copy }()},
+		"wrong classification": {func() mutexScopeRecord {
+			copy := valid
+			copy.Classification = "intentional-serialization"
+			return copy
+		}()},
 		"unresolved release": {func() mutexScopeRecord { copy := valid; copy.Release = "unresolved"; return copy }()},
 	}
 	for name, records := range tests {
@@ -112,6 +119,9 @@ func TestMutexScopeRiskClassificationIsStable(t *testing.T) {
 	risks := mutexScopeRisks("mu.Lock(); store.List(ctx, key); <-ready; other.Lock(); mu.Unlock()")
 	if got := strings.Join(risks, ","); got != "channel,nested-lock,store-scan" {
 		t.Fatalf("risks = %q", got)
+	}
+	if risks := mutexScopeRisks("mu.Lock(); value++; mu.Unlock()"); len(risks) != 0 {
+		t.Fatalf("single acquisition risks = %q, want none", risks)
 	}
 }
 
