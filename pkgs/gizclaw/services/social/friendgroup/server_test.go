@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"iter"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -698,6 +700,73 @@ func TestPeerRetirementDeletesOwnedGroupAndOnlyForeignMembership(t *testing.T) {
 	}
 }
 
+func TestPeerRetirementSnapshotOnlyBlocksGroupsForTargetPeer(t *testing.T) {
+	s := newTestServer(t)
+	s.NewID = func() string { return "group-a" }
+	groupA, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.NewID = func() string { return "group-b" }
+	groupB, err := s.CreateFriendGroup(t.Context(), "peer-b", rpcapi.FriendGroupCreateRequest{Name: "room-b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	s.Belongs = &blockingGroupListStore{
+		Store:   s.Belongs,
+		prefix:  append(append(kv.Key{}, socialutil.GroupBelongsRoot...), socialutil.EscapeStoreSegment("peer-a")),
+		entered: entered, release: release,
+	}
+	snapshotDone := make(chan error, 1)
+	go func() {
+		_, err := s.SnapshotPeerGroups(t.Context(), "peer-a")
+		snapshotDone <- err
+	}()
+	<-entered
+
+	unrelatedDone := make(chan error, 1)
+	go func() {
+		display := "updated-b"
+		_, err := s.PutFriendGroup(t.Context(), "peer-b", rpcapi.FriendGroupPutRequest{Name: groupB.Name, DisplayName: &display})
+		unrelatedDone <- err
+	}()
+	targetDone := make(chan error, 1)
+	go func() {
+		display := "updated-a"
+		_, err := s.PutFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupPutRequest{Name: groupA.Name, DisplayName: &display})
+		targetDone <- err
+	}()
+
+	select {
+	case err := <-unrelatedDone:
+		if err != nil {
+			t.Fatalf("unrelated Friend Group mutation: %v", err)
+		}
+	case <-time.After(time.Second):
+		close(release)
+		<-snapshotDone
+		<-unrelatedDone
+		<-targetDone
+		t.Fatal("unrelated Friend Group mutation was blocked by peer-a retirement snapshot")
+	}
+	select {
+	case err := <-targetDone:
+		close(release)
+		<-snapshotDone
+		t.Fatalf("peer-a Friend Group mutation crossed accepted snapshot: %v", err)
+	default:
+	}
+	close(release)
+	if err := <-snapshotDone; err != nil {
+		t.Fatalf("SnapshotPeerGroups(): %v", err)
+	}
+	if err := <-targetDone; err != nil {
+		t.Fatalf("target Friend Group mutation after snapshot: %v", err)
+	}
+}
+
 func TestFriendGroupMemberCreationFailsClosedWhenTargetUnavailable(t *testing.T) {
 	s := newTestServer(t)
 	group, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"})
@@ -1058,6 +1127,26 @@ func assertNoBelongs(t *testing.T, ctx context.Context, s *Server, peerID, frien
 
 type failingSetStore struct {
 	kv.Store
+}
+
+type blockingGroupListStore struct {
+	kv.Store
+	prefix           kv.Key
+	entered, release chan struct{}
+	once             sync.Once
+}
+
+func (s *blockingGroupListStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
+	entries := s.Store.List(ctx, prefix)
+	return func(yield func(kv.Entry, error) bool) {
+		if slices.Equal(prefix, s.prefix) {
+			s.once.Do(func() {
+				close(s.entered)
+				<-s.release
+			})
+		}
+		entries(yield)
+	}
 }
 
 func (s failingSetStore) Set(context.Context, kv.Key, []byte) error {
