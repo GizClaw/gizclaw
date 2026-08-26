@@ -61,6 +61,7 @@ type peerStreamTurn struct {
 	agentInputPushed       bool
 	outputEventObserved    bool
 	outputTerminalObserved bool
+	outputRouteBound       bool
 	terminalPending        bool
 }
 
@@ -245,6 +246,30 @@ func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.Mes
 	l.recordOnce("agent_output/output_first_event", "agent_output", "output_first_event", attrs...)
 }
 
+// bindOutputOwner captures route ownership as soon as the runtime output
+// yields a chunk, before audio draining or downstream delivery can delay the
+// lifecycle observation past a replacement input.
+func (l *peerStreamLifecycle) bindOutputOwner(chunk *genx.MessageChunk) {
+	if l == nil || chunk == nil {
+		return
+	}
+	streamID := streamIDFromChunk(chunk)
+	if streamID == "" {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.turns[l.outputTurns[streamID]] != nil {
+		return
+	}
+	turn := l.turns[l.currentTurn]
+	if turn == nil {
+		return
+	}
+	turn.outputRouteBound = true
+	l.bindOutputRouteLocked(streamID, turn)
+}
+
 func (l *peerStreamLifecycle) finish(component string, err error) {
 	if l == nil {
 		return
@@ -297,10 +322,11 @@ func (l *peerStreamLifecycle) startTurnLocked(streamID string) []peerStreamLifec
 		if record := l.turnRecordOnceLocked(previous, "peer_input", "interrupt_observed", "interrupted", "input_replaced"); record != nil {
 			records = append(records, *record)
 		}
-		// Keep the replaced turn until its output route is observed or an owner
-		// closes. Output is a single ordered stream, so the oldest replaced turn
-		// without an assigned route owns the next previously unseen route.
-		previous.terminalPending = true
+		if previous.outputRouteBound && !previous.outputTerminalObserved {
+			previous.terminalPending = true
+		} else {
+			records = append(records, l.terminateTurnLocked(previous, "replaced", "input_replaced"))
+		}
 	}
 	l.nextTurnIndex++
 	turn := &peerStreamTurn{
@@ -343,30 +369,25 @@ func (l *peerStreamLifecycle) outputTurnLocked(streamID string) *peerStreamTurn 
 			return turn
 		}
 	}
-	turn := l.oldestPendingOutputTurnLocked()
-	if turn == nil {
-		turn = l.turns[l.currentTurn]
-	}
+	turn := l.turns[l.currentTurn]
 	if turn != nil && streamID != "" {
-		l.outputTurns[streamID] = turn.index
-		l.outputOrder = append(l.outputOrder, streamID)
-		for len(l.outputTurns) > peerStreamLifecycleMaxOutputRoutes && len(l.outputOrder) > 0 {
-			oldest := l.outputOrder[0]
-			l.outputOrder = l.outputOrder[1:]
-			delete(l.outputTurns, oldest)
-		}
+		turn.outputRouteBound = true
+		l.bindOutputRouteLocked(streamID, turn)
 	}
 	return turn
 }
 
-func (l *peerStreamLifecycle) oldestPendingOutputTurnLocked() *peerStreamTurn {
-	for _, index := range l.turnOrder {
-		turn := l.turns[index]
-		if turn != nil && turn.terminalPending && !turn.outputEventObserved {
-			return turn
-		}
+func (l *peerStreamLifecycle) bindOutputRouteLocked(streamID string, turn *peerStreamTurn) {
+	if streamID == "" || turn == nil {
+		return
 	}
-	return nil
+	l.outputTurns[streamID] = turn.index
+	l.outputOrder = append(l.outputOrder, streamID)
+	for len(l.outputTurns) > peerStreamLifecycleMaxOutputRoutes && len(l.outputOrder) > 0 {
+		oldest := l.outputOrder[0]
+		l.outputOrder = l.outputOrder[1:]
+		delete(l.outputTurns, oldest)
+	}
 }
 
 func (l *peerStreamLifecycle) oldestTurnLocked() *peerStreamTurn {

@@ -175,6 +175,10 @@ type peerAgentOutput struct {
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
 	audio := newPeerAudioRouteAggregator()
 	loggedRouteErrors := make(map[string]struct{})
+	ownedOutput := output
+	if output != nil {
+		ownedOutput = &peerLifecycleOutputStream{Stream: output, lifecycle: o.Lifecycle}
+	}
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
@@ -208,7 +212,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			}
 			return nil
 		},
-	}).ConsumeAgentOutput(ctx, output)
+	}).ConsumeAgentOutput(ctx, ownedOutput)
 	if err != nil {
 		o.Lifecycle.finish("agent_output", err)
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
@@ -219,6 +223,42 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	}
 	o.Lifecycle.finish("agent_output", nil)
 	return nil
+}
+
+type peerLifecycleOutputStream struct {
+	genx.Stream
+	lifecycle *peerStreamLifecycle
+}
+
+func (s *peerLifecycleOutputStream) Next() (*genx.MessageChunk, error) {
+	if s == nil || s.Stream == nil {
+		return nil, io.ErrClosedPipe
+	}
+	chunk, err := s.Stream.Next()
+	if err == nil {
+		s.lifecycle.bindOutputOwner(chunk)
+	}
+	return chunk, err
+}
+
+func (s *peerLifecycleOutputStream) DeferOutputObservation() {
+	if observer, ok := s.Stream.(agenthost.OutputObservationStream); ok {
+		observer.DeferOutputObservation()
+	}
+}
+
+func (s *peerLifecycleOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if observer, ok := s.Stream.(agenthost.OutputObservationStream); ok {
+		observer.ObserveOutput(chunk)
+	}
+}
+
+func (s *peerLifecycleOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if abandoner, ok := s.Stream.(interface {
+		AbandonOutputObservation(*genx.MessageChunk)
+	}); ok {
+		abandoner.AbandonOutputObservation(chunk)
+	}
 }
 
 func (o peerAgentOutput) logTerminalRouteError(

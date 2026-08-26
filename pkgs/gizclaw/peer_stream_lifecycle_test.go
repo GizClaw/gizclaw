@@ -120,11 +120,13 @@ func TestPeerStreamLifecycleKeepsDelayedFirstOutputOnReplacedTurn(t *testing.T) 
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-delayed", "peer-delayed")
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-old"}})
+	oldOutputBOS := &genx.MessageChunk{
+		Part: genx.Text("late old output"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
+	}
+	lifecycle.bindOutputOwner(oldOutputBOS)
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
-		Part: genx.Text("late old output"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
-	}, nil)
+	lifecycle.observeOutput(t.Context(), oldOutputBOS, nil)
 	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
 		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "output-old", EndOfStream: true},
 	}, nil)
@@ -147,6 +149,31 @@ func TestPeerStreamLifecycleKeepsDelayedFirstOutputOnReplacedTurn(t *testing.T) 
 	}
 	if newOutput["output_stream_id_hash"] != safeStreamIDHash("output-new") {
 		t.Fatalf("new output = %#v", newOutput)
+	}
+}
+
+func TestPeerStreamLifecycleAssignsReplacementOnlyOutputToReplacement(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-replacement-only", "peer-replacement-only")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-old"}})
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
+	newOutput := &genx.MessageChunk{
+		Part: genx.Text("replacement output"), Ctrl: &genx.StreamCtrl{StreamID: "output-new", BeginOfStream: true},
+	}
+	lifecycle.bindOutputOwner(newOutput)
+	lifecycle.observeOutput(t.Context(), newOutput, nil)
+
+	var output map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "output_first_event" {
+			output = attrs
+		}
+	}
+	if output["turn_index"] != uint64(2) || output["output_stream_id_hash"] != safeStreamIDHash("output-new") {
+		t.Fatalf("replacement output = %#v", output)
 	}
 }
 
