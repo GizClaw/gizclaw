@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -93,6 +94,89 @@ func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
 	if _, err := out.Next(); !IsStreamDone(err) {
 		t.Fatalf("Next() done error = %v", err)
 	}
+}
+
+func TestServiceProductionObserverCrossesHistoryLeaseAndProbe(t *testing.T) {
+	upstream := newBlockingHistoryStream()
+	t.Cleanup(func() { _ = upstream.Close() })
+	agent := wrapHistoryAgent(
+		historyTestAgent{output: upstream},
+		workspace.NewHistoryStore(newTestObjectStore(t), "demo"),
+	)
+	historyOutput, err := agent.Transform(
+		withHistoryGearID(t.Context(), "gear-a"),
+		historyStreamFromChunks(),
+	)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	lease := &leaseStream{Stream: historyOutput}
+	probe := newOutputProbe(lease)
+	consumer := &productionObserverConsumer{
+		producedOwner: make(chan int64, 1),
+		release:       make(chan struct{}),
+	}
+	consumer.currentOwner.Store(1)
+	service := &Service{Consumer: consumer}
+
+	// Service performs the first registration before runtime publication. The
+	// consumer repeats it through outputProbe when consumption starts, matching
+	// the real Peer output path and exercising every forwarding wrapper.
+	service.prepareAgentOutput(lease)
+	consumer.PrepareAgentOutput(probe)
+
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text("delayed"),
+		Ctrl: &genx.StreamCtrl{StreamID: "output-old", Label: "assistant", BeginOfStream: true},
+	}
+	go func() { upstream.ch <- chunk }()
+	select {
+	case owner := <-consumer.producedOwner:
+		if owner != 1 {
+			t.Fatalf("producer owner = %d, want 1", owner)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("history producer did not invoke observer")
+	}
+
+	consumer.currentOwner.Store(2)
+	result := make(chan *genx.MessageChunk, 1)
+	errs := make(chan error, 1)
+	go func() {
+		got, nextErr := probe.Next()
+		result <- got
+		errs <- nextErr
+	}()
+	close(consumer.release)
+	if nextErr := <-errs; nextErr != nil {
+		t.Fatalf("probe.Next() error = %v", nextErr)
+	}
+	if got := <-result; got == nil || got.Ctrl == nil || got.Ctrl.StreamID != "output-old" {
+		t.Fatalf("probe.Next() chunk = %#v", got)
+	}
+}
+
+type productionObserverConsumer struct {
+	currentOwner  atomic.Int64
+	producedOwner chan int64
+	release       chan struct{}
+}
+
+func (c *productionObserverConsumer) PrepareAgentOutput(output genx.Stream) {
+	observer, ok := output.(OutputProductionObserver)
+	if !ok {
+		return
+	}
+	observer.SetOutputProductionObserver(func(*genx.MessageChunk) {
+		c.producedOwner <- c.currentOwner.Load()
+		<-c.release
+	})
+}
+
+func (*productionObserverConsumer) ConsumeAgentOutput(context.Context, genx.Stream) error {
+	return nil
 }
 
 func TestHistoryAgentForwardsAbandonedOutputObservation(t *testing.T) {
