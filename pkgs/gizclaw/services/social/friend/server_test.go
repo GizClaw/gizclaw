@@ -1664,6 +1664,18 @@ func (s *blockingFriendListStore) List(ctx context.Context, prefix kv.Key) iter.
 	}
 }
 
+func (s *blockingFriendListStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
+	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
+}
+
+func (s *blockingFriendListStore) CreateIfAllAbsent(ctx context.Context, guards []kv.Entry, entries []kv.Entry) (kv.Key, []byte, bool, error) {
+	return kv.CreateIfAllAbsent(ctx, s.Store, guards, entries)
+}
+
+func (s *blockingFriendListStore) CompareAndMutate(ctx context.Context, guard kv.Key, expected []byte, entries []kv.Entry, keys []kv.Key) (bool, error) {
+	return kv.CompareAndMutate(ctx, s.Store, guard, expected, entries, keys)
+}
+
 func (s failingBatchSetStore) BatchSet(context.Context, []kv.Entry) error {
 	return errors.New("forced batch set failure")
 }

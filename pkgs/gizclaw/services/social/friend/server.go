@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -42,6 +44,8 @@ type Server struct {
 
 	Now   func() time.Time
 	NewID func() string
+
+	peerMutations keyedlock.Locker[string]
 }
 
 type PeerRetirementFriend struct {
@@ -63,7 +67,10 @@ func (s *Server) SnapshotPeerFriends(ctx context.Context, owner string) ([]PeerR
 	if owner != strings.TrimSpace(owner) {
 		return nil, errors.New("social: Peer public key must be canonical")
 	}
-	unlock := lockAllRelationMutations()
+	unlock, err := s.lockPeers(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
 	defer unlock()
 	var out []PeerRetirementFriend
 	for entry, err := range store.List(ctx, socialutil.OwnerPrefix(socialutil.FriendsRoot, owner)) {
@@ -149,17 +156,6 @@ func (s *Server) RetirePeerFriend(ctx context.Context, owner string, snapshot Pe
 }
 
 var relationMutationMu [64]sync.Mutex
-
-func lockAllRelationMutations() func() {
-	for index := range relationMutationMu {
-		relationMutationMu[index].Lock()
-	}
-	return func() {
-		for index := len(relationMutationMu) - 1; index >= 0; index-- {
-			relationMutationMu[index].Unlock()
-		}
-	}
-}
 
 type peerRetirementContextKey struct{}
 
@@ -364,7 +360,10 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 		return rpcapi.FriendAddResponse{}, ErrInviteTokenSelfOwned
 	}
 	relationID := socialutil.RelationID(owner, to)
-	unlock := s.lockRelation(relationID)
+	unlock, err := s.lockRelationMutation(ctx, relationID, owner, to)
+	if err != nil {
+		return rpcapi.FriendAddResponse{}, err
+	}
 	defer unlock()
 	return s.createFriend(ctx, owner, to, to)
 }
@@ -379,7 +378,10 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 		return rpcapi.FriendObject{}, errors.New("social: cannot friend self")
 	}
 	relationID := socialutil.RelationID(owner, peerPublicKey)
-	unlock := s.lockRelation(relationID)
+	unlock, err := s.lockRelationMutation(ctx, relationID, owner, peerPublicKey)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
 	defer unlock()
 	return s.createFriend(ctx, owner, peerPublicKey, owner)
 }
@@ -390,6 +392,46 @@ func (s *Server) lockRelation(relationID string) func() {
 	mu := &relationMutationMu[hash.Sum32()%uint32(len(relationMutationMu))]
 	mu.Lock()
 	return mu.Unlock
+}
+
+func (s *Server) lockRelationMutation(ctx context.Context, relationID string, peers ...string) (func(), error) {
+	releasePeers, err := s.lockPeers(ctx, peers...)
+	if err != nil {
+		return nil, err
+	}
+	releaseRelation := s.lockRelation(relationID)
+	return func() {
+		releaseRelation()
+		releasePeers()
+	}, nil
+}
+
+func (s *Server) lockPeers(ctx context.Context, peers ...string) (func(), error) {
+	keys := append([]string(nil), peers...)
+	for index := range keys {
+		keys[index] = strings.TrimSpace(keys[index])
+	}
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+	releases := make([]func(), 0, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		release, err := s.peerMutations.Acquire(ctx, key)
+		if err != nil {
+			for index := len(releases) - 1; index >= 0; index-- {
+				releases[index]()
+			}
+			return nil, err
+		}
+		releases = append(releases, release)
+	}
+	return func() {
+		for index := len(releases) - 1; index >= 0; index-- {
+			releases[index]()
+		}
+	}, nil
 }
 
 func (s *Server) AdminListFriends(ctx context.Context, cursor *string, limit *int) (adminhttp.AdminFriendListResponse, error) {
@@ -447,7 +489,10 @@ func (s *Server) AdminCreateFriendResource(ctx context.Context, id, owner, peerP
 	if owner == "" || peerPublicKey == "" || owner == peerPublicKey {
 		return adminhttp.AdminFriendObject{}, errors.New("social: friend peers must be distinct and non-empty")
 	}
-	unlock := s.lockRelation(id)
+	unlock, err := s.lockRelationMutation(ctx, id, owner, peerPublicKey)
+	if err != nil {
+		return adminhttp.AdminFriendObject{}, err
+	}
 	defer unlock()
 	store, err := s.friendsStore()
 	if err != nil {
@@ -573,7 +618,24 @@ func (s *Server) deleteFriendByRelationID(ctx context.Context, owner, relationID
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	unlock := s.lockRelation(relationID)
+	peers := []string{owner}
+	if current, readErr := s.getFriendRelationByID(ctx, owner, relationID); readErr == nil {
+		peers = append(peers, socialutil.StringValue(current.PeerPublicKey))
+	} else if !errors.Is(readErr, kv.ErrNotFound) {
+		return rpcapi.FriendObject{}, readErr
+	} else if creation, creationErr := readCreationIntent(ctx, store, relationID); creationErr == nil {
+		peers = append(peers, creation.FirstPeer, creation.SecondPeer)
+	} else if !errors.Is(creationErr, kv.ErrNotFound) {
+		return rpcapi.FriendObject{}, creationErr
+	} else if retirement, retirementErr := readRetirementIntent(ctx, store, relationID); retirementErr == nil {
+		peers = append(peers, retirement.FirstPeer, retirement.SecondPeer)
+	} else if !errors.Is(retirementErr, kv.ErrNotFound) {
+		return rpcapi.FriendObject{}, retirementErr
+	}
+	unlock, err := s.lockRelationMutation(ctx, relationID, peers...)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
 	defer unlock()
 	item, err := s.getFriendRelationByID(ctx, owner, relationID)
 	if err != nil {
@@ -1443,7 +1505,10 @@ func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
 		if relationID == "" || strings.TrimSpace(listed.RelationID) != relationID {
 			return fmt.Errorf("social: invalid Friend creation intent %q", relationID)
 		}
-		unlock := s.lockRelation(relationID)
+		unlock, lockErr := s.lockRelationMutation(ctx, relationID, listed.FirstPeer, listed.SecondPeer)
+		if lockErr != nil {
+			return lockErr
+		}
 		current, readErr := readCreationIntent(ctx, store, relationID)
 		if errors.Is(readErr, kv.ErrNotFound) {
 			unlock()
@@ -1529,7 +1594,10 @@ func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 		if relationID == "" || strings.TrimSpace(intent.RelationID) != relationID {
 			return fmt.Errorf("social: invalid Friend retirement intent %q", relationID)
 		}
-		unlock := s.lockRelation(relationID)
+		unlock, lockErr := s.lockRelationMutation(ctx, relationID, intent.FirstPeer, intent.SecondPeer)
+		if lockErr != nil {
+			return lockErr
+		}
 		current, readErr := readRetirementIntent(ctx, store, relationID)
 		if errors.Is(readErr, kv.ErrNotFound) {
 			unlock()
