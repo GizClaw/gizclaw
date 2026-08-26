@@ -46,7 +46,7 @@ type StreamCtrl struct {
 	Error          string       `json:"error,omitempty"`
 	ErrorCode      string       `json:"error_code,omitempty"`
 	ErrorRetryable bool         `json:"error_retryable,omitempty"`
-	FailureClass   FailureClass `json:"failure_class,omitempty"`
+	FailureClass   FailureClass `json:"-"`
 
 	BeginOfStream bool  `json:"begin_of_stream,omitempty"`
 	EndOfStream   bool  `json:"end_of_stream,omitempty"`
