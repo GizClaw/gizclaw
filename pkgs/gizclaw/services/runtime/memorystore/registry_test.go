@@ -3,6 +3,7 @@ package memorystore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -15,6 +16,101 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
+
+func BenchmarkRegistryResolveSameBindingContention(b *testing.B) {
+	request := managedTestRequest(b)
+	physical, err := openSharedBackend(b.Context(), request)
+	if err != nil {
+		b.Fatal(err)
+	}
+	const constructorDelay = time.Millisecond
+	backend := &delayedRegistryBackend{sharedBackend: physical, delay: constructorDelay}
+	registry := NewRegistry()
+	registry.open = func(context.Context, Request) (sharedBackend, error) {
+		return backend, nil
+	}
+	anchor, err := registry.Resolve(b.Context(), request)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() {
+		_ = anchor.Closer.Close()
+		_ = registry.Close()
+	})
+
+	for _, benchmark := range []struct {
+		name     string
+		parallel bool
+	}{
+		{name: "serial-8"},
+		{name: "parallel-8", parallel: true},
+	} {
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ReportMetric(float64(constructorDelay), "constructor-delay-ns")
+			b.ResetTimer()
+			for b.Loop() {
+				if err := resolveStoreBatch(b.Context(), registry, request, 8, benchmark.parallel); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N*8), "ns/store")
+		})
+	}
+}
+
+type delayedRegistryBackend struct {
+	sharedBackend
+	delay time.Duration
+}
+
+func (backend *delayedRegistryBackend) NewStore(
+	ctx context.Context,
+	request Request,
+) (Result, io.Closer, error) {
+	timer := time.NewTimer(backend.delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		return Result{}, nil, ctx.Err()
+	}
+	return backend.sharedBackend.NewStore(ctx, request)
+}
+
+func resolveStoreBatch(
+	ctx context.Context,
+	registry *Registry,
+	request Request,
+	count int,
+	parallel bool,
+) error {
+	resolve := func(index int) error {
+		workspaceRequest := request
+		workspaceRequest.WorkspaceID = fmt.Sprintf("benchmark-workspace-%d", index)
+		result, err := registry.Resolve(ctx, workspaceRequest)
+		if err != nil {
+			return err
+		}
+		return result.Closer.Close()
+	}
+	if !parallel {
+		for index := range count {
+			if err := resolve(index); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	errs := make([]error, count)
+	var wait sync.WaitGroup
+	for index := range count {
+		wait.Go(func() { errs[index] = resolve(index) })
+	}
+	wait.Wait()
+	return errors.Join(errs...)
+}
 
 func TestRegistrySameBindingLogicalStoresConstructConcurrently(t *testing.T) {
 	request := managedTestRequest(t)
@@ -473,7 +569,7 @@ func (registryTestLLM) GenerateStream(context.Context, []llm.Message, ...llm.Gen
 	return nil, errors.New("unexpected streaming extraction")
 }
 
-func managedTestRequest(t *testing.T) Request {
+func managedTestRequest(t testing.TB) Request {
 	t.Helper()
 	connection := apitypes.RuntimeProfileMemoryConnection{}
 	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(
