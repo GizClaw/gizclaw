@@ -191,7 +191,6 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 			return o.Events.Broadcast(event)
 		},
 		Observe: func(chunk *genx.MessageChunk) error {
-			o.Lifecycle.observeOutput(ctx, chunk, o.WorkspaceName)
 			o.logTerminalRouteError(ctx, chunk, loggedRouteErrors)
 			routeEOS := audio.consumeRouteEOS(chunk)
 			if routeEOS != nil {
@@ -211,6 +210,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 					return err
 				}
 			}
+			o.Lifecycle.observeOutput(ctx, chunk, o.WorkspaceName)
 			return nil
 		},
 	}).ConsumeAgentOutput(ctx, ownedOutput)
@@ -222,7 +222,10 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		o.Lifecycle.finish("agent_output", err)
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
-	o.Lifecycle.finish("agent_output", nil)
+	// AgentHost treats a clean consumer return while the runtime is still
+	// active as an unexpected stream end. Preserve that bounded cause here so
+	// open turns are not reported as successfully completed.
+	o.Lifecycle.finish("agent_output", io.ErrUnexpectedEOF)
 	return nil
 }
 
@@ -235,7 +238,7 @@ func (o peerAgentOutput) prepareAgentOutput(output genx.Stream) bool {
 	if !ok {
 		return false
 	}
-	observer.SetOutputProductionObserver(o.Lifecycle.bindOutputOwner)
+	observer.SetOutputProductionObserver(o.Lifecycle.observeOutputProduced)
 	return true
 }
 
@@ -251,7 +254,7 @@ func (s *peerLifecycleOutputStream) Next() (*genx.MessageChunk, error) {
 	}
 	chunk, err := s.Stream.Next()
 	if err == nil && s.bindOnNext {
-		s.lifecycle.bindOutputOwner(chunk)
+		s.lifecycle.observeOutputProduced(chunk)
 	}
 	return chunk, err
 }

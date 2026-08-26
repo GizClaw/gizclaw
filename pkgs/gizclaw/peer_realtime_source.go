@@ -41,7 +41,23 @@ func (s *peerRealtimeSource) OpenAgentInput(context.Context) (genx.Stream, error
 		_ = previous.Close()
 	}
 	s.lifecycle.observeAgentInputOpen()
-	return next, nil
+	return &peerObservedAgentInput{Stream: next, lifecycle: s.lifecycle}, nil
+}
+
+// peerObservedAgentInput reports the point at which the selected Agent's
+// transformer actually consumes an input chunk. Push observation alone only
+// proves that the connection accepted the chunk into its queue.
+type peerObservedAgentInput struct {
+	genx.Stream
+	lifecycle *peerStreamLifecycle
+}
+
+func (s *peerObservedAgentInput) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	if err == nil {
+		s.lifecycle.observeAgentTransformStarted(chunk)
+	}
+	return chunk, err
 }
 
 func (s *peerRealtimeSource) Push(ctx context.Context, chunk *genx.MessageChunk) error {

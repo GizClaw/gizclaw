@@ -72,7 +72,7 @@ func TestPeerAgentOutputLifecycleRecordsFirstOutputAndTerminal(t *testing.T) {
 		t.Fatalf("first output lifecycle exposed raw stream ID: %#v", first)
 	}
 	terminal := lifecycleRecordAttrs(records[1])
-	if terminal["component"] != "agent_output" || terminal["result"] != "success" || terminal["last_stage"] != "output_first_event" || terminal["output_event_observed"] != true {
+	if terminal["component"] != "agent_output" || terminal["result"] != "runtime_error" || terminal["reason"] != "internal_error" || terminal["last_stage"] != "output_first_event" || terminal["output_event_observed"] != true {
 		t.Fatalf("Agent output terminal = %#v", terminal)
 	}
 }
@@ -91,8 +91,45 @@ func TestPeerAgentOutputLifecycleLocalizesZeroOutput(t *testing.T) {
 		t.Fatalf("lifecycle records = %d, want terminal only", len(records))
 	}
 	terminal := lifecycleRecordAttrs(records[0])
-	if terminal["component"] != "agent_output" || terminal["last_stage"] != "" || terminal["output_event_observed"] != false {
+	if terminal["component"] != "agent_output" || terminal["result"] != "runtime_error" || terminal["reason"] != "internal_error" || terminal["last_stage"] != "" || terminal["output_event_observed"] != false {
 		t.Fatalf("zero-output terminal = %#v", terminal)
+	}
+}
+
+func TestPeerAgentOutputDoesNotMarkDeliveryWhenPeerBroadcastFails(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-delivery-failure", "peer-delivery-failure")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-delivery-failure", nil))
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{{
+		Role: genx.RoleModel,
+		Part: genx.Text("private assistant"),
+		Ctrl: &genx.StreamCtrl{StreamID: "output-delivery-failure", Label: "assistant"},
+	}}, doneErr: genx.ErrDone}
+	err := (peerAgentOutput{
+		Events:    newPeerStreamEventBroker(),
+		Lifecycle: lifecycle,
+	}).ConsumeAgentOutput(t.Context(), output)
+	if !errors.Is(err, errPeerEventStreamClosed) {
+		t.Fatalf("ConsumeAgentOutput() error = %v, want closed Peer event stream", err)
+	}
+
+	var produced, delivered, terminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		switch attrs["stage"] {
+		case "agent_output_produced":
+			produced = attrs
+		case "agent_output_delivered":
+			delivered = attrs
+		case "agent_terminal":
+			terminal = attrs
+		}
+	}
+	if produced["output_modality"] != "assistant_text" || delivered != nil {
+		t.Fatalf("delivery boundary produced=%#v delivered=%#v", produced, delivered)
+	}
+	if terminal["terminal_class"] != "stream_error" || terminal["delivered_modalities"] != "" {
+		t.Fatalf("delivery failure terminal = %#v", terminal)
 	}
 }
 

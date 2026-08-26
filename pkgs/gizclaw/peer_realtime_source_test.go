@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
@@ -68,6 +69,56 @@ func TestPeerRealtimeSourceRecordsFirstPushForEachTurn(t *testing.T) {
 	}
 	if !slices.Equal(pushTurns, []uint64{1, 2}) {
 		t.Fatalf("Agent input push turns = %v, want [1 2]", pushTurns)
+	}
+}
+
+func TestPeerRealtimeSourceRecordsTransformOnlyAfterAgentConsumes(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-consume", "peer-consume")
+	source := newPeerRealtimeSourceWithLifecycle(lifecycle, genx.WithRealtimeStreamDelay(0))
+	input, err := source.OpenAgentInput(t.Context())
+	if err != nil {
+		t.Fatalf("OpenAgentInput() error = %v", err)
+	}
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-consume", nil))
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-consume", BeginOfStream: true}}
+	if err := source.Push(t.Context(), chunk); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	assertNoTurnStage(t, capture, "agent_transform_started")
+
+	consumed := make(chan error, 1)
+	go func() {
+		_, err := input.Next()
+		consumed <- err
+	}()
+	select {
+	case err := <-consumed:
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Agent input consumption timed out")
+	}
+
+	var transform map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "agent_transform_started" {
+			transform = attrs
+		}
+	}
+	if transform["turn_index"] != uint64(1) {
+		t.Fatalf("transform lifecycle = %#v", transform)
+	}
+}
+
+func assertNoTurnStage(t *testing.T, capture *slogCapture, stage string) {
+	t.Helper()
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		if attrs := lifecycleRecordAttrs(record); attrs["stage"] == stage {
+			t.Fatalf("unexpected stage %q before boundary: %#v", stage, attrs)
+		}
 	}
 }
 
