@@ -167,21 +167,35 @@ func TestRegistryResolveDoesNotBlockIndependentBinding(t *testing.T) {
 	}
 
 	close(firstRelease)
+	results := make(map[string]Result, 3)
 	for name, done := range map[string]<-chan resolveResult{
 		"first": firstDone,
 		"same":  sameDone,
 		"other": secondDone,
 	} {
-		got := <-done
+		var got resolveResult
+		select {
+		case got = <-done:
+		case <-time.After(time.Second):
+			t.Fatalf("%s Resolve() did not complete after releasing the first binding", name)
+		}
 		if got.err != nil {
 			t.Fatalf("%s Resolve() error = %v", name, got.err)
 		}
-		if err := got.result.Closer.Close(); err != nil {
+		results[name] = got.result
+	}
+	select {
+	case call := <-firstBackend.entered:
+		if call != 2 {
+			t.Fatalf("second same-binding backend call = %d, want 2", call)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("same binding did not enter its second backend call after release")
+	}
+	for name, result := range results {
+		if err := result.Closer.Close(); err != nil {
 			t.Fatalf("%s Close() error = %v", name, err)
 		}
-	}
-	if call := <-firstBackend.entered; call != 2 {
-		t.Fatalf("second same-binding backend call = %d, want 2", call)
 	}
 }
 
