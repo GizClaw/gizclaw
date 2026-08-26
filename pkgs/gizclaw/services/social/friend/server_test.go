@@ -1367,6 +1367,7 @@ func TestPeerRetirementSnapshotOnlyBlocksRelationsForTargetPeer(t *testing.T) {
 		Store: s.Friends, prefix: socialutil.OwnerPrefix(socialutil.FriendsRoot, "peer-a"),
 		entered: entered, release: release,
 	}
+	secondary := *s
 	snapshotDone := make(chan error, 1)
 	go func() {
 		_, err := s.SnapshotPeerFriends(t.Context(), "peer-a")
@@ -1376,12 +1377,12 @@ func TestPeerRetirementSnapshotOnlyBlocksRelationsForTargetPeer(t *testing.T) {
 
 	unrelatedDone := make(chan error, 1)
 	go func() {
-		_, err := s.AdminCreateFriend(t.Context(), "peer-c", "peer-d")
+		_, err := secondary.AdminCreateFriend(t.Context(), "peer-c", "peer-d")
 		unrelatedDone <- err
 	}()
 	targetDone := make(chan error, 1)
 	go func() {
-		_, err := s.AdminCreateFriend(t.Context(), "peer-a", "peer-e")
+		_, err := secondary.AdminCreateFriend(t.Context(), "peer-a", "peer-e")
 		targetDone <- err
 	}()
 

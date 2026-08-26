@@ -719,6 +719,7 @@ func TestPeerRetirementSnapshotOnlyBlocksGroupsForTargetPeer(t *testing.T) {
 		prefix:  append(append(kv.Key{}, socialutil.GroupBelongsRoot...), socialutil.EscapeStoreSegment("peer-a")),
 		entered: entered, release: release,
 	}
+	secondary := *s
 	snapshotDone := make(chan error, 1)
 	go func() {
 		_, err := s.SnapshotPeerGroups(t.Context(), "peer-a")
@@ -729,13 +730,13 @@ func TestPeerRetirementSnapshotOnlyBlocksGroupsForTargetPeer(t *testing.T) {
 	unrelatedDone := make(chan error, 1)
 	go func() {
 		display := "updated-b"
-		_, err := s.PutFriendGroup(t.Context(), "peer-b", rpcapi.FriendGroupPutRequest{Name: groupB.Name, DisplayName: &display})
+		_, err := secondary.PutFriendGroup(t.Context(), "peer-b", rpcapi.FriendGroupPutRequest{Name: groupB.Name, DisplayName: &display})
 		unrelatedDone <- err
 	}()
 	targetDone := make(chan error, 1)
 	go func() {
 		display := "updated-a"
-		_, err := s.PutFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupPutRequest{Name: groupA.Name, DisplayName: &display})
+		_, err := secondary.PutFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupPutRequest{Name: groupA.Name, DisplayName: &display})
 		targetDone <- err
 	}()
 

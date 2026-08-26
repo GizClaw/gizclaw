@@ -50,8 +50,6 @@ type Server struct {
 
 	Now   func() time.Time
 	NewID func() string
-
-	peerMutations keyedlock.Locker[string]
 }
 
 type PeerRetirementGroup struct {
@@ -169,7 +167,10 @@ func (s *Server) RetirePeerGroup(ctx context.Context, snapshot PeerRetirementGro
 	return err
 }
 
-var groupMutationMu [64]sync.Mutex
+var (
+	groupMutationMu   [64]sync.Mutex
+	peerMutationGates keyedlock.Locker[string]
+)
 
 type peerRetirementContextKey struct{}
 
@@ -283,7 +284,7 @@ func (s *Server) lockPeers(ctx context.Context, peers ...string) (func(), error)
 		if key == "" {
 			continue
 		}
-		release, err := s.peerMutations.Acquire(ctx, key)
+		release, err := peerMutationGates.Acquire(ctx, key)
 		if err != nil {
 			for index := len(releases) - 1; index >= 0; index-- {
 				releases[index]()
