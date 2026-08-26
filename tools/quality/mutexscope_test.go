@@ -77,8 +77,11 @@ func methodValues(mu *sync.RWMutex) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	function := file.Decls[1].(*ast.FuncDecl)
-	records, err := inventoryFunctionMutexScopes(fileSet, "fixture.go", source, mutexScopeFunction{name: function.Name.Name, body: function.Body})
+	functions := mutexScopeFunctions(file)
+	if len(functions) != 1 || functions[0].name != "methodValues" {
+		t.Fatalf("functions = %#v, want methodValues", functions)
+	}
+	records, err := inventoryFunctionMutexScopes(fileSet, "fixture.go", source, functions[0])
 	if err != nil {
 		t.Fatal(err)
 	}
