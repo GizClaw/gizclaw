@@ -51,14 +51,16 @@ func TestPeerAgentOutputLifecycleRecordsFirstOutputAndTerminal(t *testing.T) {
 		{Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: untrustedStreamID, BeginOfStream: true}},
 		{Part: genx.Text("world"), Ctrl: &genx.StreamCtrl{StreamID: untrustedStreamID}},
 	}, doneErr: genx.ErrDone}
-	if err := (peerAgentOutput{
+	consumer := peerAgentOutput{
 		Lifecycle: lifecycle,
 		WorkspaceName: func(context.Context) string {
 			return "workspace-1"
 		},
-	}).ConsumeAgentOutput(t.Context(), output); err != nil {
+	}
+	if err := consumer.ConsumeAgentOutput(t.Context(), output); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
+	consumer.ObserveAgentRuntimeTerminal(errors.New("agenthost: unexpected output end"))
 
 	records := capturedLifecycleRecords(t, capture)
 	if len(records) != 2 {
@@ -80,12 +82,17 @@ func TestPeerAgentOutputLifecycleRecordsFirstOutputAndTerminal(t *testing.T) {
 func TestPeerAgentOutputLifecycleLocalizesZeroOutput(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-zero", "peer-zero")
-	if err := (peerAgentOutput{Lifecycle: lifecycle}).ConsumeAgentOutput(
+	consumer := peerAgentOutput{Lifecycle: lifecycle}
+	if err := consumer.ConsumeAgentOutput(
 		t.Context(),
 		&peerStreamSliceStream{doneErr: genx.ErrDone},
 	); err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
+	if records := capturedLifecycleRecords(t, capture); len(records) != 0 {
+		t.Fatalf("clean consumer completion recorded a terminal before AgentHost classification: %#v", records)
+	}
+	consumer.ObserveAgentRuntimeTerminal(errors.New("agenthost: unexpected output end"))
 	records := capturedLifecycleRecords(t, capture)
 	if len(records) != 1 {
 		t.Fatalf("lifecycle records = %d, want terminal only", len(records))
@@ -577,7 +584,7 @@ func TestPeerAgentOutputLogsMultiChannelRouteErrorOnce(t *testing.T) {
 			Part: part,
 			Ctrl: &genx.StreamCtrl{
 				StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
-				Error: "provider failed", ErrorCode: "PROVIDER_FAILURE",
+				Error: "provider failed", FailureClass: genx.FailureClassProvider,
 			},
 		}, logged)
 	}

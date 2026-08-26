@@ -436,7 +436,7 @@ func TestPeerStreamLifecyclePreservesProviderTerminalAcrossCancellation(t *testi
 		Role: genx.RoleModel,
 		Ctrl: &genx.StreamCtrl{
 			StreamID: "output-provider", Label: "assistant", EndOfStream: true,
-			Error: "private provider detail", ErrorCode: "PROVIDER_FAILURE",
+			Error: "private provider detail", FailureClass: genx.FailureClassProvider,
 		},
 	}
 	lifecycle.observeOutputProduced(providerEOS)
@@ -645,7 +645,7 @@ func TestPeerAgentOutputModalityAndTerminalClassUseClosedValues(t *testing.T) {
 		{name: "assistant audio", chunk: &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("private")}}, modality: "assistant_audio"},
 		{name: "completed", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true}}, modality: "assistant_eos", terminal: "completed"},
 		{name: "interrupted", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true, ErrorCode: "STREAM_INTERRUPTED"}}, modality: "interrupt", terminal: "interrupted"},
-		{name: "provider", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "private provider detail", ErrorCode: "PROVIDER_FAILURE"}}, modality: "assistant_eos", terminal: "provider_error"},
+		{name: "provider", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "private provider detail", FailureClass: genx.FailureClassProvider}}, modality: "assistant_eos", terminal: "provider_error"},
 		{name: "transform", chunk: &genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "private transform detail", ErrorCode: "AGENT_RELOAD_FAILED"}}, modality: "assistant_eos", terminal: "transform_error"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

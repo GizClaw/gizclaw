@@ -154,11 +154,17 @@ func TestTTSStreamReturnsProviderFailureAsRouteEOSThenStreamError(t *testing.T) 
 	if len(chunks) != 2 || !chunks[0].IsBeginOfStream() || !chunks[1].IsEndOfStream() || chunks[1].Ctrl.Error != wantErr.Error() {
 		t.Fatalf("failure output = %#v", chunks)
 	}
+	if chunks[1].Ctrl.FailureClass != genx.FailureClassProvider {
+		t.Fatalf("failure class = %q, want provider", chunks[1].Ctrl.FailureClass)
+	}
 	// The route EOS carries the error for the device; the stream itself then
 	// reports the same cause so composition layers do not mistake a provider
 	// failure for a clean end of output.
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("terminal stream error = %v, want %v", err, wantErr)
+	}
+	if class, ok := genx.FailureClassOf(err); !ok || class != genx.FailureClassProvider {
+		t.Fatalf("terminal failure class = (%q, %t), want provider", class, ok)
 	}
 }
 

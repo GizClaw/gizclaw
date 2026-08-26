@@ -191,6 +191,7 @@ func reloadFailureEOS(begin *genx.MessageChunk) *genx.MessageChunk {
 	ctrl.Error = agentReloadFailedMessage
 	ctrl.ErrorCode = agentReloadFailedCode
 	ctrl.ErrorRetryable = false
+	ctrl.FailureClass = genx.FailureClassTransform
 
 	var part genx.Part
 	if blob, ok := begin.Part.(*genx.Blob); ok && blob != nil {

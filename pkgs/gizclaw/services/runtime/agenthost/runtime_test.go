@@ -1252,7 +1252,8 @@ func TestServiceReloadTransformFailureInstallsErrorRuntime(t *testing.T) {
 	case eos := <-outputs:
 		if eos == nil || !eos.IsEndOfStream() || eos.Ctrl.StreamID != bos.Ctrl.StreamID ||
 			eos.Ctrl.Label != bos.Ctrl.Label || eos.Ctrl.Timestamp != bos.Ctrl.Timestamp ||
-			eos.Ctrl.ErrorCode != agentReloadFailedCode || eos.Ctrl.Error == "" || eos.Ctrl.ErrorRetryable {
+			eos.Ctrl.ErrorCode != agentReloadFailedCode || eos.Ctrl.Error == "" || eos.Ctrl.ErrorRetryable ||
+			eos.Ctrl.FailureClass != genx.FailureClassTransform {
 			t.Fatalf("error EOS = %#v", eos)
 		}
 		blob, ok := eos.Part.(*genx.Blob)
@@ -1512,6 +1513,14 @@ func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	output := newBlockingStream()
 	done := make(chan struct{})
 	hookCh := make(chan error, 1)
+	terminalCh := make(chan error, 1)
+	consumer := &runtimeTerminalConsumer{
+		consume: func(context.Context, genx.Stream) error {
+			defer close(done)
+			return nil
+		},
+		terminal: terminalCh,
+	}
 	svc := &Service{
 		Host:      &fakeHost{output: output},
 		PeerRun:   store,
@@ -1519,10 +1528,7 @@ func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
 			return input, nil
 		}),
-		Consumer: StreamConsumerFunc(func(context.Context, genx.Stream) error {
-			defer close(done)
-			return nil
-		}),
+		Consumer: consumer,
 		OnConsumerError: func(_ context.Context, workspace string, err error) {
 			if workspace != "demo" {
 				t.Errorf("OnConsumerError() workspace = %q, want demo", workspace)
@@ -1534,6 +1540,14 @@ func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 		t.Fatalf("Reload() error = %v", err)
 	}
 	<-done
+	select {
+	case err := <-terminalCh:
+		if !errors.Is(err, errUnexpectedOutputEnd) {
+			t.Fatalf("ObserveAgentRuntimeTerminal() error = %v, want %v", err, errUnexpectedOutputEnd)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for runtime terminal observer")
+	}
 	select {
 	case err := <-hookCh:
 		if !errors.Is(err, errUnexpectedOutputEnd) {
@@ -1558,6 +1572,19 @@ func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	if status.State != apitypes.PeerRunStatusStateError || status.Message == nil || !strings.Contains(*status.Message, errUnexpectedOutputEnd.Error()) {
 		t.Fatalf("Status() after active output completion = %+v, want error", status)
 	}
+}
+
+type runtimeTerminalConsumer struct {
+	consume  func(context.Context, genx.Stream) error
+	terminal chan<- error
+}
+
+func (c *runtimeTerminalConsumer) ConsumeAgentOutput(ctx context.Context, stream genx.Stream) error {
+	return c.consume(ctx, stream)
+}
+
+func (c *runtimeTerminalConsumer) ObserveAgentRuntimeTerminal(err error) {
+	c.terminal <- err
 }
 
 func TestServiceNamesLastRouteWhenOutputEndsWhileActive(t *testing.T) {

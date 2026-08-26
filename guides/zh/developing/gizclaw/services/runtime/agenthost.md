@@ -82,7 +82,7 @@ Flowcraft 与 Eino 在已配置的 Memory Store 上只绑定 Workspace 这一层
 
 `RuntimeRegistry` 按 Workspace 复用同一个已构造 Agent，并对每个 attach 返回独立 release。单个 Peer reload 只释放自己的引用；剩余引用继续使用原 Agent，既不会被打断，也不会重跑 initiative。最后一个引用释放时，registry 移除该 Agent、关闭 factory 拥有的 per-Agent adapter 并释放 workspace lease；下一次 acquire 才重新解析构造期配置。
 
-Agent 构造可以共享，但每个 connection attachment 都拥有独立 input、transformed output、consumer 与 cancellation，因此 Peer lifecycle correlation 留在这些 connection-scoped stream boundary 上，不进入共享 Agent object。Reload failure 由有界的 `AGENT_RELOAD_FAILED` EOS 表示并映射为 `transform_error`；provider-classified output EOS 映射为 `provider_error`；未分类 failure 与 stream 未产生 EOS 就结束均映射为 `stream_error`；cancellation 与 deadline 继续分开。Lifecycle record 不增加 raw provider 或 transform error。
+Agent 构造可以共享，但每个 connection attachment 都拥有独立 input、transformed output、consumer 与 cancellation，因此 Peer lifecycle correlation 留在这些 connection-scoped stream boundary 上，不进入共享 Agent object。GenX 通过 stream wrapper 与 terminal EOS 保留 owning boundary 写入的无 payload `FailureClass`（`provider` 或 `transform`）；首个有效 class 优先，cancellation、deadline 与 clean completion 不会被赋予 failure class。Reload failure 由有界的 `AGENT_RELOAD_FAILED` EOS 表示并映射为 `transform_error`；provider-classified output EOS 映射为 `provider_error`；未分类 failure 与 stream 未产生 EOS 就结束均映射为 `stream_error`；cancellation 与 deadline 继续分开。Lifecycle record 不增加 raw provider 或 transform error。
 
 Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。Raw Opus、Ogg/Opus、MP3 与 PCM audio 都先 decode/normalize，再进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 和尚未消费的 stream backlog。
 

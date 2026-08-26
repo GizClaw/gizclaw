@@ -96,27 +96,22 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 				})
 			}
 			if err := synthesize(ctx, segment, state.meta, mimeType, emit); err != nil {
-				return err
+				return genx.ClassifyFailure(err, genx.FailureClassProvider)
 			}
 		}
 		return nil
 	}
 
 	closeState := func(key string, state *ttsStreamState, errorText string) error {
-		var cause error
 		if errorText == "" {
 			if err := flushState(state, true); err != nil {
-				errorText = err.Error()
-				cause = err
+				return err
 			}
 		}
 		if err := invocation.FinishResponse(state.response, errorText); err != nil {
 			return err
 		}
 		delete(states, key)
-		if cause != nil {
-			return cause
-		}
 		if errorText != "" {
 			return errors.New(errorText)
 		}
@@ -172,7 +167,6 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 			if text != "" {
 				state.segmenter.WriteString(string(text))
 				if err := flushState(state, false); err != nil {
-					_ = closeState(key, state, err.Error())
 					_ = invocation.Fail(err)
 					return
 				}

@@ -152,7 +152,9 @@ func (l *peerStreamLifecycle) observeInput(event *eventpb.PeerEvent) {
 			if record := l.turnRecordOnceLocked(turn, "peer_input", "input_terminal", result, reason); record != nil {
 				records = append(records, *record)
 			}
-			delete(l.inputTurns, streamID)
+			if turn.agentTransformStarted {
+				delete(l.inputTurns, streamID)
+			}
 		}
 	}
 	l.mu.Unlock()
@@ -203,6 +205,9 @@ func (l *peerStreamLifecycle) observeAgentTransformStarted(chunk *genx.MessageCh
 	if turn != nil {
 		turn.agentTransformStarted = true
 		record = l.turnRecordOnceLocked(turn, "agent_runtime", "agent_transform_started", "success", "")
+		if turn.inputTerminalObserved {
+			delete(l.inputTurns, streamID)
+		}
 	}
 	l.mu.Unlock()
 	if record != nil {
@@ -917,22 +922,32 @@ func peerAgentTerminalClass(chunk *genx.MessageChunk, err error) string {
 		code := strings.ToUpper(strings.TrimSpace(chunk.Ctrl.ErrorCode))
 		result, _ := peerStreamChunkOutcome(chunk)
 		switch {
+		case chunk.Ctrl.FailureClass == genx.FailureClassProvider:
+			return "provider_error"
+		case chunk.Ctrl.FailureClass == genx.FailureClassTransform:
+			return "transform_error"
 		case result == "interrupted":
 			return "interrupted"
 		case result == "canceled":
 			return "caller_canceled"
 		case result == "timeout":
 			return "deadline_exceeded"
-		case code == "AGENT_RELOAD_FAILED" || code == "TRANSFORM_FAILURE":
+		case code == "AGENT_RELOAD_FAILED":
 			return "transform_error"
-		case result == "runtime_error" && code == "PROVIDER_FAILURE":
-			return "provider_error"
 		case result == "runtime_error":
 			return "stream_error"
 		case result == "closed":
 			return "stream_error"
 		default:
 			return "completed"
+		}
+	}
+	if class, ok := genx.FailureClassOf(err); ok {
+		switch class {
+		case genx.FailureClassProvider:
+			return "provider_error"
+		case genx.FailureClassTransform:
+			return "transform_error"
 		}
 	}
 	switch {

@@ -222,11 +222,11 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		o.Lifecycle.finish("agent_output", err)
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
-	// AgentHost treats a clean consumer return while the runtime is still
-	// active as an unexpected stream end. Preserve that bounded cause here so
-	// open turns are not reported as successfully completed.
-	o.Lifecycle.finish("agent_output", io.ErrUnexpectedEOF)
 	return nil
+}
+
+func (o peerAgentOutput) ObserveAgentRuntimeTerminal(err error) {
+	o.Lifecycle.finish("agent_output", err)
 }
 
 func (o peerAgentOutput) PrepareAgentOutput(output genx.Stream) {

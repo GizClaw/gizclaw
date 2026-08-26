@@ -113,6 +113,35 @@ func TestPeerRealtimeSourceRecordsTransformOnlyAfterAgentConsumes(t *testing.T) 
 	}
 }
 
+func TestPeerRealtimeSourceRetainsTurnUntilDelayedConsumptionAfterEOS(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-delayed", "peer-delayed")
+	source := newPeerRealtimeSourceWithLifecycle(lifecycle, genx.WithRealtimeStreamDelay(0))
+	input, err := source.OpenAgentInput(t.Context())
+	if err != nil {
+		t.Fatalf("OpenAgentInput() error = %v", err)
+	}
+	const streamID = "input-delayed"
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, streamID, nil))
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}}
+	if err := source.Push(t.Context(), chunk); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_EOS, streamID, nil))
+	assertNoTurnStage(t, capture, "agent_transform_started")
+
+	if _, err := input.Next(); err != nil {
+		t.Fatalf("delayed Next() error = %v", err)
+	}
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "agent_transform_started" && attrs["turn_index"] == uint64(1) {
+			return
+		}
+	}
+	t.Fatal("agent_transform_started was not correlated after input EOS")
+}
+
 func assertNoTurnStage(t *testing.T, capture *slogCapture, stage string) {
 	t.Helper()
 	for _, record := range capturedTurnLifecycleRecords(t, capture) {
