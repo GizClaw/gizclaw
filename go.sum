@@ -90,8 +90,8 @@ github.com/GizClaw/flowcraft/sdkx v0.4.10 h1:YKjuRxE9iN2R2baOckfbH0f87d0P0Qkltip
 github.com/GizClaw/flowcraft/sdkx v0.4.10/go.mod h1:1a2Rw1uxXqTCypP+j0zHfszwtOhlsiXwgQSM4k4LMrw=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111 h1:YDuhGJfgRzbBCsN5YHS99K4v1GVsUk05DeK/11r6fug=
 github.com/GizClaw/minimax-go v0.0.0-20260625231851-7a1c8a1f2111/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
-github.com/GizClaw/pion-sctp v0.0.0-20260807094155-cb2d223c9f55 h1:HILgBYgRz7HVr1q/m1hNrFPfbhXZoY10j8uekoyEu+I=
-github.com/GizClaw/pion-sctp v0.0.0-20260807094155-cb2d223c9f55/go.mod h1:UeyX8aRca892UhRetke5BTkhvISxX/wiBdLl+njo1Lo=
+github.com/GizClaw/pion-sctp v0.0.0-20260827141555-7f9cd6e57c63 h1:7DKZ4DFx9nstVk8e6b0ZlpBKPgE07dmsIP0zcvgXih8=
+github.com/GizClaw/pion-sctp v0.0.0-20260827141555-7f9cd6e57c63/go.mod h1:UeyX8aRca892UhRetke5BTkhvISxX/wiBdLl+njo1Lo=
 github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807105346-69086b0b86b0 h1:Pck8GZrQB/AB8snYZK8i9AfotVgslCakncpwRhblQJs=
 github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260807105346-69086b0b86b0/go.mod h1:Vhw0p7Y+Sy/zvuQKBpQmzM1wcE8cmeni94j36HlY0k0=
 github.com/GizClaw/pixa v0.0.0-20260730044130-e59a9ee62701 h1:62RK6cJC++X/hy8LFgb1KFKhLF99tAcl3sd2mwbbqjE=
