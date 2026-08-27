@@ -50,8 +50,9 @@ period, and later intervals return to the 20 ms media period. This builds about
 latency indefinitely.
 
 When a deadline has passed, the pacer sends only the current packet immediately
-and re-establishes warm-up deadlines from the current time. The following packet
-waits again, so overdue packets cannot form a burst. Tests can inject pacing
+and rebases the current pacing phase from that time without restarting warm-up.
+The following packet waits again, so overdue packets cannot form a burst and
+repeated small stalls cannot accumulate new surplus. Tests can inject pacing
 ticks into `PeerConn` for deterministic one-tick-per-packet coverage. A real
 clock test and Giztest E2E additionally verify that write latency is not
 accumulated and measure receiver-side intervals, drift, and buffer surplus.

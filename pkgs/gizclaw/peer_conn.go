@@ -1331,10 +1331,10 @@ func (p *peerConnAudioPacer) waitDuration(now time.Time) time.Duration {
 	p.next = p.next.Add(period)
 	delay := p.next.Sub(now)
 	if delay < 0 {
-		// Send only the current overdue packet immediately. Rebase the next
-		// deadline so a scheduler or Mixer stall cannot trigger a burst.
+		// Send only the current overdue packet immediately. Rebase without
+		// restarting warm-up, so repeated scheduler stalls cannot grow surplus.
 		p.next = now
-		p.packet = 1
+		p.packet++
 		return 0
 	}
 	p.packet++

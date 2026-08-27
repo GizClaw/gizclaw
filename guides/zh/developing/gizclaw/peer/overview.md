@@ -45,7 +45,8 @@ Peer Mixer 以 20 ms Opus frame 产生下行音频。`PeerConn` 先取得并编�
 耗时不会逐包累积到到包间隔。首包立即发送，后续 9 个间隔使用 15 ms warm-up，随后回到
 20 ms 媒体周期，使接收端先建立约 45 ms 的播放缓冲，同时避免长回复的播放延迟持续增长。
 
-错过 deadline 时，pacer 只允许当前包立即发送，并从当前时间重新建立 warm-up deadline；
-下一包恢复等待，不会把逾期包连续突发发送。测试可为 `PeerConn` 注入 pacing tick，以确定性
+错过 deadline 时，pacer 只允许当前包立即发送，并从当前时间重建当前 pacing phase，且不会
+重新启动 warm-up；下一包恢复等待，因此既不会把逾期包连续突发发送，也不会因多次小迟到重复
+积累缓冲盈余。测试可为 `PeerConn` 注入 pacing tick，以确定性
 验证一 tick 一包；真实时钟测试和 Giztest E2E 另外验证写入延迟不会累计以及接收侧间隔、
 漂移和缓冲盈余。
