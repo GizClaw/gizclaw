@@ -58,11 +58,7 @@ func (h *PeerConn) serveEdgeTunnel() error {
 			}
 			return err
 		}
-		lifecycle := newPeerStreamLifecycle(
-			slog.Default(),
-			declaration.SessionID.String(),
-			declaration.ClientPublicKey.String(),
-		)
+		lifecycle := newAcceptedPeerStreamLifecycle(slog.Default(), declaration)
 		lifecycle.accepted()
 		host := &PeerConn{
 			Conn:            logical,
@@ -78,4 +74,19 @@ func (h *PeerConn) serveEdgeTunnel() error {
 			}
 		}()
 	}
+}
+
+func newAcceptedPeerStreamLifecycle(
+	logger *slog.Logger,
+	declaration giztunnel.SessionDeclaration,
+) *peerStreamLifecycle {
+	logger, enabled := peerStreamLifecycleLogger(logger)
+	if !enabled {
+		return nil
+	}
+	return newEnabledPeerStreamLifecycle(
+		logger,
+		declaration.SessionID.String(),
+		declaration.ClientPublicKey.String(),
+	)
 }

@@ -2,6 +2,8 @@ package gizclaw
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -10,6 +12,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
+
+func TestAcceptedPeerStreamLifecycleUsesEffectiveInfoLevel(t *testing.T) {
+	declaration := giztunnel.SessionDeclaration{SessionID: giztunnel.SessionID{1}}
+	warnLogger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	if lifecycle := newAcceptedPeerStreamLifecycle(warnLogger, declaration); lifecycle != nil {
+		t.Fatal("Warn logger constructed an accepted lifecycle observer")
+	}
+	infoLogger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if lifecycle := newAcceptedPeerStreamLifecycle(infoLogger, declaration); lifecycle == nil {
+		t.Fatal("Info logger did not construct an accepted lifecycle observer")
+	}
+}
 
 func TestServeEdgeTunnelCarriesAcceptedSessionCorrelation(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()

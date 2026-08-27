@@ -559,5 +559,18 @@ and `reason` distinguish completion, cancellation, timeout, transport close, and
 bridge error without recording the raw error. The Edge never logs the declared
 remote address or tunnel payload.
 
+After `bridge_started`, the single terminal record also projects the bounded
+`BridgeObservation`: `bridge_path`, `bridge_direction`, `bridge_phase`, and
+`bridge_error_class`. Destination-open failures add one aggregate count plus
+first/last direction and class. An exact established-session capacity rejection
+adds `bridge_capacity_scope=session|association`, `bridge_active_channels`, and
+`bridge_channel_limit`; unknown buffer-limit paths omit those three fields.
+Exact capacity takes precedence as `transport_error/channel_capacity_rejected`,
+another open rejection maps to `transport_error/bridge_error`, and an observed
+EOF or closed terminal maps to `closed/transport_closed` even though the
+compatibility bridge error is nil. Clean, cancellation, and deadline observations
+remain `success/completed`, `canceled/context_canceled`, and
+`timeout/deadline_exceeded`. No per-stream lifecycle record is added.
+
 The Server receives the same tunnel session identifier in its accepted
 `SessionDeclaration`; that identifier is the supported cross-process query key.

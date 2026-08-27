@@ -223,6 +223,20 @@ type peerProductionObservedStream struct {
 	once     sync.Once
 }
 
+func TestPeerAgentOutputWithoutLifecycleInstallsNoObservation(t *testing.T) {
+	stream := &peerProductionObservedStream{}
+	consumer := peerAgentOutput{}
+	if consumer.prepareAgentOutput(stream) {
+		t.Fatal("disabled lifecycle reported a production observer")
+	}
+	if stream.observe != nil {
+		t.Fatal("disabled lifecycle installed a production callback")
+	}
+	if got := consumer.observeAgentOutputStream(stream); got != stream {
+		t.Fatalf("disabled output type = %T, want underlying %T", got, stream)
+	}
+}
+
 func (s *peerProductionObservedStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) {
 	s.observe = observe
 }

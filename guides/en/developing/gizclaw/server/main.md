@@ -24,6 +24,14 @@ Server configuration has three distinct layers:
 
 Registry names are exact and case-sensitive. The Server never assigns meaning to names such as `peers` or `metrics`; every built-in consumer uses a fixed `services` field. Core service blocks are required. `services.agent_host`, `services.metrics`, and `services.system_log` are optional. Omitted SystemLog selects info-level stderr.
 
+Global and per-sink `services.system_log` levels also determine whether a newly
+accepted Edge-routed logical Peer constructs its complete Server lifecycle
+observer. All sinks must reject `INFO` to remove the connection, per-turn, and
+Agent-runtime tracking work; one Info-enabled sink keeps the observer enabled.
+The decision is fixed for that connection. There is no lifecycle-specific
+configuration field, and Server logging configuration does not control the
+separate Edge process.
+
 The main capability groups are:
 
 | Service fields | Capability |

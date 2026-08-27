@@ -698,6 +698,66 @@ func TestPeerStreamLifecycleTerminalLocalizesZeroEvent(t *testing.T) {
 	}
 }
 
+func TestPeerStreamLifecycleDisabledAtInfoAvoidsAllObservationWork(t *testing.T) {
+	warnLogger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	if lifecycle := newPeerStreamLifecycle(warnLogger, "session-disabled", "peer-disabled"); lifecycle != nil {
+		t.Fatal("Warn logger constructed a lifecycle observer")
+	}
+
+	previous := slog.Default()
+	slog.SetDefault(warnLogger)
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	if lifecycle := newPeerStreamLifecycle(nil, "session-default-disabled", "peer-default-disabled"); lifecycle != nil {
+		t.Fatal("nil logger did not resolve the disabled default logger")
+	}
+
+	var lifecycle *peerStreamLifecycle
+	input := peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-secret", nil)
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("private output"),
+		Ctrl: &genx.StreamCtrl{StreamID: "output-secret", BeginOfStream: true},
+	}
+	workspaceCalled := false
+	workspaceName := func(context.Context) string {
+		workspaceCalled = true
+		return "private-workspace"
+	}
+	allocations := testing.AllocsPerRun(1000, func() {
+		lifecycle.accepted()
+		lifecycle.eventStreamAccepted()
+		lifecycle.observeInput(input)
+		lifecycle.observeAgentInputOpen()
+		lifecycle.observeAgentInputPush(chunk)
+		lifecycle.observeAgentTransformStarted(chunk)
+		lifecycle.observeInterrupt()
+		lifecycle.observeOutputProduced(chunk)
+		lifecycle.observeOutput(context.Background(), chunk, workspaceName)
+		lifecycle.finish("agent_output", nil)
+		lifecycle.finish("peer_input", nil)
+		lifecycle.finish("server_tunnel", nil)
+	})
+	if allocations != 0 {
+		t.Fatalf("disabled lifecycle allocations = %v, want 0", allocations)
+	}
+	if workspaceCalled {
+		t.Fatal("disabled lifecycle resolved the Workspace callback")
+	}
+}
+
+func TestPeerStreamLifecycleUsesAnyInfoEnabledHandler(t *testing.T) {
+	warn := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelWarn})
+	info := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo})
+	allWarn := slog.New(&lifecycleTestFanoutHandler{handlers: []slog.Handler{warn, warn}})
+	if lifecycle := newPeerStreamLifecycle(allWarn, "session-warn", "peer-warn"); lifecycle != nil {
+		t.Fatal("all-Warn fanout constructed a lifecycle observer")
+	}
+	mixed := slog.New(&lifecycleTestFanoutHandler{handlers: []slog.Handler{warn, info}})
+	if lifecycle := newPeerStreamLifecycle(mixed, "session-mixed", "peer-mixed"); lifecycle == nil {
+		t.Fatal("mixed fanout did not construct a lifecycle observer")
+	}
+}
+
 func peerInputEvent(eventType eventpb.PeerEventType, streamID string, eventErr *eventpb.EventError) *eventpb.PeerEvent {
 	if eventType == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
 		return &eventpb.PeerEvent{
@@ -745,4 +805,44 @@ func lifecycleRecordAttrs(record slog.Record) map[string]any {
 		return true
 	})
 	return attrs
+}
+
+type lifecycleTestFanoutHandler struct {
+	handlers []slog.Handler
+}
+
+func (h *lifecycleTestFanoutHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	for _, handler := range h.handlers {
+		if handler.Enabled(ctx, level) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *lifecycleTestFanoutHandler) Handle(ctx context.Context, record slog.Record) error {
+	for _, handler := range h.handlers {
+		if handler.Enabled(ctx, record.Level) {
+			if err := handler.Handle(ctx, record.Clone()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (h *lifecycleTestFanoutHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	handlers := make([]slog.Handler, 0, len(h.handlers))
+	for _, handler := range h.handlers {
+		handlers = append(handlers, handler.WithAttrs(attrs))
+	}
+	return &lifecycleTestFanoutHandler{handlers: handlers}
+}
+
+func (h *lifecycleTestFanoutHandler) WithGroup(name string) slog.Handler {
+	handlers := make([]slog.Handler, 0, len(h.handlers))
+	for _, handler := range h.handlers {
+		handlers = append(handlers, handler.WithGroup(name))
+	}
+	return &lifecycleTestFanoutHandler{handlers: handlers}
 }

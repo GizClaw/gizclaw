@@ -63,6 +63,18 @@ Edge 不在本地执行 GizClaw domain handler，也不建立第二套业务权�
 Terminal `result` 与 `reason` 区分完成、取消、超时、transport close 和 bridge error，
 不记录 raw error。Edge 也不记录声明的 remote address 或 tunnel payload。
 
+`bridge_started` 后的唯一 terminal record 还会投影有界 `BridgeObservation`：
+`bridge_path`、`bridge_direction`、`bridge_phase` 与 `bridge_error_class`。
+Destination-open failure 增加一个聚合 count 以及 first/last direction 和 class。精确的
+established-session capacity rejection 还会增加
+`bridge_capacity_scope=session|association`、`bridge_active_channels` 和
+`bridge_channel_limit`；无法归属的 buffer-limit path 省略这三个字段。精确 capacity
+优先映射为 `transport_error/channel_capacity_rejected`，其他 open rejection 映射为
+`transport_error/bridge_error`；即使兼容 bridge error 为 nil，已观测到的 EOF 或 closed
+terminal 仍映射为 `closed/transport_closed`。Clean、cancellation 和 deadline observation
+分别保持 `success/completed`、`canceled/context_canceled` 与
+`timeout/deadline_exceeded`。不会新增 per-stream lifecycle record。
+
 Server 从 accepted `SessionDeclaration` 取得同一个 tunnel session identifier；该 identifier
 是跨进程查询这条生命周期的正式关联键。
 
