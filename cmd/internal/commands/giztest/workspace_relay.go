@@ -85,6 +85,7 @@ type relaySide struct {
 	turnTexts       []string
 	turnSawText     bool
 	turnSawAudio    bool
+	turnTextEnded   bool
 	forwardID       string
 	forwardBegan    bool
 	forwardMIME     string
@@ -154,6 +155,7 @@ func (s *relaySide) resetTurn() {
 	s.turnTexts = nil
 	s.turnSawText = false
 	s.turnSawAudio = false
+	s.turnTextEnded = false
 	s.forwardID = ""
 	s.forwardBegan = false
 	s.forwardMIME = ""
@@ -468,7 +470,17 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 			continue
 		}
 		mimeType, _ := chunk.MIMEType()
-		if !relayTerminalMedia(relayTerminalMediaName(op), mimeType) {
+		terminal := relayTerminalMedia(relayTerminalMediaName(op), mimeType)
+		if observeAudio != nil && op.Media == "text" {
+			switch {
+			case mimeType == "text/plain" && side.turnSawAudio && observationOpen:
+				side.turnTextEnded = true
+				continue
+			case relayOpusMIME(mimeType) && side.turnTextEnded:
+				terminal = true
+			}
+		}
+		if !terminal {
 			continue
 		}
 		if !isActive {

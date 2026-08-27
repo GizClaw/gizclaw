@@ -264,6 +264,52 @@ func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRelayPlayWaitsForAudioAfterTextTerminal(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	oggAudio, packets := testOggOpus(t)
+	var observedPackets [][]byte
+	var observedEnds int
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, packet []byte, end bool) error {
+			if len(packet) > 0 {
+				observedPackets = append(observedPackets, append([]byte(nil), packet...))
+			}
+			if end {
+				observedEnds++
+			}
+			return nil
+		})
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant"}}
+	tester.in <- assistantText("t-text", "question", true)
+	if chunk := nextPush(t, candidate); !chunk.Ctrl.BeginOfStream {
+		t.Fatalf("forwarded turn missing BOS: %#v", chunk)
+	}
+	expectUserText(t, candidate, "question", false)
+	select {
+	case chunk := <-candidate.pushes:
+		t.Fatalf("text turn completed before trailing audio: %#v", chunk)
+	default:
+	}
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant"}}
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant", EndOfStream: true}}
+	expectUserText(t, candidate, "", true)
+	candidate.in <- assistantText("c-text", "PASS", true)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if len(observedPackets) != len(packets)*2 {
+		t.Fatalf("observed packets = %d, want %d", len(observedPackets), len(packets)*2)
+	}
+	if observedEnds != 1 {
+		t.Fatalf("observed audio ends = %d, want 1", observedEnds)
+	}
+}
+
 func TestWorkspaceRelayFullEvidenceIncludesBoundedTexts(t *testing.T) {
 	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
 	op := textRelayOperation(2)
