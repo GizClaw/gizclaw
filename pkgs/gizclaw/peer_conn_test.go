@@ -1223,14 +1223,8 @@ func TestPeerConnRealPacingDoesNotAccumulateWriteLatency(t *testing.T) {
 		t.Fatalf("write timestamps = %d, want %d", len(writes), packetCount)
 	}
 	meanInterval := writes[len(writes)-1].Sub(writes[0]) / time.Duration(len(writes)-1)
-	if meanInterval < 13*time.Millisecond || meanInterval > 21*time.Millisecond {
-		t.Fatalf("mean egress interval = %s, want recovery/steady headroom independent of 8ms Write latency", meanInterval)
-	}
-	recoveryIntervals := int(peerConnPacingBufferTarget / peerConnPacingMaxRecoveryPerPkt)
-	recoveryMean := writes[recoveryIntervals].Sub(writes[0]) / time.Duration(recoveryIntervals)
-	steadyMean := writes[len(writes)-1].Sub(writes[recoveryIntervals]) / time.Duration(len(writes)-recoveryIntervals-1)
-	if recoveryMean >= steadyMean || recoveryMean > 18*time.Millisecond || steadyMean > 22*time.Millisecond {
-		t.Fatalf("egress pacing recovery=%s steady=%s, want bounded recovery followed by steady headroom", recoveryMean, steadyMean)
+	if meanInterval < 13*time.Millisecond || meanInterval > 18*time.Millisecond {
+		t.Fatalf("mean egress interval = %s, want bounded recovery independent of 8ms Write latency", meanInterval)
 	}
 
 	peer.closed.Store(true)

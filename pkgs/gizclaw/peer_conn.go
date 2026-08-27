@@ -40,7 +40,7 @@ var (
 const (
 	peerConnMixerFormat             = pcm.L16Mono16K
 	peerConnOpusFrameDuration       = 20 * time.Millisecond
-	peerConnPacingBufferTarget      = 100 * time.Millisecond
+	peerConnPacingBufferTarget      = 500 * time.Millisecond
 	peerConnPacingMaxRecoveryPerPkt = 5 * time.Millisecond
 	peerConnPacingMinimumPeriod     = peerConnOpusFrameDuration - peerConnPacingMaxRecoveryPerPkt
 	peerConnPacingSteadyPeriod      = peerConnOpusFrameDuration

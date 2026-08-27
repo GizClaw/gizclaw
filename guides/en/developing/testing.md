@@ -280,9 +280,9 @@ Giztest documents assert these paths through ordinary numeric `expect`
 constraints rather than a separate pacing schema.
 `flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` requires 20 ms
 Opus frames, a mean interval from 12 through 21 ms, P95 no greater than 30 ms,
-maximum interval no greater than 100 ms, at least 21 packets, and final buffer
-surplus from 75 through 125 ms. Those ranges permit bounded recovery around the
-100 ms target without demanding an unrealistic exact 20 ms arrival for every
+maximum interval no greater than 100 ms, at least 101 packets, and final buffer
+surplus from 450 through 550 ms. Those ranges permit bounded recovery around the
+500 ms target without demanding an unrealistic exact 20 ms arrival for every
 network packet.
 
 `workspace_relay` connects two selected Workspaces in one task as one bounded
