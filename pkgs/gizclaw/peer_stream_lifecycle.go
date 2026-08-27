@@ -102,9 +102,21 @@ type peerStreamTurnSnapshot struct {
 }
 
 func newPeerStreamLifecycle(logger *slog.Logger, tunnelSessionID, peerPublicKey string) *peerStreamLifecycle {
+	logger, enabled := peerStreamLifecycleLogger(logger)
+	if !enabled {
+		return nil
+	}
+	return newEnabledPeerStreamLifecycle(logger, tunnelSessionID, peerPublicKey)
+}
+
+func peerStreamLifecycleLogger(logger *slog.Logger) (*slog.Logger, bool) {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	return logger, logger.Enabled(context.Background(), slog.LevelInfo)
+}
+
+func newEnabledPeerStreamLifecycle(logger *slog.Logger, tunnelSessionID, peerPublicKey string) *peerStreamLifecycle {
 	return &peerStreamLifecycle{
 		logger:             logger,
 		tunnelSessionID:    strings.TrimSpace(tunnelSessionID),

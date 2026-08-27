@@ -266,6 +266,15 @@ configuration alone would not.
 
 `gizclaw: peer stream lifecycle` correlates one Edge-routed logical Peer from gateway admission through Server input and Agent output. Edge and Server use the same `tunnel_session_id`; the authenticated logical identity is recorded as `peer_public_key`. The connection-level `component`, `stage`, `result`, `reason`, `last_stage`, and `duration_ms` records remain available. A connection terminal also contains `input_event_observed`, `agent_input_opened`, `agent_input_pushed`, and `output_event_observed` so a zero-event connection failure remains distinguishable.
 
+The Edge `bridge_started` terminal keeps the first connection-level bridge path,
+direction, phase, and closed error class. Destination-open failures are folded
+into one count with first/last direction and class. Exact established-session or
+association capacity ownership adds `bridge_capacity_scope`,
+`bridge_active_channels`, and `bridge_channel_limit`; absent exact ownership,
+those fields are omitted rather than inferred. All bridge dimensions are
+top-level scalar log fields, never metric labels, and no per-service record or raw
+error is emitted.
+
 Each authorized input BOS allocates a positive, monotonically increasing `turn_index` within the tunnel. `(tunnel_session_id, turn_index)` is the query identity for one logical turn and is never placed on the wire or used as a metric label. Input and assistant output identifiers are independent: their safe correlation fields are `input_stream_id_hash` and `output_stream_id_hash`. The observer keeps an internal output-route association so a late terminal from a replaced output stays on its original turn instead of being attributed to the replacement.
 
 The bounded per-turn stages are `turn_started`, `input_first_event`, `input_terminal`, `interrupt_observed`, `agent_input_first_push`, `agent_transform_started`, `agent_output_produced`, `output_first_event`, `agent_output_delivered`, `agent_terminal`, `output_terminal`, and `turn_terminal`. Turn boundaries use `component=peer_turn`, transport input and output stages keep `component=peer_input|agent_output`, and the four Agent boundary stages use `component=agent_runtime`. Every applicable stage is emitted at most once per turn. The first produced and delivered records contain one closed `output_modality` value: `transcript_text`, `assistant_text`, `assistant_audio`, `assistant_eos`, `interrupt`, `control`, or `other`; later chunks only update the bounded terminal snapshot.
@@ -273,5 +282,21 @@ The bounded per-turn stages are `turn_started`, `input_first_event`, `input_term
 `agent_transform_started` means the selected transformer consumed the input, not merely that the Peer queue accepted it. `agent_output_produced` precedes independent consumer scheduling; `agent_output_delivered` follows Peer delivery and, for audio, mixer drain. `agent_terminal.terminal_class` is one of `completed`, `interrupted`, `provider_error`, `transform_error`, `stream_error`, `caller_canceled`, or `deadline_exceeded`. `turn_terminal` adds `agent_transform_started`, `agent_terminal_observed`, `produced_modalities`, and `delivered_modalities` to the existing bounded booleans. This distinguishes zero output, transcript-only, audio-only, EOS/interruption-only, Agent failure, and downstream delivery failure for the same query identity. Closed `result` values are `success`, `replaced`, `interrupted`, `canceled`, `timeout`, `closed`, `runtime_error`, and `incomplete`; closed terminal or interruption `reason` values are `completed`, `input_replaced`, `control_interrupt`, `expected_interruption`, `caller_canceled`, `deadline_exceeded`, `stream_closed`, `internal_error`, and `state_limit`. Raw errors are never copied.
 
 Success log volume is bounded by turns times this fixed stage set, not by packets, audio frames, text deltas, or control fragments. Active and recently replaced state is capped, completed state is released, and connection teardown emits one terminal summary for every retained incomplete turn before clearing the correlation maps. Instrumentation does not block, retry, reorder, or alter Peer, AgentHost, provider, interruption, timeout, or cleanup behavior.
+
+The Server decides whether to construct this complete connection, turn, and
+Agent-runtime observer once when it accepts a logical Peer. If every effective
+`services.system_log` sink rejects `INFO`, it keeps a nil observer and skips
+correlation formatting, state maps, input/output wrappers, producer callbacks,
+route hashing, Workspace lookup, modality snapshots, and record construction.
+If any sink accepts `INFO`, the whole lifecycle remains enabled for that
+connection. The decision never changes mid-connection. There is no separate
+lifecycle configuration field. These Server settings do not control the
+independent Edge process or its gateway lifecycle records.
+
+The existing `gizclaw: assistant route failed` Error record remains active when
+an accepted Edge logical Peer's lifecycle observer is disabled. It keeps its
+bounded route and error fields, but leaves `workspace` empty without invoking
+the Workspace-name callback. Ordinary non-Edge Peers and Info-enabled Edge
+logical Peers preserve the existing Workspace correlation.
 
 Untrusted stream identifiers use a stable 128-bit hash; raw `stream_id` values are never logged. The hash contract trims leading and trailing Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty normalized IDs are omitted. It performs no case folding or Unicode normalization and uses no salt or HMAC key. For example, `stream-42` maps to `0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are dictionary-testable, so producers must not put credentials or secrets in stream IDs. Session, turn, Peer, Workspace, and stream identifiers remain log-only dimensions and must never become metric labels. Lifecycle records must not contain remote addresses, payloads, audio, transcripts, prompts, conversation events, SDP, ICE candidate bodies, credentials, raw provider errors, or panic values.

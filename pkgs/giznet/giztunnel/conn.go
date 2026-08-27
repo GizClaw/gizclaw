@@ -121,6 +121,23 @@ type channelLease struct {
 	once    sync.Once
 }
 
+type channelCapacityError struct {
+	scope  string
+	active int
+	limit  int
+}
+
+func (*channelCapacityError) Error() string { return ErrBufferLimit.Error() }
+func (*channelCapacityError) Unwrap() error { return ErrBufferLimit }
+
+func channelCapacityFromError(err error) (*channelCapacityError, bool) {
+	var capacity *channelCapacityError
+	if !errors.As(err, &capacity) || capacity == nil {
+		return nil, false
+	}
+	return capacity, true
+}
+
 func (l *channelLease) release() {
 	if l == nil || l.router == nil {
 		return
@@ -497,11 +514,22 @@ func (r *Router) reservePendingLocked(declaration SessionDeclaration, initiated 
 }
 
 func (r *Router) reserveChannelLocked(session SessionID) (*channelLease, error) {
-	if r.closed || r.activeChannels >= r.cfg.MaxChannels {
+	if r.closed {
 		return nil, ErrBufferLimit
 	}
 	active := 0
-	if conn := r.sessions[session]; conn != nil {
+	conn := r.sessions[session]
+	if r.activeChannels >= r.cfg.MaxChannels {
+		if conn != nil {
+			return nil, &channelCapacityError{
+				scope:  "association",
+				active: r.activeChannels,
+				limit:  r.cfg.MaxChannels,
+			}
+		}
+		return nil, ErrBufferLimit
+	}
+	if conn != nil {
 		active = conn.activeChannelCount()
 	} else if pending := r.pending[session]; pending != nil {
 		active = pending.active
@@ -509,6 +537,13 @@ func (r *Router) reserveChannelLocked(session SessionID) (*channelLease, error) 
 		return nil, ErrSessionNotFound
 	}
 	if active >= r.cfg.MaxChannelsPerSession {
+		if conn != nil {
+			return nil, &channelCapacityError{
+				scope:  "session",
+				active: active,
+				limit:  r.cfg.MaxChannelsPerSession,
+			}
+		}
 		return nil, ErrBufferLimit
 	}
 	r.activeChannels++

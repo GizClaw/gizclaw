@@ -148,6 +148,23 @@ active limit 默认是每 session 32 条、每 upstream 8192 条。可靠 servic
 per-channel、per-session 与 32 MiB association budget 约束，reservation 要等
 `BufferedAmount` 排空后才释放。
 
+`giztunnel.Bridge` 保持为兼容 forwarding API：两条 service accept loop 与两条 packet copy
+loop 中第一个 connection-level loop 结束时关闭两端。`BridgeWithObservation` 保持完全相同的
+forwarding、connection close 与返回错误归一化，同时返回一个有界 `BridgeObservation`。
+Observation 记录首个 terminal 的 `service` 或 `packet` path、`left_to_right` 或
+`right_to_left` direction、`accept_source`、`read_source` 或 `write_destination` phase，
+以及 `clean`、`eof`、`closed`、`connection_closed`、`service_mux_closed`、
+`buffer_limit`、`context_canceled`、`deadline_exceeded` 或 `other` 封闭 error class。
+因此 EOF 与 closed error 对 `Bridge` caller 仍返回 nil，但诊断类别不会丢失。
+
+Destination service open 失败时仍只关闭已经 accept 的 source stream，service loop 继续运行。
+Observation 只聚合总次数以及 first/last direction 和封闭 error class，不为每条 stream 发 callback
+或日志。独立 drain 的 per-service copy goroutine 不参与 connection terminal 竞争。当 established
+destination session 精确达到 per-session channel limit，或所在 physical association 达到
+association limit 时，第一次此类 rejection 还会携带 Router lock 内捕获的责任 scope 与匹配的
+active/limit snapshot。Pending-session limit、close race、普通 buffer limit、packet buffer 与
+remote queue 不携带精确 capacity 字段。
+
 ## 依赖关系
 
 ```mermaid

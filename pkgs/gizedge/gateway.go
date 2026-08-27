@@ -611,10 +611,10 @@ func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Co
 	defer g.removeSession(session)
 	done := make(chan struct{})
 	go g.enforceIdle(session, done)
-	err := giztunnel.Bridge(client, logical)
+	observation, err := giztunnel.BridgeWithObservation(client, logical)
 	close(done)
-	result, reason := gatewayBridgeLifecycleResult(err)
-	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+	result, reason := gatewayBridgeLifecycleResult(observation, err)
+	attrs := []any{
 		"component", "edge_gateway",
 		"stage", "terminal",
 		"result", result,
@@ -624,12 +624,38 @@ func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Co
 		"tunnel_session_id", sessionID,
 		"peer_public_key", client.PublicKey().String(),
 		"entry_id", entryID,
+	}
+	attrs = append(attrs, gatewayBridgeObservationAttrs(observation)...)
+	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
+		attrs...,
 	)
 }
 
 const peerStreamLifecycleMessage = "gizclaw: peer stream lifecycle"
 
-func gatewayBridgeLifecycleResult(err error) (string, string) {
+func gatewayBridgeLifecycleResult(observation giztunnel.BridgeObservation, err error) (string, string) {
+	if observation.CapacityScope == "session" || observation.CapacityScope == "association" {
+		return "transport_error", "channel_capacity_rejected"
+	}
+	if observation.OpenRejectionCount > 0 {
+		return "transport_error", "bridge_error"
+	}
+	switch observation.ErrorClass {
+	case "clean":
+		return "success", "completed"
+	case "context_canceled":
+		return "canceled", "context_canceled"
+	case "deadline_exceeded":
+		return "timeout", "deadline_exceeded"
+	case "eof", "closed", "connection_closed", "service_mux_closed":
+		return "closed", "transport_closed"
+	case "buffer_limit", "other":
+		return "transport_error", "bridge_error"
+	}
+	return gatewayBridgeCompatibilityResult(err)
+}
+
+func gatewayBridgeCompatibilityResult(err error) (string, string) {
 	switch {
 	case err == nil:
 		return "success", "completed"
@@ -642,6 +668,39 @@ func gatewayBridgeLifecycleResult(err error) (string, string) {
 	default:
 		return "transport_error", "bridge_error"
 	}
+}
+
+func gatewayBridgeObservationAttrs(observation giztunnel.BridgeObservation) []any {
+	attrs := make([]any, 0, 24)
+	if observation.Path != "" {
+		attrs = append(attrs, "bridge_path", observation.Path)
+	}
+	if observation.Direction != "" {
+		attrs = append(attrs, "bridge_direction", observation.Direction)
+	}
+	if observation.Phase != "" {
+		attrs = append(attrs, "bridge_phase", observation.Phase)
+	}
+	if observation.ErrorClass != "" {
+		attrs = append(attrs, "bridge_error_class", observation.ErrorClass)
+	}
+	if observation.OpenRejectionCount > 0 {
+		attrs = append(attrs,
+			"bridge_open_rejection_count", observation.OpenRejectionCount,
+			"bridge_first_open_rejection_direction", observation.FirstOpenRejectionDirection,
+			"bridge_first_open_rejection_class", observation.FirstOpenRejectionClass,
+			"bridge_last_open_rejection_direction", observation.LastOpenRejectionDirection,
+			"bridge_last_open_rejection_class", observation.LastOpenRejectionClass,
+		)
+	}
+	if observation.CapacityScope == "session" || observation.CapacityScope == "association" {
+		attrs = append(attrs,
+			"bridge_capacity_scope", observation.CapacityScope,
+			"bridge_active_channels", observation.ActiveChannels,
+			"bridge_channel_limit", observation.ChannelLimit,
+		)
+	}
+	return attrs
 }
 
 func gatewaySessionEstablishmentResult(err error, completeBudget bool) string {
