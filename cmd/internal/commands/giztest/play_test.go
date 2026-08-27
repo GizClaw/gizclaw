@@ -364,6 +364,28 @@ func TestPlayRecordReservesWritableStagingAndAborts(t *testing.T) {
 	}
 }
 
+func TestValidatePlayOutputAllowsDisabledRecording(t *testing.T) {
+	if err := validatePlayOutput(""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPlaySessionCanDiscardRecording(t *testing.T) {
+	session := &playSession{
+		decoder:          &fakePlayDecoder{samples: []int16{1}},
+		output:           &fakePlayOutput{},
+		bytes:            playMaxAudioBytes,
+		discardRecording: true,
+	}
+	defer func() { _ = session.close() }()
+	if err := session.observe("peer", "assistant", []byte{1}, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(session.packets) != 0 || session.bytes != playMaxAudioBytes+1 {
+		t.Fatalf("discarded recording retained packets=%d bytes=%d", len(session.packets), session.bytes)
+	}
+}
+
 func TestValidatePlayDocumentRejectsConcurrentShapes(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "one.giztest.yaml")
 	if err := os.WriteFile(file, []byte("test"), 0o600); err != nil {

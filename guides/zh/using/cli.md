@@ -42,6 +42,7 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 人工调试一份语音场景时，使用无并发的 `test play`：
 
 ```sh
+gizclaw test play tests/gizclaw-e2e/giztest/voice.giztest.yaml
 gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
 ```
 
@@ -54,8 +55,8 @@ assistant EOS 冲刷尾部并等待该轮队列播放完成后再切换说话者
 可能阻塞的 native write，避免播放 task 挂死。摘要同时报告提示音结束到第一份
 下行音频收到和开始播放的毫秒数，并输出每轮 packet 音频时长及到包间隔。普通 Giztest 也可通过
 `peer_stream` 结果的 `/audio_pacing` 路径断言 packet 数、音频时钟、平均/P95/最大间隔和累计漂移。
-`-o` / `--output` 必须指向
-一个尚不存在的新目录；执行结束后其中包含脱敏的 `report.json`，收到音频时还包含
+默认只实时播放而不写文件。需要保留测试记录时，`-o` / `--output` 必须指向一个尚不存在的
+新目录；执行结束后其中包含脱敏的 `report.json`，收到音频时还包含
 `audio.ogg`，其中按试听顺序包含 user 与 assistant 的完整对话。没有音频时不会生成伪造的空 Ogg。执行或播放失败也会尽量保存失败 report
 和已经收到的有界音频，再返回非零状态。
 

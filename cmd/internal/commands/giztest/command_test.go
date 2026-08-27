@@ -59,11 +59,10 @@ func TestValidateRunOptionsEvidenceModes(t *testing.T) {
 	}
 }
 
-func TestPlayCommandRequiresOneFileAndOutputDirectory(t *testing.T) {
+func TestPlayCommandRequiresOneFile(t *testing.T) {
 	for name, args := range map[string][]string{
 		"no file":        {"play", "-o", "record"},
 		"multiple files": {"play", "-o", "record", "a.giztest.yaml", "b.giztest.yaml"},
-		"no output":      {"play", "a.giztest.yaml"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			cmd := NewCmd()

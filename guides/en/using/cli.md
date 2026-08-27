@@ -45,6 +45,7 @@ For manual debugging of one voice scenario, use the non-concurrent `test play`
 mode:
 
 ```sh
+gizclaw test play tests/gizclaw-e2e/giztest/voice.giztest.yaml
 gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
 ```
 
@@ -64,7 +65,8 @@ packet audio duration and arrival-gap timing. `peer_stream` also exposes these
 metrics under `/audio_pacing`, so normal Giztest expectations can enforce the
 packet count, encoded audio clock, mean/P95/maximum interval, and cumulative
 drift.
-`-o` / `--output` must name a new directory. The committed record contains a
+By default, play mode only streams to the audio device and writes no files.
+To preserve a run, `-o` / `--output` must name a new directory. The committed record contains a
 redacted `report.json` and, when audio arrived, `audio.ogg` containing the full
 user-and-assistant conversation in playback order; an empty Ogg is not
 invented when no audio arrived. Execution or playback failures still preserve

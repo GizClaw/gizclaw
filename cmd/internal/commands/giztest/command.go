@@ -38,7 +38,7 @@ func NewCmd() *cobra.Command {
 func newPlayCmd() *cobra.Command {
 	var output string
 	cmd := &cobra.Command{
-		Use:   "play -o <record-directory> <file.giztest.yaml>",
+		Use:   "play [--output <record-directory>] <file.giztest.yaml>",
 		Short: "Run and audibly play one Giztest document",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
@@ -61,15 +61,19 @@ func newPlayCmd() *cobra.Command {
 			if err := validatePlayDocument(args[0], docs); err != nil {
 				return codedError(exitValidation, err)
 			}
-			record, err := newPlayRecord(output)
-			if err != nil {
-				return codedError(exitValidation, err)
+			var record *playRecord
+			if output != "" {
+				record, err = newPlayRecord(output)
+				if err != nil {
+					return codedError(exitValidation, err)
+				}
+				defer record.abort()
 			}
-			defer record.abort()
 			session, err := newPlaySession(cmd.OutOrStdout())
 			if err != nil {
 				return codedError(exitExecution, err)
 			}
+			session.discardRecording = record == nil
 			if err := session.cue(); err != nil {
 				_ = session.close()
 				return codedError(exitExecution, err)
@@ -83,11 +87,17 @@ func newPlayCmd() *cobra.Command {
 			if closeErr := session.close(); closeErr != nil {
 				markPlayReportFailed(&report, fmt.Errorf("close playback: %w", closeErr))
 			}
-			if err := record.commit(report, session.packets); err != nil {
-				return codedError(exitExecution, err)
+			if record != nil {
+				if err := record.commit(report, session.packets); err != nil {
+					return codedError(exitExecution, err)
+				}
 			}
 			receivedMS, playbackMS := session.latencySummary()
-			fmt.Fprintf(cmd.OutOrStdout(), "Giztest play %s: %d tasks in %dms, first_downlink_received=%dms, first_downlink_playback=%dms, audio=%d bytes, record=%s\n", report.Status, len(report.Tasks), report.DurationMS, receivedMS, playbackMS, session.bytes, output)
+			recordPath := "disabled"
+			if output != "" {
+				recordPath = output
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Giztest play %s: %d tasks in %dms, first_downlink_received=%dms, first_downlink_playback=%dms, audio=%d bytes, record=%s\n", report.Status, len(report.Tasks), report.DurationMS, receivedMS, playbackMS, session.bytes, recordPath)
 			if report.Status != "passed" {
 				if reportHasReviewFailure(report) {
 					return codedError(exitReview, fmt.Errorf("Giztest review rejected"))

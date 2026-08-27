@@ -59,6 +59,7 @@ type playSession struct {
 	packets                 [][]byte
 	pending                 [][]byte
 	bytes                   int
+	discardRecording        bool
 	client                  string
 	role                    string
 	utteranceStarted        bool
@@ -137,7 +138,7 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 		s.client, s.role = client, role
 	}
 	if len(packet) > 0 {
-		if s.bytes > playMaxAudioBytes-len(packet) {
+		if !s.discardRecording && s.bytes > playMaxAudioBytes-len(packet) {
 			return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
 		}
 		now := time.Now()
@@ -151,7 +152,9 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 		s.packetAudio += packetAudio
 		s.pendingAudio += packetAudio
 		copyOfPacket := append([]byte(nil), packet...)
-		s.packets = append(s.packets, copyOfPacket)
+		if !s.discardRecording {
+			s.packets = append(s.packets, copyOfPacket)
+		}
 		s.pending = append(s.pending, copyOfPacket)
 		s.bytes += len(copyOfPacket)
 		if role == "assistant" && s.firstDownlinkReceivedMS < 0 && !s.cueAt.IsZero() {
@@ -386,7 +389,7 @@ func validatePlayDocument(path string, docs []*Document) error {
 
 func validatePlayOutput(path string) error {
 	if path == "" {
-		return fmt.Errorf("play requires --output")
+		return nil
 	}
 	if _, err := os.Lstat(path); err == nil {
 		return fmt.Errorf("play output path already exists: %s", path)
