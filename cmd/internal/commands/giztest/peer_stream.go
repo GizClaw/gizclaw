@@ -330,14 +330,18 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	var firstTextTimer, firstAudioTimer *time.Timer
 	var firstTextTimeout, firstAudioTimeout time.Duration
 	if firstResponse {
-		firstTextTimeout, _ = time.ParseDuration(op.FirstTextTimeout)
-		firstAudioTimeout, _ = time.ParseDuration(op.FirstAudioTimeout)
-		firstTextTimer = time.NewTimer(firstTextTimeout)
-		firstAudioTimer = time.NewTimer(firstAudioTimeout)
-		firstTextDeadline = firstTextTimer.C
-		firstAudioDeadline = firstAudioTimer.C
-		defer firstTextTimer.Stop()
-		defer firstAudioTimer.Stop()
+		if requireText {
+			firstTextTimeout, _ = time.ParseDuration(op.FirstTextTimeout)
+			firstTextTimer = time.NewTimer(firstTextTimeout)
+			firstTextDeadline = firstTextTimer.C
+			defer firstTextTimer.Stop()
+		}
+		if requireAudio {
+			firstAudioTimeout, _ = time.ParseDuration(op.FirstAudioTimeout)
+			firstAudioTimer = time.NewTimer(firstAudioTimeout)
+			firstAudioDeadline = firstAudioTimer.C
+			defer firstAudioTimer.Stop()
+		}
 	}
 	finish := func() (operationResult, error) {
 		if observeAudio != nil && assistantObservationOpen {
@@ -516,16 +520,16 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				}
 				audioBytes += len(part.Data)
 			}
-			if firstResponse && firstTextObserved && firstAudioObserved {
+			if firstResponse && (!requireText || firstTextObserved) && (!requireAudio || firstAudioObserved) {
 				if len(terminalErrors) != 0 {
 					evidence := baseEvidence()
 					evidence["terminal_errors"] = len(terminalErrors)
 					return operationResult{evidence: evidence}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
 				}
-				if firstTextElapsed > firstTextTimeout {
+				if requireText && firstTextElapsed > firstTextTimeout {
 					return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
 				}
-				if firstAudioElapsed > firstAudioTimeout {
+				if requireAudio && firstAudioElapsed > firstAudioTimeout {
 					return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 				}
 				return finish()

@@ -210,12 +210,14 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 
 `peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
 Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
-`peer_stream.completion: first_response` 是面向部署探针的有界替代模式，必须同时声明正数
-Go duration `first_text_timeout` 和 `first_audio_timeout`。两个 deadline 只在完整 turn 输入
-推送完成后开始；runner 一旦同时观察到第一段非空 assistant 文本和第一段非空 assistant
-音频就成功并关闭该逻辑 stream，不等待任何 EOS。缺少某种输出时分别以
-`deadline=first_text_timeout` 或 `deadline=first_audio_timeout` 失败。该模式不能与
-`interrupt_after`、`terminal_label`、禁用 text/audio requirement 或 `wait_for_history` 组合。
+`peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
+`require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
+声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
+对应 deadline，并且至少保留一个必需模态。deadline 只在完整 turn 输入推送完成后开始；
+runner 一旦观察到所有必需模态的第一段非空 assistant chunk 就成功并关闭该逻辑 stream，
+不等待任何 EOS。缺少必需模态时分别以 `deadline=first_text_timeout` 或
+`deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
+`wait_for_history` 组合。
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以

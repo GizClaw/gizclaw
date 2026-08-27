@@ -126,17 +126,31 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		t.Fatalf("peer_stream operation = %#v", op)
 	}
 	for name, extra := range map[string]string{
-		"missing text deadline":  "      completion: first_response\n      first_audio_timeout: 3s\n",
-		"invalid audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: soon\n",
-		"deadline without mode":  "      first_text_timeout: 2s\n",
-		"terminal dependency":    "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      wait_for_history: true\n",
-		"missing modality":       "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
+		"text only":  "      completion: first_response\n      first_text_timeout: 2s\n      require_audio: false\n",
+		"audio only": "      completion: first_response\n      first_audio_timeout: 3s\n      require_text: false\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err != nil {
+				t.Fatalf("modality-selective first_response rejected: %v", err)
+			}
+		})
+	}
+	for name, extra := range map[string]string{
+		"missing text deadline":   "      completion: first_response\n      first_audio_timeout: 3s\n",
+		"invalid audio deadline":  "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: soon\n",
+		"deadline without mode":   "      first_text_timeout: 2s\n",
+		"terminal dependency":     "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      wait_for_history: true\n",
+		"disabled audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
 				t.Fatal("invalid first_response completion accepted")
 			}
 		})
+	}
+	_, err = loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      require_text: false\n      require_audio: false\n")))
+	if err == nil || !strings.Contains(err.Error(), "first_response requires text or audio output") {
+		t.Fatalf("no-modality error = %v", err)
 	}
 }
 

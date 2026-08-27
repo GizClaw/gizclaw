@@ -442,6 +442,99 @@ func TestInvokePeerStreamFirstResponseReturnsWithoutEOS(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamFirstResponseSelectedModalities(t *testing.T) {
+	textRequired, audioRequired := true, true
+	textDisabled, audioDisabled := false, false
+	for _, tc := range []struct {
+		name string
+		op   PeerStreamOperation
+		send func(*fakeRelayStream)
+	}{
+		{
+			name: "text only",
+			op: PeerStreamOperation{
+				Mode: "text", Completion: "first_response", FirstTextTimeout: "100ms",
+				RequireText: &textRequired, RequireAudio: &audioDisabled,
+			},
+			send: func(stream *fakeRelayStream) { stream.in <- assistantText("s1", "hello", false) },
+		},
+		{
+			name: "audio only",
+			op: PeerStreamOperation{
+				Mode: "text", Completion: "first_response", FirstAudioTimeout: "100ms",
+				RequireText: &textDisabled, RequireAudio: &audioRequired,
+			},
+			send: func(stream *fakeRelayStream) { stream.in <- assistantBlob("s1", []byte{1}, false) },
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			go func() {
+				drainPushes(stream, 3)
+				tc.send(stream)
+			}()
+			result, err := invokeFakePeerStream(context.Background(), tc.op, stream)
+			if err != nil {
+				t.Fatalf("selected first response failed: %v", err)
+			}
+			object := result.assertion.(map[string]any)
+			if object["events"] != 1 {
+				t.Fatalf("first response assertion = %#v", object)
+			}
+		})
+	}
+}
+
+func TestInvokePeerStreamFirstResponseSelectedModalityDeadlines(t *testing.T) {
+	textRequired, audioRequired := true, true
+	textDisabled, audioDisabled := false, false
+	for _, tc := range []struct {
+		name     string
+		op       PeerStreamOperation
+		deadline string
+	}{
+		{
+			name: "text only",
+			op: PeerStreamOperation{
+				Mode: "text", Completion: "first_response", FirstTextTimeout: "30ms",
+				RequireText: &textRequired, RequireAudio: &audioDisabled,
+			},
+			deadline: "first_text_timeout",
+		},
+		{
+			name: "audio only",
+			op: PeerStreamOperation{
+				Mode: "text", Completion: "first_response", FirstAudioTimeout: "30ms",
+				RequireText: &textDisabled, RequireAudio: &audioRequired,
+			},
+			deadline: "first_audio_timeout",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			go drainPushes(stream, 3)
+			result, err := invokeFakePeerStream(context.Background(), tc.op, stream)
+			if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != tc.deadline || !strings.Contains(err.Error(), "deadline="+tc.deadline) {
+				t.Fatalf("result = %#v, error = %v", result, err)
+			}
+		})
+	}
+}
+
+func TestInvokePeerStreamFirstResponseSelectedModalityHonorsContext(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	stream := newFakeRelayStream()
+	go drainPushes(stream, 3)
+	audioDisabled := false
+	result, err := invokeFakePeerStream(ctx, PeerStreamOperation{
+		Mode: "text", Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &audioDisabled,
+	}, stream)
+	if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != "timeout" || !strings.Contains(err.Error(), "deadline=timeout") {
+		t.Fatalf("result = %#v, error = %v", result, err)
+	}
+}
+
 func TestInvokePeerStreamFirstResponseDeadlines(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -484,10 +577,10 @@ func TestInvokePeerStreamFirstResponseDeadlineStartsAfterInput(t *testing.T) {
 			<-stream.pushes
 		}
 		stream.in <- assistantText("s1", "hello", false)
-		stream.in <- assistantBlob("s1", []byte{1}, false)
 	}()
+	audioDisabled := false
 	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
-		Mode: "text", Completion: "first_response", FirstTextTimeout: "20ms", FirstAudioTimeout: "20ms",
+		Mode: "text", Completion: "first_response", FirstTextTimeout: "20ms", RequireAudio: &audioDisabled,
 	}, stream)
 	if err != nil {
 		t.Fatalf("input time counted against first response deadline: %v", err)
