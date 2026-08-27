@@ -164,12 +164,13 @@ func (b *peerStreamEventBroker) removeSubscriber(subscriber *peerStreamEventSubs
 }
 
 type peerAgentOutput struct {
-	Events        *peerStreamEventBroker
-	Tracks        agenthost.AudioTrackCreator
-	Logger        *slog.Logger
-	PeerPublicKey string
-	WorkspaceName func(context.Context) string
-	Lifecycle     *peerStreamLifecycle
+	Events            *peerStreamEventBroker
+	Tracks            agenthost.AudioTrackCreator
+	Logger            *slog.Logger
+	PeerPublicKey     string
+	WorkspaceName     func(context.Context) string
+	Lifecycle         *peerStreamLifecycle
+	LifecycleDisabled bool
 }
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
@@ -312,7 +313,7 @@ func (o peerAgentOutput) logTerminalRouteError(
 		logger = slog.Default()
 	}
 	workspaceName := ""
-	if o.Lifecycle != nil && o.WorkspaceName != nil {
+	if !o.LifecycleDisabled && o.WorkspaceName != nil {
 		workspaceName = strings.TrimSpace(o.WorkspaceName(ctx))
 	}
 	code := strings.TrimSpace(chunk.Ctrl.ErrorCode)

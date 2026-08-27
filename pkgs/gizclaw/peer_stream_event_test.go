@@ -598,7 +598,8 @@ func TestPeerAgentOutputDisabledLifecycleRouteErrorSkipsWorkspaceLookup(t *testi
 	capture := &slogCapture{}
 	workspaceCalled := false
 	output := peerAgentOutput{
-		Logger: slog.New(capture),
+		Logger:            slog.New(capture),
+		LifecycleDisabled: true,
 		WorkspaceName: func(context.Context) string {
 			workspaceCalled = true
 			return "private-workspace"
@@ -617,6 +618,32 @@ func TestPeerAgentOutputDisabledLifecycleRouteErrorSkipsWorkspaceLookup(t *testi
 	_, attrs := onlyCapturedRecord(t, capture)
 	if got := attrs["workspace"]; got != "" {
 		t.Fatalf("disabled route-error workspace = %#v, want empty", got)
+	}
+}
+
+func TestPeerAgentOutputOrdinaryPeerRouteErrorKeepsWorkspaceLookup(t *testing.T) {
+	capture := &slogCapture{}
+	workspaceCalled := false
+	output := peerAgentOutput{
+		Logger: slog.New(capture),
+		WorkspaceName: func(context.Context) string {
+			workspaceCalled = true
+			return "ordinary-workspace"
+		},
+	}
+	output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
+			Error: "provider failed", ErrorCode: "PROVIDER_ERROR",
+		},
+	}, make(map[string]struct{}))
+	if !workspaceCalled {
+		t.Fatal("ordinary Peer route error did not resolve the Workspace callback")
+	}
+	_, attrs := onlyCapturedRecord(t, capture)
+	if got := attrs["workspace"]; got != "ordinary-workspace" {
+		t.Fatalf("ordinary route-error workspace = %#v, want ordinary-workspace", got)
 	}
 }
 

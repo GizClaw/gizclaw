@@ -61,10 +61,11 @@ func (h *PeerConn) serveEdgeTunnel() error {
 		lifecycle := newAcceptedPeerStreamLifecycle(slog.Default(), declaration)
 		lifecycle.accepted()
 		host := &PeerConn{
-			Conn:            logical,
-			Service:         h.Service,
-			ServerPublicKey: h.ServerPublicKey,
-			streamLifecycle: lifecycle,
+			Conn:                    logical,
+			Service:                 h.Service,
+			ServerPublicKey:         h.ServerPublicKey,
+			streamLifecycle:         lifecycle,
+			streamLifecycleDisabled: lifecycle == nil,
 		}
 		go func() {
 			err := host.serve()
