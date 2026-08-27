@@ -1,6 +1,7 @@
 package giztest
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -80,6 +81,50 @@ func TestDecodeOpusPacketsCopiesRawPacket(t *testing.T) {
 	input[0] = 9
 	if packets[0][0] != 1 {
 		t.Fatal("packet aliases caller input")
+	}
+}
+
+func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
+	stream := newFakeRelayStream()
+	packet := []byte{1, 2, 3}
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantText("s1", "done", false)
+		stream.in <- assistantBlob("s1", packet, false)
+		stream.in <- assistantText("s1", "", true)
+		stream.in <- assistantBlob("s1", nil, true)
+	}()
+	var client string
+	var observed []byte
+	open := func() (peerStream, error) { return stream, nil }
+	_, err := invokePeerStream(context.Background(), nil, open, Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
+	}, "hello", 0, func(gotClient string, gotPacket []byte) error {
+		client = gotClient
+		observed = gotPacket
+		gotPacket[0] = 9
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client != "peer" || !bytes.Equal(observed, []byte{9, 2, 3}) || packet[0] != 1 {
+		t.Fatalf("observer client=%q packet=%v source=%v", client, observed, packet)
+	}
+}
+
+func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantBlob("s1", []byte{1}, false)
+	}()
+	open := func() (peerStream, error) { return stream, nil }
+	_, err := invokePeerStream(context.Background(), nil, open, Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
+	}, "hello", 0, func(string, []byte) error { return errors.New("speaker failed") })
+	if err == nil || !strings.Contains(err.Error(), "speaker failed") {
+		t.Fatalf("observer error = %v", err)
 	}
 }
 

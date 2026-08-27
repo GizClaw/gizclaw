@@ -232,6 +232,34 @@ func TestWorkspaceRelayEvidenceExcludesContent(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(1)
+	op.TerminalMedia = "audio"
+	type observation struct {
+		client string
+		packet []byte
+	}
+	var observations []observation
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client string, packet []byte) error {
+			observations = append(observations, observation{client: client, packet: packet})
+			return nil
+		})
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- assistantBlob("t1", []byte{1, 2}, false)
+	tester.in <- assistantBlob("t1", nil, true)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if len(observations) != 1 || observations[0].client != "tester" || !bytes.Equal(observations[0].packet, []byte{1, 2}) {
+		t.Fatalf("observations = %#v", observations)
+	}
+}
+
 func TestWorkspaceRelayFullEvidenceIncludesBoundedTexts(t *testing.T) {
 	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
 	op := textRelayOperation(2)

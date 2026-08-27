@@ -39,6 +39,23 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 ```
 
+人工调试一份语音场景时，使用无并发的 `test play`：
+
+```sh
+gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
+```
+
+该命令只接受一个普通文件以及 `repeat: 1`、无 barrier 的文档，固定使用一个 worker。
+它把 `peer_stream` 和 `workspace_relay` 实际收到的 assistant Opus packet 按顺序解码成
+16 kHz 单声道 PCM，并通过默认 PortAudio 输出设备实时播放。`-o` / `--output` 必须指向
+一个尚不存在的新目录；执行结束后其中包含脱敏的 `report.json`，收到音频时还包含
+`audio.ogg`。没有音频时不会生成伪造的空 Ogg。执行或播放失败也会尽量保存失败 report
+和已经收到的有界音频，再返回非零状态。
+
+Play 需要支持当前平台的 cgo、libopus 和 PortAudio native runtime，并在创建远端 client
+前检查这些条件。记录目录中的音频是操作者显式选择落盘的真实 response 内容，应按敏感
+文件处理。普通 `test run` 不打开音频设备，也不产生额外音频文件。
+
 `--evidence redacted` 是默认模式。`--evidence full` 必须同时提供 `--output`，只把有界的
 `workspace_relay` 逐轮与终轮文本写入该 JSON report，不向终端打印。完整 evidence report
 仍不包含输入、展开变量、凭据、ID 或音频 payload，但模型或 tester 文本可能含私密内容，

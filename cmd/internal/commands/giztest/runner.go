@@ -24,11 +24,12 @@ import (
 )
 
 type runOptions struct {
-	parallel     int
-	in           io.Reader
-	out          io.Writer
-	fullEvidence bool
-	speechCache  *speechFixtureCache
+	parallel      int
+	in            io.Reader
+	out           io.Writer
+	fullEvidence  bool
+	audioObserver audioObserver
+	speechCache   *speechFixtureCache
 	// openPeerStream overrides how peer_stream steps dial the PeerStream;
 	// nil uses the selected client's real PeerStream.
 	openPeerStream func(client *gizcli.Client) peerStreamOpener
@@ -524,7 +525,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		if opts.openPeerStream != nil {
 			open = opts.openPeerStream(client)
 		}
-		streamResult, invokeErr := invokePeerStream(stepCtx, client, open, step, input, audioCaptureMaxBytes)
+		streamResult, invokeErr := invokePeerStream(stepCtx, client, open, step, input, audioCaptureMaxBytes, opts.audioObserver)
 		err = invokeErr
 		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
 	case "workspace_relay":
@@ -547,13 +548,13 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		var relayOutcome operationResult
 		var invokeErr error
 		if opts.openRelayStreams == nil {
-			relayOutcome, invokeErr = invokeWorkspaceRelay(stepCtx, clients, step, input, audioCaptureMaxBytes, opts.fullEvidence)
+			relayOutcome, invokeErr = invokeWorkspaceRelay(stepCtx, clients, step, input, audioCaptureMaxBytes, opts.fullEvidence, opts.audioObserver)
 		} else {
 			firstStream, secondStream, openErr := opts.openRelayStreams()
 			if openErr != nil {
 				invokeErr = openErr
 			} else {
-				relayOutcome, invokeErr = runWorkspaceRelayWithEvidence(stepCtx, step.WorkspaceRelay, firstStream, secondStream, input, audioCaptureMaxBytes, opts.fullEvidence)
+				relayOutcome, invokeErr = runWorkspaceRelayWithEvidence(stepCtx, step.WorkspaceRelay, firstStream, secondStream, input, audioCaptureMaxBytes, opts.fullEvidence, opts.audioObserver)
 			}
 		}
 		err = invokeErr

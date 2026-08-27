@@ -41,6 +41,29 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 ```
 
+For manual debugging of one voice scenario, use the non-concurrent `test play`
+mode:
+
+```sh
+gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
+```
+
+The command accepts one regular file whose document has `repeat: 1` and no
+barrier, and always uses one worker. It decodes the assistant Opus packets
+actually received by `peer_stream` and `workspace_relay` in arrival order to
+16 kHz mono PCM and plays them through the default PortAudio output device.
+`-o` / `--output` must name a new directory. The committed record contains a
+redacted `report.json` and, when audio arrived, `audio.ogg`; an empty Ogg is not
+invented when no audio arrived. Execution or playback failures still preserve
+the failed report and any bounded audio already received when the record can be
+committed, then return non-zero.
+
+Play requires cgo, libopus, and a PortAudio native runtime supported on the
+current platform; it checks these before creating a remote client. The audio
+in the record directory is real response content explicitly persisted by the
+operator and must be treated as sensitive. Normal `test run` never opens an
+audio device or writes an additional audio file.
+
 `--evidence redacted` is the default. `--evidence full` requires `--output`
 and writes bounded `workspace_relay` per-turn and terminal text into that JSON
 report without printing it to the terminal. Treat a full-evidence report as

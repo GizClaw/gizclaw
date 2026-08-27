@@ -159,7 +159,7 @@ func (s *relaySide) resetTurn() {
 	s.forwardMIME = ""
 }
 
-func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, input any, audioCaptureMaxBytes int, fullEvidence bool) (operationResult, error) {
+func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
 	op := step.WorkspaceRelay
 	if op == nil {
 		return operationResult{}, fmt.Errorf("workspace_relay operation required")
@@ -181,7 +181,7 @@ func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, in
 		_ = firstStream.Close()
 		return operationResult{}, fmt.Errorf("open %s PeerStream: %w", op.SecondClient, err)
 	}
-	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, fullEvidence)
+	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, fullEvidence, observers...)
 }
 
 // runWorkspaceRelay owns the paired streams for one bounded relay: it pushes
@@ -192,7 +192,11 @@ func runWorkspaceRelay(ctx context.Context, op *WorkspaceRelayOperation, firstSt
 	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, false)
 }
 
-func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int, fullEvidence bool) (operationResult, error) {
+func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
+	var observeAudio audioObserver
+	if len(observers) > 0 {
+		observeAudio = observers[0]
+	}
 	readerCtx, cancelReaders := context.WithCancel(ctx)
 	sides := [2]*relaySide{
 		{name: op.FirstClient, stream: firstStream},
@@ -391,6 +395,11 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 			}
 			if len(part.Data) == 0 {
 				break
+			}
+			if isActive && observeAudio != nil && relayOpusMIME(part.MIMEType) {
+				if err := observeAudio(side.name, append([]byte(nil), part.Data...)); err != nil {
+					return fail(side, "", "observe assistant audio failed: %v", err)
+				}
 			}
 			totalAudioBytes += len(part.Data)
 			if totalAudioBytes > relayMaxAudioBytes {

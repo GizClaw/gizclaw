@@ -32,15 +32,23 @@ type peerStream interface {
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
 
+// audioObserver receives one copied assistant Opus packet in stream order.
+// It is nil for normal Giztest runs; play mode installs the only implementation.
+type audioObserver func(client string, packet []byte) error
+
 func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 	return func() (peerStream, error) { return client.OpenPeerStream(64) }
 }
 
-func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int) (operationResult, error) {
+func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
 		return operationResult{}, fmt.Errorf("peer_stream operation required")
+	}
+	var observeAudio audioObserver
+	if len(observers) > 0 {
+		observeAudio = observers[0]
 	}
 	firstResponse := op.Completion == "first_response"
 	var idleTimeout time.Duration
@@ -374,6 +382,11 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			case *genx.Blob:
 				if label == "assistant" && len(part.Data) > 0 {
 					assistantAudioEvents++
+					if observeAudio != nil && relayOpusMIME(part.MIMEType) {
+						if err := observeAudio(step.Client, append([]byte(nil), part.Data...)); err != nil {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("observe assistant audio: %w", err)
+						}
+					}
 					if audioCaptureMaxBytes > 0 {
 						if audioBytes > audioCaptureMaxBytes-len(part.Data) {
 							return operationResult{}, fmt.Errorf("captured assistant audio exceeds output variable max_bytes %d", audioCaptureMaxBytes)
