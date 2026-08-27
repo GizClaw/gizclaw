@@ -508,22 +508,29 @@ func (d *Document) validateSemantics() error {
 					return fmt.Errorf("step %s first-response timeouts require completion first_response", step.ID)
 				}
 			case "first_response":
-				for _, deadline := range []struct {
-					field string
-					value string
+				requireText := step.PeerStream.RequireText == nil || *step.PeerStream.RequireText
+				requireAudio := step.PeerStream.RequireAudio == nil || *step.PeerStream.RequireAudio
+				for _, modality := range []struct {
+					name     string
+					required bool
+					deadline string
 				}{
-					{field: "first_text_timeout", value: step.PeerStream.FirstTextTimeout},
-					{field: "first_audio_timeout", value: step.PeerStream.FirstAudioTimeout},
+					{name: "text", required: requireText, deadline: step.PeerStream.FirstTextTimeout},
+					{name: "audio", required: requireAudio, deadline: step.PeerStream.FirstAudioTimeout},
 				} {
-					if duration, err := time.ParseDuration(deadline.value); err != nil || duration <= 0 {
-						return fmt.Errorf("step %s has invalid %s %q", step.ID, deadline.field, deadline.value)
+					field := "first_" + modality.name + "_timeout"
+					if !modality.required {
+						if modality.deadline != "" {
+							return fmt.Errorf("step %s %s requires %s output", step.ID, field, modality.name)
+						}
+						continue
+					}
+					if duration, err := time.ParseDuration(modality.deadline); err != nil || duration <= 0 {
+						return fmt.Errorf("step %s has invalid %s %q", step.ID, field, modality.deadline)
 					}
 				}
 				if step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" || step.PeerStream.WaitForHistory {
 					return fmt.Errorf("step %s first_response completion cannot interrupt or wait for terminal output/history", step.ID)
-				}
-				if step.PeerStream.RequireText != nil && !*step.PeerStream.RequireText || step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireAudio {
-					return fmt.Errorf("step %s first_response completion requires text and audio", step.ID)
 				}
 			default:
 				return fmt.Errorf("step %s has unsupported peer_stream completion %q", step.ID, step.PeerStream.Completion)

@@ -89,6 +89,25 @@ Both deadlines begin after the complete input turn has been pushed. Once both
 first-response events arrive, the runner closes that logical stream immediately;
 text/audio EOS and the remainder of the response are outside this probe.
 
+A text-only Workflow disables the absent audio modality and declares only its
+text deadline:
+
+```yaml
+- id: text_only_response_probe
+  client: peer
+  peer_stream:
+    mode: realtime
+    input: ${turn_audio}
+    pacing: 20ms
+    completion: first_response
+    first_text_timeout: 2s
+    require_text: true
+    require_audio: false
+  expect:
+    /text: {non_empty: true}
+    /first_text_ms: {maximum: 2000}
+```
+
 An `rpc_stream` step for `all.speed_test.run` exposes these stable result paths
 to `expect`, `capture`, and an object `save_as`. The same canonical measurement
 fields, plus `method`, appear in redacted step evidence:

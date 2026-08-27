@@ -238,14 +238,16 @@ this wire metadata.
 observed text and audio EOS boundaries. Chatroom turns that complete on the
 persisted user transcript declare `transcript` explicitly.
 `peer_stream.completion: first_response` is the bounded deployment-probe
-alternative. It requires positive `first_text_timeout` and
-`first_audio_timeout` Go durations. Both deadlines start only after the whole
-turn input has been pushed. The runner succeeds and closes that logical stream
-as soon as it has observed the first non-empty assistant text and first
-non-empty assistant audio chunk; it does not wait for either EOS. A missing
-modality fails with `deadline=first_text_timeout` or
-`deadline=first_audio_timeout`. This completion cannot be combined with
-`interrupt_after`, `terminal_label`, disabled text/audio requirements, or
+alternative. `require_text` and `require_audio` select its required modalities
+and both default to true. Every required modality needs its corresponding
+positive `first_text_timeout` or `first_audio_timeout` Go duration; a disabled
+modality omits its deadline, and at least one modality must remain required.
+The deadlines start only after the whole turn input has been pushed. The runner
+succeeds and closes that logical stream as soon as it has observed the first
+non-empty assistant chunk for every required modality; it does not wait for
+either EOS. A missing required modality fails with
+`deadline=first_text_timeout` or `deadline=first_audio_timeout`. This completion
+cannot be combined with `interrupt_after`, `terminal_label`, or
 `wait_for_history`.
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets

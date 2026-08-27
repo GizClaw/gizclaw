@@ -79,6 +79,24 @@ model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
 两个 deadline 都在完整输入 turn 推送完成后开始。两种首响应都到达后，runner 立即关闭该
 逻辑 stream；文本/音频 EOS 和剩余回复不属于这个探针。
 
+仅输出文本的 Workflow 禁用不存在的音频模态，并且只声明文本 deadline：
+
+```yaml
+- id: text_only_response_probe
+  client: peer
+  peer_stream:
+    mode: realtime
+    input: ${turn_audio}
+    pacing: 20ms
+    completion: first_response
+    first_text_timeout: 2s
+    require_text: true
+    require_audio: false
+  expect:
+    /text: {non_empty: true}
+    /first_text_ms: {maximum: 2000}
+```
+
 `rpc_stream` 的 `all.speed_test.run` 步骤向 `expect`、`capture` 和 object `save_as` 暴露以下
 稳定结果路径；同一组 canonical 测量字段还会与 `method` 一起进入脱敏 step evidence：
 
