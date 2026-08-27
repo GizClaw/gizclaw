@@ -226,7 +226,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		if err != nil {
 			return operationResult{}, err
 		}
-		if err := observeAudio(op.FirstClient, "user", packets); err != nil {
+		if err := observeAudioPackets(observeAudio, op.FirstClient, "user", packets); err != nil {
 			return operationResult{}, fmt.Errorf("play relay user audio: %w", err)
 		}
 	}
@@ -286,10 +286,10 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		}
 		return operationResult{evidence: failureEvidence(deadline)}, errors.New(message)
 	}
-	var observedTurnPackets [][]byte
+	observationOpen := false
 	defer func() {
-		if observeAudio != nil && len(observedTurnPackets) > 0 {
-			_ = observeAudio(sides[active].name, "assistant", observedTurnPackets)
+		if observeAudio != nil && observationOpen {
+			_ = observeAudio(sides[active].name, "assistant", nil, true)
 		}
 	}()
 	for {
@@ -420,7 +420,12 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 				if err != nil {
 					return fail(side, "", "decode assistant audio failed: %v", err)
 				}
-				observedTurnPackets = append(observedTurnPackets, packets...)
+				for _, packet := range packets {
+					if err := observeAudio(side.name, "assistant", packet, false); err != nil {
+						return fail(side, "", "play assistant audio failed: %v", err)
+					}
+					observationOpen = true
+				}
 			}
 			totalAudioBytes += len(part.Data)
 			if totalAudioBytes > relayMaxAudioBytes {
@@ -450,6 +455,15 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 				return fail(receiver, "", "forward audio failed: %v", err)
 			}
 		}
+		if chunk.IsEndOfStream() && label == "assistant" {
+			mimeType, _ := chunk.MIMEType()
+			if relayOpusMIME(mimeType) && observeAudio != nil && observationOpen {
+				observationOpen = false
+				if err := observeAudio(side.name, "assistant", nil, true); err != nil {
+					return fail(side, "", "finish assistant playback failed: %v", err)
+				}
+			}
+		}
 		if !chunk.IsEndOfStream() || label != "assistant" {
 			continue
 		}
@@ -460,10 +474,9 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		if !isActive {
 			return fail(side, "", "unexpected terminal output from the inactive side")
 		}
-		if observeAudio != nil && len(observedTurnPackets) > 0 {
-			packets := observedTurnPackets
-			observedTurnPackets = nil
-			if err := observeAudio(side.name, "assistant", packets); err != nil {
+		if observeAudio != nil && observationOpen {
+			observationOpen = false
+			if err := observeAudio(side.name, "assistant", nil, true); err != nil {
 				return fail(side, "", "play assistant audio failed: %v", err)
 			}
 		}

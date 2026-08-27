@@ -32,9 +32,22 @@ type peerStream interface {
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
 
-// audioObserver receives one complete user or assistant Opus utterance.
+// audioObserver receives one user or assistant Opus packet as it arrives.
+// end marks the end of that logical utterance and flushes any jitter buffer.
 // It is nil for normal Giztest runs; play mode installs the only implementation.
-type audioObserver func(client, role string, packets [][]byte) error
+type audioObserver func(client, role string, packet []byte, end bool) error
+
+func observeAudioPackets(observer audioObserver, client, role string, packets [][]byte) error {
+	if observer == nil {
+		return nil
+	}
+	for _, packet := range packets {
+		if err := observer(client, role, packet, false); err != nil {
+			return err
+		}
+	}
+	return observer(client, role, nil, true)
+}
 
 func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 	return func() (peerStream, error) { return client.OpenPeerStream(64) }
@@ -114,7 +127,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			return operationResult{}, err
 		}
 		if observeAudio != nil {
-			if err := observeAudio(step.Client, "user", packets); err != nil {
+			if err := observeAudioPackets(observeAudio, step.Client, "user", packets); err != nil {
 				return operationResult{}, fmt.Errorf("play user audio: %w", err)
 			}
 		}
@@ -211,10 +224,11 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		}()
 	}
 	var texts []string
-	var assistantPackets, observedAssistantPackets [][]byte
+	var assistantPackets [][]byte
+	assistantObservationOpen := false
 	defer func() {
-		if observeAudio != nil && len(observedAssistantPackets) > 0 {
-			_ = observeAudio(step.Client, "assistant", observedAssistantPackets)
+		if observeAudio != nil && assistantObservationOpen {
+			_ = observeAudio(step.Client, "assistant", nil, true)
 		}
 	}()
 	audioBytes, events := 0, 0
@@ -262,10 +276,9 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		defer firstAudioTimer.Stop()
 	}
 	finish := func() (operationResult, error) {
-		if observeAudio != nil && len(observedAssistantPackets) > 0 {
-			packets := observedAssistantPackets
-			observedAssistantPackets = nil
-			if err := observeAudio(step.Client, "assistant", packets); err != nil {
+		if observeAudio != nil && assistantObservationOpen {
+			assistantObservationOpen = false
+			if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
 				return operationResult{}, fmt.Errorf("play assistant audio: %w", err)
 			}
 		}
@@ -404,7 +417,12 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 						if err != nil {
 							return operationResult{evidence: baseEvidence()}, fmt.Errorf("decode assistant audio: %w", err)
 						}
-						observedAssistantPackets = append(observedAssistantPackets, packets...)
+						for _, packet := range packets {
+							if err := observeAudio(step.Client, "assistant", packet, false); err != nil {
+								return operationResult{evidence: baseEvidence()}, fmt.Errorf("play assistant audio: %w", err)
+							}
+							assistantObservationOpen = true
+						}
 					}
 					if audioCaptureMaxBytes > 0 {
 						if audioBytes > audioCaptureMaxBytes-len(part.Data) {
@@ -439,6 +457,13 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				return finish()
 			}
 			if result.chunk.IsEndOfStream() {
+				mimeType, _ := result.chunk.MIMEType()
+				if label == "assistant" && relayOpusMIME(mimeType) && observeAudio != nil && assistantObservationOpen {
+					assistantObservationOpen = false
+					if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("finish assistant playback: %w", err)
+					}
+				}
 				if len(terminalErrors) != 0 {
 					evidence := baseEvidence()
 					evidence["terminal_errors"] = len(terminalErrors)
@@ -468,7 +493,6 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				}
 				nowMS := eventElapsed.Milliseconds()
 				if label == "assistant" {
-					mimeType, _ := result.chunk.MIMEType()
 					switch {
 					case mimeType == "text/plain":
 						textEOS = true

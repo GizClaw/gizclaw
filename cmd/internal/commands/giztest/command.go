@@ -66,8 +66,12 @@ func newPlayCmd() *cobra.Command {
 				return codedError(exitValidation, err)
 			}
 			defer record.abort()
-			session, err := newPlaySession()
+			session, err := newPlaySession(cmd.OutOrStdout())
 			if err != nil {
+				return codedError(exitExecution, err)
+			}
+			if err := session.cue(); err != nil {
+				_ = session.close()
 				return codedError(exitExecution, err)
 			}
 			report := runDocuments(cmd.Context(), docs, runOptions{
@@ -82,7 +86,8 @@ func newPlayCmd() *cobra.Command {
 			if err := record.commit(report, session.packets); err != nil {
 				return codedError(exitExecution, err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Giztest play %s: %d tasks in %dms, audio=%d bytes, record=%s\n", report.Status, len(report.Tasks), report.DurationMS, session.bytes, output)
+			receivedMS, playbackMS := session.latencySummary()
+			fmt.Fprintf(cmd.OutOrStdout(), "Giztest play %s: %d tasks in %dms, first_downlink_received=%dms, first_downlink_playback=%dms, audio=%d bytes, record=%s\n", report.Status, len(report.Tasks), report.DurationMS, receivedMS, playbackMS, session.bytes, output)
 			if report.Status != "passed" {
 				if reportHasReviewFailure(report) {
 					return codedError(exitReview, fmt.Errorf("Giztest review rejected"))

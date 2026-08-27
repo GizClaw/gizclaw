@@ -115,11 +115,13 @@ func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	open := func() (peerStream, error) { return stream, nil }
 	_, err := invokePeerStream(context.Background(), nil, open, Step{
 		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
-	}, "hello", 0, func(gotClient, gotRole string, gotPackets [][]byte) error {
+	}, "hello", 0, func(gotClient, gotRole string, gotPacket []byte, _ bool) error {
 		client = gotClient
 		role = gotRole
-		observed = gotPackets
-		gotPackets[0][0] = 9
+		if len(gotPacket) > 0 {
+			observed = append(observed, gotPacket)
+			gotPacket[0] = 9
+		}
 		return nil
 	})
 	if err != nil {
@@ -142,8 +144,10 @@ func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
 	var roles []string
 	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, Step{
 		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
-	}, []byte{1}, 0, func(_ string, role string, _ [][]byte) error {
-		roles = append(roles, role)
+	}, []byte{1}, 0, func(_ string, role string, _ []byte, end bool) error {
+		if end {
+			roles = append(roles, role)
+		}
 		return nil
 	})
 	if err != nil {
@@ -166,7 +170,7 @@ func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
 	open := func() (peerStream, error) { return stream, nil }
 	_, err := invokePeerStream(context.Background(), nil, open, Step{
 		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
-	}, "hello", 0, func(string, string, [][]byte) error { return errors.New("speaker failed") })
+	}, "hello", 0, func(string, string, []byte, bool) error { return errors.New("speaker failed") })
 	if err == nil || !strings.Contains(err.Error(), "speaker failed") {
 		t.Fatalf("observer error = %v", err)
 	}

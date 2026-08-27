@@ -245,8 +245,10 @@ func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
 	var observations []observation
 	done := make(chan error, 1)
 	go func() {
-		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client, role string, packets [][]byte) error {
-			observations = append(observations, observation{client: client, role: role, packet: packets[0]})
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client, role string, packet []byte, _ bool) error {
+			if len(packet) > 0 {
+				observations = append(observations, observation{client: client, role: role, packet: packet})
+			}
 			return nil
 		})
 		done <- err
@@ -257,7 +259,7 @@ func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	if len(observations) != 1 || observations[0].client != "tester" || observations[0].role != "assistant" || !bytes.Equal(observations[0].packet, packets[0]) {
+	if len(observations) != len(packets) || observations[0].client != "tester" || observations[0].role != "assistant" || !bytes.Equal(observations[0].packet, packets[0]) {
 		t.Fatalf("observations = %#v", observations)
 	}
 }

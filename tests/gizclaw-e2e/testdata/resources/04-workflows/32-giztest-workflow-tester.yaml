@@ -55,6 +55,6 @@ spec:
     conversation: {}
     voice_adapter:
       asr_model: asr
-      default_voice: narrator
+      default_voice: assistant-voice
       node_voices:
-        respond: narrator
+        respond: assistant-voice

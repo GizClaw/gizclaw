@@ -1,14 +1,15 @@
 package giztest
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -16,7 +17,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/portaudio"
 )
 
-const playMaxAudioBytes = 16 << 20
+const (
+	playMaxAudioBytes   = 16 << 20
+	playJitterPackets   = 10
+	playCueFrequency    = 660
+	playCueToneDuration = 120 * time.Millisecond
+	playCueTailDuration = 80 * time.Millisecond
+)
 
 type playDecoder interface {
 	Decode(packet []byte, frameSize int, fec bool) ([]int16, error)
@@ -38,14 +45,22 @@ var (
 )
 
 type playSession struct {
-	decoder playDecoder
-	output  playOutput
-	packets [][]byte
-	bytes   int
-	closed  atomic.Bool
+	decoder                 playDecoder
+	output                  playOutput
+	out                     io.Writer
+	packets                 [][]byte
+	pending                 [][]byte
+	bytes                   int
+	client                  string
+	role                    string
+	utteranceStarted        bool
+	cueAt                   time.Time
+	firstDownlinkReceivedMS int64
+	firstDownlinkPlaybackMS int64
+	closed                  atomic.Bool
 }
 
-func newPlaySession() (*playSession, error) {
+func newPlaySession(outputs ...io.Writer) (*playSession, error) {
 	if !opusRuntimeSupportedFn() {
 		return nil, fmt.Errorf("Opus playback is unavailable on this runtime; rebuild for a supported platform with CGO_ENABLED=1")
 	}
@@ -61,53 +76,170 @@ func newPlaySession() (*playSession, error) {
 		_ = decoder.Close()
 		return nil, fmt.Errorf("open default PortAudio output: %w", err)
 	}
-	return &playSession{decoder: decoder, output: output}, nil
+	out := io.Discard
+	if len(outputs) > 0 && outputs[0] != nil {
+		out = outputs[0]
+	}
+	return &playSession{
+		decoder: decoder, output: output, out: out,
+		firstDownlinkReceivedMS: -1, firstDownlinkPlaybackMS: -1,
+	}, nil
 }
 
-func (s *playSession) observe(_, _ string, packets [][]byte) error {
+func (s *playSession) cue() error {
 	if s == nil || s.closed.Load() {
 		return errors.New("play session is closed")
 	}
-	if len(packets) == 0 {
-		return nil
+	const sampleRate = 16000
+	toneSamples := int(playCueToneDuration * sampleRate / time.Second)
+	tailSamples := int(playCueTailDuration * sampleRate / time.Second)
+	pcmBytes := make([]byte, (toneSamples+tailSamples)*2)
+	for i := range toneSamples {
+		sample := int16(math.Sin(2*math.Pi*playCueFrequency*float64(i)/sampleRate) * 5000)
+		binary.LittleEndian.PutUint16(pcmBytes[i*2:], uint16(sample))
 	}
-	utteranceBytes := 0
-	for _, packet := range packets {
-		if utteranceBytes > playMaxAudioBytes-len(packet) {
+	if err := s.writePCM(pcmBytes); err != nil {
+		return fmt.Errorf("play start cue: %w", err)
+	}
+	s.cueAt = time.Now()
+	fmt.Fprintln(s.out, "Giztest play started after cue")
+	return nil
+}
+
+func (s *playSession) observe(client, role string, packet []byte, end bool) error {
+	if s == nil || s.closed.Load() {
+		return errors.New("play session is closed")
+	}
+	if (s.client != "" && s.client != client) || (s.role != "" && s.role != role) {
+		if err := s.finishUtterance(); err != nil {
+			return err
+		}
+	}
+	if s.client == "" {
+		s.client, s.role = client, role
+	}
+	if len(packet) > 0 {
+		if s.bytes > playMaxAudioBytes-len(packet) {
 			return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
 		}
-		utteranceBytes += len(packet)
-	}
-	if s.bytes > playMaxAudioBytes-utteranceBytes {
-		return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
-	}
-	var pcmAudio bytes.Buffer
-	const maxFrameSize = 16000 * 3 / 25
-	for _, packet := range packets {
 		copyOfPacket := append([]byte(nil), packet...)
 		s.packets = append(s.packets, copyOfPacket)
+		s.pending = append(s.pending, copyOfPacket)
 		s.bytes += len(copyOfPacket)
-		samples, err := s.decoder.Decode(packet, maxFrameSize, false)
-		if err != nil {
-			return fmt.Errorf("decode Opus packet: %w", err)
+		if role == "assistant" && s.firstDownlinkReceivedMS < 0 && !s.cueAt.IsZero() {
+			s.firstDownlinkReceivedMS = time.Since(s.cueAt).Milliseconds()
 		}
-		for _, sample := range samples {
-			if err := binary.Write(&pcmAudio, binary.LittleEndian, sample); err != nil {
-				return fmt.Errorf("buffer decoded PCM: %w", err)
+		if !s.utteranceStarted && len(s.pending) >= playJitterPackets {
+			s.utteranceStarted = true
+			if role == "assistant" && s.firstDownlinkPlaybackMS < 0 && !s.cueAt.IsZero() {
+				s.firstDownlinkPlaybackMS = time.Since(s.cueAt).Milliseconds()
+				fmt.Fprintf(s.out, "Giztest first downlink: received=%dms playback=%dms jitter_packets=%d client=%s\n", s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS, playJitterPackets, client)
+			}
+		}
+		if s.utteranceStarted {
+			if err := s.drainPending(); err != nil {
+				return err
 			}
 		}
 	}
-	if _, err := io.Copy(s.output, &pcmAudio); err != nil {
-		return fmt.Errorf("write buffered PCM to PortAudio: %w", err)
+	if end {
+		return s.finishUtterance()
 	}
 	return nil
 }
 
-func (s *playSession) close() error {
-	if s == nil || !s.closed.CompareAndSwap(false, true) {
+func (s *playSession) ensureDecoder() error {
+	if s.decoder != nil {
 		return nil
 	}
-	return errors.Join(s.output.Close(), s.decoder.Close())
+	decoder, err := newPlayDecoderFn()
+	if err != nil {
+		return fmt.Errorf("create Opus playback decoder: %w", err)
+	}
+	s.decoder = decoder
+	return nil
+}
+
+func (s *playSession) drainPending() error {
+	if len(s.pending) == 0 {
+		return nil
+	}
+	if err := s.ensureDecoder(); err != nil {
+		return err
+	}
+	const maxFrameSize = 16000 * 3 / 25
+	var pcmBytes []byte
+	for _, packet := range s.pending {
+		samples, err := s.decoder.Decode(packet, maxFrameSize, false)
+		if err != nil {
+			return fmt.Errorf("decode Opus packet: %w", err)
+		}
+		start := len(pcmBytes)
+		pcmBytes = append(pcmBytes, make([]byte, len(samples)*2)...)
+		for i, sample := range samples {
+			binary.LittleEndian.PutUint16(pcmBytes[start+i*2:], uint16(sample))
+		}
+	}
+	s.pending = nil
+	if err := s.writePCM(pcmBytes); err != nil {
+		return fmt.Errorf("write streaming PCM to PortAudio: %w", err)
+	}
+	return nil
+}
+
+func (s *playSession) writePCM(pcmBytes []byte) error {
+	if len(pcmBytes) == 0 {
+		return nil
+	}
+	written, err := s.output.Write(pcmBytes)
+	if err != nil {
+		return err
+	}
+	if written != len(pcmBytes) {
+		return io.ErrShortWrite
+	}
+	return nil
+}
+
+func (s *playSession) finishUtterance() error {
+	if len(s.pending) > 0 {
+		s.utteranceStarted = true
+		if s.role == "assistant" && s.firstDownlinkPlaybackMS < 0 && !s.cueAt.IsZero() {
+			s.firstDownlinkPlaybackMS = time.Since(s.cueAt).Milliseconds()
+			fmt.Fprintf(s.out, "Giztest first downlink: received=%dms playback=%dms jitter_packets=%d client=%s\n", s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS, len(s.pending), s.client)
+		}
+		if err := s.drainPending(); err != nil {
+			return err
+		}
+	}
+	var err error
+	if s.decoder != nil {
+		err = s.decoder.Close()
+		s.decoder = nil
+	}
+	s.client, s.role = "", ""
+	s.utteranceStarted = false
+	return err
+}
+
+func (s *playSession) latencySummary() (int64, int64) {
+	return s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS
+}
+
+func (s *playSession) close() error {
+	if s == nil || s.closed.Load() {
+		return nil
+	}
+	flushErr := s.finishUtterance()
+	if !s.closed.CompareAndSwap(false, true) {
+		return flushErr
+	}
+	var decoderErr error
+	if s.decoder != nil {
+		decoderErr = s.decoder.Close()
+		s.decoder = nil
+	}
+	return errors.Join(flushErr, s.output.Close(), decoderErr)
 }
 
 func validatePlayDocument(path string, docs []*Document) error {
