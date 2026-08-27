@@ -473,7 +473,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		terminal := relayTerminalMedia(relayTerminalMediaName(op), mimeType)
 		if observeAudio != nil && op.Media == "text" {
 			switch {
-			case mimeType == "text/plain" && side.turnSawAudio && observationOpen:
+			case chunk.IsEndOfStream() && mimeType == "text/plain" && side.turnSawAudio && observationOpen:
 				side.turnTextEnded = true
 				continue
 			case relayOpusMIME(mimeType) && side.turnTextEnded:
