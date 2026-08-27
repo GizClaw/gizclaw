@@ -1,9 +1,11 @@
 package giztunnel
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -11,9 +13,76 @@ import (
 
 const bridgeStreamDrainTimeout = 30 * time.Second
 
+const (
+	bridgePathService = "service"
+	bridgePathPacket  = "packet"
+
+	bridgeDirectionLeftToRight = "left_to_right"
+	bridgeDirectionRightToLeft = "right_to_left"
+
+	bridgePhaseAcceptSource     = "accept_source"
+	bridgePhaseReadSource       = "read_source"
+	bridgePhaseWriteDestination = "write_destination"
+
+	bridgeErrorClassClean            = "clean"
+	bridgeErrorClassEOF              = "eof"
+	bridgeErrorClassClosed           = "closed"
+	bridgeErrorClassConnectionClosed = "connection_closed"
+	bridgeErrorClassServiceMuxClosed = "service_mux_closed"
+	bridgeErrorClassBufferLimit      = "buffer_limit"
+	bridgeErrorClassContextCanceled  = "context_canceled"
+	bridgeErrorClassDeadlineExceeded = "deadline_exceeded"
+	bridgeErrorClassOther            = "other"
+)
+
+// BridgeObservation is a bounded, payload-free summary of the first
+// connection-level bridge terminal and any preceding destination-open
+// rejections. Empty capacity fields mean that the rejecting boundary did not
+// own an exact established-session capacity snapshot.
+type BridgeObservation struct {
+	Path                        string
+	Direction                   string
+	Phase                       string
+	ErrorClass                  string
+	OpenRejectionCount          uint64
+	FirstOpenRejectionDirection string
+	FirstOpenRejectionClass     string
+	LastOpenRejectionDirection  string
+	LastOpenRejectionClass      string
+	CapacityScope               string
+	ActiveChannels              int
+	ChannelLimit                int
+}
+
+type bridgeLoopResult struct {
+	path      string
+	direction string
+	phase     string
+	err       error
+}
+
+type bridgeObservationState struct {
+	mu          sync.Mutex
+	terminal    bool
+	observation BridgeObservation
+}
+
+type bridgeTerminal struct {
+	result      bridgeLoopResult
+	observation BridgeObservation
+}
+
 // Bridge transparently forwards service streams and packets between two Giznet
 // connections until either side closes.
 func Bridge(left, right giznet.Conn) error {
+	_, err := BridgeWithObservation(left, right)
+	return err
+}
+
+// BridgeWithObservation transparently forwards service streams and packets
+// between two Giznet connections and returns a bounded diagnostic summary.
+// Its returned error and connection-close behavior are compatible with Bridge.
+func BridgeWithObservation(left, right giznet.Conn) (BridgeObservation, error) {
 	if enabler, ok := left.(giznet.ServiceAcceptEnabler); ok {
 		enabler.EnableServiceAccept()
 	}
@@ -22,35 +91,61 @@ func Bridge(left, right giznet.Conn) error {
 	}
 	leftServices, ok := left.(giznet.ServiceAcceptor)
 	if !ok {
-		return errors.New("giztunnel: left connection cannot accept aggregate services")
+		return BridgeObservation{}, errors.New("giztunnel: left connection cannot accept aggregate services")
 	}
 	rightServices, ok := right.(giznet.ServiceAcceptor)
 	if !ok {
-		return errors.New("giztunnel: right connection cannot accept aggregate services")
+		return BridgeObservation{}, errors.New("giztunnel: right connection cannot accept aggregate services")
 	}
-	errCh := make(chan error, 4)
-	go func() { errCh <- bridgeServices(leftServices, right) }()
-	go func() { errCh <- bridgeServices(rightServices, left) }()
-	go func() { errCh <- bridgePackets(left, right) }()
-	go func() { errCh <- bridgePackets(right, left) }()
-	err := <-errCh
+	state := &bridgeObservationState{}
+	terminalCh := make(chan bridgeTerminal, 1)
+	reportTerminal := func(result bridgeLoopResult) {
+		observation, selected := state.selectTerminal(result)
+		if selected {
+			terminalCh <- bridgeTerminal{result: result, observation: observation}
+		}
+	}
+	go func() {
+		reportTerminal(bridgeServices(leftServices, right, bridgeDirectionLeftToRight, state))
+	}()
+	go func() {
+		reportTerminal(bridgeServices(rightServices, left, bridgeDirectionRightToLeft, state))
+	}()
+	go func() {
+		reportTerminal(bridgePackets(left, right, bridgeDirectionLeftToRight))
+	}()
+	go func() {
+		reportTerminal(bridgePackets(right, left, bridgeDirectionRightToLeft))
+	}()
+	terminal := <-terminalCh
 	_ = left.Close()
 	_ = right.Close()
-	if isClosedError(err) {
-		return nil
+	if isClosedError(terminal.result.err) {
+		return terminal.observation, nil
 	}
-	return err
+	return terminal.observation, terminal.result.err
 }
 
-func bridgeServices(source giznet.ServiceAcceptor, destination giznet.Conn) error {
+func bridgeServices(
+	source giznet.ServiceAcceptor,
+	destination giznet.Conn,
+	direction string,
+	state *bridgeObservationState,
+) bridgeLoopResult {
 	for {
 		service, sourceStream, err := source.AcceptService()
 		if err != nil {
-			return err
+			return bridgeLoopResult{
+				path:      bridgePathService,
+				direction: direction,
+				phase:     bridgePhaseAcceptSource,
+				err:       err,
+			}
 		}
 		destinationStream, err := destination.Dial(service)
 		if err != nil {
 			_ = sourceStream.Close()
+			state.recordOpenRejection(direction, err)
 			continue
 		}
 		go bridgeStream(sourceStream, destinationStream)
@@ -82,16 +177,89 @@ func bridgeStream(left, right net.Conn) {
 	_ = right.Close()
 }
 
-func bridgePackets(source, destination giznet.Conn) error {
+func bridgePackets(source, destination giznet.Conn, direction string) bridgeLoopResult {
 	buf := make([]byte, 64*1024)
 	for {
 		protocol, n, err := source.Read(buf)
 		if err != nil {
-			return err
+			return bridgeLoopResult{
+				path:      bridgePathPacket,
+				direction: direction,
+				phase:     bridgePhaseReadSource,
+				err:       err,
+			}
 		}
 		if _, err := destination.Write(protocol, buf[:n]); err != nil {
-			return err
+			return bridgeLoopResult{
+				path:      bridgePathPacket,
+				direction: direction,
+				phase:     bridgePhaseWriteDestination,
+				err:       err,
+			}
 		}
+	}
+}
+
+func (s *bridgeObservationState) recordOpenRejection(direction string, err error) {
+	if s == nil {
+		return
+	}
+	errorClass := bridgeErrorClass(err)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.terminal {
+		return
+	}
+	s.observation.OpenRejectionCount++
+	if s.observation.FirstOpenRejectionDirection == "" {
+		s.observation.FirstOpenRejectionDirection = direction
+		s.observation.FirstOpenRejectionClass = errorClass
+	}
+	s.observation.LastOpenRejectionDirection = direction
+	s.observation.LastOpenRejectionClass = errorClass
+	if s.observation.CapacityScope == "" {
+		if capacity, ok := channelCapacityFromError(err); ok {
+			s.observation.CapacityScope = capacity.scope
+			s.observation.ActiveChannels = capacity.active
+			s.observation.ChannelLimit = capacity.limit
+		}
+	}
+}
+
+func (s *bridgeObservationState) selectTerminal(result bridgeLoopResult) (BridgeObservation, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.terminal {
+		return BridgeObservation{}, false
+	}
+	s.terminal = true
+	s.observation.Path = result.path
+	s.observation.Direction = result.direction
+	s.observation.Phase = result.phase
+	s.observation.ErrorClass = bridgeErrorClass(result.err)
+	return s.observation, true
+}
+
+func bridgeErrorClass(err error) string {
+	switch {
+	case err == nil:
+		return bridgeErrorClassClean
+	case errors.Is(err, context.Canceled):
+		return bridgeErrorClassContextCanceled
+	case errors.Is(err, context.DeadlineExceeded):
+		return bridgeErrorClassDeadlineExceeded
+	case errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
+		return bridgeErrorClassEOF
+	case errors.Is(err, giznet.ErrConnClosed):
+		return bridgeErrorClassConnectionClosed
+	case errors.Is(err, giznet.ErrServiceMuxClosed):
+		return bridgeErrorClassServiceMuxClosed
+	case errors.Is(err, net.ErrClosed), errors.Is(err, io.ErrClosedPipe), errors.Is(err, giznet.ErrClosed):
+		return bridgeErrorClassClosed
+	case errors.Is(err, ErrBufferLimit):
+		return bridgeErrorClassBufferLimit
+	default:
+		return bridgeErrorClassOther
 	}
 }
 

@@ -175,6 +175,29 @@ Active limits default to 32 channels per session and 8,192 per upstream. Reliabl
 service writes use per-channel, per-session, and 32 MiB association budgets whose
 reservations remain held until `BufferedAmount` drains.
 
+`giztunnel.Bridge` remains the compatibility API for forwarding the two service
+accept loops and two packet-copy loops until the first connection-level loop
+terminates. `BridgeWithObservation` performs the same forwarding, connection
+close, and returned-error normalization while also returning a bounded
+`BridgeObservation`. The observation identifies the first terminal `service` or
+`packet` path, its `left_to_right` or `right_to_left` direction, the
+`accept_source`, `read_source`, or `write_destination` phase, and a closed error
+class: `clean`, `eof`, `closed`, `connection_closed`, `service_mux_closed`,
+`buffer_limit`, `context_canceled`, `deadline_exceeded`, or `other`. EOF and
+closed errors therefore remain nil to `Bridge` callers without
+losing their diagnostic class.
+
+A destination service-open failure still closes only the accepted source stream
+and the service loop continues. The observation aggregates all such failures into
+one count plus first/last direction and closed error class; it emits no callback
+or record per stream. The independently draining per-service copy goroutines do
+not compete for the connection terminal. When an established destination session
+is exactly at its per-session channel limit, or its physical association is at
+the association limit, the first such rejection also carries the responsible
+scope and matching active/limit snapshot captured under the Router lock.
+Pending-session limits, close races, generic buffer limits, packet buffers, and
+remote queues carry no exact capacity fields.
+
 ## Dependencies
 
 ```mermaid

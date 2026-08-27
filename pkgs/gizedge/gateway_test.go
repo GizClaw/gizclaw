@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -112,20 +113,25 @@ func TestLogUpstreamICEIsAddressFree(t *testing.T) {
 
 func TestGatewayBridgeLifecycleResultIsBounded(t *testing.T) {
 	tests := []struct {
-		name       string
-		err        error
-		wantResult string
-		wantReason string
+		name        string
+		observation giztunnel.BridgeObservation
+		err         error
+		wantResult  string
+		wantReason  string
 	}{
-		{name: "success", wantResult: "success", wantReason: "completed"},
-		{name: "canceled", err: context.Canceled, wantResult: "canceled", wantReason: "context_canceled"},
-		{name: "timeout", err: context.DeadlineExceeded, wantResult: "timeout", wantReason: "deadline_exceeded"},
-		{name: "closed", err: io.ErrUnexpectedEOF, wantResult: "closed", wantReason: "transport_closed"},
-		{name: "transport error", err: errors.New("authorization: Bearer secret"), wantResult: "transport_error", wantReason: "bridge_error"},
+		{name: "success", observation: giztunnel.BridgeObservation{ErrorClass: "clean"}, wantResult: "success", wantReason: "completed"},
+		{name: "canceled", observation: giztunnel.BridgeObservation{ErrorClass: "context_canceled"}, wantResult: "canceled", wantReason: "context_canceled"},
+		{name: "timeout", observation: giztunnel.BridgeObservation{ErrorClass: "deadline_exceeded"}, wantResult: "timeout", wantReason: "deadline_exceeded"},
+		{name: "observed closed compatibility nil", observation: giztunnel.BridgeObservation{ErrorClass: "eof"}, wantResult: "closed", wantReason: "transport_closed"},
+		{name: "generic rejection", observation: giztunnel.BridgeObservation{ErrorClass: "eof", OpenRejectionCount: 1}, wantResult: "transport_error", wantReason: "bridge_error"},
+		{name: "exact session capacity", observation: giztunnel.BridgeObservation{ErrorClass: "eof", OpenRejectionCount: 1, CapacityScope: "session"}, wantResult: "transport_error", wantReason: "channel_capacity_rejected"},
+		{name: "exact association capacity", observation: giztunnel.BridgeObservation{ErrorClass: "closed", OpenRejectionCount: 1, CapacityScope: "association"}, wantResult: "transport_error", wantReason: "channel_capacity_rejected"},
+		{name: "transport error", observation: giztunnel.BridgeObservation{ErrorClass: "other"}, err: errors.New("authorization: Bearer secret"), wantResult: "transport_error", wantReason: "bridge_error"},
+		{name: "legacy zero observation", err: io.ErrUnexpectedEOF, wantResult: "closed", wantReason: "transport_closed"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, reason := gatewayBridgeLifecycleResult(test.err)
+			result, reason := gatewayBridgeLifecycleResult(test.observation, test.err)
 			if result != test.wantResult || reason != test.wantReason {
 				t.Fatalf("gatewayBridgeLifecycleResult() = (%q, %q), want (%q, %q)", result, reason, test.wantResult, test.wantReason)
 			}
@@ -133,6 +139,63 @@ func TestGatewayBridgeLifecycleResultIsBounded(t *testing.T) {
 				t.Fatal("gateway lifecycle result exposed a raw error")
 			}
 		})
+	}
+}
+
+func TestGatewayBridgeObservationAttrsAreBoundedScalars(t *testing.T) {
+	observation := giztunnel.BridgeObservation{
+		Path:                        "service",
+		Direction:                   "left_to_right",
+		Phase:                       "accept_source",
+		ErrorClass:                  "eof",
+		OpenRejectionCount:          2,
+		FirstOpenRejectionDirection: "left_to_right",
+		FirstOpenRejectionClass:     "other",
+		LastOpenRejectionDirection:  "right_to_left",
+		LastOpenRejectionClass:      "buffer_limit",
+		CapacityScope:               "session",
+		ActiveChannels:              32,
+		ChannelLimit:                32,
+	}
+	attrs := gatewayBridgeObservationAttrs(observation)
+	got := make(map[string]any, len(attrs)/2)
+	for index := 0; index < len(attrs); index += 2 {
+		key, ok := attrs[index].(string)
+		if !ok {
+			t.Fatalf("attribute key %d has type %T", index, attrs[index])
+		}
+		got[key] = attrs[index+1]
+	}
+	want := map[string]any{
+		"bridge_path":                           "service",
+		"bridge_direction":                      "left_to_right",
+		"bridge_phase":                          "accept_source",
+		"bridge_error_class":                    "eof",
+		"bridge_open_rejection_count":           uint64(2),
+		"bridge_first_open_rejection_direction": "left_to_right",
+		"bridge_first_open_rejection_class":     "other",
+		"bridge_last_open_rejection_direction":  "right_to_left",
+		"bridge_last_open_rejection_class":      "buffer_limit",
+		"bridge_capacity_scope":                 "session",
+		"bridge_active_channels":                32,
+		"bridge_channel_limit":                  32,
+	}
+	if !maps.Equal(got, want) {
+		t.Fatalf("gatewayBridgeObservationAttrs() = %#v, want %#v", got, want)
+	}
+	for _, forbidden := range []string{"authorization", "Bearer", "secret", "service_number", "rpc"} {
+		if strings.Contains(fmt.Sprint(attrs), forbidden) {
+			t.Fatalf("bridge attributes exposed forbidden value %q: %#v", forbidden, attrs)
+		}
+	}
+
+	unknownCapacity := gatewayBridgeObservationAttrs(giztunnel.BridgeObservation{
+		CapacityScope:  "unknown",
+		ActiveChannels: 99,
+		ChannelLimit:   100,
+	})
+	if strings.Contains(fmt.Sprint(unknownCapacity), "bridge_capacity") {
+		t.Fatalf("unknown capacity produced exact attributes: %#v", unknownCapacity)
 	}
 }
 

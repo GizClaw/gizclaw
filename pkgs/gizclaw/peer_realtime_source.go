@@ -40,6 +40,9 @@ func (s *peerRealtimeSource) OpenAgentInput(context.Context) (genx.Stream, error
 	if previous != nil {
 		_ = previous.Close()
 	}
+	if s.lifecycle == nil {
+		return next, nil
+	}
 	s.lifecycle.observeAgentInputOpen()
 	return &peerObservedAgentInput{Stream: next, lifecycle: s.lifecycle}, nil
 }
@@ -78,7 +81,7 @@ func (s *peerRealtimeSource) Push(ctx context.Context, chunk *genx.MessageChunk)
 	if errors.Is(err, io.ErrClosedPipe) {
 		return agenthost.ErrNoActiveInput
 	}
-	if err == nil {
+	if err == nil && s.lifecycle != nil {
 		s.lifecycle.observeAgentInputPush(chunk)
 	}
 	return err

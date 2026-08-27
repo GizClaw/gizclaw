@@ -45,6 +45,28 @@ func TestPeerRealtimeSourceRecordsFirstOpenAndPushOnce(t *testing.T) {
 	}
 }
 
+func TestPeerRealtimeSourceWithoutLifecycleUsesUnderlyingStream(t *testing.T) {
+	source := newPeerRealtimeSourceWithLifecycle(nil, genx.WithRealtimeStreamDelay(0))
+	input, err := source.OpenAgentInput(t.Context())
+	if err != nil {
+		t.Fatalf("OpenAgentInput() error = %v", err)
+	}
+	if input != source.current {
+		t.Fatalf("disabled input type = %T, want underlying %T", input, source.current)
+	}
+	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input", BeginOfStream: true}}
+	if err := source.Push(t.Context(), chunk); err != nil {
+		t.Fatalf("Push() error = %v", err)
+	}
+	got, err := input.Next()
+	if err != nil {
+		t.Fatalf("Next() error = %v", err)
+	}
+	if got != chunk {
+		t.Fatalf("Next() = %p, want %p", got, chunk)
+	}
+}
+
 func TestPeerRealtimeSourceRecordsFirstPushForEachTurn(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-turns", "peer-turns")

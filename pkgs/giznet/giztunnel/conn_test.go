@@ -522,23 +522,68 @@ func TestSessionCloseDoesNotClosePhysicalConnection(t *testing.T) {
 
 func TestChannelCapacityIsPerSessionAndAssociation(t *testing.T) {
 	pair := newTunnelPair(t,
-		Config{MaxChannelsPerSession: 3, MaxChannels: 3},
-		Config{MaxChannelsPerSession: 3, MaxChannels: 3},
+		Config{MaxChannelsPerSession: 3, MaxChannels: 6},
+		Config{MaxChannelsPerSession: 3, MaxChannels: 6},
 	)
 	stream, err := pair.edge.Dial(1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer stream.Close()
-	if _, err := pair.edge.Dial(2); !errors.Is(err, ErrBufferLimit) {
+	_, err = pair.edge.Dial(2)
+	if !errors.Is(err, ErrBufferLimit) {
 		t.Fatalf("Dial beyond session channel limit error = %v", err)
+	}
+	capacity, ok := channelCapacityFromError(err)
+	if !ok || capacity.scope != "session" || capacity.active != 3 || capacity.limit != 3 {
+		t.Fatalf("session capacity error = %#v, %v", capacity, err)
 	}
 }
 
-func TestAssociationCapacityMayBeLowerThanPerSessionLimit(t *testing.T) {
-	config := Config{MaxChannelsPerSession: 32, MaxChannels: 3}.withDefaults()
-	if err := config.validate(); err != nil {
-		t.Fatalf("three-channel association configuration: %v", err)
+func TestAssociationCapacityCarriesExactEstablishedSnapshot(t *testing.T) {
+	pair := newTunnelPair(t,
+		Config{MaxChannelsPerSession: 32, MaxChannels: 3},
+		Config{MaxChannelsPerSession: 32, MaxChannels: 3},
+	)
+	stream, err := pair.edge.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	_, err = pair.edge.Dial(2)
+	if !errors.Is(err, ErrBufferLimit) {
+		t.Fatalf("Dial beyond association channel limit error = %v", err)
+	}
+	capacity, ok := channelCapacityFromError(err)
+	if !ok || capacity.scope != "association" || capacity.active != 3 || capacity.limit != 3 {
+		t.Fatalf("association capacity error = %#v, %v", capacity, err)
+	}
+}
+
+func TestPendingAndClosedCapacityErrorsHaveNoEstablishedSnapshot(t *testing.T) {
+	router := &Router{
+		cfg:      Config{MaxChannelsPerSession: 3, MaxChannels: 3},
+		pending:  make(map[SessionID]*pendingSession),
+		sessions: make(map[SessionID]*Conn),
+	}
+	id := SessionID{1}
+	router.pending[id] = &pendingSession{active: 3}
+	router.activeChannels = 3
+	_, err := router.reserveChannelLocked(id)
+	if !errors.Is(err, ErrBufferLimit) {
+		t.Fatalf("pending capacity error = %v", err)
+	}
+	if _, ok := channelCapacityFromError(err); ok {
+		t.Fatalf("pending capacity unexpectedly had established metadata: %v", err)
+	}
+
+	router.closed = true
+	_, err = router.reserveChannelLocked(id)
+	if !errors.Is(err, ErrBufferLimit) {
+		t.Fatalf("closed router capacity error = %v", err)
+	}
+	if _, ok := channelCapacityFromError(err); ok {
+		t.Fatalf("closed router error unexpectedly had capacity metadata: %v", err)
 	}
 }
 

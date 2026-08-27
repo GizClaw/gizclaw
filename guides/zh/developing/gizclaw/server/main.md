@@ -24,6 +24,12 @@ Server 配置明确分为三层：
 
 Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`metrics` 等名称任何内置含义；每个内置消费者都通过固定的 `services` 字段绑定。核心 service block 必填，`services.agent_host`、`services.metrics` 与 `services.system_log` 可选；省略 SystemLog 时使用 info-level stderr。
 
+全局与 per-sink `services.system_log` level 也决定新接受的 Edge-routed logical Peer 是否构造
+完整 Server lifecycle observer。只有所有 sink 都拒绝 `INFO`，才会移除 connection、per-turn
+与 Agent-runtime tracking；任意 Info-enabled sink 都会保持 observer 启用。该决定在 connection
+生命周期内固定不变。这里没有 lifecycle-specific 配置字段，Server logging 配置也不控制独立
+Edge 进程。
+
 主要能力分组如下：
 
 | Service 字段 | 所需能力 |

@@ -164,22 +164,19 @@ func (b *peerStreamEventBroker) removeSubscriber(subscriber *peerStreamEventSubs
 }
 
 type peerAgentOutput struct {
-	Events        *peerStreamEventBroker
-	Tracks        agenthost.AudioTrackCreator
-	Logger        *slog.Logger
-	PeerPublicKey string
-	WorkspaceName func(context.Context) string
-	Lifecycle     *peerStreamLifecycle
+	Events            *peerStreamEventBroker
+	Tracks            agenthost.AudioTrackCreator
+	Logger            *slog.Logger
+	PeerPublicKey     string
+	WorkspaceName     func(context.Context) string
+	Lifecycle         *peerStreamLifecycle
+	LifecycleDisabled bool
 }
 
 func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream) error {
 	audio := newPeerAudioRouteAggregator()
 	loggedRouteErrors := make(map[string]struct{})
-	ownedOutput := output
-	if output != nil {
-		bindOnNext := !o.prepareAgentOutput(output)
-		ownedOutput = &peerLifecycleOutputStream{Stream: output, lifecycle: o.Lifecycle, bindOnNext: bindOnNext}
-	}
+	ownedOutput := o.observeAgentOutputStream(output)
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
@@ -210,7 +207,9 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 					return err
 				}
 			}
-			o.Lifecycle.observeOutput(ctx, chunk, o.WorkspaceName)
+			if o.Lifecycle != nil {
+				o.Lifecycle.observeOutput(ctx, chunk, o.WorkspaceName)
+			}
 			return nil
 		},
 	}).ConsumeAgentOutput(ctx, ownedOutput)
@@ -234,12 +233,23 @@ func (o peerAgentOutput) PrepareAgentOutput(output genx.Stream) {
 }
 
 func (o peerAgentOutput) prepareAgentOutput(output genx.Stream) bool {
+	if o.Lifecycle == nil {
+		return false
+	}
 	observer, ok := output.(agenthost.OutputProductionObserver)
 	if !ok {
 		return false
 	}
 	observer.SetOutputProductionObserver(o.Lifecycle.observeOutputProduced)
 	return true
+}
+
+func (o peerAgentOutput) observeAgentOutputStream(output genx.Stream) genx.Stream {
+	if output == nil || o.Lifecycle == nil {
+		return output
+	}
+	bindOnNext := !o.prepareAgentOutput(output)
+	return &peerLifecycleOutputStream{Stream: output, lifecycle: o.Lifecycle, bindOnNext: bindOnNext}
 }
 
 type peerLifecycleOutputStream struct {
@@ -303,7 +313,7 @@ func (o peerAgentOutput) logTerminalRouteError(
 		logger = slog.Default()
 	}
 	workspaceName := ""
-	if o.WorkspaceName != nil {
+	if !o.LifecycleDisabled && o.WorkspaceName != nil {
 		workspaceName = strings.TrimSpace(o.WorkspaceName(ctx))
 	}
 	code := strings.TrimSpace(chunk.Ctrl.ErrorCode)

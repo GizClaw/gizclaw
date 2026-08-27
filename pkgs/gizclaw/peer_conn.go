@@ -62,32 +62,33 @@ type PeerConn struct {
 	Service         *PeerService
 	ServerPublicKey giznet.PublicKey
 
-	closeOnce              sync.Once
-	agentHost              *agenthost.Service
-	agentInput             peerAgentInput
-	agentInputMu           sync.Mutex
-	events                 *peerStreamEventBroker
-	chatroomAccessMu       sync.Mutex
-	deniedInputStreams     map[string]struct{}
-	acceptedInputStreams   map[string]eventpb.StreamKind
-	deniedAudioInput       bool
-	deniedAudioStream      string
-	acceptedAudioInput     bool
-	acceptedAudioStream    string
-	acceptedAudioChatroom  bool
-	acceptedAudioWorkspace string
-	telemetryStatusMu      *sync.Mutex
-	serverGenX             *peergenx.Service
-	mixer                  *pcm.Mixer
-	rpc                    *rpcServer
-	audioPacing            <-chan time.Time
-	runtimeStopTimeout     time.Duration
-	eventAcceptTimeout     time.Duration
-	closed                 atomic.Bool
-	retiring               atomic.Bool
-	registration           atomic.Pointer[runtimeprofile.Registration]
-	tunnelRouter           *giztunnel.Router
-	streamLifecycle        *peerStreamLifecycle
+	closeOnce               sync.Once
+	agentHost               *agenthost.Service
+	agentInput              peerAgentInput
+	agentInputMu            sync.Mutex
+	events                  *peerStreamEventBroker
+	chatroomAccessMu        sync.Mutex
+	deniedInputStreams      map[string]struct{}
+	acceptedInputStreams    map[string]eventpb.StreamKind
+	deniedAudioInput        bool
+	deniedAudioStream       string
+	acceptedAudioInput      bool
+	acceptedAudioStream     string
+	acceptedAudioChatroom   bool
+	acceptedAudioWorkspace  string
+	telemetryStatusMu       *sync.Mutex
+	serverGenX              *peergenx.Service
+	mixer                   *pcm.Mixer
+	rpc                     *rpcServer
+	audioPacing             <-chan time.Time
+	runtimeStopTimeout      time.Duration
+	eventAcceptTimeout      time.Duration
+	closed                  atomic.Bool
+	retiring                atomic.Bool
+	registration            atomic.Pointer[runtimeprofile.Registration]
+	tunnelRouter            *giztunnel.Router
+	streamLifecycle         *peerStreamLifecycle
+	streamLifecycleDisabled bool
 }
 
 type peerAgentInput interface {
@@ -487,7 +488,8 @@ func (h *PeerConn) initAgentHost() {
 				workspaceName, _ := h.currentInputWorkspace(ctx)
 				return workspaceName
 			},
-			Lifecycle: h.streamLifecycle,
+			Lifecycle:         h.streamLifecycle,
+			LifecycleDisabled: h.streamLifecycleDisabled,
 		},
 		OnConsumerError:           h.broadcastAgentOutputError,
 		OnWorkspaceActivated:      manager.handleWorkspaceActivated,
