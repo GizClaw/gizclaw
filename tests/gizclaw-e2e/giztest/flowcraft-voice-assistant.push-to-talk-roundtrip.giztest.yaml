@@ -80,6 +80,20 @@ steps:
     expect:
       /events:
         non_empty: true
+      /audio_pacing/packets:
+        minimum: 101
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      /audio_pacing/mean_interval_ms:
+        minimum: 12
+        maximum: 21
+      /audio_pacing/p95_interval_ms:
+        maximum: 30
+      /audio_pacing/max_interval_ms:
+        maximum: 100
+      /audio_pacing/buffer_surplus_ms:
+        minimum: 450
+        maximum: 550
 finally:
   - client: peer
     rpc:

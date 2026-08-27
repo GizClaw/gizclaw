@@ -37,3 +37,23 @@ flowchart TB
 ```
 
 WebRTC, DataChannel and service stream multiplexing belong to `pkgs/giznet`; Peer's persistent resources, route, run state and telemetry aggregation belong to `services/runtime`. Peer Runtime has connection-scoped product wiring.
+
+## Downlink audio pacing
+
+The Peer Mixer produces downlink audio in 20 ms Opus frames. `PeerConn` obtains
+and encodes a frame before sending it against an absolute deadline instead of
+waiting for a complete frame period after each encode or network write, so
+encoding and `Conn.Write` latency do not accumulate into every packet interval.
+The first packet is immediate. While estimated receiver surplus is below the
+500 ms target, each later interval recovers at most 5 ms and therefore remains
+between 15 and 20 ms. At the target, intervals return to the 20 ms media period.
+This bounded controller builds and maintains playback headroom without allowing
+a long response to grow latency indefinitely.
+
+When a deadline has passed, the pacer sends only the current packet immediately
+and rebases from that time. The following packets recover depleted surplus by at
+most 5 ms per packet until the 500 ms target is restored, so overdue packets
+cannot form a burst. Tests can inject pacing
+ticks into `PeerConn` for deterministic one-tick-per-packet coverage. A real
+clock test and Giztest E2E additionally verify that write latency is not
+accumulated and measure receiver-side intervals, drift, and buffer surplus.

@@ -31,8 +31,98 @@ func codedError(code int, err error) error {
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "test", Short: "Validate and run declarative Peer scenarios", SilenceUsage: true}
-	cmd.AddCommand(newValidateCmd(), newRunCmd())
+	cmd.AddCommand(newValidateCmd(), newRunCmd(), newPlayCmd())
 	return cmd
+}
+
+func newPlayCmd() *cobra.Command {
+	var output string
+	cmd := &cobra.Command{
+		Use:   "play [--output <record-directory>] <file.giztest.yaml>",
+		Short: "Run and audibly play one Giztest document",
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return codedError(exitValidation, fmt.Errorf("play requires exactly one Giztest file"))
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validatePlayOutput(output); err != nil {
+				return codedError(exitValidation, err)
+			}
+			paths, err := discover(args)
+			if err != nil {
+				return codedError(exitValidation, err)
+			}
+			docs, err := loadDocuments(paths)
+			if err != nil {
+				return codedError(exitValidation, err)
+			}
+			if err := validatePlayDocument(args[0], docs); err != nil {
+				return codedError(exitValidation, err)
+			}
+			var record *playRecord
+			if output != "" {
+				record, err = newPlayRecord(output)
+				if err != nil {
+					return codedError(exitValidation, err)
+				}
+				defer record.abort()
+			}
+			session, err := newPlaySession(cmd.OutOrStdout())
+			if err != nil {
+				return codedError(exitExecution, err)
+			}
+			session.discardRecording = record == nil
+			if err := session.cue(); err != nil {
+				_ = session.close()
+				return codedError(exitExecution, err)
+			}
+			report := runDocuments(cmd.Context(), docs, runOptions{
+				parallel:      1,
+				in:            os.Stdin,
+				out:           cmd.OutOrStdout(),
+				audioObserver: session.observe,
+			})
+			if closeErr := session.close(); closeErr != nil {
+				markPlayReportFailed(&report, fmt.Errorf("close playback: %w", closeErr))
+			}
+			if record != nil {
+				if err := record.commit(report, session.packets); err != nil {
+					return codedError(exitExecution, err)
+				}
+			}
+			receivedMS, playbackMS := session.latencySummary()
+			recordPath := "disabled"
+			if output != "" {
+				recordPath = output
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Giztest play %s: %d tasks in %dms, first_downlink_received=%dms, first_downlink_playback=%dms, audio=%d bytes, record=%s\n", report.Status, len(report.Tasks), report.DurationMS, receivedMS, playbackMS, session.bytes, recordPath)
+			if report.Status != "passed" {
+				if reportHasReviewFailure(report) {
+					return codedError(exitReview, fmt.Errorf("Giztest review rejected"))
+				}
+				return codedError(exitExecution, fmt.Errorf("Giztest play failed"))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&output, "output", "o", "", "write report.json and received audio.ogg to a new record directory")
+	return cmd
+}
+
+func markPlayReportFailed(report *Report, err error) {
+	if report == nil || err == nil {
+		return
+	}
+	report.Status = "failed"
+	if len(report.Tasks) == 0 {
+		return
+	}
+	report.Tasks[0].Status = "failed"
+	if report.Tasks[0].Error == "" {
+		report.Tasks[0].Error = safeError(err)
+	}
 }
 func newValidateCmd() *cobra.Command {
 	var files []string

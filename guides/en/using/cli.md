@@ -41,6 +41,44 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 ```
 
+For manual debugging of one voice scenario, use the non-concurrent `test play`
+mode:
+
+```sh
+gizclaw test play tests/gizclaw-e2e/giztest/voice.giztest.yaml
+gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
+```
+
+The command accepts one regular file whose document has `repeat: 1` and no
+barrier, and always uses one worker. It emits a short cue that is not recorded,
+then starts the test immediately. In conversation order, it plays the user Opus
+audio uploaded by `peer_stream` and audio `workspace_relay` steps, followed by
+the assistant Opus audio actually received. Playback streams after a 200 ms
+audio buffer reaches its start watermark; later packets are decoded to 16 kHz
+mono PCM as they arrive and an independent playback task writes them to
+PortAudio. User EOS enqueues its tail without delaying the outbound request;
+assistant EOS flushes its tail and waits for the queued utterance before the
+next speaker. Shutdown closes PortAudio first so a blocked native write cannot
+hang the playback task. The summary reports milliseconds
+from the end of the cue to first downlink receipt and playback, plus per-utterance
+packet audio duration and arrival-gap timing. `peer_stream` also exposes these
+metrics under `/audio_pacing`, so normal Giztest expectations can enforce the
+packet count, encoded audio clock, mean/P95/maximum interval, and cumulative
+drift.
+By default, play mode only streams to the audio device and writes no files.
+To preserve a run, `-o` / `--output` must name a new directory. The committed record contains a
+redacted `report.json` and, when audio arrived, `audio.ogg` containing the full
+user-and-assistant conversation in playback order; an empty Ogg is not
+invented when no audio arrived. Execution or playback failures still preserve
+the failed report and any bounded audio already received when the record can be
+committed, then return non-zero.
+
+Play requires cgo, libopus, and a PortAudio native runtime supported on the
+current platform; it checks these before creating a remote client. The audio
+in the record directory is real response content explicitly persisted by the
+operator and must be treated as sensitive. Normal `test run` never opens an
+audio device or writes an additional audio file.
+
 `--evidence redacted` is the default. `--evidence full` requires `--output`
 and writes bounded `workspace_relay` per-turn and terminal text into that JSON
 report without printing it to the terminal. Treat a full-evidence report as

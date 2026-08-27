@@ -39,6 +39,31 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
 ```
 
+人工调试一份语音场景时，使用无并发的 `test play`：
+
+```sh
+gizclaw test play tests/gizclaw-e2e/giztest/voice.giztest.yaml
+gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
+```
+
+该命令只接受一个普通文件以及 `repeat: 1`、无 barrier 的文档，固定使用一个 worker。
+它先播放一个不写入记录的短提示音，提示测试随即开始。随后按对话顺序播放 `peer_stream` 和
+音频 `workspace_relay` 上传的 user Opus 音频，以及实际收到的 assistant Opus 音频。音频边接收
+边播放：先积累 200 ms 音频的抗抖缓冲，达到水位后持续解码成 16 kHz 单声道 PCM，并通过独立播放
+task 写入默认 PortAudio 输出设备。user EOS 将尾部加入播放队列但不延迟向 Server 推送问题；
+assistant EOS 冲刷尾部并等待该轮队列播放完成后再切换说话者。关闭时先关闭 PortAudio，以打断
+可能阻塞的 native write，避免播放 task 挂死。摘要同时报告提示音结束到第一份
+下行音频收到和开始播放的毫秒数，并输出每轮 packet 音频时长及到包间隔。普通 Giztest 也可通过
+`peer_stream` 结果的 `/audio_pacing` 路径断言 packet 数、音频时钟、平均/P95/最大间隔和累计漂移。
+默认只实时播放而不写文件。需要保留测试记录时，`-o` / `--output` 必须指向一个尚不存在的
+新目录；执行结束后其中包含脱敏的 `report.json`，收到音频时还包含
+`audio.ogg`，其中按试听顺序包含 user 与 assistant 的完整对话。没有音频时不会生成伪造的空 Ogg。执行或播放失败也会尽量保存失败 report
+和已经收到的有界音频，再返回非零状态。
+
+Play 需要支持当前平台的 cgo、libopus 和 PortAudio native runtime，并在创建远端 client
+前检查这些条件。记录目录中的音频是操作者显式选择落盘的真实 response 内容，应按敏感
+文件处理。普通 `test run` 不打开音频设备，也不产生额外音频文件。
+
 `--evidence redacted` 是默认模式。`--evidence full` 必须同时提供 `--output`，只把有界的
 `workspace_relay` 逐轮与终轮文本写入该 JSON report，不向终端打印。完整 evidence report
 仍不包含输入、展开变量、凭据、ID 或音频 payload，但模型或 tester 文本可能含私密内容，

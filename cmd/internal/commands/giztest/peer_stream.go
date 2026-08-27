@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -32,15 +33,98 @@ type peerStream interface {
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
 
+// audioObserver receives one user or assistant Opus packet as it arrives.
+// end marks the end of that logical utterance and flushes any jitter buffer.
+// It is nil for normal Giztest runs; play mode installs the only implementation.
+type audioObserver func(client, role string, packet []byte, end bool) error
+
+type peerAudioPacing struct {
+	firstAt         time.Time
+	lastAt          time.Time
+	gaps            []time.Duration
+	packetDurations []time.Duration
+}
+
+func (p *peerAudioPacing) observe(receivedAt time.Time, packets [][]byte) {
+	for _, packet := range packets {
+		if len(packet) == 0 {
+			continue
+		}
+		if p.firstAt.IsZero() {
+			p.firstAt = receivedAt
+		} else {
+			p.gaps = append(p.gaps, receivedAt.Sub(p.lastAt))
+		}
+		p.lastAt = receivedAt
+		ticks := codecconv.OpusPacketRTPTicks(packet)
+		p.packetDurations = append(p.packetDurations, time.Duration(ticks)*time.Second/48000)
+	}
+}
+
+func (p *peerAudioPacing) summary() map[string]any {
+	if len(p.packetDurations) == 0 {
+		return nil
+	}
+	audioDuration := time.Duration(0)
+	for _, duration := range p.packetDurations {
+		audioDuration += duration
+	}
+	result := map[string]any{
+		"packets":  len(p.packetDurations),
+		"audio_ms": audioDuration.Milliseconds(),
+	}
+	if len(p.gaps) == 0 {
+		return result
+	}
+	targetSpan := audioDuration - p.packetDurations[len(p.packetDurations)-1]
+	receiveSpan := p.lastAt.Sub(p.firstAt)
+	maximumGap := time.Duration(0)
+	for _, gap := range p.gaps {
+		maximumGap = max(maximumGap, gap)
+	}
+	sortedGaps := slices.Clone(p.gaps)
+	slices.Sort(sortedGaps)
+	p95Gap := sortedGaps[(len(sortedGaps)*95+99)/100-1]
+	drift := receiveSpan - targetSpan
+	absDrift := max(drift, -drift)
+	intervals := float64(len(p.gaps))
+	result["target_span_ms"] = targetSpan.Milliseconds()
+	result["receive_span_ms"] = receiveSpan.Milliseconds()
+	result["mean_packet_ms"] = float64(targetSpan) / intervals / float64(time.Millisecond)
+	result["mean_interval_ms"] = float64(receiveSpan) / intervals / float64(time.Millisecond)
+	result["p95_interval_ms"] = float64(p95Gap) / float64(time.Millisecond)
+	result["max_interval_ms"] = float64(maximumGap) / float64(time.Millisecond)
+	result["drift_ms"] = float64(drift) / float64(time.Millisecond)
+	result["absolute_drift_ms"] = float64(absDrift) / float64(time.Millisecond)
+	result["buffer_surplus_ms"] = float64(-drift) / float64(time.Millisecond)
+	return result
+}
+
+func observeAudioPackets(observer audioObserver, client, role string, packets [][]byte) error {
+	if observer == nil {
+		return nil
+	}
+	for _, packet := range packets {
+		if err := observer(client, role, packet, false); err != nil {
+			return err
+		}
+	}
+	return observer(client, role, nil, true)
+}
+
 func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 	return func() (peerStream, error) { return client.OpenPeerStream(64) }
 }
 
-func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int) (operationResult, error) {
+func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
 		return operationResult{}, fmt.Errorf("peer_stream operation required")
+	}
+	var observeAudio audioObserver
+	if len(observers) > 0 {
+		observeAudio = observers[0]
 	}
 	firstResponse := op.Completion == "first_response"
 	var idleTimeout time.Duration
@@ -104,6 +188,11 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		packets, err := decodeOpusPackets(audio)
 		if err != nil {
 			return operationResult{}, err
+		}
+		if observeAudio != nil {
+			if err := observeAudioPackets(observeAudio, step.Client, "user", packets); err != nil {
+				return operationResult{}, fmt.Errorf("play user audio: %w", err)
+			}
 		}
 		if op.Mode == "realtime" {
 			packets, err = appendRealtimeTailSilence(packets, realtimeTailSilence)
@@ -199,6 +288,13 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	}
 	var texts []string
 	var assistantPackets [][]byte
+	var audioPacing peerAudioPacing
+	assistantObservationOpen := false
+	defer func() {
+		if observeAudio != nil && assistantObservationOpen {
+			_ = observeAudio(step.Client, "assistant", nil, true)
+		}
+	}()
 	audioBytes, events := 0, 0
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
@@ -244,7 +340,17 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		defer firstAudioTimer.Stop()
 	}
 	finish := func() (operationResult, error) {
+		if observeAudio != nil && assistantObservationOpen {
+			assistantObservationOpen = false
+			if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
+				return operationResult{}, fmt.Errorf("play assistant audio: %w", err)
+			}
+		}
 		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		pacingSummary := audioPacing.summary()
+		if pacingSummary != nil {
+			object["audio_pacing"] = pacingSummary
+		}
 		if len(assistantPackets) > 0 {
 			var audio bytes.Buffer
 			if err := codecconv.OpusPacketsToOgg(&audio, int(opus.SampleRate16K), 1, assistantPackets); err != nil {
@@ -266,6 +372,9 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		evidence["first_audio_ms"] = firstAudioMS
 		evidence["text_eos_ms"] = textEOSMS
 		evidence["audio_eos_ms"] = audioEOSMS
+		if pacingSummary != nil {
+			evidence["audio_pacing"] = pacingSummary
+		}
 		return operationResult{assertion: object, saved: object, evidence: evidence}, nil
 	}
 	for {
@@ -374,6 +483,21 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			case *genx.Blob:
 				if label == "assistant" && len(part.Data) > 0 {
 					assistantAudioEvents++
+					if relayOpusMIME(part.MIMEType) {
+						packets, err := decodeOpusPackets(part.Data)
+						if err != nil {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("decode assistant audio: %w", err)
+						}
+						audioPacing.observe(result.receivedAt, packets)
+						if observeAudio != nil {
+							for _, packet := range packets {
+								if err := observeAudio(step.Client, "assistant", packet, false); err != nil {
+									return operationResult{evidence: baseEvidence()}, fmt.Errorf("play assistant audio: %w", err)
+								}
+								assistantObservationOpen = true
+							}
+						}
+					}
 					if audioCaptureMaxBytes > 0 {
 						if audioBytes > audioCaptureMaxBytes-len(part.Data) {
 							return operationResult{}, fmt.Errorf("captured assistant audio exceeds output variable max_bytes %d", audioCaptureMaxBytes)
@@ -407,6 +531,13 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				return finish()
 			}
 			if result.chunk.IsEndOfStream() {
+				mimeType, _ := result.chunk.MIMEType()
+				if label == "assistant" && relayOpusMIME(mimeType) && observeAudio != nil && assistantObservationOpen {
+					assistantObservationOpen = false
+					if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("finish assistant playback: %w", err)
+					}
+				}
 				if len(terminalErrors) != 0 {
 					evidence := baseEvidence()
 					evidence["terminal_errors"] = len(terminalErrors)
@@ -436,7 +567,6 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				}
 				nowMS := eventElapsed.Milliseconds()
 				if label == "assistant" {
-					mimeType, _ := result.chunk.MIMEType()
 					switch {
 					case mimeType == "text/plain":
 						textEOS = true

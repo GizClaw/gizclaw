@@ -58,3 +58,23 @@ func TestValidateRunOptionsEvidenceModes(t *testing.T) {
 		})
 	}
 }
+
+func TestPlayCommandRequiresOneFile(t *testing.T) {
+	for name, args := range map[string][]string{
+		"no file":        {"play", "-o", "record"},
+		"multiple files": {"play", "-o", "record", "a.giztest.yaml", "b.giztest.yaml"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cmd := NewCmd()
+			cmd.SetArgs(args)
+			err := cmd.Execute()
+			if err == nil {
+				t.Fatal("invalid play command accepted")
+			}
+			coded, ok := err.(interface{ ExitCode() int })
+			if !ok || coded.ExitCode() != exitValidation {
+				t.Fatalf("error = %#v", err)
+			}
+		})
+	}
+}

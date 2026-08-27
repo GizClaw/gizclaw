@@ -232,6 +232,118 @@ func TestWorkspaceRelayEvidenceExcludesContent(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(1)
+	op.TerminalMedia = "audio"
+	oggAudio, packets := testOggOpus(t)
+	type observation struct {
+		client string
+		role   string
+		packet []byte
+	}
+	var observations []observation
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client, role string, packet []byte, _ bool) error {
+			if len(packet) > 0 {
+				observations = append(observations, observation{client: client, role: role, packet: packet})
+			}
+			return nil
+		})
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}}
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", EndOfStream: true}}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if len(observations) != len(packets) || observations[0].client != "tester" || observations[0].role != "assistant" || !bytes.Equal(observations[0].packet, packets[0]) {
+		t.Fatalf("observations = %#v", observations)
+	}
+}
+
+func TestWorkspaceRelayPlayWaitsForAudioAfterTextTerminal(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	oggAudio, packets := testOggOpus(t)
+	var observedPackets [][]byte
+	var observedEnds int
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, packet []byte, end bool) error {
+			if len(packet) > 0 {
+				observedPackets = append(observedPackets, append([]byte(nil), packet...))
+			}
+			if end {
+				observedEnds++
+			}
+			return nil
+		})
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant"}}
+	tester.in <- assistantText("t-text", "question", true)
+	if chunk := nextPush(t, candidate); !chunk.Ctrl.BeginOfStream {
+		t.Fatalf("forwarded turn missing BOS: %#v", chunk)
+	}
+	expectUserText(t, candidate, "question", false)
+	select {
+	case chunk := <-candidate.pushes:
+		t.Fatalf("text turn completed before trailing audio: %#v", chunk)
+	default:
+	}
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant"}}
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant", EndOfStream: true}}
+	expectUserText(t, candidate, "", true)
+	candidate.in <- assistantText("c-text", "PASS", true)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if len(observedPackets) != len(packets)*2 {
+		t.Fatalf("observed packets = %d, want %d", len(observedPackets), len(packets)*2)
+	}
+	if observedEnds != 1 {
+		t.Fatalf("observed audio ends = %d, want 1", observedEnds)
+	}
+}
+
+func TestWorkspaceRelayPlayWaitsForTextTerminalAfterAudioTerminal(t *testing.T) {
+	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+	op := textRelayOperation(2)
+	oggAudio, _ := testOggOpus(t)
+	done := make(chan error, 1)
+	go func() {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, _ []byte, _ bool) error {
+			return nil
+		})
+		done <- err
+	}()
+	drainUserTurn(t, tester)
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant"}}
+	tester.in <- assistantText("t-text", "question ", false)
+	if chunk := nextPush(t, candidate); !chunk.Ctrl.BeginOfStream {
+		t.Fatalf("forwarded turn missing BOS: %#v", chunk)
+	}
+	expectUserText(t, candidate, "question ", false)
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "t-audio", Label: "assistant", EndOfStream: true}}
+	select {
+	case chunk := <-candidate.pushes:
+		t.Fatalf("text turn completed before text EOS: %#v", chunk)
+	default:
+	}
+	tester.in <- assistantText("t-text", "tail", false)
+	expectUserText(t, candidate, "tail", false)
+	tester.in <- assistantText("t-text", "", true)
+	expectUserText(t, candidate, "", true)
+	candidate.in <- assistantText("c-text", "PASS", true)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWorkspaceRelayFullEvidenceIncludesBoundedTexts(t *testing.T) {
 	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
 	op := textRelayOperation(2)

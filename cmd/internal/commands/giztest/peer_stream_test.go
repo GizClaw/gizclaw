@@ -1,15 +1,31 @@
 package giztest
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func testOggOpus(t *testing.T) ([]byte, [][]byte) {
+	t.Helper()
+	packets, err := appendRealtimeTailSilence(nil, 40*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var audio bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&audio, 16000, 1, packets); err != nil {
+		t.Fatal(err)
+	}
+	return audio.Bytes(), packets
+}
 
 func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	for _, tc := range []struct {
@@ -80,6 +96,156 @@ func TestDecodeOpusPacketsCopiesRawPacket(t *testing.T) {
 	input[0] = 9
 	if packets[0][0] != 1 {
 		t.Fatal("packet aliases caller input")
+	}
+}
+
+func TestPeerAudioPacingSummarizesPacketClockAndArrivalGaps(t *testing.T) {
+	var pacing peerAudioPacing
+	packet := []byte{0xf8}
+	started := time.Unix(1, 0)
+	for _, offset := range []time.Duration{0, 20 * time.Millisecond, 41 * time.Millisecond, 60 * time.Millisecond} {
+		pacing.observe(started.Add(offset), [][]byte{packet})
+	}
+	summary := pacing.summary()
+	if summary["packets"] != 4 || summary["audio_ms"] != int64(80) || summary["target_span_ms"] != int64(60) || summary["receive_span_ms"] != int64(60) {
+		t.Fatalf("pacing summary = %#v", summary)
+	}
+	if summary["mean_packet_ms"] != float64(20) || summary["mean_interval_ms"] != float64(20) || summary["p95_interval_ms"] != float64(21) || summary["max_interval_ms"] != float64(21) || summary["absolute_drift_ms"] != float64(0) {
+		t.Fatalf("pacing intervals = %#v", summary)
+	}
+}
+
+func TestPeerAudioPacingOmitsUnavailableIntervals(t *testing.T) {
+	var pacing peerAudioPacing
+	if summary := pacing.summary(); summary != nil {
+		t.Fatalf("empty pacing summary = %#v, want nil", summary)
+	}
+	pacing.observe(time.Unix(1, 0), [][]byte{{0xf8}})
+	summary := pacing.summary()
+	if len(summary) != 2 || summary["packets"] != 1 || summary["audio_ms"] != int64(20) {
+		t.Fatalf("single-packet pacing summary = %#v", summary)
+	}
+}
+
+func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
+	stream := newFakeRelayStream()
+	oggAudio, packets := testOggOpus(t)
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantText("s1", "done", false)
+		stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}}
+		stream.in <- assistantText("s1", "", true)
+		stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}}
+	}()
+	var client string
+	var role string
+	var observed [][]byte
+	open := func() (peerStream, error) { return stream, nil }
+	result, err := invokePeerStream(context.Background(), nil, open, Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
+	}, "hello", 0, func(gotClient, gotRole string, gotPacket []byte, _ bool) error {
+		client = gotClient
+		role = gotRole
+		if len(gotPacket) > 0 {
+			observed = append(observed, gotPacket)
+			gotPacket[0] = 9
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client != "peer" || role != "assistant" || len(observed) != len(packets) || observed[0][0] != 9 || packets[0][0] == 9 {
+		t.Fatalf("observer client=%q role=%q packet_count=%d source_count=%d", client, role, len(observed), len(packets))
+	}
+	pacing := result.assertion.(map[string]any)["audio_pacing"].(map[string]any)
+	if pacing["packets"] != len(packets) || pacing["audio_ms"] != int64(40) {
+		t.Fatalf("audio pacing = %#v", pacing)
+	}
+}
+
+func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantText("s1", "done", false)
+		stream.in <- assistantBlob("s1", []byte{2}, false)
+		stream.in <- assistantText("s1", "", true)
+		stream.in <- assistantBlob("s1", nil, true)
+	}()
+	var roles []string
+	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
+	}, []byte{1}, 0, func(_ string, role string, _ []byte, end bool) error {
+		if end {
+			roles = append(roles, role)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(roles, []string{"user", "assistant"}) {
+		t.Fatalf("observed roles = %v", roles)
+	}
+}
+
+func TestInvokePeerStreamDoesNotWaitForUserPlaybackBeforePush(t *testing.T) {
+	packets, err := appendRealtimeTailSilence(nil, playStartBuffer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var audio bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&audio, 16000, 1, packets); err != nil {
+		t.Fatal(err)
+	}
+	output := &closeUnblocksPlayOutput{started: make(chan struct{}), closed: make(chan struct{})}
+	session := &playSession{decoder: &fakePlayDecoder{samples: []int16{1}}, output: output}
+	t.Cleanup(func() { _ = session.close() })
+	stream := newFakeRelayStream()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, invokeErr := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, Step{
+			ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
+		}, audio.Bytes(), 0, session.observe)
+		result <- invokeErr
+	}()
+	select {
+	case <-output.started:
+	case <-time.After(time.Second):
+		t.Fatal("user playback did not start")
+	}
+	select {
+	case <-stream.pushes:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("outbound turn waited for blocked local user playback")
+	}
+	cancel()
+	_ = output.Close()
+	select {
+	case <-result:
+	case <-time.After(time.Second):
+		t.Fatal("peer stream did not stop after cancellation")
+	}
+}
+
+func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantBlob("s1", []byte{1}, false)
+		stream.in <- assistantText("s1", "done", false)
+		stream.in <- assistantText("s1", "", true)
+		stream.in <- assistantBlob("s1", nil, true)
+	}()
+	open := func() (peerStream, error) { return stream, nil }
+	_, err := invokePeerStream(context.Background(), nil, open, Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
+	}, "hello", 0, func(string, string, []byte, bool) error { return errors.New("speaker failed") })
+	if err == nil || !strings.Contains(err.Error(), "speaker failed") {
+		t.Fatalf("observer error = %v", err)
 	}
 }
 

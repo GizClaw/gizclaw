@@ -1045,7 +1045,7 @@ func (s *peerConnOpenAITextStream) Close() error {
 
 func (s *peerConnOpenAITextStream) CloseWithError(error) error { return s.Close() }
 
-func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
+func TestPeerConnPacesMixedAudioAtEgressWithInjectedTicks(t *testing.T) {
 	mx := pcm.NewMixer(peerConnMixerFormat)
 	track, ctrl, err := mx.CreateTrack()
 	if err != nil {
@@ -1095,12 +1095,6 @@ func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
 			t.Fatalf("packet %d RTP ticks = %d, want 960", index, ticks)
 		}
 	}
-	select {
-	case <-ctrl.Done():
-		t.Fatal("track was marked drained before the next pacing tick")
-	default:
-	}
-
 	peer.closed.Store(true)
 	close(ticks)
 	if err := mx.Close(); err != nil {
@@ -1116,12 +1110,145 @@ func TestPeerConnPacesMixedAudioAtEgress(t *testing.T) {
 	}
 }
 
+func TestPeerConnAudioPacerBuildsAndRecoversTargetSurplus(t *testing.T) {
+	var pacer peerConnAudioPacer
+	now := time.Unix(1, 0)
+	started := now
+	if delay := pacer.waitDuration(now); delay != 0 {
+		t.Fatalf("first packet delay = %s, want immediate", delay)
+	}
+	recoveryIntervals := int(peerConnPacingBufferTarget / peerConnPacingMaxRecoveryPerPkt)
+	for packet := 2; packet <= recoveryIntervals+1; packet++ {
+		delay := pacer.waitDuration(now)
+		if delay != peerConnPacingMinimumPeriod {
+			t.Fatalf("packet %d delay = %s, want %s", packet, delay, peerConnPacingMinimumPeriod)
+		}
+		now = now.Add(delay)
+	}
+	if surplus := time.Duration(recoveryIntervals)*peerConnOpusFrameDuration - now.Sub(started); surplus != peerConnPacingBufferTarget {
+		t.Fatalf("initial surplus = %s, want %s", surplus, peerConnPacingBufferTarget)
+	}
+	if delay := pacer.waitDuration(now); delay != peerConnPacingSteadyPeriod {
+		t.Fatalf("steady delay = %s, want %s", delay, peerConnPacingSteadyPeriod)
+	} else {
+		now = now.Add(delay)
+	}
+
+	stallInterval := 5*peerConnOpusFrameDuration + 5*time.Millisecond
+	now = now.Add(stallInterval)
+	if delay := pacer.waitDuration(now); delay != 0 {
+		t.Fatalf("late packet delay = %s, want immediate rebase", delay)
+	}
+	recoveryAfterStall := int((stallInterval - peerConnOpusFrameDuration) / peerConnPacingMaxRecoveryPerPkt)
+	for packet := range recoveryAfterStall {
+		delay := pacer.waitDuration(now)
+		if delay != peerConnPacingMinimumPeriod {
+			t.Fatalf("recovery packet %d delay = %s, want %s", packet+1, delay, peerConnPacingMinimumPeriod)
+		}
+		now = now.Add(delay)
+	}
+	if delay := pacer.waitDuration(now); delay != peerConnPacingSteadyPeriod {
+		t.Fatalf("recovered delay = %s, want steady %s", delay, peerConnPacingSteadyPeriod)
+	} else {
+		now = now.Add(delay)
+	}
+
+	now = now.Add(peerConnOpusFrameDuration + time.Millisecond)
+	if delay := pacer.waitDuration(now); delay != 0 {
+		t.Fatalf("small late packet delay = %s, want immediate rebase", delay)
+	}
+	wantPartialRecovery := peerConnPacingSteadyPeriod - time.Millisecond
+	if delay := pacer.waitDuration(now); delay != wantPartialRecovery {
+		t.Fatalf("partial recovery delay = %s, want %s", delay, wantPartialRecovery)
+	}
+}
+
+func TestPeerConnAudioPacerMaintainsTargetAcrossRepeatedStalls(t *testing.T) {
+	const packetCount = 200
+	var pacer peerConnAudioPacer
+	now := time.Unix(1, 0)
+	started := now
+	for packet := range packetCount {
+		if packet > 0 && packet%25 == 0 {
+			now = now.Add(peerConnPacingSteadyPeriod + time.Millisecond)
+		}
+		now = now.Add(pacer.waitDuration(now))
+		targetSpan := time.Duration(packet) * peerConnOpusFrameDuration
+		surplus := targetSpan - now.Sub(started)
+		if surplus > peerConnPacingBufferTarget {
+			t.Fatalf("packet %d surplus = %s, want at most %s", packet+1, surplus, peerConnPacingBufferTarget)
+		}
+	}
+	targetSpan := time.Duration(packetCount-1) * peerConnOpusFrameDuration
+	if surplus := targetSpan - now.Sub(started); surplus != peerConnPacingBufferTarget {
+		t.Fatalf("final surplus = %s, want recovered %s", surplus, peerConnPacingBufferTarget)
+	}
+}
+
+func TestPeerConnRealPacingDoesNotAccumulateWriteLatency(t *testing.T) {
+	const packetCount = 40
+	mx := pcm.NewMixer(peerConnMixerFormat)
+	track, ctrl, err := mx.CreateTrack()
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := make([]byte, peerConnMixerFormat.BytesInDuration(peerConnOpusFrameDuration))
+	if err := track.Write(peerConnMixerFormat.DataChunk(bytes.Repeat(frame, packetCount))); err != nil {
+		t.Fatal(err)
+	}
+	if err := ctrl.CloseWrite(); err != nil {
+		t.Fatal(err)
+	}
+
+	conn := &recordingGiznetConn{
+		written:    make(chan struct{}, packetCount),
+		writeDelay: 8 * time.Millisecond,
+	}
+	peer := &PeerConn{Conn: conn, mixer: mx}
+	result := make(chan error, 1)
+	go func() {
+		_, streamErr := peer.streamMixedAudio(false)
+		result <- streamErr
+	}()
+	for range packetCount {
+		select {
+		case <-conn.written:
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for paced packet")
+		}
+	}
+
+	writes := conn.recordedWriteTimes()
+	if len(writes) != packetCount {
+		t.Fatalf("write timestamps = %d, want %d", len(writes), packetCount)
+	}
+	meanInterval := writes[len(writes)-1].Sub(writes[0]) / time.Duration(len(writes)-1)
+	if meanInterval < 13*time.Millisecond || meanInterval > 18*time.Millisecond {
+		t.Fatalf("mean egress interval = %s, want bounded recovery independent of 8ms Write latency", meanInterval)
+	}
+
+	peer.closed.Store(true)
+	if err := mx.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("streamMixedAudio() did not stop")
+	}
+}
+
 type recordingGiznetConn struct {
 	testGiznetConn
 
-	mu      sync.Mutex
-	packets [][]byte
-	written chan struct{}
+	mu         sync.Mutex
+	packets    [][]byte
+	writtenAt  []time.Time
+	written    chan struct{}
+	writeDelay time.Duration
 }
 
 func (c *recordingGiznetConn) Write(protocol byte, packet []byte) (int, error) {
@@ -1130,9 +1257,19 @@ func (c *recordingGiznetConn) Write(protocol byte, packet []byte) (int, error) {
 	}
 	c.mu.Lock()
 	c.packets = append(c.packets, append([]byte(nil), packet...))
+	c.writtenAt = append(c.writtenAt, time.Now())
 	c.mu.Unlock()
+	if c.writeDelay > 0 {
+		time.Sleep(c.writeDelay)
+	}
 	c.written <- struct{}{}
 	return len(packet), nil
+}
+
+func (c *recordingGiznetConn) recordedWriteTimes() []time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]time.Time(nil), c.writtenAt...)
 }
 
 func (c *recordingGiznetConn) packetCount() int {

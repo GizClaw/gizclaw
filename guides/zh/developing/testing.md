@@ -227,6 +227,23 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 操作返回的证据，报告因此能区分停滞与过长回复。`gizclaw test validate` 拒绝无法解析或非正的
 `idle_timeout`。人工 `review` 文件必须单独用 `--parallel 1` 在终端运行。
 
+当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
+`audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
+`target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
+`p95_interval_ms`、`max_interval_ms`、`drift_ms`、`absolute_drift_ms` 和
+`buffer_surplus_ms`。间隔来自 stream reader 收到每包的 monotonic 时间，不包含后续断言、
+保存或 PortAudio 播放耗时；`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
+所有 `*_ms` 字段的单位都是毫秒。`target_span_ms` 是除最后一包外各包时长之和，
+`drift_ms = receive_span_ms - target_span_ms`，`buffer_surplus_ms = -drift_ms`；P95 对到包
+间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
+不提供 `audio_pacing`。
+Giztest 文件使用普通 `expect` 数值约束断言这些路径，不增加另一套 pacing schema。
+`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 与
+`doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` 都要求至少 101 包、20 ms Opus
+frame、平均间隔 12 到 21 ms、P95 不超过 30 ms、最大间隔不超过 100 ms，并要求最终缓冲
+盈余在 450 到 550 ms 之间，分别覆盖 push-to-talk 与 realtime 下发。这些区间允许 pacer
+围绕 500 ms 目标有界恢复，但不要求网络上每包严格等于 20 ms。
+
 `workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
 tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、
 封帧、`max_turns` 与固定字节/事件上限、归因、失败阶段和清理。转发是流式的——源端

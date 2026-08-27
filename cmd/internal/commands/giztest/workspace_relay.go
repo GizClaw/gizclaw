@@ -85,6 +85,7 @@ type relaySide struct {
 	turnTexts       []string
 	turnSawText     bool
 	turnSawAudio    bool
+	turnTextEnded   bool
 	forwardID       string
 	forwardBegan    bool
 	forwardMIME     string
@@ -154,12 +155,13 @@ func (s *relaySide) resetTurn() {
 	s.turnTexts = nil
 	s.turnSawText = false
 	s.turnSawAudio = false
+	s.turnTextEnded = false
 	s.forwardID = ""
 	s.forwardBegan = false
 	s.forwardMIME = ""
 }
 
-func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, input any, audioCaptureMaxBytes int, fullEvidence bool) (operationResult, error) {
+func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
 	op := step.WorkspaceRelay
 	if op == nil {
 		return operationResult{}, fmt.Errorf("workspace_relay operation required")
@@ -181,7 +183,7 @@ func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, in
 		_ = firstStream.Close()
 		return operationResult{}, fmt.Errorf("open %s PeerStream: %w", op.SecondClient, err)
 	}
-	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, fullEvidence)
+	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, fullEvidence, observers...)
 }
 
 // runWorkspaceRelay owns the paired streams for one bounded relay: it pushes
@@ -192,7 +194,11 @@ func runWorkspaceRelay(ctx context.Context, op *WorkspaceRelayOperation, firstSt
 	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, false)
 }
 
-func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int, fullEvidence bool) (operationResult, error) {
+func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
+	var observeAudio audioObserver
+	if len(observers) > 0 {
+		observeAudio = observers[0]
+	}
 	readerCtx, cancelReaders := context.WithCancel(ctx)
 	sides := [2]*relaySide{
 		{name: op.FirstClient, stream: firstStream},
@@ -213,6 +219,19 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 			<-side.readerDone
 		}
 	}()
+	if observeAudio != nil && op.Media == "audio" {
+		audio, ok := input.([]byte)
+		if !ok {
+			return operationResult{}, fmt.Errorf("audio workspace_relay input must be in-memory Opus bytes")
+		}
+		packets, err := decodeOpusPackets(audio)
+		if err != nil {
+			return operationResult{}, err
+		}
+		if err := observeAudioPackets(observeAudio, op.FirstClient, "user", packets); err != nil {
+			return operationResult{}, fmt.Errorf("play relay user audio: %w", err)
+		}
+	}
 	if err := pushRelayInput(ctx, op, sides[0].stream, input); err != nil {
 		return operationResult{}, fmt.Errorf("push relay input to %s: %w", op.FirstClient, err)
 	}
@@ -269,6 +288,12 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		}
 		return operationResult{evidence: failureEvidence(deadline)}, errors.New(message)
 	}
+	observationOpen := false
+	defer func() {
+		if observeAudio != nil && observationOpen {
+			_ = observeAudio(sides[active].name, "assistant", nil, true)
+		}
+	}()
 	for {
 		var result nextPeerStreamResult
 		var from int
@@ -392,6 +417,18 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 			if len(part.Data) == 0 {
 				break
 			}
+			if isActive && observeAudio != nil && relayOpusMIME(part.MIMEType) {
+				packets, err := decodeOpusPackets(part.Data)
+				if err != nil {
+					return fail(side, "", "decode assistant audio failed: %v", err)
+				}
+				for _, packet := range packets {
+					if err := observeAudio(side.name, "assistant", packet, false); err != nil {
+						return fail(side, "", "play assistant audio failed: %v", err)
+					}
+					observationOpen = true
+				}
+			}
 			totalAudioBytes += len(part.Data)
 			if totalAudioBytes > relayMaxAudioBytes {
 				return fail(side, "", "exceeded the fixed %d-byte relay audio limit", relayMaxAudioBytes)
@@ -420,15 +457,40 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 				return fail(receiver, "", "forward audio failed: %v", err)
 			}
 		}
+		if chunk.IsEndOfStream() && label == "assistant" {
+			mimeType, _ := chunk.MIMEType()
+			if relayOpusMIME(mimeType) && observeAudio != nil && observationOpen {
+				observationOpen = false
+				if err := observeAudio(side.name, "assistant", nil, true); err != nil {
+					return fail(side, "", "finish assistant playback failed: %v", err)
+				}
+			}
+		}
 		if !chunk.IsEndOfStream() || label != "assistant" {
 			continue
 		}
 		mimeType, _ := chunk.MIMEType()
-		if !relayTerminalMedia(relayTerminalMediaName(op), mimeType) {
+		terminal := relayTerminalMedia(relayTerminalMediaName(op), mimeType)
+		if observeAudio != nil && op.Media == "text" {
+			switch {
+			case chunk.IsEndOfStream() && mimeType == "text/plain" && side.turnSawAudio && observationOpen:
+				side.turnTextEnded = true
+				continue
+			case relayOpusMIME(mimeType) && side.turnTextEnded:
+				terminal = true
+			}
+		}
+		if !terminal {
 			continue
 		}
 		if !isActive {
 			return fail(side, "", "unexpected terminal output from the inactive side")
+		}
+		if observeAudio != nil && observationOpen {
+			observationOpen = false
+			if err := observeAudio(side.name, "assistant", nil, true); err != nil {
+				return fail(side, "", "play assistant audio failed: %v", err)
+			}
 		}
 		side.texts = append(side.texts, strings.Join(side.turnTexts, ""))
 		completed++
