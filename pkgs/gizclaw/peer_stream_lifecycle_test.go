@@ -28,11 +28,14 @@ func TestPeerStreamLifecycleCorrelatesSequentialTurns(t *testing.T) {
 		text := &genx.MessageChunk{
 			Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: outputID, BeginOfStream: true},
 		}
+		epoch := genx.NewResponseEpoch(inputID)
+		attachTestResponseEpochWith(epoch, text)
 		lifecycle.observeOutputProduced(text)
 		lifecycle.observeOutput(context.Background(), text, func(context.Context) string { return "workspace-1" })
 		eos := &genx.MessageChunk{
 			Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: outputID, EndOfStream: true},
 		}
+		attachTestResponseEpochEnd(epoch, eos)
 		lifecycle.observeOutputProduced(eos)
 		lifecycle.observeOutput(context.Background(), eos, nil)
 	}
@@ -81,22 +84,32 @@ func TestPeerStreamLifecycleKeepsLateOutputTerminalOnReplacedTurn(t *testing.T) 
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-replace", "peer-replace")
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-old"}})
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	oldEpoch := genx.NewResponseEpoch("input-old")
+	newEpoch := genx.NewResponseEpoch("input-new")
+	oldBOS := attachTestResponseEpochWith(oldEpoch, &genx.MessageChunk{
 		Part: genx.Text("old"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
-	}, nil)
+	})
+	lifecycle.observeOutputProduced(oldBOS)
+	lifecycle.observeOutput(t.Context(), oldBOS, nil)
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	newBOS := attachTestResponseEpochWith(newEpoch, &genx.MessageChunk{
 		Part: genx.Text("new"), Ctrl: &genx.StreamCtrl{StreamID: "output-new", BeginOfStream: true},
-	}, nil)
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	})
+	lifecycle.observeOutputProduced(newBOS)
+	lifecycle.observeOutput(t.Context(), newBOS, nil)
+	oldEOS := attachTestResponseEpochEnd(oldEpoch, &genx.MessageChunk{
 		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{
 			StreamID: "output-old", EndOfStream: true, Error: "interrupted", ErrorCode: "STREAM_INTERRUPTED",
 		},
-	}, nil)
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	})
+	lifecycle.observeOutputProduced(oldEOS)
+	lifecycle.observeOutput(t.Context(), oldEOS, nil)
+	newEOS := attachTestResponseEpochEnd(newEpoch, &genx.MessageChunk{
 		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "output-new", EndOfStream: true},
-	}, nil)
+	})
+	lifecycle.observeOutputProduced(newEOS)
+	lifecycle.observeOutput(t.Context(), newEOS, nil)
 
 	var oldOutputTerminal, oldTurnTerminal, newOutputTerminal map[string]any
 	for _, record := range capturedTurnLifecycleRecords(t, capture) {
@@ -130,16 +143,18 @@ func TestPeerStreamLifecycleKeepsDelayedFirstOutputOnReplacedTurn(t *testing.T) 
 	oldOutputBOS := &genx.MessageChunk{
 		Part: genx.Text("late old output"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
 	}
+	oldEpoch := genx.NewResponseEpoch("input-old")
+	attachTestResponseEpochWith(oldEpoch, oldOutputBOS)
 	lifecycle.observeOutputProduced(oldOutputBOS)
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
 	lifecycle.observeOutput(t.Context(), oldOutputBOS, nil)
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	lifecycle.observeOutput(t.Context(), attachTestResponseEpochEnd(oldEpoch, &genx.MessageChunk{
 		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "output-old", EndOfStream: true},
-	}, nil)
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	}), nil)
+	lifecycle.observeOutput(t.Context(), attachTestResponseEpoch("input-new", &genx.MessageChunk{
 		Part: genx.Text("new output"), Ctrl: &genx.StreamCtrl{StreamID: "output-new", BeginOfStream: true},
-	}, nil)
+	}), nil)
 
 	var oldOutput, newOutput map[string]any
 	for _, record := range capturedTurnLifecycleRecords(t, capture) {
@@ -159,6 +174,47 @@ func TestPeerStreamLifecycleKeepsDelayedFirstOutputOnReplacedTurn(t *testing.T) 
 	}
 }
 
+func TestPeerStreamLifecycleBindsFirstLateObservationByEpochOwner(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-late-epoch", "peer-late-epoch")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-old", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-old"}})
+	oldEpoch := genx.NewResponseEpoch("input-old")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-new"}})
+	late := attachTestResponseEpochWith(oldEpoch, &genx.MessageChunk{
+		Role: genx.RoleModel, Part: genx.Text("late"), Ctrl: &genx.StreamCtrl{StreamID: "output-old", BeginOfStream: true},
+	})
+	lifecycle.observeOutputProduced(late)
+	lifecycle.observeOutput(t.Context(), late, nil)
+
+	var output map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "output_first_event" {
+			output = attrs
+		}
+	}
+	if output["turn_index"] != uint64(1) || output["output_stream_id_hash"] != safeStreamIDHash("output-old") {
+		t.Fatalf("late epoch output = %#v", output)
+	}
+}
+
+func TestPeerStreamLifecycleLeavesOutputWithoutProvenanceUnowned(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-unowned", "peer-unowned")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
+	chunk := &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("unowned"), Ctrl: &genx.StreamCtrl{StreamID: "output"}}
+	lifecycle.observeOutputProduced(chunk)
+	lifecycle.observeOutput(t.Context(), chunk, nil)
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		stage := lifecycleRecordAttrs(record)["stage"]
+		if stage == "agent_output_produced" || stage == "output_first_event" || stage == "agent_output_delivered" {
+			t.Fatalf("unowned output produced per-turn record: %#v", lifecycleRecordAttrs(record))
+		}
+	}
+}
+
 func TestPeerStreamLifecycleAssignsReplacementOnlyOutputToReplacement(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-replacement-only", "peer-replacement-only")
@@ -169,6 +225,7 @@ func TestPeerStreamLifecycleAssignsReplacementOnlyOutputToReplacement(t *testing
 	newOutput := &genx.MessageChunk{
 		Part: genx.Text("replacement output"), Ctrl: &genx.StreamCtrl{StreamID: "output-new", BeginOfStream: true},
 	}
+	attachTestResponseEpoch("input-new", newOutput)
 	lifecycle.observeOutputProduced(newOutput)
 	lifecycle.observeOutput(t.Context(), newOutput, nil)
 
@@ -189,9 +246,9 @@ func TestPeerStreamLifecycleAgentOutputFailureTerminatesOpenTurns(t *testing.T) 
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-failure", "peer-failure")
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-failure", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-failure"}})
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+	lifecycle.observeOutput(t.Context(), attachTestResponseEpoch("input-failure", &genx.MessageChunk{
 		Part: genx.Text("partial"), Ctrl: &genx.StreamCtrl{StreamID: "output-failure", BeginOfStream: true},
-	}, nil)
+	}), nil)
 	lifecycle.finish("agent_output", errors.New("credential-bearing provider failure"))
 
 	var outputTerminal, turnTerminal map[string]any
@@ -230,6 +287,15 @@ func TestPeerStreamLifecycleCorrelatesMultimodalAgentBoundaries(t *testing.T) {
 		{Role: genx.RoleModel, Name: "answer", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "output-modalities", Label: "assistant", EndOfStream: true}},
 		{Role: genx.RoleModel, Name: "answer", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "output-modalities", Label: "assistant", EndOfStream: true}},
 	}
+	transcriptEpoch := genx.NewResponseEpoch("input-modalities")
+	for _, chunk := range chunks[:2] {
+		attachTestResponseEpochWith(transcriptEpoch, chunk)
+	}
+	assistantEpoch := genx.NewResponseEpoch("input-modalities")
+	for _, chunk := range chunks[2:] {
+		attachTestResponseEpochWith(assistantEpoch, chunk)
+	}
+	chunks[len(chunks)-1].Ctrl.ResponseEpochEnd = true
 	for index, chunk := range chunks {
 		lifecycle.observeOutputProduced(chunk)
 		lifecycle.observeOutput(t.Context(), chunk, nil)
@@ -262,10 +328,95 @@ func TestPeerStreamLifecycleCorrelatesMultimodalAgentBoundaries(t *testing.T) {
 		turnTerminal["delivered_modalities"] != "transcript_text,assistant_text,assistant_audio,assistant_eos" {
 		t.Fatalf("turn terminal modalities = %#v", turnTerminal)
 	}
+	for key, want := range map[string]string{
+		"source_part_classes":      "audio,text",
+		"source_label_classes":     "assistant,transcript",
+		"peer_event_types":         "bos,eos,text_delta,text_done",
+		"peer_event_kinds":         "audio,text,unspecified",
+		"peer_event_label_classes": "assistant,transcript",
+	} {
+		if got := turnTerminal[key]; got != want {
+			t.Errorf("turn terminal %s = %#v, want %q", key, got, want)
+		}
+	}
 	for _, record := range capturedTurnLifecycleRecords(t, capture) {
 		if rendered := fmt.Sprint(lifecycleRecordAttrs(record)); strings.Contains(rendered, "private") {
 			t.Fatalf("lifecycle record exposed payload: %s", rendered)
 		}
+	}
+}
+
+func TestPeerStreamLifecycleEmptyControlEOSRemainsOtherAtPeerBoundary(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-control", "peer-control")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input", nil))
+	chunk := attachTestResponseEpochEnd(genx.NewResponseEpoch("input"), &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Ctrl: &genx.StreamCtrl{StreamID: "output", EndOfStream: true},
+	})
+	lifecycle.observeOutputProduced(chunk)
+	lifecycle.observeOutput(t.Context(), chunk, nil)
+	var terminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "turn_terminal" {
+			terminal = attrs
+		}
+	}
+	if terminal["produced_modalities"] != "assistant_eos" || terminal["delivered_modalities"] != "other" ||
+		terminal["source_part_classes"] != "control" || terminal["source_label_classes"] != "empty" ||
+		terminal["peer_event_types"] != "eos" || terminal["peer_event_kinds"] != "unspecified" ||
+		terminal["peer_event_label_classes"] != "empty" {
+		t.Fatalf("empty control terminal = %#v", terminal)
+	}
+}
+
+func TestPeerEventOutputModalityUsesEmptyBlobAssistantFallback(t *testing.T) {
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "video/mp4"},
+		Ctrl: &genx.StreamCtrl{StreamID: "output", EndOfStream: true},
+	}
+	events := peerStreamEventsFromChunk(chunk)
+	if len(events) != 1 || peerEventOutputModality(chunk, events[0]) != "assistant_eos" {
+		t.Fatalf("empty-label blob events = %#v", events)
+	}
+}
+
+func TestPeerStreamLifecycleSuppressedAudioEOSCompletesWithoutDeliveredEOS(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-audio", "peer-audio")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input", nil))
+	epoch := genx.NewResponseEpoch("input")
+	bos := attachTestResponseEpochWith(epoch, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("private")},
+		Ctrl: &genx.StreamCtrl{StreamID: "output", Label: "assistant", BeginOfStream: true},
+	})
+	lifecycle.observeOutputProduced(bos)
+	for _, event := range peerStreamEventsFromChunk(bos) {
+		lifecycle.observePeerEventDelivered(t.Context(), bos, event, nil)
+	}
+	eos := attachTestResponseEpochEnd(epoch, &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "output", Label: "assistant", EndOfStream: true},
+	})
+	lifecycle.observeOutputProduced(eos)
+	// The aggregate audio route suppressed this source EOS, but MixerOutput has
+	// drained its track and successfully completed the source observation.
+	lifecycle.observeOutputDrained(eos)
+
+	var terminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["stage"] == "turn_terminal" {
+			terminal = attrs
+		}
+	}
+	if terminal["produced_modalities"] != "assistant_audio,assistant_eos" ||
+		terminal["delivered_modalities"] != "assistant_audio" || terminal["output_terminal_observed"] != true {
+		t.Fatalf("suppressed audio EOS terminal = %#v", terminal)
 	}
 }
 
@@ -282,6 +433,8 @@ func TestPeerStreamLifecycleIgnoresHistorySidebandForFirstAgentModality(t *testi
 		Role: genx.RoleUser, Name: "transcript", Part: genx.Text("private transcript"),
 		Ctrl: &genx.StreamCtrl{StreamID: "input-sideband", Label: "transcript"},
 	}
+	attachTestResponseEpoch("input-sideband", sideband)
+	attachTestResponseEpoch("input-sideband", transcript)
 	for _, chunk := range []*genx.MessageChunk{sideband, transcript} {
 		lifecycle.observeOutputProduced(chunk)
 		lifecycle.observeOutput(t.Context(), chunk, nil)
@@ -341,6 +494,11 @@ func TestPeerStreamLifecycleClassifiesFirstAssistantModalities(t *testing.T) {
 			capture := &slogCapture{}
 			lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-"+test.name, "peer")
 			lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input", nil))
+			epoch := genx.NewResponseEpoch("input")
+			for _, chunk := range test.chunks {
+				attachTestResponseEpochWith(epoch, chunk)
+			}
+			test.chunks[len(test.chunks)-1].Ctrl.ResponseEpochEnd = true
 			for _, chunk := range test.chunks {
 				lifecycle.observeOutputProduced(chunk)
 				lifecycle.observeOutput(t.Context(), chunk, nil)
@@ -375,6 +533,7 @@ func TestPeerStreamLifecycleReplacementTerminatesTranscriptOnlyTurn(t *testing.T
 		Role: genx.RoleUser, Name: "transcript", Part: genx.Text("private transcript"),
 		Ctrl: &genx.StreamCtrl{StreamID: "input-old", Label: "transcript"},
 	}
+	attachTestResponseEpoch("input-old", transcript)
 	lifecycle.observeOutputProduced(transcript)
 	lifecycle.observeOutput(t.Context(), transcript, nil)
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-new", nil))
@@ -439,6 +598,7 @@ func TestPeerStreamLifecyclePreservesProviderTerminalAcrossCancellation(t *testi
 			Error: "private provider detail", FailureClass: genx.FailureClassProvider,
 		},
 	}
+	attachTestResponseEpochEnd(genx.NewResponseEpoch("input-provider"), providerEOS)
 	lifecycle.observeOutputProduced(providerEOS)
 	lifecycle.finish("agent_output", context.Canceled)
 
@@ -478,6 +638,7 @@ func TestPeerStreamLifecycleConcurrentPeersDoNotExchangeTurnState(t *testing.T) 
 			lifecycle.observeAgentInputPush(input)
 			lifecycle.observeAgentTransformStarted(input)
 			text := &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("private"), Ctrl: &genx.StreamCtrl{StreamID: fixture.output, Label: "assistant"}}
+			attachTestResponseEpoch(fixture.input, text)
 			lifecycle.observeOutputProduced(text)
 			lifecycle.observeOutput(t.Context(), text, func(context.Context) string { return "shared-workspace" })
 			lifecycle.finish("agent_output", context.Canceled)
@@ -510,7 +671,7 @@ func TestPeerStreamLifecycleSecondTurnStallHasIndependentTerminal(t *testing.T) 
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-stall", "peer-stall")
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "first", nil))
-	lifecycle.observeOutput(t.Context(), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "first-output", EndOfStream: true}}, nil)
+	lifecycle.observeOutput(t.Context(), attachTestResponseEpochEnd(genx.NewResponseEpoch("first"), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "first-output", EndOfStream: true}}), nil)
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "second", nil))
 	lifecycle.observeAgentInputPush(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "second"}})
 	lifecycle.finish("peer_input", io.EOF)
@@ -536,10 +697,12 @@ func TestPeerStreamLifecycleStateAndRecordVolumeAreBounded(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-bounded", "peer-bounded")
 	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-0", nil))
+	epoch := genx.NewResponseEpoch("input-0")
 	for range 100 {
 		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA, "input-0", nil))
 		input := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "input-0"}}
 		output := &genx.MessageChunk{Part: genx.Text("delta"), Ctrl: &genx.StreamCtrl{StreamID: "output-0"}}
+		attachTestResponseEpochWith(epoch, output)
 		lifecycle.observeAgentInputPush(input)
 		lifecycle.observeAgentTransformStarted(input)
 		lifecycle.observeOutputProduced(output)
@@ -552,17 +715,19 @@ func TestPeerStreamLifecycleStateAndRecordVolumeAreBounded(t *testing.T) {
 		inputID := fmt.Sprintf("input-%d", index)
 		outputID := fmt.Sprintf("output-%d", index)
 		lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, inputID, nil))
-		lifecycle.observeOutput(t.Context(), &genx.MessageChunk{
+		lifecycle.observeOutput(t.Context(), attachTestResponseEpoch(inputID, &genx.MessageChunk{
 			Part: genx.Text("open"), Ctrl: &genx.StreamCtrl{StreamID: outputID, BeginOfStream: true},
-		}, nil)
+		}), nil)
 	}
 	lifecycle.mu.Lock()
 	defer lifecycle.mu.Unlock()
 	if len(lifecycle.turns) > peerStreamLifecycleMaxRetainedTurns ||
 		len(lifecycle.turnOrder) > peerStreamLifecycleMaxRetainedTurns ||
 		len(lifecycle.outputTurns) > peerStreamLifecycleMaxOutputRoutes ||
-		len(lifecycle.outputOrder) > peerStreamLifecycleMaxOutputRoutes {
-		t.Fatalf("retained state turns=%d order=%d routes=%d route_order=%d", len(lifecycle.turns), len(lifecycle.turnOrder), len(lifecycle.outputTurns), len(lifecycle.outputOrder))
+		len(lifecycle.outputOrder) > peerStreamLifecycleMaxOutputRoutes ||
+		len(lifecycle.epochTurns) > peerStreamLifecycleMaxOutputRoutes ||
+		len(lifecycle.epochOrder) > peerStreamLifecycleMaxOutputRoutes {
+		t.Fatalf("retained state turns=%d order=%d routes=%d route_order=%d epochs=%d epoch_order=%d", len(lifecycle.turns), len(lifecycle.turnOrder), len(lifecycle.outputTurns), len(lifecycle.outputOrder), len(lifecycle.epochTurns), len(lifecycle.epochOrder))
 	}
 }
 
@@ -756,6 +921,29 @@ func TestPeerStreamLifecycleUsesAnyInfoEnabledHandler(t *testing.T) {
 	if lifecycle := newPeerStreamLifecycle(mixed, "session-mixed", "peer-mixed"); lifecycle == nil {
 		t.Fatal("mixed fanout did not construct a lifecycle observer")
 	}
+}
+
+func attachTestResponseEpoch(inputStreamID string, chunk *genx.MessageChunk) *genx.MessageChunk {
+	return attachTestResponseEpochWith(genx.NewResponseEpoch(inputStreamID), chunk)
+}
+
+func attachTestResponseEpochWith(epoch *genx.ResponseEpoch, chunk *genx.MessageChunk) *genx.MessageChunk {
+	if chunk == nil {
+		return nil
+	}
+	if chunk.Ctrl == nil {
+		chunk.Ctrl = &genx.StreamCtrl{}
+	}
+	chunk.Ctrl.ResponseEpoch = epoch
+	return chunk
+}
+
+func attachTestResponseEpochEnd(epoch *genx.ResponseEpoch, chunk *genx.MessageChunk) *genx.MessageChunk {
+	attachTestResponseEpochWith(epoch, chunk)
+	if chunk != nil && chunk.Ctrl != nil {
+		chunk.Ctrl.ResponseEpochEnd = true
+	}
+	return chunk
 }
 
 func peerInputEvent(eventType eventpb.PeerEventType, streamID string, eventErr *eventpb.EventError) *eventpb.PeerEvent {

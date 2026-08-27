@@ -96,3 +96,40 @@ func TestResponseWithoutRoutesEndsWithControlEOS(t *testing.T) {
 		t.Fatalf("End() ctrl = %#v", chunks[0].Ctrl)
 	}
 }
+
+func TestResponseEpochEndsOnlyAfterEveryDeclaredRoute(t *testing.T) {
+	epoch := genx.NewResponseEpoch("input-owner")
+	response := NewResponse(ResponseConfig{StreamID: "response", ResponseEpoch: epoch})
+	response.Declare("text/plain")
+	response.Declare("audio/opus")
+	textEOS := response.applyMetadata(&genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{EndOfStream: true}})
+	if !response.Accept(textEOS) {
+		t.Fatal("Accept(text EOS) = false")
+	}
+	response.markEpochEnd(textEOS)
+	if textEOS.Ctrl.ResponseEpoch != epoch || textEOS.Ctrl.ResponseEpochEnd {
+		t.Fatalf("text EOS provenance = %#v", textEOS.Ctrl)
+	}
+	audioEOS := response.applyMetadata(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{EndOfStream: true}})
+	if !response.Accept(audioEOS) {
+		t.Fatal("Accept(audio EOS) = false")
+	}
+	response.markEpochEnd(audioEOS)
+	if audioEOS.Ctrl.ResponseEpoch != epoch || !audioEOS.Ctrl.ResponseEpochEnd {
+		t.Fatalf("audio EOS provenance = %#v", audioEOS.Ctrl)
+	}
+}
+
+func TestResponseEpochOverridesSourceMetadataAndMarksSynthesizedTerminal(t *testing.T) {
+	epoch := genx.NewResponseEpoch("input-owner")
+	foreign := genx.NewResponseEpoch("foreign-input")
+	response := NewResponse(ResponseConfig{StreamID: "response", ResponseEpoch: epoch})
+	chunk := response.applyMetadata(&genx.MessageChunk{Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{ResponseEpoch: foreign}})
+	if chunk.Ctrl.ResponseEpoch != epoch || chunk.Ctrl.ResponseEpochEnd {
+		t.Fatalf("applied provenance = %#v", chunk.Ctrl)
+	}
+	terminals := response.End("interrupted")
+	if len(terminals) != 1 || terminals[0].Ctrl.ResponseEpoch != epoch || !terminals[0].Ctrl.ResponseEpochEnd {
+		t.Fatalf("synthesized terminal = %#v", terminals)
+	}
+}

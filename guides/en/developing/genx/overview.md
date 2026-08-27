@@ -93,6 +93,8 @@ type Stream interface {
 | `EndOfStream` | The current chunk is an end boundary. A chunk with a Part ends that MIME channel; a control-only chunk ends the whole StreamID route. It can also carry final data or Error. |
 | `Timestamp` | The millisecond timestamp of the Chunk for `RealtimeStream` sorting and delayed processing; when the value is zero, `RealtimeStream` will supplement the monotonically increasing value based on the current time. |
 
+Composition layers may also attach a process-local response epoch to `StreamCtrl`. The epoch captures the exact input route that owned a response before any response chunk is published, survives `MessageChunk.Clone`, and is excluded from JSON and every Peer/API conversion. Audio Dock uses one immutable epoch for the response's source text or direct audio, TTS siblings, interruptions, and synthesized terminals. Only the final boundary after all declared MIME routes have ended carries the epoch-complete marker. A response created before any input BOS is deliberately unowned; a later input never adopts it.
+
 `Ctrl == nil` means that the current chunk does not have explicit routing or boundary control information. Consumers should judge the boundaries through `MessageChunk.IsBeginOfStream()` and `IsEndOfStream()` and do not directly assume that `Ctrl` must exist.
 
 #### StreamID, MIME channels, and EOS

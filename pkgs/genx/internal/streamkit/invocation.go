@@ -136,6 +136,7 @@ func (i *Invocation) EmitTracked(response *Response, chunk *genx.MessageChunk, o
 	if !response.Accept(chunk) {
 		return ErrInactiveResponse
 	}
+	response.markEpochEnd(chunk)
 	if err := i.output.PushTracked(chunk, observe, abandon); err != nil {
 		i.closed = true
 		clear(i.responses)

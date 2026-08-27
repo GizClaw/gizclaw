@@ -75,4 +75,6 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 
+Turn ownership 不根据 output 到达时恰好处于 current 的 turn 推断。Producer response epoch 命名其不可变 owning input route；没有该 provenance 的 response 不归属任何 per-turn record。被替换 turn 及其 input-route 关联会有界保留，直到 owning epoch 完成、route 被 abandon、connection teardown，或 64-turn/64-route 状态上限将其淘汰。
+
 Connection 只在面向 Agent 的读取边界包装 realtime input，因此 `agent_transform_started` 证明 transformer 已消费，`agent_input_first_push` 仍只表示 queue 已接受。Producer callback 在 consumer 调度前把 output route 绑定到当前 turn；delivery callback 只在 Peer event 已交付且相关 audio 已 drain 后运行。这些 observer 不等待、不重试、不重排、不复制 payload；每个 boundary 只记录首个 output modality，并为 terminal record 保留有界 modality snapshot。

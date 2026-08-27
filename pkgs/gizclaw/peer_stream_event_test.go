@@ -112,6 +112,7 @@ func TestPeerAgentOutputDoesNotMarkDeliveryWhenPeerBroadcastFails(t *testing.T) 
 		Part: genx.Text("private assistant"),
 		Ctrl: &genx.StreamCtrl{StreamID: "output-delivery-failure", Label: "assistant"},
 	}}, doneErr: genx.ErrDone}
+	attachTestResponseEpoch("input-delivery-failure", output.chunks[0])
 	err := (peerAgentOutput{
 		Events:    newPeerStreamEventBroker(),
 		Lifecycle: lifecycle,
@@ -156,6 +157,11 @@ func TestPeerAgentOutputLifecycleBoundsPerTurnChunkLogs(t *testing.T) {
 	chunks = append(chunks, &genx.MessageChunk{
 		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "assistant-output", EndOfStream: true},
 	})
+	epoch := genx.NewResponseEpoch("input-output")
+	for _, chunk := range chunks {
+		attachTestResponseEpochWith(epoch, chunk)
+	}
+	chunks[len(chunks)-1].Ctrl.ResponseEpochEnd = true
 	if err := (peerAgentOutput{Lifecycle: lifecycle}).ConsumeAgentOutput(
 		t.Context(),
 		&peerStreamSliceStream{chunks: chunks, doneErr: genx.ErrDone},
@@ -163,6 +169,7 @@ func TestPeerAgentOutputLifecycleBoundsPerTurnChunkLogs(t *testing.T) {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
 	}
 	var outputStages []string
+	var terminal map[string]any
 	for _, record := range capturedTurnLifecycleRecords(t, capture) {
 		attrs := lifecycleRecordAttrs(record)
 		if attrs["component"] == "agent_output" {
@@ -171,9 +178,25 @@ func TestPeerAgentOutputLifecycleBoundsPerTurnChunkLogs(t *testing.T) {
 				t.Fatalf("output lifecycle = %#v", attrs)
 			}
 		}
+		if attrs["stage"] == "turn_terminal" {
+			terminal = attrs
+		}
 	}
 	if !slices.Equal(outputStages, []string{"output_first_event", "output_terminal"}) {
 		t.Fatalf("output stages = %v, want one first and one terminal", outputStages)
+	}
+	for key, want := range map[string]string{
+		"produced_modalities":      "assistant_text,assistant_eos",
+		"delivered_modalities":     "assistant_text,assistant_eos",
+		"source_part_classes":      "text",
+		"source_label_classes":     "empty",
+		"peer_event_types":         "bos,text_delta,text_done",
+		"peer_event_kinds":         "text,unspecified",
+		"peer_event_label_classes": "empty",
+	} {
+		if got := terminal[key]; got != want {
+			t.Errorf("terminal.%s = %#v, want %q; terminal=%#v", key, got, want, terminal)
+		}
 	}
 }
 
@@ -188,6 +211,7 @@ func TestPeerAgentOutputBindsProducerBeforeConcurrentReplacement(t *testing.T) {
 		produced: make(chan struct{}),
 		release:  make(chan struct{}),
 	}
+	attachTestResponseEpoch("input-old", stream.chunk)
 	done := make(chan error, 1)
 	go func() {
 		done <- (peerAgentOutput{Lifecycle: lifecycle}).ConsumeAgentOutput(t.Context(), stream)
@@ -212,6 +236,24 @@ func TestPeerAgentOutputBindsProducerBeforeConcurrentReplacement(t *testing.T) {
 	}
 	if output["turn_index"] != uint64(1) || output["output_stream_id_hash"] != safeStreamIDHash("output-old") {
 		t.Fatalf("producer-bound output = %#v", output)
+	}
+}
+
+func TestPeerAudioRouteOwnerDropsPayload(t *testing.T) {
+	epoch := genx.NewResponseEpoch("input")
+	chunk := &genx.MessageChunk{
+		Role:     genx.RoleModel,
+		Name:     "assistant",
+		Part:     &genx.Blob{MIMEType: "audio/opus", Data: []byte("private audio")},
+		ToolCall: &genx.ToolCall{ID: "private-tool"},
+		Ctrl:     &genx.StreamCtrl{StreamID: "output", Label: "assistant", ResponseEpoch: epoch},
+	}
+	owner := peerAudioRouteOwner(chunk)
+	if owner == nil || owner == chunk || owner.Role != chunk.Role || owner.Name != chunk.Name || owner.Part != nil || owner.ToolCall != nil {
+		t.Fatalf("audio route owner = %#v", owner)
+	}
+	if owner.Ctrl == chunk.Ctrl || owner.Ctrl.ResponseEpoch != epoch || owner.Ctrl.StreamID != "output" {
+		t.Fatalf("audio route owner ctrl = %#v", owner.Ctrl)
 	}
 }
 

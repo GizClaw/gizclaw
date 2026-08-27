@@ -106,6 +106,7 @@ type dockRun struct {
 	stateMu          sync.Mutex
 	routes           map[string]*dockRoute
 	discardSourceIDs map[string]bool
+	inputStreamID    string
 	tts              sync.WaitGroup
 }
 
@@ -281,10 +282,11 @@ func (r *dockRun) forwardTranscripts(output genx.Stream) error {
 		response := routes[streamID]
 		if response == nil {
 			response, err = r.invocation.StartResponse(streamkit.ResponseConfig{
-				StreamID: streamID,
-				Role:     genx.RoleUser,
-				Name:     chunk.Name,
-				Label:    label,
+				StreamID:      streamID,
+				Role:          genx.RoleUser,
+				Name:          chunk.Name,
+				Label:         label,
+				ResponseEpoch: genx.NewResponseEpoch(streamID),
 			})
 			if err != nil {
 				return fmt.Errorf("audiodock: start transcript response: %w", err)
@@ -312,6 +314,17 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	if err != nil {
 		return err
 	}
+	text, textChunk := chunk.Part.(genx.Text)
+	var pipe *ttsPipe
+	resolveTTS := textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil
+	if resolveTTS && chunk.IsEndOfStream() {
+		pipe, err = r.ttsPipe(ctx, route, chunk)
+		if err != nil {
+			r.finishRoute(route, err.Error())
+			return nil
+		}
+	}
+
 	route.ttsEmitMu.Lock()
 	if route.closed.Load() {
 		route.ttsEmitMu.Unlock()
@@ -344,18 +357,17 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		route.ttsEmitMu.Unlock()
 	}
 
-	text, textChunk := chunk.Part.(genx.Text)
-	if textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil {
-		pipe, err := r.ttsPipe(ctx, route, chunk)
+	if resolveTTS && !chunk.IsEndOfStream() {
+		pipe, err = r.ttsPipe(ctx, route, chunk)
 		if err != nil {
 			r.finishRoute(route, err.Error())
 			return nil
 		}
-		if pipe != nil {
-			if err := pipe.input.Push(chunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
-				r.finishRoute(route, err.Error())
-				return nil
-			}
+	}
+	if pipe != nil {
+		if err := pipe.input.Push(chunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+			r.finishRoute(route, err.Error())
+			return nil
 		}
 	}
 	if !chunk.IsEndOfStream() {
@@ -389,10 +401,11 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 		return route, nil
 	}
 	response, err := r.invocation.StartResponse(streamkit.ResponseConfig{
-		StreamID: streamID,
-		Role:     chunk.Role,
-		Name:     chunk.Name,
-		Label:    label,
+		StreamID:      streamID,
+		Role:          chunk.Role,
+		Name:          chunk.Name,
+		Label:         label,
+		ResponseEpoch: genx.NewResponseEpoch(r.inputStreamID),
 	})
 	if err != nil {
 		return nil, err
@@ -863,6 +876,9 @@ func (r *dockRun) beginInputTurn(streamID string) error {
 	if err := r.interruptOpenRoutes("interrupted"); err != nil {
 		return fmt.Errorf("audiodock: begin input turn %q: %w", streamID, err)
 	}
+	r.stateMu.Lock()
+	r.inputStreamID = strings.TrimSpace(streamID)
+	r.stateMu.Unlock()
 	return nil
 }
 

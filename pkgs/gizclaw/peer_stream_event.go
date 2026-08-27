@@ -181,11 +181,15 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
 		OnAudioCutover: func(chunk *genx.MessageChunk) error {
-			event := audio.cutover(chunk)
+			event, owner := audio.cutoverOwned(chunk)
 			if event == nil {
 				return nil
 			}
-			return o.Events.Broadcast(event)
+			if err := o.Events.Broadcast(event); err != nil {
+				return err
+			}
+			o.Lifecycle.observePeerEventDelivered(ctx, owner, event, o.WorkspaceName)
+			return nil
 		},
 		Observe: func(chunk *genx.MessageChunk) error {
 			o.logTerminalRouteError(ctx, chunk, loggedRouteErrors)
@@ -194,9 +198,10 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 				if err := o.Events.Broadcast(routeEOS); err != nil {
 					return err
 				}
+				o.Lifecycle.observePeerEventDelivered(ctx, chunk, routeEOS, o.WorkspaceName)
 			}
 			for _, event := range peerStreamEventsFromChunk(chunk) {
-				emit, err := audio.consume(event)
+				emit, err := audio.consumeChunk(chunk, event)
 				if err != nil {
 					return err
 				}
@@ -206,10 +211,9 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 				if err := o.Events.Broadcast(event); err != nil {
 					return err
 				}
+				o.Lifecycle.observePeerEventDelivered(ctx, chunk, event, o.WorkspaceName)
 			}
-			if o.Lifecycle != nil {
-				o.Lifecycle.observeOutput(ctx, chunk, o.WorkspaceName)
-			}
+			o.Lifecycle.observeOutputDrained(chunk)
 			return nil
 		},
 	}).ConsumeAgentOutput(ctx, ownedOutput)
@@ -362,6 +366,7 @@ type peerAudioRouteKey struct {
 type peerAudioRoute struct {
 	streamID string
 	label    string
+	owner    *genx.MessageChunk
 }
 
 type peerAudioRouteAggregator struct {
@@ -378,8 +383,13 @@ func newPeerAudioRouteAggregator() *peerAudioRouteAggregator {
 }
 
 func (a *peerAudioRouteAggregator) cutover(chunk *genx.MessageChunk) *eventpb.PeerEvent {
+	event, _ := a.cutoverOwned(chunk)
+	return event
+}
+
+func (a *peerAudioRouteAggregator) cutoverOwned(chunk *genx.MessageChunk) (*eventpb.PeerEvent, *genx.MessageChunk) {
 	if a == nil || chunk == nil || chunk.Ctrl == nil || a.epoch.streamID == "" || len(a.active) == 0 {
-		return nil
+		return nil, nil
 	}
 	for key := range a.active {
 		a.retired[key] = struct{}{}
@@ -399,11 +409,16 @@ func (a *peerAudioRouteAggregator) cutover(chunk *genx.MessageChunk) *eventpb.Pe
 			},
 		}},
 	}
+	owner := a.epoch.owner
 	a.epoch = peerAudioRoute{}
-	return event
+	return event, owner
 }
 
 func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, error) {
+	return a.consumeChunk(nil, event)
+}
+
+func (a *peerAudioRouteAggregator) consumeChunk(chunk *genx.MessageChunk, event *eventpb.PeerEvent) (bool, error) {
 	if event == nil || event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO {
 		return true, nil
 	}
@@ -420,7 +435,7 @@ func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, erro
 		if len(a.active) != 1 {
 			return false, nil
 		}
-		a.epoch = peerAudioRoute{streamID: event.StreamID(), label: event.Label()}
+		a.epoch = peerAudioRoute{streamID: event.StreamID(), label: event.Label(), owner: peerAudioRouteOwner(chunk)}
 		normalizePeerOutputAudioEvent(event, a.epoch)
 		return true, nil
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
@@ -441,6 +456,18 @@ func (a *peerAudioRouteAggregator) consume(event *eventpb.PeerEvent) (bool, erro
 	default:
 		return true, nil
 	}
+}
+
+func peerAudioRouteOwner(chunk *genx.MessageChunk) *genx.MessageChunk {
+	if chunk == nil {
+		return nil
+	}
+	owner := &genx.MessageChunk{Role: chunk.Role, Name: chunk.Name}
+	if chunk.Ctrl != nil {
+		ctrl := *chunk.Ctrl
+		owner.Ctrl = &ctrl
+	}
+	return owner
 }
 
 func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) *eventpb.PeerEvent {
