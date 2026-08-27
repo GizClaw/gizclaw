@@ -63,6 +63,12 @@ type bridgeLoopResult struct {
 
 type bridgeObservationState struct {
 	mu          sync.Mutex
+	terminal    bool
+	observation BridgeObservation
+}
+
+type bridgeTerminal struct {
+	result      bridgeLoopResult
 	observation BridgeObservation
 }
 
@@ -92,27 +98,32 @@ func BridgeWithObservation(left, right giznet.Conn) (BridgeObservation, error) {
 		return BridgeObservation{}, errors.New("giztunnel: right connection cannot accept aggregate services")
 	}
 	state := &bridgeObservationState{}
-	resultCh := make(chan bridgeLoopResult, 4)
+	terminalCh := make(chan bridgeTerminal, 1)
+	reportTerminal := func(result bridgeLoopResult) {
+		observation, selected := state.selectTerminal(result)
+		if selected {
+			terminalCh <- bridgeTerminal{result: result, observation: observation}
+		}
+	}
 	go func() {
-		resultCh <- bridgeServices(leftServices, right, bridgeDirectionLeftToRight, state)
+		reportTerminal(bridgeServices(leftServices, right, bridgeDirectionLeftToRight, state))
 	}()
 	go func() {
-		resultCh <- bridgeServices(rightServices, left, bridgeDirectionRightToLeft, state)
+		reportTerminal(bridgeServices(rightServices, left, bridgeDirectionRightToLeft, state))
 	}()
 	go func() {
-		resultCh <- bridgePackets(left, right, bridgeDirectionLeftToRight)
+		reportTerminal(bridgePackets(left, right, bridgeDirectionLeftToRight))
 	}()
 	go func() {
-		resultCh <- bridgePackets(right, left, bridgeDirectionRightToLeft)
+		reportTerminal(bridgePackets(right, left, bridgeDirectionRightToLeft))
 	}()
-	result := <-resultCh
+	terminal := <-terminalCh
 	_ = left.Close()
 	_ = right.Close()
-	observation := state.finish(result)
-	if isClosedError(result.err) {
-		return observation, nil
+	if isClosedError(terminal.result.err) {
+		return terminal.observation, nil
 	}
-	return observation, result.err
+	return terminal.observation, terminal.result.err
 }
 
 func bridgeServices(
@@ -195,6 +206,10 @@ func (s *bridgeObservationState) recordOpenRejection(direction string, err error
 	}
 	errorClass := bridgeErrorClass(err)
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.terminal {
+		return
+	}
 	s.observation.OpenRejectionCount++
 	if s.observation.FirstOpenRejectionDirection == "" {
 		s.observation.FirstOpenRejectionDirection = direction
@@ -209,18 +224,20 @@ func (s *bridgeObservationState) recordOpenRejection(direction string, err error
 			s.observation.ChannelLimit = capacity.limit
 		}
 	}
-	s.mu.Unlock()
 }
 
-func (s *bridgeObservationState) finish(result bridgeLoopResult) BridgeObservation {
+func (s *bridgeObservationState) selectTerminal(result bridgeLoopResult) (BridgeObservation, bool) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.terminal {
+		return BridgeObservation{}, false
+	}
+	s.terminal = true
 	s.observation.Path = result.path
 	s.observation.Direction = result.direction
 	s.observation.Phase = result.phase
 	s.observation.ErrorClass = bridgeErrorClass(result.err)
-	observation := s.observation
-	s.mu.Unlock()
-	return observation
+	return s.observation, true
 }
 
 func bridgeErrorClass(err error) string {

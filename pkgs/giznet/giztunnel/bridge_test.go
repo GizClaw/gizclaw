@@ -70,6 +70,41 @@ func TestBridgeWithObservationKeepsOneConcurrentFirstTerminal(t *testing.T) {
 	}
 }
 
+func TestBridgeObservationFreezesRejectionsAtSelectedTerminal(t *testing.T) {
+	state := &bridgeObservationState{}
+	state.recordOpenRejection(bridgeDirectionLeftToRight, errors.New("before terminal"))
+
+	observation, selected := state.selectTerminal(bridgeLoopResult{
+		path:      bridgePathPacket,
+		direction: bridgeDirectionRightToLeft,
+		phase:     bridgePhaseReadSource,
+		err:       io.EOF,
+	})
+	if !selected {
+		t.Fatal("first terminal was not selected")
+	}
+	state.recordOpenRejection(
+		bridgeDirectionRightToLeft,
+		&channelCapacityError{scope: "session", active: 32, limit: 32},
+	)
+	if _, selected := state.selectTerminal(bridgeLoopResult{err: errors.New("later terminal")}); selected {
+		t.Fatal("later terminal replaced the selected terminal")
+	}
+
+	if observation.OpenRejectionCount != 1 ||
+		observation.FirstOpenRejectionDirection != bridgeDirectionLeftToRight ||
+		observation.LastOpenRejectionDirection != bridgeDirectionLeftToRight {
+		t.Fatalf("frozen rejection summary = %+v", observation)
+	}
+	if observation.CapacityScope != "" || observation.ActiveChannels != 0 || observation.ChannelLimit != 0 {
+		t.Fatalf("post-terminal capacity leaked into observation = %+v", observation)
+	}
+	if observation.Path != bridgePathPacket || observation.Direction != bridgeDirectionRightToLeft ||
+		observation.Phase != bridgePhaseReadSource || observation.ErrorClass != bridgeErrorClassEOF {
+		t.Fatalf("selected terminal = %+v", observation)
+	}
+}
+
 func TestBridgeErrorClassIsBounded(t *testing.T) {
 	for _, test := range []struct {
 		err  error
