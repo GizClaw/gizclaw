@@ -535,6 +535,11 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	err = (peerAgentOutput{
 		Events: broker, Logger: slog.New(capture), PeerPublicKey: "peer-key",
 		WorkspaceName: func(context.Context) string { return "workspace-a" },
+		Lifecycle: newPeerStreamLifecycle(
+			slog.New(slog.NewTextHandler(io.Discard, nil)),
+			"session-a",
+			"peer-key",
+		),
 	}).ConsumeAgentOutput(t.Context(), output)
 	if err != nil {
 		t.Fatalf("ConsumeAgentOutput() error = %v", err)
@@ -586,6 +591,32 @@ func TestPeerAgentOutputLogsTerminalRouteErrorAndContinues(t *testing.T) {
 	if strings.Contains(fmt.Sprint(attrs), "failed-turn") || strings.Contains(fmt.Sprint(attrs), "assistant") ||
 		strings.Contains(fmt.Sprint(attrs), "secret-token") || strings.Contains(fmt.Sprint(attrs), "secret-value") {
 		t.Fatalf("route error log exposed credential-bearing error: %#v", attrs)
+	}
+}
+
+func TestPeerAgentOutputDisabledLifecycleRouteErrorSkipsWorkspaceLookup(t *testing.T) {
+	capture := &slogCapture{}
+	workspaceCalled := false
+	output := peerAgentOutput{
+		Logger: slog.New(capture),
+		WorkspaceName: func(context.Context) string {
+			workspaceCalled = true
+			return "private-workspace"
+		},
+	}
+	output.logTerminalRouteError(t.Context(), &genx.MessageChunk{
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID: "failed-turn", Label: "assistant", EndOfStream: true,
+			Error: "provider failed", ErrorCode: "PROVIDER_ERROR",
+		},
+	}, make(map[string]struct{}))
+	if workspaceCalled {
+		t.Fatal("disabled lifecycle resolved the route-error Workspace callback")
+	}
+	_, attrs := onlyCapturedRecord(t, capture)
+	if got := attrs["workspace"]; got != "" {
+		t.Fatalf("disabled route-error workspace = %#v, want empty", got)
 	}
 }
 

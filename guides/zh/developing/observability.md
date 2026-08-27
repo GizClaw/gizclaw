@@ -313,4 +313,8 @@ Workspace lookup、modality snapshot 与 record 构造。只要任意 sink 接�
 的完整 lifecycle 就保持启用；连接中途不会改变。这里没有独立 lifecycle 配置字段。
 这些 Server 设置也不控制独立 Edge 进程及其 gateway lifecycle record。
 
+Lifecycle observer 禁用时，既有 `gizclaw: assistant route failed` Error record 仍会输出，
+并保留有界 route 与 error 字段；但它不会调用 Workspace-name callback，`workspace` 保持为空。
+Lifecycle observer 启用时，既有 Workspace correlation 保持不变。
+
 不可信 stream identifier 使用稳定的 128-bit hash，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、payload、audio、transcript、prompt、conversation event、SDP、ICE candidate body、credential、provider raw error 或 panic value。

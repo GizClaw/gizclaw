@@ -312,7 +312,7 @@ func (o peerAgentOutput) logTerminalRouteError(
 		logger = slog.Default()
 	}
 	workspaceName := ""
-	if o.WorkspaceName != nil {
+	if o.Lifecycle != nil && o.WorkspaceName != nil {
 		workspaceName = strings.TrimSpace(o.WorkspaceName(ctx))
 	}
 	code := strings.TrimSpace(chunk.Ctrl.ErrorCode)

@@ -293,4 +293,9 @@ connection. The decision never changes mid-connection. There is no separate
 lifecycle configuration field. These Server settings do not control the
 independent Edge process or its gateway lifecycle records.
 
+The existing `gizclaw: assistant route failed` Error record remains active when
+the lifecycle observer is disabled. It keeps its bounded route and error fields,
+but leaves `workspace` empty without invoking the Workspace-name callback; an
+enabled lifecycle observer preserves the existing Workspace correlation.
+
 Untrusted stream identifiers use a stable 128-bit hash; raw `stream_id` values are never logged. The hash contract trims leading and trailing Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty normalized IDs are omitted. It performs no case folding or Unicode normalization and uses no salt or HMAC key. For example, `stream-42` maps to `0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are dictionary-testable, so producers must not put credentials or secrets in stream IDs. Session, turn, Peer, Workspace, and stream identifiers remain log-only dimensions and must never become metric labels. Lifecycle records must not contain remote addresses, payloads, audio, transcripts, prompts, conversation events, SDP, ICE candidate bodies, credentials, raw provider errors, or panic values.
