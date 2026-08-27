@@ -227,6 +227,16 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 操作返回的证据，报告因此能区分停滞与过长回复。`gizclaw test validate` 拒绝无法解析或非正的
 `idle_timeout`。人工 `review` 文件必须单独用 `--parallel 1` 在终端运行。
 
+当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
+`audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
+`target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
+`p95_interval_ms`、`max_interval_ms`、`drift_ms`、`absolute_drift_ms` 和
+`buffer_surplus_ms`。间隔来自 stream reader 收到每包的 monotonic 时间，不包含后续断言、
+保存或 PortAudio 播放耗时；`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
+Giztest 文件使用普通 `expect` 数值约束断言这些路径，不增加另一套 pacing schema。
+`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 要求 20 ms Opus frame，允许
+warm-up 和 steady pacing 快于媒体时钟，同时限制 P95、最大间隔并要求产生正缓冲盈余。
+
 `workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
 tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、
 封帧、`max_turns` 与固定字节/事件上限、归因、失败阶段和清理。转发是流式的——源端

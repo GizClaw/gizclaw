@@ -264,6 +264,19 @@ validate` rejects unparsable or non-positive `idle_timeout` values.
 Interactive `review` files must run alone in an attached terminal with
 `--parallel 1`.
 
+When `peer_stream` receives assistant Opus, its result and redacted evidence
+expose receiver-side pacing under `audio_pacing`: `packets`, `audio_ms`,
+`target_span_ms`, `receive_span_ms`, `mean_packet_ms`, `mean_interval_ms`,
+`p95_interval_ms`, `max_interval_ms`, `drift_ms`, `absolute_drift_ms`, and
+`buffer_surplus_ms`. Intervals use the stream reader's monotonic receipt time,
+before assertions, persistence, or PortAudio playback; a positive
+`buffer_surplus_ms` means network delivery is ahead of the Opus media clock.
+Giztest documents assert these paths through ordinary numeric `expect`
+constraints rather than a separate pacing schema.
+`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` requires 20 ms
+Opus frames, permits warm-up and steady pacing ahead of the media clock, bounds
+the P95 and maximum interval, and requires positive buffer surplus.
+
 `workspace_relay` connects two selected Workspaces in one task as one bounded
 conversation: the tester Workflow owns test intent, generated user behavior,
 semantic evaluation, and its final verdict, while Giztest owns transport,

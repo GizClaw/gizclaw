@@ -40,6 +40,9 @@ var (
 const (
 	peerConnMixerFormat        = pcm.L16Mono16K
 	peerConnOpusFrameDuration  = 20 * time.Millisecond
+	peerConnPacingWarmup       = 10
+	peerConnPacingWarmupPeriod = 15 * time.Millisecond
+	peerConnPacingSteadyPeriod = 19 * time.Millisecond
 	peerConnTelemetryQueueSize = 32
 	peerConnRuntimeStopTimeout = 2 * time.Second
 	// peerConnInputAbortTimeout bounds how long a denied-turn abort may wait for
@@ -1283,9 +1286,6 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 		if h.isRetiring() {
 			return wrote, nil
 		}
-		if !waitForPacing() {
-			return wrote, nil
-		}
 		chunk, err := peerConnMixerFormat.ReadChunk(mx, peerConnOpusFrameDuration)
 		if err != nil {
 			if h.isClosed() && errors.Is(err, io.ErrClosedPipe) {
@@ -1298,6 +1298,9 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 		if err != nil {
 			return wrote, err
 		}
+		if !waitForPacing() {
+			return wrote, nil
+		}
 		if !hasWrittenBefore {
 			hasWrittenBefore = true
 			wrote = true
@@ -1308,6 +1311,34 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 	}
 }
 
+type peerConnAudioPacer struct {
+	next   time.Time
+	packet int
+}
+
+func (p *peerConnAudioPacer) waitDuration(now time.Time) time.Duration {
+	if p.next.IsZero() {
+		p.next = now
+		p.packet = 1
+		return 0
+	}
+	period := peerConnPacingSteadyPeriod
+	if p.packet < peerConnPacingWarmup {
+		period = peerConnPacingWarmupPeriod
+	}
+	p.next = p.next.Add(period)
+	delay := p.next.Sub(now)
+	if delay < 0 {
+		// Send only the current overdue packet immediately. Rebase the next
+		// deadline so a scheduler or Mixer stall cannot trigger a burst.
+		p.next = now
+		p.packet = 1
+		return 0
+	}
+	p.packet++
+	return delay
+}
+
 func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
 	if h != nil && h.audioPacing != nil {
 		return func() bool {
@@ -1315,13 +1346,17 @@ func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
 			return ok
 		}, func() {}
 	}
-	timer := time.NewTimer(peerConnOpusFrameDuration)
+	timer := time.NewTimer(peerConnPacingWarmupPeriod)
 	if !timer.Stop() {
 		<-timer.C
 	}
+	pacer := peerConnAudioPacer{}
 	return func() bool {
-		timer.Reset(peerConnOpusFrameDuration)
-		<-timer.C
+		delay := pacer.waitDuration(time.Now())
+		if delay > 0 {
+			timer.Reset(delay)
+			<-timer.C
+		}
 		return true
 	}, func() { timer.Stop() }
 }

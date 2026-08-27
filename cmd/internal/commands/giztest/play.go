@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -19,10 +21,11 @@ import (
 
 const (
 	playMaxAudioBytes   = 16 << 20
-	playJitterPackets   = 10
+	playStartBuffer     = 200 * time.Millisecond
 	playCueFrequency    = 660
 	playCueToneDuration = 120 * time.Millisecond
 	playCueTailDuration = 80 * time.Millisecond
+	playPCMQueueDepth   = 256
 )
 
 type playDecoder interface {
@@ -33,6 +36,11 @@ type playDecoder interface {
 type playOutput interface {
 	Write([]byte) (int, error)
 	Close() error
+}
+
+type playPCMRequest struct {
+	pcm  []byte
+	done chan error
 }
 
 var (
@@ -57,6 +65,16 @@ type playSession struct {
 	cueAt                   time.Time
 	firstDownlinkReceivedMS int64
 	firstDownlinkPlaybackMS int64
+	firstPacketAt           time.Time
+	lastPacketAt            time.Time
+	packetGapsMS            []int64
+	packetAudio             time.Duration
+	pendingAudio            time.Duration
+	pumpOnce                sync.Once
+	pcmQueue                chan playPCMRequest
+	pumpDone                chan struct{}
+	pumpErrMu               sync.Mutex
+	pumpErr                 error
 	closed                  atomic.Bool
 }
 
@@ -98,7 +116,7 @@ func (s *playSession) cue() error {
 		sample := int16(math.Sin(2*math.Pi*playCueFrequency*float64(i)/sampleRate) * 5000)
 		binary.LittleEndian.PutUint16(pcmBytes[i*2:], uint16(sample))
 	}
-	if err := s.writePCM(pcmBytes); err != nil {
+	if err := s.enqueuePCM(pcmBytes, true); err != nil {
 		return fmt.Errorf("play start cue: %w", err)
 	}
 	s.cueAt = time.Now()
@@ -122,6 +140,16 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 		if s.bytes > playMaxAudioBytes-len(packet) {
 			return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
 		}
+		now := time.Now()
+		if s.firstPacketAt.IsZero() {
+			s.firstPacketAt = now
+		} else {
+			s.packetGapsMS = append(s.packetGapsMS, now.Sub(s.lastPacketAt).Milliseconds())
+		}
+		s.lastPacketAt = now
+		packetAudio := time.Duration(codecconv.OpusPacketRTPTicks(packet)) * time.Second / 48000
+		s.packetAudio += packetAudio
+		s.pendingAudio += packetAudio
 		copyOfPacket := append([]byte(nil), packet...)
 		s.packets = append(s.packets, copyOfPacket)
 		s.pending = append(s.pending, copyOfPacket)
@@ -129,11 +157,11 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 		if role == "assistant" && s.firstDownlinkReceivedMS < 0 && !s.cueAt.IsZero() {
 			s.firstDownlinkReceivedMS = time.Since(s.cueAt).Milliseconds()
 		}
-		if !s.utteranceStarted && len(s.pending) >= playJitterPackets {
+		if !s.utteranceStarted && s.pendingAudio >= playStartBuffer {
 			s.utteranceStarted = true
 			if role == "assistant" && s.firstDownlinkPlaybackMS < 0 && !s.cueAt.IsZero() {
 				s.firstDownlinkPlaybackMS = time.Since(s.cueAt).Milliseconds()
-				fmt.Fprintf(s.out, "Giztest first downlink: received=%dms playback=%dms jitter_packets=%d client=%s\n", s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS, playJitterPackets, client)
+				fmt.Fprintf(s.out, "Giztest first downlink: received=%dms playback=%dms start_buffer=%dms client=%s\n", s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS, s.pendingAudio.Milliseconds(), client)
 			}
 		}
 		if s.utteranceStarted {
@@ -181,22 +209,79 @@ func (s *playSession) drainPending() error {
 		}
 	}
 	s.pending = nil
-	if err := s.writePCM(pcmBytes); err != nil {
+	s.pendingAudio = 0
+	if err := s.enqueuePCM(pcmBytes, false); err != nil {
 		return fmt.Errorf("write streaming PCM to PortAudio: %w", err)
 	}
 	return nil
 }
 
-func (s *playSession) writePCM(pcmBytes []byte) error {
-	if len(pcmBytes) == 0 {
-		return nil
+func (s *playSession) startPlaybackPump() {
+	s.pumpOnce.Do(func() {
+		s.pcmQueue = make(chan playPCMRequest, playPCMQueueDepth)
+		s.pumpDone = make(chan struct{})
+		go s.runPlaybackPump()
+	})
+}
+
+func (s *playSession) runPlaybackPump() {
+	defer close(s.pumpDone)
+	for request := range s.pcmQueue {
+		err := s.playbackError()
+		if err == nil && len(request.pcm) > 0 {
+			written, writeErr := s.output.Write(request.pcm)
+			switch {
+			case writeErr != nil:
+				err = writeErr
+			case written != len(request.pcm):
+				err = io.ErrShortWrite
+			}
+			if err != nil {
+				s.pumpErrMu.Lock()
+				if s.pumpErr == nil {
+					s.pumpErr = err
+				}
+				s.pumpErrMu.Unlock()
+			}
+		}
+		if request.done != nil {
+			request.done <- err
+			close(request.done)
+		}
 	}
-	written, err := s.output.Write(pcmBytes)
-	if err != nil {
+}
+
+func (s *playSession) playbackError() error {
+	s.pumpErrMu.Lock()
+	defer s.pumpErrMu.Unlock()
+	return s.pumpErr
+}
+
+func (s *playSession) enqueuePCM(pcmBytes []byte, wait bool) error {
+	s.startPlaybackPump()
+	request := playPCMRequest{pcm: pcmBytes}
+	if wait {
+		request.done = make(chan error, 1)
+	}
+	select {
+	case s.pcmQueue <- request:
+	case <-s.pumpDone:
+		return errors.Join(errors.New("playback task stopped"), s.playbackError())
+	}
+	if !wait {
+		return s.playbackError()
+	}
+	select {
+	case err := <-request.done:
 		return err
+	case <-s.pumpDone:
+		return errors.Join(errors.New("playback task stopped"), s.playbackError())
 	}
-	if written != len(pcmBytes) {
-		return io.ErrShortWrite
+}
+
+func (s *playSession) syncPlayback() error {
+	if err := s.enqueuePCM(nil, true); err != nil {
+		return fmt.Errorf("flush queued PCM to PortAudio: %w", err)
 	}
 	return nil
 }
@@ -206,7 +291,7 @@ func (s *playSession) finishUtterance() error {
 		s.utteranceStarted = true
 		if s.role == "assistant" && s.firstDownlinkPlaybackMS < 0 && !s.cueAt.IsZero() {
 			s.firstDownlinkPlaybackMS = time.Since(s.cueAt).Milliseconds()
-			fmt.Fprintf(s.out, "Giztest first downlink: received=%dms playback=%dms jitter_packets=%d client=%s\n", s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS, len(s.pending), s.client)
+			fmt.Fprintf(s.out, "Giztest first downlink: received=%dms playback=%dms start_buffer=%dms client=%s\n", s.firstDownlinkReceivedMS, s.firstDownlinkPlaybackMS, s.pendingAudio.Milliseconds(), s.client)
 		}
 		if err := s.drainPending(); err != nil {
 			return err
@@ -217,9 +302,39 @@ func (s *playSession) finishUtterance() error {
 		err = s.decoder.Close()
 		s.decoder = nil
 	}
+	playbackErr := s.syncPlayback()
+	s.logUtteranceTiming()
 	s.client, s.role = "", ""
 	s.utteranceStarted = false
-	return err
+	s.firstPacketAt, s.lastPacketAt = time.Time{}, time.Time{}
+	s.packetGapsMS = nil
+	s.packetAudio = 0
+	s.pendingAudio = 0
+	return errors.Join(err, playbackErr)
+}
+
+func (s *playSession) logUtteranceTiming() {
+	packetCount := len(s.packetGapsMS) + 1
+	if s.firstPacketAt.IsZero() {
+		return
+	}
+	receiveSpanMS, gapAverageMS, gapP95MS, gapMaxMS := int64(0), int64(0), int64(0), int64(0)
+	if len(s.packetGapsMS) > 0 {
+		receiveSpanMS = s.lastPacketAt.Sub(s.firstPacketAt).Milliseconds()
+		for _, gap := range s.packetGapsMS {
+			gapAverageMS += gap
+			gapMaxMS = max(gapMaxMS, gap)
+		}
+		gapAverageMS /= int64(len(s.packetGapsMS))
+		sorted := slices.Clone(s.packetGapsMS)
+		slices.Sort(sorted)
+		gapP95MS = sorted[(len(sorted)*95+99)/100-1]
+	}
+	out := s.out
+	if out == nil {
+		out = io.Discard
+	}
+	fmt.Fprintf(out, "Giztest stream timing: client=%s role=%s packets=%d audio=%dms receive_span=%dms gap_avg=%dms gap_p95=%dms gap_max=%dms\n", s.client, s.role, packetCount, s.packetAudio.Milliseconds(), receiveSpanMS, gapAverageMS, gapP95MS, gapMaxMS)
 }
 
 func (s *playSession) latencySummary() (int64, int64) {
@@ -234,12 +349,15 @@ func (s *playSession) close() error {
 	if !s.closed.CompareAndSwap(false, true) {
 		return flushErr
 	}
+	s.startPlaybackPump()
+	close(s.pcmQueue)
+	<-s.pumpDone
 	var decoderErr error
 	if s.decoder != nil {
 		decoderErr = s.decoder.Close()
 		s.decoder = nil
 	}
-	return errors.Join(flushErr, s.output.Close(), decoderErr)
+	return errors.Join(flushErr, s.playbackError(), s.output.Close(), decoderErr)
 }
 
 func validatePlayDocument(path string, docs []*Document) error {

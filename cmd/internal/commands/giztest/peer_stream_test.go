@@ -99,6 +99,22 @@ func TestDecodeOpusPacketsCopiesRawPacket(t *testing.T) {
 	}
 }
 
+func TestPeerAudioPacingSummarizesPacketClockAndArrivalGaps(t *testing.T) {
+	var pacing peerAudioPacing
+	packet := []byte{0xf8}
+	started := time.Unix(1, 0)
+	for _, offset := range []time.Duration{0, 20 * time.Millisecond, 41 * time.Millisecond, 60 * time.Millisecond} {
+		pacing.observe(started.Add(offset), [][]byte{packet})
+	}
+	summary := pacing.summary()
+	if summary["packets"] != 4 || summary["audio_ms"] != int64(80) || summary["target_span_ms"] != int64(60) || summary["receive_span_ms"] != int64(60) {
+		t.Fatalf("pacing summary = %#v", summary)
+	}
+	if summary["mean_packet_ms"] != float64(20) || summary["mean_interval_ms"] != float64(20) || summary["p95_interval_ms"] != float64(21) || summary["max_interval_ms"] != float64(21) || summary["absolute_drift_ms"] != float64(0) {
+		t.Fatalf("pacing intervals = %#v", summary)
+	}
+}
+
 func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	stream := newFakeRelayStream()
 	oggAudio, packets := testOggOpus(t)
@@ -113,7 +129,7 @@ func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	var role string
 	var observed [][]byte
 	open := func() (peerStream, error) { return stream, nil }
-	_, err := invokePeerStream(context.Background(), nil, open, Step{
+	result, err := invokePeerStream(context.Background(), nil, open, Step{
 		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
 	}, "hello", 0, func(gotClient, gotRole string, gotPacket []byte, _ bool) error {
 		client = gotClient
@@ -129,6 +145,10 @@ func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	}
 	if client != "peer" || role != "assistant" || len(observed) != len(packets) || observed[0][0] != 9 || packets[0][0] == 9 {
 		t.Fatalf("observer client=%q role=%q packet_count=%d source_count=%d", client, role, len(observed), len(packets))
+	}
+	pacing := result.assertion.(map[string]any)["audio_pacing"].(map[string]any)
+	if pacing["packets"] != len(packets) || pacing["audio_ms"] != int64(40) {
+		t.Fatalf("audio pacing = %#v", pacing)
 	}
 }
 

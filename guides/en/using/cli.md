@@ -52,11 +52,15 @@ The command accepts one regular file whose document has `repeat: 1` and no
 barrier, and always uses one worker. It emits a short cue that is not recorded,
 then starts the test immediately. In conversation order, it plays the user Opus
 audio uploaded by `peer_stream` and audio `workspace_relay` steps, followed by
-the assistant Opus audio actually received. Playback streams after a ten-packet
-jitter buffer reaches its start watermark; later packets are decoded to 16 kHz
-mono PCM as they arrive, and EOS only flushes the remaining tail. The summary
-reports milliseconds from the end of the cue to first downlink receipt and
-playback.
+the assistant Opus audio actually received. Playback streams after a 200 ms
+audio buffer reaches its start watermark; later packets are decoded to 16 kHz
+mono PCM as they arrive and an independent playback task writes them to
+PortAudio. EOS only flushes the remaining tail. The summary reports milliseconds
+from the end of the cue to first downlink receipt and playback, plus per-utterance
+packet audio duration and arrival-gap timing. `peer_stream` also exposes these
+metrics under `/audio_pacing`, so normal Giztest expectations can enforce the
+packet count, encoded audio clock, mean/P95/maximum interval, and cumulative
+drift.
 `-o` / `--output` must name a new directory. The committed record contains a
 redacted `report.json` and, when audio arrived, `audio.ogg` containing the full
 user-and-assistant conversation in playback order; an empty Ogg is not

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -32,6 +33,20 @@ type fakePlayOutput struct {
 	err    error
 	closed bool
 }
+
+type blockingPlayOutput struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (f *blockingPlayOutput) Write(p []byte) (int, error) {
+	f.once.Do(func() { close(f.started) })
+	<-f.release
+	return len(p), nil
+}
+
+func (f *blockingPlayOutput) Close() error { return nil }
 
 func TestNewPlaySessionChecksNativeRuntimesAndCleansPartialOpen(t *testing.T) {
 	origOpusSupported := opusRuntimeSupportedFn
@@ -113,25 +128,70 @@ func TestPlaySessionStartsBeforeEndAfterJitterBuffer(t *testing.T) {
 	decoder := &fakePlayDecoder{samples: []int16{1}}
 	output := &fakePlayOutput{}
 	session := &playSession{decoder: decoder, output: output}
-	for i := range playJitterPackets - 1 {
-		if err := session.observe("peer", "assistant", []byte{byte(i)}, false); err != nil {
+	t.Cleanup(func() { _ = session.close() })
+	packet := []byte{0xf8}
+	packetCount := int(playStartBuffer / (20 * time.Millisecond))
+	for range packetCount - 1 {
+		if err := session.observe("peer", "assistant", packet, false); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if output.Len() != 0 {
 		t.Fatalf("played before jitter buffer filled: %d bytes", output.Len())
 	}
-	if err := session.observe("peer", "assistant", []byte{9}, false); err != nil {
+	if err := session.observe("peer", "assistant", packet, false); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.Len(), playJitterPackets*2; got != want {
+	if err := session.syncPlayback(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.Len(), packetCount*2; got != want {
 		t.Fatalf("streaming bytes before EOS = %d, want %d", got, want)
 	}
-	if err := session.observe("peer", "assistant", []byte{10}, false); err != nil {
+	if err := session.observe("peer", "assistant", packet, false); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.Len(), (playJitterPackets+1)*2; got != want {
+	if err := session.syncPlayback(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.Len(), (packetCount+1)*2; got != want {
 		t.Fatalf("next packet was not streamed immediately: bytes = %d, want %d", got, want)
+	}
+}
+
+func TestPlaySessionDoesNotBlockReceiverOnPortAudio(t *testing.T) {
+	output := &blockingPlayOutput{started: make(chan struct{}), release: make(chan struct{})}
+	session := &playSession{decoder: &fakePlayDecoder{samples: []int16{1}}, output: output}
+	var releaseOnce sync.Once
+	t.Cleanup(func() {
+		releaseOnce.Do(func() { close(output.release) })
+		_ = session.close()
+	})
+	packet := []byte{0xf8}
+	packetCount := int(playStartBuffer / (20 * time.Millisecond))
+	for range packetCount - 1 {
+		if err := session.observe("peer", "assistant", packet, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	returned := make(chan error, 1)
+	go func() { returned <- session.observe("peer", "assistant", packet, false) }()
+	select {
+	case <-output.started:
+	case <-time.After(time.Second):
+		t.Fatal("playback task did not start")
+	}
+	select {
+	case err := <-returned:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("audio receiver blocked on PortAudio write")
+	}
+	releaseOnce.Do(func() { close(output.release) })
+	if err := session.syncPlayback(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -139,6 +199,7 @@ func TestPlaySessionCuePrecedesLatencyClock(t *testing.T) {
 	output := &fakePlayOutput{}
 	var logs bytes.Buffer
 	session := &playSession{decoder: &fakePlayDecoder{}, output: output, out: &logs}
+	t.Cleanup(func() { _ = session.close() })
 	if err := session.cue(); err != nil {
 		t.Fatal(err)
 	}
@@ -164,6 +225,7 @@ func TestPlaySessionResetsDecoderBetweenUtterances(t *testing.T) {
 		return nil, errors.New("unexpected decoder creation")
 	}
 	session := &playSession{decoder: first, output: &fakePlayOutput{}}
+	t.Cleanup(func() { _ = session.close() })
 	if err := session.observe("tester", "assistant", []byte{1}, true); err != nil {
 		t.Fatal(err)
 	}
@@ -183,6 +245,7 @@ func TestPlaySessionKeepsPacketWhenPlaybackFails(t *testing.T) {
 		decoder: &fakePlayDecoder{samples: []int16{1}},
 		output:  &fakePlayOutput{err: errors.New("device disconnected")},
 	}
+	t.Cleanup(func() { _ = session.close() })
 	if err := session.observe("peer", "assistant", []byte{7, 8}, false); err != nil {
 		t.Fatal(err)
 	}
