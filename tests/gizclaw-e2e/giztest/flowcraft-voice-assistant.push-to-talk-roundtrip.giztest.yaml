@@ -81,7 +81,7 @@ steps:
       /events:
         non_empty: true
       /audio_pacing/packets:
-        minimum: 10
+        minimum: 21
       /audio_pacing/mean_packet_ms:
         equals: 20
       /audio_pacing/mean_interval_ms:
@@ -92,7 +92,8 @@ steps:
       /audio_pacing/max_interval_ms:
         maximum: 100
       /audio_pacing/buffer_surplus_ms:
-        minimum: 1
+        minimum: 75
+        maximum: 125
 finally:
   - client: peer
     rpc:

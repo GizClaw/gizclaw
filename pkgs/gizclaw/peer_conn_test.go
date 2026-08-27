@@ -1110,18 +1110,23 @@ func TestPeerConnPacesMixedAudioAtEgressWithInjectedTicks(t *testing.T) {
 	}
 }
 
-func TestPeerConnAudioPacerBuildsWarmupSurplusAndRebasesLateDeadline(t *testing.T) {
+func TestPeerConnAudioPacerBuildsAndRecoversTargetSurplus(t *testing.T) {
 	var pacer peerConnAudioPacer
 	now := time.Unix(1, 0)
+	started := now
 	if delay := pacer.waitDuration(now); delay != 0 {
 		t.Fatalf("first packet delay = %s, want immediate", delay)
 	}
-	for packet := 2; packet <= peerConnPacingWarmup; packet++ {
+	recoveryIntervals := int(peerConnPacingBufferTarget / peerConnPacingMaxRecoveryPerPkt)
+	for packet := 2; packet <= recoveryIntervals+1; packet++ {
 		delay := pacer.waitDuration(now)
-		if delay != peerConnPacingWarmupPeriod {
-			t.Fatalf("packet %d delay = %s, want %s", packet, delay, peerConnPacingWarmupPeriod)
+		if delay != peerConnPacingMinimumPeriod {
+			t.Fatalf("packet %d delay = %s, want %s", packet, delay, peerConnPacingMinimumPeriod)
 		}
 		now = now.Add(delay)
+	}
+	if surplus := time.Duration(recoveryIntervals)*peerConnOpusFrameDuration - now.Sub(started); surplus != peerConnPacingBufferTarget {
+		t.Fatalf("initial surplus = %s, want %s", surplus, peerConnPacingBufferTarget)
 	}
 	if delay := pacer.waitDuration(now); delay != peerConnPacingSteadyPeriod {
 		t.Fatalf("steady delay = %s, want %s", delay, peerConnPacingSteadyPeriod)
@@ -1129,46 +1134,59 @@ func TestPeerConnAudioPacerBuildsWarmupSurplusAndRebasesLateDeadline(t *testing.
 		now = now.Add(delay)
 	}
 
-	now = now.Add(peerConnOpusFrameDuration + time.Millisecond)
+	stallInterval := 5*peerConnOpusFrameDuration + 5*time.Millisecond
+	now = now.Add(stallInterval)
 	if delay := pacer.waitDuration(now); delay != 0 {
 		t.Fatalf("late packet delay = %s, want immediate rebase", delay)
 	}
+	recoveryAfterStall := int((stallInterval - peerConnOpusFrameDuration) / peerConnPacingMaxRecoveryPerPkt)
+	for packet := range recoveryAfterStall {
+		delay := pacer.waitDuration(now)
+		if delay != peerConnPacingMinimumPeriod {
+			t.Fatalf("recovery packet %d delay = %s, want %s", packet+1, delay, peerConnPacingMinimumPeriod)
+		}
+		now = now.Add(delay)
+	}
 	if delay := pacer.waitDuration(now); delay != peerConnPacingSteadyPeriod {
-		t.Fatalf("post-stall delay = %s, want steady %s", delay, peerConnPacingSteadyPeriod)
+		t.Fatalf("recovered delay = %s, want steady %s", delay, peerConnPacingSteadyPeriod)
+	} else {
+		now = now.Add(delay)
+	}
+
+	now = now.Add(peerConnOpusFrameDuration + time.Millisecond)
+	if delay := pacer.waitDuration(now); delay != 0 {
+		t.Fatalf("small late packet delay = %s, want immediate rebase", delay)
+	}
+	wantPartialRecovery := peerConnPacingSteadyPeriod - time.Millisecond
+	if delay := pacer.waitDuration(now); delay != wantPartialRecovery {
+		t.Fatalf("partial recovery delay = %s, want %s", delay, wantPartialRecovery)
 	}
 }
 
-func TestPeerConnAudioPacerCapsLongStreamSurplus(t *testing.T) {
+func TestPeerConnAudioPacerMaintainsTargetAcrossRepeatedStalls(t *testing.T) {
 	const packetCount = 200
 	var pacer peerConnAudioPacer
 	now := time.Unix(1, 0)
 	started := now
-	for range packetCount {
-		now = now.Add(pacer.waitDuration(now))
-	}
-	targetSpan := time.Duration(packetCount-1) * peerConnOpusFrameDuration
-	surplus := targetSpan - now.Sub(started)
-	want := time.Duration(peerConnPacingWarmup-1) * (peerConnOpusFrameDuration - peerConnPacingWarmupPeriod)
-	if surplus != want {
-		t.Fatalf("long-stream surplus = %s, want bounded %s", surplus, want)
-	}
-
-	pacer = peerConnAudioPacer{}
-	now = started
 	for packet := range packetCount {
 		if packet > 0 && packet%25 == 0 {
 			now = now.Add(peerConnPacingSteadyPeriod + time.Millisecond)
 		}
 		now = now.Add(pacer.waitDuration(now))
+		targetSpan := time.Duration(packet) * peerConnOpusFrameDuration
+		surplus := targetSpan - now.Sub(started)
+		if surplus > peerConnPacingBufferTarget {
+			t.Fatalf("packet %d surplus = %s, want at most %s", packet+1, surplus, peerConnPacingBufferTarget)
+		}
 	}
-	surplus = targetSpan - now.Sub(started)
-	if surplus > want {
-		t.Fatalf("repeated-late long-stream surplus = %s, want at most %s", surplus, want)
+	targetSpan := time.Duration(packetCount-1) * peerConnOpusFrameDuration
+	if surplus := targetSpan - now.Sub(started); surplus != peerConnPacingBufferTarget {
+		t.Fatalf("final surplus = %s, want recovered %s", surplus, peerConnPacingBufferTarget)
 	}
 }
 
 func TestPeerConnRealPacingDoesNotAccumulateWriteLatency(t *testing.T) {
-	const packetCount = 20
+	const packetCount = 40
 	mx := pcm.NewMixer(peerConnMixerFormat)
 	track, ctrl, err := mx.CreateTrack()
 	if err != nil {
@@ -1206,12 +1224,13 @@ func TestPeerConnRealPacingDoesNotAccumulateWriteLatency(t *testing.T) {
 	}
 	meanInterval := writes[len(writes)-1].Sub(writes[0]) / time.Duration(len(writes)-1)
 	if meanInterval < 13*time.Millisecond || meanInterval > 21*time.Millisecond {
-		t.Fatalf("mean egress interval = %s, want warmup/steady headroom independent of 8ms Write latency", meanInterval)
+		t.Fatalf("mean egress interval = %s, want recovery/steady headroom independent of 8ms Write latency", meanInterval)
 	}
-	warmupMean := writes[peerConnPacingWarmup-1].Sub(writes[0]) / time.Duration(peerConnPacingWarmup-1)
-	steadyMean := writes[len(writes)-1].Sub(writes[peerConnPacingWarmup-1]) / time.Duration(len(writes)-peerConnPacingWarmup)
-	if warmupMean >= steadyMean || warmupMean > 18*time.Millisecond || steadyMean > 22*time.Millisecond {
-		t.Fatalf("egress pacing warmup=%s steady=%s, want faster warmup followed by bounded steady headroom", warmupMean, steadyMean)
+	recoveryIntervals := int(peerConnPacingBufferTarget / peerConnPacingMaxRecoveryPerPkt)
+	recoveryMean := writes[recoveryIntervals].Sub(writes[0]) / time.Duration(recoveryIntervals)
+	steadyMean := writes[len(writes)-1].Sub(writes[recoveryIntervals]) / time.Duration(len(writes)-recoveryIntervals-1)
+	if recoveryMean >= steadyMean || recoveryMean > 18*time.Millisecond || steadyMean > 22*time.Millisecond {
+		t.Fatalf("egress pacing recovery=%s steady=%s, want bounded recovery followed by steady headroom", recoveryMean, steadyMean)
 	}
 
 	peer.closed.Store(true)

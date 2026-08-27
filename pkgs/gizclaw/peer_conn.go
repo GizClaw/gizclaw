@@ -38,13 +38,14 @@ var (
 )
 
 const (
-	peerConnMixerFormat        = pcm.L16Mono16K
-	peerConnOpusFrameDuration  = 20 * time.Millisecond
-	peerConnPacingWarmup       = 10
-	peerConnPacingWarmupPeriod = 15 * time.Millisecond
-	peerConnPacingSteadyPeriod = peerConnOpusFrameDuration
-	peerConnTelemetryQueueSize = 32
-	peerConnRuntimeStopTimeout = 2 * time.Second
+	peerConnMixerFormat             = pcm.L16Mono16K
+	peerConnOpusFrameDuration       = 20 * time.Millisecond
+	peerConnPacingBufferTarget      = 100 * time.Millisecond
+	peerConnPacingMaxRecoveryPerPkt = 5 * time.Millisecond
+	peerConnPacingMinimumPeriod     = peerConnOpusFrameDuration - peerConnPacingMaxRecoveryPerPkt
+	peerConnPacingSteadyPeriod      = peerConnOpusFrameDuration
+	peerConnTelemetryQueueSize      = 32
+	peerConnRuntimeStopTimeout      = 2 * time.Second
 	// peerConnInputAbortTimeout bounds how long a denied-turn abort may wait for
 	// input-queue capacity. The abort holds agentInputMu, so an unbounded wait
 	// would block teardown and later input transitions behind a flooding peer.
@@ -1314,25 +1315,30 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 }
 
 type peerConnAudioPacer struct {
-	next   time.Time
-	packet int
+	started time.Time
+	next    time.Time
+	packet  int
 }
 
 func (p *peerConnAudioPacer) waitDuration(now time.Time) time.Duration {
 	if p.next.IsZero() {
+		p.started = now
 		p.next = now
 		p.packet = 1
 		return 0
 	}
 	period := peerConnPacingSteadyPeriod
-	if p.packet < peerConnPacingWarmup {
-		period = peerConnPacingWarmupPeriod
+	mediaSpan := time.Duration(p.packet-1) * peerConnOpusFrameDuration
+	surplus := mediaSpan - p.next.Sub(p.started)
+	if deficit := peerConnPacingBufferTarget - surplus; deficit > 0 {
+		recovery := min(deficit, peerConnPacingMaxRecoveryPerPkt)
+		period -= recovery
 	}
 	p.next = p.next.Add(period)
 	delay := p.next.Sub(now)
 	if delay < 0 {
-		// Send only the current overdue packet immediately. Rebase without
-		// restarting warm-up, so repeated scheduler stalls cannot grow surplus.
+		// Send only the current overdue packet immediately. Rebase instead of
+		// bursting; later packets replenish the target at the bounded rate above.
 		p.next = now
 		p.packet++
 		return 0
@@ -1348,7 +1354,7 @@ func (h *PeerConn) audioPacingWaiter() (func() bool, func()) {
 			return ok
 		}, func() {}
 	}
-	timer := time.NewTimer(peerConnPacingWarmupPeriod)
+	timer := time.NewTimer(peerConnPacingMinimumPeriod)
 	if !timer.Stop() {
 		<-timer.C
 	}

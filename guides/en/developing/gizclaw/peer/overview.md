@@ -44,15 +44,16 @@ The Peer Mixer produces downlink audio in 20 ms Opus frames. `PeerConn` obtains
 and encodes a frame before sending it against an absolute deadline instead of
 waiting for a complete frame period after each encode or network write, so
 encoding and `Conn.Write` latency do not accumulate into every packet interval.
-The first packet is immediate, the next nine intervals use a 15 ms warm-up
-period, and later intervals return to the 20 ms media period. This builds about
-45 ms of receiver playback surplus without allowing a long response to grow
-latency indefinitely.
+The first packet is immediate. While estimated receiver surplus is below the
+100 ms target, each later interval recovers at most 5 ms and therefore remains
+between 15 and 20 ms. At the target, intervals return to the 20 ms media period.
+This bounded controller builds and maintains playback headroom without allowing
+a long response to grow latency indefinitely.
 
 When a deadline has passed, the pacer sends only the current packet immediately
-and rebases the current pacing phase from that time without restarting warm-up.
-The following packet waits again, so overdue packets cannot form a burst and
-repeated small stalls cannot accumulate new surplus. Tests can inject pacing
+and rebases from that time. The following packets recover depleted surplus by at
+most 5 ms per packet until the 100 ms target is restored, so overdue packets
+cannot form a burst. Tests can inject pacing
 ticks into `PeerConn` for deterministic one-tick-per-packet coverage. A real
 clock test and Giztest E2E additionally verify that write latency is not
 accumulated and measure receiver-side intervals, drift, and buffer surplus.
