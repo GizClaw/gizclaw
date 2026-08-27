@@ -49,11 +49,14 @@ gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
 ```
 
 The command accepts one regular file whose document has `repeat: 1` and no
-barrier, and always uses one worker. It decodes the assistant Opus packets
-actually received by `peer_stream` and `workspace_relay` in arrival order to
-16 kHz mono PCM and plays them through the default PortAudio output device.
+barrier, and always uses one worker. In conversation order, it plays the user
+Opus audio uploaded by `peer_stream` and audio `workspace_relay` steps, followed
+by the assistant Opus audio actually received. Each utterance is fully buffered
+before being continuously decoded to 16 kHz mono PCM and sent to the default
+PortAudio output device, avoiding device underruns caused by network jitter.
 `-o` / `--output` must name a new directory. The committed record contains a
-redacted `report.json` and, when audio arrived, `audio.ogg`; an empty Ogg is not
+redacted `report.json` and, when audio arrived, `audio.ogg` containing the full
+user-and-assistant conversation in playback order; an empty Ogg is not
 invented when no audio arrived. Execution or playback failures still preserve
 the failed report and any bounded audio already received when the record can be
 committed, then return non-zero.

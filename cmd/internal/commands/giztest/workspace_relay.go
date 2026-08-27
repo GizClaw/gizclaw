@@ -217,6 +217,19 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 			<-side.readerDone
 		}
 	}()
+	if observeAudio != nil && op.Media == "audio" {
+		audio, ok := input.([]byte)
+		if !ok {
+			return operationResult{}, fmt.Errorf("audio workspace_relay input must be in-memory Opus bytes")
+		}
+		packets, err := decodeOpusPackets(audio)
+		if err != nil {
+			return operationResult{}, err
+		}
+		if err := observeAudio(op.FirstClient, "user", packets); err != nil {
+			return operationResult{}, fmt.Errorf("play relay user audio: %w", err)
+		}
+	}
 	if err := pushRelayInput(ctx, op, sides[0].stream, input); err != nil {
 		return operationResult{}, fmt.Errorf("push relay input to %s: %w", op.FirstClient, err)
 	}
@@ -273,6 +286,12 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		}
 		return operationResult{evidence: failureEvidence(deadline)}, errors.New(message)
 	}
+	var observedTurnPackets [][]byte
+	defer func() {
+		if observeAudio != nil && len(observedTurnPackets) > 0 {
+			_ = observeAudio(sides[active].name, "assistant", observedTurnPackets)
+		}
+	}()
 	for {
 		var result nextPeerStreamResult
 		var from int
@@ -397,9 +416,11 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 				break
 			}
 			if isActive && observeAudio != nil && relayOpusMIME(part.MIMEType) {
-				if err := observeAudio(side.name, append([]byte(nil), part.Data...)); err != nil {
-					return fail(side, "", "observe assistant audio failed: %v", err)
+				packets, err := decodeOpusPackets(part.Data)
+				if err != nil {
+					return fail(side, "", "decode assistant audio failed: %v", err)
 				}
+				observedTurnPackets = append(observedTurnPackets, packets...)
 			}
 			totalAudioBytes += len(part.Data)
 			if totalAudioBytes > relayMaxAudioBytes {
@@ -438,6 +459,13 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 		}
 		if !isActive {
 			return fail(side, "", "unexpected terminal output from the inactive side")
+		}
+		if observeAudio != nil && len(observedTurnPackets) > 0 {
+			packets := observedTurnPackets
+			observedTurnPackets = nil
+			if err := observeAudio(side.name, "assistant", packets); err != nil {
+				return fail(side, "", "play assistant audio failed: %v", err)
+			}
 		}
 		side.texts = append(side.texts, strings.Join(side.turnTexts, ""))
 		completed++

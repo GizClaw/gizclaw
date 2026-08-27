@@ -46,10 +46,11 @@ gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
 ```
 
 该命令只接受一个普通文件以及 `repeat: 1`、无 barrier 的文档，固定使用一个 worker。
-它把 `peer_stream` 和 `workspace_relay` 实际收到的 assistant Opus packet 按顺序解码成
-16 kHz 单声道 PCM，并通过默认 PortAudio 输出设备实时播放。`-o` / `--output` 必须指向
+它按对话顺序播放 `peer_stream` 和音频 `workspace_relay` 上传的 user Opus 音频，以及实际收到的
+assistant Opus 音频。每个发言会先完整缓冲，再连续解码成 16 kHz 单声道 PCM 并通过默认
+PortAudio 输出设备播放，避免网络到包抖动造成声卡欠载。`-o` / `--output` 必须指向
 一个尚不存在的新目录；执行结束后其中包含脱敏的 `report.json`，收到音频时还包含
-`audio.ogg`。没有音频时不会生成伪造的空 Ogg。执行或播放失败也会尽量保存失败 report
+`audio.ogg`，其中按试听顺序包含 user 与 assistant 的完整对话。没有音频时不会生成伪造的空 Ogg。执行或播放失败也会尽量保存失败 report
 和已经收到的有界音频，再返回非零状态。
 
 Play 需要支持当前平台的 cgo、libopus 和 PortAudio native runtime，并在创建远端 client

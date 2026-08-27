@@ -32,9 +32,9 @@ type peerStream interface {
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
 
-// audioObserver receives one copied assistant Opus packet in stream order.
+// audioObserver receives one complete user or assistant Opus utterance.
 // It is nil for normal Giztest runs; play mode installs the only implementation.
-type audioObserver func(client string, packet []byte) error
+type audioObserver func(client, role string, packets [][]byte) error
 
 func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 	return func() (peerStream, error) { return client.OpenPeerStream(64) }
@@ -112,6 +112,11 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		packets, err := decodeOpusPackets(audio)
 		if err != nil {
 			return operationResult{}, err
+		}
+		if observeAudio != nil {
+			if err := observeAudio(step.Client, "user", packets); err != nil {
+				return operationResult{}, fmt.Errorf("play user audio: %w", err)
+			}
 		}
 		if op.Mode == "realtime" {
 			packets, err = appendRealtimeTailSilence(packets, realtimeTailSilence)
@@ -206,7 +211,12 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		}()
 	}
 	var texts []string
-	var assistantPackets [][]byte
+	var assistantPackets, observedAssistantPackets [][]byte
+	defer func() {
+		if observeAudio != nil && len(observedAssistantPackets) > 0 {
+			_ = observeAudio(step.Client, "assistant", observedAssistantPackets)
+		}
+	}()
 	audioBytes, events := 0, 0
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
@@ -252,6 +262,13 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		defer firstAudioTimer.Stop()
 	}
 	finish := func() (operationResult, error) {
+		if observeAudio != nil && len(observedAssistantPackets) > 0 {
+			packets := observedAssistantPackets
+			observedAssistantPackets = nil
+			if err := observeAudio(step.Client, "assistant", packets); err != nil {
+				return operationResult{}, fmt.Errorf("play assistant audio: %w", err)
+			}
+		}
 		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
 		if len(assistantPackets) > 0 {
 			var audio bytes.Buffer
@@ -383,9 +400,11 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				if label == "assistant" && len(part.Data) > 0 {
 					assistantAudioEvents++
 					if observeAudio != nil && relayOpusMIME(part.MIMEType) {
-						if err := observeAudio(step.Client, append([]byte(nil), part.Data...)); err != nil {
-							return operationResult{evidence: baseEvidence()}, fmt.Errorf("observe assistant audio: %w", err)
+						packets, err := decodeOpusPackets(part.Data)
+						if err != nil {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("decode assistant audio: %w", err)
 						}
+						observedAssistantPackets = append(observedAssistantPackets, packets...)
 					}
 					if audioCaptureMaxBytes > 0 {
 						if audioBytes > audioCaptureMaxBytes-len(part.Data) {

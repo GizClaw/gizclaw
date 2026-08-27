@@ -5,12 +5,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func testOggOpus(t *testing.T) ([]byte, [][]byte) {
+	t.Helper()
+	packets, err := appendRealtimeTailSilence(nil, 40*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var audio bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&audio, 16000, 1, packets); err != nil {
+		t.Fatal(err)
+	}
+	return audio.Bytes(), packets
+}
 
 func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	for _, tc := range []struct {
@@ -86,30 +101,56 @@ func TestDecodeOpusPacketsCopiesRawPacket(t *testing.T) {
 
 func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	stream := newFakeRelayStream()
-	packet := []byte{1, 2, 3}
+	oggAudio, packets := testOggOpus(t)
 	go func() {
 		drainPushes(stream, 3)
 		stream.in <- assistantText("s1", "done", false)
-		stream.in <- assistantBlob("s1", packet, false)
+		stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}}
 		stream.in <- assistantText("s1", "", true)
-		stream.in <- assistantBlob("s1", nil, true)
+		stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}}
 	}()
 	var client string
-	var observed []byte
+	var role string
+	var observed [][]byte
 	open := func() (peerStream, error) { return stream, nil }
 	_, err := invokePeerStream(context.Background(), nil, open, Step{
 		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
-	}, "hello", 0, func(gotClient string, gotPacket []byte) error {
+	}, "hello", 0, func(gotClient, gotRole string, gotPackets [][]byte) error {
 		client = gotClient
-		observed = gotPacket
-		gotPacket[0] = 9
+		role = gotRole
+		observed = gotPackets
+		gotPackets[0][0] = 9
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if client != "peer" || !bytes.Equal(observed, []byte{9, 2, 3}) || packet[0] != 1 {
-		t.Fatalf("observer client=%q packet=%v source=%v", client, observed, packet)
+	if client != "peer" || role != "assistant" || len(observed) != len(packets) || observed[0][0] != 9 || packets[0][0] == 9 {
+		t.Fatalf("observer client=%q role=%q packet_count=%d source_count=%d", client, role, len(observed), len(packets))
+	}
+}
+
+func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		stream.in <- assistantText("s1", "done", false)
+		stream.in <- assistantBlob("s1", []byte{2}, false)
+		stream.in <- assistantText("s1", "", true)
+		stream.in <- assistantBlob("s1", nil, true)
+	}()
+	var roles []string
+	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, Step{
+		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
+	}, []byte{1}, 0, func(_ string, role string, _ [][]byte) error {
+		roles = append(roles, role)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(roles, []string{"user", "assistant"}) {
+		t.Fatalf("observed roles = %v", roles)
 	}
 }
 
@@ -118,11 +159,14 @@ func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
 	go func() {
 		drainPushes(stream, 3)
 		stream.in <- assistantBlob("s1", []byte{1}, false)
+		stream.in <- assistantText("s1", "done", false)
+		stream.in <- assistantText("s1", "", true)
+		stream.in <- assistantBlob("s1", nil, true)
 	}()
 	open := func() (peerStream, error) { return stream, nil }
 	_, err := invokePeerStream(context.Background(), nil, open, Step{
 		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
-	}, "hello", 0, func(string, []byte) error { return errors.New("speaker failed") })
+	}, "hello", 0, func(string, string, [][]byte) error { return errors.New("speaker failed") })
 	if err == nil || !strings.Contains(err.Error(), "speaker failed") {
 		t.Fatalf("observer error = %v", err)
 	}

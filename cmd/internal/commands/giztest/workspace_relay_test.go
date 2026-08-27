@@ -236,26 +236,28 @@ func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
 	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
 	op := textRelayOperation(1)
 	op.TerminalMedia = "audio"
+	oggAudio, packets := testOggOpus(t)
 	type observation struct {
 		client string
+		role   string
 		packet []byte
 	}
 	var observations []observation
 	done := make(chan error, 1)
 	go func() {
-		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client string, packet []byte) error {
-			observations = append(observations, observation{client: client, packet: packet})
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client, role string, packets [][]byte) error {
+			observations = append(observations, observation{client: client, role: role, packet: packets[0]})
 			return nil
 		})
 		done <- err
 	}()
 	drainUserTurn(t, tester)
-	tester.in <- assistantBlob("t1", []byte{1, 2}, false)
-	tester.in <- assistantBlob("t1", nil, true)
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus", Data: oggAudio}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}}
+	tester.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", EndOfStream: true}}
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	if len(observations) != 1 || observations[0].client != "tester" || !bytes.Equal(observations[0].packet, []byte{1, 2}) {
+	if len(observations) != 1 || observations[0].client != "tester" || observations[0].role != "assistant" || !bytes.Equal(observations[0].packet, packets[0]) {
 		t.Fatalf("observations = %#v", observations)
 	}
 }

@@ -64,34 +64,41 @@ func newPlaySession() (*playSession, error) {
 	return &playSession{decoder: decoder, output: output}, nil
 }
 
-func (s *playSession) observe(_ string, packet []byte) error {
+func (s *playSession) observe(_, _ string, packets [][]byte) error {
 	if s == nil || s.closed.Load() {
 		return errors.New("play session is closed")
 	}
-	if len(packet) == 0 {
+	if len(packets) == 0 {
 		return nil
 	}
-	if s.bytes > playMaxAudioBytes-len(packet) {
+	utteranceBytes := 0
+	for _, packet := range packets {
+		if utteranceBytes > playMaxAudioBytes-len(packet) {
+			return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
+		}
+		utteranceBytes += len(packet)
+	}
+	if s.bytes > playMaxAudioBytes-utteranceBytes {
 		return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
 	}
-	copyOfPacket := append([]byte(nil), packet...)
-	s.packets = append(s.packets, copyOfPacket)
-	s.bytes += len(copyOfPacket)
-
+	var pcmAudio bytes.Buffer
 	const maxFrameSize = 16000 * 3 / 25
-	samples, err := s.decoder.Decode(packet, maxFrameSize, false)
-	if err != nil {
-		return fmt.Errorf("decode assistant Opus packet: %w", err)
+	for _, packet := range packets {
+		copyOfPacket := append([]byte(nil), packet...)
+		s.packets = append(s.packets, copyOfPacket)
+		s.bytes += len(copyOfPacket)
+		samples, err := s.decoder.Decode(packet, maxFrameSize, false)
+		if err != nil {
+			return fmt.Errorf("decode Opus packet: %w", err)
+		}
+		for _, sample := range samples {
+			if err := binary.Write(&pcmAudio, binary.LittleEndian, sample); err != nil {
+				return fmt.Errorf("buffer decoded PCM: %w", err)
+			}
+		}
 	}
-	pcmBytes := make([]byte, len(samples)*2)
-	for i, sample := range samples {
-		binary.LittleEndian.PutUint16(pcmBytes[i*2:], uint16(sample))
-	}
-	if len(pcmBytes) == 0 {
-		return nil
-	}
-	if _, err := io.Copy(s.output, bytes.NewReader(pcmBytes)); err != nil {
-		return fmt.Errorf("write assistant PCM to PortAudio: %w", err)
+	if _, err := io.Copy(s.output, &pcmAudio); err != nil {
+		return fmt.Errorf("write buffered PCM to PortAudio: %w", err)
 	}
 	return nil
 }
@@ -154,12 +161,13 @@ func newPlayRecord(path string) (*playRecord, error) {
 	if err := validatePlayOutput(path); err != nil {
 		return nil, err
 	}
-	parent := filepath.Dir(path)
-	temp, err := os.MkdirTemp(parent, ".giztest-play-*")
-	if err != nil {
-		return nil, fmt.Errorf("create temporary play record: %w", err)
+	if err := os.Mkdir(path, 0o700); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return nil, fmt.Errorf("play output path already exists: %s", path)
+		}
+		return nil, fmt.Errorf("reserve play output path: %w", err)
 	}
-	return &playRecord{target: path, temp: temp}, nil
+	return &playRecord{target: path, temp: path}, nil
 }
 
 func (r *playRecord) abort() {
@@ -182,14 +190,6 @@ func (r *playRecord) commit(report Report, packets [][]byte) error {
 	}
 	if err := syncDirectory(r.temp); err != nil {
 		return fmt.Errorf("sync play record: %w", err)
-	}
-	if _, err := os.Lstat(r.target); err == nil {
-		return fmt.Errorf("play output path already exists: %s", r.target)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("inspect play output path before commit: %w", err)
-	}
-	if err := os.Rename(r.temp, r.target); err != nil {
-		return fmt.Errorf("commit play record: %w", err)
 	}
 	r.committed = true
 	if err := syncDirectory(filepath.Dir(r.target)); err != nil {

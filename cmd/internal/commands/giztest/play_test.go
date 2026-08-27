@@ -85,7 +85,7 @@ func TestPlaySessionObservesCopiesAndPlaysPackets(t *testing.T) {
 	output := &fakePlayOutput{}
 	session := &playSession{decoder: decoder, output: output}
 	packet := []byte{1, 2, 3}
-	if err := session.observe("peer", packet); err != nil {
+	if err := session.observe("peer", "assistant", [][]byte{packet}); err != nil {
 		t.Fatal(err)
 	}
 	packet[0] = 9
@@ -101,7 +101,7 @@ func TestPlaySessionObservesCopiesAndPlaysPackets(t *testing.T) {
 	if !decoder.closed || !output.closed {
 		t.Fatal("playback resources were not closed")
 	}
-	if err := session.observe("peer", []byte{4}); err == nil || !strings.Contains(err.Error(), "closed") {
+	if err := session.observe("peer", "assistant", [][]byte{{4}}); err == nil || !strings.Contains(err.Error(), "closed") {
 		t.Fatalf("observe after close error = %v", err)
 	}
 }
@@ -111,7 +111,7 @@ func TestPlaySessionKeepsPacketWhenPlaybackFails(t *testing.T) {
 		decoder: &fakePlayDecoder{samples: []int16{1}},
 		output:  &fakePlayOutput{err: errors.New("device disconnected")},
 	}
-	if err := session.observe("peer", []byte{7, 8}); err == nil || !strings.Contains(err.Error(), "PortAudio") {
+	if err := session.observe("peer", "assistant", [][]byte{{7, 8}}); err == nil || !strings.Contains(err.Error(), "PortAudio") {
 		t.Fatalf("playback error = %v", err)
 	}
 	if session.bytes != 2 || len(session.packets) != 1 {
@@ -121,7 +121,7 @@ func TestPlaySessionKeepsPacketWhenPlaybackFails(t *testing.T) {
 
 func TestPlaySessionEnforcesAudioLimitBeforeCopy(t *testing.T) {
 	session := &playSession{decoder: &fakePlayDecoder{}, output: &fakePlayOutput{}, bytes: playMaxAudioBytes}
-	if err := session.observe("peer", []byte{1}); err == nil || !strings.Contains(err.Error(), "fixed") {
+	if err := session.observe("peer", "assistant", [][]byte{{1}}); err == nil || !strings.Contains(err.Error(), "fixed") {
 		t.Fatalf("limit error = %v", err)
 	}
 	if len(session.packets) != 0 {
@@ -171,6 +171,9 @@ func TestPlayRecordReservesWritableStagingAndAborts(t *testing.T) {
 	}
 	if _, err := os.Stat(record.temp); err != nil {
 		t.Fatalf("staging directory missing: %v", err)
+	}
+	if _, err := newPlayRecord(target); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("reserved target was not protected: %v", err)
 	}
 	record.abort()
 	if _, err := os.Stat(record.temp); !errors.Is(err, os.ErrNotExist) {
