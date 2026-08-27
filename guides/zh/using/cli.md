@@ -49,7 +49,9 @@ gizclaw test play -o ./play-record tests/gizclaw-e2e/giztest/voice.giztest.yaml
 它先播放一个不写入记录的短提示音，提示测试随即开始。随后按对话顺序播放 `peer_stream` 和
 音频 `workspace_relay` 上传的 user Opus 音频，以及实际收到的 assistant Opus 音频。音频边接收
 边播放：先积累 200 ms 音频的抗抖缓冲，达到水位后持续解码成 16 kHz 单声道 PCM，并通过独立播放
-task 写入默认 PortAudio 输出设备，EOS 只冲刷尾部剩余 packet。摘要同时报告提示音结束到第一份
+task 写入默认 PortAudio 输出设备。user EOS 将尾部加入播放队列但不延迟向 Server 推送问题；
+assistant EOS 冲刷尾部并等待该轮队列播放完成后再切换说话者。关闭时先关闭 PortAudio，以打断
+可能阻塞的 native write，避免播放 task 挂死。摘要同时报告提示音结束到第一份
 下行音频收到和开始播放的毫秒数，并输出每轮 packet 音频时长及到包间隔。普通 Giztest 也可通过
 `peer_stream` 结果的 `/audio_pacing` 路径断言 packet 数、音频时钟、平均/P95/最大间隔和累计漂移。
 `-o` / `--output` 必须指向

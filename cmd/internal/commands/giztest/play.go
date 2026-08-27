@@ -129,7 +129,7 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 		return errors.New("play session is closed")
 	}
 	if (s.client != "" && s.client != client) || (s.role != "" && s.role != role) {
-		if err := s.finishUtterance(); err != nil {
+		if err := s.finishUtterance(s.role != "user"); err != nil {
 			return err
 		}
 	}
@@ -171,7 +171,7 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 		}
 	}
 	if end {
-		return s.finishUtterance()
+		return s.finishUtterance(role != "user")
 	}
 	return nil
 }
@@ -286,7 +286,7 @@ func (s *playSession) syncPlayback() error {
 	return nil
 }
 
-func (s *playSession) finishUtterance() error {
+func (s *playSession) finishUtterance(waitPlayback bool) error {
 	if len(s.pending) > 0 {
 		s.utteranceStarted = true
 		if s.role == "assistant" && s.firstDownlinkPlaybackMS < 0 && !s.cueAt.IsZero() {
@@ -302,7 +302,10 @@ func (s *playSession) finishUtterance() error {
 		err = s.decoder.Close()
 		s.decoder = nil
 	}
-	playbackErr := s.syncPlayback()
+	var playbackErr error
+	if waitPlayback {
+		playbackErr = s.syncPlayback()
+	}
 	s.logUtteranceTiming()
 	s.client, s.role = "", ""
 	s.utteranceStarted = false
@@ -345,10 +348,10 @@ func (s *playSession) close() error {
 	if s == nil || s.closed.Load() {
 		return nil
 	}
-	flushErr := s.finishUtterance()
 	if !s.closed.CompareAndSwap(false, true) {
-		return flushErr
+		return nil
 	}
+	outputErr := s.output.Close()
 	s.startPlaybackPump()
 	close(s.pcmQueue)
 	<-s.pumpDone
@@ -357,7 +360,7 @@ func (s *playSession) close() error {
 		decoderErr = s.decoder.Close()
 		s.decoder = nil
 	}
-	return errors.Join(flushErr, s.playbackError(), s.output.Close(), decoderErr)
+	return errors.Join(s.playbackError(), outputErr, decoderErr)
 }
 
 func validatePlayDocument(path string, docs []*Document) error {

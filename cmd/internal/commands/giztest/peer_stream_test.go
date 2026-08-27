@@ -115,6 +115,18 @@ func TestPeerAudioPacingSummarizesPacketClockAndArrivalGaps(t *testing.T) {
 	}
 }
 
+func TestPeerAudioPacingOmitsUnavailableIntervals(t *testing.T) {
+	var pacing peerAudioPacing
+	if summary := pacing.summary(); summary != nil {
+		t.Fatalf("empty pacing summary = %#v, want nil", summary)
+	}
+	pacing.observe(time.Unix(1, 0), [][]byte{{0xf8}})
+	summary := pacing.summary()
+	if len(summary) != 2 || summary["packets"] != 1 || summary["audio_ms"] != int64(20) {
+		t.Fatalf("single-packet pacing summary = %#v", summary)
+	}
+}
+
 func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	stream := newFakeRelayStream()
 	oggAudio, packets := testOggOpus(t)
@@ -175,6 +187,47 @@ func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
 	}
 	if !slices.Equal(roles, []string{"user", "assistant"}) {
 		t.Fatalf("observed roles = %v", roles)
+	}
+}
+
+func TestInvokePeerStreamDoesNotWaitForUserPlaybackBeforePush(t *testing.T) {
+	packets, err := appendRealtimeTailSilence(nil, playStartBuffer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var audio bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&audio, 16000, 1, packets); err != nil {
+		t.Fatal(err)
+	}
+	output := &closeUnblocksPlayOutput{started: make(chan struct{}), closed: make(chan struct{})}
+	session := &playSession{decoder: &fakePlayDecoder{samples: []int16{1}}, output: output}
+	t.Cleanup(func() { _ = session.close() })
+	stream := newFakeRelayStream()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, invokeErr := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, Step{
+			ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
+		}, audio.Bytes(), 0, session.observe)
+		result <- invokeErr
+	}()
+	select {
+	case <-output.started:
+	case <-time.After(time.Second):
+		t.Fatal("user playback did not start")
+	}
+	select {
+	case <-stream.pushes:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("outbound turn waited for blocked local user playback")
+	}
+	cancel()
+	_ = output.Close()
+	select {
+	case <-result:
+	case <-time.After(time.Second):
+		t.Fatal("peer stream did not stop after cancellation")
 	}
 }
 

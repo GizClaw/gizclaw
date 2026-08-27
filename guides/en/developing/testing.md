@@ -271,11 +271,18 @@ expose receiver-side pacing under `audio_pacing`: `packets`, `audio_ms`,
 `buffer_surplus_ms`. Intervals use the stream reader's monotonic receipt time,
 before assertions, persistence, or PortAudio playback; a positive
 `buffer_surplus_ms` means network delivery is ahead of the Opus media clock.
+All `*_ms` values use milliseconds. `target_span_ms` is the sum of every packet
+duration except the last, `drift_ms = receive_span_ms - target_span_ms`, and
+`buffer_surplus_ms = -drift_ms`. P95 uses nearest-rank selection over arrival
+gaps. With one packet, only `packets` and `audio_ms` are present; with no
+assistant Opus, `audio_pacing` is absent.
 Giztest documents assert these paths through ordinary numeric `expect`
 constraints rather than a separate pacing schema.
 `flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` requires 20 ms
-Opus frames, permits warm-up and steady pacing ahead of the media clock, bounds
-the P95 and maximum interval, and requires positive buffer surplus.
+Opus frames, a mean interval from 12 through 21 ms, P95 no greater than 30 ms,
+maximum interval no greater than 100 ms, at least ten packets, and positive
+buffer surplus. Those ranges permit the bounded warm-up without demanding an
+unrealistic exact 20 ms arrival for every network packet.
 
 `workspace_relay` connects two selected Workspaces in one task as one bounded
 conversation: the tester Workflow owns test intent, generated user behavior,

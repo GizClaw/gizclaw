@@ -42,8 +42,8 @@ WebRTC、DataChannel 与 service stream multiplexing 属于 `pkgs/giznet`；Peer
 
 Peer Mixer 以 20 ms Opus frame 产生下行音频。`PeerConn` 先取得并编码 frame，再按绝对 deadline 发送，
 而不是在每次编码或网络写入完成后再等待一个完整 frame 周期，因此编码和 `Conn.Write`
-耗时不会逐包累积到到包间隔。首包立即发送，后续 9 个间隔使用 15 ms warm-up，随后使用
-19 ms steady 周期，使接收端先建立约 45 ms 的播放缓冲并在稳定阶段保留少量时钟余量。
+耗时不会逐包累积到到包间隔。首包立即发送，后续 9 个间隔使用 15 ms warm-up，随后回到
+20 ms 媒体周期，使接收端先建立约 45 ms 的播放缓冲，同时避免长回复的播放延迟持续增长。
 
 错过 deadline 时，pacer 只允许当前包立即发送，并从当前时间重新建立 warm-up deadline；
 下一包恢复等待，不会把逾期包连续突发发送。测试可为 `PeerConn` 注入 pacing tick，以确定性

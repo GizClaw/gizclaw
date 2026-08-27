@@ -55,7 +55,10 @@ audio uploaded by `peer_stream` and audio `workspace_relay` steps, followed by
 the assistant Opus audio actually received. Playback streams after a 200 ms
 audio buffer reaches its start watermark; later packets are decoded to 16 kHz
 mono PCM as they arrive and an independent playback task writes them to
-PortAudio. EOS only flushes the remaining tail. The summary reports milliseconds
+PortAudio. User EOS enqueues its tail without delaying the outbound request;
+assistant EOS flushes its tail and waits for the queued utterance before the
+next speaker. Shutdown closes PortAudio first so a blocked native write cannot
+hang the playback task. The summary reports milliseconds
 from the end of the cue to first downlink receipt and playback, plus per-utterance
 packet audio duration and arrival-gap timing. `peer_stream` also exposes these
 metrics under `/audio_pacing`, so normal Giztest expectations can enforce the

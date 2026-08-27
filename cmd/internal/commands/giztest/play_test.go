@@ -3,6 +3,7 @@ package giztest
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,24 @@ func (f *blockingPlayOutput) Write(p []byte) (int, error) {
 }
 
 func (f *blockingPlayOutput) Close() error { return nil }
+
+type closeUnblocksPlayOutput struct {
+	started   chan struct{}
+	closed    chan struct{}
+	startOnce sync.Once
+	closeOnce sync.Once
+}
+
+func (f *closeUnblocksPlayOutput) Write([]byte) (int, error) {
+	f.startOnce.Do(func() { close(f.started) })
+	<-f.closed
+	return 0, io.ErrClosedPipe
+}
+
+func (f *closeUnblocksPlayOutput) Close() error {
+	f.closeOnce.Do(func() { close(f.closed) })
+	return nil
+}
 
 func TestNewPlaySessionChecksNativeRuntimesAndCleansPartialOpen(t *testing.T) {
 	origOpusSupported := opusRuntimeSupportedFn
@@ -192,6 +211,29 @@ func TestPlaySessionDoesNotBlockReceiverOnPortAudio(t *testing.T) {
 	releaseOnce.Do(func() { close(output.release) })
 	if err := session.syncPlayback(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPlaySessionCloseInterruptsBlockedPortAudioWrite(t *testing.T) {
+	output := &closeUnblocksPlayOutput{started: make(chan struct{}), closed: make(chan struct{})}
+	session := &playSession{decoder: &fakePlayDecoder{samples: []int16{1}}, output: output}
+	packet := []byte{0xf8}
+	for range int(playStartBuffer / (20 * time.Millisecond)) {
+		if err := session.observe("peer", "assistant", packet, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	select {
+	case <-output.started:
+	case <-time.After(time.Second):
+		t.Fatal("playback task did not enter blocked write")
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- session.close() }()
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		t.Fatal("session close did not interrupt blocked PortAudio write")
 	}
 }
 

@@ -45,9 +45,9 @@ and encodes a frame before sending it against an absolute deadline instead of
 waiting for a complete frame period after each encode or network write, so
 encoding and `Conn.Write` latency do not accumulate into every packet interval.
 The first packet is immediate, the next nine intervals use a 15 ms warm-up
-period, and later intervals use a 19 ms steady period. This builds about 45 ms
-of receiver playback surplus and retains a small amount of clock headroom
-during steady delivery.
+period, and later intervals return to the 20 ms media period. This builds about
+45 ms of receiver playback surplus without allowing a long response to grow
+latency indefinitely.
 
 When a deadline has passed, the pacer sends only the current packet immediately
 and re-establishes warm-up deadlines from the current time. The following packet

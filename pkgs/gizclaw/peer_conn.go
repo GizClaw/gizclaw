@@ -42,7 +42,7 @@ const (
 	peerConnOpusFrameDuration  = 20 * time.Millisecond
 	peerConnPacingWarmup       = 10
 	peerConnPacingWarmupPeriod = 15 * time.Millisecond
-	peerConnPacingSteadyPeriod = 19 * time.Millisecond
+	peerConnPacingSteadyPeriod = peerConnOpusFrameDuration
 	peerConnTelemetryQueueSize = 32
 	peerConnRuntimeStopTimeout = 2 * time.Second
 	// peerConnInputAbortTimeout bounds how long a denied-turn abort may wait for

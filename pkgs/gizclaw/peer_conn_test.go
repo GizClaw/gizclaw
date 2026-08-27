@@ -1129,12 +1129,28 @@ func TestPeerConnAudioPacerBuildsWarmupSurplusAndRebasesLateDeadline(t *testing.
 		now = now.Add(delay)
 	}
 
-	now = now.Add(peerConnOpusFrameDuration)
+	now = now.Add(peerConnOpusFrameDuration + time.Millisecond)
 	if delay := pacer.waitDuration(now); delay != 0 {
 		t.Fatalf("late packet delay = %s, want immediate rebase", delay)
 	}
 	if delay := pacer.waitDuration(now); delay != peerConnPacingWarmupPeriod {
 		t.Fatalf("post-stall delay = %s, want warmup %s", delay, peerConnPacingWarmupPeriod)
+	}
+}
+
+func TestPeerConnAudioPacerCapsLongStreamSurplus(t *testing.T) {
+	const packetCount = 200
+	var pacer peerConnAudioPacer
+	now := time.Unix(1, 0)
+	started := now
+	for range packetCount {
+		now = now.Add(pacer.waitDuration(now))
+	}
+	targetSpan := time.Duration(packetCount-1) * peerConnOpusFrameDuration
+	surplus := targetSpan - now.Sub(started)
+	want := time.Duration(peerConnPacingWarmup-1) * (peerConnOpusFrameDuration - peerConnPacingWarmupPeriod)
+	if surplus != want {
+		t.Fatalf("long-stream surplus = %s, want bounded %s", surplus, want)
 	}
 }
 
