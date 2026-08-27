@@ -377,8 +377,12 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	if !chunk.IsEndOfStream() {
 		return nil
 	}
-	if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-		r.abortTTS(route, errors.New(chunk.Ctrl.Error))
+	if chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "") {
+		cleanupError := chunk.Ctrl.Error
+		if cleanupError == "" {
+			cleanupError = chunk.Ctrl.ErrorCode
+		}
+		r.abortTTS(route, errors.New(cleanupError))
 		r.finishRoute(route, chunk.Ctrl.Error)
 		return nil
 	}
