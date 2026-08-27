@@ -101,6 +101,8 @@ type Stream interface {
 | `EndOfStream` | 当前 chunk 是结束边界。携带 Part 时只结束对应 MIME channel；纯控制 chunk 则结束整个 StreamID route。它也可以携带最后一段 data 或 Error。 |
 | `Timestamp` | Chunk 的毫秒时间戳，供 `RealtimeStream` 排序和延迟处理；值为零时，`RealtimeStream` 会按当前时间补充单调递增值。 |
 
+Composition layer 还可以在 `StreamCtrl` 上附加仅限进程内使用的 response epoch。Epoch 在任何 response chunk 发布之前捕获拥有该 response 的准确 input route，跨 `MessageChunk.Clone` 保留，并从 JSON 及所有 Peer/API 转换中排除。Audio Dock 让 source text 或 direct audio、TTS sibling、interruption 与 synthesized terminal 共用一个不可变 epoch。`StreamCtrl.ResponseEpochEnd` 是不含 payload 的完成信号：此前所有 chunk 均为 false，只有全部已声明 MIME route 结束后的最终 EOS 才为 true；error 与 interruption 路径会先阻止 sibling 继续发布并完成有界 TTS 清理，在 output 仍可发布时再发布该标记。若 cancellation、abandonment 或 teardown 已阻止发布，则不合成 success boundary，并保留其实际 lifecycle 结果。在任何 input BOS 之前创建的 response 明确为 unowned，后续 input 不会收养它。
+
 `Ctrl == nil` 表示当前 chunk 没有显式的路由或边界控制信息。消费者应通过 `MessageChunk.IsBeginOfStream()` 和 `IsEndOfStream()` 判断边界，不直接假设 `Ctrl` 一定存在。
 
 #### StreamID、MIME channel 与 EOS

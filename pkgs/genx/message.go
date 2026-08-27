@@ -41,16 +41,39 @@ type MessageChunk struct {
 
 // StreamCtrl controls Stream routing and state.
 type StreamCtrl struct {
-	StreamID       string       `json:"stream_id,omitempty"`
-	Label          string       `json:"label,omitempty"`
-	Error          string       `json:"error,omitempty"`
-	ErrorCode      string       `json:"error_code,omitempty"`
-	ErrorRetryable bool         `json:"error_retryable,omitempty"`
-	FailureClass   FailureClass `json:"-"`
+	StreamID         string         `json:"stream_id,omitempty"`
+	Label            string         `json:"label,omitempty"`
+	Error            string         `json:"error,omitempty"`
+	ErrorCode        string         `json:"error_code,omitempty"`
+	ErrorRetryable   bool           `json:"error_retryable,omitempty"`
+	FailureClass     FailureClass   `json:"-"`
+	ResponseEpoch    *ResponseEpoch `json:"-"`
+	ResponseEpochEnd bool           `json:"-"`
 
 	BeginOfStream bool  `json:"begin_of_stream,omitempty"`
 	EndOfStream   bool  `json:"end_of_stream,omitempty"`
 	Timestamp     int64 `json:"timestamp,omitempty"`
+}
+
+// ResponseEpoch identifies one producer-owned response and its immutable
+// input-route provenance. It is process-local metadata: wire encoders must not
+// expose it, and consumers compare epochs only by pointer identity.
+type ResponseEpoch struct {
+	inputStreamID string
+}
+
+// NewResponseEpoch creates a response epoch owned by inputStreamID. An empty
+// owner deliberately represents a response that began without an input route.
+func NewResponseEpoch(inputStreamID string) *ResponseEpoch {
+	return &ResponseEpoch{inputStreamID: strings.TrimSpace(inputStreamID)}
+}
+
+// InputStreamID returns the immutable input route captured for this epoch.
+func (e *ResponseEpoch) InputStreamID() string {
+	if e == nil {
+		return ""
+	}
+	return e.inputStreamID
 }
 
 // IsBeginOfStream returns true if this chunk is a begin-of-stream marker.

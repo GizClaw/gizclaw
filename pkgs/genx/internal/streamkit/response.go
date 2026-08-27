@@ -15,10 +15,11 @@ const textMIME = "text/plain"
 // copied to synthesized terminal chunks and fill missing metadata on emitted
 // chunks without imposing model- or agent-specific defaults.
 type ResponseConfig struct {
-	StreamID string
-	Role     genx.Role
-	Name     string
-	Label    string
+	StreamID      string
+	Role          genx.Role
+	Name          string
+	Label         string
+	ResponseEpoch *genx.ResponseEpoch
 }
 
 // Response tracks MIME-route completion for one logical StreamID. It is safe
@@ -125,6 +126,28 @@ func (r *Response) Accept(chunk *genx.MessageChunk) bool {
 	return true
 }
 
+// markEpochEnd marks the accepted terminal chunk that completes every route
+// currently declared for this response. Producers must declare sibling routes
+// before closing an earlier route.
+func (r *Response) markEpochEnd(chunk *genx.MessageChunk) {
+	if r == nil || chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	if chunk.Part != nil && (strings.TrimSpace(chunk.Ctrl.Error) != "" || strings.TrimSpace(chunk.Ctrl.ErrorCode) != "") {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	complete := r.terminal
+	if !complete {
+		complete = len(r.routes) > 0
+		for _, done := range r.routes {
+			complete = complete && done
+		}
+	}
+	chunk.Ctrl.ResponseEpochEnd = complete
+}
+
 // End closes every still-open MIME route and returns one EOS chunk per route.
 func (r *Response) End(errorText string) []*genx.MessageChunk {
 	if r == nil {
@@ -137,7 +160,9 @@ func (r *Response) End(errorText string) []*genx.MessageChunk {
 	}
 	r.terminal = true
 	if len(r.routes) == 0 {
-		return []*genx.MessageChunk{r.controlEOS(errorText)}
+		chunks := []*genx.MessageChunk{r.controlEOS(errorText)}
+		markLastEpochEnd(chunks)
+		return chunks
 	}
 	mimeTypes := make([]string, 0, len(r.routes))
 	for mimeType, done := range r.routes {
@@ -146,7 +171,9 @@ func (r *Response) End(errorText string) []*genx.MessageChunk {
 		}
 	}
 	if len(mimeTypes) == 0 && strings.TrimSpace(errorText) != "" {
-		return []*genx.MessageChunk{r.controlEOS(errorText)}
+		chunks := []*genx.MessageChunk{r.controlEOS(errorText)}
+		markLastEpochEnd(chunks)
+		return chunks
 	}
 	sort.Strings(mimeTypes)
 	chunks := make([]*genx.MessageChunk, 0, len(mimeTypes))
@@ -154,6 +181,7 @@ func (r *Response) End(errorText string) []*genx.MessageChunk {
 		r.routes[mimeType] = true
 		chunks = append(chunks, r.routeEOS(mimeType, errorText))
 	}
+	markLastEpochEnd(chunks)
 	return chunks
 }
 
@@ -188,7 +216,9 @@ func (r *Response) endAfterDiscard(errorText string, discarded []*genx.MessageCh
 		return nil
 	}
 	if len(r.routes) == 0 {
-		return []*genx.MessageChunk{r.controlEOS(errorText)}
+		chunks := []*genx.MessageChunk{r.controlEOS(errorText)}
+		markLastEpochEnd(chunks)
+		return chunks
 	}
 	mimeTypes := make([]string, 0, len(r.routes))
 	for mimeType, done := range r.routes {
@@ -209,7 +239,17 @@ func (r *Response) endAfterDiscard(errorText string, discarded []*genx.MessageCh
 		}
 		chunks = append(chunks, r.routeEOS(mimeType, errorText))
 	}
+	markLastEpochEnd(chunks)
 	return chunks
+}
+
+func markLastEpochEnd(chunks []*genx.MessageChunk) {
+	for index := len(chunks) - 1; index >= 0; index-- {
+		if chunks[index] != nil && chunks[index].Ctrl != nil {
+			chunks[index].Ctrl.ResponseEpochEnd = true
+			return
+		}
+	}
 }
 
 func (r *Response) applyMetadata(chunk *genx.MessageChunk) *genx.MessageChunk {
@@ -220,9 +260,10 @@ func (r *Response) applyMetadata(chunk *genx.MessageChunk) *genx.MessageChunk {
 	if copyChunk.Name == "" {
 		copyChunk.Name = r.config.Name
 	}
-	copyCtrl := genx.StreamCtrl{StreamID: r.config.StreamID, Label: r.config.Label}
+	copyCtrl := genx.StreamCtrl{StreamID: r.config.StreamID, Label: r.config.Label, ResponseEpoch: r.config.ResponseEpoch}
 	if chunk.Ctrl != nil {
 		copyCtrl = *chunk.Ctrl
+		copyCtrl.ResponseEpochEnd = false
 		if strings.TrimSpace(copyCtrl.StreamID) == "" {
 			copyCtrl.StreamID = r.config.StreamID
 		}
@@ -230,6 +271,7 @@ func (r *Response) applyMetadata(chunk *genx.MessageChunk) *genx.MessageChunk {
 			copyCtrl.Label = r.config.Label
 		}
 	}
+	copyCtrl.ResponseEpoch = r.config.ResponseEpoch
 	copyChunk.Ctrl = &copyCtrl
 	return &copyChunk
 }
@@ -239,10 +281,11 @@ func (r *Response) controlEOS(errorText string) *genx.MessageChunk {
 		Role: r.config.Role,
 		Name: r.config.Name,
 		Ctrl: &genx.StreamCtrl{
-			StreamID:    r.config.StreamID,
-			Label:       r.config.Label,
-			Error:       errorText,
-			EndOfStream: true,
+			StreamID:      r.config.StreamID,
+			Label:         r.config.Label,
+			Error:         errorText,
+			ResponseEpoch: r.config.ResponseEpoch,
+			EndOfStream:   true,
 		},
 	}
 }
@@ -264,6 +307,7 @@ func (r *Response) routeBOS(mimeType string) *genx.MessageChunk {
 		Ctrl: &genx.StreamCtrl{
 			StreamID:      r.config.StreamID,
 			Label:         r.config.Label,
+			ResponseEpoch: r.config.ResponseEpoch,
 			BeginOfStream: true,
 		},
 	}

@@ -51,17 +51,27 @@ func TestMessageChunkConstructorsAndClone(t *testing.T) {
 }
 
 func TestStreamCtrlDoesNotSerializeInternalFailureClass(t *testing.T) {
+	epoch := NewResponseEpoch("input-private")
 	encoded, err := json.Marshal(StreamCtrl{
-		StreamID:     "response",
-		ErrorCode:    "SAFE_CODE",
-		FailureClass: FailureClassProvider,
-		EndOfStream:  true,
+		StreamID:         "response",
+		ErrorCode:        "SAFE_CODE",
+		FailureClass:     FailureClassProvider,
+		ResponseEpoch:    epoch,
+		ResponseEpochEnd: true,
+		EndOfStream:      true,
 	})
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
 	if strings.Contains(string(encoded), "failure_class") || strings.Contains(string(encoded), string(FailureClassProvider)) {
 		t.Fatalf("serialized StreamCtrl exposed internal failure provenance: %s", encoded)
+	}
+	if strings.Contains(string(encoded), "response_epoch") || strings.Contains(string(encoded), "input-private") {
+		t.Fatalf("serialized StreamCtrl exposed response provenance: %s", encoded)
+	}
+	chunk := (&MessageChunk{Ctrl: &StreamCtrl{ResponseEpoch: epoch, ResponseEpochEnd: true}}).Clone()
+	if chunk.Ctrl.ResponseEpoch != epoch || !chunk.Ctrl.ResponseEpochEnd || chunk.Ctrl.ResponseEpoch.InputStreamID() != "input-private" {
+		t.Fatalf("Clone() response provenance = %#v", chunk.Ctrl)
 	}
 }
 

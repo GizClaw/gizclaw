@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -45,6 +46,8 @@ type peerStreamLifecycle struct {
 	inputTurns    map[string]uint64
 	outputTurns   map[string]uint64
 	outputOrder   []string
+	epochTurns    map[*genx.ResponseEpoch]uint64
+	epochOrder    []*genx.ResponseEpoch
 }
 
 type peerStreamTurn struct {
@@ -58,9 +61,11 @@ type peerStreamTurn struct {
 	seen                map[string]bool
 	producedModalities  map[string]bool
 	deliveredModalities map[string]bool
-	openAssistantRoutes map[string]bool
-	agentTerminalRoute  string
-	agentTerminalStream string
+	sourcePartClasses   map[string]bool
+	sourceLabelClasses  map[string]bool
+	peerEventTypes      map[string]bool
+	peerEventKinds      map[string]bool
+	peerEventLabels     map[string]bool
 
 	inputTerminalObserved  bool
 	interruptObserved      bool
@@ -69,7 +74,7 @@ type peerStreamTurn struct {
 	outputEventObserved    bool
 	outputTerminalObserved bool
 	agentTerminalObserved  bool
-	outputRouteBound       bool
+	assistantEpochBound    bool
 	terminalPending        bool
 }
 
@@ -99,6 +104,11 @@ type peerStreamTurnSnapshot struct {
 	agentTerminalObserved  bool
 	producedModalities     string
 	deliveredModalities    string
+	sourcePartClasses      string
+	sourceLabelClasses     string
+	peerEventTypes         string
+	peerEventKinds         string
+	peerEventLabelClasses  string
 }
 
 func newPeerStreamLifecycle(logger *slog.Logger, tunnelSessionID, peerPublicKey string) *peerStreamLifecycle {
@@ -128,6 +138,7 @@ func newEnabledPeerStreamLifecycle(logger *slog.Logger, tunnelSessionID, peerPub
 		turns:              make(map[uint64]*peerStreamTurn),
 		inputTurns:         make(map[string]uint64),
 		outputTurns:        make(map[string]uint64),
+		epochTurns:         make(map[*genx.ResponseEpoch]uint64),
 	}
 }
 
@@ -163,9 +174,6 @@ func (l *peerStreamLifecycle) observeInput(event *eventpb.PeerEvent) {
 			result, reason := peerStreamEventOutcome(event)
 			if record := l.turnRecordOnceLocked(turn, "peer_input", "input_terminal", result, reason); record != nil {
 				records = append(records, *record)
-			}
-			if turn.agentTransformStarted {
-				delete(l.inputTurns, streamID)
 			}
 		}
 	}
@@ -217,9 +225,6 @@ func (l *peerStreamLifecycle) observeAgentTransformStarted(chunk *genx.MessageCh
 	if turn != nil {
 		turn.agentTransformStarted = true
 		record = l.turnRecordOnceLocked(turn, "agent_runtime", "agent_transform_started", "success", "")
-		if turn.inputTerminalObserved {
-			delete(l.inputTurns, streamID)
-		}
 	}
 	l.mu.Unlock()
 	if record != nil {
@@ -247,10 +252,22 @@ func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.Mes
 	if l == nil || chunk == nil {
 		return
 	}
-	// Consumers without the optional producer hook still get a conservative
-	// producer-boundary observation immediately before delivery.
-	l.observeOutputProduced(chunk)
-	streamID := streamIDFromChunk(chunk)
+	for _, event := range peerStreamEventsFromChunk(chunk) {
+		l.observePeerEventDelivered(ctx, chunk, event, workspaceName)
+	}
+	l.observeOutputDrained(chunk)
+}
+
+func (l *peerStreamLifecycle) observePeerEventDelivered(
+	ctx context.Context,
+	chunk *genx.MessageChunk,
+	event *eventpb.PeerEvent,
+	workspaceName func(context.Context) string,
+) {
+	if l == nil || chunk == nil || event == nil {
+		return
+	}
+	streamID := event.StreamID()
 	workspace := ""
 	if workspaceName != nil {
 		workspace = strings.TrimSpace(workspaceName(ctx))
@@ -258,7 +275,7 @@ func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.Mes
 	var records []peerStreamLifecycleRecord
 	l.mu.Lock()
 	l.outputEventObserved = true
-	turn := l.outputTurnLocked(streamID)
+	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil {
 		turn.outputEventObserved = true
 		if turn.outputStreamIDHash == "" {
@@ -268,25 +285,18 @@ func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.Mes
 			records = append(records, *record)
 		}
 		if isAgentObservableOutputChunk(chunk) {
-			modality := peerAgentOutputModality(chunk)
-			turn.deliveredModalities[modality] = true
-			if record := l.turnOutputRecordOnceLocked(turn, "agent_output_delivered", modality); record != nil {
-				records = append(records, *record)
+			modality := peerEventOutputModality(chunk, event)
+			turn.peerEventTypes[peerEventTypeClass(event)] = true
+			turn.peerEventKinds[peerEventKindClass(event)] = true
+			turn.peerEventLabels[peerLabelClass(event.Label())] = true
+			if modality != "" {
+				turn.deliveredModalities[modality] = true
+				if record := l.turnOutputRecordOnceLocked(turn, "agent_output_delivered", modality); record != nil {
+					records = append(records, *record)
+				}
 			}
-		}
-		if chunk.IsEndOfStream() && turn.agentTerminalObserved &&
-			turn.agentTerminalRoute == peerAgentTerminalRoute(chunk) &&
-			turn.agentTerminalStream == streamID {
-			turn.outputTerminalObserved = true
-			result, reason := peerStreamChunkOutcome(chunk)
-			if record := l.turnRecordOnceLocked(turn, "agent_output", "output_terminal", result, reason); record != nil {
-				records = append(records, *record)
-			}
-			delete(l.outputTurns, streamID)
-			if turn.terminalPending {
-				records = append(records, l.terminateTurnLocked(turn, "replaced", "input_replaced"))
-			} else {
-				records = append(records, l.terminateTurnLocked(turn, result, reason))
+			if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE && modality == "assistant_text" {
+				turn.deliveredModalities["assistant_eos"] = true
 			}
 		}
 	}
@@ -308,6 +318,33 @@ func (l *peerStreamLifecycle) observeOutput(ctx context.Context, chunk *genx.Mes
 	l.recordOnce("agent_output/output_first_event", "agent_output", "output_first_event", attrs...)
 }
 
+// observeOutputDrained records the final consumer boundary after all Peer
+// broadcasts for chunk have succeeded. Audio reaches this point only after its
+// mixer track drains, including when aggregate audio suppresses a source EOS.
+func (l *peerStreamLifecycle) observeOutputDrained(chunk *genx.MessageChunk) {
+	if l == nil || chunk == nil || chunk.Ctrl == nil || !chunk.Ctrl.ResponseEpochEnd {
+		return
+	}
+	var records []peerStreamLifecycleRecord
+	l.mu.Lock()
+	turn := l.outputTurnLocked(chunk, &records)
+	if turn != nil && turn.agentTerminalObserved && !turn.outputTerminalObserved {
+		turn.outputTerminalObserved = true
+		result, reason := peerStreamChunkOutcome(chunk)
+		if record := l.turnRecordOnceLocked(turn, "agent_output", "output_terminal", result, reason); record != nil {
+			records = append(records, *record)
+		}
+		delete(l.outputTurns, streamIDFromChunk(chunk))
+		if turn.terminalPending {
+			records = append(records, l.terminateTurnLocked(turn, "replaced", "input_replaced"))
+		} else {
+			records = append(records, l.terminateTurnLocked(turn, result, reason))
+		}
+	}
+	l.mu.Unlock()
+	l.logTurnRecords(records)
+}
+
 // observeOutputProduced runs at the producer boundary, before the independently
 // scheduled consumer and any audio drain. Only the first observable modality
 // is logged; later chunks update a bounded terminal snapshot.
@@ -318,24 +355,26 @@ func (l *peerStreamLifecycle) observeOutputProduced(chunk *genx.MessageChunk) {
 	streamID := streamIDFromChunk(chunk)
 	var records []peerStreamLifecycleRecord
 	l.mu.Lock()
-	turn := l.outputTurnLocked(streamID)
+	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil {
-		turn.outputRouteBound = streamID != ""
 		if turn.outputStreamIDHash == "" {
 			turn.outputStreamIDHash = safeStreamIDHash(streamID)
 		}
 		if isAgentObservableOutputChunk(chunk) {
 			modality := peerAgentOutputModality(chunk)
 			turn.producedModalities[modality] = true
+			turn.sourcePartClasses[peerSourcePartClass(chunk)] = true
+			turn.sourceLabelClasses[peerSourceLabelClass(chunk)] = true
 			if record := l.turnOutputRecordOnceLocked(turn, "agent_output_produced", modality); record != nil {
 				records = append(records, *record)
 			}
 		}
-		terminal := l.observeAssistantRouteLocked(turn, chunk)
+		if isAssistantOutputChunk(chunk) {
+			turn.assistantEpochBound = true
+		}
+		terminal := chunk.Ctrl != nil && chunk.Ctrl.ResponseEpochEnd && isAssistantOutputChunk(chunk)
 		if terminal && !turn.agentTerminalObserved {
 			turn.agentTerminalObserved = true
-			turn.agentTerminalRoute = peerAgentTerminalRoute(chunk)
-			turn.agentTerminalStream = streamID
 			result, reason := peerStreamChunkOutcome(chunk)
 			if record := l.turnRecordOnceLocked(turn, "agent_runtime", "agent_terminal", result, reason); record != nil {
 				record.terminalClass = peerAgentTerminalClass(chunk, nil)
@@ -399,9 +438,9 @@ func (l *peerStreamLifecycle) startTurnLocked(streamID string) []peerStreamLifec
 		if record := l.turnRecordOnceLocked(previous, "peer_input", "interrupt_observed", "interrupted", "input_replaced"); record != nil {
 			records = append(records, *record)
 		}
-		waitingForAssistantDelivery := len(previous.openAssistantRoutes) > 0 ||
-			(previous.agentTerminalObserved && !previous.outputTerminalObserved)
-		if previous.outputRouteBound && waitingForAssistantDelivery {
+		waitingForAssistantDelivery := previous.agentInputPushed || previous.agentTransformStarted ||
+			previous.assistantEpochBound || (previous.agentTerminalObserved && !previous.outputTerminalObserved)
+		if waitingForAssistantDelivery {
 			previous.terminalPending = true
 		} else {
 			if record := l.ensureAgentTerminalLocked(previous, "interrupted", "input_replaced", "interrupted"); record != nil {
@@ -418,7 +457,11 @@ func (l *peerStreamLifecycle) startTurnLocked(streamID string) []peerStreamLifec
 		seen:                make(map[string]bool),
 		producedModalities:  make(map[string]bool),
 		deliveredModalities: make(map[string]bool),
-		openAssistantRoutes: make(map[string]bool),
+		sourcePartClasses:   make(map[string]bool),
+		sourceLabelClasses:  make(map[string]bool),
+		peerEventTypes:      make(map[string]bool),
+		peerEventKinds:      make(map[string]bool),
+		peerEventLabels:     make(map[string]bool),
 	}
 	l.turns[turn.index] = turn
 	l.turnOrder = append(l.turnOrder, turn.index)
@@ -451,15 +494,47 @@ func (l *peerStreamLifecycle) inputTurnLocked(streamID string) *peerStreamTurn {
 	return l.turns[l.currentTurn]
 }
 
-func (l *peerStreamLifecycle) outputTurnLocked(streamID string) *peerStreamTurn {
-	if streamID != "" {
-		if turn := l.turns[l.outputTurns[streamID]]; turn != nil {
-			return turn
+func (l *peerStreamLifecycle) outputTurnLocked(chunk *genx.MessageChunk, records *[]peerStreamLifecycleRecord) *peerStreamTurn {
+	if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.ResponseEpoch == nil {
+		return nil
+	}
+	epoch := chunk.Ctrl.ResponseEpoch
+	if turn := l.turns[l.epochTurns[epoch]]; turn != nil {
+		return turn
+	}
+	owner := epoch.InputStreamID()
+	turn := l.turns[l.inputTurns[owner]]
+	if owner == "" || turn == nil {
+		return nil
+	}
+	for len(l.epochTurns) >= peerStreamLifecycleMaxOutputRoutes && len(l.epochOrder) > 0 {
+		oldest := l.epochOrder[0]
+		l.epochOrder = l.epochOrder[1:]
+		index, retained := l.epochTurns[oldest]
+		if !retained {
+			continue
+		}
+		oldestTurn := l.turns[index]
+		if oldestTurn == nil {
+			delete(l.epochTurns, oldest)
+			continue
+		}
+		if record := l.ensureAgentTerminalLocked(oldestTurn, "incomplete", "state_limit", "stream_error"); record != nil {
+			*records = append(*records, *record)
+		}
+		*records = append(*records, l.terminateTurnLocked(oldestTurn, "incomplete", "state_limit"))
+		// releaseTurnLocked removes every epoch and route for the affected
+		// owner. If the incoming epoch named that same owner, its input mapping
+		// is now gone and it must remain unowned rather than being recreated.
+		turn = l.turns[l.inputTurns[owner]]
+		if turn == nil {
+			return nil
 		}
 	}
-	turn := l.turns[l.currentTurn]
-	if turn != nil && streamID != "" {
-		turn.outputRouteBound = true
+	l.epochTurns[epoch] = turn.index
+	l.epochOrder = append(l.epochOrder, epoch)
+	streamID := streamIDFromChunk(chunk)
+	if streamID != "" {
 		l.bindOutputRouteLocked(streamID, turn)
 	}
 	return turn
@@ -632,6 +707,18 @@ func (l *peerStreamLifecycle) releaseTurnLocked(index uint64) {
 			delete(l.outputTurns, streamID)
 		}
 	}
+	for epoch, turnIndex := range l.epochTurns {
+		if turnIndex == index {
+			delete(l.epochTurns, epoch)
+		}
+	}
+	epochOrder := l.epochOrder[:0]
+	for _, epoch := range l.epochOrder {
+		if _, retained := l.epochTurns[epoch]; retained {
+			epochOrder = append(epochOrder, epoch)
+		}
+	}
+	l.epochOrder = epochOrder
 	outputOrder := l.outputOrder[:0]
 	for _, streamID := range l.outputOrder {
 		if _, retained := l.outputTurns[streamID]; retained {
@@ -664,6 +751,11 @@ func snapshotPeerStreamTurn(turn *peerStreamTurn) *peerStreamTurnSnapshot {
 		agentTerminalObserved:  turn.agentTerminalObserved,
 		producedModalities:     joinedModalities(turn.producedModalities),
 		deliveredModalities:    joinedModalities(turn.deliveredModalities),
+		sourcePartClasses:      joinedClasses(turn.sourcePartClasses),
+		sourceLabelClasses:     joinedClasses(turn.sourceLabelClasses),
+		peerEventTypes:         joinedClasses(turn.peerEventTypes),
+		peerEventKinds:         joinedClasses(turn.peerEventKinds),
+		peerEventLabelClasses:  joinedClasses(turn.peerEventLabels),
 	}
 }
 
@@ -718,6 +810,11 @@ func (l *peerStreamLifecycle) logTurnRecordWithAttrs(record peerStreamLifecycleR
 			slog.Bool("agent_terminal_observed", record.turn.agentTerminalObserved),
 			slog.String("produced_modalities", record.turn.producedModalities),
 			slog.String("delivered_modalities", record.turn.deliveredModalities),
+			slog.String("source_part_classes", record.turn.sourcePartClasses),
+			slog.String("source_label_classes", record.turn.sourceLabelClasses),
+			slog.String("peer_event_types", record.turn.peerEventTypes),
+			slog.String("peer_event_kinds", record.turn.peerEventKinds),
+			slog.String("peer_event_label_classes", record.turn.peerEventLabelClasses),
 		)
 	}
 	for _, attr := range extra {
@@ -863,40 +960,6 @@ func isAgentObservableOutputChunk(chunk *genx.MessageChunk) bool {
 	return label != genx.HistoryUserAudioLabel && label != peerStreamEventHistoryUpdatedLabel
 }
 
-func (l *peerStreamLifecycle) observeAssistantRouteLocked(turn *peerStreamTurn, chunk *genx.MessageChunk) bool {
-	if turn == nil || !isAssistantOutputChunk(chunk) {
-		return false
-	}
-	if chunk.Ctrl != nil && chunk.IsEndOfStream() {
-		result, _ := peerStreamChunkOutcome(chunk)
-		if result != "success" || chunk.Part == nil {
-			clear(turn.openAssistantRoutes)
-			return true
-		}
-	}
-	route := peerAssistantRoute(chunk)
-	if route == "" {
-		return false
-	}
-	routeKey := streamIDFromChunk(chunk) + "\x00" + route
-	if chunk.IsEndOfStream() {
-		delete(turn.openAssistantRoutes, routeKey)
-		return len(turn.openAssistantRoutes) == 0
-	}
-	turn.openAssistantRoutes[routeKey] = true
-	return false
-}
-
-func peerAgentTerminalRoute(chunk *genx.MessageChunk) string {
-	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() {
-		return ""
-	}
-	if chunk.Part == nil {
-		return "control"
-	}
-	return peerAssistantRoute(chunk)
-}
-
 func isAssistantOutputChunk(chunk *genx.MessageChunk) bool {
 	if chunk == nil {
 		return false
@@ -1008,6 +1071,147 @@ func joinedModalities(values map[string]bool) string {
 		}
 	}
 	return strings.Join(selected, ",")
+}
+
+func joinedClasses(values map[string]bool) string {
+	selected := make([]string, 0, len(values))
+	for value := range values {
+		if value != "" {
+			selected = append(selected, value)
+		}
+	}
+	slices.Sort(selected)
+	return strings.Join(selected, ",")
+}
+
+func peerSourcePartClass(chunk *genx.MessageChunk) string {
+	if chunk == nil || chunk.Part == nil {
+		return "control"
+	}
+	switch chunk.Part.(type) {
+	case genx.Text:
+		return "text"
+	case *genx.Blob:
+		if route := peerAssistantRoute(chunk); route == "audio" {
+			return "audio"
+		}
+	}
+	return "other"
+}
+
+func peerSourceLabelClass(chunk *genx.MessageChunk) string {
+	if chunk == nil || chunk.Ctrl == nil {
+		return "empty"
+	}
+	label := strings.ToLower(strings.TrimSpace(chunk.Ctrl.Label))
+	switch label {
+	case "":
+		return "empty"
+	case "assistant":
+		return "assistant"
+	case "transcript":
+		return "transcript"
+	case genx.HistoryUserAudioLabel, peerStreamEventHistoryUpdatedLabel:
+		return "history"
+	default:
+		return "other"
+	}
+}
+
+func peerLabelClass(label string) string {
+	switch strings.ToLower(strings.TrimSpace(label)) {
+	case "":
+		return "empty"
+	case "assistant":
+		return "assistant"
+	case "transcript":
+		return "transcript"
+	case genx.HistoryUserAudioLabel, peerStreamEventHistoryUpdatedLabel:
+		return "history"
+	default:
+		return "other"
+	}
+}
+
+func peerEventTypeClass(event *eventpb.PeerEvent) string {
+	if event == nil {
+		return ""
+	}
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		return "bos"
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		return "eos"
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
+		return "text_delta"
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+		return "text_done"
+	default:
+		return ""
+	}
+}
+
+func peerEventKindClass(event *eventpb.PeerEvent) string {
+	if event == nil {
+		return ""
+	}
+	switch event.StreamKindValue() {
+	case eventpb.StreamKind_STREAM_KIND_TEXT:
+		return "text"
+	case eventpb.StreamKind_STREAM_KIND_AUDIO:
+		return "audio"
+	case eventpb.StreamKind_STREAM_KIND_VIDEO:
+		return "video"
+	case eventpb.StreamKind_STREAM_KIND_MIXED:
+		return "mixed"
+	default:
+		return "unspecified"
+	}
+}
+
+func peerEventOutputModality(chunk *genx.MessageChunk, event *eventpb.PeerEvent) string {
+	if event == nil {
+		return "other"
+	}
+	label := peerLabelClass(event.Label())
+	if label == "transcript" {
+		return "transcript_text"
+	}
+	if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS && event.StreamError() != nil {
+		result, _ := peerStreamEventOutcome(event)
+		if result == "interrupted" {
+			return "interrupt"
+		}
+	}
+	switch event.Type {
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA,
+		eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DONE:
+		return "assistant_text"
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
+		if event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_AUDIO {
+			return "assistant_audio"
+		}
+		return ""
+	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
+		if label == "assistant" || event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_TEXT ||
+			event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_AUDIO || peerChunkHasAssistantFallback(chunk) {
+			return "assistant_eos"
+		}
+		return "other"
+	}
+	return "other"
+}
+
+func peerChunkHasAssistantFallback(chunk *genx.MessageChunk) bool {
+	if chunk == nil || chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != "" {
+		return false
+	}
+	switch chunk.Part.(type) {
+	case genx.Text, *genx.Blob:
+		return true
+	default:
+		return false
+	}
 }
 
 func isPeerInputTerminal(event *eventpb.PeerEvent) bool {

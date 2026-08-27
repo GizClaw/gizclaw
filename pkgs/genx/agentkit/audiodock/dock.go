@@ -106,6 +106,7 @@ type dockRun struct {
 	stateMu          sync.Mutex
 	routes           map[string]*dockRoute
 	discardSourceIDs map[string]bool
+	inputStreamID    string
 	tts              sync.WaitGroup
 }
 
@@ -123,6 +124,9 @@ type dockRoute struct {
 	mu        sync.Mutex
 	ttsEmitMu sync.Mutex
 
+	// deferredEOS keeps the source terminal private until Audio Dock has
+	// resolved or aborted every sibling TTS route. Publishing it earlier could
+	// expose ResponseEpochEnd while sibling cleanup is still in progress.
 	deferredEOS *genx.MessageChunk
 	ttsRoutes   map[string]*dockTTSRoute
 	ttsPipes    map[string]*ttsPipe
@@ -281,10 +285,11 @@ func (r *dockRun) forwardTranscripts(output genx.Stream) error {
 		response := routes[streamID]
 		if response == nil {
 			response, err = r.invocation.StartResponse(streamkit.ResponseConfig{
-				StreamID: streamID,
-				Role:     genx.RoleUser,
-				Name:     chunk.Name,
-				Label:    label,
+				StreamID:      streamID,
+				Role:          genx.RoleUser,
+				Name:          chunk.Name,
+				Label:         label,
+				ResponseEpoch: genx.NewResponseEpoch(streamID),
 			})
 			if err != nil {
 				return fmt.Errorf("audiodock: start transcript response: %w", err)
@@ -312,14 +317,26 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	if err != nil {
 		return err
 	}
+	text, textChunk := chunk.Part.(genx.Text)
+	var pipe *ttsPipe
+	resolveTTS := textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil
+	if resolveTTS && chunk.IsEndOfStream() {
+		pipe, err = r.ttsPipe(ctx, route, chunk)
+		if err != nil {
+			r.finishRoute(route, err.Error())
+			return nil
+		}
+	}
+
 	route.ttsEmitMu.Lock()
 	if route.closed.Load() {
 		route.ttsEmitMu.Unlock()
 		r.source.AbandonOutputObservation(chunk)
 		return nil
 	}
-	deferTextEOS := chunk.IsEndOfStream() && route.hasTTSPipes()
-	if deferTextEOS {
+	deferEOS := chunk.IsEndOfStream() && (route.hasTTSPipes() ||
+		(chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "")))
+	if deferEOS {
 		route.mu.Lock()
 		route.deferredEOS = chunk
 		route.mu.Unlock()
@@ -344,25 +361,28 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		route.ttsEmitMu.Unlock()
 	}
 
-	text, textChunk := chunk.Part.(genx.Text)
-	if textChunk && strings.TrimSpace(string(text)) != "" && r.dock.config.TTS != nil {
-		pipe, err := r.ttsPipe(ctx, route, chunk)
+	if resolveTTS && !chunk.IsEndOfStream() {
+		pipe, err = r.ttsPipe(ctx, route, chunk)
 		if err != nil {
 			r.finishRoute(route, err.Error())
 			return nil
 		}
-		if pipe != nil {
-			if err := pipe.input.Push(chunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
-				r.finishRoute(route, err.Error())
-				return nil
-			}
+	}
+	if pipe != nil {
+		if err := pipe.input.Push(chunk); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+			r.finishRoute(route, err.Error())
+			return nil
 		}
 	}
 	if !chunk.IsEndOfStream() {
 		return nil
 	}
-	if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-		r.abortTTS(route, errors.New(chunk.Ctrl.Error))
+	if chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "") {
+		cleanupError := chunk.Ctrl.Error
+		if cleanupError == "" {
+			cleanupError = chunk.Ctrl.ErrorCode
+		}
+		r.abortTTS(route, errors.New(cleanupError))
 		r.finishRoute(route, chunk.Ctrl.Error)
 		return nil
 	}
@@ -389,10 +409,11 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 		return route, nil
 	}
 	response, err := r.invocation.StartResponse(streamkit.ResponseConfig{
-		StreamID: streamID,
-		Role:     chunk.Role,
-		Name:     chunk.Name,
-		Label:    label,
+		StreamID:      streamID,
+		Role:          chunk.Role,
+		Name:          chunk.Name,
+		Label:         label,
+		ResponseEpoch: genx.NewResponseEpoch(r.inputStreamID),
 	})
 	if err != nil {
 		return nil, err
@@ -651,7 +672,7 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 	route.ttsEmitMu.Lock()
 	defer route.ttsEmitMu.Unlock()
 	route.finish.Do(func() {
-		if err := r.emitDeferredTextEOS(route, errorText); err != nil && errorText == "" {
+		if err := r.emitDeferredEOS(route, errorText); err != nil && errorText == "" {
 			errorText = err.Error()
 		}
 		if err := r.emitPendingTTSEOS(route, errorText); err != nil && errorText == "" {
@@ -715,7 +736,7 @@ func (r *dockRun) emitPendingTTSEOS(route *dockRoute, errorText string) error {
 	return nil
 }
 
-func (r *dockRun) emitDeferredTextEOS(route *dockRoute, errorText string) error {
+func (r *dockRun) emitDeferredEOS(route *dockRoute, errorText string) error {
 	if route == nil {
 		return nil
 	}
@@ -727,9 +748,6 @@ func (r *dockRun) emitDeferredTextEOS(route *dockRoute, errorText string) error 
 		return nil
 	}
 	emitted := source.Clone()
-	if emitted.Part == nil {
-		emitted.Part = genx.Text("")
-	}
 	if emitted.Ctrl == nil {
 		emitted.Ctrl = &genx.StreamCtrl{}
 	}
@@ -863,6 +881,9 @@ func (r *dockRun) beginInputTurn(streamID string) error {
 	if err := r.interruptOpenRoutes("interrupted"); err != nil {
 		return fmt.Errorf("audiodock: begin input turn %q: %w", streamID, err)
 	}
+	r.stateMu.Lock()
+	r.inputStreamID = strings.TrimSpace(streamID)
+	r.stateMu.Unlock()
 	return nil
 }
 

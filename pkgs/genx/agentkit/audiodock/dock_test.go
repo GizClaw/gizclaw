@@ -63,6 +63,43 @@ func TestDockTextOnlyPreservesChunksWithFreshResponseID(t *testing.T) {
 	if chunks[0].Part != genx.Text("hello") || !chunks[1].IsEndOfStream() {
 		t.Fatalf("chunks = %#v", chunks)
 	}
+	if chunks[0].Ctrl.ResponseEpoch == nil || chunks[0].Ctrl.ResponseEpoch.InputStreamID() != "" ||
+		chunks[1].Ctrl.ResponseEpoch != chunks[0].Ctrl.ResponseEpoch || !chunks[1].Ctrl.ResponseEpochEnd {
+		t.Fatalf("self-start response provenance = %#v / %#v", chunks[0].Ctrl, chunks[1].Ctrl)
+	}
+}
+
+func TestDockResponseEpochCapturesOwningInputRoute(t *testing.T) {
+	agent := transformerFunc(func(_ context.Context, input genx.Stream) (genx.Stream, error) {
+		if _, err := input.Next(); err != nil {
+			return nil, err
+		}
+		return &sliceStream{chunks: []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: genx.Text("answer"), Ctrl: &genx.StreamCtrl{StreamID: "provider", BeginOfStream: true}},
+			{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "provider", EndOfStream: true}},
+		}}, nil
+	})
+	dock, err := New(Config{Agent: agent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := &sliceStream{chunks: []*genx.MessageChunk{
+		{Role: genx.RoleUser, Part: genx.Text("question"), Ctrl: &genx.StreamCtrl{StreamID: "input-owner", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "input-owner", EndOfStream: true}},
+	}}
+	output, err := dock.Transform(t.Context(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %#v", chunks)
+	}
+	epoch := chunks[0].Ctrl.ResponseEpoch
+	if epoch == nil || epoch.InputStreamID() != "input-owner" || chunks[1].Ctrl.ResponseEpoch != epoch ||
+		chunks[0].Ctrl.ResponseEpochEnd || !chunks[1].Ctrl.ResponseEpochEnd {
+		t.Fatalf("response provenance = %#v / %#v", chunks[0].Ctrl, chunks[1].Ctrl)
+	}
 }
 
 func TestDockKeepsUnnamedSourceChunksOnOneResponse(t *testing.T) {
@@ -1384,6 +1421,78 @@ func TestDockReturnsTextBeforeTTSAndMergesAudio(t *testing.T) {
 	if audioBOSIndex < 0 || audioDataIndex <= audioBOSIndex || textEOSIndex <= audioDataIndex || audioEOSIndex <= textEOSIndex {
 		t.Fatalf("lifecycle indexes BOS/data/textEOS/audioEOS = %d/%d/%d/%d; chunks=%#v", audioBOSIndex, audioDataIndex, textEOSIndex, audioEOSIndex, chunks)
 	}
+	epoch := chunks[0].Ctrl.ResponseEpoch
+	for index, chunk := range chunks {
+		if chunk.Ctrl.ResponseEpoch != epoch {
+			t.Fatalf("chunk[%d] response epoch differs", index)
+		}
+		if chunk.Ctrl.ResponseEpochEnd != (index == len(chunks)-1) {
+			t.Fatalf("chunk[%d] epoch end = %t, final index = %d; chunks=%#v", index, chunk.Ctrl.ResponseEpochEnd, len(chunks)-1, chunks)
+		}
+	}
+}
+
+func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		error string
+		code  string
+	}{
+		{name: "error text", error: "provider failed"},
+		{name: "error code only", code: "STREAM_INTERRUPTED"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ttsContext := make(chan context.Context, 1)
+			dock, err := New(Config{
+				Agent: fixedAgentOutput(
+					&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}},
+					&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true, Error: test.error, ErrorCode: test.code}},
+				),
+				TTS: muxFunc(func(ctx context.Context, _ string, _ genx.Stream) (genx.Stream, error) {
+					ttsContext <- ctx
+					output := streamkit.NewOutput(streamkit.OutputConfig{})
+					go func() {
+						<-ctx.Done()
+						_ = output.CloseWithError(ctx.Err())
+					}()
+					return output, nil
+				}),
+				ResolveVoice: func(context.Context, VoiceRequest) (string, error) {
+					return "voice/narrator", nil
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := dock.Transform(t.Context(), emptyStream{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var ttsCtx context.Context
+			select {
+			case ttsCtx = <-ttsContext:
+			case <-time.After(time.Second):
+				t.Fatal("TTS did not start")
+			}
+			chunks := readAll(t, output)
+			var terminal *genx.MessageChunk
+			for _, chunk := range chunks {
+				if chunk != nil && chunk.IsEndOfStream() && chunk.Ctrl != nil &&
+					chunk.Ctrl.Error == test.error && chunk.Ctrl.ErrorCode == test.code {
+					terminal = chunk
+				}
+			}
+			if terminal == nil || terminal.Part != nil || !terminal.Ctrl.ResponseEpochEnd {
+				if terminal == nil {
+					t.Fatalf("error terminal missing; chunks=%#v", chunks)
+				}
+				t.Fatalf("error terminal part=%#v epoch_end=%t ctrl=%+v; chunks=%#v", terminal.Part, terminal.Ctrl.ResponseEpochEnd, *terminal.Ctrl, chunks)
+			}
+			if ttsCtx.Err() == nil {
+				t.Fatal("epoch completion was delivered before TTS cancellation completed")
+			}
+		})
+	}
 }
 
 func TestDockMergesCompliantTTSLifecyclesByMIME(t *testing.T) {
@@ -1577,6 +1686,65 @@ func TestDockComposesSharedTTSLifecycle(t *testing.T) {
 	}
 	if len(audio) != 3 || !audio[0].IsBeginOfStream() || !ttsChunkHasData(audio[1]) || !audio[2].IsEndOfStream() {
 		t.Fatalf("shared TTS audio lifecycle = %#v, want BOS/data/EOS", audio)
+	}
+}
+
+func TestDockSingleTextEOSWaitsForTTSSiblingEpoch(t *testing.T) {
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(&genx.MessageChunk{
+			Role: genx.RoleModel,
+			Name: "answer",
+			Part: genx.Text("hello"),
+			Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", BeginOfStream: true, EndOfStream: true},
+		}),
+		TTS: muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+			output := streamkit.NewOutput(streamkit.OutputConfig{})
+			go func() {
+				defer output.Close()
+				chunk, err := input.Next()
+				if err != nil || chunk == nil {
+					return
+				}
+				ctrl := &genx.StreamCtrl{StreamID: chunk.Ctrl.StreamID, Label: chunk.Ctrl.Label}
+				_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: ctrl.StreamID, Label: ctrl.Label, BeginOfStream: true}})
+				_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("hello")}, Ctrl: ctrl})
+				_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: ctrl.StreamID, Label: ctrl.Label, EndOfStream: true}})
+				_, _ = input.Next()
+			}()
+			return output, nil
+		}),
+		ResolveVoice: fixedVoice("voice"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := readAll(t, output)
+	var textEOS, audioBOS, audioEOS *genx.MessageChunk
+	for _, chunk := range chunks {
+		switch part := chunk.Part.(type) {
+		case genx.Text:
+			if chunk.IsEndOfStream() {
+				textEOS = chunk
+			}
+		case *genx.Blob:
+			if part.MIMEType == "audio/opus" && chunk.IsBeginOfStream() {
+				audioBOS = chunk
+			}
+			if part.MIMEType == "audio/opus" && chunk.IsEndOfStream() {
+				audioEOS = chunk
+			}
+		}
+	}
+	if textEOS == nil || audioBOS == nil || audioEOS == nil {
+		t.Fatalf("single text+EOS lifecycle = %#v", chunks)
+	}
+	if textEOS.Ctrl.ResponseEpochEnd || !audioEOS.Ctrl.ResponseEpochEnd ||
+		textEOS.Ctrl.ResponseEpoch != audioBOS.Ctrl.ResponseEpoch || audioBOS.Ctrl.ResponseEpoch != audioEOS.Ctrl.ResponseEpoch {
+		t.Fatalf("single text+EOS epoch = text %#v audio BOS %#v audio EOS %#v", textEOS.Ctrl, audioBOS.Ctrl, audioEOS.Ctrl)
 	}
 }
 
