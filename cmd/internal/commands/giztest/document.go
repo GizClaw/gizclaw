@@ -510,6 +510,9 @@ func (d *Document) validateSemantics() error {
 			case "first_response":
 				requireText := step.PeerStream.RequireText == nil || *step.PeerStream.RequireText
 				requireAudio := step.PeerStream.RequireAudio == nil || *step.PeerStream.RequireAudio
+				if !requireText && !requireAudio {
+					return fmt.Errorf("step %s first_response requires text or audio output", step.ID)
+				}
 				for _, modality := range []struct {
 					name     string
 					required bool

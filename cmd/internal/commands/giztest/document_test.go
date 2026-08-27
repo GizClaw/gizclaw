@@ -141,13 +141,16 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		"deadline without mode":   "      first_text_timeout: 2s\n",
 		"terminal dependency":     "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      wait_for_history: true\n",
 		"disabled audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
-		"no modality":             "      completion: first_response\n      require_text: false\n      require_audio: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
 				t.Fatal("invalid first_response completion accepted")
 			}
 		})
+	}
+	_, err = loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      require_text: false\n      require_audio: false\n")))
+	if err == nil || !strings.Contains(err.Error(), "first_response requires text or audio output") {
+		t.Fatalf("no-modality error = %v", err)
 	}
 }
 
