@@ -278,12 +278,14 @@ gaps. With one packet, only `packets` and `audio_ms` are present; with no
 assistant Opus, `audio_pacing` is absent.
 Giztest documents assert these paths through ordinary numeric `expect`
 constraints rather than a separate pacing schema.
-`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` requires 20 ms
+`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` and
+`doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` require 20 ms
 Opus frames, a mean interval from 12 through 21 ms, P95 no greater than 30 ms,
 maximum interval no greater than 100 ms, at least 101 packets, and final buffer
-surplus from 450 through 550 ms. Those ranges permit bounded recovery around the
-500 ms target without demanding an unrealistic exact 20 ms arrival for every
-network packet.
+surplus from 450 through 550 ms. The two cases cover push-to-talk and realtime
+delivery respectively. Those ranges permit bounded recovery around the 500 ms
+target without demanding an unrealistic exact 20 ms arrival for every network
+packet.
 
 `workspace_relay` connects two selected Workspaces in one task as one bounded
 conversation: the tester Workflow owns test intent, generated user behavior,

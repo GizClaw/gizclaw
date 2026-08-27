@@ -238,10 +238,11 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
 不提供 `audio_pacing`。
 Giztest 文件使用普通 `expect` 数值约束断言这些路径，不增加另一套 pacing schema。
-`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 要求至少 101 包、20 ms Opus
+`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 与
+`doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` 都要求至少 101 包、20 ms Opus
 frame、平均间隔 12 到 21 ms、P95 不超过 30 ms、最大间隔不超过 100 ms，并要求最终缓冲
-盈余在 450 到 550 ms 之间。这些区间允许 pacer 围绕 500 ms 目标有界恢复，但不要求网络上
-每包严格等于 20 ms。
+盈余在 450 到 550 ms 之间，分别覆盖 push-to-talk 与 realtime 下发。这些区间允许 pacer
+围绕 500 ms 目标有界恢复，但不要求网络上每包严格等于 20 ms。
 
 `workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
 tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、
