@@ -120,6 +120,20 @@ func TestResponseEpochEndsOnlyAfterEveryDeclaredRoute(t *testing.T) {
 	}
 }
 
+func TestResponseErrorControlEOSEndsEpoch(t *testing.T) {
+	epoch := genx.NewResponseEpoch("input-owner")
+	response := NewResponse(ResponseConfig{StreamID: "response", ResponseEpoch: epoch})
+	response.Declare("text/plain")
+	terminal := response.applyMetadata(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{EndOfStream: true, Error: "provider failed"}})
+	if !response.Accept(terminal) {
+		t.Fatal("Accept(error control EOS) = false")
+	}
+	response.markEpochEnd(terminal)
+	if terminal.Ctrl.ResponseEpoch != epoch || !terminal.Ctrl.ResponseEpochEnd {
+		t.Fatalf("error control EOS provenance = %#v", terminal.Ctrl)
+	}
+}
+
 func TestResponseEpochOverridesSourceMetadataAndMarksSynthesizedTerminal(t *testing.T) {
 	epoch := genx.NewResponseEpoch("input-owner")
 	foreign := genx.NewResponseEpoch("foreign-input")

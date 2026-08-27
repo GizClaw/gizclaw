@@ -138,9 +138,12 @@ func (r *Response) markEpochEnd(chunk *genx.MessageChunk) {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	complete := r.terminal || len(r.routes) > 0
-	for _, done := range r.routes {
-		complete = complete && done
+	complete := r.terminal
+	if !complete {
+		complete = len(r.routes) > 0
+		for _, done := range r.routes {
+			complete = complete && done
+		}
 	}
 	chunk.Ctrl.ResponseEpochEnd = complete
 }

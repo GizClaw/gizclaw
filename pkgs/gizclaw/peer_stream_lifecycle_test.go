@@ -731,6 +731,54 @@ func TestPeerStreamLifecycleStateAndRecordVolumeAreBounded(t *testing.T) {
 	}
 }
 
+func TestPeerStreamLifecycleEpochLimitTerminatesOwnerWithoutRebinding(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-epoch-limit", "peer-epoch-limit")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input", nil))
+
+	epochs := make([]*genx.ResponseEpoch, 0, peerStreamLifecycleMaxOutputRoutes+1)
+	for index := range peerStreamLifecycleMaxOutputRoutes + 1 {
+		epoch := genx.NewResponseEpoch("input")
+		epochs = append(epochs, epoch)
+		lifecycle.observeOutputProduced(attachTestResponseEpochWith(epoch, &genx.MessageChunk{
+			Role: genx.RoleModel,
+			Part: genx.Text("open"),
+			Ctrl: &genx.StreamCtrl{StreamID: fmt.Sprintf("output-%d", index), Label: "assistant"},
+		}))
+	}
+
+	var agentTerminal, turnTerminal map[string]any
+	for _, record := range capturedTurnLifecycleRecords(t, capture) {
+		attrs := lifecycleRecordAttrs(record)
+		if attrs["reason"] != "state_limit" {
+			continue
+		}
+		switch attrs["stage"] {
+		case "agent_terminal":
+			agentTerminal = attrs
+		case "turn_terminal":
+			turnTerminal = attrs
+		}
+	}
+	if agentTerminal == nil || turnTerminal == nil ||
+		agentTerminal["turn_index"] != uint64(1) || turnTerminal["turn_index"] != uint64(1) {
+		t.Fatalf("state-limit terminals = agent %#v, turn %#v", agentTerminal, turnTerminal)
+	}
+
+	lifecycle.observeOutputProduced(attachTestResponseEpochWith(epochs[0], &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("late"),
+		Ctrl: &genx.StreamCtrl{StreamID: "late-output", Label: "assistant"},
+	}))
+	lifecycle.mu.Lock()
+	defer lifecycle.mu.Unlock()
+	if len(lifecycle.turns) != 0 || len(lifecycle.inputTurns) != 0 ||
+		len(lifecycle.outputTurns) != 0 || len(lifecycle.epochTurns) != 0 {
+		t.Fatalf("released epoch rebound: turns=%d inputs=%d outputs=%d epochs=%d",
+			len(lifecycle.turns), len(lifecycle.inputTurns), len(lifecycle.outputTurns), len(lifecycle.epochTurns))
+	}
+}
+
 func TestSafeStreamIDHashIsBoundedAndStable(t *testing.T) {
 	const untrusted = "  prompt-secret\nBearer credential-secret  "
 	first := safeStreamIDHash(untrusted)

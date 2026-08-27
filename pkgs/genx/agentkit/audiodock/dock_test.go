@@ -1432,6 +1432,57 @@ func TestDockReturnsTextBeforeTTSAndMergesAudio(t *testing.T) {
 	}
 }
 
+func TestDockPublishesErrorEpochCompletionAfterTTSCleanup(t *testing.T) {
+	ttsContext := make(chan context.Context, 1)
+	dock, err := New(Config{
+		Agent: fixedAgentOutput(
+			&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant"}},
+			&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "provider", Label: "assistant", EndOfStream: true, Error: "provider failed"}},
+		),
+		TTS: muxFunc(func(ctx context.Context, _ string, _ genx.Stream) (genx.Stream, error) {
+			ttsContext <- ctx
+			output := streamkit.NewOutput(streamkit.OutputConfig{})
+			go func() {
+				<-ctx.Done()
+				_ = output.CloseWithError(ctx.Err())
+			}()
+			return output, nil
+		}),
+		ResolveVoice: func(context.Context, VoiceRequest) (string, error) {
+			return "voice/narrator", nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ttsCtx context.Context
+	select {
+	case ttsCtx = <-ttsContext:
+	case <-time.After(time.Second):
+		t.Fatal("TTS did not start")
+	}
+	chunks := readAll(t, output)
+	var terminal *genx.MessageChunk
+	for _, chunk := range chunks {
+		if chunk != nil && chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.Error == "provider failed" {
+			terminal = chunk
+		}
+	}
+	if terminal == nil || terminal.Part != nil || !terminal.Ctrl.ResponseEpochEnd {
+		if terminal == nil {
+			t.Fatalf("error terminal missing; chunks=%#v", chunks)
+		}
+		t.Fatalf("error terminal part=%#v epoch_end=%t ctrl=%+v; chunks=%#v", terminal.Part, terminal.Ctrl.ResponseEpochEnd, *terminal.Ctrl, chunks)
+	}
+	if ttsCtx.Err() == nil {
+		t.Fatal("epoch completion was delivered before TTS cancellation completed")
+	}
+}
+
 func TestDockMergesCompliantTTSLifecyclesByMIME(t *testing.T) {
 	dock, err := New(Config{
 		Agent: fixedAgentOutput(

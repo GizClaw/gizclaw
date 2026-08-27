@@ -124,6 +124,9 @@ type dockRoute struct {
 	mu        sync.Mutex
 	ttsEmitMu sync.Mutex
 
+	// deferredEOS keeps the source terminal private until Audio Dock has
+	// resolved or aborted every sibling TTS route. Publishing it earlier could
+	// expose ResponseEpochEnd while sibling cleanup is still in progress.
 	deferredEOS *genx.MessageChunk
 	ttsRoutes   map[string]*dockTTSRoute
 	ttsPipes    map[string]*ttsPipe
@@ -331,8 +334,9 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		r.source.AbandonOutputObservation(chunk)
 		return nil
 	}
-	deferTextEOS := chunk.IsEndOfStream() && route.hasTTSPipes()
-	if deferTextEOS {
+	deferEOS := chunk.IsEndOfStream() && (route.hasTTSPipes() ||
+		(chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "")))
+	if deferEOS {
 		route.mu.Lock()
 		route.deferredEOS = chunk
 		route.mu.Unlock()
@@ -664,7 +668,7 @@ func (r *dockRun) finishRoute(route *dockRoute, errorText string) {
 	route.ttsEmitMu.Lock()
 	defer route.ttsEmitMu.Unlock()
 	route.finish.Do(func() {
-		if err := r.emitDeferredTextEOS(route, errorText); err != nil && errorText == "" {
+		if err := r.emitDeferredEOS(route, errorText); err != nil && errorText == "" {
 			errorText = err.Error()
 		}
 		if err := r.emitPendingTTSEOS(route, errorText); err != nil && errorText == "" {
@@ -728,7 +732,7 @@ func (r *dockRun) emitPendingTTSEOS(route *dockRoute, errorText string) error {
 	return nil
 }
 
-func (r *dockRun) emitDeferredTextEOS(route *dockRoute, errorText string) error {
+func (r *dockRun) emitDeferredEOS(route *dockRoute, errorText string) error {
 	if route == nil {
 		return nil
 	}
@@ -740,9 +744,6 @@ func (r *dockRun) emitDeferredTextEOS(route *dockRoute, errorText string) error 
 		return nil
 	}
 	emitted := source.Clone()
-	if emitted.Part == nil {
-		emitted.Part = genx.Text("")
-	}
 	if emitted.Ctrl == nil {
 		emitted.Ctrl = &genx.StreamCtrl{}
 	}

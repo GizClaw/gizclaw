@@ -275,7 +275,7 @@ func (l *peerStreamLifecycle) observePeerEventDelivered(
 	var records []peerStreamLifecycleRecord
 	l.mu.Lock()
 	l.outputEventObserved = true
-	turn := l.outputTurnLocked(chunk)
+	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil {
 		turn.outputEventObserved = true
 		if turn.outputStreamIDHash == "" {
@@ -327,7 +327,7 @@ func (l *peerStreamLifecycle) observeOutputDrained(chunk *genx.MessageChunk) {
 	}
 	var records []peerStreamLifecycleRecord
 	l.mu.Lock()
-	turn := l.outputTurnLocked(chunk)
+	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil && turn.agentTerminalObserved && !turn.outputTerminalObserved {
 		turn.outputTerminalObserved = true
 		result, reason := peerStreamChunkOutcome(chunk)
@@ -355,7 +355,7 @@ func (l *peerStreamLifecycle) observeOutputProduced(chunk *genx.MessageChunk) {
 	streamID := streamIDFromChunk(chunk)
 	var records []peerStreamLifecycleRecord
 	l.mu.Lock()
-	turn := l.outputTurnLocked(chunk)
+	turn := l.outputTurnLocked(chunk, &records)
 	if turn != nil {
 		if turn.outputStreamIDHash == "" {
 			turn.outputStreamIDHash = safeStreamIDHash(streamID)
@@ -494,7 +494,7 @@ func (l *peerStreamLifecycle) inputTurnLocked(streamID string) *peerStreamTurn {
 	return l.turns[l.currentTurn]
 }
 
-func (l *peerStreamLifecycle) outputTurnLocked(chunk *genx.MessageChunk) *peerStreamTurn {
+func (l *peerStreamLifecycle) outputTurnLocked(chunk *genx.MessageChunk, records *[]peerStreamLifecycleRecord) *peerStreamTurn {
 	if chunk == nil || chunk.Ctrl == nil || chunk.Ctrl.ResponseEpoch == nil {
 		return nil
 	}
@@ -507,16 +507,35 @@ func (l *peerStreamLifecycle) outputTurnLocked(chunk *genx.MessageChunk) *peerSt
 	if owner == "" || turn == nil {
 		return nil
 	}
+	for len(l.epochTurns) >= peerStreamLifecycleMaxOutputRoutes && len(l.epochOrder) > 0 {
+		oldest := l.epochOrder[0]
+		l.epochOrder = l.epochOrder[1:]
+		index, retained := l.epochTurns[oldest]
+		if !retained {
+			continue
+		}
+		oldestTurn := l.turns[index]
+		if oldestTurn == nil {
+			delete(l.epochTurns, oldest)
+			continue
+		}
+		if record := l.ensureAgentTerminalLocked(oldestTurn, "incomplete", "state_limit", "stream_error"); record != nil {
+			*records = append(*records, *record)
+		}
+		*records = append(*records, l.terminateTurnLocked(oldestTurn, "incomplete", "state_limit"))
+		// releaseTurnLocked removes every epoch and route for the affected
+		// owner. If the incoming epoch named that same owner, its input mapping
+		// is now gone and it must remain unowned rather than being recreated.
+		turn = l.turns[l.inputTurns[owner]]
+		if turn == nil {
+			return nil
+		}
+	}
 	l.epochTurns[epoch] = turn.index
 	l.epochOrder = append(l.epochOrder, epoch)
 	streamID := streamIDFromChunk(chunk)
 	if streamID != "" {
 		l.bindOutputRouteLocked(streamID, turn)
-	}
-	for len(l.epochTurns) > peerStreamLifecycleMaxOutputRoutes && len(l.epochOrder) > 0 {
-		oldest := l.epochOrder[0]
-		l.epochOrder = l.epochOrder[1:]
-		delete(l.epochTurns, oldest)
 	}
 	return turn
 }
