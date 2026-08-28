@@ -334,10 +334,6 @@ async function runContinuousAudioAcrossReload(
   let routeSequence = 0;
   const allocateStreamID = (): string =>
     `edge-audio-${process.pid}-${Date.now()}-${++routeSequence}`;
-  const routeRearm = createContinuousAudioRouteRearm(
-    eventChannel,
-    allocateStreamID,
-  );
   let activeStreamID = allocateStreamID();
   const initialStreamID = activeStreamID;
   let reloadEOSObserved = false;
@@ -347,6 +343,17 @@ async function runContinuousAudioAcrossReload(
     resolveRearmed = resolve;
     rejectRearmed = reject;
   });
+  const routeRearm = createContinuousAudioRouteRearm(
+    eventChannel,
+    allocateStreamID,
+    {
+      onError: rejectRearmed,
+      onRearmed: (replacement) => {
+        activeStreamID = replacement;
+        resolveRearmed(replacement);
+      },
+    },
+  );
   const unsubscribeRearm = subscribePeerEvents(
     eventChannel,
     (event) => {
@@ -362,11 +369,6 @@ async function runContinuousAudioAcrossReload(
         event.errorRetryable === true
       ) {
         reloadEOSObserved = true;
-      }
-      const replacement = routeRearm.handle(event);
-      if (replacement != null) {
-        activeStreamID = replacement;
-        resolveRearmed(replacement);
       }
     },
     rejectRearmed,
@@ -444,7 +446,7 @@ async function runContinuousAudioAcrossReload(
     assert.equal(eventChannel.readyState, "open");
     assert.equal(pc.connectionState, "connected");
   } finally {
-    routeRearm.deactivate();
+    routeRearm.close();
     unsubscribeRearm();
     if (eventChannel.readyState === "open") {
       sendPeerEvent(

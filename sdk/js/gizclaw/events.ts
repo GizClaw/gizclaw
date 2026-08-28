@@ -248,63 +248,91 @@ export type ContinuousAudioRoute = {
 
 export type ContinuousAudioRouteRearm = {
   activate(route: ContinuousAudioRoute): void;
+  close(): void;
   deactivate(): void;
-  handle(event: DecodedPeerStreamEvent): string | undefined;
+};
+
+export type ContinuousAudioRouteRearmOptions = {
+  onError?: (error: Error) => void;
+  onRearmed?: (streamId: string) => void;
 };
 
 export function createContinuousAudioRouteRearm(
   channel: WebRTCRPCDataChannel,
   allocateStreamId: () => string,
+  options: ContinuousAudioRouteRearmOptions = {},
 ): ContinuousAudioRouteRearm {
   let active: Required<ContinuousAudioRoute> | undefined;
-  return {
+  let closed = false;
+  let unsubscribe = (): void => {};
+  const handle = (event: DecodedPeerStreamEvent): string | undefined => {
+    const current = active;
+    if (
+      current == null ||
+      channel.readyState !== "open" ||
+      event.type !== "eos" ||
+      event.streamId !== current.streamId ||
+      event.kind !== "audio" ||
+      event.label !== current.label ||
+      normalizeMIMEType(event.mimeType) !== current.mimeType ||
+      event.errorCode !== "INPUT_ROUTE_RELOADED" ||
+      event.errorMessage !== "input route reloaded" ||
+      event.errorRetryable !== true
+    ) {
+      return undefined;
+    }
+    const streamId = allocateStreamId().trim();
+    if (streamId === "" || streamId === current.streamId) {
+      throw new Error(
+        "continuous audio route allocator must return a fresh non-empty stream ID",
+      );
+    }
+    const replacement = { ...current, streamId };
+    active = replacement;
+    try {
+      sendPeerEvent(
+        channel,
+        beginPeerStream({
+          streamId,
+          kind: StreamKind.AUDIO,
+          label: replacement.label,
+          mimeType: replacement.mimeType,
+        }),
+      );
+    } catch (error) {
+      active = current;
+      throw error;
+    }
+    return streamId;
+  };
+  const owner: ContinuousAudioRouteRearm = {
     activate(route): void {
+      if (closed) {
+        throw new Error("continuous audio route re-arm owner is closed");
+      }
       active = normalizeContinuousAudioRoute(route);
+    },
+    close(): void {
+      if (closed) return;
+      closed = true;
+      active = undefined;
+      unsubscribe();
     },
     deactivate(): void {
       active = undefined;
     },
-    handle(event): string | undefined {
-      const current = active;
-      if (
-        current == null ||
-        channel.readyState !== "open" ||
-        event.type !== "eos" ||
-        event.streamId !== current.streamId ||
-        event.kind !== "audio" ||
-        event.label !== current.label ||
-        normalizeMIMEType(event.mimeType) !== current.mimeType ||
-        event.errorCode !== "INPUT_ROUTE_RELOADED" ||
-        event.errorMessage !== "input route reloaded" ||
-        event.errorRetryable !== true
-      ) {
-        return undefined;
-      }
-      const streamId = allocateStreamId().trim();
-      if (streamId === "" || streamId === current.streamId) {
-        throw new Error(
-          "continuous audio route allocator must return a fresh non-empty stream ID",
-        );
-      }
-      const replacement = { ...current, streamId };
-      active = replacement;
-      try {
-        sendPeerEvent(
-          channel,
-          beginPeerStream({
-            streamId,
-            kind: StreamKind.AUDIO,
-            label: replacement.label,
-            mimeType: replacement.mimeType,
-          }),
-        );
-      } catch (error) {
-        active = current;
-        throw error;
-      }
-      return streamId;
-    },
   };
+  unsubscribe = subscribePeerEvents(
+    channel,
+    (event) => {
+      const replacement = handle(event);
+      if (replacement != null) {
+        options.onRearmed?.(replacement);
+      }
+    },
+    options.onError,
+  );
+  return owner;
 }
 
 function normalizeContinuousAudioRoute(

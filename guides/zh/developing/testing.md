@@ -245,11 +245,13 @@ raw stream ID、音频 payload 或 transcript。
 
 JavaScript Client 的对应 WebRTC 集成回归由
 `tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts` 的
-`audio-reload` 模式执行。它通过 SDK 的 `createContinuousAudioRouteRearm` 订阅同一条
-Event channel：先保持 realtime user-audio route 与 uplink track active，reload 后由 SDK
-消费 `INPUT_ROUTE_RELOADED` EOS 并发送 fresh BOS，再使用同一 microphone source、track、
-Event channel 和 PeerConnection 发送第二段音频并等待响应。该用例不能用测试代码直接补发
-replacement BOS；否则只验证 Server 协议，不能证明 JavaScript Client 已实现恢复。
+`audio-reload` 模式执行。它在同一条 Event channel 上激活 SDK 的
+`createContinuousAudioRouteRearm` owner；owner 自己安装和移除 Event subscription，Client
+代码不负责把 EOS 分发给它。它先保持 realtime user-audio route 与 uplink track active，
+reload 后消费 `INPUT_ROUTE_RELOADED` EOS、发送 fresh BOS，并把 replacement stream ID
+通知 Client，再使用同一 microphone source、track、Event channel 和 PeerConnection
+发送第二段音频并等待响应。该用例不能用测试代码直接补发 replacement BOS；否则只验证
+Server 协议，不能证明 JavaScript Client 已实现恢复。
 当 TTS 不属于当前验证目标时，可以通过 `GIZCLAW_E2E_INPUT_PCM_PATH` 选择
 `tests/gizclaw-e2e/testdata/pcm/` 下已经解码的非空单声道 signed 16-bit `.pcm` fixture。
 解析后的普通文件不得超过 16 MiB；`GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` 默认为 16000，且必须

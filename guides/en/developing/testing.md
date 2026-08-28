@@ -288,13 +288,15 @@ transcripts.
 The corresponding JavaScript Client WebRTC integration regression runs in the
 `audio-reload` mode of
 `tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts`. It
-subscribes to the same Event channel with the SDK's
-`createContinuousAudioRouteRearm`: it keeps the realtime user-audio route and
-uplink track active, lets the SDK consume the `INPUT_ROUTE_RELOADED` EOS and
-send a fresh BOS after reload, then sends a second audio segment and waits for
-a response with the same microphone source, track, Event channel, and
-PeerConnection. The test must not frame the replacement BOS itself; doing so
-would verify only the Server protocol, not JavaScript Client recovery.
+activates the SDK's `createContinuousAudioRouteRearm` owner on the same Event
+channel. The owner installs and removes its own Event subscription; Client code
+does not dispatch EOS events into it. It keeps the realtime user-audio route and
+uplink track active, consumes the `INPUT_ROUTE_RELOADED` EOS, sends a fresh BOS
+after reload, and reports the replacement stream ID to the Client. The test then
+sends a second audio segment and waits for a response with the same microphone
+source, track, Event channel, and PeerConnection. The test must not frame the
+replacement BOS itself; doing so would verify only the Server protocol, not
+JavaScript Client recovery.
 When TTS is outside the behavior under test,
 `GIZCLAW_E2E_INPUT_PCM_PATH` may select a pre-decoded, non-empty mono signed
 16-bit `.pcm` fixture below `tests/gizclaw-e2e/testdata/pcm/`. The resolved

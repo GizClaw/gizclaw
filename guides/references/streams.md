@@ -60,7 +60,9 @@ WebRTC 两端各创建一条 Opus audio track：Client / Device 的 track 用于
 
 Workspace reload 替换 Agent input 时，只替换逻辑 user-audio route。Server 通过现有
 Event Stream 发送 `INPUT_ROUTE_RELOADED` EOS，选择连续录音恢复的 Client 再在同一
-Event Stream 发送 fresh BOS。这个 re-arm 不重新获取或停止麦克风，不调用
+Event Stream 发送 fresh BOS。JavaScript Client 通过
+`createContinuousAudioRouteRearm` 声明 active continuous route；该 owner 自己订阅 EOS、
+发送 replacement BOS 并报告新的 stream ID，调用方不需要手动分发 EOS。这个 re-arm 不重新获取或停止麦克风，不调用
 `replaceTrack`，不重新协商 WebRTC，也不创建、关闭或替换 Opus uplink、Opus downlink、
 Direct Packet DataChannel、physical `0x20` Event Stream 或 PeerConnection。
 
