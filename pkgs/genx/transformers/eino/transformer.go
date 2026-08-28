@@ -210,6 +210,15 @@ func (session *session) run() {
 		if chunk == nil {
 			continue
 		}
+		if isInterruptedTextInputEnd(chunk) {
+			if streamID := messageStreamID(chunk); inText && streamID == activeInputID {
+				text.Reset()
+				parts = nil
+				inText = false
+				activeInputID = ""
+			}
+			continue
+		}
 		if chunk.IsBeginOfStream() {
 			if chunk.Part == nil {
 				session.interruptActive()
@@ -736,6 +745,14 @@ func isStreamEnd(err error) bool {
 	}
 	var state *genx.State
 	return errors.As(err, &state) && state.Status() == genx.StatusDone
+}
+
+func isInterruptedTextInputEnd(chunk *genx.MessageChunk) bool {
+	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() || chunk.Ctrl.Error != "interrupted" || messageStreamID(chunk) == "" {
+		return false
+	}
+	_, ok := chunk.Part.(genx.Text)
+	return ok
 }
 
 func messageStreamID(chunk *genx.MessageChunk) string {

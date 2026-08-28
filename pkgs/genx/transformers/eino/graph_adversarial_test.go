@@ -327,6 +327,19 @@ func TestGraphExecutionRejectsMalformedInputLifecycles(t *testing.T) {
 			want: "input text Stream failed",
 		},
 		{
+			name: "unscoped interrupted text terminal",
+			input: func() genx.Stream {
+				streamID := genx.NewStreamID()
+				eos := genx.NewTextEndOfStream()
+				eos.Ctrl.Error = "interrupted"
+				return inputFromChunks(t,
+					textChunk(streamID, "partial", true, false),
+					eos,
+				)
+			},
+			want: "input text Stream failed",
+		},
+		{
 			name: "part terminal error",
 			input: func() genx.Stream {
 				streamID := genx.NewStreamID()
