@@ -84,7 +84,7 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 			Spec: apitypes.RuntimeProfileSpec{
 				Resources: apitypes.RuntimeProfileResources{
 					Models: ptr(runtimeBindings(map[string]string{
-						"llm":      "doubao-lite-chat",
+						"llm":      "doubao-mini-chat",
 						"tts":      "volc-bigtts",
 						"asr":      "volc-bigasr-sauc",
 						"realtime": "doubao-realtime-dialog",

@@ -74,6 +74,8 @@ Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node
 
 Flowcraft 与 Eino 共用同一个 `VoiceAdapter` contract。省略 `eino.voice_adapter` 时，Eino Workflow 仍是纯文本。配置后，`asr_model` 通过 RuntimeProfile ASR Model alias 把音频输入转换为文本；`default_voice` 和 `node_voices` 通过 RuntimeProfile Voice alias 为声明为 `text/plain` 的 Graph output 合成语音。`node_voices` 以 Graph output 引用的 node ID 为 key，并优先于 `default_voice`。Eino Workspace `input` 接受 `push-to-talk` 或 `realtime`，默认值为 `push-to-talk`；realtime ASR 会输出 interim transcript。factory 在构造 Agent 前校验全部 alias，并用 AudioDock 组合 Eino Transformer，不把音频行为下沉到 provider-neutral Eino package。
 
+首响延迟属于完整 RuntimeProfile 选择，不只属于 Eino driver。发布前必须让同一组 chat Model、ASR Model、Voice、tenant、endpoint 和 resource revision 同时通过 Server 与 Edge 验证。当选中的 Model 超出延迟上限时，GizClaw 不会静默重试、替换 Provider 或对多个 Provider 竞速。E2E 参考 profile 选择已通过低延迟验证的 `doubao-mini-chat` (`doubao-seed-2-0-mini-260428`)；变更 alias 或上游 revision 后必须重新运行首响验证矩阵。
+
 Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同一个 Workflow memory alias；不存在 Eino 专属的 Memory block 或 Server Config binding。`conversation.starts: agent` 支持主动开场，Workspace conversation parameters 可以选择 `on_reload` 或仅空 history 时一次开场；并发 stream 只允许一个成功 claim，失败可重试，用户输入可以沿既有 interruption 路径打断开场。产品层继续使用持久 History，但 Graph state 仍是 invocation-local。
 
 #### Pet 组合边界

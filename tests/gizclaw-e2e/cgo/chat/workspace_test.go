@@ -180,7 +180,7 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 		"realtime-workflow": "doubao-realtime-conversation",
 	}
 	modelResources := map[string]string{
-		"llm":      "doubao-lite-chat",
+		"llm":      "doubao-mini-chat",
 		"tts":      "volc-bigtts",
 		"asr":      "volc-bigasr-sauc",
 		"realtime": "doubao-realtime-dialog",
