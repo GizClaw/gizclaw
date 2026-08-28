@@ -74,8 +74,14 @@ func TestConfigValidationDefaultsAndCopies(t *testing.T) {
 	if transformer.finalizeTimeout != time.Minute {
 		t.Fatalf("finalize timeout = %s, want 1m", transformer.finalizeTimeout)
 	}
+	if transformer.vadSegmentDuration != nil || transformer.endWindowSize != nil || transformer.forceToSpeechTime != nil {
+		t.Fatalf("endpointing defaults = (%v, %v, %v), want omitted", transformer.vadSegmentDuration, transformer.endWindowSize, transformer.forceToSpeechTime)
+	}
 
 	enabled := true
+	vadSegmentDuration := 2800
+	endWindowSize := 400
+	forceToSpeechTime := 0
 	configured, err := New(Config{
 		Client:            client,
 		Format:            "wav",
@@ -91,12 +97,22 @@ func TestConfigValidationDefaultsAndCopies(t *testing.T) {
 		ResourceID:        "resource",
 		ChunkSize:         2048,
 		RealtimePacing:    &enabled,
+
+		VADSegmentDuration: &vadSegmentDuration,
+		EndWindowSize:      &endWindowSize,
+		ForceToSpeechTime:  &forceToSpeechTime,
 	})
 	if err != nil {
 		t.Fatalf("New(custom) error = %v", err)
 	}
 	if configured.format != "wav" || configured.sampleRate != 24000 || configured.channels != 2 || configured.bits != 24 || configured.language != "en-US" || !configured.enableITN || !configured.enablePunc || configured.resultType != "full" || !configured.emitInterim || configured.resourceID != "resource" || configured.chunkSize != 2048 || !configured.realtimePacing {
 		t.Fatalf("custom config = %#v", configured)
+	}
+	vadSegmentDuration = 1
+	endWindowSize = 1
+	forceToSpeechTime = 1
+	if *configured.vadSegmentDuration != 2800 || *configured.endWindowSize != 400 || *configured.forceToSpeechTime != 0 {
+		t.Fatalf("endpointing config was not defensively copied: (%d, %d, %d)", *configured.vadSegmentDuration, *configured.endWindowSize, *configured.forceToSpeechTime)
 	}
 }
 

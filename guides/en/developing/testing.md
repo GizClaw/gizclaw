@@ -220,6 +220,31 @@ before JavaScript, C/cgo, Go, CLI, or Giztest starts. A pre-provisioned remote
 target may instead provide `GIZCLAW_TEST_ENDPOINT` and
 `GIZCLAW_TEST_REGISTRATION_TOKEN` directly.
 
+### Eino first-response qualification
+
+Run the provider-backed Eino release gate from a clean tracked worktree:
+
+```sh
+bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
+```
+
+The runner builds one CLI revision, starts one isolated Server/Edge stack, and
+runs the same ten-task text-only and voice-enabled Realtime documents through
+Server and Edge at `--parallel 1` and `--parallel 8`. Text must arrive within
+2 seconds and Realtime audio within 3 seconds. Separate terminal roundtrips
+then verify text/audio EOS and all scenarios require their three cleanup steps.
+The atomic `testdata/eino-first-response/manifest.json` records the Git revision,
+dirty state, fixture hashes, redacted report hashes, task and cleanup counts,
+and maximum observed first-response timings without recording endpoint or
+credential values. A dirty exploratory run must opt in with
+`GIZCLAW_E2E_ALLOW_DIRTY=1`; it is not release evidence.
+
+The matrix qualifies the exact RuntimeProfile resources applied by the stack.
+A warm follow-up pass cannot replace a failed sample, and changing the chat
+Model, upstream revision, tenant, endpoint, ASR Model, or Voice invalidates the
+previous receipt. GizClaw does not add retries or automatic Provider fallback
+to make this gate pass.
+
 Audio and binary values remain in bounded memory with declared `media_type`,
 `codec`, and `max_bytes`. `save_as` assigns a variable and never writes a file.
 `speech.cache: run` is limited to saved synthesis steps. It caches one successful

@@ -61,10 +61,17 @@ steps:
     peer_stream:
       mode: text
       input: ${prompt}
+      completion: first_response
+      first_text_timeout: 2s
+      require_text: true
       require_audio: false
     expect:
       /events:
         non_empty: true
+      /text:
+        non_empty: true
+      /first_text_ms:
+        maximum: 2000
 finally:
   - client: peer
     rpc:

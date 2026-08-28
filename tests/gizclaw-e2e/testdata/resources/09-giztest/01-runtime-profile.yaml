@@ -41,7 +41,7 @@ spec:
   resources:
     models:
       asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: Speech Recognition}, zh-CN: {display_name: 语音识别}}}
-      llm: {resource_id: doubao-lite-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
+      llm: {resource_id: doubao-mini-chat, i18n: {en: {display_name: Chat Model}, zh-CN: {display_name: 对话模型}}}
       tts: {resource_id: volc-bigtts, i18n: {en: {display_name: Speech Synthesis}, zh-CN: {display_name: 语音合成}}}
       translation: {resource_id: volc-ast-translate, i18n: {en: {display_name: Translation}, zh-CN: {display_name: 翻译}}}
       realtime: {resource_id: doubao-realtime-dialog, i18n: {en: {display_name: Realtime Conversation}, zh-CN: {display_name: 实时对话}}}

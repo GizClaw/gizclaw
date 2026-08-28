@@ -476,6 +476,24 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 	if value, ok := mapBool(data, "realtime_pacing", "realtimePacing"); ok {
 		transformerConfig.RealtimePacing = &value
 	}
+	vadSegmentDuration, hasVADSegmentDuration := mapInt(data, "vad_segment_duration", "vadSegmentDuration")
+	endWindowSize, hasEndWindowSize := mapInt(data, "end_window_size", "endWindowSize")
+	forceToSpeechTime, hasForceToSpeechTime := mapInt(data, "force_to_speech_time", "forceToSpeechTime")
+	if !hasVADSegmentDuration && !hasEndWindowSize && !hasForceToSpeechTime {
+		endWindowSize = 200
+		forceToSpeechTime = 0
+		hasEndWindowSize = true
+		hasForceToSpeechTime = true
+	}
+	if hasVADSegmentDuration {
+		transformerConfig.VADSegmentDuration = &vadSegmentDuration
+	}
+	if hasEndWindowSize {
+		transformerConfig.EndWindowSize = &endWindowSize
+	}
+	if hasForceToSpeechTime {
+		transformerConfig.ForceToSpeechTime = &forceToSpeechTime
+	}
 	client := doubaospeech.NewClient(appID, clientOpts...)
 	transformerConfig.Client = client
 	return doubaoasr.New(transformerConfig)

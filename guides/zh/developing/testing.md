@@ -199,6 +199,27 @@ RuntimeProfile 和 run-scoped registration token），随后 JavaScript、C/cgo�
 Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 `GIZCLAW_TEST_ENDPOINT` 与 `GIZCLAW_TEST_REGISTRATION_TOKEN`。
 
+### Eino 首响验证
+
+在没有 tracked 改动的 worktree 中运行 provider-backed Eino 发布 gate：
+
+```sh
+bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
+```
+
+Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
+text-only 与带语音 Realtime 文档分别以 `--parallel 1` 和 `--parallel 8` 经过 Server 与
+Edge。文本必须在 2 秒内到达，Realtime 音频必须在 3 秒内到达；独立 terminal roundtrip
+再验证 text/audio EOS，每个场景的三个 cleanup step 也必须全部通过。原子写入的
+`testdata/eino-first-response/manifest.json` 记录 Git revision、dirty state、fixture hash、
+脱敏 report hash、任务与 cleanup 数量以及观测到的最大首响时间，不记录 endpoint 或
+credential value。Dirty 状态下的探索性运行必须显式设置 `GIZCLAW_E2E_ALLOW_DIRTY=1`，
+不能作为发布证据。
+
+矩阵验证的是 stack 实际 apply 的精确 RuntimeProfile resource。失败 sample 不能用后续 warm pass
+替换；chat Model、上游 revision、tenant、endpoint、ASR Model 或 Voice 任一改变都会让之前的
+receipt 失效。GizClaw 不通过添加重试或自动 Provider fallback 让该 gate 通过。
+
 音频和 binary 只作为带 `media_type`、`codec`、`max_bytes` 的内存变量传递；`save_as`
 只赋值变量，不写文件。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
 CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
