@@ -16,6 +16,8 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+const maxSupersededInputRoutes = 64
+
 // Transformer owns one immutable compiled Eino Graph. Transform may be called
 // concurrently; every call receives independent invocation-local run state.
 type Transformer struct {
@@ -228,7 +230,10 @@ func (session *session) run() {
 		if chunk.IsBeginOfStream() {
 			if chunk.Part == nil {
 				if inText && activeInputID != "" {
-					supersededInputIDs[activeInputID] = struct{}{}
+					if err := rememberSupersededInputRoute(supersededInputIDs, activeInputID); err != nil {
+						inputFailure = err
+						break
+					}
 				}
 				session.interruptActive()
 				text.Reset()
@@ -240,7 +245,10 @@ func (session *session) run() {
 			}
 			if _, ok := chunk.Part.(genx.Text); ok {
 				if streamID := messageStreamID(chunk); inText && activeInputID != "" && streamID != activeInputID {
-					supersededInputIDs[activeInputID] = struct{}{}
+					if err := rememberSupersededInputRoute(supersededInputIDs, activeInputID); err != nil {
+						inputFailure = err
+						break
+					}
 				}
 				session.interruptActive()
 				text.Reset()
@@ -765,6 +773,20 @@ func isInterruptedTextInputEnd(chunk *genx.MessageChunk) bool {
 	}
 	_, ok := chunk.Part.(genx.Text)
 	return ok
+}
+
+func rememberSupersededInputRoute(routes map[string]struct{}, streamID string) error {
+	if streamID == "" {
+		return nil
+	}
+	if _, exists := routes[streamID]; exists {
+		return nil
+	}
+	if len(routes) >= maxSupersededInputRoutes {
+		return fmt.Errorf("eino: more than %d superseded input routes remain without terminals", maxSupersededInputRoutes)
+	}
+	routes[streamID] = struct{}{}
+	return nil
 }
 
 func messageStreamID(chunk *genx.MessageChunk) string {

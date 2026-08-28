@@ -351,6 +351,17 @@ func TestGraphExecutionRejectsMalformedInputLifecycles(t *testing.T) {
 			want: "does not match active StreamID",
 		},
 		{
+			name: "superseded text terminals never arrive",
+			input: func() genx.Stream {
+				chunks := make([]*genx.MessageChunk, 0, maxSupersededInputRoutes+2)
+				for range maxSupersededInputRoutes + 2 {
+					chunks = append(chunks, textChunk(genx.NewStreamID(), "partial", true, false))
+				}
+				return inputFromChunks(t, chunks...)
+			},
+			want: "more than 64 superseded input routes remain without terminals",
+		},
+		{
 			name: "part terminal error",
 			input: func() genx.Stream {
 				streamID := genx.NewStreamID()
