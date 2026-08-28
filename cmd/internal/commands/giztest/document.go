@@ -124,6 +124,9 @@ type PeerStreamOperation struct {
 	RequireText       *bool  `json:"require_text,omitempty" yaml:"require_text,omitempty"`
 	RequireAudio      *bool  `json:"require_audio,omitempty" yaml:"require_audio,omitempty"`
 	WaitForHistory    bool   `json:"wait_for_history,omitempty" yaml:"wait_for_history,omitempty"`
+	Session           string `json:"session,omitempty" yaml:"session,omitempty"`
+	KeepOpen          bool   `json:"keep_open,omitempty" yaml:"keep_open,omitempty"`
+	AwaitRearm        string `json:"await_rearm,omitempty" yaml:"await_rearm,omitempty"`
 }
 type OutputOperation struct {
 	Variable string `json:"variable" yaml:"variable"`
@@ -484,6 +487,31 @@ func (d *Document) validateSemantics() error {
 			}
 		}
 		if step.PeerStream != nil {
+			persistent := step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != ""
+			if step.PeerStream.Session != "" && !namePattern.MatchString(step.PeerStream.Session) {
+				return fmt.Errorf("step %s has invalid peer_stream session %q", step.ID, step.PeerStream.Session)
+			}
+			if step.PeerStream.Session != "" && !persistent {
+				return fmt.Errorf("step %s peer_stream session requires keep_open or await_rearm", step.ID)
+			}
+			if persistent && step.PeerStream.Session == "" {
+				return fmt.Errorf("step %s persistent peer_stream requires session", step.ID)
+			}
+			if step.PeerStream.AwaitRearm != "" && step.PeerStream.AwaitRearm != "INPUT_ROUTE_RELOADED" {
+				return fmt.Errorf("step %s has unsupported peer_stream await_rearm %q", step.ID, step.PeerStream.AwaitRearm)
+			}
+			if persistent && step.PeerStream.Mode != "realtime" {
+				return fmt.Errorf("step %s persistent peer_stream requires realtime mode", step.ID)
+			}
+			if persistent && step.PeerStream.InterruptAfter != "" {
+				return fmt.Errorf("step %s persistent peer_stream cannot use interrupt_after", step.ID)
+			}
+			if persistent && step.Retry != nil {
+				return fmt.Errorf("step %s persistent peer_stream cannot retry", step.ID)
+			}
+			if persistent && i >= len(d.Steps) {
+				return fmt.Errorf("step %s persistent peer_stream is not allowed in finally", step.ID)
+			}
 			if step.PeerStream.Input == nil {
 				return fmt.Errorf("step %s peer_stream requires input", step.ID)
 			}

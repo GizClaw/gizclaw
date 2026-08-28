@@ -154,6 +154,54 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
+	peerStreamStep := func(extra string) string {
+		return validDocument + `  - id: turn
+    client: peer
+    peer_stream:
+      mode: realtime
+      input: audio-fixture
+` + extra
+	}
+	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      keep_open: true\n")))
+	if err != nil {
+		t.Fatalf("persistent peer_stream rejected: %v", err)
+	}
+	op := doc.Steps[len(doc.Steps)-1].PeerStream
+	if op.Session != "microphone" || !op.KeepOpen {
+		t.Fatalf("peer_stream operation = %#v", op)
+	}
+	if _, err := loadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      await_rearm: INPUT_ROUTE_RELOADED\n      keep_open: true\n"))); err != nil {
+		t.Fatalf("await_rearm peer_stream rejected: %v", err)
+	}
+	for name, extra := range map[string]string{
+		"missing session":  "      keep_open: true\n",
+		"unused session":   "      session: microphone\n",
+		"invalid session":  "      session: BadName\n      keep_open: true\n",
+		"unsupported code": "      session: microphone\n      await_rearm: SOMETHING_ELSE\n",
+		"interrupt":        "      session: microphone\n      keep_open: true\n      interrupt_after: 1s\n",
+		"retry":            "      session: microphone\n      keep_open: true\n    retry:\n      attempts: 2\n",
+		"non-realtime":     "      session: microphone\n      keep_open: true\n      mode: text\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
+				t.Fatal("invalid persistent peer_stream accepted")
+			}
+		})
+	}
+	finalizer := validDocument + `finally:
+  - client: peer
+    peer_stream:
+      mode: realtime
+      input: audio-fixture
+      session: microphone
+      keep_open: true
+`
+	if _, err := loadDocument(writeTestDocument(t, finalizer)); err == nil || !strings.Contains(err.Error(), "not allowed in finally") {
+		t.Fatalf("persistent finalizer error = %v", err)
+	}
+}
+
 func TestLoadDocumentAssignsStableFinalizerID(t *testing.T) {
 	content := validDocument + `finally:
   - client: peer

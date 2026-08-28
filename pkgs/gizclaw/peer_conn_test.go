@@ -199,6 +199,101 @@ func TestPeerConnBroadcastAgentOutputErrorUsesValidLogicalStream(t *testing.T) {
 	}
 }
 
+func TestPeerConnReplaceAudioInputRouteClearsAuthorizationAndBroadcastsEOS(t *testing.T) {
+	broker := newPeerStreamEventBroker()
+	var output bytes.Buffer
+	unsubscribe, err := broker.Subscribe(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+	conn := &PeerConn{
+		events:                 broker,
+		acceptedInputStreams:   map[string]eventpb.StreamKind{"old-audio": eventpb.StreamKind_STREAM_KIND_AUDIO},
+		acceptedAudioInput:     true,
+		acceptedAudioStream:    "old-audio",
+		acceptedAudioChatroom:  true,
+		acceptedAudioWorkspace: "workspace-a",
+	}
+	if err := conn.replaceAudioInputRoute(t.Context(), peerAudioInputRoute{streamID: "old-audio", mimeType: "audio/opus; rate=16000"}); err != nil {
+		t.Fatalf("replaceAudioInputRoute() error = %v", err)
+	}
+	if conn.acceptedAudioInput || conn.acceptedAudioStream != "" || conn.acceptedAudioChatroom || conn.acceptedAudioWorkspace != "" || len(conn.acceptedInputStreams) != 0 {
+		t.Fatalf("authorization state was not cleared")
+	}
+	event, err := readPeerStreamEvent(&output)
+	if err != nil {
+		t.Fatalf("read replacement EOS: %v", err)
+	}
+	eos := event.GetEos()
+	streamErr := event.StreamError()
+	if event.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS || eos.GetStreamId() != "old-audio" || eos.GetKind() != eventpb.StreamKind_STREAM_KIND_AUDIO || eos.GetLabel() != "user" || eos.GetMimeType() != "audio/opus" || streamErr.GetCode() != inputRouteReloadedCode || streamErr.GetMessage() != inputRouteReloadedMessage || !streamErr.GetRetryable() {
+		t.Fatalf("replacement event = %#v", event)
+	}
+	freshBOS := peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "fresh-audio", nil)
+	freshBOS.GetBos().Kind = eventpb.StreamKind_STREAM_KIND_AUDIO
+	conn.acceptInputEvent(freshBOS, "fresh-audio", "workspace-b", false)
+	if !conn.acceptedAudioInput || conn.acceptedAudioStream != "fresh-audio" || conn.acceptedAudioWorkspace != "workspace-b" || conn.events != broker {
+		t.Fatalf("fresh BOS was not admitted on the unchanged event transport")
+	}
+}
+
+func TestPeerConnReplaceStaleAudioRouteDoesNotClearNewAuthorization(t *testing.T) {
+	broker := newPeerStreamEventBroker()
+	var output bytes.Buffer
+	unsubscribe, err := broker.Subscribe(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+	conn := &PeerConn{
+		events: broker,
+		acceptedInputStreams: map[string]eventpb.StreamKind{
+			"old-audio": eventpb.StreamKind_STREAM_KIND_AUDIO,
+			"new-audio": eventpb.StreamKind_STREAM_KIND_AUDIO,
+		},
+		acceptedAudioInput:     true,
+		acceptedAudioStream:    "new-audio",
+		acceptedAudioWorkspace: "workspace-new",
+	}
+	if err := conn.replaceAudioInputRoute(t.Context(), peerAudioInputRoute{streamID: "old-audio", mimeType: "audio/opus"}); err != nil {
+		t.Fatal(err)
+	}
+	if !conn.acceptedAudioInput || conn.acceptedAudioStream != "new-audio" || conn.acceptedAudioWorkspace != "workspace-new" {
+		t.Fatalf("stale replacement cleared new authorization")
+	}
+	if _, oldExists := conn.acceptedInputStreams["old-audio"]; oldExists {
+		t.Fatal("stale route remained admitted")
+	}
+	if _, newExists := conn.acceptedInputStreams["new-audio"]; !newExists {
+		t.Fatal("new route admission was cleared")
+	}
+}
+
+func TestPeerRealtimeSourcePropagatesPeerEventWriteFailure(t *testing.T) {
+	wantErr := errors.New("write failed")
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(&observabilityErrorWriter{err: wantErr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+	conn := &PeerConn{events: broker, acceptedInputStreams: make(map[string]eventpb.StreamKind)}
+	source := newPeerRealtimeSourceWithRouteReplacement(nil, conn.replaceAudioInputRoute, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if err := source.Push(t.Context(), &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "old-audio", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); !errors.Is(err, wantErr) {
+		t.Fatalf("OpenAgentInput(reload) error = %v, want %v", err, wantErr)
+	}
+}
+
 func TestPeerConnInitAgentHostWiresRouteErrorContext(t *testing.T) {
 	ctx := t.Context()
 	publicKey := giznet.PublicKey{42}

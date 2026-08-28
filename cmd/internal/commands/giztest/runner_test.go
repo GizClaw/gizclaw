@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -34,6 +35,113 @@ func TestRunTaskRunsFinalizersAfterClientSetupFailure(t *testing.T) {
 	if output.String() != "evidence=cleanup-ran\n" {
 		t.Fatalf("cleanup output = %q", output.String())
 	}
+}
+
+func TestPeerStreamSessionsAreTaskAndClientScoped(t *testing.T) {
+	first := newPeerStreamSessions()
+	second := newPeerStreamSessions()
+	firstStream := &countingPeerStream{}
+	secondStream := &countingPeerStream{}
+	if err := first.add("microphone", newPeerStreamSession("peer-a", firstStream)); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.add("microphone", newPeerStreamSession("peer-a", secondStream)); err != nil {
+		t.Fatalf("same session name in another task was rejected: %v", err)
+	}
+	if _, err := first.take("microphone", "peer-b"); err == nil || !strings.Contains(err.Error(), "belongs to client") {
+		t.Fatalf("cross-client take error = %v", err)
+	}
+	if _, err := first.take("microphone", "peer-a"); err != nil {
+		t.Fatalf("owning client could not consume session: %v", err)
+	}
+	if _, err := first.take("microphone", "peer-a"); err == nil || !strings.Contains(err.Error(), "is not open") {
+		t.Fatalf("consumed session take error = %v", err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if firstStream.closeCalls != 0 || secondStream.closeCalls != 1 {
+		t.Fatalf("close calls first/second = %d/%d, want 0/1", firstStream.closeCalls, secondStream.closeCalls)
+	}
+}
+
+func TestPeerStreamSessionsCloseExactlyOnceBeforeFinalizers(t *testing.T) {
+	stream := &countingPeerStream{
+		pushes: make(chan *genx.MessageChunk, 256),
+		in:     make(chan *genx.MessageChunk, 4),
+	}
+	writer := &closeAwareWriter{stream: stream}
+	requireAudio := false
+	doc := &Document{
+		Name: "session-cleanup", Path: "session.giztest.yaml", Repeat: 1,
+		Variables: map[string]VariableSpec{
+			"cleanup": {Direction: "input", Type: "string", Value: "ran"},
+		},
+		Clients: map[string]ClientSpec{"peer": {}},
+		Steps: []Step{{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{
+			Mode: "realtime", Input: []byte{1}, Session: "microphone", KeepOpen: true,
+			Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+		}}},
+		Finally: []Step{{ID: "cleanup", Output: &OutputOperation{Variable: "cleanup"}}},
+	}
+	go func() {
+		for range 202 {
+			<-stream.pushes
+		}
+		stream.in <- assistantText("assistant", "ready", false)
+	}()
+	result := runTask(context.Background(), task{doc: doc}, runOptions{
+		out: writer,
+		connectClients: func(context.Context, map[string]ClientSpec, []Step, *variables) (*clientSet, error) {
+			return &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}, nil
+		},
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			return func() (peerStream, error) { return stream, nil }
+		},
+	})
+	if result.Status != "passed" || len(result.Cleanup) != 1 || result.Cleanup[0].Status != "passed" {
+		t.Fatalf("result = %#v", result)
+	}
+	if stream.closeCalls != 1 {
+		t.Fatalf("retained stream close calls = %d, want 1", stream.closeCalls)
+	}
+	if !writer.observedClosed {
+		t.Fatal("finalizer ran before retained peer_stream session closed")
+	}
+}
+
+type countingPeerStream struct {
+	closeCalls int
+	pushes     chan *genx.MessageChunk
+	in         chan *genx.MessageChunk
+}
+
+func (s *countingPeerStream) Push(_ context.Context, chunk *genx.MessageChunk) error {
+	s.pushes <- chunk
+	return nil
+}
+func (s *countingPeerStream) Next() (*genx.MessageChunk, error) {
+	if s.in == nil {
+		return nil, io.EOF
+	}
+	return <-s.in, nil
+}
+func (s *countingPeerStream) Close() error {
+	s.closeCalls++
+	return nil
+}
+
+type closeAwareWriter struct {
+	stream         *countingPeerStream
+	observedClosed bool
+}
+
+func (w *closeAwareWriter) Write(p []byte) (int, error) {
+	w.observedClosed = w.stream.closeCalls == 1
+	return len(p), nil
 }
 
 func TestRunStepKeepsOperationEvidenceOnFailure(t *testing.T) {

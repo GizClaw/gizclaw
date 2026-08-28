@@ -235,6 +235,95 @@ export function sendPeerEvent(
   channel.send(encodePeerEventFrame(event));
 }
 
+export type ContinuousAudioRoute = {
+  label?: string;
+  mimeType?: string;
+  streamId: string;
+};
+
+export type ContinuousAudioRouteRearm = {
+  activate(route: ContinuousAudioRoute): void;
+  deactivate(): void;
+  handle(event: DecodedPeerStreamEvent): string | undefined;
+};
+
+export function createContinuousAudioRouteRearm(
+  channel: WebRTCRPCDataChannel,
+  allocateStreamId: () => string,
+): ContinuousAudioRouteRearm {
+  let active: Required<ContinuousAudioRoute> | undefined;
+  return {
+    activate(route): void {
+      active = normalizeContinuousAudioRoute(route);
+    },
+    deactivate(): void {
+      active = undefined;
+    },
+    handle(event): string | undefined {
+      const current = active;
+      if (
+        current == null ||
+        channel.readyState !== "open" ||
+        event.type !== "eos" ||
+        event.streamId !== current.streamId ||
+        event.kind !== "audio" ||
+        event.label !== current.label ||
+        normalizeMIMEType(event.mimeType) !== current.mimeType ||
+        event.errorCode !== "INPUT_ROUTE_RELOADED" ||
+        event.errorMessage !== "input route reloaded" ||
+        event.errorRetryable !== true
+      ) {
+        return undefined;
+      }
+      const streamId = allocateStreamId().trim();
+      if (streamId === "" || streamId === current.streamId) {
+        throw new Error(
+          "continuous audio route allocator must return a fresh non-empty stream ID",
+        );
+      }
+      const replacement = { ...current, streamId };
+      active = replacement;
+      try {
+        sendPeerEvent(
+          channel,
+          beginPeerStream({
+            streamId,
+            kind: StreamKind.AUDIO,
+            label: replacement.label,
+            mimeType: replacement.mimeType,
+          }),
+        );
+      } catch (error) {
+        active = current;
+        throw error;
+      }
+      return streamId;
+    },
+  };
+}
+
+function normalizeContinuousAudioRoute(
+  route: ContinuousAudioRoute,
+): Required<ContinuousAudioRoute> {
+  const streamId = route.streamId.trim();
+  const label = (route.label ?? "user").trim();
+  const mimeType = normalizeMIMEType(route.mimeType ?? "audio/opus");
+  if (streamId === "") {
+    throw new Error("continuous audio route requires a non-empty stream ID");
+  }
+  if (label !== "user") {
+    throw new Error('continuous audio route label must be "user"');
+  }
+  if (!mimeType.startsWith("audio/")) {
+    throw new Error("continuous audio route requires an audio MIME type");
+  }
+  return { streamId, label, mimeType };
+}
+
+function normalizeMIMEType(value: string | undefined): string {
+  return (value ?? "").split(";", 1)[0]?.trim().toLowerCase() ?? "";
+}
+
 async function peerEventMessageBytes(data: unknown): Promise<Uint8Array> {
   if (data instanceof Uint8Array) return data;
   if (data instanceof ArrayBuffer) return new Uint8Array(data);

@@ -229,6 +229,20 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 操作返回的证据，报告因此能区分停滞与过长回复。`gizclaw test validate` 拒绝无法解析或非正的
 `idle_timeout`。人工 `review` 文件必须单独用 `--parallel 1` 在终端运行。
 
+持续 realtime route 的回归可以用 task-scoped `peer_stream.session` 保留同一条逻辑
+`gizcli.PeerStream`。首个 `mode: realtime` 步骤同时设置 `session` 与
+`keep_open: true`；后续同 client 的 realtime 步骤使用同一 `session` 和
+`await_rearm: INPUT_ROUTE_RELOADED`。后者先消费旧 route 的精确 retryable user-audio
+EOS，再发送 fresh BOS，之后才发送声明的音频输入。一个 session 只能创建一次、消费一次；
+未知、重复、已消费、跨 client 或跨 task 的 session 都在发送输入前失败。
+
+持久 session 不能与 `retry`、`interrupt_after` 或 `finally` 组合。re-arm 步骤成功消费后
+默认关闭；同一步再次设置 `keep_open: true` 时则继续保留，供下一次 re-arm 消费。任务成功、
+失败、timeout 或 cancellation 时，runner 在 RPC finalizer 之前关闭所有未消费 session。
+报告只记录 `session_connection_reused`、
+`reload_eos_observed`、`replacement_bos_sent` 和 `stream_id_changed` 等布尔证据，不记录
+raw stream ID、音频 payload 或 transcript。
+
 当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
 `audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
 `target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、

@@ -96,6 +96,27 @@ EOS 的 `error` 包含稳定 `code`、安全 fallback `message` 和 `retryable`�
 的 EOS 只结束对应逻辑 stream，不关闭 service `0x20`，其他事件和后续 turn 仍可
 继续传输。
 
+Workspace runtime 替换会使已准入的 user audio route 失效。Server 先清除旧 route
+的输入授权，再通过现有 connection-owned Event Stream 有序发送一次下列 EOS；reload
+成功响应只会在 replacement runtime 安装且该 Event 写入完成后返回：
+
+| 字段 | 值 |
+| --- | --- |
+| `type` / payload | `EOS` / `eos` |
+| `stream_id` | 被替换的已准入 audio route ID |
+| `kind` / `label` | `AUDIO` / `user` |
+| `mime_type` | BOS 中已准入的 canonical audio MIME；缺失时为 `audio/opus` |
+| `error.code` | `INPUT_ROUTE_RELOADED` |
+| `error.message` | `input route reloaded` |
+| `error.retryable` | `true` |
+
+这是逻辑 route 的终止信号，不是 Peer transport failure。持续录音的 Client 可以选择
+为完全匹配当前 active route 的 EOS 分配不同且非空的新 `stream_id`，在同一 `0x20`
+上发送一次 `BOS(kind=AUDIO, label=user)`，再继续发送 RTP。stale、重复、非 audio、
+非 user、普通完成或 non-retryable EOS 不触发 re-arm。replacement BOS 前的 RTP 仍按
+BOS-before-RTP gate 丢弃；Event 写入失败则表示必需 transport 已不健康，reload 不得
+报告成功。
+
 Chatroom 在每轮输入前检查权威访问权。已撤权的 active Chatroom 不自动切换
 Workspace，也不生成拒绝文本或音频，而是返回同一 `stream_id` 的 EOS error：
 

@@ -58,6 +58,12 @@ WebRTC 两端各创建一条 Opus audio track：Client / Device 的 track 用于
 
 音频的生命周期 metadata 通过 [Events](./events) 的 `bos` / `eos` 和 `kind=audio` 表达，实时音频 bytes 仍只走 RTP。下行连接只有一条固定 Opus track，因此混音总生命周期的 `mime_type` 为空；Agent source MIME 只用于 Server 内部解码。上行输入可以继续用 event MIME 描述其逻辑 route。
 
+Workspace reload 替换 Agent input 时，只替换逻辑 user-audio route。Server 通过现有
+Event Stream 发送 `INPUT_ROUTE_RELOADED` EOS，选择连续录音恢复的 Client 再在同一
+Event Stream 发送 fresh BOS。这个 re-arm 不重新获取或停止麦克风，不调用
+`replaceTrack`，不重新协商 WebRTC，也不创建、关闭或替换 Opus uplink、Opus downlink、
+Direct Packet DataChannel、physical `0x20` Event Stream 或 PeerConnection。
+
 ## Direct packets
 
 Direct packet channel 的每条消息由一个 protocol byte 和 payload 组成。`0x00`–`0x3f` 保留给 Giznet well-known protocols，`0x40`–`0xff` 可用于应用或自定义 protocol。

@@ -35,6 +35,8 @@ type runOptions struct {
 	openPeerStream func(client *gizcli.Client) peerStreamOpener
 	// openRelayStreams substitutes paired in-memory streams in runner tests.
 	openRelayStreams func() (relayStream, relayStream, error)
+	// connectClients substitutes already-connected clients in runner tests.
+	connectClients func(context.Context, map[string]ClientSpec, []Step, *variables) (*clientSet, error)
 }
 type task struct {
 	doc     *Document
@@ -157,7 +159,11 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 	}
 	defer vars.release()
 	redactions := vars.redactions(item.doc.Report.Redact)
-	clients, err := connectClients(ctx, item.doc.Clients, item.doc.Steps, vars)
+	connect := connectClients
+	if opts.connectClients != nil {
+		connect = opts.connectClients
+	}
+	clients, err := connect(ctx, item.doc.Clients, item.doc.Steps, vars)
 	if clients != nil {
 		result.Clients = clients.fingerprints()
 		defer clients.Close()
@@ -169,9 +175,10 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
+	peerSessions := newPeerStreamSessions()
 	failed := false
 	for _, step := range item.doc.Steps {
-		stepResult, err := runStep(ctx, item.doc.Path, step, clients, vars, item.barrier, opts, redactions)
+		stepResult, err := runStep(ctx, item.doc.Path, step, clients, vars, item.barrier, opts, redactions, peerSessions)
 		result.Steps = append(result.Steps, stepResult)
 		if err != nil {
 			item.barrier.Abort(err)
@@ -179,6 +186,12 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 			failed = true
 			break
 		}
+	}
+	if err := peerSessions.Close(); err != nil {
+		if result.Error == "" {
+			result.Error = safeError(err, redactions...)
+		}
+		failed = true
 	}
 	var cleanupErr error
 	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Path, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
@@ -216,14 +229,22 @@ type assertionFailure struct{ err error }
 func (e *assertionFailure) Error() string { return e.err.Error() }
 func (e *assertionFailure) Unwrap() error { return e.err }
 
-func runStep(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
-	if step.Retry == nil {
-		return runStepOnce(ctx, documentPath, step, clients, vars, barrier, opts, redactions)
+func runStep(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string, sessionSets ...*peerStreamSessions) (StepReport, error) {
+	var sessions *peerStreamSessions
+	if len(sessionSets) > 0 {
+		sessions = sessionSets[0]
 	}
-	return runStepWithRetry(ctx, documentPath, step, clients, vars, barrier, opts, redactions)
+	if sessions == nil {
+		sessions = newPeerStreamSessions()
+		defer func() { _ = sessions.Close() }()
+	}
+	if step.Retry == nil {
+		return runStepOnce(ctx, documentPath, step, clients, vars, barrier, opts, redactions, sessions)
+	}
+	return runStepWithRetry(ctx, documentPath, step, clients, vars, barrier, opts, redactions, sessions)
 }
 
-func runStepWithRetry(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
+func runStepWithRetry(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string, sessions *peerStreamSessions) (StepReport, error) {
 	started := time.Now()
 	retryOn := step.Retry.On
 	if retryOn == nil {
@@ -238,7 +259,7 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, clien
 	var finalErr error
 	for attempt := 1; attempt <= step.Retry.Attempts; attempt++ {
 		attemptVars := cloneVariables(vars)
-		attemptReport, err := runStepOnce(ctx, documentPath, step, clients, attemptVars, barrier, opts, redactions)
+		attemptReport, err := runStepOnce(ctx, documentPath, step, clients, attemptVars, barrier, opts, redactions, sessions)
 		if err == nil {
 			if commitErr := commitAttemptVariables(vars, attemptVars); commitErr != nil {
 				err = commitErr
@@ -404,7 +425,7 @@ func failureKind(err error) string {
 	return "operation"
 }
 
-func runStepOnce(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) (StepReport, error) {
+func runStepOnce(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string, sessions *peerStreamSessions) (StepReport, error) {
 	started := time.Now()
 	op := step.operation()
 	report := StepReport{ID: step.ID, Operation: op, Client: step.Client, Status: "failed", Stage: op}
@@ -525,7 +546,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		if opts.openPeerStream != nil {
 			open = opts.openPeerStream(client)
 		}
-		streamResult, invokeErr := invokePeerStream(stepCtx, client, open, step, input, audioCaptureMaxBytes, opts.audioObserver)
+		streamResult, invokeErr := invokePeerStreamWithSessions(stepCtx, client, open, sessions, step, input, audioCaptureMaxBytes, opts.audioObserver)
 		err = invokeErr
 		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
 	case "workspace_relay":

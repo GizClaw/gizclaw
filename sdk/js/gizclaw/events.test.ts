@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { create } from "@bufbuild/protobuf";
 import {
+  createContinuousAudioRouteRearm,
   decodePeerEvent,
   encodePeerEvent,
   encodePeerEventFrame,
@@ -280,8 +281,136 @@ test("shares the connection-owned Peer Event channel across subscribers", async 
   assert.equal(channel.sent.length, 1);
 });
 
+test("re-arms one matching continuous audio route with a fresh BOS", () => {
+  const channel = new FakePeerEventChannel();
+  channel.readyState = "open";
+  const owner = createContinuousAudioRouteRearm(
+    channel as unknown as WebRTCRPCDataChannel,
+    () => "audio-new",
+  );
+  owner.activate({
+    streamId: "audio-old",
+    label: "user",
+    mimeType: "audio/opus; rate=16000",
+  });
+  const reload = {
+    type: "eos",
+    streamId: "audio-old",
+    kind: "audio",
+    label: "user",
+    mimeType: "audio/opus",
+    errorCode: "INPUT_ROUTE_RELOADED",
+    errorMessage: "input route reloaded",
+    errorRetryable: true,
+  } as const;
+
+  assert.equal(owner.handle(reload), "audio-new");
+  assert.equal(owner.handle(reload), undefined);
+  assert.equal(channel.sent.length, 1);
+  const [bos] = new PeerEventFrameDecoder().push(channel.sent[0]!);
+  assert.deepEqual(bos, {
+    type: "bos",
+    streamId: "audio-new",
+    kind: "audio",
+    label: "user",
+    mimeType: "audio/opus",
+  });
+});
+
+test("continuous audio re-arm ignores inactive, stale, output, ordinary, and closed events", () => {
+  const matching = {
+    type: "eos",
+    streamId: "audio-old",
+    kind: "audio",
+    label: "user",
+    mimeType: "audio/opus",
+    errorCode: "INPUT_ROUTE_RELOADED",
+    errorMessage: "input route reloaded",
+    errorRetryable: true,
+  } as const;
+  const variants = [
+    { ...matching, streamId: "stale" },
+    { ...matching, label: "assistant" },
+    { ...matching, kind: "video" },
+    { ...matching, mimeType: "audio/aac" },
+    { ...matching, errorCode: "STREAM_ERROR" },
+    { ...matching, errorMessage: "ordinary completion" },
+    { ...matching, errorRetryable: false },
+  ];
+  for (const event of variants) {
+    const channel = new FakePeerEventChannel();
+    channel.readyState = "open";
+    let allocations = 0;
+    const owner = createContinuousAudioRouteRearm(
+      channel as unknown as WebRTCRPCDataChannel,
+      () => {
+        allocations++;
+        return "audio-new";
+      },
+    );
+    owner.activate({ streamId: "audio-old" });
+    assert.equal(
+      owner.handle(event as Parameters<typeof owner.handle>[0]),
+      undefined,
+    );
+    assert.equal(allocations, 0);
+    assert.equal(channel.sent.length, 0);
+  }
+
+  const channel = new FakePeerEventChannel();
+  const owner = createContinuousAudioRouteRearm(
+    channel as unknown as WebRTCRPCDataChannel,
+    () => "audio-new",
+  );
+  assert.equal(owner.handle(matching), undefined);
+  owner.activate({ streamId: "audio-old" });
+  assert.equal(owner.handle(matching), undefined);
+  channel.readyState = "open";
+  owner.deactivate();
+  assert.equal(owner.handle(matching), undefined);
+  assert.equal(channel.sent.length, 0);
+});
+
+test("continuous audio re-arm retains the old route after allocator or send failure", () => {
+  const matching = {
+    type: "eos",
+    streamId: "audio-old",
+    kind: "audio",
+    label: "user",
+    mimeType: "audio/opus",
+    errorCode: "INPUT_ROUTE_RELOADED",
+    errorMessage: "input route reloaded",
+    errorRetryable: true,
+  } as const;
+  for (const invalid of ["", "audio-old"]) {
+    const channel = new FakePeerEventChannel();
+    channel.readyState = "open";
+    const owner = createContinuousAudioRouteRearm(
+      channel as unknown as WebRTCRPCDataChannel,
+      () => invalid,
+    );
+    owner.activate({ streamId: "audio-old" });
+    assert.throws(() => owner.handle(matching), /fresh non-empty stream ID/);
+    assert.throws(() => owner.handle(matching), /fresh non-empty stream ID/);
+    assert.equal(channel.sent.length, 0);
+  }
+
+  const channel = new FakePeerEventChannel();
+  channel.readyState = "open";
+  channel.sendError = new Error("send failed");
+  const owner = createContinuousAudioRouteRearm(
+    channel as unknown as WebRTCRPCDataChannel,
+    () => "audio-new",
+  );
+  owner.activate({ streamId: "audio-old" });
+  assert.throws(() => owner.handle(matching), /send failed/);
+  channel.sendError = undefined;
+  assert.equal(owner.handle(matching), "audio-new");
+});
+
 class FakePeerEventChannel {
   readyState: RTCDataChannelState = "connecting";
+  sendError?: Error;
   sent: ArrayBuffer[] = [];
   private readonly messages = new Set<(event: MessageEvent) => void>();
 
@@ -300,6 +429,7 @@ class FakePeerEventChannel {
   }
 
   send(data: ArrayBuffer | ArrayBufferView | Blob | string): void {
+    if (this.sendError != null) throw this.sendError;
     assert.ok(data instanceof ArrayBuffer);
     this.sent.push(data);
   }

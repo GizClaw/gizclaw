@@ -73,6 +73,13 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 
 `PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期，因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
 
+Agent input runtime 替换时，Realtime Source 把已捕获的旧 user-audio route 交给
+`PeerConn`。`PeerConn` 在 `chatroomAccessMu` 内只删除匹配旧 ID 的
+`acceptedInputStreams` 和 `acceptedAudio*` 授权；如果 fresh BOS 已经建立了更新 route，
+stale callback 不得清除它。释放授权锁后，`PeerConn` 通过现有 event broker 广播精确的
+`INPUT_ROUTE_RELOADED` EOS。Event I/O 不在 source 或授权 mutex 下执行；写入失败向
+AgentHost 传播，使 reload 不能成功，并由必需 Event transport 生命周期关闭不健康连接。
+
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 
 Turn ownership 不根据 output 到达时恰好处于 current 的 turn 推断。Producer response epoch 命名其不可变 owning input route；没有该 provenance 的 response 不归属任何 per-turn record。被替换 turn 及其 input-route 关联会有界保留，直到 owning epoch 完成、route 被 abandon、connection teardown，或 64-turn/64-route 状态上限将其淘汰。Lifecycle 只有观察到显式 `ResponseEpochEnd` 标记才认为 epoch 完成；尚未观察到 route 的空集合及普通 per-MIME EOS 都仍是不完整状态。Producer terminal 在该标记处记账，output 与 turn terminal 则继续等待 Peer broadcast 成功及可能的 audio drain。接受第 65 个 epoch mapping 前，会用 `incomplete/state_limit` 终止最旧 mapping 的真实 owner，并一起释放该 owner 的全部 mapping；释放后迟到的 epoch chunk 保持 unowned，不得重建关联。

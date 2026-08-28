@@ -62,6 +62,11 @@ steps:
     method: server.run.workspace.set
     request:
       workspace_name: "${workspace_name}"
+- id: activate_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
 - id: synthesize_input
   client: peer
   speech:
@@ -78,6 +83,8 @@ steps:
     mode: realtime
     input: "${input_audio}"
     pacing: 20ms
+    session: microphone
+    keep_open: true
   expect:
     "/events":
       non_empty: true
@@ -88,10 +95,13 @@ steps:
     request: {}
 - id: exercise_after_reload
   client: peer
+  timeout: 30s
   peer_stream:
     mode: realtime
     input: "${input_audio}"
     pacing: 20ms
+    session: microphone
+    await_rearm: INPUT_ROUTE_RELOADED
   expect:
     "/events":
       non_empty: true
