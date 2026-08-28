@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import wrtc from "@roamhq/wrtc";
 
@@ -30,10 +31,14 @@ const directEndpoint = process.env.GIZCLAW_E2E_SERVER_ENDPOINT;
 const registrationToken = process.env.GIZCLAW_TEST_REGISTRATION_TOKEN;
 const expectedRuntimeProfile =
   process.env.GIZCLAW_E2E_RUNTIME_PROFILE ?? "e2e-giztest";
-const workflowName =
-  process.env.GIZCLAW_E2E_WORKFLOW_NAME ?? "flowcraft-voice-assistant";
 const inputMode = process.env.GIZCLAW_E2E_INPUT_MODE ?? "audio";
+const workflowName =
+  process.env.GIZCLAW_E2E_WORKFLOW_NAME ??
+  (inputMode === "audio-reload"
+    ? "doubao-realtime-conversation"
+    : "flowcraft-voice-assistant");
 const inputVoice = process.env.GIZCLAW_E2E_INPUT_VOICE ?? "narrator";
+const inputPCMPath = process.env.GIZCLAW_E2E_INPUT_PCM_PATH;
 const turnTimeoutMs = 90_000;
 const realtimeTailSilenceMs = 4_000;
 
@@ -80,7 +85,8 @@ async function main(): Promise<void> {
           collection: "assistants",
           workflow_name: workflowName,
           parameters: {
-            agent_type: "flowcraft",
+            agent_type:
+              inputMode === "audio-reload" ? "doubao-realtime" : "flowcraft",
             input: inputMode === "audio-reload" ? "realtime" : "push-to-talk",
           },
         });
@@ -167,10 +173,11 @@ async function withConnection(
     },
     (error) => mark(`peer-event-error:${error.message}`),
   );
+  const rpc = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
+    requestTimeoutMs: 10_000,
+  });
+  let runError: unknown;
   try {
-    const rpc = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
-      requestTimeoutMs: 10_000,
-    });
     await run(rpc, probe, eventChannel, pc);
     assert.equal(
       eventChannel.readyState,
@@ -187,7 +194,23 @@ async function withConnection(
       "connected",
       `${name} PeerConnection left connected state: ${probe.timeline.join(" | ")}`,
     );
+  } catch (error) {
+    runError = error;
+  }
+  try {
     await afterAssertions?.(rpc);
+  } catch (cleanupError) {
+    if (runError != null) {
+      runError = new AggregateError(
+        [runError, cleanupError],
+        `${name} assertions and cleanup both failed`,
+      );
+    } else {
+      runError = cleanupError;
+    }
+  }
+  try {
+    if (runError != null) throw runError;
   } catch (error) {
     throw new Error(
       `${name} conversation lifecycle failed; timeline=${probe.timeline.join(" | ")}`,
@@ -236,22 +259,7 @@ async function runTwoAudioTurns(
   };
   await audio.sender.replaceTrack(uplinkTrack);
   try {
-    const synthesis = await rpc.synthesizeSpeech({
-      voice_name: inputVoice,
-      text: "请回答收到。",
-      accepted_content_types: ["audio/pcm"],
-    });
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of synthesis.body) chunks.push(chunk);
-    const pcm = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
-    assert.equal(
-      pcm.byteLength % 2,
-      0,
-      "synthesized PCM is not 16-bit aligned",
-    );
-    const sampleRate = synthesis.result.sample_rate_hz ?? 16_000;
-    const channels = synthesis.result.channels ?? 1;
-    assert.equal(channels, 1, "push-to-talk probe requires mono PCM");
+    const { pcm, sampleRate } = await loadInputPCM(rpc);
     for (let turn = 1; turn <= 2; turn++) {
       const eventOffset = probe.events.length;
       const downlinkOffset = downlinkFrames;
@@ -351,22 +359,7 @@ async function runContinuousAudioAcrossReload(
     rejectRearmed,
   );
   try {
-    const synthesis = await rpc.synthesizeSpeech({
-      voice_name: inputVoice,
-      text: "请回答收到。",
-      accepted_content_types: ["audio/pcm"],
-    });
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of synthesis.body) chunks.push(chunk);
-    const pcm = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
-    assert.equal(
-      pcm.byteLength % 2,
-      0,
-      "synthesized PCM is not 16-bit aligned",
-    );
-    const sampleRate = synthesis.result.sample_rate_hz ?? 16_000;
-    const channels = synthesis.result.channels ?? 1;
-    assert.equal(channels, 1, "realtime probe requires mono PCM");
+    const { pcm, sampleRate } = await loadInputPCM(rpc);
     sendPeerEvent(
       eventChannel,
       beginPeerStream({
@@ -454,6 +447,42 @@ async function runContinuousAudioAcrossReload(
     sink.stop();
     uplinkTrack.stop();
   }
+}
+
+async function loadInputPCM(
+  rpc: ReturnType<typeof createPeerRPCClient>,
+): Promise<{ pcm: Buffer; sampleRate: number }> {
+  if (inputPCMPath != null) {
+    const pcm = await readFile(inputPCMPath);
+    const sampleRate = Number(
+      process.env.GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE ?? "16000",
+    );
+    assert.equal(
+      Number.isInteger(sampleRate) && sampleRate > 0 && sampleRate % 100 === 0,
+      true,
+      "GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE must be a positive integer divisible by 100",
+    );
+    assert.equal(
+      pcm.byteLength > 0 && pcm.byteLength % 2 === 0,
+      true,
+      "input PCM fixture must contain non-empty 16-bit mono samples",
+    );
+    return { pcm, sampleRate };
+  }
+
+  const synthesis = await rpc.synthesizeSpeech({
+    voice_name: inputVoice,
+    text: "请回答收到。",
+    accepted_content_types: ["audio/pcm"],
+  });
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of synthesis.body) chunks.push(chunk);
+  const pcm = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  assert.equal(pcm.byteLength % 2, 0, "synthesized PCM is not 16-bit aligned");
+  const sampleRate = synthesis.result.sample_rate_hz ?? 16_000;
+  const channels = synthesis.result.channels ?? 1;
+  assert.equal(channels, 1, "audio probe requires mono PCM");
+  return { pcm, sampleRate };
 }
 
 async function sendPCM(
