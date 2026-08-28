@@ -13,7 +13,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260719062052-bf38cd23188e
-	github.com/GizClaw/doubao-speech-go v0.0.0-20260808111617-550e142b360f
+	github.com/GizClaw/doubao-speech-go v0.0.0-20260827223232-c73ed8c474a2
 	github.com/GizClaw/flowcraft/memory v0.1.7
 	github.com/GizClaw/flowcraft/sdk v0.4.8
 	github.com/GizClaw/flowcraft/sdkx v0.4.10

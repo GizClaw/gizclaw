@@ -14,6 +14,7 @@ import (
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoasr"
@@ -26,6 +27,14 @@ const (
 	miniMaxAPIKeyEnv  = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
 	miniMaxBaseURLEnv = "GIZCLAW_GENX_E2E_MINIMAX_BASE_URL"
 	miniMaxTTSModel   = "speech-2.6-hd"
+
+	doubaoASRChunkDuration        = 100 * time.Millisecond
+	doubaoASRChunkSize            = 3200
+	doubaoASRShortUtteranceStart  = 640 * time.Millisecond
+	doubaoASRShortUtteranceEnd    = 2560 * time.Millisecond
+	doubaoASRDefiniteDeadline     = 5 * time.Second
+	doubaoASRMinimumLatencySaving = time.Second
+	doubaoASRTunedLatencyLimit    = 1500 * time.Millisecond
 )
 
 func TestDoubaoSAUCASR(t *testing.T) {
@@ -98,6 +107,180 @@ func TestDoubaoSAUCASR(t *testing.T) {
 		t.Fatalf("Doubao SAUC transcript route = %#v, want BOS/data/EOS", transcriptRoute)
 	}
 	t.Logf("transcript=%q routes=%d chunks=%d", transcript.String(), len(tracker.routes), len(chunks))
+}
+
+func TestDoubaoSAUCEndpointingReducesShortUtteranceLatency(t *testing.T) {
+	loadGenXE2EEnv(t)
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
+	if appID == "" || apiKey == "" {
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
+	}
+
+	var pcm bytes.Buffer
+	if _, err := codecconv.OggToPCM(&pcm, bytes.NewReader(doubaoRealtimeDuplexPromptOgg), opus.SampleRate16K); err != nil {
+		t.Fatalf("decode short ASR fixture: %v", err)
+	}
+	audio := shortASRPCM(t, pcm.Bytes(), doubaoASRShortUtteranceStart, doubaoASRShortUtteranceEnd)
+	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
+
+	baseline := runDoubaoASREndpointingTrial(t, client, audio, nil, nil)
+	endWindowSize := 200
+	forceToSpeechTime := 0
+	tuned := runDoubaoASREndpointingTrial(t, client, audio, &endWindowSize, &forceToSpeechTime)
+
+	saving := baseline.latency - tuned.latency
+	t.Logf(
+		"Doubao ASR short-utterance latency: default=%s tuned=%s saving=%s default_text=%q tuned_text=%q",
+		baseline.latency,
+		tuned.latency,
+		saving,
+		baseline.text,
+		tuned.text,
+	)
+	if tuned.text != baseline.text {
+		t.Fatalf("tuned transcript = %q, want baseline transcript %q", tuned.text, baseline.text)
+	}
+	if saving < doubaoASRMinimumLatencySaving {
+		t.Fatalf("endpointing parameters saved %s, want at least %s", saving, doubaoASRMinimumLatencySaving)
+	}
+	if tuned.latency > doubaoASRTunedLatencyLimit {
+		t.Fatalf("tuned endpointing latency = %s, want at most %s", tuned.latency, doubaoASRTunedLatencyLimit)
+	}
+}
+
+type doubaoASREndpointingResult struct {
+	text    string
+	latency time.Duration
+}
+
+type doubaoASRTranscript struct {
+	text       string
+	receivedAt time.Time
+	err        error
+}
+
+func runDoubaoASREndpointingTrial(
+	t *testing.T,
+	client *doubaospeech.Client,
+	audio []byte,
+	endWindowSize *int,
+	forceToSpeechTime *int,
+) doubaoASREndpointingResult {
+	t.Helper()
+	realtimePacing := false
+	transformer, err := doubaoasr.New(doubaoasr.Config{
+		Client:            client,
+		RealtimePacing:    &realtimePacing,
+		EndWindowSize:     endWindowSize,
+		ForceToSpeechTime: forceToSpeechTime,
+	})
+	if err != nil {
+		t.Fatalf("doubaoasr.New() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.CloseWithError(context.Canceled)
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	transcripts := make(chan doubaoASRTranscript, 1)
+	go receiveFirstASRTranscript(output, transcripts)
+	streamID := "doubao-sauc-endpointing-e2e"
+	pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
+	})
+	for offset := 0; offset < len(audio); offset += doubaoASRChunkSize {
+		end := min(offset+doubaoASRChunkSize, len(audio))
+		pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: audio[offset:end]},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID},
+		})
+		waitSpeechInterval(t, ctx, doubaoASRChunkDuration)
+	}
+
+	speechEndedAt := time.Now()
+	silence := make([]byte, doubaoASRChunkSize)
+	deadline := time.NewTimer(doubaoASRDefiniteDeadline)
+	defer deadline.Stop()
+	ticker := time.NewTicker(doubaoASRChunkDuration)
+	defer ticker.Stop()
+	for {
+		select {
+		case transcript := <-transcripts:
+			if transcript.err != nil {
+				t.Fatalf("read ASR transcript: %v", transcript.err)
+			}
+			latency := transcript.receivedAt.Sub(speechEndedAt)
+			if latency < 0 {
+				t.Fatalf("ASR transcript arrived before short utterance ended: %s", latency)
+			}
+			return doubaoASREndpointingResult{text: transcript.text, latency: latency}
+		case <-ticker.C:
+			pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
+				Role: genx.RoleUser,
+				Part: &genx.Blob{MIMEType: "audio/pcm", Data: silence},
+				Ctrl: &genx.StreamCtrl{StreamID: streamID},
+			})
+		case <-deadline.C:
+			t.Fatalf("Doubao ASR returned no non-empty definite transcript within %s without audio EOS", doubaoASRDefiniteDeadline)
+		case <-ctx.Done():
+			t.Fatalf("Doubao ASR endpointing context ended: %v", ctx.Err())
+		}
+	}
+}
+
+func receiveFirstASRTranscript(output genx.Stream, transcripts chan<- doubaoASRTranscript) {
+	for {
+		chunk, err := output.Next()
+		if err != nil {
+			transcripts <- doubaoASRTranscript{err: err}
+			return
+		}
+		if chunk == nil {
+			continue
+		}
+		if err := speechChunkError(chunk); err != nil {
+			transcripts <- doubaoASRTranscript{err: err}
+			return
+		}
+		text, ok := chunk.Part.(genx.Text)
+		trimmed := strings.TrimSpace(string(text))
+		if ok && trimmed != "" {
+			transcripts <- doubaoASRTranscript{text: trimmed, receivedAt: time.Now()}
+			return
+		}
+	}
+}
+
+func shortASRPCM(t *testing.T, audio []byte, start, end time.Duration) []byte {
+	t.Helper()
+	const bytesPerSecond = 16000 * 2
+	startOffset := int(int64(start) * bytesPerSecond / int64(time.Second))
+	endOffset := int(int64(end) * bytesPerSecond / int64(time.Second))
+	if startOffset < 0 || startOffset >= endOffset || endOffset > len(audio) {
+		t.Fatalf("short ASR fixture range [%s, %s] is outside %d-byte PCM input", start, end, len(audio))
+	}
+	return audio[startOffset:endOffset]
+}
+
+func waitSpeechInterval(t *testing.T, ctx context.Context, interval time.Duration) {
+	t.Helper()
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		t.Fatalf("speech interval context ended: %v", ctx.Err())
+	}
 }
 
 func TestDoubaoSeedV2TTS(t *testing.T) {

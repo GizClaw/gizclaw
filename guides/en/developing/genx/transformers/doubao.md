@@ -40,6 +40,12 @@ An interim transcript route that never receives a definite result remains an err
 
 Continuous ASR with `EmitInterim` sends every audio frame immediately as a non-final packet to the current healthy SAUC session. An explicit audio EOS sends the terminal marker, finishes that provider session, and leaves the outer Transformer stream open; the next audio route creates a replacement session and binds its transcript independently. A provider packet-wait timeout while finalizing is the expected recoverable post-route boundary. Other provider errors and the one-minute local finalization timeout terminate the outer stream.
 
+### ASR endpointing parameters
+
+`doubaoasr.Config` passes BigASR VAD request parameters to each SAUC session through `VADSegmentDuration`, `EndWindowSize`, and `ForceToSpeechTime`. These fields use `*int`: `nil` omits the field and preserves provider-default behavior, while non-nil sends the value, including an explicit zero.
+
+GizClaw's Volc ASR Builder accepts `vad_segment_duration`, `end_window_size`, and `force_to_speech_time`, together with their camelCase aliases. When the caller provides no endpointing parameter, the Builder uses `end_window_size=200` and `force_to_speech_time=0` so continuous ASR produces a definite transcript sooner during the silence after a short utterance. When the caller provides any endpointing parameter, the Builder sends only the explicitly provided fields.
+
 ### Seed V2 empty audio
 
 `doubaotts.SeedV2` treats a successful provider terminal as successful synthesis only after a non-empty readable segment has emitted at least one normalized audio byte. A successful final-only provider stream, or any otherwise successful stream that emits zero normalized audio bytes, terminates the affected audio route with `doubaotts: seed v2 completed without audio` instead of a successful audio EOS.

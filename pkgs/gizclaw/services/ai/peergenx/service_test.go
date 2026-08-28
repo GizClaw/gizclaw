@@ -584,6 +584,12 @@ func TestDefaultBuilderBuildsVolcASRTransformer(t *testing.T) {
 	if got := transformerStringField(t, tf, "resourceID"); got != "volc.bigasr.sauc.duration" {
 		t.Fatalf("ASR resourceID = %q, want volc.bigasr.sauc.duration", got)
 	}
+	if got := transformerNestedIntPointerField(t, tf, "endWindowSize"); got != 200 {
+		t.Fatalf("ASR endWindowSize = %d, want 200", got)
+	}
+	if got := transformerNestedIntPointerField(t, tf, "forceToSpeechTime"); got != 0 {
+		t.Fatalf("ASR forceToSpeechTime = %d, want 0", got)
+	}
 	if got := transformerNestedStringField(t, tf, "client", "config", "apiKey"); got != "tok" {
 		t.Fatalf("ASR api key = %q, want tok", got)
 	}
@@ -610,14 +616,17 @@ func TestDefaultBuilderBuildsVolcASRTransformerFromParams(t *testing.T) {
 			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"}),
 		},
 		Params: map[string]any{
-			"format":          "pcm",
-			"sample_rate":     24000,
-			"channels":        1,
-			"bits":            16,
-			"language":        "ja-JP",
-			"result_type":     "full",
-			"emit_interim":    true,
-			"realtime_pacing": false,
+			"format":               "pcm",
+			"sample_rate":          24000,
+			"channels":             1,
+			"bits":                 16,
+			"language":             "ja-JP",
+			"result_type":          "full",
+			"emit_interim":         true,
+			"realtime_pacing":      false,
+			"vad_segment_duration": 2800,
+			"end_window_size":      400,
+			"force_to_speech_time": 100,
 		},
 	})
 	if err != nil {
@@ -640,6 +649,55 @@ func TestDefaultBuilderBuildsVolcASRTransformerFromParams(t *testing.T) {
 	}
 	if transformerBoolField(t, tf, "realtimePacing") {
 		t.Fatal("ASR realtimePacing = true, want false")
+	}
+	if got := transformerNestedIntPointerField(t, tf, "vadSegmentDuration"); got != 2800 {
+		t.Fatalf("ASR vadSegmentDuration = %d, want 2800", got)
+	}
+	if got := transformerNestedIntPointerField(t, tf, "endWindowSize"); got != 400 {
+		t.Fatalf("ASR endWindowSize = %d, want 400", got)
+	}
+	if got := transformerNestedIntPointerField(t, tf, "forceToSpeechTime"); got != 100 {
+		t.Fatalf("ASR forceToSpeechTime = %d, want 100", got)
+	}
+}
+
+func TestDefaultBuilderBuildsVolcASRTransformerFromCamelCaseEndpointingParams(t *testing.T) {
+	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+		Model: &apitypes.Model{
+			Id:   "asr",
+			Kind: apitypes.ModelKindAsr,
+			ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+				ResourceId: new("volc.bigasr.sauc.duration"),
+			}),
+		},
+		Tenant: Tenant{
+			Kind: "volc-tenant",
+			Volc: &apitypes.VolcTenant{
+				Id:           "main",
+				CredentialId: "volc-token",
+			},
+		},
+		Credential: apitypes.Credential{
+			Id:   "volc-token",
+			Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"}),
+		},
+		Params: map[string]any{
+			"vadSegmentDuration": 0,
+			"endWindowSize":      350,
+			"forceToSpeechTime":  0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildTransformer() error = %v", err)
+	}
+	if got := transformerNestedIntPointerField(t, tf, "vadSegmentDuration"); got != 0 {
+		t.Fatalf("ASR vadSegmentDuration = %d, want explicit 0", got)
+	}
+	if got := transformerNestedIntPointerField(t, tf, "endWindowSize"); got != 350 {
+		t.Fatalf("ASR endWindowSize = %d, want explicit 350", got)
+	}
+	if got := transformerNestedIntPointerField(t, tf, "forceToSpeechTime"); got != 0 {
+		t.Fatalf("ASR forceToSpeechTime = %d, want explicit 0", got)
 	}
 }
 

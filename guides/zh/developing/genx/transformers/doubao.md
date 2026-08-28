@@ -40,6 +40,12 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `EmitInterim` 的 continuous ASR 会把每个 audio frame 立即以 non-final packet 发给当前健康 SAUC session。显式 audio EOS 发送 terminal marker、结束该 provider session，同时保持 outer Transformer stream 打开；下一条 audio route 创建 replacement session，并独立绑定 transcript。Finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；其他 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
 
+### ASR 断句参数
+
+`doubaoasr.Config` 通过 `VADSegmentDuration`、`EndWindowSize` 和 `ForceToSpeechTime` 把 BigASR VAD 请求参数传给每个 SAUC session。这些字段使用 `*int`：`nil` 表示不发送并保留 provider 默认行为，非 `nil` 表示发送对应值，包括显式的零值。
+
+GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=200` 和 `force_to_speech_time=0`，使 continuous ASR 在短句后的静音阶段更快产生 definite transcript；只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
+
 ### Seed V2 空音频
 
 `doubaotts.SeedV2` 只有在非空、可朗读的 segment 至少发出一个规范化音频字节后，才把 provider 的成功终态视为合成成功。Provider 只返回成功 final frame，或任何其他成功 stream 最终发出零个规范化音频字节时，对应 audio route 必须以 `doubaotts: seed v2 completed without audio` 错误结束，不能发送成功 audio EOS。

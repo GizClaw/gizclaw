@@ -52,6 +52,10 @@ type Transformer struct {
 	emitInterim     bool
 	finalizeTimeout time.Duration
 
+	vadSegmentDuration *int
+	endWindowSize      *int
+	forceToSpeechTime  *int
+
 	newSession func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error)
 }
 
@@ -75,8 +79,8 @@ type doubaoASRSessionConfig struct {
 	bits       int
 }
 
-// Config contains immutable Doubao SAUC configuration. Pointer booleans
-// distinguish explicit false values from defaults.
+// Config contains immutable Doubao SAUC configuration. Pointer scalars
+// distinguish omitted values from explicit false or zero values.
 type Config struct {
 	Client            *doubaospeech.Client
 	Format            string
@@ -92,6 +96,10 @@ type Config struct {
 	ResourceID        string
 	ChunkSize         int
 	RealtimePacing    *bool
+
+	VADSegmentDuration *int
+	EndWindowSize      *int
+	ForceToSpeechTime  *int
 }
 
 // New creates a configured SAUC Transformer without opening a provider
@@ -120,8 +128,20 @@ func newTransformer(config Config) *Transformer {
 		chunkSize:       config.ChunkSize,
 		realtimePacing:  boolValue(config.RealtimePacing, true),
 		finalizeTimeout: doubaoASRFinalizeTimeout,
+
+		vadSegmentDuration: cloneInt(config.VADSegmentDuration),
+		endWindowSize:      cloneInt(config.EndWindowSize),
+		forceToSpeechTime:  cloneInt(config.ForceToSpeechTime),
 	}
 	return t
+}
+
+func cloneInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func boolValue(value *bool, fallback bool) bool {
@@ -720,6 +740,13 @@ func (t *Transformer) openSession(ctx context.Context, cfg doubaoASRSessionConfi
 		Hotwords:   t.hotwords,
 		ResultType: t.resultType,
 		ResourceID: t.resourceID,
+	}
+	if t.vadSegmentDuration != nil || t.endWindowSize != nil || t.forceToSpeechTime != nil {
+		config.Request = &doubaospeech.ASRV2RequestConfig{
+			VADSegmentDuration: t.vadSegmentDuration,
+			EndWindowSize:      t.endWindowSize,
+			ForceToSpeechTime:  t.forceToSpeechTime,
+		}
 	}
 	return t.client.ASRV2.OpenStreamSession(ctx, config)
 }

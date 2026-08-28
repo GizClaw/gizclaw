@@ -79,9 +79,16 @@ steps:
       mode: realtime
       input: ${input_audio}
       pacing: 20ms
+      completion: first_response
+      first_text_timeout: 2s
+      first_audio_timeout: 3s
     expect:
       /events:
         non_empty: true
+      /first_text_ms:
+        maximum: 2000
+      /first_audio_ms:
+        maximum: 3000
 finally:
   - client: peer
     rpc:
