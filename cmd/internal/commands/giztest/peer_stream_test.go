@@ -312,6 +312,13 @@ func finishAssistantTurn(stream *fakeRelayStream, id string) {
 	stream.in <- assistantBlob(id, nil, true)
 }
 
+func transcriptText(id, text string, eos bool) *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Part: genx.Text(text),
+		Ctrl: &genx.StreamCtrl{StreamID: id, Label: "transcript", EndOfStream: eos},
+	}
+}
+
 func invokeFakePeerStream(ctx context.Context, op PeerStreamOperation, streams ...*fakeRelayStream) (operationResult, error) {
 	index := 0
 	open := func() (peerStream, error) {
@@ -585,6 +592,7 @@ func TestInvokePeerStreamFirstResponseReturnsWithoutEOS(t *testing.T) {
 	stream := newFakeRelayStream()
 	go func() {
 		drainPushes(stream, 3)
+		stream.in <- transcriptText("user-1", "question", false)
 		stream.in <- assistantText("s1", "hello", false)
 		stream.in <- assistantBlob("s1", []byte{1, 2, 3}, false)
 	}()
@@ -598,7 +606,7 @@ func TestInvokePeerStreamFirstResponseReturnsWithoutEOS(t *testing.T) {
 	if object["text_eos"] != false || object["audio_eos"] != false {
 		t.Fatalf("first response waited for terminal output: %#v", object)
 	}
-	if object["events"] != 2 || object["first_text_ms"] == nil || object["first_audio_ms"] == nil {
+	if object["events"] != 3 || object["first_transcript_ms"] == nil || object["first_text_ms"] == nil || object["first_audio_ms"] == nil {
 		t.Fatalf("first response assertion = %#v", object)
 	}
 	select {
@@ -646,6 +654,9 @@ func TestInvokePeerStreamFirstResponseSelectedModalities(t *testing.T) {
 			object := result.assertion.(map[string]any)
 			if object["events"] != 1 {
 				t.Fatalf("first response assertion = %#v", object)
+			}
+			if object["first_transcript_ms"] != int64(0) {
+				t.Fatalf("missing transcript evidence = %#v, want zero", object["first_transcript_ms"])
 			}
 		})
 	}
@@ -742,6 +753,7 @@ func TestInvokePeerStreamFirstResponseDeadlineStartsAfterInput(t *testing.T) {
 			time.Sleep(30 * time.Millisecond)
 			<-stream.pushes
 		}
+		stream.in <- transcriptText("user-1", "question", false)
 		stream.in <- assistantText("s1", "hello", false)
 	}()
 	audioDisabled := false
@@ -753,6 +765,9 @@ func TestInvokePeerStreamFirstResponseDeadlineStartsAfterInput(t *testing.T) {
 	}
 	if textMS := result.evidence["first_text_ms"].(int64); textMS >= 20 {
 		t.Fatalf("first_text_ms = %d, want response-only latency", textMS)
+	}
+	if transcriptMS := result.evidence["first_transcript_ms"].(int64); transcriptMS >= 20 {
+		t.Fatalf("first_transcript_ms = %d, want response-only latency", transcriptMS)
 	}
 }
 

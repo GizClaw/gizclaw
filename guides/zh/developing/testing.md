@@ -208,11 +208,14 @@ bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
 Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
-text-only 与带语音 Realtime 文档分别以 `--parallel 1` 和 `--parallel 8` 经过 Server 与
-Edge。文本必须在 2 秒内到达，Realtime 音频必须在 3 秒内到达；独立 terminal roundtrip
+text-only、configured-ASR Push-to-Talk 与 Realtime 文档分别以 `--parallel 1` 和
+`--parallel 8` 经过 Server 与 Edge。带语音场景从 input 完成时开始计时：700 ms 内出现
+非空 transcript 是 ASR transport qualification；随后仍继续执行独立归属的端到端发布
+gate，要求 2 秒内出现 assistant text、3 秒内出现 assistant audio。transcript qualification
+通过不能把红色的端到端结果判成通过。独立的 Push-to-Talk 与 Realtime terminal roundtrip
 再验证 text/audio EOS，每个场景的三个 cleanup step 也必须全部通过。原子写入的
 `testdata/eino-first-response/manifest.json` 记录 Git revision、dirty state、fixture hash、
-脱敏 report hash、任务与 cleanup 数量以及观测到的最大首响时间，不记录 endpoint 或
+脱敏 report hash、任务与 cleanup 数量以及观测到的最大 transcript/text/audio 时间，不记录 endpoint 或
 credential value。Dirty 状态下的探索性运行必须显式设置 `GIZCLAW_E2E_ALLOW_DIRTY=1`，
 不能作为发布证据。
 
