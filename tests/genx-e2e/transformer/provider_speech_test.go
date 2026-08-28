@@ -39,6 +39,8 @@ const (
 	doubaoASRLiveFrameDuration    = 20 * time.Millisecond
 	doubaoASRLiveFrameSize        = 640
 	doubaoASRLiveLatencyLimit     = 700 * time.Millisecond
+	doubaoASRMinimumPacingSaving  = 200 * time.Millisecond
+	doubaoASRPacingTrials         = 10
 )
 
 func TestDoubaoSAUCASR(t *testing.T) {
@@ -130,11 +132,11 @@ func TestDoubaoSAUCLivePCMFrameAggregation(t *testing.T) {
 	}
 	audio := shortASRPCM(t, pcm.Bytes(), doubaoASRShortUtteranceStart, doubaoASRShortUtteranceEnd)
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
-	for _, packetSize := range []int{3200, 6400} {
-		t.Run(fmt.Sprintf("packet_%dms", packetSize*1000/(16000*2)), func(t *testing.T) {
+	for _, packetSize := range []int{doubaoASRChunkSize, 6400} {
+		t.Run(fmt.Sprintf("unpaced_packet_%dms", packetSize*1000/(16000*2)), func(t *testing.T) {
 			latencies := make([]time.Duration, 0, 5)
 			for trial := range 5 {
-				latencies = append(latencies, runDoubaoASRLivePCMTrial(t, client, audio, packetSize, trial))
+				latencies = append(latencies, runDoubaoASRLivePCMTrial(t, client, audio, packetSize, false, trial))
 			}
 			slices.Sort(latencies)
 			median := latencies[len(latencies)/2]
@@ -144,11 +146,36 @@ func TestDoubaoSAUCLivePCMFrameAggregation(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("pacing_comparison_100ms", func(t *testing.T) {
+		latencies := map[bool][]time.Duration{false: {}, true: {}}
+		for trial := range doubaoASRPacingTrials {
+			// Alternate the order so provider drift cannot systematically favor one mode.
+			order := []bool{false, true}
+			if trial%2 != 0 {
+				slices.Reverse(order)
+			}
+			for _, realtimePacing := range order {
+				latencies[realtimePacing] = append(latencies[realtimePacing], runDoubaoASRLivePCMTrial(t, client, audio, doubaoASRChunkSize, realtimePacing, trial))
+			}
+		}
+		for realtimePacing := range latencies {
+			slices.Sort(latencies[realtimePacing])
+		}
+		unpacedMedian := latencies[false][len(latencies[false])/2]
+		pacedMedian := latencies[true][len(latencies[true])/2]
+		t.Logf("unpaced_latencies=%v paced_latencies=%v unpaced_p50=%s paced_p50=%s", latencies[false], latencies[true], unpacedMedian, pacedMedian)
+		if unpacedMedian > doubaoASRLiveLatencyLimit {
+			t.Fatalf("unpaced final transcript p50 = %s, want at most %s", unpacedMedian, doubaoASRLiveLatencyLimit)
+		}
+		if saving := pacedMedian - unpacedMedian; saving < doubaoASRMinimumPacingSaving {
+			t.Fatalf("disabling duplicate realtime pacing saved %s, want at least the %s production-change threshold", saving, doubaoASRMinimumPacingSaving)
+		}
+	})
 }
 
-func runDoubaoASRLivePCMTrial(t *testing.T, client *doubaospeech.Client, audio []byte, packetSize, trial int) time.Duration {
+func runDoubaoASRLivePCMTrial(t *testing.T, client *doubaospeech.Client, audio []byte, packetSize int, realtimePacing bool, trial int) time.Duration {
 	t.Helper()
-	realtimePacing := false
 	transformer, err := doubaoasr.New(doubaoasr.Config{
 		Client:         client,
 		ChunkSize:      packetSize,
@@ -169,7 +196,7 @@ func runDoubaoASRLivePCMTrial(t *testing.T, client *doubaospeech.Client, audio [
 
 	transcripts := make(chan doubaoASRTranscript, 1)
 	go receiveFirstASRTranscript(output, transcripts)
-	streamID := fmt.Sprintf("doubao-sauc-live-pcm-%d-%d", packetSize, trial)
+	streamID := fmt.Sprintf("doubao-sauc-live-pcm-%d-%t-%d", packetSize, realtimePacing, trial)
 	for offset := 0; offset < len(audio); offset += doubaoASRLiveFrameSize {
 		end := min(offset+doubaoASRLiveFrameSize, len(audio))
 		pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
@@ -195,7 +222,7 @@ func runDoubaoASRLivePCMTrial(t *testing.T, client *doubaospeech.Client, audio [
 			t.Fatalf("read ASR transcript: %v", transcript.err)
 		}
 		latency := transcript.receivedAt.Sub(speechEndedAt)
-		t.Logf("trial=%d transcript=%q final_latency=%s", trial+1, transcript.text, latency)
+		t.Logf("trial=%d realtime_pacing=%t transcript_present=%t final_latency=%s", trial+1, realtimePacing, strings.TrimSpace(transcript.text) != "", latency)
 		return latency
 	case <-ctx.Done():
 		t.Fatalf("Doubao ASR live PCM context ended: %v", ctx.Err())
