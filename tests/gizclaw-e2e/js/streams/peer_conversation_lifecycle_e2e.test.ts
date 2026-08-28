@@ -9,6 +9,7 @@ import {
   PeerEventType,
   StreamKind,
   beginPeerStream,
+  createContinuousAudioRouteRearm,
   createPeerEvent,
   endPeerStream,
   sendPeerEvent,
@@ -34,6 +35,7 @@ const workflowName =
 const inputMode = process.env.GIZCLAW_E2E_INPUT_MODE ?? "audio";
 const inputVoice = process.env.GIZCLAW_E2E_INPUT_VOICE ?? "narrator";
 const turnTimeoutMs = 90_000;
+const realtimeTailSilenceMs = 4_000;
 
 type ConnectionProbe = {
   events: DecodedPeerStreamEvent[];
@@ -79,7 +81,7 @@ async function main(): Promise<void> {
           workflow_name: workflowName,
           parameters: {
             agent_type: "flowcraft",
-            input: "push-to-talk",
+            input: inputMode === "audio-reload" ? "realtime" : "push-to-talk",
           },
         });
         await rpc.call("server.run.workspace.set", {
@@ -87,6 +89,8 @@ async function main(): Promise<void> {
         });
         if (inputMode === "audio") {
           await runTwoAudioTurns(rpc, probe, eventChannel, pc);
+        } else if (inputMode === "audio-reload") {
+          await runContinuousAudioAcrossReload(rpc, probe, eventChannel, pc);
         } else {
           assert.equal(
             inputMode,
@@ -288,6 +292,170 @@ async function runTwoAudioTurns(
   }
 }
 
+async function runContinuousAudioAcrossReload(
+  rpc: ReturnType<typeof createPeerRPCClient>,
+  probe: ConnectionProbe,
+  eventChannel: RTCDataChannel,
+  pc: wrtc.RTCPeerConnection,
+): Promise<void> {
+  const audio = pc
+    .getTransceivers()
+    .find(({ receiver }) => receiver.track.kind === "audio");
+  assert.ok(audio, "registered JS Peer has no audio transceiver after connect");
+  const source = new wrtc.nonstandard.RTCAudioSource();
+  const uplinkTrack = source.createTrack();
+  const sink = new wrtc.nonstandard.RTCAudioSink(audio.receiver.track);
+  let downlinkFrames = 0;
+  sink.ondata = () => {
+    downlinkFrames++;
+  };
+  await audio.sender.replaceTrack(uplinkTrack);
+  let routeSequence = 0;
+  const allocateStreamID = (): string =>
+    `edge-audio-${process.pid}-${Date.now()}-${++routeSequence}`;
+  const routeRearm = createContinuousAudioRouteRearm(
+    eventChannel,
+    allocateStreamID,
+  );
+  let activeStreamID = allocateStreamID();
+  const initialStreamID = activeStreamID;
+  let reloadEOSObserved = false;
+  let resolveRearmed!: (streamID: string) => void;
+  let rejectRearmed!: (error: Error) => void;
+  const rearmed = new Promise<string>((resolve, reject) => {
+    resolveRearmed = resolve;
+    rejectRearmed = reject;
+  });
+  const unsubscribeRearm = subscribePeerEvents(
+    eventChannel,
+    (event) => {
+      if (
+        event.type === "eos" &&
+        event.streamId === activeStreamID &&
+        event.kind === "audio" &&
+        event.label === "user" &&
+        event.mimeType?.split(";", 1)[0]?.trim().toLowerCase() ===
+          "audio/opus" &&
+        event.errorCode === "INPUT_ROUTE_RELOADED" &&
+        event.errorMessage === "input route reloaded" &&
+        event.errorRetryable === true
+      ) {
+        reloadEOSObserved = true;
+      }
+      const replacement = routeRearm.handle(event);
+      if (replacement != null) {
+        activeStreamID = replacement;
+        resolveRearmed(replacement);
+      }
+    },
+    rejectRearmed,
+  );
+  try {
+    const synthesis = await rpc.synthesizeSpeech({
+      voice_name: inputVoice,
+      text: "请回答收到。",
+      accepted_content_types: ["audio/pcm"],
+    });
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of synthesis.body) chunks.push(chunk);
+    const pcm = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+    assert.equal(
+      pcm.byteLength % 2,
+      0,
+      "synthesized PCM is not 16-bit aligned",
+    );
+    const sampleRate = synthesis.result.sample_rate_hz ?? 16_000;
+    const channels = synthesis.result.channels ?? 1;
+    assert.equal(channels, 1, "realtime probe requires mono PCM");
+    sendPeerEvent(
+      eventChannel,
+      beginPeerStream({
+        streamId: activeStreamID,
+        kind: StreamKind.AUDIO,
+        label: "user",
+        mimeType: "audio/opus",
+      }),
+    );
+    routeRearm.activate({
+      streamId: activeStreamID,
+      label: "user",
+      mimeType: "audio/opus",
+    });
+
+    const firstEventOffset = probe.events.length;
+    const firstDownlinkOffset = downlinkFrames;
+    await sendPCM(source, pcm, sampleRate);
+    await sendSilence(source, sampleRate, realtimeTailSilenceMs);
+    await waitForAssistantTurn(probe, firstEventOffset, activeStreamID);
+    assert.ok(
+      downlinkFrames > firstDownlinkOffset,
+      "continuous audio produced no WebRTC downlink before reload",
+    );
+
+    const originalPC = pc;
+    const originalEventChannel = eventChannel;
+    const originalTrack = audio.sender.track;
+    const replacementStreamID = await Promise.race([
+      Promise.all([rpc.call("server.run.workspace.reload", {}), rearmed]).then(
+        ([, streamID]) => streamID,
+      ),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                reloadEOSObserved
+                  ? "JavaScript SDK observed INPUT_ROUTE_RELOADED EOS but did not send a replacement BOS"
+                  : "Server did not send INPUT_ROUTE_RELOADED EOS for the active JavaScript SDK route",
+              ),
+            ),
+          10_000,
+        ),
+      ),
+    ]);
+    assert.notEqual(replacementStreamID, initialStreamID);
+    assert.equal(pc, originalPC, "reload replaced the PeerConnection");
+    assert.equal(
+      eventChannel,
+      originalEventChannel,
+      "reload replaced the Event channel",
+    );
+    assert.equal(
+      audio.sender.track,
+      originalTrack,
+      "reload replaced the audio track",
+    );
+
+    const secondEventOffset = probe.events.length;
+    const secondDownlinkOffset = downlinkFrames;
+    await sendPCM(source, pcm, sampleRate);
+    await sendSilence(source, sampleRate, realtimeTailSilenceMs);
+    await waitForAssistantTurn(probe, secondEventOffset, activeStreamID);
+    assert.ok(
+      downlinkFrames > secondDownlinkOffset,
+      "continuous audio produced no WebRTC downlink after reload",
+    );
+    assert.equal(eventChannel.readyState, "open");
+    assert.equal(pc.connectionState, "connected");
+  } finally {
+    routeRearm.deactivate();
+    unsubscribeRearm();
+    if (eventChannel.readyState === "open") {
+      sendPeerEvent(
+        eventChannel,
+        endPeerStream({
+          streamId: activeStreamID,
+          kind: StreamKind.AUDIO,
+          label: "user",
+          mimeType: "audio/opus",
+        }),
+      );
+    }
+    sink.stop();
+    uplinkTrack.stop();
+  }
+}
+
 async function sendPCM(
   source: wrtc.nonstandard.RTCAudioSource,
   pcm: Buffer,
@@ -307,6 +475,30 @@ async function sendPCM(
   for (let offset = 0; offset < samples.length; offset += framesPerChunk) {
     const frame = new Int16Array(framesPerChunk);
     frame.set(samples.subarray(offset, offset + framesPerChunk));
+    source.onData({
+      bitsPerSample: 16,
+      channelCount: 1,
+      numberOfFrames: framesPerChunk,
+      sampleRate,
+      samples: frame,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+async function sendSilence(
+  source: wrtc.nonstandard.RTCAudioSource,
+  sampleRate: number,
+  durationMs: number,
+): Promise<void> {
+  const framesPerChunk = sampleRate / 100;
+  assert.equal(
+    Number.isInteger(framesPerChunk),
+    true,
+    `unsupported PCM sample rate ${sampleRate}`,
+  );
+  const frame = new Int16Array(framesPerChunk);
+  for (let elapsed = 0; elapsed < durationMs; elapsed += 10) {
     source.onData({
       bitsPerSample: 16,
       channelCount: 1,

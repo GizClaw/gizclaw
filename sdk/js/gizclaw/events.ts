@@ -1,4 +1,9 @@
-import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
+import {
+  create,
+  fromBinary,
+  toBinary,
+  type MessageInitShape,
+} from "@bufbuild/protobuf";
 import {
   PeerEventSchema,
   PeerEventType,
@@ -51,7 +56,7 @@ export type DecodedPeerStreamEvent = {
 };
 
 export function createPeerEvent(
-  value: Omit<PeerEvent, "$typeName">,
+  value: MessageInitShape<typeof PeerEventSchema>,
 ): PeerEvent {
   const event = create(PeerEventSchema, value);
   validatePeerEvent(event);

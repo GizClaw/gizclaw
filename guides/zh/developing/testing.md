@@ -243,6 +243,14 @@ EOS，再发送 fresh BOS，之后才发送声明的音频输入。一个 sessio
 `reload_eos_observed`、`replacement_bos_sent` 和 `stream_id_changed` 等布尔证据，不记录
 raw stream ID、音频 payload 或 transcript。
 
+JavaScript Client 的对应 WebRTC 集成回归由
+`tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts` 的
+`audio-reload` 模式执行。它通过 SDK 的 `createContinuousAudioRouteRearm` 订阅同一条
+Event channel：先保持 realtime user-audio route 与 uplink track active，reload 后由 SDK
+消费 `INPUT_ROUTE_RELOADED` EOS 并发送 fresh BOS，再使用同一 microphone source、track、
+Event channel 和 PeerConnection 发送第二段音频并等待响应。该用例不能用测试代码直接补发
+replacement BOS；否则只验证 Server 协议，不能证明 JavaScript Client 已实现恢复。
+
 当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
 `audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
 `target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
