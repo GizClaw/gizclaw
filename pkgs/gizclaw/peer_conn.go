@@ -519,7 +519,18 @@ func (h *PeerConn) replaceAudioInputRoute(_ context.Context, route peerAudioInpu
 	if h.events == nil {
 		return errPeerEventStreamClosed
 	}
-	return h.events.Broadcast(peerAudioInputRouteReloadedEvent(route))
+	if err := h.events.Broadcast(peerAudioInputRouteReloadedEvent(route)); err != nil {
+		// The Event stream is mandatory. Close the underlying Peer transport
+		// immediately, but let serve() perform the full PeerConn cleanup: this
+		// callback runs inside an AgentHost transition, so calling h.close()
+		// synchronously here would recursively wait for that same transition.
+		h.closed.Store(true)
+		if h.Conn != nil {
+			_ = h.Conn.Close()
+		}
+		return err
+	}
+	return nil
 }
 
 func peerAudioInputRouteReloadedEvent(route peerAudioInputRoute) *eventpb.PeerEvent {

@@ -78,7 +78,8 @@ Agent input runtime 替换时，Realtime Source 把已捕获的旧 user-audio ro
 `acceptedInputStreams` 和 `acceptedAudio*` 授权；如果 fresh BOS 已经建立了更新 route，
 stale callback 不得清除它。释放授权锁后，`PeerConn` 通过现有 event broker 广播精确的
 `INPUT_ROUTE_RELOADED` EOS。Event I/O 不在 source 或授权 mutex 下执行；写入失败向
-AgentHost 传播，使 reload 不能成功，并由必需 Event transport 生命周期关闭不健康连接。
+AgentHost 传播，使 reload 不能成功；`PeerConn` 同时标记连接关闭并立即关闭底层 Conn，
+再由 serve lifecycle 完成其余资源清理，避免未收到必需 EOS 的 Peer 继续发送 fresh BOS。
 
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 

@@ -278,7 +278,8 @@ func TestPeerRealtimeSourcePropagatesPeerEventWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer unsubscribe()
-	conn := &PeerConn{events: broker, acceptedInputStreams: make(map[string]eventpb.StreamKind)}
+	transport := &closeRecordingConn{testGiznetConn: testGiznetConn{}}
+	conn := &PeerConn{Conn: transport, events: broker, acceptedInputStreams: make(map[string]eventpb.StreamKind)}
 	source := newPeerRealtimeSourceWithRouteReplacement(nil, conn.replaceAudioInputRoute, genx.WithRealtimeStreamDelay(0))
 	if _, err := source.OpenAgentInput(t.Context()); err != nil {
 		t.Fatalf("OpenAgentInput(first) error = %v", err)
@@ -291,6 +292,9 @@ func TestPeerRealtimeSourcePropagatesPeerEventWriteFailure(t *testing.T) {
 	}
 	if _, err := source.OpenAgentInput(t.Context()); !errors.Is(err, wantErr) {
 		t.Fatalf("OpenAgentInput(reload) error = %v, want %v", err, wantErr)
+	}
+	if !conn.isClosed() || !transport.closed.Load() {
+		t.Fatal("mandatory reload Event write failure did not close the Peer transport")
 	}
 }
 
