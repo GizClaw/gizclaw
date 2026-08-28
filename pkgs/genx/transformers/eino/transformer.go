@@ -16,6 +16,8 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
+const maxSupersededInputRoutes = 64
+
 // Transformer owns one immutable compiled Eino Graph. Transform may be called
 // concurrently; every call receives independent invocation-local run state.
 type Transformer struct {
@@ -186,6 +188,7 @@ func (session *session) run() {
 	var text strings.Builder
 	var parts []any
 	var pendingBOS []*genx.MessageChunk
+	supersededInputIDs := make(map[string]struct{})
 	inText := false
 	activeInputID := ""
 	activeBypassID := ""
@@ -210,8 +213,28 @@ func (session *session) run() {
 		if chunk == nil {
 			continue
 		}
+		if isInterruptedTextInputEnd(chunk) {
+			streamID := messageStreamID(chunk)
+			if inText && streamID == activeInputID {
+				text.Reset()
+				parts = nil
+				inText = false
+				activeInputID = ""
+				continue
+			}
+			if _, ok := supersededInputIDs[streamID]; ok {
+				delete(supersededInputIDs, streamID)
+				continue
+			}
+		}
 		if chunk.IsBeginOfStream() {
 			if chunk.Part == nil {
+				if inText && activeInputID != "" {
+					if err := rememberSupersededInputRoute(supersededInputIDs, activeInputID); err != nil {
+						inputFailure = err
+						break
+					}
+				}
 				session.interruptActive()
 				text.Reset()
 				parts = nil
@@ -221,6 +244,12 @@ func (session *session) run() {
 				continue
 			}
 			if _, ok := chunk.Part.(genx.Text); ok {
+				if streamID := messageStreamID(chunk); inText && activeInputID != "" && streamID != activeInputID {
+					if err := rememberSupersededInputRoute(supersededInputIDs, activeInputID); err != nil {
+						inputFailure = err
+						break
+					}
+				}
 				session.interruptActive()
 				text.Reset()
 				parts = nil
@@ -736,6 +765,28 @@ func isStreamEnd(err error) bool {
 	}
 	var state *genx.State
 	return errors.As(err, &state) && state.Status() == genx.StatusDone
+}
+
+func isInterruptedTextInputEnd(chunk *genx.MessageChunk) bool {
+	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() || chunk.Ctrl.Error != "interrupted" || messageStreamID(chunk) == "" {
+		return false
+	}
+	_, ok := chunk.Part.(genx.Text)
+	return ok
+}
+
+func rememberSupersededInputRoute(routes map[string]struct{}, streamID string) error {
+	if streamID == "" {
+		return nil
+	}
+	if _, exists := routes[streamID]; exists {
+		return nil
+	}
+	if len(routes) >= maxSupersededInputRoutes {
+		return fmt.Errorf("eino: more than %d superseded input routes remain without terminals", maxSupersededInputRoutes)
+	}
+	routes[streamID] = struct{}{}
+	return nil
 }
 
 func messageStreamID(chunk *genx.MessageChunk) string {

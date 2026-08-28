@@ -327,6 +327,41 @@ func TestGraphExecutionRejectsMalformedInputLifecycles(t *testing.T) {
 			want: "input text Stream failed",
 		},
 		{
+			name: "unscoped interrupted text terminal",
+			input: func() genx.Stream {
+				streamID := genx.NewStreamID()
+				eos := genx.NewTextEndOfStream()
+				eos.Ctrl.Error = "interrupted"
+				return inputFromChunks(t,
+					textChunk(streamID, "partial", true, false),
+					eos,
+				)
+			},
+			want: "input text Stream failed",
+		},
+		{
+			name: "unknown interrupted text terminal",
+			input: func() genx.Stream {
+				activeStreamID := genx.NewStreamID()
+				return inputFromChunks(t,
+					textChunk(activeStreamID, "partial", true, false),
+					interruptedTextEnd(genx.NewStreamID()),
+				)
+			},
+			want: "does not match active StreamID",
+		},
+		{
+			name: "superseded text terminals never arrive",
+			input: func() genx.Stream {
+				chunks := make([]*genx.MessageChunk, 0, maxSupersededInputRoutes+2)
+				for range maxSupersededInputRoutes + 2 {
+					chunks = append(chunks, textChunk(genx.NewStreamID(), "partial", true, false))
+				}
+				return inputFromChunks(t, chunks...)
+			},
+			want: "more than 64 superseded input routes remain without terminals",
+		},
+		{
 			name: "part terminal error",
 			input: func() genx.Stream {
 				streamID := genx.NewStreamID()

@@ -208,6 +208,8 @@ Each completed input text turn creates fresh output routes and StreamIDs. Every 
 
 The output buffer grows independently of downstream pulls up to `Limits.MaxOutputBytes`. Crossing the limit fails all routes. A new text BOS interrupts the previous turn, cancels its Graph and children, discards unpulled suffixes, and preserves only the assistant prefix already observed by downstream.
 
+An upstream text EOS with a non-empty StreamID and the exact error `interrupted` is a turn-scoped replacement terminal only when it matches the active incomplete input route or a route that a replacement BOS explicitly superseded. Eino discards buffered text and parts for the active match and ignores a known superseded route's terminal as stale. Unknown or mismatched StreamIDs retain their validation errors. The session tracks at most 64 superseded routes awaiting terminals; exceeding that bound fails the session instead of growing replacement state without limit. The Transformer session stays open for valid replacements, and the replacement BOS remains the only owner of active-Graph interruption. Every other non-empty input terminal error remains fatal to the session.
+
 Non-text routes bypass the Transformer unchanged. A text turn containing blobs is accepted only when the Graph explicitly binds `input.parts`; otherwise it fails as unsupported multimodal input. Component-specific interpretation of those copied parts remains outside the package.
 
 ## State, History, and Memory

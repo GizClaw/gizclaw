@@ -388,6 +388,119 @@ func TestRepeatedBOSClosesInterruptedTurnBeforeReplacementBOS(t *testing.T) {
 	}
 }
 
+func TestInterruptedTranscriptReplacementKeepsSessionAlive(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		chunks func(oldStreamID, newStreamID string) []*genx.MessageChunk
+	}{
+		{
+			name: "interrupted terminal before replacement BOS",
+			chunks: func(oldStreamID, newStreamID string) []*genx.MessageChunk {
+				return []*genx.MessageChunk{
+					textChunk(oldStreamID, "stale partial", true, false),
+					interruptedTextEnd(oldStreamID),
+					genx.NewBeginOfStream("replacement-audio"),
+					textChunk(newStreamID, "fresh", true, false),
+					textChunk(newStreamID, "", false, true),
+				}
+			},
+		},
+		{
+			name: "interrupted terminal after replacement BOS",
+			chunks: func(oldStreamID, newStreamID string) []*genx.MessageChunk {
+				return []*genx.MessageChunk{
+					textChunk(oldStreamID, "stale partial", true, false),
+					genx.NewBeginOfStream("replacement-audio"),
+					interruptedTextEnd(oldStreamID),
+					textChunk(newStreamID, "fresh", true, false),
+					textChunk(newStreamID, "", false, true),
+				}
+			},
+		},
+		{
+			name: "stale terminal after replacement transcript starts",
+			chunks: func(oldStreamID, newStreamID string) []*genx.MessageChunk {
+				return []*genx.MessageChunk{
+					textChunk(oldStreamID, "stale partial", true, false),
+					genx.NewBeginOfStream("replacement-audio"),
+					textChunk(newStreamID, "fresh", true, false),
+					interruptedTextEnd(oldStreamID),
+					textChunk(newStreamID, "", false, true),
+				}
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			transformer, err := New(t.Context(), textConfig())
+			if err != nil {
+				t.Fatal(err)
+			}
+			oldStreamID := genx.NewStreamID()
+			newStreamID := genx.NewStreamID()
+			output, err := transformer.Transform(t.Context(), inputFromChunks(t, test.chunks(oldStreamID, newStreamID)...))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := joinedText(drain(t, output)); got != "fresh" {
+				t.Fatalf("output text = %q, want fresh", got)
+			}
+		})
+	}
+}
+
+func TestRepeatedInterruptedTranscriptsDiscardPartialInput(t *testing.T) {
+	t.Parallel()
+	transformer, err := New(t.Context(), textConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstStreamID := genx.NewStreamID()
+	secondStreamID := genx.NewStreamID()
+	freshStreamID := genx.NewStreamID()
+	output, err := transformer.Transform(t.Context(), inputFromChunks(t,
+		textChunk(firstStreamID, "stale one", true, false),
+		&genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: "image/png", Data: []byte{1}},
+			Ctrl: &genx.StreamCtrl{StreamID: firstStreamID},
+		},
+		interruptedTextEnd(firstStreamID),
+		textChunk(secondStreamID, "stale two", true, false),
+		interruptedTextEnd(secondStreamID),
+		textChunk(freshStreamID, "fresh", true, false),
+		textChunk(freshStreamID, "", false, true),
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := joinedText(drain(t, output)); got != "fresh" {
+		t.Fatalf("output text = %q, want fresh", got)
+	}
+	transformer.history.mu.Lock()
+	history := append([]*schema.Message(nil), transformer.history.live...)
+	transformer.history.mu.Unlock()
+	if len(history) != 2 || history[0].Role != schema.User || history[0].Content != "fresh" ||
+		history[1].Role != schema.Assistant || history[1].Content != "fresh" {
+		t.Fatalf("History = %#v, want only fresh user and assistant messages", history)
+	}
+}
+
+func textChunk(streamID, text string, begin, end bool) *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text(text),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: begin, EndOfStream: end},
+	}
+}
+
+func interruptedTextEnd(streamID string) *genx.MessageChunk {
+	chunk := textChunk(streamID, "", false, true)
+	chunk.Ctrl.Error = "interrupted"
+	return chunk
+}
+
 type orderedInterruptChatModel struct {
 	mu        sync.Mutex
 	calls     int

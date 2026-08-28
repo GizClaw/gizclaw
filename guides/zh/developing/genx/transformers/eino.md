@@ -208,6 +208,8 @@ Subgraph 只执行一次 nested Graph。名为 `text`、`messages`、`parts` 的
 
 Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes`；超限会使全部 route 失败。新的 text BOS 会 interrupt 上一轮，取消其 Graph 与 child，丢弃尚未 pull 的 suffix，并且只保留下游已观察到的 assistant prefix。
 
+上游 text EOS 携带非空 StreamID 和精确错误 `interrupted` 时，只有当它匹配当前未完成 input route，或匹配被 replacement BOS 明确取代的 route，才表示 turn-scoped replacement terminal。Eino 对 active match 丢弃已缓冲的 text 和 part，并将已知 superseded route 的 terminal 作为 stale 忽略；未知或不匹配的 StreamID 仍保留原有校验错误。Session 最多跟踪 64 个等待 terminal 的 superseded route；超出边界时 session 失败，而不是让 replacement state 无界增长。合法 replacement 下 Transformer session 保持打开，只有 replacement BOS 负责 interrupt active Graph。其他非空 input terminal error 仍会使 session 失败。
+
 非文本 route 会原样 bypass。包含 blob 的 text turn 只有在 Graph 显式绑定 `input.parts` 时才接受，否则以 unsupported multimodal input 失败；如何解释这些 defensive copy 后的 part 由 component adapter 决定。
 
 ## State、History 与 Memory
