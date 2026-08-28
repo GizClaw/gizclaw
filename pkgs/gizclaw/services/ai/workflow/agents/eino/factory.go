@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 
@@ -28,7 +29,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
-const Type = "eino"
+const (
+	Type = "eino"
+
+	einoAudioInputUnsupportedCode    = "EINO_AUDIO_INPUT_UNSUPPORTED"
+	einoAudioInputUnsupportedMessage = "Eino audio input requires voice_adapter.asr_model"
+)
 
 // Factory maps the strict product Workflow into the existing Eino Transformer.
 type Factory struct {
@@ -141,6 +147,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
+	}
+	if !einoVoiceAdapterHasASR(public.VoiceAdapter) {
+		composed = einoAudioInputGuard{next: composed}
 	}
 	agent := agenthost.NewTransformerAgent(composed)
 	if config.Memory != nil {
@@ -261,6 +270,282 @@ func stringPointerValue(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func einoVoiceAdapterHasASR(voice *apitypes.VoiceAdapter) bool {
+	return voice != nil && stringPointerValue(voice.AsrModel) != ""
+}
+
+// einoAudioInputGuard keeps the product-level live-audio capability at the
+// Eino factory boundary. The provider-neutral Eino Transformer deliberately
+// does not own ASR configuration or infer a default ASR model.
+type einoAudioInputGuard struct {
+	next genx.Transformer
+}
+
+func (g einoAudioInputGuard) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+	if g.next == nil {
+		return nil, fmt.Errorf("eino: audio input guard requires a downstream Transformer")
+	}
+	if input == nil {
+		return nil, fmt.Errorf("eino: audio input guard requires an input Stream")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 16)
+	guardedInput := &einoAudioInputStream{
+		source:   input,
+		output:   output,
+		pending:  make(map[string][]*genx.MessageChunk),
+		rejected: make(map[string]struct{}),
+	}
+	downstream, err := g.next.Transform(ctx, guardedInput)
+	if err != nil {
+		_ = guardedInput.CloseWithError(err)
+		_ = output.Abort(err)
+		return nil, err
+	}
+	if downstream == nil {
+		err := fmt.Errorf("eino: audio input guard received a nil downstream Stream")
+		_ = guardedInput.CloseWithError(err)
+		_ = output.Abort(err)
+		return nil, err
+	}
+
+	guardedOutput := &einoAudioOutputStream{
+		stream:     output.Stream(),
+		builder:    output,
+		downstream: downstream,
+		input:      guardedInput,
+	}
+	guardedOutput.stopContext = context.AfterFunc(ctx, func() {
+		_ = guardedOutput.closeStreams(context.Cause(ctx))
+	})
+	go guardedOutput.forward()
+	return guardedOutput, nil
+}
+
+type einoAudioInputStream struct {
+	source genx.Stream
+	output *genx.StreamBuilder
+
+	pending      map[string][]*genx.MessageChunk
+	pendingOrder []string
+	ready        []*genx.MessageChunk
+	rejected     map[string]struct{}
+	sourceErr    error
+}
+
+func (s *einoAudioInputStream) Next() (*genx.MessageChunk, error) {
+	for {
+		if len(s.ready) != 0 {
+			chunk := s.ready[0]
+			s.ready[0] = nil
+			s.ready = s.ready[1:]
+			return chunk, nil
+		}
+		if s.sourceErr != nil {
+			return nil, s.sourceErr
+		}
+		chunk, err := s.source.Next()
+		if err != nil {
+			s.flushPending()
+			s.sourceErr = err
+			continue
+		}
+		streamID := einoChunkStreamID(chunk)
+		if _, rejected := s.rejected[streamID]; streamID != "" && rejected {
+			if chunk.IsEndOfStream() {
+				delete(s.rejected, streamID)
+			}
+			continue
+		}
+		_, pending := s.pending[streamID]
+		if streamID != "" && einoControlOnly(chunk) && (chunk.IsBeginOfStream() || pending) {
+			s.buffer(streamID, chunk)
+			if chunk.IsEndOfStream() {
+				s.release(streamID)
+			}
+			continue
+		}
+		blob, audio := einoOrdinaryUserAudio(chunk)
+		if audio && len(blob.Data) == 0 {
+			s.buffer(streamID, chunk)
+			if chunk.IsEndOfStream() {
+				s.release(streamID)
+			}
+			continue
+		}
+		if audio {
+			s.discard(streamID)
+			s.rejected[streamID] = struct{}{}
+			if err := s.output.Add(einoAudioInputUnsupportedTerminal(streamID)); err != nil {
+				_ = s.source.CloseWithError(err)
+				return nil, err
+			}
+			if chunk.IsEndOfStream() {
+				delete(s.rejected, streamID)
+			}
+			continue
+		}
+		s.release(streamID)
+		s.ready = append(s.ready, chunk)
+	}
+}
+
+func (s *einoAudioInputStream) buffer(streamID string, chunk *genx.MessageChunk) {
+	if len(s.pending[streamID]) == 0 {
+		s.pendingOrder = append(s.pendingOrder, streamID)
+	}
+	s.pending[streamID] = append(s.pending[streamID], chunk)
+}
+
+func (s *einoAudioInputStream) release(streamID string) {
+	pending := s.pending[streamID]
+	s.discard(streamID)
+	if len(pending) != 0 {
+		s.ready = append(s.ready, pending...)
+	}
+}
+
+func (s *einoAudioInputStream) discard(streamID string) {
+	delete(s.pending, streamID)
+	for index := 0; index < len(s.pendingOrder); {
+		if s.pendingOrder[index] != streamID {
+			index++
+			continue
+		}
+		s.pendingOrder = slices.Delete(s.pendingOrder, index, index+1)
+	}
+}
+
+func (s *einoAudioInputStream) flushPending() {
+	for len(s.pendingOrder) != 0 {
+		s.release(s.pendingOrder[0])
+	}
+}
+
+func (s *einoAudioInputStream) Close() error {
+	return s.source.Close()
+}
+
+func (s *einoAudioInputStream) CloseWithError(err error) error {
+	return s.source.CloseWithError(err)
+}
+
+func einoOrdinaryUserAudio(chunk *genx.MessageChunk) (*genx.Blob, bool) {
+	if chunk == nil || chunk.Role != genx.RoleUser || einoChunkStreamID(chunk) == "" ||
+		chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
+		return nil, false
+	}
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil {
+		return nil, false
+	}
+	mimeType, ok := chunk.MIMEType()
+	if !ok {
+		return nil, false
+	}
+	mediaType, _, _ := strings.Cut(mimeType, ";")
+	return blob, strings.HasPrefix(strings.ToLower(strings.TrimSpace(mediaType)), "audio/")
+}
+
+func einoControlOnly(chunk *genx.MessageChunk) bool {
+	return chunk != nil && chunk.Part == nil && chunk.ToolCall == nil
+}
+
+func einoChunkStreamID(chunk *genx.MessageChunk) string {
+	if chunk == nil || chunk.Ctrl == nil {
+		return ""
+	}
+	return strings.TrimSpace(chunk.Ctrl.StreamID)
+}
+
+func einoAudioInputUnsupportedTerminal(streamID string) *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: "assistant",
+		Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{
+			StreamID:       streamID,
+			Label:          "assistant",
+			Error:          einoAudioInputUnsupportedMessage,
+			ErrorCode:      einoAudioInputUnsupportedCode,
+			ErrorRetryable: false,
+			FailureClass:   genx.FailureClassTransform,
+			EndOfStream:    true,
+		},
+	}
+}
+
+type einoAudioOutputStream struct {
+	stream     genx.Stream
+	builder    *genx.StreamBuilder
+	downstream genx.Stream
+	input      genx.Stream
+
+	closeOnce   sync.Once
+	stopContext func() bool
+}
+
+func (s *einoAudioOutputStream) Next() (*genx.MessageChunk, error) {
+	return s.stream.Next()
+}
+
+func (s *einoAudioOutputStream) Close() error {
+	return s.close(nil)
+}
+
+func (s *einoAudioOutputStream) CloseWithError(err error) error {
+	return s.close(err)
+}
+
+func (s *einoAudioOutputStream) close(err error) error {
+	if s.stopContext != nil {
+		s.stopContext()
+	}
+	return s.closeStreams(err)
+}
+
+func (s *einoAudioOutputStream) closeStreams(err error) error {
+	var result error
+	s.closeOnce.Do(func() {
+		if err != nil {
+			result = errors.Join(s.stream.CloseWithError(err), s.downstream.CloseWithError(err), s.input.CloseWithError(err))
+			return
+		}
+		result = errors.Join(s.stream.Close(), s.downstream.Close(), s.input.Close())
+	})
+	return result
+}
+
+func (s *einoAudioOutputStream) forward() {
+	defer s.downstream.Close()
+	defer func() {
+		if s.stopContext != nil {
+			s.stopContext()
+		}
+	}()
+	for {
+		chunk, err := s.downstream.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+				_ = s.input.Close()
+				_ = s.builder.Done(genx.Usage{})
+				return
+			}
+			_ = s.input.CloseWithError(err)
+			_ = s.builder.Abort(err)
+			return
+		}
+		if err := s.builder.Add(chunk); err != nil {
+			_ = s.downstream.CloseWithError(err)
+			_ = s.input.CloseWithError(err)
+			return
+		}
+	}
 }
 
 type einoPatternTransformer struct {

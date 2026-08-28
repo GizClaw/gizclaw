@@ -38,7 +38,7 @@ func TestValidate(t *testing.T) {
 
 	t.Run("voice adapter", func(t *testing.T) {
 		spec := cloneSpec(t, valid)
-		asr, voice := "speech.asr", "speech.voice"
+		asr, blank, voice := "speech.asr", "  ", "speech.voice"
 		nodes := map[string]string{"answer": voice}
 		spec.VoiceAdapter = &apitypes.VoiceAdapter{
 			AsrModel:     &asr,
@@ -48,15 +48,23 @@ func TestValidate(t *testing.T) {
 		if err := Validate(spec); err != nil {
 			t.Fatalf("Validate(voice adapter) error = %v", err)
 		}
+		for _, adapter := range []*apitypes.VoiceAdapter{
+			{},
+			{AsrModel: &blank},
+			{DefaultVoice: &voice},
+		} {
+			candidate := cloneSpec(t, valid)
+			candidate.VoiceAdapter = adapter
+			if err := Validate(candidate); err != nil {
+				t.Fatalf("Validate(text-only voice adapter %#v) error = %v", adapter, err)
+			}
+		}
 
 		tests := []struct {
 			name    string
 			mutate  func(*apitypes.EinoWorkflowSpec)
 			wantErr string
 		}{
-			{name: "empty", mutate: func(spec *apitypes.EinoWorkflowSpec) {
-				spec.VoiceAdapter = &apitypes.VoiceAdapter{}
-			}, wantErr: "must configure"},
 			{name: "invalid alias", mutate: func(spec *apitypes.EinoWorkflowSpec) {
 				invalid := "INVALID ALIAS"
 				spec.VoiceAdapter = &apitypes.VoiceAdapter{AsrModel: &invalid}
