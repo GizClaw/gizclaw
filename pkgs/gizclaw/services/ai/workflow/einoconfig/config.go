@@ -53,14 +53,11 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 	if adapter == nil {
 		return nil
 	}
-	asr := stringValue(adapter.AsrModel)
-	defaultVoice := stringValue(adapter.DefaultVoice)
+	asr := strings.TrimSpace(stringValue(adapter.AsrModel))
+	defaultVoice := strings.TrimSpace(stringValue(adapter.DefaultVoice))
 	var nodeVoices map[string]string
 	if adapter.NodeVoices != nil {
 		nodeVoices = *adapter.NodeVoices
-	}
-	if asr == "" && defaultVoice == "" && len(nodeVoices) == 0 {
-		return errors.New("must configure asr_model, default_voice, or node_voices")
 	}
 	if asr != "" {
 		if err := runtimealias.Validate("ASR model alias", asr); err != nil {

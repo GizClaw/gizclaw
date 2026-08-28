@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
@@ -110,6 +114,88 @@ func TestFactoryAllowsMemorylessWorkflowAndRequiresResolvedStoreForMemoryNodes(t
 	}
 }
 
+func TestFactoryRejectsLiveAudioWithoutASR(t *testing.T) {
+	t.Parallel()
+	blank, voice := "  ", "speech.voice"
+	for _, testCase := range []struct {
+		name         string
+		voiceAdapter *apitypes.VoiceAdapter
+	}{
+		{name: "omitted voice adapter"},
+		{name: "blank ASR", voiceAdapter: &apitypes.VoiceAdapter{AsrModel: &blank}},
+		{name: "TTS only", voiceAdapter: &apitypes.VoiceAdapter{DefaultVoice: &voice}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			spec := einoFactorySpec(t)
+			spec.Workflow.Spec.Eino.VoiceAdapter = testCase.voiceAdapter
+			var ttsCalls atomic.Int32
+			service := &peergenx.Service{}
+			if testCase.voiceAdapter != nil && stringPointerValue(testCase.voiceAdapter.DefaultVoice) != "" {
+				service = peergenx.New(peergenx.Service{
+					Voices:          einoTTSResources{},
+					Credentials:     einoTTSResources{},
+					ProviderTenants: einoTTSResources{},
+					Builder:         einoTTSBuilder{calls: &ttsCalls},
+				})
+			}
+			agent, err := (Factory{GenX: service}).NewAgent(t.Context(), spec)
+			if err != nil {
+				t.Fatalf("NewAgent() error = %v", err)
+			}
+			if closer, ok := agent.(io.Closer); ok {
+				defer closer.Close()
+			}
+
+			input := einoAudioGuardInput()
+			output, err := agent.Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			defer output.Close()
+			if err := input.Add(
+				&genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "audio-route", BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte("private audio")}, Ctrl: &genx.StreamCtrl{StreamID: "audio-route"}},
+				&genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "text-route", BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "text-route"}},
+				&genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "text-route", EndOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio-route", EndOfStream: true}},
+			); err != nil {
+				t.Fatal(err)
+			}
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+
+			chunks := einoCollectChunks(t, output)
+			unsupported := 0
+			var text strings.Builder
+			for _, chunk := range chunks {
+				if chunk.Ctrl != nil && chunk.Ctrl.ErrorCode == einoAudioInputUnsupportedCode {
+					unsupported++
+					assertEinoAudioUnsupportedTerminal(t, chunk, "audio-route")
+				}
+				if part, ok := chunk.Part.(genx.Text); ok {
+					text.WriteString(string(part))
+				}
+			}
+			if unsupported != 1 {
+				t.Fatalf("unsupported terminals = %d, want 1; chunks = %#v", unsupported, chunks)
+			}
+			if got := text.String(); got != "hello" {
+				t.Fatalf("accepted text output = %q, want %q; chunks = %#v", got, "hello", chunks)
+			}
+			wantTTSCalls := int32(0)
+			if testCase.voiceAdapter != nil && stringPointerValue(testCase.voiceAdapter.DefaultVoice) != "" {
+				wantTTSCalls = 1
+			}
+			if got := ttsCalls.Load(); got != wantTTSCalls {
+				t.Fatalf("TTS calls = %d, want %d", got, wantTTSCalls)
+			}
+		})
+	}
+}
+
 func TestResolveEinoInputModeAndASRPattern(t *testing.T) {
 	t.Parallel()
 	for _, testCase := range []struct {
@@ -192,6 +278,377 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 	if got, err := withoutFallback(t.Context(), audiodock.VoiceRequest{Name: "other"}); err != nil || got != "" {
 		t.Fatalf("resolve unmapped Voice = %q, %v, want disabled", got, err)
 	}
+}
+
+func TestEinoVoiceAdapterHasASR(t *testing.T) {
+	t.Parallel()
+	asr, blank, voice := "speech.asr", "  ", "speech.default"
+	for _, testCase := range []struct {
+		name  string
+		voice *apitypes.VoiceAdapter
+		want  bool
+	}{
+		{name: "omitted"},
+		{name: "empty", voice: &apitypes.VoiceAdapter{}},
+		{name: "blank", voice: &apitypes.VoiceAdapter{AsrModel: &blank}},
+		{name: "tts only", voice: &apitypes.VoiceAdapter{DefaultVoice: &voice}},
+		{name: "asr", voice: &apitypes.VoiceAdapter{AsrModel: &asr}, want: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if got := einoVoiceAdapterHasASR(testCase.voice); got != testCase.want {
+				t.Fatalf("einoVoiceAdapterHasASR() = %v, want %v", got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestEinoAudioInputGuardRejectsLiveAudioBeforeEOS(t *testing.T) {
+	t.Parallel()
+	for _, mimeType := range []string{
+		"audio/ogg",
+		"audio/opus",
+		"audio/pcm",
+		"audio/L16; rate=16000; channels=1",
+	} {
+		t.Run(mimeType, func(t *testing.T) {
+			t.Parallel()
+			spy := &einoAudioGuardSpy{}
+			input := einoAudioGuardInput()
+			output, err := (einoAudioInputGuard{next: spy}).Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			defer output.Close()
+
+			if err := input.Add(&genx.MessageChunk{
+				Role: genx.RoleUser,
+				Ctrl: &genx.StreamCtrl{StreamID: "audio-route", BeginOfStream: true},
+			}, &genx.MessageChunk{
+				Role: genx.RoleUser,
+				Part: &genx.Blob{MIMEType: mimeType, Data: []byte("private audio")},
+				Ctrl: &genx.StreamCtrl{StreamID: "audio-route"},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			terminal := einoNextChunk(t, output)
+			assertEinoAudioUnsupportedTerminal(t, terminal, "audio-route")
+			if downstream := spy.snapshot(); len(downstream) != 0 {
+				t.Fatalf("buffered rejected route reached downstream: %#v", downstream)
+			}
+
+			if err := input.Add(&genx.MessageChunk{
+				Role: genx.RoleUser,
+				Part: &genx.Blob{MIMEType: mimeType, Data: []byte("more private audio")},
+				Ctrl: &genx.StreamCtrl{StreamID: "audio-route"},
+			}, &genx.MessageChunk{
+				Role: genx.RoleUser,
+				Part: &genx.Blob{MIMEType: mimeType},
+				Ctrl: &genx.StreamCtrl{StreamID: "audio-route", EndOfStream: true},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+			if rest := einoCollectChunks(t, output); len(rest) != 0 {
+				t.Fatalf("unexpected output after rejection = %#v", rest)
+			}
+			if downstream := spy.snapshot(); len(downstream) != 0 {
+				t.Fatalf("rejected route reached downstream: %#v", downstream)
+			}
+		})
+	}
+}
+
+func TestEinoAudioInputGuardKeepsRoutesIndependent(t *testing.T) {
+	t.Parallel()
+	spy := &einoAudioGuardSpy{}
+	input := einoAudioGuardInput()
+	output, err := (einoAudioInputGuard{next: spy}).Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.Close()
+
+	if err := input.Add(
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{2}}, Ctrl: &genx.StreamCtrl{StreamID: "audio"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "text", BeginOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "text"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(" world"), Ctrl: &genx.StreamCtrl{StreamID: "text", EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "audio", EndOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("reused"), Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true, EndOfStream: true}},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+
+	chunks := einoCollectChunks(t, output)
+	terminals := 0
+	var text strings.Builder
+	var reused strings.Builder
+	for _, chunk := range chunks {
+		if chunk.Ctrl != nil && chunk.Ctrl.ErrorCode == einoAudioInputUnsupportedCode {
+			terminals++
+			assertEinoAudioUnsupportedTerminal(t, chunk, "audio")
+		}
+		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == "text" {
+			if part, ok := chunk.Part.(genx.Text); ok {
+				text.WriteString(string(part))
+			}
+		}
+		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == "audio" && chunk.Ctrl.ErrorCode == "" {
+			if part, ok := chunk.Part.(genx.Text); ok {
+				reused.WriteString(string(part))
+			}
+		}
+	}
+	if terminals != 1 {
+		t.Fatalf("unsupported terminals = %d, want 1; chunks = %#v", terminals, chunks)
+	}
+	if got := text.String(); got != "hello world" {
+		t.Fatalf("accepted text = %q, want %q", got, "hello world")
+	}
+	if got := reused.String(); got != "reused" {
+		t.Fatalf("reused route text = %q, want %q", got, "reused")
+	}
+}
+
+func TestEinoAudioInputGuardPreservesNonRejectingInput(t *testing.T) {
+	t.Parallel()
+	for _, testCase := range []struct {
+		name  string
+		chunk *genx.MessageChunk
+	}{
+		{name: "empty audio", chunk: &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "empty"}}},
+		{name: "audio eos", chunk: &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "empty", EndOfStream: true}}},
+		{name: "history audio", chunk: &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "history", Label: genx.HistoryUserAudioLabel}}},
+		{name: "malformed mime", chunk: &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/[", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "malformed"}}},
+		{name: "non audio blob", chunk: &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "image/png", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "image"}}},
+		{name: "control only", chunk: &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "control", BeginOfStream: true}}},
+		{name: "model audio", chunk: &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "model"}}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			input := einoAudioGuardInput()
+			output, err := (einoAudioInputGuard{next: &einoAudioGuardSpy{}}).Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			defer output.Close()
+			if err := input.Add(testCase.chunk); err != nil {
+				t.Fatal(err)
+			}
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+			chunks := einoCollectChunks(t, output)
+			if len(chunks) != 1 || chunks[0].Ctrl == nil || chunks[0].Ctrl.ErrorCode != "" {
+				t.Fatalf("preserved chunks = %#v, want original non-error chunk", chunks)
+			}
+		})
+	}
+}
+
+func TestEinoAudioInputGuardConcurrentTransforms(t *testing.T) {
+	t.Parallel()
+	guard := einoAudioInputGuard{next: &einoAudioGuardSpy{}}
+	var wait sync.WaitGroup
+	for index := range 16 {
+		wait.Go(func() {
+			input := einoAudioGuardInput()
+			output, err := guard.Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Errorf("Transform(%d) error = %v", index, err)
+				return
+			}
+			defer output.Close()
+			streamID := string(rune('a' + index))
+			if err := input.Add(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: streamID}}); err != nil {
+				t.Errorf("Add(%d) error = %v", index, err)
+				return
+			}
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Errorf("Done(%d) error = %v", index, err)
+				return
+			}
+			chunks := einoCollectChunks(t, output)
+			if len(chunks) != 1 {
+				t.Errorf("Transform(%d) chunks = %#v", index, chunks)
+				return
+			}
+			assertEinoAudioUnsupportedTerminal(t, chunks[0], streamID)
+		})
+	}
+	wait.Wait()
+}
+
+func TestEinoAudioInputGuardCancellationClosesInput(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	input := &einoAudioGuardBlockingStream{closed: make(chan struct{})}
+	output, err := (einoAudioInputGuard{next: einoTestTransformer(func(_ context.Context, input genx.Stream) (genx.Stream, error) {
+		return input, nil
+	})}).Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	cancel()
+	select {
+	case <-input.closed:
+	case <-time.After(time.Second):
+		t.Fatal("cancellation did not close the guarded input")
+	}
+	if _, err := output.Next(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Next() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestEinoAudioInputGuardPropagatesDownstreamFailure(t *testing.T) {
+	t.Parallel()
+	wantErr := errors.New("downstream failed")
+	input := &einoAudioGuardBlockingStream{closed: make(chan struct{})}
+	output, err := (einoAudioInputGuard{next: einoTestTransformer(func(context.Context, genx.Stream) (genx.Stream, error) {
+		return einoAudioGuardErrorStream{err: wantErr}, nil
+	})}).Transform(t.Context(), input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.Close()
+	if _, err := output.Next(); !errors.Is(err, wantErr) {
+		t.Fatalf("Next() error = %v, want %v", err, wantErr)
+	}
+	select {
+	case <-input.closed:
+	case <-time.After(time.Second):
+		t.Fatal("downstream failure did not close the guarded input")
+	}
+}
+
+func einoAudioGuardInput() *genx.StreamBuilder {
+	return genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+}
+
+func einoNextChunk(t testing.TB, stream genx.Stream) *genx.MessageChunk {
+	t.Helper()
+	type result struct {
+		chunk *genx.MessageChunk
+		err   error
+	}
+	resultCh := make(chan result, 1)
+	go func() {
+		chunk, err := stream.Next()
+		resultCh <- result{chunk: chunk, err: err}
+	}()
+	select {
+	case got := <-resultCh:
+		if got.err != nil {
+			t.Fatalf("Next() error = %v", got.err)
+		}
+		return got.chunk
+	case <-time.After(time.Second):
+		t.Fatal("Next() did not return promptly")
+		return nil
+	}
+}
+
+func einoCollectChunks(t testing.TB, stream genx.Stream) []*genx.MessageChunk {
+	t.Helper()
+	var chunks []*genx.MessageChunk
+	for {
+		chunk, err := stream.Next()
+		if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+			return chunks
+		}
+		if err != nil {
+			t.Fatalf("Next() error = %v", err)
+		}
+		chunks = append(chunks, chunk)
+	}
+}
+
+func assertEinoAudioUnsupportedTerminal(t testing.TB, chunk *genx.MessageChunk, streamID string) {
+	t.Helper()
+	if chunk == nil || chunk.Role != genx.RoleModel || chunk.Name != "assistant" || chunk.Ctrl == nil {
+		t.Fatalf("terminal = %#v", chunk)
+	}
+	text, ok := chunk.Part.(genx.Text)
+	if !ok || text != "" || chunk.Ctrl.StreamID != streamID || chunk.Ctrl.Label != "assistant" ||
+		!chunk.Ctrl.EndOfStream || chunk.Ctrl.ErrorCode != einoAudioInputUnsupportedCode ||
+		chunk.Ctrl.Error != einoAudioInputUnsupportedMessage || chunk.Ctrl.ErrorRetryable ||
+		chunk.Ctrl.FailureClass != genx.FailureClassTransform {
+		t.Fatalf("terminal = %#v", chunk)
+	}
+}
+
+type einoAudioGuardSpy struct {
+	mu     sync.Mutex
+	chunks []*genx.MessageChunk
+}
+
+type einoAudioGuardBlockingStream struct {
+	closed    chan struct{}
+	closeOnce sync.Once
+}
+
+func (s *einoAudioGuardBlockingStream) Next() (*genx.MessageChunk, error) {
+	<-s.closed
+	return nil, io.ErrClosedPipe
+}
+
+func (s *einoAudioGuardBlockingStream) Close() error {
+	s.closeOnce.Do(func() { close(s.closed) })
+	return nil
+}
+
+func (s *einoAudioGuardBlockingStream) CloseWithError(error) error {
+	return s.Close()
+}
+
+type einoAudioGuardErrorStream struct {
+	err error
+}
+
+func (s einoAudioGuardErrorStream) Next() (*genx.MessageChunk, error) { return nil, s.err }
+func (einoAudioGuardErrorStream) Close() error                        { return nil }
+func (einoAudioGuardErrorStream) CloseWithError(error) error          { return nil }
+
+func (s *einoAudioGuardSpy) Transform(_ context.Context, input genx.Stream) (genx.Stream, error) {
+	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	go func() {
+		defer input.Close()
+		for {
+			chunk, err := input.Next()
+			if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+				_ = output.Done(genx.Usage{})
+				return
+			}
+			if err != nil {
+				_ = output.Abort(err)
+				return
+			}
+			s.mu.Lock()
+			s.chunks = append(s.chunks, chunk.Clone())
+			s.mu.Unlock()
+			if err := output.Add(chunk.Clone()); err != nil {
+				return
+			}
+		}
+	}()
+	return output.Stream(), nil
+}
+
+func (s *einoAudioGuardSpy) snapshot() []*genx.MessageChunk {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result := make([]*genx.MessageChunk, 0, len(s.chunks))
+	for _, chunk := range s.chunks {
+		result = append(result, chunk.Clone())
+	}
+	return result
 }
 
 func einoWorkspaceParameters(t testing.TB, mode apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
@@ -325,6 +782,61 @@ type einoTestTransformer func(context.Context, genx.Stream) (genx.Stream, error)
 
 func (f einoTestTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	return f(ctx, input)
+}
+
+type einoTTSBuilder struct {
+	calls *atomic.Int32
+}
+
+func (einoTTSBuilder) BuildGenerator(context.Context, peergenx.GeneratorConfig) (genx.Generator, error) {
+	return nil, errors.New("unexpected generator build")
+}
+
+func (b einoTTSBuilder) BuildTransformer(context.Context, peergenx.TransformerConfig) (genx.Transformer, error) {
+	return einoTestTransformer(func(_ context.Context, input genx.Stream) (genx.Stream, error) {
+		b.calls.Add(1)
+		return input, nil
+	}), nil
+}
+
+type einoTTSResources struct{}
+
+func (einoTTSResources) GetVoice(_ context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
+	return adminhttp.GetVoice200JSONResponse(apitypes.Voice{
+		Id: request.Id,
+		Provider: apitypes.VoiceProvider{
+			Kind: apitypes.VoiceProviderKindVolcTenant,
+			Id:   "volc-main",
+		},
+	}), nil
+}
+
+func (einoTTSResources) GetCredential(_ context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
+	return adminhttp.GetCredential200JSONResponse(apitypes.Credential{Id: request.Id}), nil
+}
+
+func (einoTTSResources) GetVolcTenant(_ context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
+	return adminhttp.GetVolcTenant200JSONResponse(apitypes.VolcTenant{Id: request.Id, CredentialId: "voice-credential"}), nil
+}
+
+func (einoTTSResources) GetDeepSeekTenant(context.Context, adminhttp.GetDeepSeekTenantRequestObject) (adminhttp.GetDeepSeekTenantResponseObject, error) {
+	return nil, errors.New("unexpected DeepSeek tenant lookup")
+}
+
+func (einoTTSResources) GetOpenAITenant(context.Context, adminhttp.GetOpenAITenantRequestObject) (adminhttp.GetOpenAITenantResponseObject, error) {
+	return nil, errors.New("unexpected OpenAI tenant lookup")
+}
+
+func (einoTTSResources) GetGeminiTenant(context.Context, adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
+	return nil, errors.New("unexpected Gemini tenant lookup")
+}
+
+func (einoTTSResources) GetDashScopeTenant(context.Context, adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
+	return nil, errors.New("unexpected DashScope tenant lookup")
+}
+
+func (einoTTSResources) GetMiniMaxTenant(context.Context, adminhttp.GetMiniMaxTenantRequestObject) (adminhttp.GetMiniMaxTenantResponseObject, error) {
+	return nil, errors.New("unexpected MiniMax tenant lookup")
 }
 
 type einoTestMux func(context.Context, string, genx.Stream) (genx.Stream, error)
