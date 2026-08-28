@@ -43,6 +43,39 @@ func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPeerAudioInputRouteReloadedEventUsesOrderedBrokerFraming(t *testing.T) {
+	broker := newPeerStreamEventBroker()
+	var output bytes.Buffer
+	unsubscribe, err := broker.Subscribe(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+	before := peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "before", nil)
+	if err := broker.Broadcast(before); err != nil {
+		t.Fatalf("broadcast preceding event: %v", err)
+	}
+	if err := broker.Broadcast(peerAudioInputRouteReloadedEvent(peerAudioInputRoute{
+		streamID: "old-audio",
+		mimeType: "audio/opus; rate=16000",
+	})); err != nil {
+		t.Fatalf("broadcast reload EOS: %v", err)
+	}
+	first, err := readPeerStreamEvent(&output)
+	if err != nil {
+		t.Fatalf("read preceding event: %v", err)
+	}
+	second, err := readPeerStreamEvent(&output)
+	if err != nil {
+		t.Fatalf("read reload EOS: %v", err)
+	}
+	eos := second.GetEos()
+	streamErr := second.StreamError()
+	if first.StreamID() != "before" || second.GetType() != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS || eos.GetStreamId() != "old-audio" || eos.GetKind() != eventpb.StreamKind_STREAM_KIND_AUDIO || eos.GetLabel() != "user" || eos.GetMimeType() != "audio/opus" || streamErr.GetCode() != inputRouteReloadedCode || streamErr.GetMessage() != inputRouteReloadedMessage || !streamErr.GetRetryable() {
+		t.Fatalf("ordered reload events = first:%#v second:%#v", first, second)
+	}
+}
+
 func TestPeerAgentOutputLifecycleRecordsFirstOutputAndTerminal(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-1", "peer-1")

@@ -16,6 +16,11 @@ Event types、字段、方向和 BOS/EOS 边界见 [Events Reference](/reference
 conversation、Workspace reload/set 和 controller disposal 只管理本地订阅，
 不能调用 transport open/close。
 
+runtime input replacement 产生的 `INPUT_ROUTE_RELOADED` EOS 也由这个 broker 在唯一
+writer 上有序发送。route state owner 在发起 `Broadcast` 前已经清除旧输入授权；
+`Broadcast` 返回成功后 AgentHost 才能完成 reload。写入失败不会改走另一条 Event
+Stream、不会恢复旧 route，也不会把 mandatory signal 降级为 best-effort notification。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

@@ -291,6 +291,45 @@ validate` rejects unparsable or non-positive `idle_timeout` values.
 Interactive `review` files must run alone in an attached terminal with
 `--parallel 1`.
 
+A continuous realtime-route regression can retain the same logical
+`gizcli.PeerStream` with a task-scoped `peer_stream.session`. The first
+`mode: realtime` step sets both `session` and `keep_open: true`; a later
+realtime step for the same client uses that `session` with
+`await_rearm: INPUT_ROUTE_RELOADED`. The latter first consumes the exact
+retryable user-audio EOS for the old route, sends a fresh BOS, and only then
+sends its declared audio input. A session can be created once and consumed
+once. Unknown, duplicate, already-consumed, cross-client, or cross-task
+sessions fail before input is sent.
+
+Persistent sessions cannot be combined with `retry`, `interrupt_after`, or
+`finally`. A re-arm step closes the consumed session after success unless it
+also sets `keep_open: true` to retain it for another re-arm. On task success,
+failure, timeout, or cancellation, the runner closes every unconsumed session
+before RPC finalizers. Reports record only boolean evidence such as
+`session_connection_reused`, `reload_eos_observed`, `replacement_bos_sent`,
+and `stream_id_changed`; they do not record raw stream IDs, audio payloads, or
+transcripts.
+
+The corresponding JavaScript Client WebRTC integration regression runs in the
+`audio-reload` mode of
+`tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts`. It
+activates the SDK's `createContinuousAudioRouteRearm` owner on the same Event
+channel. The owner installs and removes its own Event subscription; Client code
+does not dispatch EOS events into it. It keeps the realtime user-audio route and
+uplink track active, consumes the `INPUT_ROUTE_RELOADED` EOS, sends a fresh BOS
+after reload, and reports the replacement stream ID to the Client. The test then
+sends a second audio segment and waits for a response with the same microphone
+source, track, Event channel, and PeerConnection. The test must not frame the
+replacement BOS itself; doing so would verify only the Server protocol, not
+JavaScript Client recovery.
+When TTS is outside the behavior under test,
+`GIZCLAW_E2E_INPUT_PCM_PATH` may select a pre-decoded, non-empty mono signed
+16-bit `.pcm` fixture below `tests/gizclaw-e2e/testdata/pcm/`. The resolved
+regular file is limited to 16 MiB. `GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` defaults
+to 16000 and must be a positive integer divisible by 100. This bypasses only
+input-fixture synthesis, not the realtime WebRTC route or its post-reload
+response checks.
+
 When `peer_stream` receives assistant Opus, its result and redacted evidence
 expose receiver-side pacing under `audio_pacing`: `packets`, `audio_ms`,
 `target_span_ms`, `receive_span_ms`, `mean_packet_ms`, `mean_interval_ms`,

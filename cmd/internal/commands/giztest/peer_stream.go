@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +34,87 @@ type peerStream interface {
 
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
+
+type peerStreamSession struct {
+	client   string
+	stream   peerStream
+	streamID string
+	next     <-chan nextPeerStreamResult
+	ctx      context.Context
+	cancel   context.CancelFunc
+	mu       sync.RWMutex
+	arrivals *peerStreamFirstResponseArrivals
+}
+
+func newPeerStreamSession(client string, stream peerStream) *peerStreamSession {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &peerStreamSession{client: client, stream: stream, ctx: ctx, cancel: cancel}
+}
+
+func (s *peerStreamSession) startReader() {
+	if s.next == nil {
+		s.next = readPeerStreamObserved(s.ctx, s.stream, s.observeArrival)
+	}
+}
+
+func (s *peerStreamSession) observeArrival(chunk *genx.MessageChunk, receivedAt time.Time) {
+	s.mu.RLock()
+	arrivals := s.arrivals
+	s.mu.RUnlock()
+	if arrivals != nil {
+		arrivals.observe(chunk, receivedAt)
+	}
+}
+
+func (s *peerStreamSession) setArrivals(arrivals *peerStreamFirstResponseArrivals) {
+	s.mu.Lock()
+	s.arrivals = arrivals
+	s.mu.Unlock()
+}
+
+func (s *peerStreamSession) Close() error {
+	s.cancel()
+	return s.stream.Close()
+}
+
+type peerStreamSessions struct {
+	items map[string]*peerStreamSession
+}
+
+func newPeerStreamSessions() *peerStreamSessions {
+	return &peerStreamSessions{items: make(map[string]*peerStreamSession)}
+}
+
+func (s *peerStreamSessions) add(name string, session *peerStreamSession) error {
+	if _, exists := s.items[name]; exists {
+		return fmt.Errorf("peer_stream session %q is already open", name)
+	}
+	s.items[name] = session
+	return nil
+}
+
+func (s *peerStreamSessions) take(name, client string) (*peerStreamSession, error) {
+	session, exists := s.items[name]
+	if !exists {
+		return nil, fmt.Errorf("peer_stream session %q is not open", name)
+	}
+	if session.client != client {
+		return nil, fmt.Errorf("peer_stream session %q belongs to client %q, not %q", name, session.client, client)
+	}
+	delete(s.items, name)
+	return session, nil
+}
+
+func (s *peerStreamSessions) Close() error {
+	var errs []error
+	for name, session := range s.items {
+		if err := session.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close peer_stream session %q: %w", name, err))
+		}
+		delete(s.items, name)
+	}
+	return errors.Join(errs...)
+}
 
 // audioObserver receives one user or assistant Opus packet as it arrives.
 // end marks the end of that logical utterance and flushes any jitter buffer.
@@ -117,6 +200,80 @@ func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 }
 
 func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
+	stream, err := open()
+	if err != nil {
+		return operationResult{}, err
+	}
+	defer func() { _ = stream.Close() }()
+	return invokePeerStreamOnStream(ctx, client, open, stream, nil, "", step, input, audioCaptureMaxBytes, nil, observers...)
+}
+
+func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, open peerStreamOpener, sessions *peerStreamSessions, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
+	op := step.PeerStream
+	if op == nil || (!op.KeepOpen && op.AwaitRearm == "") {
+		return invokePeerStream(ctx, client, open, step, input, audioCaptureMaxBytes, observers...)
+	}
+	if op.KeepOpen && op.AwaitRearm == "" {
+		if _, exists := sessions.items[op.Session]; exists {
+			return operationResult{}, fmt.Errorf("peer_stream session %q is already open", op.Session)
+		}
+		stream, err := open()
+		if err != nil {
+			return operationResult{}, err
+		}
+		session := newPeerStreamSession(step.Client, stream)
+		result, invokeErr := invokePeerStreamOnStream(ctx, client, open, stream, session, "", step, input, audioCaptureMaxBytes, nil, observers...)
+		if invokeErr != nil {
+			_ = session.Close()
+			return result, invokeErr
+		}
+		if err := sessions.add(op.Session, session); err != nil {
+			_ = session.Close()
+			return operationResult{}, err
+		}
+		result.evidence = mapsWith(result.evidence, map[string]any{"session_retained": true})
+		return result, nil
+	}
+	session, err := sessions.take(op.Session, step.Client)
+	if err != nil {
+		return operationResult{}, err
+	}
+	closeSession := true
+	defer func() {
+		if closeSession {
+			_ = session.Close()
+		}
+	}()
+	rearmEvidence, err := waitForPeerStreamRearm(ctx, op.Session, session, op.AwaitRearm)
+	if err != nil {
+		return operationResult{evidence: rearmEvidence}, err
+	}
+	replacementID, err := generateValue("string")
+	if err != nil {
+		return operationResult{evidence: rearmEvidence}, err
+	}
+	if replacementID == "" || replacementID == session.streamID {
+		return operationResult{evidence: rearmEvidence}, fmt.Errorf("peer_stream generated an invalid replacement stream ID")
+	}
+	result, invokeErr := invokePeerStreamOnStream(ctx, client, open, session.stream, session, replacementID, step, input, audioCaptureMaxBytes, func() {
+		rearmEvidence["replacement_bos_sent"] = true
+		rearmEvidence["stream_id_changed"] = true
+	}, observers...)
+	if invokeErr == nil {
+		if op.KeepOpen {
+			if err := sessions.add(op.Session, session); err != nil {
+				result.evidence = mapsWith(result.evidence, rearmEvidence)
+				return result, err
+			}
+			closeSession = false
+			rearmEvidence["session_retained"] = true
+		}
+	}
+	result.evidence = mapsWith(result.evidence, rearmEvidence)
+	return result, invokeErr
+}
+
+func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, stream peerStream, session *peerStreamSession, initialStreamID string, step Step, input any, audioCaptureMaxBytes int, onBOSSent func(), observers ...audioObserver) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
@@ -127,6 +284,18 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		observeAudio = observers[0]
 	}
 	firstResponse := op.Completion == "first_response"
+	var responseStarted time.Time
+	var arrivals *peerStreamFirstResponseArrivals
+	var next <-chan nextPeerStreamResult
+	if session != nil && session.next != nil {
+		responseStarted = time.Now()
+		if firstResponse {
+			arrivals = &peerStreamFirstResponseArrivals{started: responseStarted}
+		}
+		session.setArrivals(arrivals)
+		defer session.setArrivals(nil)
+		next = session.next
+	}
 	var idleTimeout time.Duration
 	if op.IdleTimeout != "" {
 		duration, parseErr := time.ParseDuration(op.IdleTimeout)
@@ -135,14 +304,16 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 		}
 		idleTimeout = duration
 	}
-	stream, err := open()
-	if err != nil {
-		return operationResult{}, err
+	streamID := initialStreamID
+	if streamID == "" {
+		var err error
+		streamID, err = generateValue("string")
+		if err != nil {
+			return operationResult{}, err
+		}
 	}
-	defer func() { _ = stream.Close() }()
-	streamID, err := generateValue("string")
-	if err != nil {
-		return operationResult{}, err
+	if session != nil {
+		session.streamID = streamID
 	}
 	interrupted := false
 	observedInterrupted := false
@@ -164,6 +335,10 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			for _, chunk := range chunks {
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
+				}
+				if chunk.IsBeginOfStream() && onBOSSent != nil {
+					onBOSSent()
+					onBOSSent = nil
 				}
 			}
 			return nil
@@ -213,6 +388,10 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
 				}
+				if chunk.IsBeginOfStream() && onBOSSent != nil {
+					onBOSSent()
+					onBOSSent = nil
+				}
 				if pause > 0 {
 					timer := time.NewTimer(pause)
 					select {
@@ -242,12 +421,20 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	default:
 		return operationResult{}, fmt.Errorf("peer_stream mode %q requires an existing stream", op.Mode)
 	}
-	responseStarted := time.Now()
-	var arrivals *peerStreamFirstResponseArrivals
-	if firstResponse {
-		arrivals = &peerStreamFirstResponseArrivals{started: responseStarted}
+	if next == nil {
+		responseStarted = time.Now()
+		if firstResponse {
+			arrivals = &peerStreamFirstResponseArrivals{started: responseStarted}
+		}
+		if session == nil {
+			next = readPeerStream(ctx, stream, arrivals)
+		} else {
+			session.setArrivals(arrivals)
+			defer session.setArrivals(nil)
+			session.startReader()
+			next = session.next
+		}
 	}
-	next := readPeerStream(ctx, stream, arrivals)
 	// The inactivity timer is armed once the turn input has been pushed and is
 	// reset on every chunk the PeerStream delivers, regardless of label or part.
 	var idle <-chan time.Time
@@ -391,10 +578,11 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 			if err := stream.Close(); err != nil {
 				return operationResult{}, fmt.Errorf("close interrupted PeerStream: %w", err)
 			}
-			stream, err = open()
-			if err != nil {
-				return operationResult{}, fmt.Errorf("reopen PeerStream after interrupt: %w", err)
+			replacement, openErr := open()
+			if openErr != nil {
+				return operationResult{}, fmt.Errorf("reopen PeerStream after interrupt: %w", openErr)
 			}
+			stream = replacement
 			next = readPeerStream(ctx, stream, arrivals)
 			if err := sendInterrupt(); err != nil {
 				return operationResult{}, fmt.Errorf("send interrupting turn: %w", err)
@@ -656,6 +844,48 @@ type nextPeerStreamResult struct {
 	receivedAt time.Time
 }
 
+func mapsWith(base, extra map[string]any) map[string]any {
+	if base == nil {
+		base = make(map[string]any, len(extra))
+	}
+	maps.Copy(base, extra)
+	return base
+}
+
+func waitForPeerStreamRearm(ctx context.Context, name string, session *peerStreamSession, code string) (map[string]any, error) {
+	evidence := map[string]any{
+		"session_connection_reused": true,
+		"reload_eos_observed":       false,
+		"replacement_bos_sent":      false,
+		"stream_id_changed":         false,
+	}
+	for {
+		select {
+		case result := <-session.next:
+			if result.err != nil {
+				if result.err == io.EOF {
+					return evidence, fmt.Errorf("peer_stream session closed while waiting for re-arm %s", code)
+				}
+				return evidence, fmt.Errorf("wait for peer_stream re-arm %s: %w", code, result.err)
+			}
+			chunk := result.chunk
+			if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() {
+				continue
+			}
+			mimeType, _ := chunk.MIMEType()
+			ctrl := chunk.Ctrl
+			if ctrl.StreamID != session.streamID || strings.TrimSpace(ctrl.Label) != "user" || !relayOpusMIME(mimeType) || ctrl.ErrorCode != code || ctrl.Error != "input route reloaded" || !ctrl.ErrorRetryable {
+				continue
+			}
+			evidence["reload_eos_observed"] = true
+			return evidence, nil
+		case <-ctx.Done():
+			cause := context.Cause(ctx)
+			return evidence, fmt.Errorf("peer_stream timed out waiting for re-arm %s on retained session %q: %w", code, name, cause)
+		}
+	}
+}
+
 type peerStreamFirstResponseArrivals struct {
 	started    time.Time
 	firstText  atomic.Int64
@@ -706,12 +936,18 @@ func firstResponseArrivalWithin(arrival *atomic.Int64, timeout time.Duration) bo
 }
 
 func readPeerStream(ctx context.Context, stream peerStream, arrivals *peerStreamFirstResponseArrivals) <-chan nextPeerStreamResult {
-	next := make(chan nextPeerStreamResult, 1)
+	return readPeerStreamObserved(ctx, stream, arrivals.observe)
+}
+
+func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time)) <-chan nextPeerStreamResult {
+	next := make(chan nextPeerStreamResult, 64)
 	go func() {
 		for {
 			chunk, err := stream.Next()
 			receivedAt := time.Now()
-			arrivals.observe(chunk, receivedAt)
+			if observe != nil {
+				observe(chunk, receivedAt)
+			}
 			select {
 			case next <- nextPeerStreamResult{chunk: chunk, err: err, receivedAt: receivedAt}:
 			case <-ctx.Done():

@@ -1,0 +1,123 @@
+name: JavaScript SDK Release
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/js-sdk-release.yml"
+      - "package-lock.json"
+      - "sdk/js/gizclaw/**"
+      - "sdk/js/scripts/check-package-release.mjs"
+      - "sdk/js/scripts/check-package-release.test.mjs"
+      - "sdk/js/scripts/prepare-published-sdk.mjs"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/js-sdk-release.yml"
+      - "package-lock.json"
+      - "sdk/js/gizclaw/**"
+      - "sdk/js/scripts/check-package-release.mjs"
+      - "sdk/js/scripts/check-package-release.test.mjs"
+      - "sdk/js/scripts/prepare-published-sdk.mjs"
+
+concurrency:
+  group: js-sdk-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify JavaScript SDK Package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.contract.outputs.publish }}
+      version: ${{ steps.contract.outputs.version }}
+    steps:
+      - name: Check out exact source and history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Verify version and release ownership
+        id: contract
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: >-
+          node sdk/js/scripts/check-package-release.mjs
+          --base "$BASE_SHA"
+          --github-output "$GITHUB_OUTPUT"
+
+      - name: Test JavaScript SDK release contract
+        run: node --test sdk/js/scripts/check-package-release.test.mjs
+
+      - name: Test JavaScript SDK
+        run: npm test --workspace @gizclaw/gizclaw
+
+      - name: Build and inspect publishable package
+        env:
+          EXPECTED_VERSION: ${{ steps.contract.outputs.version }}
+        run: |
+          npm pack --dry-run --json --workspace @gizclaw/gizclaw >"${RUNNER_TEMP}/pack.json"
+          jq -e --arg version "$EXPECTED_VERSION" '
+            length == 1 and
+            .[0].name == "@gizclaw/gizclaw" and
+            .[0].version == $version and
+            ([.[0].files[].path] | index("package.json") != null) and
+            ([.[0].files[].path] | index("dist/index.js") != null) and
+            ([.[0].files[].path] | index("dist/index.d.ts") != null) and
+            ([.[0].files[].path] | index("dist/events.js") != null) and
+            ([.[0].files[].path] | index("dist/events.d.ts") != null)
+          ' "${RUNNER_TEMP}/pack.json" >/dev/null
+
+  publish:
+    name: Publish JavaScript SDK Package
+    if: github.event_name == 'push' && needs.verify.outputs.publish == 'true'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: npm
+          registry-url: https://npm.pkg.github.com
+
+      - name: Install workspace dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: npm ci
+
+      - name: Reject an existing immutable package version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          if gh api --paginate /orgs/GizClaw/packages/npm/gizclaw/versions \
+            --jq '.[].name' | grep -Fx "$VERSION"; then
+            echo "@gizclaw/gizclaw@$VERSION already exists" >&2
+            exit 1
+          fi
+
+      - name: Publish immutable GitHub Package
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: npm publish --workspace @gizclaw/gizclaw

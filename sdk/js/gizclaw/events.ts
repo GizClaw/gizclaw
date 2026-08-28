@@ -1,4 +1,9 @@
-import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
+import {
+  create,
+  fromBinary,
+  toBinary,
+  type MessageInitShape,
+} from "@bufbuild/protobuf";
 import {
   PeerEventSchema,
   PeerEventType,
@@ -51,7 +56,7 @@ export type DecodedPeerStreamEvent = {
 };
 
 export function createPeerEvent(
-  value: Omit<PeerEvent, "$typeName">,
+  value: MessageInitShape<typeof PeerEventSchema>,
 ): PeerEvent {
   const event = create(PeerEventSchema, value);
   validatePeerEvent(event);
@@ -233,6 +238,123 @@ export function sendPeerEvent(
     throw new Error("Peer Event channel is not open.");
   }
   channel.send(encodePeerEventFrame(event));
+}
+
+export type ContinuousAudioRoute = {
+  label?: string;
+  mimeType?: string;
+  streamId: string;
+};
+
+export type ContinuousAudioRouteRearm = {
+  activate(route: ContinuousAudioRoute): void;
+  close(): void;
+  deactivate(): void;
+};
+
+export type ContinuousAudioRouteRearmOptions = {
+  onError?: (error: Error) => void;
+  onRearmed?: (streamId: string) => void;
+};
+
+export function createContinuousAudioRouteRearm(
+  channel: WebRTCRPCDataChannel,
+  allocateStreamId: () => string,
+  options: ContinuousAudioRouteRearmOptions = {},
+): ContinuousAudioRouteRearm {
+  let active: Required<ContinuousAudioRoute> | undefined;
+  let closed = false;
+  let unsubscribe = (): void => {};
+  const handle = (event: DecodedPeerStreamEvent): string | undefined => {
+    const current = active;
+    if (
+      current == null ||
+      channel.readyState !== "open" ||
+      event.type !== "eos" ||
+      event.streamId !== current.streamId ||
+      event.kind !== "audio" ||
+      event.label !== current.label ||
+      normalizeMIMEType(event.mimeType) !== current.mimeType ||
+      event.errorCode !== "INPUT_ROUTE_RELOADED" ||
+      event.errorMessage !== "input route reloaded" ||
+      event.errorRetryable !== true
+    ) {
+      return undefined;
+    }
+    const streamId = allocateStreamId().trim();
+    if (streamId === "" || streamId === current.streamId) {
+      throw new Error(
+        "continuous audio route allocator must return a fresh non-empty stream ID",
+      );
+    }
+    const replacement = { ...current, streamId };
+    active = replacement;
+    try {
+      sendPeerEvent(
+        channel,
+        beginPeerStream({
+          streamId,
+          kind: StreamKind.AUDIO,
+          label: replacement.label,
+          mimeType: replacement.mimeType,
+        }),
+      );
+    } catch (error) {
+      active = current;
+      throw error;
+    }
+    return streamId;
+  };
+  const owner: ContinuousAudioRouteRearm = {
+    activate(route): void {
+      if (closed) {
+        throw new Error("continuous audio route re-arm owner is closed");
+      }
+      active = normalizeContinuousAudioRoute(route);
+    },
+    close(): void {
+      if (closed) return;
+      closed = true;
+      active = undefined;
+      unsubscribe();
+    },
+    deactivate(): void {
+      active = undefined;
+    },
+  };
+  unsubscribe = subscribePeerEvents(
+    channel,
+    (event) => {
+      const replacement = handle(event);
+      if (replacement != null) {
+        options.onRearmed?.(replacement);
+      }
+    },
+    options.onError,
+  );
+  return owner;
+}
+
+function normalizeContinuousAudioRoute(
+  route: ContinuousAudioRoute,
+): Required<ContinuousAudioRoute> {
+  const streamId = route.streamId.trim();
+  const label = (route.label ?? "user").trim();
+  const mimeType = normalizeMIMEType(route.mimeType ?? "audio/opus");
+  if (streamId === "") {
+    throw new Error("continuous audio route requires a non-empty stream ID");
+  }
+  if (label !== "user") {
+    throw new Error('continuous audio route label must be "user"');
+  }
+  if (!mimeType.startsWith("audio/")) {
+    throw new Error("continuous audio route requires an audio MIME type");
+  }
+  return { streamId, label, mimeType };
+}
+
+function normalizeMIMEType(value: string | undefined): string {
+  return (value ?? "").split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
 async function peerEventMessageBytes(data: unknown): Promise<Uint8Array> {

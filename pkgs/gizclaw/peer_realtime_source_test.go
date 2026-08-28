@@ -2,13 +2,17 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 )
 
 func TestPeerRealtimeSourceRecordsFirstOpenAndPushOnce(t *testing.T) {
@@ -274,5 +278,143 @@ func TestPeerRealtimeSourceOpenAgentInputClearsAudioStreamID(t *testing.T) {
 	}
 	if got.Ctrl == nil || got.Ctrl.StreamID != "fresh-audio" || !got.Ctrl.BeginOfStream {
 		t.Fatalf("first chunk after reopen = %#v, want fresh BOS", got.Ctrl)
+	}
+}
+
+func TestPeerRealtimeSourceReportsReplacedAudioRouteBeforeReturning(t *testing.T) {
+	var got peerAudioInputRoute
+	source := newPeerRealtimeSourceWithRouteReplacement(nil, func(_ context.Context, route peerAudioInputRoute) error {
+		got = route
+		return nil
+	}, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if err := source.Push(t.Context(), &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus; rate=16000"},
+		Ctrl: &genx.StreamCtrl{StreamID: "old-audio", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(reload) error = %v", err)
+	}
+	if got.streamID != "old-audio" || got.mimeType != "audio/opus" {
+		t.Fatalf("replaced route = %#v", got)
+	}
+}
+
+func TestPeerRealtimeSourceFailsOpenWhenRouteReplacementFails(t *testing.T) {
+	wantErr := errors.New("event stream failed")
+	var callbacks atomic.Int32
+	source := newPeerRealtimeSourceWithRouteReplacement(nil, func(context.Context, peerAudioInputRoute) error {
+		callbacks.Add(1)
+		return wantErr
+	}, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if err := source.Push(t.Context(), &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "old-audio", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	if input, err := source.OpenAgentInput(t.Context()); !errors.Is(err, wantErr) || input != nil {
+		t.Fatalf("OpenAgentInput(reload) = (%T, %v), want (nil, %v)", input, err, wantErr)
+	}
+	if source.current != nil {
+		t.Fatal("failed replacement left a new Agent input active")
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(after failed replacement) error = %v", err)
+	}
+	if got := callbacks.Load(); got != 1 {
+		t.Fatalf("replacement callbacks after retry = %d, want 1", got)
+	}
+}
+
+func TestPeerRealtimeSourceDoesNotReportBOSRejectedWithoutActiveInput(t *testing.T) {
+	var callbacks atomic.Int32
+	source := newPeerRealtimeSourceWithRouteReplacement(nil, func(context.Context, peerAudioInputRoute) error {
+		callbacks.Add(1)
+		return nil
+	}, genx.WithRealtimeStreamDelay(0))
+	err := source.Push(t.Context(), &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "never-admitted", BeginOfStream: true},
+	})
+	if !errors.Is(err, agenthost.ErrNoActiveInput) {
+		t.Fatalf("Push(without input) error = %v, want %v", err, agenthost.ErrNoActiveInput)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(second) error = %v", err)
+	}
+	if got := callbacks.Load(); got != 0 {
+		t.Fatalf("replacement callbacks = %d, want 0", got)
+	}
+}
+
+func TestPeerRealtimeSourceDoesNotReportInactiveOrDuplicateRoute(t *testing.T) {
+	var routes []peerAudioInputRoute
+	source := newPeerRealtimeSourceWithRouteReplacement(nil, func(_ context.Context, route peerAudioInputRoute) error {
+		routes = append(routes, route)
+		return nil
+	}, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(without route) error = %v", err)
+	}
+	if err := source.Push(t.Context(), &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "only-route", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(replace route) error = %v", err)
+	}
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(after replacement) error = %v", err)
+	}
+	if len(routes) != 1 || routes[0].streamID != "only-route" {
+		t.Fatalf("replacement callbacks = %#v", routes)
+	}
+}
+
+func TestPeerRealtimeSourceConcurrentOpenReportsRouteOnce(t *testing.T) {
+	var callbacks atomic.Int32
+	source := newPeerRealtimeSourceWithRouteReplacement(nil, func(_ context.Context, route peerAudioInputRoute) error {
+		if route.streamID != "active-route" || route.mimeType != "audio/opus" {
+			t.Errorf("replacement route = %#v", route)
+		}
+		callbacks.Add(1)
+		return nil
+	}, genx.WithRealtimeStreamDelay(0))
+	if _, err := source.OpenAgentInput(t.Context()); err != nil {
+		t.Fatalf("OpenAgentInput(first) error = %v", err)
+	}
+	if err := source.Push(t.Context(), &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: "audio/opus; rate=48000"},
+		Ctrl: &genx.StreamCtrl{StreamID: "active-route", BeginOfStream: true},
+	}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			if _, err := source.OpenAgentInput(t.Context()); err != nil {
+				t.Errorf("OpenAgentInput(concurrent) error = %v", err)
+			}
+		})
+	}
+	wg.Wait()
+	if got := callbacks.Load(); got != 1 {
+		t.Fatalf("replacement callbacks = %d, want 1", got)
 	}
 }

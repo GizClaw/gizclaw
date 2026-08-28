@@ -38,6 +38,8 @@ var (
 )
 
 const (
+	inputRouteReloadedCode          = "INPUT_ROUTE_RELOADED"
+	inputRouteReloadedMessage       = "input route reloaded"
 	peerConnMixerFormat             = pcm.L16Mono16K
 	peerConnOpusFrameDuration       = 20 * time.Millisecond
 	peerConnPacingBufferTarget      = 500 * time.Millisecond
@@ -453,7 +455,7 @@ func (h *PeerConn) initAgentHost() {
 		return
 	}
 	resources := h.peerResources()
-	h.agentInput = newPeerRealtimeSourceWithLifecycle(h.streamLifecycle)
+	h.agentInput = newPeerRealtimeSourceWithRouteReplacement(h.streamLifecycle, h.replaceAudioInputRoute)
 	host := newPeerAgentHost(
 		manager.AgentHost,
 		resources,
@@ -498,6 +500,54 @@ func (h *PeerConn) initAgentHost() {
 	}
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost
+	}
+}
+
+func (h *PeerConn) replaceAudioInputRoute(_ context.Context, route peerAudioInputRoute) error {
+	if h == nil || route.streamID == "" {
+		return nil
+	}
+	h.chatroomAccessMu.Lock()
+	delete(h.acceptedInputStreams, route.streamID)
+	if h.acceptedAudioStream == route.streamID {
+		h.acceptedAudioInput = false
+		h.acceptedAudioStream = ""
+		h.acceptedAudioChatroom = false
+		h.acceptedAudioWorkspace = ""
+	}
+	h.chatroomAccessMu.Unlock()
+	if h.events == nil {
+		return errPeerEventStreamClosed
+	}
+	if err := h.events.Broadcast(peerAudioInputRouteReloadedEvent(route)); err != nil {
+		// The Event stream is mandatory. Close the underlying Peer transport
+		// immediately, but let serve() perform the full PeerConn cleanup: this
+		// callback runs inside an AgentHost transition, so calling h.close()
+		// synchronously here would recursively wait for that same transition.
+		h.closed.Store(true)
+		if h.Conn != nil {
+			_ = h.Conn.Close()
+		}
+		return err
+	}
+	return nil
+}
+
+func peerAudioInputRouteReloadedEvent(route peerAudioInputRoute) *eventpb.PeerEvent {
+	return &eventpb.PeerEvent{
+		Version: eventpb.Version,
+		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
+		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
+			StreamId: route.streamID,
+			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
+			Label:    "user",
+			MimeType: canonicalAudioMIMEType(route.mimeType),
+			Error: &eventpb.EventError{
+				Code:      inputRouteReloadedCode,
+				Message:   inputRouteReloadedMessage,
+				Retryable: true,
+			},
+		}},
 	}
 }
 

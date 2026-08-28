@@ -16,5 +16,5 @@ This is responsible for converting connection-scoped input into a realtime sourc
 | `newPeerRealtimeSource` | Create Peer realtime source. |
 | `OpenAgentInput` | Open the input stream for Agent Host consumption. |
 | `Push` | Push the Peer message chunk into the current input stream. |
-| `bindAudioStreamID` | Bind stable stream ID to continuous audio chunks. |
+| `bindAudioStreamIDLocked` | Bind continuous audio chunks to a stable stream ID while holding the source mutex. |
 | `Close` | Close the source and underlying stream. |

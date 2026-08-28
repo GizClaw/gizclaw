@@ -325,6 +325,172 @@ func invokeFakePeerStream(ctx context.Context, op PeerStreamOperation, streams .
 	return invokePeerStream(ctx, nil, open, Step{ID: "turn", PeerStream: &op}, "hello", 0)
 }
 
+func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
+	stream := newFakeRelayStream()
+	sessions := newPeerStreamSessions()
+	t.Cleanup(func() { _ = sessions.Close() })
+	openCount := 0
+	open := func() (peerStream, error) {
+		openCount++
+		return stream, nil
+	}
+	requireAudio := false
+	firstStep := Step{ID: "first", Client: "peer", PeerStream: &PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", KeepOpen: true,
+		Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}
+	firstStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				firstStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-1", "ready", false)
+	}()
+	first, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, firstStep, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("retain realtime session: %v", err)
+	}
+	oldID := <-firstStreamID
+	if first.evidence["session_retained"] != true || openCount != 1 {
+		t.Fatalf("first evidence=%#v open_count=%d", first.evidence, openCount)
+	}
+	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{
+		StreamID: oldID, Label: "user", EndOfStream: true,
+		ErrorCode: "INPUT_ROUTE_RELOADED", Error: "input route reloaded", ErrorRetryable: true,
+	}}
+	secondStep := Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
+		KeepOpen: true, Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}
+	secondStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				secondStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-2", "ready again", false)
+	}()
+	second, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, secondStep, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("re-arm retained realtime session: %v", err)
+	}
+	newID := <-secondStreamID
+	if newID == oldID || openCount != 1 || second.evidence["reload_eos_observed"] != true || second.evidence["replacement_bos_sent"] != true || second.evidence["stream_id_changed"] != true || second.evidence["session_connection_reused"] != true || second.evidence["session_retained"] != true {
+		t.Fatalf("old_id=%q new_id=%q open_count=%d evidence=%#v", oldID, newID, openCount, second.evidence)
+	}
+	select {
+	case <-stream.closed:
+		t.Fatal("re-retained session closed after the second step")
+	default:
+	}
+	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{
+		StreamID: newID, Label: "user", EndOfStream: true,
+		ErrorCode: "INPUT_ROUTE_RELOADED", Error: "input route reloaded", ErrorRetryable: true,
+	}}
+	thirdStreamID := make(chan string, 1)
+	go func() {
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				thirdStreamID <- chunk.Ctrl.StreamID
+			}
+		}
+		stream.in <- assistantText("assistant-3", "ready once more", false)
+	}()
+	third, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, Step{ID: "third", Client: "peer", PeerStream: &PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
+		Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
+	}}, []byte{1}, 0)
+	if err != nil {
+		t.Fatalf("consume re-retained realtime session: %v", err)
+	}
+	newestID := <-thirdStreamID
+	if newestID == newID || openCount != 1 || third.evidence["stream_id_changed"] != true {
+		t.Fatalf("second_id=%q third_id=%q open_count=%d evidence=%#v", newID, newestID, openCount, third.evidence)
+	}
+	select {
+	case <-stream.closed:
+	default:
+		t.Fatal("consumed session was not closed")
+	}
+}
+
+func TestInvokePeerStreamAwaitRearmTimesOutWithCausalEvidence(t *testing.T) {
+	stream := newFakeRelayStream()
+	sessions := newPeerStreamSessions()
+	session := newPeerStreamSession("peer", stream)
+	session.streamID = "old-route"
+	if err := sessions.add("microphone", session); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
+		t.Fatal("await_rearm opened a replacement PeerStream")
+		return nil, nil
+	}, sessions, Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
+	}}, []byte{1}, 0)
+	if err == nil || !strings.Contains(err.Error(), "timed out waiting for re-arm INPUT_ROUTE_RELOADED") {
+		t.Fatalf("error = %v", err)
+	}
+	if result.evidence["reload_eos_observed"] != false || result.evidence["replacement_bos_sent"] != false || result.evidence["stream_id_changed"] != false || result.evidence["session_connection_reused"] != true {
+		t.Fatalf("evidence = %#v", result.evidence)
+	}
+	if _, leaked := result.evidence["old_stream_id"]; leaked {
+		t.Fatalf("evidence leaked a raw stream ID: %#v", result.evidence)
+	}
+	select {
+	case <-stream.closed:
+	default:
+		t.Fatal("timed-out retained session was not closed")
+	}
+}
+
+func TestInvokePeerStreamAwaitRearmPreservesSuccessfulBOSEvidenceOnResponseTimeout(t *testing.T) {
+	stream := newFakeRelayStream()
+	sessions := newPeerStreamSessions()
+	session := newPeerStreamSession("peer", stream)
+	session.streamID = "old-route"
+	session.startReader()
+	if err := sessions.add("microphone", session); err != nil {
+		t.Fatal(err)
+	}
+	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{
+		StreamID: "old-route", Label: "user", EndOfStream: true,
+		ErrorCode: "INPUT_ROUTE_RELOADED", Error: "input route reloaded", ErrorRetryable: true,
+	}}
+	go func() {
+		for range 202 {
+			<-stream.pushes
+		}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
+		t.Fatal("await_rearm opened a replacement PeerStream")
+		return nil, nil
+	}, sessions, Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
+		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
+	}}, []byte{1}, 0)
+	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Fatalf("error = %v", err)
+	}
+	if result.evidence["reload_eos_observed"] != true || result.evidence["replacement_bos_sent"] != true || result.evidence["stream_id_changed"] != true || result.evidence["session_connection_reused"] != true {
+		t.Fatalf("evidence = %#v", result.evidence)
+	}
+	select {
+	case <-stream.closed:
+	default:
+		t.Fatal("response-timeout retained session was not closed")
+	}
+}
+
 func TestInvokePeerStreamIdleTimeoutAllowsLongReply(t *testing.T) {
 	stream := newFakeRelayStream()
 	go func() {

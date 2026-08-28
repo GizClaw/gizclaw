@@ -250,6 +250,35 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 操作返回的证据，报告因此能区分停滞与过长回复。`gizclaw test validate` 拒绝无法解析或非正的
 `idle_timeout`。人工 `review` 文件必须单独用 `--parallel 1` 在终端运行。
 
+持续 realtime route 的回归可以用 task-scoped `peer_stream.session` 保留同一条逻辑
+`gizcli.PeerStream`。首个 `mode: realtime` 步骤同时设置 `session` 与
+`keep_open: true`；后续同 client 的 realtime 步骤使用同一 `session` 和
+`await_rearm: INPUT_ROUTE_RELOADED`。后者先消费旧 route 的精确 retryable user-audio
+EOS，再发送 fresh BOS，之后才发送声明的音频输入。一个 session 只能创建一次、消费一次；
+未知、重复、已消费、跨 client 或跨 task 的 session 都在发送输入前失败。
+
+持久 session 不能与 `retry`、`interrupt_after` 或 `finally` 组合。re-arm 步骤成功消费后
+默认关闭；同一步再次设置 `keep_open: true` 时则继续保留，供下一次 re-arm 消费。任务成功、
+失败、timeout 或 cancellation 时，runner 在 RPC finalizer 之前关闭所有未消费 session。
+报告只记录 `session_connection_reused`、
+`reload_eos_observed`、`replacement_bos_sent` 和 `stream_id_changed` 等布尔证据，不记录
+raw stream ID、音频 payload 或 transcript。
+
+JavaScript Client 的对应 WebRTC 集成回归由
+`tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts` 的
+`audio-reload` 模式执行。它在同一条 Event channel 上激活 SDK 的
+`createContinuousAudioRouteRearm` owner；owner 自己安装和移除 Event subscription，Client
+代码不负责把 EOS 分发给它。它先保持 realtime user-audio route 与 uplink track active，
+reload 后消费 `INPUT_ROUTE_RELOADED` EOS、发送 fresh BOS，并把 replacement stream ID
+通知 Client，再使用同一 microphone source、track、Event channel 和 PeerConnection
+发送第二段音频并等待响应。该用例不能用测试代码直接补发 replacement BOS；否则只验证
+Server 协议，不能证明 JavaScript Client 已实现恢复。
+当 TTS 不属于当前验证目标时，可以通过 `GIZCLAW_E2E_INPUT_PCM_PATH` 选择
+`tests/gizclaw-e2e/testdata/pcm/` 下已经解码的非空单声道 signed 16-bit `.pcm` fixture。
+解析后的普通文件不得超过 16 MiB；`GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` 默认为 16000，且必须
+是能被 100 整除的正整数。该路径只跳过输入 fixture 的语音合成，不绕过 realtime WebRTC
+route 或 reload 后的响应断言。
+
 当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
 `audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
 `target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、

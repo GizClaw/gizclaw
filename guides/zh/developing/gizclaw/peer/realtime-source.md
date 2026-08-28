@@ -12,9 +12,20 @@
 
 | 符号 | 作用 |
 | --- | --- |
-| `peerRealtimeSource` | 持有当前 GenX input stream 与音频 stream ID 状态。 |
+| `peerRealtimeSource` | 持有当前 GenX input stream，以及已准入音频 route 的 stream ID 与 canonical MIME。 |
 | `newPeerRealtimeSource` | 创建 Peer realtime source。 |
 | `OpenAgentInput` | 打开供 Agent Host 消费的 input stream。 |
 | `Push` | 将 Peer message chunk 推入当前 input stream。 |
-| `bindAudioStreamID` | 为连续音频 chunk 绑定稳定 stream ID。 |
+| `bindAudioStreamIDLocked` | 在 source mutex 内为连续音频 chunk 绑定稳定 stream ID。 |
 | `Close` | 关闭 source 和底层 stream。 |
+
+`OpenAgentInput` 替换 runtime input 时，在 source mutex 内同时捕获并清除旧的 active
+audio route，然后发布新的 GenX input。replacement callback 在释放 source mutex 后、
+函数返回新 input 前执行；没有 active route 时不调用。route 一旦被捕获，后续 reopen
+不能再次报告它。callback 失败会关闭这次新 input 并把错误返回 AgentHost，旧 route
+不会恢复。
+
+`bindAudioStreamIDLocked` 只在合法 audio BOS 上记录 route ID 和 canonical MIME，并把
+route 绑定与当前 input generation 的选择保持在同一短临界区。runtime
+替换清除绑定后，replacement BOS 到达前的 Opus packet 继续由现有 gate 丢弃；source
+不会把旧 ID 自动绑定到新 runtime。

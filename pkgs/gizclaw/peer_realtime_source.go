@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime"
+	"strings"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -15,8 +17,15 @@ type peerRealtimeSource struct {
 	current *genx.RealtimeStream
 	options []genx.RealtimeStreamOption
 
-	audioStreamID string
-	lifecycle     *peerStreamLifecycle
+	audioStreamID        string
+	audioMIMEType        string
+	lifecycle            *peerStreamLifecycle
+	onInputRouteReplaced func(context.Context, peerAudioInputRoute) error
+}
+
+type peerAudioInputRoute struct {
+	streamID string
+	mimeType string
 }
 
 func newPeerRealtimeSource(options ...genx.RealtimeStreamOption) *peerRealtimeSource {
@@ -27,18 +36,35 @@ func newPeerRealtimeSourceWithLifecycle(lifecycle *peerStreamLifecycle, options 
 	return &peerRealtimeSource{options: options, lifecycle: lifecycle}
 }
 
-func (s *peerRealtimeSource) OpenAgentInput(context.Context) (genx.Stream, error) {
+func newPeerRealtimeSourceWithRouteReplacement(lifecycle *peerStreamLifecycle, onReplaced func(context.Context, peerAudioInputRoute) error, options ...genx.RealtimeStreamOption) *peerRealtimeSource {
+	return &peerRealtimeSource{options: options, lifecycle: lifecycle, onInputRouteReplaced: onReplaced}
+}
+
+func (s *peerRealtimeSource) OpenAgentInput(ctx context.Context) (genx.Stream, error) {
 	if s == nil {
 		return nil, agenthost.ErrMissingSource
 	}
 	next := genx.NewRealtimeStream(s.options...)
 	s.mu.Lock()
 	previous := s.current
+	replacedRoute := peerAudioInputRoute{streamID: s.audioStreamID, mimeType: s.audioMIMEType}
 	s.current = next
 	s.audioStreamID = ""
+	s.audioMIMEType = ""
 	s.mu.Unlock()
 	if previous != nil {
 		_ = previous.Close()
+	}
+	if replacedRoute.streamID != "" && s.onInputRouteReplaced != nil {
+		if err := s.onInputRouteReplaced(ctx, replacedRoute); err != nil {
+			s.mu.Lock()
+			if s.current == next {
+				s.current = nil
+			}
+			s.mu.Unlock()
+			_ = next.Close()
+			return nil, err
+		}
 	}
 	if s.lifecycle == nil {
 		return next, nil
@@ -67,15 +93,16 @@ func (s *peerRealtimeSource) Push(ctx context.Context, chunk *genx.MessageChunk)
 	if s == nil {
 		return agenthost.ErrNoActiveInput
 	}
-	chunk = s.bindAudioStreamID(chunk)
+	s.mu.Lock()
+	current := s.current
+	if current == nil {
+		s.mu.Unlock()
+		return agenthost.ErrNoActiveInput
+	}
+	chunk = s.bindAudioStreamIDLocked(chunk)
+	s.mu.Unlock()
 	if chunk == nil {
 		return nil
-	}
-	s.mu.RLock()
-	current := s.current
-	s.mu.RUnlock()
-	if current == nil {
-		return agenthost.ErrNoActiveInput
 	}
 	err := current.Push(ctx, chunk)
 	if errors.Is(err, io.ErrClosedPipe) {
@@ -87,7 +114,10 @@ func (s *peerRealtimeSource) Push(ctx context.Context, chunk *genx.MessageChunk)
 	return err
 }
 
-func (s *peerRealtimeSource) bindAudioStreamID(chunk *genx.MessageChunk) *genx.MessageChunk {
+// bindAudioStreamIDLocked binds continuous audio chunks to the active logical
+// route. The caller holds s.mu so route state and the selected input stream
+// belong to the same source generation.
+func (s *peerRealtimeSource) bindAudioStreamIDLocked(chunk *genx.MessageChunk) *genx.MessageChunk {
 	if s == nil || chunk == nil {
 		return chunk
 	}
@@ -103,13 +133,12 @@ func (s *peerRealtimeSource) bindAudioStreamID(chunk *genx.MessageChunk) *genx.M
 		chunk = &next
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if !ctrl.BeginOfStream && (ctrl.StreamID == "" || ctrl.StreamID == "audio") && s.audioStreamID == "" {
 		return nil
 	}
 	if ctrl.BeginOfStream && ctrl.StreamID != "" {
 		s.audioStreamID = ctrl.StreamID
+		s.audioMIMEType = canonicalAudioMIMEType(blob.MIMEType)
 	}
 	if ctrl.StreamID == "" || ctrl.StreamID == "audio" {
 		if s.audioStreamID != "" {
@@ -123,8 +152,17 @@ func (s *peerRealtimeSource) bindAudioStreamID(chunk *genx.MessageChunk) *genx.M
 	}
 	if ctrl.EndOfStream && ctrl.StreamID != "" && ctrl.StreamID == s.audioStreamID {
 		s.audioStreamID = ""
+		s.audioMIMEType = ""
 	}
 	return chunk
+}
+
+func canonicalAudioMIMEType(value string) string {
+	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(value))
+	if err != nil || !strings.HasPrefix(strings.ToLower(mediaType), "audio/") {
+		return "audio/opus"
+	}
+	return strings.ToLower(mediaType)
 }
 
 func (s *peerRealtimeSource) Close() error {
@@ -134,6 +172,8 @@ func (s *peerRealtimeSource) Close() error {
 	s.mu.Lock()
 	current := s.current
 	s.current = nil
+	s.audioStreamID = ""
+	s.audioMIMEType = ""
 	s.mu.Unlock()
 	if current != nil {
 		return current.Close()
