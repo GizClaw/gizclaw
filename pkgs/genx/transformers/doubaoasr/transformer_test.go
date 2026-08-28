@@ -235,9 +235,9 @@ func TestTransformerBoundsSilentProviderFinalization(t *testing.T) {
 	}
 }
 
-func TestTransformerSendsLastNonEmptyAudioFrame(t *testing.T) {
+func TestTransformerPreservesCompressedInputBoundariesWithConfiguredChunkSize(t *testing.T) {
 	session := newFakeDoubaoASRSession()
-	transformer := newTransformer(Config{Format: "ogg_opus"})
+	transformer := newTransformer(Config{Format: "ogg_opus", ChunkSize: 8})
 	transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
 		return session, nil
 	}

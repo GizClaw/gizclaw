@@ -616,7 +616,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					historyAudio.appendChunk(chunk, historyStreamID, audioData, cfg)
 				}
 				var sendErr error
-				packetBuffer.append(audioData, func(audio []byte) bool {
+				sendPacket := func(audio []byte) bool {
 					if sessionConfig.isPCM() || t.emitInterim {
 						sendErr = sendAudio(audio, false)
 						return sendErr == nil
@@ -629,7 +629,16 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					}
 					pendingAudio = audio
 					return true
-				})
+				}
+				if sessionConfig.isPCM() {
+					packetBuffer.append(audioData, sendPacket)
+				} else {
+					for audio := range splitDoubaoASRAudio(audioData, t.audioChunkSize(cfg)) {
+						if !sendPacket(audio) {
+							break
+						}
+					}
+				}
 				if sendErr != nil {
 					session.Close()
 					output.CloseWithError(sendErr)
