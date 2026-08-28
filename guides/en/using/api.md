@@ -13,6 +13,20 @@ Use the Admin API for Server resources that span peers. Use Peer RPC to read or 
 
 Before calling either interface, persist the caller's own keypair and obtain the Server endpoint and public key. The examples below assume that the SDK has already connected: a dialed `*gizcli.Client` in Go, or an `RTCPeerConnection` established by `connectGiznetWebRTCFromEndpoint` in TypeScript. Never log or commit private keys, login assertions, or session credentials.
 
+The TypeScript SDK is published to GitHub Packages as `@gizclaw/gizclaw`. Add
+the following entries to the consuming project's `.npmrc`, provide a GitHub
+token with `read:packages` as `GITHUB_PACKAGES_TOKEN`, and install an explicit
+version with `npm install @gizclaw/gizclaw@0.7.2`:
+
+```ini
+@gizclaw:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
+```
+
+A commit on `main` publishes only when it changes publishable SDK content and
+increases the stable SemVer in `sdk/js/gizclaw/package.json`; an existing
+version is never replaced.
+
 ## Admin API
 
 The Admin API preserves HTTP methods, paths, headers, JSON/YAML bodies, status codes, and SSE semantics, but requests travel over the Admin HTTP service. SDKs use the virtual base URL `http://gizclaw` to construct requests; it is not a DNS name or a directly exposed Server address.

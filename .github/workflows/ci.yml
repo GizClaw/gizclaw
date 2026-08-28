@@ -63,7 +63,10 @@ jobs:
 
       - name: Check workflow syntax and embedded shell
         run: |
-          "$(go env GOPATH)/bin/actionlint" .github/workflows/ci.yml .github/workflows/release.yml
+          "$(go env GOPATH)/bin/actionlint" \
+            .github/workflows/ci.yml \
+            .github/workflows/js-sdk-release.yml \
+            .github/workflows/release.yml
 
       - name: Test offline release contracts
         run: build/release-contract-test.sh
