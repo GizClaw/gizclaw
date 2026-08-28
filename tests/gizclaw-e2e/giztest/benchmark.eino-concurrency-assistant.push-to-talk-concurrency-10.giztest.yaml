@@ -1,7 +1,7 @@
 # User Story:
 # As a registered device using the eino-concurrency-assistant Workflow,
-# I want ten strict Push-to-Talk first-response trials,
-# So that ASR, assistant text, assistant audio, and cleanup latency remain reproducible.
+# I want ten Push-to-Talk ASR and end-to-end first-response trials,
+# So that the separately evaluated transcript, assistant output, and cleanup timings remain reproducible.
 version: gizclaw.test/v1alpha1
 name: benchmark.eino-concurrency-assistant.push-to-talk-concurrency-10
 repeat: 10

@@ -231,11 +231,13 @@ bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 The runner builds one CLI revision, starts one isolated Server/Edge stack, and
 runs the same ten-task text-only, configured-ASR Push-to-Talk, and Realtime
 documents through Server and Edge at `--parallel 1` and `--parallel 8`.
-Voice-enabled cases require a non-empty transcript within 700 milliseconds,
-assistant text within 2 seconds, and assistant audio within 3 seconds, all from
-the completed-input origin. Separate Push-to-Talk and Realtime terminal
-roundtrips verify text/audio EOS, and all scenarios require their three cleanup
-steps.
+Voice-enabled cases record a non-empty transcript within 700 milliseconds as
+the ASR transport qualification, then continue to enforce the separately owned
+end-to-end release gate of assistant text within 2 seconds and assistant audio
+within 3 seconds, all from the completed-input origin. Passing the transcript
+qualification does not make a red end-to-end result pass. Separate Push-to-Talk
+and Realtime terminal roundtrips verify text/audio EOS, and all scenarios
+require their three cleanup steps.
 The atomic `testdata/eino-first-response/manifest.json` records the Git revision,
 dirty state, fixture hashes, redacted report hashes, task and cleanup counts,
 and maximum observed transcript/text/audio timings without recording endpoint or
