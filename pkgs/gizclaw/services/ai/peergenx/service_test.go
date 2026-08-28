@@ -701,6 +701,53 @@ func TestDefaultBuilderBuildsVolcASRTransformerFromCamelCaseEndpointingParams(t 
 	}
 }
 
+func TestDefaultBuilderVolcASREndpointingSnakeCaseTakesPrecedence(t *testing.T) {
+	tests := []struct {
+		name        string
+		snakeKey    string
+		camelKey    string
+		configField string
+	}{
+		{name: "VAD segment duration", snakeKey: "vad_segment_duration", camelKey: "vadSegmentDuration", configField: "vadSegmentDuration"},
+		{name: "end window size", snakeKey: "end_window_size", camelKey: "endWindowSize", configField: "endWindowSize"},
+		{name: "force to speech time", snakeKey: "force_to_speech_time", camelKey: "forceToSpeechTime", configField: "forceToSpeechTime"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+				Model: &apitypes.Model{
+					Id:   "asr",
+					Kind: apitypes.ModelKindAsr,
+					ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{
+						ResourceId: new("volc.bigasr.sauc.duration"),
+					}),
+				},
+				Tenant: Tenant{
+					Kind: "volc-tenant",
+					Volc: &apitypes.VolcTenant{
+						Id:           "main",
+						CredentialId: "volc-token",
+					},
+				},
+				Credential: apitypes.Credential{
+					Id:   "volc-token",
+					Body: testVolcCredentialBodyFromStrings(map[string]string{"speech_app_id": "app", "speech_api_key": "tok"}),
+				},
+				Params: map[string]any{
+					tt.snakeKey: 111,
+					tt.camelKey: 222,
+				},
+			})
+			if err != nil {
+				t.Fatalf("BuildTransformer() error = %v", err)
+			}
+			if got := transformerNestedIntPointerField(t, tf, tt.configField); got != 111 {
+				t.Fatalf("ASR %s = %d, want snake_case value 111", tt.configField, got)
+			}
+		})
+	}
+}
+
 func TestDefaultBuilderBuildsVolcRealtimeTransformer(t *testing.T) {
 	tf, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
 		Model: &apitypes.Model{
