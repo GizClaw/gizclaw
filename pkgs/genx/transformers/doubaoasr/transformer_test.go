@@ -208,7 +208,7 @@ func TestTransformerBoundsSilentProviderFinalization(t *testing.T) {
 		t.Fatalf("Transform() error = %v", err)
 	}
 	if err := input.Push(&genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}},
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{1, 2}, 1600)},
 		Ctrl: &genx.StreamCtrl{StreamID: "silent-provider"},
 	}); err != nil {
 		t.Fatalf("push audio = %v", err)
@@ -280,6 +280,107 @@ func TestTransformerSendsLastNonEmptyAudioFrame(t *testing.T) {
 	}
 }
 
+func TestTransformerAggregatesLivePCMFramesAtProviderPacketCadence(t *testing.T) {
+	tests := []struct {
+		name        string
+		emitInterim bool
+		chunkSize   int
+		frameCount  int
+		wantLengths []int
+		wantLast    []bool
+	}{
+		{
+			name:        "push to talk exact packet",
+			frameCount:  5,
+			wantLengths: []int{3200, 0},
+			wantLast:    []bool{false, true},
+		},
+		{
+			name:        "push to talk 200 ms packet",
+			chunkSize:   6400,
+			frameCount:  10,
+			wantLengths: []int{6400, 0},
+			wantLast:    []bool{false, true},
+		},
+		{
+			name:        "push to talk final remainder",
+			frameCount:  6,
+			wantLengths: []int{3200, 640},
+			wantLast:    []bool{false, true},
+		},
+		{
+			name:        "realtime exact packet",
+			emitInterim: true,
+			frameCount:  5,
+			wantLengths: []int{3200, 0},
+			wantLast:    []bool{false, true},
+		},
+		{
+			name:        "realtime final remainder",
+			emitInterim: true,
+			frameCount:  6,
+			wantLengths: []int{3200, 640},
+			wantLast:    []bool{false, true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := newFakeDoubaoASRSession()
+			transformer := newTransformer(Config{
+				Format:         "pcm",
+				EmitInterim:    tt.emitInterim,
+				ChunkSize:      tt.chunkSize,
+				RealtimePacing: new(false),
+			})
+			transformer.newSession = func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+				return session, nil
+			}
+
+			input := newBufferStream(tt.frameCount + 2)
+			output, err := transformer.Transform(context.Background(), input)
+			if err != nil {
+				t.Fatalf("Transform() error = %v", err)
+			}
+			var wantAudio []byte
+			for i := range tt.frameCount {
+				frame := bytes.Repeat([]byte{byte(i + 1)}, 640)
+				wantAudio = append(wantAudio, frame...)
+				if err := input.Push(&genx.MessageChunk{
+					Part: &genx.Blob{MIMEType: "audio/pcm", Data: frame},
+					Ctrl: &genx.StreamCtrl{StreamID: "live-turn"},
+				}); err != nil {
+					t.Fatalf("push frame %d = %v", i, err)
+				}
+			}
+			if err := input.Push(&genx.MessageChunk{
+				Part: &genx.Blob{MIMEType: "audio/pcm"},
+				Ctrl: &genx.StreamCtrl{StreamID: "live-turn", EndOfStream: true},
+			}); err != nil {
+				t.Fatalf("push audio EOS = %v", err)
+			}
+			if err := input.Close(); err != nil {
+				t.Fatalf("close input = %v", err)
+			}
+			_ = collectTransformerChunks(t, output)
+
+			if len(session.sends) != len(tt.wantLengths) {
+				t.Fatalf("SendAudio calls = %#v, want lengths %v", session.sends, tt.wantLengths)
+			}
+			var gotAudio []byte
+			for i, send := range session.sends {
+				if len(send.data) != tt.wantLengths[i] || send.isLast != tt.wantLast[i] {
+					t.Fatalf("SendAudio[%d] = len %d last %t, want len %d last %t", i, len(send.data), send.isLast, tt.wantLengths[i], tt.wantLast[i])
+				}
+				gotAudio = append(gotAudio, send.data...)
+			}
+			if !bytes.Equal(gotAudio, wantAudio) {
+				t.Fatalf("provider audio length = %d, want byte-exact %d-byte input", len(gotAudio), len(wantAudio))
+			}
+		})
+	}
+}
+
 func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
 	first := newFakeDoubaoASRSession()
 	second := newFakeDoubaoASRSession()
@@ -306,7 +407,7 @@ func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
 	}
 	for _, chunk := range []*genx.MessageChunk{
 		{
-			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}},
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{1, 0}, 1600)},
 			Ctrl: &genx.StreamCtrl{StreamID: "segment-a", BeginOfStream: true},
 		},
 		{
@@ -314,11 +415,11 @@ func TestTransformerEmitInterimFinalizesEachExplicitAudioRoute(t *testing.T) {
 			Ctrl: &genx.StreamCtrl{StreamID: "segment-a", EndOfStream: true},
 		},
 		{
-			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}},
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{2, 0}, 1600)},
 			Ctrl: &genx.StreamCtrl{StreamID: "segment-b", BeginOfStream: true},
 		},
 		{
-			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{3, 0}},
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{3, 0}, 1600)},
 			Ctrl: &genx.StreamCtrl{StreamID: "segment-b"},
 		},
 	} {
@@ -385,7 +486,7 @@ func TestTransformerEmitInterimInterruptsActiveRouteBeforeReplacement(t *testing
 	push := func(streamID string, data byte) {
 		t.Helper()
 		if err := input.Push(&genx.MessageChunk{
-			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{data, 0}},
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{data, 0}, 1600)},
 			Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
 		}); err != nil {
 			t.Fatalf("push %s: %v", streamID, err)
@@ -471,7 +572,7 @@ func TestTransformerEmitInterimRoutesTranscriptsAcrossLocalStreams(t *testing.T)
 	pushAudio := func(streamID string, data byte) {
 		t.Helper()
 		if err := input.Push(&genx.MessageChunk{
-			Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{data, 0}},
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{data, 0}, 1600)},
 			Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true},
 		}); err != nil {
 			t.Fatalf("push %s audio: %v", streamID, err)
@@ -589,13 +690,13 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 		t.Fatalf("Transform() error = %v", err)
 	}
 	if err := input.Push(&genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}},
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{1, 0}, 1600)},
 		Ctrl: &genx.StreamCtrl{StreamID: "segment-a", BeginOfStream: true},
 	}); err != nil {
 		t.Fatalf("push first segment: %v", err)
 	}
 	if err := input.Push(&genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}},
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{1, 0}, 1600)},
 		Ctrl: &genx.StreamCtrl{StreamID: "segment-a"},
 	}); err != nil {
 		t.Fatalf("push first segment continuation: %v", err)
@@ -609,7 +710,7 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 	<-first.recvDone
 
 	if err := input.Push(&genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{2, 0}},
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{2, 0}, 1600)},
 		Ctrl: &genx.StreamCtrl{StreamID: "segment-b", BeginOfStream: true},
 	}); err != nil {
 		t.Fatalf("push second segment: %v", err)
@@ -806,7 +907,7 @@ func TestTransformerRejectsInterimOnlyRecognition(t *testing.T) {
 		t.Fatalf("Transform() error = %v", err)
 	}
 	if err := input.Push(&genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}},
+		Part: &genx.Blob{MIMEType: "audio/pcm", Data: bytes.Repeat([]byte{1, 2}, 1600)},
 		Ctrl: &genx.StreamCtrl{StreamID: "partial-turn"},
 	}); err != nil {
 		t.Fatalf("push audio = %v", err)

@@ -486,15 +486,15 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
 	var terminalErrors []string
-	var firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
+	var firstTranscriptMS, firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
 	var firstTextElapsed, firstAudioElapsed time.Duration
-	firstTextObserved, firstAudioObserved := false, false
+	firstTranscriptObserved, firstTextObserved, firstAudioObserved := false, false, false
 	textEOS, audioEOS := false, false
 	counters := func() string {
 		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
 	}
 	baseEvidence := func() map[string]any {
-		evidence := map[string]any{"events": events, "last_event_ms": lastEventMS}
+		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
 		if idleTimeout > 0 {
 			evidence["idle_timeout_ms"] = idleTimeout.Milliseconds()
 		}
@@ -537,7 +537,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				return operationResult{}, fmt.Errorf("play assistant audio: %w", err)
 			}
 		}
-		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		object := map[string]any{"text": texts, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
 		pacingSummary := audioPacing.summary()
 		if pacingSummary != nil {
 			object["audio_pacing"] = pacingSummary
@@ -657,6 +657,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					assistantTextEvents++
 				} else if label == "transcript" && strings.TrimSpace(string(part)) != "" {
 					transcriptTextEvents++
+				}
+				if !firstTranscriptObserved && label == "transcript" && strings.TrimSpace(string(part)) != "" {
+					firstTranscriptObserved = true
+					firstTranscriptMS = max(int64(1), eventElapsed.Milliseconds())
 				}
 				if !firstTextObserved && label == "assistant" && strings.TrimSpace(string(part)) != "" {
 					firstTextObserved = true

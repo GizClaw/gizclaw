@@ -38,7 +38,7 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和下述例外之外的 timeout 继续按原有路径传播错误。
 
-`EmitInterim` 的 continuous ASR 会把每个 audio frame 立即以 non-final packet 发给当前健康 SAUC session。显式 audio EOS 发送 terminal marker、结束该 provider session，同时保持 outer Transformer stream 打开；下一条 audio route 创建 replacement session，并独立绑定 transcript。Finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；其他 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
+对于 PCM 输入，ASR 会在当前 provider session 内聚合较小的实时 frame，直到达到配置的 packet size；缺省为 100 ms（16 kHz、mono、signed 16-bit PCM 对应 `3200` bytes）。完整 packet 会立即按顺序发送，显式 audio EOS 把剩余 PCM 恰好发送一次并标记为 final；精确 packet boundary 使用既有空 terminal marker，不重复音频。压缩音频保持原始 packet boundary 和 final-packet 行为。Session cleanup 只清除本 session 的空 buffer，因此音频不会跨 audio route 或 replacement session。显式 route EOS 后 outer Transformer stream 仍保持打开，下一条 audio route 创建 replacement session 并独立绑定 transcript。Continuous ASR finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；其他 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
 
 ### ASR 断句参数
 

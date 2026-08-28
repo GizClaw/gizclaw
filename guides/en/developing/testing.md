@@ -229,13 +229,16 @@ bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
 The runner builds one CLI revision, starts one isolated Server/Edge stack, and
-runs the same ten-task text-only and voice-enabled Realtime documents through
-Server and Edge at `--parallel 1` and `--parallel 8`. Text must arrive within
-2 seconds and Realtime audio within 3 seconds. Separate terminal roundtrips
-then verify text/audio EOS and all scenarios require their three cleanup steps.
+runs the same ten-task text-only, configured-ASR Push-to-Talk, and Realtime
+documents through Server and Edge at `--parallel 1` and `--parallel 8`.
+Voice-enabled cases require a non-empty transcript within 700 milliseconds,
+assistant text within 2 seconds, and assistant audio within 3 seconds, all from
+the completed-input origin. Separate Push-to-Talk and Realtime terminal
+roundtrips verify text/audio EOS, and all scenarios require their three cleanup
+steps.
 The atomic `testdata/eino-first-response/manifest.json` records the Git revision,
 dirty state, fixture hashes, redacted report hashes, task and cleanup counts,
-and maximum observed first-response timings without recording endpoint or
+and maximum observed transcript/text/audio timings without recording endpoint or
 credential values. A dirty exploratory run must opt in with
 `GIZCLAW_E2E_ALLOW_DIRTY=1`; it is not release evidence.
 

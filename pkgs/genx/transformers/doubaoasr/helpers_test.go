@@ -1,11 +1,42 @@
 package doubaoasr
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func TestAudioPacketBufferAggregatesAcrossInputsAndFlushesRemainder(t *testing.T) {
+	var buffer audioPacketBuffer
+	buffer.reset(10)
+	var packets [][]byte
+	for _, input := range [][]byte{{0, 1, 2}, {3, 4, 5, 6}, {7, 8, 9, 10, 11, 12}} {
+		buffer.append(input, func(packet []byte) bool {
+			packets = append(packets, packet)
+			return true
+		})
+	}
+	if len(packets) != 1 || !bytes.Equal(packets[0], []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+		t.Fatalf("packets = %#v, want one ordered 10-byte packet", packets)
+	}
+	if remainder := buffer.flush(); !bytes.Equal(remainder, []byte{10, 11, 12}) {
+		t.Fatalf("remainder = %#v, want [10 11 12]", remainder)
+	}
+	if remainder := buffer.flush(); remainder != nil {
+		t.Fatalf("second flush = %#v, want nil", remainder)
+	}
+
+	buffer.reset(0)
+	buffer.append([]byte{13, 14}, func(packet []byte) bool {
+		packets = append(packets, packet)
+		return true
+	})
+	if !bytes.Equal(packets[1], []byte{13, 14}) {
+		t.Fatalf("unbuffered packet = %#v, want [13 14]", packets[1])
+	}
+}
 
 func TestDoubaoASRSessionConfigAndAudioTimingBranches(t *testing.T) {
 	custom := doubaoASRSessionConfig{sampleRate: 8000, channels: 2, bits: 8}

@@ -256,9 +256,11 @@ func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]s
 }
 
 func einoASRPattern(alias string, inputMode apitypes.WorkspaceInputMode) string {
-	pattern := "model/" + strings.TrimSpace(alias)
+	// Eino audio arrives at device cadence. Replaying the backlog from the
+	// provider session-open time would add that connection delay a second time.
+	pattern := "model/" + strings.TrimSpace(alias) + "?realtime_pacing=false"
 	if inputMode == apitypes.WorkspaceInputModeRealtime {
-		return pattern + "?emit_interim=true"
+		return pattern + "&emit_interim=true"
 	}
 	return pattern
 }

@@ -193,6 +193,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	var resultsDone chan error
 	var resultsForwarded chan struct{}
 	var pendingAudio []byte
+	var packetBuffer audioPacketBuffer
 	var sessionConfig doubaoASRSessionConfig
 	var sessionStartedAt time.Time
 	var sentAudioDuration time.Duration
@@ -300,6 +301,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			return err
 		}
 		sessionConfig = cfg
+		packetBuffer.reset(t.audioChunkSize(cfg))
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
 		historyAudio = nil
@@ -366,6 +368,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		resultsDone = nil
 		resultsForwarded = nil
 		pendingAudio = nil
+		packetBuffer.reset(0)
 		sessionConfig = doubaoASRSessionConfig{}
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
@@ -412,15 +415,25 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			}
 			return err
 		}
-		if len(pendingAudio) > 0 {
+		finalSent := false
+		if remainingAudio := packetBuffer.flush(); len(remainingAudio) > 0 {
+			if err := sendAudio(remainingAudio, true); err != nil {
+				clearSession()
+				return err
+			}
+			finalSent = true
+		}
+		if !finalSent && len(pendingAudio) > 0 {
 			if err := sendAudio(pendingAudio, true); err != nil {
 				clearSession()
 				return err
 			}
 			pendingAudio = nil
-		} else if err := sendAudio(nil, true); err != nil {
-			clearSession()
-			return err
+		} else if !finalSent {
+			if err := sendAudio(nil, true); err != nil {
+				clearSession()
+				return err
+			}
 		}
 		var err error
 		timer := time.NewTimer(t.finalizeTimeout)
@@ -602,23 +615,25 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				if historyAudio != nil {
 					historyAudio.appendChunk(chunk, historyStreamID, audioData, cfg)
 				}
-				for audio := range splitDoubaoASRAudio(audioData, t.audioChunkSize(cfg)) {
-					if t.emitInterim {
-						if err := sendAudio(audio, false); err != nil {
-							session.Close()
-							output.CloseWithError(err)
-							return
-						}
-						continue
+				var sendErr error
+				packetBuffer.append(audioData, func(audio []byte) bool {
+					if sessionConfig.isPCM() || t.emitInterim {
+						sendErr = sendAudio(audio, false)
+						return sendErr == nil
 					}
 					if len(pendingAudio) > 0 {
-						if err := sendAudio(pendingAudio, false); err != nil {
-							session.Close()
-							output.CloseWithError(err)
-							return
+						sendErr = sendAudio(pendingAudio, false)
+						if sendErr != nil {
+							return false
 						}
 					}
 					pendingAudio = audio
+					return true
+				})
+				if sendErr != nil {
+					session.Close()
+					output.CloseWithError(sendErr)
+					return
 				}
 			}
 		} else {

@@ -205,9 +205,9 @@ func TestResolveEinoInputModeAndASRPattern(t *testing.T) {
 		wantPattern string
 		wantErr     bool
 	}{
-		{name: "omitted defaults to push-to-talk", wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr"},
-		{name: "push-to-talk", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk), wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr"},
-		{name: "realtime", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModeRealtime), wantMode: apitypes.WorkspaceInputModeRealtime, wantPattern: "model/speech.asr?emit_interim=true"},
+		{name: "omitted defaults to push-to-talk", wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr?realtime_pacing=false"},
+		{name: "push-to-talk", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModePushToTalk), wantMode: apitypes.WorkspaceInputModePushToTalk, wantPattern: "model/speech.asr?realtime_pacing=false"},
+		{name: "realtime", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputModeRealtime), wantMode: apitypes.WorkspaceInputModeRealtime, wantPattern: "model/speech.asr?realtime_pacing=false&emit_interim=true"},
 		{name: "invalid", parameters: einoWorkspaceParameters(t, apitypes.WorkspaceInputMode("invalid")), wantErr: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {

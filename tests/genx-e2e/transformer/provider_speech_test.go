@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +36,9 @@ const (
 	doubaoASRDefiniteDeadline     = 5 * time.Second
 	doubaoASRMinimumLatencySaving = time.Second
 	doubaoASRTunedLatencyLimit    = 1500 * time.Millisecond
+	doubaoASRLiveFrameDuration    = 20 * time.Millisecond
+	doubaoASRLiveFrameSize        = 640
+	doubaoASRLiveLatencyLimit     = 700 * time.Millisecond
 )
 
 func TestDoubaoSAUCASR(t *testing.T) {
@@ -107,6 +111,96 @@ func TestDoubaoSAUCASR(t *testing.T) {
 		t.Fatalf("Doubao SAUC transcript route = %#v, want BOS/data/EOS", transcriptRoute)
 	}
 	t.Logf("transcript=%q routes=%d chunks=%d", transcript.String(), len(tracker.routes), len(chunks))
+}
+
+// TestDoubaoSAUCLivePCMFrameAggregation exercises the device-facing cadence:
+// 20 ms PCM frames arrive in real time, while the transformer aggregates them
+// into the provider's 100 ms packet cadence before finalization.
+func TestDoubaoSAUCLivePCMFrameAggregation(t *testing.T) {
+	loadGenXE2EEnv(t)
+	appID := firstEnv(doubaoAppIDEnv)
+	apiKey := firstEnv(doubaoAPIKeyEnv)
+	if appID == "" || apiKey == "" {
+		t.Fatalf("set %s and %s in tests/genx-e2e/.env to run this provider e2e test", doubaoAppIDEnv, doubaoAPIKeyEnv)
+	}
+
+	var pcm bytes.Buffer
+	if _, err := codecconv.OggToPCM(&pcm, bytes.NewReader(doubaoRealtimeDuplexPromptOgg), opus.SampleRate16K); err != nil {
+		t.Fatalf("decode live ASR fixture: %v", err)
+	}
+	audio := shortASRPCM(t, pcm.Bytes(), doubaoASRShortUtteranceStart, doubaoASRShortUtteranceEnd)
+	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
+	for _, packetSize := range []int{3200, 6400} {
+		t.Run(fmt.Sprintf("packet_%dms", packetSize*1000/(16000*2)), func(t *testing.T) {
+			latencies := make([]time.Duration, 0, 5)
+			for trial := range 5 {
+				latencies = append(latencies, runDoubaoASRLivePCMTrial(t, client, audio, packetSize, trial))
+			}
+			slices.Sort(latencies)
+			median := latencies[len(latencies)/2]
+			t.Logf("packet_bytes=%d final transcript latencies=%v p50=%s", packetSize, latencies, median)
+			if median > doubaoASRLiveLatencyLimit {
+				t.Fatalf("live PCM final transcript p50 = %s, want at most %s", median, doubaoASRLiveLatencyLimit)
+			}
+		})
+	}
+}
+
+func runDoubaoASRLivePCMTrial(t *testing.T, client *doubaospeech.Client, audio []byte, packetSize, trial int) time.Duration {
+	t.Helper()
+	realtimePacing := false
+	transformer, err := doubaoasr.New(doubaoasr.Config{
+		Client:         client,
+		ChunkSize:      packetSize,
+		RealtimePacing: &realtimePacing,
+	})
+	if err != nil {
+		t.Fatalf("doubaoasr.New() failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() failed: %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	transcripts := make(chan doubaoASRTranscript, 1)
+	go receiveFirstASRTranscript(output, transcripts)
+	streamID := fmt.Sprintf("doubao-sauc-live-pcm-%d-%d", packetSize, trial)
+	for offset := 0; offset < len(audio); offset += doubaoASRLiveFrameSize {
+		end := min(offset+doubaoASRLiveFrameSize, len(audio))
+		pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
+			Role: genx.RoleUser,
+			Part: &genx.Blob{MIMEType: "audio/pcm", Data: audio[offset:end]},
+			Ctrl: &genx.StreamCtrl{StreamID: streamID},
+		})
+		waitSpeechInterval(t, ctx, doubaoASRLiveFrameDuration)
+	}
+	speechEndedAt := time.Now()
+	pushSpeechChunk(t, ctx, input, &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: &genx.Blob{MIMEType: "audio/pcm"},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true},
+	})
+	if err := input.Close(); err != nil {
+		t.Fatalf("close ASR input: %v", err)
+	}
+
+	select {
+	case transcript := <-transcripts:
+		if transcript.err != nil {
+			t.Fatalf("read ASR transcript: %v", transcript.err)
+		}
+		latency := transcript.receivedAt.Sub(speechEndedAt)
+		t.Logf("trial=%d transcript=%q final_latency=%s", trial+1, transcript.text, latency)
+		return latency
+	case <-ctx.Done():
+		t.Fatalf("Doubao ASR live PCM context ended: %v", ctx.Err())
+		return 0
+	}
 }
 
 func TestDoubaoSAUCEndpointingReducesShortUtteranceLatency(t *testing.T) {

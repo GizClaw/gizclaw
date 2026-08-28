@@ -80,6 +80,12 @@ steps:
     expect:
       /events:
         non_empty: true
+      /first_transcript_ms:
+        minimum: 1
+      /first_text_ms:
+        minimum: 1
+      /first_audio_ms:
+        minimum: 1
 finally:
   - client: peer
     rpc:

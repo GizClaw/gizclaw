@@ -61,9 +61,12 @@ for target in server edge; do
 	for parallel in 1 8; do
 		rm -f \
 			"$artifact_dir/${target}-text-p${parallel}.json" \
+			"$artifact_dir/${target}-push-to-talk-p${parallel}.json" \
 			"$artifact_dir/${target}-realtime-p${parallel}.json"
 	done
-	rm -f "$artifact_dir/${target}-realtime-roundtrip.json"
+	rm -f \
+		"$artifact_dir/${target}-push-to-talk-roundtrip.json" \
+		"$artifact_dir/${target}-realtime-roundtrip.json"
 done
 rm -f "$artifact_dir/manifest.json" "$artifact_dir/manifest.json.tmp"
 
@@ -79,8 +82,10 @@ source "$docker_env_path"
 set +a
 
 text_case="$script_dir/giztest/benchmark.eino-concurrency-assistant.concurrency-10.giztest.yaml"
+push_to_talk_case="$script_dir/giztest/benchmark.eino-concurrency-assistant.push-to-talk-concurrency-10.giztest.yaml"
 realtime_case="$script_dir/giztest/benchmark.eino-concurrency-assistant.realtime-concurrency-10.giztest.yaml"
-roundtrip_case="$script_dir/giztest/eino-concurrency-assistant.realtime-roundtrip.giztest.yaml"
+push_to_talk_roundtrip_case="$script_dir/giztest/eino-concurrency-assistant.push-to-talk-roundtrip.giztest.yaml"
+realtime_roundtrip_case="$script_dir/giztest/eino-concurrency-assistant.realtime-roundtrip.giztest.yaml"
 run_status=0
 
 run_case() {
@@ -99,11 +104,13 @@ run_case() {
 
 run_roundtrip() {
 	local target="$1"
-	local endpoint="$2"
-	local report="$artifact_dir/${target}-realtime-roundtrip.json"
-	echo "==> verify terminal roundtrip target=$target"
+	local mode="$2"
+	local endpoint="$3"
+	local path="$4"
+	local report="$artifact_dir/${target}-${mode}-roundtrip.json"
+	echo "==> verify terminal roundtrip target=$target mode=$mode"
 	if ! GIZCLAW_TEST_ENDPOINT="$endpoint" "$gizclaw_binary" test run \
-		--parallel 1 --output "$report" "$roundtrip_case"; then
+		--parallel 1 --output "$report" "$path"; then
 		run_status=1
 	fi
 }
@@ -115,9 +122,11 @@ for target in server edge; do
 	esac
 	for parallel in 1 8; do
 		run_case "$target" text "$parallel" "$endpoint" "$text_case"
+		run_case "$target" push-to-talk "$parallel" "$endpoint" "$push_to_talk_case"
 		run_case "$target" realtime "$parallel" "$endpoint" "$realtime_case"
 	done
-	run_roundtrip "$target" "$endpoint"
+	run_roundtrip "$target" push-to-talk "$endpoint" "$push_to_talk_roundtrip_case"
+	run_roundtrip "$target" realtime "$endpoint" "$realtime_roundtrip_case"
 done
 
 python3 - "$repo_root" "$artifact_dir" <<'PY'
@@ -131,9 +140,11 @@ repo_root, artifact_dir = sys.argv[1:]
 case_specs = []
 for target in ("server", "edge"):
     for parallel in (1, 8):
-        case_specs.append((f"{target}-text-p{parallel}", 10, True, False))
-        case_specs.append((f"{target}-realtime-p{parallel}", 10, True, True))
-    case_specs.append((f"{target}-realtime-roundtrip", 1, False, False))
+        case_specs.append((f"{target}-text-p{parallel}", 10, False, True, False))
+        case_specs.append((f"{target}-push-to-talk-p{parallel}", 10, True, True, True))
+        case_specs.append((f"{target}-realtime-p{parallel}", 10, True, True, True))
+    case_specs.append((f"{target}-push-to-talk-roundtrip", 1, False, False, False))
+    case_specs.append((f"{target}-realtime-roundtrip", 1, False, False, False))
 
 def file_sha256(path):
     digest = hashlib.sha256()
@@ -190,13 +201,15 @@ resource_paths = (
     "tests/gizclaw-e2e/testdata/resources/03-models/04-doubao-mini-chat.yaml",
     "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.concurrency-10.giztest.yaml",
+    "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.push-to-talk-concurrency-10.giztest.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.realtime-concurrency-10.giztest.yaml",
+    "tests/gizclaw-e2e/giztest/eino-concurrency-assistant.push-to-talk-roundtrip.giztest.yaml",
 )
 for relative_path in resource_paths:
     summary["resource_sha256"][relative_path] = file_sha256(os.path.join(repo_root, relative_path))
 
 errors = []
-for name, expected_tasks, require_text, require_audio in case_specs:
+for name, expected_tasks, require_transcript, require_text, require_audio in case_specs:
     path = os.path.join(artifact_dir, f"{name}.json")
     if not os.path.isfile(path):
         errors.append(f"{name}: missing report")
@@ -206,6 +219,7 @@ for name, expected_tasks, require_text, require_audio in case_specs:
     tasks = report.get("tasks", [])
     text_values = []
     audio_values = []
+    transcript_values = []
     cleanup_steps = 0
     if report.get("status") != "passed":
         errors.append(f"{name}: report status={report.get('status')}")
@@ -223,6 +237,12 @@ for name, expected_tasks, require_text, require_audio in case_specs:
             errors.append(f"{name}/{task.get('task_id')}: missing peer_stream evidence")
             continue
         evidence = stream.get("evidence", {})
+        if require_transcript:
+            value = evidence.get("first_transcript_ms")
+            if not isinstance(value, (int, float)) or value < 1 or value > 700:
+                errors.append(f"{name}/{task.get('task_id')}: first_transcript_ms={value}")
+            else:
+                transcript_values.append(value)
         if require_text:
             value = evidence.get("first_text_ms")
             if not isinstance(value, (int, float)) or value > 2000:
@@ -240,6 +260,7 @@ for name, expected_tasks, require_text, require_audio in case_specs:
         "status": report.get("status"),
         "tasks": len(tasks),
         "cleanup_steps": cleanup_steps,
+        "max_first_transcript_ms": max(transcript_values) if transcript_values else None,
         "max_first_text_ms": max(text_values) if text_values else None,
         "max_first_audio_ms": max(audio_values) if audio_values else None,
     }
