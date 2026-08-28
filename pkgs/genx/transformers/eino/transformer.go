@@ -186,6 +186,7 @@ func (session *session) run() {
 	var text strings.Builder
 	var parts []any
 	var pendingBOS []*genx.MessageChunk
+	supersededInputIDs := make(map[string]struct{})
 	inText := false
 	activeInputID := ""
 	activeBypassID := ""
@@ -211,16 +212,24 @@ func (session *session) run() {
 			continue
 		}
 		if isInterruptedTextInputEnd(chunk) {
-			if streamID := messageStreamID(chunk); inText && streamID == activeInputID {
+			streamID := messageStreamID(chunk)
+			if inText && streamID == activeInputID {
 				text.Reset()
 				parts = nil
 				inText = false
 				activeInputID = ""
+				continue
 			}
-			continue
+			if _, ok := supersededInputIDs[streamID]; ok {
+				delete(supersededInputIDs, streamID)
+				continue
+			}
 		}
 		if chunk.IsBeginOfStream() {
 			if chunk.Part == nil {
+				if inText && activeInputID != "" {
+					supersededInputIDs[activeInputID] = struct{}{}
+				}
 				session.interruptActive()
 				text.Reset()
 				parts = nil
@@ -230,6 +239,9 @@ func (session *session) run() {
 				continue
 			}
 			if _, ok := chunk.Part.(genx.Text); ok {
+				if streamID := messageStreamID(chunk); inText && activeInputID != "" && streamID != activeInputID {
+					supersededInputIDs[activeInputID] = struct{}{}
+				}
 				session.interruptActive()
 				text.Reset()
 				parts = nil
