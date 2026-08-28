@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
 import path from "node:path";
 import wrtc from "@roamhq/wrtc";
 
@@ -39,6 +39,11 @@ const workflowName =
     : "flowcraft-voice-assistant");
 const inputVoice = process.env.GIZCLAW_E2E_INPUT_VOICE ?? "narrator";
 const inputPCMPath = process.env.GIZCLAW_E2E_INPUT_PCM_PATH;
+const inputPCMFixtureRoot = path.join(
+  repoRoot,
+  "tests/gizclaw-e2e/testdata/pcm",
+);
+const maxInputPCMBytes = 16 * 1024 * 1024;
 const turnTimeoutMs = 90_000;
 const realtimeTailSilenceMs = 4_000;
 
@@ -210,16 +215,24 @@ async function withConnection(
     }
   }
   try {
-    if (runError != null) throw runError;
-  } catch (error) {
-    throw new Error(
-      `${name} conversation lifecycle failed; timeline=${probe.timeline.join(" | ")}`,
-      { cause: error },
-    );
+    if (runError != null) {
+      throw new Error(
+        `${name} conversation lifecycle failed; failure=${describeError(runError)}; timeline=${probe.timeline.join(" | ")}`,
+        { cause: runError },
+      );
+    }
   } finally {
     unsubscribe();
     closePeerConnection(pc);
   }
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof AggregateError) {
+    return `${error.message}: ${error.errors.map(describeError).join(" | ")}`;
+  }
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 async function runTwoTextTurns(
@@ -453,7 +466,7 @@ async function loadInputPCM(
   rpc: ReturnType<typeof createPeerRPCClient>,
 ): Promise<{ pcm: Buffer; sampleRate: number }> {
   if (inputPCMPath != null) {
-    const pcm = await readFile(inputPCMPath);
+    const pcm = await readInputPCMFixture(inputPCMPath);
     const sampleRate = Number(
       process.env.GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE ?? "16000",
     );
@@ -483,6 +496,60 @@ async function loadInputPCM(
   const channels = synthesis.result.channels ?? 1;
   assert.equal(channels, 1, "audio probe requires mono PCM");
   return { pcm, sampleRate };
+}
+
+async function readInputPCMFixture(inputPath: string): Promise<Buffer> {
+  assert.equal(
+    path.extname(inputPath).toLowerCase(),
+    ".pcm",
+    "input PCM fixture must use the .pcm extension",
+  );
+  const [fixtureRoot, fixturePath] = await Promise.all([
+    realpath(inputPCMFixtureRoot),
+    realpath(path.resolve(inputPath)),
+  ]);
+  const relative = path.relative(fixtureRoot, fixturePath);
+  assert.equal(
+    relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative),
+    true,
+    `input PCM fixture must resolve below ${inputPCMFixtureRoot}`,
+  );
+
+  const file = await open(fixturePath, "r");
+  try {
+    const info = await file.stat();
+    assert.equal(
+      info.isFile(),
+      true,
+      "input PCM fixture must be a regular file",
+    );
+    assert.equal(
+      info.size > 0 && info.size <= maxInputPCMBytes && info.size % 2 === 0,
+      true,
+      `input PCM fixture must contain 1-${maxInputPCMBytes} bytes of 16-bit mono samples`,
+    );
+    const pcm = Buffer.alloc(info.size);
+    let offset = 0;
+    while (offset < pcm.byteLength) {
+      const { bytesRead } = await file.read(
+        pcm,
+        offset,
+        pcm.byteLength - offset,
+        offset,
+      );
+      assert.notEqual(
+        bytesRead,
+        0,
+        "input PCM fixture ended before its declared size",
+      );
+      offset += bytesRead;
+    }
+    return pcm;
+  } finally {
+    await file.close();
+  }
 }
 
 async function sendPCM(

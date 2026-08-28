@@ -250,8 +250,9 @@ Event channel：先保持 realtime user-audio route 与 uplink track active，re
 消费 `INPUT_ROUTE_RELOADED` EOS 并发送 fresh BOS，再使用同一 microphone source、track、
 Event channel 和 PeerConnection 发送第二段音频并等待响应。该用例不能用测试代码直接补发
 replacement BOS；否则只验证 Server 协议，不能证明 JavaScript Client 已实现恢复。
-当 TTS 不属于当前验证目标时，可以通过 `GIZCLAW_E2E_INPUT_PCM_PATH` 选择已经解码的非空
-单声道 signed 16-bit PCM fixture；`GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` 默认为 16000，且必须
+当 TTS 不属于当前验证目标时，可以通过 `GIZCLAW_E2E_INPUT_PCM_PATH` 选择
+`tests/gizclaw-e2e/testdata/pcm/` 下已经解码的非空单声道 signed 16-bit `.pcm` fixture。
+解析后的普通文件不得超过 16 MiB；`GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` 默认为 16000，且必须
 是能被 100 整除的正整数。该路径只跳过输入 fixture 的语音合成，不绕过 realtime WebRTC
 route 或 reload 后的响应断言。
 

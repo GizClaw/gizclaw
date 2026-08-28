@@ -297,9 +297,11 @@ PeerConnection. The test must not frame the replacement BOS itself; doing so
 would verify only the Server protocol, not JavaScript Client recovery.
 When TTS is outside the behavior under test,
 `GIZCLAW_E2E_INPUT_PCM_PATH` may select a pre-decoded, non-empty mono signed
-16-bit PCM fixture; `GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` defaults to 16000 and
-must be a positive integer divisible by 100. This bypasses only input-fixture
-synthesis, not the realtime WebRTC route or its post-reload response checks.
+16-bit `.pcm` fixture below `tests/gizclaw-e2e/testdata/pcm/`. The resolved
+regular file is limited to 16 MiB. `GIZCLAW_E2E_INPUT_PCM_SAMPLE_RATE` defaults
+to 16000 and must be a positive integer divisible by 100. This bypasses only
+input-fixture synthesis, not the realtime WebRTC route or its post-reload
+response checks.
 
 When `peer_stream` receives assistant Opus, its result and redacted evidence
 expose receiver-side pacing under `audio_pacing`: `packets`, `audio_ms`,
