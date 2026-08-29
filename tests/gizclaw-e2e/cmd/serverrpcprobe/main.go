@@ -19,6 +19,12 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) == 2 && os.Args[1] == "--audio-downloads" {
+		return runAudioDownloads()
+	}
+	if len(os.Args) != 1 {
+		return fmt.Errorf("usage: serverrpcprobe [--audio-downloads]")
+	}
 	server, err := serverrpc.New()
 	if err != nil {
 		return err
@@ -67,6 +73,28 @@ func run() error {
 		}); err != nil {
 			return err
 		}
+	}
+	return writeJSON(map[string]bool{"ok": true})
+}
+
+func runAudioDownloads() error {
+	server, err := serverrpc.New()
+	if err != nil {
+		return err
+	}
+	defer server.Close()
+	if err := writeJSON(map[string]string{"endpoint": server.Endpoint}); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	conn, err := server.Accept(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if err := serverrpc.ServeAudioDownloads(ctx, conn); err != nil {
+		return err
 	}
 	return writeJSON(map[string]bool{"ok": true})
 }

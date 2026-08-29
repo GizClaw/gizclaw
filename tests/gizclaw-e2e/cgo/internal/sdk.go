@@ -58,6 +58,7 @@ type TransportSnapshot struct {
 }
 
 const (
+	RPCFrameBinary     = int(C.GZC_RPC_FRAME_BINARY)
 	RPCFrameEOS        = int(C.GZC_RPC_FRAME_EOS)
 	StatusChannelLimit = int(C.GZC_ERR_CHANNEL_LIMIT)
 )

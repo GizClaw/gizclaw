@@ -10,6 +10,8 @@
     "types": ["node"]
   },
   "include": [
+    "common/*.ts",
+    "rpc/*.test.ts",
     "streams/peer_conversation_lifecycle_e2e.test.ts",
     "streams/peer_streams_e2e.test.ts"
   ]
