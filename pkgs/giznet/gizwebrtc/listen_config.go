@@ -29,6 +29,9 @@ type iceUDPBufferSetter interface {
 }
 
 type ListenConfig struct {
+	// MetricsNodeRole identifies this listener as an application server or an
+	// Edge ingress. Values other than "edge" use the application default.
+	MetricsNodeRole string
 	// API optionally supplies a preconfigured Pion API. When nil, Listen
 	// builds one from the ICE and cipher settings below.
 	API *webrtc.API

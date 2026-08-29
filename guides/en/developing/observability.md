@@ -179,7 +179,13 @@ The defaults are a 10-second flush interval, a 5-second append timeout, and 10,0
 
 Metric names, label names, finite values, counter deltas, and histogram buckets are validated before aggregation. Invalid updates, changed series kinds or buckets, and updates beyond the series limit are dropped with rate-limited warnings that never include label values or raw invalid metric names. Business calls only take an in-process lock and never wait for `Store.Append`; failed or timed-out dirty batches remain available for retry.
 
-`cmd/internal/server` installs the recorder only when the `metrics` store exists. Shutdown order is `gizclaw.Server`, final recorder flush, then the store registry. The recorder never closes the store and no implicit memory store is created.
+`cmd/internal/server` installs the recorder only when the `metrics` store exists. Shutdown order is `gizclaw.Server`, final recorder flush, then the store registry. The recorder never closes the store and no implicit memory store is created. Standalone Edge connects its top-level `metrics` configuration directly to a Prometheus Remote Write/query backend; shutdown final-flushes after HTTP, gateway, and upstream teardown, then closes the backend connector.
+
+### WebRTC and Edge metrics
+
+The WebRTC transport records signaling, dials, connections, and service DataChannel request counts, outcomes, latency, and active gauges. Its bounded labels are `node_role=application|edge`, `role=client|server`, `direction=inbound|outbound`, and stable `result` values. Public keys, session IDs, service IDs, URLs, SDP, and content never become metric labels.
+
+The Edge gateway additionally records every ingress signaling request, including capacity rejection before the WebRTC listener, pending admissions, active logical sessions, burst SCTP use, upstream state/load, tunnel channels, logical-session establishment, and bridge terminals. The families use `giz_webrtc_*` and `giz_edge_webrtc_*`; `giz_edge_webrtc_capacity_limit{resource=...}` publishes configured ceilings corresponding to the active gauges.
 
 ### Peer telemetry
 
@@ -214,7 +220,7 @@ Duration buckets are `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`, `1`
 
 The wrapper preserves `http.Flusher`, `http.Hijacker`, `io.ReaderFrom`, and `http.Pusher` when the underlying writer supports them. It records a panic and re-panics, leaving recovery policy unchanged. The operation resolver must return a stable registered name; raw paths, queries, request IDs, peer keys, and product identifiers never become labels.
 
-The wrapper is reusable infrastructure and does not automatically instrument every GizClaw surface. Product owners must opt in with a stable resolver. Peer RPC, GenX, and WebRTC metrics remain separate work owned by their packages.
+The wrapper is reusable infrastructure and does not automatically instrument every GizClaw surface. Product owners must opt in with a stable resolver. WebRTC transport uses the separate `giz_webrtc_*` families; Peer RPC and GenX remain outside this HTTP wrapper.
 
 PromQL examples:
 
@@ -262,9 +268,9 @@ configuration alone would not.
 4. Put generic HTTP measurement in `pkgs/gizmetrics/httpmetrics`, GizClaw product fields in `pkgs/gizclaw/internal/observability`, and GenX or WebRTC measurements in their owner packages.
 5. Test success, client/server errors, cancellation, panic, streaming, backend failure, redaction, and the no-store path without changing response or lifecycle behavior.
 
-## Edge-routed Peer stream lifecycle
+## Peer stream lifecycle and conversation content
 
-`gizclaw: peer stream lifecycle` correlates one Edge-routed logical Peer from gateway admission through Server input and Agent output. Edge and Server use the same `tunnel_session_id`; the authenticated logical identity is recorded as `peer_public_key`. The connection-level `component`, `stage`, `result`, `reason`, `last_stage`, and `duration_ms` records remain available. A connection terminal also contains `input_event_observed`, `agent_input_opened`, `agent_input_pushed`, and `output_event_observed` so a zero-event connection failure remains distinguishable.
+`gizclaw: peer stream lifecycle` correlates a direct or Edge-routed logical Peer from Server input through Agent output; the Edge path also covers gateway admission. The authenticated logical identity is `peer_public_key`, and Edge plus Server share one `tunnel_session_id`. Connection-level `component`, `stage`, `result`, `reason`, `last_stage`, and `duration_ms` records remain available. A connection terminal also contains `input_event_observed`, `agent_input_opened`, `agent_input_pushed`, and `output_event_observed` so a zero-event connection failure remains distinguishable.
 
 The Edge `bridge_started` terminal keeps the first connection-level bridge path,
 direction, phase, and closed error class. Destination-open failures are folded
@@ -275,7 +281,9 @@ those fields are omitted rather than inferred. All bridge dimensions are
 top-level scalar log fields, never metric labels, and no per-service record or raw
 error is emitted.
 
-Each authorized input BOS allocates a positive, monotonically increasing `turn_index` within the tunnel. `(tunnel_session_id, turn_index)` is the query identity for one logical turn and is never placed on the wire or used as a metric label. Input and assistant output identifiers are independent: their safe correlation fields are `input_stream_id_hash` and `output_stream_id_hash`. Output binds only through the producer response epoch's immutable owning input route; there is no current-turn, timing, Workspace, or output-ID fallback. Replaced turns remain boundedly retained so an old epoch's first late chunk and terminal stay on the original turn. Output without provenance remains unowned by per-turn records.
+Each authorized input BOS allocates a positive, monotonically increasing `turn_index` within the Peer connection. Edge queries use `(tunnel_session_id, turn_index)` and direct queries use `(peer_public_key, turn_index)`; these fields are never placed on the wire or used as metric labels. Input and assistant output identifiers are independent: their safe correlation fields are `input_stream_id_hash` and `output_stream_id_hash`. Output binds only through the producer response epoch's immutable owning input route; there is no current-turn, timing, Workspace, or output-ID fallback. Replaced turns remain boundedly retained so an old epoch's first late chunk and terminal stay on the original turn. Output without provenance remains unowned by per-turn records.
+
+The stable `gizclaw: AI conversation content` message records actual dialogue content for the turn. Every record contains `peer_public_key`, `tunnel_session_id` when available, `turn_index`, `content_role=user|assistant`, a zero-based per-role `content_index`, `content_source`, `event_type`, and the original `content`. Direct text is recorded with `content_source=agent_input` only after authorized input enters the Agent queue. Final ASR transcript text is recorded with `content_source=final_transcript` when the Agent produces it. AI text is recorded with `content_source=peer_delivery` only after the corresponding Peer event broadcasts successfully; generated but undelivered text is not recorded as a reply. Within one `content_source`, sorting and concatenating `content` by `(peer_public_key, tunnel_session_id?, turn_index, content_role, content_index)` reconstructs that direct utterance, final transcript, or delivered response without conflating the direct-input and ASR representations.
 
 The bounded per-turn stages are `turn_started`, `input_first_event`, `input_terminal`, `interrupt_observed`, `agent_input_first_push`, `agent_transform_started`, `agent_output_produced`, `output_first_event`, `agent_output_delivered`, `agent_terminal`, `output_terminal`, and `turn_terminal`. Turn boundaries use `component=peer_turn`, transport input and output stages keep `component=peer_input|agent_output`, and the four Agent boundary stages use `component=agent_runtime`. Every applicable stage is emitted at most once per turn. The first produced and delivered records contain one closed `output_modality` value: `transcript_text`, `assistant_text`, `assistant_audio`, `assistant_eos`, `interrupt`, `control`, or `other`; later chunks only update the bounded terminal snapshot.
 
@@ -283,22 +291,10 @@ The bounded per-turn stages are `turn_started`, `input_first_event`, `input_term
 
 `agent_terminal.terminal_class` is one of `completed`, `interrupted`, `provider_error`, `transform_error`, `stream_error`, `caller_canceled`, or `deadline_exceeded`. `turn_terminal` adds `agent_transform_started`, `agent_terminal_observed`, `produced_modalities`, `delivered_modalities`, and five sorted unique class sets: `source_part_classes` (`text`, `audio`, `control`, `other`), `source_label_classes` and `peer_event_label_classes` (`assistant`, `transcript`, `history`, `empty`, `other`), `peer_event_types` (`bos`, `eos`, `text_delta`, `text_done`), and `peer_event_kinds` (`text`, `audio`, `video`, `mixed`, `unspecified`). This distinguishes zero output, transcript-only, audio-only, EOS/interruption-only, Agent failure, and downstream delivery failure without logging raw labels or payloads. Closed `result` values are `success`, `replaced`, `interrupted`, `canceled`, `timeout`, `closed`, `runtime_error`, and `incomplete`; closed terminal or interruption `reason` values are `completed`, `input_replaced`, `control_interrupt`, `expected_interruption`, `caller_canceled`, `deadline_exceeded`, `stream_closed`, `internal_error`, and `state_limit`. Raw errors are never copied.
 
-Success log volume is bounded by turns times this fixed stage set, not by packets, audio frames, text deltas, or control fragments. Active and recently replaced state is capped, completed state is released, and connection teardown emits one terminal summary for every retained incomplete turn before clearing the correlation maps. Instrumentation does not block, retry, reorder, or alter Peer, AgentHost, provider, interruption, timeout, or cleanup behavior.
+Lifecycle-stage volume is bounded by turns times this fixed stage set, not by packets, audio frames, text deltas, or control fragments. Conversation-content records grow with text chunks so lifecycle state never caches unbounded content. Active and recently replaced state is capped, completed state is released, and connection teardown emits one terminal summary for every retained incomplete turn before clearing the correlation maps. Instrumentation does not block, retry, reorder, or alter Peer, AgentHost, provider, interruption, timeout, or cleanup behavior.
 
-The Server decides whether to construct this complete connection, turn, and
-Agent-runtime observer once when it accepts a logical Peer. If every effective
-`services.system_log` sink rejects `INFO`, it keeps a nil observer and skips
-correlation formatting, state maps, input/output wrappers, producer callbacks,
-route hashing, Workspace lookup, modality snapshots, and record construction.
-If any sink accepts `INFO`, the whole lifecycle remains enabled for that
-connection. The decision never changes mid-connection. There is no separate
-lifecycle configuration field. These Server settings do not control the
-independent Edge process or its gateway lifecycle records.
+The Server constructs the connection, turn, and Agent-runtime observer for every direct or Edge logical Peer. Conversation audit content is not optional and has no independent disable setting. Log sinks still own persistence and level policy, but the runtime no longer skips content-correlation state because `INFO` was filtered when the connection started.
 
-The existing `gizclaw: assistant route failed` Error record remains active when
-an accepted Edge logical Peer's lifecycle observer is disabled. It keeps its
-bounded route and error fields, but leaves `workspace` empty without invoking
-the Workspace-name callback. Ordinary non-Edge Peers and Info-enabled Edge
-logical Peers preserve the existing Workspace correlation.
+The existing `gizclaw: assistant route failed` Error record continues to keep bounded route, Workspace, and error fields. It is not a conversation-content record and cannot replace the per-turn actual-delivery reply.
 
 Untrusted stream identifiers use a stable 128-bit hash; raw `stream_id` values are never logged. The hash contract trims leading and trailing Unicode whitespace, UTF-8 encodes the result, applies unkeyed SHA-256, keeps the first 16 digest bytes, and emits 32 lowercase hexadecimal characters. Empty normalized IDs are omitted. It performs no case folding or Unicode normalization and uses no salt or HMAC key. For example, `stream-42` maps to `0f3a788cbbee0b932cfcac7d71645f31`. This is a stable correlation token that avoids accidental raw-value disclosure, not an anonymization boundary: low-entropy IDs are dictionary-testable, so producers must not put credentials or secrets in stream IDs. Session, turn, Peer, Workspace, and stream identifiers remain log-only dimensions and must never become metric labels. Lifecycle records must not contain remote addresses, SDP, ICE candidate bodies, credentials, raw provider errors, or panic values; this restriction does not prohibit recording user-to-AI input, final ASR transcripts, or the AI response content actually delivered to the user.

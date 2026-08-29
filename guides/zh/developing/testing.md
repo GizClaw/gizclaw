@@ -368,12 +368,22 @@ bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 bash tests/gizclaw-e2e/run_turn_relay_tests.sh
+bash tests/gizclaw-e2e/run_observability_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
 GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
+
+Observability 入口让真实 AI 文本回合经 Edge 进入 Server。Server 与 Edge 的
+`giz_webrtc_*`/`giz_edge_webrtc_*` 样本写入 E2E 专用的 Prometheus Remote Write
+协议 fixture；Server system log 同时写入隔离的 SQLite `log.immutable` Store。验收会从
+fixture 查询核心 metric family 与 `node_role=application|edge`，并通过 Admin Log Query
+按同一 `(peer_public_key, tunnel_session_id, turn_index)` 查回用户原文、实际投递的 AI
+回复，以及 `turn_started`、`agent_input_first_push`、`output_first_event`、
+`turn_terminal` lifecycle stage。默认 Docker E2E 的内存 metrics Store 与 stderr log
+行为不变。
 
 需要 credential 的 GizClaw 入口（包括 capacity 和 focused Server relay lane）要求同一份
 完整的 `tests/gizclaw-e2e/.env`；隔离的 relay-recovery lane 会生成仅运行时 fixture

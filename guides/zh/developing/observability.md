@@ -194,7 +194,13 @@ Completion record 不输出 `error_message`。响应 message、`err.Error()`、v
 
 Counter 保存进程内单调累计值，gauge 保存最新值，histogram 导出累计的 `_bucket`、`_sum` 和 `_count` samples，并总是包含 `le=+Inf`。Metric name、label name、数值和 buckets 在进入聚合 map 前校验；非法 update、同一 series 改变类型/buckets 或超过 series 上限时丢弃并输出限频且不包含 label value 的 warning。业务调用不等待 `Store.Append`，失败或超时的 dirty samples 留待下一次 flush。
 
-`cmd/internal/server` 只在配置了名为 `metrics` 的 store 时安装 recorder。关闭顺序固定为 `gizclaw.Server`、recorder final flush、store registry；recorder 不关闭 store。
+`cmd/internal/server` 只在配置了名为 `metrics` 的 store 时安装 recorder。关闭顺序固定为 `gizclaw.Server`、recorder final flush、store registry；recorder 不关闭 store。Standalone Edge 使用顶层 `metrics` 配置直接连接 Prometheus Remote Write/query backend，并在关闭 HTTP、gateway 与 upstream 后 final flush，再关闭 backend connector。
+
+### WebRTC 与 Edge metrics
+
+WebRTC transport 记录 signaling、dial、连接和 service DataChannel 的请求量、结果、时延与 active gauge。通用 labels 只使用有界的 `node_role=application|edge`、`role=client|server`、`direction=inbound|outbound` 和稳定 `result`；PubKey、session ID、service ID、URL、SDP 与内容都不进入 labels。
+
+Edge gateway 额外记录所有入口 signaling（包括在 WebRTC listener 之前被容量控制拒绝的请求）、pending admission、active logical session、burst SCTP、upstream 状态/占用、tunnel channel、logical-session establishment 和 bridge terminal。主要 metric families 为 `giz_webrtc_*` 与 `giz_edge_webrtc_*`。`giz_edge_webrtc_capacity_limit{resource=...}` 暴露与 active gauge 对应的配置上限。
 
 ### 当前 Peer telemetry metrics
 
@@ -238,7 +244,7 @@ Duration buckets 是 `0.005`、`0.01`、`0.025`、`0.05`、`0.1`、`0.25`、`0.5
 
 `method` 只保留 `GET`、`HEAD`、`POST`、`PUT`、`PATCH`、`DELETE`、`OPTIONS`、`CONNECT` 和 `TRACE`，其他值归一为 `OTHER`。In-flight gauge 在同一进程的多个 wrapper 实例之间按相同 label set 聚合。Wrapper 保留底层 writer 已支持的 `http.Flusher`、`http.Hijacker`、`io.ReaderFrom` 和 `http.Pusher`，记录 panic 后继续抛出，不改变 recovery policy。
 
-`httpmetrics.Wrap` 是可复用测量能力，并不会自动给所有 GizClaw surface 增加 request metrics。具体产品 operation 的接入需要由 owner package 显式提供稳定 resolver。Peer RPC、GenX 和 WebRTC metrics 不由这个 HTTP wrapper 采集。
+`httpmetrics.Wrap` 是可复用测量能力，并不会自动给所有 GizClaw surface 增加 request metrics。具体产品 operation 的接入需要由 owner package 显式提供稳定 resolver。WebRTC transport 使用独立的 `giz_webrtc_*` families；Peer RPC 与 GenX 仍不由这个 HTTP wrapper 采集。
 
 聚合示例：
 
@@ -287,9 +293,9 @@ relay path，而不是 Edge/Server resource owner。这里的 counter 支撑有�
 4. HTTP 通用测量放在 `pkgs/gizmetrics/httpmetrics`，GizClaw 产品字段放在 `pkgs/gizclaw/internal/observability`，GenX 与 WebRTC 指标留在各自 owner package。
 5. 测试成功、4xx/5xx、取消、panic、streaming、backend failure、redaction 和 no-store 路径，并证明 instrumentation 不改变业务 response 或 lifecycle。
 
-## 经 Edge 路由的 Peer stream 生命周期
+## Peer stream 生命周期与对话内容
 
-`gizclaw: peer stream lifecycle` 把一个经 Edge 路由的 logical Peer 从 gateway admission、Server input 一直关联到 Agent output。Edge 与 Server 使用相同的 `tunnel_session_id`，认证后的 logical identity 记录为 `peer_public_key`。原有 connection-level `component`、`stage`、`result`、`reason`、`last_stage` 与 `duration_ms` record 保持兼容；connection terminal 继续包含 `input_event_observed`、`agent_input_opened`、`agent_input_pushed` 和 `output_event_observed`，用于区分 zero-event connection failure。
+`gizclaw: peer stream lifecycle` 把 direct Peer 或经 Edge 路由的 logical Peer 从 Server input 一直关联到 Agent output；Edge 路径还覆盖 gateway admission。认证后的 logical identity 记录为 `peer_public_key`，Edge 与 Server 使用相同的 `tunnel_session_id`。Connection-level `component`、`stage`、`result`、`reason`、`last_stage` 与 `duration_ms` record 保持兼容；connection terminal 继续包含 `input_event_observed`、`agent_input_opened`、`agent_input_pushed` 和 `output_event_observed`，用于区分 zero-event connection failure。
 
 Edge 的 `bridge_started` terminal 会保留首个 connection-level bridge path、direction、phase
 与封闭 error class。Destination-open failure 聚合为一个 count 以及 first/last direction 和 class。
@@ -298,7 +304,9 @@ Edge 的 `bridge_started` terminal 会保留首个 connection-level bridge path�
 不做推断。所有 bridge dimension 都是顶层 scalar log field，绝不成为 metric label，也不产生
 per-service record 或复制 raw error。
 
-每个授权通过的 input BOS 都在当前 tunnel 内分配一个单调递增的正数 `turn_index`。`(tunnel_session_id, turn_index)` 是单个 logical turn 的查询 identity，不进入 wire contract，也不能成为 metric label。Input 与 assistant output 的 stream identifier 可以不同，分别记录为安全的 `input_stream_id_hash` 和 `output_stream_id_hash`。Output 只通过 producer response epoch 的不可变 owning input route 绑定；不存在 current-turn、timing、Workspace 或 output-ID fallback。被替换 turn 会有界保留，使旧 epoch 第一次迟到的 chunk 与 terminal 仍归属原 turn；无 provenance output 不归属 per-turn record。
+每个授权通过的 input BOS 都在当前 Peer connection 内分配一个单调递增的正数 `turn_index`。Edge 路径使用 `(tunnel_session_id, turn_index)`，direct 路径使用 `(peer_public_key, turn_index)` 查询单个 logical turn；这些字段不进入 wire contract，也不能成为 metric label。Input 与 assistant output 的 stream identifier 可以不同，分别记录为安全的 `input_stream_id_hash` 和 `output_stream_id_hash`。Output 只通过 producer response epoch 的不可变 owning input route 绑定；不存在 current-turn、timing、Workspace 或 output-ID fallback。被替换 turn 会有界保留，使旧 epoch 第一次迟到的 chunk 与 terminal 仍归属原 turn；无 provenance output 不归属 per-turn record。
+
+稳定 message `gizclaw: AI conversation content` 记录该 turn 的实际对话内容。每条 record 包含 `peer_public_key`、可用时的 `tunnel_session_id`、`turn_index`、`content_role=user|assistant`、从 0 开始且按 role 独立递增的 `content_index`、`content_source`、`event_type` 和原始 `content`。Direct text 只在授权输入成功进入 Agent queue 后以 `content_source=agent_input` 记录；音频输入的最终 ASR 文本在 Agent 产出 transcript 时以 `content_source=final_transcript` 记录；AI 文本只在对应 Peer event 成功 broadcast 后以 `content_source=peer_delivery` 记录。生成但未投递的 AI 文本不记为回复。在同一 `content_source` 内按 `(peer_public_key, tunnel_session_id?, turn_index, content_role, content_index)` 排序并拼接 `content`，可分别重组直接问话、最终 transcript 或实际投递回复，避免混淆 direct input 与 ASR 两种表示。
 
 有界的 per-turn stage 包括 `turn_started`、`input_first_event`、`input_terminal`、`interrupt_observed`、`agent_input_first_push`、`agent_transform_started`、`agent_output_produced`、`output_first_event`、`agent_output_delivered`、`agent_terminal`、`output_terminal` 和 `turn_terminal`。Turn boundary 使用 `component=peer_turn`，transport input/output stage 保持 `component=peer_input|agent_output`，四个 Agent boundary stage 使用 `component=agent_runtime`。每个适用 stage 在一个 turn 中最多输出一次。首次 produced/delivered record 包含一个封闭的 `output_modality` 值：`transcript_text`、`assistant_text`、`assistant_audio`、`assistant_eos`、`interrupt`、`control` 或 `other`；后续 chunk 只更新有界 terminal snapshot。
 
@@ -306,18 +314,10 @@ per-service record 或复制 raw error。
 
 `agent_terminal.terminal_class` 只能是 `completed`、`interrupted`、`provider_error`、`transform_error`、`stream_error`、`caller_canceled` 或 `deadline_exceeded`。`turn_terminal` 在既有有界布尔值之外增加 `agent_transform_started`、`agent_terminal_observed`、`produced_modalities`、`delivered_modalities` 与五组排序去重的 class：`source_part_classes`（`text`、`audio`、`control`、`other`），`source_label_classes` 和 `peer_event_label_classes`（`assistant`、`transcript`、`history`、`empty`、`other`），`peer_event_types`（`bos`、`eos`、`text_delta`、`text_done`），以及 `peer_event_kinds`（`text`、`audio`、`video`、`mixed`、`unspecified`）。这些字段在不记录 raw label 或 payload 的前提下区分 zero output、transcript-only、audio-only、仅 EOS/interruption、Agent failure 与 downstream delivery failure。封闭的 `result` 取值为 `success`、`replaced`、`interrupted`、`canceled`、`timeout`、`closed`、`runtime_error` 和 `incomplete`；terminal 或 interruption 的封闭 `reason` 取值为 `completed`、`input_replaced`、`control_interrupt`、`expected_interruption`、`caller_canceled`、`deadline_exceeded`、`stream_closed`、`internal_error` 和 `state_limit`。Raw error 绝不被复制。
 
-成功日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。Instrumentation 不阻塞、不重试、不重排，也不改变 Peer、AgentHost、provider、interruption、timeout 或 cleanup 行为。
+Lifecycle stage 日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长；对话内容日志则按文本 chunk 增长，以避免在 lifecycle state 中缓存无界内容。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。Instrumentation 不阻塞、不重试、不重排，也不改变 Peer、AgentHost、provider、interruption、timeout 或 cleanup 行为。
 
-Server 在接受 logical Peer 时只决定一次是否构造完整的 connection、turn 与 Agent-runtime
-observer。如果所有有效 `services.system_log` sink 都拒绝 `INFO`，Server 保持 nil observer，
-并跳过 correlation 格式化、state map、input/output wrapper、producer callback、route hash、
-Workspace lookup、modality snapshot 与 record 构造。只要任意 sink 接受 `INFO`，该 connection
-的完整 lifecycle 就保持启用；连接中途不会改变。这里没有独立 lifecycle 配置字段。
-这些 Server 设置也不控制独立 Edge 进程及其 gateway lifecycle record。
+Server 为每个 direct 或 Edge logical Peer 构造 connection、turn 与 Agent-runtime observer；对话审计内容不是可选字段，也没有独立关闭配置。日志 sink 仍负责持久化与级别策略，但 runtime 不再因为启动时 `INFO` 被过滤而跳过内容关联状态。
 
-accepted Edge logical Peer 的 lifecycle observer 禁用时，既有
-`gizclaw: assistant route failed` Error record 仍会输出，并保留有界 route 与 error 字段；
-但它不会调用 Workspace-name callback，`workspace` 保持为空。普通 non-Edge Peer 与
-Info-enabled Edge logical Peer 的既有 Workspace correlation 保持不变。
+既有 `gizclaw: assistant route failed` Error record 继续保留有界 route、Workspace 与 error 字段；它不是对话内容 record，也不能替代按 turn 关联的实际投递回复。
 
 不可信 stream identifier 使用稳定的 128-bit hash，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、SDP、ICE candidate body、credential、provider raw error 或 panic value；这条限制不禁止记录用户与 AI 之间的输入、最终 ASR transcript 和实际投递的 AI 回复内容。

@@ -79,6 +79,63 @@ func TestPeerStreamLifecycleCorrelatesSequentialTurns(t *testing.T) {
 	}
 }
 
+func TestPeerStreamLifecycleRecordsUserAndDeliveredAssistantContent(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-content", "peer-content")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-content", nil))
+	lifecycle.observeAgentInputPush(&genx.MessageChunk{
+		Role: genx.RoleUser,
+		Part: genx.Text("用户问题"),
+		Ctrl: &genx.StreamCtrl{StreamID: "input-content"},
+	})
+	output := attachTestResponseEpoch("input-content", &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Part: genx.Text("AI 回复"),
+		Ctrl: &genx.StreamCtrl{StreamID: "output-content", Label: "assistant"},
+	})
+	lifecycle.observePeerEventDelivered(t.Context(), output, peerStreamEventsFromChunk(output)[0], nil)
+
+	records := capturedConversationContentRecords(t, capture)
+	if len(records) != 2 {
+		t.Fatalf("content records = %d, want user and assistant", len(records))
+	}
+	user := lifecycleRecordAttrs(records[0])
+	if user["peer_public_key"] != "peer-content" || user["tunnel_session_id"] != "session-content" ||
+		user["turn_index"] != uint64(1) || user["content_role"] != "user" ||
+		user["content_index"] != uint64(0) || user["content"] != "用户问题" || user["content_source"] != "agent_input" {
+		t.Fatalf("user content = %#v", user)
+	}
+	assistant := lifecycleRecordAttrs(records[1])
+	if assistant["peer_public_key"] != "peer-content" || assistant["turn_index"] != uint64(1) ||
+		assistant["content_role"] != "assistant" || assistant["content_index"] != uint64(0) ||
+		assistant["content"] != "AI 回复" || assistant["content_source"] != "peer_delivery" {
+		t.Fatalf("assistant content = %#v", assistant)
+	}
+}
+
+func TestPeerStreamLifecycleRecordsFinalTranscriptContent(t *testing.T) {
+	capture := &slogCapture{}
+	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-transcript", "peer-transcript")
+	lifecycle.observeInput(peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-transcript", nil))
+	transcript := attachTestResponseEpoch("input-transcript", &genx.MessageChunk{
+		Role: genx.RoleUser,
+		Name: "transcript",
+		Part: genx.Text("最终转写"),
+		Ctrl: &genx.StreamCtrl{StreamID: "output-transcript", Label: "transcript"},
+	})
+	lifecycle.observeOutputProduced(transcript)
+
+	records := capturedConversationContentRecords(t, capture)
+	if len(records) != 1 {
+		t.Fatalf("content records = %d, want final transcript", len(records))
+	}
+	attrs := lifecycleRecordAttrs(records[0])
+	if attrs["content_role"] != "user" || attrs["content_source"] != "final_transcript" ||
+		attrs["content"] != "最终转写" || attrs["content_index"] != uint64(0) {
+		t.Fatalf("final transcript content = %#v", attrs)
+	}
+}
+
 func TestPeerStreamLifecycleKeepsLateOutputTerminalOnReplacedTurn(t *testing.T) {
 	capture := &slogCapture{}
 	lifecycle := newPeerStreamLifecycle(slog.New(capture), "session-replace", "peer-replace")
@@ -911,59 +968,26 @@ func TestPeerStreamLifecycleTerminalLocalizesZeroEvent(t *testing.T) {
 	}
 }
 
-func TestPeerStreamLifecycleDisabledAtInfoAvoidsAllObservationWork(t *testing.T) {
+func TestPeerStreamLifecycleAlwaysTracksAuditCorrelation(t *testing.T) {
 	warnLogger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	if lifecycle := newPeerStreamLifecycle(warnLogger, "session-disabled", "peer-disabled"); lifecycle != nil {
-		t.Fatal("Warn logger constructed a lifecycle observer")
+	if lifecycle := newPeerStreamLifecycle(warnLogger, "session-warn", "peer-warn"); lifecycle == nil {
+		t.Fatal("Warn logger did not construct the required audit observer")
 	}
 
 	previous := slog.Default()
 	slog.SetDefault(warnLogger)
 	t.Cleanup(func() { slog.SetDefault(previous) })
-	if lifecycle := newPeerStreamLifecycle(nil, "session-default-disabled", "peer-default-disabled"); lifecycle != nil {
-		t.Fatal("nil logger did not resolve the disabled default logger")
-	}
-
-	var lifecycle *peerStreamLifecycle
-	input := peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "input-secret", nil)
-	chunk := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text("private output"),
-		Ctrl: &genx.StreamCtrl{StreamID: "output-secret", BeginOfStream: true},
-	}
-	workspaceCalled := false
-	workspaceName := func(context.Context) string {
-		workspaceCalled = true
-		return "private-workspace"
-	}
-	allocations := testing.AllocsPerRun(1000, func() {
-		lifecycle.accepted()
-		lifecycle.eventStreamAccepted()
-		lifecycle.observeInput(input)
-		lifecycle.observeAgentInputOpen()
-		lifecycle.observeAgentInputPush(chunk)
-		lifecycle.observeAgentTransformStarted(chunk)
-		lifecycle.observeInterrupt()
-		lifecycle.observeOutputProduced(chunk)
-		lifecycle.observeOutput(context.Background(), chunk, workspaceName)
-		lifecycle.finish("agent_output", nil)
-		lifecycle.finish("peer_input", nil)
-		lifecycle.finish("server_tunnel", nil)
-	})
-	if allocations != 0 {
-		t.Fatalf("disabled lifecycle allocations = %v, want 0", allocations)
-	}
-	if workspaceCalled {
-		t.Fatal("disabled lifecycle resolved the Workspace callback")
+	if lifecycle := newPeerStreamLifecycle(nil, "session-default", "peer-default"); lifecycle == nil {
+		t.Fatal("nil logger did not resolve the default logger for audit correlation")
 	}
 }
 
-func TestPeerStreamLifecycleUsesAnyInfoEnabledHandler(t *testing.T) {
+func TestPeerStreamLifecycleDoesNotDependOnHandlerLevel(t *testing.T) {
 	warn := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelWarn})
 	info := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo})
 	allWarn := slog.New(&lifecycleTestFanoutHandler{handlers: []slog.Handler{warn, warn}})
-	if lifecycle := newPeerStreamLifecycle(allWarn, "session-warn", "peer-warn"); lifecycle != nil {
-		t.Fatal("all-Warn fanout constructed a lifecycle observer")
+	if lifecycle := newPeerStreamLifecycle(allWarn, "session-warn", "peer-warn"); lifecycle == nil {
+		t.Fatal("all-Warn fanout did not construct the required audit observer")
 	}
 	mixed := slog.New(&lifecycleTestFanoutHandler{handlers: []slog.Handler{warn, info}})
 	if lifecycle := newPeerStreamLifecycle(mixed, "session-mixed", "peer-mixed"); lifecycle == nil {
@@ -1031,7 +1055,26 @@ func capturedLifecycleRecords(t *testing.T, capture *slogCapture) []slog.Record 
 	t.Helper()
 	capture.mu.Lock()
 	defer capture.mu.Unlock()
-	return append([]slog.Record(nil), capture.records...)
+	var records []slog.Record
+	for _, record := range capture.records {
+		if record.Message == peerStreamLifecycleMessage {
+			records = append(records, record)
+		}
+	}
+	return records
+}
+
+func capturedConversationContentRecords(t *testing.T, capture *slogCapture) []slog.Record {
+	t.Helper()
+	capture.mu.Lock()
+	defer capture.mu.Unlock()
+	var records []slog.Record
+	for _, record := range capture.records {
+		if record.Message == peerConversationContentMessage {
+			records = append(records, record)
+		}
+	}
+	return records
 }
 
 func lifecycleRecordAttrs(record slog.Record) map[string]any {

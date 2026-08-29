@@ -49,6 +49,16 @@ func (l *Listener) SignalingHandler() http.Handler {
 }
 
 func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	recorder := &signalingStatusWriter{ResponseWriter: w}
+	w = recorder
+	defer func() {
+		status := recorder.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		recordSignalingRequest(r.Context(), l.metricsNodeRole(), signalingResult(status), started)
+	}()
 	if l == nil || l.closed.Load() {
 		writeSignalingError(w, http.StatusServiceUnavailable, "listener_closed")
 		return
@@ -111,9 +121,11 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 
 	answerSDP, conn, timing, err := l.acceptOffer(r.Context(), clientPK, string(offerSDP))
 	if err != nil {
+		recordSignalingPhases(r.Context(), l.metricsNodeRole(), "internal_error", timing)
 		writeSignalingError(w, http.StatusInternalServerError, "answer_failed")
 		return
 	}
+	recordSignalingPhases(r.Context(), l.metricsNodeRole(), "success", timing)
 	sealed := respAEAD.Seal(nil, respNonce, []byte(answerSDP), responseAAD(clientPK, ts, nonce))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Server-Timing", timing.serverTiming())
@@ -129,6 +141,32 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 			_ = conn.Close()
 		}
 	}()
+}
+
+func (l *Listener) metricsNodeRole() string {
+	if l == nil {
+		return ""
+	}
+	return l.cfg.MetricsNodeRole
+}
+
+type signalingStatusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *signalingStatusWriter) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *signalingStatusWriter) Write(data []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(data)
 }
 
 func (l *Listener) acceptOffer(
@@ -152,6 +190,7 @@ func (l *Listener) acceptOffer(
 		_ = pc.Close()
 		return "", nil, timing, err
 	}
+	conn.nodeRole = normalizedMetricsNodeRole(l.cfg.MetricsNodeRole)
 	if l.cfg.AggregateServices {
 		conn.EnableServiceAccept()
 	}

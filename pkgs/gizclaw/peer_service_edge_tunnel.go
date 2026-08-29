@@ -81,11 +81,7 @@ func newAcceptedPeerStreamLifecycle(
 	logger *slog.Logger,
 	declaration giztunnel.SessionDeclaration,
 ) *peerStreamLifecycle {
-	logger, enabled := peerStreamLifecycleLogger(logger)
-	if !enabled {
-		return nil
-	}
-	return newEnabledPeerStreamLifecycle(
+	return newPeerStreamLifecycle(
 		logger,
 		declaration.SessionID.String(),
 		declaration.ClientPublicKey.String(),

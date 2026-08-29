@@ -144,6 +144,10 @@ func (h *PeerConn) serve() error {
 	if err := h.Service.validateServices(); err != nil {
 		return err
 	}
+	if h.streamLifecycle == nil && !h.streamLifecycleDisabled {
+		h.streamLifecycle = newPeerStreamLifecycle(slog.Default(), "", h.Conn.PublicKey().String())
+		h.streamLifecycleDisabled = h.streamLifecycle == nil
+	}
 	if h.Service.manager.allowActivePeerRole(
 		context.Background(),
 		h.Conn.PublicKey(),

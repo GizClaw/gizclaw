@@ -172,6 +172,9 @@ func TestPeerAgentOutputDoesNotMarkDeliveryWhenPeerBroadcastFails(t *testing.T) 
 	if terminal["terminal_class"] != "stream_error" || terminal["delivered_modalities"] != "" {
 		t.Fatalf("delivery failure terminal = %#v", terminal)
 	}
+	if records := capturedConversationContentRecords(t, capture); len(records) != 0 {
+		t.Fatalf("undelivered assistant content records = %d, want 0", len(records))
+	}
 }
 
 func TestPeerAgentOutputLifecycleBoundsPerTurnChunkLogs(t *testing.T) {

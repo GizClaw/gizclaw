@@ -29,6 +29,9 @@ const (
 var errDialICEAttempt = errors.New("gizwebrtc: ICE establishment attempt")
 
 type DialConfig struct {
+	// MetricsNodeRole identifies the process initiating this dial. Values other
+	// than "edge" use the application default.
+	MetricsNodeRole    string
 	API                *webrtc.API
 	HTTPClient         *http.Client
 	SignalingURL       string
@@ -156,6 +159,11 @@ func dialWithAttempts(
 ) (*Listener, *Conn, error) {
 	started := time.Now()
 	combined := DialTiming{}
+	var finalErr error
+	defer func() {
+		combined.Total = time.Since(started)
+		recordDial(ctx, cfg.MetricsNodeRole, combined, finalErr)
+	}()
 	callback := cfg.OnTiming
 	cfg.OnTiming = func(observation DialTiming) {
 		combined.add(observation)
@@ -165,7 +173,8 @@ func dialWithAttempts(
 		if callback != nil {
 			callback(combined)
 		}
-		return nil, nil, fmt.Errorf("gizwebrtc: nil key pair")
+		finalErr = fmt.Errorf("gizwebrtc: nil key pair")
+		return nil, nil, finalErr
 	}
 	maxAttempts := dialMaxAttempts
 	if cfg.API != nil {
@@ -195,12 +204,15 @@ func dialWithAttempts(
 				callback(combined)
 			}
 			if attemptIndex > 0 {
-				return nil, nil, fmt.Errorf("gizwebrtc: dial failed after %d ICE attempts: first: %v; last: %w", attemptIndex+1, firstErr, err)
+				finalErr = fmt.Errorf("gizwebrtc: dial failed after %d ICE attempts: first: %v; last: %w", attemptIndex+1, firstErr, err)
+				return nil, nil, finalErr
 			}
-			return nil, nil, err
+			finalErr = err
+			return nil, nil, finalErr
 		}
 	}
-	return nil, nil, errors.New("gizwebrtc: no ICE dial attempt configured")
+	finalErr = errors.New("gizwebrtc: no ICE dial attempt configured")
+	return nil, nil, finalErr
 }
 
 func dialAttempt(
@@ -229,6 +241,7 @@ func dialAttempt(
 	l := &Listener{
 		key: key,
 		cfg: ListenConfig{
+			MetricsNodeRole:    cfg.MetricsNodeRole,
 			CipherMode:         cfg.CipherMode,
 			ICEServers:         cfg.ICEServers,
 			ICETransportPolicy: cfg.ICETransportPolicy,
@@ -262,6 +275,7 @@ func dialAttempt(
 		_ = l.Close()
 		return nil, nil, err
 	}
+	conn.nodeRole = normalizedMetricsNodeRole(cfg.MetricsNodeRole)
 	ordered := false
 	maxRetransmits := uint16(0)
 	packetDC, err := pc.CreateDataChannel(packetLabel, &webrtc.DataChannelInit{

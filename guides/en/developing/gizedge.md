@@ -87,6 +87,7 @@ The Edge workspace configuration describes the basic information required to run
 - Selection of TLS certificate source.
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
 - Optional gateway capacity, upstream pool, buffer, idle, and drain bounds.
+- An optional Prometheus Remote Write/query metrics backend.
 
 Top-level `listen` is the only client-ingress bind tuple. The Edge opens
 separate TCP and UDP sockets on that host and numeric port: TCP carries public
@@ -101,7 +102,16 @@ deployments may use different local and external tuples, but the one external
 `turn.public-endpoint` remain separate because they configure a downstream
 relay service rather than the client HTTP/WebRTC ingress.
 
-The configuration belongs to the Edge runtime and does not reuse the storage, service or domain configuration of GizClaw Server. Server config should also not assume the public ingress and TURN parameters of the Edge process.
+The configuration belongs to the Edge runtime and does not reuse the storage, service or domain configuration of GizClaw Server. Server config should also not assume the public ingress and TURN parameters of the Edge process. Standalone Edge process metrics use a separate top-level configuration:
+
+```yaml
+metrics:
+  remote-write-url: https://prometheus.example.invalid/api/v1/write
+  query-url: https://prometheus.example.invalid
+  bearer-token: <prometheus-token>
+```
+
+When all three fields are empty the recorder remains a no-op. Configuring any field requires valid Remote Write and query URLs; otherwise Edge fails before opening a listener. The bearer token is used only for backend requests and is never logged.
 
 Currently only disabled paths work for the TLS certificate source; Edge RPC and file certificate sources are still not implemented. Development guidelines cannot write these configuration values ​​as supported capabilities.
 
