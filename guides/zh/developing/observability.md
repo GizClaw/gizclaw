@@ -174,7 +174,7 @@ Value 是不含 whitespace、quote、backslash 或 wildcard 的 token，或不�
 
 ### 敏感信息
 
-日志不得包含 Authorization、cookie、signature、nonce、private key、credential、access key、请求/响应 body、SDP、audio、image、file、prompt、conversation、workflow event、raw URL/query、provider error text 或任意 panic value。
+日志不得包含 Authorization、cookie、signature、nonce、private key、credential、access key、SDP、raw URL/query、provider error text 或任意 panic value。用户与 AI 之间的输入、最终 ASR transcript 和实际投递的 AI 回复内容不在本节的禁止范围内。
 
 Completion record 不输出 `error_message`。响应 message、`err.Error()`、validation/provider text 和 panic value 均不会投影到结构化字段；`peer_public_key` 只记录已经用于 authorization 的认证身份。
 
@@ -320,4 +320,4 @@ accepted Edge logical Peer 的 lifecycle observer 禁用时，既有
 但它不会调用 Workspace-name callback，`workspace` 保持为空。普通 non-Edge Peer 与
 Info-enabled Edge logical Peer 的既有 Workspace correlation 保持不变。
 
-不可信 stream identifier 使用稳定的 128-bit hash，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、payload、audio、transcript、prompt、conversation event、SDP、ICE candidate body、credential、provider raw error 或 panic value。
+不可信 stream identifier 使用稳定的 128-bit hash，绝不记录 raw `stream_id`。哈希契约固定为：去掉首尾 Unicode 空白字符，将结果按 UTF-8 编码，使用无密钥 SHA-256，保留摘要前 16 字节并输出 32 位小写十六进制；规范化后为空时省略该字段。不做大小写折叠或 Unicode 规范化，也不使用 salt 或 HMAC key。例如 `stream-42` 固定得到 `0f3a788cbbee0b932cfcac7d71645f31`。它只是避免意外暴露原值的稳定关联 token，不是匿名化边界：低熵 ID 仍可被字典枚举，因此上游不得把凭据或秘密放进 stream ID。Session、turn、Peer、Workspace 和 stream identifier 只能用于日志查询，不能成为 metric label。Lifecycle record 禁止包含 remote address、SDP、ICE candidate body、credential、provider raw error 或 panic value；这条限制不禁止记录用户与 AI 之间的输入、最终 ASR transcript 和实际投递的 AI 回复内容。
