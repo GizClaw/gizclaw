@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -97,6 +98,7 @@ func newGateway(
 		acceptDone:      make(chan struct{}),
 	}
 	listener, err := (&gizwebrtc.ListenConfig{
+		MetricsNodeRole:              "edge",
 		ICEUDPAddr:                   cfg.Listen,
 		PublicICEUDPAddr:             publicGatewayICEAddr(cfg.Endpoint),
 		ICELite:                      true,
@@ -125,8 +127,29 @@ func newGateway(
 	}
 	gateway.listener = listener
 	gateway.pool = pool
+	gateway.capacityMu.Lock()
+	gateway.recordCapacityMetricsLocked()
+	gateway.capacityMu.Unlock()
+	recordGatewayCapacityLimits(ctx, cfg.Gateway)
 	go gateway.acceptLoop()
 	return gateway, nil
+}
+
+func recordGatewayCapacityLimits(ctx context.Context, cfg GatewayConfig) {
+	limits := []struct {
+		resource string
+		value    int
+	}{
+		{resource: "sessions", value: cfg.MaxSessions},
+		{resource: "pending_handshakes", value: cfg.MaxPendingHandshakes},
+		{resource: "upstreams", value: cfg.MaxUpstreams},
+		{resource: "sessions_per_upstream", value: cfg.SessionsPerUpstream},
+		{resource: "channels_per_upstream", value: cfg.ChannelsPerUpstream},
+	}
+	for _, limit := range limits {
+		gizmetrics.SetGauge(ctx, metricEdgeCapacityLimit, float64(limit.value),
+			gizmetrics.Label{Name: "resource", Value: limit.resource})
+	}
 }
 
 func publicGatewayICEAddr(endpoint string) string {
@@ -183,6 +206,21 @@ func (g *Gateway) Handler(next http.Handler) http.Handler {
 }
 
 func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	requestRecorder := &gatewayStatusWriter{ResponseWriter: w}
+	w = requestRecorder
+	defer func() {
+		result := "success"
+		if requestRecorder.status < http.StatusOK || requestRecorder.status >= http.StatusMultipleChoices {
+			result = "rejected"
+			if requestRecorder.status == http.StatusServiceUnavailable {
+				result = "over_capacity"
+			}
+		}
+		labels := []gizmetrics.Label{{Name: "result", Value: result}}
+		gizmetrics.AddCounter(r.Context(), metricEdgeRequests, 1, labels...)
+		recordEdgeDuration(r.Context(), metricEdgeRequestDuration, started, labels...)
+	}()
 	var clientKey giznet.PublicKey
 	if err := clientKey.UnmarshalText([]byte(r.Header.Get("X-Giznet-Public-Key"))); err != nil ||
 		clientKey.IsZero() {
@@ -191,6 +229,8 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	}
 	admission, err := g.reserveAdmission()
 	if err != nil {
+		gizmetrics.AddCounter(r.Context(), metricEdgeAdmissionRejections, 1,
+			gizmetrics.Label{Name: "reason", Value: "capacity"})
 		writeGatewaySignalingError(w, http.StatusServiceUnavailable, "gateway_over_capacity", true)
 		return
 	}
@@ -199,6 +239,8 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(context.WithValue(r.Context(), gatewayAdmissionContextKey{}, admission))
 	entry, release, err := g.pool.acquire(r.Context())
 	if err != nil {
+		gizmetrics.AddCounter(r.Context(), metricEdgeAdmissionRejections, 1,
+			gizmetrics.Label{Name: "reason", Value: "upstream_capacity"})
 		admission.releasePending()
 		writeGatewaySignalingError(w, http.StatusServiceUnavailable, "gateway_over_capacity", true)
 		return
@@ -245,7 +287,21 @@ func (g *Gateway) reserveAdmission() (*gatewayAdmission, error) {
 		g.burstSCTP++
 		admission.burstSCTP = true
 	}
+	g.recordCapacityMetricsLocked()
 	return admission, nil
+}
+
+func (g *Gateway) recordCapacityMetricsLocked() {
+	if g == nil {
+		return
+	}
+	ctx := g.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	gizmetrics.SetGauge(ctx, metricEdgeAdmissionsPending, float64(g.pending))
+	gizmetrics.SetGauge(ctx, metricEdgeSessionsActive, float64(g.active))
+	gizmetrics.SetGauge(ctx, metricEdgeBurstSCTPActive, float64(g.burstSCTP))
 }
 
 func (g *Gateway) allowBurstSCTP(ctx context.Context, publicKey giznet.PublicKey) bool {
@@ -273,6 +329,7 @@ func (a *gatewayAdmission) releasePending() {
 		a.gateway.pending--
 	}
 	a.releaseBurstSCTPLocked()
+	a.gateway.recordCapacityMetricsLocked()
 	a.gateway.capacityMu.Unlock()
 	a.releasePool()
 	a.gateway.removeAdmission(a)
@@ -290,6 +347,7 @@ func (a *gatewayAdmission) promote() bool {
 		a.gateway.pending--
 	}
 	a.gateway.active++
+	a.gateway.recordCapacityMetricsLocked()
 	a.gateway.capacityMu.Unlock()
 	return true
 }
@@ -303,6 +361,7 @@ func (a *gatewayAdmission) releaseActive() {
 		a.gateway.active--
 	}
 	a.releaseBurstSCTPLocked()
+	a.gateway.recordCapacityMetricsLocked()
 	a.gateway.capacityMu.Unlock()
 	a.releasePool()
 }
@@ -496,6 +555,10 @@ func (g *Gateway) openLogicalSession(
 	cancelHandshake()
 	if err != nil {
 		reason := preSessionHandshakeFailureCategory(err, completeHandshakeBudget)
+		result := gatewaySessionEstablishmentResult(err, completeHandshakeBudget)
+		labels := []gizmetrics.Label{{Name: "result", Value: result}, {Name: "reason", Value: reason}}
+		gizmetrics.AddCounter(g.ctx, metricEdgeSessionEstablishments, 1, labels...)
+		recordEdgeDuration(g.ctx, metricEdgeSessionEstablishDuration, handshakeStarted, labels...)
 		slog.InfoContext(g.ctx, "gateway logical session establishment failed",
 			"entry_id", entry.id,
 			"reason", reason,
@@ -513,6 +576,9 @@ func (g *Gateway) openLogicalSession(
 		)
 		return nil, sessionID.String(), g.classifySessionHandshakeFailure(ctx, entry, err, completeHandshakeBudget)
 	}
+	labels := []gizmetrics.Label{{Name: "result", Value: "success"}, {Name: "reason", Value: "completed"}}
+	gizmetrics.AddCounter(g.ctx, metricEdgeSessionEstablishments, 1, labels...)
+	recordEdgeDuration(g.ctx, metricEdgeSessionEstablishDuration, handshakeStarted, labels...)
 	slog.InfoContext(g.ctx, peerStreamLifecycleMessage,
 		"component", "edge_gateway",
 		"stage", "session_accepted",
@@ -614,6 +680,9 @@ func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Co
 	observation, err := giztunnel.BridgeWithObservation(client, logical)
 	close(done)
 	result, reason := gatewayBridgeLifecycleResult(observation, err)
+	metricLabels := []gizmetrics.Label{{Name: "result", Value: result}, {Name: "reason", Value: reason}}
+	gizmetrics.AddCounter(g.ctx, metricEdgeBridges, 1, metricLabels...)
+	recordEdgeDuration(g.ctx, metricEdgeBridgeDuration, started, metricLabels...)
 	attrs := []any{
 		"component", "edge_gateway",
 		"stage", "terminal",
@@ -874,6 +943,7 @@ type gatewayPool struct {
 	nextID     uint64
 	growthDone chan struct{}
 	closed     bool
+	channels   atomic.Int64
 }
 
 type gatewayUpstream struct {
@@ -888,6 +958,7 @@ type gatewayUpstream struct {
 	active       int
 	state        gatewayUpstreamState
 	peakChannels atomic.Int64
+	channels     atomic.Int64
 
 	closing   atomic.Bool
 	closeOnce sync.Once
@@ -924,6 +995,7 @@ func (p *gatewayPool) ensureOne(ctx context.Context) error {
 	p.nextID++
 	entry.id = p.nextID
 	p.entries = append(p.entries, entry)
+	p.recordMetricsLocked()
 	p.mu.Unlock()
 	logGatewayUpstreamICE(entry)
 	return nil
@@ -959,6 +1031,7 @@ func (p *gatewayPool) warm(ctx context.Context) error {
 			p.nextID++
 			entry.id = p.nextID
 			p.entries = append(p.entries, entry)
+			p.recordMetricsLocked()
 			p.mu.Unlock()
 			logGatewayUpstreamICE(entry)
 		})
@@ -1037,6 +1110,7 @@ func (p *gatewayPool) replenishWarm(done chan struct{}) {
 			p.nextID++
 			entry.id = p.nextID
 			p.entries = append(p.entries, entry)
+			p.recordMetricsLocked()
 			needsMore := p.selectableCountLocked() < p.warmTarget() && len(p.entries) < p.cfg.Gateway.MaxUpstreams
 			close(done)
 			if needsMore {
@@ -1111,6 +1185,7 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		// congestion window and makes modest bursts slower and more expensive.
 		if selected != nil {
 			selected.active++
+			p.recordMetricsLocked()
 			growthDone := p.reserveWarmGrowthLocked()
 			p.mu.Unlock()
 			if growthDone != nil {
@@ -1160,6 +1235,7 @@ func (p *gatewayPool) acquire(ctx context.Context) (*gatewayUpstream, func(), er
 		p.nextID++
 		entry.id = p.nextID
 		p.entries = append(p.entries, entry)
+		p.recordMetricsLocked()
 		p.mu.Unlock()
 		logGatewayUpstreamICE(entry)
 	}
@@ -1306,6 +1382,7 @@ func (p *gatewayPool) release(entry *gatewayUpstream) {
 	if closeEntry {
 		p.removeLocked(entry)
 	}
+	p.recordMetricsLocked()
 	growthDone := p.reserveWarmGrowthLocked()
 	p.mu.Unlock()
 	if closeEntry {
@@ -1327,6 +1404,7 @@ func (p *gatewayPool) markDraining(entry *gatewayUpstream, reason string) bool {
 	if closeEntry {
 		p.removeLocked(entry)
 	}
+	p.recordMetricsLocked()
 	growthDone := p.reserveWarmGrowthLocked()
 	p.mu.Unlock()
 	p.logTransition(entry, "draining", reason)
@@ -1347,6 +1425,7 @@ func (p *gatewayPool) markFailed(entry *gatewayUpstream, reason string, relayFai
 	}
 	entry.state = gatewayUpstreamFailed
 	p.removeLocked(entry)
+	p.recordMetricsLocked()
 	growthDone := p.reserveWarmGrowthLocked()
 	p.mu.Unlock()
 	if relayFailure && !entry.closing.Load() && p.contextErr() == nil {
@@ -1391,6 +1470,36 @@ func (p *gatewayPool) removeLocked(target *gatewayUpstream) {
 	}
 }
 
+func (p *gatewayPool) recordMetricsLocked() {
+	if p == nil {
+		return
+	}
+	counts := map[gatewayUpstreamState]int{
+		gatewayUpstreamSelectable: 0,
+		gatewayUpstreamDraining:   0,
+		gatewayUpstreamFailed:     0,
+	}
+	activeSessions := 0
+	for _, entry := range p.entries {
+		counts[entry.state]++
+		activeSessions += entry.active
+	}
+	ctx := p.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	states := []struct {
+		state gatewayUpstreamState
+		name  string
+	}{{gatewayUpstreamSelectable, "selectable"}, {gatewayUpstreamDraining, "draining"}, {gatewayUpstreamFailed, "failed"}}
+	for _, state := range states {
+		gizmetrics.SetGauge(ctx, metricEdgeUpstreams, float64(counts[state.state]),
+			gizmetrics.Label{Name: "state", Value: state.name})
+	}
+	gizmetrics.SetGauge(ctx, metricEdgeUpstreamSessions, float64(activeSessions))
+	gizmetrics.SetGauge(ctx, metricEdgeTunnelChannels, float64(p.channels.Load()))
+}
+
 func (p *gatewayPool) Close() error {
 	if p == nil {
 		return nil
@@ -1403,6 +1512,7 @@ func (p *gatewayPool) Close() error {
 	p.closed = true
 	entries := append([]*gatewayUpstream(nil), p.entries...)
 	p.entries = nil
+	p.recordMetricsLocked()
 	if p.growthDone != nil {
 		close(p.growthDone)
 		p.growthDone = nil
@@ -1458,6 +1568,15 @@ func (e *gatewayUpstream) hasChannelCapacity(limit int) bool {
 func (e *gatewayUpstream) observeActiveChannels(active int) {
 	if e == nil {
 		return
+	}
+	previous := e.channels.Swap(int64(active))
+	if e.pool != nil {
+		total := e.pool.channels.Add(int64(active) - previous)
+		ctx := e.pool.ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		gizmetrics.SetGauge(ctx, metricEdgeTunnelChannels, float64(max(0, total)))
 	}
 	peak := e.peakChannels.Load()
 	for int64(active) > peak && !e.peakChannels.CompareAndSwap(peak, int64(active)) {

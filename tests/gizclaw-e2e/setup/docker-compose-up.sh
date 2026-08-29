@@ -7,8 +7,9 @@ repo_root="$(cd "$e2e_dir/../.." && pwd)"
 docker_dir="$e2e_dir/docker"
 compose_file="$docker_dir/docker-compose.yaml"
 volc_log_compose_file="$docker_dir/docker-compose.volc-log.yaml"
+observability_compose_file="$docker_dir/docker-compose.observability.yaml"
 gateway_relay_compose_file="$docker_dir/docker-compose.gateway-relay.yaml"
-env_file="$e2e_dir/.env"
+env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$e2e_dir/.env}"
 state_root="$e2e_dir/testdata/docker"
 # Keep a bounded relay pool large enough for one uninterrupted full run while
 # still making port ownership and teardown assertions practical.
@@ -24,6 +25,10 @@ while (($# > 0)); do
   case "$1" in
     --volc-log)
       stack_mode="volc-log"
+      shift
+      ;;
+    --observability)
+      stack_mode="observability"
       shift
       ;;
     --gateway-capacity)
@@ -52,6 +57,10 @@ while (($# > 0)); do
       ;;
   esac
 done
+if [[ "$stack_mode" == "observability" && "$topology_mode" != "full" ]]; then
+  echo "--observability only supports the standard full Edge topology" >&2
+  exit 2
+fi
 if [[ "$topology_mode" != "gateway-relay-recovery" ]]; then
   require_gizclaw_e2e_credentials "$env_file"
 fi
@@ -61,6 +70,11 @@ if [[ "$stack_mode" == "volc-log" ]]; then
   : "${GIZCLAW_E2E_VOLC_LOG_ENDPOINT:?set the provisioned LogStore endpoint}"
   : "${GIZCLAW_E2E_VOLC_LOG_REGION:?set the provisioned LogStore region}"
   : "${GIZCLAW_E2E_VOLC_LOG_TOPIC_ID:?set the provisioned LogStore topic id}"
+fi
+if [[ "$stack_mode" == "observability" ]]; then
+  export GIZCLAW_E2E_OBSERVABILITY=1
+else
+  unset GIZCLAW_E2E_OBSERVABILITY
 fi
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" ]]; then
   export GIZCLAW_E2E_CAPACITY_ONLY=1
@@ -410,6 +424,7 @@ GIZCLAW_E2E_DOCKER_EDGE2_PORT=$GIZCLAW_E2E_DOCKER_EDGE2_PORT
 GIZCLAW_E2E_DOCKER_TURN_PORT=$GIZCLAW_E2E_DOCKER_TURN_PORT
 GIZCLAW_E2E_DOCKER_COMPOSE_FILE=$compose_file
 GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY=${GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY:-}
+GIZCLAW_E2E_OBSERVABILITY=${GIZCLAW_E2E_OBSERVABILITY:-}
 GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP=${GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP:-}
 GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP=${GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP:-}
 GIZCLAW_E2E_GATEWAY_RELAY_EDGE2_IP=${GIZCLAW_E2E_GATEWAY_RELAY_EDGE2_IP:-}
@@ -670,6 +685,9 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
     fi
   fi
   GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY="$gateway_relay_compose_file"
+elif [[ "$stack_mode" == "observability" ]]; then
+  GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE=""
+  GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY="$observability_compose_file"
 else
   GIZCLAW_E2E_GATEWAY_RELAY_ENV_FILE=""
   GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY=""
@@ -680,6 +698,8 @@ export GIZCLAW_E2E_SERVER_ENDPOINT GIZCLAW_E2E_EDGE_ENDPOINT GIZCLAW_E2E_EDGE2_E
 export GIZCLAW_E2E_TURN_ENDPOINT GIZCLAW_E2E_TURN_RELAY_ADDRESS GIZCLAW_E2E_TURN_REALM GIZCLAW_E2E_TURN_USERNAME GIZCLAW_E2E_TURN_CREDENTIAL
 export GIZCLAW_E2E_TURN_RELAY_MIN_PORT GIZCLAW_E2E_TURN_RELAY_MAX_PORT
 export GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY
+export GIZCLAW_E2E_CREDENTIAL_FILE="$env_file"
+export GIZCLAW_E2E_OBSERVABILITY
 export GIZCLAW_E2E_GATEWAY_RELAY_SUBNET GIZCLAW_E2E_GATEWAY_RELAY_SERVER_IP GIZCLAW_E2E_GATEWAY_RELAY_EDGE_IP GIZCLAW_E2E_GATEWAY_RELAY_EDGE2_IP
 export GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP
 export GIZCLAW_E2E_GATEWAY_RELAY_REALM GIZCLAW_E2E_GATEWAY_RELAY_USERNAME GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL
@@ -738,6 +758,9 @@ echo "==> start Docker e2e stack project=$GIZCLAW_E2E_DOCKER_PROJECT server=$GIZ
 compose_files=(-f "$compose_file")
 if [[ "$stack_mode" == "volc-log" ]]; then
   compose_files+=(-f "$volc_log_compose_file")
+fi
+if [[ "$stack_mode" == "observability" ]]; then
+  compose_files+=(-f "$observability_compose_file")
 fi
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   compose_files+=(-f "$gateway_relay_compose_file")

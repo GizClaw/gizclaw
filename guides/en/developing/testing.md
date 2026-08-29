@@ -439,12 +439,24 @@ bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
 bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
 bash tests/gizclaw-e2e/run_turn_relay_tests.sh
+bash tests/gizclaw-e2e/run_observability_tests.sh
 
 GIZCLAW_E2E_VOLC_LOG_ENDPOINT=... \
 GIZCLAW_E2E_VOLC_LOG_REGION=... \
 GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
   bash tests/gizclaw-e2e/run_volc_log_tests.sh
 ```
+
+The observability entrypoint sends one real AI text turn through Edge to the
+Server. Server and Edge `giz_webrtc_*`/`giz_edge_webrtc_*` samples go to an
+E2E-only Prometheus Remote Write protocol fixture, while Server system logs go
+to an isolated SQLite `log.immutable` Store. Acceptance queries the fixture for
+the core metric families and `node_role=application|edge`, then uses Admin Log
+Query to retrieve the user input, the AI response actually delivered, and the
+`turn_started`, `agent_input_first_push`, `output_first_event`, and
+`turn_terminal` lifecycle stages under one
+`(peer_public_key, tunnel_session_id, turn_index)`. The default Docker E2E
+memory metrics Store and stderr log behavior remain unchanged.
 
 Credential-backed GizClaw entrypoints, including capacity and the focused
 Server relay lane, require the same complete `tests/gizclaw-e2e/.env`. The

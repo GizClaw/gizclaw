@@ -79,6 +79,60 @@ if [[ "${GIZCLAW_E2E_PERSISTENT_KV:-}" == "1" ]]; then
   perl -0pi -e 's/  memory:\n    kind: memory/  memory:\n    kind: badger\n    dir: data\/state.badger/' \
     "$workspace_dir/config.yaml"
 fi
+if [[ "${GIZCLAW_E2E_OBSERVABILITY:-}" == "1" ]]; then
+  : "${GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL:?missing GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL}"
+  : "${GIZCLAW_E2E_METRICS_QUERY_URL:?missing GIZCLAW_E2E_METRICS_QUERY_URL}"
+  awk \
+    -v remote_write_url="$GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL" \
+    -v query_url="$GIZCLAW_E2E_METRICS_QUERY_URL" '
+function quote_yaml(value) {
+  gsub(/\\/, "\\\\", value)
+  gsub(/"/, "\\\"", value)
+  return "\"" value "\""
+}
+/^  metrics-memory:/ {
+  print "  metrics-memory:"
+  print "    kind: prometheus"
+  print "    remote_write_url: " quote_yaml(remote_write_url)
+  print "    query_url: " quote_yaml(query_url)
+  skip_metrics_memory = 1
+  next
+}
+skip_metrics_memory && /^  [^ ]/ { skip_metrics_memory = 0 }
+skip_metrics_memory { next }
+/^stores:/ {
+  print "  observability-db:"
+  print "    kind: sqlite"
+  print "    dir: data/observability.sqlite"
+  print ""
+  print $0
+  next
+}
+/^services:/ {
+  print "  logs:"
+  print "    kind: log.immutable"
+  print "    storage: observability-db"
+  print "    table: gizclaw_e2e_logs"
+  print ""
+  print $0
+  next
+}
+/^  system_log:/ {
+  print "  system_log:"
+  print "    level: info"
+  print "    query_store: logs"
+  print "    sinks:"
+  print "      - kind: stderr"
+  print "      - kind: store"
+  print "        store: logs"
+  skip_system_log = 1
+  next
+}
+skip_system_log { next }
+{ print }
+  ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
+  mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
+fi
 if [[ "${GIZCLAW_E2E_CAPACITY_ONLY:-}" == "1" ]]; then
   awk '
     /^ice-servers:/ { skip = 1; next }

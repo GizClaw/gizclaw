@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
 	"github.com/pion/webrtc/v4"
@@ -26,7 +27,9 @@ const serviceOpenTimeout = 10 * time.Second
 var ErrServiceOpen = errors.New("gizwebrtc: service open")
 
 type Conn struct {
-	pk giznet.PublicKey
+	pk       giznet.PublicKey
+	role     string
+	nodeRole string
 
 	pc     *webrtc.PeerConnection
 	policy giznet.SecurityPolicy
@@ -54,15 +57,18 @@ type Conn struct {
 	nativeChannels   map[*NativeChannel]struct{}
 	nativeInbound    map[*webrtc.DataChannel]struct{}
 
-	readCh   chan directPacket
-	readyCh  chan struct{}
-	closeCh  chan struct{}
-	once     sync.Once
-	closed   atomic.Bool
-	closeMu  sync.RWMutex
-	closeErr error
-	rxBytes  atomic.Uint64
-	txBytes  atomic.Uint64
+	readCh         chan directPacket
+	readyCh        chan struct{}
+	closeCh        chan struct{}
+	once           sync.Once
+	closed         atomic.Bool
+	closeMu        sync.RWMutex
+	closeErr       error
+	rxBytes        atomic.Uint64
+	txBytes        atomic.Uint64
+	metricsMu      sync.Mutex
+	metricsActive  bool
+	metricsStarted time.Time
 
 	audioTrack sampleWriter
 }
@@ -97,6 +103,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	}()
 	c := &Conn{
 		pk:             pk,
+		role:           role,
 		pc:             pc,
 		policy:         policy,
 		localAddr:      addr("gizwebrtc:" + role + ":local"),
@@ -236,34 +243,50 @@ func (c *Conn) Dial(service uint64) (net.Conn, error) {
 // DialContext opens a service DataChannel and cancels the pending open when
 // ctx completes without closing the parent PeerConnection.
 func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error) {
+	started := time.Now()
+	var resultErr error
+	metricCtx := ctx
+	if metricCtx == nil {
+		metricCtx = context.Background()
+	}
+	defer func() {
+		recordServiceRequest(metricCtx, c.nodeRole, c.metricsRole(), "outbound", serviceResult(resultErr), started)
+	}()
 	if ctx == nil {
-		return nil, errors.New("gizwebrtc: nil service-open context")
+		resultErr = errors.New("gizwebrtc: nil service-open context")
+		return nil, resultErr
 	}
 	if err := c.validate(); err != nil {
-		return nil, err
+		resultErr = err
+		return nil, resultErr
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		resultErr = err
+		return nil, resultErr
 	}
 	c.serviceMu.Lock()
 	if c.closedSvc[service] {
 		c.serviceMu.Unlock()
-		return nil, giznet.ErrServiceMuxClosed
+		resultErr = giznet.ErrServiceMuxClosed
+		return nil, resultErr
 	}
 	c.serviceMu.Unlock()
 	dc, err := c.pc.CreateDataChannel(serviceLabel(service), &webrtc.DataChannelInit{})
 	if err != nil {
-		return nil, err
+		resultErr = err
+		return nil, resultErr
 	}
 	raw, err := detachWhenOpen(ctx, dc, c.closeCh, c.parentCloseError)
 	if err != nil {
 		_ = dc.Close()
-		return nil, err
+		resultErr = err
+		return nil, resultErr
 	}
 	if err := c.validate(); err != nil {
 		_ = raw.Close()
 		_ = dc.Close()
-		return nil, err
+		resultErr = err
+		return nil, resultErr
 	}
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
@@ -271,7 +294,8 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 	if err := c.trackStream(service, stream, nil); err != nil {
 		_ = stream.Close()
 		_ = dc.Close()
-		return nil, err
+		resultErr = err
+		return nil, resultErr
 	}
 	return stream, nil
 }
@@ -307,6 +331,9 @@ func (c *Conn) CloseService(service uint64) error {
 	streams := make([]*dataChannelConn, 0, len(c.streams[service]))
 	for s := range c.streams[service] {
 		streams = append(streams, s)
+	}
+	for range streams {
+		adjustActiveMetric(context.Background(), metricServiceStreamsActive, c.nodeRole, c.metricsRole(), -1)
 	}
 	delete(c.streams, service)
 	c.serviceMu.Unlock()
@@ -399,12 +426,20 @@ func (c *Conn) close(cause error) error {
 	}
 	var closeErr error
 	c.once.Do(func() {
+		c.closed.Store(true)
+		c.metricsMu.Lock()
+		if c.metricsActive {
+			c.metricsActive = false
+			labels := []gizmetrics.Label{{Name: "node_role", Value: normalizedMetricsNodeRole(c.nodeRole)}, {Name: "role", Value: c.metricsRole()}}
+			adjustActiveMetric(context.Background(), metricConnectionsActive, c.nodeRole, c.metricsRole(), -1)
+			gizmetrics.ObserveHistogram(context.Background(), metricConnectionDuration, time.Since(c.metricsStarted).Seconds(), webrtcDurationBuckets, labels...)
+		}
+		c.metricsMu.Unlock()
 		c.closeMu.Lock()
 		if cause != nil {
 			c.closeErr = errors.Join(giznet.ErrConnClosed, cause)
 		}
 		c.closeMu.Unlock()
-		c.closed.Store(true)
 		close(c.closeCh)
 		c.serviceMu.Lock()
 		listeners := make([]*ServiceListener, 0, len(c.services))
@@ -416,6 +451,9 @@ func (c *Conn) close(cause error) error {
 			for s := range serviceStreams {
 				streams = append(streams, s)
 			}
+		}
+		for range streams {
+			adjustActiveMetric(context.Background(), metricServiceStreamsActive, c.nodeRole, c.metricsRole(), -1)
 		}
 		c.streams = make(map[uint64]map[*dataChannelConn]struct{})
 		c.serviceMu.Unlock()
@@ -472,6 +510,7 @@ func (c *Conn) validate() error {
 }
 
 func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
+	started := time.Now()
 	label := dc.Label()
 	if c.handleNativeDataChannel(dc) {
 		return
@@ -492,12 +531,19 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		return
 	}
 	service, ok := parseServiceLabel(label)
-	if !ok || c.policy != nil && !c.policy.AllowService(c.pk, service) {
+	if !ok {
+		recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", "invalid_service", started)
+		_ = dc.Close()
+		return
+	}
+	if c.policy != nil && !c.policy.AllowService(c.pk, service) {
+		recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", "forbidden", started)
 		_ = dc.Close()
 		return
 	}
 	release, ok := c.reserveInboundServiceStream(dc)
 	if !ok {
+		recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", "over_capacity", started)
 		_ = dc.Close()
 		return
 	}
@@ -505,6 +551,7 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 	dc.OnOpen(func() {
 		raw, err := dc.DetachWithDeadline()
 		if err != nil {
+			recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", "error", started)
 			release()
 			_ = dc.Close()
 			return
@@ -514,6 +561,7 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 			c.serviceMu.Unlock()
 			release()
 			_ = raw.Close()
+			recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", "service_closed", started)
 			return
 		}
 		l := c.services[service]
@@ -531,8 +579,10 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		if err := c.trackStream(service, stream, release); err != nil {
 			release()
 			_ = stream.Close()
+			recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", serviceResult(err), started)
 			return
 		}
+		recordServiceRequest(context.Background(), c.nodeRole, c.metricsRole(), "inbound", "success", started)
 		if c.acceptAll.Load() {
 			select {
 			case c.serviceCh <- acceptedService{service: service, stream: stream}:
@@ -599,6 +649,7 @@ func (c *Conn) setPacket(dc *webrtc.DataChannel, raw datachannel.ReadWriteCloser
 	}
 	c.packetRaw = raw
 	c.packetMu.Unlock()
+	c.markMetricsEstablished()
 	close(c.readyCh)
 	go c.readPacketLoop(raw)
 }
@@ -643,16 +694,44 @@ func (c *Conn) trackStream(service uint64, s *dataChannelConn, releaseInbound fu
 		c.untrackStream(service, s)
 	}
 	c.streams[service][s] = struct{}{}
+	adjustActiveMetric(context.Background(), metricServiceStreamsActive, c.nodeRole, c.metricsRole(), 1)
 	return nil
 }
 
 func (c *Conn) untrackStream(service uint64, s *dataChannelConn) {
 	c.serviceMu.Lock()
 	defer c.serviceMu.Unlock()
+	if _, exists := c.streams[service][s]; !exists {
+		return
+	}
 	delete(c.streams[service], s)
+	adjustActiveMetric(context.Background(), metricServiceStreamsActive, c.nodeRole, c.metricsRole(), -1)
 	if len(c.streams[service]) == 0 {
 		delete(c.streams, service)
 	}
+}
+
+func (c *Conn) metricsRole() string {
+	if c == nil || c.role == "" {
+		return "unknown"
+	}
+	return c.role
+}
+
+func (c *Conn) markMetricsEstablished() {
+	if c == nil {
+		return
+	}
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+	if c.closed.Load() || c.metricsActive {
+		return
+	}
+	c.metricsStarted = time.Now()
+	c.metricsActive = true
+	labels := []gizmetrics.Label{{Name: "node_role", Value: normalizedMetricsNodeRole(c.nodeRole)}, {Name: "role", Value: c.metricsRole()}}
+	gizmetrics.AddCounter(context.Background(), metricConnections, 1, labels...)
+	adjustActiveMetric(context.Background(), metricConnectionsActive, c.nodeRole, c.metricsRole(), 1)
 }
 
 func (c *Conn) writeOpus(payload []byte) (int, error) {

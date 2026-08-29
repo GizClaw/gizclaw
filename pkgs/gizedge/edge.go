@@ -34,10 +34,21 @@ func Serve(root string) error {
 	return ServeContext(ctx, root)
 }
 
-func ServeContext(ctx context.Context, root string) error {
+func ServeContext(ctx context.Context, root string) (serveErr error) {
 	cfg, err := PrepareWorkspaceConfig(root)
 	if err != nil {
 		return err
+	}
+	shutdownMetrics, metricsStore, err := installEdgeMetrics(cfg.Metrics)
+	if err != nil {
+		return fmt.Errorf("edge: configure metrics: %w", err)
+	}
+	if shutdownMetrics != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), edgeShutdownTimeout)
+			defer cancel()
+			serveErr = errors.Join(serveErr, shutdownMetrics(shutdownCtx), metricsStore.Close())
+		}()
 	}
 	upstreamURL, err := cfg.UpstreamURL()
 	if err != nil {
@@ -140,6 +151,7 @@ func dialUpstream(
 	}
 	var timing gizwebrtc.DialTiming
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
+		MetricsNodeRole:       "edge",
 		SignalingURL:          upstreamSignalingURL(upstreamURL),
 		SecurityPolicy:        edgeSecurityPolicy{},
 		SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,

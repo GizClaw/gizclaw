@@ -37,6 +37,10 @@ upstream:
   public-key: `+upstreamKey.Public.String()+`
 tls:
   cert-source: disabled
+metrics:
+  remote-write-url: https://prometheus.example.test/api/v1/write
+  query-url: https://prometheus.example.test
+  bearer-token: test-token
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -60,6 +64,10 @@ tls:
 	}
 	if cfg.TLS.CertSource != TLSCertSourceDisabled {
 		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
+	}
+	if cfg.Metrics.RemoteWriteURL != "https://prometheus.example.test/api/v1/write" ||
+		cfg.Metrics.QueryURL != "https://prometheus.example.test" || cfg.Metrics.BearerToken != "test-token" {
+		t.Fatalf("Metrics = %#v", cfg.Metrics)
 	}
 }
 

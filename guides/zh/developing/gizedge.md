@@ -92,6 +92,7 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 - TLS certificate source 的选择。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
+- 可选 Prometheus Remote Write/query metrics backend。
 
 顶层 `listen` 是客户端入口唯一的本地 bind tuple。Edge 在同一 host 和数字端口上打开独立的
 TCP 与 UDP socket：TCP 承载 public HTTP 与 signaling，启用 gateway 时 UDP 承载 ICE、
@@ -103,7 +104,16 @@ tuple 与外部 tuple 不同，但唯一的外部 `endpoint` 必须同时映射 
 `turn.listen` 与 `turn.public-endpoint` 保持独立，因为它们配置的是 downstream relay
 service，而不是客户端 HTTP/WebRTC 入口。
 
-配置属于 Edge runtime，不复用 GizClaw Server 的 storage、service 或 domain 配置。Server config 也不应承担 Edge 进程的 public ingress 和 TURN 参数。
+配置属于 Edge runtime，不复用 GizClaw Server 的 storage、service 或 domain 配置。Server config 也不应承担 Edge 进程的 public ingress 和 TURN 参数。Standalone Edge 的进程 metrics 使用独立的顶层配置：
+
+```yaml
+metrics:
+  remote-write-url: https://prometheus.example.invalid/api/v1/write
+  query-url: https://prometheus.example.invalid
+  bearer-token: <prometheus-token>
+```
+
+三个字段都为空时 metrics recorder 保持 no-op；只要配置了任一字段，Remote Write URL 与 query URL 必须同时有效，否则 Edge 在打开 listener 前启动失败。Bearer token 只用于 backend 请求，不写入日志。
 
 当前 TLS certificate source 只有 disabled 路径可运行；Edge RPC 和 file certificate source 仍未实现。开发指引不能把这些配置值写成已支持能力。
 

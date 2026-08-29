@@ -31,6 +31,7 @@ type Config struct {
 	TLS      TLSConfig
 	TURN     TURNConfig
 	Gateway  GatewayConfig
+	Metrics  MetricsConfig
 }
 
 type IdentityConfig struct {
@@ -72,6 +73,14 @@ type GatewayConfig struct {
 	DrainTimeout         time.Duration `yaml:"drain-timeout"`
 }
 
+// MetricsConfig configures the standalone Edge process metrics backend.
+// Metrics are disabled when all fields are empty.
+type MetricsConfig struct {
+	RemoteWriteURL string `yaml:"remote-write-url"`
+	QueryURL       string `yaml:"query-url"`
+	BearerToken    string `yaml:"bearer-token"`
+}
+
 type ConfigFile struct {
 	Identity IdentityConfig `yaml:"identity"`
 	Listen   string         `yaml:"listen"`
@@ -80,6 +89,7 @@ type ConfigFile struct {
 	TLS      TLSConfig      `yaml:"tls"`
 	TURN     TURNConfig     `yaml:"turn"`
 	Gateway  GatewayConfig  `yaml:"gateway"`
+	Metrics  MetricsConfig  `yaml:"metrics"`
 }
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -189,6 +199,15 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		cfg.TURN = fileCfg.TURN
 	}
 	cfg.Gateway = mergeGatewayConfig(cfg.Gateway, fileCfg.Gateway)
+	if cfg.Metrics.RemoteWriteURL == "" {
+		cfg.Metrics.RemoteWriteURL = fileCfg.Metrics.RemoteWriteURL
+	}
+	if cfg.Metrics.QueryURL == "" {
+		cfg.Metrics.QueryURL = fileCfg.Metrics.QueryURL
+	}
+	if cfg.Metrics.BearerToken == "" {
+		cfg.Metrics.BearerToken = fileCfg.Metrics.BearerToken
+	}
 	if cfg.TLS.CertSource == "" {
 		cfg.TLS.CertSource = TLSCertSourceDisabled
 	}

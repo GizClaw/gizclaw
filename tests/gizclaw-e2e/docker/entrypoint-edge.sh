@@ -46,6 +46,16 @@ envsubst "$envsubst_variables" \
   < "$config_template" \
   > "$workspace_dir/config.yaml"
 
+if [[ "${GIZCLAW_E2E_OBSERVABILITY:-}" == "1" ]]; then
+  : "${GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL:?missing GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL}"
+  : "${GIZCLAW_E2E_METRICS_QUERY_URL:?missing GIZCLAW_E2E_METRICS_QUERY_URL}"
+  GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL="$GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL" \
+    GIZCLAW_E2E_METRICS_QUERY_URL="$GIZCLAW_E2E_METRICS_QUERY_URL" \
+    perl -0pi -e '
+      s/\z/\nmetrics:\n  remote-write-url: "$ENV{GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL}"\n  query-url: "$ENV{GIZCLAW_E2E_METRICS_QUERY_URL}"\n/
+    ' "$workspace_dir/config.yaml"
+fi
+
 if [[ "${GIZCLAW_E2E_PREBUILT_CLI:-}" == "1" ]]; then
   if [[ ! -x "$bin_path" ]]; then
     echo "prebuilt Linux GizClaw CLI is missing: $bin_path" >&2
