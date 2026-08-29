@@ -202,12 +202,32 @@ func TestRequestIDGenerationIsConcurrentAndUnique(t *testing.T) {
 
 func TestPublicCORSAllowsAndExposesRequestID(t *testing.T) {
 	header := make(http.Header)
-	setPublicHTTPCORSHeaders(header)
+	setPublicHTTPCORSHeaders(header, "https://app.example.com")
+	if got := header.Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
+		t.Fatalf("allow origin = %q", got)
+	}
+	if got := header.Get("Vary"); got != "Origin" {
+		t.Fatalf("vary = %q", got)
+	}
+	if got := header.Get("Access-Control-Allow-Methods"); got != "GET,POST,DELETE,OPTIONS" {
+		t.Fatalf("allow methods = %q", got)
+	}
 	if !strings.Contains(header.Get("Access-Control-Allow-Headers"), requestIDHeader) {
 		t.Fatalf("allow headers = %q", header.Get("Access-Control-Allow-Headers"))
 	}
 	if !strings.Contains(header.Get("Access-Control-Expose-Headers"), requestIDHeader) {
 		t.Fatalf("expose headers = %q", header.Get("Access-Control-Expose-Headers"))
+	}
+}
+
+func TestPublicCORSWithoutOriginKeepsWildcardCompatibility(t *testing.T) {
+	header := make(http.Header)
+	setPublicHTTPCORSHeaders(header, "")
+	if got := header.Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Fatalf("allow origin = %q", got)
+	}
+	if got := header.Get("Vary"); got != "" {
+		t.Fatalf("vary = %q", got)
 	}
 }
 

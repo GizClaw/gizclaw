@@ -9,7 +9,7 @@ import (
 
 func (s *Server) peerOpenAIHTTPHandler(apiKeys *apikey.Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		setPublicHTTPCORSHeaders(w.Header())
+		setPublicHTTPCORSHeaders(w.Header(), r.Header.Get("Origin"))
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

@@ -860,14 +860,17 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("OPTIONS status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
-		t.Fatalf("Access-Control-Allow-Origin = %q, want *", got)
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "wails://wails.localhost" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || strings.Contains(got, "X-Public-Key") {
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, "X-Request-ID") || strings.Contains(got, "X-Public-Key") {
 		t.Fatalf("Access-Control-Allow-Headers = %q", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodDelete) {
-		t.Fatalf("Access-Control-Allow-Methods = %q, want DELETE", got)
+	if got := rec.Header().Get("Access-Control-Expose-Headers"); !strings.Contains(got, "X-Request-ID") {
+		t.Fatalf("Access-Control-Expose-Headers = %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); got != "GET,POST,DELETE,OPTIONS" {
+		t.Fatalf("Access-Control-Allow-Methods = %q", got)
 	}
 }
 
@@ -877,6 +880,9 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 		header.Add("Access-Control-Allow-Origin", "https://upstream.example")
 		header.Add("Access-Control-Allow-Origin", "https://duplicate.example")
 		header.Set("Access-Control-Allow-Methods", "GET")
+		header.Set("Access-Control-Allow-Credentials", "true")
+		header.Set("Access-Control-Max-Age", "600")
+		header["access-control-allow-private-network"] = []string{"true"}
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     header,
@@ -893,11 +899,36 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if got := rec.Result().Header.Values("Access-Control-Allow-Origin"); len(got) != 1 || got[0] != "*" {
-		t.Fatalf("Access-Control-Allow-Origin values = %q, want single *", got)
+	if got := rec.Result().Header.Values("Access-Control-Allow-Origin"); len(got) != 1 || got[0] != "wails://wails.localhost" {
+		t.Fatalf("Access-Control-Allow-Origin values = %q", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodDelete) {
 		t.Fatalf("Access-Control-Allow-Methods = %q, want edge methods", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("Access-Control-Allow-Credentials = %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Max-Age"); got != "" {
+		t.Fatalf("Access-Control-Max-Age = %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Private-Network"); got != "" {
+		t.Fatalf("Access-Control-Allow-Private-Network = %q", got)
+	}
+}
+
+func TestEdgeCORSHandlerAddsHeadersToProxyErrors(t *testing.T) {
+	handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("upstream unavailable")
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req.Header.Set("Origin", "https://any.example")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://any.example" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
 	}
 }
 

@@ -713,6 +713,52 @@ func TestServerServeHTTPAPIKeyAndRejectsLegacyLogin(t *testing.T) {
 		t.Fatalf("GET OpenAI models status = %d body=%s", response.StatusCode, body)
 	}
 }
+
+func TestServerServeHTTPHandlesBrowserCORS(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := completeTestServer(t, &Server{LocalStatic: *serverKey, BuildCommit: "test-build"})
+	if err := server.init(); err != nil {
+		t.Fatalf("init error = %v", err)
+	}
+
+	const origin = "https://app.example.com"
+	preflight := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/api-keys/self", nil)
+	preflight.Header.Set("Origin", origin)
+	preflight.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	preflight.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-request-id")
+	preflightResponse := httptest.NewRecorder()
+	server.ServeHTTP(preflightResponse, preflight)
+
+	if preflightResponse.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS status = %d body=%s", preflightResponse.Code, preflightResponse.Body.String())
+	}
+	if got := preflightResponse.Header().Get("Access-Control-Allow-Origin"); got != origin {
+		t.Fatalf("OPTIONS Access-Control-Allow-Origin = %q", got)
+	}
+	if got := preflightResponse.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodDelete) {
+		t.Fatalf("OPTIONS Access-Control-Allow-Methods = %q", got)
+	}
+	if got := preflightResponse.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || !strings.Contains(got, requestIDHeader) {
+		t.Fatalf("OPTIONS Access-Control-Allow-Headers = %q", got)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	request.Header.Set("Origin", origin)
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET status = %d body=%s", response.Code, response.Body.String())
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != origin {
+		t.Fatalf("GET Access-Control-Allow-Origin = %q", got)
+	}
+	if got := response.Header().Get("Vary"); !strings.Contains(got, "Origin") {
+		t.Fatalf("GET Vary = %q", got)
+	}
+}
 func TestServerPeerEventHandlerDoesNotClearActivePeer(t *testing.T) {
 	keyPair, err := giznet.GenerateKeyPair()
 	if err != nil {

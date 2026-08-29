@@ -73,11 +73,27 @@ func writeHTTPAPIKeyError(w http.ResponseWriter, _ error) {
 	_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse("INVALID_API_KEY", "missing or invalid bearer API key"))
 }
 
-func setPublicHTTPCORSHeaders(header http.Header) {
-	header.Set("Access-Control-Allow-Origin", "*")
-	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+func setPublicHTTPCORSHeaders(header http.Header, origin string) {
+	setHTTPCORSOrigin(header, origin)
+	header.Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-Request-ID")
+}
+
+func setHTTPCORSOrigin(header http.Header, origin string) {
+	if origin == "" {
+		header.Set("Access-Control-Allow-Origin", "*")
+		return
+	}
+	header.Set("Access-Control-Allow-Origin", origin)
+	for _, value := range header.Values("Vary") {
+		for token := range strings.SplitSeq(value, ",") {
+			if strings.EqualFold(strings.TrimSpace(token), "Origin") || strings.TrimSpace(token) == "*" {
+				return
+			}
+		}
+	}
+	header.Add("Vary", "Origin")
 }
 
 const (
