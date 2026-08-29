@@ -1370,13 +1370,14 @@ func validLayeredConfig(dir string) Config {
 		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
 		Storage: map[string]storage.Config{
-			"memory":      storage.MemoryConfig{},
-			"local-files": storage.FilesystemDirConfig{Dir: dir},
-			"gameplay-db": storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
+			"memory":       storage.MemoryConfig{},
+			"local-files":  storage.FilesystemDirConfig{Dir: dir},
+			"peer-runs-db": storage.SQLiteConfig{Dir: filepath.Join(dir, "peer-runs.sqlite")},
+			"gameplay-db":  storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
 		},
 		Stores: map[string]stores.Config{
 			"peers":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"peer-runs":        {Kind: stores.KindKeyValue, Storage: "gameplay-db", Prefix: "peer_runs"},
+			"peer-runs":        {Kind: stores.KindKeyValue, Storage: "peer-runs-db", Prefix: "peer_runs"},
 			"api-keys":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
 			"credentials":      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
