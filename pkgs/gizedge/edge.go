@@ -325,7 +325,7 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 		},
 		Transport: transport,
 		ModifyResponse: func(resp *http.Response) error {
-			setEdgeCORSHeaders(resp.Header)
+			clearEdgeUpstreamCORSHeaders(resp.Header)
 			if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Path == "/server-info" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				return rewriteServerInfo(resp, edgeEndpoint, infoTransport)
 			}
@@ -375,8 +375,8 @@ func rewriteServerInfo(resp *http.Response, edgeEndpoint string, transport *serv
 
 func edgeCORSHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		setEdgeCORSHeaders(w.Header(), req.Header.Get("Origin"))
 		if req.Method == http.MethodOptions && isEdgePeerHTTPPath(req.URL.Path) {
-			setEdgeCORSHeaders(w.Header())
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -384,11 +384,35 @@ func edgeCORSHandler(next http.Handler) http.Handler {
 	})
 }
 
-func setEdgeCORSHeaders(header http.Header) {
-	header.Set("Access-Control-Allow-Origin", "*")
+func clearEdgeUpstreamCORSHeaders(header http.Header) {
+	for name := range header {
+		if strings.HasPrefix(strings.ToLower(name), "access-control-") {
+			delete(header, name)
+		}
+	}
+}
+
+func setEdgeCORSHeaders(header http.Header, origin string) {
+	setEdgeCORSOrigin(header, origin)
 	header.Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
-	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp")
-	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-GizClaw-Gateway-Upstream")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
+	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-GizClaw-Gateway-Upstream,X-Request-ID")
+}
+
+func setEdgeCORSOrigin(header http.Header, origin string) {
+	if origin == "" {
+		header.Set("Access-Control-Allow-Origin", "*")
+		return
+	}
+	header.Set("Access-Control-Allow-Origin", origin)
+	for _, value := range header.Values("Vary") {
+		for token := range strings.SplitSeq(value, ",") {
+			if strings.EqualFold(strings.TrimSpace(token), "Origin") || strings.TrimSpace(token) == "*" {
+				return
+			}
+		}
+	}
+	header.Add("Vary", "Origin")
 }
 
 func isEdgePeerHTTPPath(path string) bool {

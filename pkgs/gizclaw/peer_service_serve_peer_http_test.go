@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gofiber/fiber/v2"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
@@ -141,6 +143,9 @@ func TestPeerHTTPRejectsLegacyRoutesAndSupportsCORS(t *testing.T) {
 		}
 	}
 	request := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/api-keys", nil)
+	request.Header.Set("Origin", "https://app.example.com")
+	request.Header.Set("Access-Control-Request-Method", http.MethodDelete)
+	request.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-request-id")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNoContent {
@@ -148,5 +153,30 @@ func TestPeerHTTPRejectsLegacyRoutesAndSupportsCORS(t *testing.T) {
 	}
 	if got := response.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Authorization") || strings.Contains(got, "X-Public-Key") {
 		t.Fatalf("Access-Control-Allow-Headers = %q", got)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Methods"); got != "GET,POST,DELETE,OPTIONS" {
+		t.Fatalf("Access-Control-Allow-Methods = %q", got)
+	}
+	if got := response.Header().Get("Vary"); got != "Origin" {
+		t.Fatalf("Vary = %q", got)
+	}
+}
+
+func TestPeerHTTPCORSAppendsOriginToVary(t *testing.T) {
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(func(ctx *fiber.Ctx) error {
+		ctx.Set(fiber.HeaderVary, fiber.HeaderAcceptEncoding)
+		setPeerHTTPCORSHeaders(ctx)
+		return ctx.SendStatus(http.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	request.Header.Set("Origin", "https://app.example.com")
+	response := httptest.NewRecorder()
+	fiberHTTPHandler(app).ServeHTTP(response, request)
+	if got := response.Header().Get("Vary"); got != "Accept-Encoding, Origin" {
+		t.Fatalf("Vary = %q", got)
 	}
 }

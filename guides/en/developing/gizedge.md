@@ -122,6 +122,7 @@ Public ingress is responsible for:
 - Listen to the public HTTP endpoint of the Edge Node.
 - Forward allowed browser/device API requests to authoritative Server.
 - Provides the CORS behavior required by ingress for browser requests.
+- CORS returns the request's actual `Origin` with `Vary: Origin`; `OPTIONS` preflight for supported paths terminates at the Edge without consuming upstream capacity, and its method and header contract matches authoritative Public HTTP.
 - Publish Edge Node external endpoint in server-info response.
 - Close the HTTP server, upstream connection and related listeners when the process stops.
 

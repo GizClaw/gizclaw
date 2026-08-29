@@ -124,6 +124,7 @@ Public ingress 负责：
 - 监听 Edge Node 的 public HTTP endpoint。
 - 将允许的 browser/device API 请求转发给 authoritative Server。
 - 为浏览器请求提供 ingress 所需的 CORS 行为。
+- CORS 使用请求中的实际 `Origin` 并返回 `Vary: Origin`；受支持路径的 `OPTIONS` 预检在 Edge 终止，不占用 upstream，方法与 headers contract 和 authoritative Public HTTP 保持一致。
 - 在 server-info response 中发布 Edge Node 对外 endpoint。
 - 在进程停止时关闭 HTTP server、上游 connection 和相关 listener。
 

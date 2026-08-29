@@ -92,7 +92,7 @@ func (s *PeerService) edgeHTTPHandlerForPeer(apiKeys *apikey.Server, peerPublicK
 
 func (s *PeerService) edgeOpenAIHTTPHandler(apiKeys *apikey.Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		setPublicHTTPCORSHeaders(w.Header())
+		setPublicHTTPCORSHeaders(w.Header(), r.Header.Get("Origin"))
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -234,7 +234,13 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 }
 
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
-	ctx.Set(fiber.HeaderAccessControlAllowOrigin, "*")
+	origin := ctx.Get(fiber.HeaderOrigin)
+	if origin == "" {
+		origin = "*"
+	} else {
+		ctx.Vary(fiber.HeaderOrigin)
+	}
+	ctx.Set(fiber.HeaderAccessControlAllowOrigin, origin)
 	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,DELETE,OPTIONS")
 	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type,X-Request-ID")

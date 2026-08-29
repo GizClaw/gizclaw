@@ -6,6 +6,8 @@ Provides ordinary Peer Public HTTP and Edge Public HTTP, assembles API key, CORS
 
 This file has HTTP surface composition; API key state belongs to `services/system/apikey`, and specific API behavior belongs to the corresponding domain service.
 
+When a browser request carries `Origin`, Direct Server, Peer Public HTTP, and Edge Public HTTP return that actual origin and append `Origin` to `Vary` to isolate caches; non-browser requests retain `*` compatibility. An `OPTIONS` preflight for a supported path returns `204` directly and allows the Public HTTP methods `GET`, `POST`, `DELETE`, and `OPTIONS`, together with the headers used by API keys, signaling, and request correlation.
+
 ## Core structure and main function
 
 | Symbol | Function |
