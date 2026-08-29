@@ -769,6 +769,23 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	if decodedEinoParameters.Input == nil || *decodedEinoParameters.Input != WorkspaceInputModeRealtime {
 		t.Fatalf("Eino Workspace input round trip = %#v", decodedEinoParameters.Input)
 	}
+
+	if err := parameters.FromPetWorkspaceParameters(PetWorkspaceParameters{Input: &realtime}); err != nil {
+		t.Fatalf("encode Pet workspace parameters union: %v", err)
+	}
+	if err := parametersPayload.encode("WorkspaceParameters", parameters); err != nil {
+		t.Fatalf("encode Pet WorkspaceParameters: %v", err)
+	}
+	if err := parametersPayload.decode("WorkspaceParameters", &decodedParameters); err != nil {
+		t.Fatalf("decode Pet WorkspaceParameters: %v", err)
+	}
+	decodedPetParameters, err := decodedParameters.AsPetWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("Pet WorkspaceParameters round trip: %v", err)
+	}
+	if decodedPetParameters.Input == nil || *decodedPetParameters.Input != WorkspaceInputModeRealtime {
+		t.Fatalf("Pet Workspace input round trip = %#v", decodedPetParameters.Input)
+	}
 }
 
 func TestPayloadCodecMapsProtobufDirectlyToGoDTOs(t *testing.T) {

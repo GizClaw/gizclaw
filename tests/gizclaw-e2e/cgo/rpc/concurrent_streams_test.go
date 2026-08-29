@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
@@ -86,12 +87,7 @@ func TestCSDKRPCDataChannelLifecycleLocal(t *testing.T) {
 		if response.ServerTime <= 0 {
 			t.Fatalf("CallRPC(%s) server_time = %d", id, response.ServerTime)
 		}
-		after := requireTransportSnapshot(t, fixture.Client)
-		requireStableMandatoryCTransports(t, baseline, after)
-		if len(after.RPCChannelIDs) != 0 ||
-			after.ActiveRPCChannelID != 0 {
-			t.Fatalf("CallRPC(%s) left a live RPC channel: %+v", id, after)
-		}
+		after := requireNoRPCChannels(t, fixture.Client, baseline)
 		wantNextID := baseline.NextLocalChannelID - index - 1
 		if after.NextLocalChannelID != wantNextID {
 			t.Fatalf(
@@ -169,9 +165,18 @@ func TestCSDKConcurrentUnaryRPCRequests(t *testing.T) {
 		}
 		for _, index := range []int{2, 0, 1} {
 			var result rpcapi.RPCPayload
-			err := result.FromPingResponse(rpcapi.PingResponse{
-				ServerTime: int64((index + 1) * 100),
-			})
+			var err error
+			var ping rpcapi.PingRequest
+			if requests[index].Params == nil {
+				err = errors.New("concurrent ping request has no params")
+			} else {
+				ping, err = requests[index].Params.AsPingRequest()
+			}
+			if err == nil {
+				err = result.FromPingResponse(rpcapi.PingResponse{
+					ServerTime: ping.ClientSendTime * 100,
+				})
+			}
 			if err == nil {
 				err = rpcapi.WriteResponseForMethod(
 					streams[index],
@@ -247,23 +252,15 @@ func TestCSDKConcurrentUnaryRPCRequests(t *testing.T) {
 	if err := <-serverErr; err != nil {
 		t.Fatalf("concurrent unary server: %v", err)
 	}
-	afterResult := requireTransportSnapshot(t, fixture.Client)
-	requireStableMandatoryCTransports(t, baseline, afterResult)
-	if len(afterResult.RPCChannelIDs) != 0 || afterResult.ActiveRPCChannelID != 0 {
-		t.Fatalf("completed unary requests left channels: %+v", afterResult)
-	}
+	requireNoRPCChannels(t, fixture.Client, baseline)
 }
 
 func TestCSDKConcurrentServiceStreams(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "cgo-concurrent-service-streams")
-	identityDir := cgointernal.SharedIdentityDir(
-		t,
-		h,
-		"GIZCLAW_E2E_PEER_IDENTITY",
-		"peer",
-	)
-	h.SetContextDirAlias("cgo-concurrent-services-peer", identityDir)
-	peerPublicKey := h.ContextPublicKey("cgo-concurrent-services-peer")
+	const peerContext = "cgo-concurrent-services-peer"
+	h.CreateContext(peerContext).MustSucceed(t)
+	identityDir := filepath.Join(h.XDGConfigHome, "gizclaw", peerContext)
+	peerPublicKey := h.ContextPublicKey(peerContext)
 	cgointernal.AssertServerAvailable(t, identityDir)
 	client, err := cgointernal.NewClient(identityDir)
 	if err != nil {
@@ -611,6 +608,28 @@ func requireTransportSnapshot(
 		t.Fatal(err)
 	}
 	return snapshot
+}
+
+func requireNoRPCChannels(
+	t *testing.T,
+	client *cgointernal.Client,
+	baseline cgointernal.TransportSnapshot,
+) cgointernal.TransportSnapshot {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		snapshot := requireTransportSnapshot(t, client)
+		requireStableMandatoryCTransports(t, baseline, snapshot)
+		if len(snapshot.RPCChannelIDs) == 0 && snapshot.ActiveRPCChannelID == 0 {
+			return snapshot
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("completed unary requests left channels: %+v", snapshot)
+		}
+		if err := client.Poll(10 * time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func requireMandatoryCTransports(

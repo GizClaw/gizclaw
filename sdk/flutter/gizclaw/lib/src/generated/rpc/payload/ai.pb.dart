@@ -2429,7 +2429,7 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   factory EinoWorkspaceParameters({
     $1.EinoWorkspaceParametersAgentType? agentType,
     $core.bool? e2e,
-    FlowcraftConversationParameters? conversation,
+    ConversationParameters? conversation,
     $1.WorkspaceInputMode? input,
   }) {
     final result = create();
@@ -2457,9 +2457,8 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.EinoWorkspaceParametersAgentType.values)
     ..aOB(2, _omitFieldNames ? '' : 'e2e')
-    ..aOM<FlowcraftConversationParameters>(
-        3, _omitFieldNames ? '' : 'conversation',
-        subBuilder: FlowcraftConversationParameters.create)
+    ..aOM<ConversationParameters>(3, _omitFieldNames ? '' : 'conversation',
+        subBuilder: ConversationParameters.create)
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..hasRequiredFields = false;
@@ -2504,16 +2503,15 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   void clearE2e() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  FlowcraftConversationParameters get conversation => $_getN(2);
+  ConversationParameters get conversation => $_getN(2);
   @$pb.TagNumber(3)
-  set conversation(FlowcraftConversationParameters value) =>
-      $_setField(3, value);
+  set conversation(ConversationParameters value) => $_setField(3, value);
   @$pb.TagNumber(3)
   $core.bool hasConversation() => $_has(2);
   @$pb.TagNumber(3)
   void clearConversation() => $_clearField(3);
   @$pb.TagNumber(3)
-  FlowcraftConversationParameters ensureConversation() => $_ensure(2);
+  ConversationParameters ensureConversation() => $_ensure(2);
 
   @$pb.TagNumber(4)
   $1.WorkspaceInputMode get input => $_getN(3);
@@ -2523,6 +2521,77 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   $core.bool hasInput() => $_has(3);
   @$pb.TagNumber(4)
   void clearInput() => $_clearField(4);
+}
+
+class PetWorkspaceParameters extends $pb.GeneratedMessage {
+  factory PetWorkspaceParameters({
+    $1.PetWorkspaceParametersAgentType? agentType,
+    $1.WorkspaceInputMode? input,
+  }) {
+    final result = create();
+    if (agentType != null) result.agentType = agentType;
+    if (input != null) result.input = input;
+    return result;
+  }
+
+  PetWorkspaceParameters._();
+
+  factory PetWorkspaceParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetWorkspaceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetWorkspaceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.PetWorkspaceParametersAgentType>(
+        1, _omitFieldNames ? '' : 'agentType',
+        enumValues: $1.PetWorkspaceParametersAgentType.values)
+    ..aE<$1.WorkspaceInputMode>(2, _omitFieldNames ? '' : 'input',
+        enumValues: $1.WorkspaceInputMode.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkspaceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkspaceParameters copyWith(
+          void Function(PetWorkspaceParameters) updates) =>
+      super.copyWith((message) => updates(message as PetWorkspaceParameters))
+          as PetWorkspaceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetWorkspaceParameters create() => PetWorkspaceParameters._();
+  @$core.override
+  PetWorkspaceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetWorkspaceParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetWorkspaceParameters>(create);
+  static PetWorkspaceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.PetWorkspaceParametersAgentType get agentType => $_getN(0);
+  @$pb.TagNumber(1)
+  set agentType($1.PetWorkspaceParametersAgentType value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAgentType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAgentType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $1.WorkspaceInputMode get input => $_getN(1);
+  @$pb.TagNumber(2)
+  set input($1.WorkspaceInputMode value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInput() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInput() => $_clearField(2);
 }
 
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
@@ -4252,11 +4321,10 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
   $pb.PbList<DoubaoRealtimeFunctionTool> get tools => $_getList(7);
 }
 
-class FlowcraftConversationParameters extends $pb.GeneratedMessage {
-  factory FlowcraftConversationParameters({
-    $1.FlowcraftConversationParametersAgentInitiativePolicy?
-        agentInitiativePolicy,
-    $1.FlowcraftConversationParametersInitiative? initiative,
+class ConversationParameters extends $pb.GeneratedMessage {
+  factory ConversationParameters({
+    $1.ConversationParametersAgentInitiativePolicy? agentInitiativePolicy,
+    $1.ConversationParametersInitiative? initiative,
   }) {
     final result = create();
     if (agentInitiativePolicy != null)
@@ -4265,57 +4333,53 @@ class FlowcraftConversationParameters extends $pb.GeneratedMessage {
     return result;
   }
 
-  FlowcraftConversationParameters._();
+  ConversationParameters._();
 
-  factory FlowcraftConversationParameters.fromBuffer($core.List<$core.int> data,
+  factory ConversationParameters.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory FlowcraftConversationParameters.fromJson($core.String json,
+  factory ConversationParameters.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FlowcraftConversationParameters',
+      _omitMessageNames ? '' : 'ConversationParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.FlowcraftConversationParametersAgentInitiativePolicy>(
+    ..aE<$1.ConversationParametersAgentInitiativePolicy>(
         1, _omitFieldNames ? '' : 'agentInitiativePolicy',
-        enumValues:
-            $1.FlowcraftConversationParametersAgentInitiativePolicy.values)
-    ..aE<$1.FlowcraftConversationParametersInitiative>(
+        enumValues: $1.ConversationParametersAgentInitiativePolicy.values)
+    ..aE<$1.ConversationParametersInitiative>(
         2, _omitFieldNames ? '' : 'initiative',
-        enumValues: $1.FlowcraftConversationParametersInitiative.values)
+        enumValues: $1.ConversationParametersInitiative.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FlowcraftConversationParameters clone() => deepCopy();
+  ConversationParameters clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FlowcraftConversationParameters copyWith(
-          void Function(FlowcraftConversationParameters) updates) =>
-      super.copyWith(
-              (message) => updates(message as FlowcraftConversationParameters))
-          as FlowcraftConversationParameters;
+  ConversationParameters copyWith(
+          void Function(ConversationParameters) updates) =>
+      super.copyWith((message) => updates(message as ConversationParameters))
+          as ConversationParameters;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static FlowcraftConversationParameters create() =>
-      FlowcraftConversationParameters._();
+  static ConversationParameters create() => ConversationParameters._();
   @$core.override
-  FlowcraftConversationParameters createEmptyInstance() => create();
+  ConversationParameters createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static FlowcraftConversationParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FlowcraftConversationParameters>(
-          create);
-  static FlowcraftConversationParameters? _defaultInstance;
+  static ConversationParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConversationParameters>(create);
+  static ConversationParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.FlowcraftConversationParametersAgentInitiativePolicy
-      get agentInitiativePolicy => $_getN(0);
+  $1.ConversationParametersAgentInitiativePolicy get agentInitiativePolicy =>
+      $_getN(0);
   @$pb.TagNumber(1)
   set agentInitiativePolicy(
-          $1.FlowcraftConversationParametersAgentInitiativePolicy value) =>
+          $1.ConversationParametersAgentInitiativePolicy value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentInitiativePolicy() => $_has(0);
@@ -4323,9 +4387,9 @@ class FlowcraftConversationParameters extends $pb.GeneratedMessage {
   void clearAgentInitiativePolicy() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $1.FlowcraftConversationParametersInitiative get initiative => $_getN(1);
+  $1.ConversationParametersInitiative get initiative => $_getN(1);
   @$pb.TagNumber(2)
-  set initiative($1.FlowcraftConversationParametersInitiative value) =>
+  set initiative($1.ConversationParametersInitiative value) =>
       $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasInitiative() => $_has(1);
@@ -4394,7 +4458,7 @@ class FlowcraftWorkflowSpec extends $pb.GeneratedMessage {
 class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   factory FlowcraftWorkspaceParameters({
     $1.FlowcraftWorkspaceParametersAgentType? agentType,
-    FlowcraftConversationParameters? conversation,
+    ConversationParameters? conversation,
     $core.bool? e2e,
     $1.WorkspaceInputMode? input,
   }) {
@@ -4422,9 +4486,8 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
     ..aE<$1.FlowcraftWorkspaceParametersAgentType>(
         1, _omitFieldNames ? '' : 'agentType',
         enumValues: $1.FlowcraftWorkspaceParametersAgentType.values)
-    ..aOM<FlowcraftConversationParameters>(
-        2, _omitFieldNames ? '' : 'conversation',
-        subBuilder: FlowcraftConversationParameters.create)
+    ..aOM<ConversationParameters>(2, _omitFieldNames ? '' : 'conversation',
+        subBuilder: ConversationParameters.create)
     ..aOB(3, _omitFieldNames ? '' : 'e2e')
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
@@ -4463,16 +4526,15 @@ class FlowcraftWorkspaceParameters extends $pb.GeneratedMessage {
   void clearAgentType() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  FlowcraftConversationParameters get conversation => $_getN(1);
+  ConversationParameters get conversation => $_getN(1);
   @$pb.TagNumber(2)
-  set conversation(FlowcraftConversationParameters value) =>
-      $_setField(2, value);
+  set conversation(ConversationParameters value) => $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasConversation() => $_has(1);
   @$pb.TagNumber(2)
   void clearConversation() => $_clearField(2);
   @$pb.TagNumber(2)
-  FlowcraftConversationParameters ensureConversation() => $_ensure(1);
+  ConversationParameters ensureConversation() => $_ensure(1);
 
   @$pb.TagNumber(3)
   $core.bool get e2e => $_getBF(2);

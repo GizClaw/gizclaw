@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
@@ -17,8 +18,16 @@ import (
 func TestAPIKeyManagementUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "304-api-key")
 	h.CreateContext("api-key-device").MustSucceed(t)
+	h.RegisterContext("api-key-device", "--sn", "connect-api-key-device-sn").MustSucceed(t)
 	client := h.ConnectClientFromContext("api-key-device")
 	defer func() { _ = client.Close() }()
+	registrationToken := os.Getenv("GIZCLAW_TEST_REGISTRATION_TOKEN")
+	if registrationToken == "" {
+		t.Fatal("GIZCLAW_TEST_REGISTRATION_TOKEN is required")
+	}
+	if _, err := client.Register(t.Context(), "connect.api-key.register", registrationToken); err != nil {
+		t.Fatalf("register API key device: %v", err)
+	}
 
 	manager, err := client.CreateAPIKey(t.Context(), "manager", rpcapi.APIKeyCreateRequest{DisplayName: "manager", ManageAPIKeys: true})
 	if err != nil {

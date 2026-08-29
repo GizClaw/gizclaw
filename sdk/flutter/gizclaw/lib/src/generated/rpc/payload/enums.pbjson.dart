@@ -277,57 +277,49 @@ final $typed_data.Uint8List firmwareChannelNameDescriptor = $convert.base64Decod
     'TkVMX05BTUVfQkVUQRACEiEKHUZJUk1XQVJFX0NIQU5ORUxfTkFNRV9ERVZFTE9QEAM=');
 
 @$core.Deprecated(
-    'Use flowcraftConversationParametersAgentInitiativePolicyDescriptor instead')
-const FlowcraftConversationParametersAgentInitiativePolicy$json = {
-  '1': 'FlowcraftConversationParametersAgentInitiativePolicy',
+    'Use conversationParametersAgentInitiativePolicyDescriptor instead')
+const ConversationParametersAgentInitiativePolicy$json = {
+  '1': 'ConversationParametersAgentInitiativePolicy',
   '2': [
     {
-      '1':
-          'FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED',
+      '1': 'CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED',
       '2': 0
     },
     {
-      '1':
-          'FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY',
+      '1': 'CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY',
       '2': 1
     },
-    {
-      '1':
-          'FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD',
-      '2': 2
-    },
+    {'1': 'CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD', '2': 2},
   ],
 };
 
-/// Descriptor for `FlowcraftConversationParametersAgentInitiativePolicy`. Decode as a `google.protobuf.EnumDescriptorProto`.
+/// Descriptor for `ConversationParametersAgentInitiativePolicy`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List
-    flowcraftConversationParametersAgentInitiativePolicyDescriptor =
+    conversationParametersAgentInitiativePolicyDescriptor =
     $convert.base64Decode(
-        'CjRGbG93Y3JhZnRDb252ZXJzYXRpb25QYXJhbWV0ZXJzQWdlbnRJbml0aWF0aXZlUG9saWN5Ek'
-        'kKRUZMT1dDUkFGVF9DT05WRVJTQVRJT05fUEFSQU1FVEVSU19BR0VOVF9JTklUSUFUSVZFX1BP'
-        'TElDWV9VTlNQRUNJRklFRBAAEk0KSUZMT1dDUkFGVF9DT05WRVJTQVRJT05fUEFSQU1FVEVSU1'
-        '9BR0VOVF9JTklUSUFUSVZFX1BPTElDWV9PTkNFX1dIRU5fRU1QVFkQARJHCkNGTE9XQ1JBRlRf'
-        'Q09OVkVSU0FUSU9OX1BBUkFNRVRFUlNfQUdFTlRfSU5JVElBVElWRV9QT0xJQ1lfT05fUkVMT0'
-        'FEEAI=');
+        'CitDb252ZXJzYXRpb25QYXJhbWV0ZXJzQWdlbnRJbml0aWF0aXZlUG9saWN5Ej8KO0NPTlZFUl'
+        'NBVElPTl9QQVJBTUVURVJTX0FHRU5UX0lOSVRJQVRJVkVfUE9MSUNZX1VOU1BFQ0lGSUVEEAAS'
+        'Qwo/Q09OVkVSU0FUSU9OX1BBUkFNRVRFUlNfQUdFTlRfSU5JVElBVElWRV9QT0xJQ1lfT05DRV'
+        '9XSEVOX0VNUFRZEAESPQo5Q09OVkVSU0FUSU9OX1BBUkFNRVRFUlNfQUdFTlRfSU5JVElBVElW'
+        'RV9QT0xJQ1lfT05fUkVMT0FEEAI=');
 
-@$core.Deprecated(
-    'Use flowcraftConversationParametersInitiativeDescriptor instead')
-const FlowcraftConversationParametersInitiative$json = {
-  '1': 'FlowcraftConversationParametersInitiative',
+@$core.Deprecated('Use conversationParametersInitiativeDescriptor instead')
+const ConversationParametersInitiative$json = {
+  '1': 'ConversationParametersInitiative',
   '2': [
-    {'1': 'FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED', '2': 0},
-    {'1': 'FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER', '2': 1},
-    {'1': 'FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT', '2': 2},
+    {'1': 'CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED', '2': 0},
+    {'1': 'CONVERSATION_PARAMETERS_INITIATIVE_PEER', '2': 1},
+    {'1': 'CONVERSATION_PARAMETERS_INITIATIVE_AGENT', '2': 2},
   ],
 };
 
-/// Descriptor for `FlowcraftConversationParametersInitiative`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List
-    flowcraftConversationParametersInitiativeDescriptor = $convert.base64Decode(
-        'CilGbG93Y3JhZnRDb252ZXJzYXRpb25QYXJhbWV0ZXJzSW5pdGlhdGl2ZRI8CjhGTE9XQ1JBRl'
-        'RfQ09OVkVSU0FUSU9OX1BBUkFNRVRFUlNfSU5JVElBVElWRV9VTlNQRUNJRklFRBAAEjUKMUZM'
-        'T1dDUkFGVF9DT05WRVJTQVRJT05fUEFSQU1FVEVSU19JTklUSUFUSVZFX1BFRVIQARI2CjJGTE'
-        '9XQ1JBRlRfQ09OVkVSU0FUSU9OX1BBUkFNRVRFUlNfSU5JVElBVElWRV9BR0VOVBAC');
+/// Descriptor for `ConversationParametersInitiative`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List conversationParametersInitiativeDescriptor =
+    $convert.base64Decode(
+        'CiBDb252ZXJzYXRpb25QYXJhbWV0ZXJzSW5pdGlhdGl2ZRIyCi5DT05WRVJTQVRJT05fUEFSQU'
+        '1FVEVSU19JTklUSUFUSVZFX1VOU1BFQ0lGSUVEEAASKwonQ09OVkVSU0FUSU9OX1BBUkFNRVRF'
+        'UlNfSU5JVElBVElWRV9QRUVSEAESLAooQ09OVkVSU0FUSU9OX1BBUkFNRVRFUlNfSU5JVElBVE'
+        'lWRV9BR0VOVBAC');
 
 @$core.Deprecated('Use flowcraftWorkspaceParametersAgentTypeDescriptor instead')
 const FlowcraftWorkspaceParametersAgentType$json = {
@@ -360,6 +352,22 @@ final $typed_data.Uint8List einoWorkspaceParametersAgentTypeDescriptor =
         'CiBFaW5vV29ya3NwYWNlUGFyYW1ldGVyc0FnZW50VHlwZRI0CjBFSU5PX1dPUktTUEFDRV9QQV'
         'JBTUVURVJTX0FHRU5UX1RZUEVfVU5TUEVDSUZJRUQQABItCilFSU5PX1dPUktTUEFDRV9QQVJB'
         'TUVURVJTX0FHRU5UX1RZUEVfRUlOTxAB');
+
+@$core.Deprecated('Use petWorkspaceParametersAgentTypeDescriptor instead')
+const PetWorkspaceParametersAgentType$json = {
+  '1': 'PetWorkspaceParametersAgentType',
+  '2': [
+    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED', '2': 0},
+    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET', '2': 1},
+  ],
+};
+
+/// Descriptor for `PetWorkspaceParametersAgentType`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List petWorkspaceParametersAgentTypeDescriptor =
+    $convert.base64Decode(
+        'Ch9QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlEjMKL1BFVF9XT1JLU1BBQ0VfUEFSQU'
+        '1FVEVSU19BR0VOVF9UWVBFX1VOU1BFQ0lGSUVEEAASKwonUEVUX1dPUktTUEFDRV9QQVJBTUVU'
+        'RVJTX0FHRU5UX1RZUEVfUEVUEAE=');
 
 @$core.Deprecated('Use friendGroupMemberMutableRoleDescriptor instead')
 const FriendGroupMemberMutableRole$json = {

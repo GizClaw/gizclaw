@@ -78,6 +78,9 @@ PB_BIND(gizclaw_rpc_v1_EinoWorkflowSpec, gizclaw_rpc_v1_EinoWorkflowSpec, AUTO)
 PB_BIND(gizclaw_rpc_v1_EinoWorkspaceParameters, gizclaw_rpc_v1_EinoWorkspaceParameters, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_PetWorkspaceParameters, gizclaw_rpc_v1_PetWorkspaceParameters, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, AUTO)
 
 
@@ -138,7 +141,7 @@ PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec, gizclaw_rpc_v1_DoubaoRealtime
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters, gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_FlowcraftConversationParameters, gizclaw_rpc_v1_FlowcraftConversationParameters, AUTO)
+PB_BIND(gizclaw_rpc_v1_ConversationParameters, gizclaw_rpc_v1_ConversationParameters, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_FlowcraftWorkflowSpec, gizclaw_rpc_v1_FlowcraftWorkflowSpec, AUTO)

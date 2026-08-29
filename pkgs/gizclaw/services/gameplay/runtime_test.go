@@ -182,6 +182,31 @@ func TestPetWorkspaceBindingRejectsNonExactIDs(t *testing.T) {
 	}
 }
 
+func TestValidateExistingPetWorkspaceAllowsInputMode(t *testing.T) {
+	input := apitypes.WorkspaceInputModeRealtime
+	parameters := apitypes.WorkspaceParameters{}
+	if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{Input: &input}); err != nil {
+		t.Fatal(err)
+	}
+	owner := "peer-a"
+	workspace := apitypes.Workspace{
+		WorkflowId: "pet-care", OwnerPublicKey: &owner, Parameters: &parameters,
+	}
+	if err := validateExistingPetWorkspace(workspace, owner, "pet-care"); err != nil {
+		t.Fatalf("validateExistingPetWorkspace() error = %v", err)
+	}
+
+	foreignParameters := apitypes.WorkspaceParameters{}
+	if err := foreignParameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{Input: &input}); err != nil {
+		t.Fatal(err)
+	}
+	workspace.Parameters = &foreignParameters
+	if err := validateExistingPetWorkspace(workspace, owner, "pet-care"); err == nil ||
+		!strings.Contains(err.Error(), "invalid Pet execution parameters") {
+		t.Fatalf("validateExistingPetWorkspace(foreign parameters) error = %v", err)
+	}
+}
+
 func assertPetWorkspaceBindingIDs(t *testing.T, ctx context.Context, tx *sqlx.Tx, owner, petID, wantProfile, wantWorkspace string) {
 	t.Helper()
 	var profileID, workspaceID string

@@ -27,6 +27,8 @@ export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
 export type ChatRoomMode = "" | "direct" | "group" | "unspecified" | number;
 export type ChatRoomWorkspaceParametersAgentType = "" | "chatroom" | "unspecified" | number;
+export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
+export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
 export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
@@ -36,8 +38,6 @@ export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | n
 export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
 export type EinoWorkspaceParametersAgentType = "" | "eino" | "unspecified" | number;
 export type FirmwareChannelName = "" | "beta" | "develop" | "stable" | "unspecified" | number;
-export type FlowcraftConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
-export type FlowcraftConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecified" | number;
 export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecified" | number;
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
@@ -50,6 +50,7 @@ export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified"
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
+export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
@@ -204,6 +205,10 @@ export type ContactPutRequest = {
   "phone_number"?: string;
 };
 export type ContactPutResponse = ContactObject;
+export type ConversationParameters = {
+  "agent_initiative_policy"?: ConversationParametersAgentInitiativePolicy;
+  "initiative"?: ConversationParametersInitiative;
+};
 export type DashScopeRealtimeWorkflowSpec = {
   "asr_model"?: string;
   "enable_asr"?: boolean;
@@ -423,7 +428,7 @@ export type EinoWorkflowSpec = {
 export type EinoWorkspaceParameters = {
   "agent_type": EinoWorkspaceParametersAgentType;
   "e2e"?: boolean;
-  "conversation"?: FlowcraftConversationParameters;
+  "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
 };
 export type FirmwareGetRequest = {
@@ -436,16 +441,12 @@ export type FirmwareGetResponse = {
   "sha256": string;
   "size": number;
 };
-export type FlowcraftConversationParameters = {
-  "agent_initiative_policy"?: FlowcraftConversationParametersAgentInitiativePolicy;
-  "initiative"?: FlowcraftConversationParametersInitiative;
-};
 export type FlowcraftWorkflowSpec = {
   "fields": Record<string, unknown>;
 };
 export type FlowcraftWorkspaceParameters = {
   "agent_type": string;
-  "conversation"?: FlowcraftConversationParameters;
+  "conversation"?: ConversationParameters;
   "e2e"?: boolean;
   "input"?: WorkspaceInputMode;
 };
@@ -981,6 +982,10 @@ export type PetWorkflowSpec = {
   "doubao_realtime_duplex"?: DoubaoRealtimeDuplexWorkflowSpec;
   "eino"?: EinoWorkflowSpec;
 };
+export type PetWorkspaceParameters = {
+  "agent_type": PetWorkspaceParametersAgentType;
+  "input"?: WorkspaceInputMode;
+};
 export type PingRequest = {
   "client_send_time": number;
 };
@@ -1359,7 +1364,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters | PetWorkspaceParameters;
 export type WorkspacePutBody = {
   "parameters"?: WorkspaceParameters;
   "toolkit"?: ToolkitPolicy;
@@ -2221,6 +2226,22 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "ContactObject"
+      }
+    ]
+  },
+  "ConversationParameters": {
+    "fields": [
+      {
+        "name": "agent_initiative_policy",
+        "number": 1,
+        "optional": true,
+        "type": "ConversationParametersAgentInitiativePolicy"
+      },
+      {
+        "name": "initiative",
+        "number": 2,
+        "optional": true,
+        "type": "ConversationParametersInitiative"
       }
     ]
   },
@@ -3302,7 +3323,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "conversation",
         "number": 3,
         "optional": true,
-        "type": "FlowcraftConversationParameters"
+        "type": "ConversationParameters"
       },
       {
         "name": "input",
@@ -3351,22 +3372,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "FlowcraftConversationParameters": {
-    "fields": [
-      {
-        "name": "agent_initiative_policy",
-        "number": 1,
-        "optional": true,
-        "type": "FlowcraftConversationParametersAgentInitiativePolicy"
-      },
-      {
-        "name": "initiative",
-        "number": 2,
-        "optional": true,
-        "type": "FlowcraftConversationParametersInitiative"
-      }
-    ]
-  },
   "FlowcraftWorkflowSpec": {
     "fields": [
       {
@@ -3387,7 +3392,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "conversation",
         "number": 2,
         "optional": true,
-        "type": "FlowcraftConversationParameters"
+        "type": "ConversationParameters"
       },
       {
         "name": "e2e",
@@ -5771,6 +5776,21 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PetWorkspaceParameters": {
+    "fields": [
+      {
+        "name": "agent_type",
+        "number": 1,
+        "type": "PetWorkspaceParametersAgentType"
+      },
+      {
+        "name": "input",
+        "number": 2,
+        "optional": true,
+        "type": "WorkspaceInputMode"
+      }
+    ]
+  },
   "PingRequest": {
     "fields": [
       {
@@ -7647,6 +7667,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "value",
         "type": "EinoWorkspaceParameters"
+      },
+      {
+        "name": "pet_workspace_parameters",
+        "number": 8,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "PetWorkspaceParameters"
       }
     ]
   },
@@ -7733,6 +7760,30 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "chatroom"
+    }
+  },
+  "ConversationParametersAgentInitiativePolicy": {
+    "byName": {
+      "on_reload": 2,
+      "once_when_empty": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "once_when_empty",
+      "2": "on_reload"
+    }
+  },
+  "ConversationParametersInitiative": {
+    "byName": {
+      "agent": 2,
+      "peer": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "peer",
+      "2": "agent"
     }
   },
   "DashScopeRealtimeWorkspaceParametersAgentType": {
@@ -7839,30 +7890,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "stable",
       "2": "beta",
       "3": "develop"
-    }
-  },
-  "FlowcraftConversationParametersAgentInitiativePolicy": {
-    "byName": {
-      "on_reload": 2,
-      "once_when_empty": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "once_when_empty",
-      "2": "on_reload"
-    }
-  },
-  "FlowcraftConversationParametersInitiative": {
-    "byName": {
-      "agent": 2,
-      "peer": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "peer",
-      "2": "agent"
     }
   },
   "FlowcraftWorkspaceParametersAgentType": {
@@ -8039,6 +8066,16 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "alive",
       "2": "dead"
+    }
+  },
+  "PetWorkspaceParametersAgentType": {
+    "byName": {
+      "pet": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "pet"
     }
   },
   "ReusableWorkflowDriver": {
@@ -8613,6 +8650,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
         "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
         "eino": "eino_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;

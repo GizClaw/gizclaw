@@ -90,6 +90,17 @@ func TestWorkspaceParametersNewWorkflowBranches(t *testing.T) {
 				})
 			},
 		},
+		{
+			name: "pet",
+			want: "pet",
+			set: func(parameters *WorkspaceParameters) error {
+				mode := WorkspaceInputModeRealtime
+				return parameters.FromPetWorkspaceParameters(PetWorkspaceParameters{
+					AgentType: PetWorkspaceParametersAgentTypePet,
+					Input:     &mode,
+				})
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

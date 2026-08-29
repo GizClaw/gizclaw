@@ -666,6 +666,7 @@ test("RPC payload codec selects every new workflow workspace discriminator", () 
     "dashscope-realtime",
     "doubao-realtime-duplex",
     "eino",
+    "pet",
   ]) {
     const request = {
       collection: "assistants",

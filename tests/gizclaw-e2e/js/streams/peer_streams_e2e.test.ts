@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
+import { x25519 } from "@noble/curves/ed25519.js";
 import wrtc from "@roamhq/wrtc";
 
 import {
@@ -25,11 +27,12 @@ import {
   FriendGroupChange,
   subscribePeerEvents,
 } from "@gizclaw/gizclaw/events";
+import { base58Encode } from "@gizclaw/gizclaw/signaling";
 import {
   assertSetupServerAvailable,
   closePeerConnection,
+  connectPeerWithTransports,
   connectSetupPeer,
-  connectSetupPeerWithTransports,
   loadIdentity,
   repoRoot,
   waitForDataChannelOpen,
@@ -43,9 +46,14 @@ const adminIdentityDir =
   path.join(repoRoot, "tests/gizclaw-e2e/testdata/identities/admin");
 
 async function main(): Promise<void> {
-  const identity = await loadIdentity(identityDir);
-  await assertSetupServerAvailable(identity.endpoint);
-  const transports = await connectSetupPeerWithTransports(identityDir);
+  const setupIdentity = await loadIdentity(identityDir);
+  await assertSetupServerAvailable(setupIdentity.endpoint);
+  const clientPrivateKey = randomBytes(32);
+  const peerPublicKey = base58Encode(x25519.getPublicKey(clientPrivateKey));
+  const transports = await connectPeerWithTransports(
+    clientPrivateKey,
+    setupIdentity.endpoint,
+  );
   const { createdChannels, eventChannel, packetChannel, pc } = transports;
   const adminPC = await connectSetupPeer(adminIdentityDir);
   const admin = createAdminAPIClient(adminPC as unknown as RTCPeerConnection, {
@@ -223,7 +231,12 @@ async function main(): Promise<void> {
     }
     if (eventProbePeerRegistered) {
       try {
-        await deleteEventProbeGroup(pc, identityDir, eventProbeGroupName);
+        await deleteEventProbeGroup(
+          pc,
+          clientPrivateKey,
+          setupIdentity.endpoint,
+          eventProbeGroupName,
+        );
       } catch (error) {
         cleanupError ??= error;
       }
@@ -231,7 +244,7 @@ async function main(): Promise<void> {
     uplinkTrack?.stop();
     closePeerConnection(pc);
     try {
-      await requirePeerOffline(identity.publicKey, admin);
+      await requirePeerOffline(peerPublicKey, admin);
     } catch (error) {
       cleanupError ??= error;
     }
@@ -239,7 +252,7 @@ async function main(): Promise<void> {
       try {
         await deletePeer({
           client: admin,
-          path: { publicKey: identity.publicKey },
+          path: { publicKey: peerPublicKey },
           throwOnError: true,
         });
       } catch (error) {
@@ -395,13 +408,14 @@ function parseServerRevisionUnixMs(updatedAt: string | undefined): bigint {
 
 async function deleteEventProbeGroup(
   pc: wrtc.RTCPeerConnection,
-  identityDir: string,
+  clientPrivateKey: Uint8Array,
+  endpoint: string,
   groupName: string | undefined,
 ): Promise<void> {
   const cleanupPC =
     pc.connectionState === "connected"
       ? pc
-      : await connectSetupPeer(identityDir);
+      : (await connectPeerWithTransports(clientPrivateKey, endpoint)).pc;
   try {
     const cleanupRPC = createPeerRPCClient(
       cleanupPC as unknown as RTCPeerConnection,

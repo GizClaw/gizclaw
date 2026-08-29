@@ -3202,6 +3202,17 @@ export type ChatRoomWorkspaceTranscriptParameters = {
     asr_model?: string;
 };
 
+export type ConversationParameters = {
+    /**
+     * Who starts the conversation when the workspace runtime opens.
+     */
+    initiative?: 'peer' | 'agent';
+    /**
+     * When agent initiative is allowed.
+     */
+    agent_initiative_policy?: 'once_when_empty' | 'on_reload';
+};
+
 export type DashScopeRealtimeWorkspaceParameters = {
     agent_type: 'dashscope-realtime';
     model?: string;
@@ -3253,30 +3264,24 @@ export type DoubaoRealtimeWorkspaceParameters = {
 
 export type EinoWorkspaceParameters = {
     agent_type: 'eino';
-    conversation?: FlowcraftConversationParameters;
+    conversation?: ConversationParameters;
     input?: WorkspaceInputMode;
     e2e?: boolean;
-};
-
-export type FlowcraftConversationParameters = {
-    /**
-     * Who starts the conversation when the workspace runtime opens.
-     */
-    initiative?: 'peer' | 'agent';
-    /**
-     * When agent initiative is allowed.
-     */
-    agent_initiative_policy?: 'once_when_empty' | 'on_reload';
 };
 
 export type FlowcraftWorkspaceParameters = {
     agent_type: 'flowcraft';
     input?: WorkspaceInputMode;
-    conversation?: FlowcraftConversationParameters;
+    conversation?: ConversationParameters;
     /**
      * Marks seed resources used by the local e2e harness.
      */
     e2e?: boolean;
+};
+
+export type PetWorkspaceParameters = {
+    agent_type: 'pet';
+    input?: WorkspaceInputMode;
 };
 
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
@@ -3298,7 +3303,9 @@ export type WorkspaceParameters = ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
     agent_type: 'chatroom';
-} & ChatRoomWorkspaceParameters);
+} & ChatRoomWorkspaceParameters) | ({
+    agent_type: 'pet';
+} & PetWorkspaceParameters);
 
 export type WorkspaceSpec = {
     /**

@@ -571,7 +571,7 @@ func mapInitiative(conversation *apitypes.EinoConversation, parameters *apitypes
 	if conversation != nil && conversation.Starts != nil {
 		starts = *conversation.Starts
 	}
-	policy := apitypes.FlowcraftConversationParametersAgentInitiativePolicyOnReload
+	policy := apitypes.ConversationParametersAgentInitiativePolicyOnReload
 	if parameters != nil {
 		if value, err := parameters.AsEinoWorkspaceParameters(); err == nil && value.Conversation != nil {
 			if value.Conversation.Initiative != nil {
@@ -585,7 +585,7 @@ func mapInitiative(conversation *apitypes.EinoConversation, parameters *apitypes
 	if starts != apitypes.EinoConversationStartsAgent {
 		return genxeino.InitiativeDisabled
 	}
-	if policy == apitypes.FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty {
+	if policy == apitypes.ConversationParametersAgentInitiativePolicyOnceWhenEmpty {
 		return genxeino.InitiativeOnceWhenEmpty
 	}
 	return genxeino.InitiativeOnReload

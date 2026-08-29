@@ -204,6 +204,65 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 	}
 }
 
+func TestNestedWorkspaceParametersForwardPetInputMode(t *testing.T) {
+	input := apitypes.WorkspaceInputModeRealtime
+	var parameters apitypes.WorkspaceParameters
+	if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{Input: &input}); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		driver apitypes.ReusableWorkflowDriver
+		want   string
+	}{
+		{driver: apitypes.ReusableWorkflowDriverFlowcraft, want: "flowcraft"},
+		{driver: apitypes.ReusableWorkflowDriverDoubaoRealtime, want: "doubao-realtime"},
+		{driver: apitypes.ReusableWorkflowDriverEino, want: "eino"},
+		{driver: apitypes.ReusableWorkflowDriverAstTranslate, want: "ast-translate"},
+		{driver: apitypes.ReusableWorkflowDriverChatroom, want: "chatroom"},
+	}
+	for _, test := range tests {
+		t.Run(string(test.driver), func(t *testing.T) {
+			nested, err := nestedWorkspaceParameters(&parameters, test.driver)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, err := nested.Discriminator(); err != nil || got != test.want {
+				t.Fatalf("Discriminator() = %q, %v; want %q", got, err, test.want)
+			}
+			value, err := nested.ValueByDiscriminator()
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch typed := value.(type) {
+			case apitypes.FlowcraftWorkspaceParameters:
+				assertPetNestedInput(t, typed.Input, input)
+			case apitypes.DoubaoRealtimeWorkspaceParameters:
+				assertPetNestedInput(t, typed.Input, input)
+			case apitypes.EinoWorkspaceParameters:
+				assertPetNestedInput(t, typed.Input, input)
+			case apitypes.ASTTranslateWorkspaceParameters:
+				assertPetNestedInput(t, typed.Input, input)
+			case apitypes.ChatRoomWorkspaceParameters:
+				assertPetNestedInput(t, typed.Input, input)
+			default:
+				t.Fatalf("nested parameters type = %T", value)
+			}
+		})
+	}
+
+	if _, err := nestedWorkspaceParameters(&parameters, apitypes.ReusableWorkflowDriverDashscopeRealtime); err == nil ||
+		!strings.Contains(err.Error(), "does not support workspace input switching") {
+		t.Fatalf("unsupported driver error = %v", err)
+	}
+}
+
+func assertPetNestedInput(t testing.TB, got *apitypes.WorkspaceInputMode, want apitypes.WorkspaceInputMode) {
+	t.Helper()
+	if got == nil || *got != want {
+		t.Fatalf("nested input = %v, want %q", got, want)
+	}
+}
+
 func TestFactoryRefreshesNestedBoardInputsWithinLongLivedTransform(t *testing.T) {
 	registry := agenthost.NewRegistry()
 	nested := &boardInputsCaptureFactory{}

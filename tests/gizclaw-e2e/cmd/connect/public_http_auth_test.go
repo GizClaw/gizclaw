@@ -5,6 +5,7 @@ package connect_test
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -16,8 +17,16 @@ func TestPublicHTTPAuthUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "303-public-http-auth")
 
 	h.CreateContext("device-http").MustSucceed(t)
+	h.RegisterContext("device-http", "--sn", "connect-public-http-device-sn").MustSucceed(t)
 	client := h.ConnectClientFromContext("device-http")
 	defer func() { _ = client.Close() }()
+	registrationToken := os.Getenv("GIZCLAW_TEST_REGISTRATION_TOKEN")
+	if registrationToken == "" {
+		t.Fatal("GIZCLAW_TEST_REGISTRATION_TOKEN is required")
+	}
+	if _, err := client.Register(t.Context(), "connect.public-http.register", registrationToken); err != nil {
+		t.Fatalf("register public HTTP device: %v", err)
+	}
 	serverInfoResp, err := http.Get(h.PublicHTTPURL() + "/server-info")
 	if err != nil {
 		t.Fatalf("GET server-info: %v", err)

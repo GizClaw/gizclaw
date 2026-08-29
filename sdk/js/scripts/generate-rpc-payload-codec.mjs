@@ -556,6 +556,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
         "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
         "eino": "eino_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;

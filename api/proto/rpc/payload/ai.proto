@@ -191,8 +191,13 @@ message EinoWorkflowSpec {
 message EinoWorkspaceParameters {
   EinoWorkspaceParametersAgentType agent_type = 1;
   optional bool e2e = 2;
-  optional FlowcraftConversationParameters conversation = 3;
+  optional ConversationParameters conversation = 3;
   optional WorkspaceInputMode input = 4;
+}
+
+message PetWorkspaceParameters {
+  PetWorkspaceParametersAgentType agent_type = 1;
+  optional WorkspaceInputMode input = 2;
 }
 
 message DoubaoRealtimeAIGCMetadata {
@@ -324,9 +329,9 @@ message DoubaoRealtimeWorkspaceParameters {
   repeated DoubaoRealtimeFunctionTool tools = 8;
 }
 
-message FlowcraftConversationParameters {
-  optional FlowcraftConversationParametersAgentInitiativePolicy agent_initiative_policy = 1;
-  optional FlowcraftConversationParametersInitiative initiative = 2;
+message ConversationParameters {
+  optional ConversationParametersAgentInitiativePolicy agent_initiative_policy = 1;
+  optional ConversationParametersInitiative initiative = 2;
 }
 
 message FlowcraftWorkflowSpec {
@@ -335,7 +340,7 @@ message FlowcraftWorkflowSpec {
 
 message FlowcraftWorkspaceParameters {
   FlowcraftWorkspaceParametersAgentType agent_type = 1;
-  optional FlowcraftConversationParameters conversation = 2;
+  optional ConversationParameters conversation = 2;
   optional bool e2e = 3;
   optional WorkspaceInputMode input = 4;
 }

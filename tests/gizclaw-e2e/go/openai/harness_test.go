@@ -123,8 +123,8 @@ func newOpenAIHarness(t *testing.T) *openAIHarness {
 func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	t.Helper()
 	workflows := apitypes.RuntimeProfileWorkflowCollections{"assistants": {"shared": binding("flowcraft-chat-assistant")}}
-	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("fake-openai-chat-000"), "asr": binding("volc-bigasr-sauc")}
-	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_vv_jupiter_bigtts")}
+	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-mini-chat"), "asr": binding("volc-bigasr-sauc")}
+	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
 	connection := apitypes.RuntimeProfileMemoryConnection{}
 	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh}); err != nil {
 		t.Fatal(err)
@@ -140,7 +140,13 @@ func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 }
 
 func binding(id string) apitypes.RuntimeProfileBinding {
-	return apitypes.RuntimeProfileBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: id}}}
+	return apitypes.RuntimeProfileBinding{
+		ResourceId: id,
+		I18n: map[string]apitypes.RuntimeProfileI18nText{
+			"en":    {DisplayName: id},
+			"zh-CN": {DisplayName: id},
+		},
+	}
 }
 
 func envOr(key, fallback string) string {
