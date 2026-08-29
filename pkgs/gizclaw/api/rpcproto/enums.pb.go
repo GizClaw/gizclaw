@@ -654,101 +654,101 @@ func (FirmwareChannelName) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{12}
 }
 
-type ConversationParametersAgentInitiativePolicy int32
+type FlowcraftConversationParametersAgentInitiativePolicy int32
 
 const (
-	ConversationParametersAgentInitiativePolicy_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED     ConversationParametersAgentInitiativePolicy = 0
-	ConversationParametersAgentInitiativePolicy_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY ConversationParametersAgentInitiativePolicy = 1
-	ConversationParametersAgentInitiativePolicy_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD       ConversationParametersAgentInitiativePolicy = 2
+	FlowcraftConversationParametersAgentInitiativePolicy_FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED     FlowcraftConversationParametersAgentInitiativePolicy = 0
+	FlowcraftConversationParametersAgentInitiativePolicy_FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY FlowcraftConversationParametersAgentInitiativePolicy = 1
+	FlowcraftConversationParametersAgentInitiativePolicy_FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD       FlowcraftConversationParametersAgentInitiativePolicy = 2
 )
 
-// Enum value maps for ConversationParametersAgentInitiativePolicy.
+// Enum value maps for FlowcraftConversationParametersAgentInitiativePolicy.
 var (
-	ConversationParametersAgentInitiativePolicy_name = map[int32]string{
-		0: "CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED",
-		1: "CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY",
-		2: "CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD",
+	FlowcraftConversationParametersAgentInitiativePolicy_name = map[int32]string{
+		0: "FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED",
+		1: "FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY",
+		2: "FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD",
 	}
-	ConversationParametersAgentInitiativePolicy_value = map[string]int32{
-		"CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED":     0,
-		"CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY": 1,
-		"CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD":       2,
+	FlowcraftConversationParametersAgentInitiativePolicy_value = map[string]int32{
+		"FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED":     0,
+		"FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY": 1,
+		"FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD":       2,
 	}
 )
 
-func (x ConversationParametersAgentInitiativePolicy) Enum() *ConversationParametersAgentInitiativePolicy {
-	p := new(ConversationParametersAgentInitiativePolicy)
+func (x FlowcraftConversationParametersAgentInitiativePolicy) Enum() *FlowcraftConversationParametersAgentInitiativePolicy {
+	p := new(FlowcraftConversationParametersAgentInitiativePolicy)
 	*p = x
 	return p
 }
 
-func (x ConversationParametersAgentInitiativePolicy) String() string {
+func (x FlowcraftConversationParametersAgentInitiativePolicy) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ConversationParametersAgentInitiativePolicy) Descriptor() protoreflect.EnumDescriptor {
+func (FlowcraftConversationParametersAgentInitiativePolicy) Descriptor() protoreflect.EnumDescriptor {
 	return file_payload_enums_proto_enumTypes[13].Descriptor()
 }
 
-func (ConversationParametersAgentInitiativePolicy) Type() protoreflect.EnumType {
+func (FlowcraftConversationParametersAgentInitiativePolicy) Type() protoreflect.EnumType {
 	return &file_payload_enums_proto_enumTypes[13]
 }
 
-func (x ConversationParametersAgentInitiativePolicy) Number() protoreflect.EnumNumber {
+func (x FlowcraftConversationParametersAgentInitiativePolicy) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ConversationParametersAgentInitiativePolicy.Descriptor instead.
-func (ConversationParametersAgentInitiativePolicy) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use FlowcraftConversationParametersAgentInitiativePolicy.Descriptor instead.
+func (FlowcraftConversationParametersAgentInitiativePolicy) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{13}
 }
 
-type ConversationParametersInitiative int32
+type FlowcraftConversationParametersInitiative int32
 
 const (
-	ConversationParametersInitiative_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED ConversationParametersInitiative = 0
-	ConversationParametersInitiative_CONVERSATION_PARAMETERS_INITIATIVE_PEER        ConversationParametersInitiative = 1
-	ConversationParametersInitiative_CONVERSATION_PARAMETERS_INITIATIVE_AGENT       ConversationParametersInitiative = 2
+	FlowcraftConversationParametersInitiative_FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED FlowcraftConversationParametersInitiative = 0
+	FlowcraftConversationParametersInitiative_FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER        FlowcraftConversationParametersInitiative = 1
+	FlowcraftConversationParametersInitiative_FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT       FlowcraftConversationParametersInitiative = 2
 )
 
-// Enum value maps for ConversationParametersInitiative.
+// Enum value maps for FlowcraftConversationParametersInitiative.
 var (
-	ConversationParametersInitiative_name = map[int32]string{
-		0: "CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED",
-		1: "CONVERSATION_PARAMETERS_INITIATIVE_PEER",
-		2: "CONVERSATION_PARAMETERS_INITIATIVE_AGENT",
+	FlowcraftConversationParametersInitiative_name = map[int32]string{
+		0: "FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED",
+		1: "FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER",
+		2: "FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT",
 	}
-	ConversationParametersInitiative_value = map[string]int32{
-		"CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED": 0,
-		"CONVERSATION_PARAMETERS_INITIATIVE_PEER":        1,
-		"CONVERSATION_PARAMETERS_INITIATIVE_AGENT":       2,
+	FlowcraftConversationParametersInitiative_value = map[string]int32{
+		"FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED": 0,
+		"FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER":        1,
+		"FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT":       2,
 	}
 )
 
-func (x ConversationParametersInitiative) Enum() *ConversationParametersInitiative {
-	p := new(ConversationParametersInitiative)
+func (x FlowcraftConversationParametersInitiative) Enum() *FlowcraftConversationParametersInitiative {
+	p := new(FlowcraftConversationParametersInitiative)
 	*p = x
 	return p
 }
 
-func (x ConversationParametersInitiative) String() string {
+func (x FlowcraftConversationParametersInitiative) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ConversationParametersInitiative) Descriptor() protoreflect.EnumDescriptor {
+func (FlowcraftConversationParametersInitiative) Descriptor() protoreflect.EnumDescriptor {
 	return file_payload_enums_proto_enumTypes[14].Descriptor()
 }
 
-func (ConversationParametersInitiative) Type() protoreflect.EnumType {
+func (FlowcraftConversationParametersInitiative) Type() protoreflect.EnumType {
 	return &file_payload_enums_proto_enumTypes[14]
 }
 
-func (x ConversationParametersInitiative) Number() protoreflect.EnumNumber {
+func (x FlowcraftConversationParametersInitiative) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ConversationParametersInitiative.Descriptor instead.
-func (ConversationParametersInitiative) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use FlowcraftConversationParametersInitiative.Descriptor instead.
+func (FlowcraftConversationParametersInitiative) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{14}
 }
 
@@ -1614,15 +1614,15 @@ const file_payload_enums_proto_rawDesc = "" +
 	"!FIRMWARE_CHANNEL_NAME_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cFIRMWARE_CHANNEL_NAME_STABLE\x10\x01\x12\x1e\n" +
 	"\x1aFIRMWARE_CHANNEL_NAME_BETA\x10\x02\x12!\n" +
-	"\x1dFIRMWARE_CHANNEL_NAME_DEVELOP\x10\x03*\xf2\x01\n" +
-	"+ConversationParametersAgentInitiativePolicy\x12?\n" +
-	";CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED\x10\x00\x12C\n" +
-	"?CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY\x10\x01\x12=\n" +
-	"9CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD\x10\x02*\xb1\x01\n" +
-	" ConversationParametersInitiative\x122\n" +
-	".CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED\x10\x00\x12+\n" +
-	"'CONVERSATION_PARAMETERS_INITIATIVE_PEER\x10\x01\x12,\n" +
-	"(CONVERSATION_PARAMETERS_INITIATIVE_AGENT\x10\x02*\x9b\x01\n" +
+	"\x1dFIRMWARE_CHANNEL_NAME_DEVELOP\x10\x03*\x99\x02\n" +
+	"4FlowcraftConversationParametersAgentInitiativePolicy\x12I\n" +
+	"EFLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED\x10\x00\x12M\n" +
+	"IFLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY\x10\x01\x12G\n" +
+	"CFLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD\x10\x02*\xd8\x01\n" +
+	")FlowcraftConversationParametersInitiative\x12<\n" +
+	"8FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED\x10\x00\x125\n" +
+	"1FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER\x10\x01\x126\n" +
+	"2FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT\x10\x02*\x9b\x01\n" +
 	"%FlowcraftWorkspaceParametersAgentType\x129\n" +
 	"5FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED\x10\x00\x127\n" +
 	"3FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT\x10\x01*\x87\x01\n" +
@@ -1725,33 +1725,33 @@ var file_payload_enums_proto_goTypes = []any{
 	(IconFormat)(0),       // 0: gizclaw.rpc.v1.IconFormat
 	(ASTTranslateMode)(0), // 1: gizclaw.rpc.v1.ASTTranslateMode
 	(ASTTranslateWorkspaceParametersAgentType)(0), // 2: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	(ChatRoomMode)(0),                                     // 3: gizclaw.rpc.v1.ChatRoomMode
-	(ChatRoomWorkspaceParametersAgentType)(0),             // 4: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
-	(DashScopeTenantModelProviderDataApiMode)(0),          // 5: gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
-	(DashScopeRealtimeWorkspaceParametersAgentType)(0),    // 6: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
-	(DoubaoRealtimeDuplexWorkspaceParametersAgentType)(0), // 7: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
-	(DoubaoRealtimeAudioFormatType)(0),                    // 8: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),       // 9: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	(DoubaoRealtimeFunctionToolType)(0),                   // 10: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	(DoubaoRealtimeWorkspaceParametersAgentType)(0),       // 11: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	(FirmwareChannelName)(0),                              // 12: gizclaw.rpc.v1.FirmwareChannelName
-	(ConversationParametersAgentInitiativePolicy)(0),      // 13: gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
-	(ConversationParametersInitiative)(0),                 // 14: gizclaw.rpc.v1.ConversationParametersInitiative
-	(FlowcraftWorkspaceParametersAgentType)(0),            // 15: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	(EinoWorkspaceParametersAgentType)(0),                 // 16: gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
-	(PetWorkspaceParametersAgentType)(0),                  // 17: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	(FriendGroupMemberMutableRole)(0),                     // 18: gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	(FriendGroupMemberRole)(0),                            // 19: gizclaw.rpc.v1.FriendGroupMemberRole
-	(PeerRole)(0),                                         // 20: gizclaw.rpc.v1.PeerRole
-	(ModelKind)(0),                                        // 21: gizclaw.rpc.v1.ModelKind
-	(PeerRunHistoryEntryType)(0),                          // 22: gizclaw.rpc.v1.PeerRunHistoryEntryType
-	(PeerRunHistoryListRequestOrder)(0),                   // 23: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
-	(PeerRunStatusState)(0),                               // 24: gizclaw.rpc.v1.PeerRunStatusState
-	(VolcTenantModelProviderDataApiMode)(0),               // 25: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
-	(WorkflowDriver)(0),                                   // 26: gizclaw.rpc.v1.WorkflowDriver
-	(ReusableWorkflowDriver)(0),                           // 27: gizclaw.rpc.v1.ReusableWorkflowDriver
-	(WorkspaceHistoryListRequestOrder)(0),                 // 28: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(WorkspaceInputMode)(0),                               // 29: gizclaw.rpc.v1.WorkspaceInputMode
+	(ChatRoomMode)(0),                                         // 3: gizclaw.rpc.v1.ChatRoomMode
+	(ChatRoomWorkspaceParametersAgentType)(0),                 // 4: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
+	(DashScopeTenantModelProviderDataApiMode)(0),              // 5: gizclaw.rpc.v1.DashScopeTenantModelProviderDataApiMode
+	(DashScopeRealtimeWorkspaceParametersAgentType)(0),        // 6: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
+	(DoubaoRealtimeDuplexWorkspaceParametersAgentType)(0),     // 7: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
+	(DoubaoRealtimeAudioFormatType)(0),                        // 8: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),           // 9: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	(DoubaoRealtimeFunctionToolType)(0),                       // 10: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	(DoubaoRealtimeWorkspaceParametersAgentType)(0),           // 11: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	(FirmwareChannelName)(0),                                  // 12: gizclaw.rpc.v1.FirmwareChannelName
+	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 13: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
+	(FlowcraftConversationParametersInitiative)(0),            // 14: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	(FlowcraftWorkspaceParametersAgentType)(0),                // 15: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	(EinoWorkspaceParametersAgentType)(0),                     // 16: gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
+	(PetWorkspaceParametersAgentType)(0),                      // 17: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	(FriendGroupMemberMutableRole)(0),                         // 18: gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	(FriendGroupMemberRole)(0),                                // 19: gizclaw.rpc.v1.FriendGroupMemberRole
+	(PeerRole)(0),                                             // 20: gizclaw.rpc.v1.PeerRole
+	(ModelKind)(0),                                            // 21: gizclaw.rpc.v1.ModelKind
+	(PeerRunHistoryEntryType)(0),                              // 22: gizclaw.rpc.v1.PeerRunHistoryEntryType
+	(PeerRunHistoryListRequestOrder)(0),                       // 23: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	(PeerRunStatusState)(0),                                   // 24: gizclaw.rpc.v1.PeerRunStatusState
+	(VolcTenantModelProviderDataApiMode)(0),                   // 25: gizclaw.rpc.v1.VolcTenantModelProviderDataApiMode
+	(WorkflowDriver)(0),                                       // 26: gizclaw.rpc.v1.WorkflowDriver
+	(ReusableWorkflowDriver)(0),                               // 27: gizclaw.rpc.v1.ReusableWorkflowDriver
+	(WorkspaceHistoryListRequestOrder)(0),                     // 28: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	(WorkspaceInputMode)(0),                                   // 29: gizclaw.rpc.v1.WorkspaceInputMode
 }
 var file_payload_enums_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

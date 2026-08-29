@@ -1,0 +1,40 @@
+#ifndef GZC_RPC_COMPAT_H
+#define GZC_RPC_COMPAT_H
+
+#include "payload/ai.pb.h"
+
+/*
+ * Deprecated Flowcraft-prefixed message name retained for source
+ * compatibility. New code should use gizclaw_rpc_v1_ConversationParameters.
+ */
+#define _gizclaw_rpc_v1_FlowcraftConversationParameters \
+  _gizclaw_rpc_v1_ConversationParameters
+typedef gizclaw_rpc_v1_ConversationParameters
+    gizclaw_rpc_v1_FlowcraftConversationParameters;
+
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_agent_initiative_policy_ENUMTYPE \
+  gizclaw_rpc_v1_ConversationParameters_agent_initiative_policy_ENUMTYPE
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_initiative_ENUMTYPE \
+  gizclaw_rpc_v1_ConversationParameters_initiative_ENUMTYPE
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_init_default \
+  gizclaw_rpc_v1_ConversationParameters_init_default
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero \
+  gizclaw_rpc_v1_ConversationParameters_init_zero
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_agent_initiative_policy_tag \
+  gizclaw_rpc_v1_ConversationParameters_agent_initiative_policy_tag
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_initiative_tag \
+  gizclaw_rpc_v1_ConversationParameters_initiative_tag
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_FIELDLIST \
+  gizclaw_rpc_v1_ConversationParameters_FIELDLIST
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_CALLBACK \
+  gizclaw_rpc_v1_ConversationParameters_CALLBACK
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_DEFAULT \
+  gizclaw_rpc_v1_ConversationParameters_DEFAULT
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_msg \
+  gizclaw_rpc_v1_ConversationParameters_msg
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_fields \
+  gizclaw_rpc_v1_ConversationParameters_fields
+#define gizclaw_rpc_v1_FlowcraftConversationParameters_size \
+  gizclaw_rpc_v1_ConversationParameters_size
+
+#endif

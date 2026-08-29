@@ -2310,7 +2310,8 @@ const ConversationParameters$json = {
       '3': 1,
       '4': 1,
       '5': 14,
-      '6': '.gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy',
+      '6':
+          '.gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy',
       '9': 0,
       '10': 'agentInitiativePolicy',
       '17': true
@@ -2320,7 +2321,7 @@ const ConversationParameters$json = {
       '3': 2,
       '4': 1,
       '5': 14,
-      '6': '.gizclaw.rpc.v1.ConversationParametersInitiative',
+      '6': '.gizclaw.rpc.v1.FlowcraftConversationParametersInitiative',
       '9': 1,
       '10': 'initiative',
       '17': true
@@ -2334,11 +2335,12 @@ const ConversationParameters$json = {
 
 /// Descriptor for `ConversationParameters`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List conversationParametersDescriptor = $convert.base64Decode(
-    'ChZDb252ZXJzYXRpb25QYXJhbWV0ZXJzEngKF2FnZW50X2luaXRpYXRpdmVfcG9saWN5GAEgAS'
-    'gOMjsuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0FnZW50SW5pdGlhdGl2'
-    'ZVBvbGljeUgAUhVhZ2VudEluaXRpYXRpdmVQb2xpY3mIAQESVQoKaW5pdGlhdGl2ZRgCIAEoDj'
-    'IwLmdpemNsYXcucnBjLnYxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNJbml0aWF0aXZlSAFSCmlu'
-    'aXRpYXRpdmWIAQFCGgoYX2FnZW50X2luaXRpYXRpdmVfcG9saWN5Qg0KC19pbml0aWF0aXZl');
+    'ChZDb252ZXJzYXRpb25QYXJhbWV0ZXJzEoEBChdhZ2VudF9pbml0aWF0aXZlX3BvbGljeRgBIA'
+    'EoDjJELmdpemNsYXcucnBjLnYxLkZsb3djcmFmdENvbnZlcnNhdGlvblBhcmFtZXRlcnNBZ2Vu'
+    'dEluaXRpYXRpdmVQb2xpY3lIAFIVYWdlbnRJbml0aWF0aXZlUG9saWN5iAEBEl4KCmluaXRpYX'
+    'RpdmUYAiABKA4yOS5naXpjbGF3LnJwYy52MS5GbG93Y3JhZnRDb252ZXJzYXRpb25QYXJhbWV0'
+    'ZXJzSW5pdGlhdGl2ZUgBUgppbml0aWF0aXZliAEBQhoKGF9hZ2VudF9pbml0aWF0aXZlX3BvbG'
+    'ljeUINCgtfaW5pdGlhdGl2ZQ==');
 
 @$core.Deprecated('Use flowcraftWorkflowSpecDescriptor instead')
 const FlowcraftWorkflowSpec$json = {

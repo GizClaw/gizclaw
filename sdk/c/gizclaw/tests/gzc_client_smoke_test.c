@@ -23,6 +23,14 @@ _Static_assert(
             sizeof(((gizclaw_rpc_v1_APIKeyListResponse *)0)->items[0]) ==
         100,
     "API key list must retain its bounded Nanopb capacity");
+_Static_assert(
+    sizeof(gizclaw_rpc_v1_FlowcraftConversationParameters) ==
+        sizeof(gizclaw_rpc_v1_ConversationParameters),
+    "legacy conversation parameters must remain source compatible");
+_Static_assert(
+    gizclaw_rpc_v1_FlowcraftConversationParametersInitiative_FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT ==
+        2,
+    "legacy conversation initiative values must remain source compatible");
 
 struct gzc_rtc_peer {
   int unused;
@@ -1617,6 +1625,15 @@ static int test_json_ascii_classification(void) {
 }
 
 int main(void) {
+  gizclaw_rpc_v1_FlowcraftConversationParameters legacy_conversation =
+      gizclaw_rpc_v1_FlowcraftConversationParameters_init_zero;
+  if (expect(
+          gizclaw_rpc_v1_FlowcraftConversationParameters_fields ==
+                  gizclaw_rpc_v1_ConversationParameters_fields &&
+              legacy_conversation.has_initiative == false,
+          "legacy conversation parameter descriptors remain compatible") != 0) {
+    return 1;
+  }
   if (expect(test_peer_event_golden_vectors() == 0,
              "all Peer Event golden vectors match Nanopb") != 0 ||
       test_json_ascii_classification() != 0) {

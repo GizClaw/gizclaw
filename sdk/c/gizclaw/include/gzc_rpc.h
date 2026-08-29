@@ -3,6 +3,7 @@
 
 #include "gzc_client.h"
 #include "gzc_json.h"
+#include "gzc_rpc_compat.h"
 #include "gzc_rpc_frame.h"
 #include "payload/ai.pb.h"
 #include "payload/edge.pb.h"
