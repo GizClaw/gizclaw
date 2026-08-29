@@ -3178,9 +3178,9 @@ func (x *DoubaoRealtimeWorkspaceParameters) GetTools() []*DoubaoRealtimeFunction
 }
 
 type ConversationParameters struct {
-	state                 protoimpl.MessageState                                `protogen:"open.v1"`
-	AgentInitiativePolicy *FlowcraftConversationParametersAgentInitiativePolicy `protobuf:"varint,1,opt,name=agent_initiative_policy,json=agentInitiativePolicy,proto3,enum=gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy,oneof" json:"agent_initiative_policy,omitempty"`
-	Initiative            *FlowcraftConversationParametersInitiative            `protobuf:"varint,2,opt,name=initiative,proto3,enum=gizclaw.rpc.v1.FlowcraftConversationParametersInitiative,oneof" json:"initiative,omitempty"`
+	state                 protoimpl.MessageState                       `protogen:"open.v1"`
+	AgentInitiativePolicy *ConversationParametersAgentInitiativePolicy `protobuf:"varint,1,opt,name=agent_initiative_policy,json=agentInitiativePolicy,proto3,enum=gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy,oneof" json:"agent_initiative_policy,omitempty"`
+	Initiative            *ConversationParametersInitiative            `protobuf:"varint,2,opt,name=initiative,proto3,enum=gizclaw.rpc.v1.ConversationParametersInitiative,oneof" json:"initiative,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -3215,18 +3215,18 @@ func (*ConversationParameters) Descriptor() ([]byte, []int) {
 	return file_payload_ai_proto_rawDescGZIP(), []int{43}
 }
 
-func (x *ConversationParameters) GetAgentInitiativePolicy() FlowcraftConversationParametersAgentInitiativePolicy {
+func (x *ConversationParameters) GetAgentInitiativePolicy() ConversationParametersAgentInitiativePolicy {
 	if x != nil && x.AgentInitiativePolicy != nil {
 		return *x.AgentInitiativePolicy
 	}
-	return FlowcraftConversationParametersAgentInitiativePolicy_FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED
+	return ConversationParametersAgentInitiativePolicy_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED
 }
 
-func (x *ConversationParameters) GetInitiative() FlowcraftConversationParametersInitiative {
+func (x *ConversationParameters) GetInitiative() ConversationParametersInitiative {
 	if x != nil && x.Initiative != nil {
 		return *x.Initiative
 	}
-	return FlowcraftConversationParametersInitiative_FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED
+	return ConversationParametersInitiative_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED
 }
 
 type FlowcraftWorkflowSpec struct {
@@ -6172,11 +6172,11 @@ const file_payload_ai_proto_rawDesc = "" +
 	"_extensionB\b\n" +
 	"\x06_inputB\x0f\n" +
 	"\r_instructionsB\b\n" +
-	"\x06_model\"\xa7\x02\n" +
-	"\x16ConversationParameters\x12\x81\x01\n" +
-	"\x17agent_initiative_policy\x18\x01 \x01(\x0e2D.gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicyH\x00R\x15agentInitiativePolicy\x88\x01\x01\x12^\n" +
+	"\x06_model\"\x94\x02\n" +
+	"\x16ConversationParameters\x12x\n" +
+	"\x17agent_initiative_policy\x18\x01 \x01(\x0e2;.gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicyH\x00R\x15agentInitiativePolicy\x88\x01\x01\x12U\n" +
 	"\n" +
-	"initiative\x18\x02 \x01(\x0e29.gizclaw.rpc.v1.FlowcraftConversationParametersInitiativeH\x01R\n" +
+	"initiative\x18\x02 \x01(\x0e20.gizclaw.rpc.v1.ConversationParametersInitiativeH\x01R\n" +
 	"initiative\x88\x01\x01B\x1a\n" +
 	"\x18_agent_initiative_policyB\r\n" +
 	"\v_initiative\"H\n" +
@@ -6517,110 +6517,110 @@ func file_payload_ai_proto_rawDescGZIP() []byte {
 var file_payload_ai_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_payload_ai_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
 var file_payload_ai_proto_goTypes = []any{
-	(ModelProviderKind)(0),                                    // 0: gizclaw.rpc.v1.ModelProviderKind
-	(*ResourceI18NText)(nil),                                  // 1: gizclaw.rpc.v1.ResourceI18nText
-	(*SpeechTranscribeRequest)(nil),                           // 2: gizclaw.rpc.v1.SpeechTranscribeRequest
-	(*SpeechTranscribeResponse)(nil),                          // 3: gizclaw.rpc.v1.SpeechTranscribeResponse
-	(*SpeechExtractRequest)(nil),                              // 4: gizclaw.rpc.v1.SpeechExtractRequest
-	(*SpeechExtractResponse)(nil),                             // 5: gizclaw.rpc.v1.SpeechExtractResponse
-	(*SpeechSynthesizeRequest)(nil),                           // 6: gizclaw.rpc.v1.SpeechSynthesizeRequest
-	(*SpeechSynthesizeResponse)(nil),                          // 7: gizclaw.rpc.v1.SpeechSynthesizeResponse
-	(*ASTTranslateExternalVoiceParameters)(nil),               // 8: gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
-	(*ASTTranslateInternalSpeakerParameters)(nil),             // 9: gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
-	(*ASTTranslateVoiceParameters)(nil),                       // 10: gizclaw.rpc.v1.ASTTranslateVoiceParameters
-	(*ASTTranslateWorkflowSpec)(nil),                          // 11: gizclaw.rpc.v1.ASTTranslateWorkflowSpec
-	(*ASTTranslateWorkspaceParameters)(nil),                   // 12: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	(*ChatRoomWorkflowHistorySpec)(nil),                       // 13: gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
-	(*ChatRoomWorkflowSpec)(nil),                              // 14: gizclaw.rpc.v1.ChatRoomWorkflowSpec
-	(*ChatRoomWorkflowTranscriptSpec)(nil),                    // 15: gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
-	(*ChatRoomWorkspaceHistoryParameters)(nil),                // 16: gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
-	(*ChatRoomWorkspaceParameters)(nil),                       // 17: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	(*ChatRoomWorkspaceTranscriptParameters)(nil),             // 18: gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
-	(*DashScopeRealtimeWorkflowSpec)(nil),                     // 19: gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec
-	(*DashScopeRealtimeWorkspaceParameters)(nil),              // 20: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
-	(*DoubaoRealtimeDuplexWorkflowSpec)(nil),                  // 21: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkflowSpec
-	(*DoubaoRealtimeDuplexWorkspaceParameters)(nil),           // 22: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
-	(*EinoWorkflowSpec)(nil),                                  // 23: gizclaw.rpc.v1.EinoWorkflowSpec
-	(*EinoWorkspaceParameters)(nil),                           // 24: gizclaw.rpc.v1.EinoWorkspaceParameters
-	(*PetWorkspaceParameters)(nil),                            // 25: gizclaw.rpc.v1.PetWorkspaceParameters
-	(*DoubaoRealtimeAIGCMetadata)(nil),                        // 26: gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
-	(*DoubaoRealtimeASRContext)(nil),                          // 27: gizclaw.rpc.v1.DoubaoRealtimeASRContext
-	(*DoubaoRealtimeASRExtension)(nil),                        // 28: gizclaw.rpc.v1.DoubaoRealtimeASRExtension
-	(*DoubaoRealtimeASRExtra)(nil),                            // 29: gizclaw.rpc.v1.DoubaoRealtimeASRExtra
-	(*DoubaoRealtimeASRHotword)(nil),                          // 30: gizclaw.rpc.v1.DoubaoRealtimeASRHotword
-	(*DoubaoRealtimeAudio)(nil),                               // 31: gizclaw.rpc.v1.DoubaoRealtimeAudio
-	(*DoubaoRealtimeAudioFormat)(nil),                         // 32: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
-	(*DoubaoRealtimeAudioInput)(nil),                          // 33: gizclaw.rpc.v1.DoubaoRealtimeAudioInput
-	(*DoubaoRealtimeAudioOutput)(nil),                         // 34: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
-	(*DoubaoRealtimeDialogExtension)(nil),                     // 35: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
-	(*DoubaoRealtimeDialogExtra)(nil),                         // 36: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
-	(*DoubaoRealtimeExtension)(nil),                           // 37: gizclaw.rpc.v1.DoubaoRealtimeExtension
-	(*DoubaoRealtimeFunctionTool)(nil),                        // 38: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	(*DoubaoRealtimeJSONSchema)(nil),                          // 39: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	(*DoubaoRealtimeTTSExtension)(nil),                        // 40: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
-	(*DoubaoRealtimeTTSExtra)(nil),                            // 41: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
-	(*DoubaoRealtimeWorkflowSpec)(nil),                        // 42: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
-	(*DoubaoRealtimeWorkspaceParameters)(nil),                 // 43: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	(*ConversationParameters)(nil),                            // 44: gizclaw.rpc.v1.ConversationParameters
-	(*FlowcraftWorkflowSpec)(nil),                             // 45: gizclaw.rpc.v1.FlowcraftWorkflowSpec
-	(*FlowcraftWorkspaceParameters)(nil),                      // 46: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	(*PetWorkflowSpec)(nil),                                   // 47: gizclaw.rpc.v1.PetWorkflowSpec
-	(*Model)(nil),                                             // 48: gizclaw.rpc.v1.Model
-	(*OpenAITenantModelProviderData)(nil),                     // 49: gizclaw.rpc.v1.OpenAITenantModelProviderData
-	(*GeminiTenantModelProviderData)(nil),                     // 50: gizclaw.rpc.v1.GeminiTenantModelProviderData
-	(*DashScopeTenantModelProviderData)(nil),                  // 51: gizclaw.rpc.v1.DashScopeTenantModelProviderData
-	(*VolcTenantModelProviderData)(nil),                       // 52: gizclaw.rpc.v1.VolcTenantModelProviderData
-	(*MiniMaxTenantModelProviderData)(nil),                    // 53: gizclaw.rpc.v1.MiniMaxTenantModelProviderData
-	(*DeepSeekTenantModelProviderData)(nil),                   // 54: gizclaw.rpc.v1.DeepSeekTenantModelProviderData
-	(*ModelGetRequest)(nil),                                   // 55: gizclaw.rpc.v1.ModelGetRequest
-	(*ModelGetResponse)(nil),                                  // 56: gizclaw.rpc.v1.ModelGetResponse
-	(*ModelListRequest)(nil),                                  // 57: gizclaw.rpc.v1.ModelListRequest
-	(*ModelListResponse)(nil),                                 // 58: gizclaw.rpc.v1.ModelListResponse
-	(*Voice)(nil),                                             // 59: gizclaw.rpc.v1.Voice
-	(*VoiceGetRequest)(nil),                                   // 60: gizclaw.rpc.v1.VoiceGetRequest
-	(*VoiceGetResponse)(nil),                                  // 61: gizclaw.rpc.v1.VoiceGetResponse
-	(*VoiceListRequest)(nil),                                  // 62: gizclaw.rpc.v1.VoiceListRequest
-	(*VoiceListResponse)(nil),                                 // 63: gizclaw.rpc.v1.VoiceListResponse
-	(*Workflow)(nil),                                          // 64: gizclaw.rpc.v1.Workflow
-	(*WorkflowGetRequest)(nil),                                // 65: gizclaw.rpc.v1.WorkflowGetRequest
-	(*WorkflowGetResponse)(nil),                               // 66: gizclaw.rpc.v1.WorkflowGetResponse
-	(*WorkflowListRequest)(nil),                               // 67: gizclaw.rpc.v1.WorkflowListRequest
-	(*WorkflowListResponse)(nil),                              // 68: gizclaw.rpc.v1.WorkflowListResponse
-	(*ToolkitPolicyToolNames)(nil),                            // 69: gizclaw.rpc.v1.ToolkitPolicyToolNames
-	(*ToolkitPolicy)(nil),                                     // 70: gizclaw.rpc.v1.ToolkitPolicy
-	(*Tool)(nil),                                              // 71: gizclaw.rpc.v1.Tool
-	(*ToolListRequest)(nil),                                   // 72: gizclaw.rpc.v1.ToolListRequest
-	(*ToolListResponse)(nil),                                  // 73: gizclaw.rpc.v1.ToolListResponse
-	(*ToolGetRequest)(nil),                                    // 74: gizclaw.rpc.v1.ToolGetRequest
-	(*ToolGetResponse)(nil),                                   // 75: gizclaw.rpc.v1.ToolGetResponse
-	(*ToolInvokeRequest)(nil),                                 // 76: gizclaw.rpc.v1.ToolInvokeRequest
-	(*ToolInvokeResponse)(nil),                                // 77: gizclaw.rpc.v1.ToolInvokeResponse
-	nil,                                                       // 78: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
-	nil,                                                       // 79: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
-	nil,                                                       // 80: gizclaw.rpc.v1.Model.I18nEntry
-	nil,                                                       // 81: gizclaw.rpc.v1.Voice.I18nEntry
-	nil,                                                       // 82: gizclaw.rpc.v1.Workflow.I18nEntry
-	nil,                                                       // 83: gizclaw.rpc.v1.Tool.I18nEntry
-	(ASTTranslateMode)(0),                                     // 84: gizclaw.rpc.v1.ASTTranslateMode
-	(ASTTranslateWorkspaceParametersAgentType)(0),             // 85: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
-	(WorkspaceInputMode)(0),                                   // 86: gizclaw.rpc.v1.WorkspaceInputMode
-	(ChatRoomWorkspaceParametersAgentType)(0),                 // 87: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
-	(ChatRoomMode)(0),                                         // 88: gizclaw.rpc.v1.ChatRoomMode
-	(DashScopeRealtimeWorkspaceParametersAgentType)(0),        // 89: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
-	(DoubaoRealtimeDuplexWorkspaceParametersAgentType)(0),     // 90: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
-	(*structpb.Struct)(nil),                                   // 91: google.protobuf.Struct
-	(EinoWorkspaceParametersAgentType)(0),                     // 92: gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
-	(PetWorkspaceParametersAgentType)(0),                      // 93: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
-	(DoubaoRealtimeAudioFormatType)(0),                        // 94: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
-	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),           // 95: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
-	(DoubaoRealtimeFunctionToolType)(0),                       // 96: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
-	(DoubaoRealtimeWorkspaceParametersAgentType)(0),           // 97: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
-	(FlowcraftConversationParametersAgentInitiativePolicy)(0), // 98: gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	(FlowcraftConversationParametersInitiative)(0),            // 99: gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
-	(FlowcraftWorkspaceParametersAgentType)(0),                // 100: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
-	(ReusableWorkflowDriver)(0),                               // 101: gizclaw.rpc.v1.ReusableWorkflowDriver
-	(ModelKind)(0),                                            // 102: gizclaw.rpc.v1.ModelKind
-	(WorkflowDriver)(0),                                       // 103: gizclaw.rpc.v1.WorkflowDriver
+	(ModelProviderKind)(0),                                // 0: gizclaw.rpc.v1.ModelProviderKind
+	(*ResourceI18NText)(nil),                              // 1: gizclaw.rpc.v1.ResourceI18nText
+	(*SpeechTranscribeRequest)(nil),                       // 2: gizclaw.rpc.v1.SpeechTranscribeRequest
+	(*SpeechTranscribeResponse)(nil),                      // 3: gizclaw.rpc.v1.SpeechTranscribeResponse
+	(*SpeechExtractRequest)(nil),                          // 4: gizclaw.rpc.v1.SpeechExtractRequest
+	(*SpeechExtractResponse)(nil),                         // 5: gizclaw.rpc.v1.SpeechExtractResponse
+	(*SpeechSynthesizeRequest)(nil),                       // 6: gizclaw.rpc.v1.SpeechSynthesizeRequest
+	(*SpeechSynthesizeResponse)(nil),                      // 7: gizclaw.rpc.v1.SpeechSynthesizeResponse
+	(*ASTTranslateExternalVoiceParameters)(nil),           // 8: gizclaw.rpc.v1.ASTTranslateExternalVoiceParameters
+	(*ASTTranslateInternalSpeakerParameters)(nil),         // 9: gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
+	(*ASTTranslateVoiceParameters)(nil),                   // 10: gizclaw.rpc.v1.ASTTranslateVoiceParameters
+	(*ASTTranslateWorkflowSpec)(nil),                      // 11: gizclaw.rpc.v1.ASTTranslateWorkflowSpec
+	(*ASTTranslateWorkspaceParameters)(nil),               // 12: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	(*ChatRoomWorkflowHistorySpec)(nil),                   // 13: gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec
+	(*ChatRoomWorkflowSpec)(nil),                          // 14: gizclaw.rpc.v1.ChatRoomWorkflowSpec
+	(*ChatRoomWorkflowTranscriptSpec)(nil),                // 15: gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec
+	(*ChatRoomWorkspaceHistoryParameters)(nil),            // 16: gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters
+	(*ChatRoomWorkspaceParameters)(nil),                   // 17: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	(*ChatRoomWorkspaceTranscriptParameters)(nil),         // 18: gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters
+	(*DashScopeRealtimeWorkflowSpec)(nil),                 // 19: gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec
+	(*DashScopeRealtimeWorkspaceParameters)(nil),          // 20: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
+	(*DoubaoRealtimeDuplexWorkflowSpec)(nil),              // 21: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkflowSpec
+	(*DoubaoRealtimeDuplexWorkspaceParameters)(nil),       // 22: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
+	(*EinoWorkflowSpec)(nil),                              // 23: gizclaw.rpc.v1.EinoWorkflowSpec
+	(*EinoWorkspaceParameters)(nil),                       // 24: gizclaw.rpc.v1.EinoWorkspaceParameters
+	(*PetWorkspaceParameters)(nil),                        // 25: gizclaw.rpc.v1.PetWorkspaceParameters
+	(*DoubaoRealtimeAIGCMetadata)(nil),                    // 26: gizclaw.rpc.v1.DoubaoRealtimeAIGCMetadata
+	(*DoubaoRealtimeASRContext)(nil),                      // 27: gizclaw.rpc.v1.DoubaoRealtimeASRContext
+	(*DoubaoRealtimeASRExtension)(nil),                    // 28: gizclaw.rpc.v1.DoubaoRealtimeASRExtension
+	(*DoubaoRealtimeASRExtra)(nil),                        // 29: gizclaw.rpc.v1.DoubaoRealtimeASRExtra
+	(*DoubaoRealtimeASRHotword)(nil),                      // 30: gizclaw.rpc.v1.DoubaoRealtimeASRHotword
+	(*DoubaoRealtimeAudio)(nil),                           // 31: gizclaw.rpc.v1.DoubaoRealtimeAudio
+	(*DoubaoRealtimeAudioFormat)(nil),                     // 32: gizclaw.rpc.v1.DoubaoRealtimeAudioFormat
+	(*DoubaoRealtimeAudioInput)(nil),                      // 33: gizclaw.rpc.v1.DoubaoRealtimeAudioInput
+	(*DoubaoRealtimeAudioOutput)(nil),                     // 34: gizclaw.rpc.v1.DoubaoRealtimeAudioOutput
+	(*DoubaoRealtimeDialogExtension)(nil),                 // 35: gizclaw.rpc.v1.DoubaoRealtimeDialogExtension
+	(*DoubaoRealtimeDialogExtra)(nil),                     // 36: gizclaw.rpc.v1.DoubaoRealtimeDialogExtra
+	(*DoubaoRealtimeExtension)(nil),                       // 37: gizclaw.rpc.v1.DoubaoRealtimeExtension
+	(*DoubaoRealtimeFunctionTool)(nil),                    // 38: gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
+	(*DoubaoRealtimeJSONSchema)(nil),                      // 39: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	(*DoubaoRealtimeTTSExtension)(nil),                    // 40: gizclaw.rpc.v1.DoubaoRealtimeTTSExtension
+	(*DoubaoRealtimeTTSExtra)(nil),                        // 41: gizclaw.rpc.v1.DoubaoRealtimeTTSExtra
+	(*DoubaoRealtimeWorkflowSpec)(nil),                    // 42: gizclaw.rpc.v1.DoubaoRealtimeWorkflowSpec
+	(*DoubaoRealtimeWorkspaceParameters)(nil),             // 43: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	(*ConversationParameters)(nil),                        // 44: gizclaw.rpc.v1.ConversationParameters
+	(*FlowcraftWorkflowSpec)(nil),                         // 45: gizclaw.rpc.v1.FlowcraftWorkflowSpec
+	(*FlowcraftWorkspaceParameters)(nil),                  // 46: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	(*PetWorkflowSpec)(nil),                               // 47: gizclaw.rpc.v1.PetWorkflowSpec
+	(*Model)(nil),                                         // 48: gizclaw.rpc.v1.Model
+	(*OpenAITenantModelProviderData)(nil),                 // 49: gizclaw.rpc.v1.OpenAITenantModelProviderData
+	(*GeminiTenantModelProviderData)(nil),                 // 50: gizclaw.rpc.v1.GeminiTenantModelProviderData
+	(*DashScopeTenantModelProviderData)(nil),              // 51: gizclaw.rpc.v1.DashScopeTenantModelProviderData
+	(*VolcTenantModelProviderData)(nil),                   // 52: gizclaw.rpc.v1.VolcTenantModelProviderData
+	(*MiniMaxTenantModelProviderData)(nil),                // 53: gizclaw.rpc.v1.MiniMaxTenantModelProviderData
+	(*DeepSeekTenantModelProviderData)(nil),               // 54: gizclaw.rpc.v1.DeepSeekTenantModelProviderData
+	(*ModelGetRequest)(nil),                               // 55: gizclaw.rpc.v1.ModelGetRequest
+	(*ModelGetResponse)(nil),                              // 56: gizclaw.rpc.v1.ModelGetResponse
+	(*ModelListRequest)(nil),                              // 57: gizclaw.rpc.v1.ModelListRequest
+	(*ModelListResponse)(nil),                             // 58: gizclaw.rpc.v1.ModelListResponse
+	(*Voice)(nil),                                         // 59: gizclaw.rpc.v1.Voice
+	(*VoiceGetRequest)(nil),                               // 60: gizclaw.rpc.v1.VoiceGetRequest
+	(*VoiceGetResponse)(nil),                              // 61: gizclaw.rpc.v1.VoiceGetResponse
+	(*VoiceListRequest)(nil),                              // 62: gizclaw.rpc.v1.VoiceListRequest
+	(*VoiceListResponse)(nil),                             // 63: gizclaw.rpc.v1.VoiceListResponse
+	(*Workflow)(nil),                                      // 64: gizclaw.rpc.v1.Workflow
+	(*WorkflowGetRequest)(nil),                            // 65: gizclaw.rpc.v1.WorkflowGetRequest
+	(*WorkflowGetResponse)(nil),                           // 66: gizclaw.rpc.v1.WorkflowGetResponse
+	(*WorkflowListRequest)(nil),                           // 67: gizclaw.rpc.v1.WorkflowListRequest
+	(*WorkflowListResponse)(nil),                          // 68: gizclaw.rpc.v1.WorkflowListResponse
+	(*ToolkitPolicyToolNames)(nil),                        // 69: gizclaw.rpc.v1.ToolkitPolicyToolNames
+	(*ToolkitPolicy)(nil),                                 // 70: gizclaw.rpc.v1.ToolkitPolicy
+	(*Tool)(nil),                                          // 71: gizclaw.rpc.v1.Tool
+	(*ToolListRequest)(nil),                               // 72: gizclaw.rpc.v1.ToolListRequest
+	(*ToolListResponse)(nil),                              // 73: gizclaw.rpc.v1.ToolListResponse
+	(*ToolGetRequest)(nil),                                // 74: gizclaw.rpc.v1.ToolGetRequest
+	(*ToolGetResponse)(nil),                               // 75: gizclaw.rpc.v1.ToolGetResponse
+	(*ToolInvokeRequest)(nil),                             // 76: gizclaw.rpc.v1.ToolInvokeRequest
+	(*ToolInvokeResponse)(nil),                            // 77: gizclaw.rpc.v1.ToolInvokeResponse
+	nil,                                                   // 78: gizclaw.rpc.v1.DoubaoRealtimeASRContext.CorrectWordsEntry
+	nil,                                                   // 79: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry
+	nil,                                                   // 80: gizclaw.rpc.v1.Model.I18nEntry
+	nil,                                                   // 81: gizclaw.rpc.v1.Voice.I18nEntry
+	nil,                                                   // 82: gizclaw.rpc.v1.Workflow.I18nEntry
+	nil,                                                   // 83: gizclaw.rpc.v1.Tool.I18nEntry
+	(ASTTranslateMode)(0),                                 // 84: gizclaw.rpc.v1.ASTTranslateMode
+	(ASTTranslateWorkspaceParametersAgentType)(0),         // 85: gizclaw.rpc.v1.ASTTranslateWorkspaceParametersAgentType
+	(WorkspaceInputMode)(0),                               // 86: gizclaw.rpc.v1.WorkspaceInputMode
+	(ChatRoomWorkspaceParametersAgentType)(0),             // 87: gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType
+	(ChatRoomMode)(0),                                     // 88: gizclaw.rpc.v1.ChatRoomMode
+	(DashScopeRealtimeWorkspaceParametersAgentType)(0),    // 89: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersAgentType
+	(DoubaoRealtimeDuplexWorkspaceParametersAgentType)(0), // 90: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersAgentType
+	(*structpb.Struct)(nil),                               // 91: google.protobuf.Struct
+	(EinoWorkspaceParametersAgentType)(0),                 // 92: gizclaw.rpc.v1.EinoWorkspaceParametersAgentType
+	(PetWorkspaceParametersAgentType)(0),                  // 93: gizclaw.rpc.v1.PetWorkspaceParametersAgentType
+	(DoubaoRealtimeAudioFormatType)(0),                    // 94: gizclaw.rpc.v1.DoubaoRealtimeAudioFormatType
+	(DoubaoRealtimeDialogExtraVolcWebsearchType)(0),       // 95: gizclaw.rpc.v1.DoubaoRealtimeDialogExtraVolcWebsearchType
+	(DoubaoRealtimeFunctionToolType)(0),                   // 96: gizclaw.rpc.v1.DoubaoRealtimeFunctionToolType
+	(DoubaoRealtimeWorkspaceParametersAgentType)(0),       // 97: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersAgentType
+	(ConversationParametersAgentInitiativePolicy)(0),      // 98: gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
+	(ConversationParametersInitiative)(0),                 // 99: gizclaw.rpc.v1.ConversationParametersInitiative
+	(FlowcraftWorkspaceParametersAgentType)(0),            // 100: gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
+	(ReusableWorkflowDriver)(0),                           // 101: gizclaw.rpc.v1.ReusableWorkflowDriver
+	(ModelKind)(0),                                        // 102: gizclaw.rpc.v1.ModelKind
+	(WorkflowDriver)(0),                                   // 103: gizclaw.rpc.v1.WorkflowDriver
 }
 var file_payload_ai_proto_depIdxs = []int32{
 	9,   // 0: gizclaw.rpc.v1.ASTTranslateVoiceParameters.asttranslate_internal_speaker_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateInternalSpeakerParameters
@@ -6678,8 +6678,8 @@ var file_payload_ai_proto_depIdxs = []int32{
 	37,  // 52: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.extension:type_name -> gizclaw.rpc.v1.DoubaoRealtimeExtension
 	86,  // 53: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
 	38,  // 54: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.tools:type_name -> gizclaw.rpc.v1.DoubaoRealtimeFunctionTool
-	98,  // 55: gizclaw.rpc.v1.ConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersAgentInitiativePolicy
-	99,  // 56: gizclaw.rpc.v1.ConversationParameters.initiative:type_name -> gizclaw.rpc.v1.FlowcraftConversationParametersInitiative
+	98,  // 55: gizclaw.rpc.v1.ConversationParameters.agent_initiative_policy:type_name -> gizclaw.rpc.v1.ConversationParametersAgentInitiativePolicy
+	99,  // 56: gizclaw.rpc.v1.ConversationParameters.initiative:type_name -> gizclaw.rpc.v1.ConversationParametersInitiative
 	91,  // 57: gizclaw.rpc.v1.FlowcraftWorkflowSpec.fields:type_name -> google.protobuf.Struct
 	100, // 58: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.agent_type:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParametersAgentType
 	44,  // 59: gizclaw.rpc.v1.FlowcraftWorkspaceParameters.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters

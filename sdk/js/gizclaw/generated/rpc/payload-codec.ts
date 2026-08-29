@@ -27,6 +27,8 @@ export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
 export type ChatRoomMode = "" | "direct" | "group" | "unspecified" | number;
 export type ChatRoomWorkspaceParametersAgentType = "" | "chatroom" | "unspecified" | number;
+export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
+export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
 export type DashScopeTenantModelProviderDataApiMode = "" | "chat_completions" | "realtime" | "unspecified" | number;
 export type DoubaoRealtimeAudioFormatType = "" | "ogg_opus" | "pcm" | "pcm_s16le" | "speech_opus" | "unspecified" | number;
@@ -36,8 +38,6 @@ export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | n
 export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
 export type EinoWorkspaceParametersAgentType = "" | "eino" | "unspecified" | number;
 export type FirmwareChannelName = "" | "beta" | "develop" | "stable" | "unspecified" | number;
-export type FlowcraftConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
-export type FlowcraftConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecified" | number;
 export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecified" | number;
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
@@ -206,8 +206,8 @@ export type ContactPutRequest = {
 };
 export type ContactPutResponse = ContactObject;
 export type ConversationParameters = {
-  "agent_initiative_policy"?: FlowcraftConversationParametersAgentInitiativePolicy;
-  "initiative"?: FlowcraftConversationParametersInitiative;
+  "agent_initiative_policy"?: ConversationParametersAgentInitiativePolicy;
+  "initiative"?: ConversationParametersInitiative;
 };
 export type DashScopeRealtimeWorkflowSpec = {
   "asr_model"?: string;
@@ -2235,13 +2235,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "agent_initiative_policy",
         "number": 1,
         "optional": true,
-        "type": "FlowcraftConversationParametersAgentInitiativePolicy"
+        "type": "ConversationParametersAgentInitiativePolicy"
       },
       {
         "name": "initiative",
         "number": 2,
         "optional": true,
-        "type": "FlowcraftConversationParametersInitiative"
+        "type": "ConversationParametersInitiative"
       }
     ]
   },
@@ -7762,6 +7762,30 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "chatroom"
     }
   },
+  "ConversationParametersAgentInitiativePolicy": {
+    "byName": {
+      "on_reload": 2,
+      "once_when_empty": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "once_when_empty",
+      "2": "on_reload"
+    }
+  },
+  "ConversationParametersInitiative": {
+    "byName": {
+      "agent": 2,
+      "peer": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "peer",
+      "2": "agent"
+    }
+  },
   "DashScopeRealtimeWorkspaceParametersAgentType": {
     "byName": {
       "dashscope-realtime": 1,
@@ -7866,30 +7890,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "stable",
       "2": "beta",
       "3": "develop"
-    }
-  },
-  "FlowcraftConversationParametersAgentInitiativePolicy": {
-    "byName": {
-      "on_reload": 2,
-      "once_when_empty": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "once_when_empty",
-      "2": "on_reload"
-    }
-  },
-  "FlowcraftConversationParametersInitiative": {
-    "byName": {
-      "agent": 2,
-      "peer": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "peer",
-      "2": "agent"
     }
   },
   "FlowcraftWorkspaceParametersAgentType": {

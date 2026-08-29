@@ -420,83 +420,75 @@ class FirmwareChannelName extends $pb.ProtobufEnum {
   const FirmwareChannelName._(super.value, super.name);
 }
 
-class FlowcraftConversationParametersAgentInitiativePolicy
-    extends $pb.ProtobufEnum {
-  static const FlowcraftConversationParametersAgentInitiativePolicy
-      FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED =
-      FlowcraftConversationParametersAgentInitiativePolicy._(
+class ConversationParametersAgentInitiativePolicy extends $pb.ProtobufEnum {
+  static const ConversationParametersAgentInitiativePolicy
+      CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED =
+      ConversationParametersAgentInitiativePolicy._(
           0,
           _omitEnumNames
               ? ''
-              : 'FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED');
-  static const FlowcraftConversationParametersAgentInitiativePolicy
-      FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY =
-      FlowcraftConversationParametersAgentInitiativePolicy._(
+              : 'CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED');
+  static const ConversationParametersAgentInitiativePolicy
+      CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY =
+      ConversationParametersAgentInitiativePolicy._(
           1,
           _omitEnumNames
               ? ''
-              : 'FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY');
-  static const FlowcraftConversationParametersAgentInitiativePolicy
-      FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD =
-      FlowcraftConversationParametersAgentInitiativePolicy._(
+              : 'CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY');
+  static const ConversationParametersAgentInitiativePolicy
+      CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD =
+      ConversationParametersAgentInitiativePolicy._(
           2,
           _omitEnumNames
               ? ''
-              : 'FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD');
+              : 'CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD');
 
-  static const $core.List<FlowcraftConversationParametersAgentInitiativePolicy>
-      values = <FlowcraftConversationParametersAgentInitiativePolicy>[
-    FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED,
-    FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY,
-    FLOWCRAFT_CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD,
+  static const $core.List<ConversationParametersAgentInitiativePolicy> values =
+      <ConversationParametersAgentInitiativePolicy>[
+    CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_UNSPECIFIED,
+    CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ONCE_WHEN_EMPTY,
+    CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD,
   ];
 
-  static final $core.List<FlowcraftConversationParametersAgentInitiativePolicy?>
+  static final $core.List<ConversationParametersAgentInitiativePolicy?>
       _byValue = $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static FlowcraftConversationParametersAgentInitiativePolicy? valueOf(
+  static ConversationParametersAgentInitiativePolicy? valueOf(
           $core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
-  const FlowcraftConversationParametersAgentInitiativePolicy._(
-      super.value, super.name);
+  const ConversationParametersAgentInitiativePolicy._(super.value, super.name);
 }
 
-class FlowcraftConversationParametersInitiative extends $pb.ProtobufEnum {
-  static const FlowcraftConversationParametersInitiative
-      FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED =
-      FlowcraftConversationParametersInitiative._(
+class ConversationParametersInitiative extends $pb.ProtobufEnum {
+  static const ConversationParametersInitiative
+      CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED =
+      ConversationParametersInitiative._(
           0,
           _omitEnumNames
               ? ''
-              : 'FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED');
-  static const FlowcraftConversationParametersInitiative
-      FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER =
-      FlowcraftConversationParametersInitiative._(
-          1,
-          _omitEnumNames
-              ? ''
-              : 'FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER');
-  static const FlowcraftConversationParametersInitiative
-      FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT =
-      FlowcraftConversationParametersInitiative._(
-          2,
-          _omitEnumNames
-              ? ''
-              : 'FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT');
+              : 'CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED');
+  static const ConversationParametersInitiative
+      CONVERSATION_PARAMETERS_INITIATIVE_PEER =
+      ConversationParametersInitiative._(
+          1, _omitEnumNames ? '' : 'CONVERSATION_PARAMETERS_INITIATIVE_PEER');
+  static const ConversationParametersInitiative
+      CONVERSATION_PARAMETERS_INITIATIVE_AGENT =
+      ConversationParametersInitiative._(
+          2, _omitEnumNames ? '' : 'CONVERSATION_PARAMETERS_INITIATIVE_AGENT');
 
-  static const $core.List<FlowcraftConversationParametersInitiative> values =
-      <FlowcraftConversationParametersInitiative>[
-    FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED,
-    FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_PEER,
-    FLOWCRAFT_CONVERSATION_PARAMETERS_INITIATIVE_AGENT,
+  static const $core.List<ConversationParametersInitiative> values =
+      <ConversationParametersInitiative>[
+    CONVERSATION_PARAMETERS_INITIATIVE_UNSPECIFIED,
+    CONVERSATION_PARAMETERS_INITIATIVE_PEER,
+    CONVERSATION_PARAMETERS_INITIATIVE_AGENT,
   ];
 
-  static final $core.List<FlowcraftConversationParametersInitiative?> _byValue =
+  static final $core.List<ConversationParametersInitiative?> _byValue =
       $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static FlowcraftConversationParametersInitiative? valueOf($core.int value) =>
+  static ConversationParametersInitiative? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
-  const FlowcraftConversationParametersInitiative._(super.value, super.name);
+  const ConversationParametersInitiative._(super.value, super.name);
 }
 
 class FlowcraftWorkspaceParametersAgentType extends $pb.ProtobufEnum {

@@ -330,8 +330,8 @@ message DoubaoRealtimeWorkspaceParameters {
 }
 
 message ConversationParameters {
-  optional FlowcraftConversationParametersAgentInitiativePolicy agent_initiative_policy = 1;
-  optional FlowcraftConversationParametersInitiative initiative = 2;
+  optional ConversationParametersAgentInitiativePolicy agent_initiative_policy = 1;
+  optional ConversationParametersInitiative initiative = 2;
 }
 
 message FlowcraftWorkflowSpec {

@@ -1,5 +1,4 @@
 export 'src/client.dart';
-export 'src/conversation_parameters_compat.dart';
 export 'src/generated/events/peer_event.pb.dart';
 export 'src/generated/events/peer_event.pbenum.dart';
 export 'src/generated/rpc/payload.pb.dart';

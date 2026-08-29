@@ -4323,9 +4323,8 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
 
 class ConversationParameters extends $pb.GeneratedMessage {
   factory ConversationParameters({
-    $1.FlowcraftConversationParametersAgentInitiativePolicy?
-        agentInitiativePolicy,
-    $1.FlowcraftConversationParametersInitiative? initiative,
+    $1.ConversationParametersAgentInitiativePolicy? agentInitiativePolicy,
+    $1.ConversationParametersInitiative? initiative,
   }) {
     final result = create();
     if (agentInitiativePolicy != null)
@@ -4347,13 +4346,12 @@ class ConversationParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ConversationParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<$1.FlowcraftConversationParametersAgentInitiativePolicy>(
+    ..aE<$1.ConversationParametersAgentInitiativePolicy>(
         1, _omitFieldNames ? '' : 'agentInitiativePolicy',
-        enumValues:
-            $1.FlowcraftConversationParametersAgentInitiativePolicy.values)
-    ..aE<$1.FlowcraftConversationParametersInitiative>(
+        enumValues: $1.ConversationParametersAgentInitiativePolicy.values)
+    ..aE<$1.ConversationParametersInitiative>(
         2, _omitFieldNames ? '' : 'initiative',
-        enumValues: $1.FlowcraftConversationParametersInitiative.values)
+        enumValues: $1.ConversationParametersInitiative.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4377,11 +4375,11 @@ class ConversationParameters extends $pb.GeneratedMessage {
   static ConversationParameters? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $1.FlowcraftConversationParametersAgentInitiativePolicy
-      get agentInitiativePolicy => $_getN(0);
+  $1.ConversationParametersAgentInitiativePolicy get agentInitiativePolicy =>
+      $_getN(0);
   @$pb.TagNumber(1)
   set agentInitiativePolicy(
-          $1.FlowcraftConversationParametersAgentInitiativePolicy value) =>
+          $1.ConversationParametersAgentInitiativePolicy value) =>
       $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasAgentInitiativePolicy() => $_has(0);
@@ -4389,9 +4387,9 @@ class ConversationParameters extends $pb.GeneratedMessage {
   void clearAgentInitiativePolicy() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $1.FlowcraftConversationParametersInitiative get initiative => $_getN(1);
+  $1.ConversationParametersInitiative get initiative => $_getN(1);
   @$pb.TagNumber(2)
-  set initiative($1.FlowcraftConversationParametersInitiative value) =>
+  set initiative($1.ConversationParametersInitiative value) =>
       $_setField(2, value);
   @$pb.TagNumber(2)
   $core.bool hasInitiative() => $_has(1);
