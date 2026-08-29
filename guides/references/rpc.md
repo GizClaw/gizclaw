@@ -159,9 +159,9 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
-| 83 | `server.peer.lookup` | 查询指定 Peer 当前的 Server assignment。 |
-| 84 | `server.peer.assign` | 创建或更新 Peer assignment，并用 `expected_version` 检查并发冲突。 |
-| 85 | `server.route.resolve` | 为目标 Peer 解析当前可用的 Server route/assignment。 |
+| 83 | `server.peer.lookup` | 只读查询指定 Peer 当前的固定 Server assignment。 |
+| 84 | `server.peer.assign` | 原子 claim 缺少 assignment 的 Peer，或刷新同 owner metadata；其他 owner 返回 conflict，`expected_version` 不能转移归属。 |
+| 85 | `server.route.resolve` | 只读解析目标 Peer 当前的固定 Server route/assignment。 |
 
 ## 未指定值
 

@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
@@ -64,6 +65,39 @@ func TestManagerActivatePeerMakesRegistrationReady(t *testing.T) {
 	registration := runtimeprofile.Registration{RuntimeProfile: apitypes.RuntimeProfile{Id: "profile-early"}}
 	if !manager.SetPeerRegistration(key, conn, registration) {
 		t.Fatal("registration immediately after activation was rejected")
+	}
+}
+
+func TestManagerRejectsForeignHomeBeforePublishingPeer(t *testing.T) {
+	peerStore := kv.NewMemory(nil)
+	peers := &peer.Server{Store: peerStore}
+	key := giznet.PublicKey{7, 9}
+	if _, err := peers.EnsureConnectedPeer(t.Context(), key); err != nil {
+		t.Fatal(err)
+	}
+	routes := kv.NewMemory(nil)
+	foreign := &peerroute.Server{
+		Store: routes, Peers: peers, ServerPublicKey: giznet.PublicKey{2}, ServerEndpoint: "server-b:9820",
+	}
+	if _, err := foreign.Assign(t.Context(), key, nil); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(peers)
+	manager.PeerRoutes = &peerroute.Server{
+		Store: routes, Peers: peers, ServerPublicKey: giznet.PublicKey{1}, ServerEndpoint: "server-a:9820",
+	}
+	if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: key}); !errors.Is(err, peerroute.ErrVersionConflict) {
+		t.Fatalf("activatePeer() error = %v, want foreign-owner conflict", err)
+	}
+	if _, ok := manager.Peer(key); ok {
+		t.Fatal("foreign-home Peer was published before ownership rejection")
+	}
+	assignment, err := foreign.Lookup(t.Context(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if assignment.ServerPublicKey != foreign.ServerPublicKey.String() || assignment.Version != 1 {
+		t.Fatalf("assignment after rejection = %+v", assignment)
 	}
 }
 

@@ -461,15 +461,20 @@ flowchart TB
 
 ## 当前边界
 
-当前 `pkgs/gizedge` 连接一个 authoritative Server，并同时支持 Edge HTTP ingress、可选 gateway termination 和可选 TURN relay。
+`pkgs/gizedge` 支持已有的单数 `upstream`，也支持有序的复数 `upstreams`。复数列表中的每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。混用两种形式、空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
+
+对于 authenticated logical Client session，Edge 会通过任意可达的已配置 Server 查询共享的固定 Peer assignment，确认返回的 Server identity 已在配置中，然后只获取该 Server 的 target pool。Assignment 不存在时，首次 claim 使用顺序中第一台可达 Server。Control、service、packet、audio、retry 与 teardown 始终固定在同一个 target；target transport 失败不能替换成其他 Server owner，也不能重放 application work。单数模式保持原有单 target 行为，由 Server admission 完成 claim 或 owner 校验。
+
+Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 HTTP/OpenAI request 继续通过顺序中第一台可达 bootstrap Server。Assignment 中的 endpoint metadata 不能覆盖 Edge 固定配置；relay selector、health 与 backoff 按 Server entry 隔离。
 
 它不等同于完整 server mesh：
 
-- Edge Node 当前按配置连接一个 upstream Server。
+- Edge Node 使用显式配置的 Server 列表，不提供动态 mesh membership 或 service discovery。
 - `ServiceEdgeHTTP` 已用于 public request forwarding。
 - `giznet/v2/tunnel/` 原生 channel namespace 已用于有界 upstream pool 上的 logical client sessions；`ServiceEdgeTunnel 0x32` 已退役。
 - Edge control-plane RPC、certificate distribution 和 TLS certificate source 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。
+- 该 package 不在 Server 之间路由 Workspace、Chatroom、History 或 Social execution。
 
 因此，新增能力时要先判断它是当前 Edge ingress 的职责，还是 server mesh control plane 的未来工作；不能因为能力与公网入口有关就直接写进 `pkgs/gizedge`。

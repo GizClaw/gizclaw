@@ -542,12 +542,15 @@ These contents belong to `pkgs/gizclaw`, `pkgs/giznet`, `cmd/internal/server` re
 
 ## Current boundary
 
-Currently `pkgs/gizedge` connects to one authoritative Server and supports Edge
-HTTP ingress, optional gateway termination, and optional TURN relay.
+`pkgs/gizedge` accepts either the existing singular `upstream` or an ordered plural `upstreams` list. Every plural entry pins one complete Server endpoint, public key, ICE policy, and relay pool. Mixed forms, empty lists, duplicate identities/endpoints, and incomplete entries fail before the listener opens.
+
+For an authenticated logical Client session, the Edge asks any reachable configured Server for the shared fixed Peer assignment, validates that the returned Server identity is configured, and acquires only that Server's target pool. Assignment-not-found uses the first reachable ordered entry for first claim. Control, services, packets, audio, retries, and teardown remain pinned to one target; target transport failure never substitutes another Server owner or replays application work. Singular mode keeps its existing one-target behavior, with Server admission performing the claim or owner check.
+
+Public `/server-info` and API-key-only HTTP/OpenAI requests continue through the first reachable ordered bootstrap Server because they do not establish a logical Peer session. Assignment endpoint metadata cannot override the pinned Edge configuration. Relay selector, health, and backoff remain isolated per Server entry.
 
 It is not a complete server mesh:
 
-- The Edge is configured for one upstream Server.
+- The Edge has a configured Server list, not dynamic mesh membership or service discovery.
 - `ServiceEdgeHTTP` carries public request forwarding.
 - The `giznet/v2/tunnel/` native-channel namespace carries logical client
   sessions over a bounded upstream pool; `ServiceEdgeTunnel 0x32` is retired.
@@ -556,6 +559,7 @@ It is not a complete server mesh:
 - The Edge does not maintain mesh membership or a global peer/resource route
   registry.
 - This package does not replicate data or events between Servers.
+- It does not route Workspaces, Chatrooms, History, or Social execution between Servers.
 
 Therefore, when adding a capability, you must first determine whether it is the responsibility of the current Edge ingress or the future work of the server mesh control plane; you cannot directly write `pkgs/gizedge` just because the capability is related to the public network entry point.
 

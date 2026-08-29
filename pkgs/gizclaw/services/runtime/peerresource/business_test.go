@@ -9,12 +9,22 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 )
 
 func TestBusinessErrorMapsMissingPeerProfileToNotFound(t *testing.T) {
 	response := businessError("friend-info", peer.ErrPeerNotFound)
 	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("businessError() = %#v, want not found", response)
+	}
+}
+
+func TestBusinessErrorMapsCrossServerSocialConflicts(t *testing.T) {
+	for _, err := range []error{friend.ErrCrossServerFriendCreation, friendgroup.ErrCrossServerFriendGroupMembership} {
+		response := businessError("social", fmt.Errorf("wrapped: %w", err))
+		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict || response.Error.Message != err.Error() {
+			t.Fatalf("businessError(%v) = %#v", err, response)
+		}
 	}
 }
 

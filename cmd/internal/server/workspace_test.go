@@ -109,6 +109,8 @@ func testStorageFileConfigs(configs map[string]storage.Config) map[string]storag
 			out[name] = storageFileConfig{Kind: storage.KindPostgreSQL, DSN: cfg.DSN}
 		case storage.ClickHouseConfig:
 			out[name] = storageFileConfig{Kind: storage.KindClickHouse, DSN: cfg.DSN}
+		case storage.RedisConfig:
+			out[name] = storageFileConfig{Kind: storage.KindRedis, DSN: cfg.DSN}
 		case storage.PrometheusConfig:
 			out[name] = storageFileConfig{
 				Kind: storage.KindPrometheus, RemoteWriteURL: cfg.RemoteWriteURL,

@@ -59,6 +59,7 @@ type AgentHostFlowcraftConfig struct {
 // storage and stores registries, service names are not operator-defined.
 type ServicesConfig struct {
 	Peer            *SingleStoreConfig     `yaml:"peer"`
+	PeerRun         *SingleStoreConfig     `yaml:"peer_run"`
 	APIKey          *SingleStoreConfig     `yaml:"api_key"`
 	Credential      *SingleStoreConfig     `yaml:"credential"`
 	Firmware        *SingleStoreConfig     `yaml:"firmware"`
@@ -207,6 +208,8 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 		return storage.PostgreSQLConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
 	case storage.KindClickHouse:
 		return storage.ClickHouseConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+	case storage.KindRedis:
+		return storage.RedisConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
 	case storage.KindPrometheus:
 		return storage.PrometheusConfig{
 			RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL),
@@ -773,6 +776,12 @@ func (cfg Config) validate() error {
 	if err := validateServicesConfig(cfg.Services); err != nil {
 		return err
 	}
+	if cfg.Services.Peer.Store == cfg.Services.PeerRun.Store {
+		return fmt.Errorf("server: services.peer_run.store must be separate from services.peer.store")
+	}
+	if err := validateLocalPeerRunStore(cfg); err != nil {
+		return err
+	}
 	if err := validateProfilingConfig(cfg.Profiling, cfg.Services); err != nil {
 		return err
 	}
@@ -784,6 +793,48 @@ func (cfg Config) validate() error {
 		return fmt.Errorf("server: %w", err)
 	}
 	return nil
+}
+
+func validateLocalPeerRunStore(cfg Config) error {
+	storeName := cfg.Services.PeerRun.Store
+	storeCfg, ok := cfg.Stores[storeName]
+	if !ok || storeCfg.Kind != store.KindKeyValue {
+		// Store existence and capability errors are reported by the Store registry
+		// and service wiring with their existing, more specific diagnostics.
+		return nil
+	}
+	physicalCfg, ok := cfg.Storage[storeCfg.Storage]
+	if !ok {
+		return nil
+	}
+	kind, local := localPeerRunStorageKind(physicalCfg)
+	if !local {
+		return fmt.Errorf(
+			"server: services.peer_run.store %q must use local persistent badger or sqlite storage; got %s",
+			storeName,
+			kind,
+		)
+	}
+	return nil
+}
+
+func localPeerRunStorageKind(cfg storage.Config) (string, bool) {
+	switch cfg.(type) {
+	case storage.MemoryConfig, *storage.MemoryConfig:
+		return storage.KindMemory, false
+	case storage.BadgerConfig, *storage.BadgerConfig:
+		return storage.KindBadger, true
+	case storage.SQLiteConfig, *storage.SQLiteConfig:
+		return storage.KindSQLite, true
+	case storage.PostgreSQLConfig, *storage.PostgreSQLConfig:
+		return storage.KindPostgreSQL, false
+	case storage.ClickHouseConfig, *storage.ClickHouseConfig:
+		return storage.KindClickHouse, false
+	case storage.RedisConfig, *storage.RedisConfig:
+		return storage.KindRedis, false
+	default:
+		return "unsupported storage", false
+	}
 }
 
 func validateProfilingConfig(cfg ProfilingConfig, services *ServicesConfig) error {
@@ -898,6 +949,7 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		present bool
 	}{
 		{"services.peer", cfg.Peer != nil},
+		{"services.peer_run", cfg.PeerRun != nil},
 		{"services.api_key", cfg.APIKey != nil},
 		{"services.credential", cfg.Credential != nil},
 		{"services.firmware", cfg.Firmware != nil},
@@ -920,6 +972,7 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 	}
 	references = append(references,
 		reference{"services.peer.store", cfg.Peer.Store},
+		reference{"services.peer_run.store", cfg.PeerRun.Store},
 		reference{"services.api_key.store", cfg.APIKey.Store},
 		reference{"services.credential.store", cfg.Credential.Store},
 		reference{"services.firmware.store", cfg.Firmware.Store},
@@ -1131,6 +1184,7 @@ func validateStorageConfigShape(value any) error {
 		storage.KindSQLite:        {"kind": {}, "dir": {}, "dsn": {}},
 		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}},
 		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
+		storage.KindRedis:         {"kind": {}, "dsn": {}},
 		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
 		storage.KindVolcTLS:       {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
 		storage.KindVolcTOS:       {"kind": {}, "endpoint": {}, "region": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "session_token": {}},
@@ -1160,6 +1214,7 @@ func validateStorageConfigShape(value any) error {
 func validateServicesConfigShape(services map[string]any) error {
 	stringFields := map[string][]string{
 		"peer":             {"store"},
+		"peer_run":         {"store"},
 		"api_key":          {"store"},
 		"credential":       {"store"},
 		"firmware":         {"store"},

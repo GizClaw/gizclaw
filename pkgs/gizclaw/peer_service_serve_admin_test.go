@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,22 @@ func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	}
 	if got.Error.Code != "INVALID_RESOURCE" {
 		t.Fatalf("ApplyResource() code = %q", got.Error.Code)
+	}
+}
+
+func TestAdminSocialErrorMapsCrossServerConflicts(t *testing.T) {
+	for _, test := range []struct {
+		err     error
+		code    string
+		message string
+	}{
+		{err: friend.ErrCrossServerFriendCreation, code: "CROSS_SERVER_FRIEND_CREATION_UNSUPPORTED", message: "cross-server friend creation is not supported"},
+		{err: friendgroup.ErrCrossServerFriendGroupMembership, code: "CROSS_SERVER_FRIEND_GROUP_MEMBERSHIP_UNSUPPORTED", message: "cross-server friend group membership is not supported"},
+	} {
+		status, body := adminSocialError(fmt.Errorf("wrapped: %w", test.err))
+		if status != http.StatusConflict || body.Error.Code != test.code || body.Error.Message != test.message {
+			t.Fatalf("adminSocialError(%v) = %d/%+v", test.err, status, body)
+		}
 	}
 }
 

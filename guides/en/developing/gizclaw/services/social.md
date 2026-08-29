@@ -51,6 +51,12 @@ the same `stream_id`. Workspace listing, ordinary get/history, and new explicit
 selection continue to deny access according to relationships and
 `PendingDeletion`.
 
+## Multi-Server boundary
+
+Friend and Friend Group relationship Stores may be shared through Redis so invite tokens are globally discoverable. Workspace execution is still local to one Server. Before resolving RuntimeProfile or writing an intent, Workspace, binding, relationship, membership, event, or invite mutation, creation and membership paths compare the relevant fixed Peer assignments with the current Server identity.
+
+A Friend creation spanning two Server owners returns `409 Conflict` with `cross-server friend creation is not supported`. Friend Group create, join, and member mutations that would introduce a foreign-home owner or member return `409 Conflict` with `cross-server friend group membership is not supported`. These rejections do not consume invite tokens or create partial state. They explicitly mark the current no-Workspace-routing boundary; they do not coordinate the operation with another Server.
+
 ## Dependencies and boundaries
 
 ```mermaid

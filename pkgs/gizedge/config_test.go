@@ -71,6 +71,81 @@ metrics:
 	}
 }
 
+func TestPrepareWorkspaceConfigLoadsOrderedPluralUpstreams(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x12)
+	first := testKeyPair(t, 0x13)
+	second := testKeyPair(t, 0x14)
+	dir := t.TempDir()
+	writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+listen: 127.0.0.1:9821
+endpoint: 127.0.0.1:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+first.Public.String()+`
+  - endpoint: server-b.example.com:9820
+    public-key: `+second.Public.String()+`
+    ice-transport-policy: relay
+    ice-servers:
+      - urls: [turn:192.0.2.10:3478?transport=udp]
+        username: user
+        credential: secret
+      - urls: [turn:192.0.2.11:3478?transport=udp]
+        username: user
+        credential: secret
+tls:
+  cert-source: disabled
+`)
+	cfg, err := PrepareWorkspaceConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Upstreams) != 2 || !cfg.Upstreams[0].PublicKey.Equal(first.Public) || !cfg.Upstreams[1].PublicKey.Equal(second.Public) {
+		t.Fatalf("ordered upstreams = %+v", cfg.Upstreams)
+	}
+	if cfg.Upstreams[0].ICETransportPolicy != "" || cfg.Upstreams[1].ICETransportPolicy != "relay" || len(cfg.Upstreams[1].ICEServers) != 2 {
+		t.Fatalf("per-Server ICE configuration leaked or was lost: %+v", cfg.Upstreams)
+	}
+}
+
+func TestConfigRejectsInvalidPluralUpstreams(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x15)
+	first := testKeyPair(t, 0x16)
+	second := testKeyPair(t, 0x17)
+	base := Config{
+		KeyPair: edgeKey, Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821",
+		Gateway: defaultGatewayConfig(),
+		Upstreams: []UpstreamConfig{
+			{Endpoint: "server-a.example.com:9820", PublicKey: first.Public},
+			{Endpoint: "server-b.example.com:9820", PublicKey: second.Public},
+		},
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*Config)
+		want string
+	}{
+		{name: "mixed", edit: func(cfg *Config) { cfg.Upstream = cfg.Upstreams[0] }, want: "exactly one"},
+		{name: "duplicate identity", edit: func(cfg *Config) { cfg.Upstreams[1].PublicKey = first.Public }, want: "public-key duplicates"},
+		{name: "duplicate endpoint", edit: func(cfg *Config) { cfg.Upstreams[1].Endpoint = cfg.Upstreams[0].Endpoint }, want: "endpoint duplicates"},
+		{name: "missing identity", edit: func(cfg *Config) { cfg.Upstreams[1].PublicKey = giznet.PublicKey{} }, want: "missing upstreams[1].public-key"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := base
+			cfg.Upstreams = append([]UpstreamConfig(nil), base.Upstreams...)
+			test.edit(&cfg)
+			if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("validate() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+	file := ConfigFile{Upstreams: &[]UpstreamConfig{}}
+	if _, err := prepareConfig(Config{}, file); err == nil || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("empty upstreams error = %v", err)
+	}
+}
+
 func TestPrepareWorkspaceConfigRejectsInvalidIngressPorts(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x23)
 	upstreamKey := testKeyPair(t, 0x24)

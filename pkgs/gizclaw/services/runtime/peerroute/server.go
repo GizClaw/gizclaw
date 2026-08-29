@@ -10,7 +10,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -34,8 +33,6 @@ type Server struct {
 	Peers           PeerStore
 	ServerPublicKey giznet.PublicKey
 	ServerEndpoint  string
-
-	assignmentLocks keyedlock.Locker[giznet.PublicKey]
 }
 
 func (s *Server) Lookup(ctx context.Context, publicKey giznet.PublicKey) (apitypes.PeerAssignment, error) {
@@ -63,27 +60,6 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 		return apitypes.PeerAssignment{}, err
 	}
 
-	release, err := s.assignmentLocks.Acquire(ctx, target)
-	if err != nil {
-		return apitypes.PeerAssignment{}, err
-	}
-	defer release()
-
-	current, err := s.get(ctx, target)
-	if err != nil {
-		return apitypes.PeerAssignment{}, err
-	}
-	if s.assignmentCurrent(current, peer) {
-		return current, nil
-	}
-	current.ServerPublicKey = s.ServerPublicKey.String()
-	current.ServerEndpoint = strings.TrimSpace(s.ServerEndpoint)
-	current.Role = peer.Role
-	current.Version++
-	current.UpdatedAt = time.Now()
-	if err := s.put(ctx, current); err != nil {
-		return apitypes.PeerAssignment{}, err
-	}
 	return s.get(ctx, target)
 }
 
@@ -105,36 +81,6 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 		return apitypes.PeerAssignment{}, err
 	}
 
-	release, err := s.assignmentLocks.Acquire(ctx, publicKey)
-	if err != nil {
-		return apitypes.PeerAssignment{}, err
-	}
-	defer release()
-
-	current, err := s.get(ctx, publicKey)
-	switch {
-	case err == nil:
-		if expectedVersion == nil && s.assignmentCurrent(current, peer) {
-			return current, nil
-		}
-		if expectedVersion != nil && current.Version != *expectedVersion {
-			return apitypes.PeerAssignment{}, ErrVersionConflict
-		}
-		current.ServerPublicKey = s.ServerPublicKey.String()
-		current.ServerEndpoint = strings.TrimSpace(s.ServerEndpoint)
-		current.Role = peer.Role
-		current.Version++
-		current.UpdatedAt = time.Now()
-		if err := s.put(ctx, current); err != nil {
-			return apitypes.PeerAssignment{}, err
-		}
-		return s.get(ctx, publicKey)
-	case !errors.Is(err, ErrAssignmentNotFound):
-		return apitypes.PeerAssignment{}, err
-	case expectedVersion != nil:
-		return apitypes.PeerAssignment{}, ErrVersionConflict
-	}
-
 	assignment := apitypes.PeerAssignment{
 		PeerPublicKey:   publicKey.String(),
 		ServerPublicKey: s.ServerPublicKey.String(),
@@ -143,10 +89,71 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 		Version:         1,
 		UpdatedAt:       time.Now(),
 	}
-	if err := s.put(ctx, assignment); err != nil {
+	encoded, err := encodeAssignment(assignment)
+	if err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
-	return s.get(ctx, publicKey)
+	store, err := s.store()
+	if err != nil {
+		return apitypes.PeerAssignment{}, err
+	}
+	var existing []byte
+	if expectedVersion != nil {
+		existing, err = store.Get(ctx, assignmentKey(publicKey.String()))
+		if errors.Is(err, kv.ErrNotFound) {
+			return apitypes.PeerAssignment{}, ErrVersionConflict
+		}
+		if err != nil {
+			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: get %s: %w", publicKey.String(), err)
+		}
+	} else {
+		var created bool
+		existing, created, err = kv.CreateIfAbsent(ctx, store, kv.Entry{Key: assignmentKey(publicKey.String()), Value: encoded}, nil)
+		if err != nil {
+			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: claim %s: %w", publicKey.String(), err)
+		}
+		if created {
+			return assignment, nil
+		}
+	}
+	for {
+		current, decodeErr := decodeAssignment(publicKey, existing)
+		if decodeErr != nil {
+			return apitypes.PeerAssignment{}, decodeErr
+		}
+		if current.ServerPublicKey != s.ServerPublicKey.String() {
+			return apitypes.PeerAssignment{}, ErrVersionConflict
+		}
+		if expectedVersion != nil && current.Version != *expectedVersion {
+			return apitypes.PeerAssignment{}, ErrVersionConflict
+		}
+		if s.assignmentCurrent(current, peer) {
+			return current, nil
+		}
+		next := current
+		next.ServerEndpoint = strings.TrimSpace(s.ServerEndpoint)
+		next.Role = peer.Role
+		next.Version++
+		next.UpdatedAt = time.Now()
+		nextEncoded, encodeErr := encodeAssignment(next)
+		if encodeErr != nil {
+			return apitypes.PeerAssignment{}, encodeErr
+		}
+		matched, mutateErr := kv.CompareAndMutate(ctx, store, assignmentKey(publicKey.String()), existing, []kv.Entry{{Key: assignmentKey(publicKey.String()), Value: nextEncoded}}, nil)
+		if mutateErr != nil {
+			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: refresh %s: %w", publicKey.String(), mutateErr)
+		}
+		if matched {
+			return next, nil
+		}
+		existing, err = store.Get(ctx, assignmentKey(publicKey.String()))
+		if err != nil {
+			if errors.Is(err, kv.ErrNotFound) {
+				return apitypes.PeerAssignment{}, ErrAssignmentNotFound
+			}
+			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: reload %s: %w", publicKey.String(), err)
+		}
+	}
 }
 
 func validateAssignablePeer(peer apitypes.Peer) error {
@@ -184,11 +191,23 @@ func (s *Server) get(ctx context.Context, publicKey giznet.PublicKey) (apitypes.
 		}
 		return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: get %s: %w", publicKey.String(), err)
 	}
+	return decodeAssignment(publicKey, data)
+}
+
+func decodeAssignment(publicKey giznet.PublicKey, data []byte) (apitypes.PeerAssignment, error) {
 	var assignment apitypes.PeerAssignment
 	if err := json.Unmarshal(data, &assignment); err != nil {
 		return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: decode %s: %w", publicKey.String(), err)
 	}
 	return assignment, nil
+}
+
+func encodeAssignment(assignment apitypes.PeerAssignment) ([]byte, error) {
+	data, err := json.Marshal(assignment)
+	if err != nil {
+		return nil, fmt.Errorf("peerroute: encode %s: %w", assignment.PeerPublicKey, err)
+	}
+	return data, nil
 }
 
 func (s *Server) put(ctx context.Context, assignment apitypes.PeerAssignment) error {
@@ -199,9 +218,9 @@ func (s *Server) put(ctx context.Context, assignment apitypes.PeerAssignment) er
 	if assignment.ServerPublicKey == "" || assignment.ServerEndpoint == "" || assignment.Version <= 0 || assignment.UpdatedAt.IsZero() || assignment.Role != apitypes.PeerRoleClient {
 		return fmt.Errorf("peerroute: invalid assignment")
 	}
-	data, err := json.Marshal(assignment)
+	data, err := encodeAssignment(assignment)
 	if err != nil {
-		return fmt.Errorf("peerroute: encode %s: %w", assignment.PeerPublicKey, err)
+		return err
 	}
 	store, err := s.store()
 	if err != nil {

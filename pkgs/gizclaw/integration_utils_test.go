@@ -131,6 +131,9 @@ func startTestServerWithCipherMode(t *testing.T, cipherMode gizwebrtc.CipherMode
 
 func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.Server {
 	t.Helper()
+	if server.PublicEndpoint == "" {
+		server.PublicEndpoint = "server.test:9820"
+	}
 	base := mustBadgerInMemory(t, nil)
 	set := func(target *kv.Store, prefix string) {
 		if *target == nil {
@@ -138,6 +141,7 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 		}
 	}
 	set(&server.PeerStore, "peers")
+	set(&server.PeerRunStore, "peer-runs")
 	set(&server.APIKeyStore, "api-keys")
 	set(&server.CredentialStore, "credentials")
 	set(&server.FirmwareStore, "firmwares")

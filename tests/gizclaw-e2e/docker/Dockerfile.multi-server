@@ -1,0 +1,14 @@
+ARG BASE_IMAGE=gizclaw-go:linux-amd64-cn-base
+FROM ${BASE_IMAGE}
+
+WORKDIR /src
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY . .
+COPY tests/gizclaw-e2e/testdata/bin/gizclaw-linux /usr/local/bin/gizclaw
+COPY tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux /usr/local/bin/multiserver-e2e
+RUN chmod +x /usr/local/bin/gizclaw /usr/local/bin/multiserver-e2e \
+ && find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +

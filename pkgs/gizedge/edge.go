@@ -50,13 +50,9 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 			serveErr = errors.Join(serveErr, shutdownMetrics(shutdownCtx), metricsStore.Close())
 		}()
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	_, err = cfg.configuredUpstreams()
 	if err != nil {
 		return err
-	}
-	relaySelector, err := newUpstreamRelaySelector(cfg)
-	if err != nil {
-		return fmt.Errorf("edge: prepare upstream relay selector: %w", err)
 	}
 	turnRuntime, err := startTURN(cfg.TURN)
 	if err != nil {
@@ -64,7 +60,7 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	}
 	defer turnRuntime.Close()
 
-	upstreamTransport, err := newUpstreamTransport(ctx, cfg, upstreamURL, relaySelector)
+	upstreamTransport, err := newOrderedUpstreamTransport(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -72,10 +68,11 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 
 	var gateway *Gateway
 	if cfg.Gateway.Enabled {
-		gateway, err = newGateway(ctx, cfg, upstreamURL, relaySelector)
+		gateway, err = newGateway(ctx, cfg)
 		if err != nil {
 			return err
 		}
+		gateway.resolvePeerRoute = upstreamTransport.resolvePeerAssignment
 		defer gateway.Close()
 	}
 

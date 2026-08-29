@@ -71,6 +71,7 @@ flowchart TB
 | `azure-blob` | HTTPS account URL 与既有 container；身份来自 Azure Default Credential |
 | `sqlite` | `dir` 或 `dsn` 二选一 |
 | `postgresql`、`clickhouse` | `dsn` |
+| `redis` | 单节点 `redis://` 或 `rediss://` DSN；不支持 Redis Cluster |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
 
@@ -86,7 +87,7 @@ physical, err := storage.New(map[string]storage.Config{
 ```
 
 具体实现包括 `BadgerConfig`、`MemoryConfig`、`FilesystemDirConfig`、
-`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`PrometheusConfig`、
+`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`RedisConfig`、`PrometheusConfig`、
 `VolcTLSConfig`、`VolcTOSConfig`、`AliyunOSSConfig`、`GCSConfig` 和
 `AzureBlobConfig`。因此 Go 调用方不能为 PostgreSQL 传入 `dir`，也不能为
 Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 YAML DTO，

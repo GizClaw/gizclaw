@@ -16,3 +16,5 @@
 | `handleResolve` | 解析目标 Peer 的有效 route。 |
 | `edgeRequiredParams` | 解码并校验必需 params。 |
 | `edgeRPCResult` / `edgeRPCError` | 编码 typed result 或映射领域错误。 |
+
+`server.peer.lookup` 与 `server.route.resolve` 只读。`server.peer.assign` 会为当前 Server 原子 claim 缺少 assignment 的 Client Peer；owner 相同时返回现有记录，并且只能刷新这个 owner 的 endpoint/role metadata。不同 Server owner 返回 conflict，记录不会被覆盖；`expected_version` 只检测 stale update，不能授权 ownership transfer。

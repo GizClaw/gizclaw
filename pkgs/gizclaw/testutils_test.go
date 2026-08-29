@@ -20,6 +20,9 @@ func mustBadgerInMemory(t testing.TB, opts *kv.Options) kv.Store {
 
 func completeTestServer(t testing.TB, server *Server) *Server {
 	t.Helper()
+	if server.PublicEndpoint == "" {
+		server.PublicEndpoint = "server.test:9820"
+	}
 	base := mustBadgerInMemory(t, nil)
 	set := func(target *kv.Store, prefix string) {
 		if *target == nil {
@@ -27,6 +30,7 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		}
 	}
 	set(&server.PeerStore, "peers")
+	set(&server.PeerRunStore, "peer-runs")
 	set(&server.APIKeyStore, "api-keys")
 	set(&server.CredentialStore, "credentials")
 	set(&server.FirmwareStore, "firmwares")

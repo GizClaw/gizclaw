@@ -14,6 +14,7 @@
 | `Memory` / `NewMemory` | In-process ordered store. |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation. |
 | `SQL` / `NewSQLWithDB` | Borrows a SQLite/PostgreSQL pool and maps the logical prefix to a physical table. |
+| `Redis` / `NewRedisWithClient` | Borrows a single-node Redis 8.0 client and preserves the full ordered and atomic Store contract. |
 | `Prefixed` | Add a fixed key namespace to the existing Store. |
 | `ListAfter` | Read in pages after the specified key under prefix. |
 
@@ -42,4 +43,6 @@ services:
 
 For SQLite/PostgreSQL, only change the logical declaration to `storage: database`; `prefix: peers` then also names the backend table. That name cannot overlap another KV prefix or Metrics/Log table on the connector, and closing the logical Store leaves the shared database pool open.
 
-Peer routes and run state use code-owned prefixes rather than separate operator Store bindings.
+Redis keyvalue Stores require non-empty, clean, pairwise non-overlapping prefixes on each physical connector. The adapter sorts SCAN results before exposing them, uses absolute deadlines, and implements batches, conditional create, and compare-and-mutate atomically on one Redis node. A zero deadline removes an existing expiration. Redis Cluster and multi-endpoint sharding are unsupported because arbitrary-key atomicity is part of the Store contract.
+
+Peer records and routes share the Store named by `services.peer.store`. High-churn PeerRun state uses the separately required `services.peer_run.store`; multi-Server deployments keep that Store persistent and local to each Server rather than sharing it through Redis.

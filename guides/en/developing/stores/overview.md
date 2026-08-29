@@ -71,6 +71,7 @@ flowchart TB
 | `azure-blob` | HTTPS account URL and existing container; Azure Default Credential supplies identity |
 | `sqlite` | exactly one of `dir` or `dsn` |
 | `postgresql`, `clickhouse` | `dsn` |
+| `redis` | Single-node `redis://` or `rediss://` DSN; Redis Cluster is not supported |
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
 
@@ -87,7 +88,7 @@ physical, err := storage.New(map[string]storage.Config{
 ```
 
 The concrete implementations are `BadgerConfig`, `MemoryConfig`,
-`FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`,
+`FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`, `RedisConfig`,
 `PrometheusConfig`, `VolcTLSConfig`, `VolcTOSConfig`, `AliyunOSSConfig`,
 `GCSConfig`, and `AzureBlobConfig`. A Go caller therefore cannot pass a
 directory to PostgreSQL or a DSN/provider credential to Badger.

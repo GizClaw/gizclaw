@@ -14,6 +14,7 @@
 | `Memory` / `NewMemory` | 进程内 ordered store。 |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
 | `SQL` / `NewSQLWithDB` | 借用 SQLite/PostgreSQL pool；把逻辑 prefix 映射为物理表。 |
+| `Redis` / `NewRedisWithClient` | 借用单节点 Redis 8.0 client，并保留完整的有序与原子 Store contract。 |
 | `Prefixed` | 为已有 Store 增加固定 key namespace。 |
 | `ListAfter` | 在 prefix 下从指定 key 之后分页读取。 |
 
@@ -42,4 +43,6 @@ services:
 
 SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；此时 `prefix: peers` 同时是后端物理表名。这个名称不能和同一 connector 上其他 KV prefix 或 Metrics/Log table 重复；关闭逻辑 Store 不会关闭共享数据库 pool。
 
-Peer route 与 run state 使用代码内置 prefix，不再由 operator 分别绑定 Store。
+同一物理 connector 上的 Redis keyvalue Store 必须使用非空、规范且两两不重叠的 prefix。Adapter 会先排序 SCAN 结果再向上层返回，使用绝对 deadline，并在单个 Redis 节点上原子实现 batch、conditional create 与 compare-and-mutate；零 deadline 会移除已有 expiration。由于 Store contract 要求任意 key 原子性，不支持 Redis Cluster 或多 endpoint 分片。
+
+Peer record 与 route 共用 `services.peer.store` 指定的 Store。高频更新的 PeerRun 状态使用单独必填的 `services.peer_run.store`；多 Server 部署必须让该 Store 持久化并保持在各 Server 本地，不能通过 Redis 共享。

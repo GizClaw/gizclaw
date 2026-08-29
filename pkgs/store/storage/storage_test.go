@@ -224,6 +224,38 @@ func TestSQLConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
 	}
 }
 
+func TestRedisConnectionErrorsDoNotExposeDSNSecrets(t *testing.T) {
+	const secret = "leaked-password"
+	_, err := New(map[string]Config{
+		"cache": RedisConfig{DSN: "redis://user:" + secret + "@%zz"},
+	})
+	if err == nil {
+		t.Fatal("New() error = nil")
+	}
+	if strings.Contains(err.Error(), secret) || strings.Contains(err.Error(), "%zz") {
+		t.Fatalf("New() exposed Redis DSN details: %v", err)
+	}
+	if err.Error() != `storage: redis "cache" parse dsn failed` {
+		t.Fatalf("New() omitted sanitized operation context: %v", err)
+	}
+}
+
+func TestRedisRejectsUnsupportedOrMissingEndpoints(t *testing.T) {
+	for name, dsn := range map[string]string{
+		"unix":           "unix:///tmp/redis.sock",
+		"missing-host":   "redis:///0",
+		"port-only":      "redis://:6379/0",
+		"multiple-hosts": "redis://first.example,second.example/0",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := New(map[string]Config{"cache": RedisConfig{DSN: dsn}})
+			if err == nil || err.Error() != `storage: redis "cache" parse dsn failed` {
+				t.Fatalf("New() error = %v, want sanitized single-endpoint rejection", err)
+			}
+		})
+	}
+}
+
 func TestSQLiteRejectsDriverOwnedPragmaAliases(t *testing.T) {
 	for _, parameter := range []string{"_busy_timeout", "_timeout", "_foreign_keys", "_fk", "_journal_mode", "_journal"} {
 		t.Run(parameter, func(t *testing.T) {
