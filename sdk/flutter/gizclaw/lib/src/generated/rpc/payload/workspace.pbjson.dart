@@ -1464,24 +1464,25 @@ final $typed_data.Uint8List workspaceGetResponseDescriptor = $convert.base64Deco
     'cm9maWxlTmFtZRI4ChhydW50aW1lX3Byb2ZpbGVfcmV2aXNpb24YAyABKAlSFnJ1bnRpbWVQcm'
     '9maWxlUmV2aXNpb24=');
 
-@$core.Deprecated('Use workspaceHistoryAudioGetRequestDescriptor instead')
-const WorkspaceHistoryAudioGetRequest$json = {
-  '1': 'WorkspaceHistoryAudioGetRequest',
+@$core.Deprecated('Use workspaceHistoryAudioDownloadRequestDescriptor instead')
+const WorkspaceHistoryAudioDownloadRequest$json = {
+  '1': 'WorkspaceHistoryAudioDownloadRequest',
   '2': [
     {'1': 'history_name', '3': 1, '4': 1, '5': 9, '10': 'historyName'},
     {'1': 'workspace_name', '3': 2, '4': 1, '5': 9, '10': 'workspaceName'},
   ],
 };
 
-/// Descriptor for `WorkspaceHistoryAudioGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workspaceHistoryAudioGetRequestDescriptor =
+/// Descriptor for `WorkspaceHistoryAudioDownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceHistoryAudioDownloadRequestDescriptor =
     $convert.base64Decode(
-        'Ch9Xb3Jrc3BhY2VIaXN0b3J5QXVkaW9HZXRSZXF1ZXN0EiEKDGhpc3RvcnlfbmFtZRgBIAEoCV'
-        'ILaGlzdG9yeU5hbWUSJQoOd29ya3NwYWNlX25hbWUYAiABKAlSDXdvcmtzcGFjZU5hbWU=');
+        'CiRXb3Jrc3BhY2VIaXN0b3J5QXVkaW9Eb3dubG9hZFJlcXVlc3QSIQoMaGlzdG9yeV9uYW1lGA'
+        'EgASgJUgtoaXN0b3J5TmFtZRIlCg53b3Jrc3BhY2VfbmFtZRgCIAEoCVINd29ya3NwYWNlTmFt'
+        'ZQ==');
 
-@$core.Deprecated('Use workspaceHistoryAudioGetResponseDescriptor instead')
-const WorkspaceHistoryAudioGetResponse$json = {
-  '1': 'WorkspaceHistoryAudioGetResponse',
+@$core.Deprecated('Use workspaceHistoryAudioDownloadResponseDescriptor instead')
+const WorkspaceHistoryAudioDownloadResponse$json = {
+  '1': 'WorkspaceHistoryAudioDownloadResponse',
   '2': [
     {'1': 'history_name', '3': 1, '4': 1, '5': 9, '10': 'historyName'},
     {'1': 'mime_type', '3': 2, '4': 1, '5': 9, '10': 'mimeType'},
@@ -1490,13 +1491,13 @@ const WorkspaceHistoryAudioGetResponse$json = {
   ],
 };
 
-/// Descriptor for `WorkspaceHistoryAudioGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workspaceHistoryAudioGetResponseDescriptor =
+/// Descriptor for `WorkspaceHistoryAudioDownloadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceHistoryAudioDownloadResponseDescriptor =
     $convert.base64Decode(
-        'CiBXb3Jrc3BhY2VIaXN0b3J5QXVkaW9HZXRSZXNwb25zZRIhCgxoaXN0b3J5X25hbWUYASABKA'
-        'lSC2hpc3RvcnlOYW1lEhsKCW1pbWVfdHlwZRgCIAEoCVIIbWltZVR5cGUSHQoKc2l6ZV9ieXRl'
-        'cxgDIAEoA1IJc2l6ZUJ5dGVzEiUKDndvcmtzcGFjZV9uYW1lGAQgASgJUg13b3Jrc3BhY2VOYW'
-        '1l');
+        'CiVXb3Jrc3BhY2VIaXN0b3J5QXVkaW9Eb3dubG9hZFJlc3BvbnNlEiEKDGhpc3RvcnlfbmFtZR'
+        'gBIAEoCVILaGlzdG9yeU5hbWUSGwoJbWltZV90eXBlGAIgASgJUghtaW1lVHlwZRIdCgpzaXpl'
+        'X2J5dGVzGAMgASgDUglzaXplQnl0ZXMSJQoOd29ya3NwYWNlX25hbWUYBCABKAlSDXdvcmtzcG'
+        'FjZU5hbWU=');
 
 @$core.Deprecated('Use workspaceHistoryGetRequestDescriptor instead')
 const WorkspaceHistoryGetRequest$json = {

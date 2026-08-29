@@ -11,11 +11,11 @@ gizclaw.rpc.v1.FriendInfo.display_name max_size:257
 gizclaw.rpc.v1.FriendInfo.emoji max_size:65
 gizclaw.rpc.v1.FriendInfoGetRequest.name max_size:256
 gizclaw.rpc.v1.FriendInfoGetResponse.name max_size:256
-gizclaw.rpc.v1.FriendGroupMessageAudioGetRequest.friend_group_name max_size:256
-gizclaw.rpc.v1.FriendGroupMessageAudioGetRequest.history_name max_size:256
-gizclaw.rpc.v1.FriendGroupMessageAudioGetResponse.friend_group_name max_size:256
-gizclaw.rpc.v1.FriendGroupMessageAudioGetResponse.history_name max_size:256
-gizclaw.rpc.v1.FriendGroupMessageAudioGetResponse.mime_type max_size:129
+gizclaw.rpc.v1.FriendGroupMessageAudioDownloadRequest.friend_group_name max_size:256
+gizclaw.rpc.v1.FriendGroupMessageAudioDownloadRequest.history_name max_size:256
+gizclaw.rpc.v1.FriendGroupMessageAudioDownloadResponse.friend_group_name max_size:256
+gizclaw.rpc.v1.FriendGroupMessageAudioDownloadResponse.history_name max_size:256
+gizclaw.rpc.v1.FriendGroupMessageAudioDownloadResponse.mime_type max_size:129
 gizclaw.rpc.v1.FriendGroupMessageGetRequest.friend_group_name max_size:256
 gizclaw.rpc.v1.FriendGroupMessageGetRequest.history_name max_size:256
 gizclaw.rpc.v1.FriendGroupMessageListRequest.cursor max_size:256

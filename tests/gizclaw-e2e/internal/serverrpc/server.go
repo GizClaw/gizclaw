@@ -210,6 +210,130 @@ func SpeedTest(conn giznet.Conn, id string, up, down int64) (int64, int64, error
 	return up, downloaded, nil
 }
 
+const (
+	WorkspaceAudioPayload   = "workspace-audio-payload"
+	FriendGroupAudioPayload = "friend-group-audio-payload"
+)
+
+// ServeAudioDownloads serves one successful workspace History audio download
+// and one successful Friend Group message audio download over real Peer RPC
+// service streams. It is intentionally deterministic so every SDK can share
+// the same cross-language integration fixture without provider credentials.
+func ServeAudioDownloads(ctx context.Context, conn giznet.Conn) error {
+	if ctx == nil {
+		return fmt.Errorf("serverrpc: nil context")
+	}
+	if conn == nil {
+		return fmt.Errorf("serverrpc: nil connection")
+	}
+	listener := conn.ListenService(0)
+	defer listener.Close()
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = listener.Close()
+		case <-stop:
+		}
+	}()
+	for range 2 {
+		stream, err := listener.Accept()
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return err
+		}
+		if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+			_ = stream.Close()
+			return err
+		}
+		if err := serveAudioDownload(stream); err != nil {
+			_ = stream.Close()
+			return err
+		}
+		if err := stream.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func serveAudioDownload(stream net.Conn) error {
+	request, err := rpcapi.ReadRequest(stream)
+	if err != nil {
+		return fmt.Errorf("read audio download request: %w", err)
+	}
+	if request == nil {
+		return fmt.Errorf("audio download request is required")
+	}
+	if err := rpcapi.ReadEOS(stream); err != nil {
+		return fmt.Errorf("read audio download request EOS: %w", err)
+	}
+	if request.Params == nil {
+		return fmt.Errorf("audio download params are required")
+	}
+
+	var result rpcapi.RPCPayload
+	var audio string
+	switch request.Method {
+	case rpcapi.RPCMethodServerWorkspaceHistoryAudioDownload:
+		params, err := request.Params.AsWorkspaceHistoryAudioDownloadRequest()
+		if err != nil {
+			return fmt.Errorf("decode workspace History audio request: %w", err)
+		}
+		audio = WorkspaceAudioPayload
+		if err := result.FromWorkspaceHistoryAudioDownloadResponse(
+			rpcapi.WorkspaceHistoryAudioDownloadResponse{
+				WorkspaceName: params.WorkspaceName,
+				HistoryName:   params.HistoryName,
+				MimeType:      "audio/ogg; codecs=opus",
+				SizeBytes:     int64(len(audio)),
+			},
+		); err != nil {
+			return err
+		}
+	case rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload:
+		params, err := request.Params.AsFriendGroupMessageAudioDownloadRequest()
+		if err != nil {
+			return fmt.Errorf("decode Friend Group message audio request: %w", err)
+		}
+		audio = FriendGroupAudioPayload
+		if err := result.FromFriendGroupMessageAudioDownloadResponse(
+			rpcapi.FriendGroupMessageAudioDownloadResponse{
+				FriendGroupName: params.FriendGroupName,
+				HistoryName:     params.HistoryName,
+				MimeType:        "audio/ogg; codecs=opus",
+				SizeBytes:       int64(len(audio)),
+			},
+		); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected audio download method %s", request.Method)
+	}
+
+	response := &rpcapi.RPCResponse{
+		V: rpcapi.RPCVersionV1, Id: request.Id, Result: &result,
+	}
+	if err := rpcapi.WriteResponseForMethod(stream, request.Method, response); err != nil {
+		return fmt.Errorf("write audio download metadata: %w", err)
+	}
+	middle := len(audio) / 2
+	for _, chunk := range []string{audio[:middle], audio[middle:]} {
+		if err := rpcapi.WriteFrame(stream, rpcapi.Frame{
+			Type: rpcapi.FrameTypeBinary, Payload: []byte(chunk),
+		}); err != nil {
+			return fmt.Errorf("write audio download payload: %w", err)
+		}
+	}
+	if err := rpcapi.WriteEOS(stream); err != nil {
+		return fmt.Errorf("write audio download EOS: %w", err)
+	}
+	return nil
+}
+
 func rpcStream(conn giznet.Conn) (net.Conn, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("serverrpc: nil connection")

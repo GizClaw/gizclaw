@@ -165,10 +165,10 @@ PB_BIND(gizclaw_rpc_v1_WorkspaceGetRequest, gizclaw_rpc_v1_WorkspaceGetRequest, 
 PB_BIND(gizclaw_rpc_v1_WorkspaceGetResponse, gizclaw_rpc_v1_WorkspaceGetResponse, 2)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest, gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest, AUTO)
+PB_BIND(gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest, gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse, gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse, gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkspaceHistoryGetRequest, gizclaw_rpc_v1_WorkspaceHistoryGetRequest, AUTO)

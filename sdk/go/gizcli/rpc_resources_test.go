@@ -55,7 +55,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceHistoryGet, rpcapi.WorkspaceHistoryGetResponse{}, (*rpcapi.RPCPayload).FromWorkspaceHistoryGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceHistoryGetResponse, error) {
 			return client.GetWorkspaceHistory(ctx, conn, "workspace-history-get", rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: "main", HistoryName: "h1"})
 		})
-		runWorkspaceHistoryAudioGetWrapperTest(t, client)
+		runWorkspaceHistoryAudioDownloadWrapperTest(t, client)
 	})
 
 	t.Run("workflow", func(t *testing.T) {
@@ -156,7 +156,7 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetResponse{}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
 			return client.GetFriendGroupMessage(ctx, conn, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"})
 		})
-		runFriendGroupMessageAudioGetWrapperTest(t, client)
+		runFriendGroupMessageAudioDownloadWrapperTest(t, client)
 	})
 
 	t.Run("firmware", func(t *testing.T) {
@@ -370,7 +370,7 @@ func runBadgeDefPixaDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	}
 }
 
-func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
+func runWorkspaceHistoryAudioDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	t.Helper()
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
@@ -385,16 +385,16 @@ func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- err
 			return
 		}
-		if req.Method != rpcapi.RPCMethodServerWorkspaceHistoryAudioGet {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerWorkspaceHistoryAudioGet}
+		if req.Method != rpcapi.RPCMethodServerWorkspaceHistoryAudioDownload {
+			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerWorkspaceHistoryAudioDownload}
 			return
 		}
-		resp := resourceResponse(req.Id, rpcapi.WorkspaceHistoryAudioGetResponse{
+		resp := resourceResponse(req.Id, rpcapi.WorkspaceHistoryAudioDownloadResponse{
 			WorkspaceName: "main",
 			HistoryName:   "h1",
 			MimeType:      mimeType,
 			SizeBytes:     int64(len(payload)),
-		}, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetResponse)
+		}, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioDownloadResponse)
 		serverStream, err := newRPCStream(context.Background(), serverSide)
 		if err != nil {
 			serverErrCh <- err
@@ -419,22 +419,22 @@ func runWorkspaceHistoryAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 	}()
 
 	var out bytes.Buffer
-	result, err := client.GetWorkspaceHistoryAudio(context.Background(), clientSide, "workspace-history-audio-get", rpcapi.WorkspaceHistoryAudioGetRequest{
+	result, err := client.DownloadWorkspaceHistoryAudio(context.Background(), clientSide, "workspace-history-audio-download", rpcapi.WorkspaceHistoryAudioDownloadRequest{
 		WorkspaceName: "main",
 		HistoryName:   "h1",
 	}, &out)
 	if err != nil {
-		t.Fatalf("workspace history audio get call error = %v", err)
+		t.Fatalf("workspace history audio download call error = %v", err)
 	}
 	if result.Metadata.MimeType != mimeType || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("workspace history audio get result = %#v payload %q", result, out.String())
+		t.Fatalf("workspace history audio download result = %#v payload %q", result, out.String())
 	}
 	if err := <-serverErrCh; err != nil {
-		t.Fatalf("workspace history audio get server error = %v", err)
+		t.Fatalf("workspace history audio download server error = %v", err)
 	}
 }
 
-func runFriendGroupMessageAudioGetWrapperTest(t *testing.T, client *rpcClient) {
+func runFriendGroupMessageAudioDownloadWrapperTest(t *testing.T, client *rpcClient) {
 	t.Helper()
 	serverSide, clientSide := net.Pipe()
 	defer serverSide.Close()
@@ -448,16 +448,16 @@ func runFriendGroupMessageAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 			serverErrCh <- err
 			return
 		}
-		if req.Method != rpcapi.RPCMethodServerFriendGroupMessagesAudioGet {
-			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFriendGroupMessagesAudioGet}
+		if req.Method != rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload {
+			serverErrCh <- &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload}
 			return
 		}
-		resp := resourceResponse(req.Id, rpcapi.FriendGroupMessageAudioGetResponse{
+		resp := resourceResponse(req.Id, rpcapi.FriendGroupMessageAudioDownloadResponse{
 			FriendGroupName: "group-a",
 			HistoryName:     "history-a",
 			MimeType:        "audio/opus",
 			SizeBytes:       int64(len(payload)),
-		}, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetResponse)
+		}, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioDownloadResponse)
 		serverStream, err := newRPCStream(context.Background(), serverSide)
 		if err != nil {
 			serverErrCh <- err
@@ -475,18 +475,18 @@ func runFriendGroupMessageAudioGetWrapperTest(t *testing.T, client *rpcClient) {
 	}()
 
 	var out bytes.Buffer
-	result, err := client.GetFriendGroupMessageAudio(context.Background(), clientSide, "friend-group-message-audio-get", rpcapi.FriendGroupMessageAudioGetRequest{
+	result, err := client.DownloadFriendGroupMessageAudio(context.Background(), clientSide, "friend-group-message-audio-download", rpcapi.FriendGroupMessageAudioDownloadRequest{
 		FriendGroupName: "group-a",
 		HistoryName:     "history-a",
 	}, &out)
 	if err != nil {
-		t.Fatalf("friend group message audio get call error = %v", err)
+		t.Fatalf("friend group message audio download call error = %v", err)
 	}
 	if result.Metadata.MimeType != "audio/opus" || result.Bytes != int64(len(payload)) || out.String() != string(payload) {
-		t.Fatalf("friend group message audio get result = %#v payload %q", result, out.String())
+		t.Fatalf("friend group message audio download result = %#v payload %q", result, out.String())
 	}
 	if err := <-serverErrCh; err != nil {
-		t.Fatalf("friend group message audio get server error = %v", err)
+		t.Fatalf("friend group message audio download server error = %v", err)
 	}
 }
 
@@ -512,19 +512,19 @@ func TestValidateHistoryAudioMetadata(t *testing.T) {
 	}
 }
 
-func TestGetWorkspaceHistoryAudioRejectsMalformedResponse(t *testing.T) {
+func TestDownloadWorkspaceHistoryAudioRejectsMalformedResponse(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		metadata rpcapi.WorkspaceHistoryAudioGetResponse
+		metadata rpcapi.WorkspaceHistoryAudioDownloadResponse
 		payload  []byte
 		want     string
 	}{
-		{name: "workspace identity", metadata: rpcapi.WorkspaceHistoryAudioGetResponse{WorkspaceName: "other", HistoryName: "h1", MimeType: "audio/opus"}, want: "identity mismatch"},
-		{name: "history identity", metadata: rpcapi.WorkspaceHistoryAudioGetResponse{WorkspaceName: "main", HistoryName: "other", MimeType: "audio/opus"}, want: "identity mismatch"},
-		{name: "MIME", metadata: rpcapi.WorkspaceHistoryAudioGetResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "application/octet-stream"}, want: "MIME type"},
-		{name: "negative size", metadata: rpcapi.WorkspaceHistoryAudioGetResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "audio/opus", SizeBytes: -1}, want: "invalid history audio size"},
-		{name: "truncated", metadata: rpcapi.WorkspaceHistoryAudioGetResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "audio/opus", SizeBytes: 5}, payload: []byte("opus"), want: "size mismatch"},
-		{name: "extra", metadata: rpcapi.WorkspaceHistoryAudioGetResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "audio/opus", SizeBytes: 3}, payload: []byte("opus"), want: "size mismatch"},
+		{name: "workspace identity", metadata: rpcapi.WorkspaceHistoryAudioDownloadResponse{WorkspaceName: "other", HistoryName: "h1", MimeType: "audio/opus"}, want: "identity mismatch"},
+		{name: "history identity", metadata: rpcapi.WorkspaceHistoryAudioDownloadResponse{WorkspaceName: "main", HistoryName: "other", MimeType: "audio/opus"}, want: "identity mismatch"},
+		{name: "MIME", metadata: rpcapi.WorkspaceHistoryAudioDownloadResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "application/octet-stream"}, want: "MIME type"},
+		{name: "negative size", metadata: rpcapi.WorkspaceHistoryAudioDownloadResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "audio/opus", SizeBytes: -1}, want: "invalid history audio size"},
+		{name: "truncated", metadata: rpcapi.WorkspaceHistoryAudioDownloadResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "audio/opus", SizeBytes: 5}, payload: []byte("opus"), want: "size mismatch"},
+		{name: "extra", metadata: rpcapi.WorkspaceHistoryAudioDownloadResponse{WorkspaceName: "main", HistoryName: "h1", MimeType: "audio/opus", SizeBytes: 3}, payload: []byte("opus"), want: "size mismatch"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			serverSide, clientSide := net.Pipe()
@@ -541,7 +541,7 @@ func TestGetWorkspaceHistoryAudioRejectsMalformedResponse(t *testing.T) {
 					serverErrCh <- err
 					return
 				}
-				resp := resourceResponse(req.Id, tc.metadata, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioGetResponse)
+				resp := resourceResponse(req.Id, tc.metadata, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioDownloadResponse)
 				if _, err := stream.WriteResponseEnvelopeForMethod(req.Method, resp); err != nil {
 					serverErrCh <- err
 					return
@@ -560,10 +560,10 @@ func TestGetWorkspaceHistoryAudioRejectsMalformedResponse(t *testing.T) {
 			}()
 
 			var out bytes.Buffer
-			_, err := (&rpcClient{}).GetWorkspaceHistoryAudio(context.Background(), clientSide, "malformed", rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: "main", HistoryName: "h1"}, &out)
+			_, err := (&rpcClient{}).DownloadWorkspaceHistoryAudio(context.Background(), clientSide, "malformed", rpcapi.WorkspaceHistoryAudioDownloadRequest{WorkspaceName: "main", HistoryName: "h1"}, &out)
 			_ = clientSide.Close()
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("GetWorkspaceHistoryAudio() error = %v, want %q", err, tc.want)
+				t.Fatalf("DownloadWorkspaceHistoryAudio() error = %v, want %q", err, tc.want)
 			}
 			if serverErr := <-serverErrCh; serverErr != nil {
 				t.Fatalf("server error = %v", serverErr)
@@ -589,10 +589,10 @@ func (friendGroupAudioShortWriter) Write(p []byte) (int, error) {
 	return len(p) - 1, nil
 }
 
-func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
+func TestDownloadFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 	writerErr := errors.New("friend group audio writer failed")
-	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
-	validMetadata := rpcapi.FriendGroupMessageAudioGetResponse{
+	request := rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
+	validMetadata := rpcapi.FriendGroupMessageAudioDownloadResponse{
 		FriendGroupName: request.FriendGroupName,
 		HistoryName:     request.HistoryName,
 		MimeType:        "audio/opus",
@@ -601,7 +601,7 @@ func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 
 	for _, tc := range []struct {
 		name         string
-		metadata     rpcapi.FriendGroupMessageAudioGetResponse
+		metadata     rpcapi.FriendGroupMessageAudioDownloadResponse
 		frames       []rpcapi.Frame
 		writeEOS     bool
 		writer       io.Writer
@@ -610,27 +610,27 @@ func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 	}{
 		{
 			name:         "friend group identity",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: "other", HistoryName: request.HistoryName, MimeType: "audio/opus"},
+			metadata:     rpcapi.FriendGroupMessageAudioDownloadResponse{FriendGroupName: "other", HistoryName: request.HistoryName, MimeType: "audio/opus"},
 			wantContains: "identity mismatch",
 		},
 		{
 			name:         "history identity",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryName: "other", MimeType: "audio/opus"},
+			metadata:     rpcapi.FriendGroupMessageAudioDownloadResponse{FriendGroupName: request.FriendGroupName, HistoryName: "other", MimeType: "audio/opus"},
 			wantContains: "identity mismatch",
 		},
 		{
 			name:         "non audio MIME",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryName: request.HistoryName, MimeType: "application/octet-stream"},
+			metadata:     rpcapi.FriendGroupMessageAudioDownloadResponse{FriendGroupName: request.FriendGroupName, HistoryName: request.HistoryName, MimeType: "application/octet-stream"},
 			wantContains: "MIME type",
 		},
 		{
 			name:         "malformed MIME",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryName: request.HistoryName, MimeType: "not a MIME"},
+			metadata:     rpcapi.FriendGroupMessageAudioDownloadResponse{FriendGroupName: request.FriendGroupName, HistoryName: request.HistoryName, MimeType: "not a MIME"},
 			wantContains: "MIME type",
 		},
 		{
 			name:         "negative size",
-			metadata:     rpcapi.FriendGroupMessageAudioGetResponse{FriendGroupName: request.FriendGroupName, HistoryName: request.HistoryName, MimeType: "audio/opus", SizeBytes: -1},
+			metadata:     rpcapi.FriendGroupMessageAudioDownloadResponse{FriendGroupName: request.FriendGroupName, HistoryName: request.HistoryName, MimeType: "audio/opus", SizeBytes: -1},
 			wantContains: "invalid history audio size",
 		},
 		{
@@ -678,7 +678,7 @@ func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 					serverErrCh <- err
 					return
 				}
-				resp := resourceResponse(req.Id, tc.metadata, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioGetResponse)
+				resp := resourceResponse(req.Id, tc.metadata, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioDownloadResponse)
 				if err := rpcapi.WriteResponseForMethod(serverSide, req.Method, resp); err != nil {
 					serverErrCh <- err
 					return
@@ -704,30 +704,30 @@ func TestGetFriendGroupMessageAudioRejectsMalformedResponse(t *testing.T) {
 			if writer == nil {
 				writer = &bytes.Buffer{}
 			}
-			result, err := (&rpcClient{}).GetFriendGroupMessageAudio(ctx, clientSide, "friend-group-audio-failure", request, writer)
+			result, err := (&rpcClient{}).DownloadFriendGroupMessageAudio(ctx, clientSide, "friend-group-audio-failure", request, writer)
 			_ = clientSide.Close()
 			if err == nil {
-				t.Fatal("GetFriendGroupMessageAudio() error = nil")
+				t.Fatal("DownloadFriendGroupMessageAudio() error = nil")
 			}
 			if tc.wantContains != "" && !strings.Contains(err.Error(), tc.wantContains) {
-				t.Fatalf("GetFriendGroupMessageAudio() error = %v, want %q", err, tc.wantContains)
+				t.Fatalf("DownloadFriendGroupMessageAudio() error = %v, want %q", err, tc.wantContains)
 			}
 			if tc.wantIs != nil && !errors.Is(err, tc.wantIs) {
-				t.Fatalf("GetFriendGroupMessageAudio() error = %v, want errors.Is(%v)", err, tc.wantIs)
+				t.Fatalf("DownloadFriendGroupMessageAudio() error = %v, want errors.Is(%v)", err, tc.wantIs)
 			}
-			if result != (FriendGroupMessageAudioGetResult{}) {
-				t.Fatalf("GetFriendGroupMessageAudio() result = %#v, want zero result", result)
+			if result != (FriendGroupMessageAudioDownloadResult{}) {
+				t.Fatalf("DownloadFriendGroupMessageAudio() result = %#v, want zero result", result)
 			}
 			waitFriendGroupAudioServer(t, serverErrCh)
 		})
 	}
 }
 
-func TestGetFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing.T) {
+func TestDownloadFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer clientSide.Close()
 
-	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryName: "missing-history"}
+	request := rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: "group-a", HistoryName: "missing-history"}
 	serverErrCh := make(chan error, 1)
 	go func() {
 		defer serverSide.Close()
@@ -746,28 +746,28 @@ func TestGetFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 	var out bytes.Buffer
-	result, err := (&rpcClient{}).GetFriendGroupMessageAudio(ctx, clientSide, "friend-group-audio-missing", request, &out)
+	result, err := (&rpcClient{}).DownloadFriendGroupMessageAudio(ctx, clientSide, "friend-group-audio-missing", request, &out)
 	if err == nil {
-		t.Fatal("GetFriendGroupMessageAudio() error = nil")
+		t.Fatal("DownloadFriendGroupMessageAudio() error = nil")
 	}
 	var rpcErr rpcapi.Error
 	if !errors.As(err, &rpcErr) {
-		t.Fatalf("GetFriendGroupMessageAudio() error = %T, want rpcapi.Error", err)
+		t.Fatalf("DownloadFriendGroupMessageAudio() error = %T, want rpcapi.Error", err)
 	}
 	if rpcErr.RequestID != "friend-group-audio-missing" || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
-		t.Fatalf("GetFriendGroupMessageAudio() rpc error = %+v", rpcErr)
+		t.Fatalf("DownloadFriendGroupMessageAudio() rpc error = %+v", rpcErr)
 	}
-	if result != (FriendGroupMessageAudioGetResult{}) {
-		t.Fatalf("GetFriendGroupMessageAudio() result = %#v, want zero result", result)
+	if result != (FriendGroupMessageAudioDownloadResult{}) {
+		t.Fatalf("DownloadFriendGroupMessageAudio() result = %#v, want zero result", result)
 	}
 	if out.Len() != 0 {
-		t.Fatalf("GetFriendGroupMessageAudio() output = %q, want empty", out.String())
+		t.Fatalf("DownloadFriendGroupMessageAudio() output = %q, want empty", out.String())
 	}
 	waitFriendGroupAudioServer(t, serverErrCh)
 }
 
-func TestGetFriendGroupMessageAudioStopsOnContextAndTransportFailure(t *testing.T) {
-	request := rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
+func TestDownloadFriendGroupMessageAudioStopsOnContextAndTransportFailure(t *testing.T) {
+	request := rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
 	for _, tc := range []struct {
 		name               string
 		deadline           time.Duration
@@ -812,31 +812,31 @@ func TestGetFriendGroupMessageAudioStopsOnContextAndTransportFailure(t *testing.
 			}()
 
 			var out bytes.Buffer
-			result, err := (&rpcClient{}).GetFriendGroupMessageAudio(ctx, clientSide, "friend-group-audio-lifecycle", request, &out)
+			result, err := (&rpcClient{}).DownloadFriendGroupMessageAudio(ctx, clientSide, "friend-group-audio-lifecycle", request, &out)
 			_ = clientSide.Close()
 			if !errors.Is(err, tc.want) {
-				t.Fatalf("GetFriendGroupMessageAudio() error = %v, want errors.Is(%v)", err, tc.want)
+				t.Fatalf("DownloadFriendGroupMessageAudio() error = %v, want errors.Is(%v)", err, tc.want)
 			}
-			if result != (FriendGroupMessageAudioGetResult{}) {
-				t.Fatalf("GetFriendGroupMessageAudio() result = %#v, want zero result", result)
+			if result != (FriendGroupMessageAudioDownloadResult{}) {
+				t.Fatalf("DownloadFriendGroupMessageAudio() result = %#v, want zero result", result)
 			}
 			waitFriendGroupAudioServer(t, serverErrCh)
 		})
 	}
 }
 
-func readFriendGroupAudioTestRequest(conn net.Conn, want rpcapi.FriendGroupMessageAudioGetRequest) (*rpcapi.RPCRequest, error) {
+func readFriendGroupAudioTestRequest(conn net.Conn, want rpcapi.FriendGroupMessageAudioDownloadRequest) (*rpcapi.RPCRequest, error) {
 	req, err := readRPCRequestWithEOS(conn)
 	if err != nil {
 		return nil, err
 	}
-	if req.Method != rpcapi.RPCMethodServerFriendGroupMessagesAudioGet {
-		return nil, &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFriendGroupMessagesAudioGet}
+	if req.Method != rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload {
+		return nil, &unexpectedRPCMethodError{got: req.Method, want: rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload}
 	}
 	if req.Params == nil {
 		return nil, errors.New("friend group message audio request params are missing")
 	}
-	got, err := req.Params.AsFriendGroupMessageAudioGetRequest()
+	got, err := req.Params.AsFriendGroupMessageAudioDownloadRequest()
 	if err != nil {
 		return nil, err
 	}

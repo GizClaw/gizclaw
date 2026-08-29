@@ -243,17 +243,17 @@ func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservatio
 	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
 		t.Fatalf("RPC method compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
 	}
-	audio := descriptor.Values().ByName("RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET")
-	if audio == nil || audio.Number() != 95 || RPCMethodServerFriendGroupMessagesAudioGet != "server.friend_group.messages.audio.get" || !RPCMethodServerFriendGroupMessagesAudioGet.Valid() {
-		t.Fatalf("Friend Group message audio registry = descriptor:%v wrapper:%q", audio, RPCMethodServerFriendGroupMessagesAudioGet)
+	audio := descriptor.Values().ByName("RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD")
+	if audio == nil || audio.Number() != 95 || RPCMethodServerFriendGroupMessagesAudioDownload != "server.friend_group.messages.audio.download" || !RPCMethodServerFriendGroupMessagesAudioDownload.Valid() {
+		t.Fatalf("Friend Group message audio registry = descriptor:%v wrapper:%q", audio, RPCMethodServerFriendGroupMessagesAudioDownload)
 	}
 
-	request := FriendGroupMessageAudioGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
+	request := FriendGroupMessageAudioDownloadRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
 	var payload RPCPayload
-	if err := payload.FromFriendGroupMessageAudioGetRequest(request); err != nil {
+	if err := payload.FromFriendGroupMessageAudioDownloadRequest(request); err != nil {
 		t.Fatalf("encode Friend Group audio request: %v", err)
 	}
-	decoded, err := payload.AsFriendGroupMessageAudioGetRequest()
+	decoded, err := payload.AsFriendGroupMessageAudioDownloadRequest()
 	if err != nil || decoded != request {
 		t.Fatalf("Friend Group audio request round trip = %#v, error=%v", decoded, err)
 	}

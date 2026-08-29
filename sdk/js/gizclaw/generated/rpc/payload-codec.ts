@@ -543,11 +543,11 @@ export type FriendGroupMemberPutRequest = {
   "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
-export type FriendGroupMessageAudioGetRequest = {
+export type FriendGroupMessageAudioDownloadRequest = {
   "friend_group_name": string;
   "history_name": string;
 };
-export type FriendGroupMessageAudioGetResponse = {
+export type FriendGroupMessageAudioDownloadResponse = {
   "friend_group_name": string;
   "history_name": string;
   "mime_type": string;
@@ -1320,11 +1320,11 @@ export type WorkspaceGetResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceHistoryAudioGetRequest = {
+export type WorkspaceHistoryAudioDownloadRequest = {
   "history_name": string;
   "workspace_name": string;
 };
-export type WorkspaceHistoryAudioGetResponse = {
+export type WorkspaceHistoryAudioDownloadResponse = {
   "history_name": string;
   "mime_type": string;
   "size_bytes": number;
@@ -1406,7 +1406,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteRequest",
   "server.friend_group.members.list": "FriendGroupMemberListRequest",
   "server.friend_group.members.put": "FriendGroupMemberPutRequest",
-  "server.friend_group.messages.audio.get": "FriendGroupMessageAudioGetRequest",
+  "server.friend_group.messages.audio.download": "FriendGroupMessageAudioDownloadRequest",
   "server.friend_group.messages.get": "FriendGroupMessageGetRequest",
   "server.friend_group.messages.list": "FriendGroupMessageListRequest",
   "server.friend_group.put": "FriendGroupPutRequest",
@@ -1467,7 +1467,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.create": "WorkspaceCreateRequest",
   "server.workspace.delete": "WorkspaceDeleteRequest",
   "server.workspace.get": "WorkspaceGetRequest",
-  "server.workspace.history.audio.get": "WorkspaceHistoryAudioGetRequest",
+  "server.workspace.history.audio.download": "WorkspaceHistoryAudioDownloadRequest",
   "server.workspace.history.get": "WorkspaceHistoryGetRequest",
   "server.workspace.history.list": "WorkspaceHistoryListRequest",
   "server.workspace.icon.download": "WorkspaceIconDownloadRequest",
@@ -1505,7 +1505,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteResponse",
   "server.friend_group.members.list": "FriendGroupMemberListResponse",
   "server.friend_group.members.put": "FriendGroupMemberPutResponse",
-  "server.friend_group.messages.audio.get": "FriendGroupMessageAudioGetResponse",
+  "server.friend_group.messages.audio.download": "FriendGroupMessageAudioDownloadResponse",
   "server.friend_group.messages.get": "FriendGroupMessageGetResponse",
   "server.friend_group.messages.list": "FriendGroupMessageListResponse",
   "server.friend_group.put": "FriendGroupPutResponse",
@@ -1566,7 +1566,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.create": "WorkspaceCreateResponse",
   "server.workspace.delete": "WorkspaceDeleteResponse",
   "server.workspace.get": "WorkspaceGetResponse",
-  "server.workspace.history.audio.get": "WorkspaceHistoryAudioGetResponse",
+  "server.workspace.history.audio.download": "WorkspaceHistoryAudioDownloadResponse",
   "server.workspace.history.get": "WorkspaceHistoryGetResponse",
   "server.workspace.history.list": "WorkspaceHistoryListResponse",
   "server.workspace.icon.download": "WorkspaceIconDownloadResponse",
@@ -3801,7 +3801,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "FriendGroupMessageAudioGetRequest": {
+  "FriendGroupMessageAudioDownloadRequest": {
     "fields": [
       {
         "name": "friend_group_name",
@@ -3815,7 +3815,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "FriendGroupMessageAudioGetResponse": {
+  "FriendGroupMessageAudioDownloadResponse": {
     "fields": [
       {
         "name": "friend_group_name",
@@ -7429,7 +7429,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "WorkspaceHistoryAudioGetRequest": {
+  "WorkspaceHistoryAudioDownloadRequest": {
     "fields": [
       {
         "name": "history_name",
@@ -7443,7 +7443,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
-  "WorkspaceHistoryAudioGetResponse": {
+  "WorkspaceHistoryAudioDownloadResponse": {
     "fields": [
       {
         "name": "history_name",

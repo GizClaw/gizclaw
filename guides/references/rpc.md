@@ -56,7 +56,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
 | 30 | `server.workspace.history.get` | 读取指定 Workspace 的一条 history。 |
-| 31 | `server.workspace.history.audio.get` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
+| 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 | 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
 
 ## Workflow、Model 与 Voice catalog
@@ -108,7 +108,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
 | 62 | `server.friend_group.messages.list` | 按 Friend Group 解析其 Workspace，并分页投影 Workspace History。 |
 | 63 | `server.friend_group.messages.get` | 按 `history_name` 读取 Friend Group Workspace History 投影。 |
-| 95 | `server.friend_group.messages.audio.get` | 按当前成员的 Friend Group name 返回 Workspace History 音频 metadata，并通过 binary frames 传输音频 bytes。 |
+| 95 | `server.friend_group.messages.audio.download` | 按当前成员的 Friend Group name 返回 Workspace History 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 
 ## Gameplay
 

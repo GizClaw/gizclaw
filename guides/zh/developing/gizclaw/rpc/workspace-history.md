@@ -15,6 +15,6 @@ Friend Group 消息读取复用这份 ownership，但不向客户端暴露 Works
 | 符号 | 作用 |
 | --- | --- |
 | `rpcWorkspaceHistoryAudioService` | History audio handler 依赖的最小 service interface。 |
-| `handleWorkspaceHistoryAudioGet` | 验证请求，取得 history audio，并写出 metadata 与 binary frames。 |
-| `handleFriendGroupMessageAudioGet` | 按 Friend Group 鉴权并流式返回绑定的 History 音频。 |
+| `handleWorkspaceHistoryAudioDownload` | 验证请求，取得 history audio，并写出 metadata 与 binary frames。 |
+| `handleFriendGroupMessageAudioDownload` | 按 Friend Group 鉴权并流式返回绑定的 History 音频。 |
 | `writeHistoryAudioResponse` | 共享的 metadata、binary frame 与 EOS writer。 |

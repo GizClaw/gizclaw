@@ -2870,8 +2870,8 @@ class FriendGroupMemberPutResponse extends $pb.GeneratedMessage {
   FriendGroupMemberObject ensureValue() => $_ensure(0);
 }
 
-class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
-  factory FriendGroupMessageAudioGetRequest({
+class FriendGroupMessageAudioDownloadRequest extends $pb.GeneratedMessage {
+  factory FriendGroupMessageAudioDownloadRequest({
     $core.String? friendGroupName,
     $core.String? historyName,
   }) {
@@ -2881,18 +2881,18 @@ class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
     return result;
   }
 
-  FriendGroupMessageAudioGetRequest._();
+  FriendGroupMessageAudioDownloadRequest._();
 
-  factory FriendGroupMessageAudioGetRequest.fromBuffer(
+  factory FriendGroupMessageAudioDownloadRequest.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory FriendGroupMessageAudioGetRequest.fromJson($core.String json,
+  factory FriendGroupMessageAudioDownloadRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FriendGroupMessageAudioGetRequest',
+      _omitMessageNames ? '' : 'FriendGroupMessageAudioDownloadRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
@@ -2900,27 +2900,27 @@ class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageAudioGetRequest clone() => deepCopy();
+  FriendGroupMessageAudioDownloadRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageAudioGetRequest copyWith(
-          void Function(FriendGroupMessageAudioGetRequest) updates) =>
+  FriendGroupMessageAudioDownloadRequest copyWith(
+          void Function(FriendGroupMessageAudioDownloadRequest) updates) =>
       super.copyWith((message) =>
-              updates(message as FriendGroupMessageAudioGetRequest))
-          as FriendGroupMessageAudioGetRequest;
+              updates(message as FriendGroupMessageAudioDownloadRequest))
+          as FriendGroupMessageAudioDownloadRequest;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageAudioGetRequest create() =>
-      FriendGroupMessageAudioGetRequest._();
+  static FriendGroupMessageAudioDownloadRequest create() =>
+      FriendGroupMessageAudioDownloadRequest._();
   @$core.override
-  FriendGroupMessageAudioGetRequest createEmptyInstance() => create();
+  FriendGroupMessageAudioDownloadRequest createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageAudioGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageAudioGetRequest>(
-          create);
-  static FriendGroupMessageAudioGetRequest? _defaultInstance;
+  static FriendGroupMessageAudioDownloadRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          FriendGroupMessageAudioDownloadRequest>(create);
+  static FriendGroupMessageAudioDownloadRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get friendGroupName => $_getSZ(0);
@@ -2941,8 +2941,8 @@ class FriendGroupMessageAudioGetRequest extends $pb.GeneratedMessage {
   void clearHistoryName() => $_clearField(2);
 }
 
-class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
-  factory FriendGroupMessageAudioGetResponse({
+class FriendGroupMessageAudioDownloadResponse extends $pb.GeneratedMessage {
+  factory FriendGroupMessageAudioDownloadResponse({
     $core.String? friendGroupName,
     $core.String? historyName,
     $core.String? mimeType,
@@ -2956,18 +2956,18 @@ class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
     return result;
   }
 
-  FriendGroupMessageAudioGetResponse._();
+  FriendGroupMessageAudioDownloadResponse._();
 
-  factory FriendGroupMessageAudioGetResponse.fromBuffer(
+  factory FriendGroupMessageAudioDownloadResponse.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory FriendGroupMessageAudioGetResponse.fromJson($core.String json,
+  factory FriendGroupMessageAudioDownloadResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'FriendGroupMessageAudioGetResponse',
+      _omitMessageNames ? '' : 'FriendGroupMessageAudioDownloadResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'friendGroupName')
@@ -2977,27 +2977,27 @@ class FriendGroupMessageAudioGetResponse extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageAudioGetResponse clone() => deepCopy();
+  FriendGroupMessageAudioDownloadResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  FriendGroupMessageAudioGetResponse copyWith(
-          void Function(FriendGroupMessageAudioGetResponse) updates) =>
+  FriendGroupMessageAudioDownloadResponse copyWith(
+          void Function(FriendGroupMessageAudioDownloadResponse) updates) =>
       super.copyWith((message) =>
-              updates(message as FriendGroupMessageAudioGetResponse))
-          as FriendGroupMessageAudioGetResponse;
+              updates(message as FriendGroupMessageAudioDownloadResponse))
+          as FriendGroupMessageAudioDownloadResponse;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageAudioGetResponse create() =>
-      FriendGroupMessageAudioGetResponse._();
+  static FriendGroupMessageAudioDownloadResponse create() =>
+      FriendGroupMessageAudioDownloadResponse._();
   @$core.override
-  FriendGroupMessageAudioGetResponse createEmptyInstance() => create();
+  FriendGroupMessageAudioDownloadResponse createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static FriendGroupMessageAudioGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<FriendGroupMessageAudioGetResponse>(
-          create);
-  static FriendGroupMessageAudioGetResponse? _defaultInstance;
+  static FriendGroupMessageAudioDownloadResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          FriendGroupMessageAudioDownloadResponse>(create);
+  static FriendGroupMessageAudioDownloadResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get friendGroupName => $_getSZ(0);

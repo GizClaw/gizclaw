@@ -46,9 +46,9 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		{"workspace history get", func() (any, error) {
 			return client.GetWorkspaceHistory(ctx, "workspace-history-get", rpcapi.WorkspaceHistoryGetRequest{WorkspaceName: "workspace-a", HistoryName: "history-a"})
 		}},
-		{"workspace history audio get", func() (any, error) {
+		{"workspace history audio download", func() (any, error) {
 			var out strings.Builder
-			return client.GetWorkspaceHistoryAudio(ctx, "workspace-history-audio-get", rpcapi.WorkspaceHistoryAudioGetRequest{WorkspaceName: "workspace-a", HistoryName: "history-a"}, &out)
+			return client.DownloadWorkspaceHistoryAudio(ctx, "workspace-history-audio-download", rpcapi.WorkspaceHistoryAudioDownloadRequest{WorkspaceName: "workspace-a", HistoryName: "history-a"}, &out)
 		}},
 		{"workflow list", func() (any, error) {
 			return client.ListWorkflows(ctx, "workflow-list", rpcapi.WorkflowListRequest{Collection: "assistants"})

@@ -15,6 +15,6 @@ Friend Group message reads reuse this ownership without exposing a Workspace nam
 | Symbol | Function |
 | --- | --- |
 | `rpcWorkspaceHistoryAudioService` | The minimum service interface that the History audio handler depends on. |
-| `handleWorkspaceHistoryAudioGet` | Verify the request, obtain the history audio, and write out the metadata and binary frames. |
-| `handleFriendGroupMessageAudioGet` | Authorize by Friend Group and stream the bound History audio. |
+| `handleWorkspaceHistoryAudioDownload` | Verify the request, obtain the history audio, and write out the metadata and binary frames. |
+| `handleFriendGroupMessageAudioDownload` | Authorize by Friend Group and stream the bound History audio. |
 | `writeHistoryAudioResponse` | Shared metadata, binary-frame, and EOS writer. |
