@@ -2525,6 +2525,77 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   void clearInput() => $_clearField(4);
 }
 
+class PetWorkspaceParameters extends $pb.GeneratedMessage {
+  factory PetWorkspaceParameters({
+    $1.PetWorkspaceParametersAgentType? agentType,
+    $1.WorkspaceInputMode? input,
+  }) {
+    final result = create();
+    if (agentType != null) result.agentType = agentType;
+    if (input != null) result.input = input;
+    return result;
+  }
+
+  PetWorkspaceParameters._();
+
+  factory PetWorkspaceParameters.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PetWorkspaceParameters.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PetWorkspaceParameters',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$1.PetWorkspaceParametersAgentType>(
+        1, _omitFieldNames ? '' : 'agentType',
+        enumValues: $1.PetWorkspaceParametersAgentType.values)
+    ..aE<$1.WorkspaceInputMode>(2, _omitFieldNames ? '' : 'input',
+        enumValues: $1.WorkspaceInputMode.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkspaceParameters clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PetWorkspaceParameters copyWith(
+          void Function(PetWorkspaceParameters) updates) =>
+      super.copyWith((message) => updates(message as PetWorkspaceParameters))
+          as PetWorkspaceParameters;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PetWorkspaceParameters create() => PetWorkspaceParameters._();
+  @$core.override
+  PetWorkspaceParameters createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PetWorkspaceParameters getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PetWorkspaceParameters>(create);
+  static PetWorkspaceParameters? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $1.PetWorkspaceParametersAgentType get agentType => $_getN(0);
+  @$pb.TagNumber(1)
+  set agentType($1.PetWorkspaceParametersAgentType value) =>
+      $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAgentType() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAgentType() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $1.WorkspaceInputMode get input => $_getN(1);
+  @$pb.TagNumber(2)
+  set input($1.WorkspaceInputMode value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasInput() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearInput() => $_clearField(2);
+}
+
 class DoubaoRealtimeAIGCMetadata extends $pb.GeneratedMessage {
   factory DoubaoRealtimeAIGCMetadata({
     $core.String? contentProducer,

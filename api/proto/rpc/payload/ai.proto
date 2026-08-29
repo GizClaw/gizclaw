@@ -195,6 +195,11 @@ message EinoWorkspaceParameters {
   optional WorkspaceInputMode input = 4;
 }
 
+message PetWorkspaceParameters {
+  PetWorkspaceParametersAgentType agent_type = 1;
+  optional WorkspaceInputMode input = 2;
+}
+
 message DoubaoRealtimeAIGCMetadata {
   optional string content_producer = 1;
   optional string content_propagator = 2;

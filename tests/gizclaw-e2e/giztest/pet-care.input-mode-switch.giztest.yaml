@@ -1,0 +1,124 @@
+# User Story:
+# As a registered device using the pet-care Workflow,
+# I want to switch the Pet Workspace between push-to-talk and realtime input,
+# So that the nested Workflow follows the selected audio turn boundary.
+version: gizclaw.test/v1alpha1
+name: pet-care.input-mode-switch
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  workspace_name:
+    direction: output
+    type: string
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: adopt_pet
+    client: peer
+    rpc:
+      method: runtime.adopt
+      request:
+        name: ${resource_name}
+        display_name: Input Mode Pet
+    capture:
+      workspace_name: /pet/workspace_name
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: Giztest pet audio input
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: configure_push_to_talk
+    client: peer
+    rpc:
+      method: server.workspace.put
+      request:
+        name: ${workspace_name}
+        body:
+          parameters:
+            pet_workspace_parameters:
+              agent_type: PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET
+              input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: exercise_push_to_talk
+    client: peer
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+  - id: configure_realtime
+    client: peer
+    rpc:
+      method: server.workspace.put
+      request:
+        name: ${workspace_name}
+        body:
+          parameters:
+            pet_workspace_parameters:
+              agent_type: PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET
+              input: WORKSPACE_INPUT_MODE_REALTIME
+  - id: reload_workspace
+    client: peer
+    rpc:
+      method: server.run.reload
+      request: {}
+  - id: exercise_realtime
+    client: peer
+    peer_stream:
+      mode: realtime
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.pet.delete
+      request:
+        name: ${resource_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

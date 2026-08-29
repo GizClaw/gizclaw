@@ -1288,6 +1288,41 @@ final $typed_data.Uint8List einoWorkspaceParametersDescriptor = $convert.base64D
     'BWlucHV0GAQgASgOMiIuZ2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlSW5wdXRNb2RlSAJSBWlucH'
     'V0iAEBQgYKBF9lMmVCDwoNX2NvbnZlcnNhdGlvbkIICgZfaW5wdXQ=');
 
+@$core.Deprecated('Use petWorkspaceParametersDescriptor instead')
+const PetWorkspaceParameters$json = {
+  '1': 'PetWorkspaceParameters',
+  '2': [
+    {
+      '1': 'agent_type',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.PetWorkspaceParametersAgentType',
+      '10': 'agentType'
+    },
+    {
+      '1': 'input',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
+      '9': 0,
+      '10': 'input',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_input'},
+  ],
+};
+
+/// Descriptor for `PetWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List petWorkspaceParametersDescriptor = $convert.base64Decode(
+    'ChZQZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzEk4KCmFnZW50X3R5cGUYASABKA4yLy5naXpjbGF3Ln'
+    'JwYy52MS5QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlUglhZ2VudFR5cGUSPQoFaW5w'
+    'dXQYAiABKA4yIi5naXpjbGF3LnJwYy52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIAFIFaW5wdXSIAQ'
+    'FCCAoGX2lucHV0');
+
 @$core.Deprecated('Use doubaoRealtimeAIGCMetadataDescriptor instead')
 const DoubaoRealtimeAIGCMetadata$json = {
   '1': 'DoubaoRealtimeAIGCMetadata',

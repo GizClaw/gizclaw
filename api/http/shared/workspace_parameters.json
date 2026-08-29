@@ -31,6 +31,9 @@
           },
           {
             "$ref": "#/components/schemas/ChatRoomWorkspaceParameters"
+          },
+          {
+            "$ref": "#/components/schemas/PetWorkspaceParameters"
           }
         ],
         "discriminator": {
@@ -42,7 +45,8 @@
             "doubao-realtime-duplex": "#/components/schemas/DoubaoRealtimeDuplexWorkspaceParameters",
             "eino": "#/components/schemas/EinoWorkspaceParameters",
             "ast-translate": "#/components/schemas/ASTTranslateWorkspaceParameters",
-            "chatroom": "#/components/schemas/ChatRoomWorkspaceParameters"
+            "chatroom": "#/components/schemas/ChatRoomWorkspaceParameters",
+            "pet": "#/components/schemas/PetWorkspaceParameters"
           }
         }
       },
@@ -52,6 +56,28 @@
           "push-to-talk",
           "realtime"
         ]
+      },
+      "PetWorkspaceParameters": {
+        "type": "object",
+        "required": [
+          "agent_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "pet"
+            ]
+          },
+          "input": {
+            "$ref": "#/components/schemas/WorkspaceInputMode"
+          }
+        },
+        "example": {
+          "agent_type": "pet",
+          "input": "push-to-talk"
+        }
       },
       "FlowcraftConversationParameters": {
         "type": "object",

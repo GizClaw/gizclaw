@@ -98,6 +98,14 @@ func (e EinoWorkspaceParametersAgentType) Valid() bool {
 	return e == EinoWorkspaceParametersAgentTypeEino
 }
 
+const (
+	PetWorkspaceParametersAgentTypePet PetWorkspaceParametersAgentType = "pet"
+)
+
+func (e PetWorkspaceParametersAgentType) Valid() bool {
+	return e == PetWorkspaceParametersAgentTypePet
+}
+
 // Defines values for DashScopeTenantModelProviderDataApiMode.
 const (
 	DashScopeTenantModelProviderDataApiModeChatCompletions DashScopeTenantModelProviderDataApiMode = "chat_completions"
@@ -1597,6 +1605,13 @@ type EinoWorkspaceParameters struct {
 }
 
 type EinoWorkspaceParametersAgentType string
+
+type PetWorkspaceParameters struct {
+	AgentType PetWorkspaceParametersAgentType `json:"agent_type"`
+	Input     *WorkspaceInputMode             `json:"input,omitempty"`
+}
+
+type PetWorkspaceParametersAgentType string
 
 // FirmwareChannelName defines model for FirmwareChannelName.
 type FirmwareChannelName string
@@ -6390,6 +6405,22 @@ func (t *WorkspaceParameters) MergeEinoWorkspaceParameters(v EinoWorkspaceParame
 	return nil
 }
 
+func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
+	return rpcUnionAs[PetWorkspaceParameters](t.Value, "WorkspaceParameters", "PetWorkspaceParameters")
+}
+
+func (t *WorkspaceParameters) FromPetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = PetWorkspaceParametersAgentTypePet
+	t.Value = v
+	return nil
+}
+
+func (t *WorkspaceParameters) MergePetWorkspaceParameters(v PetWorkspaceParameters) error {
+	v.AgentType = PetWorkspaceParametersAgentTypePet
+	t.Value = v
+	return nil
+}
+
 // AsASTTranslateWorkspaceParameters returns the union data inside the WorkspaceParameters as a ASTTranslateWorkspaceParameters
 func (t WorkspaceParameters) AsASTTranslateWorkspaceParameters() (ASTTranslateWorkspaceParameters, error) {
 	return rpcUnionAs[ASTTranslateWorkspaceParameters](t.Value, "WorkspaceParameters", "ASTTranslateWorkspaceParameters")
@@ -6440,6 +6471,8 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 		return string(v.AgentType), nil
 	case EinoWorkspaceParameters:
 		return string(v.AgentType), nil
+	case PetWorkspaceParameters:
+		return string(v.AgentType), nil
 	case ASTTranslateWorkspaceParameters:
 		return string(v.AgentType), nil
 	case ChatRoomWorkspaceParameters:
@@ -6471,6 +6504,8 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 		return t.AsEinoWorkspaceParameters()
 	case "flowcraft":
 		return t.AsFlowcraftWorkspaceParameters()
+	case "pet":
+		return t.AsPetWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

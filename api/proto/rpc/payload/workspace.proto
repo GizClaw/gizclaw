@@ -344,6 +344,7 @@ message WorkspaceParameters {
     DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters = 5;
     DoubaoRealtimeDuplexWorkspaceParameters doubao_realtime_duplex_workspace_parameters = 6;
     EinoWorkspaceParameters eino_workspace_parameters = 7;
+    PetWorkspaceParameters pet_workspace_parameters = 8;
   }
 }
 

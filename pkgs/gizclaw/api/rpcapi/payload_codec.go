@@ -247,6 +247,7 @@ var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
 	"DashScopeRealtimeWorkspaceParameters":    reflect.TypeFor[DashScopeRealtimeWorkspaceParameters](),
 	"DoubaoRealtimeDuplexWorkspaceParameters": reflect.TypeFor[DoubaoRealtimeDuplexWorkspaceParameters](),
 	"EinoWorkspaceParameters":                 reflect.TypeFor[EinoWorkspaceParameters](),
+	"PetWorkspaceParameters":                  reflect.TypeFor[PetWorkspaceParameters](),
 	"ASTTranslateWorkspaceParameters":         reflect.TypeFor[ASTTranslateWorkspaceParameters](),
 	"ChatRoomWorkspaceParameters":             reflect.TypeFor[ChatRoomWorkspaceParameters](),
 }
@@ -1241,6 +1242,8 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 			return "asttranslate_workspace_parameters"
 		case "chatroom":
 			return "chat_room_workspace_parameters"
+		case "pet":
+			return "pet_workspace_parameters"
 		}
 	}
 	return ""

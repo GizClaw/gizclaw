@@ -78,6 +78,9 @@ PB_BIND(gizclaw_rpc_v1_EinoWorkflowSpec, gizclaw_rpc_v1_EinoWorkflowSpec, AUTO)
 PB_BIND(gizclaw_rpc_v1_EinoWorkspaceParameters, gizclaw_rpc_v1_EinoWorkspaceParameters, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_PetWorkspaceParameters, gizclaw_rpc_v1_PetWorkspaceParameters, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, gizclaw_rpc_v1_DoubaoRealtimeAIGCMetadata, AUTO)
 
 

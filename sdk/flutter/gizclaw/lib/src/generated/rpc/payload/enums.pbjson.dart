@@ -361,6 +361,22 @@ final $typed_data.Uint8List einoWorkspaceParametersAgentTypeDescriptor =
         'JBTUVURVJTX0FHRU5UX1RZUEVfVU5TUEVDSUZJRUQQABItCilFSU5PX1dPUktTUEFDRV9QQVJB'
         'TUVURVJTX0FHRU5UX1RZUEVfRUlOTxAB');
 
+@$core.Deprecated('Use petWorkspaceParametersAgentTypeDescriptor instead')
+const PetWorkspaceParametersAgentType$json = {
+  '1': 'PetWorkspaceParametersAgentType',
+  '2': [
+    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED', '2': 0},
+    {'1': 'PET_WORKSPACE_PARAMETERS_AGENT_TYPE_PET', '2': 1},
+  ],
+};
+
+/// Descriptor for `PetWorkspaceParametersAgentType`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List petWorkspaceParametersAgentTypeDescriptor =
+    $convert.base64Decode(
+        'Ch9QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzQWdlbnRUeXBlEjMKL1BFVF9XT1JLU1BBQ0VfUEFSQU'
+        '1FVEVSU19BR0VOVF9UWVBFX1VOU1BFQ0lGSUVEEAASKwonUEVUX1dPUktTUEFDRV9QQVJBTUVU'
+        'RVJTX0FHRU5UX1RZUEVfUEVUEAE=');
+
 @$core.Deprecated('Use friendGroupMemberMutableRoleDescriptor instead')
 const FriendGroupMemberMutableRole$json = {
   '1': 'FriendGroupMemberMutableRole',

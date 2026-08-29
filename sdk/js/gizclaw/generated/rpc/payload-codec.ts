@@ -50,6 +50,7 @@ export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified"
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
 export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
+export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
 export type ReusableWorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
 export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
@@ -981,6 +982,10 @@ export type PetWorkflowSpec = {
   "doubao_realtime_duplex"?: DoubaoRealtimeDuplexWorkflowSpec;
   "eino"?: EinoWorkflowSpec;
 };
+export type PetWorkspaceParameters = {
+  "agent_type": PetWorkspaceParametersAgentType;
+  "input"?: WorkspaceInputMode;
+};
 export type PingRequest = {
   "client_send_time": number;
 };
@@ -1359,7 +1364,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters | PetWorkspaceParameters;
 export type WorkspacePutBody = {
   "parameters"?: WorkspaceParameters;
   "toolkit"?: ToolkitPolicy;
@@ -5771,6 +5776,21 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PetWorkspaceParameters": {
+    "fields": [
+      {
+        "name": "agent_type",
+        "number": 1,
+        "type": "PetWorkspaceParametersAgentType"
+      },
+      {
+        "name": "input",
+        "number": 2,
+        "optional": true,
+        "type": "WorkspaceInputMode"
+      }
+    ]
+  },
   "PingRequest": {
     "fields": [
       {
@@ -7647,6 +7667,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "value",
         "type": "EinoWorkspaceParameters"
+      },
+      {
+        "name": "pet_workspace_parameters",
+        "number": 8,
+        "oneof": true,
+        "oneofGroup": "value",
+        "type": "PetWorkspaceParameters"
       }
     ]
   },
@@ -8039,6 +8066,16 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "0": "",
       "1": "alive",
       "2": "dead"
+    }
+  },
+  "PetWorkspaceParametersAgentType": {
+    "byName": {
+      "pet": 1,
+      "unspecified": 0
+    },
+    "byNumber": {
+      "0": "",
+      "1": "pet"
     }
   },
   "ReusableWorkflowDriver": {
@@ -8613,6 +8650,7 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
         "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
         "eino": "eino_workspace_parameters",
+        "pet": "pet_workspace_parameters",
       } as Record<string, string>)[discriminator];
     default:
       return undefined;

@@ -67,7 +67,11 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		Chatroom:             nested.Chatroom,
 	}
 	spec.AgentType = driver
-	spec.Workspace.Parameters = nil
+	nestedParameters, err := nestedWorkspaceParameters(spec.Workspace.Parameters, nested.Driver)
+	if err != nil {
+		return nil, err
+	}
+	spec.Workspace.Parameters = nestedParameters
 	provideInputs := func(turnCtx context.Context) (map[string]any, error) {
 		pet, petDef, err := f.Pets.ResolvePetContext(turnCtx, workspaceID)
 		if err != nil {
@@ -86,4 +90,44 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		return nil, err
 	}
 	return agenthost.NewBoardInputsAgent(agent, provideInputs), nil
+}
+
+func nestedWorkspaceParameters(parameters *apitypes.WorkspaceParameters, driver apitypes.ReusableWorkflowDriver) (*apitypes.WorkspaceParameters, error) {
+	if parameters == nil {
+		return nil, nil
+	}
+	petParameters, err := parameters.AsPetWorkspaceParameters()
+	if err != nil {
+		return nil, fmt.Errorf("pet: decode workspace parameters: %w", err)
+	}
+	if !petParameters.AgentType.Valid() {
+		return nil, fmt.Errorf("pet: unsupported workspace agent type %q", petParameters.AgentType)
+	}
+	if petParameters.Input == nil {
+		return nil, nil
+	}
+	if !petParameters.Input.Valid() {
+		return nil, fmt.Errorf("pet: unsupported workspace input %q", *petParameters.Input)
+	}
+
+	nested := new(apitypes.WorkspaceParameters)
+	input := *petParameters.Input
+	switch driver {
+	case apitypes.ReusableWorkflowDriverFlowcraft:
+		err = nested.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{Input: &input})
+	case apitypes.ReusableWorkflowDriverDoubaoRealtime:
+		err = nested.FromDoubaoRealtimeWorkspaceParameters(apitypes.DoubaoRealtimeWorkspaceParameters{Input: &input})
+	case apitypes.ReusableWorkflowDriverEino:
+		err = nested.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{Input: &input})
+	case apitypes.ReusableWorkflowDriverAstTranslate:
+		err = nested.FromASTTranslateWorkspaceParameters(apitypes.ASTTranslateWorkspaceParameters{Input: &input})
+	case apitypes.ReusableWorkflowDriverChatroom:
+		err = nested.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{Input: &input})
+	default:
+		return nil, fmt.Errorf("pet: nested workflow driver %q does not support workspace input switching", driver)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("pet: encode nested workspace parameters: %w", err)
+	}
+	return nested, nil
 }

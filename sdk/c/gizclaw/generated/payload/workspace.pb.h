@@ -348,6 +348,7 @@ typedef struct _gizclaw_rpc_v1_WorkspaceParameters {
         gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters;
         gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters doubao_realtime_duplex_workspace_parameters;
         gizclaw_rpc_v1_EinoWorkspaceParameters eino_workspace_parameters;
+        gizclaw_rpc_v1_PetWorkspaceParameters pet_workspace_parameters;
     } value;
 } gizclaw_rpc_v1_WorkspaceParameters;
 
@@ -677,6 +678,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_dash_scope_realtime_workspace_parameters_tag 5
 #define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_duplex_workspace_parameters_tag 6
 #define gizclaw_rpc_v1_WorkspaceParameters_eino_workspace_parameters_tag 7
+#define gizclaw_rpc_v1_WorkspaceParameters_pet_workspace_parameters_tag 8
 #define gizclaw_rpc_v1_Workspace_created_at_tag  1
 #define gizclaw_rpc_v1_Workspace_last_active_at_tag 2
 #define gizclaw_rpc_v1_Workspace_name_tag        3
@@ -1144,7 +1146,8 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (value,asttranslate_workspace_parameters,valu
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,chat_room_workspace_parameters,value.chat_room_workspace_parameters),   4) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_realtime_workspace_parameters,value.dash_scope_realtime_workspace_parameters),   5) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_duplex_workspace_parameters,value.doubao_realtime_duplex_workspace_parameters),   6) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_workspace_parameters),   7)
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_workspace_parameters),   7) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (value,pet_workspace_parameters,value.pet_workspace_parameters),   8)
 #define gizclaw_rpc_v1_WorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_value_flowcraft_workspace_parameters_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParameters
@@ -1154,6 +1157,7 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_w
 #define gizclaw_rpc_v1_WorkspaceParameters_value_dash_scope_realtime_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_doubao_realtime_duplex_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_eino_workspace_parameters_MSGTYPE gizclaw_rpc_v1_EinoWorkspaceParameters
+#define gizclaw_rpc_v1_WorkspaceParameters_value_pet_workspace_parameters_MSGTYPE gizclaw_rpc_v1_PetWorkspaceParameters
 
 #define gizclaw_rpc_v1_WorkspacePutRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  body,              1) \

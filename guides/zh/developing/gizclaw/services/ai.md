@@ -84,7 +84,7 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 `pet` driver 只作为 GizClaw 的领域 wrapper 保留。它在每个 turn 解析 Workspace 对应的 Pet、PetDef 与当前 Gameplay，并把瞬态 `tmp_*` Board input 提供给嵌套 Workflow。`spec.pet` 与普通非 Pet Workflow 使用相同的 reusable driver 加对应 payload 结构，也包含三个新增 driver，但不能递归选择 `pet`。
 
-内层 driver 拥有 Graph、conversation、model、voice 与 toolkit 配置，并通过普通注册 factory 构造。Memory 只允许在外层 Workflow 配置一份；Pet 内层禁止 `memory` 或第二份 driver 选择，并接收外层已经解析的同一个 Store binding。所有符号引用都从 system Workspace owner RuntimeProfile snapshot 解析。
+内层 driver 拥有 Graph、conversation、model、voice 与 toolkit 配置，并通过普通注册 factory 构造。Pet Workspace 的 typed `input` 可以选择 `push-to-talk` 或 `realtime`；wrapper 只把该字段转换给支持输入模式的内层 driver，省略时保持兼容并默认使用 `push-to-talk`。Memory 只允许在外层 Workflow 配置一份；Pet 内层禁止 `memory` 或第二份 driver 选择，并接收外层已经解析的同一个 Store binding。所有符号引用都从 system Workspace owner RuntimeProfile snapshot 解析。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
@@ -92,7 +92,7 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 Workspace 配置显式指定一个 resource Store 与一个 asset ObjectStore；Workflow lookup 由 Workflow Service 组合提供，不再通过 `services.workspace` 重复配置 Workflow Store。
 
-Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels 或 toolkit 的变化都会被拒绝，因此 Pet system Workspace 没有可变的执行配置。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
+Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom 或 Pet system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels、toolkit 或其他 driver 参数的变化都会被拒绝。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
 
 后台 consumer 通过 `GetAvailableWorkspaceByID` 解析 retained Workspace；该入口会保留准确的 Workspace 或 owner `PendingDeletion` typed error，不会把 Admin projection 当作可运行状态。物理清理删除规范 Workspace record 后，同一入口返回 Workspace domain 拥有的 deleted 终态，不泄漏原始 Store not-found。Runtime 与后台 Memory resolution 都经过这个 availability gate；Admin get/list 则有意继续作为 retained row 的诊断视图。
 

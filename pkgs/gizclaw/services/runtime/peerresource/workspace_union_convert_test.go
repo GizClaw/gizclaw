@@ -84,6 +84,21 @@ func TestWorkspaceParametersNewDriversRoundTrip(t *testing.T) {
 				return parameters
 			},
 		},
+		{
+			name: "pet",
+			input: func(t *testing.T) rpcapi.WorkspaceParameters {
+				t.Helper()
+				input := rpcapi.WorkspaceInputModeRealtime
+				var parameters rpcapi.WorkspaceParameters
+				if err := parameters.FromPetWorkspaceParameters(rpcapi.PetWorkspaceParameters{
+					AgentType: rpcapi.PetWorkspaceParametersAgentTypePet,
+					Input:     &input,
+				}); err != nil {
+					t.Fatalf("build RPC parameters: %v", err)
+				}
+				return parameters
+			},
+		},
 	}
 
 	for _, test := range tests {

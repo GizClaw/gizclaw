@@ -1778,7 +1778,10 @@ func validateExistingPetWorkspace(workspace apitypes.Workspace, owner, workflowN
 		return errors.New("existing system Workspace has a different owner")
 	}
 	if workspace.Parameters != nil {
-		return errors.New("existing system Workspace has Pet execution parameters")
+		parameters, err := workspace.Parameters.AsPetWorkspaceParameters()
+		if err != nil || !parameters.AgentType.Valid() || (parameters.Input != nil && !parameters.Input.Valid()) {
+			return errors.New("existing system Workspace has invalid Pet execution parameters")
+		}
 	}
 	return nil
 }

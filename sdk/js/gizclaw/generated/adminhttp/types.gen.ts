@@ -3279,6 +3279,11 @@ export type FlowcraftWorkspaceParameters = {
     e2e?: boolean;
 };
 
+export type PetWorkspaceParameters = {
+    agent_type: 'pet';
+    input?: WorkspaceInputMode;
+};
+
 export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
 
 /**
@@ -3298,7 +3303,9 @@ export type WorkspaceParameters = ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
     agent_type: 'chatroom';
-} & ChatRoomWorkspaceParameters);
+} & ChatRoomWorkspaceParameters) | ({
+    agent_type: 'pet';
+} & PetWorkspaceParameters);
 
 export type WorkspaceSpec = {
     /**

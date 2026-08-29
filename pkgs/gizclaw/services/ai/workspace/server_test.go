@@ -525,6 +525,52 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	}
 }
 
+func TestServerPetSystemWorkspaceAllowsInputModeUpdates(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(t)
+	seedPetWorkflow(t, srv, "pet-care", apitypes.ReusableWorkflowDriverFlowcraft)
+	ctx := ownership.WithOwner(context.Background(), "peer-a")
+	created, wasCreated, err := srv.CreateSystemWorkspace(ctx, adminhttp.WorkspaceUpsert{
+		Name: "pet-workspace", WorkflowId: "pet-care",
+	})
+	if err != nil || !wasCreated {
+		t.Fatalf("CreateSystemWorkspace() = %#v, %v, %v", created, wasCreated, err)
+	}
+
+	for _, input := range []apitypes.WorkspaceInputMode{
+		apitypes.WorkspaceInputModeRealtime,
+		apitypes.WorkspaceInputModePushToTalk,
+	} {
+		parameters := apitypes.WorkspaceParameters{}
+		if err := parameters.FromPetWorkspaceParameters(apitypes.PetWorkspaceParameters{Input: &input}); err != nil {
+			t.Fatal(err)
+		}
+		body := adminhttp.WorkspaceUpsert{
+			Id: created.Id, Name: created.Name, WorkflowId: created.WorkflowId, Parameters: &parameters,
+		}
+		response, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &body})
+		if err != nil {
+			t.Fatalf("PutWorkspace(%s) error = %v", input, err)
+		}
+		updated, ok := response.(adminhttp.PutWorkspace200JSONResponse)
+		if !ok {
+			t.Fatalf("PutWorkspace(%s) response = %#v", input, response)
+		}
+		petParameters, err := updated.Parameters.AsPetWorkspaceParameters()
+		if err != nil || petParameters.Input == nil || *petParameters.Input != input {
+			t.Fatalf("PutWorkspace(%s) parameters = %#v, %v", input, updated.Parameters, err)
+		}
+	}
+
+	reused, wasCreated, err := srv.CreateSystemWorkspace(ctx, adminhttp.WorkspaceUpsert{
+		Name: "pet-workspace", WorkflowId: "pet-care",
+	})
+	if err != nil || wasCreated || reused.Parameters == nil {
+		t.Fatalf("CreateSystemWorkspace(reuse) = %#v, %v, %v", reused, wasCreated, err)
+	}
+}
+
 func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
@@ -1675,6 +1721,16 @@ func seedFlowcraftWorkflow(t *testing.T, srv *Server, name, generateModel string
 	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":%q}}]}}}}`, name, generateModel)
 	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
 		t.Fatalf("seed flowcraft workflow %q: %v", name, err)
+	}
+}
+
+func seedPetWorkflow(t *testing.T, srv *Server, name string, driver apitypes.ReusableWorkflowDriver) {
+	t.Helper()
+
+	store := testWorkflowStore(t, srv)
+	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"pet","pet":{"driver":%q,"flowcraft":{"graph":{"name":"Pet","entry":"answer","nodes":[{"id":"answer","type":"passthrough","publish":true}]}}}}}`, name, driver)
+	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
+		t.Fatalf("seed Pet workflow %q: %v", name, err)
 	}
 }
 
