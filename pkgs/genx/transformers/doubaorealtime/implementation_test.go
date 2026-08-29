@@ -2337,6 +2337,42 @@ func TestTransformerPTTDiscardsFailedTurnRemainderAfterReconnect(t *testing.T) {
 	}
 }
 
+func TestRealtimeInputReaderDiscardsTerminalEmptyPTTTrailingEOS(t *testing.T) {
+	runtime := newDoubaoRealtimeRuntime(newTransformer(nil, withMode(ModePushToTalk)))
+	runtime.markEmptyPTTTrailingRoute("turn-2")
+	reader := &doubaoRealtimeInputReader{
+		results:     make(chan doubaoRealtimeInputResult, 1),
+		terminal:    make(chan struct{}),
+		terminalErr: io.EOF,
+	}
+	reader.results <- doubaoRealtimeInputResult{chunk: &genx.MessageChunk{
+		Ctrl: &genx.StreamCtrl{StreamID: "turn-2", EndOfStream: true},
+	}}
+	close(reader.terminal)
+
+	err, ended := reader.terminalErrorDiscarding(runtime.consumeEmptyPTTTrailingEOS)
+	if !ended || !errors.Is(err, io.EOF) {
+		t.Fatalf("terminal error = %v, %t; want EOF, true", err, ended)
+	}
+	if reader.pending != nil {
+		t.Fatalf("pending input = %#v, want consumed trailing route EOS", reader.pending)
+	}
+}
+
+func TestRealtimeInputReaderReportsPendingTerminalError(t *testing.T) {
+	reader := &doubaoRealtimeInputReader{
+		pending: &doubaoRealtimeInputResult{err: io.EOF},
+	}
+
+	err, ended := reader.terminalError()
+	if !ended || !errors.Is(err, io.EOF) {
+		t.Fatalf("terminal error = %v, %t; want EOF, true", err, ended)
+	}
+	if reader.pending != nil {
+		t.Fatalf("pending input = %#v, want consumed terminal error", reader.pending)
+	}
+}
+
 func TestTransformerMapsRealtimeEventsToStreamChunks(t *testing.T) {
 	session := &fakeTransformerSession{
 		events: []*doubaospeech.RealtimeEvent{

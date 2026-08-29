@@ -717,8 +717,16 @@ func (r *doubaoRealtimeInputReader) read() {
 }
 
 func (r *doubaoRealtimeInputReader) terminalError() (error, bool) {
-	if r == nil || r.pending != nil {
+	if r == nil {
 		return nil, false
+	}
+	if r.pending != nil {
+		if r.pending.err == nil {
+			return nil, false
+		}
+		err := r.pending.err
+		r.pending = nil
+		return err, true
 	}
 	select {
 	case <-r.terminal:
@@ -737,6 +745,16 @@ func (r *doubaoRealtimeInputReader) terminalError() (error, bool) {
 		}
 	default:
 		return nil, false
+	}
+}
+
+func (r *doubaoRealtimeInputReader) terminalErrorDiscarding(discard func(*genx.MessageChunk) bool) (error, bool) {
+	for {
+		err, ended := r.terminalError()
+		if ended || r == nil || r.pending == nil || discard == nil || !discard(r.pending.chunk) {
+			return err, ended
+		}
+		r.pending = nil
 	}
 }
 
@@ -864,7 +882,7 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 	defer output.Close()
 
 	stopForTerminalInput := func() bool {
-		err, ended := reader.terminalError()
+		err, ended := reader.terminalErrorDiscarding(runtime.consumeEmptyPTTTrailingEOS)
 		if !ended {
 			return false
 		}
