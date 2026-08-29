@@ -895,15 +895,15 @@ func newFriendGroupMessagesGetCmd() *cobra.Command {
 
 func newFriendGroupMessagesAudioCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "audio", Short: "Download friend group workspace history audio"}
-	cmd.AddCommand(newFriendGroupMessagesAudioGetCmd())
+	cmd.AddCommand(newFriendGroupMessagesAudioDownloadCmd())
 	return cmd
 }
 
-func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
+func newFriendGroupMessagesAudioDownloadCmd() *cobra.Command {
 	var opts connectRPCOptions
 	var output string
 	cmd := &cobra.Command{
-		Use:   "get <friend-group-name> <history-id> --output <file>",
+		Use:   "download <friend-group-name> <history-id> --output <file>",
 		Short: "Download audio attached to a friend group workspace history entry",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
@@ -931,7 +931,7 @@ func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
 						_ = os.Remove(tmpPath)
 					}
 				}()
-				result, err := c.GetFriendGroupMessageAudio(ctx, "friend_group.messages.audio.get", rpcapi.FriendGroupMessageAudioGetRequest{FriendGroupName: args[0], HistoryName: args[1]}, out)
+				result, err := c.DownloadFriendGroupMessageAudio(ctx, "friend_group.messages.audio.download", rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: args[0], HistoryName: args[1]}, out)
 				closeErr := out.Close()
 				if err != nil {
 					return nil, err
@@ -944,9 +944,9 @@ func newFriendGroupMessagesAudioGetCmd() *cobra.Command {
 				}
 				committed = true
 				return struct {
-					Metadata rpcapi.FriendGroupMessageAudioGetResponse `json:"metadata"`
-					Output   string                                    `json:"output"`
-					Bytes    int64                                     `json:"bytes"`
+					Metadata rpcapi.FriendGroupMessageAudioDownloadResponse `json:"metadata"`
+					Output   string                                         `json:"output"`
+					Bytes    int64                                          `json:"bytes"`
 				}{Metadata: result.Metadata, Output: path, Bytes: result.Bytes}, nil
 			})
 		},

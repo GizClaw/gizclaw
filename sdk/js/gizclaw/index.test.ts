@@ -1052,7 +1052,7 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
   const client = new WebRTCRPCClient(pc, { createID: () => "req-binary" });
 
   const promise = client.callBinary<{ mime_type: string; size_bytes: number }>(
-    "server.workspace.history.audio.get",
+    "server.workspace.history.audio.download",
     {
       history_name: "h1",
       workspace_name: "main",
@@ -1068,7 +1068,7 @@ test("WebRTCRPCClient reads metadata plus binary response frames", async () => {
         result: { mime_type: "audio/ogg", size_bytes: 5 },
         v: 1,
       },
-      "server.workspace.history.audio.get",
+      "server.workspace.history.audio.download",
     ).slice(0, -4),
   );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([1, 2])));
@@ -1525,7 +1525,7 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
     mime_type: string;
     size_bytes: number;
     workspace_name: string;
-  }>("server.workspace.history.audio.get", {
+  }>("server.workspace.history.audio.download", {
     history_name: "h1",
     workspace_name: "main",
   });
@@ -1544,7 +1544,7 @@ test("WebRTCRPCClient reads continuation metadata plus binary response frames", 
         },
         v: 1,
       },
-      "server.workspace.history.audio.get",
+      "server.workspace.history.audio.download",
     ),
   );
   channel.receive(encodeFrame(RPC_FRAME_TYPE_BINARY, new Uint8Array([8, 9])));
@@ -1561,7 +1561,7 @@ test("WebRTCRPCClient rejects oversized binary metadata continuation frames", as
     createID: () => "req-binary-continuation-too-large",
   });
 
-  const promise = client.callBinary("server.workspace.history.audio.get", {
+  const promise = client.callBinary("server.workspace.history.audio.download", {
     history_name: "h1",
     workspace_name: "main",
   });
@@ -1582,7 +1582,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
     createID: () => "req-binary-error",
   });
 
-  const promise = client.callBinary("server.workspace.history.audio.get", {
+  const promise = client.callBinary("server.workspace.history.audio.download", {
     history_name: "h1",
     workspace_name: "main",
   });
@@ -1596,7 +1596,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
         id: "req-binary-error",
         v: 1,
       },
-      "server.workspace.history.audio.get",
+      "server.workspace.history.audio.download",
     ),
   );
 

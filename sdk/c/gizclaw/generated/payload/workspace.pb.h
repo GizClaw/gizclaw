@@ -286,17 +286,17 @@ typedef struct _gizclaw_rpc_v1_WorkspaceGetRequest {
     pb_callback_t name;
 } gizclaw_rpc_v1_WorkspaceGetRequest;
 
-typedef struct _gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest {
+typedef struct _gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest {
     pb_callback_t history_name;
     pb_callback_t workspace_name;
-} gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest;
+} gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest;
 
-typedef struct _gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse {
+typedef struct _gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse {
     pb_callback_t history_name;
     pb_callback_t mime_type;
     int64_t size_bytes;
     pb_callback_t workspace_name;
-} gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse;
+} gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse;
 
 typedef struct _gizclaw_rpc_v1_WorkspaceHistoryGetRequest {
     pb_callback_t history_name;
@@ -477,8 +477,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceDeleteResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
 #define gizclaw_rpc_v1_WorkspaceGetRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceGetResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_init_default {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_init_default {false, gizclaw_rpc_v1_PeerRunHistoryEntry_init_default}
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_init_default {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN, {{NULL}, NULL}}
@@ -541,8 +541,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceDeleteResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
 #define gizclaw_rpc_v1_WorkspaceGetRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceGetResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_init_zero {false, gizclaw_rpc_v1_PeerRunHistoryEntry_init_zero}
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_init_zero {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_WorkspaceHistoryListRequestOrder_MIN, {{NULL}, NULL}}
@@ -648,12 +648,12 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size_bytes_tag 3
 #define gizclaw_rpc_v1_WorkspaceDeleteRequest_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceGetRequest_name_tag 1
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_history_name_tag 1
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_workspace_name_tag 2
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_history_name_tag 1
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_mime_type_tag 2
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_size_bytes_tag 3
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_workspace_name_tag 4
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_history_name_tag 1
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_workspace_name_tag 2
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_history_name_tag 1
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_mime_type_tag 2
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_size_bytes_tag 3
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_workspace_name_tag 4
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_history_name_tag 1
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_workspace_name_tag 2
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_value_tag 1
@@ -1081,19 +1081,19 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   3)
 #define gizclaw_rpc_v1_WorkspaceGetResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspaceGetResponse_value_MSGTYPE gizclaw_rpc_v1_Workspace
 
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   history_name,      1) \
 X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    2)
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_DEFAULT NULL
 
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_FIELDLIST(X, a) \
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   history_name,      1) \
 X(a, CALLBACK, SINGULAR, STRING,   mime_type,         2) \
 X(a, STATIC,   SINGULAR, INT64,    size_bytes,        3) \
 X(a, CALLBACK, SINGULAR, STRING,   workspace_name,    4)
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   history_name,      1) \
@@ -1225,8 +1225,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceGetResponse_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceHistoryListRequest_msg;
@@ -1291,8 +1291,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 #define gizclaw_rpc_v1_WorkspaceDeleteResponse_fields &gizclaw_rpc_v1_WorkspaceDeleteResponse_msg
 #define gizclaw_rpc_v1_WorkspaceGetRequest_fields &gizclaw_rpc_v1_WorkspaceGetRequest_msg
 #define gizclaw_rpc_v1_WorkspaceGetResponse_fields &gizclaw_rpc_v1_WorkspaceGetResponse_msg
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_fields &gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_msg
-#define gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_fields &gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_msg
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_fields &gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_msg
+#define gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_fields &gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_msg
 #define gizclaw_rpc_v1_WorkspaceHistoryGetRequest_fields &gizclaw_rpc_v1_WorkspaceHistoryGetRequest_msg
 #define gizclaw_rpc_v1_WorkspaceHistoryGetResponse_fields &gizclaw_rpc_v1_WorkspaceHistoryGetResponse_msg
 #define gizclaw_rpc_v1_WorkspaceHistoryListRequest_fields &gizclaw_rpc_v1_WorkspaceHistoryListRequest_msg
@@ -1346,8 +1346,8 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 /* gizclaw_rpc_v1_WorkspaceDeleteResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspaceGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspaceGetResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkspaceHistoryAudioGetRequest_size depends on runtime parameters */
-/* gizclaw_rpc_v1_WorkspaceHistoryAudioGetResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkspaceHistoryAudioDownloadResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspaceHistoryGetRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspaceHistoryGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspaceHistoryListRequest_size depends on runtime parameters */

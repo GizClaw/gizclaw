@@ -85,7 +85,7 @@ Direct Packet DataChannel 上收到 `0x10` 时必须静默丢弃，不能当作�
 
 RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，RPC frame 定义单条 channel 内的 framing，binary stream 则是在 RPC request 或 response 中传输有界 bytes。
 
-`server.workspace.history.audio.get` 与 `server.friend_group.messages.audio.get` 都使用相同的下载顺序：request envelope、request EOS、response metadata envelope、一个或多个 binary frame、response EOS。Friend Group 版本按 `friend_group_name + history_name` 鉴权和寻址，metadata 回显这两个 identity；客户端必须校验 `audio/*` MIME、累计 bytes 精确等于 `size_bytes`，并收到最终 EOS 后才把下载视为完整。
+`server.workspace.history.audio.download` 与 `server.friend_group.messages.audio.download` 都使用相同的下载顺序：request envelope、request EOS、response metadata envelope、一个或多个 binary frame、response EOS。Friend Group 版本按 `friend_group_name + history_name` 鉴权和寻址，metadata 回显这两个 identity；客户端必须校验 `audio/*` MIME、累计 bytes 精确等于 `size_bytes`，并收到最终 EOS 后才把下载视为完整。
 
 ### Service stream IDs
 
@@ -159,7 +159,7 @@ RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle
 | `server.speech.transcribe` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回最终 transcript。 |
 | `server.speech.extract` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回 transcript 与 schema-constrained JSON。 |
 | `server.speech.synthesize` | Server → Client / Device | Response metadata 后返回的有界合成音频。 |
-| `server.workspace.history.audio.get` | Server → Client / Device | Workspace history 音频。 |
+| `server.workspace.history.audio.download` | Server → Client / Device | Workspace history 音频。 |
 | `server.workspace.icon.download` | Server → Client / Device | Workspace icon。 |
 | `server.badge_def.pixa.download` | Server → Client / Device | Badge Definition PIXA。 |
 | `server.pet.pixa.download` | Server → Client / Device | Pet PIXA。 |

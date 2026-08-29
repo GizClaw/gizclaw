@@ -93,8 +93,8 @@ void main() {
     final factory = FakeDataChannelFactory();
     final client = PeerRpcClient(factory, createId: () => 'rpc-body-limit');
     final future = client.callBinary(
-      'server.workspace.history.audio.get',
-      payload.WorkspaceHistoryAudioGetRequest(
+      'server.workspace.history.audio.download',
+      payload.WorkspaceHistoryAudioDownloadRequest(
         historyName: 'history-1',
         workspaceName: 'main',
       ),
@@ -108,8 +108,8 @@ void main() {
           rpc.RpcResponse(
             id: 'rpc-body-limit',
             payload: encodeRpcResponsePayload(
-              'server.workspace.history.audio.get',
-              payload.WorkspaceHistoryAudioGetResponse(
+              'server.workspace.history.audio.download',
+              payload.WorkspaceHistoryAudioDownloadResponse(
                 historyName: 'history-1',
                 mimeType: 'audio/wav',
                 workspaceName: 'main',
@@ -355,8 +355,8 @@ void main() {
     );
 
     final future = client.callBinary(
-      'server.workspace.history.audio.get',
-      payload.WorkspaceHistoryAudioGetRequest(
+      'server.workspace.history.audio.download',
+      payload.WorkspaceHistoryAudioDownloadRequest(
         historyName: 'history-1',
         workspaceName: 'main',
       ),

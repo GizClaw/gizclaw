@@ -216,12 +216,12 @@ message FriendGroupMemberPutResponse {
   FriendGroupMemberObject value = 1;
 }
 
-message FriendGroupMessageAudioGetRequest {
+message FriendGroupMessageAudioDownloadRequest {
   string friend_group_name = 1;
   string history_name = 2;
 }
 
-message FriendGroupMessageAudioGetResponse {
+message FriendGroupMessageAudioDownloadResponse {
   string friend_group_name = 1;
   string history_name = 2;
   string mime_type = 3;

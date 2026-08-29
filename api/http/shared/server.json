@@ -369,7 +369,7 @@
       "WorkspaceHistoryGetResponse": {
         "$ref": "../shared/peer_run_workspace.json#/components/schemas/PeerRunHistoryEntry"
       },
-      "WorkspaceHistoryAudioGetRequest": {
+      "WorkspaceHistoryAudioDownloadRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -387,7 +387,7 @@
           "history_name"
         ]
       },
-      "WorkspaceHistoryAudioGetResponse": {
+      "WorkspaceHistoryAudioDownloadResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -1466,7 +1466,7 @@
           "has_next"
         ]
       },
-      "FriendGroupMessageAudioGetRequest": {
+      "FriendGroupMessageAudioDownloadRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -1482,7 +1482,7 @@
           "history_name"
         ]
       },
-      "FriendGroupMessageAudioGetResponse": {
+      "FriendGroupMessageAudioDownloadResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {

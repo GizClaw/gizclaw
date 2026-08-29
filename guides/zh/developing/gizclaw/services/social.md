@@ -35,7 +35,7 @@ Friend invite token 是不透明且区分每个字节的 credential。`friend.ad
 
 每个 Friend Group 生命周期拥有一个 system Workspace。创建 rollback 可以立即删除未投入使用的 Workspace；正式删除群组时先在一个共享 relationship store transaction 中原子删除 Group、invite、member 与 belongs 记录并保存 retirement intent。提交成功后，服务先创建一条 Friend Group 数据 `PendingDeletion`，再把 Workspace 放入它自己的 `PendingDeletion`。Workspace History、runtime 与 artifact 都保持物理完整，由各自 ownership 的异步 cleaner 处理。旧版 Friend Group pending-deletion descriptor 可能仍含已退役的 message-store locator；重试只负责兼容解码，不会重新打开或清理这些 store。Peer 创建的群归创建者所有；Admin 创建必须显式给出 owner。成员身份只授予数据访问，不改变 ownership。服务从 owner RuntimeProfile 的 `workflows.system.group_chatroom` 选择真实 Chatroom Workflow。
 
-Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Conversation 是群消息唯一写入路径。`server.friend_group.messages.list/get/audio.get` 只是绑定 Workspace History 的只读 Social 投影：先加载群组、校验当前成员身份、解析已保存的 Workspace 名，再返回稳定的消息 `name`、`actor_name` 归属与仍保留的 History 音频；get/audio selector 使用 `friend_group_name + history_name`。Friend Group 不拥有消息 metadata store、音频 store、独立 TTL 或清理循环。
+Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Conversation 是群消息唯一写入路径。`server.friend_group.messages.list/get` 与 `server.friend_group.messages.audio.download` 只是绑定 Workspace History 的只读 Social 投影：先加载群组、校验当前成员身份、解析已保存的 Workspace 名，再返回稳定的消息 `name`、`actor_name` 归属与仍保留的 History 音频；get 与 audio download selector 使用 `friend_group_name + history_name`。Friend Group 不拥有消息 metadata store、音频 store、独立 TTL 或清理循环。
 
 relationship 提交与 Workspace retirement 分成两个可重试阶段：第一阶段失败时
 relationship 与 Workspace 都保持可用；第二阶段失败时保留 retirement intent，

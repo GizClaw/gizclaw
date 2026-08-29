@@ -91,7 +91,7 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKSPACE_DELETE = 28 [(rpc_method) = { name: "server.workspace.delete" request: "WorkspaceDeleteRequest" response: "WorkspaceDeleteResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = 29 [(rpc_method) = { name: "server.workspace.history.list" request: "WorkspaceHistoryListRequest" response: "WorkspaceHistoryListResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET = 30 [(rpc_method) = { name: "server.workspace.history.get" request: "WorkspaceHistoryGetRequest" response: "WorkspaceHistoryGetResponse" }];
-  RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_GET = 31 [(rpc_method) = { name: "server.workspace.history.audio.get" request: "WorkspaceHistoryAudioGetRequest" response: "WorkspaceHistoryAudioGetResponse" }];
+  RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_DOWNLOAD = 31 [(rpc_method) = { name: "server.workspace.history.audio.download" request: "WorkspaceHistoryAudioDownloadRequest" response: "WorkspaceHistoryAudioDownloadResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_LIST = 32 [(rpc_method) = { name: "server.workflow.list" request: "WorkflowListRequest" response: "WorkflowListResponse" }];
   RPC_METHOD_SERVER_WORKFLOW_GET = 33 [(rpc_method) = { name: "server.workflow.get" request: "WorkflowGetRequest" response: "WorkflowGetResponse" }];
   RPC_METHOD_SERVER_MODEL_LIST = 34 [(rpc_method) = { name: "server.model.list" request: "ModelListRequest" response: "ModelListResponse" }];
@@ -155,7 +155,7 @@ enum RpcMethod {
   RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 92 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
   RPC_METHOD_SERVER_PEER_DELETE = 93 [(rpc_method) = { name: "server.peer.delete" request: "ServerPeerDeleteRequest" response: "ServerPeerDeleteResponse" }];
   RPC_METHOD_SERVER_SPEECH_EXTRACT = 94 [(rpc_method) = { name: "server.speech.extract" request: "SpeechExtractRequest" response: "SpeechExtractResponse" }];
-  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_GET = 95 [(rpc_method) = { name: "server.friend_group.messages.audio.get" request: "FriendGroupMessageAudioGetRequest" response: "FriendGroupMessageAudioGetResponse" }];
+  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD = 95 [(rpc_method) = { name: "server.friend_group.messages.audio.download" request: "FriendGroupMessageAudioDownloadRequest" response: "FriendGroupMessageAudioDownloadResponse" }];
   RPC_METHOD_SERVER_API_KEY_CREATE = 96 [(rpc_method) = { name: "server.api_key.create" request: "APIKeyCreateRequest" response: "APIKeyCreateResponse" }];
   RPC_METHOD_SERVER_API_KEY_LIST = 97 [(rpc_method) = { name: "server.api_key.list" request: "APIKeyListRequest" response: "APIKeyListResponse" }];
   RPC_METHOD_SERVER_API_KEY_REVOKE = 98 [(rpc_method) = { name: "server.api_key.revoke" request: "APIKeyRevokeRequest" response: "APIKeyRevokeResponse" }];

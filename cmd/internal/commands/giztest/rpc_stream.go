@@ -113,22 +113,22 @@ func invokeRPCStream(ctx context.Context, client *gizcli.Client, step Step, requ
 			return operationResult{}, err
 		}
 		metadata = result
-	case "server.workspace.history.audio.get":
-		var req rpcapi.WorkspaceHistoryAudioGetRequest
+	case "server.workspace.history.audio.download":
+		var req rpcapi.WorkspaceHistoryAudioDownloadRequest
 		if err := decodeRequest(request, &req); err != nil {
 			return operationResult{}, err
 		}
-		result, err := client.GetWorkspaceHistoryAudio(ctx, step.ID, req, buf)
+		result, err := client.DownloadWorkspaceHistoryAudio(ctx, step.ID, req, buf)
 		if err != nil {
 			return operationResult{}, err
 		}
 		metadata = result
-	case "server.friend_group.messages.audio.get":
-		var req rpcapi.FriendGroupMessageAudioGetRequest
+	case "server.friend_group.messages.audio.download":
+		var req rpcapi.FriendGroupMessageAudioDownloadRequest
 		if err := decodeRequest(request, &req); err != nil {
 			return operationResult{}, err
 		}
-		result, err := client.GetFriendGroupMessageAudio(ctx, step.ID, req, buf)
+		result, err := client.DownloadFriendGroupMessageAudio(ctx, step.ID, req, buf)
 		if err != nil {
 			return operationResult{}, err
 		}

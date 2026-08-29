@@ -426,22 +426,22 @@ func (c *Client) DownloadWorkspaceIcon(ctx context.Context, id string, request r
 	return c.rpcClient().DownloadWorkspaceIcon(ctx, stream, id, request, out)
 }
 
-func (c *Client) GetWorkspaceHistoryAudio(ctx context.Context, id string, request rpcapi.WorkspaceHistoryAudioGetRequest, out io.Writer) (WorkspaceHistoryAudioGetResult, error) {
+func (c *Client) DownloadWorkspaceHistoryAudio(ctx context.Context, id string, request rpcapi.WorkspaceHistoryAudioDownloadRequest, out io.Writer) (WorkspaceHistoryAudioDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {
-		return WorkspaceHistoryAudioGetResult{}, err
+		return WorkspaceHistoryAudioDownloadResult{}, err
 	}
 	defer func() { _ = stream.Close() }()
-	return c.rpcClient().GetWorkspaceHistoryAudio(ctx, stream, id, request, out)
+	return c.rpcClient().DownloadWorkspaceHistoryAudio(ctx, stream, id, request, out)
 }
 
-func (c *Client) GetFriendGroupMessageAudio(ctx context.Context, id string, request rpcapi.FriendGroupMessageAudioGetRequest, out io.Writer) (FriendGroupMessageAudioGetResult, error) {
+func (c *Client) DownloadFriendGroupMessageAudio(ctx context.Context, id string, request rpcapi.FriendGroupMessageAudioDownloadRequest, out io.Writer) (FriendGroupMessageAudioDownloadResult, error) {
 	stream, err := c.rpcConn()
 	if err != nil {
-		return FriendGroupMessageAudioGetResult{}, err
+		return FriendGroupMessageAudioDownloadResult{}, err
 	}
 	defer func() { _ = stream.Close() }()
-	return c.rpcClient().GetFriendGroupMessageAudio(ctx, stream, id, request, out)
+	return c.rpcClient().DownloadFriendGroupMessageAudio(ctx, stream, id, request, out)
 }
 
 func (c *Client) ServerPeerLookup(ctx context.Context, id string, request rpcpb.ServerPeerLookupRequest) (*rpcpb.ServerPeerLookupResponse, error) {

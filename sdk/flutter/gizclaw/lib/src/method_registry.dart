@@ -189,11 +189,11 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'WorkspaceHistoryGetRequest',
     responseType: 'WorkspaceHistoryGetResponse',
   ),
-  'server.workspace.history.audio.get': RpcMethodDescriptor(
+  'server.workspace.history.audio.download': RpcMethodDescriptor(
     id: 31,
-    name: 'server.workspace.history.audio.get',
-    requestType: 'WorkspaceHistoryAudioGetRequest',
-    responseType: 'WorkspaceHistoryAudioGetResponse',
+    name: 'server.workspace.history.audio.download',
+    requestType: 'WorkspaceHistoryAudioDownloadRequest',
+    responseType: 'WorkspaceHistoryAudioDownloadResponse',
   ),
   'server.workflow.list': RpcMethodDescriptor(
     id: 32,
@@ -573,11 +573,11 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'SpeechExtractRequest',
     responseType: 'SpeechExtractResponse',
   ),
-  'server.friend_group.messages.audio.get': RpcMethodDescriptor(
+  'server.friend_group.messages.audio.download': RpcMethodDescriptor(
     id: 95,
-    name: 'server.friend_group.messages.audio.get',
-    requestType: 'FriendGroupMessageAudioGetRequest',
-    responseType: 'FriendGroupMessageAudioGetResponse',
+    name: 'server.friend_group.messages.audio.download',
+    requestType: 'FriendGroupMessageAudioDownloadRequest',
+    responseType: 'FriendGroupMessageAudioDownloadResponse',
   ),
   'server.api_key.create': RpcMethodDescriptor(
     id: 96,
@@ -629,7 +629,7 @@ const rpcMethodNamesById = <int, String>{
   28: 'server.workspace.delete',
   29: 'server.workspace.history.list',
   30: 'server.workspace.history.get',
-  31: 'server.workspace.history.audio.get',
+  31: 'server.workspace.history.audio.download',
   32: 'server.workflow.list',
   33: 'server.workflow.get',
   34: 'server.model.list',
@@ -693,7 +693,7 @@ const rpcMethodNamesById = <int, String>{
   92: 'server.speech.synthesize',
   93: 'server.peer.delete',
   94: 'server.speech.extract',
-  95: 'server.friend_group.messages.audio.get',
+  95: 'server.friend_group.messages.audio.download',
   96: 'server.api_key.create',
   97: 'server.api_key.list',
   98: 'server.api_key.revoke',

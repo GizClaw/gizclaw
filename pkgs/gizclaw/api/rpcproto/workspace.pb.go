@@ -2868,7 +2868,7 @@ func (x *WorkspaceGetResponse) GetRuntimeProfileRevision() string {
 	return ""
 }
 
-type WorkspaceHistoryAudioGetRequest struct {
+type WorkspaceHistoryAudioDownloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	HistoryName   string                 `protobuf:"bytes,1,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	WorkspaceName string                 `protobuf:"bytes,2,opt,name=workspace_name,json=workspaceName,proto3" json:"workspace_name,omitempty"`
@@ -2876,20 +2876,20 @@ type WorkspaceHistoryAudioGetRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WorkspaceHistoryAudioGetRequest) Reset() {
-	*x = WorkspaceHistoryAudioGetRequest{}
+func (x *WorkspaceHistoryAudioDownloadRequest) Reset() {
+	*x = WorkspaceHistoryAudioDownloadRequest{}
 	mi := &file_payload_workspace_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WorkspaceHistoryAudioGetRequest) String() string {
+func (x *WorkspaceHistoryAudioDownloadRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WorkspaceHistoryAudioGetRequest) ProtoMessage() {}
+func (*WorkspaceHistoryAudioDownloadRequest) ProtoMessage() {}
 
-func (x *WorkspaceHistoryAudioGetRequest) ProtoReflect() protoreflect.Message {
+func (x *WorkspaceHistoryAudioDownloadRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_workspace_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2901,26 +2901,26 @@ func (x *WorkspaceHistoryAudioGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WorkspaceHistoryAudioGetRequest.ProtoReflect.Descriptor instead.
-func (*WorkspaceHistoryAudioGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use WorkspaceHistoryAudioDownloadRequest.ProtoReflect.Descriptor instead.
+func (*WorkspaceHistoryAudioDownloadRequest) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{53}
 }
 
-func (x *WorkspaceHistoryAudioGetRequest) GetHistoryName() string {
+func (x *WorkspaceHistoryAudioDownloadRequest) GetHistoryName() string {
 	if x != nil {
 		return x.HistoryName
 	}
 	return ""
 }
 
-func (x *WorkspaceHistoryAudioGetRequest) GetWorkspaceName() string {
+func (x *WorkspaceHistoryAudioDownloadRequest) GetWorkspaceName() string {
 	if x != nil {
 		return x.WorkspaceName
 	}
 	return ""
 }
 
-type WorkspaceHistoryAudioGetResponse struct {
+type WorkspaceHistoryAudioDownloadResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	HistoryName   string                 `protobuf:"bytes,1,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
 	MimeType      string                 `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
@@ -2930,20 +2930,20 @@ type WorkspaceHistoryAudioGetResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) Reset() {
-	*x = WorkspaceHistoryAudioGetResponse{}
+func (x *WorkspaceHistoryAudioDownloadResponse) Reset() {
+	*x = WorkspaceHistoryAudioDownloadResponse{}
 	mi := &file_payload_workspace_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) String() string {
+func (x *WorkspaceHistoryAudioDownloadResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WorkspaceHistoryAudioGetResponse) ProtoMessage() {}
+func (*WorkspaceHistoryAudioDownloadResponse) ProtoMessage() {}
 
-func (x *WorkspaceHistoryAudioGetResponse) ProtoReflect() protoreflect.Message {
+func (x *WorkspaceHistoryAudioDownloadResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_workspace_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2955,33 +2955,33 @@ func (x *WorkspaceHistoryAudioGetResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WorkspaceHistoryAudioGetResponse.ProtoReflect.Descriptor instead.
-func (*WorkspaceHistoryAudioGetResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use WorkspaceHistoryAudioDownloadResponse.ProtoReflect.Descriptor instead.
+func (*WorkspaceHistoryAudioDownloadResponse) Descriptor() ([]byte, []int) {
 	return file_payload_workspace_proto_rawDescGZIP(), []int{54}
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) GetHistoryName() string {
+func (x *WorkspaceHistoryAudioDownloadResponse) GetHistoryName() string {
 	if x != nil {
 		return x.HistoryName
 	}
 	return ""
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) GetMimeType() string {
+func (x *WorkspaceHistoryAudioDownloadResponse) GetMimeType() string {
 	if x != nil {
 		return x.MimeType
 	}
 	return ""
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) GetSizeBytes() int64 {
+func (x *WorkspaceHistoryAudioDownloadResponse) GetSizeBytes() int64 {
 	if x != nil {
 		return x.SizeBytes
 	}
 	return 0
 }
 
-func (x *WorkspaceHistoryAudioGetResponse) GetWorkspaceName() string {
+func (x *WorkspaceHistoryAudioDownloadResponse) GetWorkspaceName() string {
 	if x != nil {
 		return x.WorkspaceName
 	}
@@ -3871,11 +3871,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x14WorkspaceGetResponse\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
-	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"k\n" +
-	"\x1fWorkspaceHistoryAudioGetRequest\x12!\n" +
+	"\x18runtime_profile_revision\x18\x03 \x01(\tR\x16runtimeProfileRevision\"p\n" +
+	"$WorkspaceHistoryAudioDownloadRequest\x12!\n" +
 	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\x12%\n" +
-	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\"\xa8\x01\n" +
-	" WorkspaceHistoryAudioGetResponse\x12!\n" +
+	"\x0eworkspace_name\x18\x02 \x01(\tR\rworkspaceName\"\xad\x01\n" +
+	"%WorkspaceHistoryAudioDownloadResponse\x12!\n" +
 	"\fhistory_name\x18\x01 \x01(\tR\vhistoryName\x12\x1b\n" +
 	"\tmime_type\x18\x02 \x01(\tR\bmimeType\x12\x1d\n" +
 	"\n" +
@@ -3997,8 +3997,8 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*WorkspaceDeleteResponse)(nil),                  // 50: gizclaw.rpc.v1.WorkspaceDeleteResponse
 	(*WorkspaceGetRequest)(nil),                      // 51: gizclaw.rpc.v1.WorkspaceGetRequest
 	(*WorkspaceGetResponse)(nil),                     // 52: gizclaw.rpc.v1.WorkspaceGetResponse
-	(*WorkspaceHistoryAudioGetRequest)(nil),          // 53: gizclaw.rpc.v1.WorkspaceHistoryAudioGetRequest
-	(*WorkspaceHistoryAudioGetResponse)(nil),         // 54: gizclaw.rpc.v1.WorkspaceHistoryAudioGetResponse
+	(*WorkspaceHistoryAudioDownloadRequest)(nil),     // 53: gizclaw.rpc.v1.WorkspaceHistoryAudioDownloadRequest
+	(*WorkspaceHistoryAudioDownloadResponse)(nil),    // 54: gizclaw.rpc.v1.WorkspaceHistoryAudioDownloadResponse
 	(*WorkspaceHistoryGetRequest)(nil),               // 55: gizclaw.rpc.v1.WorkspaceHistoryGetRequest
 	(*WorkspaceHistoryGetResponse)(nil),              // 56: gizclaw.rpc.v1.WorkspaceHistoryGetResponse
 	(*WorkspaceHistoryListRequest)(nil),              // 57: gizclaw.rpc.v1.WorkspaceHistoryListRequest

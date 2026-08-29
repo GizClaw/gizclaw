@@ -2203,7 +2203,7 @@ func (x *FriendGroupMemberPutResponse) GetValue() *FriendGroupMemberObject {
 	return nil
 }
 
-type FriendGroupMessageAudioGetRequest struct {
+type FriendGroupMessageAudioDownloadRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
 	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
@@ -2211,20 +2211,20 @@ type FriendGroupMessageAudioGetRequest struct {
 	sizeCache       protoimpl.SizeCache
 }
 
-func (x *FriendGroupMessageAudioGetRequest) Reset() {
-	*x = FriendGroupMessageAudioGetRequest{}
+func (x *FriendGroupMessageAudioDownloadRequest) Reset() {
+	*x = FriendGroupMessageAudioDownloadRequest{}
 	mi := &file_payload_social_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FriendGroupMessageAudioGetRequest) String() string {
+func (x *FriendGroupMessageAudioDownloadRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FriendGroupMessageAudioGetRequest) ProtoMessage() {}
+func (*FriendGroupMessageAudioDownloadRequest) ProtoMessage() {}
 
-func (x *FriendGroupMessageAudioGetRequest) ProtoReflect() protoreflect.Message {
+func (x *FriendGroupMessageAudioDownloadRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_social_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2236,26 +2236,26 @@ func (x *FriendGroupMessageAudioGetRequest) ProtoReflect() protoreflect.Message 
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FriendGroupMessageAudioGetRequest.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageAudioGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use FriendGroupMessageAudioDownloadRequest.ProtoReflect.Descriptor instead.
+func (*FriendGroupMessageAudioDownloadRequest) Descriptor() ([]byte, []int) {
 	return file_payload_social_proto_rawDescGZIP(), []int{43}
 }
 
-func (x *FriendGroupMessageAudioGetRequest) GetFriendGroupName() string {
+func (x *FriendGroupMessageAudioDownloadRequest) GetFriendGroupName() string {
 	if x != nil {
 		return x.FriendGroupName
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageAudioGetRequest) GetHistoryName() string {
+func (x *FriendGroupMessageAudioDownloadRequest) GetHistoryName() string {
 	if x != nil {
 		return x.HistoryName
 	}
 	return ""
 }
 
-type FriendGroupMessageAudioGetResponse struct {
+type FriendGroupMessageAudioDownloadResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
 	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
@@ -2265,20 +2265,20 @@ type FriendGroupMessageAudioGetResponse struct {
 	sizeCache       protoimpl.SizeCache
 }
 
-func (x *FriendGroupMessageAudioGetResponse) Reset() {
-	*x = FriendGroupMessageAudioGetResponse{}
+func (x *FriendGroupMessageAudioDownloadResponse) Reset() {
+	*x = FriendGroupMessageAudioDownloadResponse{}
 	mi := &file_payload_social_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FriendGroupMessageAudioGetResponse) String() string {
+func (x *FriendGroupMessageAudioDownloadResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FriendGroupMessageAudioGetResponse) ProtoMessage() {}
+func (*FriendGroupMessageAudioDownloadResponse) ProtoMessage() {}
 
-func (x *FriendGroupMessageAudioGetResponse) ProtoReflect() protoreflect.Message {
+func (x *FriendGroupMessageAudioDownloadResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_payload_social_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -2290,33 +2290,33 @@ func (x *FriendGroupMessageAudioGetResponse) ProtoReflect() protoreflect.Message
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FriendGroupMessageAudioGetResponse.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageAudioGetResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use FriendGroupMessageAudioDownloadResponse.ProtoReflect.Descriptor instead.
+func (*FriendGroupMessageAudioDownloadResponse) Descriptor() ([]byte, []int) {
 	return file_payload_social_proto_rawDescGZIP(), []int{44}
 }
 
-func (x *FriendGroupMessageAudioGetResponse) GetFriendGroupName() string {
+func (x *FriendGroupMessageAudioDownloadResponse) GetFriendGroupName() string {
 	if x != nil {
 		return x.FriendGroupName
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageAudioGetResponse) GetHistoryName() string {
+func (x *FriendGroupMessageAudioDownloadResponse) GetHistoryName() string {
 	if x != nil {
 		return x.HistoryName
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageAudioGetResponse) GetMimeType() string {
+func (x *FriendGroupMessageAudioDownloadResponse) GetMimeType() string {
 	if x != nil {
 		return x.MimeType
 	}
 	return ""
 }
 
-func (x *FriendGroupMessageAudioGetResponse) GetSizeBytes() int64 {
+func (x *FriendGroupMessageAudioDownloadResponse) GetSizeBytes() int64 {
 	if x != nil {
 		return x.SizeBytes
 	}
@@ -3461,11 +3461,11 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12@\n" +
 	"\x04role\x18\x03 \x01(\x0e2,.gizclaw.rpc.v1.FriendGroupMemberMutableRoleR\x04role\"]\n" +
 	"\x1cFriendGroupMemberPutResponse\x12=\n" +
-	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"r\n" +
-	"!FriendGroupMessageAudioGetRequest\x12*\n" +
+	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"w\n" +
+	"&FriendGroupMessageAudioDownloadRequest\x12*\n" +
 	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
-	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\"\xaf\x01\n" +
-	"\"FriendGroupMessageAudioGetResponse\x12*\n" +
+	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\"\xb4\x01\n" +
+	"'FriendGroupMessageAudioDownloadResponse\x12*\n" +
 	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
 	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\x12\x1b\n" +
 	"\tmime_type\x18\x03 \x01(\tR\bmimeType\x12\x1d\n" +
@@ -3584,72 +3584,72 @@ func file_payload_social_proto_rawDescGZIP() []byte {
 
 var file_payload_social_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
 var file_payload_social_proto_goTypes = []any{
-	(*ContactCreateRequest)(nil),                 // 0: gizclaw.rpc.v1.ContactCreateRequest
-	(*ContactCreateResponse)(nil),                // 1: gizclaw.rpc.v1.ContactCreateResponse
-	(*ContactDeleteRequest)(nil),                 // 2: gizclaw.rpc.v1.ContactDeleteRequest
-	(*ContactDeleteResponse)(nil),                // 3: gizclaw.rpc.v1.ContactDeleteResponse
-	(*ContactGetRequest)(nil),                    // 4: gizclaw.rpc.v1.ContactGetRequest
-	(*ContactGetResponse)(nil),                   // 5: gizclaw.rpc.v1.ContactGetResponse
-	(*ContactListRequest)(nil),                   // 6: gizclaw.rpc.v1.ContactListRequest
-	(*ContactListResponse)(nil),                  // 7: gizclaw.rpc.v1.ContactListResponse
-	(*ContactObject)(nil),                        // 8: gizclaw.rpc.v1.ContactObject
-	(*ContactPutRequest)(nil),                    // 9: gizclaw.rpc.v1.ContactPutRequest
-	(*ContactPutResponse)(nil),                   // 10: gizclaw.rpc.v1.ContactPutResponse
-	(*FriendAddRequest)(nil),                     // 11: gizclaw.rpc.v1.FriendAddRequest
-	(*FriendAddResponse)(nil),                    // 12: gizclaw.rpc.v1.FriendAddResponse
-	(*FriendDeleteRequest)(nil),                  // 13: gizclaw.rpc.v1.FriendDeleteRequest
-	(*FriendDeleteResponse)(nil),                 // 14: gizclaw.rpc.v1.FriendDeleteResponse
-	(*FriendInfo)(nil),                           // 15: gizclaw.rpc.v1.FriendInfo
-	(*FriendInfoGetRequest)(nil),                 // 16: gizclaw.rpc.v1.FriendInfoGetRequest
-	(*FriendInfoGetResponse)(nil),                // 17: gizclaw.rpc.v1.FriendInfoGetResponse
-	(*FriendGroupCreateRequest)(nil),             // 18: gizclaw.rpc.v1.FriendGroupCreateRequest
-	(*FriendGroupCreateResponse)(nil),            // 19: gizclaw.rpc.v1.FriendGroupCreateResponse
-	(*FriendGroupDeleteRequest)(nil),             // 20: gizclaw.rpc.v1.FriendGroupDeleteRequest
-	(*FriendGroupDeleteResponse)(nil),            // 21: gizclaw.rpc.v1.FriendGroupDeleteResponse
-	(*FriendGroupGetRequest)(nil),                // 22: gizclaw.rpc.v1.FriendGroupGetRequest
-	(*FriendGroupGetResponse)(nil),               // 23: gizclaw.rpc.v1.FriendGroupGetResponse
-	(*FriendGroupInviteTokenClearRequest)(nil),   // 24: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
-	(*FriendGroupInviteTokenClearResponse)(nil),  // 25: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
-	(*FriendGroupInviteTokenCreateRequest)(nil),  // 26: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
-	(*FriendGroupInviteTokenCreateResponse)(nil), // 27: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
-	(*FriendGroupInviteTokenGetRequest)(nil),     // 28: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
-	(*FriendGroupInviteTokenGetResponse)(nil),    // 29: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
-	(*FriendGroupJoinRequest)(nil),               // 30: gizclaw.rpc.v1.FriendGroupJoinRequest
-	(*FriendGroupJoinResponse)(nil),              // 31: gizclaw.rpc.v1.FriendGroupJoinResponse
-	(*FriendGroupListRequest)(nil),               // 32: gizclaw.rpc.v1.FriendGroupListRequest
-	(*FriendGroupListResponse)(nil),              // 33: gizclaw.rpc.v1.FriendGroupListResponse
-	(*FriendGroupMemberAddRequest)(nil),          // 34: gizclaw.rpc.v1.FriendGroupMemberAddRequest
-	(*FriendGroupMemberAddResponse)(nil),         // 35: gizclaw.rpc.v1.FriendGroupMemberAddResponse
-	(*FriendGroupMemberDeleteRequest)(nil),       // 36: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
-	(*FriendGroupMemberDeleteResponse)(nil),      // 37: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
-	(*FriendGroupMemberListRequest)(nil),         // 38: gizclaw.rpc.v1.FriendGroupMemberListRequest
-	(*FriendGroupMemberListResponse)(nil),        // 39: gizclaw.rpc.v1.FriendGroupMemberListResponse
-	(*FriendGroupMemberObject)(nil),              // 40: gizclaw.rpc.v1.FriendGroupMemberObject
-	(*FriendGroupMemberPutRequest)(nil),          // 41: gizclaw.rpc.v1.FriendGroupMemberPutRequest
-	(*FriendGroupMemberPutResponse)(nil),         // 42: gizclaw.rpc.v1.FriendGroupMemberPutResponse
-	(*FriendGroupMessageAudioGetRequest)(nil),    // 43: gizclaw.rpc.v1.FriendGroupMessageAudioGetRequest
-	(*FriendGroupMessageAudioGetResponse)(nil),   // 44: gizclaw.rpc.v1.FriendGroupMessageAudioGetResponse
-	(*FriendGroupMessageGetRequest)(nil),         // 45: gizclaw.rpc.v1.FriendGroupMessageGetRequest
-	(*FriendGroupMessageGetResponse)(nil),        // 46: gizclaw.rpc.v1.FriendGroupMessageGetResponse
-	(*FriendGroupMessageListRequest)(nil),        // 47: gizclaw.rpc.v1.FriendGroupMessageListRequest
-	(*FriendGroupMessageListResponse)(nil),       // 48: gizclaw.rpc.v1.FriendGroupMessageListResponse
-	(*FriendGroupMessageObject)(nil),             // 49: gizclaw.rpc.v1.FriendGroupMessageObject
-	(*FriendGroupObject)(nil),                    // 50: gizclaw.rpc.v1.FriendGroupObject
-	(*FriendGroupPutRequest)(nil),                // 51: gizclaw.rpc.v1.FriendGroupPutRequest
-	(*FriendGroupPutResponse)(nil),               // 52: gizclaw.rpc.v1.FriendGroupPutResponse
-	(*FriendInviteTokenClearRequest)(nil),        // 53: gizclaw.rpc.v1.FriendInviteTokenClearRequest
-	(*FriendInviteTokenClearResponse)(nil),       // 54: gizclaw.rpc.v1.FriendInviteTokenClearResponse
-	(*FriendInviteTokenCreateRequest)(nil),       // 55: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
-	(*FriendInviteTokenCreateResponse)(nil),      // 56: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
-	(*FriendInviteTokenGetRequest)(nil),          // 57: gizclaw.rpc.v1.FriendInviteTokenGetRequest
-	(*FriendInviteTokenGetResponse)(nil),         // 58: gizclaw.rpc.v1.FriendInviteTokenGetResponse
-	(*FriendListRequest)(nil),                    // 59: gizclaw.rpc.v1.FriendListRequest
-	(*FriendListResponse)(nil),                   // 60: gizclaw.rpc.v1.FriendListResponse
-	(*FriendObject)(nil),                         // 61: gizclaw.rpc.v1.FriendObject
-	(FriendGroupMemberMutableRole)(0),            // 62: gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	(FriendGroupMemberRole)(0),                   // 63: gizclaw.rpc.v1.FriendGroupMemberRole
-	(WorkspaceHistoryListRequestOrder)(0),        // 64: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(PeerRunHistoryEntryType)(0),                 // 65: gizclaw.rpc.v1.PeerRunHistoryEntryType
+	(*ContactCreateRequest)(nil),                    // 0: gizclaw.rpc.v1.ContactCreateRequest
+	(*ContactCreateResponse)(nil),                   // 1: gizclaw.rpc.v1.ContactCreateResponse
+	(*ContactDeleteRequest)(nil),                    // 2: gizclaw.rpc.v1.ContactDeleteRequest
+	(*ContactDeleteResponse)(nil),                   // 3: gizclaw.rpc.v1.ContactDeleteResponse
+	(*ContactGetRequest)(nil),                       // 4: gizclaw.rpc.v1.ContactGetRequest
+	(*ContactGetResponse)(nil),                      // 5: gizclaw.rpc.v1.ContactGetResponse
+	(*ContactListRequest)(nil),                      // 6: gizclaw.rpc.v1.ContactListRequest
+	(*ContactListResponse)(nil),                     // 7: gizclaw.rpc.v1.ContactListResponse
+	(*ContactObject)(nil),                           // 8: gizclaw.rpc.v1.ContactObject
+	(*ContactPutRequest)(nil),                       // 9: gizclaw.rpc.v1.ContactPutRequest
+	(*ContactPutResponse)(nil),                      // 10: gizclaw.rpc.v1.ContactPutResponse
+	(*FriendAddRequest)(nil),                        // 11: gizclaw.rpc.v1.FriendAddRequest
+	(*FriendAddResponse)(nil),                       // 12: gizclaw.rpc.v1.FriendAddResponse
+	(*FriendDeleteRequest)(nil),                     // 13: gizclaw.rpc.v1.FriendDeleteRequest
+	(*FriendDeleteResponse)(nil),                    // 14: gizclaw.rpc.v1.FriendDeleteResponse
+	(*FriendInfo)(nil),                              // 15: gizclaw.rpc.v1.FriendInfo
+	(*FriendInfoGetRequest)(nil),                    // 16: gizclaw.rpc.v1.FriendInfoGetRequest
+	(*FriendInfoGetResponse)(nil),                   // 17: gizclaw.rpc.v1.FriendInfoGetResponse
+	(*FriendGroupCreateRequest)(nil),                // 18: gizclaw.rpc.v1.FriendGroupCreateRequest
+	(*FriendGroupCreateResponse)(nil),               // 19: gizclaw.rpc.v1.FriendGroupCreateResponse
+	(*FriendGroupDeleteRequest)(nil),                // 20: gizclaw.rpc.v1.FriendGroupDeleteRequest
+	(*FriendGroupDeleteResponse)(nil),               // 21: gizclaw.rpc.v1.FriendGroupDeleteResponse
+	(*FriendGroupGetRequest)(nil),                   // 22: gizclaw.rpc.v1.FriendGroupGetRequest
+	(*FriendGroupGetResponse)(nil),                  // 23: gizclaw.rpc.v1.FriendGroupGetResponse
+	(*FriendGroupInviteTokenClearRequest)(nil),      // 24: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
+	(*FriendGroupInviteTokenClearResponse)(nil),     // 25: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
+	(*FriendGroupInviteTokenCreateRequest)(nil),     // 26: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
+	(*FriendGroupInviteTokenCreateResponse)(nil),    // 27: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
+	(*FriendGroupInviteTokenGetRequest)(nil),        // 28: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
+	(*FriendGroupInviteTokenGetResponse)(nil),       // 29: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
+	(*FriendGroupJoinRequest)(nil),                  // 30: gizclaw.rpc.v1.FriendGroupJoinRequest
+	(*FriendGroupJoinResponse)(nil),                 // 31: gizclaw.rpc.v1.FriendGroupJoinResponse
+	(*FriendGroupListRequest)(nil),                  // 32: gizclaw.rpc.v1.FriendGroupListRequest
+	(*FriendGroupListResponse)(nil),                 // 33: gizclaw.rpc.v1.FriendGroupListResponse
+	(*FriendGroupMemberAddRequest)(nil),             // 34: gizclaw.rpc.v1.FriendGroupMemberAddRequest
+	(*FriendGroupMemberAddResponse)(nil),            // 35: gizclaw.rpc.v1.FriendGroupMemberAddResponse
+	(*FriendGroupMemberDeleteRequest)(nil),          // 36: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
+	(*FriendGroupMemberDeleteResponse)(nil),         // 37: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
+	(*FriendGroupMemberListRequest)(nil),            // 38: gizclaw.rpc.v1.FriendGroupMemberListRequest
+	(*FriendGroupMemberListResponse)(nil),           // 39: gizclaw.rpc.v1.FriendGroupMemberListResponse
+	(*FriendGroupMemberObject)(nil),                 // 40: gizclaw.rpc.v1.FriendGroupMemberObject
+	(*FriendGroupMemberPutRequest)(nil),             // 41: gizclaw.rpc.v1.FriendGroupMemberPutRequest
+	(*FriendGroupMemberPutResponse)(nil),            // 42: gizclaw.rpc.v1.FriendGroupMemberPutResponse
+	(*FriendGroupMessageAudioDownloadRequest)(nil),  // 43: gizclaw.rpc.v1.FriendGroupMessageAudioDownloadRequest
+	(*FriendGroupMessageAudioDownloadResponse)(nil), // 44: gizclaw.rpc.v1.FriendGroupMessageAudioDownloadResponse
+	(*FriendGroupMessageGetRequest)(nil),            // 45: gizclaw.rpc.v1.FriendGroupMessageGetRequest
+	(*FriendGroupMessageGetResponse)(nil),           // 46: gizclaw.rpc.v1.FriendGroupMessageGetResponse
+	(*FriendGroupMessageListRequest)(nil),           // 47: gizclaw.rpc.v1.FriendGroupMessageListRequest
+	(*FriendGroupMessageListResponse)(nil),          // 48: gizclaw.rpc.v1.FriendGroupMessageListResponse
+	(*FriendGroupMessageObject)(nil),                // 49: gizclaw.rpc.v1.FriendGroupMessageObject
+	(*FriendGroupObject)(nil),                       // 50: gizclaw.rpc.v1.FriendGroupObject
+	(*FriendGroupPutRequest)(nil),                   // 51: gizclaw.rpc.v1.FriendGroupPutRequest
+	(*FriendGroupPutResponse)(nil),                  // 52: gizclaw.rpc.v1.FriendGroupPutResponse
+	(*FriendInviteTokenClearRequest)(nil),           // 53: gizclaw.rpc.v1.FriendInviteTokenClearRequest
+	(*FriendInviteTokenClearResponse)(nil),          // 54: gizclaw.rpc.v1.FriendInviteTokenClearResponse
+	(*FriendInviteTokenCreateRequest)(nil),          // 55: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
+	(*FriendInviteTokenCreateResponse)(nil),         // 56: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
+	(*FriendInviteTokenGetRequest)(nil),             // 57: gizclaw.rpc.v1.FriendInviteTokenGetRequest
+	(*FriendInviteTokenGetResponse)(nil),            // 58: gizclaw.rpc.v1.FriendInviteTokenGetResponse
+	(*FriendListRequest)(nil),                       // 59: gizclaw.rpc.v1.FriendListRequest
+	(*FriendListResponse)(nil),                      // 60: gizclaw.rpc.v1.FriendListResponse
+	(*FriendObject)(nil),                            // 61: gizclaw.rpc.v1.FriendObject
+	(FriendGroupMemberMutableRole)(0),               // 62: gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	(FriendGroupMemberRole)(0),                      // 63: gizclaw.rpc.v1.FriendGroupMemberRole
+	(WorkspaceHistoryListRequestOrder)(0),           // 64: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	(PeerRunHistoryEntryType)(0),                    // 65: gizclaw.rpc.v1.PeerRunHistoryEntryType
 }
 var file_payload_social_proto_depIdxs = []int32{
 	8,  // 0: gizclaw.rpc.v1.ContactCreateResponse.value:type_name -> gizclaw.rpc.v1.ContactObject

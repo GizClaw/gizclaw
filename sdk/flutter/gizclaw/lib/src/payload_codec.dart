@@ -67,10 +67,10 @@ final _messageFactories = <String, MessageFactory>{
   'FriendGroupMemberListResponse': payload.FriendGroupMemberListResponse.new,
   'FriendGroupMemberPutRequest': payload.FriendGroupMemberPutRequest.new,
   'FriendGroupMemberPutResponse': payload.FriendGroupMemberPutResponse.new,
-  'FriendGroupMessageAudioGetRequest':
-      payload.FriendGroupMessageAudioGetRequest.new,
-  'FriendGroupMessageAudioGetResponse':
-      payload.FriendGroupMessageAudioGetResponse.new,
+  'FriendGroupMessageAudioDownloadRequest':
+      payload.FriendGroupMessageAudioDownloadRequest.new,
+  'FriendGroupMessageAudioDownloadResponse':
+      payload.FriendGroupMessageAudioDownloadResponse.new,
   'FriendGroupMessageGetRequest': payload.FriendGroupMessageGetRequest.new,
   'FriendGroupMessageGetResponse': payload.FriendGroupMessageGetResponse.new,
   'FriendGroupMessageListRequest': payload.FriendGroupMessageListRequest.new,
@@ -214,10 +214,10 @@ final _messageFactories = <String, MessageFactory>{
   'WorkspaceDeleteResponse': payload.WorkspaceDeleteResponse.new,
   'WorkspaceGetRequest': payload.WorkspaceGetRequest.new,
   'WorkspaceGetResponse': payload.WorkspaceGetResponse.new,
-  'WorkspaceHistoryAudioGetRequest':
-      payload.WorkspaceHistoryAudioGetRequest.new,
-  'WorkspaceHistoryAudioGetResponse':
-      payload.WorkspaceHistoryAudioGetResponse.new,
+  'WorkspaceHistoryAudioDownloadRequest':
+      payload.WorkspaceHistoryAudioDownloadRequest.new,
+  'WorkspaceHistoryAudioDownloadResponse':
+      payload.WorkspaceHistoryAudioDownloadResponse.new,
   'WorkspaceHistoryGetRequest': payload.WorkspaceHistoryGetRequest.new,
   'WorkspaceHistoryGetResponse': payload.WorkspaceHistoryGetResponse.new,
   'WorkspaceHistoryListRequest': payload.WorkspaceHistoryListRequest.new,
@@ -288,10 +288,10 @@ final _messageTypes = <String, Type>{
   'FriendGroupMemberListResponse': payload.FriendGroupMemberListResponse,
   'FriendGroupMemberPutRequest': payload.FriendGroupMemberPutRequest,
   'FriendGroupMemberPutResponse': payload.FriendGroupMemberPutResponse,
-  'FriendGroupMessageAudioGetRequest':
-      payload.FriendGroupMessageAudioGetRequest,
-  'FriendGroupMessageAudioGetResponse':
-      payload.FriendGroupMessageAudioGetResponse,
+  'FriendGroupMessageAudioDownloadRequest':
+      payload.FriendGroupMessageAudioDownloadRequest,
+  'FriendGroupMessageAudioDownloadResponse':
+      payload.FriendGroupMessageAudioDownloadResponse,
   'FriendGroupMessageGetRequest': payload.FriendGroupMessageGetRequest,
   'FriendGroupMessageGetResponse': payload.FriendGroupMessageGetResponse,
   'FriendGroupMessageListRequest': payload.FriendGroupMessageListRequest,
@@ -430,8 +430,10 @@ final _messageTypes = <String, Type>{
   'WorkspaceDeleteResponse': payload.WorkspaceDeleteResponse,
   'WorkspaceGetRequest': payload.WorkspaceGetRequest,
   'WorkspaceGetResponse': payload.WorkspaceGetResponse,
-  'WorkspaceHistoryAudioGetRequest': payload.WorkspaceHistoryAudioGetRequest,
-  'WorkspaceHistoryAudioGetResponse': payload.WorkspaceHistoryAudioGetResponse,
+  'WorkspaceHistoryAudioDownloadRequest':
+      payload.WorkspaceHistoryAudioDownloadRequest,
+  'WorkspaceHistoryAudioDownloadResponse':
+      payload.WorkspaceHistoryAudioDownloadResponse,
   'WorkspaceHistoryGetRequest': payload.WorkspaceHistoryGetRequest,
   'WorkspaceHistoryGetResponse': payload.WorkspaceHistoryGetResponse,
   'WorkspaceHistoryListRequest': payload.WorkspaceHistoryListRequest,

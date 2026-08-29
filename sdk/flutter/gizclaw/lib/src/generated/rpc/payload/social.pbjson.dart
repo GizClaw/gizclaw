@@ -1012,25 +1012,27 @@ final $typed_data.Uint8List friendGroupMemberPutResponseDescriptor =
         'ChxGcmllbmRHcm91cE1lbWJlclB1dFJlc3BvbnNlEj0KBXZhbHVlGAEgASgLMicuZ2l6Y2xhdy'
         '5ycGMudjEuRnJpZW5kR3JvdXBNZW1iZXJPYmplY3RSBXZhbHVl');
 
-@$core.Deprecated('Use friendGroupMessageAudioGetRequestDescriptor instead')
-const FriendGroupMessageAudioGetRequest$json = {
-  '1': 'FriendGroupMessageAudioGetRequest',
+@$core
+    .Deprecated('Use friendGroupMessageAudioDownloadRequestDescriptor instead')
+const FriendGroupMessageAudioDownloadRequest$json = {
+  '1': 'FriendGroupMessageAudioDownloadRequest',
   '2': [
     {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'history_name', '3': 2, '4': 1, '5': 9, '10': 'historyName'},
   ],
 };
 
-/// Descriptor for `FriendGroupMessageAudioGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List friendGroupMessageAudioGetRequestDescriptor =
+/// Descriptor for `FriendGroupMessageAudioDownloadRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendGroupMessageAudioDownloadRequestDescriptor =
     $convert.base64Decode(
-        'CiFGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0dldFJlcXVlc3QSKgoRZnJpZW5kX2dyb3VwX25hbW'
-        'UYASABKAlSD2ZyaWVuZEdyb3VwTmFtZRIhCgxoaXN0b3J5X25hbWUYAiABKAlSC2hpc3RvcnlO'
-        'YW1l');
+        'CiZGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0Rvd25sb2FkUmVxdWVzdBIqChFmcmllbmRfZ3JvdX'
+        'BfbmFtZRgBIAEoCVIPZnJpZW5kR3JvdXBOYW1lEiEKDGhpc3RvcnlfbmFtZRgCIAEoCVILaGlz'
+        'dG9yeU5hbWU=');
 
-@$core.Deprecated('Use friendGroupMessageAudioGetResponseDescriptor instead')
-const FriendGroupMessageAudioGetResponse$json = {
-  '1': 'FriendGroupMessageAudioGetResponse',
+@$core
+    .Deprecated('Use friendGroupMessageAudioDownloadResponseDescriptor instead')
+const FriendGroupMessageAudioDownloadResponse$json = {
+  '1': 'FriendGroupMessageAudioDownloadResponse',
   '2': [
     {'1': 'friend_group_name', '3': 1, '4': 1, '5': 9, '10': 'friendGroupName'},
     {'1': 'history_name', '3': 2, '4': 1, '5': 9, '10': 'historyName'},
@@ -1039,13 +1041,13 @@ const FriendGroupMessageAudioGetResponse$json = {
   ],
 };
 
-/// Descriptor for `FriendGroupMessageAudioGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List friendGroupMessageAudioGetResponseDescriptor =
+/// Descriptor for `FriendGroupMessageAudioDownloadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List friendGroupMessageAudioDownloadResponseDescriptor =
     $convert.base64Decode(
-        'CiJGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0dldFJlc3BvbnNlEioKEWZyaWVuZF9ncm91cF9uYW'
-        '1lGAEgASgJUg9mcmllbmRHcm91cE5hbWUSIQoMaGlzdG9yeV9uYW1lGAIgASgJUgtoaXN0b3J5'
-        'TmFtZRIbCgltaW1lX3R5cGUYAyABKAlSCG1pbWVUeXBlEh0KCnNpemVfYnl0ZXMYBCABKANSCX'
-        'NpemVCeXRlcw==');
+        'CidGcmllbmRHcm91cE1lc3NhZ2VBdWRpb0Rvd25sb2FkUmVzcG9uc2USKgoRZnJpZW5kX2dyb3'
+        'VwX25hbWUYASABKAlSD2ZyaWVuZEdyb3VwTmFtZRIhCgxoaXN0b3J5X25hbWUYAiABKAlSC2hp'
+        'c3RvcnlOYW1lEhsKCW1pbWVfdHlwZRgDIAEoCVIIbWltZVR5cGUSHQoKc2l6ZV9ieXRlcxgEIA'
+        'EoA1IJc2l6ZUJ5dGVz');
 
 @$core.Deprecated('Use friendGroupMessageGetRequestDescriptor instead')
 const FriendGroupMessageGetRequest$json = {

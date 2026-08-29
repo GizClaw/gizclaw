@@ -3819,8 +3819,8 @@ class WorkspaceGetResponse extends $pb.GeneratedMessage {
   void clearRuntimeProfileRevision() => $_clearField(3);
 }
 
-class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
-  factory WorkspaceHistoryAudioGetRequest({
+class WorkspaceHistoryAudioDownloadRequest extends $pb.GeneratedMessage {
+  factory WorkspaceHistoryAudioDownloadRequest({
     $core.String? historyName,
     $core.String? workspaceName,
   }) {
@@ -3830,17 +3830,18 @@ class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
     return result;
   }
 
-  WorkspaceHistoryAudioGetRequest._();
+  WorkspaceHistoryAudioDownloadRequest._();
 
-  factory WorkspaceHistoryAudioGetRequest.fromBuffer($core.List<$core.int> data,
+  factory WorkspaceHistoryAudioDownloadRequest.fromBuffer(
+          $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory WorkspaceHistoryAudioGetRequest.fromJson($core.String json,
+  factory WorkspaceHistoryAudioDownloadRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkspaceHistoryAudioGetRequest',
+      _omitMessageNames ? '' : 'WorkspaceHistoryAudioDownloadRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'historyName')
@@ -3848,27 +3849,27 @@ class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceHistoryAudioGetRequest clone() => deepCopy();
+  WorkspaceHistoryAudioDownloadRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceHistoryAudioGetRequest copyWith(
-          void Function(WorkspaceHistoryAudioGetRequest) updates) =>
-      super.copyWith(
-              (message) => updates(message as WorkspaceHistoryAudioGetRequest))
-          as WorkspaceHistoryAudioGetRequest;
+  WorkspaceHistoryAudioDownloadRequest copyWith(
+          void Function(WorkspaceHistoryAudioDownloadRequest) updates) =>
+      super.copyWith((message) =>
+              updates(message as WorkspaceHistoryAudioDownloadRequest))
+          as WorkspaceHistoryAudioDownloadRequest;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static WorkspaceHistoryAudioGetRequest create() =>
-      WorkspaceHistoryAudioGetRequest._();
+  static WorkspaceHistoryAudioDownloadRequest create() =>
+      WorkspaceHistoryAudioDownloadRequest._();
   @$core.override
-  WorkspaceHistoryAudioGetRequest createEmptyInstance() => create();
+  WorkspaceHistoryAudioDownloadRequest createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static WorkspaceHistoryAudioGetRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkspaceHistoryAudioGetRequest>(
-          create);
-  static WorkspaceHistoryAudioGetRequest? _defaultInstance;
+  static WorkspaceHistoryAudioDownloadRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          WorkspaceHistoryAudioDownloadRequest>(create);
+  static WorkspaceHistoryAudioDownloadRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get historyName => $_getSZ(0);
@@ -3889,8 +3890,8 @@ class WorkspaceHistoryAudioGetRequest extends $pb.GeneratedMessage {
   void clearWorkspaceName() => $_clearField(2);
 }
 
-class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
-  factory WorkspaceHistoryAudioGetResponse({
+class WorkspaceHistoryAudioDownloadResponse extends $pb.GeneratedMessage {
+  factory WorkspaceHistoryAudioDownloadResponse({
     $core.String? historyName,
     $core.String? mimeType,
     $fixnum.Int64? sizeBytes,
@@ -3904,18 +3905,18 @@ class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
     return result;
   }
 
-  WorkspaceHistoryAudioGetResponse._();
+  WorkspaceHistoryAudioDownloadResponse._();
 
-  factory WorkspaceHistoryAudioGetResponse.fromBuffer(
+  factory WorkspaceHistoryAudioDownloadResponse.fromBuffer(
           $core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory WorkspaceHistoryAudioGetResponse.fromJson($core.String json,
+  factory WorkspaceHistoryAudioDownloadResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkspaceHistoryAudioGetResponse',
+      _omitMessageNames ? '' : 'WorkspaceHistoryAudioDownloadResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'historyName')
@@ -3925,27 +3926,27 @@ class WorkspaceHistoryAudioGetResponse extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceHistoryAudioGetResponse clone() => deepCopy();
+  WorkspaceHistoryAudioDownloadResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceHistoryAudioGetResponse copyWith(
-          void Function(WorkspaceHistoryAudioGetResponse) updates) =>
-      super.copyWith(
-              (message) => updates(message as WorkspaceHistoryAudioGetResponse))
-          as WorkspaceHistoryAudioGetResponse;
+  WorkspaceHistoryAudioDownloadResponse copyWith(
+          void Function(WorkspaceHistoryAudioDownloadResponse) updates) =>
+      super.copyWith((message) =>
+              updates(message as WorkspaceHistoryAudioDownloadResponse))
+          as WorkspaceHistoryAudioDownloadResponse;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static WorkspaceHistoryAudioGetResponse create() =>
-      WorkspaceHistoryAudioGetResponse._();
+  static WorkspaceHistoryAudioDownloadResponse create() =>
+      WorkspaceHistoryAudioDownloadResponse._();
   @$core.override
-  WorkspaceHistoryAudioGetResponse createEmptyInstance() => create();
+  WorkspaceHistoryAudioDownloadResponse createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static WorkspaceHistoryAudioGetResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkspaceHistoryAudioGetResponse>(
-          create);
-  static WorkspaceHistoryAudioGetResponse? _defaultInstance;
+  static WorkspaceHistoryAudioDownloadResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          WorkspaceHistoryAudioDownloadResponse>(create);
+  static WorkspaceHistoryAudioDownloadResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get historyName => $_getSZ(0);
