@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -30,7 +31,7 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create admin API client: %v", err)
 	}
-	workflowName := "flowcraft-voice-assistant"
+	workflowName := "chatroom-direct"
 	profileID := fmt.Sprintf("e2e-cli-workspaces-%x", time.Now().UnixNano())
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id: profileID,
@@ -44,7 +45,13 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
 					"assistants": {
-						"voice": {ResourceId: workflowName, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Voice"}}},
+						"voice": {
+							ResourceId: workflowName,
+							I18n: map[string]apitypes.RuntimeProfileI18nText{
+								"en":    {DisplayName: "Voice"},
+								"zh-CN": {DisplayName: "语音助手"},
+							},
+						},
 					},
 				},
 			},
@@ -82,14 +89,32 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	if !strings.Contains(list.Stdout, `"name":"`+workspaceName+`"`) {
 		t.Fatalf("workspaces list missing created item:\n%s", list.Stdout)
 	}
-	workspaceID := adminResourceID(t, list.Stdout, workspaceName)
+	workspaceID := adminWorkspaceIDByName(t, list.Stdout, workspaceName)
 	workflows := h.RunCLI("admin", "workflows", "list", "--context", "admin-a")
 	workflows.MustSucceed(t)
-	voiceWorkflowID := adminResourceID(t, workflows.Stdout, "flowcraft-voice-assistant")
+	workflowID := adminResourceID(t, workflows.Stdout, workflowName)
 
 	get := h.RunCLI("admin", "workspaces", "get", workspaceID, "--context", "admin-a")
 	get.MustSucceed(t)
-	if !strings.Contains(get.Stdout, `"workflow_id":"`+voiceWorkflowID+`"`) {
+	if !strings.Contains(get.Stdout, `"workflow_id":"`+workflowID+`"`) {
 		t.Fatalf("workspaces get missing canonical workflow ID:\n%s", get.Stdout)
 	}
+}
+
+func adminWorkspaceIDByName(t *testing.T, output, name string) string {
+	t.Helper()
+	var workspaces []apitypes.Workspace
+	if err := json.Unmarshal([]byte(output), &workspaces); err != nil {
+		t.Fatalf("decode admin workspace list: %v\n%s", err, output)
+	}
+	for _, workspace := range workspaces {
+		if workspace.Name == name {
+			if workspace.Id == "" {
+				t.Fatalf("admin workspace %q has an empty canonical ID", name)
+			}
+			return workspace.Id
+		}
+	}
+	t.Fatalf("admin workspace %q not found in list:\n%s", name, output)
+	return ""
 }

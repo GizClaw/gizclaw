@@ -17,7 +17,7 @@ func TestRootHelpUserStory(t *testing.T) {
 
 	result := h.RunCLI("--help")
 	result.MustSucceed(t)
-	for _, want := range []string{"serve", "service", "context", "gen-key", "connect", "admin", "edge"} {
+	for _, want := range []string{"serve", "service", "context", "gen-key", "connect", "admin", "edge", "test"} {
 		if !strings.Contains(result.Stdout, want) {
 			t.Fatalf("root help missing %q:\n%s", want, result.Stdout)
 		}
@@ -26,7 +26,7 @@ func TestRootHelpUserStory(t *testing.T) {
 		t.Fatalf("root help should not include old Play UI command:\n%s", result.Stdout)
 	}
 
-	want := []string{"admin", "connect", "context", "edge", "gen-key", "serve", "service"}
+	want := []string{"admin", "connect", "context", "edge", "gen-key", "serve", "service", "test"}
 	got := productCommands(result.Stdout)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("product command inventory = %#v, want %#v\nhelp:\n%s", got, want, result.Stdout)
