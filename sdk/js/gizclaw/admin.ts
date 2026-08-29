@@ -9,7 +9,9 @@ import type {
 export { client as adminHTTPClient } from "./generated/adminhttp/client.gen.ts";
 export * from "./generated/adminhttp/index.ts";
 /** @deprecated Use ConversationParameters. */
-export type { ConversationParameters as FlowcraftConversationParameters } from "./generated/adminhttp/types.gen.ts";
+export type {
+  ConversationParameters as FlowcraftConversationParameters,
+} from "./generated/adminhttp/types.gen.ts";
 export type { AdminHTTPClient };
 
 export function createAdminAPIClient(

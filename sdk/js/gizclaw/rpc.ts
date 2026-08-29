@@ -20,7 +20,8 @@ export type * from "./generated/rpc/payload-codec.ts";
 export { RPC_METHODS } from "./generated/rpc/method-map.ts";
 
 /** @deprecated Use ConversationParameters. */
-export type FlowcraftConversationParameters = RPCPayload.ConversationParameters;
+export type FlowcraftConversationParameters =
+  RPCPayload.ConversationParameters;
 
 type Override<T, U> = Omit<T, keyof U> & U;
 
