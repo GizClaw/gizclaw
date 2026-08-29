@@ -79,7 +79,7 @@
           "input": "push-to-talk"
         }
       },
-      "FlowcraftConversationParameters": {
+      "ConversationParameters": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -118,7 +118,7 @@
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
           "conversation": {
-            "$ref": "#/components/schemas/FlowcraftConversationParameters"
+            "$ref": "#/components/schemas/ConversationParameters"
           },
           "e2e": {
             "type": "boolean",
@@ -247,7 +247,7 @@
         "properties": {
           "agent_type": { "type": "string", "enum": ["eino"] },
           "conversation": {
-            "$ref": "#/components/schemas/FlowcraftConversationParameters"
+            "$ref": "#/components/schemas/ConversationParameters"
           },
           "input": {
             "$ref": "#/components/schemas/WorkspaceInputMode"

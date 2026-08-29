@@ -425,9 +425,9 @@ pkgs/gizclaw/api/apitypes/generated.go:10083:47: interface{} can be replaced by 
 pkgs/gizclaw/api/apitypes/generated.go:10184:43: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:10581:54: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3188:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:3412:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:3900:8: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4074:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:3427:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:3915:8: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4089:22: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4260:11: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4624:34: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4683:22: interface{} can be replaced by any

@@ -216,7 +216,7 @@ func mapInitiative(conversation *apitypes.FlowcraftConversation, policy string) 
 	if conversation == nil || conversation.Starts == nil || *conversation.Starts != apitypes.FlowcraftConversationStartsAgent {
 		return genxflowcraft.InitiativeDisabled
 	}
-	if policy == string(apitypes.FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty) {
+	if policy == string(apitypes.ConversationParametersAgentInitiativePolicyOnceWhenEmpty) {
 		return genxflowcraft.InitiativeOnceWhenEmpty
 	}
 	return genxflowcraft.InitiativeOnReload

@@ -148,6 +148,42 @@ func (e ContactResourceKind) Valid() bool {
 	}
 }
 
+// Defines values for ConversationParametersAgentInitiativePolicy.
+const (
+	ConversationParametersAgentInitiativePolicyOnReload      ConversationParametersAgentInitiativePolicy = "on_reload"
+	ConversationParametersAgentInitiativePolicyOnceWhenEmpty ConversationParametersAgentInitiativePolicy = "once_when_empty"
+)
+
+// Valid indicates whether the value is a known member of the ConversationParametersAgentInitiativePolicy enum.
+func (e ConversationParametersAgentInitiativePolicy) Valid() bool {
+	switch e {
+	case ConversationParametersAgentInitiativePolicyOnReload:
+		return true
+	case ConversationParametersAgentInitiativePolicyOnceWhenEmpty:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConversationParametersInitiative.
+const (
+	ConversationParametersInitiativeAgent ConversationParametersInitiative = "agent"
+	ConversationParametersInitiativePeer  ConversationParametersInitiative = "peer"
+)
+
+// Valid indicates whether the value is a known member of the ConversationParametersInitiative enum.
+func (e ConversationParametersInitiative) Valid() bool {
+	switch e {
+	case ConversationParametersInitiativeAgent:
+		return true
+	case ConversationParametersInitiativePeer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CredentialResourceKind.
 const (
 	CredentialResourceKindCredential CredentialResourceKind = "Credential"
@@ -1171,42 +1207,6 @@ func (e FlowcraftConversationStarts) Valid() bool {
 	case FlowcraftConversationStartsAgent:
 		return true
 	case FlowcraftConversationStartsPeer:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftConversationParametersAgentInitiativePolicy.
-const (
-	FlowcraftConversationParametersAgentInitiativePolicyOnReload      FlowcraftConversationParametersAgentInitiativePolicy = "on_reload"
-	FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty FlowcraftConversationParametersAgentInitiativePolicy = "once_when_empty"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftConversationParametersAgentInitiativePolicy enum.
-func (e FlowcraftConversationParametersAgentInitiativePolicy) Valid() bool {
-	switch e {
-	case FlowcraftConversationParametersAgentInitiativePolicyOnReload:
-		return true
-	case FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftConversationParametersInitiative.
-const (
-	FlowcraftConversationParametersInitiativeAgent FlowcraftConversationParametersInitiative = "agent"
-	FlowcraftConversationParametersInitiativePeer  FlowcraftConversationParametersInitiative = "peer"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftConversationParametersInitiative enum.
-func (e FlowcraftConversationParametersInitiative) Valid() bool {
-	switch e {
-	case FlowcraftConversationParametersInitiativeAgent:
-		return true
-	case FlowcraftConversationParametersInitiativePeer:
 		return true
 	default:
 		return false
@@ -3230,6 +3230,21 @@ type ContactSpec struct {
 	PhoneNumber    *string `json:"phone_number,omitempty"`
 }
 
+// ConversationParameters defines model for ConversationParameters.
+type ConversationParameters struct {
+	// AgentInitiativePolicy When agent initiative is allowed.
+	AgentInitiativePolicy *ConversationParametersAgentInitiativePolicy `json:"agent_initiative_policy,omitempty"`
+
+	// Initiative Who starts the conversation when the workspace runtime opens.
+	Initiative *ConversationParametersInitiative `json:"initiative,omitempty"`
+}
+
+// ConversationParametersAgentInitiativePolicy When agent initiative is allowed.
+type ConversationParametersAgentInitiativePolicy string
+
+// ConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
+type ConversationParametersInitiative string
+
 // Credential defines model for Credential.
 type Credential struct {
 	// Body Provider-specific credential payload. The shape is selected by Credential.provider.
@@ -4060,7 +4075,7 @@ type EinoWorkflowSpec struct {
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
 type EinoWorkspaceParameters struct {
 	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *FlowcraftConversationParameters `json:"conversation,omitempty"`
+	Conversation *ConversationParameters          `json:"conversation,omitempty"`
 	E2e          *bool                            `json:"e2e,omitempty"`
 	Input        *WorkspaceInputMode              `json:"input,omitempty"`
 }
@@ -4159,21 +4174,6 @@ type FlowcraftConversation struct {
 
 // FlowcraftConversationStarts defines model for FlowcraftConversation.Starts.
 type FlowcraftConversationStarts string
-
-// FlowcraftConversationParameters defines model for FlowcraftConversationParameters.
-type FlowcraftConversationParameters struct {
-	// AgentInitiativePolicy When agent initiative is allowed.
-	AgentInitiativePolicy *FlowcraftConversationParametersAgentInitiativePolicy `json:"agent_initiative_policy,omitempty"`
-
-	// Initiative Who starts the conversation when the workspace runtime opens.
-	Initiative *FlowcraftConversationParametersInitiative `json:"initiative,omitempty"`
-}
-
-// FlowcraftConversationParametersAgentInitiativePolicy When agent initiative is allowed.
-type FlowcraftConversationParametersAgentInitiativePolicy string
-
-// FlowcraftConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
-type FlowcraftConversationParametersInitiative string
 
 // FlowcraftEdge defines model for FlowcraftEdge.
 type FlowcraftEdge struct {
@@ -4437,7 +4437,7 @@ type FlowcraftWorkflowSpec struct {
 // FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
 type FlowcraftWorkspaceParameters struct {
 	AgentType    FlowcraftWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *FlowcraftConversationParameters      `json:"conversation,omitempty"`
+	Conversation *ConversationParameters               `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
 	E2e   *bool               `json:"e2e,omitempty"`

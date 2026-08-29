@@ -240,36 +240,36 @@ func (e FirmwareChannelName) Valid() bool {
 	}
 }
 
-// Defines values for FlowcraftConversationParametersAgentInitiativePolicy.
+// Defines values for ConversationParametersAgentInitiativePolicy.
 const (
-	FlowcraftConversationParametersAgentInitiativePolicyOnReload      FlowcraftConversationParametersAgentInitiativePolicy = "on_reload"
-	FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty FlowcraftConversationParametersAgentInitiativePolicy = "once_when_empty"
+	ConversationParametersAgentInitiativePolicyOnReload      ConversationParametersAgentInitiativePolicy = "on_reload"
+	ConversationParametersAgentInitiativePolicyOnceWhenEmpty ConversationParametersAgentInitiativePolicy = "once_when_empty"
 )
 
-// Valid indicates whether the value is a known member of the FlowcraftConversationParametersAgentInitiativePolicy enum.
-func (e FlowcraftConversationParametersAgentInitiativePolicy) Valid() bool {
+// Valid indicates whether the value is a known member of the ConversationParametersAgentInitiativePolicy enum.
+func (e ConversationParametersAgentInitiativePolicy) Valid() bool {
 	switch e {
-	case FlowcraftConversationParametersAgentInitiativePolicyOnReload:
+	case ConversationParametersAgentInitiativePolicyOnReload:
 		return true
-	case FlowcraftConversationParametersAgentInitiativePolicyOnceWhenEmpty:
+	case ConversationParametersAgentInitiativePolicyOnceWhenEmpty:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for FlowcraftConversationParametersInitiative.
+// Defines values for ConversationParametersInitiative.
 const (
-	FlowcraftConversationParametersInitiativeAgent FlowcraftConversationParametersInitiative = "agent"
-	FlowcraftConversationParametersInitiativePeer  FlowcraftConversationParametersInitiative = "peer"
+	ConversationParametersInitiativeAgent ConversationParametersInitiative = "agent"
+	ConversationParametersInitiativePeer  ConversationParametersInitiative = "peer"
 )
 
-// Valid indicates whether the value is a known member of the FlowcraftConversationParametersInitiative enum.
-func (e FlowcraftConversationParametersInitiative) Valid() bool {
+// Valid indicates whether the value is a known member of the ConversationParametersInitiative enum.
+func (e ConversationParametersInitiative) Valid() bool {
 	switch e {
-	case FlowcraftConversationParametersInitiativeAgent:
+	case ConversationParametersInitiativeAgent:
 		return true
-	case FlowcraftConversationParametersInitiativePeer:
+	case ConversationParametersInitiativePeer:
 		return true
 	default:
 		return false
@@ -1599,7 +1599,7 @@ type EinoWorkflowSpec struct {
 
 type EinoWorkspaceParameters struct {
 	AgentType    EinoWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *FlowcraftConversationParameters `json:"conversation,omitempty"`
+	Conversation *ConversationParameters          `json:"conversation,omitempty"`
 	E2e          *bool                            `json:"e2e,omitempty"`
 	Input        *WorkspaceInputMode              `json:"input,omitempty"`
 }
@@ -1630,20 +1630,20 @@ type FirmwareGetResponse struct {
 	Url         string              `json:"url"`
 }
 
-// FlowcraftConversationParameters defines model for FlowcraftConversationParameters.
-type FlowcraftConversationParameters struct {
+// ConversationParameters defines model for ConversationParameters.
+type ConversationParameters struct {
 	// AgentInitiativePolicy When agent initiative is allowed.
-	AgentInitiativePolicy *FlowcraftConversationParametersAgentInitiativePolicy `json:"agent_initiative_policy,omitempty"`
+	AgentInitiativePolicy *ConversationParametersAgentInitiativePolicy `json:"agent_initiative_policy,omitempty"`
 
 	// Initiative Who starts the conversation when the workspace runtime opens.
-	Initiative *FlowcraftConversationParametersInitiative `json:"initiative,omitempty"`
+	Initiative *ConversationParametersInitiative `json:"initiative,omitempty"`
 }
 
-// FlowcraftConversationParametersAgentInitiativePolicy When agent initiative is allowed.
-type FlowcraftConversationParametersAgentInitiativePolicy string
+// ConversationParametersAgentInitiativePolicy When agent initiative is allowed.
+type ConversationParametersAgentInitiativePolicy string
 
-// FlowcraftConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
-type FlowcraftConversationParametersInitiative string
+// ConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
+type ConversationParametersInitiative string
 
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
 type FlowcraftWorkflowSpec map[string]any
@@ -1651,7 +1651,7 @@ type FlowcraftWorkflowSpec map[string]any
 // FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
 type FlowcraftWorkspaceParameters struct {
 	AgentType    FlowcraftWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *FlowcraftConversationParameters      `json:"conversation,omitempty"`
+	Conversation *ConversationParameters               `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
 	E2e   *bool               `json:"e2e,omitempty"`
