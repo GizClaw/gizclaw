@@ -477,15 +477,13 @@ func TestInvokePeerStreamAwaitRearmPreservesSuccessfulBOSEvidenceOnResponseTimeo
 			<-stream.pushes
 		}
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-	defer cancel()
-	result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
+	result, err := invokePeerStreamWithSessions(context.Background(), nil, func() (peerStream, error) {
 		t.Fatal("await_rearm opened a replacement PeerStream")
 		return nil, nil
 	}, sessions, Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
-		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
+		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED", IdleTimeout: "20ms",
 	}}, []byte{1}, 0)
-	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
+	if err == nil || !strings.Contains(err.Error(), "peer_stream idle timeout exceeded after 20ms") {
 		t.Fatalf("error = %v", err)
 	}
 	if result.evidence["reload_eos_observed"] != true || result.evidence["replacement_bos_sent"] != true || result.evidence["stream_id_changed"] != true || result.evidence["session_connection_reused"] != true {
