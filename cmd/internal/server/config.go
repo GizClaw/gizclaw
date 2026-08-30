@@ -178,6 +178,8 @@ type storageFileConfig struct {
 	Kind            string `yaml:"kind"`
 	Dir             string `yaml:"dir"`
 	DSN             string `yaml:"dsn"`
+	URL             string `yaml:"url"`
+	TLSCAFile       string `yaml:"tls_ca_file"`
 	RemoteWriteURL  string `yaml:"remote_write_url"`
 	QueryURL        string `yaml:"query_url"`
 	BearerToken     string `yaml:"bearer_token"`
@@ -207,6 +209,8 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 		return storage.PostgreSQLConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
 	case storage.KindClickHouse:
 		return storage.ClickHouseConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+	case storage.KindRedis:
+		return storage.RedisConfig{URL: os.ExpandEnv(cfg.URL), TLSCAFile: os.ExpandEnv(cfg.TLSCAFile)}, nil
 	case storage.KindPrometheus:
 		return storage.PrometheusConfig{
 			RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL),
@@ -1131,6 +1135,7 @@ func validateStorageConfigShape(value any) error {
 		storage.KindSQLite:        {"kind": {}, "dir": {}, "dsn": {}},
 		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}},
 		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
+		storage.KindRedis:         {"kind": {}, "url": {}, "tls_ca_file": {}},
 		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
 		storage.KindVolcTLS:       {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
 		storage.KindVolcTOS:       {"kind": {}, "endpoint": {}, "region": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "session_token": {}},

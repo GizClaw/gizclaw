@@ -10,6 +10,7 @@ const (
 	KindSQLite        = "sqlite"
 	KindPostgreSQL    = "postgresql"
 	KindClickHouse    = "clickhouse"
+	KindRedis         = "redis"
 	KindPrometheus    = "prometheus"
 	KindVolcTLS       = "volc-tls"
 	KindVolcTOS       = "volc-tos"
@@ -65,6 +66,15 @@ type ClickHouseConfig struct {
 }
 
 func (ClickHouseConfig) storageKind() string { return KindClickHouse }
+
+// RedisConfig configures one single-node Redis connection. TLSCAFile adds
+// trusted PEM certificates for rediss URLs.
+type RedisConfig struct {
+	URL       string
+	TLSCAFile string
+}
+
+func (RedisConfig) storageKind() string { return KindRedis }
 
 // PrometheusConfig configures one Prometheus API client and its remote-write
 // endpoint.
@@ -130,7 +140,7 @@ func normalizeConfig(config Config) (Config, error) {
 	case nil:
 		return nil, errNilConfig
 	case BadgerConfig, MemoryConfig, FilesystemDirConfig, SQLiteConfig,
-		PostgreSQLConfig, ClickHouseConfig, PrometheusConfig, VolcTLSConfig,
+		PostgreSQLConfig, ClickHouseConfig, RedisConfig, PrometheusConfig, VolcTLSConfig,
 		VolcTOSConfig, AliyunOSSConfig, GCSConfig, AzureBlobConfig:
 		return cfg, nil
 	case *BadgerConfig:
@@ -159,6 +169,11 @@ func normalizeConfig(config Config) (Config, error) {
 		}
 		return *cfg, nil
 	case *ClickHouseConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return *cfg, nil
+	case *RedisConfig:
 		if cfg == nil {
 			return nil, errNilConfig
 		}

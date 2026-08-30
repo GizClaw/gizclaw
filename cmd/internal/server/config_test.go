@@ -525,6 +525,15 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 			file: storageFileConfig{Kind: storage.KindClickHouse, DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
 			want: storage.ClickHouseConfig{DSN: "expanded/dsn"},
 		},
+		"redis": {
+			file: storageFileConfig{
+				Kind: storage.KindRedis, URL: "rediss://${GIZCLAW_TEST_CONFIG_VALUE}:6379/0",
+				TLSCAFile: "/run/secrets/${GIZCLAW_TEST_CONFIG_VALUE}-redis-ca.pem",
+			},
+			want: storage.RedisConfig{
+				URL: "rediss://expanded:6379/0", TLSCAFile: "/run/secrets/expanded-redis-ca.pem",
+			},
+		},
 		"prometheus": {
 			file: storageFileConfig{
 				Kind: storage.KindPrometheus, RemoteWriteURL: "${GIZCLAW_TEST_CONFIG_VALUE}/write",
@@ -641,6 +650,22 @@ func TestStorageFileConfigRejectsUnknownKind(t *testing.T) {
 	_, err := (storageFileConfig{Kind: "unknown"}).runtimeConfig()
 	if err == nil || !strings.Contains(err.Error(), "unknown storage kind") {
 		t.Fatalf("runtimeConfig() error = %v", err)
+	}
+}
+
+func TestParseConfigAcceptsRedisTLSCAFile(t *testing.T) {
+	config, err := parseConfigData([]byte(`storage:
+  redis:
+    kind: redis
+    url: rediss://user:password@host:6379/0
+    tls_ca_file: /run/secrets/volc-redis-ca.pem
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	redisConfig := config.Storage["redis"]
+	if redisConfig.URL != "rediss://user:password@host:6379/0" || redisConfig.TLSCAFile != "/run/secrets/volc-redis-ca.pem" {
+		t.Fatalf("Redis config = %+v", redisConfig)
 	}
 }
 

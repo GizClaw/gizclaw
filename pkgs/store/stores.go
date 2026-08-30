@@ -83,6 +83,9 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	if err := validateObjectStorePrefixes(configs); err != nil {
 		return nil, err
 	}
+	if err := validateRedisKVPrefixes(configs, physical); err != nil {
+		return nil, err
+	}
 	s := &Stores{
 		storage:     physical,
 		kvs:         make(map[string]kv.Store),
@@ -151,6 +154,54 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	return s, nil
 }
 
+func validateRedisKVPrefixes(configs map[string]Config, physical *storage.Storage) error {
+	type logicalStore struct {
+		name   string
+		prefix string
+	}
+	groups := make(map[string][]logicalStore)
+	for name, cfg := range configs {
+		if cfg.Kind != KindKeyValue || cfg.Storage == "" {
+			continue
+		}
+		kind, err := physical.Kind(cfg.Storage)
+		if err != nil {
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)}
+		}
+		if kind != storage.KindRedis {
+			continue
+		}
+		prefix, err := parseKeyPrefix(cfg.Prefix)
+		if err != nil {
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: keyvalue %q prefix: %w", name, err)}
+		}
+		canonical := strings.Join(prefix, "/")
+		if canonical == "" {
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: redis keyvalue %q requires a non-empty prefix", name)}
+		}
+		if cfg.Prefix != canonical {
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: redis keyvalue %q prefix %q is not clean; use %q", name, cfg.Prefix, canonical)}
+		}
+		groups[cfg.Storage] = append(groups[cfg.Storage], logicalStore{name: name, prefix: canonical})
+	}
+	for physicalName, logical := range groups {
+		slices.SortFunc(logical, func(a, b logicalStore) int { return strings.Compare(a.name, b.name) })
+		for i := range logical {
+			for j := i + 1; j < len(logical); j++ {
+				a, b := logical[i], logical[j]
+				if a.prefix == b.prefix || strings.HasPrefix(a.prefix, b.prefix+"/") || strings.HasPrefix(b.prefix, a.prefix+"/") {
+					err := fmt.Errorf(
+						"stores: physical redis %q has overlapping prefixes for logical stores %q (%q) and %q (%q)",
+						physicalName, a.name, a.prefix, b.name, b.prefix,
+					)
+					return &ConfigError{Name: a.name, Err: &ConfigError{Name: b.name, Err: err}}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func validateConfigs(configs map[string]Config, physical *storage.Storage) error {
 	names := make([]string, 0, len(configs))
 	for name := range configs {
@@ -195,7 +246,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 	}
 	switch cfg.Kind {
 	case KindKeyValue:
-		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && !isSQL {
+		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && storageKind != storage.KindRedis && !isSQL {
 			return fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
 		if err := invalid(cfg.Database != "", "database"); err != nil {
@@ -434,7 +485,7 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
+	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindRedis && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
 		return nil, fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
 	var base kv.Store
@@ -458,6 +509,20 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 			return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 		}
 		base = kv.NewMemory(nil)
+	case storage.KindRedis:
+		if existing := r.kvRoots[cfg.Storage]; existing != nil {
+			base = existing
+			break
+		}
+		client, err := r.storage.Redis(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q resolve redis storage %q: %w", name, cfg.Storage, err)
+		}
+		base, err = kv.NewRedisWithClient(client, nil)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q use redis storage %q: %w", name, cfg.Storage, err)
+		}
+		r.kvRoots[cfg.Storage] = base
 	case storage.KindSQLite, storage.KindPostgreSQL:
 		db, err := r.storage.SQL(cfg.Storage)
 		if err != nil {
