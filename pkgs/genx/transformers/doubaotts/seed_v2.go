@@ -145,7 +145,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 			audio := normalizer.Normalize(chunk.Audio)
 			if ttsDebugEnabled() && !firstAudio && len(audio) > 0 {
 				firstAudio = true
-				slog.Info(
+				slog.InfoContext(ctx,
 					"doubao tts: first audio",
 					"stream_id", meta.StreamID,
 					"name", meta.Name,
@@ -162,7 +162,7 @@ func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTS
 	}
 	audio := normalizer.Flush()
 	if ttsDebugEnabled() && !firstAudio && len(audio) > 0 {
-		slog.Info(
+		slog.InfoContext(ctx,
 			"doubao tts: first audio",
 			"stream_id", meta.StreamID,
 			"name", meta.Name,

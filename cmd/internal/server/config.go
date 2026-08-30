@@ -1269,7 +1269,7 @@ func validateSystemLogConfigShape(path string, value any) error {
 	if !ok {
 		return fmt.Errorf("server: %s must be a mapping", path)
 	}
-	for _, field := range []string{"level", "query_store"} {
+	for _, field := range []string{"level", "node_id", "query_store"} {
 		if reference, exists := mapping[field]; exists {
 			if err := validateFileStoreReference(path+"."+field, reference); err != nil {
 				return err

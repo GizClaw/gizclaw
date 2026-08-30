@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
 	"time"
 )
 
@@ -26,7 +27,9 @@ func (h *storeFailureReportingHandler) Handle(ctx context.Context, record slog.R
 	if err == nil {
 		return nil
 	}
-	failure := slog.NewRecord(time.Now(), slog.LevelError, "system log store sink failed", 0)
+	var pcs [1]uintptr
+	runtime.Callers(1, pcs[:])
+	failure := slog.NewRecord(time.Now(), slog.LevelError, "system log store sink failed", pcs[0])
 	failure.AddAttrs(slog.String("store", h.store))
 	return errors.Join(err, h.fallback.Handle(context.Background(), failure))
 }

@@ -889,12 +889,14 @@ func TestLoadConfigReadsSystemLogConfig(t *testing.T) {
 services:
   system_log:
     level: debug
+    node_id: ${GIZCLAW_TEST_NODE_ID}
     query_store: logs
     sinks:
       - kind: stderr
       - kind: store
         store: logs
 `
+	t.Setenv("GIZCLAW_TEST_NODE_ID", "server-a")
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
@@ -903,7 +905,7 @@ services:
 	if err != nil {
 		t.Fatalf("LoadConfig error = %v", err)
 	}
-	if cfg.Services == nil || cfg.Services.SystemLog == nil || cfg.Services.SystemLog.Level != "debug" || cfg.Services.SystemLog.QueryStore != "logs" || len(cfg.Services.SystemLog.Sinks) != 2 {
+	if cfg.Services == nil || cfg.Services.SystemLog == nil || cfg.Services.SystemLog.Level != "debug" || cfg.Services.SystemLog.NodeID != "server-a" || cfg.Services.SystemLog.QueryStore != "logs" || len(cfg.Services.SystemLog.Sinks) != 2 {
 		t.Fatalf("Services = %+v", cfg.Services)
 	}
 }

@@ -86,6 +86,7 @@ ClickHouse, SQLite, and PostgreSQL share the version-1 opaque cursor. It binds n
 services:
   system_log:
     level: info
+    node_id: ${GIZCLAW_NODE_ID}
     query_store: logs
     sinks:
       - kind: stderr
@@ -96,4 +97,4 @@ services:
         level: warn
 ```
 
-Sinks run in order and may override the global level. Fanout attempts every enabled sink and joins errors. Store sinks write fixed `Stream=system` and `Kind=log` records but do not own named-store lifecycles. `query_store` must name a Store sink in the same configuration; without it the Admin log endpoint returns `LOG_QUERY_NOT_CONFIGURED`. An absent `services.system_log` defaults to info-level stderr. Removed top-level `log` and `system_log` keys are rejected and are not translated.
+Sinks run in order and may override the global level. Fanout attempts every enabled sink and joins errors. A non-empty `node_id` is expanded from the environment and attached to every sink; Deploy supplies a stable logical node name and GizClaw does not infer one from network or host metadata. Stderr enables Go caller output, while Store sinks also persist the call site as `source_file` and decimal `source_line`. Store sinks write fixed `Stream=system` and `Kind=log` records but do not own named-store lifecycles. `query_store` must name a Store sink in the same configuration; without it the Admin log endpoint returns `LOG_QUERY_NOT_CONFIGURED`. An absent `services.system_log` defaults to info-level stderr. Removed top-level `log` and `system_log` keys are rejected and are not translated.

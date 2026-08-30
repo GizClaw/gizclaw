@@ -86,6 +86,7 @@ ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 no
 services:
   system_log:
     level: info
+    node_id: ${GIZCLAW_NODE_ID}
     query_store: logs
     sinks:
       - kind: stderr
@@ -96,4 +97,4 @@ services:
         level: warn
 ```
 
-Sink 按顺序执行，每个 sink 可覆盖 level；fanout 会尝试所有 enabled sink 并汇总 error。Store sink 固定写入 `Stream=system`、`Kind=log`，但不拥有 named store 的生命周期。`query_store` 必须指向同一配置中的一个 Store sink；未设置时 Admin log endpoint 返回 `LOG_QUERY_NOT_CONFIGURED`。缺少 `services.system_log` 时默认是 info-level stderr。旧的 top-level `log` 与 `system_log` 配置会直接报错，不自动转换。
+Sink 按顺序执行，每个 sink 可覆盖 level；fanout 会尝试所有 enabled sink 并汇总 error。非空 `node_id` 会经过环境变量展开并附加到每个 sink；Deploy 必须提供稳定逻辑节点名，GizClaw 不从网络或主机信息推断。stderr 启用 Go caller 输出，Store sink 还把调用位置保存为 `source_file` 与十进制 `source_line`。Store sink 固定写入 `Stream=system`、`Kind=log`，但不拥有 named store 的生命周期。`query_store` 必须指向同一配置中的一个 Store sink；未设置时 Admin log endpoint 返回 `LOG_QUERY_NOT_CONFIGURED`。缺少 `services.system_log` 时默认是 info-level stderr。旧的 top-level `log` 与 `system_log` 配置会直接报错，不自动转换。

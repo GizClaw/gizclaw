@@ -112,6 +112,24 @@ Logs and HTTP request metrics use the same bounded meanings where a dimension ap
 
 These values form one product taxonomy. Sinks, backends, and callers must not introduce synonyms or use a surface as a transport.
 
+## Structured logs
+
+Code continues to use the global `slog` logger and should prefer
+`slog.LogAttrs(ctx, ...)` for scalar attributes. Configured loggers add Go
+caller metadata to stderr and Store sinks; Store records expose it as
+`source_file` and decimal `source_line`. When `system_log.node_id` is set,
+every sink also receives that exact `node_id`. Deploy injects a stable logical
+node name; GizClaw never derives one from an IP address, hostname, endpoint, or
+public key.
+
+AgentHost binds the authenticated Peer `peer_public_key` to the Agent execution
+context. Provider records emitted through context-aware `slog` calls inherit
+that field. Startup, storage, and other process-global records without a Peer
+owner omit it instead of fabricating an identity. Admin `GET /logs/stream`
+returns `node_id`, `source_file`, `source_line`, and applicable
+`peer_public_key` values in the entry's scalar `fields` map without changing
+the streaming schema.
+
 ## Structured request logs
 
 ### Completion record

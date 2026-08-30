@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -195,7 +196,8 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 			profileSnapshot = &snapshot
 		}
 	}
-	baseCtx := WithResourceAccess(withHistoryGearID(context.WithoutCancel(ctx), s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
+	baseCtx := gizlog.WithPeerPublicKey(context.WithoutCancel(ctx), s.PublicKey.String())
+	baseCtx = WithResourceAccess(withHistoryGearID(baseCtx, s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
 	if profileSnapshot != nil {
 		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -70,6 +71,9 @@ func TestConfigIsZero(t *testing.T) {
 	if (Config{Level: "info"}).IsZero() {
 		t.Fatal("level should make config non-zero")
 	}
+	if (Config{NodeID: "node-a"}).IsZero() {
+		t.Fatal("node ID should make config non-zero")
+	}
 	if (Config{Sinks: []SinkConfig{{Kind: SinkStderr}}}).IsZero() {
 		t.Fatal("sinks should make config non-zero")
 	}
@@ -105,16 +109,20 @@ func TestNewLoggerRejectsInvalidConfig(t *testing.T) {
 
 func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 	store := &loggerTestStore{}
-	logger, cleanup, err := NewLogger(Config{Level: "debug", Sinks: []SinkConfig{{Kind: SinkStore, Store: "logs", Level: "warn"}}}, loggerTestResolver{store: store})
+	logger, cleanup, err := NewLogger(Config{Level: "debug", NodeID: "server-a", Sinks: []SinkConfig{{Kind: SinkStore, Store: "logs", Level: "warn"}}}, loggerTestResolver{store: store})
 	if err != nil {
 		t.Fatalf("NewLogger() error = %v", err)
 	}
 	logger.LogAttrs(context.Background(), slog.LevelInfo, "ignored")
 	logger.LogAttrs(context.Background(), slog.LevelWarn, "saved", slog.String("request.id", "1"), slog.Time("at", time.Unix(1, 0)))
-	if len(store.records) != 1 || store.records[0].Stream != "system" || store.records[0].Kind != "log" || store.records[0].Attributes["request.id"] != "1" {
+	if len(store.records) != 1 || store.records[0].Stream != "system" || store.records[0].Kind != "log" || store.records[0].Attributes["request.id"] != "1" || store.records[0].Attributes["node_id"] != "server-a" || store.records[0].Attributes["source_file"] == "" || store.records[0].Attributes["source_line"] == "" {
 		t.Fatalf("records = %+v", store.records)
 	}
-	fanout, ok := logger.Handler().(*FanoutHandler)
+	contextual, ok := logger.Handler().(*contextHandler)
+	if !ok {
+		t.Fatalf("logger handler = %#v", logger.Handler())
+	}
+	fanout, ok := contextual.root.(*FanoutHandler)
 	if !ok || len(fanout.handlers) != 1 {
 		t.Fatalf("logger handler = %#v", logger.Handler())
 	}
@@ -146,6 +154,10 @@ func TestStoreFailureReportingHandlerReportsWithoutProviderText(t *testing.T) {
 	}
 	if fallbackState.attrs["store"] != "logs" || strings.Contains(fallbackState.records[0].Message, "provider body") {
 		t.Fatalf("fallback attrs = %#v record = %#v", fallbackState.attrs, fallbackState.records[0])
+	}
+	frame, _ := runtime.CallersFrames([]uintptr{fallbackState.records[0].PC}).Next()
+	if !strings.HasSuffix(frame.File, "store_failure.go") || frame.Line <= 0 {
+		t.Fatalf("fallback source = %s:%d", frame.File, frame.Line)
 	}
 }
 

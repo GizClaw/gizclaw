@@ -349,7 +349,7 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 		return nil, fmt.Errorf("doubao realtime: input stream is required")
 	}
 	config := t.realtimeConfig()
-	slog.Info(
+	slog.InfoContext(ctx,
 		"doubao: realtime session config",
 		"inputFormat", doubaoRealtimeAudioFormat(t.inputFormat),
 		"inputSampleRate", doubaoRealtimeAudioSampleRate(t.inputSampleRate),
@@ -915,7 +915,7 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 			if stopForTerminalInput() {
 				return
 			}
-			slog.Warn("doubao: realtime provider connection failed; retrying", "error", err, "retryDelay", retryDelay)
+			slog.WarnContext(ctx, "doubao: realtime provider connection failed; retrying", "error", err, "retryDelay", retryDelay)
 			if !t.waitRetry(workerCtx, output.Done(), reader.terminalDone(), retryDelay) {
 				continue
 			}
@@ -928,12 +928,12 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 			return
 		}
 		if errors.Is(err, errDoubaoRealtimeInterruptHandoff) {
-			slog.Info("doubao: realtime interruption handed off to replacement provider session")
+			slog.InfoContext(ctx, "doubao: realtime interruption handed off to replacement provider session")
 			retryDelay = retryInitial
 			continue
 		}
 		if errors.Is(err, errDoubaoRealtimeEmptyPTTHandoff) {
-			slog.Info("doubao: empty push-to-talk turn handed off to replacement provider session")
+			slog.InfoContext(ctx, "doubao: empty push-to-talk turn handed off to replacement provider session")
 			retryDelay = retryInitial
 			continue
 		}
@@ -942,7 +942,7 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 			if stopForTerminalInput() {
 				return
 			}
-			slog.Warn("doubao: realtime provider session lost; reconnecting", "error", err, "retryDelay", retryDelay)
+			slog.WarnContext(ctx, "doubao: realtime provider session lost; reconnecting", "error", err, "retryDelay", retryDelay)
 			if !t.waitRetry(workerCtx, output.Done(), reader.terminalDone(), retryDelay) {
 				continue
 			}
@@ -1267,7 +1267,7 @@ func (t *Transformer) processSession(
 					continue
 				}
 
-				slog.Debug("doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
+				slog.DebugContext(ctx, "doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
 
 				streamID := streamIDs.response()
 				if t.mode == ModePushToTalk {
@@ -1276,7 +1276,7 @@ func (t *Transformer) processSession(
 
 				switch event.Type {
 				case doubaospeech.EventASRInfo:
-					slog.Info("doubao: ASR info - speech detected")
+					slog.InfoContext(ctx, "doubao: ASR info - speech detected")
 					if t.mode == ModeRealtime {
 						interrupted, err := interruptAssistant(streamID, false)
 						if err != nil {
@@ -1292,7 +1292,7 @@ func (t *Transformer) processSession(
 					if text == "" {
 						text = realtimeASRText(event.Payload)
 					}
-					slog.Info("doubao: ASR response", "text", text)
+					slog.InfoContext(ctx, "doubao: ASR response", "text", text)
 					if t.mode == ModePushToTalk {
 						pttControl.Lock()
 						generation := pttASR.peek(pttTurn.currentGeneration())
@@ -1327,7 +1327,7 @@ func (t *Transformer) processSession(
 					}
 
 				case doubaospeech.EventASREnded:
-					slog.Info("doubao: ASR ended")
+					slog.InfoContext(ctx, "doubao: ASR ended")
 					if t.mode == ModePushToTalk {
 						pttControl.Lock()
 						pttGeneration, ok := pttASR.take()
@@ -1477,7 +1477,7 @@ func (t *Transformer) processSession(
 						if err := applySpokenTransition(epoch, response, streamID, state.audioStarted()); err != nil {
 							return err
 						}
-						slog.Debug("doubao: audio received", "len", len(event.Audio))
+						slog.DebugContext(ctx, "doubao: audio received", "len", len(event.Audio))
 						blobs, err := t.outputAudioBlobs(event.Audio)
 						if err != nil {
 							return err
@@ -1563,7 +1563,7 @@ func (t *Transformer) processSession(
 					}
 
 				case doubaospeech.EventSessionFinished:
-					slog.Info("doubao: session ended")
+					slog.InfoContext(ctx, "doubao: session ended")
 					return doubaoRealtimeRecoverable("session finished", io.EOF)
 				}
 			}
@@ -1582,7 +1582,7 @@ func (t *Transformer) processSession(
 		<-eventsDone
 	}()
 
-	slog.Info("doubao: starting audio send loop")
+	slog.InfoContext(ctx, "doubao: starting audio send loop")
 
 	audioSent := 0
 	inputRouteID := ""
@@ -1613,10 +1613,10 @@ func (t *Transformer) processSession(
 		}
 		if err != nil {
 			if err != io.EOF && err != genx.ErrDone {
-				slog.Error("doubao: input error", "error", err)
+				slog.ErrorContext(ctx, "doubao: input error", "error", err)
 				return err
 			}
-			slog.Info("doubao: input EOF", "audioSent", audioSent)
+			slog.InfoContext(ctx, "doubao: input EOF", "audioSent", audioSent)
 			var responseDone <-chan struct{}
 			var wait bool
 			switch t.mode {
@@ -1705,7 +1705,7 @@ func (t *Transformer) processSession(
 						return doubaoRealtimeRecoverable("interrupt response", err)
 					}
 				}
-				slog.Info("doubao: received route BOS", "streamID", streamID)
+				slog.InfoContext(ctx, "doubao: received route BOS", "streamID", streamID)
 			}
 			if newRoute && t.mode != ModePushToTalk {
 				interrupted, err := interruptAssistant(streamID, false)
@@ -1715,7 +1715,7 @@ func (t *Transformer) processSession(
 				streamIDs.beginInput(streamID)
 				inputRouteID = streamID
 				inputAudioEnded = false
-				slog.Info("doubao: received route BOS", "streamID", streamID)
+				slog.InfoContext(ctx, "doubao: received route BOS", "streamID", streamID)
 				if t.mode == ModeRealtime && interrupted {
 					return doubaoRealtimeRecoverable("interrupt handoff", errDoubaoRealtimeInterruptHandoff)
 				}
@@ -1740,7 +1740,7 @@ func (t *Transformer) processSession(
 			streamID := streamIDs.serviceInput(chunk)
 			audioInput, err := audioInputs.streamForBlob(streamID, p)
 			if err != nil {
-				slog.Error("doubao: prepare audio error", "error", err)
+				slog.ErrorContext(ctx, "doubao: prepare audio error", "error", err)
 				t.pushInputEOSError(output, streamID, err)
 				audioInputs.closeStream(streamID)
 				return err
@@ -1754,7 +1754,7 @@ func (t *Transformer) processSession(
 				}
 				frames, err := audioInput.prepareFrames(p)
 				if err != nil {
-					slog.Error("doubao: prepare audio error", "error", err)
+					slog.ErrorContext(ctx, "doubao: prepare audio error", "error", err)
 					t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
 					return err
@@ -1765,17 +1765,17 @@ func (t *Transformer) processSession(
 					}
 					audioSent++
 					if audioSent%50 == 1 { // Log every 50 chunks (1 second at 20ms chunks)
-						slog.Debug("doubao: sending audio chunk", "streamID", streamID, "len", len(audio), "mime", p.MIMEType, "inputFormat", audioInput.format, "totalSent", audioSent)
+						slog.DebugContext(ctx, "doubao: sending audio chunk", "streamID", streamID, "len", len(audio), "mime", p.MIMEType, "inputFormat", audioInput.format, "totalSent", audioSent)
 					}
 					if err := session.SendAudio(ctx, audio); err != nil {
-						slog.Error("doubao: send audio error", "error", err)
+						slog.ErrorContext(ctx, "doubao: send audio error", "error", err)
 						return doubaoRealtimeRecoverable("send audio", err)
 					}
 				}
 			}
 		case genx.Text:
 			if len(p) > 0 {
-				slog.Info("doubao: sending text", "text", string(p))
+				slog.InfoContext(ctx, "doubao: sending text", "text", string(p))
 				var response *doubaoRealtimeTextResponse
 				if t.mode == ModeText {
 					response = textResponses.begin()
@@ -1788,7 +1788,7 @@ func (t *Transformer) processSession(
 				}
 				if err := session.SendText(ctx, string(p)); err != nil {
 					textResponses.cancel(response)
-					slog.Error("doubao: send text error", "error", err)
+					slog.ErrorContext(ctx, "doubao: send text error", "error", err)
 					return doubaoRealtimeRecoverable("send text", err)
 				}
 			}
@@ -1800,7 +1800,7 @@ func (t *Transformer) processSession(
 					return err
 				}
 				historyStreamID := streamIDs.historyInput(chunk)
-				slog.Info("doubao: received EOS, ending ASR", "streamID", streamID, "historyStreamID", historyStreamID, "audioSent", audioSent)
+				slog.InfoContext(ctx, "doubao: received EOS, ending ASR", "streamID", streamID, "historyStreamID", historyStreamID, "audioSent", audioSent)
 				mimeType := ""
 				if blob, ok := chunk.Part.(*genx.Blob); ok {
 					mimeType = blob.MIMEType
@@ -1815,11 +1815,11 @@ func (t *Transformer) processSession(
 					return err
 				}
 				if err := session.EndASR(ctx); err != nil {
-					slog.Error("doubao: end ASR error", "error", err)
+					slog.ErrorContext(ctx, "doubao: end ASR error", "error", err)
 					return doubaoRealtimeRecoverable("end ASR", err)
 				}
 			} else if !inputAudioEnded && t.mode != ModeText {
-				slog.Info("doubao: received realtime EOS, closing local audio input", "streamID", streamID, "audioSent", audioSent)
+				slog.InfoContext(ctx, "doubao: received realtime EOS, closing local audio input", "streamID", streamID, "audioSent", audioSent)
 			} else if inputAudioEnded && t.mode == ModePushToTalk && chunk.Part == nil &&
 				(inputRouteID == "" || strings.TrimSpace(chunk.Ctrl.StreamID) != inputRouteID) {
 				// The first control EOS after a MIME EOS closes the containing
