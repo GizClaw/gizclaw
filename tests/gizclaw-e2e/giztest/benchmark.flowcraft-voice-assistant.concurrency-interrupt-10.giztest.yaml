@@ -76,6 +76,10 @@ steps:
   save_as: input_audio
 - id: exercise_workflow
   client: peer
+  retry:
+    attempts: 2
+    on: [operation]
+    delay: 2s
   peer_stream:
     mode: push-to-talk
     pacing: 20ms
