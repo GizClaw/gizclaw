@@ -524,7 +524,16 @@ func netSplitNumericHostPort(field, value string) (string, string, error) {
 	return host, port, nil
 }
 
-func (cfg Config) UpstreamURL() (*url.URL, error) {
+// BootstrapUpstreamURL returns the first configured upstream URL. The ordered
+// first entry owns public HTTP requests and assignment-not-found bootstrap.
+func (cfg Config) BootstrapUpstreamURL() (*url.URL, error) {
+	if len(cfg.Upstreams) == 0 {
+		return nil, fmt.Errorf("edge: upstreams must not be empty")
+	}
+	return upstreamConfigURL(cfg.Upstreams[0], "upstreams[0]")
+}
+
+func (cfg Config) selectedUpstreamURL() (*url.URL, error) {
 	return upstreamConfigURL(cfg.selectedUpstream, "upstream")
 }
 

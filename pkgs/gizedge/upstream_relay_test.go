@@ -174,7 +174,7 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
 	initial := selector.next
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -239,7 +239,7 @@ func TestUpstreamRelaySelectorReturnsICEObservation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -282,7 +282,7 @@ func TestUpstreamRelaySelectorRetriesOtherMembersAndSanitizesFailure(t *testing.
 	}
 	now := time.Unix(1000, 0)
 	selector.now = func() time.Time { return now }
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -323,7 +323,7 @@ func TestUpstreamRelaySelectorHonorsCancellationWithoutBackoff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -356,7 +356,7 @@ func TestUpstreamRelaySelectorAttemptTimeoutUsesBackoff(t *testing.T) {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
 	selector.attemptTimeout = time.Millisecond
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -482,7 +482,7 @@ func TestUpstreamRelaySelectorSupportsConcurrentConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}

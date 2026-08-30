@@ -544,6 +544,8 @@ These contents belong to `pkgs/gizclaw`, `pkgs/giznet`, `cmd/internal/server` re
 
 `pkgs/gizedge` reads only a non-empty ordered `upstreams` list. Every entry pins one complete Server endpoint, public key, ICE policy, and relay pool. The former singular `upstream` is no longer part of the configuration shape and is ignored like any other unknown field; a missing or empty valid `upstreams` list, duplicate identities/endpoints, and incomplete entries fail before the listener opens.
 
+The public Go configuration API follows the same plural contract: `Config.Upstreams` is the only Server configuration field, and `Config.BootstrapUpstreamURL()` returns the URL of the ordered first entry. The former `Config.Upstream` and the ambiguous `Config.UpstreamURL()` are removed without compatibility fields or wrappers; the URL for a selected Server is internal Edge target state only.
+
 For an authenticated logical Client session, the Edge asks any reachable configured Server for the shared fixed Peer assignment, validates that the returned Server identity is configured, and acquires only that Server's target pool. Assignment-not-found uses the first reachable ordered entry for first claim. Control, services, packets, audio, retries, and teardown remain pinned to one target; target transport failure never substitutes another Server owner or replays application work. A one-entry list uses the same routing and Server-admission path.
 
 Public `/server-info` and API-key-only HTTP/OpenAI requests continue through the first reachable ordered bootstrap Server because they do not establish a logical Peer session. Assignment endpoint metadata cannot override the pinned Edge configuration. Relay selector, health, and backoff remain isolated per Server entry.

@@ -205,14 +205,23 @@ tls:
 	}
 }
 
-func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
-	cfg := Config{selectedUpstream: UpstreamConfig{Endpoint: "server-a.example.com:9822"}}
-	upstreamURL, err := cfg.UpstreamURL()
+func TestConfigBootstrapUpstreamURLDefaultsHTTP(t *testing.T) {
+	cfg := Config{Upstreams: []UpstreamConfig{
+		{Endpoint: "server-a.example.com:9822"},
+		{Endpoint: "server-b.example.com:9822"},
+	}}
+	upstreamURL, err := cfg.BootstrapUpstreamURL()
 	if err != nil {
-		t.Fatalf("UpstreamURL error = %v", err)
+		t.Fatalf("BootstrapUpstreamURL error = %v", err)
 	}
 	if got := upstreamURL.String(); got != "http://server-a.example.com:9822" {
-		t.Fatalf("UpstreamURL = %q", got)
+		t.Fatalf("BootstrapUpstreamURL = %q", got)
+	}
+}
+
+func TestConfigBootstrapUpstreamURLRequiresUpstreams(t *testing.T) {
+	if _, err := (Config{}).BootstrapUpstreamURL(); err == nil || !strings.Contains(err.Error(), "upstreams must not be empty") {
+		t.Fatalf("BootstrapUpstreamURL error = %v", err)
 	}
 }
 
@@ -641,7 +650,7 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 			PublicKey: upstreamKey.Public,
 		},
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -1101,7 +1110,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {
-	upstreamURL, err := (&Config{selectedUpstream: UpstreamConfig{Endpoint: "http://server:9822"}}).UpstreamURL()
+	upstreamURL, err := (&Config{selectedUpstream: UpstreamConfig{Endpoint: "http://server:9822"}}).selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -1111,7 +1120,7 @@ func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {
 }
 
 func TestUpstreamSignalingURLPreservesConfiguredPath(t *testing.T) {
-	upstreamURL, err := (&Config{selectedUpstream: UpstreamConfig{Endpoint: "http://server:9822/custom-offer"}}).UpstreamURL()
+	upstreamURL, err := (&Config{selectedUpstream: UpstreamConfig{Endpoint: "http://server:9822/custom-offer"}}).selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
