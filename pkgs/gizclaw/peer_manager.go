@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
@@ -45,6 +46,8 @@ var (
 	errPeerConnActivating = errors.New("gizclaw: peer connection activation is in progress")
 	errNoRefreshData      = errors.New("gizclaw: no refresh data")
 )
+
+const maxDeviceSNBytes = 256
 
 type activePeer struct {
 	conn           giznet.Conn
@@ -824,7 +827,7 @@ func (m *Manager) RefreshPeer(ctx context.Context, publicKey giznet.PublicKey) (
 			UpdatedFields: nil,
 		}, true, nil
 	}
-	saved, err := m.Peers.SavePeer(ctx, next)
+	saved, err := m.Peers.SaveRefreshedDeviceFields(ctx, publicKey, next.Device, updatedFields)
 	if err != nil {
 		return adminhttp.RefreshResult{
 			Peer:          next,
@@ -868,6 +871,7 @@ func callPeerRPC[T any](m *Manager, ctx context.Context, publicKey giznet.Public
 }
 
 func (m *Manager) refreshPeer(ctx context.Context, publicKey giznet.PublicKey, peer apitypes.Peer) (apitypes.Peer, []string, []string, error) {
+	originalPeer := peer
 	var (
 		errs          []string
 		updatedFields []string
@@ -906,8 +910,12 @@ func (m *Manager) refreshPeer(ctx context.Context, publicKey giznet.PublicKey, p
 		if err != nil {
 			errs = append(errs, "identifiers: "+err.Error())
 		} else {
-			haveData = true
-			applyPeerRefreshIdentifiers(&peer, identifiers, &updatedFields)
+			if err := applyPeerRefreshIdentifiers(&peer, identifiers, &updatedFields); err != nil {
+				errs = append(errs, "identifiers: "+err.Error())
+				return originalPeer, nil, errs, fmt.Errorf("invalid device identifiers: %w", err)
+			} else {
+				haveData = true
+			}
 		}
 	}
 
@@ -956,9 +964,12 @@ func applyPeerRefreshInfo(peer *apitypes.Peer, info apitypes.HardwareInfo, updat
 	}
 }
 
-func applyPeerRefreshIdentifiers(peer *apitypes.Peer, identifiers apitypes.DeviceIdentifiers, updatedFields *[]string) {
+func applyPeerRefreshIdentifiers(peer *apitypes.Peer, identifiers apitypes.DeviceIdentifiers, updatedFields *[]string) error {
 	if peer == nil {
-		return
+		return nil
+	}
+	if identifiers.Sn != nil && (!utf8.ValidString(*identifiers.Sn) || len(*identifiers.Sn) > maxDeviceSNBytes) {
+		return fmt.Errorf("sn must be valid UTF-8 and at most %d bytes", maxDeviceSNBytes)
 	}
 	deviceIdentifiers := ensurePeerIdentifiers(&peer.Device)
 	if identifiers.Sn != nil && *identifiers.Sn != "" && !equalStringPtr(deviceIdentifiers.Sn, identifiers.Sn) {
@@ -979,6 +990,7 @@ func applyPeerRefreshIdentifiers(peer *apitypes.Peer, identifiers apitypes.Devic
 			*updatedFields = append(*updatedFields, "device.identifiers.labels")
 		}
 	}
+	return nil
 }
 
 func ensurePeerIdentifiers(device *apitypes.DeviceInfo) *apitypes.DeviceIdentifiers {

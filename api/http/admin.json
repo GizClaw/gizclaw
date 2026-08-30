@@ -6744,10 +6744,10 @@
         }
       }
     },
-    "/peers/@findPubKeyBySn/{sn}": {
+    "/peers/@findBySn/{sn}": {
       "get": {
-        "operationId": "findPubKeyBySN",
-        "summary": "Find peer public key by serial number",
+        "operationId": "findPeersBySN",
+        "summary": "Find peers by serial number",
         "tags": [
           "Query"
         ],
@@ -6757,23 +6757,35 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
             }
           }
         ],
         "responses": {
-          "200": {
-            "description": "Resolved public key",
+          "400": {
+            "description": "Invalid serial number",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PublicKeyResponse"
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "404": {
-            "description": "Peer not found",
+          "200": {
+            "description": "Peers reporting the serial number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerMatchList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
             "content": {
               "application/json": {
                 "schema": {
@@ -10624,6 +10636,20 @@
             "$ref": "./shared.json#/components/schemas/RegistrationTombstone"
           }
         ]
+      },
+      "PeerMatchList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeerRegistrationResult"
+            }
+          }
+        }
       },
       "PublicKeyResponse": {
         "type": "object",

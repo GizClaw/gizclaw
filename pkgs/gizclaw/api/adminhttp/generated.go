@@ -500,6 +500,11 @@ type OpenAITenantUpsert struct {
 	Kind *externalRef0.OpenAITenantKind `json:"kind,omitempty"`
 }
 
+// PeerMatchList defines model for PeerMatchList.
+type PeerMatchList struct {
+	Items []PeerRegistrationResult `json:"items"`
+}
+
 // PeerRegistrationResult defines model for PeerRegistrationResult.
 type PeerRegistrationResult struct {
 	union json.RawMessage
@@ -1613,11 +1618,11 @@ type ClientInterface interface {
 	// ListPeers request
 	ListPeers(ctx context.Context, params *ListPeersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// FindPeersBySN request
+	FindPeersBySN(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// FindPubKeyByIMEI request
 	FindPubKeyByIMEI(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// FindPubKeyBySN request
-	FindPubKeyBySN(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeletePeer request
 	DeletePeer(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3005,8 +3010,8 @@ func (c *Client) ListPeers(ctx context.Context, params *ListPeersParams, reqEdit
 	return c.Client.Do(req)
 }
 
-func (c *Client) FindPubKeyByIMEI(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFindPubKeyByIMEIRequest(c.Server, tac, serial)
+func (c *Client) FindPeersBySN(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFindPeersBySNRequest(c.Server, sn)
 	if err != nil {
 		return nil, err
 	}
@@ -3017,8 +3022,8 @@ func (c *Client) FindPubKeyByIMEI(ctx context.Context, tac string, serial string
 	return c.Client.Do(req)
 }
 
-func (c *Client) FindPubKeyBySN(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFindPubKeyBySNRequest(c.Server, sn)
+func (c *Client) FindPubKeyByIMEI(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFindPubKeyByIMEIRequest(c.Server, tac, serial)
 	if err != nil {
 		return nil, err
 	}
@@ -7421,6 +7426,40 @@ func NewListPeersRequest(server string, params *ListPeersParams) (*http.Request,
 	return req, nil
 }
 
+// NewFindPeersBySNRequest generates requests for FindPeersBySN
+func NewFindPeersBySNRequest(server string, sn string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sn", sn, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/peers/@findBySn/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewFindPubKeyByIMEIRequest generates requests for FindPubKeyByIMEI
 func NewFindPubKeyByIMEIRequest(server string, tac string, serial string) (*http.Request, error) {
 	var err error
@@ -7445,40 +7484,6 @@ func NewFindPubKeyByIMEIRequest(server string, tac string, serial string) (*http
 	}
 
 	operationPath := fmt.Sprintf("/peers/@findPubKeyByImei/%s/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewFindPubKeyBySNRequest generates requests for FindPubKeyBySN
-func NewFindPubKeyBySNRequest(server string, sn string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "sn", sn, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/peers/@findPubKeyBySn/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -12501,11 +12506,11 @@ type ClientWithResponsesInterface interface {
 	// ListPeersWithResponse request
 	ListPeersWithResponse(ctx context.Context, params *ListPeersParams, reqEditors ...RequestEditorFn) (*ListPeersResponse, error)
 
+	// FindPeersBySNWithResponse request
+	FindPeersBySNWithResponse(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*FindPeersBySNResponse, error)
+
 	// FindPubKeyByIMEIWithResponse request
 	FindPubKeyByIMEIWithResponse(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*FindPubKeyByIMEIResponse, error)
-
-	// FindPubKeyBySNWithResponse request
-	FindPubKeyBySNWithResponse(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*FindPubKeyBySNResponse, error)
 
 	// DeletePeerWithResponse request
 	DeletePeerWithResponse(ctx context.Context, publicKey string, reqEditors ...RequestEditorFn) (*DeletePeerResponse, error)
@@ -14916,6 +14921,38 @@ func (r ListPeersResponse) ContentType() string {
 	return ""
 }
 
+type FindPeersBySNResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PeerMatchList
+	JSON400      *externalRef0.ErrorResponse
+	JSON500      *externalRef0.ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r FindPeersBySNResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FindPeersBySNResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r FindPeersBySNResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type FindPubKeyByIMEIResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14941,37 +14978,6 @@ func (r FindPubKeyByIMEIResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r FindPubKeyByIMEIResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type FindPubKeyBySNResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *PublicKeyResponse
-	JSON404      *externalRef0.ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r FindPubKeyBySNResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r FindPubKeyBySNResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r FindPubKeyBySNResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -18928,6 +18934,15 @@ func (c *ClientWithResponses) ListPeersWithResponse(ctx context.Context, params 
 	return ParseListPeersResponse(rsp)
 }
 
+// FindPeersBySNWithResponse request returning *FindPeersBySNResponse
+func (c *ClientWithResponses) FindPeersBySNWithResponse(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*FindPeersBySNResponse, error) {
+	rsp, err := c.FindPeersBySN(ctx, sn, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFindPeersBySNResponse(rsp)
+}
+
 // FindPubKeyByIMEIWithResponse request returning *FindPubKeyByIMEIResponse
 func (c *ClientWithResponses) FindPubKeyByIMEIWithResponse(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*FindPubKeyByIMEIResponse, error) {
 	rsp, err := c.FindPubKeyByIMEI(ctx, tac, serial, reqEditors...)
@@ -18935,15 +18950,6 @@ func (c *ClientWithResponses) FindPubKeyByIMEIWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseFindPubKeyByIMEIResponse(rsp)
-}
-
-// FindPubKeyBySNWithResponse request returning *FindPubKeyBySNResponse
-func (c *ClientWithResponses) FindPubKeyBySNWithResponse(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*FindPubKeyBySNResponse, error) {
-	rsp, err := c.FindPubKeyBySN(ctx, sn, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFindPubKeyBySNResponse(rsp)
 }
 
 // DeletePeerWithResponse request returning *DeletePeerResponse
@@ -22712,6 +22718,46 @@ func ParseListPeersResponse(rsp *http.Response) (*ListPeersResponse, error) {
 	return response, nil
 }
 
+// ParseFindPeersBySNResponse parses an HTTP response from a FindPeersBySNWithResponse call
+func ParseFindPeersBySNResponse(rsp *http.Response) (*FindPeersBySNResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FindPeersBySNResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PeerMatchList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseFindPubKeyByIMEIResponse parses an HTTP response from a FindPubKeyByIMEIWithResponse call
 func ParseFindPubKeyByIMEIResponse(rsp *http.Response) (*FindPubKeyByIMEIResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -22721,39 +22767,6 @@ func ParseFindPubKeyByIMEIResponse(rsp *http.Response) (*FindPubKeyByIMEIRespons
 	}
 
 	response := &FindPubKeyByIMEIResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PublicKeyResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest externalRef0.ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseFindPubKeyBySNResponse parses an HTTP response from a FindPubKeyBySNWithResponse call
-func ParseFindPubKeyBySNResponse(rsp *http.Response) (*FindPubKeyBySNResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &FindPubKeyBySNResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -27454,12 +27467,12 @@ type ServerInterface interface {
 	// List all peers
 	// (GET /peers)
 	ListPeers(c *fiber.Ctx, params ListPeersParams) error
+	// Find peers by serial number
+	// (GET /peers/@findBySn/{sn})
+	FindPeersBySN(c *fiber.Ctx, sn string) error
 	// Find peer public key by IMEI
 	// (GET /peers/@findPubKeyByImei/{tac}/{serial})
 	FindPubKeyByIMEI(c *fiber.Ctx, tac string, serial string) error
-	// Find peer public key by serial number
-	// (GET /peers/@findPubKeyBySn/{sn})
-	FindPubKeyBySN(c *fiber.Ctx, sn string) error
 	// Delete a peer
 	// (DELETE /peers/{publicKey})
 	DeletePeer(c *fiber.Ctx, publicKey string) error
@@ -29761,6 +29774,35 @@ func (siw *ServerInterfaceWrapper) ListPeers(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// FindPeersBySN operation middleware
+func (siw *ServerInterfaceWrapper) FindPeersBySN(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sn" -------------
+	var sn string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sn", c.Params("sn"), &sn, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter sn: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.FindPeersBySN(c, sn)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // FindPubKeyByIMEI operation middleware
 func (siw *ServerInterfaceWrapper) FindPubKeyByIMEI(c *fiber.Ctx) error {
 
@@ -29785,35 +29827,6 @@ func (siw *ServerInterfaceWrapper) FindPubKeyByIMEI(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.FindPubKeyByIMEI(c, tac, serial)
-	}
-
-	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
-		m := siw.HandlerMiddlewares[i]
-		next := handler
-		handler = func(c *fiber.Ctx) error {
-			return m(c, next)
-		}
-	}
-
-	return handler(c)
-}
-
-// FindPubKeyBySN operation middleware
-func (siw *ServerInterfaceWrapper) FindPubKeyBySN(c *fiber.Ctx) error {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "sn" -------------
-	var sn string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "sn", c.Params("sn"), &sn, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter sn: %w", err).Error())
-	}
-
-	handler := func(c *fiber.Ctx) error {
-		return siw.Handler.FindPubKeyBySN(c, sn)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -33445,9 +33458,9 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/peers", wrapper.ListPeers)
 
-	router.Get(options.BaseURL+"/peers/@findPubKeyByImei/:tac/:serial", wrapper.FindPubKeyByIMEI)
+	router.Get(options.BaseURL+"/peers/@findBySn/:sn", wrapper.FindPeersBySN)
 
-	router.Get(options.BaseURL+"/peers/@findPubKeyBySn/:sn", wrapper.FindPubKeyBySN)
+	router.Get(options.BaseURL+"/peers/@findPubKeyByImei/:tac/:serial", wrapper.FindPubKeyByIMEI)
 
 	router.Delete(options.BaseURL+"/peers/:publicKey", wrapper.DeletePeer)
 
@@ -36174,6 +36187,41 @@ func (response ListPeers500JSONResponse) VisitListPeersResponse(ctx *fiber.Ctx) 
 	return ctx.JSON(&response)
 }
 
+type FindPeersBySNRequestObject struct {
+	Sn string `json:"sn"`
+}
+
+type FindPeersBySNResponseObject interface {
+	VisitFindPeersBySNResponse(ctx *fiber.Ctx) error
+}
+
+type FindPeersBySN200JSONResponse PeerMatchList
+
+func (response FindPeersBySN200JSONResponse) VisitFindPeersBySNResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type FindPeersBySN400JSONResponse externalRef0.ErrorResponse
+
+func (response FindPeersBySN400JSONResponse) VisitFindPeersBySNResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type FindPeersBySN500JSONResponse externalRef0.ErrorResponse
+
+func (response FindPeersBySN500JSONResponse) VisitFindPeersBySNResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type FindPubKeyByIMEIRequestObject struct {
 	Tac    string `json:"tac"`
 	Serial string `json:"serial"`
@@ -36195,32 +36243,6 @@ func (response FindPubKeyByIMEI200JSONResponse) VisitFindPubKeyByIMEIResponse(ct
 type FindPubKeyByIMEI404JSONResponse externalRef0.ErrorResponse
 
 func (response FindPubKeyByIMEI404JSONResponse) VisitFindPubKeyByIMEIResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(404)
-
-	return ctx.JSON(&response)
-}
-
-type FindPubKeyBySNRequestObject struct {
-	Sn string `json:"sn"`
-}
-
-type FindPubKeyBySNResponseObject interface {
-	VisitFindPubKeyBySNResponse(ctx *fiber.Ctx) error
-}
-
-type FindPubKeyBySN200JSONResponse PublicKeyResponse
-
-func (response FindPubKeyBySN200JSONResponse) VisitFindPubKeyBySNResponse(ctx *fiber.Ctx) error {
-	ctx.Response().Header.Set("Content-Type", "application/json")
-	ctx.Status(200)
-
-	return ctx.JSON(&response)
-}
-
-type FindPubKeyBySN404JSONResponse externalRef0.ErrorResponse
-
-func (response FindPubKeyBySN404JSONResponse) VisitFindPubKeyBySNResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(404)
 
@@ -40765,12 +40787,12 @@ type StrictServerInterface interface {
 	// List all peers
 	// (GET /peers)
 	ListPeers(ctx context.Context, request ListPeersRequestObject) (ListPeersResponseObject, error)
+	// Find peers by serial number
+	// (GET /peers/@findBySn/{sn})
+	FindPeersBySN(ctx context.Context, request FindPeersBySNRequestObject) (FindPeersBySNResponseObject, error)
 	// Find peer public key by IMEI
 	// (GET /peers/@findPubKeyByImei/{tac}/{serial})
 	FindPubKeyByIMEI(ctx context.Context, request FindPubKeyByIMEIRequestObject) (FindPubKeyByIMEIResponseObject, error)
-	// Find peer public key by serial number
-	// (GET /peers/@findPubKeyBySn/{sn})
-	FindPubKeyBySN(ctx context.Context, request FindPubKeyBySNRequestObject) (FindPubKeyBySNResponseObject, error)
 	// Delete a peer
 	// (DELETE /peers/{publicKey})
 	DeletePeer(ctx context.Context, request DeletePeerRequestObject) (DeletePeerResponseObject, error)
@@ -42945,6 +42967,33 @@ func (sh *strictHandler) ListPeers(ctx *fiber.Ctx, params ListPeersParams) error
 	return nil
 }
 
+// FindPeersBySN operation middleware
+func (sh *strictHandler) FindPeersBySN(ctx *fiber.Ctx, sn string) error {
+	var request FindPeersBySNRequestObject
+
+	request.Sn = sn
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.FindPeersBySN(ctx.UserContext(), request.(FindPeersBySNRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FindPeersBySN")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(FindPeersBySNResponseObject); ok {
+		if err := validResponse.VisitFindPeersBySNResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // FindPubKeyByIMEI operation middleware
 func (sh *strictHandler) FindPubKeyByIMEI(ctx *fiber.Ctx, tac string, serial string) error {
 	var request FindPubKeyByIMEIRequestObject
@@ -42965,33 +43014,6 @@ func (sh *strictHandler) FindPubKeyByIMEI(ctx *fiber.Ctx, tac string, serial str
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(FindPubKeyByIMEIResponseObject); ok {
 		if err := validResponse.VisitFindPubKeyByIMEIResponse(ctx); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, err.Error())
-		}
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
-// FindPubKeyBySN operation middleware
-func (sh *strictHandler) FindPubKeyBySN(ctx *fiber.Ctx, sn string) error {
-	var request FindPubKeyBySNRequestObject
-
-	request.Sn = sn
-
-	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
-		return sh.ssi.FindPubKeyBySN(ctx.UserContext(), request.(FindPubKeyBySNRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "FindPubKeyBySN")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	} else if validResponse, ok := response.(FindPubKeyBySNResponseObject); ok {
-		if err := validResponse.VisitFindPubKeyBySNResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

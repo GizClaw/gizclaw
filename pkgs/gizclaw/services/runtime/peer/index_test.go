@@ -56,7 +56,7 @@ func TestIndexEntriesAndKeys(t *testing.T) {
 	if len(keys) != 5 {
 		t.Fatalf("keys len = %d", len(keys))
 	}
-	if snKey(sn).String() != "by-sn:sn-index" {
-		t.Fatalf("snKey = %s", snKey(sn).String())
+	if snKey(sn, peer.PublicKey).String() != "by-sn:sn-index:"+peer.PublicKey {
+		t.Fatalf("snKey = %s", snKey(sn, peer.PublicKey).String())
 	}
 }

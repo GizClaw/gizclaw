@@ -6,7 +6,7 @@
 
 | 文件 | 包含的功能 |
 | --- | --- |
-| `peer_manager.go` | 维护在线 Peer 与连接替换；连接上线、下线和强制断开；查询连接及 Peer runtime；确保 Peer 资源存在；通过 Peer RPC 刷新设备、硬件、IMEI 与 labels；协调 telemetry status 的并发更新。 |
+| `peer_manager.go` | 维护在线 Peer 与连接替换；连接上线、下线和强制断开；查询连接及 Peer runtime；确保 Peer 资源存在；通过 Peer RPC 刷新设备硬件、SN、IMEI 与 labels；协调 telemetry status 的并发更新。 |
 
 这个前缀拥有 Server 视角的在线连接索引和跨连接操作，不拥有 Peer 持久化模型。Peer 资源本身属于 `services/runtime/peer`。
 
@@ -30,6 +30,6 @@ Connection activation 会先在 Manager 锁内为 public key 建立 reservation�
 
 ## 设备元数据归属
 
-`client.info.get` 只反向刷新 `HardwareInfo`（`hardware_revision`、`manufacturer`、`model`）。`client.identifiers.get` 只反向刷新 `DeviceIdentifiers`（`sn`、`imeis`、`labels`）。由 Server 持有的个人资料字段 `name` 与 `emoji` 通过 `server.info.put` 修改，不会被反向刷新覆盖。`name` 必须是有效 UTF-8 且不超过 256 bytes，`emoji` 必须是有效 UTF-8 且不超过 64 bytes。
+Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失败不会中断连接，Admin 仍可主动调用 refresh 重试。`client.info.get` 只反向刷新 `HardwareInfo`（`hardware_revision`、`manufacturer`、`model`）。`client.identifiers.get` 只反向刷新 `DeviceIdentifiers`（`sn`、`imeis`、`labels`）。SN 是 Client 声明的可选弱标识，必须是有效 UTF-8 且不超过 256 bytes；Client 应让它对同一台物理设备保持稳定并尽量唯一，但 Server 不把它当作唯一身份。同一 SN 可以关联多个 Peer，Admin SN 查询返回全部匹配记录。由 Server 持有的个人资料字段 `name` 与 `emoji` 通过 `server.info.put` 修改，不会被反向刷新覆盖。`name` 必须是有效 UTF-8 且不超过 256 bytes，`emoji` 必须是有效 UTF-8 且不超过 64 bytes。
 
 好友通过 `server.friend.info.get` 读取这些文本资料。该方法要求调用者作用域内已存在好友关系，并且不返回二进制头像数据。

@@ -15,7 +15,7 @@ func TestPeerCommandsReturnContextErrors(t *testing.T) {
 	cases := [][]string{
 		{"list"},
 		{"get", "device-pk"},
-		{"resolve-sn", "sn-001"},
+		{"find-sn", "sn-001"},
 		{"resolve-imei", "12345678", "000001"},
 		{"approve", "device-pk", "client"},
 		{"block", "device-pk"},
@@ -42,7 +42,7 @@ func TestPeerCommandsUseClientOperations(t *testing.T) {
 	cases := [][]string{
 		{"list"},
 		{"get", "device-pk"},
-		{"resolve-sn", "sn-001"},
+		{"find-sn", "sn-001"},
 		{"resolve-imei", "12345678", "000001"},
 		{"approve", "device-pk", "client"},
 		{"block", "device-pk"},
@@ -72,7 +72,7 @@ func stubPeerCommandClients(t *testing.T) func() {
 	originalConnect := connectFromContext
 	originalList := listPeers
 	originalGet := getPeer
-	originalResolveSN := findPubKeyBySN
+	originalFindSN := findPeersBySN
 	originalResolveIMEI := findPubKeyByIMEI
 	originalApprove := approvePeer
 	originalBlock := blockPeer
@@ -98,7 +98,9 @@ func stubPeerCommandClients(t *testing.T) func() {
 	getPeer = func(context.Context, *gizcli.Client, string) (adminhttp.PeerRegistrationResult, error) {
 		return registrationResult, nil
 	}
-	findPubKeyBySN = func(context.Context, *gizcli.Client, string) (string, error) { return "device-pk", nil }
+	findPeersBySN = func(context.Context, *gizcli.Client, string) ([]adminhttp.PeerRegistrationResult, error) {
+		return []adminhttp.PeerRegistrationResult{registrationResult}, nil
+	}
 	findPubKeyByIMEI = func(context.Context, *gizcli.Client, string, string) (string, error) {
 		return "device-pk", nil
 	}
@@ -126,7 +128,7 @@ func stubPeerCommandClients(t *testing.T) func() {
 		connectFromContext = originalConnect
 		listPeers = originalList
 		getPeer = originalGet
-		findPubKeyBySN = originalResolveSN
+		findPeersBySN = originalFindSN
 		findPubKeyByIMEI = originalResolveIMEI
 		approvePeer = originalApprove
 		blockPeer = originalBlock
