@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
@@ -76,7 +76,7 @@ type ServicesConfig struct {
 	Gameplay        *GameplayStoresConfig  `yaml:"gameplay"`
 	AgentHost       *AgentHostConfig       `yaml:"agent_host"`
 	Metrics         *SingleStoreConfig     `yaml:"metrics"`
-	SystemLog       *logging.Config        `yaml:"system_log"`
+	SystemLog       *gizlog.Config         `yaml:"system_log"`
 }
 
 type SingleStoreConfig struct {
@@ -331,7 +331,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	if raw.Services != nil && raw.Services.SystemLog != nil {
-		logCfg, err := logging.PrepareConfig(*raw.Services.SystemLog)
+		logCfg, err := gizlog.PrepareConfig(*raw.Services.SystemLog)
 		if err != nil {
 			return ConfigFile{}, fmt.Errorf("server: %w", err)
 		}
@@ -699,7 +699,7 @@ func prepareConfig(cfg Config) (Config, error) {
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, defaults.Speech)
 	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, defaults.PendingDeletion)
 	if cfg.Services != nil && cfg.Services.SystemLog != nil {
-		logCfg, err := logging.PrepareConfig(*cfg.Services.SystemLog)
+		logCfg, err := gizlog.PrepareConfig(*cfg.Services.SystemLog)
 		if err != nil {
 			return Config{}, fmt.Errorf("server: %w", err)
 		}
@@ -961,16 +961,16 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		return fmt.Errorf("server: services.metrics.store is required and must not be whitespace-only")
 	}
 	if cfg.SystemLog != nil {
-		if _, err := logging.PrepareConfig(*cfg.SystemLog); err != nil {
+		if _, err := gizlog.PrepareConfig(*cfg.SystemLog); err != nil {
 			return fmt.Errorf("server: %w", err)
 		}
 	}
 	return nil
 }
 
-func (cfg Config) systemLogConfig() logging.Config {
+func (cfg Config) systemLogConfig() gizlog.Config {
 	if cfg.Services == nil || cfg.Services.SystemLog == nil {
-		return logging.DefaultConfig()
+		return gizlog.DefaultConfig()
 	}
 	return *cfg.Services.SystemLog
 }

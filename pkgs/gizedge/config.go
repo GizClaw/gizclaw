@@ -10,8 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	store "github.com/GizClaw/gizclaw-go/pkgs/store"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
 )
 
@@ -24,14 +27,17 @@ const (
 )
 
 type Config struct {
-	KeyPair  *giznet.KeyPair
-	Listen   string
-	Endpoint string
-	Upstream UpstreamConfig
-	TLS      TLSConfig
-	TURN     TURNConfig
-	Gateway  GatewayConfig
-	Metrics  MetricsConfig
+	KeyPair   *giznet.KeyPair
+	Listen    string
+	Endpoint  string
+	Upstream  UpstreamConfig
+	TLS       TLSConfig
+	TURN      TURNConfig
+	Gateway   GatewayConfig
+	Metrics   MetricsConfig
+	Storage   map[string]storage.Config
+	Stores    map[string]store.Config
+	SystemLog gizlog.Config
 }
 
 type IdentityConfig struct {
@@ -81,15 +87,53 @@ type MetricsConfig struct {
 	BearerToken    string `yaml:"bearer-token"`
 }
 
+type storageFileConfig struct {
+	Kind            string `yaml:"kind"`
+	Endpoint        string `yaml:"endpoint"`
+	Region          string `yaml:"region"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	AccessKeySecret string `yaml:"access_key_secret"`
+}
+
+func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
+	if cfg.Kind != storage.KindVolcTLS {
+		return nil, fmt.Errorf("only %s is supported", storage.KindVolcTLS)
+	}
+	return storage.VolcTLSConfig{
+		Endpoint:        os.ExpandEnv(cfg.Endpoint),
+		Region:          os.ExpandEnv(cfg.Region),
+		AccessKeyID:     os.ExpandEnv(cfg.AccessKeyID),
+		AccessKeySecret: os.ExpandEnv(cfg.AccessKeySecret),
+	}, nil
+}
+
+type storeFileConfig struct {
+	Kind    string `yaml:"kind"`
+	Storage string `yaml:"storage"`
+	TopicID string `yaml:"topic_id"`
+}
+
+func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
+	if cfg.Kind != store.KindLogImmutable {
+		return store.Config{}, fmt.Errorf("only %s is supported", store.KindLogImmutable)
+	}
+	return store.Config{
+		Kind: cfg.Kind, Storage: cfg.Storage, TopicID: os.ExpandEnv(cfg.TopicID),
+	}, nil
+}
+
 type ConfigFile struct {
-	Identity IdentityConfig `yaml:"identity"`
-	Listen   string         `yaml:"listen"`
-	Endpoint string         `yaml:"endpoint"`
-	Upstream UpstreamConfig `yaml:"upstream"`
-	TLS      TLSConfig      `yaml:"tls"`
-	TURN     TURNConfig     `yaml:"turn"`
-	Gateway  GatewayConfig  `yaml:"gateway"`
-	Metrics  MetricsConfig  `yaml:"metrics"`
+	Identity  IdentityConfig               `yaml:"identity"`
+	Listen    string                       `yaml:"listen"`
+	Endpoint  string                       `yaml:"endpoint"`
+	Upstream  UpstreamConfig               `yaml:"upstream"`
+	TLS       TLSConfig                    `yaml:"tls"`
+	TURN      TURNConfig                   `yaml:"turn"`
+	Gateway   GatewayConfig                `yaml:"gateway"`
+	Metrics   MetricsConfig                `yaml:"metrics"`
+	Storage   map[string]storageFileConfig `yaml:"storage"`
+	Stores    map[string]storeFileConfig   `yaml:"stores"`
+	SystemLog *gizlog.Config               `yaml:"system-log"`
 }
 
 func LoadConfig(path string) (ConfigFile, error) {
@@ -110,6 +154,13 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	}
 	if raw.TLS.CertSource == "" {
 		raw.TLS.CertSource = TLSCertSourceDisabled
+	}
+	if raw.SystemLog != nil {
+		prepared, err := gizlog.PrepareConfigAt("system-log", *raw.SystemLog)
+		if err != nil {
+			return ConfigFile{}, fmt.Errorf("edge: %w", err)
+		}
+		raw.SystemLog = &prepared
 	}
 	return raw, nil
 }
@@ -208,6 +259,28 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Metrics.BearerToken == "" {
 		cfg.Metrics.BearerToken = fileCfg.Metrics.BearerToken
 	}
+	if len(cfg.Storage) == 0 {
+		var err error
+		cfg.Storage, err = runtimeStorageConfigs(fileCfg.Storage)
+		if err != nil {
+			return Config{}, err
+		}
+	}
+	if len(cfg.Stores) == 0 {
+		var err error
+		cfg.Stores, err = runtimeStoreConfigs(fileCfg.Stores)
+		if err != nil {
+			return Config{}, err
+		}
+	}
+	if cfg.SystemLog.IsZero() && fileCfg.SystemLog != nil {
+		cfg.SystemLog = *fileCfg.SystemLog
+	}
+	preparedLog, err := gizlog.PrepareConfigAt("system-log", cfg.SystemLog)
+	if err != nil {
+		return Config{}, fmt.Errorf("edge: %w", err)
+	}
+	cfg.SystemLog = preparedLog
 	if cfg.TLS.CertSource == "" {
 		cfg.TLS.CertSource = TLSCertSourceDisabled
 	}
@@ -266,6 +339,9 @@ func (cfg Config) validate() error {
 	if err := cfg.Gateway.validate(); err != nil {
 		return err
 	}
+	if err := cfg.validateSystemLog(); err != nil {
+		return err
+	}
 	switch cfg.TLS.CertSource {
 	case TLSCertSourceDisabled:
 		return nil
@@ -274,6 +350,66 @@ func (cfg Config) validate() error {
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
 	}
+}
+
+func runtimeStorageConfigs(configs map[string]storageFileConfig) (map[string]storage.Config, error) {
+	if len(configs) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]storage.Config, len(configs))
+	for name, cfg := range configs {
+		runtime, err := cfg.runtimeConfig()
+		if err != nil {
+			return nil, fmt.Errorf("edge: storage.%s: %w", name, err)
+		}
+		out[name] = runtime
+	}
+	return out, nil
+}
+
+func runtimeStoreConfigs(configs map[string]storeFileConfig) (map[string]store.Config, error) {
+	if len(configs) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]store.Config, len(configs))
+	for name, cfg := range configs {
+		runtime, err := cfg.runtimeConfig()
+		if err != nil {
+			return nil, fmt.Errorf("edge: stores.%s: %w", name, err)
+		}
+		out[name] = runtime
+	}
+	return out, nil
+}
+
+func (cfg Config) validateSystemLog() error {
+	if cfg.SystemLog.QueryStore != "" {
+		return fmt.Errorf("edge: system-log.query_store is not supported")
+	}
+	for name, physical := range cfg.Storage {
+		switch physical.(type) {
+		case storage.VolcTLSConfig, *storage.VolcTLSConfig:
+		default:
+			return fmt.Errorf("edge: storage.%s only supports %s", name, storage.KindVolcTLS)
+		}
+	}
+	for name, logical := range cfg.Stores {
+		if logical.Kind != store.KindLogImmutable {
+			return fmt.Errorf("edge: stores.%s only supports %s", name, store.KindLogImmutable)
+		}
+		if _, ok := cfg.Storage[logical.Storage]; !ok {
+			return fmt.Errorf("edge: stores.%s references missing storage.%s", name, logical.Storage)
+		}
+	}
+	for index, sink := range cfg.SystemLog.Sinks {
+		if sink.Kind != gizlog.SinkStore {
+			continue
+		}
+		if _, ok := cfg.Stores[sink.Store]; !ok {
+			return fmt.Errorf("edge: system-log.sinks[%d].store %q is not configured", index, sink.Store)
+		}
+	}
+	return nil
 }
 
 func (cfg UpstreamConfig) relayEnabled() bool {

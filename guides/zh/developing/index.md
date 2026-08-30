@@ -82,6 +82,7 @@ gizclaw/
 │   ├── giznet/       # Transport、WebRTC 与 service streams
 │   ├── gizclaw/      # Product server、Peer、RPC 与 domain services
 │   ├── gizedge/      # Edge ingress 与 upstream forwarding
+│   ├── gizlog/       # 进程级结构化 logging 与 Store sinks
 │   ├── genx/         # 通用多模态 AI contracts 与 adapters
 │   ├── store/        # Storage 与 index primitives
 │   └── audio/        # Codec、PCM 与 signal processing
@@ -97,6 +98,7 @@ gizclaw/
 | `pkgs/giznet` | Connection、service、WebRTC、HTTP-over-stream transport | GizClaw resource 与业务授权 | [Giznet](giznet) |
 | `pkgs/gizclaw` | Server、Peer lifecycle、RPC/HTTP composition、领域 services | 通用 transport、provider-neutral codec | [GizClaw](gizclaw/overview) |
 | `pkgs/gizedge` | Edge ingress、upstream connection 与 forwarding | Authoritative resource、最终 resource access | [Gizedge](gizedge) |
+| `pkgs/gizlog` | 进程级结构化 logger、level、fan-out 与 Store sink | 产品日志字段与 backend provisioning | [Observability](observability) |
 | `pkgs/genx` | Message、Stream、Generator、Transformer、Tool 与 adapters | Agent instance、workspace、产品 model resource | [GenX](genx/overview) |
 | `pkgs/store` | KV、object、metrics、graph、vector 与 identity primitives | 领域 resource schema 与业务规则 | [Stores](stores/overview) |
 | `pkgs/audio` | Codec、PCM、resampling、device I/O 与 voiceprint | WebRTC connection、Agent lifecycle | [Audio](audio/overview) |

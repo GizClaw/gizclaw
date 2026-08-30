@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -24,7 +24,7 @@ import (
 const workspaceConfigFile = "config.yaml"
 const workspacePIDFile = "serve.pid"
 
-var installConfiguredLogger = logging.InstallDefault
+var installConfiguredLogger = gizlog.InstallDefault
 
 type ServeOptions struct {
 	Force bool
