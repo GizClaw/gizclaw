@@ -5,7 +5,7 @@ Docker、真实 provider 或人工判断的套件必须显式启动，不能把�
 
 ## Store E2E
 
-`tests/store-e2e` 通过导出的 Store API 验证 Redis 8.0、PostgreSQL 与 ClickHouse，不依赖
+`tests/store-e2e` 通过导出的 Store API 验证 Redis 7.0、PostgreSQL 与 ClickHouse，不依赖
 production package 的私有 test hook。目录内每个 Go 文件都使用 `store_e2e` build
 tag，因此普通 `go test ./...` 不会选择这些测试或访问外部数据库。快速 SQLite
 集成测试继续和对应 package 的单元测试放在同一个普通 `*_test.go` 文件中。
@@ -26,7 +26,7 @@ GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
 每个测试使用独立表名并尽力清理。错误、日志和 CI 输出不得打印 DSN、数据库
 credential 或 Store payload。
 
-Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client 可见性、排序、expiration、batch、conditional-create race、compare-and-mutate race、prefix 隔离与 connector lifecycle。被选中的 endpoint 必须是 Redis 8.0 单节点；Redis Cluster 不属于 Store contract。
+Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client 可见性、排序、expiration、batch、conditional-create race、compare-and-mutate race、prefix 隔离与 connector lifecycle。被选中的 endpoint 必须是 Redis 7.0 单节点；Redis Cluster 不属于 Store contract。
 
 无需 credential 的多 Server Docker gate 为：
 
@@ -34,7 +34,7 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-它运行 Redis 8.0、两台使用不同本地 runtime state 的 Server，以及配置 Server 顺序相反的两台 Edge，验证 Peer 固定归属、经任意 Edge 回到 home Server、foreign Server 拒绝、本地 PeerRun 写入和跨 Server Social 零副作用冲突。它不验证 Workspace routing。
+它运行 Redis 7.0、两台使用不同本地 runtime state 的 Server，以及配置 Server 顺序相反的两台 Edge，验证 Peer 固定归属、经任意 Edge 回到 home Server、foreign Server 拒绝、本地 PeerRun 写入和跨 Server Social 零副作用冲突。它不验证 Workspace routing。
 
 ### Cloud ObjectStore conformance
 
