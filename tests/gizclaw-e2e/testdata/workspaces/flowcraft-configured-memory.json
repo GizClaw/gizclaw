@@ -1,14 +1,16 @@
 {
   "agent": "flowcraft",
   "models": {
+    "asr": "asr",
     "llm": "llm",
-    "tts": "tts",
-    "asr": "asr"
+    "tts": "tts"
   },
+  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
+  "rounds": 1,
+  "timeout": "300s",
+  "voice": "assistant-voice",
   "workflow": {
-    "name": "flowcraft-configured-memory",
     "description": "Flowcraft workflow using the configured provider-neutral memory store",
-    "memory": "default-memory",
     "flowcraft": {
       "conversation": {
         "starts": "peer"
@@ -16,65 +18,57 @@
       "graph": {
         "edges": [
           {
-            "from": "recall-memory",
-            "to": "answer"
-          },
-          {
             "from": "answer",
-            "to": "observe-turn"
-          },
-          {
-            "from": "observe-turn",
             "to": "__end__"
           }
         ],
-        "entry": "recall-memory",
+        "entry": "answer",
         "name": "Configured Memory Assistant",
         "nodes": [
           {
-            "id": "recall-memory",
-            "type": "memory_recall",
             "config": {
-              "query": {
-                "text_from": "input"
+              "intent": {
+                "text": {
+                  "max_output_tokens": 2048
+                }
               },
-              "output": "recalled_memory",
-              "top_k": 5
-            }
-          },
-          {
-            "config": {
-              "max_tokens": 2048,
-              "model": "llm",
-              "system_prompt": "你是一个简短、准确的中文语音助手。\n相关长期记忆如下；如果为空就忽略：\n${board.recalled_memory}\n"
+              "messages_channel": "answer",
+              "model": {
+                "id": {
+                  "name": "llm",
+                  "provider": "gizclaw"
+                }
+              },
+              "stream": true,
+              "system_prompt": "你是一个简短、准确的中文语音助手。\n相关长期记忆如下；如果为空就忽略：\n${board:recalled_memory}\n"
             },
             "id": "answer",
             "publish": true,
-            "type": "llm"
-          },
-          {
-            "id": "observe-turn",
-            "type": "memory_observe",
-            "config": {
-              "observations": [
-                {
-                  "facts": [
-                    {
-                      "attributes": {
-                        "lane": "owner-profile"
-                      },
-                      "text_from": "input"
-                    }
-                  ]
-                }
-              ],
-              "wait_for_completion": true
-            }
+            "type": "inference"
           }
         ]
       },
-      "max_iterations": 4
+      "max_iterations": 4,
+      "memory_hooks": {
+        "context": {
+          "query": {
+            "current_message": true
+          },
+          "budget": {
+            "max_items": 5
+          },
+          "output": "recalled_memory_items",
+          "render": {
+            "output": "recalled_memory"
+          }
+        },
+        "turn": {
+          "channel": "answer"
+        }
+      }
     },
+    "memory": "default-memory",
+    "name": "flowcraft-configured-memory",
     "parameters": {
       "input": "push-to-talk"
     },
@@ -85,9 +79,5 @@
         "answer": "narrator"
       }
     }
-  },
-  "voice": "assistant-voice",
-  "rounds": 1,
-  "timeout": "300s",
-  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly."
+  }
 }

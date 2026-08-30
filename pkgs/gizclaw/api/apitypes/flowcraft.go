@@ -40,8 +40,52 @@ func (s FlowcraftWorkflowSpec) Validate() error {
 	if s.Conversation != nil && s.Conversation.Starts != nil && !s.Conversation.Starts.Valid() {
 		return fmt.Errorf("conversation.starts %q is invalid", *s.Conversation.Starts)
 	}
+	if err := validateFlowcraftMemoryHooks(s.MemoryHooks); err != nil {
+		return fmt.Errorf("memory_hooks: %w", err)
+	}
 	if err := validateFlowcraftVoiceAdapter(s.VoiceAdapter); err != nil {
 		return fmt.Errorf("voice_adapter: %w", err)
+	}
+	return nil
+}
+
+func validateFlowcraftMemoryHooks(hooks *FlowcraftMemoryHooks) error {
+	if hooks == nil {
+		return nil
+	}
+	if hooks.Context == nil && hooks.Turn == nil {
+		return errors.New("context or turn is required")
+	}
+	if hooks.Context == nil {
+		return nil
+	}
+	contextHook := hooks.Context
+	selected := 0
+	if contextHook.Query.Literal != nil && strings.TrimSpace(*contextHook.Query.Literal) != "" {
+		selected++
+	}
+	if contextHook.Query.Board != nil && strings.TrimSpace(*contextHook.Query.Board) != "" {
+		selected++
+	}
+	if contextHook.Query.CurrentMessage != nil && *contextHook.Query.CurrentMessage {
+		selected++
+	}
+	if contextHook.Query.RecentOnly != nil && *contextHook.Query.RecentOnly {
+		selected++
+	}
+	if selected != 1 {
+		return errors.New("context.query must select exactly one of literal, board, current_message, or recent_only")
+	}
+	if strings.TrimSpace(contextHook.Output) == "" || strings.HasPrefix(contextHook.Output, "__") {
+		return errors.New("context.output must be a non-reserved board variable")
+	}
+	if contextHook.Render != nil {
+		if strings.TrimSpace(contextHook.Render.Output) == "" || strings.HasPrefix(contextHook.Render.Output, "__") {
+			return errors.New("context.render.output must be a non-reserved board variable")
+		}
+		if contextHook.Render.Output == contextHook.Output {
+			return errors.New("context.render.output must differ from context.output")
+		}
 	}
 	return nil
 }
@@ -71,20 +115,20 @@ func validateFlowcraftGraph(graph FlowcraftGraph) error {
 		}
 		var id string
 		switch discriminator.Type {
-		case string(FlowcraftLLMNodeTypeLlm):
-			var node FlowcraftLLMNode
+		case string(FlowcraftInferenceNodeTypeInference):
+			var node FlowcraftInferenceNode
 			if err := decodeStrictJSON(data, &node); err != nil {
 				return fmt.Errorf("nodes[%d]: %w", index, err)
 			}
 			id = node.Id
-			if strings.TrimSpace(node.Config.Model) == "" {
-				return fmt.Errorf("nodes[%d].config.model is required", index)
+			if node.Config.Model.Id.Provider != FlowcraftInferenceModelIDProviderGizclaw {
+				return fmt.Errorf("nodes[%d].config.model.id.provider must be gizclaw", index)
 			}
-			if err := validateFlowcraftAlias("model", node.Config.Model); err != nil {
+			if err := validateFlowcraftAlias("model.id.name", node.Config.Model.Id.Name); err != nil {
 				return fmt.Errorf("nodes[%d].config.%w", index, err)
 			}
-			if node.Config.MaxTokens != nil && *node.Config.MaxTokens < 1 {
-				return fmt.Errorf("nodes[%d].config.max_tokens must be positive", index)
+			if err := validateFlowcraftInferenceIntent(node.Config.Intent); err != nil {
+				return fmt.Errorf("nodes[%d].config.intent: %w", index, err)
 			}
 			if node.Publish != nil && *node.Publish {
 				publishers++
@@ -100,6 +144,9 @@ func validateFlowcraftGraph(graph FlowcraftGraph) error {
 			}
 			if strings.TrimSpace(node.Config.Source) == "" {
 				return fmt.Errorf("nodes[%d].config.source is required", index)
+			}
+			if node.Config.Runtime != FlowcraftScriptNodeConfigRuntimeJs {
+				return fmt.Errorf("nodes[%d].config.runtime must be js", index)
 			}
 		case string(FlowcraftPassthroughNodeTypePassthrough):
 			var node FlowcraftPassthroughNode
@@ -181,6 +228,40 @@ func validateFlowcraftGraph(graph FlowcraftGraph) error {
 			if _, exists := nodes[edge.To]; !exists {
 				return fmt.Errorf("edges[%d].to %q is not a defined node", index, edge.To)
 			}
+		}
+	}
+	return nil
+}
+
+func validateFlowcraftInferenceIntent(intent *FlowcraftInferenceIntent) error {
+	if intent == nil {
+		return nil
+	}
+	text := intent.Text
+	if text.MaxOutputTokens != nil && *text.MaxOutputTokens < 1 {
+		return errors.New("text.max_output_tokens must be positive")
+	}
+	if text.Temperature != nil && (*text.Temperature < 0 || *text.Temperature > 2) {
+		return errors.New("text.temperature must be between 0 and 2")
+	}
+	if text.TopP != nil && (*text.TopP < 0 || *text.TopP > 1) {
+		return errors.New("text.top_p must be between 0 and 1")
+	}
+	if text.Response == nil {
+		return nil
+	}
+	response := text.Response
+	if !response.Kind.Valid() {
+		return fmt.Errorf("text.response.kind %q is unsupported", response.Kind)
+	}
+	switch response.Kind {
+	case FlowcraftInferenceResponseFormatKindText, FlowcraftInferenceResponseFormatKindJsonObject:
+		if response.Name != nil || response.Schema != nil {
+			return fmt.Errorf("text.response kind %q cannot carry name or schema", response.Kind)
+		}
+	case FlowcraftInferenceResponseFormatKindJsonSchema:
+		if response.Name == nil || strings.TrimSpace(*response.Name) == "" || response.Schema == nil {
+			return errors.New("text.response json_schema requires name and schema")
 		}
 	}
 	return nil

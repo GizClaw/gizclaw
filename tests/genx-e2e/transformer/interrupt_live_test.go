@@ -15,7 +15,7 @@ import (
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -84,7 +84,10 @@ func TestFlowcraftTransformerLiveRepeatedInterrupt(t *testing.T) {
 	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
 		ID: "flowcraft-interrupt-e2e", Name: "Flowcraft Interrupt E2E", Models: generator,
 		Graph: flowgraph.GraphDefinition{Name: "interrupt-chat", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{
-			ID: "chat", Type: "llm", Config: map[string]any{"model": "chat", "system_prompt": "Follow the user request exactly."},
+			ID: "chat", Type: "inference", Config: flowcraftNodeConfig(t, map[string]any{
+				"model":            map[string]any{"id": map[string]any{"provider": "gizclaw", "name": "chat"}},
+				"messages_channel": "chat", "stream": true, "system_prompt": "Follow the user request exactly.",
+			}),
 		}}},
 		PublishNodes: []string{"chat"},
 	})

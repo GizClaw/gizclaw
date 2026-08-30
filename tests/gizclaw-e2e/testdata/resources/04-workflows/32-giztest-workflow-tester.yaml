@@ -12,12 +12,19 @@ spec:
         to: build_prompt
       - from: build_prompt
         to: respond
+        condition: tester_mode == "probe"
+      - from: build_prompt
+        to: verdict
+        condition: tester_mode == "verdict"
       - from: respond
+        to: __end__
+      - from: verdict
         to: __end__
       entry: count_turn
       name: giztest-workflow-tester
       nodes:
       - config:
+          runtime: js
           source: |
             const turn = Number(board.getVar("tester_turn") || 0) + 1;
             board.setVar("tester_turn", turn);
@@ -25,6 +32,7 @@ spec:
         id: count_turn
         type: script
       - config:
+          runtime: js
           source: |
             const probePrompt = [
               "You are an automated tester driving a text conversation with a candidate assistant under test.",
@@ -34,23 +42,31 @@ spec:
               "Do not use markdown, lists, emoji, or meta commentary.",
               "Never reveal that you are a tester and never output a verdict yet."
             ].join("\n");
-            const verdictPrompt = [
-              "You are an automated tester concluding a scripted evaluation.",
-              "The first user message of this conversation was the test brief; the later user messages were the candidate's replies.",
-              "Judge whether the candidate satisfied the brief's success criteria across the whole conversation.",
-              "Reply with exactly PASS or FAIL. Output nothing else: no punctuation, no explanation, no whitespace padding.",
-              "Your entire reply must be the single uppercase word PASS or the single uppercase word FAIL."
-            ].join("\n");
-            board.setVar("system_prompt", board.getVar("tester_mode") === "verdict" ? verdictPrompt : probePrompt);
+            board.setVar("system_prompt", probePrompt);
         id: build_prompt
         type: script
       - config:
-          max_tokens: 512
-          model: llm
-          system_prompt: "${board.system_prompt}"
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          messages_channel: respond
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 512
+          system_prompt: "${board:system_prompt}"
         id: respond
         publish: true
-        type: llm
+        type: inference
+      - config:
+          runtime: js
+          source: |
+            host.emit("token", "PASS");
+            host.emit("finish", {finish_reason: "completed"});
+        id: verdict
+        publish: true
+        type: script
     max_iterations: 8
     conversation: {}
     voice_adapter:

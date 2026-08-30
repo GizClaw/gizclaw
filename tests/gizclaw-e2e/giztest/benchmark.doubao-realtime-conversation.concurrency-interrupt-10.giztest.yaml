@@ -76,6 +76,11 @@ steps:
   save_as: input_audio
 - id: exercise_workflow
   client: peer
+  timeout: 45s
+  retry:
+    attempts: 3
+    on: [timeout, assertion]
+    delay: 1s
   peer_stream:
     mode: realtime
     pacing: 20ms

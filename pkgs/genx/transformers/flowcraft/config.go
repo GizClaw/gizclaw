@@ -8,7 +8,8 @@ import (
 	"reflect"
 	"strings"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
+	memoryhook "github.com/GizClaw/flowcraft/core/memory/hook"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
@@ -57,17 +58,12 @@ type Config struct {
 	// when a Graph memory_recall node explicitly selects those lanes.
 	MemoryLaneRecall map[string]string
 
-	// RecallProfiles populate Board variables before each Graph run.
-	RecallProfiles []MemoryRecallProfile
-	// RecallRenderer overrides DefaultRecallRenderer when non-nil.
-	RecallRenderer RecallRenderer
-
-	// ObserveEnabled submits completed pull-visible turns to Memory.
-	ObserveEnabled bool
-	// ObservationBuilder overrides DefaultObservationBuilder when non-nil.
-	ObservationBuilder ObservationBuilder
-	// ObserveWaitForCompletion waits for pending Memory operations before EOS.
-	ObserveWaitForCompletion bool
+	// MemoryContext configures the official Flowcraft memory.context prepare
+	// hook. Scope is runtime-owned and must match MemoryScope.
+	MemoryContext *memoryhook.ContextSettings
+	// MemoryTurn configures the official Flowcraft memory.turn commit hook.
+	// Scope is runtime-owned and must match MemoryScope.
+	MemoryTurn *memoryhook.TurnSettings
 
 	// BoardInputs resolves transient variables immediately before every Graph
 	// turn. Returned values are copied into the Board after durable State loads.
@@ -88,76 +84,6 @@ const (
 	InitiativeOnceWhenEmpty InitiativePolicy = "once_when_empty"
 	InitiativeOnReload      InitiativePolicy = "on_reload"
 )
-
-// MemoryRecallProfile recalls long-term memory into one Board variable.
-type MemoryRecallProfile struct {
-	// BoardVariable receives the rendered recall result.
-	BoardVariable string
-	// QueryText is a retained Flowcraft query template. Empty or "input" uses
-	// the current user turn; ${input} is replaced with that turn.
-	QueryText string
-	// Limit is the positive maximum number of matches requested.
-	Limit int
-	// Filters are passed unchanged to memory.Store.Recall.
-	Filters []memory.Filter
-	// Renderer overrides Config.RecallRenderer for this profile.
-	Renderer RecallRenderer
-}
-
-// ObservationInput is the completed, downstream-delivered turn presented to
-// an ObservationBuilder.
-type ObservationInput struct {
-	// StreamID identifies the generated response.
-	StreamID string
-	// UserText is the complete input turn.
-	UserText string
-	// DeliveredAssistantText is only the text delivered through downstream Next calls.
-	DeliveredAssistantText string
-	// BoardVariables is a defensive copy of serializable final Board values.
-	// Transient tmp_* values are included so configured memory board facts can
-	// observe them, but they are still excluded from durable State persistence.
-	BoardVariables map[string]any
-	// Interrupted reports that an unpulled suffix was discarded.
-	Interrupted bool
-}
-
-// ObservationBuilder converts one delivered turn into memory extraction input.
-type ObservationBuilder func(context.Context, ObservationInput) (memory.Observation, error)
-
-// RecallRenderer converts ordered provider-neutral memory matches into a Board value.
-type RecallRenderer func(context.Context, []memory.Match) (string, error)
-
-// DefaultObservationBuilder preserves each non-empty user or delivered
-// assistant turn. Agent-initiative runs therefore observe only the assistant
-// turn and never manufacture an empty user message.
-func DefaultObservationBuilder(_ context.Context, input ObservationInput) (memory.Observation, error) {
-	var turns []memory.Turn
-	if strings.TrimSpace(input.UserText) != "" {
-		turns = append(turns, memory.Turn{ID: input.StreamID + ":user", Role: memory.RoleUser, Text: input.UserText})
-	}
-	if strings.TrimSpace(input.DeliveredAssistantText) != "" {
-		turns = append(turns, memory.Turn{ID: input.StreamID + ":assistant", Role: memory.RoleAssistant, Text: input.DeliveredAssistantText})
-	}
-	return memory.Observation{ID: input.StreamID, Turns: turns}, nil
-}
-
-// DefaultRecallRenderer renders recalled facts as a short system context block.
-func DefaultRecallRenderer(_ context.Context, matches []memory.Match) (string, error) {
-	var result strings.Builder
-	for _, match := range matches {
-		text := strings.TrimSpace(match.Fact.Text)
-		if text == "" {
-			continue
-		}
-		if result.Len() == 0 {
-			result.WriteString("Relevant memory:\n")
-		}
-		result.WriteString("- ")
-		result.WriteString(text)
-		result.WriteByte('\n')
-	}
-	return strings.TrimSpace(result.String()), nil
-}
 
 func normalizeConfig(source Config) (Config, error) {
 	config := source
@@ -217,23 +143,32 @@ func normalizeConfig(source Config) (Config, error) {
 	nodes := make(map[string]struct{}, len(config.Graph.Nodes))
 	for _, node := range config.Graph.Nodes {
 		nodes[node.ID] = struct{}{}
+		var rawConfig map[string]any
+		if len(node.Config) > 0 {
+			if err := json.Unmarshal(node.Config, &rawConfig); err != nil {
+				return Config{}, fmt.Errorf("flowcraft: node %q config: %w", node.ID, err)
+			}
+		}
 		switch node.Type {
-		case "llm":
-			modelAlias, _ := node.Config["model"].(string)
+		case "inference":
+			model, _ := rawConfig["model"].(map[string]any)
+			modelID, _ := model["id"].(map[string]any)
+			provider, _ := modelID["provider"].(string)
+			modelAlias, _ := modelID["name"].(string)
 			modelAlias = strings.TrimSpace(modelAlias)
-			if modelAlias == "" {
-				return Config{}, fmt.Errorf("flowcraft: LLM node %q requires model alias", node.ID)
+			if provider != genXInferenceProvider || modelAlias == "" {
+				return Config{}, fmt.Errorf("flowcraft: inference node %q requires model.id {provider: %q, name: <alias>}", node.ID, genXInferenceProvider)
 			}
 			if !strings.Contains(modelAlias, "${") && strings.Contains(modelAlias, "/") {
-				return Config{}, fmt.Errorf("flowcraft: LLM node %q model must be an alias, got %q", node.ID, modelAlias)
+				return Config{}, fmt.Errorf("flowcraft: inference node %q model name must be an alias, got %q", node.ID, modelAlias)
 			}
 		case "script":
-			source, _ := node.Config["source"].(string)
+			source, _ := rawConfig["source"].(string)
 			if strings.TrimSpace(source) == "" {
 				return Config{}, fmt.Errorf("flowcraft: script node %q requires inline source", node.ID)
 			}
 		case "passthrough":
-			if len(node.Config) != 0 {
+			if len(rawConfig) != 0 {
 				return Config{}, fmt.Errorf("flowcraft: passthrough node %q does not accept config", node.ID)
 			}
 		case "memory_recall":
@@ -286,50 +221,19 @@ func normalizeConfig(source Config) (Config, error) {
 		config.PublishNodes = append(config.PublishNodes, nodeID)
 	}
 	if config.Memory == nil {
-		if config.MemoryScope != (memory.Scope{}) || len(config.RecallProfiles) != 0 || config.ObserveEnabled || config.ObserveWaitForCompletion {
+		if config.MemoryScope != (memory.Scope{}) || config.MemoryContext != nil || config.MemoryTurn != nil {
 			return Config{}, fmt.Errorf("flowcraft: Memory settings require Memory")
 		}
 	} else if config.MemoryScope == (memory.Scope{}) {
 		return Config{}, fmt.Errorf("flowcraft: MemoryScope is required when Memory is configured")
 	}
-	if config.ObserveWaitForCompletion {
-		if !config.ObserveEnabled {
-			return Config{}, fmt.Errorf("flowcraft: ObserveWaitForCompletion requires ObserveEnabled")
+	if config.MemoryContext != nil {
+		if config.MemoryContext.Query.RecentOnly {
+			return Config{}, fmt.Errorf("flowcraft: memory.context recent_only is not supported by memory.Store")
 		}
-		if _, ok := config.Memory.(memory.OperationWaiter); !ok {
-			return Config{}, fmt.Errorf("flowcraft: ObserveWaitForCompletion requires memory.OperationWaiter")
+		if len(config.MemoryContext.DatasetIDs) > 0 {
+			return Config{}, fmt.Errorf("flowcraft: memory.context dataset_ids are not supported by memory.Store")
 		}
-	}
-	config.RecallProfiles = append([]MemoryRecallProfile(nil), source.RecallProfiles...)
-	recallVariables := make(map[string]struct{}, len(config.RecallProfiles))
-	for index := range config.RecallProfiles {
-		profile := &config.RecallProfiles[index]
-		profile.BoardVariable = strings.TrimSpace(profile.BoardVariable)
-		profile.QueryText = strings.TrimSpace(profile.QueryText)
-		profile.Filters = append([]memory.Filter(nil), profile.Filters...)
-		for filterIndex := range profile.Filters {
-			value, err := cloneConfigValue(profile.Filters[filterIndex].Value)
-			if err != nil {
-				return Config{}, fmt.Errorf("flowcraft: clone RecallProfiles[%d].Filters[%d]: %w", index, filterIndex, err)
-			}
-			profile.Filters[filterIndex].Value = value
-		}
-		if profile.BoardVariable == "" || profile.Limit <= 0 {
-			return Config{}, fmt.Errorf("flowcraft: RecallProfiles[%d] requires BoardVariable and positive Limit", index)
-		}
-		if _, duplicate := recallVariables[profile.BoardVariable]; duplicate {
-			return Config{}, fmt.Errorf("flowcraft: RecallProfiles contains duplicate BoardVariable %q", profile.BoardVariable)
-		}
-		recallVariables[profile.BoardVariable] = struct{}{}
-		if err := memory.ValidateQuery(memory.Query{Scope: config.MemoryScope, Text: "validation", Limit: profile.Limit, Filters: profile.Filters}); err != nil {
-			return Config{}, fmt.Errorf("flowcraft: invalid RecallProfiles[%d]: %w", index, err)
-		}
-	}
-	if config.RecallRenderer == nil {
-		config.RecallRenderer = DefaultRecallRenderer
-	}
-	if config.ObservationBuilder == nil {
-		config.ObservationBuilder = DefaultObservationBuilder
 	}
 	return config, nil
 }

@@ -238,12 +238,12 @@ func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMod
 
 func testFlowcraftWorkflowSpec() *apitypes.FlowcraftWorkflowSpec {
 	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
+	if err := node.FromFlowcraftInferenceNode(apitypes.FlowcraftInferenceNode{
 		Id:      "answer",
-		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
+		Type:    apitypes.FlowcraftInferenceNodeTypeInference,
 		Publish: ptr(true),
-		Config: apitypes.FlowcraftLLMNodeConfig{
-			Model: "llm",
+		Config: apitypes.FlowcraftInferenceNodeConfig{
+			Model: apitypes.FlowcraftInferenceModelRef{Id: apitypes.FlowcraftInferenceModelID{Provider: apitypes.FlowcraftInferenceModelIDProviderGizclaw, Name: "llm"}},
 		},
 	}); err != nil {
 		panic(err)

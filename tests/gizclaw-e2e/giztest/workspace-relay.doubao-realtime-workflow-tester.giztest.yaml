@@ -1,7 +1,7 @@
 # User Story:
 # As a Workflow catalog maintainer,
-# I want a tester Workspace to drive a multimodal realtime Workspace over text,
-# So that provider text is asserted without ASR and audio EOS still bounds turns.
+# I want a tester Workspace to drive a multimodal realtime Workspace over audio,
+# So that the production ASR, realtime provider, and TTS path are exercised together.
 version: gizclaw.test/v1alpha1
 name: workspace-relay.doubao-realtime-workflow-tester
 clients:
@@ -64,7 +64,7 @@ steps:
         parameters:
           doubao_realtime_workspace_parameters:
             agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
-            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+            input: WORKSPACE_INPUT_MODE_REALTIME
   - id: create_tester_workspace
     client: tester
     rpc:
@@ -92,7 +92,8 @@ steps:
       first_client: tester
       second_client: candidate
       input: "${test_brief}"
-      media: text
+      media: audio
+      input_media: text
       terminal_media: audio
       idle_timeout: 90s
       max_turns: 15
@@ -103,8 +104,8 @@ steps:
       /terminal/client: {equals: tester}
       /terminal/text: {pattern: "^\\s*PASS\\s*$"}
       /completed_turns: {equals: 15}
-      /turns/candidate/first_text_ms/max: {maximum: 30000}
-      /turns/candidate/text_runes/min: {minimum: 1}
+      /turns/candidate/first_audio_ms/max: {maximum: 30000}
+      /turns/candidate/audio_bytes/min: {minimum: 1}
   - id: emit_verdict
     output: {variable: verdict}
 finally:

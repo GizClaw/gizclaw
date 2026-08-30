@@ -21,6 +21,7 @@ struct gzc_rtc_channel {
   int id;
   bool remote;
   bool in_use;
+  bool closing;
   bool ordered;
   bool reliable;
   char label[64];

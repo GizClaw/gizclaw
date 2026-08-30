@@ -20,7 +20,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"pet-care.model"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -39,7 +39,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"model":"pet-care.model"`) || !strings.Contains(string(raw), `"default_voice":"pet-care.pet"`) {
+	if !strings.Contains(string(raw), `"name":"pet-care.model"`) || !strings.Contains(string(raw), `"default_voice":"pet-care.pet"`) {
 		t.Fatalf("stored Workflow aliases = %s", raw)
 	}
 	unchanged, err := manager.Apply(context.Background(), mustResource(t, `{
@@ -48,7 +48,7 @@ func TestApplyWorkflowCreatesResource(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"pet-care.model"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply unchanged Workflow returned error: %v", err)
@@ -64,7 +64,7 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 		"id": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"pet-care.model"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -86,7 +86,7 @@ func TestGetWorkflowReturnsResource(t *testing.T) {
 
 func TestPutWorkflowWritesResource(t *testing.T) {
 	workflows := newFakeWorkflows()
-	workflows.items["workflow"] = mustWorkflow(t, `{"id":"workflow","spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"old","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}}}`)
+	workflows.items["workflow"] = mustWorkflow(t, `{"id":"workflow","spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"old","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}}}`)
 	manager := New(Services{Workflows: workflows})
 
 	_, err := manager.Put(context.Background(), mustResource(t, `{
@@ -95,7 +95,7 @@ func TestPutWorkflowWritesResource(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"pet-care.model"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}, "voice_adapter": {"default_voice": "pet-care.pet"}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Put returned error: %v", err)
@@ -111,7 +111,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -121,7 +121,7 @@ func TestApplyWorkflowUnchangedSkipsPut(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -141,7 +141,7 @@ func TestApplyWorkflowCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": ["system.mode.switch", "system.music.play"]},
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -152,7 +152,7 @@ func TestApplyWorkflowCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": ["system.music.play", "system.mode.switch", "system.music.play"]},
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)
@@ -171,7 +171,7 @@ func TestApplyWorkflowCanonicalizesToolkitPolicyBeforeCompare(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"toolkit": {"tool_ids": [" system.music.play "]},
-			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
 		t.Fatalf("Apply(whitespace tool ID) error = %v", err)
@@ -184,7 +184,7 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 		"name": "workflow",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "old-assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "old-assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`)
 	manager := New(Services{Workflows: workflows})
 
@@ -194,7 +194,7 @@ func TestApplyWorkflowUpdatesResource(t *testing.T) {
 		"metadata": {"id": "workflow"},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph": {"name": "new-assistant", "entry": "answer", "nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "llm"}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
+			"flowcraft": {"graph": {"name": "new-assistant", "entry": "answer", "nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}], "edges": [{"from": "answer", "to": "__end__"}]}}		}
 	}`))
 	if err != nil {
 		t.Fatalf("Apply returned error: %v", err)

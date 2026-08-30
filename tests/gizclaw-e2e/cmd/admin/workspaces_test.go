@@ -31,12 +31,32 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create admin API client: %v", err)
 	}
-	workflowName := "chatroom-direct"
+	workflowName := "flowcraft-voice-assistant"
 	profileID := fmt.Sprintf("e2e-cli-workspaces-%x", time.Now().UnixNano())
+	var memoryConnection apitypes.RuntimeProfileMemoryConnection
+	if err := memoryConnection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{
+		Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh,
+	}); err != nil {
+		t.Fatalf("build RuntimeProfile memory connection: %v", err)
+	}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{
+		"voice-assistant-memory": {
+			LayoutId:   "voice-assistant-memory",
+			Driver:     apitypes.RuntimeProfileMemoryDriverFlowcraft,
+			Connection: memoryConnection,
+		},
+	}
+	models := map[string]apitypes.RuntimeProfileBinding{
+		"llm": runtimeProfileBinding("doubao-mini-chat"),
+		"asr": runtimeProfileBinding("volc-bigasr-sauc"),
+	}
+	voices := map[string]apitypes.RuntimeProfileBinding{
+		"narrator": runtimeProfileBinding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts"),
+	}
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id: profileID,
 		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{},
+			Resources: apitypes.RuntimeProfileResources{Memories: &memories, Models: &models, Voices: &voices},
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
 					FriendChatroom: "chatroom-direct",
@@ -45,13 +65,10 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
 					"assistants": {
-						"voice": {
-							ResourceId: workflowName,
-							I18n: map[string]apitypes.RuntimeProfileI18nText{
-								"en":    {DisplayName: "Voice"},
-								"zh-CN": {DisplayName: "语音助手"},
-							},
-						},
+						"voice": {ResourceId: workflowName, I18n: map[string]apitypes.RuntimeProfileI18nText{
+							"en":    {DisplayName: "Voice"},
+							"zh-CN": {DisplayName: "语音"},
+						}},
 					},
 				},
 			},
@@ -92,13 +109,20 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	workspaceID := adminWorkspaceIDByName(t, list.Stdout, workspaceName)
 	workflows := h.RunCLI("admin", "workflows", "list", "--context", "admin-a")
 	workflows.MustSucceed(t)
-	workflowID := adminResourceID(t, workflows.Stdout, workflowName)
+	voiceWorkflowID := adminResourceID(t, workflows.Stdout, "flowcraft-voice-assistant")
 
 	get := h.RunCLI("admin", "workspaces", "get", workspaceID, "--context", "admin-a")
 	get.MustSucceed(t)
-	if !strings.Contains(get.Stdout, `"workflow_id":"`+workflowID+`"`) {
+	if !strings.Contains(get.Stdout, `"workflow_id":"`+voiceWorkflowID+`"`) {
 		t.Fatalf("workspaces get missing canonical workflow ID:\n%s", get.Stdout)
 	}
+}
+
+func runtimeProfileBinding(resourceID string) apitypes.RuntimeProfileBinding {
+	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
+		"en":    {DisplayName: resourceID},
+		"zh-CN": {DisplayName: resourceID},
+	}}
 }
 
 func adminWorkspaceIDByName(t *testing.T, output, name string) string {

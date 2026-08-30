@@ -5,7 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -18,14 +19,14 @@ func TestMemoryObserveNodeRejectsStoreWithoutDirectFactCapability(t *testing.T) 
 	config.Graph.Entry = "observe"
 	config.Graph.Nodes = append([]flowgraph.NodeDefinition{{
 		ID: "observe", Type: "memory_observe",
-		Config: map[string]any{
+		Config: testNodeConfig(map[string]any{
 			"observations": []any{map[string]any{
 				"facts": []any{map[string]any{
 					"text_from":  "fact",
 					"attributes": map[string]string{"lane": "facts"},
 				}},
 			}},
-		},
+		}),
 	}}, config.Graph.Nodes...)
 	config.Graph.Edges = []flowgraph.EdgeDefinition{
 		{From: "observe", To: "chat"},
@@ -45,7 +46,7 @@ func TestMemoryRecallNodeMapsBoardToStoreAndBack(t *testing.T) {
 		{Fact: memory.Fact{Text: "second", Attributes: map[string]any{"categories": []string{"note"}, "lane": "clues"}}},
 		{Fact: memory.Fact{Text: "over top-k", Attributes: map[string]any{"kind": "note", "lane": "clues"}}},
 	}}}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("input", "where is the key?")
 	node := &memoryRecallNode{
 		id:    "recall",
@@ -70,10 +71,7 @@ func TestMemoryRecallNodeMapsBoardToStoreAndBack(t *testing.T) {
 		},
 	}
 
-	if err := node.ExecuteBoard(flowgraph.ExecutionContext{
-		Context: t.Context(),
-		RunID:   "run",
-	}, board); err != nil {
+	if err := node.ExecuteBoard(testExecutionContext(t.Context(), "run"), board); err != nil {
 		t.Fatalf("ExecuteBoard() error = %v", err)
 	}
 	if store.recallQuery.Scope.AppID != "workspace" ||
@@ -95,7 +93,7 @@ func TestMemoryObserveNodeMapsBoardFactsToStore(t *testing.T) {
 	store := &memoryNodeStore{observeResult: memory.ObserveResult{
 		Operation: &memory.Operation{ID: "done", Status: memory.OperationSucceeded},
 	}}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("clue", "the key is under the mat")
 	node := &memoryObserveNode{
 		id:    "observe",
@@ -121,10 +119,7 @@ func TestMemoryObserveNodeMapsBoardFactsToStore(t *testing.T) {
 		},
 	}
 
-	if err := node.ExecuteBoard(flowgraph.ExecutionContext{
-		Context: t.Context(),
-		RunID:   "run",
-	}, board); err != nil {
+	if err := node.ExecuteBoard(testExecutionContext(t.Context(), "run"), board); err != nil {
 		t.Fatalf("ExecuteBoard() error = %v", err)
 	}
 	if store.observation.ID != "run" || store.observation.Scope.AppID != "workspace" {

@@ -1718,7 +1718,7 @@ func seedFlowcraftWorkflow(t *testing.T, srv *Server, name, generateModel string
 	t.Helper()
 
 	store := testWorkflowStore(t, srv)
-	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":%q}}]}}}}`, name, generateModel)
+	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":%q}},"messages_channel":"answer","stream":true}}]}}}}`, name, generateModel)
 	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
 		t.Fatalf("seed flowcraft workflow %q: %v", name, err)
 	}

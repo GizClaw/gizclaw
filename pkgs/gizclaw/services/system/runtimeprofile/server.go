@@ -1417,8 +1417,8 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			kind  apitypes.ModelKind
 		}, 0, len(flowcraft.Graph.Nodes)+4)
 		for index, raw := range flowcraft.Graph.Nodes {
-			if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
-				node, err := raw.AsFlowcraftLLMNode()
+			if discriminator, _ := raw.Discriminator(); discriminator == "inference" {
+				node, err := raw.AsFlowcraftInferenceNode()
 				if err != nil {
 					return fmt.Errorf("%s.graph.nodes[%d]: %w", path, index, err)
 				}
@@ -1426,7 +1426,7 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 					field string
 					alias string
 					kind  apitypes.ModelKind
-				}{field: fmt.Sprintf("graph.nodes[%d].config.model", index), alias: node.Config.Model, kind: apitypes.ModelKindLlm})
+				}{field: fmt.Sprintf("graph.nodes[%d].config.model.id.name", index), alias: node.Config.Model.Id.Name, kind: apitypes.ModelKindLlm})
 			}
 		}
 		if flowcraft.VoiceAdapter != nil && flowcraft.VoiceAdapter.AsrModel != nil {

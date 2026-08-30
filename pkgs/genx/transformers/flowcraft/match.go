@@ -7,8 +7,8 @@ import (
 	"io"
 	"strings"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
-	flownode "github.com/GizClaw/flowcraft/sdk/graph/node"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 )
@@ -25,13 +25,9 @@ type matchNodeRuntime struct {
 	matcher *genxmatch.Matcher
 }
 
-func compileMatchNode(id string, source map[string]any) (matchNodeRuntime, error) {
+func compileMatchNode(id string, source json.RawMessage) (matchNodeRuntime, error) {
 	var config matchNodeConfig
-	raw, err := json.Marshal(source)
-	if err != nil {
-		return matchNodeRuntime{}, fmt.Errorf("flowcraft: match node %q: encode config: %w", id, err)
-	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder := json.NewDecoder(bytes.NewReader(source))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&config); err != nil {
 		return matchNodeRuntime{}, fmt.Errorf("flowcraft: match node %q: decode config: %w", id, err)
@@ -65,16 +61,20 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 	return nil
 }
 
-func registerMatchNodes(factory *flownode.Factory, config Config) {
-	factory.RegisterBuilder("match", func(def flowgraph.NodeDefinition) (flowgraph.Node, error) {
-		runtime, ok := config.matchNodes[def.ID]
-		if !ok {
-			return nil, fmt.Errorf("flowcraft: match node %q was not compiled", def.ID)
-		}
-		return &matchNode{
-			id: def.ID, generator: config.Models,
-			config: runtime.config, matcher: runtime.matcher,
-		}, nil
+func registerMatchNodes(registry *flowgraph.Registry, config Config) error {
+	return flowgraph.RegisterType(registry, "match", flowgraph.NodeType[matchNodeConfig]{
+		Decode: func(raw json.RawMessage) (matchNodeConfig, error) {
+			runtime, err := compileMatchNode("dynamic", raw)
+			return runtime.config, err
+		},
+		Handler: func(ctx flowgraph.ExecutionContext, board *flowagent.Board, nodeConfig matchNodeConfig) error {
+			runtime, ok := config.matchNodes[ctx.NodeID]
+			if !ok {
+				return fmt.Errorf("flowcraft: match node %q was not compiled", ctx.NodeID)
+			}
+			node := matchNode{id: ctx.NodeID, generator: config.Models, config: nodeConfig, matcher: runtime.matcher}
+			return node.ExecuteBoard(ctx, board)
+		},
 	})
 }
 
@@ -87,18 +87,7 @@ type matchNode struct {
 
 func (node *matchNode) ID() string { return node.id }
 func (*matchNode) Type() string    { return "match" }
-func (node *matchNode) InputPorts() []flowgraph.Port {
-	return []flowgraph.Port{{
-		Name: node.config.Input, Type: flowgraph.PortTypeString, Required: true,
-	}}
-}
-func (node *matchNode) OutputPorts() []flowgraph.Port {
-	return []flowgraph.Port{{
-		Name: node.config.Output, Type: flowgraph.PortTypeArray, Required: true,
-	}}
-}
-
-func (node *matchNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowgraph.Board) error {
+func (node *matchNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowagent.Board) error {
 	value, ok := board.GetVar(node.config.Input)
 	if !ok {
 		return fmt.Errorf("flowcraft: match node %q input %q is missing", node.id, node.config.Input)

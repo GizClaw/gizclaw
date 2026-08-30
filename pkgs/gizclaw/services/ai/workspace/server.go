@@ -1858,13 +1858,13 @@ func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParame
 	configured := *workflow.Spec.Flowcraft
 	references := make([]FlowcraftModelReference, 0, len(configured.Graph.Nodes)+3)
 	for index, raw := range configured.Graph.Nodes {
-		if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
-			node, err := raw.AsFlowcraftLLMNode()
+		if discriminator, _ := raw.Discriminator(); discriminator == "inference" {
+			node, err := raw.AsFlowcraftInferenceNode()
 			if err != nil {
 				return nil, invalidWorkspaceReference("flowcraft graph node %d is invalid: %v", index, err)
 			}
 			references = append(references, FlowcraftModelReference{
-				Role: fmt.Sprintf("graph.nodes[%d].config.model", index), ModelID: node.Config.Model, Kind: apitypes.ModelKindLlm,
+				Role: fmt.Sprintf("graph.nodes[%d].config.model.id.name", index), ModelID: node.Config.Model.Id.Name, Kind: apitypes.ModelKindLlm,
 			})
 		}
 	}

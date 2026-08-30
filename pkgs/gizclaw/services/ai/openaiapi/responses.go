@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -158,6 +159,10 @@ func (j *responseJob) run(parent context.Context, delta func(string) error) (wor
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			result.Status = "cancelled"
 		} else {
+			slog.ErrorContext(parent, "gizclaw: OpenAI Workspace Agent failed",
+				"workspace_id", j.workspace.Id,
+				"error", err,
+			)
 			result.Status = "failed"
 			result.ErrorCode = "server_error"
 			result.ErrorMessage = "The Workspace Agent failed to complete the Response."

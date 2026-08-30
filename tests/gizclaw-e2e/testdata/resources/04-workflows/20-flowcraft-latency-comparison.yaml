@@ -38,6 +38,7 @@ spec:
       - id: capture-input
         type: script
         config:
+          runtime: js
           source: |
             const messages = board.channel(board.MAIN_CHANNEL) || [];
             let inputText = "";
@@ -48,7 +49,7 @@ spec:
                 inputText = message.content.trim();
                 break;
               }
-              const parts = Array.isArray(message.parts) ? message.parts : [];
+              const parts = message.content && Array.isArray(message.content.parts) ? message.content.parts : [];
               inputText = parts.map(function(part) {
                 return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
               }).join("").trim();
@@ -58,24 +59,32 @@ spec:
       - id: planner-prompt
         type: script
         config:
+          runtime: js
           source: |
             board.setChannel("planner-messages", [{
               role: "user",
-              parts: [{ type: "text", text: board.getVar("captured-input") || "" }]
+              content: { parts: [{ type: "text", text: board.getVar("captured-input") || "" }] }
             }]);
       - id: planner-model
         publish: false
-        type: llm
+        type: inference
         config:
-          max_tokens: 64
           messages_channel: planner-messages
-          model: llm
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 64
+              temperature: 0
           output_key: plan
           system_prompt: 请把用户请求归纳成一个不超过二十个汉字的执行计划。只输出计划，不要解释。
-          temperature: 0
       - id: answer-prompt
         type: script
         config:
+          runtime: js
           source: |
             const memory = board.getVar("recalled-memory") || "";
             const plan = board.getVar("plan") || "";
@@ -88,18 +97,24 @@ spec:
             ].join("\n"));
             board.setChannel("answer-messages", [{
               role: "user",
-              parts: [{ type: "text", text: board.getVar("captured-input") || "" }]
+              content: { parts: [{ type: "text", text: board.getVar("captured-input") || "" }] }
             }]);
       - id: answer-model
         publish: true
-        type: llm
+        type: inference
         config:
-          max_tokens: 128
           messages_channel: answer-messages
-          model: llm
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 128
+              temperature: 0
           output_key: answer
-          system_prompt: ${board.answer-system-prompt}
-          temperature: 0
+          system_prompt: ${board:answer-system-prompt}
       - id: observe-turn
         type: memory_observe
         config:

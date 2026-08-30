@@ -1951,11 +1951,13 @@ func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string
 	t.Helper()
 	publish := true
 	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
+	if err := node.FromFlowcraftInferenceNode(apitypes.FlowcraftInferenceNode{
 		Id:      "answer",
-		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
+		Type:    apitypes.FlowcraftInferenceNodeTypeInference,
 		Publish: &publish,
-		Config:  apitypes.FlowcraftLLMNodeConfig{Model: modelAlias},
+		Config: apitypes.FlowcraftInferenceNodeConfig{Model: apitypes.FlowcraftInferenceModelRef{
+			Id: apitypes.FlowcraftInferenceModelID{Provider: apitypes.FlowcraftInferenceModelIDProviderGizclaw, Name: modelAlias},
+		}},
 	}); err != nil {
 		t.Fatal(err)
 	}

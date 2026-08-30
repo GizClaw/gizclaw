@@ -415,7 +415,8 @@ static int bridge_peer_create_data_channel(
       return GZC_ERR_NO_MEMORY;
     }
     for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
-      if (!backend->local_channels[i].in_use) {
+      if (!backend->local_channels[i].in_use &&
+          !backend->local_channels[i].closing) {
         channel = &backend->local_channels[i];
         break;
       }
@@ -425,6 +426,7 @@ static int bridge_peer_create_data_channel(
     }
     channel->id = backend->next_local_channel_id--;
     channel->in_use = true;
+    channel->closing = false;
     channel->ordered = config->ordered;
     channel->reliable = config->reliable;
     memcpy(channel->label, config->label.data, config->label.len);
@@ -440,6 +442,7 @@ static int bridge_peer_create_data_channel(
   if (rc != GZC_OK) {
     if (channel != &backend->packet_channel) {
       channel->in_use = false;
+      channel->closing = false;
       channel->label[0] = 0;
     }
     return rc;
@@ -481,9 +484,13 @@ static int bridge_channel_set_buffered_amount_low_threshold(
 
 static void bridge_channel_close(gzc_rtc_channel_t *channel) {
   if (channel != NULL && channel->backend != NULL) {
+    if (channel != &channel->backend->packet_channel) {
+      channel->in_use = false;
+      channel->closing = true;
+    }
     gzcGoChannelClose(channel->backend->handle, channel->id);
     if (!channel->remote && channel != &channel->backend->packet_channel) {
-      channel->in_use = false;
+      channel->closing = false;
       channel->label[0] = 0;
     }
   }
@@ -616,7 +623,7 @@ static gzc_rtc_channel_t *remote_channel_by_id(gzc_cgo_backend_t *backend, int c
   }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     gzc_rtc_channel_t *channel = &backend->remote_channels[i];
-    if (channel->in_use && channel->id == channel_id) {
+    if ((channel->in_use || channel->closing) && channel->id == channel_id) {
       return channel;
     }
   }
@@ -632,7 +639,7 @@ static gzc_rtc_channel_t *local_channel_by_id(gzc_cgo_backend_t *backend, int ch
   }
   for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
     gzc_rtc_channel_t *channel = &backend->local_channels[i];
-    if (channel->in_use && channel->id == channel_id) {
+    if ((channel->in_use || channel->closing) && channel->id == channel_id) {
       return channel;
     }
   }
@@ -669,7 +676,8 @@ void gzc_cgo_emit_remote_channel(
   }
   gzc_rtc_channel_t *channel = NULL;
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
-    if (!backend->remote_channels[i].in_use) {
+    if (!backend->remote_channels[i].in_use &&
+        !backend->remote_channels[i].closing) {
       channel = &backend->remote_channels[i];
       break;
     }
@@ -680,12 +688,14 @@ void gzc_cgo_emit_remote_channel(
   }
   channel->id = channel_id;
   channel->in_use = true;
+  channel->closing = false;
   channel->ordered = ordered;
   channel->reliable = reliable;
   memcpy(channel->label, label, label_len);
   channel->label[label_len] = 0;
   if (backend->callbacks.on_remote_channel == NULL) {
     channel->in_use = false;
+    channel->closing = false;
     gzcGoChannelClose(backend->handle, channel_id);
     return;
   }
@@ -708,6 +718,13 @@ void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_
   }
   gzc_rtc_channel_info_t info;
   fill_channel_info(channel, &info);
+  const bool terminal =
+      state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR;
+  const bool terminal_service = terminal && channel != &backend->packet_channel;
+  if (terminal_service) {
+    channel->in_use = false;
+    channel->closing = true;
+  }
   backend->callbacks.on_channel_state(
       backend->callbacks.userdata,
       &backend->peer,
@@ -715,9 +732,8 @@ void gzc_cgo_emit_channel_state(gzc_cgo_backend_t *backend, int channel_id, gzc_
       &info,
       state);
   /* Terminal state transfers slot cleanup to the backend for local channels. */
-  if (channel != &backend->packet_channel &&
-      (state == GZC_RTC_CHANNEL_CLOSED || state == GZC_RTC_CHANNEL_ERROR)) {
-    channel->in_use = false;
+  if (terminal_service) {
+    channel->closing = false;
     channel->id = 0;
     channel->label[0] = 0;
   }

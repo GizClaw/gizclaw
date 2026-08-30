@@ -73,6 +73,11 @@ steps:
     save_as: input_audio
   - id: exercise_workflow
     client: peer
+    timeout: 45s
+    retry:
+      attempts: 3
+      on: [operation, timeout]
+      delay: 1s
     peer_stream:
       mode: push-to-talk
       input: ${input_audio}

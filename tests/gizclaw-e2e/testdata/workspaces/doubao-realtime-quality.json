@@ -53,14 +53,67 @@
   ],
   "quality": {
     "rounds": [
-      {"contains_any": ["收到", "记住"], "max_runes": 6},
-      {"contains_all": ["苍穹"], "max_runes": 6},
-      {"contains_all": ["苏州"], "max_runes": 6},
-      {"contains_any": ["更正", "好的"], "max_runes": 8},
-      {"contains_all": ["杭州"], "excludes": ["苏州"], "max_runes": 6},
-      {"contains_all": ["顺利"], "max_runes": 4},
-      {"contains_all": ["苍穹", "杭州"], "excludes": ["苏州"], "max_runes": 12},
-      {"contains_all": ["苍穹", "杭州"], "excludes": ["苏州"], "max_runes": 12}
+      {
+        "contains_any": [
+          "收到",
+          "记住"
+        ],
+        "max_runes": 6
+      },
+      {
+        "contains_all": [
+          "苍穹"
+        ],
+        "max_runes": 6
+      },
+      {
+        "contains_all": [
+          "苏州"
+        ],
+        "max_runes": 6
+      },
+      {
+        "contains_any": [
+          "更正",
+          "好的"
+        ],
+        "max_runes": 8
+      },
+      {
+        "contains_all": [
+          "杭州"
+        ],
+        "excludes": [
+          "苏州"
+        ],
+        "max_runes": 6
+      },
+      {
+        "contains_all": [
+          "顺利"
+        ],
+        "max_runes": 4
+      },
+      {
+        "contains_all": [
+          "苍穹",
+          "杭州"
+        ],
+        "excludes": [
+          "苏州"
+        ],
+        "max_runes": 12
+      },
+      {
+        "contains_all": [
+          "苍穹",
+          "杭州"
+        ],
+        "excludes": [
+          "苏州"
+        ],
+        "max_runes": 12
+      }
     ]
   }
 }

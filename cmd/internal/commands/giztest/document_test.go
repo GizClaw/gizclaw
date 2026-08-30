@@ -305,13 +305,13 @@ func TestExpectationValidateDoesNotEchoInvalidPattern(t *testing.T) {
 }
 
 func TestLoadDocumentAcceptsNormalizationAndRetry(t *testing.T) {
-	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry:\n      attempts: 3\n      on: [timeout, assertion]\n      delay: 5s\n", 1)
+	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry:\n      attempts: 3\n      on: [timeout, assertion, operation]\n      delay: 5s\n", 1)
 	content = strings.Replace(content, "        present: true\n", "        equals: １２三\n        normalize: [digits, case]\n", 1)
 	doc, err := loadDocument(writeTestDocument(t, content))
 	if err != nil {
 		t.Fatalf("loadDocument() error = %v", err)
 	}
-	if doc.Steps[0].Retry.Attempts != 3 || len(doc.Steps[0].Expect["/server_time"].Normalize) != 2 {
+	if doc.Steps[0].Retry.Attempts != 3 || len(doc.Steps[0].Retry.On) != 3 || len(doc.Steps[0].Expect["/server_time"].Normalize) != 2 {
 		t.Fatalf("document = %#v", doc)
 	}
 }
@@ -447,6 +447,18 @@ func TestLoadDocumentAcceptsMultimodalWorkspaceRelay(t *testing.T) {
 	}
 }
 
+func TestLoadDocumentAcceptsTextInputForAudioWorkspaceRelay(t *testing.T) {
+	content := strings.Replace(relayDocument, "      media: text\n", "      media: audio\n      input_media: text\n", 1)
+	doc, err := loadDocument(writeTestDocument(t, content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := doc.Steps[2].WorkspaceRelay
+	if op.Media != "audio" || op.InputMedia != "text" {
+		t.Fatalf("workspace_relay = %#v", op)
+	}
+}
+
 func TestLoadDocumentAllowsTerminalTextCaptureForAudioRelay(t *testing.T) {
 	content := strings.Replace(relayDocument, "      media: text\n", "      media: audio\n", 1)
 	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
@@ -479,6 +491,9 @@ func TestLoadDocumentRejectsInvalidWorkspaceRelay(t *testing.T) {
 		}, "schema"},
 		"unsupported terminal media": {func(s string) string {
 			return strings.Replace(s, "media: text", "media: text\n      terminal_media: video", 1)
+		}, "schema"},
+		"unsupported input media": {func(s string) string {
+			return strings.Replace(s, "media: text", "media: text\n      input_media: video", 1)
 		}, "schema"},
 		"audio terminates on text": {func(s string) string {
 			return strings.Replace(s, "media: text", "media: audio\n      terminal_media: text", 1)

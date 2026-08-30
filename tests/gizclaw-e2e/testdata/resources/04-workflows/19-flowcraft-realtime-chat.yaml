@@ -14,12 +14,19 @@ spec:
       name: Realtime Chat Assistant
       nodes:
       - config:
-          max_tokens: 2048
-          model: llm
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          messages_channel: answer
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: 你是一个简短、自然的中文语音聊天助手。用一句话直接回答用户。
         id: answer
         publish: true
-        type: llm
+        type: inference
     max_iterations: 2
     conversation:
       starts: peer

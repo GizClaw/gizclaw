@@ -675,9 +675,9 @@ int gzc_rpc_request_result(
   if (!gzc_rpc_request_terminal_internal(request) && request->client != NULL) {
     gzc_rpc_request_expire_internal(
         request, gzc_client_instant_ms_internal(request->client));
-    if (gzc_rpc_request_terminal_internal(request)) {
-      request_release_channel(request);
-    }
+  }
+  if (gzc_rpc_request_terminal_internal(request)) {
+    request_release_channel(request);
   }
   if (!gzc_rpc_request_terminal_internal(request)) {
     return GZC_ERR_WOULD_BLOCK;

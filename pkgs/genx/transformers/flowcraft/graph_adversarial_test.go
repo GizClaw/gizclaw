@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -21,10 +21,10 @@ func TestGraphExecutionSequentialEveryNodeKind(t *testing.T) {
 			Nodes: []flowgraph.NodeDefinition{
 				{
 					ID: "seed", Type: "script",
-					Config: map[string]any{"source": `board.setVar("visited", ["script"]);`},
+					Config: testNodeConfig(map[string]any{"runtime": "js", "source": `board.setVar("visited", ["script"]);`}),
 				},
 				{ID: "middle", Type: "passthrough"},
-				{ID: "answer", Type: "llm", Config: map[string]any{"model": "answer"}},
+				{ID: "answer", Type: "inference", Config: testInferenceConfig("answer")},
 			},
 			Edges: []flowgraph.EdgeDefinition{
 				{From: "seed", To: "middle"},
@@ -54,7 +54,7 @@ func TestGraphExecutionReportsBoundedLoopExhaustion(t *testing.T) {
 			Name: "loop-limit", Entry: "loop",
 			Nodes: []flowgraph.NodeDefinition{{
 				ID: "loop", Type: "script",
-				Config: map[string]any{"source": `board.setVar("counter", Number(board.getVar("counter") || 0) + 1);`},
+				Config: testNodeConfig(map[string]any{"runtime": "js", "source": `board.setVar("counter", Number(board.getVar("counter") || 0) + 1);`}),
 			}},
 			Edges: []flowgraph.EdgeDefinition{{From: "loop", To: "loop"}},
 		},
@@ -85,12 +85,12 @@ func TestGraphExecutionPropagatesModelOpenAndProducerFailures(t *testing.T) {
 		{
 			name:      "open failure",
 			generator: &failingGraphGenerator{openErr: errors.New("model refused to open")},
-			wantErr:   "model refused to open",
+			wantErr:   "provider_failure during generate",
 		},
 		{
 			name:      "producer failure after prefix",
 			generator: &failingGraphGenerator{prefix: "accepted-prefix", streamErr: errors.New("provider disconnected")},
-			wantErr:   "provider disconnected",
+			wantErr:   "provider_failure during generate",
 		},
 	}
 	for _, test := range tests {
@@ -190,8 +190,8 @@ func TestGraphExecutionUsesFreshLifecycleForEveryVisibleRoute(t *testing.T) {
 			Name: "visible-routes", Entry: "start",
 			Nodes: []flowgraph.NodeDefinition{
 				{ID: "start", Type: "passthrough"},
-				{ID: "left", Type: "llm", Config: map[string]any{"model": "left"}},
-				{ID: "right", Type: "llm", Config: map[string]any{"model": "right"}},
+				{ID: "left", Type: "inference", Config: testInferenceConfig("left")},
+				{ID: "right", Type: "inference", Config: testInferenceConfig("right")},
 			},
 			Edges: []flowgraph.EdgeDefinition{
 				{From: "start", To: "left"}, {From: "start", To: "right"},

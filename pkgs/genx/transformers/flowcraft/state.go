@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GizClaw/flowcraft/sdk/engine"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -29,7 +29,7 @@ func loadBoardState(ctx context.Context, store kv.Store, contextID string) (map[
 	return state, nil
 }
 
-func saveBoardState(ctx context.Context, store kv.Store, contextID string, board *engine.Board) error {
+func saveBoardState(ctx context.Context, store kv.Store, contextID string, board *flowagent.Board) error {
 	if store == nil || board == nil {
 		return nil
 	}
@@ -47,11 +47,11 @@ func saveBoardState(ctx context.Context, store kv.Store, contextID string, board
 	return nil
 }
 
-func serializableBoardVariables(board *engine.Board) (map[string]any, error) {
+func serializableBoardVariables(board *flowagent.Board) (map[string]any, error) {
 	return copiedBoardVariables(board, true)
 }
 
-func observationBoardVariables(board *engine.Board) (map[string]any, error) {
+func observationBoardVariables(board *flowagent.Board) (map[string]any, error) {
 	if board == nil {
 		return nil, nil
 	}
@@ -77,7 +77,7 @@ func observationBoardVariables(board *engine.Board) (map[string]any, error) {
 	return result, nil
 }
 
-func copiedBoardVariables(board *engine.Board, excludeTransient bool) (map[string]any, error) {
+func copiedBoardVariables(board *flowagent.Board, excludeTransient bool) (map[string]any, error) {
 	if board == nil {
 		return nil, nil
 	}

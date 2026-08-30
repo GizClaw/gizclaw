@@ -636,6 +636,70 @@ func TestRunStepRetryStopsOnOperationFailure(t *testing.T) {
 	}
 }
 
+func TestRunStepRetriesOperationAfterReconnect(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		finishRetryTextTurn(stream, "PASS")
+	}()
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	opened := 0
+	reconnected := 0
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, Retry: &RetrySpec{Attempts: 2, On: []string{"operation"}}}
+	opts := runOptions{
+		out: io.Discard,
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			opened++
+			if opened == 1 {
+				return func() (peerStream, error) { return nil, io.EOF }
+			}
+			return func() (peerStream, error) { return stream, nil }
+		},
+		reconnectClient: func(context.Context, string) error {
+			reconnected++
+			return nil
+		},
+	}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err != nil || report.Status != "passed" || opened != 2 || reconnected != 1 || report.Attempts[0].FailureKind != "operation" {
+		t.Fatalf("report = %#v, opened = %d, reconnected = %d, err = %v", report, opened, reconnected, err)
+	}
+}
+
+func TestRunStepRetriesProviderOperationWithoutReconnect(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		finishRetryTextTurn(stream, "PASS")
+	}()
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	opened := 0
+	reconnected := 0
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, Retry: &RetrySpec{Attempts: 2, On: []string{"operation"}}}
+	opts := runOptions{
+		out: io.Discard,
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			opened++
+			if opened == 1 {
+				return func() (peerStream, error) {
+					return nil, errors.New("peer_stream terminal error: provider completed without audio")
+				}
+			}
+			return func() (peerStream, error) { return stream, nil }
+		},
+		reconnectClient: func(context.Context, string) error {
+			reconnected++
+			return nil
+		},
+	}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err != nil || report.Status != "passed" || opened != 2 || reconnected != 0 || report.Attempts[0].FailureKind != "operation" {
+		t.Fatalf("report = %#v, opened = %d, reconnected = %d, err = %v", report, opened, reconnected, err)
+	}
+}
+
 func TestRunStepRetryDelayHonorsCancellation(t *testing.T) {
 	stream := newFakeRelayStream()
 	go func() {

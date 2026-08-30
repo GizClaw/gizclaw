@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 	einotransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
@@ -68,16 +68,16 @@ func newFlowcraftMatchTransformerWithGenerator(
 			Nodes: []flowgraph.NodeDefinition{
 				{
 					ID: "match", Type: "match",
-					Config: map[string]any{
+					Config: flowcraftNodeConfig(t, map[string]any{
 						"model": "router", "input": "input", "output": "matches",
 						"rules": matchRules(),
-					},
+					}),
 				},
 				{
 					ID: "emit", Type: "script",
-					Config: map[string]any{"source": `
-host.emit("token", {content: JSON.stringify(board.getVar("matches"))});
-`},
+					Config: flowcraftNodeConfig(t, map[string]any{"runtime": "js", "source": `
+host.emit("token", JSON.stringify(board.getVar("matches")));
+`}),
 				},
 			},
 			Edges: []flowgraph.EdgeDefinition{{From: "match", To: "emit"}},
@@ -89,6 +89,15 @@ host.emit("token", {content: JSON.stringify(board.getVar("matches"))});
 		t.Fatalf("flowcraft.New() error = %v", err)
 	}
 	return transformer
+}
+
+func flowcraftNodeConfig(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("encode Flowcraft node config: %v", err)
+	}
+	return data
 }
 
 func newEinoMatchTransformer(t *testing.T) genx.Transformer {

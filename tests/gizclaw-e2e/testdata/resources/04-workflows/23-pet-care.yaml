@@ -17,11 +17,18 @@ spec:
           to: __end__
         nodes:
         - id: answer
-          type: llm
+          type: inference
           publish: true
           config:
-            model: pet-chat
-            max_tokens: 256
+            model:
+              id:
+                provider: gizclaw
+                name: pet-chat
+            messages_channel: answer
+            stream: true
+            intent:
+              text:
+                max_output_tokens: 256
             system_prompt: 你是用户领养的宠物。用一句简短自然的中文回复，不要使用列表或解释测试流程。
       conversation:
         starts: peer

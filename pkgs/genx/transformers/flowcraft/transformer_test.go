@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
+	memoryhook "github.com/GizClaw/flowcraft/core/memory/hook"
+	flowmodel "github.com/GizClaw/flowcraft/core/message"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
@@ -32,7 +32,9 @@ func TestNewValidatesPublicContract(t *testing.T) {
 		{name: "PublishNodes", mutate: func(config *Config) { config.PublishNodes = nil }},
 		{name: "unknown publisher", mutate: func(config *Config) { config.PublishNodes = []string{"missing"} }},
 		{name: "unsupported node", mutate: func(config *Config) { config.Graph.Nodes[0].Type = "shell" }},
-		{name: "raw model ID", mutate: func(config *Config) { config.Graph.Nodes[0].Config["model"] = "provider/model" }},
+		{name: "raw model ID", mutate: func(config *Config) {
+			config.Graph.Nodes[0].Config = testInferenceConfig("provider/model")
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -55,7 +57,7 @@ func TestNewOwnsMutableConfig(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	config.PublishNodes[0] = "changed"
-	config.Graph.Nodes[0].Config["model"] = "changed"
+	config.Graph.Nodes[0].Config = testInferenceConfig("changed")
 	output, err := transformer.Transform(context.Background(), textInput("owned"))
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -395,7 +397,7 @@ func TestNewBOSInterruptsPriorTurnAndPersistsDeliveredPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load History: %v", err)
 	}
-	if len(history) != 4 || history[1].Content() != "partial" || history[3].Content() != "reply: second" {
+	if len(history) != 4 || history[1].Content.Text() != "partial" || history[3].Content.Text() != "reply: second" {
 		t.Fatalf("History = %#v", history)
 	}
 	if !hasInterruptionMarker(history[1]) {
@@ -985,7 +987,7 @@ func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
 	config := testConfig(generator)
 	config.Memory = memoryStore
 	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
-	config.ObserveEnabled = true
+	config.MemoryTurn = &memoryhook.TurnSettings{Channel: "inference.chat"}
 	agent, err := New(config)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
@@ -1015,7 +1017,7 @@ func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load History: %v", err)
 	}
-	if len(history) != 2 || history[0].Content() != "second" || history[1].Content() != "reply: second" {
+	if len(history) != 2 || history[0].Content.Text() != "second" || history[1].Content.Text() != "reply: second" {
 		t.Fatalf("History = %#v", history)
 	}
 	memoryStore.mu.Lock()
@@ -1023,6 +1025,42 @@ func TestEarlyInterruptionDoesNotPersistEmptyAssistant(t *testing.T) {
 	memoryStore.mu.Unlock()
 	if len(observations) != 1 || len(observations[0].Turns) != 2 || observations[0].Turns[0].Text != "second" {
 		t.Fatalf("Memory observations = %#v", observations)
+	}
+}
+
+func TestOfficialMemoryHooksUseConfiguredStore(t *testing.T) {
+	store := &waitingMemoryStore{}
+	config := testConfig(&echoGenerator{})
+	config.Memory = store
+	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
+	config.MemoryContext = &memoryhook.ContextSettings{
+		Query:  memoryhook.QuerySettings{CurrentMessage: true},
+		Budget: memoryhook.BudgetSettings{MaxItems: 3},
+		Output: "memory_items",
+	}
+	config.MemoryTurn = &memoryhook.TurnSettings{Channel: "inference.chat"}
+	agent, err := New(config)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if len(agent.agent.Prepare) != 1 || len(agent.agent.Commit) != 1 {
+		t.Fatalf("Agent hooks prepare=%d commit=%d, want 1/1", len(agent.agent.Prepare), len(agent.agent.Commit))
+	}
+	output, err := agent.Transform(t.Context(), textInput("remember blue lantern"))
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	drain(t, output)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.queries) != 1 || store.queries[0].Text != "remember blue lantern" || store.queries[0].Limit != 3 {
+		t.Fatalf("Recall queries = %#v", store.queries)
+	}
+	if len(store.observations) != 1 || len(store.observations[0].Turns) != 2 {
+		t.Fatalf("Memory observations = %#v", store.observations)
+	}
+	if got := store.observations[0].Turns[1].Text; got != "reply: remember blue lantern" {
+		t.Fatalf("assistant turn = %q", got)
 	}
 }
 
@@ -1101,7 +1139,7 @@ func TestInlineScriptPersistsSerializableBoardState(t *testing.T) {
 	config := testConfig(&echoGenerator{})
 	config.State = state
 	config.Graph = flowgraph.GraphDefinition{Name: "script", Entry: "script", Nodes: []flowgraph.NodeDefinition{{
-		ID: "script", Type: "script", Config: map[string]any{"source": `board.setVar("kept", "yes"); board.setVar("tmp_drop", "no");`},
+		ID: "script", Type: "script", Config: testNodeConfig(map[string]any{"runtime": "js", "source": `board.setVar("kept", "yes"); board.setVar("tmp_drop", "no");`}),
 	}}}
 	config.PublishNodes = []string{"script"}
 	transformer, err := New(config)
@@ -1123,208 +1161,13 @@ func TestInlineScriptPersistsSerializableBoardState(t *testing.T) {
 	}
 }
 
-func TestObservationBuilderReceivesTransientBoardSnapshot(t *testing.T) {
-	store := &waitingMemoryStore{}
-	config := testConfig(&echoGenerator{})
-	config.Memory = store
-	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
-	config.ObserveEnabled = true
-	config.Graph = flowgraph.GraphDefinition{Name: "script", Entry: "script", Nodes: []flowgraph.NodeDefinition{{
-		ID: "script", Type: "script", Config: map[string]any{
-			"source": `board.setVar("kept", {"value": "yes"}); board.setVar("tmp_drop", "no"); board.setVar("tmp_unserializable", function () {});`,
-		},
-	}}}
-	config.PublishNodes = []string{"script"}
-	var observed ObservationInput
-	config.ObservationBuilder = func(_ context.Context, input ObservationInput) (memory.Observation, error) {
-		observed = input
-		input.BoardVariables["mutated"] = true
-		return DefaultObservationBuilder(context.Background(), input)
-	}
-	agent, err := New(config)
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	output, err := agent.Transform(context.Background(), textInput("run"))
-	if err != nil {
-		t.Fatalf("Transform() error = %v", err)
-	}
-	drain(t, output)
-	if observed.UserText != "run" || observed.DeliveredAssistantText != "" {
-		t.Fatalf("ObservationInput text = %#v", observed)
-	}
-	if _, ok := observed.BoardVariables["kept"]; !ok {
-		t.Fatalf("ObservationInput BoardVariables = %#v", observed.BoardVariables)
-	}
-	if got := observed.BoardVariables["tmp_drop"]; got != "no" {
-		t.Fatalf("transient Board variable = %#v, want %q", got, "no")
-	}
-	if _, ok := observed.BoardVariables["tmp_unserializable"]; ok {
-		t.Fatalf("unserializable Board variable leaked: %#v", observed.BoardVariables)
-	}
-}
-
-func TestDefaultRecallRendererPreservesMatchOrder(t *testing.T) {
-	t.Parallel()
-	result, err := DefaultRecallRenderer(context.Background(), []memory.Match{
-		{Fact: memory.Fact{Text: "first"}},
-		{Fact: memory.Fact{Text: "  "}},
-		{Fact: memory.Fact{Text: "second"}},
-	})
-	if err != nil {
-		t.Fatalf("DefaultRecallRenderer() error = %v", err)
-	}
-	if result != "Relevant memory:\n- first\n- second" {
-		t.Fatalf("DefaultRecallRenderer() = %q", result)
-	}
-}
-
-func TestDefaultObservationBuilderOmitsEmptyInitiativeUserTurn(t *testing.T) {
-	observation, err := DefaultObservationBuilder(t.Context(), ObservationInput{
-		StreamID: "initiative", DeliveredAssistantText: "hello",
-	})
-	if err != nil {
-		t.Fatalf("DefaultObservationBuilder() error = %v", err)
-	}
-	if len(observation.Turns) != 1 || observation.Turns[0].Role != memory.RoleAssistant || observation.Turns[0].Text != "hello" {
-		t.Fatalf("observation Turns = %#v", observation.Turns)
-	}
-}
-
-func TestRecallProfileExpandsInputQueryTemplate(t *testing.T) {
-	store := &waitingMemoryStore{}
-	config := testConfig(&echoGenerator{})
-	config.Memory = store
-	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
-	config.RecallProfiles = []MemoryRecallProfile{{
-		BoardVariable: "memory", QueryText: "${input} durable facts", Limit: 3,
-	}}
-	agent, err := New(config)
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	output, err := agent.Transform(t.Context(), textInput("blue lantern"))
-	if err != nil {
-		t.Fatalf("Transform() error = %v", err)
-	}
-	drain(t, output)
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if len(store.queries) != 1 || store.queries[0].Text != "blue lantern durable facts" || store.queries[0].Limit != 3 {
-		t.Fatalf("Recall queries = %#v", store.queries)
-	}
-}
-
-func TestAgentInitiativeSkipsInputRecallWhenQueryIsEmpty(t *testing.T) {
-	store := &waitingMemoryStore{}
-	config := testConfig(&echoGenerator{})
-	config.Initiative = InitiativeOnReload
-	config.Memory = store
-	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
-	config.RecallProfiles = []MemoryRecallProfile{{
-		BoardVariable: "memory", QueryText: "input", Limit: 3,
-	}}
-	agent, err := New(config)
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	output, err := agent.Transform(t.Context(), textInput("hello"))
-	if err != nil {
-		t.Fatalf("Transform() error = %v", err)
-	}
-	drain(t, output)
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if len(store.queries) != 1 || store.queries[0].Text != "hello" {
-		t.Fatalf("Recall queries = %#v, want only the non-empty peer turn", store.queries)
-	}
-}
-
-func TestNewClonesNilRecallFilterValues(t *testing.T) {
-	t.Parallel()
-	config := testConfig(&echoGenerator{})
-	config.Memory = &waitingMemoryStore{}
-	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
-	config.RecallProfiles = []MemoryRecallProfile{{
-		BoardVariable: "memory", Limit: 1,
-		Filters: []memory.Filter{{Field: "kind", Operator: memory.FilterIn, Value: []any{nil}}},
-	}}
-	if _, err := New(config); err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-}
-
-func TestObserveWaitOrdersTurnsWithoutBlockingInputPump(t *testing.T) {
-	t.Parallel()
-	store := &waitingMemoryStore{waitStarted: make(chan struct{}), release: make(chan struct{})}
-	generator := &echoGenerator{}
-	config := testConfig(generator)
-	config.Memory = store
-	config.MemoryScope = memory.Scope{AppID: "runtime", UserID: "user", AgentID: "agent"}
-	config.ObserveEnabled = true
-	config.ObserveWaitForCompletion = true
-	transformer, err := New(config)
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-	input := newInputBuilder()
-	_ = addTextTurn(input, "first")
-	output, err := transformer.Transform(context.Background(), input.Stream())
-	if err != nil {
-		t.Fatalf("Transform() error = %v", err)
-	}
-	for {
-		chunk, nextErr := output.Next()
-		if nextErr != nil {
-			t.Fatalf("read first response: %v", nextErr)
-		}
-		if text, ok := chunk.Part.(genx.Text); ok && text == "reply: first" {
-			break
-		}
-	}
-	if err := addTextTurn(input, "second"); err != nil {
-		t.Fatalf("add second turn: %v", err)
-	}
-	if err := input.Done(genx.Usage{}); err != nil {
-		t.Fatalf("finish input: %v", err)
-	}
-	next := make(chan error, 1)
-	go func() {
-		_, nextErr := output.Next()
-		next <- nextErr
-	}()
-	select {
-	case <-store.waitStarted:
-	case <-time.After(2 * time.Second):
-		t.Fatal("Memory Wait was not called")
-	}
-	if got := len(generator.patterns()); got != 1 {
-		t.Fatalf("model calls before Memory completion = %d, want 1", got)
-	}
-	close(store.release)
-	if err := <-next; err != nil {
-		t.Fatalf("read first EOS: %v", err)
-	}
-	remaining := drain(t, output)
-	if got := joinedText(remaining); got != "reply: second" {
-		t.Fatalf("second output = %q", got)
-	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if len(store.observations) != 2 {
-		t.Fatalf("observations = %d, want 2", len(store.observations))
-	}
-	for _, observation := range store.observations {
-		if observation.Scope != config.MemoryScope || len(observation.Turns) != 2 {
-			t.Fatalf("observation = %#v", observation)
-		}
-	}
-}
-
 func hasInterruptionMarker(message flowmodel.Message) bool {
-	for _, part := range message.Parts {
-		if part.Type == flowmodel.PartData && part.Data != nil && part.Data.MimeType == "application/vnd.genx.interruption+json" {
-			return true
+	for _, raw := range message.Content.Parts {
+		part, err := flowmodel.NormalizePart(raw)
+		if err == nil {
+			if data, ok := part.(flowmodel.DataPart); ok && data.MediaType == "application/vnd.genx.interruption+json" {
+				return true
+			}
 		}
 	}
 	return false
@@ -1334,7 +1177,7 @@ func testConfig(generator genx.Generator) Config {
 	return Config{
 		ID: "assistant", Name: "Assistant", Models: generator,
 		Graph: flowgraph.GraphDefinition{Name: "chat", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{
-			ID: "chat", Type: "llm", Config: map[string]any{"model": "chat"},
+			ID: "chat", Type: "inference", Config: testInferenceConfig("chat"),
 		}}},
 		PublishNodes: []string{"chat"},
 	}
@@ -1344,9 +1187,7 @@ func cloneTestGraph(source flowgraph.GraphDefinition) flowgraph.GraphDefinition 
 	result := source
 	result.Nodes = append([]flowgraph.NodeDefinition(nil), source.Nodes...)
 	for index := range result.Nodes {
-		config := make(map[string]any, len(source.Nodes[index].Config))
-		maps.Copy(config, source.Nodes[index].Config)
-		result.Nodes[index].Config = config
+		result.Nodes[index].Config = append([]byte(nil), source.Nodes[index].Config...)
 	}
 	return result
 }

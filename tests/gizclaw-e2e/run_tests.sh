@@ -15,6 +15,7 @@ gate_started=$SECONDS
 docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-e2e-run.XXXXXX")"
 rm -f "$docker_env_path"
 export GIZCLAW_E2E_DOCKER_ENV="$docker_env_path"
+export GIZCLAW_E2E_SERVER_RPC_PROBE="$script_dir/testdata/bin/serverrpcprobe"
 full_watchdog_pid=""
 active_command_pid=""
 active_phase=""
@@ -284,6 +285,7 @@ prepare_nanopb() {
 build_host_cli() {
 	mkdir -p "$script_dir/testdata/bin"
 	(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+	(cd "$repo_root" && go build -o "$GIZCLAW_E2E_SERVER_RPC_PROBE" ./tests/gizclaw-e2e/cmd/serverrpcprobe)
 }
 
 start_docker_stack() {
@@ -303,6 +305,9 @@ run_pkg_serial() {
 }
 
 run_js_rpc_tests() {
+	echo "==> npm run build --workspace @gizclaw/gizclaw"
+	(cd "$repo_root" && npm run build --workspace @gizclaw/gizclaw)
+
 	echo "==> npm test --workspace @gizclaw/gizclaw"
 	(cd "$repo_root" && npm test --workspace @gizclaw/gizclaw)
 

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowmodel "github.com/GizClaw/flowcraft/core/message"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
@@ -40,7 +40,7 @@ func (h *conversationHistory) load(ctx context.Context) ([]flowmodel.Message, er
 		if len(live) > historyWindow {
 			live = live[len(live)-historyWindow:]
 		}
-		return flowmodel.CloneMessages(live), nil
+		return cloneCoreMessages(live), nil
 	}
 	matchers := []logstore.AttributeMatcher{
 		{Name: "agent_id", Op: logstore.MatchEqual, Value: h.agentID},
@@ -88,15 +88,15 @@ func (h *conversationHistory) append(ctx context.Context, messages []flowmodel.M
 	if len(messages) == 0 {
 		return nil
 	}
-	owned := flowmodel.CloneMessages(messages)
+	owned := cloneCoreMessages(messages)
 	if interrupted {
 		for index := range owned {
 			if owned[index].Role != flowmodel.RoleAssistant {
 				continue
 			}
-			owned[index].Parts = append(owned[index].Parts, flowmodel.Part{Type: flowmodel.PartData, Data: &flowmodel.DataRef{
-				MimeType: "application/vnd.genx.interruption+json", Value: map[string]any{"interrupted": true},
-			}})
+			owned[index].Content.Parts = append(owned[index].Content.Parts, flowmodel.DataPart{
+				MediaType: "application/vnd.genx.interruption+json", Value: json.RawMessage(`{"interrupted":true}`),
+			})
 		}
 	}
 	if h.store == nil {
@@ -149,4 +149,12 @@ func (h *conversationHistory) append(ctx context.Context, messages []flowmodel.M
 		return fmt.Errorf("flowcraft: History accepted %d of %d records", len(keys), len(records))
 	}
 	return nil
+}
+
+func cloneCoreMessages(messages []flowmodel.Message) []flowmodel.Message {
+	cloned := make([]flowmodel.Message, len(messages))
+	for index := range messages {
+		cloned[index] = messages[index].Clone()
+	}
+	return cloned
 }

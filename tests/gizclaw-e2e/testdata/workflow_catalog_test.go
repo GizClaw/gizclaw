@@ -89,6 +89,69 @@ type workflowFixture struct {
 	Icon any `yaml:"icon"`
 }
 
+func TestResourceFixtureDirectoriesMatchResourceKinds(t *testing.T) {
+	allowedKinds := map[string]map[string]bool{
+		"credentials":         {"Credential": true, "ResourceList": true},
+		"tenants":             {"OpenAITenant": true, "VolcTenant": true, "MiniMaxTenant": true, "GeminiTenant": true, "DashScopeTenant": true},
+		"voices":              {"Voice": true, "ResourceList": true},
+		"models":              {"Model": true, "ResourceList": true},
+		"memory-layouts":      {"MemoryLayout": true},
+		"workflows":           {"Workflow": true, "ResourceList": true},
+		"tools":               {"Tool": true},
+		"firmwares":           {"Firmware": true, "ResourceList": true},
+		"gameplay":            {"ResourceList": true},
+		"runtime-profiles":    {"RuntimeProfile": true},
+		"registration-tokens": {"RegistrationToken": true},
+	}
+
+	directories, err := os.ReadDir("resources")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, directory := range directories {
+		if !directory.IsDir() {
+			continue
+		}
+		name := directory.Name()
+		separator := strings.IndexByte(name, '-')
+		if separator != 2 || name[0] < '0' || name[0] > '9' || name[1] < '0' || name[1] > '9' {
+			t.Errorf("resource fixture directory %q must start with a two-digit load-order prefix", name)
+			continue
+		}
+		category := name[separator+1:]
+		kinds, ok := allowedKinds[category]
+		if !ok {
+			t.Errorf("resource fixture directory %q is not a resource category", name)
+			continue
+		}
+
+		paths, err := filepath.Glob(filepath.Join("resources", name, "*.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(paths) == 0 {
+			t.Errorf("resource fixture directory %q has no YAML fixtures", name)
+			continue
+		}
+		for _, path := range paths {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var header struct {
+				Kind string `yaml:"kind"`
+			}
+			if err := yaml.Unmarshal(raw, &header); err != nil {
+				t.Errorf("%s: %v", path, err)
+				continue
+			}
+			if !kinds[header.Kind] {
+				t.Errorf("%s has kind %q, which does not belong in resource category %q", path, header.Kind, category)
+			}
+		}
+	}
+}
+
 func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("server-workspace", "config.yaml.template"))
 	if err != nil {
@@ -240,7 +303,7 @@ func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 			if err := workflow.Spec.Flowcraft.Validate(); err != nil {
 				t.Fatalf("Flowcraft config: %v", err)
 			}
-			hasObserve := false
+			hasObserve := workflow.Spec.Flowcraft.MemoryHooks != nil && workflow.Spec.Flowcraft.MemoryHooks.Turn != nil
 			for _, node := range workflow.Spec.Flowcraft.Graph.Nodes {
 				discriminator, err := node.Discriminator()
 				if err != nil {
@@ -249,9 +312,51 @@ func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 				hasObserve = hasObserve || discriminator == "memory_observe"
 			}
 			if !hasObserve {
-				t.Fatal("explicit memory_observe node is required")
+				t.Fatal("memory turn hook or explicit memory_observe node is required")
 			}
 		})
+	}
+}
+
+func TestFlowcraftScriptChannelsUseCanonicalMessageContent(t *testing.T) {
+	resourcePaths, err := filepath.Glob(filepath.Join("resources", "04-workflows", "*-flowcraft-*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range resourcePaths {
+		assertFlowcraftScriptMessageContent(t, path, loadResourceFlowcraftGraph(t, filepath.Base(path)))
+	}
+
+	workspacePaths, err := filepath.Glob(filepath.Join("workspaces", "flowcraft-*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range workspacePaths {
+		assertFlowcraftScriptMessageContent(t, path, loadWorkspaceFlowcraftGraph(t, filepath.Base(path)))
+	}
+}
+
+func assertFlowcraftScriptMessageContent(t *testing.T, path string, graph flowcraftFixtureGraph) {
+	t.Helper()
+	for _, node := range graph.Nodes {
+		if node.Type != "script" {
+			continue
+		}
+		source := node.Config.Source
+		if strings.Contains(source, "Array.isArray(msg.parts)") || strings.Contains(source, "Array.isArray(message.parts)") {
+			t.Errorf("%s script node %q reads the removed Message.parts field", path, node.ID)
+		}
+		lines := strings.Split(source, "\n")
+		for i := 0; i+1 < len(lines); i++ {
+			if !strings.HasPrefix(strings.TrimSpace(lines[i]), "role:") {
+				continue
+			}
+			roleIndent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
+			nextIndent := len(lines[i+1]) - len(strings.TrimLeft(lines[i+1], " \t"))
+			if roleIndent == nextIndent && strings.HasPrefix(strings.TrimSpace(lines[i+1]), "parts:") {
+				t.Errorf("%s script node %q writes the removed Message.parts field", path, node.ID)
+			}
+		}
 	}
 }
 
