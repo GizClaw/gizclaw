@@ -42,6 +42,7 @@ type flowcraftFixtureNode struct {
 	Config struct {
 		Source          string `json:"source" yaml:"source"`
 		MessagesChannel string `json:"messages_channel" yaml:"messages_channel"`
+		SystemPrompt    string `json:"system_prompt" yaml:"system_prompt"`
 		Query           struct {
 			TextFrom string `json:"text_from" yaml:"text_from"`
 		} `json:"query" yaml:"query"`
@@ -53,6 +54,37 @@ type flowcraftFixtureNode struct {
 			} `json:"facts" yaml:"facts"`
 		} `json:"observations" yaml:"observations"`
 	} `json:"config" yaml:"config"`
+}
+
+func TestGiztestWorkflowTesterVerdictCanFail(t *testing.T) {
+	graph := loadResourceFlowcraftGraph(t, "32-giztest-workflow-tester.yaml")
+	verdict := findFlowcraftFixtureNode(t, graph.Nodes, "verdict")
+	if verdict.Type != "script" {
+		t.Fatalf("verdict type = %q, want script", verdict.Type)
+	}
+	if !strings.Contains(verdict.Config.Source, "board.channel(board.MAIN_CHANNEL)") {
+		t.Fatalf("verdict does not inspect the candidate conversation: %q", verdict.Config.Source)
+	}
+	if !strings.Contains(verdict.Config.Source, "candidateReplies.length >= 7") ||
+		!strings.Contains(verdict.Config.Source, `passed ? "PASS" : "FAIL"`) {
+		t.Fatalf("verdict does not derive PASS/FAIL from candidate replies: %q", verdict.Config.Source)
+	}
+	if strings.Contains(verdict.Config.Source, `host.emit("token", "PASS")`) {
+		t.Fatal("verdict still emits PASS unconditionally")
+	}
+}
+
+func TestFlowcraftLatencyComparisonUsesPopulatedMessageChannels(t *testing.T) {
+	graph := loadWorkspaceFlowcraftGraph(t, "flowcraft-latency-comparison.json")
+	for nodeID, wantChannel := range map[string]string{
+		"planner-model": "planner-messages",
+		"answer-model":  "answer-messages",
+	} {
+		node := findFlowcraftFixtureNode(t, graph.Nodes, nodeID)
+		if node.Config.MessagesChannel != wantChannel {
+			t.Errorf("node %q messages_channel = %q, want %q", nodeID, node.Config.MessagesChannel, wantChannel)
+		}
+	}
 }
 
 var workflowFixtureFiles = []string{

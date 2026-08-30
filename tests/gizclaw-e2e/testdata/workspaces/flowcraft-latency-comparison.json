@@ -91,7 +91,7 @@
                   "temperature": 0
                 }
               },
-              "messages_channel": "planner-model",
+              "messages_channel": "planner-messages",
               "model": {
                 "id": {
                   "name": "llm",
@@ -122,7 +122,7 @@
                   "temperature": 0
                 }
               },
-              "messages_channel": "answer-model",
+              "messages_channel": "answer-messages",
               "model": {
                 "id": {
                   "name": "llm",

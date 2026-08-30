@@ -280,6 +280,12 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, clien
 		if err == nil || attempt == step.Retry.Attempts || !slices.Contains(retryOn, kind) || ctx.Err() != nil {
 			break
 		}
+		if delay > 0 {
+			if delayErr := waitRetryDelay(ctx, delay); delayErr != nil {
+				finalErr = delayErr
+				break
+			}
+		}
 		if kind == "operation" && step.Client != "" && operationFailureNeedsReconnect(err) {
 			reconnect := clients.reconnect
 			if opts.reconnectClient != nil {
@@ -291,12 +297,6 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, clien
 				break
 			}
 		}
-		if delay > 0 {
-			if delayErr := waitRetryDelay(ctx, delay); delayErr != nil {
-				finalErr = delayErr
-				break
-			}
-		}
 	}
 	report.Attempts = attempts
 	report.DurationMS = time.Since(started).Milliseconds()
@@ -304,25 +304,8 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, clien
 }
 
 func operationFailureNeedsReconnect(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, io.EOF) {
-		return true
-	}
-	message := strings.ToLower(err.Error())
-	for _, marker := range []string{
-		"client disconnected",
-		"connection closed",
-		"closed network connection",
-		"data channel closed",
-		"transport is closed",
-	} {
-		if strings.Contains(message, marker) {
-			return true
-		}
-	}
-	return false
+	var transportErr *peerStreamTransportError
+	return errors.As(err, &transportErr)
 }
 
 func waitRetryDelay(ctx context.Context, delay time.Duration) error {

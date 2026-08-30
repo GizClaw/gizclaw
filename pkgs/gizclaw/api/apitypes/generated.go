@@ -4330,12 +4330,11 @@ type FlowcraftMemoryContextBudget struct {
 
 // FlowcraftMemoryContextHook defines model for FlowcraftMemoryContextHook.
 type FlowcraftMemoryContextHook struct {
-	Budget     *FlowcraftMemoryContextBudget `json:"budget,omitempty"`
-	DatasetIds *[]string                     `json:"dataset_ids,omitempty"`
-	MinScore   *float32                      `json:"min_score,omitempty"`
-	Output     string                        `json:"output"`
-	Query      FlowcraftMemoryContextQuery   `json:"query"`
-	Render     *FlowcraftMemoryContextRender `json:"render,omitempty"`
+	Budget   *FlowcraftMemoryContextBudget `json:"budget,omitempty"`
+	MinScore *float32                      `json:"min_score,omitempty"`
+	Output   string                        `json:"output"`
+	Query    FlowcraftMemoryContextQuery   `json:"query"`
+	Render   *FlowcraftMemoryContextRender `json:"render,omitempty"`
 }
 
 // FlowcraftMemoryContextQuery defines model for FlowcraftMemoryContextQuery.
@@ -4343,7 +4342,6 @@ type FlowcraftMemoryContextQuery struct {
 	Board          *string `json:"board,omitempty"`
 	CurrentMessage *bool   `json:"current_message,omitempty"`
 	Literal        *string `json:"literal,omitempty"`
-	RecentOnly     *bool   `json:"recent_only,omitempty"`
 }
 
 // FlowcraftMemoryContextRender defines model for FlowcraftMemoryContextRender.

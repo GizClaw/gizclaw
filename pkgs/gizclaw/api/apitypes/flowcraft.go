@@ -70,11 +70,8 @@ func validateFlowcraftMemoryHooks(hooks *FlowcraftMemoryHooks) error {
 	if contextHook.Query.CurrentMessage != nil && *contextHook.Query.CurrentMessage {
 		selected++
 	}
-	if contextHook.Query.RecentOnly != nil && *contextHook.Query.RecentOnly {
-		selected++
-	}
 	if selected != 1 {
-		return errors.New("context.query must select exactly one of literal, board, current_message, or recent_only")
+		return errors.New("context.query must select exactly one of literal, board, or current_message")
 	}
 	if strings.TrimSpace(contextHook.Output) == "" || strings.HasPrefix(contextHook.Output, "__") {
 		return errors.New("context.output must be a non-reserved board variable")

@@ -139,6 +139,7 @@ int gzc_cgo_backend_init(gzc_cgo_backend_t *backend) {
   backend->next_local_channel_id = -1;
   for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
     backend->local_channels[i].backend = backend;
+    backend->closing_local_channels[i].backend = backend;
   }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     backend->remote_channels[i].backend = backend;
@@ -325,6 +326,11 @@ static int bridge_peer_create(void *userdata, const gzc_webrtc_callbacks_t *call
     backend->local_channels[i].ordered = false;
     backend->local_channels[i].reliable = false;
     backend->local_channels[i].in_use = false;
+    backend->local_channels[i].closing = false;
+    backend->closing_local_channels[i].id = 0;
+    backend->closing_local_channels[i].label[0] = 0;
+    backend->closing_local_channels[i].in_use = false;
+    backend->closing_local_channels[i].closing = false;
   }
   backend->callbacks = *callbacks;
   int rc = gzcGoPeerCreate(backend->handle);
@@ -484,15 +490,31 @@ static int bridge_channel_set_buffered_amount_low_threshold(
 
 static void bridge_channel_close(gzc_rtc_channel_t *channel) {
   if (channel != NULL && channel->backend != NULL) {
+    gzc_rtc_channel_t *closing_channel = NULL;
     if (channel != &channel->backend->packet_channel) {
-      channel->in_use = false;
-      channel->closing = true;
+      if (!channel->remote) {
+        for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+          if (!channel->backend->closing_local_channels[i].closing) {
+            closing_channel = &channel->backend->closing_local_channels[i];
+            break;
+          }
+        }
+      }
+      if (closing_channel != NULL) {
+        *closing_channel = *channel;
+        closing_channel->in_use = false;
+        closing_channel->closing = true;
+        channel->in_use = false;
+        channel->closing = false;
+        channel->id = 0;
+        channel->label[0] = 0;
+      } else {
+        channel->in_use = false;
+        channel->closing = true;
+      }
     }
-    gzcGoChannelClose(channel->backend->handle, channel->id);
-    if (!channel->remote && channel != &channel->backend->packet_channel) {
-      channel->closing = false;
-      channel->label[0] = 0;
-    }
+    const int channel_id = closing_channel == NULL ? channel->id : closing_channel->id;
+    gzcGoChannelClose(channel->backend->handle, channel_id);
   }
 }
 
@@ -636,6 +658,12 @@ static gzc_rtc_channel_t *local_channel_by_id(gzc_cgo_backend_t *backend, int ch
   }
   if (channel_id == gzc_cgo_channel_packet) {
     return &backend->packet_channel;
+  }
+  for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
+    gzc_rtc_channel_t *channel = &backend->closing_local_channels[i];
+    if (channel->closing && channel->id == channel_id) {
+      return channel;
+    }
   }
   for (size_t i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
     gzc_rtc_channel_t *channel = &backend->local_channels[i];

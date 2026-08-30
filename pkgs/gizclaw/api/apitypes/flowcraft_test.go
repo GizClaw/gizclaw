@@ -116,6 +116,12 @@ func TestFlowcraftWorkflowSpecRejectsInvalidConfig(t *testing.T) {
 		"unknown text intent": {
 			raw: strings.Replace(flowcraftSpecJSON, `"max_output_tokens":2048`, `"max_output_tokens":2048,"seed":1`, 1), want: "unknown field",
 		},
+		"unsupported memory dataset IDs": {
+			raw: strings.Replace(flowcraftSpecJSON, `"budget":{"max_items":5}`, `"dataset_ids":["docs"],"budget":{"max_items":5}`, 1), want: "unknown field",
+		},
+		"unsupported recent-only memory query": {
+			raw: strings.Replace(flowcraftSpecJSON, `"current_message":true`, `"recent_only":true`, 1), want: "unknown field",
+		},
 		"unknown node":      {raw: strings.Replace(flowcraftSpecJSON, `"type":"passthrough"`, `"type":"tool"`, 1), want: "unsupported"},
 		"missing entry":     {raw: strings.Replace(flowcraftSpecJSON, `"entry": "prepare"`, `"entry": "missing"`, 1), want: "not a defined node"},
 		"missing publisher": {raw: strings.Replace(flowcraftSpecJSON, `,"publish":true`, ``, 1), want: "publish=true"},

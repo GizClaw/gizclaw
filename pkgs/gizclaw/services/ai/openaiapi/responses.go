@@ -161,7 +161,7 @@ func (j *responseJob) run(parent context.Context, delta func(string) error) (wor
 		} else {
 			slog.ErrorContext(parent, "gizclaw: OpenAI Workspace Agent failed",
 				"workspace_id", j.workspace.Id,
-				"error", err,
+				"error_class", "workspace_agent_execution",
 			)
 			result.Status = "failed"
 			result.ErrorCode = "server_error"

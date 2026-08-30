@@ -62,7 +62,24 @@ spec:
       - config:
           runtime: js
           source: |
-            host.emit("token", "PASS");
+            function messageText(message) {
+              if (!message) return "";
+              if (typeof message.content === "string") return message.content.trim();
+              const parts = message.content && Array.isArray(message.content.parts) ? message.content.parts : [];
+              return parts.map(function(part) {
+                return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
+              }).join("").trim();
+            }
+
+            const messages = board.channel(board.MAIN_CHANNEL) || [];
+            const candidateReplies = messages
+              .filter(function(message) { return message && message.role === "user"; })
+              .slice(1)
+              .map(messageText);
+            const passed = candidateReplies.length >= 7 && candidateReplies.every(function(text) {
+              return text.length > 0 && /[\u3400-\u9fff]/.test(text);
+            });
+            host.emit("token", passed ? "PASS" : "FAIL");
             host.emit("finish", {finish_reason: "completed"});
         id: verdict
         publish: true

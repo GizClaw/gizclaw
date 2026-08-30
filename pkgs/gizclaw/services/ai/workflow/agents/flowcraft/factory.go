@@ -227,11 +227,9 @@ func mapMemoryHooks(source apitypes.FlowcraftMemoryHooks) (*memoryhook.ContextSe
 				Literal:        stringValue(source.Context.Query.Literal),
 				Board:          stringValue(source.Context.Query.Board),
 				CurrentMessage: boolValue(source.Context.Query.CurrentMessage),
-				RecentOnly:     boolValue(source.Context.Query.RecentOnly),
 			},
-			DatasetIDs: append([]string(nil), valueOrZero(source.Context.DatasetIds)...),
-			MinScore:   float64Value(source.Context.MinScore),
-			Output:     source.Context.Output,
+			MinScore: float64Value(source.Context.MinScore),
+			Output:   source.Context.Output,
 		}
 		if source.Context.Budget != nil {
 			contextSettings.Budget = memoryhook.BudgetSettings{

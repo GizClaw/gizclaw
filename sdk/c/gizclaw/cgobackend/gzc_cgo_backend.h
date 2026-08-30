@@ -35,6 +35,7 @@ struct gzc_cgo_backend {
   struct gzc_rtc_peer peer;
   struct gzc_rtc_channel packet_channel;
   struct gzc_rtc_channel local_channels[GZC_CGO_MAX_LOCAL_CHANNELS];
+  struct gzc_rtc_channel closing_local_channels[GZC_CGO_MAX_LOCAL_CHANNELS];
   struct gzc_rtc_channel remote_channels[GZC_RPC_MAX_INBOUND_CHANNELS];
   int next_local_channel_id;
   gzc_platform_t platform_impl;
