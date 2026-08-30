@@ -74,7 +74,7 @@ func (r *Redis) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
 			yield(Entry{}, redisOperationError("list", err))
 			return
 		}
-		sort.Strings(keys)
+		keys = sortUniqueRedisKeys(keys)
 		for _, key := range keys {
 			if err := ctx.Err(); err != nil {
 				yield(Entry{}, err)
@@ -93,6 +93,17 @@ func (r *Redis) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
 			}
 		}
 	}
+}
+
+func sortUniqueRedisKeys(keys []string) []string {
+	sort.Strings(keys)
+	unique := keys[:0]
+	for _, key := range keys {
+		if len(unique) == 0 || unique[len(unique)-1] != key {
+			unique = append(unique, key)
+		}
+	}
+	return unique
 }
 
 // ListAfter returns a lexicographically ordered page below prefix.

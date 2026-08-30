@@ -25,10 +25,10 @@ func TestAdminLookupPeerUserStory(t *testing.T) {
 
 	devicePubKey := h.ContextPublicKey("device-a")
 
-	resolve := h.RunCLI("admin", "peers", "resolve-sn", "admin-lookup-peer-device-a-sn", "--context", "admin-a")
-	resolve.MustSucceed(t)
-	if !strings.Contains(resolve.Stdout, devicePubKey) {
-		t.Fatalf("expected resolved public key %q:\n%s", devicePubKey, resolve.Stdout)
+	find := h.RunCLI("admin", "peers", "find-sn", "admin-lookup-peer-device-a-sn", "--context", "admin-a")
+	find.MustSucceed(t)
+	if !strings.Contains(find.Stdout, devicePubKey) {
+		t.Fatalf("expected matching public key %q:\n%s", devicePubKey, find.Stdout)
 	}
 
 	get := h.RunCLI("admin", "peers", "get", devicePubKey, "--context", "admin-a")

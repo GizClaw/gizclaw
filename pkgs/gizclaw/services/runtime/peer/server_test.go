@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -223,16 +224,16 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if updatedInfo.Identifiers == nil || updatedInfo.Identifiers.Sn == nil || *updatedInfo.Identifiers.Sn != sn {
 		t.Fatalf("PutPeerInfo did not preserve identifiers = %+v", updatedInfo)
 	}
-	resolveSNResp, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn})
+	resolveSNResp, err := server.FindPeersBySN(ctx, adminhttp.FindPeersBySNRequestObject{Sn: sn})
 	if err != nil {
-		t.Fatalf("FindPubKeyBySN error: %v", err)
+		t.Fatalf("FindPeersBySN error: %v", err)
 	}
-	resolvedSN, ok := resolveSNResp.(adminhttp.FindPubKeyBySN200JSONResponse)
+	resolvedSN, ok := resolveSNResp.(adminhttp.FindPeersBySN200JSONResponse)
 	if !ok {
-		t.Fatalf("FindPubKeyBySN response type = %T", resolveSNResp)
+		t.Fatalf("FindPeersBySN response type = %T", resolveSNResp)
 	}
-	if resolvedSN.PublicKey != peerPublicKey {
-		t.Fatalf("FindPubKeyBySN = %+v", resolvedSN)
+	if len(resolvedSN.Items) != 1 || registrationResultForTest(t, resolvedSN.Items[0]).PublicKey != peerPublicKey {
+		t.Fatalf("FindPeersBySN = %+v", resolvedSN)
 	}
 
 	resolveIMEIResp, err := server.FindPubKeyByIMEI(ctx, adminhttp.FindPubKeyByIMEIRequestObject{
@@ -311,10 +312,10 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if pending, err := pendingdeletion.HasLocator(ctx, server.Store, pendingdeletion.KindPeer, peerPublicKey); err != nil || !pending {
 		t.Fatalf("peer pending deletion = %v, error = %v", pending, err)
 	}
-	if response, err := server.FindPubKeyBySN(ctx, adminhttp.FindPubKeyBySNRequestObject{Sn: sn}); err != nil {
-		t.Fatalf("FindPubKeyBySN after delete error: %v", err)
-	} else if _, ok := response.(adminhttp.FindPubKeyBySN200JSONResponse); !ok {
-		t.Fatalf("FindPubKeyBySN after delete response = %T", response)
+	if response, err := server.FindPeersBySN(ctx, adminhttp.FindPeersBySNRequestObject{Sn: sn}); err != nil {
+		t.Fatalf("FindPeersBySN after delete error: %v", err)
+	} else if _, ok := response.(adminhttp.FindPeersBySN200JSONResponse); !ok {
+		t.Fatalf("FindPeersBySN after delete response = %T", response)
 	}
 	if response, err := server.FindPubKeyByIMEI(ctx, adminhttp.FindPubKeyByIMEIRequestObject{Tac: tac, Serial: serial}); err != nil {
 		t.Fatalf("FindPubKeyByIMEI after delete error: %v", err)
@@ -343,6 +344,107 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	}
 	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); !errors.Is(err, ErrPeerPendingDeletion) {
 		t.Fatalf("BootstrapEdgeNodes() while marked error = %v", err)
+	}
+}
+
+func TestFindPeersBySNReturnsEveryMatchingPeer(t *testing.T) {
+	ctx := context.Background()
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	sn := "shared-sn"
+	first := giznet.PublicKey{1}
+	second := giznet.PublicKey{2}
+	saveTestPeer(t, server, first, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
+	saveTestPeer(t, server, second, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
+
+	response, err := server.FindPeersBySN(ctx, adminhttp.FindPeersBySNRequestObject{Sn: sn})
+	if err != nil {
+		t.Fatalf("FindPeersBySN error: %v", err)
+	}
+	matched, ok := response.(adminhttp.FindPeersBySN200JSONResponse)
+	if !ok {
+		t.Fatalf("FindPeersBySN response type = %T", response)
+	}
+	got := make(map[string]bool, len(matched.Items))
+	for _, item := range matched.Items {
+		got[registrationResultForTest(t, item).PublicKey] = true
+	}
+	if len(got) != 2 || !got[first.String()] || !got[second.String()] {
+		t.Fatalf("FindPeersBySN public keys = %v", got)
+	}
+
+	emptyResponse, err := server.FindPeersBySN(ctx, adminhttp.FindPeersBySNRequestObject{Sn: "missing"})
+	if err != nil {
+		t.Fatalf("FindPeersBySN(missing) error: %v", err)
+	}
+	empty, ok := emptyResponse.(adminhttp.FindPeersBySN200JSONResponse)
+	if !ok || len(empty.Items) != 0 {
+		t.Fatalf("FindPeersBySN(missing) = %#v", emptyResponse)
+	}
+}
+
+func TestFindPeersBySNRejectsInvalidSerialNumber(t *testing.T) {
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	for _, sn := range []string{"", strings.Repeat("s", maxDeviceSNBytes+1), string([]byte{0xff})} {
+		response, err := server.FindPeersBySN(context.Background(), adminhttp.FindPeersBySNRequestObject{Sn: sn})
+		if err != nil {
+			t.Fatalf("FindPeersBySN(%q) error: %v", sn, err)
+		}
+		invalid, ok := response.(adminhttp.FindPeersBySN400JSONResponse)
+		if !ok || invalid.Error.Code != "INVALID_DEVICE_SN" {
+			t.Fatalf("FindPeersBySN(%q) response = %#v", sn, response)
+		}
+	}
+}
+
+func TestFindPeersBySNRecoversLegacyIndexCollisions(t *testing.T) {
+	ctx := context.Background()
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	sn := "legacy-shared-sn"
+	first := giznet.PublicKey{3}
+	second := giznet.PublicKey{4}
+	saveTestPeer(t, server, first, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
+	saveTestPeer(t, server, second, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
+	if err := server.Store.BatchDelete(ctx, []kv.Key{snKey(sn, first.String()), snKey(sn, second.String())}); err != nil {
+		t.Fatalf("delete current indexes: %v", err)
+	}
+	if err := server.Store.Set(ctx, snPrefix(sn), []byte(second.String())); err != nil {
+		t.Fatalf("seed legacy index: %v", err)
+	}
+
+	response, err := server.FindPeersBySN(ctx, adminhttp.FindPeersBySNRequestObject{Sn: sn})
+	if err != nil {
+		t.Fatalf("FindPeersBySN error: %v", err)
+	}
+	matched, ok := response.(adminhttp.FindPeersBySN200JSONResponse)
+	if !ok || len(matched.Items) != 2 {
+		t.Fatalf("FindPeersBySN legacy response = %#v", response)
+	}
+}
+
+func TestSaveRefreshedDeviceFieldsPreservesConcurrentProfileUpdate(t *testing.T) {
+	ctx := context.Background()
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	publicKey := giznet.PublicKey{5}
+	saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
+	name := "updated-while-refreshing"
+	if _, err := server.PutSelfInfo(ctx, publicKey, apitypes.DeviceInfo{Name: &name}); err != nil {
+		t.Fatalf("PutSelfInfo error: %v", err)
+	}
+	sn := "refreshed-sn"
+	saved, err := server.SaveRefreshedDeviceFields(
+		ctx,
+		publicKey,
+		apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}},
+		[]string{"device.identifiers.sn"},
+	)
+	if err != nil {
+		t.Fatalf("SaveRefreshedDeviceFields error: %v", err)
+	}
+	if saved.Device.Name == nil || *saved.Device.Name != name {
+		t.Fatalf("saved profile name = %#v", saved.Device.Name)
+	}
+	if saved.Device.Identifiers == nil || saved.Device.Identifiers.Sn == nil || *saved.Device.Identifiers.Sn != sn {
+		t.Fatalf("saved identifiers = %#v", saved.Device.Identifiers)
 	}
 }
 

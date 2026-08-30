@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -110,7 +110,7 @@ func testStorageFileConfigs(configs map[string]storage.Config) map[string]storag
 		case storage.ClickHouseConfig:
 			out[name] = storageFileConfig{Kind: storage.KindClickHouse, DSN: cfg.DSN}
 		case storage.RedisConfig:
-			out[name] = storageFileConfig{Kind: storage.KindRedis, DSN: cfg.DSN}
+			out[name] = storageFileConfig{Kind: storage.KindRedis, URL: cfg.URL, TLSCAFile: cfg.TLSCAFile}
 		case storage.PrometheusConfig:
 			out[name] = storageFileConfig{
 				Kind: storage.KindPrometheus, RemoteWriteURL: cfg.RemoteWriteURL,
@@ -499,14 +499,14 @@ func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 		cfg.Listen = "127.0.0.1:0"
 		cfg.Endpoint = "127.0.0.1:9820"
 		cfg.Storage["memory"] = storageFileConfig{Kind: storage.KindBadger}
-		cfg.Services.SystemLog = &logging.Config{Level: "debug"}
+		cfg.Services.SystemLog = &gizlog.Config{Level: "debug"}
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
 	installed := false
-	restoreLoggingInstaller(t, func(cfg logging.Config, _ ...logging.StoreResolver) (func() error, error) {
+	restoreLoggingInstaller(t, func(cfg gizlog.Config, _ ...gizlog.StoreResolver) (func() error, error) {
 		installed = true
 		if cfg.Level != "debug" {
 			t.Fatalf("log config = %+v, want debug", cfg)
@@ -535,7 +535,7 @@ func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 
 	installed := make(chan struct{})
 	closed := make(chan struct{})
-	restoreLoggingInstaller(t, func(logging.Config, ...logging.StoreResolver) (func() error, error) {
+	restoreLoggingInstaller(t, func(gizlog.Config, ...gizlog.StoreResolver) (func() error, error) {
 		close(installed)
 		return func() error {
 			close(closed)
@@ -570,7 +570,7 @@ func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 	}
 }
 
-func restoreLoggingInstaller(t *testing.T, fn func(logging.Config, ...logging.StoreResolver) (func() error, error)) {
+func restoreLoggingInstaller(t *testing.T, fn func(gizlog.Config, ...gizlog.StoreResolver) (func() error, error)) {
 	t.Helper()
 	old := installConfiguredLogger
 	installConfiguredLogger = fn

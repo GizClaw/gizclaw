@@ -14,7 +14,7 @@
 | `Memory` / `NewMemory` | In-process ordered store. |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation. |
 | `SQL` / `NewSQLWithDB` | Borrows a SQLite/PostgreSQL pool and maps the logical prefix to a physical table. |
-| `Redis` / `NewRedisWithClient` | Borrows a single-node Redis 7.0 client and preserves the full ordered and atomic Store contract. |
+| `Redis` / `NewRedisWithClient` | Borrows a single-node Redis client and preserves the full ordered and atomic Store contract. |
 | `Prefixed` | Add a fixed key namespace to the existing Store. |
 | `ListAfter` | Read in pages after the specified key under prefix. |
 

@@ -15,7 +15,7 @@ var (
 	connectFromContext = connection.ConnectFromContext
 	listPeers          = adminapi.ListPeers
 	getPeer            = adminapi.GetPeer
-	findPubKeyBySN     = adminapi.FindPubKeyBySN
+	findPeersBySN      = adminapi.FindPeersBySN
 	findPubKeyByIMEI   = adminapi.FindPubKeyByIMEI
 	approvePeer        = adminapi.ApprovePeer
 	blockPeer          = adminapi.BlockPeer
@@ -71,8 +71,8 @@ func newCmd(use, short string) *cobra.Command {
 			},
 		},
 		&cobra.Command{
-			Use:   "resolve-sn <sn>",
-			Short: "Resolve public key by SN",
+			Use:   "find-sn <sn>",
+			Short: "Find peers by SN",
 			Args:  cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				c, err := connectFromContext(ctxName)
@@ -80,12 +80,11 @@ func newCmd(use, short string) *cobra.Command {
 					return err
 				}
 				defer c.Close()
-				publicKey, err := findPubKeyBySN(context.Background(), c, args[0])
+				items, err := findPeersBySN(context.Background(), c, args[0])
 				if err != nil {
 					return err
 				}
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), publicKey)
-				return nil
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(items)
 			},
 		},
 		&cobra.Command{

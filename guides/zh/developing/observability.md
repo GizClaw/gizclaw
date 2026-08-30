@@ -82,7 +82,7 @@ go tool pprof -top -base baseline/heap.pprof later/heap.pprof
 
 | 层 | Ownership | 状态 |
 | --- | --- | --- |
-| `cmd/internal/logging` | 安装全局 `slog`、配置 level、fan-out、stderr 和 Volc TLS sink | 当前已有 |
+| `pkgs/gizlog` | 安装全局 `slog`、配置 level，并拥有 Server 与 Edge 共用的 stderr 和 named LogStore sink | 当前已有 |
 | `pkgs/gizclaw/internal/observability` | GizClaw 的 transport、surface、operation、result、error 和安全字段 vocabulary，以及到 `slog` 的 projection | 当前已有 |
 | `pkgs/gizmetrics` | 进程级 counter、gauge、histogram、聚合、批量 flush 和 no-op default | 当前已有 |
 | `pkgs/gizmetrics/httpmetrics` | 通用 `net/http` request count、duration、in-flight 和 response bytes wrapper | 当前已有 |

@@ -2,9 +2,12 @@ package storage
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -29,22 +32,9 @@ func (s *Storage) Redis(name string) (*redis.Client, error) {
 }
 
 func newRedis(name string, cfg RedisConfig) (*redis.Client, error) {
-	if cfg.DSN == "" {
-		return nil, fmt.Errorf("storage: redis %q requires dsn", name)
-	}
-	parsed, err := url.Parse(cfg.DSN)
-	if err != nil || parsed.Scheme != "redis" && parsed.Scheme != "rediss" || parsed.Hostname() == "" || strings.Contains(parsed.Hostname(), ",") {
-		return nil, &externalOperationError{
-			operation: fmt.Sprintf("storage: redis %q parse dsn", name),
-			err:       errors.New("invalid single-endpoint Redis DSN"),
-		}
-	}
-	options, err := redis.ParseURL(cfg.DSN)
+	options, err := redisOptions(name, cfg)
 	if err != nil {
-		return nil, &externalOperationError{
-			operation: fmt.Sprintf("storage: redis %q parse dsn", name),
-			err:       err,
-		}
+		return nil, err
 	}
 	client := redis.NewClient(options)
 	ctx, cancel := context.WithTimeout(context.Background(), redisReadinessTimeout)
@@ -57,4 +47,51 @@ func newRedis(name string, cfg RedisConfig) (*redis.Client, error) {
 		}
 	}
 	return client, nil
+}
+
+func redisOptions(name string, cfg RedisConfig) (*redis.Options, error) {
+	parsed, err := url.Parse(cfg.URL)
+	if cfg.URL == "" || err != nil || parsed.Scheme != "redis" && parsed.Scheme != "rediss" ||
+		parsed.Hostname() == "" || strings.Contains(parsed.Hostname(), ",") {
+		return nil, redisConfigError(name, "parse url", errors.New("invalid single-endpoint Redis URL"))
+	}
+	options, err := redis.ParseURL(cfg.URL)
+	if err != nil {
+		return nil, redisConfigError(name, "parse url", err)
+	}
+	if parsed.Scheme == "rediss" {
+		if options.TLSConfig == nil {
+			options.TLSConfig = &tls.Config{}
+		}
+		if options.TLSConfig.InsecureSkipVerify {
+			return nil, redisConfigError(name, "configure tls", errors.New("certificate verification must remain enabled"))
+		}
+		options.TLSConfig.MinVersion = tls.VersionTLS12
+	}
+	if cfg.TLSCAFile == "" {
+		return options, nil
+	}
+	if parsed.Scheme != "rediss" {
+		return nil, redisConfigError(name, "configure tls", errors.New("tls_ca_file requires a rediss URL"))
+	}
+	caPEM, err := os.ReadFile(cfg.TLSCAFile)
+	if err != nil {
+		return nil, redisConfigError(name, "read tls ca file", err)
+	}
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		roots = x509.NewCertPool()
+	}
+	if !roots.AppendCertsFromPEM(caPEM) {
+		return nil, redisConfigError(name, "parse tls ca file", errors.New("no PEM certificates found"))
+	}
+	options.TLSConfig.RootCAs = roots
+	return options, nil
+}
+
+func redisConfigError(name, operation string, err error) error {
+	return &externalOperationError{
+		operation: fmt.Sprintf("storage: redis %q %s", name, operation),
+		err:       err,
+	}
 }

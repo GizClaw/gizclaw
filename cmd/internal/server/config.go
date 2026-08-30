@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
@@ -77,7 +77,7 @@ type ServicesConfig struct {
 	Gameplay        *GameplayStoresConfig  `yaml:"gameplay"`
 	AgentHost       *AgentHostConfig       `yaml:"agent_host"`
 	Metrics         *SingleStoreConfig     `yaml:"metrics"`
-	SystemLog       *logging.Config        `yaml:"system_log"`
+	SystemLog       *gizlog.Config         `yaml:"system_log"`
 }
 
 type SingleStoreConfig struct {
@@ -179,6 +179,8 @@ type storageFileConfig struct {
 	Kind            string `yaml:"kind"`
 	Dir             string `yaml:"dir"`
 	DSN             string `yaml:"dsn"`
+	URL             string `yaml:"url"`
+	TLSCAFile       string `yaml:"tls_ca_file"`
 	RemoteWriteURL  string `yaml:"remote_write_url"`
 	QueryURL        string `yaml:"query_url"`
 	BearerToken     string `yaml:"bearer_token"`
@@ -209,7 +211,7 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 	case storage.KindClickHouse:
 		return storage.ClickHouseConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
 	case storage.KindRedis:
-		return storage.RedisConfig{DSN: os.ExpandEnv(cfg.DSN)}, nil
+		return storage.RedisConfig{URL: os.ExpandEnv(cfg.URL), TLSCAFile: os.ExpandEnv(cfg.TLSCAFile)}, nil
 	case storage.KindPrometheus:
 		return storage.PrometheusConfig{
 			RemoteWriteURL: os.ExpandEnv(cfg.RemoteWriteURL),
@@ -334,7 +336,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	if raw.Services != nil && raw.Services.SystemLog != nil {
-		logCfg, err := logging.PrepareConfig(*raw.Services.SystemLog)
+		logCfg, err := gizlog.PrepareConfig(*raw.Services.SystemLog)
 		if err != nil {
 			return ConfigFile{}, fmt.Errorf("server: %w", err)
 		}
@@ -702,7 +704,7 @@ func prepareConfig(cfg Config) (Config, error) {
 	cfg.Speech = mergeSpeechConfig(cfg.Speech, defaults.Speech)
 	cfg.PendingDeletion = mergePendingDeletionConfig(cfg.PendingDeletion, defaults.PendingDeletion)
 	if cfg.Services != nil && cfg.Services.SystemLog != nil {
-		logCfg, err := logging.PrepareConfig(*cfg.Services.SystemLog)
+		logCfg, err := gizlog.PrepareConfig(*cfg.Services.SystemLog)
 		if err != nil {
 			return Config{}, fmt.Errorf("server: %w", err)
 		}
@@ -1014,16 +1016,16 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		return fmt.Errorf("server: services.metrics.store is required and must not be whitespace-only")
 	}
 	if cfg.SystemLog != nil {
-		if _, err := logging.PrepareConfig(*cfg.SystemLog); err != nil {
+		if _, err := gizlog.PrepareConfig(*cfg.SystemLog); err != nil {
 			return fmt.Errorf("server: %w", err)
 		}
 	}
 	return nil
 }
 
-func (cfg Config) systemLogConfig() logging.Config {
+func (cfg Config) systemLogConfig() gizlog.Config {
 	if cfg.Services == nil || cfg.Services.SystemLog == nil {
-		return logging.DefaultConfig()
+		return gizlog.DefaultConfig()
 	}
 	return *cfg.Services.SystemLog
 }
@@ -1184,7 +1186,7 @@ func validateStorageConfigShape(value any) error {
 		storage.KindSQLite:        {"kind": {}, "dir": {}, "dsn": {}},
 		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}},
 		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
-		storage.KindRedis:         {"kind": {}, "dsn": {}},
+		storage.KindRedis:         {"kind": {}, "url": {}, "tls_ca_file": {}},
 		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
 		storage.KindVolcTLS:       {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
 		storage.KindVolcTOS:       {"kind": {}, "endpoint": {}, "region": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "session_token": {}},

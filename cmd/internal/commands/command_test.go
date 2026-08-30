@@ -359,7 +359,7 @@ func TestAdminPeersHelp(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"resolve-sn",
+		"find-sn",
 		"resolve-imei",
 		"info",
 		"runtime",

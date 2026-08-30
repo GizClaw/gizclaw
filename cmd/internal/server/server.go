@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -448,7 +448,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	}
 	if cfg.SystemLog != nil {
 		for index, sink := range cfg.SystemLog.Sinks {
-			if sink.Kind != logging.SinkStore {
+			if sink.Kind != gizlog.SinkStore {
 				continue
 			}
 			if _, err := registry.Log(sink.Store); err != nil {

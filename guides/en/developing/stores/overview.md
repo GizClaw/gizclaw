@@ -53,7 +53,7 @@ flowchart TB
 
 | Store kind | Interface and scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`; optional key prefix for Badger/memory, or a required prefix that the SQLite/PostgreSQL backend uses as its physical table name |
+| `keyvalue` | `kv.Store`; optional key prefix for Badger/memory, a required non-overlapping key prefix for Redis, or a required prefix that SQLite/PostgreSQL uses as its physical table name |
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
 | `metrics` | `metrics.Store`; `memory`, Prometheus, ClickHouse, or a SQLite/PostgreSQL table |
@@ -71,9 +71,19 @@ flowchart TB
 | `azure-blob` | HTTPS account URL and existing container; Azure Default Credential supplies identity |
 | `sqlite` | exactly one of `dir` or `dsn` |
 | `postgresql`, `clickhouse` | `dsn` |
-| `redis` | Single-node `redis://` or `rediss://` DSN; Redis Cluster is not supported |
+| `redis` | Single-node `redis://` or `rediss://` URL; `rediss://` can add PEM CA certificates through `tls_ca_file`; Redis Cluster is not supported |
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
+
+Redis TLS configuration example:
+
+```yaml
+storage:
+  redis:
+    kind: redis
+    url: rediss://user:password@host:port/0
+    tls_ca_file: /run/secrets/volc-redis-ca.pem
+```
 
 The public Go API does not use one generic property bag containing `Kind` and
 every backend field. `storage.Config` is a package-sealed configuration
@@ -88,8 +98,8 @@ physical, err := storage.New(map[string]storage.Config{
 ```
 
 The concrete implementations are `BadgerConfig`, `MemoryConfig`,
-`FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`, `RedisConfig`,
-`PrometheusConfig`, `VolcTLSConfig`, `VolcTOSConfig`, `AliyunOSSConfig`,
+`FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`,
+`RedisConfig`, `PrometheusConfig`, `VolcTLSConfig`, `VolcTOSConfig`, `AliyunOSSConfig`,
 `GCSConfig`, and `AzureBlobConfig`. A Go caller therefore cannot pass a
 directory to PostgreSQL or a DSN/provider credential to Badger.
 `cmd/internal/server` retains the flat YAML DTO and explicitly converts each

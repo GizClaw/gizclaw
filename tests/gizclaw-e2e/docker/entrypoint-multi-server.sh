@@ -22,7 +22,7 @@ perl -0pi -e '
   s/endpoint: \$\{GIZCLAW_E2E_SERVER_ENDPOINT\}/endpoint: $ENV{GIZCLAW_E2E_SERVER_ENDPOINT}/;
   s/admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"/admin-public-key: "$ENV{GIZCLAW_E2E_ADMIN_PUBLIC_KEY}"/;
   s/ice-servers:\n(?:  .*\n)+?(?=edge-nodes:)/""/e;
-  s/storage:\n/storage:\n  shared-redis:\n    kind: redis\n    dsn: $ENV{GIZCLAW_E2E_REDIS_DSN}\n/;
+  s/storage:\n/storage:\n  shared-redis:\n    kind: redis\n    url: $ENV{GIZCLAW_E2E_REDIS_DSN}\n/;
   s/(  peers:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friends:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friend-groups:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;

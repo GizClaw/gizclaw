@@ -3485,7 +3485,9 @@ type DeepSeekTenantSpec struct {
 type DeviceIdentifiers struct {
 	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
 	Labels *[]PeerLabel `json:"labels,omitempty"`
-	Sn     *string      `json:"sn,omitempty"`
+
+	// Sn Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.
+	Sn *string `json:"sn,omitempty"`
 }
 
 // DeviceInfo defines model for DeviceInfo.

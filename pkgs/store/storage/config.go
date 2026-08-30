@@ -67,9 +67,11 @@ type ClickHouseConfig struct {
 
 func (ClickHouseConfig) storageKind() string { return KindClickHouse }
 
-// RedisConfig configures one single-node Redis connection.
+// RedisConfig configures one single-node Redis connection. TLSCAFile adds
+// trusted PEM certificates for rediss URLs.
 type RedisConfig struct {
-	DSN string
+	URL       string
+	TLSCAFile string
 }
 
 func (RedisConfig) storageKind() string { return KindRedis }

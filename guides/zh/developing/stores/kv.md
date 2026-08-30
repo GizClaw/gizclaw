@@ -14,7 +14,7 @@
 | `Memory` / `NewMemory` | 进程内 ordered store。 |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
 | `SQL` / `NewSQLWithDB` | 借用 SQLite/PostgreSQL pool；把逻辑 prefix 映射为物理表。 |
-| `Redis` / `NewRedisWithClient` | 借用单节点 Redis 7.0 client，并保留完整的有序与原子 Store contract。 |
+| `Redis` / `NewRedisWithClient` | 借用单节点 Redis client，并保留完整的有序与原子 Store contract。 |
 | `Prefixed` | 为已有 Store 增加固定 key namespace。 |
 | `ListAfter` | 在 prefix 下从指定 key 之后分页读取。 |
 

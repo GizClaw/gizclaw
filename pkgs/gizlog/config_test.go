@@ -1,4 +1,4 @@
-package logging
+package gizlog
 
 import (
 	"reflect"
@@ -55,6 +55,13 @@ func TestPrepareConfigErrorsUseFixedServicePath(t *testing.T) {
 	_, err := PrepareConfig(Config{Level: "verbose"})
 	if err == nil || !strings.Contains(err.Error(), "services.system_log.level") {
 		t.Fatalf("PrepareConfig() error = %v", err)
+	}
+}
+
+func TestPrepareConfigAtUsesCallerPath(t *testing.T) {
+	_, err := PrepareConfigAt("system-log", Config{Level: "verbose"})
+	if err == nil || !strings.Contains(err.Error(), "system-log.level") {
+		t.Fatalf("PrepareConfigAt() error = %v", err)
 	}
 }
 

@@ -12,7 +12,9 @@
         "type": "object",
         "properties": {
           "sn": {
-            "type": "string"
+            "type": "string",
+            "description": "Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.",
+            "maxLength": 256
           },
           "imeis": {
             "type": "array",

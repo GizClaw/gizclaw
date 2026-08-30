@@ -309,14 +309,6 @@ func ensureAdminPeer(t testing.TB, ts *testServer, c *gizcli.Client, info apityp
 
 func ensurePeerInfo(t testing.TB, c *gizcli.Client, info apitypes.DeviceInfo) string {
 	t.Helper()
-	c.Device.Name = info.Name
-	c.Device.Emoji = info.Emoji
-	if info.Hardware != nil {
-		c.Device.Hardware = info.Hardware
-	}
-	if info.Identifiers != nil {
-		c.Device.Identifiers = info.Identifiers
-	}
 	profile := apitypes.DeviceInfo{Name: info.Name, Emoji: info.Emoji}
 	if _, err := putInfo(context.Background(), c, profile); err != nil {
 		t.Fatalf("PutInfo error: %v", err)
@@ -716,19 +708,19 @@ func getPeer(ctx context.Context, c *gizcli.Client, publicKey string) (apitypes.
 	return apitypes.Registration{}, responseError(resp.StatusCode(), resp.Body, resp.JSON404)
 }
 
-func findPubKeyBySN(ctx context.Context, c *gizcli.Client, sn string) (string, error) {
+func findPeersBySN(ctx context.Context, c *gizcli.Client, sn string) ([]adminhttp.PeerRegistrationResult, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	resp, err := api.FindPubKeyBySNWithResponse(ctx, sn)
+	resp, err := api.FindPeersBySNWithResponse(ctx, sn)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if resp.JSON200 != nil {
-		return resp.JSON200.PublicKey, nil
+		return resp.JSON200.Items, nil
 	}
-	return "", responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
 }
 
 func findPubKeyByIMEI(ctx context.Context, c *gizcli.Client, tac, serial string) (string, error) {

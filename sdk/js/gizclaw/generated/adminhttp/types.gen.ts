@@ -18,6 +18,10 @@ export type RefreshResult = {
 
 export type PeerRegistrationResult = Registration | RegistrationTombstone;
 
+export type PeerMatchList = {
+    items: Array<PeerRegistrationResult>;
+};
+
 export type PublicKeyResponse = {
     public_key: string;
 };
@@ -910,6 +914,9 @@ export type DeepSeekTenantSpec = {
 };
 
 export type DeviceIdentifiers = {
+    /**
+     * Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.
+     */
     sn?: string;
     imeis?: Array<PeerImei>;
     labels?: Array<PeerLabel>;
@@ -7433,32 +7440,36 @@ export type ListPeersResponses = {
 
 export type ListPeersResponse = ListPeersResponses[keyof ListPeersResponses];
 
-export type FindPubKeyBySnData = {
+export type FindPeersBySnData = {
     body?: never;
     path: {
         sn: string;
     };
     query?: never;
-    url: '/peers/@findPubKeyBySn/{sn}';
+    url: '/peers/@findBySn/{sn}';
 };
 
-export type FindPubKeyBySnErrors = {
+export type FindPeersBySnErrors = {
     /**
-     * Peer not found
+     * Invalid serial number
      */
-    404: ErrorResponse;
-};
-
-export type FindPubKeyBySnError = FindPubKeyBySnErrors[keyof FindPubKeyBySnErrors];
-
-export type FindPubKeyBySnResponses = {
+    400: ErrorResponse;
     /**
-     * Resolved public key
+     * Internal error
      */
-    200: PublicKeyResponse;
+    500: ErrorResponse;
 };
 
-export type FindPubKeyBySnResponse = FindPubKeyBySnResponses[keyof FindPubKeyBySnResponses];
+export type FindPeersBySnError = FindPeersBySnErrors[keyof FindPeersBySnErrors];
+
+export type FindPeersBySnResponses = {
+    /**
+     * Peers reporting the serial number
+     */
+    200: PeerMatchList;
+};
+
+export type FindPeersBySnResponse = FindPeersBySnResponses[keyof FindPeersBySnResponses];
 
 export type FindPubKeyByImeiData = {
     body?: never;

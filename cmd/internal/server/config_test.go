@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/cmd/internal/logging"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
@@ -526,8 +526,13 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 			want: storage.ClickHouseConfig{DSN: "expanded/dsn"},
 		},
 		"redis": {
-			file: storageFileConfig{Kind: storage.KindRedis, DSN: "${GIZCLAW_TEST_CONFIG_VALUE}/dsn"},
-			want: storage.RedisConfig{DSN: "expanded/dsn"},
+			file: storageFileConfig{
+				Kind: storage.KindRedis, URL: "rediss://${GIZCLAW_TEST_CONFIG_VALUE}:6379/0",
+				TLSCAFile: "/run/secrets/${GIZCLAW_TEST_CONFIG_VALUE}-redis-ca.pem",
+			},
+			want: storage.RedisConfig{
+				URL: "rediss://expanded:6379/0", TLSCAFile: "/run/secrets/expanded-redis-ca.pem",
+			},
 		},
 		"prometheus": {
 			file: storageFileConfig{
@@ -738,13 +743,13 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	}
 
 	missingLogSinkCfg := validLayeredConfig(dir)
-	missingLogSinkCfg.Services.SystemLog = &logging.Config{Sinks: []logging.SinkConfig{{Kind: logging.SinkStore, Store: "missing-logs"}}}
+	missingLogSinkCfg.Services.SystemLog = &gizlog.Config{Sinks: []gizlog.SinkConfig{{Kind: gizlog.SinkStore, Store: "missing-logs"}}}
 	if _, err := New(missingLogSinkCfg); err == nil || !strings.Contains(err.Error(), "services.system_log.sinks[0].store") {
 		t.Fatalf("New(missing system log sink) = %v", err)
 	}
 
 	wrongLogSinkCfg := validLayeredConfig(dir)
-	wrongLogSinkCfg.Services.SystemLog = &logging.Config{Sinks: []logging.SinkConfig{{Kind: logging.SinkStore, Store: "metrics"}}}
+	wrongLogSinkCfg.Services.SystemLog = &gizlog.Config{Sinks: []gizlog.SinkConfig{{Kind: gizlog.SinkStore, Store: "metrics"}}}
 	if _, err := New(wrongLogSinkCfg); err == nil || !strings.Contains(err.Error(), "logstore.ImmutableStore") {
 		t.Fatalf("New(wrong system log sink) = %v", err)
 	}
@@ -1030,7 +1035,7 @@ func TestE2ELogConfigFixturesUseReadablePlaceholders(t *testing.T) {
 			if err != nil {
 				t.Fatalf("LoadConfig(%s) error = %v", path, err)
 			}
-			if cfg.Services == nil || cfg.Services.SystemLog == nil || cfg.Services.SystemLog.Level != "info" || len(cfg.Services.SystemLog.Sinks) != 1 || cfg.Services.SystemLog.Sinks[0].Kind != logging.SinkStderr {
+			if cfg.Services == nil || cfg.Services.SystemLog == nil || cfg.Services.SystemLog.Level != "info" || len(cfg.Services.SystemLog.Sinks) != 1 || cfg.Services.SystemLog.Sinks[0].Kind != gizlog.SinkStderr {
 				t.Fatalf("fixture services = %+v, want info stderr", cfg.Services)
 			}
 		})
@@ -1135,7 +1140,7 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable, stores.KindLogMutable)
 	}
 	for index, sink := range services.SystemLog.Sinks {
-		if sink.Kind == logging.SinkStore {
+		if sink.Kind == gizlog.SinkStore {
 			expect(fmt.Sprintf("services.system_log.sinks[%d].store", index), sink.Store, stores.KindLogImmutable, stores.KindLogMutable)
 		}
 	}
@@ -1349,7 +1354,7 @@ func TestNewRequiresDistinctPeerRunKeyValueStore(t *testing.T) {
 		t.Fatalf("New(non-KV peer_run) error = %v", err)
 	}
 	shared := validLayeredConfig(t.TempDir())
-	shared.Storage["shared-redis"] = storage.RedisConfig{DSN: "redis://127.0.0.1:1/0"}
+	shared.Storage["shared-redis"] = storage.RedisConfig{URL: "redis://127.0.0.1:1/0"}
 	peerRun := shared.Stores[shared.Services.PeerRun.Store]
 	peerRun.Storage = "shared-redis"
 	shared.Stores[shared.Services.PeerRun.Store] = peerRun

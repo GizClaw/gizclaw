@@ -38,6 +38,31 @@ func TestIntegrationPeerRPCRefresh(t *testing.T) {
 	}
 }
 
+func TestIntegrationPeerRPCRefreshRejectsInvalidSNAtomically(t *testing.T) {
+	ts := startTestServer(t)
+
+	admin := newTestClient(t, ts)
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
+
+	invalidSN := strings.Repeat("s", 257)
+	device := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{
+		Hardware:    &apitypes.HardwareInfo{Manufacturer: new("must-not-persist")},
+		Identifiers: &apitypes.DeviceIdentifiers{Sn: &invalidSN},
+	})
+	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{Name: new("peer")})
+
+	if _, err := refreshPeer(context.Background(), admin, devicePublicKey); err == nil {
+		t.Fatal("RefreshPeer accepted an invalid SN")
+	}
+	info, err := getPeerInfo(context.Background(), admin, devicePublicKey)
+	if err != nil {
+		t.Fatalf("GetPeerInfo error: %v", err)
+	}
+	if info.Hardware != nil || info.Identifiers != nil {
+		t.Fatalf("invalid refresh partially mutated device info: %+v", info)
+	}
+}
+
 func TestIntegrationPeerRPCRefreshReportsOfflineWhenDeviceDisconnected(t *testing.T) {
 	ts := startTestServer(t)
 

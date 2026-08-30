@@ -19,12 +19,12 @@ import (
 
 func TestRedisKV(t *testing.T) {
 	dsn := requiredEnvironment(t, "GIZCLAW_TEST_REDIS_DSN")
-	firstPhysical, err := storage.New(map[string]storage.Config{"redis": storage.RedisConfig{DSN: dsn}})
+	firstPhysical, err := storage.New(map[string]storage.Config{"redis": storage.RedisConfig{URL: dsn}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = firstPhysical.Close() })
-	secondPhysical, err := storage.New(map[string]storage.Config{"redis": storage.RedisConfig{DSN: dsn}})
+	secondPhysical, err := storage.New(map[string]storage.Config{"redis": storage.RedisConfig{URL: dsn}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestRedisKV(t *testing.T) {
 func assertRedisCreateWinner(t *testing.T, stores ...kv.Store) {
 	t.Helper()
 	results := runRedisRace(t, len(stores), func(index int) (bool, error) {
-		_, created, err := kv.CreateIfAbsent(t.Context(), stores[index], kv.Entry{Key: kv.Key{"race", "create"}, Value: []byte(fmt.Sprintf("value-%d", index))}, nil)
+		_, created, err := kv.CreateIfAbsent(t.Context(), stores[index], kv.Entry{Key: kv.Key{"race", "create"}, Value: fmt.Appendf(nil, "value-%d", index)}, nil)
 		return created, err
 	})
 	assertOneRedisWinner(t, results)
@@ -147,8 +147,8 @@ func assertRedisCreateAllWinner(t *testing.T, stores ...kv.Store) {
 	t.Helper()
 	results := runRedisRace(t, len(stores), func(index int) (bool, error) {
 		_, _, created, err := kv.CreateIfAllAbsent(t.Context(), stores[index], []kv.Entry{
-			{Key: kv.Key{"race", "all-a"}, Value: []byte(fmt.Sprintf("a-%d", index))},
-			{Key: kv.Key{"race", "all-b"}, Value: []byte(fmt.Sprintf("b-%d", index))},
+			{Key: kv.Key{"race", "all-a"}, Value: fmt.Appendf(nil, "a-%d", index)},
+			{Key: kv.Key{"race", "all-b"}, Value: fmt.Appendf(nil, "b-%d", index)},
 		}, nil)
 		return created, err
 	})
@@ -162,7 +162,7 @@ func assertRedisCompareWinner(t *testing.T, stores ...kv.Store) {
 		t.Fatal(err)
 	}
 	results := runRedisRace(t, len(stores), func(index int) (bool, error) {
-		return kv.CompareAndMutate(t.Context(), stores[index], guard, []byte("before"), []kv.Entry{{Key: guard, Value: []byte(fmt.Sprintf("after-%d", index))}}, nil)
+		return kv.CompareAndMutate(t.Context(), stores[index], guard, []byte("before"), []kv.Entry{{Key: guard, Value: fmt.Appendf(nil, "after-%d", index)}}, nil)
 	})
 	assertOneRedisWinner(t, results)
 }
@@ -206,7 +206,7 @@ func assertOneRedisWinner(t *testing.T, results []redisRaceResult) {
 
 func TestRedisStoreRegistryPrefixesAndLifecycle(t *testing.T) {
 	dsn := requiredEnvironment(t, "GIZCLAW_TEST_REDIS_DSN")
-	physical, err := storage.New(map[string]storage.Config{"redis": storage.RedisConfig{DSN: dsn}})
+	physical, err := storage.New(map[string]storage.Config{"redis": storage.RedisConfig{URL: dsn}})
 	if err != nil {
 		t.Fatal(err)
 	}

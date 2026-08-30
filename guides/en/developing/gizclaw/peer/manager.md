@@ -6,7 +6,7 @@
 
 | Documentation | Features included |
 | --- | --- |
-| `peer_manager.go` | Maintain online Peer and connection replacement; connect online, offline and forced disconnection; query connections and Peer runtime; ensure the existence of Peer resources; refresh devices, hardware, IMEI and labels through Peer RPC; coordinate concurrent updates of telemetry status. |
+| `peer_manager.go` | Maintain online Peer and connection replacement; connect online, offline and forced disconnection; query connections and Peer runtime; ensure the existence of Peer resources; refresh device hardware, SN, IMEI and labels through Peer RPC; coordinate concurrent updates of telemetry status. |
 
 This prefix has server-perspective online connection indexing and cross-connection operations, but does not have a peer persistence model. The Peer resource itself belongs to `services/runtime/peer`.
 
@@ -30,6 +30,6 @@ Connection activation reserves its public key under the Manager lock, checks dur
 
 ## Device metadata ownership
 
-`client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh. Names must be valid UTF-8 and at most 256 bytes; emoji values must be valid UTF-8 and at most 64 bytes.
+After a Peer connection is published, the Server performs one bounded device-information refresh. A failure does not disconnect the Peer, and Admin can still retry with an explicit refresh. `client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). SN is an optional weak identifier declared by the Client; it must be valid UTF-8 and at most 256 bytes. A Client should keep it stable and as unique as practical for one physical device, but the Server does not treat SN as a unique identity. Several Peers may report the same value, and the Admin SN query returns every match. The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh. Names must be valid UTF-8 and at most 256 bytes; emoji values must be valid UTF-8 and at most 64 bytes.
 
 Friends read these text profile fields through `server.friend.info.get`. The method requires an existing caller-scoped friend relation and returns no binary avatar data.
