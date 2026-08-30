@@ -82,6 +82,7 @@ func TestPrepareWorkspaceConfigLoadsSystemLogStore(t *testing.T) {
 	t.Setenv("EDGE_LOG_ACCESS_KEY_ID", "test-access-key")
 	t.Setenv("EDGE_LOG_ACCESS_KEY_SECRET", "test-access-secret")
 	t.Setenv("EDGE_LOG_TOPIC_ID", "test-topic")
+	t.Setenv("EDGE_LOG_NODE_ID", "edge-a")
 	dir := t.TempDir()
 	writeConfig(t, dir, `
 identity:
@@ -103,6 +104,7 @@ stores:
     topic_id: ${EDGE_LOG_TOPIC_ID}
 system-log:
   level: info
+  node_id: ${EDGE_LOG_NODE_ID}
   sinks:
     - kind: stderr
     - kind: store
@@ -125,7 +127,7 @@ system-log:
 	if logical.Kind != store.KindLogImmutable || logical.Storage != "volc-logs" || logical.TopicID != "test-topic" {
 		t.Fatalf("Stores[logs] = %#v", logical)
 	}
-	if cfg.SystemLog.Level != "info" || len(cfg.SystemLog.Sinks) != 2 ||
+	if cfg.SystemLog.Level != "info" || cfg.SystemLog.NodeID != "edge-a" || len(cfg.SystemLog.Sinks) != 2 ||
 		cfg.SystemLog.Sinks[0].Kind != gizlog.SinkStderr || cfg.SystemLog.Sinks[1].Store != "logs" {
 		t.Fatalf("SystemLog = %#v", cfg.SystemLog)
 	}

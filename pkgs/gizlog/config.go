@@ -15,6 +15,7 @@ const (
 // Config controls process system logging independently from product LogStore writes.
 type Config struct {
 	Level      string       `yaml:"level"`
+	NodeID     string       `yaml:"node_id"`
 	QueryStore string       `yaml:"query_store"`
 	Sinks      []SinkConfig `yaml:"sinks"`
 }
@@ -33,7 +34,7 @@ func DefaultConfig() Config {
 
 // IsZero reports whether no system logging fields were explicitly set.
 func (c Config) IsZero() bool {
-	return strings.TrimSpace(c.Level) == "" && strings.TrimSpace(c.QueryStore) == "" && c.Sinks == nil
+	return strings.TrimSpace(c.Level) == "" && strings.TrimSpace(c.NodeID) == "" && strings.TrimSpace(c.QueryStore) == "" && c.Sinks == nil
 }
 
 // PrepareConfig applies defaults, expands environment variables, and validates
@@ -65,6 +66,7 @@ func PrepareConfigAt(path string, cfg Config) (Config, error) {
 	if _, err := ParseLevel(cfg.Level); err != nil {
 		return Config{}, fmt.Errorf("%s.level: %w", path, err)
 	}
+	cfg.NodeID = strings.TrimSpace(os.ExpandEnv(cfg.NodeID))
 	cfg.QueryStore = strings.TrimSpace(os.ExpandEnv(cfg.QueryStore))
 	seen := make(map[string]struct{}, len(cfg.Sinks))
 	storeSinks := make(map[string]struct{})

@@ -238,7 +238,7 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 		return nil, err
 	}
 	config := t.realtimeConfig(tools)
-	slog.Info(
+	slog.InfoContext(ctx,
 		"doubao: realtime duplex session config",
 		"model", config.Session.Model,
 		"inputFormat", config.Session.Audio.Input.Format.Type,
@@ -581,15 +581,15 @@ func (t *Transformer) processLoop(
 			if err != nil {
 				err = doubaoRealtimeDuplexProviderErrorWithLogID(err, session.LogID())
 				if restarting.Load() {
-					slog.Info("doubao: realtime duplex session stopped for restart", "error", err)
+					slog.InfoContext(ctx, "doubao: realtime duplex session stopped for restart", "error", err)
 					return
 				}
-				slog.Error("doubao: recv error", "error", err)
+				slog.ErrorContext(ctx, "doubao: recv error", "error", err)
 				finishProviderError(err)
 				return
 			}
 
-			slog.Debug("doubao: received duplex event", "type", event.Type, "text", event.Text, "transcript", event.Transcript, "audioLen", len(event.Audio), "functionCalls", len(event.FunctionCalls))
+			slog.DebugContext(ctx, "doubao: received duplex event", "type", event.Type, "text", event.Text, "transcript", event.Transcript, "audioLen", len(event.Audio), "functionCalls", len(event.FunctionCalls))
 			// Provider response and question identifiers are event-local protocol
 			// metadata and may change between text, audio-start, audio-delta, and
 			// audio-done events. The Transformer owns one stable GenX StreamID for
@@ -849,7 +849,7 @@ func (t *Transformer) processLoop(
 			case doubaospeech.RealtimeDuplexEventResponseDone:
 				completeAssistantStream(streamID)
 			case doubaospeech.RealtimeDuplexEventSessionClosed:
-				slog.Info("doubao: realtime duplex session closed")
+				slog.InfoContext(ctx, "doubao: realtime duplex session closed")
 				// Signal the send loop before Recv performs any iterator cleanup.
 				// Otherwise input that arrives after SessionClosed can still be
 				// sent to the provider session that has already closed.
@@ -867,7 +867,7 @@ func (t *Transformer) processLoop(
 		}
 	}()
 
-	slog.Info("doubao: starting audio send loop")
+	slog.InfoContext(ctx, "doubao: starting audio send loop")
 
 	// Send audio to realtime service
 	audioSent := 0
@@ -906,15 +906,15 @@ func (t *Transformer) processLoop(
 			if err := eventError(); err != nil {
 				return nil, err
 			}
-			slog.Info("doubao: events done, waiting for next input")
+			slog.InfoContext(ctx, "doubao: events done, waiting for next input")
 			for {
 				chunk, err := input.Next()
 				if err != nil {
 					if err != io.EOF && err != genx.ErrDone {
-						slog.Error("doubao: input error after events done", "error", err)
+						slog.ErrorContext(ctx, "doubao: input error after events done", "error", err)
 						return nil, err
 					}
-					slog.Info("doubao: input EOF after events done", "audioSent", audioSent)
+					slog.InfoContext(ctx, "doubao: input EOF after events done", "audioSent", audioSent)
 					return nil, nil
 				}
 				if chunk != nil {
@@ -935,10 +935,10 @@ func (t *Transformer) processLoop(
 		}
 		if err != nil {
 			if err != io.EOF && err != genx.ErrDone {
-				slog.Error("doubao: input error", "error", err)
+				slog.ErrorContext(ctx, "doubao: input error", "error", err)
 				return nil, err
 			} else {
-				slog.Info("doubao: input EOF", "audioSent", audioSent)
+				slog.InfoContext(ctx, "doubao: input EOF", "audioSent", audioSent)
 			}
 			// Wait for remaining events
 			<-eventsDone
@@ -963,14 +963,14 @@ func (t *Transformer) processLoop(
 					return nil, err
 				}
 				if interrupted {
-					slog.Info("doubao: restarting realtime session after interrupt", "streamID", streamID)
+					slog.InfoContext(ctx, "doubao: restarting realtime session after interrupt", "streamID", streamID)
 					restarting.Store(true)
 					return chunk.Clone(), nil
 				}
 				streamIDs.beginInput(streamID)
 				inputRouteID = streamID
 				inputAudioEnded = false
-				slog.Info("doubao: received route BOS", "streamID", streamID)
+				slog.InfoContext(ctx, "doubao: received route BOS", "streamID", streamID)
 			}
 			if chunk.Part == nil && !chunk.IsEndOfStream() {
 				continue
@@ -989,7 +989,7 @@ func (t *Transformer) processLoop(
 			streamID := streamIDs.serviceInput(chunk)
 			audioInput, err := audioInputs.streamForBlob(streamID, p)
 			if err != nil {
-				slog.Error("doubao: prepare audio error", "error", err)
+				slog.ErrorContext(ctx, "doubao: prepare audio error", "error", err)
 				boundaryErr := t.pushInputEOSError(output, streamID, err)
 				audioInputs.closeStream(streamID)
 				return nil, errors.Join(err, boundaryErr)
@@ -997,7 +997,7 @@ func (t *Transformer) processLoop(
 			if len(p.Data) > 0 {
 				frames, err := audioInput.prepareFrames(p)
 				if err != nil {
-					slog.Error("doubao: prepare audio error", "error", err)
+					slog.ErrorContext(ctx, "doubao: prepare audio error", "error", err)
 					boundaryErr := t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
 					return nil, errors.Join(err, boundaryErr)
@@ -1008,10 +1008,10 @@ func (t *Transformer) processLoop(
 					}
 					audioSent++
 					if audioSent%50 == 1 { // Log every 50 chunks (1 second at 20ms chunks)
-						slog.Debug("doubao: sending audio chunk", "streamID", streamID, "len", len(audio), "mime", p.MIMEType, "inputFormat", audioInput.format, "totalSent", audioSent)
+						slog.DebugContext(ctx, "doubao: sending audio chunk", "streamID", streamID, "len", len(audio), "mime", p.MIMEType, "inputFormat", audioInput.format, "totalSent", audioSent)
 					}
 					if err := session.SendAudio(ctx, audio); err != nil {
-						slog.Error("doubao: send audio error", "error", err)
+						slog.ErrorContext(ctx, "doubao: send audio error", "error", err)
 						return nil, err
 					}
 				}
@@ -1024,7 +1024,7 @@ func (t *Transformer) processLoop(
 		}
 		if audioEOS && !inputAudioEnded {
 			streamID := streamIDs.serviceInput(chunk)
-			slog.Debug("doubao: received realtime EOS, closing local audio stream without commit", "streamID", streamID, "audioSent", audioSent)
+			slog.DebugContext(ctx, "doubao: received realtime EOS, closing local audio stream without commit", "streamID", streamID, "audioSent", audioSent)
 			audioInputs.closeStream(streamID)
 			inputAudioEnded = true
 		}

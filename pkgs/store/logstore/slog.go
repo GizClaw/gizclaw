@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -59,7 +60,7 @@ func (h *SlogHandler) Handle(ctx context.Context, record slog.Record) error {
 	if observedAt.IsZero() {
 		observedAt = time.Now()
 	}
-	attributes := make(map[string]string, len(h.attrs)+record.NumAttrs()+2)
+	attributes := make(map[string]string, len(h.attrs)+record.NumAttrs()+4)
 	for _, attr := range h.attrs {
 		setSlogAttribute(attributes, attr.key, attr.value)
 	}
@@ -69,6 +70,7 @@ func (h *SlogHandler) Handle(ctx context.Context, record slog.Record) error {
 	})
 	setSlogAttribute(attributes, "source", "gizclaw")
 	setSlogAttribute(attributes, "path", "slog")
+	appendSlogSource(attributes, record.PC)
 	item := Record{
 		ID:         id,
 		Time:       observedAt.UTC(),
@@ -83,6 +85,18 @@ func (h *SlogHandler) Handle(ctx context.Context, record slog.Record) error {
 	}
 	_, err = h.appender.Append(ctx, []Record{item})
 	return err
+}
+
+func appendSlogSource(attributes map[string]string, pc uintptr) {
+	if pc == 0 {
+		return
+	}
+	frame, _ := runtime.CallersFrames([]uintptr{pc}).Next()
+	if frame.File == "" || frame.Line <= 0 {
+		return
+	}
+	setSlogAttribute(attributes, "source_file", frame.File)
+	setSlogAttribute(attributes, "source_line", strconv.Itoa(frame.Line))
 }
 
 // WithAttrs returns an adapter with additional handler-owned attributes.

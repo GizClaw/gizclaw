@@ -136,11 +136,18 @@ stores:
     topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
 system-log:
   level: info
+  node_id: ${GIZCLAW_NODE_ID}
   sinks:
     - kind: stderr
     - kind: store
       store: logs
 ```
+
+`node_id` is the stable logical node name assigned by Deploy, for example
+`e2e-edge-volc-bj-01`. It is attached to every stderr and persisted record from
+that process. GizClaw does not infer it from the writer IP, hostname, endpoint,
+or Edge public key. Omitting it preserves local and embedded compatibility, but
+persisted deployments should configure it explicitly.
 
 Edge accepts only `volc-tls` physical storage and `log.immutable` logical
 Stores. Configuration, Store references, credentials, topic index, and logger
