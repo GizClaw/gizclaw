@@ -38,6 +38,8 @@ type Config struct {
 	Storage   map[string]storage.Config
 	Stores    map[string]store.Config
 	SystemLog gizlog.Config
+
+	systemLogConfigured bool
 }
 
 type IdentityConfig struct {
@@ -225,6 +227,7 @@ func PrepareWorkspaceConfig(root string) (Config, error) {
 }
 
 func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	systemLogConfigured := !cfg.SystemLog.IsZero() || fileCfg.SystemLog != nil
 	if cfg.Listen == "" {
 		cfg.Listen = fileCfg.Listen
 	}
@@ -281,6 +284,7 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		return Config{}, fmt.Errorf("edge: %w", err)
 	}
 	cfg.SystemLog = preparedLog
+	cfg.systemLogConfigured = systemLogConfigured
 	if cfg.TLS.CertSource == "" {
 		cfg.TLS.CertSource = TLSCertSourceDisabled
 	}

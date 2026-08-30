@@ -115,7 +115,9 @@ metrics:
 
 When all three fields are empty the recorder remains a no-op. Configuring any field requires valid Remote Write and query URLs; otherwise Edge fails before opening a listener. The bearer token is used only for backend requests and is never logged.
 
-Edge process logging remains info-level stderr when `system-log` is omitted.
+Edge process logging remains info-level stderr when `system-log` is omitted in
+the standalone command. An embedded Edge does not replace its host's existing
+process logger unless this block is present.
 To persist the same structured records, declare one Volc TLS physical storage,
 one immutable logical LogStore, and reference that Store from a sink:
 
@@ -147,6 +149,11 @@ restores the previous process logger and closes logical and physical logging
 resources after the Edge runtime stops. `system-log.query_store` is unsupported:
 Edge does not expose the Server Admin log-query API, so operators query the
 shared Volc TLS topic through the observability backend.
+
+Only one configured Server or Edge runtime may own the process-wide logger in
+one Go process. A second configured runtime fails before opening listeners and
+cannot replace or later restore the first runtime's logger. After the owner
+stops and restores the host logger, another configured runtime may start.
 
 Currently only disabled paths work for the TLS certificate source; Edge RPC and file certificate sources are still not implemented. Development guidelines cannot write these configuration values ​​as supported capabilities.
 

@@ -42,7 +42,7 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	if err != nil {
 		return err
 	}
-	closeLogging, err := installEdgeLogging(cfg)
+	closeLogging, err := installConfiguredEdgeLogging(cfg)
 	if err != nil {
 		return fmt.Errorf("edge: configure system log: %w", err)
 	}
@@ -122,6 +122,13 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	case <-ctx.Done():
 		return shutdownHTTPServer(server, errCh, edgeShutdownTimeout)
 	}
+}
+
+func installConfiguredEdgeLogging(cfg Config) (func() error, error) {
+	if !cfg.systemLogConfigured {
+		return func() error { return nil }, nil
+	}
+	return installEdgeLogging(cfg)
 }
 
 func installEdgeLogging(cfg Config) (func() error, error) {
