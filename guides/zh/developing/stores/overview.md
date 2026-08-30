@@ -53,7 +53,7 @@ flowchart TB
 
 | Store kind | 接口与 scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`；Badger/memory 使用可选 key prefix；SQLite/PostgreSQL 使用必填 prefix，后端将它作为物理表名 |
+| `keyvalue` | `kv.Store`；Badger/memory 使用可选 key prefix；Redis 使用必填且不重叠的 key prefix；SQLite/PostgreSQL 使用必填 prefix，后端将它作为物理表名 |
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
 | `metrics` | `metrics.Store`；`memory`、Prometheus、ClickHouse，或 SQLite/PostgreSQL table |
@@ -71,8 +71,19 @@ flowchart TB
 | `azure-blob` | HTTPS account URL 与既有 container；身份来自 Azure Default Credential |
 | `sqlite` | `dir` 或 `dsn` 二选一 |
 | `postgresql`、`clickhouse` | `dsn` |
+| `redis` | 单节点 `redis://` 或 `rediss://` URL；`rediss://` 可通过 `tls_ca_file` 增加 PEM CA 证书；不支持 Redis Cluster |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
+
+Redis TLS 配置示例：
+
+```yaml
+storage:
+  redis:
+    kind: redis
+    url: rediss://user:password@host:port/0
+    tls_ca_file: /run/secrets/volc-redis-ca.pem
+```
 
 公共 Go API 不使用包含 `Kind` 和所有 backend 字段的通用属性结构。`storage.Config`
 是由 package 封闭的配置接口，每个 backend 只暴露自身有效的字段：
@@ -86,7 +97,7 @@ physical, err := storage.New(map[string]storage.Config{
 ```
 
 具体实现包括 `BadgerConfig`、`MemoryConfig`、`FilesystemDirConfig`、
-`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`PrometheusConfig`、
+`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`RedisConfig`、`PrometheusConfig`、
 `VolcTLSConfig`、`VolcTOSConfig`、`AliyunOSSConfig`、`GCSConfig` 和
 `AzureBlobConfig`。因此 Go 调用方不能为 PostgreSQL 传入 `dir`，也不能为
 Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 YAML DTO，

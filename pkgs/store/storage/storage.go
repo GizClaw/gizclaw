@@ -14,6 +14,7 @@ import (
 	"github.com/dgraph-io/badger/v4"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/api"
+	redis "github.com/redis/go-redis/v9"
 	"github.com/volcengine/volc-sdk-golang/service/tls"
 )
 
@@ -42,6 +43,7 @@ type Storage struct {
 	badgers    map[string]*badger.DB
 	dirs       map[string]*os.Root
 	sqls       map[string]*sqlx.DB
+	redis      map[string]*redis.Client
 	prometheus map[string]prometheusResource
 	volcs      map[string]tls.Client
 	tos        map[string]volcTOSResource
@@ -61,6 +63,7 @@ func New(configs map[string]Config) (*Storage, error) {
 		badgers:    make(map[string]*badger.DB),
 		dirs:       make(map[string]*os.Root),
 		sqls:       make(map[string]*sqlx.DB),
+		redis:      make(map[string]*redis.Client),
 		prometheus: make(map[string]prometheusResource),
 		volcs:      make(map[string]tls.Client),
 		tos:        make(map[string]volcTOSResource),
@@ -189,6 +192,13 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		if err == nil {
 			s.sqls[name] = st
 			s.closers = append(s.closers, st)
+		}
+	case RedisConfig:
+		var client *redis.Client
+		client, err = newRedis(name, cfg)
+		if err == nil {
+			s.redis[name] = client
+			s.closers = append(s.closers, client)
 		}
 	case PrometheusConfig:
 		var resource prometheusResource
