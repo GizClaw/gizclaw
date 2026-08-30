@@ -542,7 +542,7 @@ These contents belong to `pkgs/gizclaw`, `pkgs/giznet`, `cmd/internal/server` re
 
 ## Current boundary
 
-`pkgs/gizedge` accepts only a non-empty ordered `upstreams` list. Every entry pins one complete Server endpoint, public key, ICE policy, and relay pool. The retired singular `upstream` is no longer part of the configuration shape; empty lists, duplicate identities/endpoints, and incomplete entries fail before the listener opens.
+`pkgs/gizedge` reads only a non-empty ordered `upstreams` list. Every entry pins one complete Server endpoint, public key, ICE policy, and relay pool. The former singular `upstream` is no longer part of the configuration shape and is ignored like any other unknown field; a missing or empty valid `upstreams` list, duplicate identities/endpoints, and incomplete entries fail before the listener opens.
 
 For an authenticated logical Client session, the Edge asks any reachable configured Server for the shared fixed Peer assignment, validates that the returned Server identity is configured, and acquires only that Server's target pool. Assignment-not-found uses the first reachable ordered entry for first claim. Control, services, packets, audio, retries, and teardown remain pinned to one target; target transport failure never substitutes another Server owner or replays application work. A one-entry list uses the same routing and Server-admission path.
 

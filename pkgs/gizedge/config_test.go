@@ -145,7 +145,7 @@ func TestConfigRejectsInvalidPluralUpstreams(t *testing.T) {
 	}
 }
 
-func TestPrepareWorkspaceConfigRejectsRetiredSingularUpstream(t *testing.T) {
+func TestPrepareWorkspaceConfigIgnoresSingularUpstream(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x18)
 	upstreamKey := testKeyPair(t, 0x19)
 	dir := t.TempDir()
@@ -153,13 +153,20 @@ func TestPrepareWorkspaceConfigRejectsRetiredSingularUpstream(t *testing.T) {
 identity:
   private-key: `+edgeKey.Private.String()+`
 upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
+  endpoint: ignored.example.com:1
+  public-key: ignored
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
 `)
 
-	_, err := PrepareWorkspaceConfig(dir)
-	if err == nil || !strings.Contains(err.Error(), "upstreams must not be empty") {
-		t.Fatalf("PrepareWorkspaceConfig error = %v, want retired singular upstream rejection", err)
+	cfg, err := PrepareWorkspaceConfig(dir)
+	if err != nil {
+		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
+	}
+	if len(cfg.Upstreams) != 1 || cfg.Upstreams[0].Endpoint != "server-a.example.com:9820" ||
+		!cfg.Upstreams[0].PublicKey.Equal(upstreamKey.Public) {
+		t.Fatalf("Upstreams = %+v, want only the plural configuration", cfg.Upstreams)
 	}
 }
 

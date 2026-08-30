@@ -461,7 +461,7 @@ flowchart TB
 
 ## 当前边界
 
-`pkgs/gizedge` 只接受非空、有序的复数 `upstreams`。每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。旧的单数 `upstream` 不再属于配置结构；空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
+`pkgs/gizedge` 只读取非空、有序的复数 `upstreams`。每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。旧的单数 `upstream` 不再属于配置结构并会像其他未知字段一样被忽略；缺少有效的 `upstreams`、空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
 
 对于 authenticated logical Client session，Edge 会通过任意可达的已配置 Server 查询共享的固定 Peer assignment，确认返回的 Server identity 已在配置中，然后只获取该 Server 的 target pool。Assignment 不存在时，首次 claim 使用顺序中第一台可达 Server。Control、service、packet、audio、retry 与 teardown 始终固定在同一个 target；target transport 失败不能替换成其他 Server owner，也不能重放 application work。仅配置一个 entry 时仍走同一套路由和 Server admission 逻辑。
 
