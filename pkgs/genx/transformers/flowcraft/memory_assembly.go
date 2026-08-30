@@ -15,6 +15,8 @@ import (
 
 const defaultMemoryContextItems = 8
 
+var errMemoryProviderOperationFailed = errors.New("memory provider operation failed")
+
 // memoryAssembly adapts GizClaw's provider-neutral Store to the Flowcraft
 // Core 0.2 memory capability consumed by the official agent memory hooks.
 // The Store can therefore be backed by Mem0 or Flowcraft Memory without the
@@ -139,9 +141,7 @@ func (a *memoryAssembly) CommitTurn(ctx context.Context, turn corememory.Turn) e
 	case storememory.OperationSucceeded:
 		return nil
 	case storememory.OperationFailed:
-		return corememory.NewError(corememory.KindProviderFailure, "turn", fmt.Errorf(
-			"operation %q failed: %s", observed.Operation.ID, observed.Operation.Error,
-		))
+		return corememory.NewError(corememory.KindProviderFailure, "turn", errMemoryProviderOperationFailed)
 	case storememory.OperationPending:
 		operationID := strings.TrimSpace(observed.Operation.ID)
 		if operationID == "" {

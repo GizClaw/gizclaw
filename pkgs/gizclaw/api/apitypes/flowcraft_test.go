@@ -122,6 +122,24 @@ func TestFlowcraftWorkflowSpecRejectsInvalidConfig(t *testing.T) {
 		"unsupported recent-only memory query": {
 			raw: strings.Replace(flowcraftSpecJSON, `"current_message":true`, `"recent_only":true`, 1), want: "unknown field",
 		},
+		"negative memory max tokens": {
+			raw: strings.Replace(flowcraftSpecJSON, `"budget":{"max_items":5}`, `"budget":{"max_items":5,"max_tokens":-1}`, 1), want: "max_tokens must be non-negative",
+		},
+		"negative memory max items": {
+			raw: strings.Replace(flowcraftSpecJSON, `"budget":{"max_items":5}`, `"budget":{"max_items":-1}`, 1), want: "max_items must be non-negative",
+		},
+		"negative memory max chars": {
+			raw: strings.Replace(flowcraftSpecJSON, `"budget":{"max_items":5}`, `"budget":{"max_items":5,"max_chars":-1}`, 1), want: "max_chars must be non-negative",
+		},
+		"memory score below range": {
+			raw: strings.Replace(flowcraftSpecJSON, `"budget":{"max_items":5}`, `"budget":{"max_items":5},"min_score":-0.1`, 1), want: "min_score must be between 0 and 1",
+		},
+		"memory score above range": {
+			raw: strings.Replace(flowcraftSpecJSON, `"budget":{"max_items":5}`, `"budget":{"max_items":5},"min_score":1.1`, 1), want: "min_score must be between 0 and 1",
+		},
+		"negative memory render max chars": {
+			raw: strings.Replace(flowcraftSpecJSON, `"render":{"output":"memory_context"}`, `"render":{"output":"memory_context","max_chars":-1}`, 1), want: "render.max_chars must be non-negative",
+		},
 		"unknown node":      {raw: strings.Replace(flowcraftSpecJSON, `"type":"passthrough"`, `"type":"tool"`, 1), want: "unsupported"},
 		"missing entry":     {raw: strings.Replace(flowcraftSpecJSON, `"entry": "prepare"`, `"entry": "missing"`, 1), want: "not a defined node"},
 		"missing publisher": {raw: strings.Replace(flowcraftSpecJSON, `,"publish":true`, ``, 1), want: "publish=true"},

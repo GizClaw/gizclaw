@@ -165,7 +165,8 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 
 	waitStore.waitErr = nil
 	waitStore.waitResult = memory.ObserveResult{Operation: &memory.Operation{ID: "operation", Status: memory.OperationFailed, Error: "materialization failed"}}
-	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); err == nil || !strings.Contains(err.Error(), "materialization failed") {
+	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); err == nil ||
+		!strings.Contains(err.Error(), errMemoryProviderOperationFailed.Error()) || strings.Contains(err.Error(), "materialization failed") {
 		t.Fatalf("failed operation error = %v", err)
 	}
 

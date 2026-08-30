@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
@@ -60,6 +61,26 @@ func validateFlowcraftMemoryHooks(hooks *FlowcraftMemoryHooks) error {
 		return nil
 	}
 	contextHook := hooks.Context
+	if contextHook.Budget != nil {
+		for _, bound := range []struct {
+			name  string
+			value *int
+		}{
+			{name: "max_tokens", value: contextHook.Budget.MaxTokens},
+			{name: "max_items", value: contextHook.Budget.MaxItems},
+			{name: "max_chars", value: contextHook.Budget.MaxChars},
+		} {
+			if bound.value != nil && *bound.value < 0 {
+				return fmt.Errorf("context.budget.%s must be non-negative", bound.name)
+			}
+		}
+	}
+	if contextHook.MinScore != nil {
+		score := float64(*contextHook.MinScore)
+		if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 || score > 1 {
+			return errors.New("context.min_score must be between 0 and 1")
+		}
+	}
 	selected := 0
 	if contextHook.Query.Literal != nil && strings.TrimSpace(*contextHook.Query.Literal) != "" {
 		selected++
@@ -77,6 +98,9 @@ func validateFlowcraftMemoryHooks(hooks *FlowcraftMemoryHooks) error {
 		return errors.New("context.output must be a non-reserved board variable")
 	}
 	if contextHook.Render != nil {
+		if contextHook.Render.MaxChars != nil && *contextHook.Render.MaxChars < 0 {
+			return errors.New("context.render.max_chars must be non-negative")
+		}
 		if strings.TrimSpace(contextHook.Render.Output) == "" || strings.HasPrefix(contextHook.Render.Output, "__") {
 			return errors.New("context.render.output must be a non-reserved board variable")
 		}

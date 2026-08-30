@@ -314,7 +314,7 @@ func (n *memoryObserveNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *
 		}
 	}
 	if result.Operation != nil && result.Operation.Status == memory.OperationFailed {
-		return fmt.Errorf("flowcraft: memory_observe node %q: %s", n.id, result.Operation.Error)
+		return fmt.Errorf("flowcraft: memory_observe node %q: %w", n.id, errMemoryProviderOperationFailed)
 	}
 	return nil
 }

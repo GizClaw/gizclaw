@@ -2,6 +2,8 @@ package flowcraft
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,13 +14,32 @@ import (
 
 type assemblyMemoryStore struct {
 	recall      storememory.RecallResult
+	observe     storememory.ObserveResult
 	query       storememory.Query
 	observation storememory.Observation
 }
 
 func (s *assemblyMemoryStore) Observe(_ context.Context, observation storememory.Observation) (storememory.ObserveResult, error) {
 	s.observation = observation
-	return storememory.ObserveResult{}, nil
+	return s.observe, nil
+}
+
+func TestMemoryAssemblySanitizesFailedOperationError(t *testing.T) {
+	store := &assemblyMemoryStore{observe: storememory.ObserveResult{Operation: &storememory.Operation{
+		ID: "provider-operation-secret", Status: storememory.OperationFailed, Error: "https://token@example.test/private",
+	}}}
+	assembly := &memoryAssembly{store: store}
+	err := assembly.CommitTurn(t.Context(), corememory.Turn{
+		Scope:          corememory.Scope{RuntimeID: "runtime", UserID: "user", AgentID: "agent"},
+		ConversationID: "conversation", IdempotencyKey: "run-1",
+		Messages: []flowmessage.Message{flowmessage.NewTextMessage(flowmessage.RoleUser, "remember this")},
+	})
+	if err == nil || !errors.Is(err, errMemoryProviderOperationFailed) {
+		t.Fatalf("CommitTurn() error = %v", err)
+	}
+	if strings.Contains(err.Error(), "provider-operation-secret") || strings.Contains(err.Error(), "token@example.test") {
+		t.Fatalf("CommitTurn() leaked provider operation detail: %v", err)
+	}
 }
 
 func (s *assemblyMemoryStore) Recall(_ context.Context, query storememory.Query) (storememory.RecallResult, error) {
