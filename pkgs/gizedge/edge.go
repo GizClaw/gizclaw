@@ -95,10 +95,7 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 		}
 	}
 	proxy := newPeerHTTPProxy(cfg.Endpoint, upstreamTransport, transport)
-	handler := http.Handler(proxy)
-	if gateway != nil {
-		handler = gateway.Handler(proxy)
-	}
+	handler := edgeIngressHandler(proxy, gateway)
 	server := &http.Server{Handler: handler}
 	errCh := make(chan error, 1)
 	go func() {
@@ -332,7 +329,14 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 			return nil
 		},
 	}
-	return edgeCORSHandler(proxy)
+	return proxy
+}
+
+func edgeIngressHandler(next http.Handler, gateway *Gateway) http.Handler {
+	if gateway != nil {
+		next = gateway.Handler(next)
+	}
+	return edgeCORSHandler(next)
 }
 
 func rewriteServerInfoEndpoint(resp *http.Response, edgeEndpoint string) error {
