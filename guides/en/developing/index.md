@@ -82,6 +82,7 @@ gizclaw/
 │   ├── giznet/       # transport, WebRTC, and service streams
 │   ├── gizclaw/      # product server, Peer, RPC, and domain services
 │   ├── gizedge/      # edge ingress and upstream forwarding
+│   ├── gizlog/       # process-wide structured logging and Store sinks
 │   ├── genx/         # general multimodal AI contracts and adapters
 │   ├── store/        # storage and index primitives
 │   └── audio/        # codec, PCM, and signal processing
@@ -97,6 +98,7 @@ gizclaw/
 | `pkgs/giznet` | Connection, service, WebRTC, HTTP-over-stream transport | GizClaw resource and business authorization | [Giznet](giznet) |
 | `pkgs/gizclaw` | Server, Peer lifecycle, RPC/HTTP composition, domain services | General transport, provider-neutral codec | [GizClaw](gizclaw/overview) |
 | `pkgs/gizedge` | Edge ingress, upstream connection and forwarding | Authoritative resource, final resource access | [Gizedge](gizedge) |
+| `pkgs/gizlog` | Process-wide structured logger, levels, fan-out, and Store sinks | Product log fields and backend provisioning | [Observability](observability) |
 | `pkgs/genx` | Message, Stream, Generator, Transformer, Tool and adapters | Agent instance, workspace, product model resource | [GenX](genx/overview) |
 | `pkgs/store` | KV, object, metrics, graph, vector and identity primitives | Domain resource schema and business rules | [Stores](stores/overview) |
 | `pkgs/audio` | Codec, PCM, resampling, device I/O and voiceprint | WebRTC connection, Agent lifecycle | [Audio](audio/overview) |

@@ -88,7 +88,7 @@ profile is diagnostic evidence, not by itself proof of a leak or outage cause.
 
 | Layer | Responsibility |
 | --- | --- |
-| `cmd/internal/logging` | Installs global `slog`, configures levels, and owns stderr and Volc TLS sinks. |
+| `pkgs/gizlog` | Installs global `slog`, configures levels, and owns stderr and named LogStore sinks shared by Server and Edge. |
 | `pkgs/gizclaw/internal/observability` | Owns GizClaw request dimensions, safe annotations, mutable outcomes, and their `slog` projection. |
 | `pkgs/gizmetrics` | Owns the process-wide no-op default, aggregation, bounded series map, batching, and shutdown flush. |
 | `pkgs/gizmetrics/httpmetrics` | Owns reusable `net/http` request count, duration, in-flight, and response-byte measurement. |

@@ -19,9 +19,12 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	store "github.com/GizClaw/gizclaw-go/pkgs/store"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 const edgeShutdownTimeout = 5 * time.Second
@@ -39,6 +42,13 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	if err != nil {
 		return err
 	}
+	closeLogging, err := installConfiguredEdgeLogging(cfg)
+	if err != nil {
+		return fmt.Errorf("edge: configure system log: %w", err)
+	}
+	defer func() {
+		serveErr = errors.Join(serveErr, closeLogging())
+	}()
 	shutdownMetrics, metricsStore, err := installEdgeMetrics(cfg.Metrics)
 	if err != nil {
 		return fmt.Errorf("edge: configure metrics: %w", err)
@@ -112,6 +122,31 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	case <-ctx.Done():
 		return shutdownHTTPServer(server, errCh, edgeShutdownTimeout)
 	}
+}
+
+func installConfiguredEdgeLogging(cfg Config) (func() error, error) {
+	if !cfg.systemLogConfigured {
+		return func() error { return nil }, nil
+	}
+	return installEdgeLogging(cfg)
+}
+
+func installEdgeLogging(cfg Config) (func() error, error) {
+	physical, err := storage.New(cfg.Storage)
+	if err != nil {
+		return nil, err
+	}
+	logical, err := store.New(cfg.Stores, physical)
+	if err != nil {
+		return nil, errors.Join(err, physical.Close())
+	}
+	closeLogger, err := gizlog.InstallDefault(cfg.SystemLog, logical)
+	if err != nil {
+		return nil, errors.Join(err, logical.Close(), physical.Close())
+	}
+	return func() error {
+		return errors.Join(closeLogger(), logical.Close(), physical.Close())
+	}, nil
 }
 
 func shutdownHTTPServer(server *http.Server, errCh <-chan error, timeout time.Duration) error {

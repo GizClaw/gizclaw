@@ -88,6 +88,8 @@ The Edge workspace configuration describes the basic information required to run
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
 - Optional gateway capacity, upstream pool, buffer, idle, and drain bounds.
 - An optional Prometheus Remote Write/query metrics backend.
+- Optional process-log fan-out to stderr and an immutable LogStore backed by
+  Volc TLS.
 
 Top-level `listen` is the only client-ingress bind tuple. The Edge opens
 separate TCP and UDP sockets on that host and numeric port: TCP carries public
@@ -112,6 +114,46 @@ metrics:
 ```
 
 When all three fields are empty the recorder remains a no-op. Configuring any field requires valid Remote Write and query URLs; otherwise Edge fails before opening a listener. The bearer token is used only for backend requests and is never logged.
+
+Edge process logging remains info-level stderr when `system-log` is omitted in
+the standalone command. An embedded Edge does not replace its host's existing
+process logger unless this block is present.
+To persist the same structured records, declare one Volc TLS physical storage,
+one immutable logical LogStore, and reference that Store from a sink:
+
+```yaml
+storage:
+  volc-logs:
+    kind: volc-tls
+    endpoint: ${GIZCLAW_VOLC_LOG_ENDPOINT}
+    region: ${GIZCLAW_VOLC_LOG_REGION}
+    access_key_id: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_ID}
+    access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
+stores:
+  logs:
+    kind: log.immutable
+    storage: volc-logs
+    topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
+system-log:
+  level: info
+  sinks:
+    - kind: stderr
+    - kind: store
+      store: logs
+```
+
+Edge accepts only `volc-tls` physical storage and `log.immutable` logical
+Stores. Configuration, Store references, credentials, topic index, and logger
+sinks are validated before listeners or upstream connections open. Shutdown
+restores the previous process logger and closes logical and physical logging
+resources after the Edge runtime stops. `system-log.query_store` is unsupported:
+Edge does not expose the Server Admin log-query API, so operators query the
+shared Volc TLS topic through the observability backend.
+
+Only one configured Server or Edge runtime may own the process-wide logger in
+one Go process. A second configured runtime fails before opening listeners and
+cannot replace or later restore the first runtime's logger. After the owner
+stops and restores the host logger, another configured runtime may start.
 
 Currently only disabled paths work for the TLS certificate source; Edge RPC and file certificate sources are still not implemented. Development guidelines cannot write these configuration values ​​as supported capabilities.
 

@@ -1,11 +1,43 @@
-package logging
+package gizlog
 
 import (
+	"errors"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
+
+// ErrDefaultLoggerInstalled reports that another configured runtime owns the
+// process-wide logger lease.
+var ErrDefaultLoggerInstalled = errors.New("gizlog: process logger is already installed")
+
+var defaultLoggerLease struct {
+	sync.Mutex
+	installed bool
+}
+
+type defaultLoggerInstallation struct {
+	once     sync.Once
+	previous *slog.Logger
+	cleanup  func() error
+	err      error
+}
+
+func (installation *defaultLoggerInstallation) close() error {
+	if installation == nil {
+		return nil
+	}
+	installation.once.Do(func() {
+		defaultLoggerLease.Lock()
+		slog.SetDefault(installation.previous)
+		defaultLoggerLease.installed = false
+		defaultLoggerLease.Unlock()
+		installation.err = installation.cleanup()
+	})
+	return installation.err
+}
 
 // StoreResolver resolves named LogStores without transferring ownership.
 type StoreResolver interface {
@@ -83,10 +115,15 @@ func InstallDefault(cfg Config, registries ...StoreResolver) (func() error, erro
 	if err != nil {
 		return nil, err
 	}
+	defaultLoggerLease.Lock()
+	if defaultLoggerLease.installed {
+		defaultLoggerLease.Unlock()
+		return nil, errors.Join(ErrDefaultLoggerInstalled, cleanup())
+	}
 	previous := slog.Default()
 	slog.SetDefault(logger)
-	return func() error {
-		slog.SetDefault(previous)
-		return cleanup()
-	}, nil
+	defaultLoggerLease.installed = true
+	defaultLoggerLease.Unlock()
+	installation := &defaultLoggerInstallation{previous: previous, cleanup: cleanup}
+	return installation.close, nil
 }

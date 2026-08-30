@@ -1,4 +1,4 @@
-package logging
+package gizlog
 
 import (
 	"context"
@@ -176,6 +176,7 @@ func TestInstallDefaultRestoresPreviousLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InstallDefault() error = %v", err)
 	}
+	t.Cleanup(func() { _ = cleanup() })
 	if slog.Default() == previous {
 		t.Fatal("InstallDefault did not replace default logger")
 	}
@@ -187,5 +188,40 @@ func TestInstallDefaultRestoresPreviousLogger(t *testing.T) {
 	}
 	if slog.Default() != previous {
 		t.Fatal("cleanup did not restore previous default logger")
+	}
+}
+
+func TestInstallDefaultRejectsOverlappingLease(t *testing.T) {
+	previous := slog.Default()
+	firstCleanup, err := InstallDefault(Config{Level: "debug"})
+	if err != nil {
+		t.Fatalf("first InstallDefault() error = %v", err)
+	}
+	t.Cleanup(func() { _ = firstCleanup() })
+	first := slog.Default()
+	secondCleanup, err := InstallDefault(Config{Level: "warn"})
+	if !errors.Is(err, ErrDefaultLoggerInstalled) {
+		t.Fatalf("second InstallDefault() error = %v, want %v", err, ErrDefaultLoggerInstalled)
+	}
+	if secondCleanup != nil {
+		t.Fatal("second InstallDefault returned cleanup without owning the logger lease")
+	}
+	if slog.Default() != first {
+		t.Fatal("rejected InstallDefault changed the active logger")
+	}
+	if err := firstCleanup(); err != nil {
+		t.Fatalf("first cleanup() error = %v", err)
+	}
+	if slog.Default() != previous {
+		t.Fatal("first cleanup did not restore previous default logger")
+	}
+
+	thirdCleanup, err := InstallDefault(Config{Level: "info"})
+	if err != nil {
+		t.Fatalf("InstallDefault() after release error = %v", err)
+	}
+	t.Cleanup(func() { _ = thirdCleanup() })
+	if err := thirdCleanup(); err != nil {
+		t.Fatalf("third cleanup() error = %v", err)
 	}
 }
