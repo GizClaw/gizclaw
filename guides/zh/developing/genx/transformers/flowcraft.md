@@ -80,7 +80,7 @@ Config 只接受 `model`、`input`、`output` 和 `rules`。Alias 不能包含 `
 
 - `History` 使用调用方提供的 `logstore.MutableStore`，按 `HistoryScope` 保存同一 Agent lifetime 内的有序对话。为空时使用 Agent-local memory。
 - `State` 使用调用方已做好 prefix 的 `kv.Store`，保存可 JSON 序列化的 Board variables。`response`、`usage`、`tool`、`tmp_*` 和 `__*` 不持久化。
-- `Memory` 使用 provider-neutral `memory.Store`。`MemoryScope` 由调用方固定配置，所有 recall 与 observe 都使用同一 scope；Mem0 和 Flowcraft Memory 0.1.7 仍通过同一个 Store interface 接入。
+- `Memory` 使用 provider-neutral `memory.Store`。在 GizClaw Workflow 中，`MemoryScope` 由当前 Workspace runtime 的 App、User 与 Agent scope 派生，不能通过 Workflow JSON 或 YAML 覆盖；所有 recall 与 observe 都使用该固定 scope。上面的字面量仅演示 standalone 调用方如何显式提供 scope。Mem0 和 Flowcraft Memory 0.1.7 仍通过同一个 Store interface 接入。
 
 `MemoryContext` 注册官方 `memory.context` prepare hook。其 query 必须选择 literal、Board variable 或当前输入消息之一，budget 和 min score 在调用 `memory.Store.Recall` 前生效；结果先写入配置的 item Board variable，可选 renderer 再写入单独的文本 Board variable。未配置时不注册 context hook。
 
