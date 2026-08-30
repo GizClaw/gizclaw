@@ -9,18 +9,19 @@ import (
 
 func TestIntegrationPeerHTTPAutoPeerAndReadBack(t *testing.T) {
 	ts := startTestServer(t)
-	device := newTestClient(t, ts)
-	if device.PeerConn() == nil {
-		t.Fatal("PeerConn returned nil")
-	}
-
-	publicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
-		Name:        new("demo-device"),
+	device := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{
 		Identifiers: &apitypes.DeviceIdentifiers{Sn: new("sn-001")},
 		Hardware: &apitypes.HardwareInfo{
 			Manufacturer: new("Acme"),
 			Model:        new("M1"),
 		},
+	})
+	if device.PeerConn() == nil {
+		t.Fatal("PeerConn returned nil")
+	}
+
+	publicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
+		Name: new("demo-device"),
 	})
 	if publicKey == "" {
 		t.Fatal("empty public key after auto peer setup")

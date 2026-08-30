@@ -1,7 +1,7 @@
 ---
 name: gizclaw-admin-gears
 version: 1.0.0
-description: "Manage GizClaw registered devices/gears. Use for admin gears list/get/resolve-sn/resolve-imei/approve/block/delete/refresh/info/config/runtime/ota/list-by-* and gear config changes."
+description: "Manage GizClaw registered devices/gears. Use for admin gears list/get/find-sn/resolve-imei/approve/block/delete/refresh/info/config/runtime/ota/list-by-* and gear config changes."
 metadata:
   requires:
     bins: ["gizclaw"]
@@ -31,7 +31,7 @@ gear configuration, runtime state, OTA summaries, and indexed lookup.
 ```bash
 <gizclaw> admin gears list --context <admin-context>
 <gizclaw> admin gears get <pubkey> --context <admin-context>
-<gizclaw> admin gears resolve-sn <sn> --context <admin-context>
+<gizclaw> admin gears find-sn <sn> --context <admin-context>
 <gizclaw> admin gears resolve-imei <tac> <serial> --context <admin-context>
 <gizclaw> admin gears approve <pubkey> <role> --context <admin-context>
 <gizclaw> admin gears block <pubkey> --context <admin-context>
@@ -83,6 +83,7 @@ Example config file:
 - `block` disables a gear.
 - `delete` resets/removes the stored gear registration record.
 - `refresh` asks the server to pull snapshots from the device-side reverse API when available.
+- `find-sn` returns every gear reporting the supplied SN; an SN is not treated as a unique server identity.
 - `info`, `config`, `runtime`, and `ota` are read-only JSON snapshots.
 - Use `../gizclaw-admin-resources/SKILL.md` for declarative `GearConfig`
   apply/show workflows when the user is working with Resource JSON envelopes.

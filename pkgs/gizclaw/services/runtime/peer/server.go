@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
@@ -35,6 +36,7 @@ const (
 	PeerDeletedCode         = "PEER_DELETED"
 	defaultListLimit        = 50
 	maxListLimit            = 200
+	maxDeviceSNBytes        = 256
 	turnCredentialTTL       = 10 * time.Minute
 )
 
@@ -61,7 +63,7 @@ type Server struct {
 type PeerAdminService interface {
 	ListPeers(context.Context, adminhttp.ListPeersRequestObject) (adminhttp.ListPeersResponseObject, error)
 	FindPubKeyByIMEI(context.Context, adminhttp.FindPubKeyByIMEIRequestObject) (adminhttp.FindPubKeyByIMEIResponseObject, error)
-	FindPubKeyBySN(context.Context, adminhttp.FindPubKeyBySNRequestObject) (adminhttp.FindPubKeyBySNResponseObject, error)
+	FindPeersBySN(context.Context, adminhttp.FindPeersBySNRequestObject) (adminhttp.FindPeersBySNResponseObject, error)
 	DeletePeer(context.Context, adminhttp.DeletePeerRequestObject) (adminhttp.DeletePeerResponseObject, error)
 	GetPeer(context.Context, adminhttp.GetPeerRequestObject) (adminhttp.GetPeerResponseObject, error)
 	GetPeerInfo(context.Context, adminhttp.GetPeerInfoRequestObject) (adminhttp.GetPeerInfoResponseObject, error)
@@ -100,14 +102,19 @@ func (s *Server) FindPubKeyByIMEI(ctx context.Context, request adminhttp.FindPub
 	return adminhttp.FindPubKeyByIMEI200JSONResponse(adminhttp.PublicKeyResponse{PublicKey: publicKey.String()}), nil
 }
 
-// FindPubKeyBySN implements `adminhttp.StrictServerInterface.FindPubKeyBySN`.
-func (s *Server) FindPubKeyBySN(ctx context.Context, request adminhttp.FindPubKeyBySNRequestObject) (adminhttp.FindPubKeyBySNResponseObject, error) {
-	sn := request.Sn
-	publicKey, err := s.resolveBySN(ctx, sn)
-	if err != nil {
-		return adminhttp.FindPubKeyBySN404JSONResponse(apitypes.NewErrorResponse("PEER_SN_NOT_FOUND", err.Error())), nil
+// FindPeersBySN implements `adminhttp.StrictServerInterface.FindPeersBySN`.
+func (s *Server) FindPeersBySN(ctx context.Context, request adminhttp.FindPeersBySNRequestObject) (adminhttp.FindPeersBySNResponseObject, error) {
+	if request.Sn == "" || !utf8.ValidString(request.Sn) || len(request.Sn) > maxDeviceSNBytes {
+		return adminhttp.FindPeersBySN400JSONResponse(apitypes.NewErrorResponse(
+			"INVALID_DEVICE_SN",
+			fmt.Sprintf("sn must be valid UTF-8, non-empty, and at most %d bytes", maxDeviceSNBytes),
+		)), nil
 	}
-	return adminhttp.FindPubKeyBySN200JSONResponse(adminhttp.PublicKeyResponse{PublicKey: publicKey.String()}), nil
+	items, err := s.listBySN(ctx, request.Sn)
+	if err != nil {
+		return adminhttp.FindPeersBySN500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	return adminhttp.FindPeersBySN200JSONResponse{Items: items}, nil
 }
 
 // DeletePeer implements `adminhttp.StrictServerInterface.DeletePeer`.

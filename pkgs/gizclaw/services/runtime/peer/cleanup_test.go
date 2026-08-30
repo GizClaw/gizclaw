@@ -49,7 +49,7 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	if err != nil || string(data) != string(encodedPeerTombstone) {
 		t.Fatalf("tombstone = %q, %v", data, err)
 	}
-	if _, err := store.Get(ctx, snKey(sn)); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := store.Get(ctx, snKey(sn, key.String())); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("SN index error = %v", err)
 	}
 	if _, err := server.LoadPeer(ctx, key); !errors.Is(err, ErrPeerDeleted) {

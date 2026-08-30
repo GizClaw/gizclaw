@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -897,7 +898,9 @@ func TestApplyPeerRefreshIdentifiersSkipsUnchangedCollections(t *testing.T) {
 	}
 
 	var updatedFields []string
-	applyPeerRefreshIdentifiers(&peer, identifiers, &updatedFields)
+	if err := applyPeerRefreshIdentifiers(&peer, identifiers, &updatedFields); err != nil {
+		t.Fatalf("applyPeerRefreshIdentifiers() error = %v", err)
+	}
 
 	if len(updatedFields) != 0 {
 		t.Fatalf("applyPeerRefreshIdentifiers() updatedFields = %v, want none", updatedFields)
@@ -935,7 +938,9 @@ func TestApplyPeerRefreshIdentifiersUpdatesChangedCollections(t *testing.T) {
 	}
 
 	var updatedFields []string
-	applyPeerRefreshIdentifiers(&peer, identifiers, &updatedFields)
+	if err := applyPeerRefreshIdentifiers(&peer, identifiers, &updatedFields); err != nil {
+		t.Fatalf("applyPeerRefreshIdentifiers() error = %v", err)
+	}
 
 	if len(updatedFields) != 2 {
 		t.Fatalf("applyPeerRefreshIdentifiers() updatedFields = %v, want 2 entries", updatedFields)
@@ -945,6 +950,22 @@ func TestApplyPeerRefreshIdentifiersUpdatesChangedCollections(t *testing.T) {
 	}
 	if peer.Device.Identifiers.Labels == nil || (*peer.Device.Identifiers.Labels)[0].Value != "cn-west" {
 		t.Fatalf("labels not updated: %+v", peer.Device.Identifiers)
+	}
+}
+
+func TestApplyPeerRefreshIdentifiersRejectsOversizedSN(t *testing.T) {
+	peer := apitypes.Peer{}
+	sn := strings.Repeat("s", maxDeviceSNBytes+1)
+	var updatedFields []string
+	if err := applyPeerRefreshIdentifiers(
+		&peer,
+		apitypes.DeviceIdentifiers{Sn: &sn},
+		&updatedFields,
+	); err == nil {
+		t.Fatal("applyPeerRefreshIdentifiers() error = nil")
+	}
+	if peer.Device.Identifiers != nil || len(updatedFields) != 0 {
+		t.Fatalf("invalid identifiers mutated peer = %+v, fields = %v", peer.Device.Identifiers, updatedFields)
 	}
 }
 

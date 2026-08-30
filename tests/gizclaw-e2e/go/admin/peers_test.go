@@ -36,13 +36,17 @@ func TestAdminAPIPeersListGetAndLookup(t *testing.T) {
 		t.Fatalf("get peer registration = %#v, %v", registration, err)
 	}
 
-	found, err := env.api.FindPubKeyBySNWithResponse(env.ctx, env.peerSN)
+	found, err := env.api.FindPeersBySNWithResponse(env.ctx, env.peerSN)
 	if err != nil {
 		t.Fatalf("find peer by SN: %v", err)
 	}
 	requireStatusOK(t, found, found.Body)
-	if found.JSON200 == nil || found.JSON200.PublicKey != env.peerKey {
+	if found.JSON200 == nil || len(found.JSON200.Items) != 1 {
 		t.Fatalf("find peer by SN = %#v", found.JSON200)
+	}
+	matched, err := found.JSON200.Items[0].AsExternalRef0Registration()
+	if err != nil || matched.PublicKey != env.peerKey {
+		t.Fatalf("find peer by SN registration = %#v, %v", matched, err)
 	}
 }
 

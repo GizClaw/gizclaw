@@ -167,6 +167,73 @@ func (s *Server) SavePeer(ctx context.Context, peer apitypes.Peer) (apitypes.Pee
 	return s.put(ctx, peer)
 }
 
+// SaveRefreshedDeviceFields atomically merges device-reported fields into the
+// current Peer record without replacing concurrently updated profile fields.
+func (s *Server) SaveRefreshedDeviceFields(
+	ctx context.Context,
+	publicKey giznet.PublicKey,
+	device apitypes.DeviceInfo,
+	fields []string,
+) (apitypes.Peer, error) {
+	unlock := s.IconLocks.LockRecord(publicKey.String())
+	defer unlock()
+	peer, err := s.get(ctx, publicKey)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	for _, field := range fields {
+		switch field {
+		case "device.hardware.manufacturer":
+			if device.Hardware == nil {
+				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+			}
+			ensurePeerHardware(&peer.Device).Manufacturer = device.Hardware.Manufacturer
+		case "device.hardware.model":
+			if device.Hardware == nil {
+				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+			}
+			ensurePeerHardware(&peer.Device).Model = device.Hardware.Model
+		case "device.hardware.hardware_revision":
+			if device.Hardware == nil {
+				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+			}
+			ensurePeerHardware(&peer.Device).HardwareRevision = device.Hardware.HardwareRevision
+		case "device.identifiers.sn":
+			if device.Identifiers == nil {
+				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
+			}
+			ensurePeerIdentifiers(&peer.Device).Sn = device.Identifiers.Sn
+		case "device.identifiers.imeis":
+			if device.Identifiers == nil {
+				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
+			}
+			ensurePeerIdentifiers(&peer.Device).Imeis = device.Identifiers.Imeis
+		case "device.identifiers.labels":
+			if device.Identifiers == nil {
+				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
+			}
+			ensurePeerIdentifiers(&peer.Device).Labels = device.Identifiers.Labels
+		default:
+			return apitypes.Peer{}, fmt.Errorf("peer: unsupported refreshed device field %q", field)
+		}
+	}
+	return s.putRecord(ctx, peer)
+}
+
+func ensurePeerHardware(device *apitypes.DeviceInfo) *apitypes.HardwareInfo {
+	if device.Hardware == nil {
+		device.Hardware = &apitypes.HardwareInfo{}
+	}
+	return device.Hardware
+}
+
+func ensurePeerIdentifiers(device *apitypes.DeviceInfo) *apitypes.DeviceIdentifiers {
+	if device.Identifiers == nil {
+		device.Identifiers = &apitypes.DeviceIdentifiers{}
+	}
+	return device.Identifiers
+}
+
 func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role apitypes.PeerRole) (apitypes.Peer, error) {
 	if role == apitypes.PeerRoleUnspecified || !role.Valid() {
 		return apitypes.Peer{}, fmt.Errorf("peer: invalid role %q", role)
@@ -526,8 +593,68 @@ func (s *Server) listPage(ctx context.Context, cursor string, limit int) ([]apit
 	return page, true, &nextCursor, nil
 }
 
-func (s *Server) resolveBySN(ctx context.Context, sn string) (giznet.PublicKey, error) {
-	return s.resolveSingle(ctx, snKey(sn), ErrPeerNotFound)
+func (s *Server) listBySN(ctx context.Context, sn string) ([]adminhttp.PeerRegistrationResult, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	publicKeys := make(map[string]struct{})
+	_, legacyErr := store.Get(ctx, snPrefix(sn))
+	if legacyErr == nil {
+		// The former one-to-one index stored a public key directly at the
+		// prefix. Scan records so collisions hidden by that index are restored.
+		for entry, err := range store.List(ctx, peersPrefix()) {
+			if err != nil {
+				return nil, fmt.Errorf("peer: list legacy sn %q: %w", sn, err)
+			}
+			if isPeerTombstone(entry.Value) {
+				continue
+			}
+			peer, err := decodePeer(entry.Value)
+			if err != nil {
+				return nil, fmt.Errorf("peer: decode legacy sn %q: %w", sn, err)
+			}
+			if peerSN(peer) == sn {
+				publicKeys[peer.PublicKey] = struct{}{}
+			}
+		}
+	} else if !errors.Is(legacyErr, kv.ErrNotFound) {
+		return nil, fmt.Errorf("peer: get legacy sn %q: %w", sn, legacyErr)
+	}
+	for entry, err := range store.List(ctx, snPrefix(sn)) {
+		if err != nil {
+			return nil, fmt.Errorf("peer: list sn %q: %w", sn, err)
+		}
+		if len(entry.Key) != 3 {
+			return nil, fmt.Errorf("peer: malformed sn index %v", entry.Key)
+		}
+		publicKeys[entry.Key[2]] = struct{}{}
+	}
+
+	peers := make([]apitypes.Peer, 0, len(publicKeys))
+	for publicKey := range publicKeys {
+		peer, err := s.getByPublicKeyText(ctx, store, publicKey)
+		if errors.Is(err, ErrPeerNotFound) || errors.Is(err, ErrPeerDeleted) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if peerSN(peer) == sn {
+			peers = append(peers, peer)
+		}
+	}
+	sort.Slice(peers, func(i, j int) bool {
+		if peers[i].CreatedAt.Equal(peers[j].CreatedAt) {
+			return peers[i].PublicKey < peers[j].PublicKey
+		}
+		return peers[i].CreatedAt.Before(peers[j].CreatedAt)
+	})
+	items := make([]adminhttp.PeerRegistrationResult, 0, len(peers))
+	for _, peer := range peers {
+		items = append(items, toAdminRegistrationResult(peer))
+	}
+	return items, nil
 }
 
 func (s *Server) resolveByIMEI(ctx context.Context, tac, serial string) (giznet.PublicKey, error) {

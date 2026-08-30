@@ -3,11 +3,36 @@ package gizclaw_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
+
+func TestIntegrationPeerConnectionCollectsDeviceSN(t *testing.T) {
+	ts := startTestServer(t)
+	admin := newTestClient(t, ts)
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
+	sn := "auto-collected-sn"
+	device := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{
+		Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn},
+	})
+	publicKey := device.KeyPair.Public.String()
+
+	if err := waitUntil(testReadyTimeout, func() error {
+		info, err := getPeerInfo(context.Background(), admin, publicKey)
+		if err != nil {
+			return err
+		}
+		if info.Identifiers == nil || info.Identifiers.Sn == nil || *info.Identifiers.Sn != sn {
+			return fmt.Errorf("stored identifiers = %#v", info.Identifiers)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("automatic device SN collection: %v", err)
+	}
+}
 
 func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	ts := startTestServer(t)
@@ -15,9 +40,7 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	admin := newTestClient(t, ts)
 	adminPublicKey := ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
-	device := newTestClient(t, ts)
-	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
-		Name: new("peer"),
+	device := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{
 		Identifiers: &apitypes.DeviceIdentifiers{
 			Sn:    new("sn/1"),
 			Imeis: &[]apitypes.PeerIMEI{{Name: new("main"), Tac: "12345678", Serial: "0000001"}},
@@ -26,6 +49,9 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 				Value: "cn/east",
 			}},
 		},
+	})
+	devicePublicKey := ensurePeerInfo(t, device, apitypes.DeviceInfo{
+		Name: new("peer"),
 	})
 
 	items, err := listPeers(context.Background(), admin)
@@ -45,8 +71,13 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	if _, err := getPeer(context.Background(), admin, devicePublicKey); err != nil {
 		t.Fatalf("GetPeer error: %v", err)
 	}
-	if publicKey, err := findPubKeyBySN(context.Background(), admin, "sn/1"); err != nil || publicKey != devicePublicKey {
-		t.Fatalf("ResolvePeerBySN = %q, %v", publicKey, err)
+	matched, err := findPeersBySN(context.Background(), admin, "sn/1")
+	if err != nil || len(matched) != 1 {
+		t.Fatalf("FindPeersBySN = %+v, %v", matched, err)
+	}
+	matchedPeer, err := matched[0].AsExternalRef0Registration()
+	if err != nil || matchedPeer.PublicKey != devicePublicKey {
+		t.Fatalf("FindPeersBySN peer = %+v, %v", matchedPeer, err)
 	}
 	if publicKey, err := findPubKeyByIMEI(context.Background(), admin, "12345678", "0000001"); err != nil || publicKey != devicePublicKey {
 		t.Fatalf("ResolvePeerByIMEI = %q, %v", publicKey, err)

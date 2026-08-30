@@ -48,6 +48,7 @@ const (
 	peerConnPacingSteadyPeriod      = peerConnOpusFrameDuration
 	peerConnTelemetryQueueSize      = 32
 	peerConnRuntimeStopTimeout      = 2 * time.Second
+	peerDeviceInfoRefreshTimeout    = 10 * time.Second
 	// peerConnInputAbortTimeout bounds how long a denied-turn abort may wait for
 	// input-queue capacity. The abort holds agentInputMu, so an unbounded wait
 	// would block teardown and later input transitions behind a flooding peer.
@@ -209,6 +210,14 @@ func (h *PeerConn) serve() error {
 	g.Go(h.serveRPC)
 	g.Go(h.serveEdgeRPC)
 	g.Go(h.serveOpenAI)
+	g.Go(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), peerDeviceInfoRefreshTimeout)
+		defer cancel()
+		if _, _, err := h.Service.manager.RefreshPeer(ctx, h.Conn.PublicKey()); err != nil {
+			slog.Debug("peer device info refresh failed", "peer_public_key", h.Conn.PublicKey().String(), "error", err)
+		}
+		return nil
+	})
 	g.Go(func() error {
 		defer func() { _ = h.close() }()
 		defer unsubscribeEvent()
