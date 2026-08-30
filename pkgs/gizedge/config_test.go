@@ -874,8 +874,33 @@ func TestEdgeCORSHandlerHandlesBrowserPreflight(t *testing.T) {
 	}
 }
 
+func TestEdgeIngressHandlerAddsCORSHeadersToGatewayErrors(t *testing.T) {
+	fallbackCalled := false
+	handler := edgeIngressHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		fallbackCalled = true
+	}), &Gateway{})
+	req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, nil)
+	req.Header.Set("Origin", "https://app.example.com")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if fallbackCalled {
+		t.Fatal("gateway forwarded an unidentified signaling offer")
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+	if got := rec.Header().Get("Vary"); !strings.Contains(got, "Origin") {
+		t.Fatalf("Vary = %q", got)
+	}
+}
+
 func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
-	handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	handler := edgeIngressHandler(newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		header := http.Header{}
 		header.Add("Access-Control-Allow-Origin", "https://upstream.example")
 		header.Add("Access-Control-Allow-Origin", "https://duplicate.example")
@@ -889,7 +914,7 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("ok")),
 			Request:    req,
 		}, nil
-	}))
+	})), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
 	req.Header.Set("Origin", "wails://wails.localhost")
@@ -917,9 +942,9 @@ func TestEdgeCORSHandlerAddsHeadersToForwardedRequests(t *testing.T) {
 }
 
 func TestEdgeCORSHandlerAddsHeadersToProxyErrors(t *testing.T) {
-	handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
+	handler := edgeIngressHandler(newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("upstream unavailable")
-	}))
+	})), nil)
 	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
 	req.Header.Set("Origin", "https://any.example")
 	rec := httptest.NewRecorder()
@@ -933,7 +958,7 @@ func TestEdgeCORSHandlerAddsHeadersToProxyErrors(t *testing.T) {
 }
 
 func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
-	handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	handler := edgeIngressHandler(newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		if req.URL.Path != "/server-info" {
 			t.Fatalf("request path = %q, want /server-info", req.URL.Path)
 		}
@@ -943,7 +968,7 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"endpoint":"server.internal:9820","public_key":"server-key","signaling_path":"/custom/offer","ice_servers":[{"urls":["turn:edge.example.com:3478"]}]}`)),
 			Request:    req,
 		}, nil
-	}))
+	})), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
 	rec := httptest.NewRecorder()

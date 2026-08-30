@@ -334,14 +334,30 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 		}
 	}()
 
-	edgeHTTP := httptest.NewServer(gateway.Handler(http.NotFoundHandler()))
+	edgeHTTP := httptest.NewServer(edgeIngressHandler(http.NotFoundHandler(), gateway))
 	defer edgeHTTP.Close()
+	const browserOrigin = "http://127.0.0.1:8777"
+	browserHTTPClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		req = req.Clone(req.Context())
+		req.Header = req.Header.Clone()
+		req.Header.Set("Origin", browserOrigin)
+		resp, err := http.DefaultTransport.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
+		if got := resp.Header.Get("Access-Control-Allow-Origin"); got != browserOrigin {
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("Access-Control-Allow-Origin = %q, want %q", got, browserOrigin)
+		}
+		return resp, nil
+	})}
 	clientListener, clientConn, err := gizwebrtc.Dial(
 		context.Background(),
 		clientKey,
 		edgeKey.Public,
 		gizwebrtc.DialConfig{
 			SignalingURL:   edgeHTTP.URL + gizwebrtc.SignalingPath,
+			HTTPClient:     browserHTTPClient,
 			SecurityPolicy: gatewayAllowAllPolicy{},
 		},
 	)
