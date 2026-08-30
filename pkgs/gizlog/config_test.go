@@ -68,22 +68,24 @@ func TestPrepareConfigAtUsesCallerPath(t *testing.T) {
 func TestPrepareConfigExpandsEnvironment(t *testing.T) {
 	t.Setenv("GIZCLAW_TEST_LOG_LEVEL", "debug")
 	t.Setenv("GIZCLAW_TEST_LOG_STORE", "logs")
+	t.Setenv("GIZCLAW_TEST_NODE_ID", "server-a")
 	got, err := PrepareConfig(Config{
 		Level:      "$GIZCLAW_TEST_LOG_LEVEL",
+		NodeID:     " $GIZCLAW_TEST_NODE_ID ",
 		QueryStore: "$GIZCLAW_TEST_LOG_STORE",
 		Sinks:      []SinkConfig{{Kind: SinkStore, Store: "$GIZCLAW_TEST_LOG_STORE"}},
 	})
 	if err != nil {
 		t.Fatalf("PrepareConfig() error = %v", err)
 	}
-	if got.Level != "debug" || got.QueryStore != "logs" || got.Sinks[0].Store != "logs" {
+	if got.Level != "debug" || got.NodeID != "server-a" || got.QueryStore != "logs" || got.Sinks[0].Store != "logs" {
 		t.Fatalf("expanded config = %+v", got)
 	}
 }
 
 func TestConfigSurfaceStaysMinimal(t *testing.T) {
 	got := yamlFields(reflect.TypeFor[Config](), "")
-	want := map[string]bool{"level": true, "query_store": true, "sinks": true}
+	want := map[string]bool{"level": true, "node_id": true, "query_store": true, "sinks": true}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("config fields = %v, want %v", got, want)
 	}

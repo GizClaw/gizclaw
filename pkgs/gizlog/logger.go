@@ -58,7 +58,12 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 	if len(registries) > 0 {
 		registry = registries[0]
 	}
-	failureReporter := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})
+	failureReporter := slog.Handler(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, Level: slog.LevelError}))
+	fixed := make([]slog.Attr, 0, 1)
+	if cfg.NodeID != "" {
+		fixed = append(fixed, slog.String("node_id", cfg.NodeID))
+		failureReporter = failureReporter.WithAttrs(fixed)
+	}
 	handlers := make([]slog.Handler, 0, len(cfg.Sinks))
 	for _, sink := range cfg.Sinks {
 		level, err := ParseLevel(sink.Level)
@@ -67,7 +72,7 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 		}
 		switch sink.Kind {
 		case SinkStderr:
-			handlers = append(handlers, slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+			handlers = append(handlers, slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, Level: level}))
 		case SinkStore:
 			if registry == nil {
 				return nil, nil, &StoreResolutionError{Name: sink.Store, Reason: "store registry is not available"}
@@ -83,7 +88,8 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 			handlers = append(handlers, newStoreFailureReportingHandler(handler, failureReporter, sink.Store))
 		}
 	}
-	return slog.New(NewFanoutHandler(handlers...)), func() error { return nil }, nil
+	logger := slog.New(newContextHandler(NewFanoutHandler(handlers...), fixed))
+	return logger, func() error { return nil }, nil
 }
 
 // StoreResolutionError reports an invalid store sink without exposing store configuration.

@@ -110,7 +110,9 @@ GenX stream、Transformer 的 EOS/cancel/backpressure 指标由 `pkgs/genx` 的 
 
 ### 输出格式
 
-代码继续直接使用全局 `slog`，优先通过 `slog.LogAttrs(ctx, ...)` 输出 scalar attributes。Volc TLS handler 将 `level`、`msg` 和每个 scalar attribute 保存为独立字段；`StreamServerLogs` 再规范化为：
+代码继续直接使用全局 `slog`，优先通过 `slog.LogAttrs(ctx, ...)` 输出 scalar attributes。配置化 logger 自动为 stderr 和 Store sink 增加调用源码；Store record 使用 `source_file` 和十进制 `source_line`。配置了 `system_log.node_id` 时，每个 sink 还包含完全相同的 `node_id`。该值由 Deploy 显式注入稳定的逻辑节点名，GizClaw 不根据 IP、hostname、endpoint 或 public key 推断节点身份。
+
+AgentHost 把已认证 Peer 的 `peer_public_key` 放入 Agent 执行 context；使用 context-aware `slog` 的 provider 日志会继承该字段。启动、存储和其他没有 Peer owner 的进程级日志省略该字段，不能伪造身份。Volc TLS handler 将 `level`、`msg` 和每个 scalar attribute 保存为独立字段；`StreamServerLogs` 再规范化为：
 
 | 返回字段 | 含义 |
 | --- | --- |
@@ -119,7 +121,7 @@ GenX stream、Transformer 的 EOS/cancel/backpressure 指标由 `pkgs/genx` 的 
 | `message` | `slog.Record.Message`，来自 backend 的 `msg`。 |
 | `source` | 当前 Volc sink 写入 `gizclaw`。 |
 | `path` | 当前 Volc sink 写入 `slog`。 |
-| `fields` | 除保留字段之外的结构化 scalar attributes。 |
+| `fields` | 除保留字段之外的结构化 scalar attributes，包括适用时的 `node_id`、`source_file`、`source_line` 和 `peer_public_key`。 |
 
 请求 completion record 使用稳定 message `gizclaw: request completed`。HTTP handler 每次完成输出一次；Peer RPC 在第一帧开始后输出一次，连接在新请求首帧之前正常 EOF 时不输出：
 

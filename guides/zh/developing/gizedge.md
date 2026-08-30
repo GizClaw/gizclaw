@@ -136,11 +136,16 @@ stores:
     topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
 system-log:
   level: info
+  node_id: ${GIZCLAW_NODE_ID}
   sinks:
     - kind: stderr
     - kind: store
       store: logs
 ```
+
+`node_id` 是 Deploy 分配的稳定逻辑节点名，例如 `e2e-edge-volc-bj-01`；它会进入该
+进程的每条 stderr 和持久化日志。GizClaw 不用写入端 IP、hostname、endpoint 或 Edge
+public key 猜测该值。省略时保持本地与嵌入式 runtime 的兼容行为，但持久化部署应显式配置。
 
 Edge 只接受 `volc-tls` physical storage 和 `log.immutable` logical Store。在打开 listener
 或连接 upstream 之前，Edge 会验证配置、Store 引用、credential、topic index 和 logger

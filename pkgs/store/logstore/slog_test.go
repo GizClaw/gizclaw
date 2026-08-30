@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -51,6 +54,37 @@ func TestSlogHandlerProjectionAndCollisions(t *testing.T) {
 	}
 	if _, exists := got.Attributes["request"]; exists {
 		t.Fatal("later descendant did not remove scalar collision")
+	}
+}
+
+func TestSlogHandlerProjectsAuthoritativeCaller(t *testing.T) {
+	appender := &captureAppender{}
+	handler, _ := NewSlogHandler(appender, "system", "log", slog.LevelInfo)
+	var pcs [1]uintptr
+	runtime.Callers(1, pcs[:])
+	record := slog.NewRecord(time.Now(), slog.LevelInfo, "message", pcs[0])
+	record.AddAttrs(slog.String("source_file", "caller"), slog.Int("source_line", 1))
+	if err := handler.Handle(context.Background(), record); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	got := appender.records[0].Attributes
+	if !strings.HasSuffix(got["source_file"], "slog_test.go") {
+		t.Fatalf("source_file = %q", got["source_file"])
+	}
+	line, err := strconv.Atoi(got["source_line"])
+	if err != nil || line <= 1 {
+		t.Fatalf("source_line = %q, %v", got["source_line"], err)
+	}
+}
+
+func TestSlogHandlerOmitsCallerForZeroPC(t *testing.T) {
+	appender := &captureAppender{}
+	handler, _ := NewSlogHandler(appender, "system", "log", slog.LevelInfo)
+	if err := handler.Handle(context.Background(), slog.NewRecord(time.Now(), slog.LevelInfo, "message", 0)); err != nil {
+		t.Fatalf("Handle() error = %v", err)
+	}
+	if _, exists := appender.records[0].Attributes["source_file"]; exists {
+		t.Fatalf("attributes = %+v", appender.records[0].Attributes)
 	}
 }
 

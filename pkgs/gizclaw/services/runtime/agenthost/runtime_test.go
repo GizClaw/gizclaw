@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"slices"
 	"strings"
@@ -16,9 +17,79 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
+
+func TestServiceReloadBindsPeerPublicKeyToLogContext(t *testing.T) {
+	ctx := t.Context()
+	publicKey := testPublicKey(t)
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
+		t.Fatalf("SetRunAgent() error = %v", err)
+	}
+	logs := &agenthostLogStore{}
+	logger, cleanup, err := gizlog.NewLogger(gizlog.Config{Sinks: []gizlog.SinkConfig{{Kind: gizlog.SinkStore, Store: "logs"}}}, agenthostLogResolver{store: logs})
+	if err != nil {
+		t.Fatalf("NewLogger() error = %v", err)
+	}
+	t.Cleanup(func() { _ = cleanup() })
+	previous := slog.Default()
+	slog.SetDefault(logger)
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	svc := &Service{
+		Host:      agenthostLoggingMux{output: newBlockingStream()},
+		PeerRun:   store,
+		PublicKey: publicKey,
+		Source: StreamSourceFunc(func(context.Context) (genx.Stream, error) {
+			return NewInputStream(1), nil
+		}),
+		Consumer: StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error {
+			<-ctx.Done()
+			return ctx.Err()
+		}),
+	}
+	if _, err := svc.Reload(ctx); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	if len(logs.records) != 1 || logs.records[0].Attributes["peer_public_key"] != publicKey.String() {
+		t.Fatalf("records = %+v", logs.records)
+	}
+	if _, err := svc.Stop(ctx); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+}
+
+type agenthostLoggingMux struct{ output genx.Stream }
+
+func (m agenthostLoggingMux) Transform(ctx context.Context, _ string, _ genx.Stream) (genx.Stream, error) {
+	slog.InfoContext(ctx, "provider log")
+	return m.output, nil
+}
+
+type agenthostLogStore struct{ records []logstore.Record }
+
+func (s *agenthostLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	s.records = append(s.records, records...)
+	keys := make([]logstore.RecordKey, len(records))
+	for index, record := range records {
+		keys[index] = record.Key()
+	}
+	return keys, nil
+}
+
+func (*agenthostLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+	return logstore.Page{}, nil
+}
+
+func (*agenthostLogStore) Close() error { return nil }
+
+type agenthostLogResolver struct{ store *agenthostLogStore }
+
+func (r agenthostLogResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
 
 func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	ctx := context.Background()
