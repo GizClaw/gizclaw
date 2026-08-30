@@ -87,8 +87,8 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 - Edge Node 自身的 giznet identity。
 - HTTP/signaling TCP 与 gateway ICE UDP 共用的一组 public client-ingress
   listen address 和对外 endpoint。
-- 单个 upstream Server 的 endpoint 与 public key，以及可选的 Edge-to-Server
-  relay-only TURN pool。
+- 至少一个有序 upstream Server entry；每个 entry 固定 endpoint、public key，以及可选的
+  Edge-to-Server relay-only TURN pool。
 - TLS certificate source 的选择。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
@@ -134,23 +134,23 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding；gateway logical sessions 使用注册的 `giznet/v2/tunnel/` DataChannel namespace，不占用 product service ID。
 
-默认省略 `upstream.ice-transport-policy` 和 `upstream.ice-servers`，保持原有
+默认省略每个 entry 的 `ice-transport-policy` 和 `ice-servers`，保持
 direct ICE。启用 relay 时配置至少两个 literal-IP TURN/UDP 成员：
 
 ```yaml
-upstream:
-  endpoint: https://server.example.invalid:9820
-  public-key: <authoritative-server-key>
-  ice-transport-policy: relay
-  ice-servers:
-    - urls: [turn:192.0.2.10:3478?transport=udp]
-      username: <turn-rest-key-id>
-      credential: <turn-rest-shared-secret>
-      credential-mode: turn-rest
-    - urls: [turn:192.0.2.11:3478?transport=udp]
-      username: <turn-rest-key-id>
-      credential: <turn-rest-shared-secret>
-      credential-mode: turn-rest
+upstreams:
+  - endpoint: https://server.example.invalid:9820
+    public-key: <authoritative-server-key>
+    ice-transport-policy: relay
+    ice-servers:
+      - urls: [turn:192.0.2.10:3478?transport=udp]
+        username: <turn-rest-key-id>
+        credential: <turn-rest-shared-secret>
+        credential-mode: turn-rest
+      - urls: [turn:192.0.2.11:3478?transport=udp]
+        username: <turn-rest-key-id>
+        credential: <turn-rest-shared-secret>
+        credential-mode: turn-rest
 ```
 
 relay mode 为每条新 upstream PeerConnection 只传入一个 pool member 和
@@ -170,7 +170,7 @@ IPv6、显式端口，并且 query 只能是 `transport=udp`。static mode（显
 username/key ID 可为空。无效、重复、字段不完整、hostname、TCP 或 TLS relay 配置都会在
 Edge 启动 listener 前失败。
 
-relay 选择不会改变 `upstream.endpoint`、`upstream.public-key` 或 signaling 使用的
+relay 选择不会改变 entry 的 `endpoint`、`public-key` 或 signaling 使用的
 Server identity。顶层 `turn` block 与它相互独立：该 block 运行 device-to-Edge 的
 downstream TURN server，不是 Edge-to-Server upstream pool member。日志不得记录 relay
 username、credential、SDP、ICE candidate body 或业务 payload。
@@ -461,9 +461,9 @@ flowchart TB
 
 ## 当前边界
 
-`pkgs/gizedge` 支持已有的单数 `upstream`，也支持有序的复数 `upstreams`。复数列表中的每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。混用两种形式、空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
+`pkgs/gizedge` 只接受非空、有序的复数 `upstreams`。每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。旧的单数 `upstream` 不再属于配置结构；空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
 
-对于 authenticated logical Client session，Edge 会通过任意可达的已配置 Server 查询共享的固定 Peer assignment，确认返回的 Server identity 已在配置中，然后只获取该 Server 的 target pool。Assignment 不存在时，首次 claim 使用顺序中第一台可达 Server。Control、service、packet、audio、retry 与 teardown 始终固定在同一个 target；target transport 失败不能替换成其他 Server owner，也不能重放 application work。单数模式保持原有单 target 行为，由 Server admission 完成 claim 或 owner 校验。
+对于 authenticated logical Client session，Edge 会通过任意可达的已配置 Server 查询共享的固定 Peer assignment，确认返回的 Server identity 已在配置中，然后只获取该 Server 的 target pool。Assignment 不存在时，首次 claim 使用顺序中第一台可达 Server。Control、service、packet、audio、retry 与 teardown 始终固定在同一个 target；target transport 失败不能替换成其他 Server owner，也不能重放 application work。仅配置一个 entry 时仍走同一套路由和 Server admission 逻辑。
 
 Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 HTTP/OpenAI request 继续通过顺序中第一台可达 bootstrap Server。Assignment 中的 endpoint metadata 不能覆盖 Edge 固定配置；relay selector、health 与 backoff 按 Server entry 隔离。
 

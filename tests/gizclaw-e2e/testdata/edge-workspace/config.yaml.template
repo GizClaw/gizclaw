@@ -2,9 +2,9 @@ identity:
   private-key: ${GIZCLAW_E2E_EDGE_PRIVATE_KEY}
 listen: 0.0.0.0:9821
 endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
-upstream:
-  endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
-  public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
+upstreams:
+  - endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
+    public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
 tls:
   cert-source: disabled
 gateway:

@@ -131,7 +131,7 @@ func dialUpstream(
 	upstreamURL *url.URL,
 	relaySelector *upstreamRelaySelector,
 ) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, *gizwebrtc.ICECandidatePairObservation, error) {
-	if cfg.Upstream.PublicKey.IsZero() {
+	if cfg.selectedUpstream.PublicKey.IsZero() {
 		return nil, nil, nil, nil, fmt.Errorf("edge: missing upstream.public-key")
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, upstreamDialTimeout)
@@ -144,7 +144,7 @@ func dialUpstream(
 		return conn, listener, attempt, observation, nil
 	}
 	var timing gizwebrtc.DialTiming
-	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
+	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.selectedUpstream.PublicKey, gizwebrtc.DialConfig{
 		MetricsNodeRole:       "edge",
 		SignalingURL:          upstreamSignalingURL(upstreamURL),
 		SecurityPolicy:        edgeSecurityPolicy{},

@@ -78,7 +78,7 @@ func (t *orderedUpstreamTransport) resolvePeerAssignment(
 			return assignment, err
 		}
 		if errors.Is(err, errRouteAssignmentNotFound) {
-			return &rpcpb.PeerAssignment{ServerPublicKey: entry.cfg.Upstream.PublicKey.String()}, err
+			return &rpcpb.PeerAssignment{ServerPublicKey: entry.cfg.selectedUpstream.PublicKey.String()}, err
 		}
 		if !upstreamConnectionFailed(conn, err) {
 			return nil, err

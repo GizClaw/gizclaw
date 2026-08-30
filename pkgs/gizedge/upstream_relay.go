@@ -75,19 +75,19 @@ func (e *upstreamRelaysUnavailableError) Unwrap() error {
 }
 
 func newUpstreamRelaySelector(cfg Config) (*upstreamRelaySelector, error) {
-	if !cfg.Upstream.relayEnabled() {
+	if !cfg.selectedUpstream.relayEnabled() {
 		return nil, nil
 	}
 	selector := &upstreamRelaySelector{
-		members:        make([]upstreamRelayMember, 0, len(cfg.Upstream.ICEServers)),
+		members:        make([]upstreamRelayMember, 0, len(cfg.selectedUpstream.ICEServers)),
 		now:            time.Now,
 		attemptTimeout: upstreamRelayAttemptTimeout,
 		dial: func(ctx context.Context, key *giznet.KeyPair, serverKey giznet.PublicKey, cfg gizwebrtc.DialConfig) (giznet.Listener, giznet.Conn, error) {
 			return gizwebrtc.Dial(ctx, key, serverKey, cfg)
 		},
 	}
-	selector.seed = sha256.Sum256([]byte(cfg.KeyPair.Public.String() + "\x00" + cfg.Upstream.PublicKey.String()))
-	for _, server := range cfg.Upstream.ICEServers {
+	selector.seed = sha256.Sum256([]byte(cfg.KeyPair.Public.String() + "\x00" + cfg.selectedUpstream.PublicKey.String()))
+	for _, server := range cfg.selectedUpstream.ICEServers {
 		endpoint, err := upstreamRelayEndpoint(server)
 		if err != nil {
 			return nil, err
@@ -127,7 +127,7 @@ func (s *upstreamRelaySelector) dialUpstream(
 		server := cloneICEServer(s.members[member].server)
 		attemptCtx, cancel := context.WithTimeout(ctx, s.attemptTimeout)
 		var timing gizwebrtc.DialTiming
-		listener, conn, err := s.dial(attemptCtx, cfg.KeyPair, cfg.Upstream.PublicKey, gizwebrtc.DialConfig{
+		listener, conn, err := s.dial(attemptCtx, cfg.KeyPair, cfg.selectedUpstream.PublicKey, gizwebrtc.DialConfig{
 			MetricsNodeRole:       "edge",
 			SignalingURL:          upstreamSignalingURL(upstreamURL),
 			ICEServers:            []gizwebrtc.ICEServer{server},

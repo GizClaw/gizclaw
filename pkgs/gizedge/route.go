@@ -15,12 +15,6 @@ import (
 var errRouteAssignmentNotFound = errors.New("edge: peer assignment not found")
 
 func (g *Gateway) acquirePeerUpstream(ctx context.Context, peerKey giznet.PublicKey) (*gatewayUpstream, func(), error) {
-	// The singular compatibility form has only one possible pinned target. The
-	// authoritative Server still claims or verifies the Peer during admission,
-	// so no route lookup is needed until plural routing is configured.
-	if len(g.cfg.Upstreams) == 0 && len(g.poolOrder) == 1 {
-		return g.poolOrder[0].acquire(ctx)
-	}
 	if g.resolvePeerRoute != nil {
 		assignment, err := g.resolvePeerRoute(ctx, peerKey)
 		if errors.Is(err, errRouteAssignmentNotFound) {

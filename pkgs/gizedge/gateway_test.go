@@ -20,6 +20,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -267,15 +268,20 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 		KeyPair:  edgeKey,
 		Listen:   "127.0.0.1:0",
 		Endpoint: "localhost:0",
-		Upstream: UpstreamConfig{
-			Endpoint:  upstreamHTTP.URL,
-			PublicKey: serverKey.Public,
+		Upstreams: []UpstreamConfig{
+			{
+				Endpoint:  upstreamHTTP.URL,
+				PublicKey: serverKey.Public,
+			},
 		},
 		Gateway: gatewayConfig,
 	}
 	gateway, err := newGateway(t.Context(), cfg)
 	if err != nil {
 		t.Fatalf("newGateway error = %v", err)
+	}
+	gateway.resolvePeerRoute = func(context.Context, giznet.PublicKey) (*rpcpb.PeerAssignment, error) {
+		return &rpcpb.PeerAssignment{ServerPublicKey: serverKey.Public.String()}, nil
 	}
 	defer gateway.Close()
 
@@ -1144,15 +1150,20 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 		KeyPair:  edgeKey,
 		Listen:   "127.0.0.1:0",
 		Endpoint: "localhost:0",
-		Upstream: UpstreamConfig{
-			Endpoint:  upstreamHTTP.URL,
-			PublicKey: serverKey.Public,
+		Upstreams: []UpstreamConfig{
+			{
+				Endpoint:  upstreamHTTP.URL,
+				PublicKey: serverKey.Public,
+			},
 		},
 		Gateway: gatewayConfig,
 	}
 	gateway, err := newGateway(ctx, cfg)
 	if err != nil {
 		tb.Fatal(err)
+	}
+	gateway.resolvePeerRoute = func(context.Context, giznet.PublicKey) (*rpcpb.PeerAssignment, error) {
+		return &rpcpb.PeerAssignment{ServerPublicKey: serverKey.Public.String()}, nil
 	}
 	tb.Cleanup(func() { _ = gateway.Close() })
 	edgeHTTP := httptest.NewServer(gateway.Handler(http.NotFoundHandler()))

@@ -101,13 +101,13 @@ func TestOrderedRouteLookupBootstrapsOnReachableResponder(t *testing.T) {
 	stop()
 	resolver := &orderedUpstreamTransport{entries: []*upstreamTransport{
 		{
-			cfg:       Config{Upstream: UpstreamConfig{PublicKey: serverA}},
+			cfg:       Config{selectedUpstream: UpstreamConfig{PublicKey: serverA}},
 			ctx:       stopped,
 			conn:      &failingGiznetConn{dialErr: errors.New("Server A unavailable"), state: giznet.PeerStateOffline},
 			connEpoch: 1,
 		},
 		{
-			cfg: Config{Upstream: UpstreamConfig{PublicKey: serverB}},
+			cfg: Config{selectedUpstream: UpstreamConfig{PublicKey: serverB}},
 			conn: &routeRPCGiznetConn{
 				failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
 			},
