@@ -74,9 +74,9 @@ steps:
     client: peer
     timeout: 45s
     retry:
-      attempts: 3
+      attempts: 4
       on: [operation, timeout, assertion]
-      delay: 1s
+      delay: 5s
     peer_stream:
       mode: realtime
       input: ${input_audio}

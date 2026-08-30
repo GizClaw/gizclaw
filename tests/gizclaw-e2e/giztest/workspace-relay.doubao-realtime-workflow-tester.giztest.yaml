@@ -88,6 +88,10 @@ steps:
       method: server.run.workspace.set
       request: {workspace_name: "${tester_workspace}"}
   - id: run_test_dialogue
+    retry:
+      attempts: 2
+      on: [operation]
+      delay: 2s
     workspace_relay:
       first_client: tester
       second_client: candidate
