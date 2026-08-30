@@ -14,9 +14,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func TestGatewayClientSecurityPolicyAllowsRouteRPC(t *testing.T) {
-	if !((gatewayClientSecurityPolicy{}).AllowService(giznet.PublicKey{}, gizclaw.ServiceEdgeRPC)) {
-		t.Fatal("gateway upstream policy rejects the route RPC service")
+func TestGatewayClientSecurityPolicyRejectsRouteRPC(t *testing.T) {
+	if (gatewayClientSecurityPolicy{}).AllowService(giznet.PublicKey{}, gizclaw.ServiceEdgeRPC) {
+		t.Fatal("gateway client policy exposes the Edge-only route RPC service")
 	}
 }
 

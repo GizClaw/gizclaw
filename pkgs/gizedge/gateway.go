@@ -998,7 +998,6 @@ func (gatewayClientSecurityPolicy) AllowService(_ giznet.PublicKey, service uint
 		gizclaw.ServicePeerHTTP,
 		gizclaw.ServicePeerOpenAI,
 		gizclaw.ServiceAdminHTTP,
-		gizclaw.ServiceEdgeRPC,
 		gizclaw.EventStreamAgent:
 		return true
 	default:
