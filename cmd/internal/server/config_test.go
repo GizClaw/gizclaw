@@ -946,7 +946,7 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        worker_id: legacy\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    mem0:\n      user_id: legacy\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        run_id: legacy\n",
-		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      bbh:\n        unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      legacy:\n        unknown: y\n",
 	} {
 		if _, err := parseConfigData([]byte(data)); err == nil {
 			t.Fatalf("parseConfigData(%q) error = nil", data)

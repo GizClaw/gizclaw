@@ -10,17 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	flowrecall "github.com/GizClaw/flowcraft/memory/recall"
 	flowpostgres "github.com/GizClaw/flowcraft/memory/recall/store/postgres"
-	flowworkspace "github.com/GizClaw/flowcraft/memory/recall/store/workspace"
-	"github.com/GizClaw/flowcraft/memory/retrieval/bbh"
 	retrievalpostgres "github.com/GizClaw/flowcraft/memory/retrieval/postgres"
-	sdkworkspace "github.com/GizClaw/flowcraft/sdk/workspace"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
@@ -135,13 +130,6 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 		return nil, nil, err
 	}
 	switch connectionType {
-	case "flowcraft_object_store":
-		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
-		if err != nil {
-			return nil, nil, err
-		}
-		dir := filepath.Clean(connection.Directory)
-		return openFlowcraftLocal(ctx, dir, policy, config)
 	case "flowcraft_postgresql":
 		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftPostgreSQLConnection()
 		if err != nil {
@@ -267,45 +255,6 @@ func flowcraftLaneNames(lanes []apitypes.FlowcraftMemoryLanePolicy) []string {
 	return result
 }
 
-func openFlowcraftLocal(ctx context.Context, dir string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
-	metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(dir)
-	if err != nil {
-		return nil, nil, err
-	}
-	backend, err := flowworkspace.New(metadataWorkspace)
-	if err != nil {
-		return nil, nil, err
-	}
-	owned := []io.Closer{backend}
-	fail := func(err error) (*memoryflowcraft.Store, io.Closer, error) {
-		return nil, nil, errors.Join(err, closeAll(owned))
-	}
-	if err := ensureLocalProjection(ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config); err != nil {
-		return fail(err)
-	}
-	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(dir, "retrieval"))
-	if err != nil {
-		return fail(err)
-	}
-	index, err := bbh.New(retrievalWorkspace)
-	if err != nil {
-		return fail(err)
-	}
-	owned = append(owned, index)
-	config.TemporalStore = backend.TemporalStore()
-	config.EvidenceStore = backend.EvidenceStore()
-	config.SideEffectOutbox = backend.SideEffectOutbox()
-	config.RetrievalIndex = index
-	if policy.Write.Mode == apitypes.FlowcraftMemoryWritePolicyModeAsyncSemantic {
-		config.AsyncQueue = backend.AsyncSemanticQueue()
-	}
-	store, err := memoryflowcraft.New(ctx, config)
-	if err != nil {
-		return fail(err)
-	}
-	return store, multiCloser(append(owned, store)), nil
-}
-
 func openFlowcraftPostgres(ctx context.Context, dsn, workspaceID string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
 	backend, err := flowpostgres.Open(ctx, dsn)
 	if err != nil {
@@ -335,149 +284,6 @@ func openFlowcraftPostgres(ctx context.Context, dsn, workspaceID string, policy 
 		return fail(errors.Join(err, store.Close()))
 	}
 	return store, multiCloser(append(owned, store)), nil
-}
-
-const projectionManifestName = ".gizclaw-retrieval-layout"
-
-func ensureLocalProjection(
-	ctx context.Context,
-	dir string,
-	temporal flowrecall.TemporalStore,
-	evidence flowrecall.EvidenceStore,
-	outbox flowrecall.SideEffectOutbox,
-	policy apitypes.FlowcraftMemoryLayoutPolicy,
-	config memoryflowcraft.Config,
-) error {
-	prepared, err := prepareLocalProjection(ctx, dir, temporal, evidence, outbox, policy, config)
-	if err != nil || prepared == nil {
-		return err
-	}
-	defer prepared.Abort()
-	index, err := prepared.Publish()
-	if err != nil {
-		return err
-	}
-	return index.Close()
-}
-
-type preparedLocalProjection struct {
-	dir        string
-	stagingDir string
-	config     bbh.Config
-	published  bool
-}
-
-func prepareLocalProjection(
-	ctx context.Context,
-	dir string,
-	temporal flowrecall.TemporalStore,
-	evidence flowrecall.EvidenceStore,
-	outbox flowrecall.SideEffectOutbox,
-	policy apitypes.FlowcraftMemoryLayoutPolicy,
-	config memoryflowcraft.Config,
-) (*preparedLocalProjection, error) {
-	signature, err := projectionSignature(policy)
-	if err != nil {
-		return nil, err
-	}
-	retrievalDir := filepath.Join(dir, "retrieval")
-	manifestPath := filepath.Join(retrievalDir, projectionManifestName)
-	if current, err := os.ReadFile(manifestPath); err == nil && strings.TrimSpace(string(current)) == signature {
-		return nil, nil
-	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("memory store: read derived-index manifest: %w", err)
-	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("memory store: create Flowcraft binding root: %w", err)
-	}
-	stagingDir, err := os.MkdirTemp(dir, ".retrieval-rebuild-")
-	if err != nil {
-		return nil, fmt.Errorf("memory store: create derived-index staging directory: %w", err)
-	}
-	prepared := &preparedLocalProjection{
-		dir: dir, stagingDir: stagingDir, config: bbh.Config{},
-	}
-	fail := func(err error) (*preparedLocalProjection, error) {
-		prepared.Abort()
-		return nil, err
-	}
-	stagingWorkspace, err := sdkworkspace.NewLocalWorkspace(stagingDir)
-	if err != nil {
-		return fail(err)
-	}
-	index, err := bbh.New(stagingWorkspace)
-	if err != nil {
-		return fail(err)
-	}
-	stagingConfig := config
-	stagingConfig.TemporalStore = temporal
-	stagingConfig.EvidenceStore = evidence
-	stagingConfig.SideEffectOutbox = outbox
-	stagingConfig.AsyncQueue = nil
-	stagingConfig.RetrievalIndex = index
-	store, err := memoryflowcraft.New(ctx, stagingConfig)
-	if err != nil {
-		return fail(errors.Join(err, index.Close()))
-	}
-	rebuildErr := rebuildAllScopes(ctx, store, temporal)
-	closeErr := errors.Join(store.Close(), index.Close())
-	if rebuildErr != nil || closeErr != nil {
-		return fail(errors.Join(rebuildErr, closeErr))
-	}
-	if err := writeProjectionManifest(filepath.Join(stagingDir, projectionManifestName), signature); err != nil {
-		return fail(err)
-	}
-	return prepared, nil
-}
-
-func (prepared *preparedLocalProjection) Publish() (*bbh.Index, error) {
-	if prepared == nil {
-		return nil, errors.New("memory store: prepared derived index is required")
-	}
-	retrievalDir := filepath.Join(prepared.dir, "retrieval")
-	backupDir := filepath.Join(prepared.dir, ".retrieval-previous")
-	_ = os.RemoveAll(backupDir)
-	hadPrevious := false
-	if _, err := os.Stat(retrievalDir); err == nil {
-		if err := os.Rename(retrievalDir, backupDir); err != nil {
-			return nil, fmt.Errorf("memory store: preserve previous derived index: %w", err)
-		}
-		hadPrevious = true
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("memory store: inspect previous derived index: %w", err)
-	}
-	restore := func() {
-		_ = os.RemoveAll(retrievalDir)
-		if hadPrevious {
-			_ = os.Rename(backupDir, retrievalDir)
-		}
-	}
-	if err := os.Rename(prepared.stagingDir, retrievalDir); err != nil {
-		restore()
-		return nil, fmt.Errorf("memory store: publish rebuilt derived index: %w", err)
-	}
-	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDir)
-	if err != nil {
-		restore()
-		return nil, err
-	}
-	index, err := bbh.New(retrievalWorkspace, bbh.WithConfig(prepared.config))
-	if err != nil {
-		restore()
-		return nil, fmt.Errorf("memory store: open rebuilt derived index: %w", err)
-	}
-	prepared.published = true
-	if hadPrevious {
-		_ = os.RemoveAll(backupDir)
-	}
-	return index, nil
-}
-
-func (prepared *preparedLocalProjection) Abort() {
-	if prepared == nil || prepared.published {
-		return
-	}
-	_ = os.RemoveAll(prepared.stagingDir)
 }
 
 func rebuildAllScopes(ctx context.Context, store *memoryflowcraft.Store, temporal flowrecall.TemporalStore) error {
@@ -512,34 +318,6 @@ func projectionSignature(policy apitypes.FlowcraftMemoryLayoutPolicy) (string, e
 	}
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:]), nil
-}
-
-func writeProjectionManifest(path, signature string) error {
-	temp, err := os.CreateTemp(filepath.Dir(path), ".retrieval-layout-")
-	if err != nil {
-		return fmt.Errorf("memory store: create derived-index manifest: %w", err)
-	}
-	tempPath := temp.Name()
-	defer os.Remove(tempPath)
-	if err := temp.Chmod(0o600); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if _, err := temp.WriteString(signature + "\n"); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		return fmt.Errorf("memory store: publish derived-index manifest: %w", err)
-	}
-	return nil
 }
 
 func layoutLanePrompt(lanes []apitypes.FlowcraftMemoryLanePolicy) string {

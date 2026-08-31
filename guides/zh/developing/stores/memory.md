@@ -124,11 +124,9 @@ spec:
 
 Server 为每个 binding 只打开一次该物理 backend，并向每个 Workspace generation 提供独立关闭的 logical Store。当已发布的 Flowcraft projection signature 未改变时，不同 Workspace 的 logical Store 会并发构造，该过程不属于 binding registry map 的临界区。Policy 变化仍只有一个串行的 projection rebuild owner；完整 replacement 原子发布后，其他 constructor 才继续。正常的 final-lease cleanup 会在最后一个 logical lease 与在途 constructor 都退出后关闭物理 backend；显式 Registry shutdown 会先摘除 binding、拒绝晚到的 constructor 结果并排空这些 constructor，再关闭物理 backend。
 
-合法的 Flowcraft connection 是 `flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）和 `flowcraft_redis8`（`url`，可选 `tls_ca_file`）。`flowcraft_redis8` 要求 Redis 8 及 Redis Search，Canonical Fact、Evidence、Async Semantic Queue、Side-effect Outbox 和全文/向量 retrieval 全部使用同一个 Redis namespace；它不降级支持 Redis 7。`rediss://` 连接复用 Storage 的 TLS 校验，并可通过 `tls_ca_file` 增加受信 CA。Flowcraft 0.1.7 尚未公开 Graph store 注入点，因此该 connection 会拒绝 `graph_enabled`，避免静默使用不持久化的进程内 Graph。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
+合法的 Flowcraft connection 是 `flowcraft_postgresql`（`dsn`）和 `flowcraft_redis8`（`url`，可选 `tls_ca_file`）。`flowcraft_redis8` 要求 Redis 8 及 Redis Search，Canonical Fact、Evidence、Async Semantic Queue、Side-effect Outbox 和全文/向量 retrieval 全部使用同一个 Redis namespace；它不降级支持 Redis 7。`rediss://` 连接复用 Storage 的 TLS 校验，并可通过 `tls_ca_file` 增加受信 CA。Flowcraft 0.1.7 尚未公开 Graph store 注入点，因此该 connection 会拒绝 `graph_enabled`，避免静默使用不持久化的进程内 Graph。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
 
 Flowcraft 0.1.7 将 `(runtime_id, user_id)` 定义为 canonical hard partition。`agent_id` 是 soft-isolation metadata，因此会被有意排除在 `ScopeEnumerator` 之外；使用枚举出的 hard scope 仍可读回该分区内所有 AgentID 写入的 Fact，避免破坏 cross-agent recall。
-
-已删除的 `flowcraft_bbh` connection 不提供自动迁移。使用该 connection 的已持久化 legacy profile 会 fail closed 并返回可操作的替换错误，但 mutation path 仍允许管理员把 profile 替换为受支持的 connection。旧 managed directory 及其中的 canonical data 保持原样；替换或删除 profile 都不会删除该目录。`flowcraft_object_store` 可以继续在内部使用其本地 derived index，但 BBH 不再是公开的部署 connection 或 policy surface。
 
 对于 Mem0 和火山云，Project ID 记录与所选数据面 API key 配套的部署/控制面身份。运行时 Fact 请求通过该 key 完成 Project 路由，不会再发送独立的 Project ID 字段。
 

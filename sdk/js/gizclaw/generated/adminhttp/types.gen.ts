@@ -1711,11 +1711,6 @@ export type RuntimeProfileCareDecaySpec = {
     mood: number;
 };
 
-export type RuntimeProfileFlowcraftObjectStoreConnection = {
-    type: 'flowcraft_object_store';
-    directory: string;
-};
-
 export type RuntimeProfileFlowcraftPostgreSqlConnection = {
     type: 'flowcraft_postgresql';
     dsn: string;
@@ -1788,8 +1783,6 @@ export type RuntimeProfileMemoryBinding = {
 };
 
 export type RuntimeProfileMemoryConnection = ({
-    type: 'flowcraft_object_store';
-} & RuntimeProfileFlowcraftObjectStoreConnection) | ({
     type: 'flowcraft_postgresql';
 } & RuntimeProfileFlowcraftPostgreSqlConnection) | ({
     type: 'flowcraft_redis8';

@@ -2398,21 +2398,6 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	}
 }
 
-// Defines values for RuntimeProfileFlowcraftObjectStoreConnectionType.
-const (
-	RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore RuntimeProfileFlowcraftObjectStoreConnectionType = "flowcraft_object_store"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftObjectStoreConnectionType enum.
-func (e RuntimeProfileFlowcraftObjectStoreConnectionType) Valid() bool {
-	switch e {
-	case RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for RuntimeProfileFlowcraftPostgreSQLConnectionType.
 const (
 	RuntimeProfileFlowcraftPostgreSQLConnectionTypeFlowcraftPostgresql RuntimeProfileFlowcraftPostgreSQLConnectionType = "flowcraft_postgresql"
@@ -5722,15 +5707,6 @@ type RuntimeProfileCareDecaySpec struct {
 	Mood    float64 `json:"mood"`
 	Satiety float64 `json:"satiety"`
 }
-
-// RuntimeProfileFlowcraftObjectStoreConnection defines model for RuntimeProfileFlowcraftObjectStoreConnection.
-type RuntimeProfileFlowcraftObjectStoreConnection struct {
-	Directory string                                           `json:"directory"`
-	Type      RuntimeProfileFlowcraftObjectStoreConnectionType `json:"type"`
-}
-
-// RuntimeProfileFlowcraftObjectStoreConnectionType defines model for RuntimeProfileFlowcraftObjectStoreConnection.Type.
-type RuntimeProfileFlowcraftObjectStoreConnectionType string
 
 // RuntimeProfileFlowcraftPostgreSQLConnection defines model for RuntimeProfileFlowcraftPostgreSQLConnection.
 type RuntimeProfileFlowcraftPostgreSQLConnection struct {
@@ -9589,34 +9565,6 @@ func (t *Resource) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsRuntimeProfileFlowcraftObjectStoreConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftObjectStoreConnection
-func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftObjectStoreConnection() (RuntimeProfileFlowcraftObjectStoreConnection, error) {
-	var body RuntimeProfileFlowcraftObjectStoreConnection
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRuntimeProfileFlowcraftObjectStoreConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftObjectStoreConnection
-func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
-	v.Type = "flowcraft_object_store"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRuntimeProfileFlowcraftObjectStoreConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftObjectStoreConnection
-func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
-	v.Type = "flowcraft_object_store"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsRuntimeProfileFlowcraftPostgreSQLConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftPostgreSQLConnection
 func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftPostgreSQLConnection() (RuntimeProfileFlowcraftPostgreSQLConnection, error) {
 	var body RuntimeProfileFlowcraftPostgreSQLConnection
@@ -9743,8 +9691,6 @@ func (t RuntimeProfileMemoryConnection) ValueByDiscriminator() (interface{}, err
 		return nil, err
 	}
 	switch discriminator {
-	case "flowcraft_object_store":
-		return t.AsRuntimeProfileFlowcraftObjectStoreConnection()
 	case "flowcraft_postgresql":
 		return t.AsRuntimeProfileFlowcraftPostgreSQLConnection()
 	case "flowcraft_redis8":

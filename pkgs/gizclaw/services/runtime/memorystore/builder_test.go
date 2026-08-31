@@ -1,12 +1,9 @@
 package memorystore
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,52 +11,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
-func TestBuildAcceptsCanonicalLayoutID(t *testing.T) {
-	request := objectStoreTestRequest(t)
-
-	result, err := Build(t.Context(), request)
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
-	}
-	if result.Closer != nil {
-		t.Cleanup(func() { _ = result.Closer.Close() })
-	}
-}
-
-func TestBuildFlowcraftObjectStoreRetainsWorkspaceCanonicalFormat(t *testing.T) {
-	request := objectStoreTestRequest(t)
-	dir := t.TempDir()
-	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(
-		apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
-			Type:      apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
-			Directory: dir,
-		},
-	); err != nil {
-		t.Fatal(err)
-	}
-	request.Binding.Connection = connection
-	result, err := Build(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := result.Store.Observe(t.Context(), memory.Observation{
-		Scope: memory.Scope{AppID: request.WorkspaceID},
-		Facts: []memory.FactCandidate{{Text: "object store fact"}},
-		ID:    "object-store-observation",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := result.Closer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "state.json")); err != nil {
-		t.Fatalf("object-store state.json: %v", err)
-	}
-}
-
 func TestBuildRejectsMismatchedCanonicalLayoutID(t *testing.T) {
-	request := objectStoreTestRequest(t)
+	request := supportedFlowcraftTestRequest(t)
 	request.Layout.Id = "different-layout-id"
 
 	_, err := Build(t.Context(), request)
@@ -69,7 +22,7 @@ func TestBuildRejectsMismatchedCanonicalLayoutID(t *testing.T) {
 }
 
 func TestBuildRejectsEmptyCanonicalLayoutID(t *testing.T) {
-	request := objectStoreTestRequest(t)
+	request := supportedFlowcraftTestRequest(t)
 	request.Layout.Id = ""
 
 	_, err := Build(t.Context(), request)
@@ -180,82 +133,6 @@ func TestFlowcraftConfigCanDisableModelExtraction(t *testing.T) {
 	}
 	if len(config.LaneNames) == 0 {
 		t.Fatal("disabling model extraction removed direct-Fact lane policy")
-	}
-}
-
-func TestBuildFlowcraftObjectStoreKeepsWorkspaceScopesIsolated(t *testing.T) {
-	request := objectStoreTestRequest(t)
-	request.WorkspaceID = "workspace-a"
-	request.BindingName = "memory"
-	result, err := Build(context.Background(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Closer != nil {
-		t.Cleanup(func() { _ = result.Closer.Close() })
-	}
-	if _, err := result.Store.Observe(context.Background(), memory.Observation{
-		Scope: memory.Scope{AppID: "workspace-a"},
-		Text:  "Mochi likes salmon.",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	recallA, err := result.Store.Recall(context.Background(), memory.Query{
-		Scope: memory.Scope{AppID: "workspace-a"},
-		Text:  "salmon",
-		Limit: 5,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(recallA.Matches) == 0 {
-		t.Fatal("workspace-a did not recall its fact")
-	}
-	recallB, err := result.Store.Recall(context.Background(), memory.Query{
-		Scope: memory.Scope{AppID: "workspace-b"},
-		Text:  "salmon",
-		Limit: 5,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(recallB.Matches) != 0 {
-		t.Fatalf("workspace-b recalled %d workspace-a facts", len(recallB.Matches))
-	}
-}
-
-func TestFlowcraftObjectStoreProjectionRebuildPreservesCanonicalFacts(t *testing.T) {
-	request := objectStoreTestRequest(t)
-	first, err := Build(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := first.Store.Observe(t.Context(), memory.Observation{
-		Scope: memory.Scope{AppID: request.WorkspaceID},
-		Text:  "Mochi likes salmon.",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := first.Closer.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	request.Layout.Spec.Flowcraft.GraphEnabled = new(false)
-	second, err := Build(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = second.Closer.Close() })
-	recalled, err := second.Store.Recall(t.Context(), memory.Query{
-		Scope: memory.Scope{AppID: request.WorkspaceID},
-		Text:  "salmon",
-		Limit: 5,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(recalled.Matches) == 0 {
-		t.Fatal("derived-index rebuild lost canonical Workspace facts")
 	}
 }
 

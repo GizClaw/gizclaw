@@ -100,9 +100,6 @@
       "RuntimeProfileMemoryConnection": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection"
-          },
-          {
             "$ref": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection"
           },
           {
@@ -118,26 +115,10 @@
         "discriminator": {
           "propertyName": "type",
           "mapping": {
-            "flowcraft_object_store": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection",
             "flowcraft_postgresql": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection",
             "flowcraft_redis8": "#/components/schemas/RuntimeProfileFlowcraftRedis8Connection",
             "mem0": "#/components/schemas/RuntimeProfileMem0Connection",
             "volc_mem0": "#/components/schemas/RuntimeProfileVolcMem0Connection"
-          }
-        }
-      },
-      "RuntimeProfileFlowcraftObjectStoreConnection": {
-        "type": "object",
-        "required": ["type", "directory"],
-        "additionalProperties": false,
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["flowcraft_object_store"]
-          },
-          "directory": {
-            "type": "string",
-            "minLength": 1
           }
         }
       },

@@ -11,18 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/flowcraft/sdk/embedding"
-	"github.com/GizClaw/flowcraft/sdk/llm"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func BenchmarkRegistryResolveSameBindingContention(b *testing.B) {
-	request := objectStoreTestRequest(b)
-	physical, err := openSharedBackend(b.Context(), request)
-	if err != nil {
-		b.Fatal(err)
-	}
+	request := supportedFlowcraftTestRequest(b)
+	physical := &testSharedBackend{}
 	const constructorDelay = time.Millisecond
 	backend := &delayedRegistryBackend{sharedBackend: physical, delay: constructorDelay}
 	registry := NewRegistry()
@@ -113,11 +108,8 @@ func resolveStoreBatch(
 }
 
 func TestRegistrySameBindingLogicalStoresConstructConcurrently(t *testing.T) {
-	request := objectStoreTestRequest(t)
-	physical, err := openSharedBackend(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	request := supportedFlowcraftTestRequest(t)
+	physical := &testSharedBackend{}
 	entered := make(chan string, 2)
 	release := make(chan struct{})
 	backend := &blockingRegistryBackend{
@@ -168,11 +160,8 @@ func TestRegistrySameBindingLogicalStoresConstructConcurrently(t *testing.T) {
 }
 
 func TestRegistryCloseWaitsForInFlightLogicalStore(t *testing.T) {
-	request := objectStoreTestRequest(t)
-	physical, err := openSharedBackend(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	request := supportedFlowcraftTestRequest(t)
+	physical := &testSharedBackend{}
 	entered := make(chan string, 1)
 	release := make(chan struct{})
 	backend := &blockingRegistryBackend{
@@ -298,8 +287,11 @@ func (closer *signalingCloser) Close() error {
 
 func TestRegistrySharesBindingUntilFinalRelease(t *testing.T) {
 	t.Parallel()
-	request := objectStoreTestRequest(t)
+	request := supportedFlowcraftTestRequest(t)
 	registry := NewRegistry()
+	registry.open = func(context.Context, Request) (sharedBackend, error) {
+		return &testSharedBackend{}, nil
+	}
 	t.Cleanup(func() { _ = registry.Close() })
 
 	first, err := registry.Resolve(t.Context(), request)
@@ -352,8 +344,11 @@ func TestRegistrySharesBindingUntilFinalRelease(t *testing.T) {
 
 func TestRegistryConcurrentResolveConstructsOneStore(t *testing.T) {
 	t.Parallel()
-	request := objectStoreTestRequest(t)
+	request := supportedFlowcraftTestRequest(t)
 	registry := NewRegistry()
+	registry.open = func(context.Context, Request) (sharedBackend, error) {
+		return &testSharedBackend{}, nil
+	}
 	t.Cleanup(func() { _ = registry.Close() })
 
 	const count = 24
@@ -386,16 +381,16 @@ func TestRegistryConcurrentResolveConstructsOneStore(t *testing.T) {
 
 func TestRegistryIdentityIncludesPhysicalConnection(t *testing.T) {
 	t.Parallel()
-	request := objectStoreTestRequest(t)
+	request := supportedFlowcraftTestRequest(t)
 	firstKey, err := registryKey(request)
 	if err != nil {
 		t.Fatal(err)
 	}
 	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(
-		apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
-			Type:      apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
-			Directory: t.TempDir(),
+	if err := connection.FromRuntimeProfileFlowcraftRedis8Connection(
+		apitypes.RuntimeProfileFlowcraftRedis8Connection{
+			Type: apitypes.RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8,
+			Url:  "redis://other.example:6379/0",
 		},
 	); err != nil {
 		t.Fatal(err)
@@ -413,8 +408,11 @@ func TestRegistryIdentityIncludesPhysicalConnection(t *testing.T) {
 func TestRegistryValidatesLayoutIDForEveryResolve(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry()
+	registry.open = func(context.Context, Request) (sharedBackend, error) {
+		return &testSharedBackend{}, nil
+	}
 	t.Cleanup(func() { _ = registry.Close() })
-	request := objectStoreTestRequest(t)
+	request := supportedFlowcraftTestRequest(t)
 
 	first, err := registry.Resolve(t.Context(), request)
 	if err != nil {
@@ -429,153 +427,13 @@ func TestRegistryValidatesLayoutIDForEveryResolve(t *testing.T) {
 	}
 }
 
-func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) {
-	t.Parallel()
-	registry := NewRegistry()
-	t.Cleanup(func() { _ = registry.Close() })
-
-	firstRequest := objectStoreTestRequest(t)
-	firstRequest.WorkspaceID = "workspace-a"
-	first, err := registry.Resolve(t.Context(), firstRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer first.Closer.Close()
-	if _, err := first.Store.Observe(t.Context(), memory.Observation{
-		Text: "Mochi likes salmon.",
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	secondRequest := firstRequest
-	secondRequest.WorkspaceID = "workspace-b"
-	second, err := registry.Resolve(t.Context(), secondRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer second.Closer.Close()
-	if len(registry.entries) != 1 {
-		t.Fatalf("physical backends = %d, want 1", len(registry.entries))
-	}
-	key, err := registryKey(firstRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	shared := registry.entries[key].backend.(*sharedFlowcraftBackend)
-	if shared.temporal == nil || shared.index == nil {
-		t.Fatal("registry entry does not share the canonical backend and retrieval index")
-	}
-	recalled, err := second.Store.Recall(t.Context(), memory.Query{Text: "salmon", Limit: 5})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(recalled.Matches) != 0 {
-		t.Fatalf("workspace-b recalled %d workspace-a facts", len(recalled.Matches))
-	}
-	if _, err := second.Store.Recall(t.Context(), memory.Query{
-		Scope: memory.Scope{AppID: "workspace-a"}, Text: "salmon", Limit: 5,
-	}); err == nil {
-		t.Fatal("Workspace-bound Store accepted a conflicting AppID")
-	}
-}
-
-func TestRegistryPersistsDirectFactsWithExtractionConfigured(t *testing.T) {
-	t.Parallel()
-	registry := NewRegistry()
-	t.Cleanup(func() { _ = registry.Close() })
-	request := objectStoreTestRequest(t)
-	request.Layout.Spec.Flowcraft.Extraction.Model = "extract"
-	request.ModelLoader = registryTestModelLoader{}
-
-	result, err := registry.Resolve(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer result.Closer.Close()
-	const text = "The workspace code is GIZCLAWMEMORY123."
-	if _, err := result.Store.Observe(t.Context(), memory.Observation{
-		Facts: []memory.FactCandidate{{Text: text}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	recalled, err := result.Store.Recall(t.Context(), memory.Query{
-		Text:  "GIZCLAWMEMORY123",
-		Limit: 1,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(recalled.Matches) != 1 || recalled.Matches[0].Fact.Text != text {
-		t.Fatalf("Recall() matches = %#v, want direct fact %q", recalled.Matches, text)
-	}
-}
-
-func TestRegistryRebuildsDerivedIndexWhileOldLogicalStoreIsLive(t *testing.T) {
-	t.Parallel()
-	registry := NewRegistry()
-	t.Cleanup(func() { _ = registry.Close() })
-	request := objectStoreTestRequest(t)
-
-	first, err := registry.Resolve(t.Context(), request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer first.Closer.Close()
-	if _, err := first.Store.Observe(t.Context(), memory.Observation{
-		Text: "Mochi likes salmon.",
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	request.Layout.Spec.Flowcraft.GraphEnabled = new(false)
-	reloaded, err := registry.Resolve(t.Context(), request)
-	if err != nil {
-		t.Fatalf("Resolve(policy reload) error = %v", err)
-	}
-	defer reloaded.Closer.Close()
-	recalled, err := reloaded.Store.Recall(t.Context(), memory.Query{Text: "salmon", Limit: 5})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(recalled.Matches) == 0 {
-		t.Fatal("policy reload lost canonical Workspace facts")
-	}
-	recalled, err = first.Store.Recall(t.Context(), memory.Query{Text: "salmon", Limit: 5})
-	if err != nil {
-		t.Fatalf("old logical Store after index swap: %v", err)
-	}
-	if len(recalled.Matches) == 0 {
-		t.Fatal("old logical Store did not adopt the atomically rebuilt index")
-	}
-}
-
-type registryTestModelLoader struct{}
-
-func (registryTestModelLoader) LoadLLM(context.Context, string) (llm.LLM, error) {
-	return registryTestLLM{}, nil
-}
-
-func (registryTestModelLoader) LoadEmbedder(context.Context, string) (embedding.Embedder, error) {
-	return nil, errors.New("unexpected embedder load")
-}
-
-type registryTestLLM struct{}
-
-func (registryTestLLM) Generate(context.Context, []llm.Message, ...llm.GenerateOption) (llm.Message, llm.TokenUsage, error) {
-	return llm.NewTextMessage(llm.RoleAssistant, `{"facts":[]}`), llm.TokenUsage{}, nil
-}
-
-func (registryTestLLM) GenerateStream(context.Context, []llm.Message, ...llm.GenerateOption) (llm.StreamMessage, error) {
-	return nil, errors.New("unexpected streaming extraction")
-}
-
-func objectStoreTestRequest(t testing.TB) Request {
+func supportedFlowcraftTestRequest(t testing.TB) Request {
 	t.Helper()
 	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(
-		apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
-			Type:      apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
-			Directory: t.TempDir(),
+	if err := connection.FromRuntimeProfileFlowcraftRedis8Connection(
+		apitypes.RuntimeProfileFlowcraftRedis8Connection{
+			Type: apitypes.RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8,
+			Url:  "redis://redis.example:6379/0",
 		},
 	); err != nil {
 		t.Fatal(err)
@@ -597,3 +455,34 @@ func objectStoreTestRequest(t testing.TB) Request {
 		},
 	}
 }
+
+type testSharedBackend struct{ marker byte }
+
+func (*testSharedBackend) NewStore(context.Context, Request) (Result, io.Closer, error) {
+	return Result{
+		Store:  &testMemoryStore{},
+		Driver: string(apitypes.RuntimeProfileMemoryDriverFlowcraft),
+	}, testLogicalCloser{}, nil
+}
+
+func (*testSharedBackend) Close() error { return nil }
+
+type testLogicalCloser struct{}
+
+func (testLogicalCloser) Close() error { return nil }
+
+type testMemoryStore struct{}
+
+func (*testMemoryStore) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
+	return memory.ObserveResult{}, nil
+}
+
+func (*testMemoryStore) Recall(context.Context, memory.Query) (memory.RecallResult, error) {
+	return memory.RecallResult{}, nil
+}
+
+func (*testMemoryStore) Update(_ context.Context, request memory.UpdateRequest) (memory.Fact, error) {
+	return memory.Fact{ID: request.ID}, nil
+}
+
+func (*testMemoryStore) Delete(context.Context, memory.DeleteRequest) error { return nil }
