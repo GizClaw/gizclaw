@@ -1,6 +1,6 @@
 {
   "name": "@gizclaw/gizclaw",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
@@ -57,14 +57,14 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.14.0",
-    "@noble/ciphers": "^2.3.0",
-    "@noble/curves": "^2.3.0",
-    "@noble/hashes": "^2.3.0"
+    "@noble/ciphers": "^2.4.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.14.0",
     "@roamhq/wrtc": "^0.10.0",
-    "@types/node": "26.2.0",
+    "@types/node": "26.4.0",
     "typescript": "6.0.3"
   }
 }
