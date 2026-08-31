@@ -64,7 +64,7 @@
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.14.0",
     "@roamhq/wrtc": "^0.10.0",
-    "@types/node": "26.2.0",
+    "@types/node": "26.4.0",
     "typescript": "6.0.3"
   }
 }
