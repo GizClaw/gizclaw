@@ -165,17 +165,34 @@ func (store *SQLStore) checkPostgresPartitionSchema(ctx context.Context) error {
 	return nil
 }
 
-func (store *SQLStore) maintainPostgresPartitions(ctx context.Context, expiresAt time.Time) error {
+func (store *SQLStore) maintainPostgresPartitions(ctx context.Context) error {
 	tx, err := store.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return storage.ExternalSQLError("logstore: begin postgres partition maintenance", err)
 	}
 	defer tx.Rollback()
+	if err := store.lockPostgresPartitionMaintenance(ctx, tx); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if err := store.maintainPostgresPartitionsLocked(ctx, tx, now, now.Add(store.ttl)); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return storage.ExternalSQLError("logstore: commit postgres partition maintenance", err)
+	}
+	return nil
+}
+
+func (store *SQLStore) lockPostgresPartitionMaintenance(ctx context.Context, tx *sqlx.Tx) error {
 	var lockResult any
 	if err := tx.QueryRowContext(ctx, "SELECT pg_advisory_xact_lock(hashtext(current_schema()::text), hashtext($1))", store.table.Name()).Scan(&lockResult); err != nil {
 		return storage.ExternalSQLError("logstore: lock postgres partition maintenance", err)
 	}
-	now := time.Now().UTC()
+	return nil
+}
+
+func (store *SQLStore) maintainPostgresPartitionsLocked(ctx context.Context, tx *sqlx.Tx, now, expiresAt time.Time) error {
 	partitions, err := store.postgresPartitions(ctx, tx)
 	if err != nil {
 		return err
@@ -208,9 +225,6 @@ func (store *SQLStore) maintainPostgresPartitions(ctx context.Context, expiresAt
 		if err := store.ensurePostgresPartition(ctx, tx, required); err != nil {
 			return err
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		return storage.ExternalSQLError("logstore: commit postgres partition maintenance", err)
 	}
 	return nil
 }

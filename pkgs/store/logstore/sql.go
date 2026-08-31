@@ -77,8 +77,7 @@ func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string, ttl time.
 		return nil, err
 	}
 	if partitioned {
-		expiresAt := time.Now().UTC().Add(ttl)
-		if err := store.maintainPostgresPartitions(ctx, expiresAt); err != nil {
+		if err := store.maintainPostgresPartitions(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -183,23 +182,28 @@ func (store *SQLStore) Append(ctx context.Context, records []Record) ([]RecordKe
 		}
 		prepared = append(prepared, preparedRecord{record: cloneRecord(record), attributes: string(encoded)})
 	}
-	now := time.Now().UTC()
-	var expiresAt any
-	var expiresAtTime time.Time
-	if store.ttl > 0 {
-		expiresAtTime = now.Add(store.ttl)
-		expiresAt = expiresAtTime.UnixNano()
-	}
-	if store.partitioned {
-		if err := store.maintainPostgresPartitions(ctx, expiresAtTime); err != nil {
-			return nil, err
-		}
-	}
-	tx, err := store.beginWrite(ctx)
+	tx, err := store.beginTransaction(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
+	if store.partitioned {
+		if err := store.lockPostgresPartitionMaintenance(ctx, tx); err != nil {
+			return nil, err
+		}
+		maintenanceTime := time.Now().UTC()
+		if err := store.maintainPostgresPartitionsLocked(ctx, tx, maintenanceTime, maintenanceTime.Add(store.ttl)); err != nil {
+			return nil, err
+		}
+	}
+	if err := store.lockPostgresWriteTable(ctx, tx); err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	var expiresAt any
+	if store.ttl > 0 {
+		expiresAt = now.Add(store.ttl).UnixNano()
+	}
 	if store.ttl > 0 && !store.partitioned {
 		cleanup := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE expires_at_unix_nano IS NOT NULL AND expires_at_unix_nano <= ?")
 		if _, err := tx.ExecContext(ctx, cleanup, now.UnixNano()); err != nil {
@@ -477,6 +481,18 @@ func (store *SQLStore) Close() error {
 }
 
 func (store *SQLStore) beginWrite(ctx context.Context) (*sqlx.Tx, error) {
+	tx, err := store.beginTransaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := store.lockPostgresWriteTable(ctx, tx); err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+	return tx, nil
+}
+
+func (store *SQLStore) beginTransaction(ctx context.Context) (*sqlx.Tx, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -484,13 +500,16 @@ func (store *SQLStore) beginWrite(ctx context.Context) (*sqlx.Tx, error) {
 	if err != nil {
 		return nil, storage.ExternalSQLError("logstore: begin sql transaction", err)
 	}
+	return tx, nil
+}
+
+func (store *SQLStore) lockPostgresWriteTable(ctx context.Context, tx *sqlx.Tx) error {
 	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
 		if _, err := tx.ExecContext(ctx, "LOCK TABLE "+store.quoted+" IN SHARE ROW EXCLUSIVE MODE"); err != nil {
-			_ = tx.Rollback()
-			return nil, storage.ExternalSQLError("logstore: lock sql table", err)
+			return storage.ExternalSQLError("logstore: lock sql table", err)
 		}
 	}
-	return tx, nil
+	return nil
 }
 
 func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, nowUnixNano int64) (string, []any, error) {

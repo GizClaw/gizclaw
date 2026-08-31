@@ -455,6 +455,91 @@ func TestPostgreSQLLogTTLUsesDailyPartitions(t *testing.T) {
 	}
 }
 
+func TestPostgreSQLLogTTLStartsAfterPartitionMaintenance(t *testing.T) {
+	db := openPostgreSQL(t)
+	table := uniqueTable("logs_ttl_lock")
+	keysTable := table + "_keys"
+	cleanupPostgreSQLTables(t, db, table, keysTable)
+	const ttl = 30 * 24 * time.Hour
+	store, err := logstore.NewSQLStoreWithDBAndTTL(db, table, ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	lockTx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockTx.Rollback()
+	var lockResult any
+	if err := lockTx.QueryRow(
+		"SELECT pg_advisory_xact_lock(hashtext(current_schema()::text), hashtext($1))",
+		table,
+	).Scan(&lockResult); err != nil {
+		t.Fatal(err)
+	}
+
+	record := logstore.Record{
+		ID: "delayed", Stream: "history", Kind: "message",
+		Time: time.UnixMilli(1000).UTC(),
+	}
+	appendResult := make(chan error, 1)
+	go func() {
+		_, err := store.Append(context.Background(), []logstore.Record{record})
+		appendResult <- err
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var waiting int
+		if err := db.Get(&waiting, `
+			SELECT COUNT(*)
+			FROM pg_stat_activity
+			WHERE datname = current_database()
+			  AND wait_event_type = 'Lock'
+			  AND lower(wait_event) = 'advisory'
+			  AND query LIKE '%pg_advisory_xact_lock%'`); err != nil {
+			t.Fatal(err)
+		}
+		if waiting > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Append did not wait for PostgreSQL partition maintenance lock")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	maintenanceReleased := time.Now().UTC()
+	if err := lockTx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-appendResult:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Append did not complete after PostgreSQL partition maintenance lock release")
+	}
+	var expiresAt int64
+	if err := db.Get(
+		&expiresAt,
+		`SELECT expires_at_unix_nano FROM "`+table+`" WHERE stream = $1 AND id = $2`,
+		record.Stream,
+		record.ID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if expiresAt < maintenanceReleased.Add(ttl).UnixNano() {
+		t.Fatalf(
+			"expires_at_unix_nano = %d, want at least lock release plus TTL %d",
+			expiresAt,
+			maintenanceReleased.Add(ttl).UnixNano(),
+		)
+	}
+}
+
 func openPostgreSQL(t *testing.T) *sqlx.DB {
 	t.Helper()
 	db, err := sqlx.Open("postgres", requiredEnvironment(t, "GIZCLAW_TEST_POSTGRES_DSN"))
