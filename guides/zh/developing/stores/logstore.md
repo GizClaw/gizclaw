@@ -74,7 +74,9 @@ Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timest
 
 ### SQLite / PostgreSQL
 
-每个逻辑 Store 必须声明独立 `table`。关系表用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Get 按 `(stream, id)` 精确读取；Replace 不是 upsert，不能改变 time；Get 与 Delete 对缺失 key 返回 `ErrNotFound`。配置 `ttl` 后，driver 会设置 `expires_at_unix_nano`，从 Get 与 Query 过滤过期 record，并在后续 append 时清理过期物理 row；Replace 不延长 retention。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。Workspace History 需要 `MutableRecordStore`，把文本和结构化 metadata 保存在 LogStore，ObjectStore 只保存 record 引用的二进制 asset。
+每个逻辑 Store 必须声明独立 `table`。关系 Store 用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Get 按 `(stream, id)` 精确读取；Replace 不是 upsert，不能改变 time；Get 与 Delete 对缺失 key 返回 `ErrNotFound`；Replace 不延长 retention。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。Workspace History 需要 `MutableRecordStore`，把文本和结构化 metadata 保存在 LogStore，ObjectStore 只保存 record 引用的二进制 asset。
+
+配置 `ttl` 后，两种 driver 都按 backend 实际写入时间设置 `expires_at_unix_nano`，并从 Get 与 Query 过滤过期 record。SQLite 在后续 append 时清理过期物理 row。PostgreSQL 把配置的 `table` 创建为按 `expires_at_unix_nano` range partition 的父表，调用方始终查询该父表；driver 会在初始化和 append 时自动创建所需的 UTC 日分区及下一日分区，并在同一维护点删除已完全过期的日分区。配套的 `<table>_keys` 表维持跨所有日分区的 `(stream, id)` 唯一性。分区与 key 表生命周期完全自动，调用方不选择子表。
 
 ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 normalized selector、text、millisecond-aligned `[Start, End)` 和 order，允许 continuation 修改 limit，并保持 16 KiB bound。相同 records 可以跨三种 SQL driver continuation。SQLite/PostgreSQL 的 text matching 保持 case-sensitive literal，attribute matcher 在 validated flat map 上执行；逻辑 Store 不关闭共享 pool。
 

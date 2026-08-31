@@ -175,3 +175,15 @@ func TestQuoteClickHouseIdentifier(t *testing.T) {
 		t.Fatalf("quoteClickHouseIdentifier() = %q", got)
 	}
 }
+
+func TestClickHouseExpirationTTLRequiresDeleteAction(t *testing.T) {
+	if !hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at DELETE") {
+		t.Fatal("DELETE expiration TTL was rejected")
+	}
+	if hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at TO VOLUME 'cold'") {
+		t.Fatal("non-deleting TTL was accepted")
+	}
+	if hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL other_deadline DELETE") {
+		t.Fatal("TTL on another column was accepted")
+	}
+}

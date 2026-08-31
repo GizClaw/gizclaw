@@ -205,11 +205,15 @@ func (store *ClickHouseStore) checkSchema(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("logstore: inspect clickhouse table TTL: %w", err)
 	}
-	normalizedDDL := strings.ToLower(strings.Join(strings.Fields(createTableQuery), " "))
-	if !strings.Contains(normalizedDDL, "ttl expires_at") {
-		return errors.New("logstore: incompatible clickhouse table: TTL expires_at is required")
+	if !hasClickHouseExpirationTTL(createTableQuery) {
+		return errors.New("logstore: incompatible clickhouse table: TTL expires_at DELETE is required")
 	}
 	return nil
+}
+
+func hasClickHouseExpirationTTL(createTableQuery string) bool {
+	normalizedDDL := strings.ToLower(strings.Join(strings.Fields(createTableQuery), " "))
+	return strings.Contains(normalizedDDL, "ttl expires_at delete")
 }
 
 // Append writes a validated batch and returns the accepted keys in input order.

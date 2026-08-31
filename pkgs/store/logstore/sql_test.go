@@ -118,16 +118,18 @@ func TestSQLLogTTLIsEnforcedByStore(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	ctx := context.Background()
-	record := Record{ID: "expired", Time: time.Now().UTC().Truncate(time.Millisecond), Stream: "history", Kind: "message"}
+	record := Record{ID: "expired", Time: time.UnixMilli(1000).UTC(), Stream: "history", Kind: "message"}
+	beforeAppend := time.Now().UTC()
 	if _, err := store.Append(ctx, []Record{record}); err != nil {
 		t.Fatal(err)
 	}
+	afterAppend := time.Now().UTC()
 	var expiresAt int64
 	if err := db.Get(&expiresAt, "SELECT expires_at_unix_nano FROM log_records WHERE stream = ? AND id = ?", record.Stream, record.ID); err != nil {
 		t.Fatal(err)
 	}
-	if expiresAt <= time.Now().UnixNano() {
-		t.Fatalf("expires_at_unix_nano = %d, want future deadline", expiresAt)
+	if expiresAt < beforeAppend.Add(90*24*time.Hour).UnixNano() || expiresAt > afterAppend.Add(90*24*time.Hour).UnixNano() {
+		t.Fatalf("expires_at_unix_nano = %d, want write-time TTL in [%d, %d]", expiresAt, beforeAppend.Add(90*24*time.Hour).UnixNano(), afterAppend.Add(90*24*time.Hour).UnixNano())
 	}
 	if _, err := db.Exec("UPDATE log_records SET expires_at_unix_nano = ? WHERE stream = ? AND id = ?", time.Now().Add(-time.Second).UnixNano(), record.Stream, record.ID); err != nil {
 		t.Fatal(err)
@@ -146,6 +148,43 @@ func TestSQLLogTTLIsEnforcedByStore(t *testing.T) {
 	var count int
 	if err := db.Get(&count, "SELECT COUNT(*) FROM log_records WHERE id = ?", record.ID); err != nil || count != 0 {
 		t.Fatalf("expired physical row count = %d, %v, want 0 after append cleanup", count, err)
+	}
+}
+
+func TestPostgresAuxiliaryNamesAndPartitionBounds(t *testing.T) {
+	short, err := postgresAuxiliaryName("workspace_history", "p20260901")
+	if err != nil || short != "workspace_history_p20260901" {
+		t.Fatalf("postgresAuxiliaryName(short) = %q, %v", short, err)
+	}
+	longBase := strings.Repeat("a", 63)
+	first, err := postgresAuxiliaryName(longBase, "p20260901")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := postgresAuxiliaryName(longBase, "p20260902")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first) > 63 || len(second) > 63 || first == second {
+		t.Fatalf("long auxiliary names = %q and %q", first, second)
+	}
+
+	db := sqlx.MustOpen("sqlite", ":memory:")
+	t.Cleanup(func() { _ = db.Close() })
+	table, err := storage.PrepareSQLTable(db, "log", "workspace_history")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &SQLStore{table: table}
+	partition, err := store.postgresPartition(time.Date(2026, 9, 1, 23, 0, 0, 0, time.FixedZone("test", 8*60*60)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if partition.name != "workspace_history_p20260901" || !partition.day.Equal(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("partition = %+v", partition)
+	}
+	if partition.upper-partition.lower != int64(24*time.Hour) {
+		t.Fatalf("partition width = %d, want %d", partition.upper-partition.lower, 24*time.Hour)
 	}
 }
 

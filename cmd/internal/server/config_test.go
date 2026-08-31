@@ -753,7 +753,7 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 
 	mismatchedWorkspaceHistoryTTL := validLayeredConfig(dir)
 	historyAssets := mismatchedWorkspaceHistoryTTL.Stores["workspace-history-assets"]
-	historyAssets.TTL = 30 * 24 * time.Hour
+	historyAssets.TTL = 31 * 24 * time.Hour
 	mismatchedWorkspaceHistoryTTL.Stores["workspace-history-assets"] = historyAssets
 	if _, err := New(mismatchedWorkspaceHistoryTTL); err == nil || !strings.Contains(err.Error(), "history Store TTLs must be equal and positive") {
 		t.Fatalf("New(mismatched workspace history TTL) error = %v", err)
@@ -1444,8 +1444,8 @@ func validLayeredConfig(dir string) Config {
 			"gameplay":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "gameplay"},
 			"gameplay-assets":          {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
 			"workspace-assets":         {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
-			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "gameplay-db", Table: "workspace_history", TTL: 90 * 24 * time.Hour},
-			"workspace-history-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspace-history", TTL: 90 * 24 * time.Hour},
+			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "gameplay-db", Table: "workspace_history", TTL: 30 * 24 * time.Hour},
+			"workspace-history-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspace-history", TTL: 30 * 24 * time.Hour},
 			"gameplay-db":              {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
 		Services: validServicesConfig(),
