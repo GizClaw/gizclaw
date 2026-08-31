@@ -43,7 +43,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openai/openai-go v1.12.0
 	github.com/pion/datachannel v1.6.2
-	github.com/pion/ice/v4 v4.4.0
+	github.com/pion/ice/v4 v4.4.1
 	github.com/pion/logging v0.2.4
 	github.com/pion/rtp v1.10.5
 	github.com/pion/sdp/v3 v3.0.19
