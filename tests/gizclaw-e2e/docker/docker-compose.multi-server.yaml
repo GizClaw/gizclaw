@@ -1,0 +1,121 @@
+x-server-health: &server-health
+  test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9820/server-info"]
+  interval: 2s
+  timeout: 2s
+  retries: 90
+  start_period: 10s
+
+x-edge-health: &edge-health
+  test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9821/server-info"]
+  interval: 2s
+  timeout: 2s
+  retries: 90
+  start_period: 10s
+
+x-server: &server
+  build:
+    context: ../../..
+    dockerfile: tests/gizclaw-e2e/docker/Dockerfile.multi-server
+    args:
+      BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+  entrypoint: ["/src/tests/gizclaw-e2e/docker/entrypoint-multi-server.sh"]
+  depends_on:
+    redis:
+      condition: service_healthy
+  environment: &server-environment
+    GIZCLAW_E2E_REDIS_DSN: redis://redis:6379/0
+    GIZCLAW_E2E_ADMIN_PUBLIC_KEY: 9sie57gGyik7yWDwWQMCYPGyCLDr9FX7MvJkkZjtriJD
+
+x-edge: &edge
+  build:
+    context: ../../..
+    dockerfile: tests/gizclaw-e2e/docker/Dockerfile.multi-server
+    args:
+      BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+  entrypoint: ["/src/tests/gizclaw-e2e/docker/entrypoint-multi-edge.sh"]
+  depends_on:
+    server-a:
+      condition: service_healthy
+    server-b:
+      condition: service_healthy
+
+services:
+  redis:
+    image: redis:7.0-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 1s
+      retries: 60
+
+  server-a:
+    <<: *server
+    environment:
+      <<: *server-environment
+      GIZCLAW_E2E_SERVER_PRIVATE_KEY: 287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu
+      GIZCLAW_E2E_SERVER_ENDPOINT: server-a:9820
+    volumes:
+      - server-a-state:/var/lib/gizclaw
+    healthcheck: *server-health
+
+  server-b:
+    <<: *server
+    environment:
+      <<: *server-environment
+      GIZCLAW_E2E_SERVER_PRIVATE_KEY: Get8yS32Es6muYoEbUgCQt15wF1Hcyc5sLRn7egBKCD1
+      GIZCLAW_E2E_SERVER_ENDPOINT: server-b:9820
+    volumes:
+      - server-b-state:/var/lib/gizclaw
+    healthcheck: *server-health
+
+  edge-a:
+    <<: *edge
+    environment:
+      GIZCLAW_E2E_EDGE_PRIVATE_KEY: 65kcbmbz2Eo2SgSA2Q3QqBoLhyLvYyMuZ7gfTSKaTvpR
+      GIZCLAW_E2E_EDGE_ENDPOINT: edge-a:9821
+      GIZCLAW_E2E_UPSTREAM_A_ENDPOINT: http://server-a:9820
+      GIZCLAW_E2E_UPSTREAM_A_PUBLIC_KEY: BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T
+      GIZCLAW_E2E_UPSTREAM_B_ENDPOINT: http://server-b:9820
+      GIZCLAW_E2E_UPSTREAM_B_PUBLIC_KEY: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
+    healthcheck: *edge-health
+
+  edge-b:
+    <<: *edge
+    environment:
+      GIZCLAW_E2E_EDGE_PRIVATE_KEY: BHu9b5qgfhTtpzKKLCjRWPerv6rtvDowad4AftyFTY6o
+      GIZCLAW_E2E_EDGE_ENDPOINT: edge-b:9821
+      GIZCLAW_E2E_UPSTREAM_A_ENDPOINT: http://server-b:9820
+      GIZCLAW_E2E_UPSTREAM_A_PUBLIC_KEY: 6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee
+      GIZCLAW_E2E_UPSTREAM_B_ENDPOINT: http://server-a:9820
+      GIZCLAW_E2E_UPSTREAM_B_PUBLIC_KEY: BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T
+    healthcheck: *edge-health
+
+  tests:
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.multi-server
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    entrypoint: ["/usr/local/bin/multiserver-e2e", "-test.v"]
+    environment:
+      GIZCLAW_E2E_SERVER_A: server-a:9820
+      GIZCLAW_E2E_SERVER_B: server-b:9820
+      GIZCLAW_E2E_EDGE_A: edge-a:9821
+      GIZCLAW_E2E_EDGE_B: edge-b:9821
+      GIZCLAW_E2E_REDIS_DSN: redis://redis:6379/0
+      GIZCLAW_E2E_SERVER_A_STATE: /server-a-state/data/gameplay.sqlite
+      GIZCLAW_E2E_SERVER_B_STATE: /server-b-state/data/gameplay.sqlite
+      GIZCLAW_E2E_ADMIN_PRIVATE_KEY: BJ4LoLyU7mbs1e56jahtyJEJHyh3DEWHXsBZr98SyQyf
+    volumes:
+      - server-a-state:/server-a-state:ro
+      - server-b-state:/server-b-state:ro
+    depends_on:
+      edge-a:
+        condition: service_healthy
+      edge-b:
+        condition: service_healthy
+
+volumes:
+  server-a-state:
+  server-b-state:

@@ -45,4 +45,4 @@ SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；
 
 同一物理 connector 上的 Redis keyvalue Store 必须使用非空、规范且两两不重叠的 prefix。Adapter 会先排序 SCAN 结果再向上层返回，使用绝对 deadline，并在单个 Redis 节点上原子实现 batch、conditional create 与 compare-and-mutate；零 deadline 会移除已有 expiration。由于 Store contract 要求任意 key 原子性，不支持 Redis Cluster 或多 endpoint 分片。
 
-Peer route 与 run state 使用代码内置 prefix，不再由 operator 分别绑定 Store。
+Peer record 与 route 共用 `services.peer.store` 指定的 Store。高频更新的 PeerRun 状态使用单独必填的 `services.peer_run.store`；多 Server 部署必须让该 Store 持久化并保持在各 Server 本地，不能通过 Redis 共享。

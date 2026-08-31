@@ -47,6 +47,12 @@ model 和 history 之前检查权威 relationship；非法 turn 不持久化，�
 `stream_id` 的 typed EOS error。Workspace listing、普通 Get/history 和新的显式
 选择继续按 relationship 与 PendingDeletion 拒绝访问。
 
+## 多 Server 边界
+
+Friend 与 Friend Group relationship Store 可以通过 Redis 共享，因此 invite token 能被所有 Server 发现；Workspace execution 仍只在一台 Server 本地发生。创建与成员变更路径会在解析 RuntimeProfile 或写入 intent、Workspace、binding、relationship、membership、event、invite mutation 之前，把相关 Peer 的固定 assignment 与当前 Server identity 比较。
+
+跨两个 Server owner 的 Friend 创建返回 `409 Conflict` 和 `cross-server friend creation is not supported`。会引入 foreign-home owner/member 的 Friend Group create、join 或 member mutation 返回 `409 Conflict` 和 `cross-server friend group membership is not supported`。拒绝不会消费 invite token，也不会留下部分状态。这个行为明确标记当前尚无 Workspace routing 的边界，不会把操作协调到另一台 Server。
+
 ## 依赖与边界
 
 ```mermaid

@@ -66,6 +66,11 @@ func TestServerListenRequiresPeerStore(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "nil peer store") {
 		t.Fatalf("Listen error = %v, want nil peer store", err)
 	}
+	server.PeerStore = kv.NewMemory(nil)
+	err = server.Listen()
+	if err == nil || !strings.Contains(err.Error(), "nil peer run store") {
+		t.Fatalf("Listen error = %v, want nil peer run store", err)
+	}
 }
 
 func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
@@ -602,9 +607,23 @@ func TestServerInitConfiguresPeerRunService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
+	peerRunRoot := kv.NewMemory(nil)
+	battery := 73
+	existingStatus, err := json.Marshal(apitypes.PeerStatus{BatteryPercent: &battery})
+	if err != nil {
+		t.Fatalf("json.Marshal existing PeerRun status: %v", err)
+	}
+	if err := kv.Prefixed(peerRunRoot, kv.Key{"runs"}).Set(
+		t.Context(),
+		kv.Key{"by-peer", keyPair.Public.String(), "status"},
+		existingStatus,
+	); err != nil {
+		t.Fatalf("write existing PeerRun status: %v", err)
+	}
 	server := &Server{
-		LocalStatic: *keyPair,
-		PeerStore:   mustBadgerInMemory(t, nil),
+		LocalStatic:  *keyPair,
+		PeerStore:    mustBadgerInMemory(t, nil),
+		PeerRunStore: peerRunRoot,
 	}
 	completeTestServer(t, server)
 	if err := server.init(); err != nil {
@@ -612,6 +631,10 @@ func TestServerInitConfiguresPeerRunService(t *testing.T) {
 	}
 	if server.manager == nil || server.manager.PeerRun == nil || server.manager.AgentHost == nil || server.manager.Voices == nil || server.manager.ProviderTenants == nil {
 		t.Fatalf("manager peer run runtime services not configured: %+v", server.manager)
+	}
+	status, err := server.manager.PeerRun.GetStatus(t.Context(), keyPair.Public)
+	if err != nil || status.BatteryPercent == nil || *status.BatteryPercent != battery {
+		t.Fatalf("existing runs/ status = %+v, %v; want battery %d", status, err, battery)
 	}
 	conn := &PeerConn{Service: server.peerService}
 	conn.initRPC()

@@ -17,16 +17,13 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
-	store "github.com/GizClaw/gizclaw-go/pkgs/store"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/pion/turn/v4"
 )
 
-func TestPrepareWorkspaceConfigLoadsStaticUpstream(t *testing.T) {
+func TestPrepareWorkspaceConfigLoadsOneUpstream(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x11)
 	upstreamKey := testKeyPair(t, 0x22)
 	dir := t.TempDir()
@@ -35,9 +32,9 @@ identity:
   private-key: `+edgeKey.Private.String()+`
 listen: 127.0.0.1:9821
 endpoint: edge.example.com:9821
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
 tls:
   cert-source: disabled
 metrics:
@@ -59,11 +56,11 @@ metrics:
 	if cfg.Endpoint != "edge.example.com:9821" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
-	if cfg.Upstream.Endpoint != "server-a.example.com:9820" {
-		t.Fatalf("Upstream.Endpoint = %q", cfg.Upstream.Endpoint)
+	if len(cfg.Upstreams) != 1 || cfg.Upstreams[0].Endpoint != "server-a.example.com:9820" {
+		t.Fatalf("Upstreams = %+v", cfg.Upstreams)
 	}
-	if !cfg.Upstream.PublicKey.Equal(upstreamKey.Public) {
-		t.Fatalf("Upstream.PublicKey = %v, want %v", cfg.Upstream.PublicKey, upstreamKey.Public)
+	if !cfg.Upstreams[0].PublicKey.Equal(upstreamKey.Public) {
+		t.Fatalf("Upstreams[0].PublicKey = %v, want %v", cfg.Upstreams[0].PublicKey, upstreamKey.Public)
 	}
 	if cfg.TLS.CertSource != TLSCertSourceDisabled {
 		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
@@ -74,115 +71,102 @@ metrics:
 	}
 }
 
-func TestPrepareWorkspaceConfigLoadsSystemLogStore(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x19)
-	upstreamKey := testKeyPair(t, 0x20)
-	t.Setenv("EDGE_LOG_ENDPOINT", "https://tls.example.test")
-	t.Setenv("EDGE_LOG_REGION", "test-region")
-	t.Setenv("EDGE_LOG_ACCESS_KEY_ID", "test-access-key")
-	t.Setenv("EDGE_LOG_ACCESS_KEY_SECRET", "test-access-secret")
-	t.Setenv("EDGE_LOG_TOPIC_ID", "test-topic")
-	t.Setenv("EDGE_LOG_NODE_ID", "edge-a")
+func TestPrepareWorkspaceConfigLoadsOrderedPluralUpstreams(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x12)
+	first := testKeyPair(t, 0x13)
+	second := testKeyPair(t, 0x14)
 	dir := t.TempDir()
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
-storage:
-  volc-logs:
-    kind: volc-tls
-    endpoint: ${EDGE_LOG_ENDPOINT}
-    region: ${EDGE_LOG_REGION}
-    access_key_id: ${EDGE_LOG_ACCESS_KEY_ID}
-    access_key_secret: ${EDGE_LOG_ACCESS_KEY_SECRET}
-stores:
-  logs:
-    kind: log.immutable
-    storage: volc-logs
-    topic_id: ${EDGE_LOG_TOPIC_ID}
-system-log:
-  level: info
-  node_id: ${EDGE_LOG_NODE_ID}
-  sinks:
-    - kind: stderr
-    - kind: store
-      store: logs
+listen: 127.0.0.1:9821
+endpoint: 127.0.0.1:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+first.Public.String()+`
+  - endpoint: server-b.example.com:9820
+    public-key: `+second.Public.String()+`
+    ice-transport-policy: relay
+    ice-servers:
+      - urls: [turn:192.0.2.10:3478?transport=udp]
+        username: user
+        credential: secret
+      - urls: [turn:192.0.2.11:3478?transport=udp]
+        username: user
+        credential: secret
+tls:
+  cert-source: disabled
 `)
-
 	cfg, err := PrepareWorkspaceConfig(dir)
 	if err != nil {
-		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
+		t.Fatal(err)
 	}
-	physical, ok := cfg.Storage["volc-logs"].(storage.VolcTLSConfig)
-	if !ok {
-		t.Fatalf("Storage[volc-logs] = %#v", cfg.Storage["volc-logs"])
+	if len(cfg.Upstreams) != 2 || !cfg.Upstreams[0].PublicKey.Equal(first.Public) || !cfg.Upstreams[1].PublicKey.Equal(second.Public) {
+		t.Fatalf("ordered upstreams = %+v", cfg.Upstreams)
 	}
-	if physical.Endpoint != "https://tls.example.test" || physical.Region != "test-region" ||
-		physical.AccessKeyID != "test-access-key" || physical.AccessKeySecret != "test-access-secret" {
-		t.Fatalf("Storage[volc-logs] = %#v", physical)
-	}
-	logical := cfg.Stores["logs"]
-	if logical.Kind != store.KindLogImmutable || logical.Storage != "volc-logs" || logical.TopicID != "test-topic" {
-		t.Fatalf("Stores[logs] = %#v", logical)
-	}
-	if cfg.SystemLog.Level != "info" || cfg.SystemLog.NodeID != "edge-a" || len(cfg.SystemLog.Sinks) != 2 ||
-		cfg.SystemLog.Sinks[0].Kind != gizlog.SinkStderr || cfg.SystemLog.Sinks[1].Store != "logs" {
-		t.Fatalf("SystemLog = %#v", cfg.SystemLog)
+	if cfg.Upstreams[0].ICETransportPolicy != "" || cfg.Upstreams[1].ICETransportPolicy != "relay" || len(cfg.Upstreams[1].ICEServers) != 2 {
+		t.Fatalf("per-Server ICE configuration leaked or was lost: %+v", cfg.Upstreams)
 	}
 }
 
-func TestPrepareWorkspaceConfigDefaultsSystemLogToStderr(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x21)
-	upstreamKey := testKeyPair(t, 0x22)
-	dir := t.TempDir()
-	writeConfig(t, dir, `
-identity:
-  private-key: `+edgeKey.Private.String()+`
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
-`)
-
-	cfg, err := PrepareWorkspaceConfig(dir)
-	if err != nil {
-		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
+func TestConfigRejectsInvalidPluralUpstreams(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x15)
+	first := testKeyPair(t, 0x16)
+	second := testKeyPair(t, 0x17)
+	base := Config{
+		KeyPair: edgeKey, Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821",
+		Gateway: defaultGatewayConfig(),
+		Upstreams: []UpstreamConfig{
+			{Endpoint: "server-a.example.com:9820", PublicKey: first.Public},
+			{Endpoint: "server-b.example.com:9820", PublicKey: second.Public},
+		},
 	}
-	if cfg.SystemLog.Level != "info" || len(cfg.SystemLog.Sinks) != 1 || cfg.SystemLog.Sinks[0].Kind != gizlog.SinkStderr {
-		t.Fatalf("SystemLog = %#v, want info stderr", cfg.SystemLog)
-	}
-}
-
-func TestPrepareWorkspaceConfigRejectsInvalidSystemLogTopology(t *testing.T) {
-	edgeKey := testKeyPair(t, 0x23)
-	upstreamKey := testKeyPair(t, 0x24)
-	prefix := `
-identity:
-  private-key: ` + edgeKey.Private.String() + `
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: ` + upstreamKey.Public.String() + "\n"
-	for _, tc := range []struct {
+	for _, test := range []struct {
 		name string
-		body string
+		edit func(*Config)
 		want string
 	}{
-		{name: "storage kind", body: "storage:\n  logs:\n    kind: memory\n", want: "storage.logs: only volc-tls is supported"},
-		{name: "mutable log", body: "stores:\n  logs:\n    kind: log.mutable\n    storage: volc-logs\n", want: "stores.logs: only log.immutable is supported"},
-		{name: "missing physical", body: "stores:\n  logs:\n    kind: log.immutable\n    storage: volc-logs\n", want: "references missing storage.volc-logs"},
-		{name: "missing sink", body: "system-log:\n  sinks:\n    - kind: store\n      store: logs\n", want: "store \"logs\" is not configured"},
-		{name: "query store", body: "system-log:\n  query_store: logs\n  sinks:\n    - kind: store\n      store: logs\n", want: "system-log.query_store is not supported"},
-		{name: "level", body: "system-log:\n  level: verbose\n", want: "system-log.level"},
+		{name: "duplicate identity", edit: func(cfg *Config) { cfg.Upstreams[1].PublicKey = first.Public }, want: "public-key duplicates"},
+		{name: "duplicate endpoint", edit: func(cfg *Config) { cfg.Upstreams[1].Endpoint = cfg.Upstreams[0].Endpoint }, want: "endpoint duplicates"},
+		{name: "missing identity", edit: func(cfg *Config) { cfg.Upstreams[1].PublicKey = giznet.PublicKey{} }, want: "missing upstreams[1].public-key"},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
-			writeConfig(t, dir, prefix+tc.body)
-			_, err := PrepareWorkspaceConfig(dir)
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("PrepareWorkspaceConfig error = %v, want %q", err, tc.want)
+		t.Run(test.name, func(t *testing.T) {
+			cfg := base
+			cfg.Upstreams = append([]UpstreamConfig(nil), base.Upstreams...)
+			test.edit(&cfg)
+			if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("validate() error = %v, want %q", err, test.want)
 			}
 		})
+	}
+	file := ConfigFile{Upstreams: &[]UpstreamConfig{}}
+	if _, err := prepareConfig(Config{}, file); err == nil || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("empty upstreams error = %v", err)
+	}
+}
+
+func TestPrepareWorkspaceConfigIgnoresSingularUpstream(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x18)
+	upstreamKey := testKeyPair(t, 0x19)
+	dir := t.TempDir()
+	writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+upstream:
+  endpoint: ignored.example.com:1
+  public-key: ignored
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
+`)
+
+	cfg, err := PrepareWorkspaceConfig(dir)
+	if err != nil {
+		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
+	}
+	if len(cfg.Upstreams) != 1 || cfg.Upstreams[0].Endpoint != "server-a.example.com:9820" ||
+		!cfg.Upstreams[0].PublicKey.Equal(upstreamKey.Public) {
+		t.Fatalf("Upstreams = %+v, want only the plural configuration", cfg.Upstreams)
 	}
 }
 
@@ -207,9 +191,9 @@ identity:
   private-key: `+edgeKey.Private.String()+`
 listen: `+tc.listen+`
 endpoint: `+tc.endpoint+`
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
 tls:
   cert-source: disabled
 `)
@@ -221,14 +205,23 @@ tls:
 	}
 }
 
-func TestConfigUpstreamURLDefaultsHTTP(t *testing.T) {
-	cfg := Config{Upstream: UpstreamConfig{Endpoint: "server-a.example.com:9822"}}
-	upstreamURL, err := cfg.UpstreamURL()
+func TestConfigBootstrapUpstreamURLDefaultsHTTP(t *testing.T) {
+	cfg := Config{Upstreams: []UpstreamConfig{
+		{Endpoint: "server-a.example.com:9822"},
+		{Endpoint: "server-b.example.com:9822"},
+	}}
+	upstreamURL, err := cfg.BootstrapUpstreamURL()
 	if err != nil {
-		t.Fatalf("UpstreamURL error = %v", err)
+		t.Fatalf("BootstrapUpstreamURL error = %v", err)
 	}
 	if got := upstreamURL.String(); got != "http://server-a.example.com:9822" {
-		t.Fatalf("UpstreamURL = %q", got)
+		t.Fatalf("BootstrapUpstreamURL = %q", got)
+	}
+}
+
+func TestConfigBootstrapUpstreamURLRequiresUpstreams(t *testing.T) {
+	if _, err := (Config{}).BootstrapUpstreamURL(); err == nil || !strings.Contains(err.Error(), "upstreams must not be empty") {
+		t.Fatalf("BootstrapUpstreamURL error = %v", err)
 	}
 }
 
@@ -369,9 +362,9 @@ func TestPrepareWorkspaceConfigDefaultsEndpointAndTLS(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -400,9 +393,9 @@ func TestPrepareWorkspaceConfigRejectsMissingOrInvalidFields(t *testing.T) {
 		{
 			name: "missing identity",
 			body: `
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: ` + upstreamKey.Public.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
 `,
 			want: "identity.private-key",
 		},
@@ -411,29 +404,29 @@ upstream:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
-upstream:
-  public-key: ` + upstreamKey.Public.String() + `
+upstreams:
+  - public-key: ` + upstreamKey.Public.String() + `
 `,
-			want: "upstream.endpoint",
+			want: "upstreams[0].endpoint",
 		},
 		{
 			name: "missing upstream public key",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
-upstream:
-  endpoint: server-a.example.com:9820
+upstreams:
+  - endpoint: server-a.example.com:9820
 `,
-			want: "upstream.public-key",
+			want: "upstreams[0].public-key",
 		},
 		{
 			name: "invalid tls source",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: ` + upstreamKey.Public.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
 tls:
   cert-source: acme
 `,
@@ -444,9 +437,9 @@ tls:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: ` + upstreamKey.Public.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
 tls:
   cert-source: edge-rpc
 `,
@@ -457,9 +450,9 @@ tls:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: ` + upstreamKey.Public.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
 tls:
   cert-source: file
 `,
@@ -523,9 +516,9 @@ func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 identity:
   private-key: `+edgeKey.Private.String()+`
 listen: `+listenAddr+`
-upstream:
-  endpoint: `+signaling.URL+`
-  public-key: `+upstreamKey.Public.String()+`
+upstreams:
+  - endpoint: `+signaling.URL+`
+    public-key: `+upstreamKey.Public.String()+`
 `)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -652,12 +645,12 @@ func TestUpstreamTransportReconnectsAfterClosedConn(t *testing.T) {
 
 	cfg := Config{
 		KeyPair: edgeKey,
-		Upstream: UpstreamConfig{
+		selectedUpstream: UpstreamConfig{
 			Endpoint:  signaling.URL,
 			PublicKey: upstreamKey.Public,
 		},
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -1117,7 +1110,7 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {
-	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: "http://server:9822"}}).UpstreamURL()
+	upstreamURL, err := (&Config{selectedUpstream: UpstreamConfig{Endpoint: "http://server:9822"}}).selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -1127,7 +1120,7 @@ func TestUpstreamSignalingURLDefaultsWebRTCPath(t *testing.T) {
 }
 
 func TestUpstreamSignalingURLPreservesConfiguredPath(t *testing.T) {
-	upstreamURL, err := (&Config{Upstream: UpstreamConfig{Endpoint: "http://server:9822/custom-offer"}}).UpstreamURL()
+	upstreamURL, err := (&Config{selectedUpstream: UpstreamConfig{Endpoint: "http://server:9822/custom-offer"}}).selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}

@@ -481,7 +481,7 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = srv.Close() })
 
-	if srv.PeerStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.ProviderTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
+	if srv.PeerStore == nil || srv.PeerRunStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.ProviderTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
 		t.Fatalf("module stores not wired: %+v", srv)
 	}
 	if srv.AgentHostStore == nil {
@@ -650,22 +650,6 @@ func TestStorageFileConfigRejectsUnknownKind(t *testing.T) {
 	_, err := (storageFileConfig{Kind: "unknown"}).runtimeConfig()
 	if err == nil || !strings.Contains(err.Error(), "unknown storage kind") {
 		t.Fatalf("runtimeConfig() error = %v", err)
-	}
-}
-
-func TestParseConfigAcceptsRedisTLSCAFile(t *testing.T) {
-	config, err := parseConfigData([]byte(`storage:
-  redis:
-    kind: redis
-    url: rediss://user:password@host:6379/0
-    tls_ca_file: /run/secrets/volc-redis-ca.pem
-`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	redisConfig := config.Storage["redis"]
-	if redisConfig.URL != "rediss://user:password@host:6379/0" || redisConfig.TLSCAFile != "/run/secrets/volc-redis-ca.pem" {
-		t.Fatalf("Redis config = %+v", redisConfig)
 	}
 }
 
@@ -1079,11 +1063,11 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Flowcraft == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
 		t.Fatalf("complete services block = %+v", cfg.Services)
 	}
-	if len(cfg.Storage) != 2 {
-		t.Fatalf("storage count = %d, want 2", len(cfg.Storage))
+	if len(cfg.Storage) != 3 {
+		t.Fatalf("storage count = %d, want 3", len(cfg.Storage))
 	}
 	for _, name := range []string{
-		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers",
+		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers", "peer-runs",
 		"api-keys", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
 		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "gameplay", "agenthost",
 		"workspace-assets", "gameplay-assets", "gameplay-db",
@@ -1095,8 +1079,12 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	for name, logical := range cfg.Stores {
 		switch logical.Kind {
 		case stores.KindKeyValue:
-			if logical.Storage != "database" || logical.Prefix == "" || logical.Table != "" {
-				t.Fatalf("stores.%s = %+v, want prefix-scoped database KV Store", name, logical)
+			wantStorage := "database"
+			if name == "peer-runs" {
+				wantStorage = "local-runtime"
+			}
+			if logical.Storage != wantStorage || logical.Prefix == "" || logical.Table != "" {
+				t.Fatalf("stores.%s = %+v, want prefix-scoped %s KV Store", name, logical, wantStorage)
 			}
 		case stores.KindMetrics, stores.KindLogImmutable, stores.KindLogMutable:
 			if logical.Storage != "database" || logical.Table == "" {
@@ -1123,6 +1111,7 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	}
 	services := cfg.Services
 	expect("services.peer.store", services.Peer.Store, stores.KindKeyValue)
+	expect("services.peer_run.store", services.PeerRun.Store, stores.KindKeyValue)
 	for path, name := range map[string]string{
 		"services.api_key.store":          services.APIKey.Store,
 		"services.credential.store":       services.Credential.Store,
@@ -1350,17 +1339,52 @@ func TestNewRejectsMissingRequiredServiceBlock(t *testing.T) {
 	}
 }
 
+func TestNewRequiresDistinctPeerRunKeyValueStore(t *testing.T) {
+	missing := validLayeredConfig(t.TempDir())
+	missing.Services.PeerRun = nil
+	if _, err := New(missing); err == nil || !strings.Contains(err.Error(), "services.peer_run is required") {
+		t.Fatalf("New(missing peer_run) error = %v", err)
+	}
+	same := validLayeredConfig(t.TempDir())
+	same.Services.PeerRun.Store = same.Services.Peer.Store
+	if _, err := New(same); err == nil || !strings.Contains(err.Error(), "must be separate") {
+		t.Fatalf("New(shared peer_run) error = %v", err)
+	}
+	wrongKind := validLayeredConfig(t.TempDir())
+	wrongKind.Services.PeerRun.Store = "workspace-assets"
+	if _, err := New(wrongKind); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "workspace-assets" requires kv.Store`) {
+		t.Fatalf("New(non-KV peer_run) error = %v", err)
+	}
+	shared := validLayeredConfig(t.TempDir())
+	shared.Storage["shared-redis"] = storage.RedisConfig{URL: "redis://127.0.0.1:1/0"}
+	peerRun := shared.Stores[shared.Services.PeerRun.Store]
+	peerRun.Storage = "shared-redis"
+	shared.Stores[shared.Services.PeerRun.Store] = peerRun
+	if _, err := New(shared); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "peer-runs" must use local persistent badger or sqlite storage; got redis`) {
+		t.Fatalf("New(redis peer_run) error = %v", err)
+	}
+	volatile := validLayeredConfig(t.TempDir())
+	peerRun = volatile.Stores[volatile.Services.PeerRun.Store]
+	peerRun.Storage = "memory"
+	volatile.Stores[volatile.Services.PeerRun.Store] = peerRun
+	if _, err := New(volatile); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "peer-runs" must use local persistent badger or sqlite storage; got memory`) {
+		t.Fatalf("New(memory peer_run) error = %v", err)
+	}
+}
+
 func validLayeredConfig(dir string) Config {
 	return Config{
 		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
 		Storage: map[string]storage.Config{
-			"memory":      storage.MemoryConfig{},
-			"local-files": storage.FilesystemDirConfig{Dir: dir},
-			"gameplay-db": storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
+			"memory":       storage.MemoryConfig{},
+			"local-files":  storage.FilesystemDirConfig{Dir: dir},
+			"peer-runs-db": storage.SQLiteConfig{Dir: filepath.Join(dir, "peer-runs.sqlite")},
+			"gameplay-db":  storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
 		},
 		Stores: map[string]stores.Config{
 			"peers":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
+			"peer-runs":        {Kind: stores.KindKeyValue, Storage: "peer-runs-db", Prefix: "peer_runs"},
 			"api-keys":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
 			"credentials":      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
 			"firmwares":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
@@ -1388,6 +1412,7 @@ func validLayeredConfig(dir string) Config {
 func validServicesConfig() *ServicesConfig {
 	return &ServicesConfig{
 		Peer:            &SingleStoreConfig{Store: "peers"},
+		PeerRun:         &SingleStoreConfig{Store: "peer-runs"},
 		APIKey:          &SingleStoreConfig{Store: "api-keys"},
 		Credential:      &SingleStoreConfig{Store: "credentials"},
 		Firmware:        &SingleStoreConfig{Store: "firmwares"},

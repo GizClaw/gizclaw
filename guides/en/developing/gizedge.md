@@ -82,8 +82,8 @@ The Edge workspace configuration describes the basic information required to run
 - The Edge Node's own giznet identity.
 - One public client-ingress listen address and external endpoint shared by
   HTTP/signaling TCP and gateway ICE UDP.
-- The endpoint and public key of a single upstream Server, plus an optional
-  relay-only TURN pool for Edge-to-Server PeerConnections.
+- At least one ordered upstream Server entry; each entry pins an endpoint,
+  public key, and optional relay-only TURN pool for Edge-to-Server PeerConnections.
 - Selection of TLS certificate source.
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
 - Optional gateway capacity, upstream pool, buffer, idle, and drain bounds.
@@ -184,24 +184,24 @@ Server. `ServiceEdgeHTTP` carries public HTTP forwarding. Gateway logical
 sessions use the registered `giznet/v2/tunnel/` DataChannel namespace and are
 not a product service ID.
 
-By default, omitting `upstream.ice-transport-policy` and
-`upstream.ice-servers` preserves direct ICE. A relay deployment sets a pool of
+By default, omitting an entry's `ice-transport-policy` and `ice-servers`
+preserves direct ICE. A relay deployment sets a pool of
 at least two literal-IP TURN/UDP members:
 
 ```yaml
-upstream:
-  endpoint: https://server.example.invalid:9820
-  public-key: <authoritative-server-key>
-  ice-transport-policy: relay
-  ice-servers:
-    - urls: [turn:192.0.2.10:3478?transport=udp]
-      username: <turn-rest-key-id>
-      credential: <turn-rest-shared-secret>
-      credential-mode: turn-rest
-    - urls: [turn:192.0.2.11:3478?transport=udp]
-      username: <turn-rest-key-id>
-      credential: <turn-rest-shared-secret>
-      credential-mode: turn-rest
+upstreams:
+  - endpoint: https://server.example.invalid:9820
+    public-key: <authoritative-server-key>
+    ice-transport-policy: relay
+    ice-servers:
+      - urls: [turn:192.0.2.10:3478?transport=udp]
+        username: <turn-rest-key-id>
+        credential: <turn-rest-shared-secret>
+        credential-mode: turn-rest
+      - urls: [turn:192.0.2.11:3478?transport=udp]
+        username: <turn-rest-key-id>
+        credential: <turn-rest-shared-secret>
+        credential-mode: turn-rest
 ```
 
 Relay mode passes exactly one pool member and relay-only ICE to each new
@@ -227,7 +227,7 @@ requires the shared-secret `credential`; its configured username/key ID is
 optional. Invalid, duplicate, partial, hostname-based, TCP, or TLS relay
 configuration fails before the Edge starts a listener.
 
-Relay selection never changes `upstream.endpoint`, `upstream.public-key`, or
+Relay selection never changes the entry's `endpoint`, `public-key`, or
 the Server identity used by signaling. The top-level `turn` block is separate:
 it runs a downstream TURN server for device-to-Edge transport and is not a
 member of the Edge-to-Server upstream pool. Relay usernames, credentials, SDP,
@@ -591,12 +591,17 @@ These contents belong to `pkgs/gizclaw`, `pkgs/giznet`, `cmd/internal/server` re
 
 ## Current boundary
 
-Currently `pkgs/gizedge` connects to one authoritative Server and supports Edge
-HTTP ingress, optional gateway termination, and optional TURN relay.
+`pkgs/gizedge` reads only a non-empty ordered `upstreams` list. Every entry pins one complete Server endpoint, public key, ICE policy, and relay pool. The former singular `upstream` is no longer part of the configuration shape and is ignored like any other unknown field; a missing or empty valid `upstreams` list, duplicate identities/endpoints, and incomplete entries fail before the listener opens.
+
+The public Go configuration API follows the same plural contract: `Config.Upstreams` is the only Server configuration field, and `Config.BootstrapUpstreamURL()` returns the URL of the ordered first entry. The former `Config.Upstream` and the ambiguous `Config.UpstreamURL()` are removed without compatibility fields or wrappers; the URL for a selected Server is internal Edge target state only.
+
+For an authenticated logical Client session, the Edge asks any reachable configured Server for the shared fixed Peer assignment, validates that the returned Server identity is configured, and acquires only that Server's target pool. Assignment-not-found uses the first reachable ordered entry for first claim. Control, services, packets, audio, retries, and teardown remain pinned to one target; target transport failure never substitutes another Server owner or replays application work. A one-entry list uses the same routing and Server-admission path.
+
+Public `/server-info` and API-key-only HTTP/OpenAI requests continue through the first reachable ordered bootstrap Server because they do not establish a logical Peer session. Assignment endpoint metadata cannot override the pinned Edge configuration. Relay selector, health, and backoff remain isolated per Server entry.
 
 It is not a complete server mesh:
 
-- The Edge is configured for one upstream Server.
+- The Edge has a configured Server list, not dynamic mesh membership or service discovery.
 - `ServiceEdgeHTTP` carries public request forwarding.
 - The `giznet/v2/tunnel/` native-channel namespace carries logical client
   sessions over a bounded upstream pool; `ServiceEdgeTunnel 0x32` is retired.
@@ -605,6 +610,7 @@ It is not a complete server mesh:
 - The Edge does not maintain mesh membership or a global peer/resource route
   registry.
 - This package does not replicate data or events between Servers.
+- It does not route Workspaces, Chatrooms, History, or Social execution between Servers.
 
 Therefore, when adding a capability, you must first determine whether it is the responsibility of the current Edge ingress or the future work of the server mesh control plane; you cannot directly write `pkgs/gizedge` just because the capability is related to the public network entry point.
 

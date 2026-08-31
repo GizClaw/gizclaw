@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -248,10 +248,6 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	defer upstreamListener.Close()
 	upstreamHTTP := httptest.NewServer(upstreamListener.SignalingHandler())
 	defer upstreamHTTP.Close()
-	upstreamURL, err := url.Parse(upstreamHTTP.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
 	upstreamAccepted := make(chan giznet.Conn, 1)
 	go func() {
 		conn, acceptErr := upstreamListener.Accept()
@@ -272,15 +268,20 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 		KeyPair:  edgeKey,
 		Listen:   "127.0.0.1:0",
 		Endpoint: "localhost:0",
-		Upstream: UpstreamConfig{
-			Endpoint:  upstreamHTTP.URL,
-			PublicKey: serverKey.Public,
+		Upstreams: []UpstreamConfig{
+			{
+				Endpoint:  upstreamHTTP.URL,
+				PublicKey: serverKey.Public,
+			},
 		},
 		Gateway: gatewayConfig,
 	}
-	gateway, err := newGateway(t.Context(), cfg, upstreamURL, nil)
+	gateway, err := newGateway(t.Context(), cfg)
 	if err != nil {
 		t.Fatalf("newGateway error = %v", err)
+	}
+	gateway.resolvePeerRoute = func(context.Context, giznet.PublicKey) (*rpcpb.PeerAssignment, error) {
+		return &rpcpb.PeerAssignment{ServerPublicKey: serverKey.Public.String()}, nil
 	}
 	defer gateway.Close()
 
@@ -1001,9 +1002,9 @@ func TestGatewayClassifiesNativeSessionFailuresWithoutPenalizingRelayForDraining
 		healthy.state != gatewayUpstreamSelectable {
 		t.Fatal("caller cancellation changed healthy upstream eligibility")
 	}
-	if gateway.classifySessionHandshakeFailure(ctx, healthy, giztunnel.ErrSessionRejected, false) ||
+	if !gateway.classifySessionHandshakeFailure(ctx, healthy, giztunnel.ErrSessionRejected, false) ||
 		healthy.state != gatewayUpstreamSelectable {
-		t.Fatal("explicit session rejection changed healthy upstream eligibility")
+		t.Fatal("explicit session rejection did not request a route retry while preserving healthy upstream eligibility")
 	}
 }
 
@@ -1132,11 +1133,6 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 	tb.Cleanup(func() { _ = upstreamListener.Close() })
 	upstreamHTTP := httptest.NewServer(upstreamListener.SignalingHandler())
 	tb.Cleanup(upstreamHTTP.Close)
-	upstreamURL, err := url.Parse(upstreamHTTP.URL)
-	if err != nil {
-		tb.Fatal(err)
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	tb.Cleanup(cancel)
 	logicalCh := make(chan acceptedGatewayLogical, clients)
@@ -1154,15 +1150,20 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 		KeyPair:  edgeKey,
 		Listen:   "127.0.0.1:0",
 		Endpoint: "localhost:0",
-		Upstream: UpstreamConfig{
-			Endpoint:  upstreamHTTP.URL,
-			PublicKey: serverKey.Public,
+		Upstreams: []UpstreamConfig{
+			{
+				Endpoint:  upstreamHTTP.URL,
+				PublicKey: serverKey.Public,
+			},
 		},
 		Gateway: gatewayConfig,
 	}
-	gateway, err := newGateway(ctx, cfg, upstreamURL, nil)
+	gateway, err := newGateway(ctx, cfg)
 	if err != nil {
 		tb.Fatal(err)
+	}
+	gateway.resolvePeerRoute = func(context.Context, giznet.PublicKey) (*rpcpb.PeerAssignment, error) {
+		return &rpcpb.PeerAssignment{ServerPublicKey: serverKey.Public.String()}, nil
 	}
 	tb.Cleanup(func() { _ = gateway.Close() })
 	edgeHTTP := httptest.NewServer(gateway.Handler(http.NotFoundHandler()))
@@ -1458,6 +1459,15 @@ func TestGatewayPoolCloseStartsEveryUpstreamCloseConcurrently(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("pool Close did not wait for every upstream close")
+	}
+}
+
+func TestGatewayConfiguredPoolsRetainsSingleUpstreamCompatibilityPool(t *testing.T) {
+	pool := &gatewayPool{}
+	gateway := &Gateway{pool: pool}
+	pools := gateway.configuredPools()
+	if len(pools) != 1 || pools[0] != pool {
+		t.Fatalf("configuredPools() = %v, want compatibility pool %p", pools, pool)
 	}
 }
 

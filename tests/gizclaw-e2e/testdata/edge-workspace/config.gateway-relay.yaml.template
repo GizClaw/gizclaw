@@ -2,21 +2,21 @@ identity:
   private-key: ${GIZCLAW_E2E_EDGE_PRIVATE_KEY}
 listen: 0.0.0.0:9821
 endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
-upstream:
-  endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
-  public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
-  ice-transport-policy: relay
-  ice-servers:
-    - urls:
-        - turn:${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP}:3478?transport=udp
-      username: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}
-      credential: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}
-      credential-mode: static
-    - urls:
-        - turn:${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP}:3478?transport=udp
-      username: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}
-      credential: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}
-      credential-mode: static
+upstreams:
+  - endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
+    public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
+    ice-transport-policy: relay
+    ice-servers:
+      - urls:
+          - turn:${GIZCLAW_E2E_GATEWAY_RELAY_TURN_A_IP}:3478?transport=udp
+        username: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}
+        credential: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}
+        credential-mode: static
+      - urls:
+          - turn:${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP}:3478?transport=udp
+        username: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}
+        credential: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}
+        credential-mode: static
 tls:
   cert-source: disabled
 gateway:

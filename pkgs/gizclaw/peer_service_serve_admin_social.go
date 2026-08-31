@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -773,6 +774,10 @@ func toAdminHistoryEntry(item apitypes.PeerRunHistoryEntry) adminhttp.AdminWorks
 
 func adminSocialError(err error) (int, apitypes.ErrorResponse) {
 	switch {
+	case errors.Is(err, friend.ErrCrossServerFriendCreation):
+		return http.StatusConflict, apitypes.NewErrorResponse("CROSS_SERVER_FRIEND_CREATION_UNSUPPORTED", friend.ErrCrossServerFriendCreation.Error())
+	case errors.Is(err, friendgroup.ErrCrossServerFriendGroupMembership):
+		return http.StatusConflict, apitypes.NewErrorResponse("CROSS_SERVER_FRIEND_GROUP_MEMBERSHIP_UNSUPPORTED", friendgroup.ErrCrossServerFriendGroupMembership.Error())
 	case errors.Is(err, workspace.ErrWorkspacePendingDeletion):
 		return http.StatusConflict, apitypes.NewErrorResponse(workspace.WorkspacePendingDeletionCode, err.Error())
 	case errors.Is(err, workspace.ErrPeerPendingDeletion):

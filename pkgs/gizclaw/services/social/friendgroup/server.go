@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -30,6 +31,12 @@ type WorkspaceService interface {
 	RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
 }
 
+type AssignmentService interface {
+	Lookup(context.Context, giznet.PublicKey) (apitypes.PeerAssignment, error)
+}
+
+var ErrCrossServerFriendGroupMembership = errors.New("cross-server friend group membership is not supported")
+
 type Server struct {
 	Groups                 kv.Store
 	InviteTokens           kv.Store
@@ -39,6 +46,8 @@ type Server struct {
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	NotifyPeer             func(context.Context, string, *eventpb.PeerEvent)
 	PeerAvailability       func(context.Context, string) error
+	PeerAssignments        AssignmentService
+	ServerPublicKey        giznet.PublicKey
 
 	// RelationshipStore is the shared transaction boundary for Group,
 	// membership, belongs, invite-token, and retirement-intent records.
@@ -251,6 +260,26 @@ func (s *Server) ensureGroupMutationAvailable(ctx context.Context, group rpcapi.
 	return nil
 }
 
+func (s *Server) requireLocalPeers(ctx context.Context, peers ...string) error {
+	if s == nil || s.PeerAssignments == nil || s.ServerPublicKey.IsZero() {
+		return nil
+	}
+	for _, peerText := range peers {
+		var publicKey giznet.PublicKey
+		if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(peerText))); err != nil || publicKey.IsZero() {
+			return errors.New("social: invalid Peer public key")
+		}
+		assignment, err := s.PeerAssignments.Lookup(ctx, publicKey)
+		if err != nil {
+			return err
+		}
+		if assignment.ServerPublicKey != s.ServerPublicKey.String() {
+			return ErrCrossServerFriendGroupMembership
+		}
+	}
+	return nil
+}
+
 type peerMutationLockedContextKey struct{}
 
 func peerMutationLocked(ctx context.Context) bool {
@@ -370,6 +399,9 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 	if owner == "" || name == "" {
 		return rpcapi.FriendGroupObject{}, errors.New("social: friend group owner and name are required")
 	}
+	if err := s.requireLocalPeers(ctx, owner); err != nil {
+		return rpcapi.FriendGroupObject{}, err
+	}
 	now := s.now()
 	id := s.newID()
 	unlock := s.lockGroup(id)
@@ -442,6 +474,9 @@ func (s *Server) AdminCreateFriendGroup(ctx context.Context, id, owner, name str
 	name = strings.TrimSpace(name)
 	if owner == "" || name == "" {
 		return adminhttp.AdminFriendGroupObject{}, errors.New("social: friend group owner and name are required")
+	}
+	if err := s.requireLocalPeers(ctx, owner); err != nil {
+		return adminhttp.AdminFriendGroupObject{}, err
 	}
 	if err := customid.ValidateMembershipName(id, owner); err != nil {
 		return adminhttp.AdminFriendGroupObject{}, fmt.Errorf("social: %w", err)
@@ -1062,6 +1097,13 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	if friendGroupID == "" {
 		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: invite token group is empty")
 	}
+	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	if err := s.requireLocalPeers(ctx, socialutil.StringValue(group.CreatedByPeerPublicKey), owner); err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
 	if existingID, err := s.resolveFriendGroupName(ctx, owner, name); err == nil && existingID != friendGroupID {
 		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: friend group name already exists")
 	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
@@ -1085,7 +1127,7 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	if err != nil {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
-	group, err := s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Name: name})
+	group, err = s.GetFriendGroup(ctx, owner, rpcapi.FriendGroupGetRequest{Name: name})
 	if err != nil {
 		s.restoreMember(ctx, friendGroupID, owner, friendGroupMemberRecord{}, kv.ErrNotFound)
 		return rpcapi.FriendGroupJoinResponse{}, err
@@ -1103,6 +1145,13 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberAddRequest) (rpcapi.FriendGroupMemberObject, error) {
 	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
 	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	if err := s.requireLocalPeers(ctx, socialutil.StringValue(group.CreatedByPeerPublicKey), owner, req.PeerPublicKey); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	memberName := strings.TrimSpace(req.MemberName)
@@ -1148,6 +1197,13 @@ func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpc
 func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberPutRequest) (rpcapi.FriendGroupMemberObject, error) {
 	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
 	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	if err := s.requireLocalPeers(ctx, socialutil.StringValue(group.CreatedByPeerPublicKey), owner, req.Name); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	req.Name = strings.TrimSpace(req.Name)
@@ -1278,9 +1334,16 @@ func (s *Server) AdminCreateFriendGroupMember(ctx context.Context, friendGroupID
 	if !role.Valid() {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
 	}
+	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	if err := s.requireLocalPeers(ctx, socialutil.StringValue(group.CreatedByPeerPublicKey), peerID); err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
-	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	group, err = s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
@@ -1308,9 +1371,16 @@ func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, p
 	if !role.Valid() {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: invalid group member role")
 	}
+	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	if err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
+	if err := s.requireLocalPeers(ctx, socialutil.StringValue(group.CreatedByPeerPublicKey), peerID); err != nil {
+		return rpcapi.FriendGroupMemberObject{}, err
+	}
 	unlock := s.lockGroup(friendGroupID)
 	defer unlock()
-	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
+	group, err = s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}

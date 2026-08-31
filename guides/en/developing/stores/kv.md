@@ -45,4 +45,4 @@ For SQLite/PostgreSQL, only change the logical declaration to `storage: database
 
 Redis keyvalue Stores require non-empty, clean, pairwise non-overlapping prefixes on each physical connector. The adapter sorts SCAN results before exposing them, uses absolute deadlines, and implements batches, conditional create, and compare-and-mutate atomically on one Redis node. A zero deadline removes an existing expiration. Redis Cluster and multi-endpoint sharding are unsupported because arbitrary-key atomicity is part of the Store contract.
 
-Peer routes and run state use code-owned prefixes rather than separate operator Store bindings.
+Peer records and routes share the Store named by `services.peer.store`. High-churn PeerRun state uses the separately required `services.peer_run.store`; multi-Server deployments keep that Store persistent and local to each Server rather than sharing it through Redis.

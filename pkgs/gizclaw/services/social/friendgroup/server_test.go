@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	_ "modernc.org/sqlite"
 )
@@ -25,6 +26,54 @@ import (
 type groupNotification struct {
 	recipient string
 	event     *eventpb.PeerEvent
+}
+
+type groupAssignmentStub map[giznet.PublicKey]apitypes.PeerAssignment
+
+func (s groupAssignmentStub) Lookup(_ context.Context, key giznet.PublicKey) (apitypes.PeerAssignment, error) {
+	assignment, ok := s[key]
+	if !ok {
+		return apitypes.PeerAssignment{}, kv.ErrNotFound
+	}
+	return assignment, nil
+}
+
+func TestCrossServerFriendGroupJoinStopsBeforeMutation(t *testing.T) {
+	ownerKey := giznet.PublicKey{1}
+	foreignKey := giznet.PublicKey{2}
+	serverKey := giznet.PublicKey{8}
+	s := newTestServer(t)
+	s.ServerPublicKey = serverKey
+	s.PeerAssignments = groupAssignmentStub{
+		ownerKey:   {PeerPublicKey: ownerKey.String(), ServerPublicKey: serverKey.String()},
+		foreignKey: {PeerPublicKey: foreignKey.String(), ServerPublicKey: giznet.PublicKey{9}.String()},
+	}
+	group, err := s.CreateFriendGroup(t.Context(), ownerKey.String(), rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := s.CreateFriendGroupInviteToken(t.Context(), ownerKey.String(), rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspaceCount := len(s.Workspaces.(*recordingWorkspaceService).created)
+	if _, err := s.JoinFriendGroup(t.Context(), foreignKey.String(), rpcapi.FriendGroupJoinRequest{Name: "foreign-room", InviteToken: token.InviteToken}); !errors.Is(err, ErrCrossServerFriendGroupMembership) {
+		t.Fatalf("JoinFriendGroup() error = %v, want cross-server conflict", err)
+	}
+	groupID := mustGroupID(t, s, ownerKey.String(), group.Name)
+	if _, err := s.groupMember(t.Context(), groupID, foreignKey.String()); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("foreign member after rejection error = %v, want not found", err)
+	}
+	if len(s.Workspaces.(*recordingWorkspaceService).created) != workspaceCount {
+		t.Fatal("cross-server join mutated Workspaces")
+	}
+	active, ok, err := s.activeGroupInviteToken(t.Context(), s.InviteTokens, groupID)
+	if err != nil || !ok || active.InviteToken != token.InviteToken {
+		t.Fatalf("invite after rejection = %+v, %v, %v", active, ok, err)
+	}
+	if _, err := s.AdminCreateFriendGroupMember(t.Context(), groupID, foreignKey.String(), "foreign-room", rpcapi.FriendGroupMemberRoleMember); !errors.Is(err, ErrCrossServerFriendGroupMembership) {
+		t.Fatalf("AdminCreateFriendGroupMember() error = %v, want cross-server conflict", err)
+	}
 }
 
 func TestFriendGroupEventsReachCurrentAndFormerMembers(t *testing.T) {

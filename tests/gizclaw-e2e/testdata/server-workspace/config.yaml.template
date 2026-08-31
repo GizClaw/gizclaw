@@ -32,6 +32,10 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: peers
+  peer-runs:
+    kind: keyvalue
+    storage: gameplay-db
+    prefix: peer_runs
   api-keys:
     kind: keyvalue
     storage: memory
@@ -116,6 +120,8 @@ stores:
 services:
   peer:
     store: peers
+  peer_run:
+    store: peer-runs
   api_key:
     store: api-keys
   credential:

@@ -328,6 +328,10 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 		return err
 	}
 	server.PeerStore = peerRoot
+	server.PeerRunStore, err = resolveKVStore(registry, "services.peer_run.store", cfg.PeerRun.Store)
+	if err != nil {
+		return err
+	}
 	server.APIKeyStore, err = resolveKVStore(registry, "services.api_key.store", cfg.APIKey.Store)
 	if err != nil {
 		return err

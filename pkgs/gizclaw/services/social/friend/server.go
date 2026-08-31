@@ -33,6 +33,12 @@ type ProfileService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 }
 
+type AssignmentService interface {
+	Lookup(context.Context, giznet.PublicKey) (apitypes.PeerAssignment, error)
+}
+
+var ErrCrossServerFriendCreation = errors.New("cross-server friend creation is not supported")
+
 type Server struct {
 	InviteTokens           kv.Store
 	Friends                kv.Store
@@ -41,6 +47,8 @@ type Server struct {
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	NotifyPeer             func(context.Context, string, *eventpb.PeerEvent)
 	PeerAvailability       func(context.Context, string) error
+	PeerAssignments        AssignmentService
+	ServerPublicKey        giznet.PublicKey
 
 	Now   func() time.Time
 	NewID func() string
@@ -360,6 +368,9 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 	if owner == to {
 		return rpcapi.FriendAddResponse{}, ErrInviteTokenSelfOwned
 	}
+	if err := s.requireLocalPeers(ctx, owner, to); err != nil {
+		return rpcapi.FriendAddResponse{}, err
+	}
 	relationID := socialutil.RelationID(owner, to)
 	unlock, err := s.lockRelationMutation(ctx, relationID, owner, to)
 	if err != nil {
@@ -378,6 +389,9 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	if owner == peerPublicKey {
 		return rpcapi.FriendObject{}, errors.New("social: cannot friend self")
 	}
+	if err := s.requireLocalPeers(ctx, owner, peerPublicKey); err != nil {
+		return rpcapi.FriendObject{}, err
+	}
 	relationID := socialutil.RelationID(owner, peerPublicKey)
 	unlock, err := s.lockRelationMutation(ctx, relationID, owner, peerPublicKey)
 	if err != nil {
@@ -385,6 +399,26 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	}
 	defer unlock()
 	return s.createFriend(ctx, owner, peerPublicKey, owner)
+}
+
+func (s *Server) requireLocalPeers(ctx context.Context, peers ...string) error {
+	if s == nil || s.PeerAssignments == nil || s.ServerPublicKey.IsZero() {
+		return nil
+	}
+	for _, peerText := range peers {
+		var publicKey giznet.PublicKey
+		if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(peerText))); err != nil || publicKey.IsZero() {
+			return errors.New("social: invalid Peer public key")
+		}
+		assignment, err := s.PeerAssignments.Lookup(ctx, publicKey)
+		if err != nil {
+			return err
+		}
+		if assignment.ServerPublicKey != s.ServerPublicKey.String() {
+			return ErrCrossServerFriendCreation
+		}
+	}
+	return nil
 }
 
 func (s *Server) lockRelation(relationID string) func() {

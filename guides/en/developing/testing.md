@@ -7,17 +7,19 @@ not be reported as passing when they were not run.
 
 ## Store E2E
 
-`tests/store-e2e` verifies PostgreSQL and ClickHouse through exported Store APIs
+`tests/store-e2e` verifies Redis 7.0, PostgreSQL, and ClickHouse through exported Store APIs
 without production-package-private test hooks. Every Go file in the directory
 uses the `store_e2e` build tag, so ordinary `go test ./...` neither selects these
 tests nor contacts an external database. Fast SQLite integration stays beside
 the corresponding package unit tests in a normal `*_test.go` file.
 
-PostgreSQL and ClickHouse tests use `TestPostgreSQL...` and `TestClickHouse...`
-names respectively. CI selects only the backend provisioned by the current job;
+Redis, PostgreSQL, and ClickHouse tests use `TestRedis...`, `TestPostgreSQL...`,
+and `TestClickHouse...` names respectively. CI selects only the backend provisioned by the current job;
 a selected backend fails rather than skips when its DSN is absent:
 
 ```sh
+GIZCLAW_TEST_REDIS_DSN='redis://127.0.0.1:6379/15' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestRedis' ./tests/store-e2e
 GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
   go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/store-e2e
 GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
@@ -26,6 +28,16 @@ GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
 
 Every test uses an isolated table name and performs best-effort cleanup. Errors,
 logs, and CI output must not print DSNs, database credentials, or Store payloads.
+
+The Redis gate uses two independent clients against one database and verifies cross-client visibility, ordering, expiration, batches, conditional-create races, compare-and-mutate races, prefix isolation, and connector lifecycle. The selected endpoint must be single-node Redis 7.0; Redis Cluster is outside the Store contract.
+
+The credential-free multi-Server Docker gate is:
+
+```sh
+bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+It runs Redis 7.0, two Servers with distinct local runtime state, and two Edges whose configured Server order is reversed. It verifies fixed Peer homes through both Edges, foreign-Server rejection, local-only PeerRun writes, and side-effect-free cross-Server Social conflicts. It does not test Workspace routing.
 
 ### Cloud ObjectStore conformance
 

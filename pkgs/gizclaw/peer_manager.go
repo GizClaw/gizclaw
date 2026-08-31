@@ -618,7 +618,7 @@ func containsPublicKey(values []string, target string) bool {
 }
 
 func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) error {
-	_, err := m.Peers.EnsureConnectedPeerGuarded(ctx, publicKey, func() error {
+	peerRecord, err := m.Peers.EnsureConnectedPeerGuarded(ctx, publicKey, func() error {
 		m.mu.RLock()
 		defer m.mu.RUnlock()
 		current, currentOK := m.peers[publicKey]
@@ -630,6 +630,13 @@ func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.Pub
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if peerRecord.Role != apitypes.PeerRoleClient || m.PeerRoutes == nil {
+		return nil
+	}
+	_, err = m.PeerRoutes.Assign(ctx, publicKey, nil)
 	return err
 }
 

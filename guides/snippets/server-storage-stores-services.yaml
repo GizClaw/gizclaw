@@ -17,6 +17,10 @@ storage:
     kind: filesystem.dir
     dir: data/files
 
+  local-runtime:
+    kind: sqlite
+    dir: data/runtime.sqlite
+
 # Dynamic registry of logical data-access interfaces. Provider-specific scope
 # is expressed directly on the Store.
 stores:
@@ -44,6 +48,11 @@ stores:
     kind: keyvalue
     storage: database
     prefix: peers
+
+  peer-runs:
+    kind: keyvalue
+    storage: local-runtime
+    prefix: peer_runs
 
   api-keys:
     kind: keyvalue
@@ -144,6 +153,8 @@ stores:
 services:
   peer:
     store: peers
+  peer_run:
+    store: peer-runs
   api_key:
     store: api-keys
   credential:

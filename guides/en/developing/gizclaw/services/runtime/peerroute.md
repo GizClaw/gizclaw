@@ -2,17 +2,17 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute)
 
-`peerroute` Maintains the Peer assignments known to the current Server and provides query and update capabilities for Edge/Server routing. It describes the control plane status of this server and does not mean that mesh-wide directory or cross-server automatic synchronization already exists.
+`peerroute` stores the fixed home-Server assignment of each Client Peer in the configured shared Peer Store. Every Server in one topology can read this control-plane directory; it does not provide automatic reassignment, Server failover, Workspace ownership, or Workspace routing.
 
 ## Core structure and main function
 
 | Structure or function | Function |
 | --- | --- |
-| `Server` | Provides assignment reading, writing and RPC handlers. |
+| `Server` | Provides read-only lookup/resolve and atomic fixed-owner claim/refresh. |
 | `PeerStore` | Read the Peer resource associated with the assignment. |
 | `ParsePublicKey` | Verify wire/string public key. |
 | `ToRPC` | Convert internal `PeerAssignment` to RPC message. |
 
-Route assignment, Peer online connection and persistent Peer are three different states. Code cannot infer that the target is currently online just because the assignment exists.
+`Lookup` and `Resolve` are read-only. `Assign` creates version 1 only when the assignment is absent. The same Server owner may atomically refresh endpoint or role metadata and increment the version; another Server always receives a conflict and cannot transfer ownership, including when it supplies `expected_version`.
 
-Assignment read/version/write transitions serialize by canonical Peer public key. Different Peers can overlap Store I/O; same-Peer expected-version checks remain linearized. Idle keyed-lock entries are removed, and a canceled waiter returns its context error without changing the holder's operation.
+Client activation performs this claim or verification before the Manager publishes the connection. A foreign-home direct or Edge-tunneled connection is rejected before RPC, HTTP, packet, audio, Agent, or PeerRun work starts. Route assignment, an online connection, and a persisted Peer remain separate states; an assignment does not imply that its owner Server or Peer is currently reachable.

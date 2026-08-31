@@ -87,8 +87,8 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 - Edge Node 自身的 giznet identity。
 - HTTP/signaling TCP 与 gateway ICE UDP 共用的一组 public client-ingress
   listen address 和对外 endpoint。
-- 单个 upstream Server 的 endpoint 与 public key，以及可选的 Edge-to-Server
-  relay-only TURN pool。
+- 至少一个有序 upstream Server entry；每个 entry 固定 endpoint、public key，以及可选的
+  Edge-to-Server relay-only TURN pool。
 - TLS certificate source 的选择。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
@@ -176,23 +176,23 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding；gateway logical sessions 使用注册的 `giznet/v2/tunnel/` DataChannel namespace，不占用 product service ID。
 
-默认省略 `upstream.ice-transport-policy` 和 `upstream.ice-servers`，保持原有
+默认省略每个 entry 的 `ice-transport-policy` 和 `ice-servers`，保持
 direct ICE。启用 relay 时配置至少两个 literal-IP TURN/UDP 成员：
 
 ```yaml
-upstream:
-  endpoint: https://server.example.invalid:9820
-  public-key: <authoritative-server-key>
-  ice-transport-policy: relay
-  ice-servers:
-    - urls: [turn:192.0.2.10:3478?transport=udp]
-      username: <turn-rest-key-id>
-      credential: <turn-rest-shared-secret>
-      credential-mode: turn-rest
-    - urls: [turn:192.0.2.11:3478?transport=udp]
-      username: <turn-rest-key-id>
-      credential: <turn-rest-shared-secret>
-      credential-mode: turn-rest
+upstreams:
+  - endpoint: https://server.example.invalid:9820
+    public-key: <authoritative-server-key>
+    ice-transport-policy: relay
+    ice-servers:
+      - urls: [turn:192.0.2.10:3478?transport=udp]
+        username: <turn-rest-key-id>
+        credential: <turn-rest-shared-secret>
+        credential-mode: turn-rest
+      - urls: [turn:192.0.2.11:3478?transport=udp]
+        username: <turn-rest-key-id>
+        credential: <turn-rest-shared-secret>
+        credential-mode: turn-rest
 ```
 
 relay mode 为每条新 upstream PeerConnection 只传入一个 pool member 和
@@ -212,7 +212,7 @@ IPv6、显式端口，并且 query 只能是 `transport=udp`。static mode（显
 username/key ID 可为空。无效、重复、字段不完整、hostname、TCP 或 TLS relay 配置都会在
 Edge 启动 listener 前失败。
 
-relay 选择不会改变 `upstream.endpoint`、`upstream.public-key` 或 signaling 使用的
+relay 选择不会改变 entry 的 `endpoint`、`public-key` 或 signaling 使用的
 Server identity。顶层 `turn` block 与它相互独立：该 block 运行 device-to-Edge 的
 downstream TURN server，不是 Edge-to-Server upstream pool member。日志不得记录 relay
 username、credential、SDP、ICE candidate body 或业务 payload。
@@ -503,15 +503,22 @@ flowchart TB
 
 ## 当前边界
 
-当前 `pkgs/gizedge` 连接一个 authoritative Server，并同时支持 Edge HTTP ingress、可选 gateway termination 和可选 TURN relay。
+`pkgs/gizedge` 只读取非空、有序的复数 `upstreams`。每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。旧的单数 `upstream` 不再属于配置结构并会像其他未知字段一样被忽略；缺少有效的 `upstreams`、空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
+
+公开 Go 配置 API 同样以复数列表为准：`Config.Upstreams` 是唯一的 Server 配置字段，`Config.BootstrapUpstreamURL()` 返回有序列表第一项的 URL。旧的 `Config.Upstream` 与语义含混的 `Config.UpstreamURL()` 均已移除，不提供兼容字段或 wrapper；选中具体 Server 后的 URL 只属于 Edge 内部 target 状态。
+
+对于 authenticated logical Client session，Edge 会通过任意可达的已配置 Server 查询共享的固定 Peer assignment，确认返回的 Server identity 已在配置中，然后只获取该 Server 的 target pool。Assignment 不存在时，首次 claim 使用顺序中第一台可达 Server。Control、service、packet、audio、retry 与 teardown 始终固定在同一个 target；target transport 失败不能替换成其他 Server owner，也不能重放 application work。仅配置一个 entry 时仍走同一套路由和 Server admission 逻辑。
+
+Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 HTTP/OpenAI request 继续通过顺序中第一台可达 bootstrap Server。Assignment 中的 endpoint metadata 不能覆盖 Edge 固定配置；relay selector、health 与 backoff 按 Server entry 隔离。
 
 它不等同于完整 server mesh：
 
-- Edge Node 当前按配置连接一个 upstream Server。
+- Edge Node 使用显式配置的 Server 列表，不提供动态 mesh membership 或 service discovery。
 - `ServiceEdgeHTTP` 已用于 public request forwarding。
 - `giznet/v2/tunnel/` 原生 channel namespace 已用于有界 upstream pool 上的 logical client sessions；`ServiceEdgeTunnel 0x32` 已退役。
 - Edge control-plane RPC、certificate distribution 和 TLS certificate source 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。
+- 该 package 不在 Server 之间路由 Workspace、Chatroom、History 或 Social execution。
 
 因此，新增能力时要先判断它是当前 Edge ingress 的职责，还是 server mesh control plane 的未来工作；不能因为能力与公网入口有关就直接写进 `pkgs/gizedge`。

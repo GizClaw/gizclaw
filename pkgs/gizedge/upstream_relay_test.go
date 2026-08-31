@@ -23,32 +23,32 @@ func TestPrepareWorkspaceConfigLoadsUpstreamRelayPool(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-upstream:
-  endpoint: server-a.example.com:9820
-  public-key: `+upstreamKey.Public.String()+`
-  ice-transport-policy: relay
-  ice-servers:
-    - urls: [turn:192.0.2.10:3478?transport=udp]
-      username: relay-a
-      credential: shared-secret
-      credential-mode: turn-rest
-    - urls: ['turn:[2001:db8::20]:3478?transport=udp']
-      username: relay-b
-      credential: static-password
-      credential-mode: static
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
+    ice-transport-policy: relay
+    ice-servers:
+      - urls: [turn:192.0.2.10:3478?transport=udp]
+        username: relay-a
+        credential: shared-secret
+        credential-mode: turn-rest
+      - urls: ['turn:[2001:db8::20]:3478?transport=udp']
+        username: relay-b
+        credential: static-password
+        credential-mode: static
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
 	if err != nil {
 		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
 	}
-	if !cfg.Upstream.relayEnabled() {
+	if len(cfg.Upstreams) != 1 || !cfg.Upstreams[0].relayEnabled() {
 		t.Fatal("upstream relay mode is disabled")
 	}
-	if len(cfg.Upstream.ICEServers) != 2 {
-		t.Fatalf("upstream ICE servers = %d, want 2", len(cfg.Upstream.ICEServers))
+	if len(cfg.Upstreams[0].ICEServers) != 2 {
+		t.Fatalf("upstream ICE servers = %d, want 2", len(cfg.Upstreams[0].ICEServers))
 	}
-	if got := cfg.Upstream.ICEServers[1].URLs[0]; got != "turn:[2001:db8::20]:3478?transport=udp" {
+	if got := cfg.Upstreams[0].ICEServers[1].URLs[0]; got != "turn:[2001:db8::20]:3478?transport=udp" {
 		t.Fatalf("second relay URL = %q", got)
 	}
 }
@@ -174,7 +174,7 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
 	initial := selector.next
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -188,8 +188,8 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 		if key != cfg.KeyPair {
 			t.Fatal("dial key pair does not preserve Edge identity")
 		}
-		if !serverKey.Equal(cfg.Upstream.PublicKey) {
-			t.Fatalf("dial server key = %v, want %v", serverKey, cfg.Upstream.PublicKey)
+		if !serverKey.Equal(cfg.selectedUpstream.PublicKey) {
+			t.Fatalf("dial server key = %v, want %v", serverKey, cfg.selectedUpstream.PublicKey)
 		}
 		if dialCfg.SignalingURL != "https://server.example.com:9820/webrtc/v1/offer" {
 			t.Fatalf("signaling URL = %q", dialCfg.SignalingURL)
@@ -217,8 +217,8 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 		}
 	}
 	want := []string{
-		cfg.Upstream.ICEServers[initial].URLs[0],
-		cfg.Upstream.ICEServers[(initial+1)%len(cfg.Upstream.ICEServers)].URLs[0],
+		cfg.selectedUpstream.ICEServers[initial].URLs[0],
+		cfg.selectedUpstream.ICEServers[(initial+1)%len(cfg.selectedUpstream.ICEServers)].URLs[0],
 	}
 	if !slices.Equal(gotURLs, want) {
 		t.Fatalf("relay order = %v, want %v", gotURLs, want)
@@ -239,7 +239,7 @@ func TestUpstreamRelaySelectorReturnsICEObservation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -282,7 +282,7 @@ func TestUpstreamRelaySelectorRetriesOtherMembersAndSanitizesFailure(t *testing.
 	}
 	now := time.Unix(1000, 0)
 	selector.now = func() time.Time { return now }
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -301,8 +301,8 @@ func TestUpstreamRelaySelectorRetriesOtherMembersAndSanitizesFailure(t *testing.
 	if !errors.Is(err, errUpstreamRelaysUnavailable) {
 		t.Fatalf("dialUpstream error = %v, want relay unavailable", err)
 	}
-	if len(attempted) != len(cfg.Upstream.ICEServers) {
-		t.Fatalf("dial attempts = %d, want %d", len(attempted), len(cfg.Upstream.ICEServers))
+	if len(attempted) != len(cfg.selectedUpstream.ICEServers) {
+		t.Fatalf("dial attempts = %d, want %d", len(attempted), len(cfg.selectedUpstream.ICEServers))
 	}
 	if attempted[0] == attempted[1] {
 		t.Fatalf("one operation retried the same relay: %v", attempted)
@@ -323,7 +323,7 @@ func TestUpstreamRelaySelectorHonorsCancellationWithoutBackoff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -356,7 +356,7 @@ func TestUpstreamRelaySelectorAttemptTimeoutUsesBackoff(t *testing.T) {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
 	selector.attemptTimeout = time.Millisecond
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -482,7 +482,7 @@ func TestUpstreamRelaySelectorSupportsConcurrentConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newUpstreamRelaySelector error = %v", err)
 	}
-	upstreamURL, err := cfg.UpstreamURL()
+	upstreamURL, err := cfg.selectedUpstreamURL()
 	if err != nil {
 		t.Fatalf("UpstreamURL error = %v", err)
 	}
@@ -539,7 +539,7 @@ func testUpstreamRelayConfig(t *testing.T) Config {
 	serverKey := testKeyPair(t, 0x82)
 	return Config{
 		KeyPair: edgeKey,
-		Upstream: UpstreamConfig{
+		selectedUpstream: UpstreamConfig{
 			Endpoint:           "https://server.example.com:9820",
 			PublicKey:          serverKey.Public,
 			ICETransportPolicy: "relay",

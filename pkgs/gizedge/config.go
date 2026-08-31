@@ -27,17 +27,18 @@ const (
 )
 
 type Config struct {
-	KeyPair   *giznet.KeyPair
-	Listen    string
-	Endpoint  string
-	Upstream  UpstreamConfig
-	TLS       TLSConfig
-	TURN      TURNConfig
-	Gateway   GatewayConfig
-	Metrics   MetricsConfig
-	Storage   map[string]storage.Config
-	Stores    map[string]store.Config
-	SystemLog gizlog.Config
+	KeyPair          *giznet.KeyPair
+	Listen           string
+	Endpoint         string
+	Upstreams        []UpstreamConfig
+	selectedUpstream UpstreamConfig
+	TLS              TLSConfig
+	TURN             TURNConfig
+	Gateway          GatewayConfig
+	Metrics          MetricsConfig
+	Storage          map[string]storage.Config
+	Stores           map[string]store.Config
+	SystemLog        gizlog.Config
 
 	systemLogConfigured bool
 }
@@ -128,7 +129,7 @@ type ConfigFile struct {
 	Identity  IdentityConfig               `yaml:"identity"`
 	Listen    string                       `yaml:"listen"`
 	Endpoint  string                       `yaml:"endpoint"`
-	Upstream  UpstreamConfig               `yaml:"upstream"`
+	Upstreams *[]UpstreamConfig            `yaml:"upstreams"`
 	TLS       TLSConfig                    `yaml:"tls"`
 	TURN      TURNConfig                   `yaml:"turn"`
 	Gateway   GatewayConfig                `yaml:"gateway"`
@@ -227,24 +228,18 @@ func PrepareWorkspaceConfig(root string) (Config, error) {
 }
 
 func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	if fileCfg.Upstreams != nil && len(*fileCfg.Upstreams) == 0 {
+		return Config{}, fmt.Errorf("edge: upstreams must not be empty")
+	}
+	if len(cfg.Upstreams) == 0 && fileCfg.Upstreams != nil {
+		cfg.Upstreams = append([]UpstreamConfig(nil), (*fileCfg.Upstreams)...)
+	}
 	systemLogConfigured := !cfg.SystemLog.IsZero() || fileCfg.SystemLog != nil
 	if cfg.Listen == "" {
 		cfg.Listen = fileCfg.Listen
 	}
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = fileCfg.Endpoint
-	}
-	if cfg.Upstream.Endpoint == "" {
-		cfg.Upstream.Endpoint = fileCfg.Upstream.Endpoint
-	}
-	if cfg.Upstream.PublicKey.IsZero() {
-		cfg.Upstream.PublicKey = fileCfg.Upstream.PublicKey
-	}
-	if cfg.Upstream.ICETransportPolicy == "" {
-		cfg.Upstream.ICETransportPolicy = fileCfg.Upstream.ICETransportPolicy
-	}
-	if len(cfg.Upstream.ICEServers) == 0 {
-		cfg.Upstream.ICEServers = append([]gizwebrtc.ICEServer(nil), fileCfg.Upstream.ICEServers...)
 	}
 	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
 		cfg.TLS = fileCfg.TLS
@@ -325,17 +320,36 @@ func (cfg Config) validate() error {
 	if _, _, err := netSplitNumericHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
 	}
-	if cfg.Upstream.Endpoint == "" {
-		return fmt.Errorf("edge: missing upstream.endpoint")
-	}
-	if cfg.Upstream.PublicKey.IsZero() {
-		return fmt.Errorf("edge: missing upstream.public-key")
-	}
-	if _, err := cfg.UpstreamURL(); err != nil {
+	upstreams, err := cfg.configuredUpstreams()
+	if err != nil {
 		return err
 	}
-	if err := cfg.Upstream.validate(); err != nil {
-		return err
+	seenServers := make(map[giznet.PublicKey]int, len(upstreams))
+	seenEndpoints := make(map[string]int, len(upstreams))
+	for index, upstream := range upstreams {
+		path := fmt.Sprintf("upstreams[%d]", index)
+		if upstream.Endpoint == "" {
+			return fmt.Errorf("edge: missing %s.endpoint", path)
+		}
+		if upstream.PublicKey.IsZero() {
+			return fmt.Errorf("edge: missing %s.public-key", path)
+		}
+		parsed, parseErr := upstreamConfigURL(upstream, path)
+		if parseErr != nil {
+			return parseErr
+		}
+		if previous, exists := seenServers[upstream.PublicKey]; exists {
+			return fmt.Errorf("edge: %s.public-key duplicates upstreams[%d]", path, previous)
+		}
+		seenServers[upstream.PublicKey] = index
+		endpoint := parsed.String()
+		if previous, exists := seenEndpoints[endpoint]; exists {
+			return fmt.Errorf("edge: %s.endpoint duplicates upstreams[%d]", path, previous)
+		}
+		seenEndpoints[endpoint] = index
+		if validateErr := upstream.validate(); validateErr != nil {
+			return validateErr
+		}
 	}
 	if err := cfg.TURN.validate(); err != nil {
 		return err
@@ -650,23 +664,49 @@ func netSplitNumericHostPort(field, value string) (string, string, error) {
 	return host, port, nil
 }
 
-func (cfg Config) UpstreamURL() (*url.URL, error) {
-	endpoint := strings.TrimSpace(cfg.Upstream.Endpoint)
+// BootstrapUpstreamURL returns the first configured upstream URL. The ordered
+// first entry owns public HTTP requests and assignment-not-found bootstrap.
+func (cfg Config) BootstrapUpstreamURL() (*url.URL, error) {
+	if len(cfg.Upstreams) == 0 {
+		return nil, fmt.Errorf("edge: upstreams must not be empty")
+	}
+	return upstreamConfigURL(cfg.Upstreams[0], "upstreams[0]")
+}
+
+func (cfg Config) selectedUpstreamURL() (*url.URL, error) {
+	return upstreamConfigURL(cfg.selectedUpstream, "upstream")
+}
+
+func upstreamConfigURL(upstream UpstreamConfig, path string) (*url.URL, error) {
+	endpoint := strings.TrimSpace(upstream.Endpoint)
 	if endpoint == "" {
-		return nil, fmt.Errorf("edge: missing upstream.endpoint")
+		return nil, fmt.Errorf("edge: missing %s.endpoint", path)
 	}
 	if !strings.Contains(endpoint, "://") {
 		endpoint = "http://" + endpoint
 	}
 	upstreamURL, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("edge: invalid upstream.endpoint: %w", err)
+		return nil, fmt.Errorf("edge: invalid %s.endpoint: %w", path, err)
 	}
 	if upstreamURL.Scheme != "http" && upstreamURL.Scheme != "https" {
-		return nil, fmt.Errorf("edge: invalid upstream.endpoint scheme %q", upstreamURL.Scheme)
+		return nil, fmt.Errorf("edge: invalid %s.endpoint scheme %q", path, upstreamURL.Scheme)
 	}
 	if upstreamURL.Host == "" {
-		return nil, fmt.Errorf("edge: invalid upstream.endpoint: missing host")
+		return nil, fmt.Errorf("edge: invalid %s.endpoint: missing host", path)
 	}
 	return upstreamURL, nil
+}
+
+func (cfg Config) configuredUpstreams() ([]UpstreamConfig, error) {
+	if len(cfg.Upstreams) == 0 {
+		return nil, fmt.Errorf("edge: upstreams must not be empty")
+	}
+	return cfg.Upstreams, nil
+}
+
+func (cfg Config) withUpstream(upstream UpstreamConfig) Config {
+	cfg.selectedUpstream = upstream
+	cfg.Upstreams = nil
+	return cfg
 }

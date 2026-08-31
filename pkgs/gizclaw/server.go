@@ -58,6 +58,7 @@ type Server struct {
 	PeerListenerFactories []PeerListenerFactory
 
 	PeerStore              kv.Store
+	PeerRunStore           kv.Store
 	CredentialStore        kv.Store
 	FirmwareStore          kv.Store
 	RuntimeProfileStore    kv.Store
@@ -334,6 +335,8 @@ func (s *Server) init() error {
 		return errors.New("gizclaw: empty local static private key")
 	case s.PeerStore == nil:
 		return errors.New("gizclaw: nil peer store")
+	case s.PeerRunStore == nil:
+		return errors.New("gizclaw: nil peer run store")
 	}
 	for _, required := range []struct {
 		name  string
@@ -363,7 +366,7 @@ func (s *Server) init() error {
 
 	peerStore := kv.Prefixed(s.PeerStore, kv.Key{"records"})
 	peerRouteStore := kv.Prefixed(s.PeerStore, kv.Key{"routes"})
-	peerRunStore := kv.Prefixed(s.PeerStore, kv.Key{"runs"})
+	peerRunStore := kv.Prefixed(s.PeerRunStore, kv.Key{"runs"})
 	credentialStore := s.CredentialStore
 	firmwareStore := s.FirmwareStore
 	runtimeProfileStore := s.RuntimeProfileStore
@@ -532,6 +535,8 @@ func (s *Server) init() error {
 			}
 			return peersServer.EnsureAvailable(ctx, key)
 		},
+		PeerAssignments: manager.PeerRoutes,
+		ServerPublicKey: s.LocalStatic.Public,
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:                   friendGroupStore,
@@ -553,6 +558,8 @@ func (s *Server) init() error {
 			}
 			return peersServer.EnsureAvailable(ctx, key)
 		},
+		PeerAssignments: manager.PeerRoutes,
+		ServerPublicKey: s.LocalStatic.Public,
 	}
 	providerTenantsServer := &providertenants.Server{
 		Store:       s.ProviderTenantStore,

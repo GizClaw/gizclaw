@@ -36,7 +36,9 @@ The main capability groups are:
 
 | Service fields | Capability |
 | --- | --- |
-| Peer, login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
+| `services.peer.store` | `keyvalue`; owns shared Peer records and fixed Server routes |
+| `services.peer_run.store` | distinct `keyvalue`; owns Server-local Peer status and Agent selection state |
+| login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
 | `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
@@ -44,6 +46,8 @@ The main capability groups are:
 | `services.system_log.query_store` and Store sinks | immutable Log capability |
 
 Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.
+
+In a multi-Server topology, all Servers may bind Peer, Friend, and Friend Group control-plane Stores to distinct prefixes on one Redis 7.0 connector. `services.peer_run.store` remains mandatory, distinct from `services.peer.store`, persistent, and local to each Server; the Server retains its code-owned `runs` namespace below that binding so existing local run records remain readable. Client activation atomically claims an unassigned Peer or verifies the existing fixed Server owner before publishing the connection or starting service work. RuntimeProfile, Workspace, History, Memory, assets, and other runtime Stores remain Server-local; this composition does not provide Workspace routing or failover.
 
 Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, and installs logging and metrics. After workspace PID ownership is acquired, optional process profiling resolves its dedicated ObjectStore and publishes a baseline; only then are public listeners opened and `Server.Listen` started. Logical Stores never close borrowed connectors. Shutdown joins the profiling worker before closing logging, logical wrappers, and physical connectors. Process profiling belongs to `cmd/internal/server`; the reusable `pkgs/gizclaw.Server` has no pprof dependency.
 

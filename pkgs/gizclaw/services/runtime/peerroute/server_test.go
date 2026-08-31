@@ -1,6 +1,7 @@
 package peerroute
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sync"
@@ -129,94 +130,135 @@ func TestLookupNotFoundAndInvalidKey(t *testing.T) {
 	}
 }
 
-func TestAssignDoesNotBlockIndependentPeer(t *testing.T) {
-	first := giznet.PublicKey{1}
-	second := giznet.PublicKey{2}
+func TestAssignRaceProducesOnePermanentOwner(t *testing.T) {
+	peerKey := giznet.PublicKey{1}
+	store := kv.NewMemory(nil)
+	peers := testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: activeClientPeer()}}
+	servers := []*Server{
+		{Store: store, Peers: peers, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "server-a:9820"},
+		{Store: store, Peers: peers, ServerPublicKey: giznet.PublicKey{9}, ServerEndpoint: "server-b:9820"},
+	}
+	errs := make([]error, len(servers))
+	assignments := make([]apitypes.PeerAssignment, len(servers))
+	var wait sync.WaitGroup
+	for index := range servers {
+		wait.Go(func() { assignments[index], errs[index] = servers[index].Assign(t.Context(), peerKey, nil) })
+	}
+	wait.Wait()
+	winners := 0
+	conflicts := 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			winners++
+		case errors.Is(err, ErrVersionConflict):
+			conflicts++
+		default:
+			t.Fatalf("Assign() unexpected error = %v", err)
+		}
+	}
+	if winners != 1 || conflicts != 1 {
+		t.Fatalf("Assign() outcomes = %v, want one winner and one conflict", errs)
+	}
+	stored, err := servers[0].Lookup(t.Context(), peerKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Version != 1 {
+		t.Fatalf("stored assignment = %+v, want immutable version 1", stored)
+	}
+	for index, assignment := range assignments {
+		if errs[index] == nil && assignment.ServerPublicKey != stored.ServerPublicKey {
+			t.Fatalf("winner = %+v, stored = %+v", assignment, stored)
+		}
+	}
+}
+
+func TestResolveIsReadOnly(t *testing.T) {
+	peerKey := giznet.PublicKey{1}
 	base := kv.NewMemory(nil)
-	store := &blockingPeerRouteStore{
-		Store:   base,
-		key:     assignmentKey(first.String()).String(),
-		entered: make(chan struct{}),
-		release: make(chan struct{}),
-	}
+	store := &countingPeerRouteStore{Store: base}
 	service := &Server{
-		Store:           store,
-		Peers:           testPeers{items: map[giznet.PublicKey]apitypes.Peer{first: activeClientPeer(), second: activeClientPeer()}},
-		ServerPublicKey: giznet.PublicKey{9},
-		ServerEndpoint:  "https://server.example",
+		Store: store, Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: activeClientPeer()}},
+		ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "server-a:9820",
 	}
+	written := apitypes.PeerAssignment{
+		PeerPublicKey: peerKey.String(), ServerPublicKey: giznet.PublicKey{9}.String(),
+		ServerEndpoint: "server-b:9820", Role: apitypes.PeerRoleClient, Version: 7, UpdatedAt: time.Now(),
+	}
+	if err := service.put(t.Context(), written); err != nil {
+		t.Fatal(err)
+	}
+	store.writes = 0
+	resolved, err := service.Resolve(t.Context(), peerKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.writes != 0 || resolved.ServerPublicKey != written.ServerPublicKey || resolved.Version != written.Version {
+		t.Fatalf("Resolve() = %+v with %d writes, want unchanged assignment", resolved, store.writes)
+	}
+}
 
-	type assignResult struct {
-		assignment apitypes.PeerAssignment
-		err        error
+func TestAssignRefreshesOnlySameOwnerAndPreservesForeignBytes(t *testing.T) {
+	peerKey := giznet.PublicKey{1}
+	store := kv.NewMemory(nil)
+	peers := testPeers{items: map[giznet.PublicKey]apitypes.Peer{peerKey: activeClientPeer()}}
+	owner := &Server{Store: store, Peers: peers, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "server-a:9820"}
+	first, err := owner.Assign(t.Context(), peerKey, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	firstDone := make(chan assignResult, 1)
-	go func() {
-		assignment, err := service.Assign(t.Context(), first, nil)
-		firstDone <- assignResult{assignment: assignment, err: err}
-	}()
-	<-store.entered
+	before, err := store.Get(t.Context(), assignmentKey(peerKey.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign := &Server{Store: store, Peers: peers, ServerPublicKey: giznet.PublicKey{9}, ServerEndpoint: "server-b:9820"}
+	if _, err := foreign.Assign(t.Context(), peerKey, nil); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("foreign Assign() error = %v, want conflict", err)
+	}
+	after, err := store.Get(t.Context(), assignmentKey(peerKey.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("foreign Assign() changed persisted assignment bytes")
+	}
+	owner.ServerEndpoint = "server-a-new:9820"
+	refreshed, err := owner.Assign(t.Context(), peerKey, &first.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.ServerPublicKey != first.ServerPublicKey || refreshed.ServerEndpoint != owner.ServerEndpoint || refreshed.Version != first.Version+1 {
+		t.Fatalf("refreshed assignment = %+v", refreshed)
+	}
+	missingVersion := int64(1)
+	missingKey := giznet.PublicKey{2}
+	owner.Peers = testPeers{items: map[giznet.PublicKey]apitypes.Peer{missingKey: activeClientPeer()}}
+	if _, err := owner.Assign(t.Context(), missingKey, &missingVersion); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("versioned missing Assign() error = %v, want conflict", err)
+	}
+}
 
-	sameDone := make(chan assignResult, 1)
-	go func() {
-		assignment, err := service.Assign(t.Context(), first, nil)
-		sameDone <- assignResult{assignment: assignment, err: err}
-	}()
-	secondDone := make(chan assignResult, 1)
-	go func() {
-		assignment, err := service.Assign(t.Context(), second, nil)
-		secondDone <- assignResult{assignment: assignment, err: err}
-	}()
+type countingPeerRouteStore struct {
+	kv.Store
+	writes int
+}
 
-	select {
-	case got := <-secondDone:
-		if got.err != nil {
-			t.Fatalf("independent Assign() error = %v", got.err)
-		}
-		if got.assignment.Version != 1 {
-			t.Fatalf("independent assignment version = %d, want 1", got.assignment.Version)
-		}
-	case <-time.After(time.Second):
-		close(store.release)
-		t.Fatal("independent Peer could not complete Assign while first Peer Store.Get was blocked")
-	}
-	select {
-	case got := <-sameDone:
-		close(store.release)
-		t.Fatalf("same Peer completed before first assignment release: %#v", got)
-	default:
-	}
+func (s *countingPeerRouteStore) Set(ctx context.Context, key kv.Key, value []byte) error {
+	s.writes++
+	return s.Store.Set(ctx, key, value)
+}
 
-	close(store.release)
-	for name, done := range map[string]<-chan assignResult{"first": firstDone, "same": sameDone} {
-		got := <-done
-		if got.err != nil {
-			t.Fatalf("%s Assign() error = %v", name, got.err)
-		}
-		if got.assignment.Version != 1 {
-			t.Fatalf("%s assignment version = %d, want 1", name, got.assignment.Version)
-		}
-	}
+func (s *countingPeerRouteStore) BatchSet(ctx context.Context, entries []kv.Entry) error {
+	s.writes++
+	return s.Store.BatchSet(ctx, entries)
+}
+
+func (s *countingPeerRouteStore) BatchMutate(ctx context.Context, entries []kv.Entry, keys []kv.Key) error {
+	s.writes++
+	return s.Store.BatchMutate(ctx, entries, keys)
 }
 
 func activeClientPeer() apitypes.Peer {
 	return apitypes.Peer{Status: apitypes.PeerRegistrationStatusActive, Role: apitypes.PeerRoleClient}
-}
-
-type blockingPeerRouteStore struct {
-	kv.Store
-	key     string
-	entered chan struct{}
-	release chan struct{}
-	once    sync.Once
-}
-
-func (store *blockingPeerRouteStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	if key.String() == store.key {
-		store.once.Do(func() {
-			close(store.entered)
-			<-store.release
-		})
-	}
-	return store.Store.Get(ctx, key)
 }

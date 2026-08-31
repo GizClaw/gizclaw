@@ -62,9 +62,9 @@ func TestEdgeGatewayAndServerTunnelShareSessionCorrelation(t *testing.T) {
   private-key: %s
 listen: %s
 endpoint: %s
-upstream:
-  endpoint: %s
-  public-key: %s
+upstreams:
+  - endpoint: %s
+    public-key: %s
 tls:
   cert-source: disabled
 gateway:

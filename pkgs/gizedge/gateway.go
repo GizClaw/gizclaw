@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
@@ -47,7 +48,12 @@ type Gateway struct {
 	cfg    Config
 
 	listener *gizwebrtc.Listener
-	pool     *gatewayPool
+	// pool is the single-upstream compatibility view used by existing
+	// in-package admission tests. Production routing uses pools and poolOrder.
+	pool             *gatewayPool
+	pools            map[giznet.PublicKey]*gatewayPool
+	poolOrder        []*gatewayPool
+	resolvePeerRoute func(context.Context, giznet.PublicKey) (*rpcpb.PeerAssignment, error)
 
 	capacityMu sync.Mutex
 	pending    int
@@ -84,8 +90,6 @@ type gatewaySession struct {
 func newGateway(
 	parent context.Context,
 	cfg Config,
-	upstreamURL *url.URL,
-	relaySelector *upstreamRelaySelector,
 ) (*Gateway, error) {
 	ctx, cancel := context.WithCancel(parent)
 	gateway := &Gateway{
@@ -111,22 +115,62 @@ func newGateway(
 		cancel()
 		return nil, fmt.Errorf("edge: start gateway listener: %w", err)
 	}
-	pool := newGatewayPool(ctx, cfg, upstreamURL, relaySelector)
-	startupCtx, startupCancel := context.WithTimeout(ctx, upstreamDialTimeout)
-	defer startupCancel()
-	if err := retryGatewayStartupRelay(startupCtx, pool.ensureOne); err != nil {
+	upstreams, err := cfg.configuredUpstreams()
+	if err != nil {
 		_ = listener.Close()
 		cancel()
 		return nil, err
 	}
-	if err := retryGatewayStartupRelay(startupCtx, pool.warm); err != nil {
-		_ = pool.Close()
+	gateway.pools = make(map[giznet.PublicKey]*gatewayPool, len(upstreams))
+	for index, upstream := range upstreams {
+		upstreamCfg := cfg.withUpstream(upstream)
+		configuredURL, urlErr := upstreamConfigURL(upstream, fmt.Sprintf("upstreams[%d]", index))
+		if urlErr != nil {
+			_ = listener.Close()
+			cancel()
+			return nil, urlErr
+		}
+		selector, selectorErr := newUpstreamRelaySelector(upstreamCfg)
+		if selectorErr != nil {
+			_ = listener.Close()
+			cancel()
+			return nil, selectorErr
+		}
+		pool := newGatewayPool(ctx, upstreamCfg, configuredURL, selector)
+		gateway.pools[upstream.PublicKey] = pool
+		gateway.poolOrder = append(gateway.poolOrder, pool)
+	}
+	var startupPool *gatewayPool
+	var startupErrs []error
+	for _, pool := range gateway.poolOrder {
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, upstreamDialTimeout)
+		ensureErr := retryGatewayStartupRelay(attemptCtx, pool.ensureOne)
+		attemptCancel()
+		if ensureErr != nil {
+			startupErrs = append(startupErrs, ensureErr)
+			continue
+		}
+		startupPool = pool
+		break
+	}
+	if startupPool == nil {
+		_ = listener.Close()
+		cancel()
+		return nil, errors.Join(startupErrs...)
+	}
+	gateway.pool = startupPool
+	warmCtx, warmCancel := context.WithTimeout(ctx, upstreamDialTimeout)
+	err = retryGatewayStartupRelay(warmCtx, startupPool.warm)
+	warmCancel()
+	if err != nil {
+		for _, pool := range gateway.poolOrder {
+			_ = pool.Close()
+		}
 		_ = listener.Close()
 		cancel()
 		return nil, err
 	}
 	gateway.listener = listener
-	gateway.pool = pool
 	gateway.capacityMu.Lock()
 	gateway.recordCapacityMetricsLocked()
 	gateway.capacityMu.Unlock()
@@ -237,7 +281,7 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	admission.clientKey = clientKey
 	admission.remoteAddr = r.RemoteAddr
 	r = r.WithContext(context.WithValue(r.Context(), gatewayAdmissionContextKey{}, admission))
-	entry, release, err := g.pool.acquire(r.Context())
+	entry, release, err := g.acquirePeerUpstream(r.Context(), clientKey)
 	if err != nil {
 		gizmetrics.AddCounter(r.Context(), metricEdgeAdmissionRejections, 1,
 			gizmetrics.Label{Name: "reason", Value: "upstream_capacity"})
@@ -278,7 +322,7 @@ func (g *Gateway) reserveAdmission() (*gatewayAdmission, error) {
 	if g.ctx.Err() != nil ||
 		g.pending >= g.cfg.Gateway.MaxPendingHandshakes ||
 		g.pending+g.active >= g.cfg.Gateway.MaxSessions ||
-		!g.pool.canAccept() {
+		!g.canAcceptUpstream() {
 		return nil, ErrGatewayOverCapacity
 	}
 	g.pending++
@@ -289,6 +333,28 @@ func (g *Gateway) reserveAdmission() (*gatewayAdmission, error) {
 	}
 	g.recordCapacityMetricsLocked()
 	return admission, nil
+}
+
+func (g *Gateway) canAcceptUpstream() bool {
+	for _, pool := range g.configuredPools() {
+		if pool.canAccept() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Gateway) configuredPools() []*gatewayPool {
+	if g == nil {
+		return nil
+	}
+	if len(g.poolOrder) != 0 {
+		return g.poolOrder
+	}
+	if g.pool != nil {
+		return []*gatewayPool{g.pool}
+	}
+	return nil
 }
 
 func (g *Gateway) recordCapacityMetricsLocked() {
@@ -504,7 +570,7 @@ func (g *Gateway) handleClient(client giznet.Conn, admission *gatewayAdmission) 
 			break
 		}
 		admission.releasePool()
-		alternate, release, err := g.pool.acquire(establishCtx)
+		alternate, release, err := g.acquirePeerUpstream(establishCtx, client.PublicKey())
 		if err != nil {
 			break
 		}
@@ -630,6 +696,12 @@ func (g *Gateway) classifySessionHandshakeFailure(
 ) bool {
 	if ctx.Err() != nil || g.ctx.Err() != nil {
 		return false
+	}
+	// A first-claim race can make the bootstrap Server reject this logical
+	// session after another Server became the fixed owner. No application lane
+	// is open yet, so one fresh route lookup is safe and does not replay work.
+	if errors.Is(err, giztunnel.ErrSessionRejected) {
+		return true
 	}
 	info := entry.conn.PeerInfo()
 	if errors.Is(err, giznet.ErrConnClosed) || info != nil && info.State == giznet.PeerStateOffline {
@@ -874,7 +946,9 @@ func (g *Gateway) Close() error {
 			g.closeSessions()
 			<-drained
 		}
-		closeErr = errors.Join(closeErr, g.pool.Close())
+		for _, pool := range g.configuredPools() {
+			closeErr = errors.Join(closeErr, pool.Close())
+		}
 	})
 	return closeErr
 }

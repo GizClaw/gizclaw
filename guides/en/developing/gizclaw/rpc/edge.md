@@ -16,3 +16,5 @@ Define `edgeRPCServer`, process Peer lookup, assignment and route resolve on the
 | `handleResolve` | Parse the effective route of the target Peer. |
 | `edgeRequiredParams` | Decode and verify required params. |
 | `edgeRPCResult` / `edgeRPCError` | Encoding typed result or mapping field error. |
+
+`server.peer.lookup` and `server.route.resolve` are read-only. `server.peer.assign` atomically claims a missing Client Peer for the current Server, returns the existing assignment for the same owner, and may refresh only that owner's endpoint/role metadata. A different Server owner returns conflict and is never overwritten; `expected_version` detects stale updates but never authorizes ownership transfer.

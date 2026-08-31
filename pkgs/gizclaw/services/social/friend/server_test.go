@@ -33,6 +33,53 @@ type friendNotification struct {
 	event     *eventpb.PeerEvent
 }
 
+type assignmentStub map[giznet.PublicKey]apitypes.PeerAssignment
+
+func (s assignmentStub) Lookup(_ context.Context, key giznet.PublicKey) (apitypes.PeerAssignment, error) {
+	assignment, ok := s[key]
+	if !ok {
+		return apitypes.PeerAssignment{}, kv.ErrNotFound
+	}
+	return assignment, nil
+}
+
+func TestCrossServerFriendCreationStopsBeforeMutation(t *testing.T) {
+	localKey := giznet.PublicKey{1}
+	foreignKey := giznet.PublicKey{2}
+	serverKey := giznet.PublicKey{8}
+	foreignServerKey := giznet.PublicKey{9}
+	s := newTestServer()
+	s.ServerPublicKey = serverKey
+	s.PeerAssignments = assignmentStub{
+		localKey:   {PeerPublicKey: localKey.String(), ServerPublicKey: serverKey.String()},
+		foreignKey: {PeerPublicKey: foreignKey.String(), ServerPublicKey: foreignServerKey.String()},
+	}
+	workspaces := s.Workspaces.(*recordingWorkspaceService)
+	profileCalls := 0
+	s.RuntimeProfileForOwner = func(context.Context, string) (apitypes.RuntimeProfile, error) {
+		profileCalls++
+		return apitypes.RuntimeProfile{}, errors.New("profile must not be resolved")
+	}
+	token, err := s.CreateFriendInviteToken(t.Context(), foreignKey.String(), rpcapi.FriendInviteTokenCreateRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddFriend(t.Context(), localKey.String(), rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); !errors.Is(err, ErrCrossServerFriendCreation) {
+		t.Fatalf("AddFriend() error = %v, want cross-server conflict", err)
+	}
+	if profileCalls != 0 || len(workspaces.created) != 0 {
+		t.Fatalf("rejected creation resolved %d profiles and created %d Workspaces", profileCalls, len(workspaces.created))
+	}
+	assertNoFriendCreationState(t, s.Friends)
+	active, ok, err := s.activeInviteToken(t.Context(), s.InviteTokens, foreignKey.String())
+	if err != nil || !ok || active.InviteToken != token.InviteToken {
+		t.Fatalf("invite after rejection = %+v, %v, %v", active, ok, err)
+	}
+	if _, err := s.AdminCreateFriend(t.Context(), localKey.String(), foreignKey.String()); !errors.Is(err, ErrCrossServerFriendCreation) {
+		t.Fatalf("AdminCreateFriend() error = %v, want cross-server conflict", err)
+	}
+}
+
 func (s profileStub) GetSelfInfo(_ context.Context, key giznet.PublicKey) (apitypes.DeviceInfo, error) {
 	if key != s.want {
 		return apitypes.DeviceInfo{}, errors.New("unexpected profile key")
