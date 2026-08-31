@@ -56,7 +56,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/tphakala/go-audio-resampling v0.0.0-20251123212058-a9dde25e8eea
 	github.com/valyala/fasthttp v1.72.0
-	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.8
+	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.9
 	github.com/volcengine/volc-sdk-golang v1.0.254
 	github.com/volcengine/volcengine-go-sdk v1.2.48
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
