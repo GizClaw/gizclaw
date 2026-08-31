@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -587,15 +588,23 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 			}
 		})
 	}
-	logical := (storeFileConfig{
+	logical, err := (storeFileConfig{
 		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
-		Database: "${GIZCLAW_TEST_CONFIG_VALUE}/database", Table: "${GIZCLAW_TEST_CONFIG_VALUE}/table", TopicID: "${GIZCLAW_TEST_CONFIG_VALUE}/topic",
+		Database: "${GIZCLAW_TEST_CONFIG_VALUE}/database", Table: "${GIZCLAW_TEST_CONFIG_VALUE}/table", TopicID: "${GIZCLAW_TEST_CONFIG_VALUE}/topic", TTL: "2160h",
 	}).runtimeConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if logical != (stores.Config{
 		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
-		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic",
+		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic", TTL: 90 * 24 * time.Hour,
 	}) {
 		t.Fatalf("store runtime config = %+v", logical)
+	}
+	for _, ttl := range []string{"invalid", "0s", "-1s"} {
+		if _, err := (storeFileConfig{TTL: ttl}).runtimeConfig(); err == nil || !strings.Contains(err.Error(), "ttl must be a positive duration") {
+			t.Fatalf("runtimeConfig(ttl=%q) error = %v", ttl, err)
+		}
 	}
 }
 
@@ -734,6 +743,20 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 	delete(missingWorkspacesCfg.Stores, "workspaces")
 	if _, err := New(missingWorkspacesCfg); err == nil || !strings.Contains(err.Error(), "services.workspace.store") {
 		t.Fatalf("New(missing workspaces store) = %v", err)
+	}
+
+	badWorkspaceHistoryCfg := validLayeredConfig(dir)
+	badWorkspaceHistoryCfg.Stores["workspace-history"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspace-history"}
+	if _, err := New(badWorkspaceHistoryCfg); err == nil || !strings.Contains(err.Error(), `workspace.history_store "workspace-history" requires logstore.MutableStore`) {
+		t.Fatalf("New(bad workspace history store) = %v", err)
+	}
+
+	mismatchedWorkspaceHistoryTTL := validLayeredConfig(dir)
+	historyAssets := mismatchedWorkspaceHistoryTTL.Stores["workspace-history-assets"]
+	historyAssets.TTL = 31 * 24 * time.Hour
+	mismatchedWorkspaceHistoryTTL.Stores["workspace-history-assets"] = historyAssets
+	if _, err := New(mismatchedWorkspaceHistoryTTL); err == nil || !strings.Contains(err.Error(), "history Store TTLs must be equal and positive") {
+		t.Fatalf("New(mismatched workspace history TTL) error = %v", err)
 	}
 
 	missingWorkflowsCfg := validLayeredConfig(dir)
@@ -1070,7 +1093,7 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers", "peer-runs",
 		"api-keys", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
 		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "gameplay", "agenthost",
-		"workspace-assets", "gameplay-assets", "gameplay-db",
+		"workspace-history", "workspace-history-assets", "workspace-assets", "gameplay-assets", "gameplay-db",
 	} {
 		if _, exists := cfg.Stores[name]; !exists {
 			t.Fatalf("stores.%s is missing", name)
@@ -1132,6 +1155,8 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 		expect(path, name, stores.KindKeyValue)
 	}
 	expect("services.workspace.assets_store", services.Workspace.AssetsStore, stores.KindObjectStore)
+	expect("services.workspace.history_store", services.Workspace.HistoryStore, stores.KindLogMutable)
+	expect("services.workspace.history_assets_store", services.Workspace.HistoryAssetsStore, stores.KindObjectStore)
 	expect("services.gameplay.assets_store", services.Gameplay.AssetsStore, stores.KindObjectStore)
 	expect("services.gameplay.database_store", services.Gameplay.DatabaseStore, stores.KindSQL)
 	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
@@ -1399,27 +1424,29 @@ func validLayeredConfig(dir string) Config {
 			"gameplay-db":  storage.SQLiteConfig{Dir: filepath.Join(dir, "gameplay.sqlite")},
 		},
 		Stores: map[string]stores.Config{
-			"peers":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"peer-runs":        {Kind: stores.KindKeyValue, Storage: "peer-runs-db", Prefix: "peer_runs"},
-			"api-keys":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
-			"credentials":      {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
-			"firmwares":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
-			"runtime-profiles": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
-			"memory-layouts":   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
-			"agenthost":        {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
-			"provider-tenants": {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "provider-tenants"},
-			"models":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "models"},
-			"voices":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
-			"workspaces":       {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
-			"workflows":        {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
-			"tools":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "tools"},
-			"contacts":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
-			"friends":          {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
-			"friend-groups":    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
-			"gameplay":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "gameplay"},
-			"gameplay-assets":  {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
-			"workspace-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
-			"gameplay-db":      {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"peers":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
+			"peer-runs":                {Kind: stores.KindKeyValue, Storage: "peer-runs-db", Prefix: "peer_runs"},
+			"api-keys":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
+			"credentials":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
+			"firmwares":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
+			"runtime-profiles":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
+			"memory-layouts":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
+			"agenthost":                {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
+			"provider-tenants":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "provider-tenants"},
+			"models":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "models"},
+			"voices":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
+			"workspaces":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
+			"workflows":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
+			"tools":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "tools"},
+			"contacts":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
+			"friends":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
+			"friend-groups":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
+			"gameplay":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "gameplay"},
+			"gameplay-assets":          {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
+			"workspace-assets":         {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
+			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "gameplay-db", Table: "workspace_history", TTL: 30 * 24 * time.Hour},
+			"workspace-history-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspace-history", TTL: 30 * 24 * time.Hour},
+			"gameplay-db":              {Kind: stores.KindSQL, Storage: "gameplay-db"},
 		},
 		Services: validServicesConfig(),
 	}
@@ -1438,11 +1465,14 @@ func validServicesConfig() *ServicesConfig {
 		MemoryLayout:    &SingleStoreConfig{Store: "memory-layouts"},
 		ProviderTenants: &SingleStoreConfig{Store: "provider-tenants"},
 		Workflow:        &SingleStoreConfig{Store: "workflows"},
-		Workspace:       &WorkspaceStoresConfig{Store: "workspaces", AssetsStore: "workspace-assets"},
-		Toolkit:         &SingleStoreConfig{Store: "tools"},
-		Contact:         &SingleStoreConfig{Store: "contacts"},
-		Friend:          &SingleStoreConfig{Store: "friends"},
-		FriendGroup:     &SingleStoreConfig{Store: "friend-groups"},
+		Workspace: &WorkspaceStoresConfig{
+			Store: "workspaces", HistoryStore: "workspace-history",
+			HistoryAssetsStore: "workspace-history-assets", AssetsStore: "workspace-assets",
+		},
+		Toolkit:     &SingleStoreConfig{Store: "tools"},
+		Contact:     &SingleStoreConfig{Store: "contacts"},
+		Friend:      &SingleStoreConfig{Store: "friends"},
+		FriendGroup: &SingleStoreConfig{Store: "friend-groups"},
 		Gameplay: &GameplayStoresConfig{
 			Store: "gameplay", AssetsStore: "gameplay-assets", DatabaseStore: "gameplay-db",
 		},

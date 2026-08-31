@@ -4,6 +4,7 @@ package store_e2e_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -262,6 +263,10 @@ func TestPostgreSQLLog(t *testing.T) {
 	if err := store.Replace(context.Background(), first); err != nil {
 		t.Fatal(err)
 	}
+	got, err := store.Get(context.Background(), first.Key())
+	if err != nil || got.Message != "updated" || got.Key() != first.Key() {
+		t.Fatalf("Get() = %+v, %v", got, err)
+	}
 	page, err := store.Query(context.Background(), logstore.Query{
 		Start: now, End: now.Add(time.Second), Limit: 10, Order: logstore.OrderAsc,
 	})
@@ -294,11 +299,244 @@ func TestPostgreSQLLog(t *testing.T) {
 	if err := store.Delete(context.Background(), first.Key()); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := store.Get(context.Background(), first.Key()); !errors.Is(err, logstore.ErrNotFound) {
+		t.Fatalf("Get(deleted) error = %v", err)
+	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Ping(); err != nil {
 		t.Fatalf("logical Close() closed borrowed pool: %v", err)
+	}
+}
+
+func TestPostgreSQLLogTTLUsesDailyPartitions(t *testing.T) {
+	db := openPostgreSQL(t)
+	table := uniqueTable("logs_ttl")
+	keysTable := table + "_keys"
+	cleanupPostgreSQLTables(t, db, table, keysTable)
+	const ttl = 30 * 24 * time.Hour
+	const constructors = 4
+	stores := make(chan *logstore.SQLStore, constructors)
+	constructorErrors := make(chan error, constructors)
+	start := make(chan struct{})
+	var constructorsDone sync.WaitGroup
+	for range constructors {
+		constructorsDone.Add(1)
+		go func() {
+			defer constructorsDone.Done()
+			<-start
+			store, err := logstore.NewSQLStoreWithDBAndTTL(db, table, ttl)
+			if err != nil {
+				constructorErrors <- err
+				return
+			}
+			stores <- store
+		}()
+	}
+	close(start)
+	constructorsDone.Wait()
+	close(stores)
+	close(constructorErrors)
+	for err := range constructorErrors {
+		t.Fatalf("concurrent NewSQLStoreWithDBAndTTL() error = %v", err)
+	}
+	var store *logstore.SQLStore
+	for candidate := range stores {
+		if store == nil {
+			store = candidate
+		} else {
+			_ = candidate.Close()
+		}
+	}
+	if store == nil {
+		t.Fatal("concurrent constructors returned no Store")
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	var relationKind string
+	if err := db.Get(&relationKind, `
+		SELECT class.relkind
+		FROM pg_class class
+		JOIN pg_namespace backend ON backend.oid = class.relnamespace
+		WHERE backend.nspname = current_schema() AND class.relname = $1`, table); err != nil {
+		t.Fatal(err)
+	}
+	if relationKind != "p" {
+		t.Fatalf("parent relkind = %q, want partitioned table", relationKind)
+	}
+	var partitionCount int
+	if err := db.Get(&partitionCount, `
+		SELECT COUNT(*)
+		FROM pg_inherits inheritance
+		JOIN pg_class parent ON parent.oid = inheritance.inhparent
+		JOIN pg_namespace backend ON backend.oid = parent.relnamespace
+		WHERE backend.nspname = current_schema() AND parent.relname = $1`, table); err != nil {
+		t.Fatal(err)
+	}
+	if partitionCount != 2 {
+		t.Fatalf("initial partition count = %d, want expiry day and following day", partitionCount)
+	}
+
+	record := logstore.Record{
+		ID: "one", Stream: "history", Kind: "message",
+		Time: time.UnixMilli(1000).UTC(),
+	}
+	beforeAppend := time.Now().UTC()
+	if _, err := store.Append(context.Background(), []logstore.Record{record}); err != nil {
+		t.Fatal(err)
+	}
+	afterAppend := time.Now().UTC()
+	var expiresAt int64
+	var childTable string
+	if err := db.QueryRow(
+		`SELECT expires_at_unix_nano, tableoid::regclass::text FROM "`+table+`" WHERE stream = $1 AND id = $2`,
+		record.Stream,
+		record.ID,
+	).Scan(&expiresAt, &childTable); err != nil {
+		t.Fatal(err)
+	}
+	if expiresAt < beforeAppend.Add(ttl).UnixNano() || expiresAt > afterAppend.Add(ttl).UnixNano() {
+		t.Fatalf("expires_at_unix_nano = %d, want write-time TTL in [%d, %d]", expiresAt, beforeAppend.Add(ttl).UnixNano(), afterAppend.Add(ttl).UnixNano())
+	}
+	wantChild := table + "_p" + time.Unix(0, expiresAt).UTC().Format("20060102")
+	if childTable != wantChild {
+		t.Fatalf("record partition = %q, want %q", childTable, wantChild)
+	}
+	if _, err := store.Append(context.Background(), []logstore.Record{record}); err == nil {
+		t.Fatal("duplicate Append succeeded across partitioned key registry")
+	}
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	yesterday := today.Add(-24 * time.Hour)
+	stalePartition := table + "_p" + yesterday.Format("20060102")
+	if _, err := db.Exec(fmt.Sprintf(
+		`CREATE TABLE "%s" PARTITION OF "%s" FOR VALUES FROM (%d) TO (%d)`,
+		stalePartition,
+		table,
+		yesterday.UnixNano(),
+		today.UnixNano(),
+	)); err != nil {
+		t.Fatal(err)
+	}
+	staleExpiry := yesterday.Add(time.Hour).UnixNano()
+	if _, err := db.Exec(
+		`INSERT INTO "`+keysTable+`" (stream, id, expires_at_unix_nano) VALUES ($1, $2, $3)`,
+		"history",
+		"stale",
+		staleExpiry,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO "`+table+`" (stream, id, timestamp_unix_nano, expires_at_unix_nano, kind, severity, message, attributes_json, payload_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		"history", "stale", yesterday.UnixNano(), staleExpiry, "message", "", "", "{}", []byte{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	live := record
+	live.ID = "two"
+	if _, err := store.Append(context.Background(), []logstore.Record{live}); err != nil {
+		t.Fatal(err)
+	}
+	var staleExists bool
+	if err := db.Get(&staleExists, `SELECT to_regclass(current_schema() || '.' || $1) IS NOT NULL`, stalePartition); err != nil {
+		t.Fatal(err)
+	}
+	if staleExists {
+		t.Fatalf("expired daily partition %q still exists", stalePartition)
+	}
+	var staleKeyCount int
+	if err := db.Get(&staleKeyCount, `SELECT COUNT(*) FROM "`+keysTable+`" WHERE stream = $1 AND id = $2`, "history", "stale"); err != nil {
+		t.Fatal(err)
+	}
+	if staleKeyCount != 0 {
+		t.Fatalf("expired partition key count = %d, want 0", staleKeyCount)
+	}
+}
+
+func TestPostgreSQLLogTTLStartsAfterPartitionMaintenance(t *testing.T) {
+	db := openPostgreSQL(t)
+	table := uniqueTable("logs_ttl_lock")
+	keysTable := table + "_keys"
+	cleanupPostgreSQLTables(t, db, table, keysTable)
+	const ttl = 30 * 24 * time.Hour
+	store, err := logstore.NewSQLStoreWithDBAndTTL(db, table, ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	lockTx, err := db.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockTx.Rollback()
+	var lockResult any
+	if err := lockTx.QueryRow(
+		"SELECT pg_advisory_xact_lock(hashtext(current_schema()::text), hashtext($1))",
+		table,
+	).Scan(&lockResult); err != nil {
+		t.Fatal(err)
+	}
+
+	record := logstore.Record{
+		ID: "delayed", Stream: "history", Kind: "message",
+		Time: time.UnixMilli(1000).UTC(),
+	}
+	appendResult := make(chan error, 1)
+	go func() {
+		_, err := store.Append(context.Background(), []logstore.Record{record})
+		appendResult <- err
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var waiting int
+		if err := db.Get(&waiting, `
+			SELECT COUNT(*)
+			FROM pg_stat_activity
+			WHERE datname = current_database()
+			  AND wait_event_type = 'Lock'
+			  AND lower(wait_event) = 'advisory'
+			  AND query LIKE '%pg_advisory_xact_lock%'`); err != nil {
+			t.Fatal(err)
+		}
+		if waiting > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("Append did not wait for PostgreSQL partition maintenance lock")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	maintenanceReleased := time.Now().UTC()
+	if err := lockTx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-appendResult:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Append did not complete after PostgreSQL partition maintenance lock release")
+	}
+	var expiresAt int64
+	if err := db.Get(
+		&expiresAt,
+		`SELECT expires_at_unix_nano FROM "`+table+`" WHERE stream = $1 AND id = $2`,
+		record.Stream,
+		record.ID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if expiresAt < maintenanceReleased.Add(ttl).UnixNano() {
+		t.Fatalf(
+			"expires_at_unix_nano = %d, want at least lock release plus TTL %d",
+			expiresAt,
+			maintenanceReleased.Add(ttl).UnixNano(),
+		)
 	}
 }
 
@@ -333,7 +571,7 @@ func cleanupPostgreSQLTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	t.Helper()
 	t.Cleanup(func() {
 		for _, table := range tables {
-			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `"`)
+			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `" CASCADE`)
 		}
 	})
 }

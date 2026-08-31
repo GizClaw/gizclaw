@@ -15,7 +15,7 @@ func TestServerWorkspaceHistoryServiceReadPaths(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(newTestObjectStore(t))
+	srv.RuntimeStore = newTestRuntimeStore(t, newTestObjectStore(t))
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 
@@ -71,7 +71,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(newTestObjectStore(t))
+	srv.RuntimeStore = newTestRuntimeStore(t, newTestObjectStore(t))
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 

@@ -39,8 +39,9 @@ The main capability groups are:
 | `services.peer.store` | `keyvalue`; owns shared Peer records and fixed Server routes |
 | `services.peer_run.store` | distinct `keyvalue`; owns Server-local Peer status and Agent selection state |
 | login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
-| `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
+| `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |
+| `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.system_log.query_store` and Store sinks | immutable Log capability |

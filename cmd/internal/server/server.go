@@ -313,6 +313,18 @@ func resolveMutableLogStore(registry *stores.Stores, path, name string) (logstor
 	return store, nil
 }
 
+func resolveMutableRecordStore(registry *stores.Stores, path, name string) (logstore.MutableRecordStore, error) {
+	store, err := resolveMutableLogStore(registry, path, name)
+	if err != nil {
+		return nil, err
+	}
+	records, ok := store.(logstore.MutableRecordStore)
+	if !ok {
+		return nil, serviceStoreReferenceError(path, name, "logstore.MutableRecordStore", errors.New("exact record reads are unsupported"))
+	}
+	return records, nil
+}
+
 func resolveMetricsStore(registry *stores.Stores, path, name string) (metrics.Store, error) {
 	store, err := registry.Metrics(name)
 	if err != nil {
@@ -372,6 +384,25 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	server.WorkspaceStore, err = resolveKVStore(registry, "services.workspace.store", cfg.Workspace.Store)
 	if err != nil {
 		return err
+	}
+	server.WorkspaceHistory, err = resolveMutableRecordStore(registry, "services.workspace.history_store", cfg.Workspace.HistoryStore)
+	if err != nil {
+		return err
+	}
+	server.WorkspaceHistoryAssets, err = resolveObjectStore(registry, "services.workspace.history_assets_store", cfg.Workspace.HistoryAssetsStore)
+	if err != nil {
+		return err
+	}
+	historyTTL, err := registry.TTL(cfg.Workspace.HistoryStore)
+	if err != nil {
+		return err
+	}
+	assetTTL, err := registry.TTL(cfg.Workspace.HistoryAssetsStore)
+	if err != nil {
+		return err
+	}
+	if historyTTL <= 0 || historyTTL != assetTTL {
+		return errors.New("server: services.workspace history Store TTLs must be equal and positive")
 	}
 	server.WorkspaceAssets, err = resolveObjectStore(registry, "services.workspace.assets_store", cfg.Workspace.AssetsStore)
 	if err != nil {

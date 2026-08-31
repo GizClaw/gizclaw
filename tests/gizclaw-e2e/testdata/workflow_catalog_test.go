@@ -141,6 +141,20 @@ func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.
 	if workspace["assets_store"] != "workspace-assets" || gameplay["assets_store"] != "gameplay-assets" {
 		t.Fatalf("owner asset bindings = workspace:%v gameplay:%v", workspace["assets_store"], gameplay["assets_store"])
 	}
+	if workspace["history_store"] != "workspace-history" {
+		t.Fatalf("workspace history binding = %v, want workspace-history", workspace["history_store"])
+	}
+	if workspace["history_assets_store"] != "workspace-history-assets" {
+		t.Fatalf("workspace history asset binding = %v", workspace["history_assets_store"])
+	}
+	history := stores["workspace-history"].(map[string]any)
+	if history["kind"] != "log.mutable" || history["storage"] != "gameplay-db" || history["table"] != "workspace_history" || history["ttl"] != "720h" {
+		t.Fatalf("workspace history Store = %#v", history)
+	}
+	historyAssets := stores["workspace-history-assets"].(map[string]any)
+	if historyAssets["kind"] != "objectstore" || historyAssets["ttl"] != history["ttl"] {
+		t.Fatalf("workspace history asset Store = %#v", historyAssets)
+	}
 }
 
 func TestEdgeWorkspaceGatewayLimitsAreRuntimeParameters(t *testing.T) {

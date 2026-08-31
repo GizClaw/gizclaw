@@ -19,7 +19,7 @@ func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *test
 	srv := newTestServer(t)
 	runtimeObjects := newTestObjectStore(t)
 	assetObjects := newTestObjectStore(t)
-	srv.RuntimeStore = NewObjectRuntimeStore(runtimeObjects)
+	srv.RuntimeStore = newTestRuntimeStore(t, runtimeObjects)
 	srv.Assets = assetObjects
 	now := time.Date(2026, 8, 7, 1, 0, 0, 0, time.UTC)
 	owner := "peer-a"

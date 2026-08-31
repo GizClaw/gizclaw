@@ -118,6 +118,7 @@ Config rules:
 - `memory.Store` is selected through RuntimeProfile and MemoryLayout and is not a Server Store kind.
 - Relative physical paths are resolved from the workspace. Logical Store values are not rewritten.
 - `services.agent_host`, `services.metrics`, and `services.system_log` are optional; all other built-in service blocks are required.
+- `services.workspace.history_store` requires a `log.mutable` Store for structured History records; `services.workspace.history_assets_store` is the separate ObjectStore for referenced binary replay assets. Both Stores require the same positive `ttl`.
 - `services.system_log` defaults to info-level stderr when omitted.
 - Service-internal collections use code-owned prefixes; expanded bindings such as `route_store`, `invite_token_store`, and `member_store` are unsupported.
 - Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not import or rewrite existing data automatically.

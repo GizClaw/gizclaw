@@ -68,6 +68,8 @@ type Server struct {
 	VoiceStore             kv.Store
 	MemoryLayoutStore      kv.Store
 	WorkspaceStore         kv.Store
+	WorkspaceHistory       logstore.MutableRecordStore
+	WorkspaceHistoryAssets objectstore.ObjectStore
 	WorkflowStore          kv.Store
 	ToolStore              kv.Store
 	APIKeyStore            kv.Store
@@ -357,6 +359,9 @@ func (s *Server) init() error {
 	if s.WorkspaceAssets == nil {
 		return errors.New("gizclaw: nil workspace assets store")
 	}
+	if s.AgentHostStore != nil && (s.WorkspaceHistory == nil || s.WorkspaceHistoryAssets == nil) {
+		return errors.New("gizclaw: nil workspace history store")
+	}
 	if s.GameplayAssets == nil {
 		return errors.New("gizclaw: nil gameplay assets store")
 	}
@@ -497,7 +502,7 @@ func (s *Server) init() error {
 		},
 	}
 	if s.AgentHostStore != nil {
-		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore)
+		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore, s.WorkspaceHistory, s.WorkspaceHistoryAssets)
 	}
 	credentialServer := &credential.Server{Store: credentialStore}
 	firmwareServer := &firmware.Server{Store: firmwareStore}

@@ -37,8 +37,9 @@ Edge 进程。
 | `services.peer.store` | `keyvalue`；保存共享 Peer record 与固定 Server route |
 | `services.peer_run.store` | 独立的 `keyvalue`；保存当前 Server 本地的 Peer 状态与 Agent selection |
 | login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
-| `services.workspace.assets_store`、`services.gameplay.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
+| `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.gameplay.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |
+| `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.system_log.query_store` 与 Store sink | immutable Log 能力 |

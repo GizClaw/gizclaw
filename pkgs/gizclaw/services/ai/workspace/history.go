@@ -9,23 +9,23 @@ import (
 	"io"
 	"io/fs"
 	"net/url"
-	"path"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 const (
 	defaultHistoryListLimit = 50
 	maxHistoryListLimit     = 200
-	defaultHistoryAssetTTL  = 7 * 24 * time.Hour
 	historyEntryTypeGear    = "gear"
 	historyEntryTypeAgent   = "agent"
+	historyRecordVersion    = 1
+	historyStreamPrefix     = "workspace.history/"
 	// HistoryOriginAgentHost marks entries durably written by the authenticated
 	// AgentHost path. Missing or other origins are never reward-eligible.
 	HistoryOriginAgentHost = "agenthost"
@@ -35,13 +35,14 @@ const (
 
 var historyIDSeq uint64
 
-// HistoryStore persists workspace history metadata and assets in object storage.
+// HistoryStore persists structured workspace history in a LogStore and keeps
+// only binary assets in object storage.
 type HistoryStore struct {
-	Objects        objectstore.ObjectStore
-	Workspace      string
-	ObjectPrefix   string
-	Now            func() time.Time
-	AssetRetention time.Duration
+	Records      logstore.MutableRecordStore
+	Objects      objectstore.ObjectStore
+	Workspace    string
+	ObjectPrefix string
+	Now          func() time.Time
 }
 
 // HistoryEntry is the internal persisted history shape.
@@ -81,16 +82,15 @@ type AppendHistoryRequest struct {
 type AppendHistoryAsset struct {
 	MIMEType string
 	Data     []byte
-	TTL      time.Duration
 }
 
 // NewHistoryStore constructs a HistoryStore for one workspace runtime.
-func NewHistoryStore(objects objectstore.ObjectStore, workspace string) *HistoryStore {
+func NewHistoryStore(records logstore.MutableRecordStore, objects objectstore.ObjectStore, workspace string) *HistoryStore {
 	return &HistoryStore{
-		Objects:        objects,
-		Workspace:      workspace,
-		ObjectPrefix:   ObjectPrefix(workspace),
-		AssetRetention: defaultHistoryAssetTTL,
+		Records:      records,
+		Objects:      objects,
+		Workspace:    workspace,
+		ObjectPrefix: ObjectPrefix(workspace),
 	}
 }
 
@@ -127,31 +127,37 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 	var written []string
 	hasReplayContent := false
 	if req.Asset != nil && len(req.Asset.Data) > 0 {
-		asset, err := s.writeAsset(entry.ID, *req.Asset, now)
+		asset, err := s.writeAsset(entry.ID, *req.Asset)
 		if err != nil {
 			return HistoryEntry{}, err
 		}
 		written = append(written, asset.Name)
 		entry.Assets = append(entry.Assets, asset)
 		hasReplayContent = true
-		entry.ExpiresAt = asset.ExpiresAt
 	}
 	if strings.TrimSpace(entry.Text) != "" {
 		hasReplayContent = true
 	}
 	entry.ReplayAvailable = hasReplayContent
-	data, err := json.Marshal(entry)
+	record, err := historyRecord(entry, s.stream())
 	if err != nil {
 		for _, name := range written {
 			_ = s.Objects.Delete(name)
 		}
-		return HistoryEntry{}, fmt.Errorf("workspace history: encode entry: %w", err)
+		return HistoryEntry{}, err
 	}
-	if err := s.Objects.Put(s.entryObjectName(entry.ID), bytes.NewReader(data)); err != nil {
+	keys, err := s.Records.Append(ctx, []logstore.Record{record})
+	if err != nil {
 		for _, name := range written {
 			_ = s.Objects.Delete(name)
 		}
-		return HistoryEntry{}, fmt.Errorf("workspace history: write entry: %w", err)
+		return HistoryEntry{}, fmt.Errorf("workspace history: append record: %w", err)
+	}
+	if len(keys) != 1 || keys[0] != record.Key() {
+		for _, name := range written {
+			_ = s.Objects.Delete(name)
+		}
+		return HistoryEntry{}, fmt.Errorf("workspace history: LogStore accepted %d of 1 records", len(keys))
 	}
 	return entry, nil
 }
@@ -294,12 +300,19 @@ func (s *HistoryStore) Get(ctx context.Context, id string) (HistoryEntry, error)
 	if id == "" {
 		return HistoryEntry{}, fmt.Errorf("workspace history: history_id is required")
 	}
-	entry, err := s.readEntry(s.entryObjectName(id))
+	record, err := s.Records.Get(ctx, logstore.RecordKey{Stream: s.stream(), ID: id})
+	if errors.Is(err, logstore.ErrNotFound) {
+		return HistoryEntry{}, fs.ErrNotExist
+	}
+	if err != nil {
+		return HistoryEntry{}, err
+	}
+	entry, err := historyEntryFromRecord(record, s.stream())
 	if err != nil {
 		return HistoryEntry{}, err
 	}
 	if s.entryExpired(entry) {
-		if err := s.deleteEntry(entry); err != nil {
+		if err := s.deleteEntry(ctx, entry); err != nil {
 			return HistoryEntry{}, err
 		}
 		return HistoryEntry{}, fs.ErrNotExist
@@ -331,24 +344,36 @@ func (s *HistoryStore) CleanupExpired(ctx context.Context) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
-	objects, err := s.Objects.List(s.entryPrefix())
-	if err != nil {
+	return s.scanRecords(ctx, logstore.OrderAsc, func(entry HistoryEntry) error {
+		if entry.ExpiresAt == nil || s.now().Before(*entry.ExpiresAt) {
+			return nil
+		}
+		return s.deleteEntry(ctx, entry)
+	})
+}
+
+// DeleteAll removes every history record and referenced asset for this
+// Workspace. It is idempotent and scoped to the Workspace history stream.
+func (s *HistoryStore) DeleteAll(ctx context.Context) error {
+	if err := ctxErr(ctx); err != nil {
 		return err
 	}
-	now := s.now()
-	for _, obj := range objects {
-		entry, err := s.readEntry(obj.Name)
-		if err != nil {
-			return err
-		}
-		if entry.ExpiresAt == nil || now.Before(*entry.ExpiresAt) {
-			continue
-		}
-		if err := s.deleteEntry(entry); err != nil {
-			return err
-		}
+	if err := s.validate(); err != nil {
+		return err
 	}
-	return nil
+	return s.scanRecords(ctx, logstore.OrderAsc, func(entry HistoryEntry) error {
+		return s.deleteEntry(ctx, entry)
+	})
+}
+
+// Empty reports whether the Workspace has any retained history records.
+func (s *HistoryStore) Empty(ctx context.Context) (bool, error) {
+	limit := 1
+	page, err := s.ListPage(ctx, apitypes.PeerRunHistoryListRequest{Limit: &limit})
+	if err != nil {
+		return false, err
+	}
+	return len(page.Entries) == 0, nil
 }
 
 func (e HistoryEntry) Public() apitypes.PeerRunHistoryEntry {
@@ -394,102 +419,203 @@ func (s *HistoryStore) listInternal(ctx context.Context, req apitypes.PeerRunHis
 	if !order.Valid() {
 		return nil, false, nil, fmt.Errorf("workspace history: unsupported order %q", order)
 	}
-	desc := order == apitypes.PeerRunHistoryListRequestOrderDesc
-	objects, err := s.Objects.List(s.entryPrefix())
+	queryOrder := logstore.OrderAsc
+	if order == apitypes.PeerRunHistoryListRequestOrderDesc {
+		queryOrder = logstore.OrderDesc
+	}
+	start, end, err := historyQueryBounds(cursor, queryOrder)
 	if err != nil {
 		return nil, false, nil, err
 	}
-	sort.Slice(objects, func(i, j int) bool {
-		if desc {
-			return objects[i].Name > objects[j].Name
-		}
-		return objects[i].Name < objects[j].Name
-	})
 	out := make([]HistoryEntry, 0, limit)
-	for _, obj := range objects {
-		id, err := url.PathUnescape(strings.TrimSuffix(path.Base(obj.Name), ".json"))
+	storeCursor := ""
+	for {
+		page, err := s.Records.Query(ctx, logstore.Query{
+			Streams: []string{s.stream()},
+			Kinds:   []string{historyEntryTypeGear, historyEntryTypeAgent},
+			Start:   start,
+			End:     end,
+			Limit:   logstore.MaxLimit,
+			Order:   queryOrder,
+			Cursor:  storeCursor,
+		})
 		if err != nil {
-			return nil, false, nil, fmt.Errorf("workspace history: decode history id %q: %w", obj.Name, err)
+			return nil, false, nil, fmt.Errorf("workspace history: query records: %w", err)
 		}
-		if cursor != "" {
-			if desc {
-				if id >= cursor {
-					continue
-				}
-			} else if id <= cursor {
-				continue
-			}
-		}
-		entry, err := s.readEntry(obj.Name)
-		if err != nil {
-			return nil, false, nil, err
-		}
-		if entry.ID != id {
-			return nil, false, nil, fmt.Errorf("workspace history: entry id %q does not match object id %q", entry.ID, id)
-		}
-		if s.entryExpired(entry) {
-			if err := s.deleteEntry(entry); err != nil {
+		for _, record := range page.Records {
+			entry, err := historyEntryFromRecord(record, s.stream())
+			if err != nil {
 				return nil, false, nil, err
 			}
-			continue
+			if cursor != "" {
+				if queryOrder == logstore.OrderDesc && entry.ID >= cursor {
+					continue
+				}
+				if queryOrder == logstore.OrderAsc && entry.ID <= cursor {
+					continue
+				}
+			}
+			if s.entryExpired(entry) {
+				if err := s.deleteEntry(ctx, entry); err != nil {
+					return nil, false, nil, err
+				}
+				continue
+			}
+			out = append(out, entry)
+			if len(out) == limit+1 {
+				next := out[limit-1].ID
+				return out[:limit], true, &next, nil
+			}
 		}
-		out = append(out, entry)
-		if len(out) == limit+1 {
-			next := out[limit-1].ID
-			return out[:limit], true, &next, nil
+		if !page.HasNext {
+			return out, false, nil, nil
 		}
+		storeCursor = page.NextCursor
 	}
-	return out, false, nil, nil
 }
 
-func (s *HistoryStore) writeAsset(id string, asset AppendHistoryAsset, now time.Time) (HistoryAsset, error) {
-	ttl := asset.TTL
-	if ttl <= 0 {
-		ttl = s.AssetRetention
-	}
-	if ttl <= 0 {
-		ttl = defaultHistoryAssetTTL
-	}
-	deadline := now.Add(ttl).UTC()
+func (s *HistoryStore) writeAsset(id string, asset AppendHistoryAsset) (HistoryAsset, error) {
 	name := s.assetObjectName(id, asset.MIMEType)
-	if err := s.Objects.PutWithDeadline(name, bytes.NewReader(asset.Data), deadline); err != nil {
+	if err := s.Objects.Put(name, bytes.NewReader(asset.Data)); err != nil {
 		return HistoryAsset{}, fmt.Errorf("workspace history: write asset: %w", err)
 	}
 	return HistoryAsset{
-		Name:      name,
-		MIMEType:  strings.TrimSpace(asset.MIMEType),
-		Bytes:     int64(len(asset.Data)),
-		ExpiresAt: &deadline,
+		Name:     name,
+		MIMEType: strings.TrimSpace(asset.MIMEType),
+		Bytes:    int64(len(asset.Data)),
 	}, nil
 }
 
-func (s *HistoryStore) readEntry(name string) (HistoryEntry, error) {
-	r, err := s.Objects.Get(name)
+type historyPayload struct {
+	Version         int            `json:"version"`
+	GearID          string         `json:"gear_id,omitempty"`
+	Origin          string         `json:"origin,omitempty"`
+	Name            string         `json:"name"`
+	ReplayAvailable bool           `json:"replay_available"`
+	Assets          []HistoryAsset `json:"assets,omitempty"`
+	ExpiresAt       *time.Time     `json:"expires_at,omitempty"`
+}
+
+func historyRecord(entry HistoryEntry, stream string) (logstore.Record, error) {
+	payload, err := json.Marshal(historyPayload{
+		Version: historyRecordVersion, GearID: entry.GearID, Origin: entry.Origin,
+		Name: entry.Name, ReplayAvailable: entry.ReplayAvailable,
+		Assets: entry.Assets, ExpiresAt: entry.ExpiresAt,
+	})
 	if err != nil {
-		return HistoryEntry{}, err
+		return logstore.Record{}, fmt.Errorf("workspace history: encode record: %w", err)
 	}
-	defer r.Close()
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return HistoryEntry{}, err
+	attributes := map[string]string{
+		"actor_name":     entry.Name,
+		"schema_version": strconv.Itoa(historyRecordVersion),
 	}
-	var entry HistoryEntry
-	if err := json.Unmarshal(data, &entry); err != nil {
-		return HistoryEntry{}, fmt.Errorf("workspace history: decode %s: %w", name, err)
+	if entry.GearID != "" {
+		attributes["gear_id"] = entry.GearID
+	}
+	if entry.Origin != "" {
+		attributes["origin"] = entry.Origin
+	}
+	record := logstore.Record{
+		ID: entry.ID, Time: entry.CreatedAt, Stream: stream, Kind: entry.Type,
+		Message: entry.Text, Attributes: attributes, Payload: payload,
+	}
+	if err := logstore.ValidateRecord(record); err != nil {
+		return logstore.Record{}, fmt.Errorf("workspace history: encode record: %w", err)
+	}
+	return record, nil
+}
+
+func historyEntryFromRecord(record logstore.Record, stream string) (HistoryEntry, error) {
+	if record.Stream != stream {
+		return HistoryEntry{}, fmt.Errorf("workspace history: record %q belongs to stream %q", record.ID, record.Stream)
+	}
+	var payload historyPayload
+	if err := json.Unmarshal(record.Payload, &payload); err != nil {
+		return HistoryEntry{}, fmt.Errorf("workspace history: decode record %q: %w", record.ID, err)
+	}
+	if payload.Version != historyRecordVersion {
+		return HistoryEntry{}, fmt.Errorf("workspace history: record %q has unsupported version %d", record.ID, payload.Version)
+	}
+	entry := HistoryEntry{
+		ID: record.ID, Type: record.Kind, GearID: payload.GearID,
+		Origin: payload.Origin, Name: payload.Name, Text: record.Message,
+		CreatedAt: record.Time.UTC(), ReplayAvailable: payload.ReplayAvailable,
+		Assets: payload.Assets, ExpiresAt: payload.ExpiresAt,
 	}
 	if err := validateHistoryEntry(entry); err != nil {
-		return HistoryEntry{}, fmt.Errorf("workspace history: decode %s: %w", name, err)
+		return HistoryEntry{}, fmt.Errorf("workspace history: decode record %q: %w", record.ID, err)
 	}
 	return entry, nil
 }
 
-func (s *HistoryStore) deleteEntry(entry HistoryEntry) error {
+func historyQueryBounds(cursor string, order logstore.Order) (time.Time, time.Time, error) {
+	start := time.Unix(0, 0).UTC()
+	end := time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC)
+	if cursor == "" {
+		return start, end, nil
+	}
+	boundary, err := historyIDTime(cursor)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("workspace history: invalid cursor: %w", err)
+	}
+	if order == logstore.OrderDesc {
+		end = boundary.Truncate(time.Millisecond).Add(time.Millisecond)
+	} else {
+		start = boundary.Truncate(time.Millisecond)
+	}
+	return start, end, nil
+}
+
+func historyIDTime(id string) (time.Time, error) {
+	const timestampLength = len("20060102T150405.000000000Z")
+	if len(id) <= timestampLength || id[timestampLength] != '-' {
+		return time.Time{}, fmt.Errorf("invalid history ID %q", id)
+	}
+	parsed, err := time.Parse("20060102T150405.000000000Z", id[:timestampLength])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid history ID %q", id)
+	}
+	return parsed.UTC(), nil
+}
+
+func (s *HistoryStore) scanRecords(ctx context.Context, order logstore.Order, visit func(HistoryEntry) error) error {
+	cursor := ""
+	for {
+		page, err := s.Records.Query(ctx, logstore.Query{
+			Streams: []string{s.stream()},
+			Kinds:   []string{historyEntryTypeGear, historyEntryTypeAgent},
+			Start:   time.Unix(0, 0).UTC(),
+			End:     time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC),
+			Limit:   logstore.MaxLimit,
+			Order:   order,
+			Cursor:  cursor,
+		})
+		if err != nil {
+			return fmt.Errorf("workspace history: query records: %w", err)
+		}
+		for _, record := range page.Records {
+			entry, err := historyEntryFromRecord(record, s.stream())
+			if err != nil {
+				return err
+			}
+			if err := visit(entry); err != nil {
+				return err
+			}
+		}
+		if !page.HasNext {
+			return nil
+		}
+		cursor = page.NextCursor
+	}
+}
+
+func (s *HistoryStore) deleteEntry(ctx context.Context, entry HistoryEntry) error {
 	for _, asset := range entry.Assets {
 		if err := s.Objects.Delete(asset.Name); err != nil && !isNotExist(err) {
 			return err
 		}
 	}
-	if err := s.Objects.Delete(s.entryObjectName(entry.ID)); err != nil && !isNotExist(err) {
+	if err := s.Records.Delete(ctx, logstore.RecordKey{Stream: s.stream(), ID: entry.ID}); err != nil && !errors.Is(err, logstore.ErrNotFound) {
 		return err
 	}
 	return nil
@@ -500,7 +626,10 @@ func (s *HistoryStore) entryExpired(entry HistoryEntry) bool {
 }
 
 func (s *HistoryStore) validate() error {
-	if s == nil || s.Objects == nil {
+	if s == nil || s.Records == nil {
+		return fmt.Errorf("workspace history: mutable record store is required")
+	}
+	if s.Objects == nil {
 		return fmt.Errorf("workspace history: object store is required")
 	}
 	if strings.TrimSpace(s.ObjectPrefix) == "" {
@@ -548,12 +677,8 @@ func (s *HistoryStore) historyPrefix() string {
 	return strings.Trim(strings.TrimSpace(s.ObjectPrefix), "/") + "/history"
 }
 
-func (s *HistoryStore) entryPrefix() string {
-	return s.historyPrefix() + "/entries"
-}
-
-func (s *HistoryStore) entryObjectName(id string) string {
-	return s.entryPrefix() + "/" + url.PathEscape(id) + ".json"
+func (s *HistoryStore) stream() string {
+	return historyStreamPrefix + strings.TrimSpace(s.Workspace)
 }
 
 func (s *HistoryStore) assetObjectName(id string, mimeType string) string {

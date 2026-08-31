@@ -79,6 +79,16 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: workspaces
+  workspace-history:
+    kind: log.mutable
+    storage: gameplay-db
+    table: workspace_history
+    ttl: 720h
+  workspace-history-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: workspace-history
+    ttl: 720h
   workflows:
     kind: keyvalue
     storage: memory
@@ -142,6 +152,8 @@ services:
     store: workflows
   workspace:
     store: workspaces
+    history_store: workspace-history
+    history_assets_store: workspace-history-assets
     assets_store: workspace-assets
   toolkit:
     store: tools

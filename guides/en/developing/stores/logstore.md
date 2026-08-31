@@ -1,6 +1,6 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` provides reusable structured records, backend-neutral queries, and cursor pagination. Immutable drivers support append and query; mutable drivers additionally support replacing or deleting one record. Conversation, event, and audit producers retain ownership of authorization, retention, and canonical resources.
+`pkgs/store/logstore` provides reusable structured records, backend-neutral queries, and cursor pagination. Immutable drivers support append and query; mutable drivers additionally support replacing or deleting one record. Conversation, event, and audit producers retain ownership of authorization and canonical resources; optional retention is configured on the logical Store and enforced by its driver without changing the LogStore interface.
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
@@ -22,7 +22,7 @@ A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity,
 | ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
 | SQLite / PostgreSQL | `MutableStore` | Dedicated relational table, atomic append/replace/delete, and the shared SQL cursor |
 
-Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy mutable Flowcraft History. Physical connection ownership remains under `storage`.
+Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy the mutable record capability required by Workspace History or Flowcraft History. Physical connection ownership remains under `storage`.
 
 ### Volc TLS
 
@@ -70,11 +70,13 @@ stores:
 
 The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
 
-The logical `database` field is optional when the physical DSN already selects one. The ClickHouse driver does not impose an additional local payload-size limit; operators remain responsible for service limits, retention, and table policy. Logical Metrics and Log Stores may share one physical pool without owning it.
+The logical `database` field is optional when the physical DSN already selects one. With `ttl`, the driver writes an `expires_at` value and creates or validates a table-level `TTL expires_at` deletion expression; Get and Query hide expired rows before asynchronous merges physically remove them. The ClickHouse driver does not impose an additional local payload-size limit. Logical Metrics and Log Stores may share one physical pool without owning it.
 
 ### SQLite / PostgreSQL
 
-Each logical Store requires a dedicated `table`. The relational table uniquely keys records by `(stream, id)`, stores time as UTC nanoseconds, and pages in stable `(time, stream, id)` order. Flat attributes use canonical JSON, while payload JSON retains its original bytes. Append rejects duplicates and writes a complete batch in one transaction. Replace is not an upsert and cannot change time. Delete returns `ErrNotFound` for a missing key. Immutable and mutable declarations use the same implementation, but the registry exposes mutation only for `log.mutable`.
+Each logical Store requires a dedicated `table`. The relational Store uniquely keys records by `(stream, id)`, stores time as UTC nanoseconds, and pages in stable `(time, stream, id)` order. Flat attributes use canonical JSON, while payload JSON retains its original bytes. Append rejects duplicates and writes a complete batch in one transaction. Get reads one exact `(stream, id)` key. Replace is not an upsert and cannot change time. Get and Delete return `ErrNotFound` for a missing key. Replace does not extend retention. Immutable and mutable declarations use the same implementation, but the registry exposes mutation only for `log.mutable`. Workspace History requires `MutableRecordStore`: text and structured metadata remain in LogStore, while ObjectStore contains only binary assets referenced by a record.
+
+With `ttl`, both drivers assign `expires_at_unix_nano` from the backend write time and filter expired records from Get and Query. SQLite removes expired physical rows during subsequent appends. PostgreSQL creates the configured `table` as a range-partitioned parent over `expires_at_unix_nano`; callers always query that parent. The driver creates the required UTC daily child partition and the following day's partition during initialization and append, and drops fully expired daily partitions during the same maintenance points. A companion `<table>_keys` table preserves `(stream, id)` uniqueness across all daily partitions. Partition and key-table lifecycle is automatic and requires no caller-selected child table.
 
 ClickHouse, SQLite, and PostgreSQL share the version-1 opaque cursor. It binds normalized selectors, text, the millisecond-aligned `[Start, End)` interval, and order while allowing a continuation to change its limit, with the same 16 KiB bound. Identical records can continue across all three SQL drivers. SQLite/PostgreSQL text matching remains case-sensitive and literal, attribute matchers run over the validated flat map, and the logical Store never closes its shared pool.
 
