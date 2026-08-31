@@ -318,12 +318,20 @@ func TestPreflightReportsAllMissingInputs(t *testing.T) {
 	}
 }
 
+func TestNewLLMRejectsUnsupportedProvider(t *testing.T) {
+	t.Parallel()
+	_, err := newLLM("unsupported", "model", "key", "", "")
+	if err == nil || !strings.Contains(err.Error(), "unsupported LoCoMo model provider") {
+		t.Fatalf("newLLM error = %v", err)
+	}
+}
+
 func TestRedactionReportContainsOnlyFingerprint(t *testing.T) {
 	t.Parallel()
 	secret := "never-print-this-token"
 	envelope := reportEnvelope{
 		Profile: "profile", ConfigFingerprint: configFingerprint("profile", "endpoint", "deployment", secret),
-		DatasetIdentity: "dataset", Models: reportModels{Answer: defaultDoubaoModel},
+		DatasetIdentity: "dataset", Models: reportModels{Answer: defaultModel},
 		Questions: []questionResult{{Query: secret, GoldAnswers: []string{secret}, Prediction: secret, Recalled: []recalledFact{{Text: secret}}}},
 	}
 	raw, err := json.Marshal(envelope)

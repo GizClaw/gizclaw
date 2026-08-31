@@ -19,7 +19,7 @@ func TestLoCoMoFlowcraftBM25SinglePass(t *testing.T) {
 		},
 		Rerank: memoryflowcraft.RerankConfig{Model: settings.rerankModel},
 	})
-	fingerprint := configFingerprint(profile, settings.extractionModel, settings.rerankModel)
+	fingerprint := configFingerprint(profile, settings.modelProvider, settings.extractionModel, settings.rerankModel)
 	runLiveProfile(t, settings, profile, fingerprint, reportModels{
 		Extraction: settings.extractionModel, Rerank: settings.rerankModel,
 	}, store, closer)

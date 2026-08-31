@@ -3,6 +3,7 @@
 package locomo_e2e
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/GizClaw/flowcraft/memory/recall"
@@ -20,7 +21,8 @@ func TestLoCoMoFlowcraftHybridSinglePass(t *testing.T) {
 		Embedding: memoryflowcraft.EmbeddingConfig{Model: settings.embeddingModel},
 		Rerank:    memoryflowcraft.RerankConfig{Model: settings.rerankModel},
 	})
-	fingerprint := configFingerprint(profile, settings.extractionModel, settings.embeddingModel, settings.rerankModel)
+	fingerprint := configFingerprint(profile, settings.modelProvider, settings.extractionModel,
+		settings.embeddingModel, strconv.Itoa(settings.embeddingDims), settings.rerankModel)
 	runLiveProfile(t, settings, profile, fingerprint, reportModels{
 		Extraction: settings.extractionModel, Embedding: settings.embeddingModel, Rerank: settings.rerankModel,
 	}, store, closer)

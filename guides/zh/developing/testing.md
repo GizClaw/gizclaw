@@ -648,8 +648,10 @@ tests/locomo-e2e/run_docker.sh all
 
 `.env.example` 只是变量清单；值通过进程环境注入，测试包和 runner 都不会读取 `.env`
 文件。Mem0 group 使用与 Flowcraft 相同的 extraction 和 embedding model/key/base URL 环境变量；
-容器内固定使用 `mem0ai 2.0.3`，默认模型分别为 `doubao-seed-2-0-lite-260215` 和
-`text-embedding-3-small`。远程 Mem0 Platform lane 仅在调用方拥有对应 endpoint、API key 和
+容器内固定使用 `mem0ai 2.0.3`，默认使用国内的 `doubao-seed-2-0-lite-260215` 提取/回答模型和
+1024 维的 `qwen3.7-text-embedding`。`GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER` 选择 LLM adapter，
+支持 `deepseek` 和 `bytedance`。`GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS` 必须与 embedding
+服务实际返回的向量宽度一致，因为 Mem0 要用该值创建 Qdrant collection。远程 Mem0 Platform lane 仅在调用方拥有对应 endpoint、API key 和
 配置 fingerprint 时单独运行，不是 Docker group 的依赖。直接运行 Go tests 时必须设置
 对应的 `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` 或
 `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`；runner 会将它们指向自己启动的容器。如果默认

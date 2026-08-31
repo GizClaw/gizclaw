@@ -4,6 +4,7 @@ package locomo_e2e
 
 import (
 	"os"
+	"strconv"
 	"testing"
 
 	memorymem0 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
@@ -25,7 +26,8 @@ func TestLoCoMoMem0SelfHosted(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := "mem0_self_hosted"
-	fingerprint := configFingerprint(profile, endpoint, "mem0ai-2.0.3", settings.extractionModel, settings.embeddingModel)
+	fingerprint := configFingerprint(profile, endpoint, "mem0ai-2.0.3", settings.modelProvider,
+		settings.extractionModel, settings.embeddingModel, strconv.Itoa(settings.embeddingDims))
 	runLiveProfile(t, settings, profile, fingerprint, reportModels{
 		Extraction: settings.extractionModel,
 		Embedding:  settings.embeddingModel,

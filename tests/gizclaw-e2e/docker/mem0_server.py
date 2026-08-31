@@ -111,6 +111,19 @@ def _build_memory() -> Memory:
         os.environ.get("MEM0_EMBEDDING_MODEL", "").strip()
         or "text-embedding-3-small"
     )
+    raw_embedding_dimensions = os.environ.get(
+        "MEM0_EMBEDDING_DIMENSIONS", "1536"
+    ).strip()
+    try:
+        embedding_dimensions = int(raw_embedding_dimensions)
+    except ValueError as error:
+        raise RuntimeError(
+            "MEM0_EMBEDDING_DIMENSIONS must be a positive integer"
+        ) from error
+    if embedding_dimensions <= 0:
+        raise RuntimeError(
+            "MEM0_EMBEDDING_DIMENSIONS must be a positive integer"
+        )
     return Memory.from_config(
         {
             "version": "v1.1",
@@ -120,6 +133,7 @@ def _build_memory() -> Memory:
                     "collection_name": "gizclaw_e2e",
                     "path": "/tmp/gizclaw-e2e-qdrant",
                     "on_disk": True,
+                    "embedding_model_dims": embedding_dimensions,
                 },
             },
             "llm": {
@@ -139,6 +153,7 @@ def _build_memory() -> Memory:
                 "config": {
                     "api_key": embedding_api_key,
                     "model": embedding_model,
+                    "embedding_dims": embedding_dimensions,
                     "openai_base_url": os.environ.get(
                         "MEM0_EMBEDDING_BASE_URL", ""
                     ).strip()
