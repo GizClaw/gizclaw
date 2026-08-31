@@ -472,13 +472,18 @@ func TestInvokePeerStreamAwaitRearmPreservesSuccessfulBOSEvidenceOnResponseTimeo
 		StreamID: "old-route", Label: "user", EndOfStream: true,
 		ErrorCode: "INPUT_ROUTE_RELOADED", Error: "input route reloaded", ErrorRetryable: true,
 	}}
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(context.Canceled)
+	firstReplacement := make(chan *genx.MessageChunk, 1)
 	go func() {
-		for range 202 {
-			<-stream.pushes
+		for i := range 202 {
+			chunk := <-stream.pushes
+			if i == 0 {
+				firstReplacement <- chunk
+			}
 		}
+		cancel(context.DeadlineExceeded)
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
-	defer cancel()
 	result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
 		t.Fatal("await_rearm opened a replacement PeerStream")
 		return nil, nil
@@ -487,6 +492,10 @@ func TestInvokePeerStreamAwaitRearmPreservesSuccessfulBOSEvidenceOnResponseTimeo
 	}}, []byte{1}, 0)
 	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
 		t.Fatalf("error = %v", err)
+	}
+	first := <-firstReplacement
+	if first.Ctrl == nil || !first.IsBeginOfStream() || first.Ctrl.StreamID == "" || first.Ctrl.StreamID == "old-route" || first.Ctrl.Label != "user" {
+		t.Fatalf("first replacement chunk = %#v", first)
 	}
 	if result.evidence["reload_eos_observed"] != true || result.evidence["replacement_bos_sent"] != true || result.evidence["stream_id_changed"] != true || result.evidence["session_connection_reused"] != true {
 		t.Fatalf("evidence = %#v", result.evidence)
