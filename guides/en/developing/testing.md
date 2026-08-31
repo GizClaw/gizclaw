@@ -765,10 +765,12 @@ test owns its complete provider, memory-lane, and extraction configuration.
 Remote project configuration remains deployment state: the harness neither
 mutates it nor presents one endpoint/project as multiple lanes.
 
-Current lanes cover Flowcraft BBH BM25 single-pass, hybrid single/two-pass,
+Current lanes cover Flowcraft Redis 8 BM25 single-pass, hybrid single/two-pass,
 Mem0 Platform default/custom-instructions, and Volc AgentKit Memory default.
-LoCoMo is a tagged Go test package, not a shell runner. Select a backend group
-with standard `go test -run`; selected tests validate only the environment
+LoCoMo is a tagged Go test package. Select Mem0 and Volc groups with standard
+`go test -run`. The Flowcraft wrapper starts a pinned Redis 8 container, runs
+the tagged Go tests from the host against that container, and always removes
+the container and volume. Selected tests validate only the environment
 variables they consume. Missing or placeholder values fail, and unselected
 backend variables are not inspected:
 
@@ -777,12 +779,14 @@ go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoFlowcraft' ./tests/locomo-e2e
+tests/locomo-e2e/run_flowcraft_redis8.sh
 ```
 
 Use `.env.example` as a variable inventory and inject values through the
-process environment; the test package does not read `.env` files. Use a
+process environment; the test package and wrapper do not read `.env` files.
+The Flowcraft tests require `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` when run
+directly; the wrapper sets it to its Docker Redis endpoint. Override
+`GIZCLAW_LOCOMO_E2E_REDIS8_PORT` if port `16380` is unavailable. Use a
 30-minute package timeout and bounded session and
 question stages. The runner calls `memory.Store.Observe` by official session,
 recalls for every question, asks the configured model to answer, and computes

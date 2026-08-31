@@ -629,21 +629,24 @@ Flowcraft LoCoMo evaluator，也不属于普通 `go test ./...`、Docker E2E 或
 remote project 配置由部署拥有，harness 不修改它，也不会把一个 endpoint/project
 冒充成多条 lane。
 
-当前 lane 包括 Flowcraft BBH BM25 single-pass、hybrid single/two-pass、Mem0 Platform
-default/custom instructions 和 Volc AgentKit Memory default。LoCoMo 是 tagged Go 测试包，
-不是 shell runner。用标准 `go test -run` 选择 backend 组；被选择的测试只校验自己消费的
-环境变量，缺失或占位值会失败，未选择 backend 的变量不会被检查：
+当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、Mem0 Platform
+default/custom instructions 和 Volc AgentKit Memory default。LoCoMo 是 tagged Go 测试包；
+Mem0 和 Volc 组使用标准 `go test -run` 选择，Flowcraft wrapper 会启动固定版本的 Redis 8
+容器，让宿主机上的 tagged Go test 连接该容器，并在结束时删除容器和 volume。被选择的测试
+只校验自己消费的环境变量，缺失或占位值会失败，未选择 backend 的变量不会被检查：
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoFlowcraft' ./tests/locomo-e2e
+tests/locomo-e2e/run_flowcraft_redis8.sh
 ```
 
-`.env.example` 只是变量清单；值通过进程环境注入，测试包不会读取 `.env` 文件。
+`.env.example` 只是变量清单；值通过进程环境注入，测试包和 wrapper 都不会读取 `.env`
+文件。直接运行 Flowcraft Go tests 时必须设置
+`GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL`；wrapper 会将其指向自己启动的 Docker Redis。
+如果端口 `16380` 不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_REDIS8_PORT`。
 包级 timeout 使用 30 分钟，并分别限制 session 与 question。Runner 按官方 session
 调用 `memory.Store.Observe`，逐题 recall，再用配置模型回答并在本地计算 EM、F1 和
 evidence-hit 和 adversarial rejection。只有 answerable 问题进入 EM/F1 和 evidence-hit；
