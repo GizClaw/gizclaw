@@ -84,30 +84,9 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.57.0 // indirect
-	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
-	github.com/bits-and-blooms/bitset v1.24.2 // indirect
-	github.com/blevesearch/bleve/v2 v2.6.0 // indirect
-	github.com/blevesearch/bleve_index_api v1.3.11 // indirect
-	github.com/blevesearch/geo v0.2.5 // indirect
-	github.com/blevesearch/go-faiss v1.1.0 // indirect
-	github.com/blevesearch/go-porterstemmer v1.0.3 // indirect
-	github.com/blevesearch/gtreap v0.1.1 // indirect
-	github.com/blevesearch/mmap-go v1.2.0 // indirect
-	github.com/blevesearch/scorch_segment_api/v2 v2.4.7 // indirect
-	github.com/blevesearch/segment v0.9.1 // indirect
-	github.com/blevesearch/snowballstem v0.9.0 // indirect
-	github.com/blevesearch/upsidedown_store_api v1.0.2 // indirect
-	github.com/blevesearch/vellum v1.2.0 // indirect
-	github.com/blevesearch/zapx/v11 v11.4.3 // indirect
-	github.com/blevesearch/zapx/v12 v12.4.3 // indirect
-	github.com/blevesearch/zapx/v13 v13.4.3 // indirect
-	github.com/blevesearch/zapx/v14 v14.4.3 // indirect
-	github.com/blevesearch/zapx/v15 v15.4.3 // indirect
-	github.com/blevesearch/zapx/v16 v16.3.4 // indirect
-	github.com/blevesearch/zapx/v17 v17.1.2 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
@@ -115,10 +94,8 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chewxy/math32 v1.10.1 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2 // indirect
-	github.com/coder/hnsw v0.6.1 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/dop251/goja v0.0.0-20260219130522-0ba9a5494a59 // indirect
@@ -142,7 +119,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.18 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
@@ -168,7 +144,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
-	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.7.2 // indirect
@@ -212,15 +187,11 @@ require (
 	github.com/tphakala/simd v1.0.12 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/viterin/partial v1.1.0 // indirect
-	github.com/viterin/vek v0.4.2 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/woodsbury/decimal128 v1.4.0 // indirect
-	github.com/yanyiwu/gojieba v1.4.7 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
-	go.etcd.io/bbolt v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.43.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
