@@ -25,9 +25,8 @@ typedef struct {
 } gzc_rpc_error_t;
 
 /*
- * Response and nested error strings are borrowed views. Synchronous call views
- * belong to the client until its next response-producing call or destruction;
- * gzc_rpc_request_result views belong to that request until request destruction.
+ * Response and nested error strings are borrowed views owned by the request.
+ * They remain valid until that request is destroyed.
  */
 typedef struct {
   gzc_str_t id;
@@ -37,28 +36,15 @@ typedef struct {
 } gzc_rpc_response_t;
 
 /*
- * Receives the response envelope, streamed binary frames, and the terminating
- * RPC EOS frame synchronously. frame and frame->data are borrowed until the
- * callback returns.
+ * Receives the response envelope, streamed binary frames, and terminating RPC
+ * EOS while gzc_client_poll() dispatches the request. frame and frame->data are
+ * borrowed until the callback returns. Returning any status other than GZC_OK
+ * terminates the request; GZC_ERR_WOULD_BLOCK is normalized to GZC_ERR_RPC
+ * because an incoming frame cannot be replayed.
  */
 typedef int (*gzc_rpc_frame_cb)(void *userdata, const gzc_rpc_frame_t *frame);
-typedef int (*gzc_rpc_speech_audio_cb)(
-    void *userdata,
-    const uint8_t *data,
-    size_t len);
 
-typedef struct gzc_rpc_speech_upload gzc_rpc_speech_upload_t;
 typedef struct gzc_rpc_request gzc_rpc_request_t;
-
-typedef struct {
-  int64_t up_bytes;
-  int64_t down_bytes;
-  int64_t duration_ms;
-  int64_t up_duration_ms;
-  int64_t down_duration_ms;
-  double up_mbps;
-  double down_mbps;
-} gzc_rpc_speed_test_result_t;
 
 int gzc_rpc_encode_request_envelope(
     const gzc_platform_t *platform,
@@ -79,6 +65,31 @@ int gzc_rpc_request_start(
     gzc_str_t params_payload,
     int timeout_ms,
     gzc_rpc_request_t **out_request);
+/*
+ * Starts one mixed-frame RPC without closing the request direction. Incoming
+ * response, binary data, and EOS frames are delivered from gzc_client_poll().
+ * Callback frame storage is borrowed only until the callback returns. The
+ * callback must not cancel or destroy its request reentrantly.
+ */
+int gzc_rpc_request_start_stream(
+    gzc_client_t *client,
+    uint64_t service,
+    gizclaw_rpc_v1_RpcMethod method,
+    gzc_str_t params_payload,
+    int timeout_ms,
+    gzc_rpc_frame_cb on_frame,
+    void *userdata,
+    gzc_rpc_request_t **out_request);
+/*
+ * Copies and queues one binary frame without polling. Returns
+ * GZC_ERR_WOULD_BLOCK while an earlier queued frame is still being written.
+ */
+int gzc_rpc_request_write(
+    gzc_rpc_request_t *request,
+    const uint8_t *data,
+    size_t len);
+/* Queue the request EOS without polling. Idempotent after EOS is queued. */
+int gzc_rpc_request_finish_write(gzc_rpc_request_t *request);
 /* Returns GZC_ERR_WOULD_BLOCK until the request reaches a terminal state. */
 int gzc_rpc_request_result(
     gzc_rpc_request_t *request,
@@ -87,77 +98,6 @@ int gzc_rpc_request_result(
 void gzc_rpc_request_cancel(gzc_rpc_request_t *request);
 /* A NULL request is a no-op. The configured platform allocator must outlive it. */
 void gzc_rpc_request_destroy(gzc_rpc_request_t *request);
-int gzc_rpc_call_service(
-    gzc_client_t *client,
-    uint64_t service,
-    gizclaw_rpc_v1_RpcMethod method,
-    gzc_str_t params_payload,
-    gzc_rpc_response_t *out_response);
-int gzc_rpc_call(gzc_client_t *client, gizclaw_rpc_v1_RpcMethod method, gzc_str_t params_payload, gzc_rpc_response_t *out_response);
-int gzc_rpc_call_stream(
-    gzc_client_t *client,
-    gizclaw_rpc_v1_RpcMethod method,
-    gzc_str_t params_payload,
-    gzc_rpc_frame_cb on_frame,
-    void *userdata);
-/*
- * Runs the bidirectional speed-test stream on one request-owned RPC
- * DataChannel and closes that channel before returning.
- * duration_ms covers the whole transfer. up_duration_ms and down_duration_ms
- * stop when their respective direction completes; up_mbps and down_mbps are
- * calculated from those direction-specific durations.
- */
-int gzc_rpc_speed_test(
-    gzc_client_t *client,
-    const gizclaw_rpc_v1_SpeedTestRequest *request,
-    gzc_rpc_speed_test_result_t *out_result);
-/*
- * Sends on the active synchronous legacy Peer RPC call. Returns
- * GZC_ERR_CLOSED while no such call is active. frame data is borrowed.
- */
-int gzc_rpc_send_frame(gzc_client_t *client, const gzc_rpc_frame_t *frame);
-/* Opens an incremental transcription upload on a dedicated Peer RPC stream. */
-int gzc_rpc_speech_transcribe_open(
-    gzc_client_t *client,
-    const gizclaw_rpc_v1_SpeechTranscribeRequest *request,
-    gzc_rpc_speech_upload_t **out_upload);
-/* data is borrowed until this synchronous call returns. */
-int gzc_rpc_speech_transcribe_write(
-    gzc_rpc_speech_upload_t *upload,
-    const uint8_t *data,
-    size_t len);
-/* Sends request EOS, reads the typed response and consumes upload. */
-int gzc_rpc_speech_transcribe_finish(
-    gzc_rpc_speech_upload_t *upload,
-    gizclaw_rpc_v1_SpeechTranscribeResponse *out_response,
-    gzc_rpc_error_t *out_error);
-void gzc_rpc_speech_transcribe_cancel(gzc_rpc_speech_upload_t *upload);
-
-/* Opens an incremental schema-constrained extraction upload. */
-int gzc_rpc_speech_extract_open(
-    gzc_client_t *client,
-    const gizclaw_rpc_v1_SpeechExtractRequest *request,
-    gzc_rpc_speech_upload_t **out_upload);
-/* data is borrowed until this synchronous call returns. */
-int gzc_rpc_speech_extract_write(
-    gzc_rpc_speech_upload_t *upload,
-    const uint8_t *data,
-    size_t len);
-/* Sends request EOS, reads the typed response and consumes upload. */
-int gzc_rpc_speech_extract_finish(
-    gzc_rpc_speech_upload_t *upload,
-    gizclaw_rpc_v1_SpeechExtractResponse *out_response,
-    gzc_rpc_error_t *out_error);
-void gzc_rpc_speech_extract_cancel(gzc_rpc_speech_upload_t *upload);
-
-/* Streams synthesis frames to on_audio after decoding response metadata. */
-int gzc_rpc_speech_synthesize(
-    gzc_client_t *client,
-    const gizclaw_rpc_v1_SpeechSynthesizeRequest *request,
-    gizclaw_rpc_v1_SpeechSynthesizeResponse *out_metadata,
-    gzc_rpc_speech_audio_cb on_audio,
-    void *userdata,
-    gzc_rpc_error_t *out_error);
 void gzc_rpc_response_free(gzc_client_t *client, gzc_rpc_response_t *response);
 
 #ifdef __cplusplus

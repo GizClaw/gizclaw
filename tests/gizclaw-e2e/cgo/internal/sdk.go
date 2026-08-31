@@ -286,6 +286,14 @@ func (r *RPCRequest) Close() {
 }
 
 func (c *Client) CallStream(method rpcpb.RpcMethod, request proto.Message) ([]StreamFrame, error) {
+	return c.callStream(method, request, nil)
+}
+
+func (c *Client) CallStreamWithUpload(method rpcpb.RpcMethod, request proto.Message, upload []byte) ([]StreamFrame, error) {
+	return c.callStream(method, request, upload)
+}
+
+func (c *Client) callStream(method rpcpb.RpcMethod, request proto.Message, upload []byte) ([]StreamFrame, error) {
 	if c == nil || c.session == nil {
 		return nil, fmt.Errorf("closed C SDK client")
 	}
@@ -297,6 +305,10 @@ func (c *Client) CallStream(method rpcpb.RpcMethod, request proto.Message) ([]St
 	if len(paramsPayload) > 0 {
 		cParams = (*C.uchar)(unsafe.Pointer(&paramsPayload[0]))
 	}
+	var cUpload *C.uchar
+	if len(upload) > 0 {
+		cUpload = (*C.uchar)(unsafe.Pointer(&upload[0]))
+	}
 	errbuf := make([]byte, 1024)
 	var frames *C.gzc_cgo_stream_frame_t
 	var frameCount C.ulong
@@ -305,6 +317,8 @@ func (c *Client) CallStream(method rpcpb.RpcMethod, request proto.Message) ([]St
 		C.uint(method),
 		cParams,
 		C.ulong(len(paramsPayload)),
+		cUpload,
+		C.ulong(len(upload)),
 		&frames,
 		&frameCount,
 		(*C.char)(unsafe.Pointer(&errbuf[0])),
@@ -832,10 +846,11 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 	t.Helper()
 	client := newTestClient(t, identityDir)
 	defer client.Close()
-	frames, err := client.CallStream(rpcpb.RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN, &rpcpb.SpeedTestRequest{
+	upload := bytes.Repeat([]byte{0xa5}, 4096)
+	frames, err := client.CallStreamWithUpload(rpcpb.RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN, &rpcpb.SpeedTestRequest{
 		DownContentLength: 4096,
-		UpContentLength:   0,
-	})
+		UpContentLength:   int64(len(upload)),
+	}, upload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -848,7 +863,7 @@ func CSDKSpeedTest(t *testing.T, identityDir string) {
 			if !sawAck {
 				var response rpcpb.SpeedTestResponse
 				decodeStreamResponse(t, rpcpb.RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN, frame.Data, &response)
-				if response.GetDownContentLength() != 4096 || response.GetUpContentLength() != 0 {
+				if response.GetDownContentLength() != 4096 || response.GetUpContentLength() != int64(len(upload)) {
 					t.Fatalf("invalid speed test ack: %s", response.String())
 				}
 				sawAck = true

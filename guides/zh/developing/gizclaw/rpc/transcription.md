@@ -18,4 +18,4 @@ speech:
 
 Transcript wire 上限是 8192 UTF-8 bytes。非法 metadata 返回 `INVALID_PARAMS`；未知或 dangling name 返回 `NOT_FOUND`；空音频、格式错误、不支持或超过限制返回 `BAD_REQUEST`；provider failure 返回脱敏后的 `INTERNAL_ERROR`。
 
-Go `TranscribeSpeech`、JavaScript `transcribeSpeech` 与 C `gzc_rpc_speech_transcribe_open/write/finish` 提供增量上传；Flutter 提供生成后的 typed method 与 payload surface。
+Go `TranscribeSpeech` 与 JavaScript `transcribeSpeech` 提供增量上传。C 通过 `gzc_rpc_request_start_stream` 创建 mixed-frame RPC，用 `gzc_rpc_request_write` 上传音频，再以 `gzc_rpc_request_finish_write` 发送 request EOS；Flutter 提供生成后的 typed method 与 payload surface。

@@ -91,6 +91,8 @@ int gzc_cgo_session_call_stream_collect(
     unsigned method_id,
     const unsigned char *params_payload,
     unsigned long params_payload_len,
+    const unsigned char *request_data,
+    unsigned long request_data_len,
     gzc_cgo_stream_frame_t **out_frames,
     unsigned long *out_frame_count,
     char *errbuf,

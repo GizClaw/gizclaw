@@ -18,4 +18,4 @@ speech:
 
 The transcript wire limit is 8192 UTF-8 bytes. Invalid metadata is `INVALID_PARAMS`; an unknown or dangling name is `NOT_FOUND`; empty, malformed, unsupported, or over-limit audio is `BAD_REQUEST`; provider failures are redacted `INTERNAL_ERROR` responses.
 
-Go `TranscribeSpeech`, JavaScript `transcribeSpeech`, and C `gzc_rpc_speech_transcribe_open/write/finish` expose incremental upload. Flutter receives the generated typed method and payload surface.
+Go `TranscribeSpeech` and JavaScript `transcribeSpeech` expose incremental upload. C starts the mixed-frame RPC with `gzc_rpc_request_start_stream`, uploads audio with `gzc_rpc_request_write`, and sends request EOS with `gzc_rpc_request_finish_write`. Flutter receives the generated typed method and payload surface.

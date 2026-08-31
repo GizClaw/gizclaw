@@ -27,4 +27,4 @@ speech:
 
 Invalid metadata is `INVALID_PARAMS`; an unknown or dangling name is `NOT_FOUND`; unsupported or duplicate MIME types and invalid text are `BAD_REQUEST`; provider failures before metadata are redacted `INTERNAL_ERROR` responses. Failure after metadata terminates the stream abnormally, so a Client must not treat partial audio as complete.
 
-Go `SynthesizeSpeech`, JavaScript `synthesizeSpeech`, and C `gzc_rpc_speech_synthesize` expose audio incrementally. Flutter receives the generated typed method and payload surface.
+Go `SynthesizeSpeech` and JavaScript `synthesizeSpeech` expose audio incrementally. C starts the stream with `gzc_rpc_request_start_stream` and receives the response envelope, audio frames, and response EOS through its frame callback during `gzc_client_poll`. Flutter receives the generated typed method and payload surface.
