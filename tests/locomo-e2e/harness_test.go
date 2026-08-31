@@ -28,8 +28,8 @@ import (
 
 const (
 	defaultDatasetPath   = "tests/locomo-e2e/testdata/locomo10_smoke.jsonl"
-	defaultModelProvider = "bytedance"
-	defaultModel         = "doubao-seed-2-0-lite-260215"
+	defaultModelProvider = "deepseek"
+	defaultModel         = "deepseek-v4-flash"
 	defaultEmbedding     = "qwen3.7-text-embedding"
 	defaultEmbeddingURL  = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
