@@ -214,11 +214,11 @@ func (store *ClickHouseStore) checkSchema(ctx context.Context) error {
 func hasClickHouseExpirationTTL(createTableQuery string) bool {
 	normalizedDDL := strings.ToLower(strings.Join(strings.Fields(createTableQuery), " "))
 	const prefix = "ttl expires_at"
-	index := strings.Index(normalizedDDL, prefix)
-	if index < 0 {
+	_, tail, found := strings.Cut(normalizedDDL, prefix)
+	if !found {
 		return false
 	}
-	tail := strings.TrimSpace(normalizedDDL[index+len(prefix):])
+	tail = strings.TrimSpace(tail)
 	if tail == "" || tail == "delete" {
 		return true
 	}
