@@ -766,17 +766,20 @@ Volc remote project configuration remains deployment state and the harness
 does not mutate it.
 
 Current lanes cover Flowcraft Redis 8 BM25 single-pass, hybrid single/two-pass,
-self-hosted Mem0, and Volc AgentKit Memory default. LoCoMo is a tagged Go test
-package. The Docker runner starts the pinned Redis 8 service, self-hosted Mem0,
-or both for the selected group, runs the tagged Go tests from the host against
-those containers, and always removes their containers and volumes. The Volc
-group continues to use standard `go test -run` against its remote provider.
+self-hosted Mem0, Mem0 Platform default/custom-instructions, and Volc AgentKit
+Memory default. LoCoMo is a tagged Go test package. The Docker runner starts the
+pinned Redis 8 service, self-hosted Mem0, or both for the selected group, runs
+the tagged Go tests from the host against those containers, and always removes
+their containers and volumes. The Mem0 Platform and Volc groups continue to use
+standard `go test -run` against their remote providers.
 Selected tests validate only the environment variables they consume. Missing
 or placeholder values fail, and unselected backend variables are not inspected:
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
 tests/locomo-e2e/run_docker.sh mem0
 tests/locomo-e2e/run_docker.sh flowcraft
 tests/locomo-e2e/run_docker.sh all
@@ -787,7 +790,9 @@ process environment; the test package and runner do not read `.env` files.
 The Mem0 group uses the same extraction and embedding model/key/base-URL
 environment variables as Flowcraft. Its container pins `mem0ai 2.0.3` and
 defaults to `doubao-seed-2-0-lite-260215` plus `text-embedding-3-small`.
-Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` or
+Run a remote Mem0 Platform lane separately only when its endpoint, API key, and
+configuration fingerprint are available; those credentials are not required by
+the Docker groups. Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` or
 `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`; the runner points both at its Docker
 services. Override `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` or
 `GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable. Use a

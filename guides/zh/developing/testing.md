@@ -628,16 +628,19 @@ Flowcraft LoCoMo evaluator，也不属于普通 `go test ./...`、Docker E2E 或
 每个 live test 在对应 Go 文件中完整定义 provider、memory lane 和 extraction config；
 Volc remote project 配置由部署拥有，harness 不修改它。
 
-当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、self-hosted Mem0
-和 Volc AgentKit Memory default。LoCoMo 是 tagged Go 测试包；Docker runner 会按所选 group
-启动固定版本的 Redis 8、self-hosted Mem0 或两者，让宿主机上的 tagged Go test 连接容器，
-并在结束时删除容器和 volume。Volc 组继续使用标准 `go test -run` 连接远程 provider。
+当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、self-hosted Mem0、
+Mem0 Platform default/custom instructions 和 Volc AgentKit Memory default。LoCoMo 是 tagged Go
+测试包；Docker runner 会按所选 group 启动固定版本的 Redis 8、self-hosted Mem0 或两者，
+让宿主机上的 tagged Go test 连接容器，并在结束时删除容器和 volume。Mem0 Platform 和 Volc
+组继续使用标准 `go test -run` 连接远程 provider。
 被选择的测试只校验自己消费的环境变量，缺失或占位值会失败，未选择 backend 的变量
 不会被检查：
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
+go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
+  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
 tests/locomo-e2e/run_docker.sh mem0
 tests/locomo-e2e/run_docker.sh flowcraft
 tests/locomo-e2e/run_docker.sh all
@@ -646,7 +649,8 @@ tests/locomo-e2e/run_docker.sh all
 `.env.example` 只是变量清单；值通过进程环境注入，测试包和 runner 都不会读取 `.env`
 文件。Mem0 group 使用与 Flowcraft 相同的 extraction 和 embedding model/key/base URL 环境变量；
 容器内固定使用 `mem0ai 2.0.3`，默认模型分别为 `doubao-seed-2-0-lite-260215` 和
-`text-embedding-3-small`。直接运行 Go tests 时必须设置
+`text-embedding-3-small`。远程 Mem0 Platform lane 仅在调用方拥有对应 endpoint、API key 和
+配置 fingerprint 时单独运行，不是 Docker group 的依赖。直接运行 Go tests 时必须设置
 对应的 `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` 或
 `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`；runner 会将它们指向自己启动的容器。如果默认
 端口不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` 或
