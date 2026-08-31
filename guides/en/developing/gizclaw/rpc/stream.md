@@ -21,7 +21,7 @@ This is the RPC framing layer; the underlying connection and service stream belo
 | `ReadEOS` / `WriteEOS` | Process stream end marker. |
 | `normalizeIOError` | Normalizes underlying I/O errors to RPC stream errors. |
 
-## C unary request contract
+## C request contract
 
 The C SDK represents concurrent unary calls with `gzc_rpc_request_start`,
 `gzc_rpc_request_result`, `gzc_rpc_request_cancel`, and
@@ -36,6 +36,12 @@ is still represented by `gzc_rpc_response_t.has_error`. A deadline returns
 `GZC_ERR_TIMEOUT`, while cancellation, an incomplete remote close, or client
 close returns `GZC_ERR_CLOSED`. A terminal transition detaches and closes the
 channel exactly once, and request-owned response views remain valid until
-destroy. `gzc_rpc_call_service` and `gzc_rpc_call` use the same state machine but
-copy the final response back to the legacy client-owned view to retain their
-existing signatures and lifetimes.
+destroy.
+
+Streaming calls use the same request handle. The caller starts them with
+`gzc_rpc_request_start_stream`, queues binary request frames with
+`gzc_rpc_request_write`, and queues request EOS with
+`gzc_rpc_request_finish_write`. Response envelope, binary data, and response EOS
+are delivered in order by the frame callback during `gzc_client_poll`. A write
+returns `GZC_ERR_WOULD_BLOCK` while the previous frame is still pending; the
+caller polls and retries without introducing a second stream lifecycle.

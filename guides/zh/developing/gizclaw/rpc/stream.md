@@ -21,7 +21,7 @@
 | `ReadEOS` / `WriteEOS` | 处理 stream end marker。 |
 | `normalizeIOError` | 将底层 I/O error 规范化为 RPC stream error。 |
 
-## C unary request contract
+## C request contract
 
 C SDK 用 `gzc_rpc_request_start` / `gzc_rpc_request_result` /
 `gzc_rpc_request_cancel` / `gzc_rpc_request_destroy` 表示可并发的 unary 请求。每个
@@ -33,6 +33,11 @@ request 独占一条 RPC service DataChannel 和有界的 frame、continuation�
 response envelope 和 EOS 都到达后结果为 `GZC_OK`；远端 RPC error 仍通过
 `gzc_rpc_response_t.has_error` 表达。deadline 返回 `GZC_ERR_TIMEOUT`，取消、未完成
 的远端关闭或 client close 返回 `GZC_ERR_CLOSED`。任一 terminal transition 只执行
-一次 channel detach/close，request-owned response view 保持到 destroy。同步
-`gzc_rpc_call_service` 和 `gzc_rpc_call` 复用同一状态机，但把最终 response 复制回
-原有 client-owned view 以保持既有签名和生命周期。
+一次 channel detach/close，request-owned response view 保持到 destroy。
+
+流式调用复用同一个 request handle：调用方通过
+`gzc_rpc_request_start_stream` 创建请求，用 `gzc_rpc_request_write` 排队 binary
+request frame，再用 `gzc_rpc_request_finish_write` 排队 request EOS。Response
+envelope、binary data 与 response EOS 由 frame callback 在 `gzc_client_poll` 中按序
+交付。上一帧仍 pending 时 write 返回 `GZC_ERR_WOULD_BLOCK`，调用方 poll 后重试，
+不引入第二套 stream lifecycle。

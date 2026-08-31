@@ -23,4 +23,4 @@ Transcript wire 上限是 8192 UTF-8 bytes。空白或空的 ASR 输出会在调
 
 Wire code 与脱敏 message 保持兼容。单条 RPC completion record 额外记录由 Server 拥有的封闭 `error_code`，用于区分失败阶段与类别，例如 `SPEECH_EXTRACT_ASR_INVALID_OUTPUT`、`SPEECH_EXTRACT_PROVIDER_FAILURE`、`SPEECH_EXTRACT_RESULT_PARSE_INVALID_OUTPUT` 或 `SPEECH_EXTRACT_SCHEMA_INVALID_OUTPUT`。阶段诊断不会记录 audio、transcript、Provider payload、credential、schema 内容或结果值。
 
-Go `ExtractSpeech`、JavaScript `extractSpeech` 与 C `gzc_rpc_speech_extract_open/write/finish` 提供增量上传；Flutter 提供生成后的 typed method 与 payload surface。
+Go `ExtractSpeech` 与 JavaScript `extractSpeech` 提供增量上传。C 通过 `gzc_rpc_request_start_stream` 创建 mixed-frame RPC，用 `gzc_rpc_request_write` 上传音频，再以 `gzc_rpc_request_finish_write` 发送 request EOS；Flutter 提供生成后的 typed method 与 payload surface。

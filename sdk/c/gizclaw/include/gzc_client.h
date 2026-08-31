@@ -120,11 +120,6 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms);
 int gzc_client_close(gzc_client_t *client);
 void gzc_client_destroy(gzc_client_t *client);
 
-/*
- * Returns the non-owning raw channel for the active synchronous legacy Peer
- * RPC call, or NULL while idle. The view is invalid when that call returns.
- */
-gzc_rtc_channel_t *gzc_client_rpc_channel(gzc_client_t *client);
 const gzc_platform_t *gzc_client_platform(gzc_client_t *client);
 const gzc_webrtc_vtable_t *gzc_client_webrtc(gzc_client_t *client);
 

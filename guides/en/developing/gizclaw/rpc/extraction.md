@@ -23,4 +23,4 @@ The transcript wire limit is 8192 UTF-8 bytes. Empty or whitespace-only ASR outp
 
 The wire code and sanitized message remain compatibility-stable. The single RPC completion record additionally carries a bounded server-owned `error_code` identifying the failed stage and class, for example `SPEECH_EXTRACT_ASR_INVALID_OUTPUT`, `SPEECH_EXTRACT_PROVIDER_FAILURE`, `SPEECH_EXTRACT_RESULT_PARSE_INVALID_OUTPUT`, or `SPEECH_EXTRACT_SCHEMA_INVALID_OUTPUT`. Stage diagnostics never include audio, transcripts, provider payloads, credentials, schema contents, or result values.
 
-Go `ExtractSpeech`, JavaScript `extractSpeech`, and C `gzc_rpc_speech_extract_open/write/finish` expose incremental upload. Flutter receives the generated typed method and payload surface.
+Go `ExtractSpeech` and JavaScript `extractSpeech` expose incremental upload. C starts the mixed-frame RPC with `gzc_rpc_request_start_stream`, uploads audio with `gzc_rpc_request_write`, and sends request EOS with `gzc_rpc_request_finish_write`. Flutter receives the generated typed method and payload surface.

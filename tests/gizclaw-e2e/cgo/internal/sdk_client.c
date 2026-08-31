@@ -47,6 +47,32 @@ static int rpc_fail(
   return GZC_ERR_RPC;
 }
 
+static unsigned long long rpc_service_for_method(
+    gizclaw_rpc_v1_RpcMethod method) {
+  return method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP ||
+                 method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN ||
+                 method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE
+             ? 0x31u
+             : 0u;
+}
+
+static int wait_rpc_result(gzc_cgo_session_t *session,
+                           gzc_rpc_request_t *request,
+                           gzc_rpc_response_t *out_response) {
+  int rc;
+  while ((rc = gzc_rpc_request_result(request, out_response)) ==
+         GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(session->client, 10);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  return rc;
+}
+
 static int copy_c_string(
     char *out,
     unsigned long out_len,
@@ -63,31 +89,6 @@ static int copy_c_string(
   }
   memcpy(out, value, value_len + 1);
   return GZC_OK;
-}
-
-typedef struct {
-  char *out;
-  unsigned long out_len;
-  bool present;
-} decode_c_string_state_t;
-
-static bool decode_c_string(
-    pb_istream_t *stream,
-    const pb_field_t *field,
-    void **arg) {
-  (void)field;
-  decode_c_string_state_t *state = (decode_c_string_state_t *)(*arg);
-  if (state == NULL || state->out == NULL || state->out_len == 0 ||
-      stream->bytes_left >= state->out_len) {
-    return false;
-  }
-  size_t count = stream->bytes_left;
-  if (!pb_read(stream, (pb_byte_t *)state->out, count)) {
-    return false;
-  }
-  state->out[count] = 0;
-  state->present = true;
-  return true;
 }
 
 typedef struct {
@@ -232,28 +233,38 @@ int gzc_cgo_session_call_rpc_payload(
 
   gzc_rpc_response_t response;
   memset(&response, 0, sizeof(response));
-  int rc = gzc_rpc_call(
-      session->client,
-      (gizclaw_rpc_v1_RpcMethod)method_id,
+  const gizclaw_rpc_v1_RpcMethod method =
+      (gizclaw_rpc_v1_RpcMethod)method_id;
+  gzc_rpc_request_t *request = NULL;
+  int rc = gzc_rpc_request_start(
+      session->client, rpc_service_for_method(method), method,
       gzc_str_from_parts((const char *)params_payload, (size_t)params_payload_len),
-      &response);
+      5000, &request);
+  if (rc == GZC_OK) {
+    rc = wait_rpc_result(session, request, &response);
+  }
   if (rc != GZC_OK) {
+    gzc_rpc_request_destroy(request);
     return fail(errbuf, errbuf_len, "call rpc payload", rc);
   }
   if (response.has_error) {
-    return rpc_fail(
+    rc = rpc_fail(
         errbuf,
         errbuf_len,
         response.error.message,
         response.error.code,
         out_rpc_error_code);
+    gzc_rpc_request_destroy(request);
+    return rc;
   }
 
   unsigned char *result = (unsigned char *)malloc(response.result_payload.len == 0 ? 1 : response.result_payload.len);
   if (result == NULL) {
+    gzc_rpc_request_destroy(request);
     return fail(errbuf, errbuf_len, "copy result", GZC_ERR_NO_MEMORY);
   }
   memcpy(result, response.result_payload.data, response.result_payload.len);
+  gzc_rpc_request_destroy(request);
   *out_result_payload = result;
   *out_result_payload_len = (unsigned long)response.result_payload.len;
   if (errbuf != NULL && errbuf_len > 0) {
@@ -541,23 +552,49 @@ int gzc_cgo_session_call_stream_collect(
     unsigned method_id,
     const unsigned char *params_payload,
     unsigned long params_payload_len,
+    const unsigned char *request_data,
+    unsigned long request_data_len,
     gzc_cgo_stream_frame_t **out_frames,
     unsigned long *out_frame_count,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (session == NULL || method_id == 0 || (params_payload == NULL && params_payload_len != 0) || out_frames == NULL || out_frame_count == NULL) {
+  if (session == NULL || method_id == 0 ||
+      (params_payload == NULL && params_payload_len != 0) ||
+      (request_data == NULL && request_data_len != 0) ||
+      out_frames == NULL || out_frame_count == NULL) {
     return fail(errbuf, errbuf_len, "call stream", GZC_ERR_INVALID_ARGUMENT);
   }
   *out_frames = NULL;
   *out_frame_count = 0;
   stream_collect_state_t state;
   memset(&state, 0, sizeof(state));
-  int rc = gzc_rpc_call_stream(
-      session->client,
-      (gizclaw_rpc_v1_RpcMethod)method_id,
+  const gizclaw_rpc_v1_RpcMethod method =
+      (gizclaw_rpc_v1_RpcMethod)method_id;
+  gzc_rpc_request_t *request = NULL;
+  int rc = gzc_rpc_request_start_stream(
+      session->client, rpc_service_for_method(method), method,
       gzc_str_from_parts((const char *)params_payload, (size_t)params_payload_len),
-      append_stream_frame,
-      &state);
+      5000, append_stream_frame, &state, &request);
+  while (rc == GZC_OK && request_data_len > 0 &&
+         (rc = gzc_rpc_request_write(request, request_data,
+                                     (size_t)request_data_len)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(session->client, 10);
+  }
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_finish_write(request)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(session->client, 10);
+  }
+  gzc_rpc_response_t response;
+  memset(&response, 0, sizeof(response));
+  if (rc == GZC_OK) {
+    rc = wait_rpc_result(session, request, &response);
+  }
+  if (rc == GZC_OK && response.has_error) {
+    rc = GZC_ERR_RPC;
+  }
+  gzc_rpc_request_destroy(request);
   if (rc != GZC_OK) {
     gzc_cgo_stream_frames_free(state.frames, state.count);
     return fail(errbuf, errbuf_len, "call stream", rc);
@@ -885,10 +922,7 @@ int gzc_cgo_session_transport_snapshot(
       session->backend.opus_callback != NULL ? 1 : 0;
   out_snapshot->next_local_channel_id =
       session->backend.next_local_channel_id;
-  gzc_rtc_channel_t *active_rpc =
-      gzc_client_rpc_channel(session->client);
-  out_snapshot->active_rpc_channel_id =
-      active_rpc == NULL ? 0 : active_rpc->id;
+  out_snapshot->active_rpc_channel_id = 0;
   for (unsigned long i = 0; i < GZC_CGO_MAX_LOCAL_CHANNELS; i++) {
     struct gzc_rtc_channel *channel = &session->backend.local_channels[i];
     if (!channel->in_use) {

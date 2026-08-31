@@ -27,4 +27,4 @@ speech:
 
 非法 metadata 返回 `INVALID_PARAMS`；未知或 dangling name 返回 `NOT_FOUND`；不支持或重复的 MIME type、非法文字返回 `BAD_REQUEST`；metadata 前的 provider failure 返回脱敏后的 `INTERNAL_ERROR`。Metadata 之后发生错误时，stream 异常结束，Client 不能把部分音频当成完整结果。
 
-Go `SynthesizeSpeech`、JavaScript `synthesizeSpeech` 和 C `gzc_rpc_speech_synthesize` 都会增量暴露音频；Flutter 提供生成后的 typed method 与 payload surface。
+Go `SynthesizeSpeech` 与 JavaScript `synthesizeSpeech` 会增量暴露音频。C 通过 `gzc_rpc_request_start_stream` 创建 stream，并在 `gzc_client_poll` 中由 frame callback 接收 response envelope、音频 frame 与 response EOS；Flutter 提供生成后的 typed method 与 payload surface。
