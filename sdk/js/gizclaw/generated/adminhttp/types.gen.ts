@@ -1277,17 +1277,6 @@ export type Icon = {
     png?: string;
 };
 
-export type FlowcraftMemoryBbhPolicy = {
-    search_overfetch?: number;
-    bleve?: FlowcraftMemoryBlevePolicy;
-    hnsw?: FlowcraftMemoryHnswPolicy;
-};
-
-export type FlowcraftMemoryBlevePolicy = {
-    analyzer?: 'standard' | 'simple' | 'keyword' | 'whitespace' | 'gojieba';
-    gojieba?: FlowcraftMemoryGojiebaPolicy;
-};
-
 export type FlowcraftMemoryExtractionPolicy = {
     /**
      * Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
@@ -1299,20 +1288,6 @@ export type FlowcraftMemoryExtractionPolicy = {
     schema_name?: string;
     temperature?: number;
     stage_timeout?: string;
-};
-
-export type FlowcraftMemoryGojiebaPolicy = {
-    mode?: 'search' | 'full' | 'accurate';
-    hmm?: boolean;
-    dict_path?: string;
-    hmm_path?: string;
-    user_dict_path?: string;
-    idf_path?: string;
-    stop_words_path?: string;
-};
-
-export type FlowcraftMemoryHnswPolicy = {
-    flush_interval?: string;
 };
 
 export type FlowcraftMemoryLanePolicy = {
@@ -1327,7 +1302,6 @@ export type FlowcraftMemoryLayoutPolicy = {
     extraction: FlowcraftMemoryExtractionPolicy;
     embedding?: FlowcraftMemoryModelPolicy;
     rerank?: FlowcraftMemoryModelPolicy;
-    bbh: FlowcraftMemoryBbhPolicy;
     lanes: Array<FlowcraftMemoryLanePolicy>;
     graph_enabled?: boolean;
     write: FlowcraftMemoryWritePolicy;
@@ -1737,10 +1711,6 @@ export type RuntimeProfileCareDecaySpec = {
     mood: number;
 };
 
-export type RuntimeProfileFlowcraftBbhConnection = {
-    type: 'flowcraft_bbh';
-};
-
 export type RuntimeProfileFlowcraftObjectStoreConnection = {
     type: 'flowcraft_object_store';
     directory: string;
@@ -1749,6 +1719,12 @@ export type RuntimeProfileFlowcraftObjectStoreConnection = {
 export type RuntimeProfileFlowcraftPostgreSqlConnection = {
     type: 'flowcraft_postgresql';
     dsn: string;
+};
+
+export type RuntimeProfileFlowcraftRedis8Connection = {
+    type: 'flowcraft_redis8';
+    url: string;
+    tls_ca_file?: string;
 };
 
 export type RuntimeProfileGameRewardSpec = {
@@ -1812,12 +1788,12 @@ export type RuntimeProfileMemoryBinding = {
 };
 
 export type RuntimeProfileMemoryConnection = ({
-    type: 'flowcraft_bbh';
-} & RuntimeProfileFlowcraftBbhConnection) | ({
     type: 'flowcraft_object_store';
 } & RuntimeProfileFlowcraftObjectStoreConnection) | ({
     type: 'flowcraft_postgresql';
 } & RuntimeProfileFlowcraftPostgreSqlConnection) | ({
+    type: 'flowcraft_redis8';
+} & RuntimeProfileFlowcraftRedis8Connection) | ({
     type: 'mem0';
 } & RuntimeProfileMem0Connection) | ({
     type: 'volc_mem0';

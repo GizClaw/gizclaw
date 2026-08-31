@@ -24,7 +24,6 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 			"flowcraft": {
 				"extraction": {"model": "pet-care.extract", "mode": "two_pass"},
 				"embedding": {"model": "pet-care.embedding"},
-				"bbh": {"search_overfetch": 2},
 				"lanes": [{"name": "owner_profile", "kind": "note"}],
 				"write": {"mode": "sync", "tier": "general"}
 			},
@@ -92,7 +91,6 @@ func TestMemoryLayoutResourceApplyComparesNormalizedSpec(t *testing.T) {
 		"spec": {
 			"flowcraft": {
 				"extraction": {"model": " extraction ", "mode": "two_pass"},
-				"bbh": {"search_overfetch": 2},
 				"lanes": [{"name": " adventure_state ", "kind": "state"}],
 				"write": {"mode": "sync", "tier": "general"}
 			},

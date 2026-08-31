@@ -93,8 +93,6 @@ spec:
       mode: two_pass
     embedding:
       model: pet-care.embedding
-    bbh:
-      search_overfetch: 20
     lanes:
     - name: owner-profile
       kind: preference
@@ -120,16 +118,13 @@ spec:
         layout_id: pet-memory
         driver: flowcraft
         connection:
-          type: flowcraft_bbh
+          type: flowcraft_redis8
+          url: redis://redis:6379/0
 ```
-
-`flowcraft_bbh` 是不需要外部服务的 portable connection。一个 RuntimeProfile memory binding 共享一个 Flowcraft client、一个 SQLite canonical backend 和一个 BBH retrieval index。Canonical Fact、Evidence、Async Semantic Queue 与 Side-effect Outbox 存在 `<server-workspace>/data/memory/<runtime-profile>/<memory-alias>/memory.db`；Workspace 名经 `Scope.AppID` 映射到 SQLite 的 `runtime_id`，因此同一物理数据库中的 Workspace 仍按 scope 隔离。BBH 的 Badger、Bleve 和 HNSW 数据位于同 binding 的 `retrieval/`，只是可从 SQLite Fact 重建的派生 projection，不是 canonical source of truth。
 
 Server 为每个 binding 只打开一次该物理 backend，并向每个 Workspace generation 提供独立关闭的 logical Store。当已发布的 Flowcraft projection signature 未改变时，不同 Workspace 的 logical Store 会并发构造，该过程不属于 binding registry map 的临界区。Policy 变化仍只有一个串行的 projection rebuild owner；完整 replacement 原子发布后，其他 constructor 才继续。正常的 final-lease cleanup 会在最后一个 logical lease 与在途 constructor 都退出后关闭物理 backend；显式 Registry shutdown 会先摘除 binding、拒绝晚到的 constructor 结果并排空这些 constructor，再关闭物理 backend。
 
-旧版 binding 如果只有 v1 `state.json`，会在首次打开时先把完整 canonical state 迁移到临时 SQLite 数据库，校验 source digest、各 scope 的记录、状态和 counter 后原子发布 `memory.db`。原 `state.json` 保留为恢复证据；之后若其内容与已完成迁移的 digest 不同，启动会失败而不会使用空库或部分迁移结果。新 binding 不创建或读取 `state.json`。该 SQLite backend 只适用于一个 GizClaw Server process 管理的本地 binding；多进程或多节点共享使用 `flowcraft_postgresql`。
-
-其他合法 connection 是 `flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）、`mem0`（`project_id`、`endpoint`、`api_key`）和 `volc_mem0`（`memory_project_id`、`endpoint`、`api_key`）。`flowcraft_object_store` 保持其显式目录下的 workspace-backed canonical format。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
+合法的 Flowcraft connection 是 `flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）和 `flowcraft_redis8`（`url`，可选 `tls_ca_file`）。`flowcraft_redis8` 要求 Redis 8 及 Redis Search，Canonical Fact、Evidence、Async Semantic Queue、Side-effect Outbox 和全文/向量 retrieval 全部使用同一个 Redis namespace；它不降级支持 Redis 7。`rediss://` 连接复用 Storage 的 TLS 校验，并可通过 `tls_ca_file` 增加受信 CA。Flowcraft 0.1.7 尚未公开 Graph store 注入点，因此该 connection 会拒绝 `graph_enabled`，避免静默使用不持久化的进程内 Graph。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
 
 对于 Mem0 和火山云，Project ID 记录与所选数据面 API key 配套的部署/控制面身份。运行时 Fact 请求通过该 key 完成 Project 路由，不会再发送独立的 Project ID 字段。
 
@@ -166,7 +161,7 @@ spec:
       - {from: observe-turn, to: __end__}
 ```
 
-同一 Workspace 的所有 stream 共用一个 Agent generation。数据可见性的稳定边界是同一 Workspace AppID、同一 memory driver 和同一 RuntimeProfile memory binding 指向的物理 connection。修改 extraction、recall、write、prompt、`top_k` 或 mode 不改变 canonical data；Flowcraft embedding、rerank 或 BBH policy 改变时，从 canonical facts 在 staging index 中重建，成功后原子发布，失败不会发布部分或混合索引。切换 driver 或 binding 可以切换物理数据源，不自动迁移或删除；切回仍存在的原 connection 后可以重新访问原数据。
+同一 Workspace 的所有 stream 共用一个 Agent generation。数据可见性的稳定边界是同一 Workspace AppID、同一 memory driver 和同一 RuntimeProfile memory binding 指向的物理 connection。修改 extraction、recall、write、prompt、`top_k` 或 mode 不改变 canonical data；Flowcraft 派生索引 policy 改变时，从 canonical facts 在 staging index 中重建，成功后原子发布，失败不会发布部分或混合索引。切换 driver 或 binding 可以切换物理数据源，不自动迁移或删除；切回仍存在的原 connection 后可以重新访问原数据。
 
 ## Ownership 与错误
 

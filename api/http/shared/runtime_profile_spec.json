@@ -100,13 +100,13 @@
       "RuntimeProfileMemoryConnection": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/RuntimeProfileFlowcraftBBHConnection"
-          },
-          {
             "$ref": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection"
           },
           {
             "$ref": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileFlowcraftRedis8Connection"
           },
           {
             "$ref": "#/components/schemas/RuntimeProfileMem0Connection"
@@ -118,22 +118,11 @@
         "discriminator": {
           "propertyName": "type",
           "mapping": {
-            "flowcraft_bbh": "#/components/schemas/RuntimeProfileFlowcraftBBHConnection",
             "flowcraft_object_store": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection",
             "flowcraft_postgresql": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection",
+            "flowcraft_redis8": "#/components/schemas/RuntimeProfileFlowcraftRedis8Connection",
             "mem0": "#/components/schemas/RuntimeProfileMem0Connection",
             "volc_mem0": "#/components/schemas/RuntimeProfileVolcMem0Connection"
-          }
-        }
-      },
-      "RuntimeProfileFlowcraftBBHConnection": {
-        "type": "object",
-        "required": ["type"],
-        "additionalProperties": false,
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["flowcraft_bbh"]
           }
         }
       },
@@ -162,6 +151,26 @@
             "enum": ["flowcraft_postgresql"]
           },
           "dsn": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "RuntimeProfileFlowcraftRedis8Connection": {
+        "type": "object",
+        "required": ["type", "url"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flowcraft_redis8"]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1
+          },
+          "tls_ca_file": {
             "type": "string",
             "minLength": 1
           }

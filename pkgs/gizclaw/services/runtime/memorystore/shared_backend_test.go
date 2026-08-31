@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestOpenSharedFlowcraftAcceptsCanonicalLayoutID(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 
 	backend, err := openSharedFlowcraft(t.Context(), request)
 	if err != nil {
@@ -25,7 +24,7 @@ func TestOpenSharedFlowcraftAcceptsCanonicalLayoutID(t *testing.T) {
 }
 
 func TestSharedFlowcraftSameSignatureStoresConstructConcurrently(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	opened, err := openSharedFlowcraft(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -85,8 +84,8 @@ func wantFlowcraftConstructor(t *testing.T, entered <-chan struct{}) {
 	}
 }
 
-func TestSharedFlowcraftSQLiteKeepsConcurrentWorkspacesIsolated(t *testing.T) {
-	request := managedTestRequest(t)
+func TestSharedFlowcraftObjectStoreKeepsConcurrentWorkspacesIsolated(t *testing.T) {
+	request := objectStoreTestRequest(t)
 	backend, err := openSharedFlowcraft(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -96,14 +95,6 @@ func TestSharedFlowcraftSQLiteKeepsConcurrentWorkspacesIsolated(t *testing.T) {
 	if shared.temporal == nil || shared.index == nil {
 		t.Fatal("shared Flowcraft backend did not retain canonical and retrieval dependencies")
 	}
-	root, err := managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exists, err := regularFileExists(filepath.Join(root, flowcraftSQLiteName)); err != nil || !exists {
-		t.Fatalf("shared memory.db exists = %v, error = %v", exists, err)
-	}
-
 	const workspaces = 4
 	const factsPerWorkspace = 12
 	stores := make([]memory.Store, workspaces)
@@ -168,7 +159,7 @@ func TestSharedFlowcraftSQLiteKeepsConcurrentWorkspacesIsolated(t *testing.T) {
 }
 
 func TestOpenSharedFlowcraftRejectsMismatchedCanonicalLayoutID(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	request.Layout.Id = "different-layout-id"
 
 	_, err := openSharedFlowcraft(t.Context(), request)

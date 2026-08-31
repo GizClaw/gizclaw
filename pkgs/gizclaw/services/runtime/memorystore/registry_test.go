@@ -18,7 +18,7 @@ import (
 )
 
 func BenchmarkRegistryResolveSameBindingContention(b *testing.B) {
-	request := managedTestRequest(b)
+	request := objectStoreTestRequest(b)
 	physical, err := openSharedBackend(b.Context(), request)
 	if err != nil {
 		b.Fatal(err)
@@ -113,7 +113,7 @@ func resolveStoreBatch(
 }
 
 func TestRegistrySameBindingLogicalStoresConstructConcurrently(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	physical, err := openSharedBackend(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestRegistrySameBindingLogicalStoresConstructConcurrently(t *testing.T) {
 }
 
 func TestRegistryCloseWaitsForInFlightLogicalStore(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	physical, err := openSharedBackend(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +298,7 @@ func (closer *signalingCloser) Close() error {
 
 func TestRegistrySharesBindingUntilFinalRelease(t *testing.T) {
 	t.Parallel()
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	registry := NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
 
@@ -352,7 +352,7 @@ func TestRegistrySharesBindingUntilFinalRelease(t *testing.T) {
 
 func TestRegistryConcurrentResolveConstructsOneStore(t *testing.T) {
 	t.Parallel()
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	registry := NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
 
@@ -386,7 +386,7 @@ func TestRegistryConcurrentResolveConstructsOneStore(t *testing.T) {
 
 func TestRegistryIdentityIncludesPhysicalConnection(t *testing.T) {
 	t.Parallel()
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	firstKey, err := registryKey(request)
 	if err != nil {
 		t.Fatal(err)
@@ -414,7 +414,7 @@ func TestRegistryValidatesLayoutIDForEveryResolve(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 
 	first, err := registry.Resolve(t.Context(), request)
 	if err != nil {
@@ -434,7 +434,7 @@ func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) 
 	registry := NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
 
-	firstRequest := managedTestRequest(t)
+	firstRequest := objectStoreTestRequest(t)
 	firstRequest.WorkspaceID = "workspace-a"
 	first, err := registry.Resolve(t.Context(), firstRequest)
 	if err != nil {
@@ -463,7 +463,7 @@ func TestRegistrySharesPhysicalBackendAcrossWorkspaceScopedStores(t *testing.T) 
 	}
 	shared := registry.entries[key].backend.(*sharedFlowcraftBackend)
 	if shared.temporal == nil || shared.index == nil {
-		t.Fatal("registry entry does not share the canonical backend and BBH index")
+		t.Fatal("registry entry does not share the canonical backend and retrieval index")
 	}
 	recalled, err := second.Store.Recall(t.Context(), memory.Query{Text: "salmon", Limit: 5})
 	if err != nil {
@@ -483,7 +483,7 @@ func TestRegistryPersistsDirectFactsWithExtractionConfigured(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	request.Layout.Spec.Flowcraft.Extraction.Model = "extract"
 	request.ModelLoader = registryTestModelLoader{}
 
@@ -514,7 +514,7 @@ func TestRegistryRebuildsDerivedIndexWhileOldLogicalStoreIsLive(t *testing.T) {
 	t.Parallel()
 	registry := NewRegistry()
 	t.Cleanup(func() { _ = registry.Close() })
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 
 	first, err := registry.Resolve(t.Context(), request)
 	if err != nil {
@@ -527,7 +527,7 @@ func TestRegistryRebuildsDerivedIndexWhileOldLogicalStoreIsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	request.Layout.Spec.Flowcraft.Bbh.SearchOverfetch = new(9)
+	request.Layout.Spec.Flowcraft.GraphEnabled = new(false)
 	reloaded, err := registry.Resolve(t.Context(), request)
 	if err != nil {
 		t.Fatalf("Resolve(policy reload) error = %v", err)
@@ -569,12 +569,13 @@ func (registryTestLLM) GenerateStream(context.Context, []llm.Message, ...llm.Gen
 	return nil, errors.New("unexpected streaming extraction")
 }
 
-func managedTestRequest(t testing.TB) Request {
+func objectStoreTestRequest(t testing.TB) Request {
 	t.Helper()
 	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(
-		apitypes.RuntimeProfileFlowcraftBBHConnection{
-			Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh,
+	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(
+		apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
+			Type:      apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
+			Directory: t.TempDir(),
 		},
 	); err != nil {
 		t.Fatal(err)

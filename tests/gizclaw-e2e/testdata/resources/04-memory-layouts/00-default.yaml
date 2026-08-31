@@ -11,19 +11,13 @@ spec:
       system_prompt: Extract durable identity, preference, relationship, and long-term goal facts.
       schema_name: durable_memory
       temperature: 0
-    bbh:
-      search_overfetch: 20
-      bleve:
-        analyzer: standard
-      hnsw:
-        flush_interval: 60s
     lanes:
     - name: owner-profile
       kind: preference
       description: Durable facts about the owner.
       extract: Store stable identity and preference facts only.
       recall: Use these facts for continuity.
-    graph_enabled: true
+    graph_enabled: false
     write:
       mode: sync
       tier: general

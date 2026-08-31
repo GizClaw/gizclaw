@@ -1,0 +1,406 @@
+package redis8
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/GizClaw/flowcraft/memory/retrieval"
+	"github.com/GizClaw/flowcraft/memory/retrieval/scoring"
+	"github.com/GizClaw/flowcraft/sdk/errdefs"
+	"github.com/redis/go-redis/v9"
+)
+
+const docField = "doc"
+
+type Index struct {
+	client                                     *redis.Client
+	prefix, indexName, docPrefix, dimensionKey string
+}
+
+func newIndex(client *redis.Client, prefix string) *Index {
+	sum := sha256.Sum256([]byte(prefix))
+	return &Index{client: client, prefix: prefix, indexName: "giz_fc8_" + hex.EncodeToString(sum[:8]), docPrefix: prefix + ":retrieval:doc:", dimensionKey: prefix + ":retrieval:vector_dim"}
+}
+func (index *Index) ensure(ctx context.Context) error {
+	_, err := index.client.FTInfo(ctx, index.indexName).Result()
+	if err == nil {
+		return nil
+	}
+	_, err = index.client.FTCreate(ctx, index.indexName, &redis.FTCreateOptions{OnHash: true, Prefix: []any{index.docPrefix}}, &redis.FieldSchema{FieldName: "namespace", FieldType: redis.SearchFieldTypeTag}, &redis.FieldSchema{FieldName: "content", FieldType: redis.SearchFieldTypeText}, &redis.FieldSchema{FieldName: "timestamp", FieldType: redis.SearchFieldTypeNumeric, Sortable: true}).Result()
+	if err != nil && !strings.Contains(strings.ToLower(err.Error()), "index already exists") {
+		return err
+	}
+	return nil
+}
+func encodePart(value string) string { return base64.RawURLEncoding.EncodeToString([]byte(value)) }
+func (index *Index) docKey(namespace, id string) string {
+	return index.docPrefix + encodePart(namespace) + ":" + encodePart(id)
+}
+func (index *Index) namespaceKey(namespace string) string {
+	return index.prefix + ":retrieval:namespace:" + encodePart(namespace)
+}
+func vectorBytes(vector []float32) []byte {
+	out := make([]byte, len(vector)*4)
+	for i, value := range vector {
+		binary.LittleEndian.PutUint32(out[i*4:], math.Float32bits(value))
+	}
+	return out
+}
+func (index *Index) ensureVector(ctx context.Context, dimension int) error {
+	if dimension <= 0 {
+		return nil
+	}
+	value := strconv.Itoa(dimension)
+	created, err := index.client.SetNX(ctx, index.dimensionKey, value, 0).Result()
+	if err != nil {
+		return err
+	}
+	if !created {
+		existing, err := index.client.Get(ctx, index.dimensionKey).Result()
+		if err != nil {
+			return err
+		}
+		if existing != value {
+			return errdefs.Validationf("flowcraft redis8 retrieval: vector dimension %d does not match index dimension %s", dimension, existing)
+		}
+		return nil
+	}
+	_, err = index.client.Do(ctx, "FT.ALTER", index.indexName, "SCHEMA", "ADD", "vector", "VECTOR", "HNSW", "6", "TYPE", "FLOAT32", "DIM", dimension, "DISTANCE_METRIC", "COSINE").Result()
+	if err != nil {
+		_, _ = index.client.Eval(ctx, `if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) end return 0`, []string{index.dimensionKey}, value).Result()
+		return fmt.Errorf("add vector schema: %w", err)
+	}
+	return nil
+}
+func (index *Index) Upsert(ctx context.Context, namespace string, docs []retrieval.Doc) error {
+	if namespace == "" {
+		return errdefs.Validationf("flowcraft redis8 retrieval: namespace is required")
+	}
+	if len(docs) == 0 {
+		return nil
+	}
+	dimension := 0
+	for _, doc := range docs {
+		if doc.ID == "" {
+			return errdefs.Validationf("flowcraft redis8 retrieval: document id is required")
+		}
+		if len(doc.Vector) > 0 {
+			if dimension == 0 {
+				dimension = len(doc.Vector)
+			} else if dimension != len(doc.Vector) {
+				return errdefs.Validationf("flowcraft redis8 retrieval: mixed vector dimensions")
+			}
+		}
+	}
+	if err := index.ensureVector(ctx, dimension); err != nil {
+		return err
+	}
+	pipe := index.client.TxPipeline()
+	for _, doc := range docs {
+		raw, err := json.Marshal(doc)
+		if err != nil {
+			return err
+		}
+		fields := map[string]any{"namespace": encodePart(namespace), "content": doc.Content, "timestamp": doc.Timestamp.UnixNano(), docField: raw}
+		if len(doc.Vector) > 0 {
+			fields["vector"] = vectorBytes(doc.Vector)
+		}
+		key := index.docKey(namespace, doc.ID)
+		pipe.HSet(ctx, key, fields)
+		pipe.SAdd(ctx, index.namespaceKey(namespace), doc.ID)
+	}
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return err
+	}
+	keys := make([]any, len(docs))
+	for i, doc := range docs {
+		keys[i] = index.docKey(namespace, doc.ID)
+	}
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for {
+		result, searchErr := index.client.FTSearchWithArgs(ctx, index.indexName, "*", &redis.FTSearchOptions{
+			CountOnly: true, InKeys: keys, DialectVersion: 2,
+		}).Result()
+		if searchErr != nil {
+			return searchErr
+		}
+		if result.Total == len(docs) {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("flowcraft redis8 retrieval: indexing timeout: indexed %d of %d documents", result.Total, len(docs))
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+func (index *Index) Delete(ctx context.Context, namespace string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	pipe := index.client.TxPipeline()
+	members := make([]any, len(ids))
+	for i, id := range ids {
+		pipe.Del(ctx, index.docKey(namespace, id))
+		members[i] = id
+	}
+	pipe.SRem(ctx, index.namespaceKey(namespace), members...)
+	_, err := pipe.Exec(ctx)
+	return err
+}
+func (index *Index) Get(ctx context.Context, namespace, id string) (retrieval.Doc, bool, error) {
+	raw, err := index.client.HGet(ctx, index.docKey(namespace, id), docField).Result()
+	if errors.Is(err, redis.Nil) {
+		return retrieval.Doc{}, false, nil
+	}
+	if err != nil {
+		return retrieval.Doc{}, false, err
+	}
+	var doc retrieval.Doc
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return retrieval.Doc{}, false, err
+	}
+	return doc, true, nil
+}
+func (index *Index) all(ctx context.Context, namespace string) ([]retrieval.Doc, error) {
+	ids, err := index.client.SMembers(ctx, index.namespaceKey(namespace)).Result()
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(ids)
+	out := make([]retrieval.Doc, 0, len(ids))
+	for _, id := range ids {
+		doc, ok, err := index.Get(ctx, namespace, id)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, doc)
+		}
+	}
+	return out, nil
+}
+func (index *Index) List(ctx context.Context, namespace string, request retrieval.ListRequest) (*retrieval.ListResponse, error) {
+	docs, err := index.all(ctx, namespace)
+	if err != nil {
+		return nil, err
+	}
+	filtered := docs[:0]
+	for _, doc := range docs {
+		if retrieval.DocMatchesFilter(doc, request.Filter) {
+			filtered = append(filtered, doc)
+		}
+	}
+	docs = filtered
+	sort.SliceStable(docs, func(i, j int) bool {
+		switch request.OrderBy {
+		case retrieval.OrderByTimestampAsc:
+			return docs[i].Timestamp.Before(docs[j].Timestamp)
+		case retrieval.OrderByIDAsc:
+			return docs[i].ID < docs[j].ID
+		default:
+			return docs[i].Timestamp.After(docs[j].Timestamp)
+		}
+	})
+	offset, err := retrieval.DecodeListPageTokenFor(request.PageToken, request)
+	if err != nil {
+		return nil, err
+	}
+	if offset > len(docs) {
+		offset = len(docs)
+	}
+	size := request.PageSize
+	if size <= 0 || size > 10000 {
+		size = 100
+	}
+	end := min(offset+size, len(docs))
+	items := make([]retrieval.Doc, end-offset)
+	copy(items, docs[offset:end])
+	if !request.WithVector {
+		for i := range items {
+			items[i].Vector = nil
+			items[i].SparseVector = nil
+		}
+	}
+	response := &retrieval.ListResponse{Items: items, Total: int64(len(docs))}
+	if end < len(docs) {
+		response.NextPageToken, err = retrieval.EncodeListPageTokenFor(end, request)
+	}
+	return response, err
+}
+func escapeText(value string) string {
+	const special = `,.<>{}[]"':;!@#$%^&*()-+=~|/\\`
+	var escaped strings.Builder
+	for _, char := range strings.TrimSpace(value) {
+		if strings.ContainsRune(special, char) {
+			escaped.WriteByte('\\')
+		}
+		escaped.WriteRune(char)
+	}
+	return escaped.String()
+}
+func (index *Index) searchLane(ctx context.Context, namespace, query string, options *redis.FTSearchOptions, scoreName string) ([]retrieval.Hit, error) {
+	result, err := index.client.FTSearchWithArgs(ctx, index.indexName, query, options).Result()
+	if err != nil {
+		return nil, err
+	}
+	hits := make([]retrieval.Hit, 0, len(result.Docs))
+	for _, record := range result.Docs {
+		raw := record.Fields[docField]
+		var doc retrieval.Doc
+		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+			return nil, err
+		}
+		score := 0.0
+		if record.Score != nil {
+			score = *record.Score
+		}
+		hit := retrieval.Hit{Doc: doc, Score: score, Scores: map[string]float64{scoreName: score}}
+		if distanceRaw := record.Fields["vector_distance"]; distanceRaw != "" {
+			distance, _ := strconv.ParseFloat(distanceRaw, 64)
+			hit.Distance = distance
+			hit.Score = 1 - distance
+			hit.Scores[scoreName] = hit.Score
+		}
+		hits = append(hits, hit)
+	}
+	return hits, nil
+}
+func (index *Index) Search(ctx context.Context, namespace string, request retrieval.SearchRequest) (*retrieval.SearchResponse, error) {
+	started := time.Now()
+	if strings.TrimSpace(request.QueryText) == "" && len(request.QueryVector) == 0 && len(request.SparseVec) == 0 {
+		return nil, retrieval.ErrNoQuery
+	}
+	if len(request.SparseVec) > 0 {
+		return nil, errdefs.Validationf("flowcraft redis8 retrieval: sparse vectors are unsupported")
+	}
+	topK := request.TopK
+	if topK <= 0 {
+		topK = 10
+	}
+	candidateCount, err := index.client.SCard(ctx, index.namespaceKey(namespace)).Result()
+	if err != nil {
+		return nil, err
+	}
+	limit := max(int(candidateCount), topK)
+	tag := "@namespace:{" + encodePart(namespace) + "}"
+	var lanes [][]retrieval.Hit
+	if text := escapeText(request.QueryText); text != "" {
+		hits, err := index.searchLane(ctx, namespace, tag+" @content:("+text+")", &redis.FTSearchOptions{WithScores: true, Return: []redis.FTSearchReturn{{FieldName: docField}}, Limit: limit, DialectVersion: 2}, "bm25")
+		if err != nil {
+			return nil, err
+		}
+		lanes = append(lanes, hits)
+	}
+	if len(request.QueryVector) > 0 {
+		if err := index.ensureVector(ctx, len(request.QueryVector)); err != nil {
+			return nil, err
+		}
+		query := fmt.Sprintf("(%s)=>[KNN %d @vector $query_vector AS vector_distance]", tag, limit)
+		hits, err := index.searchLane(ctx, namespace, query, &redis.FTSearchOptions{Return: []redis.FTSearchReturn{{FieldName: docField}, {FieldName: "vector_distance"}}, SortBy: []redis.FTSearchSortBy{{FieldName: "vector_distance", Asc: true}}, Limit: limit, Params: map[string]any{"query_vector": vectorBytes(request.QueryVector)}, DialectVersion: 2}, "vector")
+		if err != nil {
+			return nil, err
+		}
+		lanes = append(lanes, hits)
+	}
+	for i := range lanes {
+		filtered := lanes[i][:0]
+		for _, hit := range lanes[i] {
+			if hit.Score <= 0 {
+				continue
+			}
+			if retrieval.DocMatchesFilter(hit.Doc, request.Filter) {
+				if len(lanes) == 1 && request.MinScore > 0 && hit.Score < request.MinScore {
+					continue
+				}
+				filtered = append(filtered, hit)
+			}
+		}
+		lanes[i] = filtered
+	}
+	var hits []retrieval.Hit
+	if len(lanes) == 1 {
+		hits = lanes[0]
+	} else {
+		hits = scoring.RRF(lanes, scoring.DefaultRRFK)
+	}
+	if len(hits) > topK {
+		hits = hits[:topK]
+	}
+	return &retrieval.SearchResponse{Hits: hits, Took: time.Since(started)}, nil
+}
+func (index *Index) Iterate(ctx context.Context, namespace, cursor string, batch int) ([]retrieval.Doc, string, error) {
+	request := retrieval.ListRequest{PageSize: batch, PageToken: cursor, OrderBy: retrieval.OrderByIDAsc, WithVector: true}
+	response, err := index.List(ctx, namespace, request)
+	if err != nil {
+		return nil, "", err
+	}
+	return response.Items, response.NextPageToken, nil
+}
+func (index *Index) Count(ctx context.Context, namespace string, filter retrieval.Filter) (int64, error) {
+	docs, err := index.all(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	var count int64
+	for _, doc := range docs {
+		if retrieval.DocMatchesFilter(doc, filter) {
+			count++
+		}
+	}
+	return count, nil
+}
+func emptyFilter(filter retrieval.Filter) bool {
+	return reflect.DeepEqual(filter, retrieval.Filter{})
+}
+func (index *Index) DeleteByFilter(ctx context.Context, namespace string, filter retrieval.Filter) (int64, error) {
+	if emptyFilter(filter) {
+		return 0, retrieval.ErrEmptyDeleteFilter
+	}
+	docs, err := index.all(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	var ids []string
+	for _, doc := range docs {
+		if retrieval.DocMatchesFilter(doc, filter) {
+			ids = append(ids, doc.ID)
+		}
+	}
+	return int64(len(ids)), index.Delete(ctx, namespace, ids)
+}
+func (index *Index) Drop(ctx context.Context, namespace string) error {
+	ids, err := index.client.SMembers(ctx, index.namespaceKey(namespace)).Result()
+	if err != nil {
+		return err
+	}
+	if err := index.Delete(ctx, namespace, ids); err != nil {
+		return err
+	}
+	return index.client.Del(ctx, index.namespaceKey(namespace)).Err()
+}
+func (index *Index) WarmNamespace(context.Context, string) error { return nil }
+func (index *Index) Capabilities() retrieval.Capabilities {
+	return retrieval.Capabilities{BM25: true, Vector: true, Hybrid: false, FilterPushdown: false, BatchUpsertMax: 0, WriteIsAtomic: false, MaxListPageSize: 10000, NativeDeleteByFilter: false, SupportedListOrders: []retrieval.ListOrderBy{retrieval.OrderByTimestampDesc, retrieval.OrderByTimestampAsc, retrieval.OrderByIDAsc}, ReadAfterWrite: true, Distributed: true, Extensions: retrieval.ExtensionCapabilities{DocGetter: true, Iterable: true, Count: true, DeleteByFilter: true, DropNamespace: true, NamespaceWarm: true}}
+}
+func (index *Index) Close() error { return nil }
+
+var _ retrieval.Index = (*Index)(nil)
+var _ retrieval.DocGetter = (*Index)(nil)
+var _ retrieval.Iterable = (*Index)(nil)
+var _ retrieval.Countable = (*Index)(nil)
+var _ retrieval.DeletableByFilter = (*Index)(nil)
+var _ retrieval.Droppable = (*Index)(nil)
+var _ retrieval.NamespaceWarmer = (*Index)(nil)

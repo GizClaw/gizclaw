@@ -1776,13 +1776,15 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		raw     string
 		wantErr string
 	}{
-		{name: "managed Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
-		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
+		{name: "Flowcraft Redis 8", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`},
+		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis.example:6379/0","tls_ca_file":"/etc/ssl/redis-ca.pem"}}`},
 		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`},
 		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`},
 		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},
 		{name: "Volc Mem0", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com","api_key":"key"}}`},
-		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_bbh"}}`, wantErr: "cannot use connection type"},
+		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`, wantErr: "cannot use connection type"},
+		{name: "invalid Redis URL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"http://redis:6379"}}`, wantErr: "redis or rediss URL"},
+		{name: "Redis CA without TLS", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379","tls_ca_file":"/ca.pem"}}`, wantErr: "requires a rediss URL"},
 		{name: "missing Mem0 key", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":""}}`, wantErr: "project_id and api_key"},
 		{name: "invalid endpoint", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"mem0.local","api_key":"key"}}`, wantErr: "absolute http or https URL"},
 		{name: "endpoint userinfo", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://user:pass@api.mem0.ai","api_key":"key"}}`, wantErr: "userinfo, query, or fragment"},

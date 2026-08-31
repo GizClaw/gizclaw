@@ -856,10 +856,6 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 		return binding, fmt.Errorf("connection: %w", err)
 	}
 	switch connectionType {
-	case "flowcraft_bbh":
-		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
-			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
-		}
 	case "flowcraft_object_store":
 		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
 			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
@@ -882,6 +878,31 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 			return binding, errors.New("flowcraft_postgresql connection requires dsn")
 		}
 		if err := binding.Connection.FromRuntimeProfileFlowcraftPostgreSQLConnection(value); err != nil {
+			return binding, err
+		}
+	case "flowcraft_redis8":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileFlowcraftRedis8Connection()
+		if err != nil {
+			return binding, err
+		}
+		value.Url = strings.TrimSpace(value.Url)
+		value.TlsCaFile = trimOptionalString(value.TlsCaFile)
+		if value.Url == "" {
+			return binding, errors.New("flowcraft_redis8 connection requires url")
+		}
+		if err := validateRedisURL(value.Url); err != nil {
+			return binding, err
+		}
+		if value.TlsCaFile != nil {
+			parsed, _ := url.Parse(value.Url)
+			if parsed.Scheme != "rediss" {
+				return binding, errors.New("flowcraft_redis8 tls_ca_file requires a rediss URL")
+			}
+		}
+		if err := binding.Connection.FromRuntimeProfileFlowcraftRedis8Connection(value); err != nil {
 			return binding, err
 		}
 	case "mem0":
@@ -953,6 +974,14 @@ func validateMemoryEndpoint(raw string) error {
 	}
 	if endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return errors.New("connection endpoint must not contain userinfo, query, or fragment")
+	}
+	return nil
+}
+
+func validateRedisURL(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "redis" && parsed.Scheme != "rediss" || parsed.Hostname() == "" || strings.Contains(parsed.Hostname(), ",") {
+		return errors.New("flowcraft_redis8 connection requires a single-endpoint redis or rediss URL")
 	}
 	return nil
 }

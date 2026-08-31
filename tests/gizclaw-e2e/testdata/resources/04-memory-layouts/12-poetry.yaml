@@ -12,12 +12,11 @@ spec:
       system_prompt: Do not extract conversational facts. The Graph writes poetry journey audit facts directly.
       schema_name: poetry_journey_audit
       temperature: 0
-    bbh: {search_overfetch: 20, bleve: {analyzer: standard}}
     lanes:
     - {name: checkpoint-progress, kind: state, description: Linear dynasty checkpoint audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace journey state controls routing.}
     - {name: achievement-log, kind: event, description: Recitation success and mistake audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace journey state controls routing.}
     - {name: badge-events, kind: event, description: Awarded badge and point audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace journey state controls routing.}
-    graph_enabled: true
+    graph_enabled: false
     write: {mode: sync, tier: general}
   mem0:
     custom_instructions: Do not extract conversational facts; accept only Graph-written poetry audit facts.

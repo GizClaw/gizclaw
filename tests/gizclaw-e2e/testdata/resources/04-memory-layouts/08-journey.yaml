@@ -13,10 +13,6 @@ spec:
         Never infer story progress from ordinary conversation; the Graph writes that audit lane directly.
       schema_name: journey_story_memory
       temperature: 0
-    bbh:
-      search_overfetch: 20
-      bleve:
-        analyzer: standard
     lanes:
     - name: story-progress
       kind: state
@@ -38,7 +34,7 @@ spec:
       description: Questions and explanations raised during the story.
       extract: Capture the question and answer when it should not advance the story.
       recall: Avoid repeating explanations and resume the prior story point.
-    graph_enabled: true
+    graph_enabled: false
     write:
       mode: sync
       tier: general

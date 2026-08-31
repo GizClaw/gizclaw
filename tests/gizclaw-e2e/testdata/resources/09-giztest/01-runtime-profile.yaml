@@ -64,14 +64,14 @@ spec:
     tools:
       giztest-echo: {resource_id: giztest-client-echo, i18n: {en: {display_name: Giztest client echo}, zh-CN: {display_name: Giztest 客户端回显}}}
     memories:
-      default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      voice-assistant-memory: {layout_id: voice-assistant-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      chat-memory: {layout_id: chat-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      journey-memory: {layout_id: journey-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      storyteller-memory: {layout_id: storyteller-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      murder-mystery-memory: {layout_id: murder-mystery-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      poetry-memory: {layout_id: poetry-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
-      werewolf-memory: {layout_id: werewolf-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      default-memory: {layout_id: default-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      voice-assistant-memory: {layout_id: voice-assistant-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      chat-memory: {layout_id: chat-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      journey-memory: {layout_id: journey-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      storyteller-memory: {layout_id: storyteller-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      murder-mystery-memory: {layout_id: murder-mystery-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      poetry-memory: {layout_id: poetry-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+      werewolf-memory: {layout_id: werewolf-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
     pet_defs:
       starter-pet: {resource_id: petdef-starter, i18n: {en: {display_name: Starter Pet}, zh-CN: {display_name: 初始宠物}}}
     badge_defs:
