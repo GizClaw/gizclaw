@@ -180,8 +180,20 @@ func TestClickHouseExpirationTTLRequiresDeleteAction(t *testing.T) {
 	if !hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at DELETE") {
 		t.Fatal("DELETE expiration TTL was rejected")
 	}
+	if !hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at SETTINGS index_granularity = 8192") {
+		t.Fatal("SHOW CREATE default DELETE expiration TTL was rejected")
+	}
+	if !hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at, timestamp + INTERVAL 1 DAY TO VOLUME 'cold'") {
+		t.Fatal("default DELETE expiration TTL followed by another rule was rejected")
+	}
 	if hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at TO VOLUME 'cold'") {
 		t.Fatal("non-deleting TTL was accepted")
+	}
+	if hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at + INTERVAL 1 DAY DELETE") {
+		t.Fatal("different expiration expression was accepted")
+	}
+	if hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL expires_at DELETE WHERE kind = 'temporary'") {
+		t.Fatal("conditional deletion TTL was accepted")
 	}
 	if hasClickHouseExpirationTTL("CREATE TABLE logs (...) TTL other_deadline DELETE") {
 		t.Fatal("TTL on another column was accepted")

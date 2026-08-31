@@ -213,7 +213,22 @@ func (store *ClickHouseStore) checkSchema(ctx context.Context) error {
 
 func hasClickHouseExpirationTTL(createTableQuery string) bool {
 	normalizedDDL := strings.ToLower(strings.Join(strings.Fields(createTableQuery), " "))
-	return strings.Contains(normalizedDDL, "ttl expires_at delete")
+	const prefix = "ttl expires_at"
+	index := strings.Index(normalizedDDL, prefix)
+	if index < 0 {
+		return false
+	}
+	tail := strings.TrimSpace(normalizedDDL[index+len(prefix):])
+	if tail == "" || tail == "delete" {
+		return true
+	}
+	// ClickHouse normalizes the default DELETE action out of SHOW CREATE.
+	// SETTINGS or another TTL rule can therefore immediately follow the
+	// expiration expression without an explicit DELETE token.
+	return strings.HasPrefix(tail, "settings ") ||
+		strings.HasPrefix(tail, ",") ||
+		strings.HasPrefix(tail, "delete settings ") ||
+		strings.HasPrefix(tail, "delete,")
 }
 
 // Append writes a validated batch and returns the accepted keys in input order.
