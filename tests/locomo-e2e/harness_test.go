@@ -30,6 +30,7 @@ const (
 	defaultDatasetPath   = "tests/locomo-e2e/testdata/locomo10_smoke.jsonl"
 	defaultModelProvider = "deepseek"
 	defaultModel         = "deepseek-v4-flash"
+	defaultModelURL      = "https://api.deepseek.com"
 	defaultEmbedding     = "qwen3.7-text-embedding"
 	defaultEmbeddingURL  = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
@@ -69,7 +70,7 @@ func requireLiveSettings(t *testing.T, needs liveNeeds) liveSettings {
 		datasetPath:      envOr("GIZCLAW_LOCOMO_E2E_DATASET", defaultDatasetPath),
 		reportDir:        envOr("GIZCLAW_LOCOMO_E2E_REPORT_DIR", "tests/locomo-e2e/reports"),
 		apiKey:           values["GIZCLAW_LOCOMO_E2E_MODEL_API_KEY"],
-		baseURL:          os.Getenv("GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL"),
+		baseURL:          envOr("GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL", defaultModelURL),
 		region:           envOr("GIZCLAW_LOCOMO_E2E_MODEL_REGION", "cn-beijing"),
 		modelProvider:    envOr("GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER", defaultModelProvider),
 		extractionModel:  envOr("GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL", defaultModel),

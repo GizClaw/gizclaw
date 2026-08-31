@@ -789,7 +789,8 @@ Use `.env.example` as a variable inventory and inject values through the
 process environment; the test package and runner do not read `.env` files.
 The Mem0 group uses the same extraction and embedding model/key/base-URL
 environment variables as Flowcraft. Its container pins `mem0ai 2.0.3` and
-defaults to the domestic `deepseek-v4-flash` extractor/answer model
+defaults to the domestic `deepseek-v4-flash` extractor/answer model through
+`https://api.deepseek.com`
 and `qwen3.7-text-embedding` with 1024 dimensions. Select the LLM adapter with
 `GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER`; supported values are `deepseek` and
 `bytedance`. Keep `GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS` aligned with the

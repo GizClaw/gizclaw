@@ -18,7 +18,7 @@ services:
     entrypoint: ["uvicorn", "mem0_server:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       MEM0_LLM_API_KEY: ${GIZCLAW_LOCOMO_E2E_MODEL_API_KEY:-}
-      MEM0_LLM_BASE_URL: ${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-}
+      MEM0_LLM_BASE_URL: ${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-https://api.deepseek.com}
       MEM0_LLM_MODEL: ${GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL:-deepseek-v4-flash}
       MEM0_EMBEDDING_API_KEY: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY:-}
       MEM0_EMBEDDING_BASE_URL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
