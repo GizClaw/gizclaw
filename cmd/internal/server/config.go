@@ -85,8 +85,10 @@ type SingleStoreConfig struct {
 }
 
 type WorkspaceStoresConfig struct {
-	Store       string `yaml:"store"`
-	AssetsStore string `yaml:"assets_store"`
+	Store              string `yaml:"store"`
+	HistoryStore       string `yaml:"history_store"`
+	HistoryAssetsStore string `yaml:"history_assets_store"`
+	AssetsStore        string `yaml:"assets_store"`
 }
 
 type GameplayStoresConfig struct {
@@ -253,13 +255,23 @@ type storeFileConfig struct {
 	Database string `yaml:"database"`
 	Table    string `yaml:"table"`
 	TopicID  string `yaml:"topic_id"`
+	TTL      string `yaml:"ttl"`
 }
 
-func (cfg storeFileConfig) runtimeConfig() store.Config {
+func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
+	var ttl time.Duration
+	if strings.TrimSpace(cfg.TTL) != "" {
+		parsed, err := time.ParseDuration(cfg.TTL)
+		if err != nil || parsed <= 0 {
+			return store.Config{}, fmt.Errorf("ttl must be a positive duration")
+		}
+		ttl = parsed
+	}
 	return store.Config{
 		Kind: cfg.Kind, Storage: cfg.Storage, Prefix: cfg.Prefix,
 		Database: os.ExpandEnv(cfg.Database), Table: os.ExpandEnv(cfg.Table), TopicID: os.ExpandEnv(cfg.TopicID),
-	}
+		TTL: ttl,
+	}, nil
 }
 
 type ConfigFile struct {
@@ -564,7 +576,11 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		cfg.EdgeNodes = fileCfg.EdgeNodes
 	}
 	if len(cfg.Stores) == 0 {
-		cfg.Stores = runtimeStoreConfigs(fileCfg.Stores)
+		var err error
+		cfg.Stores, err = runtimeStoreConfigs(fileCfg.Stores)
+		if err != nil {
+			return Config{}, err
+		}
 	}
 	if len(cfg.Storage) == 0 {
 		var err error
@@ -601,15 +617,19 @@ func runtimeStorageConfigs(configs map[string]storageFileConfig) (map[string]sto
 	return out, nil
 }
 
-func runtimeStoreConfigs(configs map[string]storeFileConfig) map[string]store.Config {
+func runtimeStoreConfigs(configs map[string]storeFileConfig) (map[string]store.Config, error) {
 	if len(configs) == 0 {
-		return nil
+		return nil, nil
 	}
 	out := make(map[string]store.Config, len(configs))
 	for name, cfg := range configs {
-		out[name] = cfg.runtimeConfig()
+		runtime, err := cfg.runtimeConfig()
+		if err != nil {
+			return nil, fmt.Errorf("server: stores.%s: %w", name, err)
+		}
+		out[name] = runtime
 	}
-	return out
+	return out, nil
 }
 
 func mergeFriendsConfig(runtime FriendsConfig, file FriendsConfig) FriendsConfig {
@@ -940,6 +960,8 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		reference{"services.provider_tenants.store", cfg.ProviderTenants.Store},
 		reference{"services.workflow.store", cfg.Workflow.Store},
 		reference{"services.workspace.store", cfg.Workspace.Store},
+		reference{"services.workspace.history_store", cfg.Workspace.HistoryStore},
+		reference{"services.workspace.history_assets_store", cfg.Workspace.HistoryAssetsStore},
 		reference{"services.workspace.assets_store", cfg.Workspace.AssetsStore},
 		reference{"services.toolkit.store", cfg.Toolkit.Store},
 		reference{"services.contact.store", cfg.Contact.Store},
@@ -1110,11 +1132,11 @@ func validateConfigShape(data []byte) error {
 		}
 		allowedFields := map[string]map[string]struct{}{
 			store.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
-			store.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}},
+			store.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}, "ttl": {}},
 			store.KindSQL:          {"kind": {}, "storage": {}},
 			store.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},
-			store.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}, "database": {}, "table": {}},
-			store.KindLogMutable:   {"kind": {}, "storage": {}, "database": {}, "table": {}},
+			store.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}, "database": {}, "table": {}, "ttl": {}},
+			store.KindLogMutable:   {"kind": {}, "storage": {}, "database": {}, "table": {}, "ttl": {}},
 		}
 		allowed, knownKind := allowedFields[kind]
 		if !knownKind {
@@ -1181,7 +1203,7 @@ func validateServicesConfigShape(services map[string]any) error {
 		"memory_layout":    {"store"},
 		"provider_tenants": {"store"},
 		"workflow":         {"store"},
-		"workspace":        {"store", "assets_store"},
+		"workspace":        {"store", "history_store", "history_assets_store", "assets_store"},
 		"toolkit":          {"store"},
 		"contact":          {"store"},
 		"friend":           {"store"},

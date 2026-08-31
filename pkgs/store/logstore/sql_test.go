@@ -67,6 +67,13 @@ func TestSQLLogMutationAndLifecycle(t *testing.T) {
 	if _, err := store.Append(ctx, []Record{record}); err != nil {
 		t.Fatal(err)
 	}
+	got, err := store.Get(ctx, record.Key())
+	if err != nil || got.Key() != record.Key() || !got.Time.Equal(record.Time) {
+		t.Fatalf("Get() = %+v, %v", got, err)
+	}
+	if _, err := store.Get(ctx, RecordKey{Stream: record.Stream, ID: "missing"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("missing Get error = %v", err)
+	}
 	if _, err := store.Append(ctx, []Record{record}); err == nil {
 		t.Fatal("duplicate Append succeeded")
 	} else if strings.Contains(err.Error(), record.Stream) || strings.Contains(err.Error(), record.ID) {
@@ -80,6 +87,9 @@ func TestSQLLogMutationAndLifecycle(t *testing.T) {
 	record.Message = "updated"
 	if err := store.Replace(ctx, record); err != nil {
 		t.Fatal(err)
+	}
+	if got, err := store.Get(ctx, record.Key()); err != nil || got.Message != "updated" {
+		t.Fatalf("Get(replaced) = %+v, %v", got, err)
 	}
 	if err := store.Delete(ctx, record.Key()); err != nil {
 		t.Fatal(err)
@@ -95,6 +105,47 @@ func TestSQLLogMutationAndLifecycle(t *testing.T) {
 	}
 	if err := db.Ping(); err != nil {
 		t.Fatalf("Close closed borrowed pool: %v", err)
+	}
+}
+
+func TestSQLLogTTLIsEnforcedByStore(t *testing.T) {
+	db := sqlx.MustOpen("sqlite", ":memory:")
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	store, err := NewSQLStoreWithDBAndTTL(db, "log_records", 90*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	record := Record{ID: "expired", Time: time.Now().UTC().Truncate(time.Millisecond), Stream: "history", Kind: "message"}
+	if _, err := store.Append(ctx, []Record{record}); err != nil {
+		t.Fatal(err)
+	}
+	var expiresAt int64
+	if err := db.Get(&expiresAt, "SELECT expires_at_unix_nano FROM log_records WHERE stream = ? AND id = ?", record.Stream, record.ID); err != nil {
+		t.Fatal(err)
+	}
+	if expiresAt <= time.Now().UnixNano() {
+		t.Fatalf("expires_at_unix_nano = %d, want future deadline", expiresAt)
+	}
+	if _, err := db.Exec("UPDATE log_records SET expires_at_unix_nano = ? WHERE stream = ? AND id = ?", time.Now().Add(-time.Second).UnixNano(), record.Stream, record.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Get(ctx, record.Key()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get(expired) error = %v, want ErrNotFound", err)
+	}
+	page, err := store.Query(ctx, Query{Streams: []string{record.Stream}, Start: record.Time.Add(-time.Second), End: record.Time.Add(time.Second), Limit: 10, Order: OrderAsc})
+	if err != nil || len(page.Records) != 0 {
+		t.Fatalf("Query(expired) = %+v, %v", page, err)
+	}
+	live := Record{ID: "live", Time: record.Time.Add(time.Nanosecond), Stream: record.Stream, Kind: record.Kind}
+	if _, err := store.Append(ctx, []Record{live}); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.Get(&count, "SELECT COUNT(*) FROM log_records WHERE id = ?", record.ID); err != nil || count != 0 {
+		t.Fatalf("expired physical row count = %d, %v, want 0 after append cleanup", count, err)
 	}
 }
 

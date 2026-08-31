@@ -39,6 +39,11 @@ type Querier interface {
 	Query(context.Context, Query) (Page, error)
 }
 
+// Getter reads one exact record key.
+type Getter interface {
+	Get(context.Context, RecordKey) (Record, error)
+}
+
 // ImmutableStore is a complete append, query, and lifecycle capability.
 type ImmutableStore interface {
 	Appender
@@ -52,6 +57,14 @@ type MutableStore interface {
 	ImmutableStore
 	Replace(context.Context, Record) error
 	Delete(context.Context, RecordKey) error
+}
+
+// MutableRecordStore combines mutable log operations with exact-key reads.
+// Domain repositories that expose a stable record identity require this
+// capability instead of reconstructing exact reads through a paged query.
+type MutableRecordStore interface {
+	MutableStore
+	Getter
 }
 
 // RecordKey identifies one record within a stream.

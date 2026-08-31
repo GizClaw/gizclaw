@@ -139,7 +139,8 @@ func TestBuildClickHouseWhereTranslatesSelectorsAndCursor(t *testing.T) {
 		Order: OrderDesc,
 	})
 	position := &clickHousePosition{TimeUnixNano: time.UnixMilli(10).UnixNano(), Stream: "history", ID: "id"}
-	where, args := buildClickHouseWhere(bound, position)
+	now := time.Now()
+	where, args := buildClickHouseWhere(bound, position, now)
 	for _, fragment := range []string{
 		"stream IN (?,?)",
 		"kind IN (?)",
@@ -149,6 +150,7 @@ func TestBuildClickHouseWhereTranslatesSelectorsAndCursor(t *testing.T) {
 		"mapContains(attributes, ?) AND attributes[?] != ?",
 		"mapContains(attributes, ?)",
 		"NOT mapContains(attributes, ?)",
+		"expires_at > ?",
 		"timestamp < ?",
 		"stream < ?",
 		"id < ?",
@@ -157,10 +159,13 @@ func TestBuildClickHouseWhereTranslatesSelectorsAndCursor(t *testing.T) {
 			t.Fatalf("where = %q, missing %q", where, fragment)
 		}
 	}
-	if len(args) != 19 {
-		t.Fatalf("args = %#v, want 19 values", args)
+	if len(args) != 20 {
+		t.Fatalf("args = %#v, want 20 values", args)
 	}
-	if got := args[2:4]; !reflect.DeepEqual(got, []any{"a", "b"}) {
+	if !args[2].(time.Time).Equal(now) {
+		t.Fatalf("expiration arg = %#v, want %v", args[2], now)
+	}
+	if got := args[3:5]; !reflect.DeepEqual(got, []any{"a", "b"}) {
 		t.Fatalf("stream args = %#v, want sorted selectors", got)
 	}
 }

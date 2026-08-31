@@ -40,6 +40,12 @@ The logical `objectstore` borrows it and applies its configured prefix once.
 Non-overlapping logical prefixes may share one connector; the registry rejects
 equal or parent/child overlap before listeners open.
 
+An optional positive logical Store `ttl` makes ordinary `Put` assign the
+deadline through the selected ObjectStore driver. Services do not need a TTL
+setter or per-write deadline for that Store. Workspace History configures this
+independently on its dedicated asset Store and requires it to equal the History
+LogStore TTL.
+
 The startup probe confirms that the existing bucket/container can be found and
 read with the configured identity. It cannot prove Put/Delete authorization.
 Those permission failures return as redacted runtime ObjectStore errors; run the

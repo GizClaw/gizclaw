@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	base := time.Now().UTC().Truncate(time.Second)
 	store.Now = func() time.Time { return base }
 
@@ -27,15 +28,16 @@ func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Append gear: %v", err)
 	}
-	if len(gearEntry.Assets) != 1 || gearEntry.ExpiresAt == nil {
+	if len(gearEntry.Assets) != 1 {
 		t.Fatalf("gear entry asset metadata = %+v", gearEntry)
 	}
-	if _, err := store.Append(ctx, AppendHistoryRequest{
+	_, err = store.Append(ctx, AppendHistoryRequest{
 		Type:      "agent",
 		Name:      "agent",
 		Text:      "好的",
 		CreatedAt: base.Add(time.Second),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("Append agent: %v", err)
 	}
 
@@ -76,7 +78,7 @@ func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
 }
 
 func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	base := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
 	ctx := context.Background()
 
@@ -92,7 +94,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Append newest: %v", err)
 	}
-	if err := store.Objects.Delete(store.entryObjectName(middle.ID)); err != nil {
+	if err := store.Records.Delete(ctx, logstore.RecordKey{Stream: store.stream(), ID: middle.ID}); err != nil {
 		t.Fatalf("Delete middle entry: %v", err)
 	}
 
@@ -125,7 +127,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 
 func TestHistoryStoreInternalRangePreservesOriginAndHighWater(t *testing.T) {
 	t.Parallel()
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	base := time.Date(2026, 7, 29, 1, 0, 0, 0, time.UTC)
 	ctx := context.Background()
 	first, err := store.Append(ctx, AppendHistoryRequest{
@@ -171,7 +173,7 @@ func TestHistoryStoreInternalRangePreservesOriginAndHighWater(t *testing.T) {
 }
 
 func TestHistoryStoreListRejectsUnsupportedOrder(t *testing.T) {
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	order := apitypes.PeerRunHistoryListRequestOrder("sideways")
 	if _, err := store.List(context.Background(), apitypes.PeerRunHistoryListRequest{Order: &order}); err == nil || !strings.Contains(err.Error(), "unsupported order") {
 		t.Fatalf("List unsupported order error = %v", err)
@@ -179,7 +181,7 @@ func TestHistoryStoreListRejectsUnsupportedOrder(t *testing.T) {
 }
 
 func TestHistoryStoreValidatesGearAndAgentSource(t *testing.T) {
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	ctx := context.Background()
 
 	if _, err := store.Append(ctx, AppendHistoryRequest{Type: "gear", Name: "gear", Text: "x"}); err == nil || !strings.Contains(err.Error(), "gear_id") {
@@ -191,16 +193,27 @@ func TestHistoryStoreValidatesGearAndAgentSource(t *testing.T) {
 	if _, err := store.Append(ctx, AppendHistoryRequest{Type: "bad", Name: "agent", Text: "x"}); err == nil || !strings.Contains(err.Error(), "unsupported history type") {
 		t.Fatalf("Append bad type error = %v", err)
 	}
-	if _, err := (&HistoryStore{}).Append(ctx, AppendHistoryRequest{Type: "agent", Name: "agent", Text: "x"}); err == nil || !strings.Contains(err.Error(), "object store") {
-		t.Fatalf("Append without object store error = %v", err)
+	if _, err := (&HistoryStore{}).Append(ctx, AppendHistoryRequest{Type: "agent", Name: "agent", Text: "x"}); err == nil || !strings.Contains(err.Error(), "mutable record store") {
+		t.Fatalf("Append without record store error = %v", err)
 	}
 }
 
 func TestHistoryStoreMalformedEntryBlocksList(t *testing.T) {
 	objects := newTestObjectStore(t)
-	store := NewHistoryStore(objects, "demo")
-	if err := objects.Put(store.entryObjectName("bad"), strings.NewReader(`{"id":`)); err != nil {
-		t.Fatalf("Put malformed entry: %v", err)
+	store := newTestHistoryStore(t, objects, "demo")
+	_, err := store.Records.Append(t.Context(), []logstore.Record{{
+		ID: "bad", Time: time.Now().UTC(), Stream: store.stream(), Kind: historyEntryTypeAgent,
+		Message: "bad", Payload: []byte(`{"version":1`),
+	}})
+	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
+		t.Fatalf("Append invalid LogStore payload error = %v", err)
+	}
+	_, err = store.Records.Append(t.Context(), []logstore.Record{{
+		ID: "bad", Time: time.Now().UTC(), Stream: store.stream(), Kind: historyEntryTypeAgent,
+		Message: "bad", Payload: []byte(`{"version":1}`),
+	}})
+	if err != nil {
+		t.Fatalf("Append malformed history payload: %v", err)
 	}
 	if _, err := store.List(context.Background(), apitypes.PeerRunHistoryListRequest{}); err == nil || !strings.Contains(err.Error(), "decode") {
 		t.Fatalf("List malformed error = %v", err)
@@ -208,8 +221,8 @@ func TestHistoryStoreMalformedEntryBlocksList(t *testing.T) {
 }
 
 func TestHistoryStoreReadAssetRejectsInvalidNames(t *testing.T) {
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
-	for _, name := range []string{"", "other/history/assets/a/audio.opus", store.entryObjectName("entry")} {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
+	for _, name := range []string{"", "other/history/assets/a/audio.opus", store.historyPrefix() + "/entries/entry.json"} {
 		if _, err := store.ReadAsset(context.Background(), name); err == nil {
 			t.Fatalf("ReadAsset(%q) error = nil", name)
 		}
@@ -217,7 +230,7 @@ func TestHistoryStoreReadAssetRejectsInvalidNames(t *testing.T) {
 }
 
 func TestHistoryStoreHelpersCoverAssetExtensionsAndValidation(t *testing.T) {
-	store := NewHistoryStore(newTestObjectStore(t), "demo")
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	for _, tc := range []struct {
 		mime string
 		want string
@@ -238,70 +251,5 @@ func TestHistoryStoreHelpersCoverAssetExtensionsAndValidation(t *testing.T) {
 		if err := validateHistoryEntry(entry); err == nil || !strings.Contains(err.Error(), "created_at") {
 			t.Fatalf("validateHistoryEntry(%+v) error = %v", entry, err)
 		}
-	}
-}
-
-func TestHistoryStoreCleanupExpiredRemovesMetadataAndAssets(t *testing.T) {
-	objects := newTestObjectStore(t)
-	store := NewHistoryStore(objects, "demo")
-	now := time.Now().UTC()
-	store.Now = func() time.Time { return now }
-	entry, err := store.Append(context.Background(), AppendHistoryRequest{
-		Type:      "agent",
-		Name:      "agent",
-		Text:      "hello",
-		CreatedAt: now,
-		Asset:     &AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus"), TTL: time.Second},
-	})
-	if err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-	store.Now = func() time.Time { return now.Add(2 * time.Second) }
-	if err := store.CleanupExpired(context.Background()); err != nil {
-		t.Fatalf("CleanupExpired: %v", err)
-	}
-	if _, err := store.Get(context.Background(), entry.ID); err == nil {
-		t.Fatal("Get expired entry error = nil")
-	}
-	if _, err := store.ReadAsset(context.Background(), entry.Assets[0].Name); err == nil {
-		t.Fatal("ReadAsset expired asset error = nil")
-	}
-	items, err := objects.List(store.historyPrefix())
-	if err != nil {
-		t.Fatalf("List history prefix: %v", err)
-	}
-	if len(items) != 0 {
-		t.Fatalf("history objects after cleanup = %+v", items)
-	}
-}
-
-func TestHistoryStoreGetExpiredRemovesMetadataAndAssets(t *testing.T) {
-	objects := newTestObjectStore(t)
-	store := NewHistoryStore(objects, "demo")
-	now := time.Now().UTC()
-	store.Now = func() time.Time { return now }
-	entry, err := store.Append(context.Background(), AppendHistoryRequest{
-		Type:      "agent",
-		Name:      "agent",
-		Text:      "hello",
-		CreatedAt: now,
-		Asset:     &AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus"), TTL: time.Second},
-	})
-	if err != nil {
-		t.Fatalf("Append: %v", err)
-	}
-	store.Now = func() time.Time { return now.Add(2 * time.Second) }
-	if _, err := store.Get(context.Background(), entry.ID); err == nil {
-		t.Fatal("Get expired entry error = nil")
-	}
-	if _, err := store.ReadAsset(context.Background(), entry.Assets[0].Name); err == nil {
-		t.Fatal("ReadAsset expired asset error = nil")
-	}
-	items, err := objects.List(store.historyPrefix())
-	if err != nil {
-		t.Fatalf("List history prefix: %v", err)
-	}
-	if len(items) != 0 {
-		t.Fatalf("history objects after expired get = %+v", items)
 	}
 }

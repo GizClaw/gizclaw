@@ -131,9 +131,13 @@ func testStorageFileConfigs(configs map[string]storage.Config) map[string]storag
 func testStoreFileConfigs(configs map[string]stores.Config) map[string]storeFileConfig {
 	out := make(map[string]storeFileConfig, len(configs))
 	for name, cfg := range configs {
+		var ttl string
+		if cfg.TTL > 0 {
+			ttl = cfg.TTL.String()
+		}
 		out[name] = storeFileConfig{
 			Kind: cfg.Kind, Storage: cfg.Storage, Prefix: cfg.Prefix,
-			Database: cfg.Database, Table: cfg.Table, TopicID: cfg.TopicID,
+			Database: cfg.Database, Table: cfg.Table, TopicID: cfg.TopicID, TTL: ttl,
 		}
 	}
 	return out

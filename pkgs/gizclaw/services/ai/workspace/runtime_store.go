@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -33,11 +34,13 @@ type RuntimeCleanupStore interface {
 }
 
 type ObjectRuntimeStore struct {
-	Objects objectstore.ObjectStore
+	Objects       objectstore.ObjectStore
+	History       logstore.MutableRecordStore
+	HistoryAssets objectstore.ObjectStore
 }
 
-func NewObjectRuntimeStore(objects objectstore.ObjectStore) ObjectRuntimeStore {
-	return ObjectRuntimeStore{Objects: objects}
+func NewObjectRuntimeStore(objects objectstore.ObjectStore, history logstore.MutableRecordStore, historyAssets objectstore.ObjectStore) ObjectRuntimeStore {
+	return ObjectRuntimeStore{Objects: objects, History: history, HistoryAssets: historyAssets}
 }
 
 func (s ObjectRuntimeStore) PrepareWorkspace(ctx context.Context, workspaceID string) (Runtime, error) {
@@ -63,14 +66,20 @@ func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspaceID s
 	if s.Objects == nil {
 		return Runtime{}, fmt.Errorf("workspace: runtime store is required")
 	}
+	if s.History == nil {
+		return Runtime{}, fmt.Errorf("workspace: history store is required")
+	}
+	if s.HistoryAssets == nil {
+		return Runtime{}, fmt.Errorf("workspace: history asset store is required")
+	}
 	objectPrefix := ObjectPrefix(workspaceID)
 	rt := Runtime{
 		ObjectPrefix: objectPrefix,
 		History: &HistoryStore{
-			Objects:        s.Objects,
-			Workspace:      workspaceID,
-			ObjectPrefix:   objectPrefix,
-			AssetRetention: defaultHistoryAssetTTL,
+			Records:      s.History,
+			Objects:      s.HistoryAssets,
+			Workspace:    workspaceID,
+			ObjectPrefix: objectPrefix,
 		},
 		OpenAI: NewOpenAIStateStore(s.Objects, objectPrefix),
 	}
@@ -83,12 +92,22 @@ func (s ObjectRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspaceID s
 	return rt, nil
 }
 
-func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspaceID string) error {
+func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(ctx context.Context, workspaceID string) error {
 	if err := customid.ValidateResourceID(workspaceID); err != nil {
 		return fmt.Errorf("workspace: invalid id: %w", err)
 	}
 	if s.Objects == nil {
 		return fmt.Errorf("workspace: runtime store is required")
+	}
+	if s.History == nil {
+		return fmt.Errorf("workspace: history store is required")
+	}
+	if s.HistoryAssets == nil {
+		return fmt.Errorf("workspace: history asset store is required")
+	}
+	history := NewHistoryStore(s.History, s.HistoryAssets, workspaceID)
+	if err := history.DeleteAll(ctx); err != nil {
+		return fmt.Errorf("workspace: delete history: %w", err)
 	}
 	if err := s.Objects.DeletePrefix(ObjectPrefix(workspaceID)); err != nil {
 		return fmt.Errorf("workspace: delete runtime prefix: %w", err)
@@ -96,12 +115,25 @@ func (s ObjectRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspaceI
 	return nil
 }
 
-func (s ObjectRuntimeStore) WorkspaceRuntimeAbsent(_ context.Context, workspaceID string) (bool, error) {
+func (s ObjectRuntimeStore) WorkspaceRuntimeAbsent(ctx context.Context, workspaceID string) (bool, error) {
 	if err := customid.ValidateResourceID(workspaceID); err != nil {
 		return false, fmt.Errorf("workspace: invalid id: %w", err)
 	}
 	if s.Objects == nil {
 		return false, fmt.Errorf("workspace: runtime store is required")
+	}
+	if s.History == nil {
+		return false, fmt.Errorf("workspace: history store is required")
+	}
+	if s.HistoryAssets == nil {
+		return false, fmt.Errorf("workspace: history asset store is required")
+	}
+	empty, err := NewHistoryStore(s.History, s.HistoryAssets, workspaceID).Empty(ctx)
+	if err != nil {
+		return false, fmt.Errorf("workspace: inspect history: %w", err)
+	}
+	if !empty {
+		return false, nil
 	}
 	objects, err := s.Objects.List(ObjectPrefix(workspaceID))
 	if err != nil {

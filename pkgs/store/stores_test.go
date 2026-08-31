@@ -159,6 +159,46 @@ func TestObjectStoreConstructedFromFilesystemDir(t *testing.T) {
 	}
 }
 
+func TestObjectStoreTTLIsAppliedByLogicalStore(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "objects")
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"files": physicalstorage.FilesystemDirConfig{Dir: dir},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = physical.Close() })
+	ttl := 90 * 24 * time.Hour
+	registry, err := New(map[string]Config{
+		"history-assets": {Kind: KindObjectStore, Storage: "files", Prefix: "history", TTL: ttl},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = registry.Close() })
+	if got, err := registry.TTL("history-assets"); err != nil || got != ttl {
+		t.Fatalf("TTL() = %v, %v, want %v", got, err, ttl)
+	}
+	assets, err := registry.ObjectStore("history-assets")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := time.Now()
+	if err := assets.Put("audio.opus", strings.NewReader("value")); err != nil {
+		t.Fatal(err)
+	}
+	items, err := assets.List("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Deadline.Before(before.Add(ttl)) || items[0].Deadline.After(time.Now().Add(ttl)) {
+		t.Fatalf("List() = %#v, want driver-applied deadline near %v", items, before.Add(ttl))
+	}
+	if _, ok := assets.(interface{ LocalDir() (string, bool) }); !ok {
+		t.Fatal("retained filesystem ObjectStore lost LocalDir capability")
+	}
+}
+
 func TestCloudObjectStorageKindsAreCompatible(t *testing.T) {
 	for _, kind := range []string{
 		physicalstorage.KindFilesystemDir,

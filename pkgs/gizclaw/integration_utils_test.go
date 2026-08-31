@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -166,6 +167,12 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
 	server.GameplayDB = db
+	history, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	if err != nil {
+		t.Fatalf("open test workspace history: %v", err)
+	}
+	server.WorkspaceHistory = history
+	server.WorkspaceHistoryAssets = newTestObjectStore(t)
 	return server
 }
 

@@ -15,6 +15,7 @@ var sqlLogIndexes = []struct {
 }{
 	{purpose: "page_idx", columns: "timestamp_unix_nano, stream, id", want: []string{"timestamp_unix_nano", "stream", "id"}},
 	{purpose: "selector_idx", columns: "stream, kind, severity", want: []string{"stream", "kind", "severity"}},
+	{purpose: "expiry_idx", columns: "expires_at_unix_nano", want: []string{"expires_at_unix_nano"}},
 }
 
 func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table storage.SQLTable) error {
@@ -23,7 +24,7 @@ func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table storage.SQLTable) e
 		payloadType = "BYTEA"
 	}
 	statements := []string{fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (stream TEXT NOT NULL, id TEXT NOT NULL, timestamp_unix_nano BIGINT NOT NULL, kind TEXT NOT NULL, severity TEXT NOT NULL, message TEXT NOT NULL, attributes_json TEXT NOT NULL, payload_json %s NOT NULL, PRIMARY KEY (stream, id))",
+		"CREATE TABLE IF NOT EXISTS %s (stream TEXT NOT NULL, id TEXT NOT NULL, timestamp_unix_nano BIGINT NOT NULL, expires_at_unix_nano BIGINT, kind TEXT NOT NULL, severity TEXT NOT NULL, message TEXT NOT NULL, attributes_json TEXT NOT NULL, payload_json %s NOT NULL, PRIMARY KEY (stream, id))",
 		table.Quoted(), payloadType,
 	)}
 	for _, index := range sqlLogIndexes {

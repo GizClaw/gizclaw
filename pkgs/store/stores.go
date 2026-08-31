@@ -44,6 +44,7 @@ type Config struct {
 	Database string
 	Table    string
 	TopicID  string
+	TTL      time.Duration
 }
 
 // ConfigError identifies the logical Store entry whose construction failed.
@@ -69,6 +70,7 @@ type Stores struct {
 	mutableLogs  map[string]struct{}
 	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
+	ttls         map[string]time.Duration
 }
 
 // New creates logical stores on top of already-opened physical storage
@@ -95,6 +97,7 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 		logs:        make(map[string]logstore.ImmutableStore),
 		mutableLogs: make(map[string]struct{}),
 		sqls:        make(map[string]*sqlx.DB),
+		ttls:        make(map[string]time.Duration),
 	}
 	ok := false
 	defer func() {
@@ -110,6 +113,7 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	slices.Sort(names)
 	for _, name := range names {
 		cfg := configs[name]
+		s.ttls[name] = cfg.TTL
 		switch cfg.Kind {
 		case KindKeyValue:
 			st, err := s.newKV(name, cfg)
@@ -246,6 +250,9 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 	}
 	switch cfg.Kind {
 	case KindKeyValue:
+		if cfg.TTL != 0 {
+			return fmt.Errorf("stores: keyvalue %q does not support ttl", name)
+		}
 		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && storageKind != storage.KindRedis && !isSQL {
 			return fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
@@ -272,6 +279,9 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		}
 		return invalid(cfg.Table != "", "table")
 	case KindSQL:
+		if cfg.TTL != 0 {
+			return fmt.Errorf("stores: sql %q does not support ttl", name)
+		}
 		if storageKind != storage.KindSQLite && storageKind != storage.KindPostgreSQL && storageKind != storage.KindClickHouse {
 			return fmt.Errorf("stores: sql %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
@@ -279,6 +289,9 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			return fmt.Errorf("stores: sql %q does not support logical scope", name)
 		}
 	case KindObjectStore:
+		if cfg.TTL < 0 {
+			return fmt.Errorf("stores: objectstore %q ttl must be positive", name)
+		}
 		if !isObjectStorageKind(storageKind) {
 			return fmt.Errorf("stores: objectstore %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
@@ -286,6 +299,9 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			return fmt.Errorf("stores: objectstore %q does not support database, table, or topic_id", name)
 		}
 	case KindMetrics:
+		if cfg.TTL != 0 {
+			return fmt.Errorf("stores: metrics %q does not support ttl", name)
+		}
 		if storageKind != storage.KindMemory && storageKind != storage.KindPrometheus && storageKind != storage.KindClickHouse && !isSQL {
 			return fmt.Errorf("stores: metrics %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
@@ -309,6 +325,12 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		}
 		return invalid(cfg.Table != "", "table")
 	case KindLogImmutable, KindLogMutable:
+		if cfg.TTL < 0 {
+			return fmt.Errorf("stores: %s %q ttl must be positive", cfg.Kind, name)
+		}
+		if cfg.TTL != 0 && storageKind == storage.KindVolcTLS {
+			return fmt.Errorf("stores: log %q volc-tls storage does not support ttl", name)
+		}
 		if storageKind != storage.KindClickHouse && storageKind != storage.KindVolcTLS && !isSQL {
 			return fmt.Errorf("stores: %s %q does not support storage %q kind %q", cfg.Kind, name, cfg.Storage, storageKind)
 		}
@@ -424,6 +446,15 @@ func (r *Stores) ObjectStore(name string) (objectstore.ObjectStore, error) {
 		return nil, fmt.Errorf("stores: objectstore %q not found", name)
 	}
 	return s, nil
+}
+
+// TTL returns the initialization-time retention of one logical Store.
+func (r *Stores) TTL(name string) (time.Duration, error) {
+	ttl, ok := r.ttls[name]
+	if !ok {
+		return 0, fmt.Errorf("stores: %q not found", name)
+	}
+	return ttl, nil
 }
 
 // Metrics returns the named metrics.Store.
@@ -626,7 +657,7 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q resolve %s storage %q: %w", name, kind, cfg.Storage, err)
 		}
-		store, err := logstore.NewSQLStoreWithDB(db, cfg.Table)
+		store, err := logstore.NewSQLStoreWithDBAndTTL(db, cfg.Table, cfg.TTL)
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q %s table %q: %w", name, kind, cfg.Table, err)
 		}
@@ -636,7 +667,7 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q resolve clickhouse storage %q: %w", name, cfg.Storage, err)
 		}
-		store, err := logstore.NewClickHouseStoreWithDB(db.DB, cfg.Database, cfg.Table)
+		store, err := logstore.NewClickHouseStoreWithDBAndTTL(db.DB, cfg.Database, cfg.Table, cfg.TTL)
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q clickhouse: %w", name, err)
 		}
@@ -741,9 +772,16 @@ func (r *Stores) newObjectStore(name string, cfg Config) (objectstore.ObjectStor
 		return nil, fmt.Errorf("stores: objectstore %q prefix: %w", name, err)
 	}
 	if prefix == "" {
+		if cfg.TTL > 0 {
+			return retainedObjectStore{ObjectStore: st, ttl: cfg.TTL}, nil
+		}
 		return st, nil
 	}
-	return prefixedObjectStore{base: st, prefix: prefix}, nil
+	st = prefixedObjectStore{base: st, prefix: prefix}
+	if cfg.TTL > 0 {
+		st = retainedObjectStore{ObjectStore: st, ttl: cfg.TTL}
+	}
+	return st, nil
 }
 
 func isObjectStorageKind(kind string) bool {
@@ -798,6 +836,23 @@ func parseObjectPrefix(path string) (string, error) {
 type prefixedObjectStore struct {
 	base   objectstore.ObjectStore
 	prefix string
+}
+
+type retainedObjectStore struct {
+	objectstore.ObjectStore
+	ttl time.Duration
+}
+
+func (s retainedObjectStore) Put(name string, r io.Reader) error {
+	return s.ObjectStore.PutWithTTL(name, r, s.ttl)
+}
+
+func (s retainedObjectStore) LocalDir() (string, bool) {
+	provider, ok := s.ObjectStore.(objectstore.LocalDirProvider)
+	if !ok {
+		return "", false
+	}
+	return provider.LocalDir()
 }
 
 func (s prefixedObjectStore) Get(name string) (io.ReadCloser, error) {

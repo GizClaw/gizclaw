@@ -25,6 +25,7 @@ type ClickHouseConfig struct {
 	DSN      string
 	Database string
 	Table    string
+	TTL      time.Duration
 }
 
 // ClickHouseStore persists mutable records in one ClickHouse MergeTree table.
@@ -34,6 +35,7 @@ type ClickHouseStore struct {
 	table     string
 	qualified string
 	ownsDB    bool
+	ttl       time.Duration
 
 	appendMu  sync.Mutex
 	closeOnce sync.Once
@@ -46,6 +48,9 @@ func NewClickHouseStore(config ClickHouseConfig) (*ClickHouseStore, error) {
 	config.DSN = strings.TrimSpace(config.DSN)
 	config.Database = strings.TrimSpace(config.Database)
 	config.Table = strings.TrimSpace(config.Table)
+	if config.TTL < 0 {
+		return nil, errors.New("logstore: clickhouse ttl must be positive")
+	}
 	if config.DSN == "" {
 		return nil, errors.New("logstore: clickhouse dsn is required")
 	}
@@ -65,7 +70,7 @@ func NewClickHouseStore(config ClickHouseConfig) (*ClickHouseStore, error) {
 		_ = db.Close()
 		return nil, &clickHouseOperationError{operation: "ping", err: err}
 	}
-	store, err := newClickHouseStore(ctx, db, config.Database, config.Table)
+	store, err := newClickHouseStore(ctx, db, config.Database, config.Table, config.TTL)
 	if err != nil {
 		_ = db.Close()
 		return nil, err
@@ -88,12 +93,21 @@ func (e *clickHouseOperationError) Unwrap() error { return e.err }
 // NewClickHouseStoreWithDB builds a table-scoped mutable Log Store over a
 // borrowed ClickHouse pool. Closing the Store does not close db.
 func NewClickHouseStoreWithDB(db *sql.DB, database, table string) (*ClickHouseStore, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), clickHouseTimeout)
-	defer cancel()
-	return newClickHouseStore(ctx, db, database, table)
+	return NewClickHouseStoreWithDBAndTTL(db, database, table, 0)
 }
 
-func newClickHouseStore(ctx context.Context, db *sql.DB, database, table string) (*ClickHouseStore, error) {
+// NewClickHouseStoreWithDBAndTTL builds a table-scoped Log Store with
+// ClickHouse-owned expiration.
+func NewClickHouseStoreWithDBAndTTL(db *sql.DB, database, table string, ttl time.Duration) (*ClickHouseStore, error) {
+	if ttl < 0 {
+		return nil, errors.New("logstore: clickhouse ttl must be positive")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), clickHouseTimeout)
+	defer cancel()
+	return newClickHouseStore(ctx, db, database, table, ttl)
+}
+
+func newClickHouseStore(ctx context.Context, db *sql.DB, database, table string, ttl time.Duration) (*ClickHouseStore, error) {
 	if db == nil {
 		return nil, errors.New("logstore: clickhouse db is required")
 	}
@@ -115,7 +129,7 @@ func newClickHouseStore(ctx context.Context, db *sql.DB, database, table string)
 	}
 	qualified := quoteClickHouseIdentifier(database) + "." + quoteClickHouseIdentifier(table)
 	ddl := fmt.Sprintf(
-		"CREATE TABLE IF NOT EXISTS %s (id String, timestamp DateTime64(9, 'UTC'), stream String, kind String, severity String, message String, attributes Map(String, String), payload String) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (timestamp, stream, id)",
+		"CREATE TABLE IF NOT EXISTS %s (id String, timestamp DateTime64(9, 'UTC'), expires_at DateTime64(9, 'UTC'), stream String, kind String, severity String, message String, attributes Map(String, String), payload String) ENGINE = MergeTree PARTITION BY toYYYYMM(timestamp) ORDER BY (timestamp, stream, id) TTL expires_at DELETE",
 		qualified,
 	)
 	if _, err := db.ExecContext(ctx, ddl); err != nil {
@@ -126,6 +140,7 @@ func newClickHouseStore(ctx context.Context, db *sql.DB, database, table string)
 		database:  database,
 		table:     table,
 		qualified: qualified,
+		ttl:       ttl,
 	}
 	if err := store.checkSchema(ctx); err != nil {
 		return nil, err
@@ -151,6 +166,7 @@ func (store *ClickHouseStore) checkSchema(ctx context.Context) error {
 	want := map[string]string{
 		"id":         "String",
 		"timestamp":  "DateTime64(9, 'UTC')",
+		"expires_at": "DateTime64(9, 'UTC')",
 		"stream":     "String",
 		"kind":       "String",
 		"severity":   "String",
@@ -178,6 +194,20 @@ func (store *ClickHouseStore) checkSchema(ctx context.Context) error {
 				columnType,
 			)
 		}
+	}
+	var createTableQuery string
+	err = store.db.QueryRowContext(
+		ctx,
+		"SELECT create_table_query FROM system.tables WHERE database = ? AND name = ?",
+		store.database,
+		store.table,
+	).Scan(&createTableQuery)
+	if err != nil {
+		return fmt.Errorf("logstore: inspect clickhouse table TTL: %w", err)
+	}
+	normalizedDDL := strings.ToLower(strings.Join(strings.Fields(createTableQuery), " "))
+	if !strings.Contains(normalizedDDL, "ttl expires_at") {
+		return errors.New("logstore: incompatible clickhouse table: TTL expires_at is required")
 	}
 	return nil
 }
@@ -221,7 +251,7 @@ func (store *ClickHouseStore) Append(ctx context.Context, records []Record) ([]R
 		return nil, fmt.Errorf("logstore: begin clickhouse append: %w", err)
 	}
 	statement := fmt.Sprintf(
-		"INSERT INTO %s (id, timestamp, stream, kind, severity, message, attributes, payload) SETTINGS async_insert = 0 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO %s (id, timestamp, expires_at, stream, kind, severity, message, attributes, payload) SETTINGS async_insert = 0 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		store.qualified,
 	)
 	prepared, err := tx.PrepareContext(ctx, statement)
@@ -239,6 +269,7 @@ func (store *ClickHouseStore) Append(ctx context.Context, records []Record) ([]R
 			ctx,
 			record.ID,
 			record.Time.UTC(),
+			store.expiration(),
 			record.Stream,
 			record.Kind,
 			record.Severity,
@@ -280,7 +311,7 @@ func (store *ClickHouseStore) Query(ctx context.Context, query Query) (Page, err
 		}
 		position = &cursor.Position
 	}
-	where, args := buildClickHouseWhere(bound, position)
+	where, args := buildClickHouseWhere(bound, position, time.Now().UTC())
 	direction := "ASC"
 	if query.Order == OrderDesc {
 		direction = "DESC"
@@ -353,6 +384,59 @@ func (store *ClickHouseStore) Query(ctx context.Context, query Query) (Page, err
 	return page, nil
 }
 
+// Get returns one exact record key.
+func (store *ClickHouseStore) Get(ctx context.Context, key RecordKey) (Record, error) {
+	if err := ValidateRecordKey(key); err != nil {
+		return Record{}, err
+	}
+	if err := store.ready(); err != nil {
+		return Record{}, err
+	}
+	statement := fmt.Sprintf(
+		"SELECT id, timestamp, stream, kind, severity, message, attributes, payload FROM %s WHERE stream = ? AND id = ? AND expires_at > ? LIMIT 2",
+		store.qualified,
+	)
+	rows, err := store.db.QueryContext(ctx, statement, key.Stream, key.ID, time.Now().UTC())
+	if err != nil {
+		return Record{}, fmt.Errorf("logstore: get clickhouse record: %w", err)
+	}
+	defer rows.Close()
+	var records []Record
+	for rows.Next() {
+		var record Record
+		var payload string
+		if err := rows.Scan(
+			&record.ID,
+			&record.Time,
+			&record.Stream,
+			&record.Kind,
+			&record.Severity,
+			&record.Message,
+			&record.Attributes,
+			&payload,
+		); err != nil {
+			return Record{}, fmt.Errorf("logstore: scan clickhouse record: %w", err)
+		}
+		record.Time = record.Time.UTC()
+		record.Payload = json.RawMessage(payload)
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return Record{}, fmt.Errorf("logstore: get clickhouse record rows: %w", err)
+	}
+	switch len(records) {
+	case 0:
+		return Record{}, fmt.Errorf("%w: stream %q id %q", ErrNotFound, key.Stream, key.ID)
+	case 1:
+		if err := ValidateRecord(records[0]); err != nil {
+			return Record{}, fmt.Errorf("logstore: invalid clickhouse record: %w", err)
+		}
+		return records[0], nil
+	default:
+		return Record{}, fmt.Errorf("logstore: duplicate clickhouse record key: stream %q id %q", key.Stream, key.ID)
+	}
+}
+
 // Replace changes the mutable fields of one existing record. The record time
 // is retained because it defines the stable query order and table partition.
 func (store *ClickHouseStore) Replace(ctx context.Context, record Record) error {
@@ -370,7 +454,7 @@ func (store *ClickHouseStore) Replace(ctx context.Context, record Record) error 
 		return errors.New("logstore: replace cannot change record time")
 	}
 	statement := fmt.Sprintf(
-		"ALTER TABLE %s UPDATE kind = ?, severity = ?, message = ?, attributes = ?, payload = ? WHERE stream = ? AND id = ? SETTINGS mutations_sync = 1",
+		"ALTER TABLE %s UPDATE kind = ?, severity = ?, message = ?, attributes = ?, payload = ? WHERE stream = ? AND id = ? AND expires_at > ? SETTINGS mutations_sync = 1",
 		store.qualified,
 	)
 	if _, err := store.db.ExecContext(
@@ -383,6 +467,7 @@ func (store *ClickHouseStore) Replace(ctx context.Context, record Record) error 
 		string(record.Payload),
 		record.Stream,
 		record.ID,
+		time.Now().UTC(),
 	); err != nil {
 		return fmt.Errorf("logstore: replace clickhouse record: %w", err)
 	}
@@ -422,10 +507,10 @@ func (store *ClickHouseStore) recordTime(ctx context.Context, key RecordKey) (ti
 		return time.Time{}, err
 	}
 	statement := fmt.Sprintf(
-		"SELECT timestamp FROM %s WHERE stream = ? AND id = ? ORDER BY timestamp LIMIT 2",
+		"SELECT timestamp FROM %s WHERE stream = ? AND id = ? AND expires_at > ? ORDER BY timestamp LIMIT 2",
 		store.qualified,
 	)
-	rows, err := store.db.QueryContext(ctx, statement, key.Stream, key.ID)
+	rows, err := store.db.QueryContext(ctx, statement, key.Stream, key.ID, time.Now().UTC())
 	if err != nil {
 		return time.Time{}, fmt.Errorf("logstore: find clickhouse record: %w", err)
 	}
@@ -453,11 +538,11 @@ func (store *ClickHouseStore) recordTime(ctx context.Context, key RecordKey) (ti
 
 func (store *ClickHouseStore) recordCount(ctx context.Context, key RecordKey) (uint64, error) {
 	statement := fmt.Sprintf(
-		"SELECT count() FROM %s WHERE stream = ? AND id = ?",
+		"SELECT count() FROM %s WHERE stream = ? AND id = ? AND expires_at > ?",
 		store.qualified,
 	)
 	var count uint64
-	if err := store.db.QueryRowContext(ctx, statement, key.Stream, key.ID).Scan(&count); err != nil {
+	if err := store.db.QueryRowContext(ctx, statement, key.Stream, key.ID, time.Now().UTC()).Scan(&count); err != nil {
 		return 0, fmt.Errorf("logstore: count clickhouse record: %w", err)
 	}
 	return count, nil
@@ -484,9 +569,9 @@ func (store *ClickHouseStore) Close() error {
 	return store.closeErr
 }
 
-func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePosition) (string, []any) {
-	parts := []string{"timestamp >= ?", "timestamp < ?"}
-	args := []any{time.UnixMilli(query.StartMS).UTC(), time.UnixMilli(query.EndMS).UTC()}
+func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePosition, now time.Time) (string, []any) {
+	parts := []string{"timestamp >= ?", "timestamp < ?", "expires_at > ?"}
+	args := []any{time.UnixMilli(query.StartMS).UTC(), time.UnixMilli(query.EndMS).UTC(), now}
 	appendSet := func(column string, values []string) {
 		if len(values) == 0 {
 			return
@@ -531,7 +616,15 @@ func buildClickHouseWhere(query clickHouseBoundQuery, position *clickHousePositi
 	return strings.Join(parts, " AND "), args
 }
 
+func (store *ClickHouseStore) expiration() time.Time {
+	if store.ttl > 0 {
+		return time.Now().UTC().Add(store.ttl)
+	}
+	return time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC)
+}
+
 var (
-	_ ImmutableStore = (*ClickHouseStore)(nil)
-	_ MutableStore   = (*ClickHouseStore)(nil)
+	_ ImmutableStore     = (*ClickHouseStore)(nil)
+	_ MutableStore       = (*ClickHouseStore)(nil)
+	_ MutableRecordStore = (*ClickHouseStore)(nil)
 )

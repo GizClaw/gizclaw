@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -18,7 +19,10 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestConversationCreateReturnsNotFoundForUnknownWorkflowAlias(t *testing.T) {
@@ -43,7 +47,7 @@ func TestConversationCreateReturnsNotFoundForUnknownWorkflowAlias(t *testing.T) 
 func TestConversationsResponsesThreeTurnsAndImmutableInputSnapshot(t *testing.T) {
 	key := mustKey(t)
 	objects := testOpenAIObjectStore(t)
-	fake := &fakeConversationWorkspaces{runtimeStore: workspace.NewObjectRuntimeStore(objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
+	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
 	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{
 		"metadata":{"collection":"assistants","workflow_name":"story","purpose":"test"},"items":[]
@@ -108,7 +112,7 @@ func TestConversationsResponsesThreeTurnsAndImmutableInputSnapshot(t *testing.T)
 func TestConversationResponseObjectsPassFrozenShellValidation(t *testing.T) {
 	key := mustKey(t)
 	objects := testOpenAIObjectStore(t)
-	fake := &fakeConversationWorkspaces{runtimeStore: workspace.NewObjectRuntimeStore(objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
+	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
 	dispatch := backend.HandlerFunc(func(ctx context.Context, request backend.Request) (backend.Response, error) {
 		request.Metadata.CallerID = key.Public.String()
@@ -151,7 +155,7 @@ func TestConversationResponseObjectsPassFrozenShellValidation(t *testing.T) {
 func TestResponsePreservesMultipleWorkspaceOutputsInHistoryOrder(t *testing.T) {
 	key := mustKey(t)
 	objects := testOpenAIObjectStore(t)
-	fake := &fakeConversationWorkspaces{runtimeStore: workspace.NewObjectRuntimeStore(objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
+	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	executor := &multipleOutputExecutor{workspaces: fake}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: executor, Responses: NewResponseRuntime()}
 	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
@@ -198,7 +202,7 @@ func TestResponsePreservesMultipleWorkspaceOutputsInHistoryOrder(t *testing.T) {
 func TestBackgroundCancelAndStreamingAbortReleaseConversation(t *testing.T) {
 	key := mustKey(t)
 	objects := testOpenAIObjectStore(t)
-	fake := &fakeConversationWorkspaces{runtimeStore: workspace.NewObjectRuntimeStore(objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
+	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	blocker := &blockingWorkspaceExecutor{started: make(chan struct{}, 1)}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: blocker, Responses: NewResponseRuntime()}
 	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
@@ -273,7 +277,7 @@ func TestResponseIDRoundTripsWorkspaceLocator(t *testing.T) {
 func TestResponseRetrieveRecoversStaleInProgressRecord(t *testing.T) {
 	key := mustKey(t)
 	objects := testOpenAIObjectStore(t)
-	fake := &fakeConversationWorkspaces{runtimeStore: workspace.NewObjectRuntimeStore(objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
+	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
 	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
 	conversationID := jsonString(t, created, "id")
@@ -316,7 +320,7 @@ func TestResponseRetrieveRecoversStaleInProgressRecord(t *testing.T) {
 func TestUnsupportedResponseInputsFailBeforeHistoryMutation(t *testing.T) {
 	key := mustKey(t)
 	objects := testOpenAIObjectStore(t)
-	fake := &fakeConversationWorkspaces{runtimeStore: workspace.NewObjectRuntimeStore(objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
+	fake := &fakeConversationWorkspaces{runtimeStore: testOpenAIRuntimeStore(t, objects), items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{}}
 	server := &Server{Caller: key.Public, Workspaces: fake, Executor: fake, Responses: NewResponseRuntime()}
 	created := handleJSON(t, server, key.Public, backend.CapabilityConversations, "createConversation", `{"metadata":{"collection":"assistants","workflow_name":"story"}}`, nil)
 	conversationID := jsonString(t, created, "id")
@@ -488,6 +492,21 @@ func testOpenAIObjectStore(t *testing.T) *objectstore.Root {
 		t.Fatal(err)
 	}
 	return store
+}
+
+func testOpenAIRuntimeStore(t *testing.T, objects objectstore.ObjectStore) workspace.ObjectRuntimeStore {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", filepath.Join(t.TempDir(), "history.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	history, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return workspace.NewObjectRuntimeStore(objects, history, objects)
 }
 
 func handleJSON(t *testing.T, server *Server, caller [32]byte, capability backend.Capability, operation, body string, parameters map[string]string) json.RawMessage {

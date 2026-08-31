@@ -12,7 +12,7 @@ import (
 
 func TestOpenAIStateStoreReloadAndHistoryCorrelation(t *testing.T) {
 	objects := newTestObjectStore(t)
-	store := NewObjectRuntimeStore(objects)
+	store := newTestRuntimeStore(t, objects)
 	ctx := context.Background()
 	runtime, err := store.PrepareWorkspace(ctx, "openai-demo")
 	if err != nil {
@@ -66,7 +66,7 @@ func TestOpenAIStateStoreReloadAndHistoryCorrelation(t *testing.T) {
 
 func TestOpenAIStateStoreOrdersItemsByDurableSequence(t *testing.T) {
 	objects := newTestObjectStore(t)
-	runtime, err := NewObjectRuntimeStore(objects).PrepareWorkspace(t.Context(), "openai-order")
+	runtime, err := newTestRuntimeStore(t, objects).PrepareWorkspace(t.Context(), "openai-order")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestOpenAIStateStoreOrdersItemsByDurableSequence(t *testing.T) {
 
 func TestOpenAIStateStoreCorruptionAndRuntimeCleanup(t *testing.T) {
 	objects := newTestObjectStore(t)
-	store := NewObjectRuntimeStore(objects)
+	store := newTestRuntimeStore(t, objects)
 	ctx := context.Background()
 	runtime, err := store.PrepareWorkspace(ctx, "openai-corrupt")
 	if err != nil {

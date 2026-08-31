@@ -1,6 +1,6 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` 提供跨业务领域复用的结构化 record、backend-neutral 查询与 cursor 分页。Immutable driver 支持追加与查询；mutable driver 还支持替换或删除单条 record。Conversation、event、audit 等生产者仍拥有自己的 authorization、retention 和 canonical resource。
+`pkgs/store/logstore` 提供跨业务领域复用的结构化 record、backend-neutral 查询与 cursor 分页。Immutable driver 支持追加与查询；mutable driver 还支持替换或删除单条 record。Conversation、event、audit 等生产者仍拥有 authorization 与 canonical resource；可选 retention 配在逻辑 Store 上，由 driver 执行，不改变 LogStore interface。
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
@@ -22,7 +22,7 @@
 | ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
 | SQLite / PostgreSQL | `MutableStore` | 独立关系表、原子 append/replace/delete 与共享 SQL cursor |
 
-每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足可变 Flowcraft History。物理连接 ownership 始终属于 `storage`。
+每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足 Workspace History 或 Flowcraft History 所需的可变记录能力。物理连接 ownership 始终属于 `storage`。
 
 ### Volc TLS
 
@@ -70,11 +70,11 @@ stores:
 
 Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。
 
-物理 DSN 已选择 database 时可以省略逻辑 `database` 字段。ClickHouse driver 不额外施加本地 payload 大小限制；service limit、retention 和 table policy 仍由 operator 负责。逻辑 Metrics 与 Log Store 可以共享一个物理 pool，但不拥有它。
+物理 DSN 已选择 database 时可以省略逻辑 `database` 字段。配置 `ttl` 后，driver 会写入 `expires_at`，并创建或校验 table-level `TTL expires_at` 删除表达式；异步 merge 物理删除前，Get 与 Query 已隐藏过期 row。ClickHouse driver 不额外施加本地 payload 大小限制。逻辑 Metrics 与 Log Store 可以共享一个物理 pool，但不拥有它。
 
 ### SQLite / PostgreSQL
 
-每个逻辑 Store 必须声明独立 `table`。关系表用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Replace 不是 upsert，不能改变 time；Delete 对缺失 key 返回 `ErrNotFound`。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。
+每个逻辑 Store 必须声明独立 `table`。关系表用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Get 按 `(stream, id)` 精确读取；Replace 不是 upsert，不能改变 time；Get 与 Delete 对缺失 key 返回 `ErrNotFound`。配置 `ttl` 后，driver 会设置 `expires_at_unix_nano`，从 Get 与 Query 过滤过期 record，并在后续 append 时清理过期物理 row；Replace 不延长 retention。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。Workspace History 需要 `MutableRecordStore`，把文本和结构化 metadata 保存在 LogStore，ObjectStore 只保存 record 引用的二进制 asset。
 
 ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 normalized selector、text、millisecond-aligned `[Start, End)` 和 order，允许 continuation 修改 limit，并保持 16 KiB bound。相同 records 可以跨三种 SQL driver continuation。SQLite/PostgreSQL 的 text matching 保持 case-sensitive literal，attribute matcher 在 validated flat map 上执行；逻辑 Store 不关闭共享 pool。
 

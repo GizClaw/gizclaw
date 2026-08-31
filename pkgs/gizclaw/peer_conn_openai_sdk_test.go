@@ -530,7 +530,7 @@ type openAISDKConversationBackend struct {
 
 func newOpenAISDKConversationBackend(t *testing.T) *openAISDKConversationBackend {
 	return &openAISDKConversationBackend{
-		store: workspace.NewObjectRuntimeStore(newTestObjectStore(t)),
+		store: newTestWorkspaceRuntimeStore(t, newTestObjectStore(t)),
 		items: map[string]apitypes.Workspace{}, runtimes: map[string]workspace.Runtime{},
 	}
 }

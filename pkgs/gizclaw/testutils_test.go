@@ -5,6 +5,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -60,6 +61,16 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		db.SetMaxOpenConns(1)
 		t.Cleanup(func() { _ = db.Close() })
 		server.GameplayDB = db
+	}
+	if server.WorkspaceHistory == nil {
+		store, err := logstore.NewSQLStoreWithDB(server.GameplayDB, "workspace_history")
+		if err != nil {
+			t.Fatalf("open test workspace history: %v", err)
+		}
+		server.WorkspaceHistory = store
+	}
+	if server.WorkspaceHistoryAssets == nil {
+		server.WorkspaceHistoryAssets = newTestObjectStore(t)
 	}
 	return server
 }

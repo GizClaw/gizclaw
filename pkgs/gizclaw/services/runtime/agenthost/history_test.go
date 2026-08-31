@@ -21,11 +21,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 func TestHistoryAgentRecordsOutputText(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
@@ -66,7 +66,7 @@ func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
 		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
 	}
 	upstream := newRecordingObservationStream(historyStreamFromChunks(chunk))
-	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, workspace.NewHistoryStore(newTestObjectStore(t), "demo"))
+	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, newTestWorkspaceHistory(t, newTestObjectStore(t)))
 	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -101,7 +101,7 @@ func TestServiceProductionObserverCrossesHistoryLeaseAndProbe(t *testing.T) {
 	t.Cleanup(func() { _ = upstream.Close() })
 	agent := wrapHistoryAgent(
 		historyTestAgent{output: upstream},
-		workspace.NewHistoryStore(newTestObjectStore(t), "demo"),
+		newTestWorkspaceHistory(t, newTestObjectStore(t)),
 	)
 	historyOutput, err := agent.Transform(
 		withHistoryGearID(t.Context(), "gear-a"),
@@ -187,7 +187,7 @@ func TestHistoryAgentForwardsAbandonedOutputObservation(t *testing.T) {
 		Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"},
 	}
 	upstream := newRecordingObservationStream(historyStreamFromChunks(chunk))
-	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, workspace.NewHistoryStore(newTestObjectStore(t), "demo"))
+	agent := wrapHistoryAgent(historyTestAgent{output: upstream}, newTestWorkspaceHistory(t, newTestObjectStore(t)))
 	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
@@ -224,7 +224,7 @@ func TestHistoryAgentForwardsAbandonedOutputObservation(t *testing.T) {
 }
 
 func TestHistoryAgentFinalizesNodeNamedOutputOnRouteEOS(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
 	out, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
@@ -274,7 +274,7 @@ func TestHistoryAgentFinalizesNodeNamedOutputOnRouteEOS(t *testing.T) {
 }
 
 func TestHistoryAgentStatusAndUnavailableReplay(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks()}, history)
 	state, err := agent.Status(context.Background())
 	if err != nil {
@@ -345,7 +345,7 @@ func TestHistoryAgentUnsupportedState(t *testing.T) {
 }
 
 func TestHistoryAgentSkipsGearHistoryWithoutGearID(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyInputDrainingAgent{
 		historyTestAgent: historyTestAgent{output: historyStreamFromChunks()},
 	}, history)
@@ -373,7 +373,7 @@ func TestHistoryAgentRecordsOutputHistoryPCMAudioAsOggOpus(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("requires native opus runtime")
 	}
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	pcmFrame := historyTestPCMFrame(320)
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/pcm", Data: pcmFrame[:300]}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
@@ -422,7 +422,7 @@ func TestHistoryAgentRecordsOutputHistoryPCMAudioAsOggOpus(t *testing.T) {
 }
 
 func TestHistoryAgentEmitsHistoryUpdatedNotification(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agentOutput := newBlockingHistoryStream()
 	agent := wrapHistoryAgent(historyTestAgent{output: agentOutput}, history)
 	before := time.Now().Add(-time.Second).UTC()
@@ -442,7 +442,7 @@ func TestHistoryAgentEmitsHistoryUpdatedNotification(t *testing.T) {
 }
 
 func TestHistoryAgentBroadcastsHistoryUpdatedNotification(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	base := &historyMultiOutputAgent{}
 	agent := wrapHistoryAgent(base, history)
 	outA, err := agent.Transform(withHistoryGearID(context.Background(), "gear-a"), historyStreamFromChunks())
@@ -549,7 +549,7 @@ func historyTestPCMFrame(samples int) []byte {
 }
 
 func TestHistoryAgentRecordsOutputAudioAsOggOpus(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
@@ -604,7 +604,7 @@ func TestHistoryAgentRecordsOutputAudioAsOggOpus(t *testing.T) {
 }
 
 func TestHistoryAgentWaitsForTextAfterAudioEOS(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hel"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
@@ -636,7 +636,7 @@ func TestHistoryAgentWaitsForTextAfterAudioEOS(t *testing.T) {
 }
 
 func TestHistoryAgentRejectsMultipleAudioMIMEChannels(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/ogg; codecs=opus"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
@@ -658,7 +658,7 @@ func TestHistoryAgentRejectsMultipleAudioMIMEChannels(t *testing.T) {
 }
 
 func TestHistoryAgentIgnoresNonRecordableMIMECompletion(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("hel"), Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "application/json"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
@@ -689,7 +689,7 @@ func TestHistoryAgentIgnoresNonRecordableMIMECompletion(t *testing.T) {
 }
 
 func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	recorder := newHistoryRecorder(history, "", nil)
 	ctx := context.Background()
 	for _, chunk := range []*genx.MessageChunk{
@@ -730,7 +730,8 @@ func TestHistoryRecorderControlEOSFinalizesRouteOnce(t *testing.T) {
 
 func TestHistoryRecorderNotifiesOnlyAfterDurableAppend(t *testing.T) {
 	history := workspace.NewHistoryStore(
-		failingHistoryObjectStore{ObjectStore: newTestObjectStore(t)},
+		failingHistoryLogStore{MutableRecordStore: newTestHistoryLogStore(t)},
+		newTestObjectStore(t),
 		"demo",
 	)
 	notified := false
@@ -758,7 +759,7 @@ func TestHistoryRecorderNotifiesOnlyAfterDurableAppend(t *testing.T) {
 }
 
 func TestHistoryAgentMergesOutputHistoryAudioWithTranscript(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{4, 5}}, Ctrl: &genx.StreamCtrl{StreamID: "audio", Label: genx.HistoryUserAudioLabel}},
@@ -907,7 +908,7 @@ func TestHistoryAgentPersistsOneEntryForAudioDockTranscript(t *testing.T) {
 		}()
 		return output.Stream(), nil
 	})
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(NewTransformerAgent(capturedDock), history)
 	output, err := agent.Transform(withHistoryGearID(t.Context(), "gear-a"), historyStreamFromChunks(&genx.MessageChunk{
 		Role: genx.RoleUser,
@@ -953,7 +954,7 @@ func TestHistoryAgentPersistsOneEntryForAudioDockTranscript(t *testing.T) {
 }
 
 func TestHistoryAgentKeepsIdenticalTextOnDifferentStreams(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript"}},
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "audio-1", Label: "transcript", EndOfStream: true}},
@@ -984,7 +985,7 @@ func TestHistoryAgentKeepsIdenticalTextOnDifferentStreams(t *testing.T) {
 }
 
 func TestHistoryAgentRecordsOutputHistoryAudioByStreamID(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}, Ctrl: &genx.StreamCtrl{StreamID: "audio:rt:1", Label: genx.HistoryUserAudioLabel}},
 		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("first"), Ctrl: &genx.StreamCtrl{StreamID: "audio:rt:1", Label: "transcript"}},
@@ -1033,7 +1034,7 @@ func TestHistoryAgentRecordsOutputHistoryAudioByStreamID(t *testing.T) {
 }
 
 func TestHistoryAgentRecordsSplitOggOutput(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	audio, err := historyOggOpusAsset([][]byte{{1, 2, 3}, {4, 5}})
 	if err != nil {
 		t.Fatalf("historyOggOpusAsset: %v", err)
@@ -1099,7 +1100,7 @@ func TestHistoryAgentRecordsMP3OutputAsOggOpus(t *testing.T) {
 	if err := encoder.Close(); err != nil {
 		t.Fatalf("encoder.Close() error = %v", err)
 	}
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg", Data: encoded.Bytes()}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant"}},
 		&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "s1", Label: "assistant", EndOfStream: true}},
@@ -1152,7 +1153,7 @@ func TestHistoryAgentRecordsMP3OutputAsOggOpus(t *testing.T) {
 }
 
 func TestHistoryAgentPlayInjectsReplayOutput(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	now := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)
 	audio, err := historyOggOpusAsset([][]byte{{1, 2, 3}, {4, 5}})
 	if err != nil {
@@ -1227,7 +1228,7 @@ func TestHistoryAgentPlayInjectsReplayOutput(t *testing.T) {
 }
 
 func TestHistoryAgentPlayReplaysGearHistory(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	entry, err := history.Append(context.Background(), workspace.AppendHistoryRequest{
 		Type:   "gear",
 		GearID: "gear-a",
@@ -1267,7 +1268,7 @@ func TestHistoryAgentPlayReplaysGearHistory(t *testing.T) {
 }
 
 func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	entry, err := history.Append(context.Background(), workspace.AppendHistoryRequest{
 		Type: "agent",
 		Name: "assistant",
@@ -1329,7 +1330,7 @@ func TestHistoryAgentPlayRoutesToRequestGearOutput(t *testing.T) {
 }
 
 func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	audio1, err := historyOggOpusAsset([][]byte{{1}, {2}, {3}, {4}})
 	if err != nil {
 		t.Fatalf("historyOggOpusAsset first: %v", err)
@@ -1413,7 +1414,7 @@ func TestHistoryAgentPlayInterruptsBufferedReplayAfterEnqueue(t *testing.T) {
 }
 
 func TestHistoryAgentPlayInterruptsCurrentAgentOutput(t *testing.T) {
-	history := workspace.NewHistoryStore(newTestObjectStore(t), "demo")
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	entry, err := history.Append(context.Background(), workspace.AppendHistoryRequest{
 		Type: "agent",
 		Name: "assistant",
@@ -1776,12 +1777,12 @@ func cloneHistoryChunks(chunks []*genx.MessageChunk) []*genx.MessageChunk {
 	return cloned
 }
 
-type failingHistoryObjectStore struct {
-	objectstore.ObjectStore
+type failingHistoryLogStore struct {
+	logstore.MutableRecordStore
 }
 
-func (f failingHistoryObjectStore) Put(string, io.Reader) error {
-	return errors.New("forced history write failure")
+func (f failingHistoryLogStore) Append(context.Context, []logstore.Record) ([]logstore.RecordKey, error) {
+	return nil, errors.New("forced history write failure")
 }
 
 func (a historyTestAgent) Transform(context.Context, genx.Stream) (genx.Stream, error) {

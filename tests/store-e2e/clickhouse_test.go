@@ -133,6 +133,13 @@ func TestClickHouseLog(t *testing.T) {
 	if err != nil || len(keys) != len(records) || keys[0] != records[0].Key() {
 		t.Fatalf("Append() = %+v, %v", keys, err)
 	}
+	got, err := store.Get(ctx, records[0].Key())
+	if err != nil || got.Key() != records[0].Key() || string(got.Payload) != string(records[0].Payload) {
+		t.Fatalf("Get() = %+v, %v", got, err)
+	}
+	if _, err := store.Get(ctx, logstore.RecordKey{Stream: "history", ID: "missing"}); !errors.Is(err, logstore.ErrNotFound) {
+		t.Fatalf("missing Get() error = %v", err)
+	}
 	notEqual, err := store.Query(ctx, logstore.Query{
 		Streams:  []string{"history", "other-history"},
 		Matchers: []logstore.AttributeMatcher{{Name: "workspace", Op: logstore.MatchNotEqual, Value: "one"}},
@@ -173,6 +180,9 @@ func TestClickHouseLog(t *testing.T) {
 	replacement.Payload = []byte(`{"value":10}`)
 	if err := store.Replace(ctx, replacement); err != nil {
 		t.Fatal(err)
+	}
+	if got, err := store.Get(ctx, replacement.Key()); err != nil || string(got.Payload) != string(replacement.Payload) {
+		t.Fatalf("Get(replaced) = %+v, %v", got, err)
 	}
 	if err := store.Replace(ctx, logstore.Record{ID: "missing", Time: base, Stream: "history", Kind: "message"}); !errors.Is(err, logstore.ErrNotFound) {
 		t.Fatalf("missing Replace() error = %v", err)

@@ -39,6 +39,18 @@ stores:
     storage: database
     table: gizclaw_flowcraft_history
 
+  workspace-history:
+    kind: log.mutable
+    storage: database
+    table: gizclaw_workspace_history
+    ttl: 2160h
+
+  workspace-history-assets:
+    kind: objectstore
+    storage: local-assets
+    prefix: workspace-history
+    ttl: 2160h
+
   flowcraft-state:
     kind: keyvalue
     storage: database
@@ -175,6 +187,8 @@ services:
     store: workflows
   workspace:
     store: workspaces
+    history_store: workspace-history
+    history_assets_store: workspace-history-assets
     assets_store: workspace-assets
   toolkit:
     store: tools

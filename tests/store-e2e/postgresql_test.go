@@ -4,6 +4,7 @@ package store_e2e_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -262,6 +263,10 @@ func TestPostgreSQLLog(t *testing.T) {
 	if err := store.Replace(context.Background(), first); err != nil {
 		t.Fatal(err)
 	}
+	got, err := store.Get(context.Background(), first.Key())
+	if err != nil || got.Message != "updated" || got.Key() != first.Key() {
+		t.Fatalf("Get() = %+v, %v", got, err)
+	}
 	page, err := store.Query(context.Background(), logstore.Query{
 		Start: now, End: now.Add(time.Second), Limit: 10, Order: logstore.OrderAsc,
 	})
@@ -293,6 +298,9 @@ func TestPostgreSQLLog(t *testing.T) {
 	}
 	if err := store.Delete(context.Background(), first.Key()); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := store.Get(context.Background(), first.Key()); !errors.Is(err, logstore.ErrNotFound) {
+		t.Fatalf("Get(deleted) error = %v", err)
 	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
