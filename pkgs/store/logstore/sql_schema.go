@@ -73,7 +73,38 @@ func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table, keysTable storage.
 			keysTable.Quoted(),
 		))
 	}
+	if table.Dialect() == storage.SQLDialectPostgreSQL {
+		return ensurePostgresLogSchema(ctx, db, table, statements)
+	}
 	return storage.EnsureSQLTable(ctx, db, table, statements...)
+}
+
+func ensurePostgresLogSchema(ctx context.Context, db *sqlx.DB, table storage.SQLTable, statements []string) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return storage.ExternalSQLError("logstore: begin postgres schema initialization", err)
+	}
+	defer tx.Rollback()
+	var lockResult any
+	if err := tx.QueryRowContext(
+		ctx,
+		"SELECT pg_advisory_xact_lock(hashtext(current_schema()::text), hashtext($1))",
+		table.Name(),
+	).Scan(&lockResult); err != nil {
+		return storage.ExternalSQLError("logstore: lock postgres schema initialization", err)
+	}
+	for _, statement := range statements {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return storage.ExternalSQLError(
+				fmt.Sprintf("logstore: initialize postgres table %q", table.Name()),
+				err,
+			)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return storage.ExternalSQLError("logstore: commit postgres schema initialization", err)
+	}
+	return nil
 }
 
 const postgresAuxiliaryPrefixLimit = 53
