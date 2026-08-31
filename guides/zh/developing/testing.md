@@ -626,27 +626,31 @@ relay path，而不是 GizClaw Edge/Server capacity；它不代表 production Co
 `tests/locomo-e2e` 是 GizClaw 自有的 production `memory.Store` 人工评测，不使用
 Flowcraft LoCoMo evaluator，也不属于普通 `go test ./...`、Docker E2E 或 required CI。
 每个 live test 在对应 Go 文件中完整定义 provider、memory lane 和 extraction config；
-remote project 配置由部署拥有，harness 不修改它，也不会把一个 endpoint/project
-冒充成多条 lane。
+Volc remote project 配置由部署拥有，harness 不修改它。
 
-当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、Mem0 Platform
-default/custom instructions 和 Volc AgentKit Memory default。LoCoMo 是 tagged Go 测试包；
-Mem0 和 Volc 组使用标准 `go test -run` 选择，Flowcraft wrapper 会启动固定版本的 Redis 8
-容器，让宿主机上的 tagged Go test 连接该容器，并在结束时删除容器和 volume。被选择的测试
-只校验自己消费的环境变量，缺失或占位值会失败，未选择 backend 的变量不会被检查：
+当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、self-hosted Mem0
+和 Volc AgentKit Memory default。LoCoMo 是 tagged Go 测试包；Docker runner 会按所选 group
+启动固定版本的 Redis 8、self-hosted Mem0 或两者，让宿主机上的 tagged Go test 连接容器，
+并在结束时删除容器和 volume。Volc 组继续使用标准 `go test -run` 连接远程 provider。
+被选择的测试只校验自己消费的环境变量，缺失或占位值会失败，未选择 backend 的变量
+不会被检查：
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
-go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-tests/locomo-e2e/run_flowcraft_redis8.sh
+tests/locomo-e2e/run_docker.sh mem0
+tests/locomo-e2e/run_docker.sh flowcraft
+tests/locomo-e2e/run_docker.sh all
 ```
 
-`.env.example` 只是变量清单；值通过进程环境注入，测试包和 wrapper 都不会读取 `.env`
-文件。直接运行 Flowcraft Go tests 时必须设置
-`GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL`；wrapper 会将其指向自己启动的 Docker Redis。
-如果端口 `16380` 不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_REDIS8_PORT`。
+`.env.example` 只是变量清单；值通过进程环境注入，测试包和 runner 都不会读取 `.env`
+文件。Mem0 group 使用与 Flowcraft 相同的 extraction 和 embedding model/key/base URL 环境变量；
+容器内固定使用 `mem0ai 2.0.3`，默认模型分别为 `doubao-seed-2-0-lite-260215` 和
+`text-embedding-3-small`。直接运行 Go tests 时必须设置
+对应的 `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` 或
+`GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`；runner 会将它们指向自己启动的容器。如果默认
+端口不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` 或
+`GIZCLAW_LOCOMO_E2E_MEM0_PORT`。
 包级 timeout 使用 30 分钟，并分别限制 session 与 question。Runner 按官方 session
 调用 `memory.Store.Observe`，逐题 recall，再用配置模型回答并在本地计算 EM、F1 和
 evidence-hit 和 adversarial rejection。只有 answerable 问题进入 EM/F1 和 evidence-hit；

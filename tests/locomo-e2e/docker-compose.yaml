@@ -10,3 +10,26 @@ services:
       retries: 30
     tmpfs:
       - /data
+
+  mem0:
+    build:
+      context: ../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.mem0
+    entrypoint: ["uvicorn", "mem0_server:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MEM0_LLM_API_KEY: ${GIZCLAW_LOCOMO_E2E_MODEL_API_KEY:-}
+      MEM0_LLM_BASE_URL: ${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-}
+      MEM0_LLM_MODEL: ${GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL:-doubao-seed-2-0-lite-260215}
+      MEM0_EMBEDDING_API_KEY: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY:-}
+      MEM0_EMBEDDING_BASE_URL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL:-}
+      MEM0_EMBEDDING_MODEL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL:-text-embedding-3-small}
+    ports:
+      - "127.0.0.1:${GIZCLAW_LOCOMO_E2E_MEM0_PORT:-18000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=1).read()"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 30s
+    tmpfs:
+      - /tmp

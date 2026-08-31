@@ -86,15 +86,31 @@ def _get_memory() -> Memory:
 
 
 def _build_memory() -> Memory:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        api_key = str(
+    shared_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not shared_api_key and os.path.isfile(_CREDENTIAL_FILE):
+        shared_api_key = str(
             dotenv_values(_CREDENTIAL_FILE).get(
                 "GIZCLAW_E2E_OPENAI_API_KEY", ""
             )
         ).strip()
-    if not api_key:
-        raise RuntimeError("GIZCLAW_E2E_OPENAI_API_KEY is required")
+    llm_api_key = os.environ.get("MEM0_LLM_API_KEY", "").strip() or shared_api_key
+    embedding_api_key = (
+        os.environ.get("MEM0_EMBEDDING_API_KEY", "").strip()
+        or shared_api_key
+    )
+    if not llm_api_key:
+        raise RuntimeError(
+            "MEM0_LLM_API_KEY or GIZCLAW_E2E_OPENAI_API_KEY is required"
+        )
+    if not embedding_api_key:
+        raise RuntimeError(
+            "MEM0_EMBEDDING_API_KEY or GIZCLAW_E2E_OPENAI_API_KEY is required"
+        )
+    llm_model = os.environ.get("MEM0_LLM_MODEL", "").strip() or "gpt-4o-mini"
+    embedding_model = (
+        os.environ.get("MEM0_EMBEDDING_MODEL", "").strip()
+        or "text-embedding-3-small"
+    )
     return Memory.from_config(
         {
             "version": "v1.1",
@@ -109,16 +125,24 @@ def _build_memory() -> Memory:
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "api_key": api_key,
-                    "model": "gpt-4o-mini",
+                    "api_key": llm_api_key,
+                    "model": llm_model,
+                    "openai_base_url": os.environ.get(
+                        "MEM0_LLM_BASE_URL", ""
+                    ).strip()
+                    or None,
                     "temperature": 0.1,
                 },
             },
             "embedder": {
                 "provider": "openai",
                 "config": {
-                    "api_key": api_key,
-                    "model": "text-embedding-3-small",
+                    "api_key": embedding_api_key,
+                    "model": embedding_model,
+                    "openai_base_url": os.environ.get(
+                        "MEM0_EMBEDDING_BASE_URL", ""
+                    ).strip()
+                    or None,
                 },
             },
             "history_db_path": "/tmp/gizclaw-e2e-memory-history.db",

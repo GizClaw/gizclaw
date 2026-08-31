@@ -762,31 +762,35 @@ hosts or WAN behavior.
 `memory.Store` implementations. It does not use Flowcraft's evaluator and is
 not part of ordinary `go test ./...`, Docker E2E, or required CI. Each live Go
 test owns its complete provider, memory-lane, and extraction configuration.
-Remote project configuration remains deployment state: the harness neither
-mutates it nor presents one endpoint/project as multiple lanes.
+Volc remote project configuration remains deployment state and the harness
+does not mutate it.
 
 Current lanes cover Flowcraft Redis 8 BM25 single-pass, hybrid single/two-pass,
-Mem0 Platform default/custom-instructions, and Volc AgentKit Memory default.
-LoCoMo is a tagged Go test package. Select Mem0 and Volc groups with standard
-`go test -run`. The Flowcraft wrapper starts a pinned Redis 8 container, runs
-the tagged Go tests from the host against that container, and always removes
-the container and volume. Selected tests validate only the environment
-variables they consume. Missing or placeholder values fail, and unselected
-backend variables are not inspected:
+self-hosted Mem0, and Volc AgentKit Memory default. LoCoMo is a tagged Go test
+package. The Docker runner starts the pinned Redis 8 service, self-hosted Mem0,
+or both for the selected group, runs the tagged Go tests from the host against
+those containers, and always removes their containers and volumes. The Volc
+group continues to use standard `go test -run` against its remote provider.
+Selected tests validate only the environment variables they consume. Missing
+or placeholder values fail, and unselected backend variables are not inspected:
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
-go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-tests/locomo-e2e/run_flowcraft_redis8.sh
+tests/locomo-e2e/run_docker.sh mem0
+tests/locomo-e2e/run_docker.sh flowcraft
+tests/locomo-e2e/run_docker.sh all
 ```
 
 Use `.env.example` as a variable inventory and inject values through the
-process environment; the test package and wrapper do not read `.env` files.
-The Flowcraft tests require `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` when run
-directly; the wrapper sets it to its Docker Redis endpoint. Override
-`GIZCLAW_LOCOMO_E2E_REDIS8_PORT` if port `16380` is unavailable. Use a
+process environment; the test package and runner do not read `.env` files.
+The Mem0 group uses the same extraction and embedding model/key/base-URL
+environment variables as Flowcraft. Its container pins `mem0ai 2.0.3` and
+defaults to `doubao-seed-2-0-lite-260215` plus `text-embedding-3-small`.
+Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` or
+`GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`; the runner points both at its Docker
+services. Override `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` or
+`GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable. Use a
 30-minute package timeout and bounded session and
 question stages. The runner calls `memory.Store.Observe` by official session,
 recalls for every question, asks the configured model to answer, and computes
