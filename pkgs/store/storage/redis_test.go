@@ -63,6 +63,29 @@ func TestRedisOptionsRejectsInvalidTLSCAConfiguration(t *testing.T) {
 	}
 }
 
+func TestValidateRedisURLMatchesStorageParsing(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		url     string
+		wantErr bool
+	}{
+		"plain":                {url: "redis://host:6379/0"},
+		"tls":                  {url: "rediss://host:6379/0"},
+		"non-numeric database": {url: "redis://host:6379/not-a-database", wantErr: true},
+		"verification off":     {url: "rediss://host:6379/0?skip_verify=true", wantErr: true},
+		"multiple endpoints":   {url: "redis://host-a,host-b:6379/0", wantErr: true},
+		"wrong scheme":         {url: "http://host:6379/0", wantErr: true},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if err := ValidateRedisURL(test.url); (err != nil) != test.wantErr {
+				t.Fatalf("ValidateRedisURL(%q) error = %v, wantErr %v", test.url, err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestRedisOptionsDoesNotExposeURLSecrets(t *testing.T) {
 	const secret = "leaked-password"
 	_, err := redisOptions("cache", RedisConfig{URL: "rediss://user:" + secret + "@%zz"})

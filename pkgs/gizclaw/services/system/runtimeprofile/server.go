@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 var (
@@ -352,7 +353,7 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	defer release()
-	previous, getErr := getProfileByID(ctx, store, id)
+	previous, getErr := getProfileByIDForMutation(ctx, store, id)
 	if errors.Is(getErr, kv.ErrNotFound) {
 		return adminhttp.PutRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
@@ -381,7 +382,7 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	defer release()
-	item, err := getProfileByID(ctx, store, id)
+	item, err := getProfileByIDForMutation(ctx, store, id)
 	if errors.Is(err, kv.ErrNotFound) {
 		return adminhttp.DeleteRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
@@ -627,6 +628,14 @@ func GetProfile(ctx context.Context, store kv.Store, id string) (apitypes.Runtim
 }
 
 func getProfileByID(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
+	return getProfileByIDWithCompatibility(ctx, store, id, true)
+}
+
+func getProfileByIDForMutation(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
+	return getProfileByIDWithCompatibility(ctx, store, id, false)
+}
+
+func getProfileByIDWithCompatibility(ctx context.Context, store kv.Store, id string, enforceCompatibility bool) (apitypes.RuntimeProfile, error) {
 	data, err := store.Get(ctx, profileKey(id))
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
@@ -635,10 +644,31 @@ func getProfileByID(ctx context.Context, store kv.Store, id string) (apitypes.Ru
 	if err := json.Unmarshal(data, &item); err != nil {
 		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: decode %s: %w", id, err)
 	}
+	if enforceCompatibility {
+		if err := validateLoadedProfileCompatibility(item); err != nil {
+			return apitypes.RuntimeProfile{}, err
+		}
+	}
 	if err := setProfileRevision(&item); err != nil {
 		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: revision %s: %w", id, err)
 	}
 	return item, nil
+}
+
+func validateLoadedProfileCompatibility(item apitypes.RuntimeProfile) error {
+	if item.Spec.Resources.Memories == nil {
+		return nil
+	}
+	for alias, binding := range *item.Spec.Resources.Memories {
+		connectionType, err := binding.Connection.Discriminator()
+		if err != nil {
+			return fmt.Errorf("runtime profile %q memory binding %q: decode connection: %w", item.Id, alias, err)
+		}
+		if connectionType == "flowcraft_bbh" {
+			return fmt.Errorf("runtime profile %q memory binding %q uses removed flowcraft_bbh; replace it with flowcraft_redis8 or flowcraft_object_store using PUT before starting dependent runtimes; legacy local memory files are retained and are not migrated or deleted automatically", item.Id, alias)
+		}
+	}
+	return nil
 }
 
 func writeProfile(ctx context.Context, store kv.Store, item apitypes.RuntimeProfile) error {
@@ -856,6 +886,8 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 		return binding, fmt.Errorf("connection: %w", err)
 	}
 	switch connectionType {
+	case "flowcraft_bbh":
+		return binding, errors.New("flowcraft_bbh is no longer supported; replace the binding with flowcraft_redis8 or flowcraft_object_store; legacy local memory files are retained and are not migrated or deleted automatically")
 	case "flowcraft_object_store":
 		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
 			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
@@ -893,8 +925,8 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 		if value.Url == "" {
 			return binding, errors.New("flowcraft_redis8 connection requires url")
 		}
-		if err := validateRedisURL(value.Url); err != nil {
-			return binding, err
+		if err := storage.ValidateRedisURL(value.Url); err != nil {
+			return binding, fmt.Errorf("flowcraft_redis8 connection requires a valid single-endpoint redis or rediss URL: %w", err)
 		}
 		if value.TlsCaFile != nil {
 			parsed, _ := url.Parse(value.Url)
@@ -974,14 +1006,6 @@ func validateMemoryEndpoint(raw string) error {
 	}
 	if endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" {
 		return errors.New("connection endpoint must not contain userinfo, query, or fragment")
-	}
-	return nil
-}
-
-func validateRedisURL(raw string) error {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "redis" && parsed.Scheme != "rediss" || parsed.Hostname() == "" || strings.Contains(parsed.Hostname(), ",") {
-		return errors.New("flowcraft_redis8 connection requires a single-endpoint redis or rediss URL")
 	}
 	return nil
 }
@@ -1817,6 +1841,9 @@ func listProfiles(ctx context.Context, store kv.Store, cursor *string, limit *in
 	for _, entry := range entries {
 		var item apitypes.RuntimeProfile
 		if err := json.Unmarshal(entry.Value, &item); err != nil {
+			return nil, false, nil, err
+		}
+		if err := validateLoadedProfileCompatibility(item); err != nil {
 			return nil, false, nil, err
 		}
 		if err := setProfileRevision(&item); err != nil {

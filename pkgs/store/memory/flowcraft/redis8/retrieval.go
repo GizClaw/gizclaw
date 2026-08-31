@@ -341,6 +341,21 @@ func (index *Index) Search(ctx context.Context, namespace string, request retrie
 	}
 	return &retrieval.SearchResponse{Hits: hits, Took: time.Since(started)}, nil
 }
+
+func (index *Index) SearchHybrid(ctx context.Context, namespace string, request retrieval.HybridRequest) (*retrieval.SearchResponse, error) {
+	if request.Mode != retrieval.HybridDefault && request.Mode != retrieval.HybridRRF {
+		return nil, errdefs.Validationf("flowcraft redis8 retrieval: hybrid mode %q is unsupported", request.Mode)
+	}
+	return index.Search(ctx, namespace, retrieval.SearchRequest{
+		QueryText:   request.QueryText,
+		QueryVector: request.QueryVector,
+		Filter:      request.Filter,
+		TopK:        request.TopK,
+		HybridMode:  retrieval.HybridRRF,
+		HybridParam: request.Param,
+		Debug:       request.Debug,
+	})
+}
 func (index *Index) Iterate(ctx context.Context, namespace, cursor string, batch int) ([]retrieval.Doc, string, error) {
 	request := retrieval.ListRequest{PageSize: batch, PageToken: cursor, OrderBy: retrieval.OrderByIDAsc, WithVector: true}
 	response, err := index.List(ctx, namespace, request)
@@ -393,11 +408,12 @@ func (index *Index) Drop(ctx context.Context, namespace string) error {
 }
 func (index *Index) WarmNamespace(context.Context, string) error { return nil }
 func (index *Index) Capabilities() retrieval.Capabilities {
-	return retrieval.Capabilities{BM25: true, Vector: true, Hybrid: false, FilterPushdown: false, BatchUpsertMax: 0, WriteIsAtomic: false, MaxListPageSize: 10000, NativeDeleteByFilter: false, SupportedListOrders: []retrieval.ListOrderBy{retrieval.OrderByTimestampDesc, retrieval.OrderByTimestampAsc, retrieval.OrderByIDAsc}, ReadAfterWrite: true, Distributed: true, Extensions: retrieval.ExtensionCapabilities{DocGetter: true, Iterable: true, Count: true, DeleteByFilter: true, DropNamespace: true, NamespaceWarm: true}}
+	return retrieval.Capabilities{BM25: true, Vector: true, Hybrid: true, FilterPushdown: false, BatchUpsertMax: 0, WriteIsAtomic: false, MaxListPageSize: 10000, NativeDeleteByFilter: false, SupportedListOrders: []retrieval.ListOrderBy{retrieval.OrderByTimestampDesc, retrieval.OrderByTimestampAsc, retrieval.OrderByIDAsc}, ReadAfterWrite: true, Distributed: true, Extensions: retrieval.ExtensionCapabilities{DocGetter: true, Iterable: true, Count: true, DeleteByFilter: true, DropNamespace: true, NamespaceWarm: true}}
 }
 func (index *Index) Close() error { return nil }
 
 var _ retrieval.Index = (*Index)(nil)
+var _ retrieval.Hybridable = (*Index)(nil)
 var _ retrieval.DocGetter = (*Index)(nil)
 var _ retrieval.Iterable = (*Index)(nil)
 var _ retrieval.Countable = (*Index)(nil)

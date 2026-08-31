@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/flowcraft/memory/retrieval"
+
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
 )
 
@@ -45,5 +47,16 @@ func TestNewRejectsNonDurableGraph(t *testing.T) {
 	_, err := New(context.Background(), Config{Flowcraft: memoryflowcraft.Config{GraphEnabled: true}})
 	if err == nil || !strings.Contains(err.Error(), "graph") {
 		t.Fatalf("New error = %v, want graph injection error", err)
+	}
+}
+
+func TestCapabilitiesAdvertiseHybridSearch(t *testing.T) {
+	t.Parallel()
+	capabilities := (&Index{}).Capabilities()
+	if !capabilities.BM25 || !capabilities.Vector || !capabilities.Hybrid {
+		t.Fatalf("Capabilities() = %#v, want text, vector, and hybrid retrieval", capabilities)
+	}
+	if !retrieval.Supports(&Index{}, retrieval.CapabilityHybrid) {
+		t.Fatal("capability-driven selection did not enable hybrid retrieval")
 	}
 }

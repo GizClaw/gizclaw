@@ -106,6 +106,8 @@ spec:
 
 这个 binding alias 表示 Workflow 标量 `memory` 字段选择的 named physical source。在相同 Workspace、driver 与 physical binding 下，修改 extraction policy、Graph Recall/Observe policy、prompt 或 `top_k` 不会创建新的 canonical data namespace；修改 driver 或 connection 可以切换到另一个数据源，但不会自动迁移或删除旧数据。
 
+`flowcraft_bbh` 不再是受支持的 connection。仍使用它的已持久化 profile 会在读取或 runtime 解析时被拒绝，错误会指出具体 profile 与 binding；管理员仍可通过 `PUT` 将其显式替换为 `flowcraft_redis8` 或 `flowcraft_object_store`。Profile 被拒绝、替换或删除时，GizClaw 都不会迁移、重新解释或删除旧的 managed local directory；operator 必须先保留或备份该目录，并在切换 binding 前显式完成所需的数据转移。
+
 每个 `gameplay.adoption.pool` 条目只引用一个 `pet_defs` alias；PetDef 的本地化名称也来自这个 RuntimeProfile binding，不在 PetDef 中重复保存 i18n。PetDef 只保存宠物角色/说话风格、PIXA 元数据和固定行为到动画 clip 的绑定。Pet Workflow 使用的 Model、Voice 和 Tool 都由真实 Workflow spec 中的 alias 声明，并从该 system Workspace owner 的 RuntimeProfile 解析。
 
 `gameplay.pet` 必须完整配置固定 Pet 的时间衰减、被动 energy 恢复、升级曲线与四个标准行为。`games` 没有 default；每个 key 必须同时存在于 `resources.game_defs`，并独立配置 energy/points cost 与 reward model、prompt 和奖励上限。未配置 GameDef 的 Drive 是无写入的 no-op。

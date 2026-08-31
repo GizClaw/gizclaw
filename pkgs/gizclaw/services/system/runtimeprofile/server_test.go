@@ -1783,7 +1783,10 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},
 		{name: "Volc Mem0", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com","api_key":"key"}}`},
 		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`, wantErr: "cannot use connection type"},
+		{name: "removed Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`, wantErr: "no longer supported"},
 		{name: "invalid Redis URL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"http://redis:6379"}}`, wantErr: "redis or rediss URL"},
+		{name: "non-numeric Redis database", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/not-a-database"}}`, wantErr: "valid single-endpoint"},
+		{name: "Redis TLS verification disabled", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis:6379/0?skip_verify=true"}}`, wantErr: "certificate verification"},
 		{name: "Redis CA without TLS", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379","tls_ca_file":"/ca.pem"}}`, wantErr: "requires a rediss URL"},
 		{name: "missing Mem0 key", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":""}}`, wantErr: "project_id and api_key"},
 		{name: "invalid endpoint", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"mem0.local","api_key":"key"}}`, wantErr: "absolute http or https URL"},
@@ -1809,6 +1812,33 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 				t.Fatalf("normalizeMemoryBinding() error = %v, want %q", err, test.wantErr)
 			}
 		})
+	}
+}
+
+func TestPersistedFlowcraftBBHProfileRequiresExplicitReplacement(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	const id = "legacy-bbh-profile"
+	raw := []byte(`{"id":"legacy-bbh-profile","spec":{"resources":{"memories":{"legacy":{"layout_id":"default-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}}}}}`)
+	if err := store.Set(ctx, profileKey(id), raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := getProfileByID(ctx, store, id); err == nil || !strings.Contains(err.Error(), "replace it with flowcraft_redis8") || !strings.Contains(err.Error(), "not migrated or deleted automatically") {
+		t.Fatalf("getProfileByID() error = %v, want actionable legacy replacement and retention error", err)
+	}
+	item, err := getProfileByIDForMutation(ctx, store, id)
+	if err != nil {
+		t.Fatalf("getProfileByIDForMutation() error = %v, want legacy profile to remain replaceable", err)
+	}
+	binding := (*item.Spec.Resources.Memories)["legacy"]
+	connectionType, err := binding.Connection.Discriminator()
+	if err != nil || connectionType != "flowcraft_bbh" {
+		t.Fatalf("legacy connection = %q, error = %v", connectionType, err)
+	}
+	stored, err := store.Get(ctx, profileKey(id))
+	if err != nil || string(stored) != string(raw) {
+		t.Fatalf("legacy profile changed while rejected: stored=%s error=%v", stored, err)
 	}
 }
 
