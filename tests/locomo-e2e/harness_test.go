@@ -28,6 +28,7 @@ import (
 
 const (
 	defaultDatasetPath   = "tests/locomo-e2e/testdata/locomo10_smoke.jsonl"
+	conv30DatasetPath    = "tests/locomo-e2e/testdata/locomo10_conv30.jsonl"
 	defaultModelProvider = "deepseek"
 	defaultModel         = "deepseek-v4-flash"
 	defaultModelURL      = "https://api.deepseek.com"

@@ -824,6 +824,24 @@ full benchmark. Exact
 upstream commit, checksum, subset, and transformation information is recorded
 in `locomo10_smoke.manifest.json`.
 
+The upstream project publishes one `data/locomo10.json` file rather than a
+`testdata` directory or one file per conversation. This repository's
+`testdata` directory contains derived, harness-native fixtures. The optional
+`locomo10_conv30.jsonl` fixture is the complete `conv-30` tier: 19 sessions,
+369 turns, and 105 questions. Select it without changing the smoke default:
+
+```sh
+GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
+  tests/locomo-e2e/run_docker.sh flowcraft
+```
+
+`tests/locomo-e2e/cmd/fixturegen` reproducibly converts one conversation from
+the pinned upstream JSON into the JSONL contract and writes its manifest. The
+generator requires the expected upstream SHA-256 and refuses drift; each
+manifest records the source commit/hash, selected IDs, transformation, license,
+and derived hash. The JSONL fixtures are stored with Git LFS because they
+contain upstream dataset content.
+
 The subset is distributed under
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) for
 noncommercial use only; `LICENSE.locomo.txt` preserves the license. Upstream

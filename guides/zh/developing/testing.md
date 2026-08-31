@@ -675,6 +675,21 @@ session（共 76 turns），以及覆盖 category 1 到 5 的八个问题。它�
 精确 upstream commit、checksum、subset 和 transformation 记录在
 `locomo10_smoke.manifest.json`。
 
+上游只发布一个 `data/locomo10.json`，没有 `testdata` 目录，也没有按 conversation
+拆分文件。本仓库的 `testdata` 保存适配当前 harness contract 的派生 fixture。可选的
+`locomo10_conv30.jsonl` 是完整 `conv-30` 档位，包含 19 sessions、369 turns 和
+105 questions；可以在不改变 smoke 默认值的情况下选择它：
+
+```sh
+GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
+  tests/locomo-e2e/run_docker.sh flowcraft
+```
+
+`tests/locomo-e2e/cmd/fixturegen` 负责从固定版本的上游 JSON 可复现地选择一个
+conversation，转换为 JSONL contract 并生成 manifest。工具要求传入预期 upstream
+SHA-256，源文件漂移时会拒绝生成；manifest 记录 source commit/hash、选中 ID、转换说明、
+许可和派生文件 hash。JSONL 包含上游数据集内容，因此通过 Git LFS 保存。
+
 该子集按 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) 分发，
 仅限非商业用途；许可全文保存在 `LICENSE.locomo.txt`。上游时间没有 timezone，数据中的
 `Z` 只表示确定性的 Go `ObservedAt` 映射，不宣称原始 timezone。clone 后执行
