@@ -1355,21 +1355,37 @@ func TestNewRequiresDistinctPeerRunKeyValueStore(t *testing.T) {
 	if _, err := New(wrongKind); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "workspace-assets" requires kv.Store`) {
 		t.Fatalf("New(non-KV peer_run) error = %v", err)
 	}
-	shared := validLayeredConfig(t.TempDir())
-	shared.Storage["shared-redis"] = storage.RedisConfig{URL: "redis://127.0.0.1:1/0"}
-	peerRun := shared.Stores[shared.Services.PeerRun.Store]
-	peerRun.Storage = "shared-redis"
-	shared.Stores[shared.Services.PeerRun.Store] = peerRun
-	if _, err := New(shared); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "peer-runs" must use local persistent badger or sqlite storage; got redis`) {
-		t.Fatalf("New(redis peer_run) error = %v", err)
+}
+
+func TestConfigAcceptsPeerRunKeyValueBackends(t *testing.T) {
+	tests := map[string]storage.Config{
+		"postgresql": storage.PostgreSQLConfig{DSN: "postgres://example.invalid/gizclaw"},
+		"redis":      storage.RedisConfig{URL: "redis://example.invalid:6379/0"},
 	}
-	volatile := validLayeredConfig(t.TempDir())
-	peerRun = volatile.Stores[volatile.Services.PeerRun.Store]
+	for name, backend := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := validLayeredConfig(t.TempDir())
+			cfg.Storage["peer-run-backend"] = backend
+			peerRun := cfg.Stores[cfg.Services.PeerRun.Store]
+			peerRun.Storage = "peer-run-backend"
+			cfg.Stores[cfg.Services.PeerRun.Store] = peerRun
+			if _, err := prepareConfig(cfg); err != nil {
+				t.Fatalf("prepareConfig() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestNewAcceptsMemoryPeerRunStore(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	peerRun := cfg.Stores[cfg.Services.PeerRun.Store]
 	peerRun.Storage = "memory"
-	volatile.Stores[volatile.Services.PeerRun.Store] = peerRun
-	if _, err := New(volatile); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "peer-runs" must use local persistent badger or sqlite storage; got memory`) {
-		t.Fatalf("New(memory peer_run) error = %v", err)
+	cfg.Stores[cfg.Services.PeerRun.Store] = peerRun
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
 	}
+	t.Cleanup(func() { _ = srv.Close() })
 }
 
 func validLayeredConfig(dir string) Config {

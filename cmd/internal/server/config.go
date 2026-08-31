@@ -781,9 +781,6 @@ func (cfg Config) validate() error {
 	if cfg.Services.Peer.Store == cfg.Services.PeerRun.Store {
 		return fmt.Errorf("server: services.peer_run.store must be separate from services.peer.store")
 	}
-	if err := validateLocalPeerRunStore(cfg); err != nil {
-		return err
-	}
 	if err := validateProfilingConfig(cfg.Profiling, cfg.Services); err != nil {
 		return err
 	}
@@ -795,48 +792,6 @@ func (cfg Config) validate() error {
 		return fmt.Errorf("server: %w", err)
 	}
 	return nil
-}
-
-func validateLocalPeerRunStore(cfg Config) error {
-	storeName := cfg.Services.PeerRun.Store
-	storeCfg, ok := cfg.Stores[storeName]
-	if !ok || storeCfg.Kind != store.KindKeyValue {
-		// Store existence and capability errors are reported by the Store registry
-		// and service wiring with their existing, more specific diagnostics.
-		return nil
-	}
-	physicalCfg, ok := cfg.Storage[storeCfg.Storage]
-	if !ok {
-		return nil
-	}
-	kind, local := localPeerRunStorageKind(physicalCfg)
-	if !local {
-		return fmt.Errorf(
-			"server: services.peer_run.store %q must use local persistent badger or sqlite storage; got %s",
-			storeName,
-			kind,
-		)
-	}
-	return nil
-}
-
-func localPeerRunStorageKind(cfg storage.Config) (string, bool) {
-	switch cfg.(type) {
-	case storage.MemoryConfig, *storage.MemoryConfig:
-		return storage.KindMemory, false
-	case storage.BadgerConfig, *storage.BadgerConfig:
-		return storage.KindBadger, true
-	case storage.SQLiteConfig, *storage.SQLiteConfig:
-		return storage.KindSQLite, true
-	case storage.PostgreSQLConfig, *storage.PostgreSQLConfig:
-		return storage.KindPostgreSQL, false
-	case storage.ClickHouseConfig, *storage.ClickHouseConfig:
-		return storage.KindClickHouse, false
-	case storage.RedisConfig, *storage.RedisConfig:
-		return storage.KindRedis, false
-	default:
-		return "unsupported storage", false
-	}
 }
 
 func validateProfilingConfig(cfg ProfilingConfig, services *ServicesConfig) error {
