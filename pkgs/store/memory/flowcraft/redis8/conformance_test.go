@@ -64,3 +64,31 @@ func TestRetrievalConformance(t *testing.T) {
 		return index, func() {}
 	})
 }
+
+func TestScopeEnumeratorPreservesCrossAgentHardPartition(t *testing.T) {
+	store := freshBackend(t).TemporalStore()
+	enumerator := store.(recall.ScopeEnumerator)
+	ctx := context.Background()
+	observedAt := time.Date(2026, 8, 31, 0, 0, 0, 0, time.UTC)
+	if err := store.Append(ctx, []recall.TemporalFact{
+		{ID: "agent-a-fact", Scope: recall.Scope{RuntimeID: "runtime", UserID: "user", AgentID: "agent-a"}, Kind: recall.FactPreference, Content: "a", ObservedAt: observedAt},
+		{ID: "agent-b-fact", Scope: recall.Scope{RuntimeID: "runtime", UserID: "user", AgentID: "agent-b"}, Kind: recall.FactPreference, Content: "b", ObservedAt: observedAt.Add(time.Second)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	scopes, err := enumerator.ListScopes(ctx, recall.ScopeListQuery{RuntimeID: "runtime"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scopes) != 1 || scopes[0].RuntimeID != "runtime" || scopes[0].UserID != "user" || scopes[0].AgentID != "" {
+		t.Fatalf("ListScopes() = %#v, want one canonical runtime/user hard partition", scopes)
+	}
+	facts, err := store.List(ctx, scopes[0], recall.ListQuery{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(facts) != 2 || facts[0].ID != "agent-a-fact" || facts[1].ID != "agent-b-fact" {
+		t.Fatalf("List(canonical scope) = %#v, want facts from both agent metadata values", facts)
+	}
+}

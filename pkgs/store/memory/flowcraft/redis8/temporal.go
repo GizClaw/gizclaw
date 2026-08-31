@@ -235,7 +235,11 @@ func (store *temporalStore) ListScopes(ctx context.Context, query flowrecall.Sco
 	unique := map[string]flowrecall.Scope{}
 	for _, f := range state.Facts {
 		if query.RuntimeID == "" || f.Scope.RuntimeID == query.RuntimeID {
-			unique[f.Scope.PartitionKey()] = flowrecall.Scope{RuntimeID: f.Scope.RuntimeID, UserID: f.Scope.UserID}
+			// Flowcraft defines RuntimeID and UserID as the durable hard
+			// partition. AgentID and Federation are soft-isolation metadata,
+			// so ScopeEnumerator must return the canonical hard scope.
+			hardScope := flowrecall.Scope{RuntimeID: f.Scope.RuntimeID, UserID: f.Scope.UserID}
+			unique[hardScope.PartitionKey()] = hardScope
 		}
 	}
 	out := make([]flowrecall.Scope, 0, len(unique))
