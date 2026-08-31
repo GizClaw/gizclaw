@@ -54,7 +54,7 @@ spec:
     voices:
       narrator: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Narrator}, zh-CN: {display_name: 旁白}}}
       assistant-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Assistant}, zh-CN: {display_name: 助手}}}
-      japanese-voice: {resource_id: "volc-tenant:volc-main:zh_female_vv_uranus_bigtts", i18n: {en: {display_name: Japanese Assistant}, zh-CN: {display_name: 日语助手}}}
+      japanese-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Japanese Assistant}, zh-CN: {display_name: 日语助手}}}
       pet: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Pet Voice}, zh-CN: {display_name: 宠物音色}}}
       doubao-assistant: {resource_id: "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts", i18n: {en: {display_name: Doubao Assistant}, zh-CN: {display_name: 豆包助手}}}
       sun-wukong: {resource_id: "volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts", i18n: {en: {display_name: Sun Wukong}, zh-CN: {display_name: 孙悟空}}}

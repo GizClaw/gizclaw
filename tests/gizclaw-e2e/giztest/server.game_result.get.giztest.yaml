@@ -51,6 +51,10 @@ steps:
     adoption_transaction_name: "/transaction/name"
 - id: drive_pet
   client: peer
+  retry:
+    attempts: 2
+    on: [operation]
+    delay: 1s
   rpc:
     method: server.pet.drive
     request:

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
-	flownode "github.com/GizClaw/flowcraft/sdk/graph/node"
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
+	flowmessage "github.com/GizClaw/flowcraft/core/message"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -48,56 +48,59 @@ type memoryObserveNodeConfig struct {
 	WaitForCompletion bool `json:"wait_for_completion"`
 }
 
-func registerMemoryNodes(factory *flownode.Factory, config Config) {
-	factory.RegisterBuilder("memory_recall", func(def flowgraph.NodeDefinition) (flowgraph.Node, error) {
-		var nodeConfig memoryRecallNodeConfig
-		if err := decodeNodeConfig(def.Config, &nodeConfig); err != nil {
-			return nil, fmt.Errorf("flowcraft: memory_recall node %q: %w", def.ID, err)
-		}
-		if config.Memory == nil {
-			return nil, fmt.Errorf("flowcraft: memory_recall node %q requires Memory", def.ID)
-		}
-		if strings.TrimSpace(nodeConfig.Query.TextFrom) == "" || strings.TrimSpace(nodeConfig.Output) == "" || nodeConfig.TopK <= 0 {
-			return nil, fmt.Errorf("flowcraft: memory_recall node %q requires query.text_from, output, and positive top_k", def.ID)
-		}
-		return &memoryRecallNode{
-			id: def.ID, store: config.Memory, scope: config.MemoryScope, config: nodeConfig,
-			laneRecall: config.MemoryLaneRecall,
-		}, nil
-	})
-	factory.RegisterBuilder("memory_observe", func(def flowgraph.NodeDefinition) (flowgraph.Node, error) {
-		var nodeConfig memoryObserveNodeConfig
-		if err := decodeNodeConfig(def.Config, &nodeConfig); err != nil {
-			return nil, fmt.Errorf("flowcraft: memory_observe node %q: %w", def.ID, err)
-		}
-		if config.Memory == nil {
-			return nil, fmt.Errorf("flowcraft: memory_observe node %q requires Memory", def.ID)
-		}
-		if len(nodeConfig.Observations) == 0 {
-			return nil, fmt.Errorf("flowcraft: memory_observe node %q requires observations", def.ID)
-		}
-		for _, observation := range nodeConfig.Observations {
-			if len(observation.Facts) > 0 && !memory.SupportsDirectFactObservation(config.Memory) {
-				return nil, fmt.Errorf("flowcraft: memory_observe node %q requires direct Fact observation support", def.ID)
+func registerMemoryNodes(registry *flowgraph.Registry, config Config) error {
+	if err := flowgraph.RegisterType(registry, "memory_recall", flowgraph.NodeType[memoryRecallNodeConfig]{
+		Decode: func(raw json.RawMessage) (memoryRecallNodeConfig, error) {
+			var nodeConfig memoryRecallNodeConfig
+			if err := decodeNodeConfig(raw, &nodeConfig); err != nil {
+				return nodeConfig, err
 			}
-		}
-		if nodeConfig.WaitForCompletion {
-			if _, ok := config.Memory.(memory.OperationWaiter); !ok {
-				return nil, fmt.Errorf("flowcraft: memory_observe node %q wait_for_completion requires memory.OperationWaiter", def.ID)
+			if config.Memory == nil {
+				return nodeConfig, fmt.Errorf("Memory is required")
 			}
-		}
-		return &memoryObserveNode{
-			id: def.ID, store: config.Memory, scope: config.MemoryScope, config: nodeConfig, tasks: config.asyncTasks,
-		}, nil
+			if strings.TrimSpace(nodeConfig.Query.TextFrom) == "" || strings.TrimSpace(nodeConfig.Output) == "" || nodeConfig.TopK <= 0 {
+				return nodeConfig, fmt.Errorf("query.text_from, output, and positive top_k are required")
+			}
+			return nodeConfig, nil
+		},
+		Handler: func(ctx flowgraph.ExecutionContext, board *flowagent.Board, nodeConfig memoryRecallNodeConfig) error {
+			return (&memoryRecallNode{id: ctx.NodeID, store: config.Memory, scope: config.MemoryScope, config: nodeConfig, laneRecall: config.MemoryLaneRecall}).ExecuteBoard(ctx, board)
+		},
+	}); err != nil {
+		return err
+	}
+	return flowgraph.RegisterType(registry, "memory_observe", flowgraph.NodeType[memoryObserveNodeConfig]{
+		Decode: func(raw json.RawMessage) (memoryObserveNodeConfig, error) {
+			var nodeConfig memoryObserveNodeConfig
+			if err := decodeNodeConfig(raw, &nodeConfig); err != nil {
+				return nodeConfig, err
+			}
+			if config.Memory == nil {
+				return nodeConfig, fmt.Errorf("Memory is required")
+			}
+			if len(nodeConfig.Observations) == 0 {
+				return nodeConfig, fmt.Errorf("observations are required")
+			}
+			for _, observation := range nodeConfig.Observations {
+				if len(observation.Facts) > 0 && !memory.SupportsDirectFactObservation(config.Memory) {
+					return nodeConfig, fmt.Errorf("direct Fact observation support is required")
+				}
+			}
+			if nodeConfig.WaitForCompletion {
+				if _, ok := config.Memory.(memory.OperationWaiter); !ok {
+					return nodeConfig, fmt.Errorf("wait_for_completion requires memory.OperationWaiter")
+				}
+			}
+			return nodeConfig, nil
+		},
+		Handler: func(ctx flowgraph.ExecutionContext, board *flowagent.Board, nodeConfig memoryObserveNodeConfig) error {
+			return (&memoryObserveNode{id: ctx.NodeID, store: config.Memory, scope: config.MemoryScope, config: nodeConfig, tasks: config.asyncTasks}).ExecuteBoard(ctx, board)
+		},
 	})
 }
 
-func decodeNodeConfig(source map[string]any, target any) error {
-	raw, err := json.Marshal(source)
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal(raw, target); err != nil {
+func decodeNodeConfig(source json.RawMessage, target any) error {
+	if err := json.Unmarshal(source, target); err != nil {
 		return err
 	}
 	return nil
@@ -113,7 +116,7 @@ type memoryRecallNode struct {
 
 func (n *memoryRecallNode) ID() string { return n.id }
 func (*memoryRecallNode) Type() string { return "memory_recall" }
-func (n *memoryRecallNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowgraph.Board) error {
+func (n *memoryRecallNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowagent.Board) error {
 	queryText := boardString(board, n.config.Query.TextFrom)
 	filters := make([]memory.Filter, 0, len(n.config.Query.Filters))
 	for _, filter := range n.config.Query.Filters {
@@ -260,10 +263,9 @@ type memoryObserveNode struct {
 
 func (n *memoryObserveNode) ID() string { return n.id }
 func (*memoryObserveNode) Type() string { return "memory_observe" }
-func (n *memoryObserveNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowgraph.Board) error {
-	observation := memory.Observation{
-		ID: ctx.RunID, Scope: n.scope, ObservedAt: time.Now(),
-	}
+func (n *memoryObserveNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowagent.Board) error {
+	runInfo, _ := flowagent.RunInfoFromContext(ctx.Context)
+	observation := memory.Observation{ID: runInfo.RunID, Scope: n.scope, ObservedAt: time.Now()}
 	for _, source := range n.config.Observations {
 		if source.TextFrom != "" {
 			text := boardString(board, source.TextFrom)
@@ -312,12 +314,12 @@ func (n *memoryObserveNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *
 		}
 	}
 	if result.Operation != nil && result.Operation.Status == memory.OperationFailed {
-		return fmt.Errorf("flowcraft: memory_observe node %q: %s", n.id, result.Operation.Error)
+		return fmt.Errorf("flowcraft: memory_observe node %q: %w", n.id, errMemoryProviderOperationFailed)
 	}
 	return nil
 }
 
-func boardString(board *flowgraph.Board, key string) string {
+func boardString(board *flowagent.Board, key string) string {
 	if board == nil {
 		return ""
 	}
@@ -331,15 +333,15 @@ func boardString(board *flowgraph.Board, key string) string {
 	return strings.TrimSpace(fmt.Sprint(value))
 }
 
-func boardTurns(board *flowgraph.Board, key string) []memory.Turn {
+func boardTurns(board *flowagent.Board, key string) []memory.Turn {
 	if board == nil {
 		return nil
 	}
 	if strings.TrimSpace(key) == "conversation" {
-		messages := board.Channel("__main_channel")
+		messages := board.Channel(flowagent.MainChannel)
 		turns := make([]memory.Turn, 0, len(messages))
 		for index, message := range messages {
-			text := strings.TrimSpace(message.Content())
+			text := strings.TrimSpace(coreMessageText(message))
 			if text == "" {
 				continue
 			}
@@ -356,11 +358,11 @@ func boardTurns(board *flowgraph.Board, key string) []memory.Turn {
 	switch turns := value.(type) {
 	case []memory.Turn:
 		return append([]memory.Turn(nil), turns...)
-	case []flowmodel.Message:
+	case []flowmessage.Message:
 		result := make([]memory.Turn, 0, len(turns))
 		for index, message := range turns {
 			result = append(result, memory.Turn{
-				ID: fmt.Sprintf("%s:%d", key, index), Role: memory.Role(message.Role), Text: message.Content(),
+				ID: fmt.Sprintf("%s:%d", key, index), Role: memory.Role(message.Role), Text: coreMessageText(message),
 			})
 		}
 		return result
@@ -371,4 +373,18 @@ func boardTurns(board *flowgraph.Board, key string) []memory.Turn {
 		}
 		return []memory.Turn{{ID: key, Role: memory.RoleUser, Text: text}}
 	}
+}
+
+func coreMessageText(item flowmessage.Message) string {
+	var result strings.Builder
+	for _, raw := range item.Content.Parts {
+		part, err := flowmessage.NormalizePart(raw)
+		if err != nil {
+			continue
+		}
+		if text, ok := part.(flowmessage.TextPart); ok {
+			result.WriteString(text.Text)
+		}
+	}
+	return result.String()
 }

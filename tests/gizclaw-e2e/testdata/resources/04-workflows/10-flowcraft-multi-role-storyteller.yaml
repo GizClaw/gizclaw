@@ -56,6 +56,7 @@ spec:
       name: multi-role-storyteller
       nodes:
       - config:
+          runtime: js
           source: |
             function latestUserText() {
               const msgs = board.channel(board.MAIN_CHANNEL) || [];
@@ -63,7 +64,7 @@ spec:
                 const msg = msgs[i] || {};
                 if (msg.role !== "user") continue;
                 if (typeof msg.content === "string" && msg.content.trim()) return msg.content.trim();
-                const parts = Array.isArray(msg.parts) ? msg.parts : [];
+                const parts = msg.content && Array.isArray(msg.content.parts) ? msg.content.parts : [];
                 const text = parts.map(function(part) {
                   return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
                 }).join("").trim();
@@ -131,6 +132,7 @@ spec:
         id: start
         type: script
       - config:
+          runtime: js
           source: |
             const story = board.getVar("story_state") || {};
             const blueprintState = board.getVar("blueprint_state") || {};
@@ -301,14 +303,21 @@ spec:
             board.setVar("ending_state_text", JSON.stringify(ending, null, 2));
             board.setChannel("speaker_select_channel", [{
               role: "user",
-              parts: [{ type: "text", text: JSON.stringify(phaseContext, null, 2) }],
+              content: { parts: [{ type: "text", text: JSON.stringify(phaseContext, null, 2) }] },
             }]);
         id: select_story_step
         type: script
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: speaker_select_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
+              temperature: 0
           output_key: speaker_select_text
           system_prompt: |
             You select the next visible speaker for a fixed-cast multi-role story.
@@ -341,11 +350,11 @@ spec:
             - If latest_user_text talks to or about 唐僧/师父/慈悲/误伤, tangseng may be best.
             - If latest_user_text talks to or about 八戒/老猪, bajie may be best.
             - If latest_user_text talks to or about 妖怪/货郎/门外人/求饶/他说什么, monster may be best when monster is allowed.
-          temperature: 0
         id: select_speaker
         publish: false
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             const raw = String(board.getVar("speaker_select_text") || "");
             const ctx = board.getVar("story_phase_context") || {};
@@ -405,6 +414,7 @@ spec:
         id: shape_story_turn
         type: script
       - config:
+          runtime: js
           source: |
             const speaker = String(board.getVar("planned_speaker") || "narrator");
             const latest = String(board.getVar("latest_user_text") || "");
@@ -413,17 +423,23 @@ spec:
             board.setVar("next_speaker", speaker);
             board.setChannel("speech_channel", [{
               role: "user",
-              parts: [{
+              content: { parts: [{
                 type: "text",
                 text: "speaker=" + speaker + "\nblueprint_step=" + String(board.getVar("story_step_name") || "") + "\nstory_brief=" + goal + "\nguidance=" + guidance + "\nlatest_user_text=" + latest,
-              }],
+               }] },
             }]);
         id: route_speaker
         type: script
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: speech_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           output_key: tmp_speech_text
           system_prompt: |
             你是旁白，只负责环境、动作、镜头和自然停顿，不替角色说台词。
@@ -432,82 +448,107 @@ spec:
             如果蓝图目标要求把镜头交给用户，要自然停在一个让用户想接话的位置，不要说“请用户输入”，不要列选项。
             如果 ending_state.mode 是 epilogue，只复盘本折已确认事实；不要新增妖怪、同伙、法器、幕后主使或新地点剧情。
 
-            蓝图目标：${board.story_step_goal}
-            当前故事状态：${board.story_state_text}
-            固定角色状态：${board.cast_state_text}
-            用户状态：${board.user_state_text}
+            蓝图目标：${board:story_step_goal}
+            当前故事状态：${board:story_state_text}
+            固定角色状态：${board:cast_state_text}
+            用户状态：${board:user_state_text}
         id: narrator
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: speech_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           output_key: tmp_speech_text
           system_prompt: |
             你只扮演孙悟空。只说孙悟空会说出口的话，不替旁白、唐僧、八戒或妖怪发言。
             语气机敏、直接、警觉，有行动感。只输出孙悟空口头说出来的话；不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。
             回复一句自然中文，必须控制在 12 到 24 个汉字内，不要重复同一句威胁。
 
-            蓝图目标：${board.story_step_goal}
-            当前故事状态：${board.story_state_text}
-            固定角色状态：${board.cast_state_text}
-            用户状态：${board.user_state_text}
+            蓝图目标：${board:story_step_goal}
+            当前故事状态：${board:story_state_text}
+            固定角色状态：${board:cast_state_text}
+            用户状态：${board:user_state_text}
         id: role_wukong
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: speech_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           output_key: tmp_speech_text
           system_prompt: |
             你只扮演唐僧。只说唐僧会说出口的话，不替旁白、悟空、八戒或妖怪发言。
             语气克制、慈悲、谨慎。只输出唐僧口头说出来的话；不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。
             回复一句自然中文，必须控制在 12 到 24 个汉字内。
 
-            蓝图目标：${board.story_step_goal}
-            当前故事状态：${board.story_state_text}
-            固定角色状态：${board.cast_state_text}
-            用户状态：${board.user_state_text}
+            蓝图目标：${board:story_step_goal}
+            当前故事状态：${board:story_state_text}
+            固定角色状态：${board:cast_state_text}
+            用户状态：${board:user_state_text}
         id: role_tangseng
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: speech_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           output_key: tmp_speech_text
           system_prompt: |
             你只扮演猪八戒。只说猪八戒会说出口的话，不替旁白、悟空、唐僧或妖怪发言。
             语气有点怕麻烦、嘴碎、但不恶意。只输出猪八戒口头说出来的话；不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。
             回复一句自然中文，必须控制在 12 到 24 个汉字内。
 
-            蓝图目标：${board.story_step_goal}
-            当前故事状态：${board.story_state_text}
-            固定角色状态：${board.cast_state_text}
-            用户状态：${board.user_state_text}
+            蓝图目标：${board:story_step_goal}
+            当前故事状态：${board:story_state_text}
+            固定角色状态：${board:cast_state_text}
+            用户状态：${board:user_state_text}
         id: role_bajie
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: speech_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           output_key: tmp_speech_text
           system_prompt: |
             你只扮演门外伪装成人的妖怪。只说这个妖怪会说出口的话，不替旁白或取经人发言。
             语气表面虚弱可怜，但话里带一点不自然。不要直接承认自己是妖怪。只输出妖怪口头说出来的话，只使用中文，不要输出英文。不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。
             回复一句自然中文，必须控制在 12 到 24 个汉字内。
 
-            蓝图目标：${board.story_step_goal}
-            当前故事状态：${board.story_state_text}
-            固定角色状态：${board.cast_state_text}
-            用户状态：${board.user_state_text}
+            蓝图目标：${board:story_step_goal}
+            当前故事状态：${board:story_state_text}
+            固定角色状态：${board:cast_state_text}
+            用户状态：${board:user_state_text}
         id: role_monster
         publish: true
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             const speaker = String(board.getVar("next_speaker") || "narrator");
             const speech = String(board.getVar("tmp_speech_text") || board.getVar("response") || "").trim();
@@ -581,6 +622,7 @@ spec:
         id: update_state
         type: script
       - config:
+          runtime: js
           source: |
             const count = Number(board.getVar("internal_turn_count") || 0);
             const story = board.getVar("story_state") || {};

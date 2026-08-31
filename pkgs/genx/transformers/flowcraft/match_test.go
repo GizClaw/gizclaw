@@ -11,8 +11,8 @@ import (
 	"sync"
 	"testing"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
-	flownode "github.com/GizClaw/flowcraft/sdk/graph/node"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 )
@@ -32,7 +32,7 @@ func TestCompileMatchNodeValidatesAndOwnsConfig(t *testing.T) {
 			}},
 		}
 	}
-	runtime, err := compileMatchNode("match", valid())
+	runtime, err := compileMatchNode("match", testNodeConfig(valid()))
 	if err != nil {
 		t.Fatalf("compileMatchNode() error = %v", err)
 	}
@@ -59,7 +59,7 @@ func TestCompileMatchNodeValidatesAndOwnsConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config := valid()
 			test.mutate(config)
-			if _, err := compileMatchNode("match", config); err == nil ||
+			if _, err := compileMatchNode("match", testNodeConfig(config)); err == nil ||
 				!strings.Contains(err.Error(), test.want) {
 				t.Fatalf("compileMatchNode() error = %v, want containing %q", err, test.want)
 			}
@@ -91,27 +91,16 @@ func TestMatchNodeRegistrationAndJSONEOFTerminals(t *testing.T) {
 		t.Fatal("ensureJSONEOF() accepted malformed trailing JSON")
 	}
 
-	if _, err := compileMatchNode("match", map[string]any{"model": make(chan int)}); err == nil || !strings.Contains(err.Error(), "encode config") {
-		t.Fatalf("compileMatchNode(unencodable) error = %v", err)
-	}
-	runtime, err := compileMatchNode("route", map[string]any{
+	runtime, err := compileMatchNode("route", testNodeConfig(map[string]any{
 		"model": "router", "input": "input", "output": "matches",
 		"rules": []*genxmatch.Rule{{Name: "route", Patterns: []genxmatch.Pattern{{Input: "hello"}}}},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("compileMatchNode() error = %v", err)
 	}
-	factory := flownode.NewFactory()
-	registerMatchNodes(factory, Config{matchNodes: map[string]matchNodeRuntime{"route": runtime}})
-	if _, err := factory.Build(flowgraph.NodeDefinition{ID: "missing", Type: "match"}); err == nil || !strings.Contains(err.Error(), "was not compiled") {
-		t.Fatalf("Build(missing) error = %v", err)
-	}
-	built, err := factory.Build(flowgraph.NodeDefinition{ID: "route", Type: "match"})
-	if err != nil {
-		t.Fatalf("Build(route) error = %v", err)
-	}
-	if built.ID() != "route" || built.Type() != "match" {
-		t.Fatalf("built node identity = (%q, %q)", built.ID(), built.Type())
+	registry := flowgraph.NewRegistry()
+	if err := registerMatchNodes(registry, Config{matchNodes: map[string]matchNodeRuntime{"route": runtime}}); err != nil {
+		t.Fatalf("registerMatchNodes() error = %v", err)
 	}
 }
 
@@ -123,17 +112,17 @@ func TestMatchNodeCannotBePublished(t *testing.T) {
 			Nodes: []flowgraph.NodeDefinition{
 				{
 					ID: "route", Type: "match",
-					Config: map[string]any{
+					Config: testNodeConfig(map[string]any{
 						"model": "router", "input": "input", "output": "matches",
 						"rules": []*genxmatch.Rule{{
 							Name:     "route",
 							Patterns: []genxmatch.Pattern{{Input: "hello"}},
 						}},
-					},
+					}),
 				},
 				{
 					ID: "finish", Type: "script",
-					Config: map[string]any{"source": `board.setVar("answer", "done");`},
+					Config: testNodeConfig(map[string]any{"runtime": "js", "source": `board.setVar("answer", "done");`}),
 				},
 			},
 			Edges: []flowgraph.EdgeDefinition{{From: "route", To: "finish"}},
@@ -147,7 +136,7 @@ func TestMatchNodeCannotBePublished(t *testing.T) {
 }
 
 func TestMatchNodeExecutesAtomicallyWithTypedPorts(t *testing.T) {
-	runtime, err := compileMatchNode("route", map[string]any{
+	runtime, err := compileMatchNode("route", testNodeConfig(map[string]any{
 		"model": "router", "input": "request", "output": "matches",
 		"rules": []any{map[string]any{
 			"name": "play_music",
@@ -156,7 +145,7 @@ func TestMatchNodeExecutesAtomicallyWithTypedPorts(t *testing.T) {
 			},
 			"patterns": []any{"我想听[title]"},
 		}},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("compileMatchNode() error = %v", err)
 	}
@@ -167,17 +156,7 @@ func TestMatchNodeExecutesAtomicallyWithTypedPorts(t *testing.T) {
 	node := &matchNode{
 		id: "route", generator: generator, config: runtime.config, matcher: runtime.matcher,
 	}
-	if got := node.InputPorts(); !reflect.DeepEqual(got, []flowgraph.Port{{
-		Name: "request", Type: flowgraph.PortTypeString, Required: true,
-	}}) {
-		t.Fatalf("InputPorts() = %#v", got)
-	}
-	if got := node.OutputPorts(); !reflect.DeepEqual(got, []flowgraph.Port{{
-		Name: "matches", Type: flowgraph.PortTypeArray, Required: true,
-	}}) {
-		t.Fatalf("OutputPorts() = %#v", got)
-	}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("request", "我想听卡农")
 	if err := node.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, board); err != nil {
 		t.Fatalf("ExecuteBoard() error = %v", err)
@@ -228,7 +207,7 @@ func TestMatchNodeRejectsNonStringAndDoesNotPublishPartialOutput(t *testing.T) {
 		config:  matchNodeConfig{Model: "router", Input: "input", Output: "matches"},
 		matcher: matcher,
 	}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("input", 42)
 	if err := node.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, board); err == nil ||
 		!strings.Contains(err.Error(), "must be string") {
@@ -274,7 +253,7 @@ func TestMatchNodeIsSafeForConcurrentBoards(t *testing.T) {
 	for index := range count {
 		wait.Go(func() {
 			text := fmt.Sprintf("value-%d", index)
-			board := flowgraph.NewBoard()
+			board := flowagent.NewBoard()
 			board.SetVar("input", text)
 			if err := node.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, board); err != nil {
 				failures <- err

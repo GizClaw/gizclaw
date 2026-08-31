@@ -37,6 +37,8 @@ type runOptions struct {
 	openRelayStreams func() (relayStream, relayStream, error)
 	// connectClients substitutes already-connected clients in runner tests.
 	connectClients func(context.Context, map[string]ClientSpec, []Step, *variables) (*clientSet, error)
+	// reconnectClient substitutes client transport recovery in retry tests.
+	reconnectClient func(context.Context, string) error
 }
 type task struct {
 	doc     *Document
@@ -284,10 +286,26 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, clien
 				break
 			}
 		}
+		if kind == "operation" && step.Client != "" && operationFailureNeedsReconnect(err) {
+			reconnect := clients.reconnect
+			if opts.reconnectClient != nil {
+				reconnect = opts.reconnectClient
+			}
+			if reconnectErr := reconnect(ctx, step.Client); reconnectErr != nil {
+				finalErr = fmt.Errorf("retry step %s reconnect: %w", step.ID, reconnectErr)
+				report.Error = safeError(finalErr, redactions...)
+				break
+			}
+		}
 	}
 	report.Attempts = attempts
 	report.DurationMS = time.Since(started).Milliseconds()
 	return report, finalErr
+}
+
+func operationFailureNeedsReconnect(err error) bool {
+	var transportErr *peerStreamTransportError
+	return errors.As(err, &transportErr)
 }
 
 func waitRetryDelay(ctx context.Context, delay time.Duration) error {
@@ -555,7 +573,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 			err = resolveErr
 			break
 		}
-		if spec, ok := vars.referencedSpec(step.WorkspaceRelay.Input); ok && step.WorkspaceRelay.Media == "audio" {
+		if spec, ok := vars.referencedSpec(step.WorkspaceRelay.Input); ok && relayInputMediaName(step.WorkspaceRelay) == "audio" {
 			if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
 				err = fmt.Errorf("workspace_relay audio input must declare audio/ogg or audio/opus with opus codec")
 				break

@@ -9,41 +9,39 @@ spec:
   flowcraft:
     graph:
       edges:
-      - from: recall-memory
-        to: answer
       - from: answer
-        to: observe-turn
-      - from: observe-turn
         to: __end__
-      entry: recall-memory
+      entry: answer
       name: Configured Memory Assistant
       nodes:
-      - id: recall-memory
-        type: memory_recall
-        config:
-          query:
-            text_from: input
-          output: recalled_memory
-          top_k: 5
       - config:
-          max_tokens: 2048
-          model: llm
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          messages_channel: answer
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是一个简短、准确的中文语音助手。
             相关长期记忆如下；如果为空就忽略：
-            ${board.recalled_memory}
+            ${board:recalled_memory}
         id: answer
         publish: true
-        type: llm
-      - id: observe-turn
-        type: memory_observe
-        config:
-          observations:
-          - facts:
-            - text_from: input
-              attributes:
-                lane: owner-profile
-          wait_for_completion: true
+        type: inference
+    memory_hooks:
+      context:
+        query:
+          current_message: true
+        budget:
+          max_items: 5
+        output: recalled_memory_items
+        render:
+          output: recalled_memory
+      turn:
+        channel: answer
     max_iterations: 4
     conversation:
       starts: peer

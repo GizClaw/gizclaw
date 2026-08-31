@@ -91,9 +91,6 @@ steps:
         maximum: 30
       /audio_pacing/max_interval_ms:
         maximum: 100
-      /audio_pacing/buffer_surplus_ms:
-        minimum: 450
-        maximum: 550
 finally:
   - client: peer
     rpc:

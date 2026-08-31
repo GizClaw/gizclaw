@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
@@ -17,7 +18,9 @@ import (
 )
 
 func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
+	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
 		_, _ = fmt.Fprintln(w, `{"reqid":"req-final-only","trace_id":"trace-final-only","log_id":"log-final-only","code":20000000,"message":"ok","data":null}`)
 	}))
 	defer server.Close()
@@ -48,6 +51,40 @@ func TestSeedV2RejectsSuccessfulStreamWithoutAudio(t *testing.T) {
 	}
 	if emittedBytes != 0 {
 		t.Fatalf("synthesize() emitted %d bytes, want 0", emittedBytes)
+	}
+	if got := requests.Load(); got != seedV2MaxAttempts {
+		t.Fatalf("provider requests = %d, want %d", got, seedV2MaxAttempts)
+	}
+}
+
+func TestSeedV2RetriesEmptyAudioUntilSuccess(t *testing.T) {
+	wantAudio := []byte("pcm audio")
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempt := requests.Add(1)
+		if attempt < seedV2MaxAttempts {
+			_, _ = fmt.Fprintln(w, `{"reqid":"req-empty","code":20000000,"message":"ok","data":null}`)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `{"reqid":"req-audio","code":0,"message":"","data":"%s"}`+"\n", base64.StdEncoding.EncodeToString(wantAudio))
+		_, _ = fmt.Fprintln(w, `{"reqid":"req-audio","code":20000000,"message":"ok","data":null}`)
+	}))
+	defer server.Close()
+
+	transformer := newSeedV2ForTest(t, server.URL, "pcm")
+	var gotAudio []byte
+	err := transformer.synthesize(t.Context(), "readable text", streamkit.TTSMeta{}, transformer.mimeType(), func(audio []byte) error {
+		gotAudio = append(gotAudio, audio...)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("synthesize() error = %v", err)
+	}
+	if !bytes.Equal(gotAudio, wantAudio) {
+		t.Fatalf("synthesize() audio = %q, want %q", gotAudio, wantAudio)
+	}
+	if got := requests.Load(); got != seedV2MaxAttempts {
+		t.Fatalf("provider requests = %d, want %d", got, seedV2MaxAttempts)
 	}
 }
 
@@ -211,7 +248,9 @@ func TestSeedV2EmitsNormalizedAudio(t *testing.T) {
 }
 
 func TestSeedV2PreservesProviderError(t *testing.T) {
+	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
 		_, _ = fmt.Fprintln(w, `{"reqid":"req-provider","code":55000000,"message":"provider failed"}`)
 	}))
 	defer server.Close()
@@ -226,6 +265,9 @@ func TestSeedV2PreservesProviderError(t *testing.T) {
 	}
 	if apiErr.Code != 55000000 || apiErr.ReqID != "req-provider" {
 		t.Fatalf("provider error = %#v", apiErr)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("provider requests = %d, want 1", got)
 	}
 }
 

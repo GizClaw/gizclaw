@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	memoryhook "github.com/GizClaw/flowcraft/core/memory/hook"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -47,15 +48,15 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 		{
 			name: "empty model alias",
 			mutate: func(config *Config) {
-				config.Graph.Nodes[0].Config["model"] = " "
+				config.Graph.Nodes[0].Config = testInferenceConfig(" ")
 			},
-			wantErr: "requires model alias",
+			wantErr: "requires model.id",
 		},
 		{
 			name: "empty script",
 			mutate: func(config *Config) {
 				config.Graph.Nodes[0].Type = "script"
-				config.Graph.Nodes[0].Config = map[string]any{"source": " "}
+				config.Graph.Nodes[0].Config = testNodeConfig(map[string]any{"runtime": "js", "source": " "})
 			},
 			wantErr: "requires inline source",
 		},
@@ -63,7 +64,7 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			name: "configured passthrough",
 			mutate: func(config *Config) {
 				config.Graph.Nodes[0].Type = "passthrough"
-				config.Graph.Nodes[0].Config = map[string]any{"unexpected": true}
+				config.Graph.Nodes[0].Config = testNodeConfig(map[string]any{"unexpected": true})
 			},
 			wantErr: "does not accept config",
 		},
@@ -82,72 +83,26 @@ func TestNormalizeConfigRejectsAdversarialContracts(t *testing.T) {
 			wantErr: "MemoryScope is required",
 		},
 		{
-			name: "wait without observe",
+			name: "unsupported recent memory hook",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
 				config.MemoryScope = memory.Scope{AppID: "app"}
-				config.ObserveWaitForCompletion = true
-			},
-			wantErr: "requires ObserveEnabled",
-		},
-		{
-			name: "wait without waiter",
-			mutate: func(config *Config) {
-				config.Memory = memoryOnlyStore{Store: &waitingMemoryStore{}}
-				config.MemoryScope = memory.Scope{AppID: "app"}
-				config.ObserveEnabled = true
-				config.ObserveWaitForCompletion = true
-			},
-			wantErr: "requires memory.OperationWaiter",
-		},
-		{
-			name: "invalid recall profile",
-			mutate: func(config *Config) {
-				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = memory.Scope{AppID: "app"}
-				config.RecallProfiles = []MemoryRecallProfile{{BoardVariable: " ", Limit: 0}}
-			},
-			wantErr: "requires BoardVariable and positive Limit",
-		},
-		{
-			name: "duplicate recall board variable",
-			mutate: func(config *Config) {
-				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = memory.Scope{AppID: "app"}
-				config.RecallProfiles = []MemoryRecallProfile{
-					{BoardVariable: "facts", Limit: 1},
-					{BoardVariable: " facts ", Limit: 2},
+				config.MemoryContext = &memoryhook.ContextSettings{
+					Query: memoryhook.QuerySettings{RecentOnly: true}, Output: "memory_items",
 				}
 			},
-			wantErr: "duplicate BoardVariable",
+			wantErr: "recent_only is not supported",
 		},
 		{
-			name: "uncloneable recall filter",
+			name: "unsupported memory datasets",
 			mutate: func(config *Config) {
 				config.Memory = &waitingMemoryStore{}
 				config.MemoryScope = memory.Scope{AppID: "app"}
-				config.RecallProfiles = []MemoryRecallProfile{{
-					BoardVariable: "facts", Limit: 1,
-					Filters: []memory.Filter{{
-						Field: "kind", Operator: memory.FilterEqual, Value: make(chan int),
-					}},
-				}}
+				config.MemoryContext = &memoryhook.ContextSettings{
+					Query: memoryhook.QuerySettings{CurrentMessage: true}, DatasetIDs: []string{"docs"}, Output: "memory_items",
+				}
 			},
-			wantErr: "clone RecallProfiles",
-		},
-		{
-			name: "invalid recall filter",
-			mutate: func(config *Config) {
-				config.Memory = &waitingMemoryStore{}
-				config.MemoryScope = memory.Scope{AppID: "app"}
-				config.RecallProfiles = []MemoryRecallProfile{{
-					BoardVariable: "facts", Limit: 1,
-					Filters: []memory.Filter{{
-						Operator: memory.FilterEqual, Value: "missing field",
-					}},
-				}}
-			},
-			wantErr: "invalid RecallProfiles",
+			wantErr: "dataset_ids are not supported",
 		},
 	}
 	for _, test := range tests {

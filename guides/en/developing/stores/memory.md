@@ -78,7 +78,7 @@ Memory is no longer a `stores.kind: memory` Server Config entry. Portable policy
 
 - The Admin `MemoryLayout` declares provider policy for Flowcraft, Mem0, and `volc_mem0` together. It contains no endpoint, API key, DSN, or directory.
 - `RuntimeProfile.resources.memories.<alias>` selects the Layout, concrete driver, and a strictly typed connection. Endpoint, API key, project ID, DSN, or directory belongs directly to that RuntimeProfile connection and does not reference a Credential resource.
-- A Workflow top-level `memory` field references only a RuntimeProfile alias. Graph `memory_recall` and `memory_observe` nodes own timing, query source, output destination, and turn/state-to-fact construction; those mappings do not belong to MemoryLayout.
+- A Workflow top-level `memory` field references only a RuntimeProfile alias. Flowcraft `memory_hooks.context` and `memory_hooks.turn` build the official Core 0.2 `memory.context` prepare hook and `memory.turn` commit hook. GizClaw adapts the selected Mem0 or Flowcraft Memory store to the same `memory.Assembly`; explicit Graph memory nodes remain only for point reads or writes inside a graph.
 
 ```yaml
 apiVersion: gizclaw.admin/v1alpha1
@@ -140,30 +140,26 @@ spec:
   flowcraft:
     graph:
       name: companion
-      entry: recall-memory
+      entry: answer
       nodes:
-      - id: recall-memory
-        type: memory_recall
-        config:
-          query: {text_from: input}
-          output: memory_context
-          top_k: 5
       - id: answer
-        type: llm
+        type: inference
         publish: true
         config:
-          model: chat
-          system_prompt: "${board.memory_context}"
-      - id: observe-turn
-        type: memory_observe
-        config:
-          observations:
-          - turns_from: conversation
-          wait_for_completion: false
+          model:
+            id: {provider: gizclaw, name: chat}
+          messages_channel: inference.answer
+          stream: true
+          system_prompt: "${board:memory_context}"
       edges:
-      - {from: recall-memory, to: answer}
-      - {from: answer, to: observe-turn}
-      - {from: observe-turn, to: __end__}
+      - {from: answer, to: __end__}
+    memory_hooks:
+      context:
+        query: {current_message: true}
+        budget: {max_items: 5}
+        output: memory_items
+        render: {output: memory_context}
+      turn: {channel: inference.answer}
 ```
 
 All streams for one Workspace share one Agent generation. Stable data visibility requires the same Workspace AppID, memory driver, and physical connection selected by the same RuntimeProfile memory binding. Changing extraction, recall, write, prompt, `top_k`, or mode does not change canonical data. When Flowcraft embedding, rerank, or BBH policy changes, a staging index is rebuilt from canonical facts and published atomically; a failed rebuild never publishes a partial or mixed index. Changing driver or binding may select another physical source and does not migrate or delete data automatically. Switching back can access the original data if the original connection still retains it.

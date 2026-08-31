@@ -17,6 +17,8 @@ import (
 
 var errSeedV2EmptyAudio = errors.New("doubaotts: seed v2 completed without audio")
 
+const seedV2MaxAttempts = 4
+
 // SeedV2 is a TTS transformer using Doubao seed-tts-2.0 (大模型 TTS 2.0).
 //
 // Resource ID: seed-tts-2.0
@@ -101,6 +103,17 @@ func (t *SeedV2) Transform(ctx context.Context, input genx.Stream) (genx.Stream,
 }
 
 func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {
+	var err error
+	for attempt := 1; attempt <= seedV2MaxAttempts; attempt++ {
+		err = t.synthesizeAttempt(ctx, text, meta, mimeType, emit)
+		if !errors.Is(err, errSeedV2EmptyAudio) || attempt == seedV2MaxAttempts {
+			return err
+		}
+	}
+	return err
+}
+
+func (t *SeedV2) synthesizeAttempt(ctx context.Context, text string, meta streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {
 	format := t.format
 	if format == "ogg" {
 		format = string(doubaospeech.FormatOGG)

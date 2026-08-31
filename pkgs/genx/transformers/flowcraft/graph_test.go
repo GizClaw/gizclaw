@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GizClaw/flowcraft/sdk/engine"
-	"github.com/GizClaw/flowcraft/sdk/event"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	"github.com/GizClaw/flowcraft/core/event"
+	"github.com/GizClaw/flowcraft/core/message"
 )
 
 func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
@@ -22,40 +23,40 @@ func TestRunHostPublishesOnlyAcceptedCandidateFromAllowedNode(t *testing.T) {
 		},
 		buffers: make(map[string][]bufferedDelta), terminal: make(map[string]struct{}),
 	}
-	emit := func(nodeID string, delta engine.StreamDeltaPayload) {
+	emit := func(nodeID string, delta flowagent.StreamDeltaPayload) {
 		t.Helper()
-		if err := engine.EmitStreamDelta(context.Background(), host, "run", "agent.node."+nodeID, delta); err != nil {
+		if err := flowagent.EmitStreamDelta(context.Background(), host, "run", "agent.node."+nodeID, delta); err != nil {
 			t.Fatalf("EmitStreamDelta(%s): %v", delta.Type, err)
 		}
 	}
 
-	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaToken, Content: "accepted", Speculative: true,
+	emit("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "accepted"}, Speculative: true,
 		ForkID: "fork", BranchID: "one",
 	})
-	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaToken, Content: "cancelled", Speculative: true,
+	emit("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "cancelled"}, Speculative: true,
 		ForkID: "fork", BranchID: "two",
 	})
-	emit("hidden", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaToken, Content: "hidden", Speculative: true,
+	emit("hidden", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "hidden"}, Speculative: true,
 		ForkID: "fork", BranchID: "one",
 	})
 	if len(emitted) != 0 {
 		t.Fatalf("speculative output escaped before acceptance: %v", emitted)
 	}
-	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaParallelBranchCancel, ForkID: "fork", BranchID: "two", Speculative: true,
+	emit("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaParallelBranchCancel, ForkID: "fork", BranchID: "two", Speculative: true,
 	})
-	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaParallelBranchAccept, ForkID: "fork", BranchID: "one", Speculative: true,
+	emit("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaParallelBranchAccept, ForkID: "fork", BranchID: "one", Speculative: true,
 	})
-	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaToken, Content: "late-accepted", Speculative: true,
+	emit("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "late-accepted"}, Speculative: true,
 		ForkID: "fork", BranchID: "one",
 	})
-	emit("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaToken, Content: "late-cancelled", Speculative: true,
+	emit("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "late-cancelled"}, Speculative: true,
 		ForkID: "fork", BranchID: "two",
 	})
 
@@ -81,23 +82,23 @@ func TestRunHostRejectsMalformedDeltasAndEmitterFailures(t *testing.T) {
 		buffers: make(map[string][]bufferedDelta), terminal: make(map[string]struct{}),
 	}
 	if err := host.Publish(t.Context(), event.Envelope{
-		Subject: engine.SubjectStreamDelta("run", "agent.node.answer"),
+		Subject: flowagent.SubjectStreamDelta("run", "agent.node.answer"),
 		Payload: []byte("{"),
 	}); err == nil {
 		t.Fatal("Publish(malformed delta) succeeded")
 	}
-	if err := host.emitLocked("answer", engine.StreamDeltaPayload{
-		Type: engine.StreamDeltaToken, Content: "visible",
+	if err := host.emitLocked("answer", flowagent.StreamDeltaPayload{
+		Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "visible"},
 	}); err == nil || !strings.Contains(err.Error(), emitErr.Error()) {
 		t.Fatalf("emitLocked() error = %v", err)
 	}
-	for _, delta := range []engine.StreamDeltaPayload{
-		{Type: engine.StreamDeltaToolCall, Content: "ignored"},
-		{Type: engine.StreamDeltaToken},
-		{Type: engine.StreamDeltaToken, Content: "hidden"},
+	for index, delta := range []flowagent.StreamDeltaPayload{
+		{Type: flowagent.StreamDeltaFinish, FinishReason: "completed"},
+		{Type: flowagent.StreamDeltaPart},
+		{Type: flowagent.StreamDeltaPart, Part: message.TextPart{Text: "hidden"}},
 	} {
 		nodeID := "answer"
-		if delta.Content == "hidden" {
+		if index == 2 {
 			nodeID = "hidden"
 		}
 		if err := host.emitLocked(nodeID, delta); err != nil {

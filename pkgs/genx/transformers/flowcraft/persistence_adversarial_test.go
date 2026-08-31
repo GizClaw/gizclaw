@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/flowcraft/sdk/engine"
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowmodel "github.com/GizClaw/flowcraft/core/message"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
@@ -28,7 +28,7 @@ func TestBoardStateAdversarialLoadSaveAndCopy(t *testing.T) {
 		t.Fatalf("loadBoardState(broken) error = %v", err)
 	}
 
-	board := engine.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("durable", map[string]any{"nested": []any{"value"}})
 	board.SetVar("tmp_transient", "discard")
 	board.SetVar("response.tokens", 10)
@@ -66,7 +66,7 @@ func TestBoardStateAdversarialLoadSaveAndCopy(t *testing.T) {
 		!strings.Contains(err.Error(), "load State") {
 		t.Fatalf("loadBoardState(cancelled) error = %v", err)
 	}
-	if err := saveBoardState(cancelled, store, "context", engine.NewBoard()); err == nil ||
+	if err := saveBoardState(cancelled, store, "context", flowagent.NewBoard()); err == nil ||
 		!strings.Contains(err.Error(), "save State") {
 		t.Fatalf("saveBoardState(cancelled) error = %v", err)
 	}
@@ -96,9 +96,9 @@ func TestPersistentHistoryAdversarialOrderingDecodeAndStoreFailures(t *testing.T
 		t.Fatalf("load() error = %v", err)
 	}
 	if len(messages) != 3 ||
-		messages[0].Content() != "first-a" ||
-		messages[1].Content() != "first-b" ||
-		messages[2].Content() != "second" {
+		messages[0].Content.Text() != "first-a" ||
+		messages[1].Content.Text() != "first-b" ||
+		messages[2].Content.Text() != "second" {
 		t.Fatalf("ordered History = %#v", messages)
 	}
 

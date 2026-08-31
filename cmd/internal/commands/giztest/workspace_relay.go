@@ -337,6 +337,9 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 				// turn — and is benign, matching peer_stream semantics. Any
 				// other stream error is terminal.
 				if !strings.EqualFold(ctrlErr, "interrupted") {
+					if fullEvidence {
+						return fail(side, "", "terminal stream error: %s", ctrlErr)
+					}
 					return fail(side, "", "terminal stream error")
 				}
 				interrupted = true
@@ -536,13 +539,20 @@ func relayTerminalMediaName(op *WorkspaceRelayOperation) string {
 	return op.Media
 }
 
+func relayInputMediaName(op *WorkspaceRelayOperation) string {
+	if op.InputMedia != "" {
+		return op.InputMedia
+	}
+	return op.Media
+}
+
 func pushRelayInput(ctx context.Context, op *WorkspaceRelayOperation, stream relayStream, input any) error {
 	streamID, err := generateValue("string")
 	if err != nil {
 		return err
 	}
 	id := streamID
-	if op.Media == "text" {
+	if relayInputMediaName(op) == "text" {
 		text, ok := input.(string)
 		if !ok {
 			return fmt.Errorf("text workspace_relay input must be string")
@@ -569,6 +579,17 @@ func pushRelayInput(ctx context.Context, op *WorkspaceRelayOperation, stream rel
 	for _, chunk := range audioInputChunks("push-to-talk", id, "audio/opus", packets) {
 		if err := stream.Push(ctx, chunk); err != nil {
 			return err
+		}
+		blob, ok := chunk.Part.(*genx.Blob)
+		if !ok || len(blob.Data) == 0 {
+			continue
+		}
+		timer := time.NewTimer(20 * time.Millisecond)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return context.Cause(ctx)
 		}
 	}
 	return nil

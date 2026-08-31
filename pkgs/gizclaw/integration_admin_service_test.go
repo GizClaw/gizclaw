@@ -23,7 +23,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
+				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"updated"}},"messages_channel":"answer","stream":true}}]}
 			}
 		}
 	}`)
@@ -56,7 +56,7 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"graph": {"name":"Updated Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
+				"graph": {"name":"Updated Assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"updated"}},"messages_channel":"answer","stream":true}}]}
 			}
 		}
 	}`)
@@ -112,7 +112,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		"spec": {
 			"driver": "flowcraft",
 			"flowcraft": {
-				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
+				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"updated"}},"messages_channel":"answer","stream":true}}]}
 			}
 		}
 	}`)

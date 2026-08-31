@@ -3,6 +3,7 @@ package flowcraft
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,8 +12,10 @@ import (
 	"strings"
 	"sync"
 
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
+	memoryhook "github.com/GizClaw/flowcraft/core/memory/hook"
+	memoryrender "github.com/GizClaw/flowcraft/core/memory/render"
 	flowembedding "github.com/GizClaw/flowcraft/sdk/embedding"
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	flowllm "github.com/GizClaw/flowcraft/sdk/llm"
 	embeddingbytedance "github.com/GizClaw/flowcraft/sdkx/embedding/bytedance"
 	embeddingopenai "github.com/GizClaw/flowcraft/sdkx/embedding/openai"
@@ -147,10 +150,20 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 		return nil, err
 	}
 	for _, node := range graph.Nodes {
-		if node.Type != "llm" {
+		if node.Type != "inference" {
 			continue
 		}
-		alias, _ := node.Config["model"].(string)
+		var inferenceConfig struct {
+			Model struct {
+				ID struct {
+					Name string `json:"name"`
+				} `json:"id"`
+			} `json:"model"`
+		}
+		if err := json.Unmarshal(node.Config, &inferenceConfig); err != nil {
+			return nil, fmt.Errorf("flowcraft: decode inference node %q: %w", node.ID, err)
+		}
+		alias := inferenceConfig.Model.ID.Name
 		if _, err := f.GenX.ResolveGenerator(ctx, modelPattern(alias)); err != nil {
 			return nil, fmt.Errorf("flowcraft: resolve model alias %q for node %q: %w", alias, node.ID, err)
 		}
@@ -180,6 +193,12 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 		config.MemoryScope = memoryScope
 		config.MemoryLaneRecall = maps.Clone(f.MemoryLaneRecall)
 	}
+	if public.MemoryHooks != nil {
+		if f.Memory == nil {
+			return nil, errors.Join(errors.New("flowcraft: memory_hooks requires workflow memory"), closeAll(owned))
+		}
+		config.MemoryContext, config.MemoryTurn = mapMemoryHooks(*public.MemoryHooks)
+	}
 
 	core, err := genxflowcraft.New(config)
 	if err != nil {
@@ -198,6 +217,41 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 		backend = strings.TrimSpace(f.MemoryKind)
 	}
 	return NewManagedAgentWithBackend(transformer, owned, agentMemory, memoryScope, backend), nil
+}
+
+func mapMemoryHooks(source apitypes.FlowcraftMemoryHooks) (*memoryhook.ContextSettings, *memoryhook.TurnSettings) {
+	var contextSettings *memoryhook.ContextSettings
+	if source.Context != nil {
+		contextSettings = &memoryhook.ContextSettings{
+			Query: memoryhook.QuerySettings{
+				Literal:        stringValue(source.Context.Query.Literal),
+				Board:          stringValue(source.Context.Query.Board),
+				CurrentMessage: boolValue(source.Context.Query.CurrentMessage),
+			},
+			MinScore: float64Value(source.Context.MinScore),
+			Output:   source.Context.Output,
+		}
+		if source.Context.Budget != nil {
+			contextSettings.Budget = memoryhook.BudgetSettings{
+				MaxTokens: intValue(source.Context.Budget.MaxTokens),
+				MaxItems:  intValue(source.Context.Budget.MaxItems),
+				MaxChars:  intValue(source.Context.Budget.MaxChars),
+			}
+		}
+		if source.Context.Render != nil {
+			contextSettings.Render = &memoryhook.RenderSettings{
+				Output: source.Context.Render.Output,
+				GoTemplate: &memoryrender.GoTemplateSettings{
+					Template: stringValue(source.Context.Render.Template), MaxChars: intValue(source.Context.Render.MaxChars),
+				},
+			}
+		}
+	}
+	var turnSettings *memoryhook.TurnSettings
+	if source.Turn != nil {
+		turnSettings = &memoryhook.TurnSettings{Channel: stringValue(source.Turn.Channel)}
+	}
+	return contextSettings, turnSettings
 }
 
 func flowcraftLaneRecall(lanes []apitypes.FlowcraftMemoryLanePolicy) map[string]string {
@@ -236,12 +290,16 @@ func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []stri
 		}
 		var node flowgraph.NodeDefinition
 		switch discriminator {
-		case "llm":
-			typed, err := raw.AsFlowcraftLLMNode()
+		case "inference":
+			typed, err := raw.AsFlowcraftInferenceNode()
 			if err != nil {
-				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode LLM node %d: %w", index, err)
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode inference node %d: %w", index, err)
 			}
-			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "llm", SkipCondition: stringValue(typed.SkipCondition), Config: llmNodeConfig(typed.Config)}
+			config, err := rawNodeConfig(typed.Config)
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: encode inference node %d config: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "inference", SkipCondition: stringValue(typed.SkipCondition), Config: config}
 			if boolValue(typed.Publish) {
 				publish = append(publish, typed.Id)
 			}
@@ -250,7 +308,11 @@ func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []stri
 			if err != nil {
 				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode script node %d: %w", index, err)
 			}
-			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "script", SkipCondition: stringValue(typed.SkipCondition), Config: map[string]any{"source": typed.Config.Source}}
+			config, err := rawNodeConfig(typed.Config)
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: encode script node %d config: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "script", SkipCondition: stringValue(typed.SkipCondition), Config: config}
 			if boolValue(typed.Publish) {
 				publish = append(publish, typed.Id)
 			}
@@ -268,7 +330,11 @@ func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []stri
 			if err != nil {
 				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode memory recall node %d: %w", index, err)
 			}
-			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "memory_recall", SkipCondition: stringValue(typed.SkipCondition), Config: memoryRecallNodeConfig(typed.Config)}
+			config, err := rawNodeConfig(memoryRecallNodeConfig(typed.Config))
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: encode memory recall node %d config: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "memory_recall", SkipCondition: stringValue(typed.SkipCondition), Config: config}
 			if boolValue(typed.Publish) {
 				publish = append(publish, typed.Id)
 			}
@@ -277,7 +343,11 @@ func mapGraph(source apitypes.FlowcraftGraph) (flowgraph.GraphDefinition, []stri
 			if err != nil {
 				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: decode memory observe node %d: %w", index, err)
 			}
-			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "memory_observe", SkipCondition: stringValue(typed.SkipCondition), Config: memoryObserveNodeConfig(typed.Config)}
+			config, err := rawNodeConfig(memoryObserveNodeConfig(typed.Config))
+			if err != nil {
+				return flowgraph.GraphDefinition{}, nil, fmt.Errorf("flowcraft: encode memory observe node %d config: %w", index, err)
+			}
+			node = flowgraph.NodeDefinition{ID: typed.Id, Type: "memory_observe", SkipCondition: stringValue(typed.SkipCondition), Config: config}
 			if boolValue(typed.Publish) {
 				publish = append(publish, typed.Id)
 			}
@@ -338,17 +408,12 @@ func memoryObserveNodeConfig(source apitypes.FlowcraftMemoryObserveNodeConfig) m
 	return result
 }
 
-func llmNodeConfig(source apitypes.FlowcraftLLMNodeConfig) map[string]any {
-	result := map[string]any{"model": strings.TrimSpace(source.Model)}
-	setString(result, "system_prompt", source.SystemPrompt)
-	setString(result, "output_key", source.OutputKey)
-	setString(result, "messages_channel", source.MessagesChannel)
-	setValue(result, "temperature", source.Temperature)
-	setValue(result, "max_tokens", source.MaxTokens)
-	setValue(result, "json_mode", source.JsonMode)
-	setValue(result, "thinking", source.Thinking)
-	setValue(result, "track_steps", source.TrackSteps)
-	return result
+func rawNodeConfig(source any) (json.RawMessage, error) {
+	data, err := json.Marshal(source)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func (f Factory) wrapAudio(core genx.Transformer, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
@@ -619,6 +684,13 @@ func intValue(value *int) int {
 }
 
 func boolValue(value *bool) bool { return value != nil && *value }
+
+func float64Value(value *float32) float64 {
+	if value == nil {
+		return 0
+	}
+	return float64(*value)
+}
 
 func boolDefault(value *bool, fallback bool) bool {
 	if value == nil {

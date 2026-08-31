@@ -110,10 +110,43 @@ async function main(): Promise<void> {
           );
           await runTwoTextTurns("edge", probe, eventChannel);
         }
+        probe.timeline.push(`${Date.now()}:edge:cleanup:run-stop:start`);
         await rpc.call("server.run.stop", {});
-        await rpc.call("server.workspace.delete", { name: workspaceName });
+        probe.timeline.push(`${Date.now()}:edge:cleanup:run-stop:done`);
       },
-      async (rpc) => rpc.call("server.peer.delete", {}),
+      async (rpc, probe, pc) => {
+        probe.timeline.push(
+          `${Date.now()}:edge:cleanup:workspace-delete:start`,
+        );
+        await tolerateDestructiveCleanupDisconnect(
+          rpc.call("server.workspace.delete", { name: workspaceName }),
+          "workspace-delete",
+          probe,
+        );
+        probe.timeline.push(`${Date.now()}:edge:cleanup:workspace-delete:done`);
+
+        closePeerConnection(pc);
+        probe.timeline.push(`${Date.now()}:edge:cleanup:reconnect:start`);
+        const cleanupPC = (
+          await connectPeerWithTransports(clientPrivateKey, edgeEndpoint)
+        ).pc;
+        probe.timeline.push(`${Date.now()}:edge:cleanup:reconnect:done`);
+        probe.timeline.push(`${Date.now()}:edge:cleanup:peer-delete:start`);
+        try {
+          const cleanupRPC = createPeerRPCClient(
+            cleanupPC as unknown as RTCPeerConnection,
+            { requestTimeoutMs: 10_000 },
+          );
+          await tolerateDestructiveCleanupDisconnect(
+            cleanupRPC.call("server.peer.delete", {}),
+            "peer-delete",
+            probe,
+          );
+          probe.timeline.push(`${Date.now()}:edge:cleanup:peer-delete:done`);
+        } finally {
+          closePeerConnection(cleanupPC);
+        }
+      },
     );
   } catch (error) {
     testError = error;
@@ -145,6 +178,8 @@ async function withConnection(
   ) => Promise<void>,
   afterAssertions?: (
     rpc: ReturnType<typeof createPeerRPCClient>,
+    probe: ConnectionProbe,
+    pc: wrtc.RTCPeerConnection,
   ) => Promise<unknown>,
 ): Promise<void> {
   const { eventChannel, packetChannel, pc } = await connectPeerWithTransports(
@@ -203,7 +238,7 @@ async function withConnection(
     runError = error;
   }
   try {
-    await afterAssertions?.(rpc);
+    await afterAssertions?.(rpc, probe, pc);
   } catch (cleanupError) {
     if (runError != null) {
       runError = new AggregateError(
@@ -224,6 +259,27 @@ async function withConnection(
   } finally {
     unsubscribe();
     closePeerConnection(pc);
+  }
+}
+
+async function tolerateDestructiveCleanupDisconnect(
+  operation: Promise<unknown>,
+  label: string,
+  probe: ConnectionProbe,
+): Promise<void> {
+  try {
+    await operation;
+  } catch (error) {
+    const message = describeError(error);
+    if (
+      !message.includes("data channel closed before response") &&
+      !message.includes("RTCPeerConnection is closed")
+    ) {
+      throw error;
+    }
+    probe.timeline.push(
+      `${Date.now()}:edge:cleanup:${label}:disconnect-accepted`,
+    );
   }
 }
 

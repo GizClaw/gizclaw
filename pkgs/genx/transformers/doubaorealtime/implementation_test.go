@@ -1710,6 +1710,61 @@ func TestTransformerTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 }
 
+func TestTransformerRealtimeAcceptsTextTurn(t *testing.T) {
+	textSent := make(chan struct{})
+	eventsDrained := make(chan struct{})
+	allowEOF := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv:       textSent,
+		firstTextSent:    textSent,
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withMode(ModeRealtime),
+		withFormat("pcm"),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	output, err := tfr.transform(ctx, &gatedRealtimeStream{
+		first: []*genx.MessageChunk{
+			{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}},
+			{Part: genx.Text("question"), Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}},
+			{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", EndOfStream: true}},
+		},
+		gate: allowEOF,
+	})
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	go func() {
+		select {
+		case <-eventsDrained:
+		case <-ctx.Done():
+		}
+		close(allowEOF)
+	}()
+	chunks := drainRealtimeTestOutput(t, output)
+	if ctx.Err() != nil {
+		t.Fatalf("provider response did not complete: %v", ctx.Err())
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
+		t.Fatalf("output missing assistant text: %#v", chunks)
+	}
+	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
+		t.Fatalf("output missing assistant audio: %#v", chunks)
+	}
+}
+
 func TestTransformerTextPublishesTTSCanonicalTextWithSingleAudioRoute(t *testing.T) {
 	textSent := make(chan struct{})
 	session := &fakeTransformerSession{

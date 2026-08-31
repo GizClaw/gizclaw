@@ -16,11 +16,12 @@ type clientSet struct {
 	mu      sync.Mutex
 	clients map[string]*gizcli.Client
 	serve   map[string]<-chan error
+	redial  map[string]func() error
 	inbound map[string]*inboundCounter
 }
 
 func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []Step, vars *variables) (*clientSet, error) {
-	set := &clientSet{clients: map[string]*gizcli.Client{}, serve: map[string]<-chan error{}, inbound: map[string]*inboundCounter{}}
+	set := &clientSet{clients: map[string]*gizcli.Client{}, serve: map[string]<-chan error{}, redial: map[string]func() error{}, inbound: map[string]*inboundCounter{}}
 	names := make([]string, 0, len(specs))
 	for name := range specs {
 		names = append(names, name)
@@ -57,6 +58,7 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 		errCh := make(chan error, 1)
 		go func() { errCh <- client.Serve() }()
 		set.clients[name], set.serve[name] = client, errCh
+		set.redial[name] = func() error { return client.Dial(info.PublicKey, endpoint) }
 		if spec.RegistrationToken != "" {
 			tokenValue, err := vars.resolve(spec.RegistrationToken)
 			if err != nil {
@@ -72,6 +74,42 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 		}
 	}
 	return set, nil
+}
+
+func (s *clientSet) reconnect(ctx context.Context, name string) error {
+	if s == nil {
+		return fmt.Errorf("client set is not initialized")
+	}
+	s.mu.Lock()
+	client := s.clients[name]
+	serve := s.serve[name]
+	redial := s.redial[name]
+	s.mu.Unlock()
+	if client == nil {
+		return fmt.Errorf("unknown client %q", name)
+	}
+	if redial == nil {
+		return fmt.Errorf("client %q cannot reconnect", name)
+	}
+	_ = client.Close()
+	if serve != nil {
+		select {
+		case <-serve:
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		case <-time.After(2 * time.Second):
+			return fmt.Errorf("client %q serve loop did not stop", name)
+		}
+	}
+	if err := redial(); err != nil {
+		return fmt.Errorf("client %q redial: %w", name, err)
+	}
+	errCh := make(chan error, 1)
+	go func() { errCh <- client.Serve() }()
+	s.mu.Lock()
+	s.serve[name] = errCh
+	s.mu.Unlock()
+	return nil
 }
 
 func (s *clientSet) fingerprints() map[string]string {

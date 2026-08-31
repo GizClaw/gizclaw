@@ -78,7 +78,7 @@ Memory 不再是 Server Config 中的 `stores.kind: memory`。Portable policy、
 
 - Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。
 - RuntimeProfile 的 `resources.memories.<alias>` 选择 Layout、实际 driver 和严格类型化 connection。Connection 中的 endpoint、API key、project ID、DSN 或目录直接属于该 RuntimeProfile，不引用 Credential 资源。
-- Workflow 顶层 `memory` 只引用 RuntimeProfile alias。Graph 的 `memory_recall` / `memory_observe` node 决定何时读写、query 从哪里来、结果写到哪里，以及如何从 turn 或 state 构造 fact；这些映射不属于 MemoryLayout。
+- Workflow 顶层 `memory` 只引用 RuntimeProfile alias。Flowcraft `memory_hooks.context` 和 `memory_hooks.turn` 分别构造 Core 0.2 的官方 `memory.context` prepare hook 与 `memory.turn` commit hook；GizClaw 把所选 Mem0 或 Flowcraft Memory store 适配为同一个 `memory.Assembly`。显式 Graph memory node 仍只用于图中间的定点读写。
 
 ```yaml
 apiVersion: gizclaw.admin/v1alpha1
@@ -140,30 +140,26 @@ spec:
   flowcraft:
     graph:
       name: companion
-      entry: recall-memory
+      entry: answer
       nodes:
-      - id: recall-memory
-        type: memory_recall
-        config:
-          query: {text_from: input}
-          output: memory_context
-          top_k: 5
       - id: answer
-        type: llm
+        type: inference
         publish: true
         config:
-          model: chat
-          system_prompt: "${board.memory_context}"
-      - id: observe-turn
-        type: memory_observe
-        config:
-          observations:
-          - turns_from: conversation
-          wait_for_completion: false
+          model:
+            id: {provider: gizclaw, name: chat}
+          messages_channel: inference.answer
+          stream: true
+          system_prompt: "${board:memory_context}"
       edges:
-      - {from: recall-memory, to: answer}
-      - {from: answer, to: observe-turn}
-      - {from: observe-turn, to: __end__}
+      - {from: answer, to: __end__}
+    memory_hooks:
+      context:
+        query: {current_message: true}
+        budget: {max_items: 5}
+        output: memory_items
+        render: {output: memory_context}
+      turn: {channel: inference.answer}
 ```
 
 同一 Workspace 的所有 stream 共用一个 Agent generation。数据可见性的稳定边界是同一 Workspace AppID、同一 memory driver 和同一 RuntimeProfile memory binding 指向的物理 connection。修改 extraction、recall、write、prompt、`top_k` 或 mode 不改变 canonical data；Flowcraft embedding、rerank 或 BBH policy 改变时，从 canonical facts 在 staging index 中重建，成功后原子发布，失败不会发布部分或混合索引。切换 driver 或 binding 可以切换物理数据源，不自动迁移或删除；切回仍存在的原 connection 后可以重新访问原数据。

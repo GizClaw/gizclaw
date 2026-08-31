@@ -21,19 +21,21 @@ transformer, err := flowcraft.New(flowcraft.Config{
     Memory:  longTermMemoryStore,
     State:   boardStateStore,
 
-    MemoryScope: "runtime/user/assistant",
-    RecallProfiles: []flowcraft.MemoryRecallProfile{{
-        BoardVariable: "relevant_memory",
-        Limit:         8,
-    }},
-    ObserveEnabled:           true,
-    ObserveWaitForCompletion: false,
+    MemoryScope: memory.Scope{
+        AppID: "runtime", UserID: "user", AgentID: "assistant",
+    },
+    MemoryContext: &memoryhook.ContextSettings{
+        Query:  memoryhook.QuerySettings{CurrentMessage: true},
+        Budget: memoryhook.BudgetSettings{MaxItems: 8},
+        Output: "memory_items",
+    },
+    MemoryTurn: &memoryhook.TurnSettings{Channel: "answer"},
 })
 ```
 
-`Graph` 必须非空，并且接受 LLM、Match、Memory、使用内联 `source` 的 script 和 passthrough node。Script 可以操作 Board，但没有 Workspace，因此文件读写 API 不可用。`PublishNodes` 明确指定哪些 node 的 assistant token 可以进入输出 Stream。
+`Graph` 必须非空，并且接受 Flowcraft Core 0.2 的 `inference`、GizClaw 注册的 Match/Memory、使用内联 `source` 的 script 和 passthrough node。旧 `llm` discriminator 不再接受。Script 可以操作 Board，但没有 Workspace，因此文件读写 API 不可用。`PublishNodes` 明确指定哪些 node 的 assistant message channel 可以进入输出 Stream。
 
-LLM node 的 `model` 字段填写 alias，例如 `chat`。Transformer 在内部把它解析为 `Models.GenerateStream(ctx, "model/chat", modelContext)`；Graph 不能直接填写 provider model ID 或绕过 Runtime 提供的 alias。
+`inference` node 使用 Core 0.2 model identity，例如 `{"id":{"provider":"gizclaw","name":"chat"}}`；`name` 是 RuntimeProfile alias。Transformer 在内部把它解析为 `Models.GenerateStream(ctx, "model/chat", modelContext)`；Graph 不能直接填写 provider model ID 或绕过 Runtime 提供的 alias。`messages_channel` 选择该 node 写入的消息 channel，公开输出和 `memory.turn` 可以分别引用这个稳定名称。
 
 模型适配传递 GenX 已定义的 max tokens、temperature、top-p、top-k、penalty、thinking 和 extra fields。Flowcraft 的 stop words，以及没有现有 typed path 的 structured/image output，会返回明确错误，不做 provider-specific 猜测。
 
@@ -74,17 +76,19 @@ Config 只接受 `model`、`input`、`output` 和 `rules`。Alias 不能包含 `
 
 新的文本 BOS（无论是纯控制还是携带文本 Part）会取消尚未完成的上一轮，丢弃该轮尚未完成的输入和未 pull 的输出，并在该轮完成持久化边界后发送带 `interrupted` error 的 EOS。由于纯控制 BOS 不声明 MIME，Flowcraft 会立即把它视为下一轮文本输入；不应打断文本回复的非文本 route 必须使用携带 MIME Part 的 BOS。输入结束时仍没有文本的纯控制 BOS 会被丢弃，不会形成悬空输出 route。History 和 Memory 只记录已经跨过最终 delivery observation 边界的 assistant 文本；被删除或尚未真正交付的后缀不会被记录。没有交付 assistant 文本的中断不会提交到 History 或 Memory；否则保存被打断的 user/assistant History 对，并给 assistant message 添加 interruption data marker。
 
-## Store 边界
+## Store 与 Memory hook 边界
 
 - `History` 使用调用方提供的 `logstore.MutableStore`，按 `HistoryScope` 保存同一 Agent lifetime 内的有序对话。为空时使用 Agent-local memory。
 - `State` 使用调用方已做好 prefix 的 `kv.Store`，保存可 JSON 序列化的 Board variables。`response`、`usage`、`tool`、`tmp_*` 和 `__*` 不持久化。
-- `Memory` 使用 provider-neutral `memory.Store`。`MemoryScope` 由调用方固定配置，所有 recall 与 observe 都使用同一 scope。
+- `Memory` 使用 provider-neutral `memory.Store`。在 GizClaw Workflow 中，`MemoryScope` 由当前 Workspace runtime 的 App、User 与 Agent scope 派生，不能通过 Workflow JSON 或 YAML 覆盖；所有 recall 与 observe 都使用该固定 scope。上面的字面量仅演示 standalone 调用方如何显式提供 scope。Mem0 和 Flowcraft Memory 0.1.7 仍通过同一个 Store interface 接入。
 
-`RecallRenderer` 和 `ObservationBuilder` 都有 package 默认实现，也可以替换。默认 recall 文本写成 `Relevant memory:` 列表；默认 observation 只包含 user turn 和实际 pull 的 assistant turn，不把 Board variables 当作 fact。
+`MemoryContext` 注册官方 `memory.context` prepare hook。其 query 必须选择 literal、Board variable 或当前输入消息之一，budget 和 min score 在调用 `memory.Store.Recall` 前生效；结果先写入配置的 item Board variable，可选 renderer 再写入单独的文本 Board variable。未配置时不注册 context hook。
+
+`MemoryTurn` 注册官方 `memory.turn` commit hook。它从配置的 Core 0.2 message channel 读取已经交付的消息，并通过 `memory.Store.Observe` 提交；未指定 channel 时使用 Core 默认 conversation channel，未配置时不注册 turn hook。Provider operation 的原始错误不会进入公开 Flowcraft 错误文本。
 
 GizClaw workflow Factory 会在这个 reusable 默认值之外处理公开配置中的 `memory.write.board_facts`：只有显式列出的 Board variables 会转换为 `memory.FactCandidate`，并由 Flowcraft Memory Store 直接写入结构化 fact；`save_conversation: false` 时不会顺带保存 user/assistant turns。
 
-`ObserveWaitForCompletion=false` 时，EOS 和下一轮只等待 `Observe` 接受数据，不等待异步 operation materialize；实现 `memory.AsyncOperationProcessor` 的 Store 会在后台完成该 operation。设为 `true` 时，Memory 必须实现 `memory.OperationWaiter`，当前 EOS 和下一轮 Graph 都等待 operation 完成。输入 pump 在两种模式下都继续读取，不依赖输出消费者提供背压。
+显式 `memory_observe` node 的 `wait_for_completion: false` 时，EOS 和下一轮只等待 `Observe` 接受数据，不等待异步 operation materialize；实现 `memory.AsyncOperationProcessor` 的 Store 会在后台完成该 operation。设为 `true` 时，Memory 必须实现 `memory.OperationWaiter`，当前 EOS 和下一轮 Graph 都等待 operation 完成。输入 pump 在两种模式下都继续读取，不依赖输出消费者提供背压。
 
 `ToolInvoker` 非空时，每次 LLM model 调用都会通过 `ResolveTools` 取得可用函数的名称、说明和 schema。ToolCall 按模型给出的顺序通过 `InvokeTool(name, arguments)` 执行，JSON result 被追加到同一 model turn，再继续生成，直到模型不再返回调用。工具轮次前后的文本继续流式输出；ToolCall 与 ToolResult control data 不会进入公开 GenX output。
 

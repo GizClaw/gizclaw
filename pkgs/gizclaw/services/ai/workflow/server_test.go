@@ -28,7 +28,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 				"graph": {
 					"name": "assistant",
 					"entry": "answer",
-					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}],
+					"nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"pet-care.model"}},"messages_channel":"answer","stream":true}}],
 					"edges": [{"from": "answer", "to": "__end__"}]
 				},
 				"voice_adapter": {"asr_model": "pet-care.asr", "default_voice": "pet-care.pet", "node_voices": {"answer": "pet-care.answer"}}
@@ -82,7 +82,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 				"graph": {
 					"name": "assistant",
 					"entry": "answer",
-					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "story-teller.model"}}],
+					"nodes": [{"id": "answer", "type":"inference", "publish": true, "config":{"model":{"id":{"provider":"gizclaw","name":"story-teller.model"}},"messages_channel":"answer","stream":true}}],
 					"edges": [{"from": "answer", "to": "__end__"}]
 				},
 				"voice_adapter": {"asr_model": "story-teller.asr", "default_voice": "story-teller.narrator", "node_voices": {"answer": "story-teller.answer"}}
@@ -135,7 +135,7 @@ func assertWorkflowDottedAliases(t *testing.T, workflow adminhttp.WorkflowUpsert
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"model":"`+model+`"`) {
+	if !strings.Contains(string(raw), `"name":"`+model+`"`) {
 		t.Fatalf("Flowcraft model alias was not preserved: %s", raw)
 	}
 }
@@ -423,7 +423,7 @@ func TestServerCreateWorkflowRequiresName(t *testing.T) {
 		"metadata": {},
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -444,7 +444,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		"id": "expected-name",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 	createdResponse, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &seed})
 	if err != nil {
@@ -455,7 +455,7 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 		"id": "other-name",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	resp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
@@ -495,7 +495,7 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 		"id": " padded-workflow ",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -518,7 +518,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 			"id": %q,
 			"spec": {
 				"driver": "flowcraft",
-				"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}			}
+				"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}			}
 		}`, name))
 		if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 			t.Fatalf("CreateWorkflow(%q) error = %v", name, err)
@@ -568,7 +568,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 		"id": "duplicate",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 	if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 		t.Fatalf("CreateWorkflow(seed) error = %v", err)
@@ -599,7 +599,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 		"id": "missing-store",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 
 	listResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{})
@@ -675,7 +675,7 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 		"id": "visitor",
 		"spec": {
 			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
+			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
 	}`)
 	responseDoc := apitypes.Workflow{Id: doc.Id, Spec: doc.Spec}
 	cases := map[string]func(*fiber.Ctx) error{

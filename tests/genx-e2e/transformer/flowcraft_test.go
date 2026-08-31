@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	flowcrafttransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/openai/openai-go"
@@ -46,10 +46,12 @@ func TestFlowcraftTransformerOpenAICompatibleModel(t *testing.T) {
 	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
 		ID: "flowcraft-e2e", Name: "Flowcraft E2E", Models: generator, ToolInvoker: toolkit,
 		Graph: flowgraph.GraphDefinition{Name: "chat", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{
-			ID: "chat", Type: "llm", Config: map[string]any{
-				"model":         "chat",
-				"system_prompt": "You must call flowcraft_token exactly once. Then reply with one short sentence containing the exact token returned by the tool.",
-			},
+			ID: "chat", Type: "inference", Config: flowcraftNodeConfig(t, map[string]any{
+				"model":            map[string]any{"id": map[string]any{"provider": "gizclaw", "name": "chat"}},
+				"messages_channel": "chat",
+				"stream":           true,
+				"system_prompt":    "You must call flowcraft_token exactly once. Then reply with one short sentence containing the exact token returned by the tool.",
+			}),
 		}}},
 		PublishNodes: []string{"chat"},
 	})

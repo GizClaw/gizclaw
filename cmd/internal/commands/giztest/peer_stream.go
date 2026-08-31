@@ -35,6 +35,21 @@ type peerStream interface {
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
 
+// peerStreamTransportError marks failures produced by the client transport.
+// Provider terminal errors arrive as stream control events and deliberately do
+// not use this type, even when their text contains transport-like words.
+type peerStreamTransportError struct{ err error }
+
+func (e *peerStreamTransportError) Error() string { return e.err.Error() }
+func (e *peerStreamTransportError) Unwrap() error { return e.err }
+
+func peerStreamTransportFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &peerStreamTransportError{err: err}
+}
+
 type peerStreamSession struct {
 	client   string
 	stream   peerStream
@@ -202,7 +217,7 @@ func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	stream, err := open()
 	if err != nil {
-		return operationResult{}, err
+		return operationResult{}, peerStreamTransportFailure(err)
 	}
 	defer func() { _ = stream.Close() }()
 	return invokePeerStreamOnStream(ctx, client, open, stream, nil, "", step, input, audioCaptureMaxBytes, nil, observers...)
@@ -219,7 +234,7 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 		}
 		stream, err := open()
 		if err != nil {
-			return operationResult{}, err
+			return operationResult{}, peerStreamTransportFailure(err)
 		}
 		session := newPeerStreamSession(step.Client, stream)
 		result, invokeErr := invokePeerStreamOnStream(ctx, client, open, stream, session, "", step, input, audioCaptureMaxBytes, nil, observers...)
@@ -405,7 +420,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return nil
 		}
 		if err := pushTurn(ctx, streamID); err != nil {
-			return operationResult{}, err
+			return operationResult{}, peerStreamTransportFailure(err)
 		}
 		sendInterrupt = func() error {
 			replacementID, err := generateValue("string")
@@ -576,11 +591,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			// replacement push; it restarts once the interrupting turn is sent.
 			stopIdle()
 			if err := stream.Close(); err != nil {
-				return operationResult{}, fmt.Errorf("close interrupted PeerStream: %w", err)
+				return operationResult{}, peerStreamTransportFailure(fmt.Errorf("close interrupted PeerStream: %w", err))
 			}
 			replacement, openErr := open()
 			if openErr != nil {
-				return operationResult{}, fmt.Errorf("reopen PeerStream after interrupt: %w", openErr)
+				return operationResult{}, peerStreamTransportFailure(fmt.Errorf("reopen PeerStream after interrupt: %w", openErr))
 			}
 			stream = replacement
 			next = readPeerStream(ctx, stream, arrivals)
@@ -611,9 +626,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			if result.err != nil {
 				if result.err == io.EOF {
-					return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream closed before terminal output")
+					return operationResult{evidence: baseEvidence()}, peerStreamTransportFailure(fmt.Errorf("peer_stream closed before terminal output: %w", result.err))
 				}
-				return operationResult{evidence: baseEvidence()}, result.err
+				return operationResult{evidence: baseEvidence()}, peerStreamTransportFailure(result.err)
 			}
 			if result.chunk == nil {
 				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream returned an empty chunk")

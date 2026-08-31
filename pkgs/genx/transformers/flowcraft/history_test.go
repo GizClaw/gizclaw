@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowmodel "github.com/GizClaw/flowcraft/core/message"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
@@ -51,8 +51,8 @@ func TestInvocationLocalHistoryUsesWindow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load() error = %v", err)
 	}
-	if len(messages) != historyWindow || messages[0].Content() != "message-10" {
-		t.Fatalf("window = %d messages starting at %q", len(messages), messages[0].Content())
+	if len(messages) != historyWindow || messages[0].Content.Text() != "message-10" {
+		t.Fatalf("window = %d messages starting at %q", len(messages), messages[0].Content.Text())
 	}
 }
 

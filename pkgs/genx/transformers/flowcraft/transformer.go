@@ -2,20 +2,19 @@ package flowcraft
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 
-	flowagent "github.com/GizClaw/flowcraft/sdk/agent"
-	"github.com/GizClaw/flowcraft/sdk/engine"
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowmodel "github.com/GizClaw/flowcraft/core/message"
 	"github.com/GizClaw/gizclaw-go/pkgs/buffer"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/toolrun"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 const assistantLabel = "assistant"
@@ -25,7 +24,7 @@ const assistantLabel = "assistant"
 type Agent struct {
 	config Config
 	agent  flowagent.Agent
-	engine engine.Engine
+	engine flowagent.Engine
 
 	contextID         string
 	history           *conversationHistory
@@ -522,7 +521,7 @@ func (r *turnRun) execute() {
 	r.mu.Lock()
 	r.accepting = false
 	r.mu.Unlock()
-	var finalBoard *engine.Board
+	var finalBoard *flowagent.Board
 	if runErr == nil && result != nil {
 		if result.Err != nil {
 			runErr = result.Err
@@ -582,8 +581,8 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		publish: publish, emit: r.emit,
 		buffers: make(map[string][]bufferedDelta), terminal: make(map[string]struct{}),
 	}
-	seed := flowagent.BoardSeederFunc(func(ctx context.Context, _ flowagent.RunInfo, req *flowagent.Request) (*engine.Board, error) {
-		board := engine.NewBoard()
+	seed := flowagent.PreparerFunc(func(ctx context.Context, _ flowagent.Identity, req *flowagent.Request, previous *flowagent.Board) (*flowagent.Board, error) {
+		board := previous.Clone()
 		state, err := loadBoardState(ctx, config.State, r.session.contextID)
 		if err != nil {
 			return nil, err
@@ -604,44 +603,72 @@ func (r *turnRun) runGraph() (*flowagent.Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		board.SetChannel(engine.MainChannel, messages)
-		board.AppendChannelMessage(engine.MainChannel, req.Message)
-		board.SetVar("input", r.user)
-		for _, profile := range config.RecallProfiles {
-			queryText := profile.QueryText
-			if queryText == "" || queryText == "input" {
-				queryText = r.user
-			} else {
-				queryText = strings.ReplaceAll(queryText, "${input}", r.user)
+		board.SetChannel(flowagent.MainChannel, messages)
+		board.AppendChannelMessage(flowagent.MainChannel, req.Message)
+		for _, node := range config.Graph.Nodes {
+			if node.Type != "inference" {
+				continue
 			}
-			renderer := config.RecallRenderer
-			if profile.Renderer != nil {
-				renderer = profile.Renderer
+			var nodeConfig struct {
+				MessagesChannel string `json:"messages_channel"`
 			}
-			var matches []memory.Match
-			if queryText = strings.TrimSpace(queryText); queryText != "" {
-				recalled, err := config.Memory.Recall(ctx, memory.Query{Scope: config.MemoryScope, Text: queryText, Limit: profile.Limit, Filters: profile.Filters})
-				if err != nil {
-					return nil, fmt.Errorf("flowcraft: recall Memory for %q: %w", profile.BoardVariable, err)
-				}
-				matches = recalled.Matches
+			if err := json.Unmarshal(node.Config, &nodeConfig); err != nil {
+				return nil, fmt.Errorf("flowcraft: decode inference node %q: %w", node.ID, err)
 			}
-			rendered, err := renderer(ctx, matches)
-			if err != nil {
-				return nil, fmt.Errorf("flowcraft: render Memory for %q: %w", profile.BoardVariable, err)
+			if nodeConfig.MessagesChannel == "" || nodeConfig.MessagesChannel == flowagent.MainChannel {
+				continue
 			}
-			board.SetVar(profile.BoardVariable, rendered)
+			board.SetChannel(nodeConfig.MessagesChannel, messages)
+			board.AppendChannelMessage(nodeConfig.MessagesChannel, req.Message)
 		}
+		board.SetVar("input", r.user)
 		return board, nil
 	})
 	runContext := toolrun.WithContext(
 		r.ctx,
 		toolrun.New(config.ToolInvoker, config.MaxToolCalls),
 	)
-	result, err := flowagent.Run(runContext, r.session.transformer.agent, r.session.transformer.engine, flowagent.Request{
+	runtimeAgent := r.session.transformer.agent
+	runtimeAgent.Prepare = append([]flowagent.Preparer{seed}, runtimeAgent.Prepare...)
+	options := []flowagent.ExecuteOption{flowagent.WithHost(host)}
+	if config.MemoryTurn != nil {
+		channel := config.MemoryTurn.Channel
+		if channel == "" {
+			channel = flowagent.MainChannel
+		}
+		options = append(options, flowagent.WithCommitViewProvider(flowagent.CommitViewProviderFunc(
+			func(_ context.Context, _ flowagent.Identity, _ *flowagent.Request, result *flowagent.Result) (flowagent.CommitView, error) {
+				if result == nil || result.LastBoard == nil {
+					return flowagent.CommitView{}, fmt.Errorf("flowcraft: memory turn commit view requires a result Board")
+				}
+				messages := result.LastBoard.Channel(channel)
+				start := len(messages)
+				for index := len(messages) - 1; index >= 0; index-- {
+					if messages[index].Role == flowmodel.RoleUser {
+						start = index
+						break
+					}
+				}
+				board := result.LastBoard.Clone()
+				if start < len(messages) {
+					board.SetChannel(channel, messages[start:])
+				} else {
+					board.SetChannel(channel, nil)
+				}
+				return flowagent.CommitView{LastBoard: board}, nil
+			},
+		)))
+	}
+	result, err := flowagent.Execute(runContext, runtimeAgent, r.session.transformer.engine, flowagent.Request{
 		ContextID: r.session.contextID, RunID: r.response.StreamID(),
 		Message: flowmodel.NewTextMessage(flowmodel.RoleUser, r.user),
-	}, flowagent.WithEngineHost(host), flowagent.WithBoardSeed(seed))
+	}, options...)
+	if err == nil && result != nil && result.Status != flowagent.StatusCompleted {
+		err = result.Err
+		if err == nil {
+			err = fmt.Errorf("flowcraft: graph finished with status %s", result.Status)
+		}
+	}
 	return result, err
 }
 
@@ -661,7 +688,7 @@ func (r *turnRun) waitUntilDelivered() {
 	}
 }
 
-func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bool, finalBoard *engine.Board) error {
+func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bool, finalBoard *flowagent.Board) error {
 	var messages []flowmodel.Message
 	if strings.TrimSpace(r.user) != "" && (!interrupted || delivered != "") {
 		messages = append(messages, flowmodel.NewTextMessage(flowmodel.RoleUser, r.user))
@@ -675,67 +702,6 @@ func (r *turnRun) finalize(ctx context.Context, delivered string, interrupted bo
 	config := r.session.transformer.config
 	if err := saveBoardState(ctx, config.State, r.session.contextID, finalBoard); err != nil {
 		return err
-	}
-	if interrupted && delivered == "" {
-		return nil
-	}
-	if !config.ObserveEnabled {
-		return nil
-	}
-	boardVariables, err := observationBoardVariables(finalBoard)
-	if err != nil {
-		return err
-	}
-	observation, err := config.ObservationBuilder(ctx, ObservationInput{
-		StreamID: r.response.StreamID(), UserText: r.user, DeliveredAssistantText: delivered,
-		BoardVariables: boardVariables, Interrupted: interrupted,
-	})
-	if err != nil {
-		return fmt.Errorf("flowcraft: build Memory observation: %w", err)
-	}
-	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 && len(observation.Facts) == 0 {
-		return nil
-	}
-	observation.Scope = config.MemoryScope
-	if err := memory.ValidateObservation(observation); err != nil {
-		return fmt.Errorf("flowcraft: validate Memory observation: %w", err)
-	}
-	observed, err := config.Memory.Observe(ctx, observation)
-	if err != nil {
-		return fmt.Errorf("flowcraft: observe Memory: %w", err)
-	}
-	if observed.Operation != nil && observed.Operation.Status == memory.OperationFailed {
-		return fmt.Errorf("flowcraft: Memory operation %q failed: %s", observed.Operation.ID, observed.Operation.Error)
-	}
-	if observed.Operation != nil && observed.Operation.Status == memory.OperationPending {
-		if strings.TrimSpace(observed.Operation.ID) == "" {
-			return fmt.Errorf("flowcraft: pending Memory operation has no ID")
-		}
-		waiter, ok := config.Memory.(memory.OperationWaiter)
-		if !ok {
-			return fmt.Errorf("flowcraft: pending Memory operation requires OperationWaiter")
-		}
-		if !config.ObserveWaitForCompletion {
-			// Async semantic stores enqueue extraction work rather than running it in
-			// Observe. Drain that caller-owned work independently so a later turn can
-			// recall it without extending the current response lifecycle.
-			if processor, ok := config.Memory.(memory.AsyncOperationProcessor); ok {
-				operationID := observed.Operation.ID
-				if config.asyncTasks == nil || !config.asyncTasks.Run(func(taskContext context.Context) {
-					_, _ = processor.ProcessAsync(taskContext, memory.OperationRequest{Scope: config.MemoryScope, ID: operationID})
-				}) {
-					return fmt.Errorf("flowcraft: asynchronous Memory processor has no generation task owner")
-				}
-			}
-			return nil
-		}
-		completed, err := waiter.Wait(ctx, memory.OperationRequest{Scope: config.MemoryScope, ID: observed.Operation.ID})
-		if err != nil {
-			return fmt.Errorf("flowcraft: wait Memory operation %q: %w", observed.Operation.ID, err)
-		}
-		if completed.Operation != nil && completed.Operation.Status == memory.OperationFailed {
-			return fmt.Errorf("flowcraft: Memory operation %q failed: %s", completed.Operation.ID, completed.Operation.Error)
-		}
 	}
 	return nil
 }

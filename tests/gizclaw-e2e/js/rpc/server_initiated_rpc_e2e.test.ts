@@ -7,11 +7,21 @@ import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
 import wrtc from "@roamhq/wrtc";
 import { closePeerConnection, repoRoot } from "../common/webrtc.ts";
 
+const probeStartupTimeoutMs = 120_000;
+const probeStepTimeoutMs = 30_000;
+
 async function main(): Promise<void> {
-  const probe = spawn("go", ["run", "./tests/gizclaw-e2e/cmd/serverrpcprobe"], {
-    cwd: repoRoot,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const configuredProbe = process.env.GIZCLAW_E2E_SERVER_RPC_PROBE;
+  const probe = spawn(
+    configuredProbe ?? "go",
+    configuredProbe == null
+      ? ["run", "./tests/gizclaw-e2e/cmd/serverrpcprobe"]
+      : [],
+    {
+      cwd: repoRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   let stderr = "";
   probe.stderr.setEncoding("utf8");
   probe.stderr.on("data", (chunk: string) => {
@@ -27,7 +37,13 @@ async function main(): Promise<void> {
   let pc: wrtc.RTCPeerConnection | undefined;
   try {
     const ready = JSON.parse(
-      await nextProbeLine(lines, exit, () => stderr),
+      await nextProbeLine(
+        lines,
+        exit,
+        () => stderr,
+        probeStartupTimeoutMs,
+        "startup",
+      ),
     ) as { endpoint?: string; public_key?: string };
     assert.equal(typeof ready.endpoint, "string");
     assert.equal(typeof ready.public_key, "string");
@@ -40,7 +56,13 @@ async function main(): Promise<void> {
       "full-duplex",
     ]) {
       const started = JSON.parse(
-        await nextProbeLine(lines, exit, () => stderr),
+        await nextProbeLine(
+          lines,
+          exit,
+          () => stderr,
+          probeStepTimeoutMs,
+          `${name} start`,
+        ),
       ) as { case?: string };
       assert.equal(started.case, name);
       pc = new wrtc.RTCPeerConnection();
@@ -50,7 +72,13 @@ async function main(): Promise<void> {
         pc: pc as unknown as RTCPeerConnection,
       });
       const completed = JSON.parse(
-        await nextProbeLine(lines, exit, () => stderr),
+        await nextProbeLine(
+          lines,
+          exit,
+          () => stderr,
+          probeStepTimeoutMs,
+          `${name} completion`,
+        ),
       ) as { case?: string; ok?: boolean };
       assert.deepEqual(completed, { case: name, ok: true });
       closePeerConnection(pc);
@@ -58,7 +86,13 @@ async function main(): Promise<void> {
     }
 
     const result = JSON.parse(
-      await nextProbeLine(lines, exit, () => stderr),
+      await nextProbeLine(
+        lines,
+        exit,
+        () => stderr,
+        probeStepTimeoutMs,
+        "final result",
+      ),
     ) as { ok?: boolean };
     assert.equal(result.ok, true);
     const status = await exit;
@@ -82,9 +116,11 @@ async function nextProbeLine(
   lines: LineReader,
   exit: Promise<{ code: number | null; signal: NodeJS.Signals | null }>,
   stderr: () => string,
+  timeoutMs: number,
+  phase: string,
 ): Promise<string> {
   return Promise.race([
-    lines.next(30_000),
+    lines.next(timeoutMs, phase),
     exit.then((status) => {
       throw new Error(
         `server RPC probe exited before completing (${status.signal ?? status.code}): ${stderr()}`,
@@ -119,7 +155,7 @@ class LineReader {
     });
   }
 
-  async next(timeoutMs: number): Promise<string> {
+  async next(timeoutMs: number, phase: string): Promise<string> {
     const buffered = this.lines.shift();
     if (buffered != null) {
       return buffered;
@@ -135,7 +171,7 @@ class LineReader {
         () =>
           reject(
             new Error(
-              `server RPC probe did not produce output within ${timeoutMs}ms`,
+              `server RPC probe did not produce ${phase} output within ${timeoutMs}ms`,
             ),
           ),
         timeoutMs,

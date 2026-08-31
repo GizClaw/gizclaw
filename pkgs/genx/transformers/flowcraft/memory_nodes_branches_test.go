@@ -2,15 +2,16 @@ package flowcraft
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
-	flownode "github.com/GizClaw/flowcraft/sdk/graph/node"
-	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
+	flowagent "github.com/GizClaw/flowcraft/core/agent"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
+	flowmodel "github.com/GizClaw/flowcraft/core/message"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -21,35 +22,24 @@ func TestRegisterMemoryRecallNodeValidationAndIdentity(t *testing.T) {
 		"output": "memory",
 		"top_k":  1,
 	}
-	tests := []struct {
+	for _, test := range []struct {
 		name    string
 		config  Config
 		node    map[string]any
 		wantErr string
 	}{
-		{name: "invalid config", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{"query": make(chan int)}, wantErr: "unsupported type"},
-		{name: "missing memory", node: valid, wantErr: "requires Memory"},
-		{name: "missing fields", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{"top_k": 0}, wantErr: "requires query.text_from"},
-	}
-	for _, test := range tests {
+		{name: "missing memory", node: valid, wantErr: "Memory is required"},
+		{name: "missing fields", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{"top_k": 0}, wantErr: "query.text_from, output, and positive top_k"},
+	} {
 		t.Run(test.name, func(t *testing.T) {
-			factory := flownode.NewFactory()
-			registerMemoryNodes(factory, test.config)
-			_, err := factory.Build(flowgraph.NodeDefinition{ID: "recall", Type: "memory_recall", Config: test.node})
+			err := executeMemoryNode(t.Context(), test.config, "memory_recall", testNodeConfig(test.node))
 			if err == nil || !strings.Contains(err.Error(), test.wantErr) {
 				t.Fatalf("Build() error = %v, want %q", err, test.wantErr)
 			}
 		})
 	}
-
-	factory := flownode.NewFactory()
-	registerMemoryNodes(factory, Config{Memory: &memoryNodeStore{}, MemoryScope: memory.Scope{AppID: "app"}})
-	node, err := factory.Build(flowgraph.NodeDefinition{ID: "recall", Type: "memory_recall", Config: valid})
-	if err != nil {
+	if err := executeMemoryNode(t.Context(), Config{Memory: &memoryNodeStore{}, MemoryScope: memory.Scope{AppID: "app"}}, "memory_recall", testNodeConfig(valid)); err != nil {
 		t.Fatalf("Build() error = %v", err)
-	}
-	if node.ID() != "recall" || node.Type() != "memory_recall" {
-		t.Fatalf("node identity = (%q, %q)", node.ID(), node.Type())
 	}
 }
 
@@ -58,42 +48,49 @@ func TestRegisterMemoryObserveNodeValidationAndIdentity(t *testing.T) {
 	factObservation := map[string]any{"observations": []any{map[string]any{
 		"facts": []any{map[string]any{"text_from": "fact"}},
 	}}}
-	tests := []struct {
+	for _, test := range []struct {
 		name    string
 		config  Config
 		node    map[string]any
 		wantErr string
 	}{
 		{name: "invalid config", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{"observations": "bad"}, wantErr: "cannot unmarshal"},
-		{name: "missing memory", node: valid, wantErr: "requires Memory"},
-		{name: "missing observations", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{}, wantErr: "requires observations"},
+		{name: "missing memory", node: valid, wantErr: "Memory is required"},
+		{name: "missing observations", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{}, wantErr: "observations are required"},
 		{name: "missing fact capability", config: Config{Memory: memoryOnlyStore{Store: &memoryNodeStore{}}}, node: factObservation, wantErr: "direct Fact observation"},
 		{name: "missing waiter", config: Config{Memory: &memoryNodeStore{}}, node: map[string]any{"observations": []any{map[string]any{"text_from": "input"}}, "wait_for_completion": true}, wantErr: "memory.OperationWaiter"},
-	}
-	for _, test := range tests {
+	} {
 		t.Run(test.name, func(t *testing.T) {
-			factory := flownode.NewFactory()
-			registerMemoryNodes(factory, test.config)
-			_, err := factory.Build(flowgraph.NodeDefinition{ID: "observe", Type: "memory_observe", Config: test.node})
+			err := executeMemoryNode(t.Context(), test.config, "memory_observe", testNodeConfig(test.node))
 			if err == nil || !strings.Contains(err.Error(), test.wantErr) {
 				t.Fatalf("Build() error = %v, want %q", err, test.wantErr)
 			}
 		})
 	}
-
-	factory := flownode.NewFactory()
 	store := &memoryWaitNodeStore{memoryNodeStore: &memoryNodeStore{}}
-	registerMemoryNodes(factory, Config{Memory: store})
-	node, err := factory.Build(flowgraph.NodeDefinition{ID: "observe", Type: "memory_observe", Config: map[string]any{
+	if err := executeMemoryNode(t.Context(), Config{Memory: store}, "memory_observe", testNodeConfig(map[string]any{
 		"observations":        []any{map[string]any{"text_from": "input"}},
 		"wait_for_completion": true,
-	}})
-	if err != nil {
+	})); err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
-	if node.ID() != "observe" || node.Type() != "memory_observe" {
-		t.Fatalf("node identity = (%q, %q)", node.ID(), node.Type())
+}
+
+func executeMemoryNode(ctx context.Context, config Config, nodeType string, nodeConfig json.RawMessage) error {
+	registry := flowgraph.NewRegistry()
+	if err := registerMemoryNodes(registry, config); err != nil {
+		return err
 	}
+	engine, err := flowgraph.Build(&flowgraph.GraphDefinition{
+		Name: "memory", Entry: "node",
+		Nodes: []flowgraph.NodeDefinition{{ID: "node", Type: nodeType, Config: nodeConfig}},
+		Edges: []flowgraph.EdgeDefinition{{From: "node", To: flowgraph.END}},
+	}, registry)
+	if err != nil {
+		return err
+	}
+	_, err = engine.Execute(ctx, flowagent.Run{Identity: flowagent.Identity{AgentID: "test", RunID: "run"}}, flowagent.NoopHost{}, flowagent.NewBoard())
+	return err
 }
 
 func TestMemoryRecallNodeBranches(t *testing.T) {
@@ -102,7 +99,7 @@ func TestMemoryRecallNodeBranches(t *testing.T) {
 		id: "recall", store: &memoryNodeStore{recallErr: wantErr},
 		config: memoryRecallNodeConfig{TopK: 1},
 	}
-	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); !errors.Is(err, wantErr) {
+	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); !errors.Is(err, wantErr) {
 		t.Fatalf("ExecuteBoard() error = %v, want %v", err, wantErr)
 	}
 
@@ -110,7 +107,7 @@ func TestMemoryRecallNodeBranches(t *testing.T) {
 		{Fact: memory.Fact{Text: "first"}},
 		{Fact: memory.Fact{Text: "second"}},
 	}}}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("input", 42)
 	node := &memoryRecallNode{
 		id: "recall", store: store,
@@ -152,7 +149,7 @@ func TestMemoryRecallNodeBranches(t *testing.T) {
 func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 	wantErr := errors.New("observe failed")
 	errorNode := &memoryObserveNode{id: "observe", store: &memoryNodeStore{observeErr: wantErr}}
-	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); !errors.Is(err, wantErr) {
+	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); !errors.Is(err, wantErr) {
 		t.Fatalf("Observe error = %v, want %v", err, wantErr)
 	}
 
@@ -162,13 +159,14 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 		waitErr:         waitErr,
 	}
 	waitNode := &memoryObserveNode{id: "observe", store: waitStore, config: memoryObserveNodeConfig{WaitForCompletion: true}}
-	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); !errors.Is(err, waitErr) {
+	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); !errors.Is(err, waitErr) {
 		t.Fatalf("Wait error = %v, want %v", err, waitErr)
 	}
 
 	waitStore.waitErr = nil
 	waitStore.waitResult = memory.ObserveResult{Operation: &memory.Operation{ID: "operation", Status: memory.OperationFailed, Error: "materialization failed"}}
-	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); err == nil || !strings.Contains(err.Error(), "materialization failed") {
+	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); err == nil ||
+		!strings.Contains(err.Error(), errMemoryProviderOperationFailed.Error()) || strings.Contains(err.Error(), "materialization failed") {
 		t.Fatalf("failed operation error = %v", err)
 	}
 
@@ -177,7 +175,7 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 		processed:       make(chan memory.OperationRequest, 1),
 	}
 	if err := (&memoryObserveNode{id: "observe", store: asyncStore}).ExecuteBoard(
-		flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard(),
+		flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard(),
 	); err == nil || !strings.Contains(err.Error(), "no generation task owner") {
 		t.Fatalf("missing task owner error = %v", err)
 	}
@@ -185,7 +183,7 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 	owner := newTaskOwner()
 	defer owner.Close()
 	asyncNode := &memoryObserveNode{id: "observe", store: asyncStore, tasks: owner}
-	if err := asyncNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); err != nil {
+	if err := asyncNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard()); err != nil {
 		t.Fatalf("async ExecuteBoard() error = %v", err)
 	}
 	select {
@@ -199,7 +197,7 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 
 	plainPending := &memoryNodeStore{observeResult: pendingMemoryResult("external")}
 	if err := (&memoryObserveNode{id: "observe", store: plainPending}).ExecuteBoard(
-		flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard(),
+		flowgraph.ExecutionContext{Context: t.Context()}, flowagent.NewBoard(),
 	); err != nil {
 		t.Fatalf("provider-owned pending operation error = %v", err)
 	}
@@ -207,7 +205,7 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 
 func TestMemoryObserveNodeBuildsTextTurnsAndFacts(t *testing.T) {
 	store := &memoryNodeStore{}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("first", " first ")
 	board.SetVar("second", "second")
 	board.SetVar("blank", "  ")
@@ -229,7 +227,7 @@ func TestMemoryObserveNodeBuildsTextTurnsAndFacts(t *testing.T) {
 			}{{TextFrom: "blank"}, {TextFrom: "first", Attributes: map[string]string{"lane": "facts"}}}},
 		}},
 	}
-	if err := node.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context(), RunID: "run"}, board); err != nil {
+	if err := node.ExecuteBoard(testExecutionContext(t.Context(), "run"), board); err != nil {
 		t.Fatalf("ExecuteBoard() error = %v", err)
 	}
 	if store.observation.Text != "first\nsecond" || len(store.observation.Turns) != 1 || len(store.observation.Facts) != 1 {
@@ -269,10 +267,10 @@ func TestMemoryNodeHelperBranches(t *testing.T) {
 		t.Fatalf("renderMemoryMatches(empty formatting) = %q", got)
 	}
 
-	if boardString(nil, "key") != "" || boardString(flowgraph.NewBoard(), "missing") != "" {
+	if boardString(nil, "key") != "" || boardString(flowagent.NewBoard(), "missing") != "" {
 		t.Fatal("boardString() missing values were not empty")
 	}
-	board := flowgraph.NewBoard()
+	board := flowagent.NewBoard()
 	board.SetVar("value", " text ")
 	if boardString(board, " value ") != "text" {
 		t.Fatalf("boardString() = %q", boardString(board, " value "))
@@ -280,12 +278,12 @@ func TestMemoryNodeHelperBranches(t *testing.T) {
 }
 
 func TestBoardTurnsSources(t *testing.T) {
-	if boardTurns(nil, "turns") != nil || boardTurns(flowgraph.NewBoard(), "missing") != nil {
+	if boardTurns(nil, "turns") != nil || boardTurns(flowagent.NewBoard(), "missing") != nil {
 		t.Fatal("boardTurns() missing values were not nil")
 	}
-	board := flowgraph.NewBoard()
-	board.AppendChannelMessage("__main_channel", flowmodel.NewTextMessage(flowmodel.RoleUser, " hello "))
-	board.AppendChannelMessage("__main_channel", flowmodel.NewTextMessage(flowmodel.RoleAssistant, " "))
+	board := flowagent.NewBoard()
+	board.AppendChannelMessage(flowagent.MainChannel, flowmodel.NewTextMessage(flowmodel.RoleUser, " hello "))
+	board.AppendChannelMessage(flowagent.MainChannel, flowmodel.NewTextMessage(flowmodel.RoleAssistant, " "))
 	if turns := boardTurns(board, "conversation"); len(turns) != 1 || turns[0].ID != "conversation:0" || turns[0].Text != "hello" {
 		t.Fatalf("conversation turns = %#v", turns)
 	}

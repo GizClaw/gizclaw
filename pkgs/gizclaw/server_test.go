@@ -391,6 +391,9 @@ func TestServerCanListenAgainAfterClose(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("Serve() did not use second listener")
 	}
+	if err := server.Close(); err != nil {
+		t.Fatalf("Close() after second Listen() error = %v", err)
+	}
 }
 
 func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {

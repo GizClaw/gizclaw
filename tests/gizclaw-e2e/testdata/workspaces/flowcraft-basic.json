@@ -1,5 +1,8 @@
 {
   "agent": "flowcraft",
+  "interrupt": {
+    "rounds": 3
+  },
   "models": {
     "asr": "asr",
     "llm": "llm",
@@ -7,9 +10,6 @@
   },
   "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
   "rounds": 3,
-  "interrupt": {
-    "rounds": 3
-  },
   "timeout": "1200s",
   "voice": "assistant-voice",
   "workflow": {
@@ -34,13 +34,24 @@
         "nodes": [
           {
             "config": {
-              "max_tokens": 2048,
-              "model": "llm",
+              "intent": {
+                "text": {
+                  "max_output_tokens": 2048
+                }
+              },
+              "messages_channel": "answer",
+              "model": {
+                "id": {
+                  "name": "llm",
+                  "provider": "gizclaw"
+                }
+              },
+              "stream": true,
               "system_prompt": "你是一个简短、自然的中文语音聊天助手。直接回答用户，不要解释测试流程。"
             },
             "id": "answer",
             "publish": true,
-            "type": "llm"
+            "type": "inference"
           },
           {
             "config": {
@@ -65,11 +76,11 @@
       },
       "max_iterations": 4
     },
+    "memory": "voice-assistant-memory",
     "name": "flowcraft-voice-assistant",
     "parameters": {
       "input": "push-to-talk"
     },
-    "memory": "voice-assistant-memory",
     "voice_adapter": {
       "asr_model": "asr",
       "default_voice": "narrator",

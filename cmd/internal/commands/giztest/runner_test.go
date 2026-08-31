@@ -636,6 +636,73 @@ func TestRunStepRetryStopsOnOperationFailure(t *testing.T) {
 	}
 }
 
+func TestRunStepRetriesOperationAfterReconnect(t *testing.T) {
+	stream := newFakeRelayStream()
+	go func() {
+		drainPushes(stream, 3)
+		finishRetryTextTurn(stream, "PASS")
+	}()
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	opened := 0
+	reconnected := 0
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, Retry: &RetrySpec{Attempts: 2, On: []string{"operation"}}}
+	opts := runOptions{
+		out: io.Discard,
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			opened++
+			if opened == 1 {
+				return func() (peerStream, error) { return nil, io.EOF }
+			}
+			return func() (peerStream, error) { return stream, nil }
+		},
+		reconnectClient: func(context.Context, string) error {
+			reconnected++
+			return nil
+		},
+	}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err != nil || report.Status != "passed" || opened != 2 || reconnected != 1 || report.Attempts[0].FailureKind != "operation" {
+		t.Fatalf("report = %#v, opened = %d, reconnected = %d, err = %v", report, opened, reconnected, err)
+	}
+}
+
+func TestRunStepRetriesProviderOperationWithoutReconnect(t *testing.T) {
+	streams := []*fakeRelayStream{newFakeRelayStream(), newFakeRelayStream()}
+	go func() {
+		drainPushes(streams[0], 3)
+		streams[0].in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{
+			StreamID: "turn", Label: "assistant", EndOfStream: true,
+			Error: "provider connection closed without audio",
+		}}
+	}()
+	go func() {
+		drainPushes(streams[1], 3)
+		finishRetryTextTurn(streams[1], "PASS")
+	}()
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	opened := 0
+	reconnected := 0
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"}, Retry: &RetrySpec{Attempts: 2, On: []string{"operation"}}}
+	opts := runOptions{
+		out: io.Discard,
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			stream := streams[opened]
+			opened++
+			return func() (peerStream, error) { return stream, nil }
+		},
+		reconnectClient: func(context.Context, string) error {
+			reconnected++
+			return nil
+		},
+	}
+	report, err := runStep(context.Background(), "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if err != nil || report.Status != "passed" || opened != 2 || reconnected != 0 || report.Attempts[0].FailureKind != "operation" {
+		t.Fatalf("report = %#v, opened = %d, reconnected = %d, err = %v", report, opened, reconnected, err)
+	}
+}
+
 func TestRunStepRetryDelayHonorsCancellation(t *testing.T) {
 	stream := newFakeRelayStream()
 	go func() {
@@ -658,6 +725,36 @@ func TestRunStepRetryDelayHonorsCancellation(t *testing.T) {
 	}
 	if report.Error != report.Attempts[0].Error || report.Evidence["events"] != report.Attempts[0].Evidence["events"] {
 		t.Fatalf("top-level report no longer reflects the last actual attempt: %#v", report)
+	}
+}
+
+func TestRunStepRetryDelayPrecedesTransportReconnect(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
+	vars, _ := newVariables(map[string]VariableSpec{})
+	reconnected := 0
+	step := Step{
+		ID: "turn", Client: "peer",
+		PeerStream: &PeerStreamOperation{Mode: "text", Input: "hello"},
+		Retry:      &RetrySpec{Attempts: 2, On: []string{"operation"}, Delay: "1s"},
+	}
+	opts := runOptions{
+		out: io.Discard,
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			return func() (peerStream, error) { return nil, io.EOF }
+		},
+		reconnectClient: func(context.Context, string) error {
+			reconnected++
+			return nil
+		},
+	}
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	report, err := runStep(ctx, "retry.giztest.yaml", step, clients, vars, nil, opts, nil)
+	if !errors.Is(err, context.Canceled) || reconnected != 0 || len(report.Attempts) != 1 {
+		t.Fatalf("report = %#v, reconnected = %d, err = %v", report, reconnected, err)
 	}
 }
 

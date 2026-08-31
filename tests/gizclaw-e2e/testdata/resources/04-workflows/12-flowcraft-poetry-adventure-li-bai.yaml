@@ -80,6 +80,7 @@ spec:
       name: poetry-adventure-li-bai
       nodes:
       - config:
+          runtime: js
           source: |
             function latestUserText() {
               const msgs = board.channel(board.MAIN_CHANNEL) || [];
@@ -87,7 +88,7 @@ spec:
                 const msg = msgs[i] || {};
                 if (msg.role !== "user") continue;
                 if (typeof msg.content === "string" && msg.content.trim()) return msg.content.trim();
-                const parts = Array.isArray(msg.parts) ? msg.parts : [];
+                const parts = msg.content && Array.isArray(msg.content.parts) ? msg.content.parts : [];
                 const text = parts.map(function(part) {
                   return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
                 }).join("").trim();
@@ -153,15 +154,16 @@ spec:
             board.setVar("challenge_judgement_text", "");
             board.setChannel("poetry_input_channel", [{
               role: "user",
-              parts: [{ type: "text", text: state.latest_user_text || "开始" }]
+              content: { parts: [{ type: "text", text: state.latest_user_text || "开始" }] }
             }]);
             board.setChannel("poetry_response_channel", [{
               role: "user",
-              parts: [{ type: "text", text: state.latest_user_text || "开始" }]
+              content: { parts: [{ type: "text", text: state.latest_user_text || "开始" }] }
             }]);
         id: load_journey_state
         type: script
       - config:
+          runtime: js
           source: |
             const state = board.getVar("poetry_journey_state") || {};
             function containsAny(text, arr) {
@@ -196,9 +198,15 @@ spec:
         id: route_checkpoint
         type: script
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_input_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -213,14 +221,20 @@ spec:
             - 只输出一句，最多 18 个汉字。
 
             当前状态：
-            ${board.poetry_journey_state_text}
+            ${board:poetry_journey_state_text}
         id: tang_checkpoint
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_input_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -235,14 +249,20 @@ spec:
             - 只输出一句，最多 18 个汉字。
 
             当前状态：
-            ${board.poetry_journey_state_text}
+            ${board:poetry_journey_state_text}
         id: song_checkpoint
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_input_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -257,14 +277,20 @@ spec:
             - 只输出一句，最多 18 个汉字。
 
             当前状态：
-            ${board.poetry_journey_state_text}
+            ${board:poetry_journey_state_text}
         id: yuan_checkpoint
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_input_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
@@ -279,14 +305,21 @@ spec:
             - 只输出一句，最多 18 个汉字。
 
             当前状态：
-            ${board.poetry_journey_state_text}
+            ${board:poetry_journey_state_text}
         id: ming_checkpoint
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_input_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
+              temperature: 0
           output_key: challenge_judgement_text
           system_prompt: |
             You judge a child answer for a dynasty poetry checkpoint.
@@ -295,7 +328,7 @@ spec:
             challenge_result: passed=<true|false>; line=<line>; reason=<short reason>
 
             Current checkpoint:
-            ${board.current_checkpoint}
+            ${board:current_checkpoint}
 
             Pass rules:
             - tang: pass if the child gives a Tang poem line with moon imagery, especially 床前明月光, 举头望明月, 明月出天山, 我寄愁心与明月.
@@ -304,11 +337,11 @@ spec:
             - ming: pass if the child gives a line from 于谦《石灰吟》, especially 千锤万凿出深山, 粉骨碎身浑不怕, 要留清白在人间.
 
             Do not award points. Do not write encouragement. Only output the result line.
-          temperature: 0
         id: judge_challenge
         publish: false
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             function containsAny(text, arr) {
               for (let i = 0; i < arr.length; i++) {
@@ -377,22 +410,28 @@ spec:
               ("孩子刚才说：" + latest + "。这次还没有通过" + (state.last_dynasty || "") + "关卡，请给一个提示。");
             board.setChannel("poetry_response_channel", [{
               role: "user",
-              parts: [{ type: "text", text: responseText }]
+              content: { parts: [{ type: "text", text: responseText }] }
             }]);
         id: apply_checkpoint_result
         type: script
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_response_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
             孩子刚刚通过了当前朝代关卡。
-            - 孩子说出的句子：${board.last_line}
-            - 通关朝代：${board.last_dynasty}
-            - 即将获得徽章：${board.last_badge_label}
-            - 下一站：${board.next_dynasty}
+            - 孩子说出的句子：${board:last_line}
+            - 通关朝代：${board:last_dynasty}
+            - 即将获得徽章：${board:last_badge_label}
+            - 下一站：${board:next_dynasty}
 
             请用自然中文庆祝通关，告诉孩子时间门亮起来了，马上会获得这个朝代的徽章，并准备前往下一个朝代。
 
@@ -407,18 +446,24 @@ spec:
             - 只输出一句，最多 18 个汉字。
         id: checkpoint_clear
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_response_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
             孩子这次还没有通过当前关卡。
-            - 当前朝代：${board.current_dynasty}
-            - 孩子刚才说：${board.latest_user_text}
-            - 当前关卡提示：${board.current_hint}
+            - 当前朝代：${board:current_dynasty}
+            - 孩子刚才说：${board:latest_user_text}
+            - 当前关卡提示：${board:current_hint}
 
             请温和地给一个场景化提示，让孩子继续留在当前朝代再试一次。
 
@@ -431,8 +476,9 @@ spec:
             - 只输出一句，最多 18 个汉字。
         id: retry_hint
         publish: true
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             const order = ["tang", "song", "yuan", "ming"];
             const state = board.getVar("poetry_journey_state") || {};
@@ -464,20 +510,26 @@ spec:
             }).join("、") : "");
             board.setChannel("poetry_response_channel", [{
               role: "user",
-              parts: [{ type: "text", text: "孩子已经收集完全部朝代徽章，请为古诗旅行收束。" }]
+              content: { parts: [{ type: "text", text: "孩子已经收集完全部朝代徽章，请为古诗旅行收束。" }] }
             }]);
         id: advance_checkpoint
         type: script
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_response_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，正在带孩子进行古诗朝代闯关。
 
             孩子已经通关全部朝代。
-            - 总分：${board.current_score}
-            - 徽章：${board.badge_label_list}
+            - 总分：${board:current_score}
+            - 徽章：${board:badge_label_list}
 
             请用自然中文给一个收束场景：四枚徽章亮起，时间门合上，孩子完成了古诗朝代旅行。
 
@@ -491,17 +543,23 @@ spec:
             - 只输出一句，最多 22 个汉字。
         id: journey_finish
         publish: true
-        type: llm
+        type: inference
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: poetry_response_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是李白，孩子已经完成古诗朝代闯关，现在进入通关后的角色扮演闲聊。
 
             已通关信息：
-            - 总分：${board.current_score}
-            - 徽章：${board.badge_label_list}
+            - 总分：${board:current_score}
+            - 徽章：${board:badge_label_list}
 
             你要做：
             - 继续以李白身份和孩子自然聊天。
@@ -519,8 +577,9 @@ spec:
             - 只输出一句，最多 22 个汉字。
         id: finished_roleplay_chat
         publish: true
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             const state = board.getVar("poetry_journey_state") || {};
             const badges = Array.isArray(state.badges) ? state.badges : [];

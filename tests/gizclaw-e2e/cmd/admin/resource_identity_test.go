@@ -8,7 +8,8 @@ import (
 )
 
 type adminResourceIdentity struct {
-	ID string `json:"id"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func adminResourceID(t *testing.T, output, id string) string {
@@ -26,6 +27,24 @@ func adminResourceID(t *testing.T, output, id string) string {
 		}
 	}
 	t.Fatalf("admin resource %q not found in list:\n%s", id, output)
+	return ""
+}
+
+func adminResourceIDByName(t *testing.T, output, name string) string {
+	t.Helper()
+	var items []adminResourceIdentity
+	if err := json.Unmarshal([]byte(output), &items); err != nil {
+		t.Fatalf("decode admin resource list: %v\n%s", err, output)
+	}
+	for _, item := range items {
+		if item.Name == name {
+			if item.ID == "" {
+				t.Fatalf("admin resource %q has an empty canonical ID", name)
+			}
+			return item.ID
+		}
+	}
+	t.Fatalf("admin resource named %q not found in list:\n%s", name, output)
 	return ""
 }
 

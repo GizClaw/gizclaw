@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	genxflowcraft "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
@@ -27,9 +27,9 @@ func TestMapGraphSupportsPublicNodesAndDerivesPublishers(t *testing.T) {
 		"graph":{
 			"name":"graph","entry":"prepare",
 			"nodes":[
-				{"id":"prepare","type":"script","config":{"source":"board.setVar('ok', true);"}},
+				{"id":"prepare","type":"script","config":{"runtime":"js","source":"board.setVar('ok', true);"}},
 				{"id":"route","type":"passthrough"},
-				{"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":128}}
+				{"id":"answer","type":"inference","publish":true,"config":{"model":{"id":{"provider":"gizclaw","name":"llm"}},"messages_channel":"answer","stream":true,"intent":{"text":{"max_output_tokens":128}}}}
 			],
 			"edges":[{"from":"prepare","to":"route"},{"from":"route","to":"answer"},{"from":"answer","to":"__end__"}]
 		}
@@ -38,14 +38,21 @@ func TestMapGraphSupportsPublicNodesAndDerivesPublishers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mapGraph() error = %v", err)
 	}
-	if len(graph.Nodes) != 3 || graph.Nodes[0].Type != "script" || graph.Nodes[1].Type != "passthrough" || graph.Nodes[2].Type != "llm" {
+	if len(graph.Nodes) != 3 || graph.Nodes[0].Type != "script" || graph.Nodes[1].Type != "passthrough" || graph.Nodes[2].Type != "inference" {
 		t.Fatalf("mapped nodes = %#v", graph.Nodes)
 	}
 	if !reflect.DeepEqual(publish, []string{"answer"}) {
 		t.Fatalf("publish nodes = %#v", publish)
 	}
-	if graph.Nodes[2].Config["model"] != "llm" {
-		t.Fatalf("LLM config = %#v", graph.Nodes[2].Config)
+	var inferenceConfig struct {
+		Model struct {
+			ID struct {
+				Name string `json:"name"`
+			} `json:"id"`
+		} `json:"model"`
+	}
+	if err := json.Unmarshal(graph.Nodes[2].Config, &inferenceConfig); err != nil || inferenceConfig.Model.ID.Name != "llm" {
+		t.Fatalf("inference config = %#v, %v", graph.Nodes[2].Config, err)
 	}
 }
 
@@ -406,13 +413,18 @@ func readModelResponse(output genx.Stream) <-chan modelResult {
 
 func newEchoFlowcraftCore(t *testing.T) *genxflowcraft.Agent {
 	t.Helper()
+	nodeConfig, err := rawNodeConfig(map[string]any{
+		"model":            map[string]any{"id": map[string]any{"provider": "gizclaw", "name": "echo"}},
+		"messages_channel": "echo", "stream": true,
+	})
+	if err != nil {
+		t.Fatalf("encode inference node config: %v", err)
+	}
 	core, err := genxflowcraft.New(genxflowcraft.Config{
 		ID: "flowcraft-input-mode-test", Name: "Flowcraft input mode test",
 		Graph: flowgraph.GraphDefinition{
 			Name: "echo", Entry: "echo",
-			Nodes: []flowgraph.NodeDefinition{{
-				ID: "echo", Type: "llm", Config: map[string]any{"model": "echo"},
-			}},
+			Nodes: []flowgraph.NodeDefinition{{ID: "echo", Type: "inference", Config: nodeConfig}},
 		},
 		PublishNodes: []string{"echo"},
 		Models:       echoFlowcraftGenerator{},

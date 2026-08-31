@@ -142,6 +142,7 @@ type WorkspaceRelayOperation struct {
 	SecondClient   string `json:"second_client" yaml:"second_client"`
 	Input          any    `json:"input" yaml:"input"`
 	Media          string `json:"media" yaml:"media"`
+	InputMedia     string `json:"input_media,omitempty" yaml:"input_media,omitempty"`
 	TerminalMedia  string `json:"terminal_media,omitempty" yaml:"terminal_media,omitempty"`
 	IdleTimeout    string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
 	MaxTurns       int    `json:"max_turns" yaml:"max_turns"`
@@ -610,7 +611,7 @@ func validateRetry(step Step, finalizer bool) error {
 	}
 	seen := make(map[string]struct{}, len(step.Retry.On))
 	for _, kind := range step.Retry.On {
-		if kind != "timeout" && kind != "assertion" {
+		if kind != "timeout" && kind != "assertion" && kind != "operation" {
 			return fmt.Errorf("step %s retry contains unsupported failure kind", step.ID)
 		}
 		if _, ok := seen[kind]; ok {
@@ -657,6 +658,9 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 	}
 	if op.Media != "text" && op.Media != "audio" {
 		return fmt.Errorf("step %s workspace_relay media must be text or audio", step.ID)
+	}
+	if inputMedia := relayInputMediaName(op); inputMedia != "text" && inputMedia != "audio" {
+		return fmt.Errorf("step %s workspace_relay input_media must be text or audio", step.ID)
 	}
 	terminalMedia := op.TerminalMedia
 	if terminalMedia == "" {

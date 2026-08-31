@@ -42,6 +42,7 @@ type flowcraftFixtureNode struct {
 	Config struct {
 		Source          string `json:"source" yaml:"source"`
 		MessagesChannel string `json:"messages_channel" yaml:"messages_channel"`
+		SystemPrompt    string `json:"system_prompt" yaml:"system_prompt"`
 		Query           struct {
 			TextFrom string `json:"text_from" yaml:"text_from"`
 		} `json:"query" yaml:"query"`
@@ -53,6 +54,37 @@ type flowcraftFixtureNode struct {
 			} `json:"facts" yaml:"facts"`
 		} `json:"observations" yaml:"observations"`
 	} `json:"config" yaml:"config"`
+}
+
+func TestGiztestWorkflowTesterVerdictCanFail(t *testing.T) {
+	graph := loadResourceFlowcraftGraph(t, "32-giztest-workflow-tester.yaml")
+	verdict := findFlowcraftFixtureNode(t, graph.Nodes, "verdict")
+	if verdict.Type != "script" {
+		t.Fatalf("verdict type = %q, want script", verdict.Type)
+	}
+	if !strings.Contains(verdict.Config.Source, "board.channel(board.MAIN_CHANNEL)") {
+		t.Fatalf("verdict does not inspect the candidate conversation: %q", verdict.Config.Source)
+	}
+	if !strings.Contains(verdict.Config.Source, "candidateReplies.length >= 7") ||
+		!strings.Contains(verdict.Config.Source, `passed ? "PASS" : "FAIL"`) {
+		t.Fatalf("verdict does not derive PASS/FAIL from candidate replies: %q", verdict.Config.Source)
+	}
+	if strings.Contains(verdict.Config.Source, `host.emit("token", "PASS")`) {
+		t.Fatal("verdict still emits PASS unconditionally")
+	}
+}
+
+func TestFlowcraftLatencyComparisonUsesPopulatedMessageChannels(t *testing.T) {
+	graph := loadWorkspaceFlowcraftGraph(t, "flowcraft-latency-comparison.json")
+	for nodeID, wantChannel := range map[string]string{
+		"planner-model": "planner-messages",
+		"answer-model":  "answer-messages",
+	} {
+		node := findFlowcraftFixtureNode(t, graph.Nodes, nodeID)
+		if node.Config.MessagesChannel != wantChannel {
+			t.Errorf("node %q messages_channel = %q, want %q", nodeID, node.Config.MessagesChannel, wantChannel)
+		}
+	}
 }
 
 var workflowFixtureFiles = []string{
@@ -87,6 +119,69 @@ type workflowFixture struct {
 	} `yaml:"metadata"`
 	I18n any `yaml:"i18n"`
 	Icon any `yaml:"icon"`
+}
+
+func TestResourceFixtureDirectoriesMatchResourceKinds(t *testing.T) {
+	allowedKinds := map[string]map[string]bool{
+		"credentials":         {"Credential": true, "ResourceList": true},
+		"tenants":             {"OpenAITenant": true, "VolcTenant": true, "MiniMaxTenant": true, "GeminiTenant": true, "DashScopeTenant": true},
+		"voices":              {"Voice": true, "ResourceList": true},
+		"models":              {"Model": true, "ResourceList": true},
+		"memory-layouts":      {"MemoryLayout": true},
+		"workflows":           {"Workflow": true, "ResourceList": true},
+		"tools":               {"Tool": true},
+		"firmwares":           {"Firmware": true, "ResourceList": true},
+		"gameplay":            {"ResourceList": true},
+		"runtime-profiles":    {"RuntimeProfile": true},
+		"registration-tokens": {"RegistrationToken": true},
+	}
+
+	directories, err := os.ReadDir("resources")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, directory := range directories {
+		if !directory.IsDir() {
+			continue
+		}
+		name := directory.Name()
+		separator := strings.IndexByte(name, '-')
+		if separator != 2 || name[0] < '0' || name[0] > '9' || name[1] < '0' || name[1] > '9' {
+			t.Errorf("resource fixture directory %q must start with a two-digit load-order prefix", name)
+			continue
+		}
+		category := name[separator+1:]
+		kinds, ok := allowedKinds[category]
+		if !ok {
+			t.Errorf("resource fixture directory %q is not a resource category", name)
+			continue
+		}
+
+		paths, err := filepath.Glob(filepath.Join("resources", name, "*.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(paths) == 0 {
+			t.Errorf("resource fixture directory %q has no YAML fixtures", name)
+			continue
+		}
+		for _, path := range paths {
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var header struct {
+				Kind string `yaml:"kind"`
+			}
+			if err := yaml.Unmarshal(raw, &header); err != nil {
+				t.Errorf("%s: %v", path, err)
+				continue
+			}
+			if !kinds[header.Kind] {
+				t.Errorf("%s has kind %q, which does not belong in resource category %q", path, header.Kind, category)
+			}
+		}
+	}
 }
 
 func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.T) {
@@ -240,7 +335,7 @@ func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 			if err := workflow.Spec.Flowcraft.Validate(); err != nil {
 				t.Fatalf("Flowcraft config: %v", err)
 			}
-			hasObserve := false
+			hasObserve := workflow.Spec.Flowcraft.MemoryHooks != nil && workflow.Spec.Flowcraft.MemoryHooks.Turn != nil
 			for _, node := range workflow.Spec.Flowcraft.Graph.Nodes {
 				discriminator, err := node.Discriminator()
 				if err != nil {
@@ -249,9 +344,51 @@ func TestMemoryMigratedFlowcraftFixturesDecodeTypedGraph(t *testing.T) {
 				hasObserve = hasObserve || discriminator == "memory_observe"
 			}
 			if !hasObserve {
-				t.Fatal("explicit memory_observe node is required")
+				t.Fatal("memory turn hook or explicit memory_observe node is required")
 			}
 		})
+	}
+}
+
+func TestFlowcraftScriptChannelsUseCanonicalMessageContent(t *testing.T) {
+	resourcePaths, err := filepath.Glob(filepath.Join("resources", "04-workflows", "*-flowcraft-*.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range resourcePaths {
+		assertFlowcraftScriptMessageContent(t, path, loadResourceFlowcraftGraph(t, filepath.Base(path)))
+	}
+
+	workspacePaths, err := filepath.Glob(filepath.Join("workspaces", "flowcraft-*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range workspacePaths {
+		assertFlowcraftScriptMessageContent(t, path, loadWorkspaceFlowcraftGraph(t, filepath.Base(path)))
+	}
+}
+
+func assertFlowcraftScriptMessageContent(t *testing.T, path string, graph flowcraftFixtureGraph) {
+	t.Helper()
+	for _, node := range graph.Nodes {
+		if node.Type != "script" {
+			continue
+		}
+		source := node.Config.Source
+		if strings.Contains(source, "Array.isArray(msg.parts)") || strings.Contains(source, "Array.isArray(message.parts)") {
+			t.Errorf("%s script node %q reads the removed Message.parts field", path, node.ID)
+		}
+		lines := strings.Split(source, "\n")
+		for i := 0; i+1 < len(lines); i++ {
+			if !strings.HasPrefix(strings.TrimSpace(lines[i]), "role:") {
+				continue
+			}
+			roleIndent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
+			nextIndent := len(lines[i+1]) - len(strings.TrimLeft(lines[i+1], " \t"))
+			if roleIndent == nextIndent && strings.HasPrefix(strings.TrimSpace(lines[i+1]), "parts:") {
+				t.Errorf("%s script node %q writes the removed Message.parts field", path, node.ID)
+			}
+		}
 	}
 }
 

@@ -57,6 +57,9 @@ func TestServeEdgeTunnelCarriesAcceptedSessionCorrelation(t *testing.T) {
 
 	capture := captureSlog(t)
 	host := &PeerConn{Conn: serverConn, Service: &PeerService{manager: &Manager{}}}
+	if _, err := host.initEdgeTunnelRouter(); err != nil {
+		t.Fatalf("initEdgeTunnelRouter() error = %v", err)
+	}
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- host.serveEdgeTunnel() }()
 

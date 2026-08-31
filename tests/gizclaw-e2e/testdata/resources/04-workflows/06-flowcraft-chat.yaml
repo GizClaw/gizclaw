@@ -9,29 +9,15 @@ spec:
   flowcraft:
     graph:
       edges:
-      - from: recall_memory
-        to: style_prompt
       - from: style_prompt
         to: answer
       - from: answer
-        to: observe_conversation
-      - from: observe_conversation
         to: __end__
-      entry: recall_memory
+      entry: style_prompt
       name: claw-chat
       nodes:
       - config:
-          query:
-            text_from: input
-          output: memory_context
-          render:
-            header: 'Relevant memory:'
-            item_prefix: "- "
-            max_items: 5
-          top_k: 5
-        id: recall_memory
-        type: memory_recall
-      - config:
+          runtime: js
           source: "const memoryContext = board.getVar(\"memory_context\") || \"\";\nconst
             commonStyle = [\n  \"This is a spoken voice conversation. Output only
             the exact words your character would say aloud.\",\n  \"Do not use emoji,
@@ -56,19 +42,30 @@ spec:
         id: style_prompt
         type: script
       - config:
-          max_tokens: 2048
-          model: llm
-          system_prompt: "${board.system_prompt}"
-          track_steps: true
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          messages_channel: answer
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
+          system_prompt: "${board:system_prompt}"
         id: answer
         publish: true
-        type: llm
-      - config:
-          observations:
-          - turns_from: conversation
-          wait_for_completion: false
-        id: observe_conversation
-        type: memory_observe
+        type: inference
+    memory_hooks:
+      context:
+        query:
+          current_message: true
+        budget:
+          max_items: 5
+        output: recalled_memory_items
+        render:
+          output: memory_context
+      turn:
+        channel: answer
     max_iterations: 8
     conversation: {}
     voice_adapter:

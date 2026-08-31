@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flowgraph "github.com/GizClaw/flowcraft/core/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -24,8 +24,8 @@ func TestGraphExecutionParallelFanOutJoin(t *testing.T) {
 			Name: "parallel", Entry: "start",
 			Nodes: []flowgraph.NodeDefinition{
 				{ID: "start", Type: "passthrough"},
-				{ID: "left", Type: "llm", Config: map[string]any{"model": "left"}},
-				{ID: "right", Type: "llm", Config: map[string]any{"model": "right"}},
+				{ID: "left", Type: "inference", Config: testInferenceConfig("left")},
+				{ID: "right", Type: "inference", Config: testInferenceConfig("right")},
 				{ID: "join", Type: "passthrough"},
 			},
 			Edges: []flowgraph.EdgeDefinition{
@@ -250,12 +250,12 @@ func TestGraphExecutionConditionalAndDefaultRouting(t *testing.T) {
 					Name: "conditional", Entry: "start",
 					Nodes: []flowgraph.NodeDefinition{
 						{ID: "start", Type: "passthrough"},
-						{ID: "yes", Type: "llm", Config: map[string]any{"model": "yes"}},
-						{ID: "no", Type: "llm", Config: map[string]any{"model": "no"}},
+						{ID: "yes", Type: "inference", Config: testInferenceConfig("yes")},
+						{ID: "no", Type: "inference", Config: testInferenceConfig("no")},
 					},
 					Edges: []flowgraph.EdgeDefinition{
 						{From: "start", To: "yes", Condition: "approved == true"},
-						{From: "start", To: "no"},
+						{From: "start", To: "no", Condition: "approved == false"},
 						{From: "yes", To: flowgraph.END}, {From: "no", To: flowgraph.END},
 					},
 				},
@@ -285,13 +285,13 @@ func TestGraphExecutionBoundedLoop(t *testing.T) {
 			Nodes: []flowgraph.NodeDefinition{
 				{
 					ID: "seed", Type: "script",
-					Config: map[string]any{"source": `board.setVar("counter", 0);`},
+					Config: testNodeConfig(map[string]any{"runtime": "js", "source": `board.setVar("counter", 0);`}),
 				},
 				{
 					ID: "increment", Type: "script",
-					Config: map[string]any{"source": `board.setVar("counter", Number(board.getVar("counter") || 0) + 1);`},
+					Config: testNodeConfig(map[string]any{"runtime": "js", "source": `board.setVar("counter", Number(board.getVar("counter") || 0) + 1);`}),
 				},
-				{ID: "answer", Type: "llm", Config: map[string]any{"model": "done"}},
+				{ID: "answer", Type: "inference", Config: testInferenceConfig("done")},
 			},
 			Edges: []flowgraph.EdgeDefinition{
 				{From: "seed", To: "increment"},
@@ -321,8 +321,8 @@ func TestGraphExecutionPublishAllowListAndRouteLifecycle(t *testing.T) {
 		Graph: flowgraph.GraphDefinition{
 			Name: "publish", Entry: "hidden",
 			Nodes: []flowgraph.NodeDefinition{
-				{ID: "hidden", Type: "llm", Config: map[string]any{"model": "hidden"}},
-				{ID: "visible", Type: "llm", Config: map[string]any{"model": "visible"}},
+				{ID: "hidden", Type: "inference", Config: testInferenceConfig("hidden")},
+				{ID: "visible", Type: "inference", Config: testInferenceConfig("visible")},
 			},
 			Edges: []flowgraph.EdgeDefinition{
 				{From: "hidden", To: "visible"}, {From: "visible", To: flowgraph.END},

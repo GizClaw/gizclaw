@@ -162,7 +162,7 @@ model_path = os.path.join(
 )
 profile_path = os.path.join(
     repo_root,
-    "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml",
+    "tests/gizclaw-e2e/testdata/resources/09-runtime-profiles/00-e2e-giztest.yaml",
 )
 with open(model_path, encoding="utf-8") as handle:
     model_source = handle.read()
@@ -199,7 +199,7 @@ summary = {
 }
 resource_paths = (
     "tests/gizclaw-e2e/testdata/resources/03-models/04-doubao-mini-chat.yaml",
-    "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml",
+    "tests/gizclaw-e2e/testdata/resources/09-runtime-profiles/00-e2e-giztest.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.concurrency-10.giztest.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.push-to-talk-concurrency-10.giztest.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.realtime-concurrency-10.giztest.yaml",

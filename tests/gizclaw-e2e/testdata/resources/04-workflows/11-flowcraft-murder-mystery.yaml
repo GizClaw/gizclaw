@@ -43,6 +43,7 @@ spec:
       name: murder-mystery
       nodes:
       - config:
+          runtime: js
           source: |
             const defaultState = {
               phase: "investigation",
@@ -66,8 +67,16 @@ spec:
         id: load_case_state
         type: script
       - config:
-          max_tokens: 2048
-          model: llm
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          messages_channel: format_player_action
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
+              temperature: 0
           output_key: case_action_text
           system_prompt: |
             You classify the latest user turn for a murder mystery game.
@@ -101,7 +110,7 @@ spec:
             - The current deterministic state is provided below. If the latest user turn is only a short confirmation of the previously suggested next step, output current_state.recommended_action exactly.
 
             Current deterministic state:
-            ${board.case_progress_state_text}
+            ${board:case_progress_state_text}
 
             Pattern examples:
             User: 我去书房检查门锁和门缝
@@ -120,11 +129,11 @@ spec:
             case_action: kind=ask_detail; target=epilogue
 
             Do not solve the case. Do not add explanations.
-          temperature: 0
         id: format_player_action
         publish: false
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             function latestUserText() {
               const msgs = board.channel(board.MAIN_CHANNEL) || [];
@@ -132,7 +141,7 @@ spec:
                 const msg = msgs[i] || {};
                 if (msg.role !== "user") continue;
                 if (typeof msg.content === "string" && msg.content.trim()) return msg.content.trim();
-                const parts = Array.isArray(msg.parts) ? msg.parts : [];
+                const parts = msg.content && Array.isArray(msg.content.parts) ? msg.content.parts : [];
                 const text = parts.map(function(part) {
                   return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
                 }).join("").trim();
@@ -265,12 +274,14 @@ spec:
         id: apply_case_action
         type: script
       - config:
+          runtime: js
           source: |
             const state = board.getVar("case_progress_state") || {};
             board.setVar("case_route", state.phase === "solved" && state.response_mode !== "finale" ? "solved_chat" : "game_master");
         id: route_case
         type: script
       - config:
+          runtime: js
           source: |
             function latestUserText() {
               const msgs = board.channel(board.MAIN_CHANNEL) || [];
@@ -278,7 +289,7 @@ spec:
                 const msg = msgs[i] || {};
                 if (msg.role !== "user") continue;
                 if (typeof msg.content === "string" && msg.content.trim()) return msg.content.trim();
-                const parts = Array.isArray(msg.parts) ? msg.parts : [];
+                const parts = msg.content && Array.isArray(msg.content.parts) ? msg.content.parts : [];
                 const text = parts.map(function(part) {
                   return part && part.type === "text" && typeof part.text === "string" ? part.text : "";
                 }).join("").trim();
@@ -288,14 +299,20 @@ spec:
             }
             board.setChannel("case_game_master_channel", [{
               role: "user",
-              parts: [{ type: "text", text: latestUserText() }]
+              content: { parts: [{ type: "text", text: latestUserText() }] }
             }]);
         id: prepare_game_master_messages
         type: script
       - config:
-          max_tokens: 2048
+          model:
+            id:
+              provider: gizclaw
+              name: llm
           messages_channel: case_game_master_channel
-          model: llm
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             你是中文剧本杀《雨夜留声机》的主持人。玩家是侦探，正在沈家大宅调查沈鹤年的密室死亡。
 
@@ -346,11 +363,12 @@ spec:
             - next_scene=confrontation：引导大厅对质。
 
             当前状态：
-            ${board.case_progress_state_text}
+            ${board:case_progress_state_text}
         id: generate_game_master
         publish: true
-        type: llm
+        type: inference
       - config:
+          runtime: js
           source: |
             const state = board.getVar("case_progress_state") || {};
             const phase = state.phase || "investigation";
@@ -370,8 +388,15 @@ spec:
         id: write_case_audit
         type: script
       - config:
-          max_tokens: 2048
-          model: llm
+          model:
+            id:
+              provider: gizclaw
+              name: llm
+          messages_channel: solved_chat
+          stream: true
+          intent:
+            text:
+              max_output_tokens: 2048
           system_prompt: |
             案件《雨夜留声机》已经破案。
 
@@ -385,10 +410,10 @@ spec:
             - 回复自然中文，一到三段短段落。
 
             当前状态：
-            ${board.case_progress_state_text}
+            ${board:case_progress_state_text}
         id: solved_chat
         publish: true
-        type: llm
+        type: inference
       - config:
           observations:
           - facts:

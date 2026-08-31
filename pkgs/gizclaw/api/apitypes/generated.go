@@ -1213,15 +1213,51 @@ func (e FlowcraftConversationStarts) Valid() bool {
 	}
 }
 
-// Defines values for FlowcraftLLMNodeType.
+// Defines values for FlowcraftInferenceModelIDProvider.
 const (
-	FlowcraftLLMNodeTypeLlm FlowcraftLLMNodeType = "llm"
+	FlowcraftInferenceModelIDProviderGizclaw FlowcraftInferenceModelIDProvider = "gizclaw"
 )
 
-// Valid indicates whether the value is a known member of the FlowcraftLLMNodeType enum.
-func (e FlowcraftLLMNodeType) Valid() bool {
+// Valid indicates whether the value is a known member of the FlowcraftInferenceModelIDProvider enum.
+func (e FlowcraftInferenceModelIDProvider) Valid() bool {
 	switch e {
-	case FlowcraftLLMNodeTypeLlm:
+	case FlowcraftInferenceModelIDProviderGizclaw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftInferenceNodeType.
+const (
+	FlowcraftInferenceNodeTypeInference FlowcraftInferenceNodeType = "inference"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftInferenceNodeType enum.
+func (e FlowcraftInferenceNodeType) Valid() bool {
+	switch e {
+	case FlowcraftInferenceNodeTypeInference:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftInferenceResponseFormatKind.
+const (
+	FlowcraftInferenceResponseFormatKindJsonObject FlowcraftInferenceResponseFormatKind = "json_object"
+	FlowcraftInferenceResponseFormatKindJsonSchema FlowcraftInferenceResponseFormatKind = "json_schema"
+	FlowcraftInferenceResponseFormatKindText       FlowcraftInferenceResponseFormatKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftInferenceResponseFormatKind enum.
+func (e FlowcraftInferenceResponseFormatKind) Valid() bool {
+	switch e {
+	case FlowcraftInferenceResponseFormatKindJsonObject:
+		return true
+	case FlowcraftInferenceResponseFormatKindJsonSchema:
+		return true
+	case FlowcraftInferenceResponseFormatKindText:
 		return true
 	default:
 		return false
@@ -1477,6 +1513,21 @@ const (
 func (e FlowcraftScriptNodeType) Valid() bool {
 	switch e {
 	case FlowcraftScriptNodeTypeScript:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftScriptNodeConfigRuntime.
+const (
+	FlowcraftScriptNodeConfigRuntimeJs FlowcraftScriptNodeConfigRuntime = "js"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftScriptNodeConfigRuntime enum.
+func (e FlowcraftScriptNodeConfigRuntime) Valid() bool {
+	switch e {
+	case FlowcraftScriptNodeConfigRuntimeJs:
 		return true
 	default:
 		return false
@@ -4193,29 +4244,65 @@ type FlowcraftGraph struct {
 	Nodes []FlowcraftNode  `json:"nodes"`
 }
 
-// FlowcraftLLMNode defines model for FlowcraftLLMNode.
-type FlowcraftLLMNode struct {
-	Config        FlowcraftLLMNodeConfig `json:"config"`
-	Id            string                 `json:"id"`
-	Publish       *bool                  `json:"publish,omitempty"`
-	SkipCondition *string                `json:"skip_condition,omitempty"`
-	Type          FlowcraftLLMNodeType   `json:"type"`
+// FlowcraftInferenceIntent defines model for FlowcraftInferenceIntent.
+type FlowcraftInferenceIntent struct {
+	Text FlowcraftInferenceTextIntent `json:"text"`
 }
 
-// FlowcraftLLMNodeType defines model for FlowcraftLLMNode.Type.
-type FlowcraftLLMNodeType string
+// FlowcraftInferenceModelID defines model for FlowcraftInferenceModelID.
+type FlowcraftInferenceModelID struct {
+	Name     string                            `json:"name"`
+	Provider FlowcraftInferenceModelIDProvider `json:"provider"`
+}
 
-// FlowcraftLLMNodeConfig defines model for FlowcraftLLMNodeConfig.
-type FlowcraftLLMNodeConfig struct {
-	JsonMode        *bool    `json:"json_mode,omitempty"`
-	MaxTokens       *int     `json:"max_tokens,omitempty"`
-	MessagesChannel *string  `json:"messages_channel,omitempty"`
-	Model           string   `json:"model"`
-	OutputKey       *string  `json:"output_key,omitempty"`
-	SystemPrompt    *string  `json:"system_prompt,omitempty"`
-	Temperature     *float32 `json:"temperature,omitempty"`
-	Thinking        *bool    `json:"thinking,omitempty"`
-	TrackSteps      *bool    `json:"track_steps,omitempty"`
+// FlowcraftInferenceModelIDProvider defines model for FlowcraftInferenceModelID.Provider.
+type FlowcraftInferenceModelIDProvider string
+
+// FlowcraftInferenceModelRef defines model for FlowcraftInferenceModelRef.
+type FlowcraftInferenceModelRef struct {
+	Id FlowcraftInferenceModelID `json:"id"`
+}
+
+// FlowcraftInferenceNode defines model for FlowcraftInferenceNode.
+type FlowcraftInferenceNode struct {
+	Config        FlowcraftInferenceNodeConfig `json:"config"`
+	Id            string                       `json:"id"`
+	Publish       *bool                        `json:"publish,omitempty"`
+	SkipCondition *string                      `json:"skip_condition,omitempty"`
+	Type          FlowcraftInferenceNodeType   `json:"type"`
+}
+
+// FlowcraftInferenceNodeType defines model for FlowcraftInferenceNode.Type.
+type FlowcraftInferenceNodeType string
+
+// FlowcraftInferenceNodeConfig defines model for FlowcraftInferenceNodeConfig.
+type FlowcraftInferenceNodeConfig struct {
+	Intent          *FlowcraftInferenceIntent  `json:"intent,omitempty"`
+	MessagesChannel *string                    `json:"messages_channel,omitempty"`
+	Model           FlowcraftInferenceModelRef `json:"model"`
+	OutputKey       *string                    `json:"output_key,omitempty"`
+	Stream          *bool                      `json:"stream,omitempty"`
+	SystemPrompt    *string                    `json:"system_prompt,omitempty"`
+	UsageKey        *string                    `json:"usage_key,omitempty"`
+}
+
+// FlowcraftInferenceResponseFormat defines model for FlowcraftInferenceResponseFormat.
+type FlowcraftInferenceResponseFormat struct {
+	Kind   FlowcraftInferenceResponseFormatKind `json:"kind"`
+	Name   *string                              `json:"name,omitempty"`
+	Schema *map[string]interface{}              `json:"schema,omitempty"`
+}
+
+// FlowcraftInferenceResponseFormatKind defines model for FlowcraftInferenceResponseFormat.Kind.
+type FlowcraftInferenceResponseFormatKind string
+
+// FlowcraftInferenceTextIntent defines model for FlowcraftInferenceTextIntent.
+type FlowcraftInferenceTextIntent struct {
+	MaxOutputTokens  *int                              `json:"max_output_tokens,omitempty"`
+	ReasoningEnabled *bool                             `json:"reasoning_enabled,omitempty"`
+	Response         *FlowcraftInferenceResponseFormat `json:"response,omitempty"`
+	Temperature      *float32                          `json:"temperature,omitempty"`
+	TopP             *float32                          `json:"top_p,omitempty"`
 }
 
 // FlowcraftMemoryBBHPolicy defines model for FlowcraftMemoryBBHPolicy.
@@ -4233,6 +4320,36 @@ type FlowcraftMemoryBlevePolicy struct {
 
 // FlowcraftMemoryBlevePolicyAnalyzer defines model for FlowcraftMemoryBlevePolicy.Analyzer.
 type FlowcraftMemoryBlevePolicyAnalyzer string
+
+// FlowcraftMemoryContextBudget defines model for FlowcraftMemoryContextBudget.
+type FlowcraftMemoryContextBudget struct {
+	MaxChars  *int `json:"max_chars,omitempty"`
+	MaxItems  *int `json:"max_items,omitempty"`
+	MaxTokens *int `json:"max_tokens,omitempty"`
+}
+
+// FlowcraftMemoryContextHook defines model for FlowcraftMemoryContextHook.
+type FlowcraftMemoryContextHook struct {
+	Budget   *FlowcraftMemoryContextBudget `json:"budget,omitempty"`
+	MinScore *float32                      `json:"min_score,omitempty"`
+	Output   string                        `json:"output"`
+	Query    FlowcraftMemoryContextQuery   `json:"query"`
+	Render   *FlowcraftMemoryContextRender `json:"render,omitempty"`
+}
+
+// FlowcraftMemoryContextQuery defines model for FlowcraftMemoryContextQuery.
+type FlowcraftMemoryContextQuery struct {
+	Board          *string `json:"board,omitempty"`
+	CurrentMessage *bool   `json:"current_message,omitempty"`
+	Literal        *string `json:"literal,omitempty"`
+}
+
+// FlowcraftMemoryContextRender defines model for FlowcraftMemoryContextRender.
+type FlowcraftMemoryContextRender struct {
+	MaxChars *int    `json:"max_chars,omitempty"`
+	Output   string  `json:"output"`
+	Template *string `json:"template,omitempty"`
+}
 
 // FlowcraftMemoryExtractionPolicy defines model for FlowcraftMemoryExtractionPolicy.
 type FlowcraftMemoryExtractionPolicy struct {
@@ -4282,6 +4399,12 @@ type FlowcraftMemoryGojiebaPolicyMode string
 // FlowcraftMemoryHNSWPolicy defines model for FlowcraftMemoryHNSWPolicy.
 type FlowcraftMemoryHNSWPolicy struct {
 	FlushInterval *string `json:"flush_interval,omitempty"`
+}
+
+// FlowcraftMemoryHooks defines model for FlowcraftMemoryHooks.
+type FlowcraftMemoryHooks struct {
+	Context *FlowcraftMemoryContextHook `json:"context,omitempty"`
+	Turn    *FlowcraftMemoryTurnHook    `json:"turn,omitempty"`
 }
 
 // FlowcraftMemoryLanePolicy defines model for FlowcraftMemoryLanePolicy.
@@ -4375,6 +4498,11 @@ type FlowcraftMemoryRecallRender struct {
 	MaxItems   *int    `json:"max_items,omitempty"`
 }
 
+// FlowcraftMemoryTurnHook defines model for FlowcraftMemoryTurnHook.
+type FlowcraftMemoryTurnHook struct {
+	Channel *string `json:"channel,omitempty"`
+}
+
 // FlowcraftMemoryWritePolicy defines model for FlowcraftMemoryWritePolicy.
 type FlowcraftMemoryWritePolicy struct {
 	Mode FlowcraftMemoryWritePolicyMode `json:"mode"`
@@ -4425,14 +4553,19 @@ type FlowcraftScriptNodeType string
 
 // FlowcraftScriptNodeConfig defines model for FlowcraftScriptNodeConfig.
 type FlowcraftScriptNodeConfig struct {
-	Source string `json:"source"`
+	Runtime FlowcraftScriptNodeConfigRuntime `json:"runtime"`
+	Source  string                           `json:"source"`
 }
+
+// FlowcraftScriptNodeConfigRuntime defines model for FlowcraftScriptNodeConfig.Runtime.
+type FlowcraftScriptNodeConfigRuntime string
 
 // FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
 type FlowcraftWorkflowSpec struct {
 	Conversation  *FlowcraftConversation `json:"conversation,omitempty"`
 	Graph         FlowcraftGraph         `json:"graph"`
 	MaxIterations *int                   `json:"max_iterations,omitempty"`
+	MemoryHooks   *FlowcraftMemoryHooks  `json:"memory_hooks,omitempty"`
 	VoiceAdapter  *VoiceAdapter          `json:"voice_adapter,omitempty"`
 }
 
@@ -8547,24 +8680,24 @@ func (t *EinoNode) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsFlowcraftLLMNode returns the union data inside the FlowcraftNode as a FlowcraftLLMNode
-func (t FlowcraftNode) AsFlowcraftLLMNode() (FlowcraftLLMNode, error) {
-	var body FlowcraftLLMNode
+// AsFlowcraftInferenceNode returns the union data inside the FlowcraftNode as a FlowcraftInferenceNode
+func (t FlowcraftNode) AsFlowcraftInferenceNode() (FlowcraftInferenceNode, error) {
+	var body FlowcraftInferenceNode
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromFlowcraftLLMNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftLLMNode
-func (t *FlowcraftNode) FromFlowcraftLLMNode(v FlowcraftLLMNode) error {
-	v.Type = "llm"
+// FromFlowcraftInferenceNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftInferenceNode
+func (t *FlowcraftNode) FromFlowcraftInferenceNode(v FlowcraftInferenceNode) error {
+	v.Type = "inference"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeFlowcraftLLMNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftLLMNode
-func (t *FlowcraftNode) MergeFlowcraftLLMNode(v FlowcraftLLMNode) error {
-	v.Type = "llm"
+// MergeFlowcraftInferenceNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftInferenceNode
+func (t *FlowcraftNode) MergeFlowcraftInferenceNode(v FlowcraftInferenceNode) error {
+	v.Type = "inference"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -8701,8 +8834,8 @@ func (t FlowcraftNode) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
-	case "llm":
-		return t.AsFlowcraftLLMNode()
+	case "inference":
+		return t.AsFlowcraftInferenceNode()
 	case "memory_observe":
 		return t.AsFlowcraftMemoryObserveNode()
 	case "memory_recall":

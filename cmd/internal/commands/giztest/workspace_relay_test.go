@@ -202,6 +202,17 @@ func TestWorkspaceRelayForwardsTextIncrementally(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRelayAcceptsTextInputBeforeAudioTurns(t *testing.T) {
+	stream := newFakeRelayStream()
+	op := &WorkspaceRelayOperation{Media: "audio", InputMedia: "text"}
+	if err := pushRelayInput(context.Background(), op, stream, "brief"); err != nil {
+		t.Fatal(err)
+	}
+	if fragments := drainUserTurn(t, stream); len(fragments) != 1 || fragments[0] != "brief" {
+		t.Fatalf("input fragments = %#v", fragments)
+	}
+}
+
 func TestWorkspaceRelayEvidenceExcludesContent(t *testing.T) {
 	tester, candidate := newFakeRelayStream(), newFakeRelayStream()
 	op := textRelayOperation(2)
@@ -542,6 +553,20 @@ func TestWorkspaceRelayFailsOnDisconnectAndStreamError(t *testing.T) {
 		tester.in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", Error: "workflow exploded", EndOfStream: true}}
 		err := <-done
 		if err == nil || !strings.Contains(err.Error(), "terminal stream error") || strings.Contains(err.Error(), "exploded") {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("terminal stream error in full evidence", func(t *testing.T) {
+		tester, candidate := newFakeRelayStream(), newFakeRelayStream()
+		done := make(chan error, 1)
+		go func() {
+			_, err := runWorkspaceRelayWithEvidence(context.Background(), textRelayOperation(3), tester, candidate, "brief", 0, true)
+			done <- err
+		}()
+		drainUserTurn(t, tester)
+		tester.in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", Error: "workflow exploded", EndOfStream: true}}
+		err := <-done
+		if err == nil || !strings.Contains(err.Error(), "terminal stream error: workflow exploded") {
 			t.Fatalf("error = %v", err)
 		}
 	})
