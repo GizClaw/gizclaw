@@ -2925,6 +2925,28 @@ int main(void) {
   }
   gzc_rpc_request_destroy(timeout_request);
 
+  gzc_rpc_request_t *poll_timeout_request = NULL;
+  rc = gzc_rpc_request_start(
+      client,
+      0u,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+      gzc_str_from_parts((const char *)params.data, params.len),
+      5,
+      &poll_timeout_request);
+  if (rc == GZC_OK) {
+    rc = gzc_client_poll(client, -1);
+  }
+  if (expect(
+          rc == GZC_OK && fake_webrtc.last_poll_timeout_ms == 5 &&
+              gzc_rpc_request_result(
+                  poll_timeout_request, &async_response_first) ==
+                  GZC_ERR_TIMEOUT,
+          "client poll clamps idle waits to the nearest request deadline") !=
+      0) {
+    return 1;
+  }
+  gzc_rpc_request_destroy(poll_timeout_request);
+
   gzc_rpc_request_t *capacity_requests[15] = {0};
   for (size_t i = 0; i < 15u && rc == GZC_OK; i++) {
     rc = gzc_rpc_request_start(

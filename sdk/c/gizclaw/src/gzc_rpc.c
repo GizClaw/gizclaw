@@ -173,6 +173,23 @@ void gzc_rpc_request_expire_internal(
   }
 }
 
+int gzc_rpc_request_backend_timeout_ms_internal(
+    const gzc_rpc_request_t *request,
+    int requested_timeout_ms) {
+  if (request == NULL || gzc_rpc_request_terminal_internal(request)) {
+    return requested_timeout_ms;
+  }
+  const int64_t remaining =
+      request->deadline_ms - gzc_client_instant_ms_internal(request->client);
+  if (remaining <= 0) {
+    return 0;
+  }
+  if (requested_timeout_ms < 0 || remaining < requested_timeout_ms) {
+    return remaining > INT_MAX ? INT_MAX : (int)remaining;
+  }
+  return requested_timeout_ms;
+}
+
 static void request_release_channel(gzc_rpc_request_t *request) {
   if (request == NULL || request->client == NULL || request->channel == NULL) {
     return;

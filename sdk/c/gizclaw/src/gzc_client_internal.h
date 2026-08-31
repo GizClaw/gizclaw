@@ -44,6 +44,9 @@ void gzc_rpc_request_transport_error_internal(
 void gzc_rpc_request_expire_internal(
     gzc_rpc_request_t *request,
     int64_t now_ms);
+int gzc_rpc_request_backend_timeout_ms_internal(
+    const gzc_rpc_request_t *request,
+    int requested_timeout_ms);
 bool gzc_rpc_request_terminal_internal(const gzc_rpc_request_t *request);
 int gzc_rpc_request_progress_internal(gzc_rpc_request_t *request);
 void gzc_rpc_request_detach_internal(

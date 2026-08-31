@@ -1543,6 +1543,14 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
     }
   }
   int backend_timeout_ms = timeout_ms;
+  for (gzc_service_channel_t *channel = client->service_channels;
+       channel != NULL; channel = channel->next) {
+    backend_timeout_ms = gzc_rpc_request_backend_timeout_ms_internal(
+        channel->rpc_request, backend_timeout_ms);
+    if (backend_timeout_ms == 0) {
+      break;
+    }
+  }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
     backend_timeout_ms =
         gzc_rpc_inbound_backend_timeout_ms(client->inbound[i], backend_timeout_ms);
