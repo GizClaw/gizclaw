@@ -57,14 +57,14 @@ func OpenBackend(ctx context.Context, client *redis.Client, prefix string) (*Bac
 		_ = client.Close()
 		return nil, fmt.Errorf("flowcraft redis8: inspect server: %w", err)
 	}
-	major, err := redisMajorVersion(info)
+	version, err := parseRedisVersion(info)
 	if err != nil {
 		_ = client.Close()
 		return nil, err
 	}
-	if major < 8 {
+	if version.lessThan(redisVersion{major: 8, minor: 4}) {
 		_ = client.Close()
-		return nil, fmt.Errorf("flowcraft redis8: Redis 8 or newer is required, server reports major version %d", major)
+		return nil, fmt.Errorf("flowcraft redis8: Redis 8.4 or newer is required for server-side hybrid search, server reports %s", version)
 	}
 	index := newIndex(client, prefix)
 	if err := index.ensure(ctx); err != nil {
@@ -74,18 +74,45 @@ func OpenBackend(ctx context.Context, client *redis.Client, prefix string) (*Bac
 	return &Backend{client: client, prefix: prefix, state: newStateStore(client, prefix), index: index}, nil
 }
 
-var redisVersionPattern = regexp.MustCompile(`(?m)^redis_version:([0-9]+)(?:\.[0-9]+)*\r?$`)
+var redisVersionPattern = regexp.MustCompile(`(?m)^redis_version:([0-9]+)\.([0-9]+)(?:\.([0-9]+))?\r?$`)
 
-func redisMajorVersion(info string) (int, error) {
+type redisVersion struct {
+	major int
+	minor int
+	patch int
+}
+
+func parseRedisVersion(info string) (redisVersion, error) {
 	match := redisVersionPattern.FindStringSubmatch(info)
-	if len(match) != 2 {
-		return 0, errors.New("flowcraft redis8: redis_version missing from INFO server")
+	if len(match) != 4 {
+		return redisVersion{}, errors.New("flowcraft redis8: redis_version missing from INFO server")
 	}
-	major, err := strconv.Atoi(match[1])
-	if err != nil {
-		return 0, fmt.Errorf("flowcraft redis8: parse redis_version: %w", err)
+	parts := make([]int, 3)
+	for i := range parts {
+		if match[i+1] == "" {
+			continue
+		}
+		value, err := strconv.Atoi(match[i+1])
+		if err != nil {
+			return redisVersion{}, fmt.Errorf("flowcraft redis8: parse redis_version: %w", err)
+		}
+		parts[i] = value
 	}
-	return major, nil
+	return redisVersion{major: parts[0], minor: parts[1], patch: parts[2]}, nil
+}
+
+func (version redisVersion) lessThan(other redisVersion) bool {
+	if version.major != other.major {
+		return version.major < other.major
+	}
+	if version.minor != other.minor {
+		return version.minor < other.minor
+	}
+	return version.patch < other.patch
+}
+
+func (version redisVersion) String() string {
+	return fmt.Sprintf("%d.%d.%d", version.major, version.minor, version.patch)
 }
 
 func (backend *Backend) TemporalStore() flowrecall.TemporalStore {

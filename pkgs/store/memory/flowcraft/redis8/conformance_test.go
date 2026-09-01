@@ -65,6 +65,44 @@ func TestRetrievalConformance(t *testing.T) {
 	})
 }
 
+func TestSearchUsesRedisNativeHybridAndFilter(t *testing.T) {
+	backend := freshBackend(t)
+	index := backend.RetrievalIndex()
+	ctx := context.Background()
+	const namespace = "native-hybrid"
+	if err := index.Upsert(ctx, namespace, []retrieval.Doc{
+		{ID: "keep", Content: "likes tea", Vector: []float32{1, 0}, Metadata: map[string]any{"kind": "preference", "entities": []any{"tea", "user"}}, Timestamp: time.Now()},
+		{ID: "drop-filter", Content: "likes tea", Vector: []float32{1, 0}, Metadata: map[string]any{"kind": "episode", "entities": []any{"tea"}}, Timestamp: time.Now()},
+		{ID: "drop-evidence", Content: "unrelated", Vector: []float32{0, 1}, Metadata: map[string]any{"kind": "preference", "entities": []any{"tea"}}, Timestamp: time.Now()},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The legacy client-side path enumerates this set before searching. Removing
+	// it proves this request is answered by FT.HYBRID and Redis-side filters.
+	if err := backend.client.Del(ctx, backend.index.namespaceKey(namespace)).Err(); err != nil {
+		t.Fatal(err)
+	}
+	response, err := index.Search(ctx, namespace, retrieval.SearchRequest{
+		QueryText:   "tea",
+		QueryVector: []float32{1, 0},
+		Filter: retrieval.Filter{
+			Eq:          map[string]any{"kind": "preference"},
+			ContainsAny: map[string][]any{"entities": {"tea"}},
+		},
+		TopK: 2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Hits) != 1 || response.Hits[0].Doc.ID != "keep" {
+		t.Fatalf("Search() hits = %#v, want only keep", response.Hits)
+	}
+	if response.Hits[0].Scores["bm25"] <= 0 || response.Hits[0].Scores["cos"] <= 0 {
+		t.Fatalf("Search() scores = %#v, want positive Redis text and vector lanes", response.Hits[0].Scores)
+	}
+}
+
 func TestScopeEnumeratorPreservesCrossAgentHardPartition(t *testing.T) {
 	store := freshBackend(t).TemporalStore()
 	enumerator := store.(recall.ScopeEnumerator)

@@ -10,28 +10,39 @@ import (
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
 )
 
-func TestRedisMajorVersion(t *testing.T) {
+func TestParseRedisVersion(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name    string
 		info    string
-		want    int
+		want    redisVersion
 		wantErr bool
 	}{
-		{name: "redis 8", info: "# Server\r\nredis_version:8.2.1\r\n", want: 8},
-		{name: "redis 10", info: "redis_version:10.0.0\n", want: 10},
+		{name: "redis 8.4", info: "# Server\r\nredis_version:8.4.6\r\n", want: redisVersion{major: 8, minor: 4, patch: 6}},
+		{name: "redis 10", info: "redis_version:10.0.0\n", want: redisVersion{major: 10}},
+		{name: "no patch", info: "redis_version:8.4\n", want: redisVersion{major: 8, minor: 4}},
 		{name: "missing", info: "redis_mode:standalone\r\n", wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := redisMajorVersion(test.info)
+			got, err := parseRedisVersion(test.info)
 			if (err != nil) != test.wantErr {
-				t.Fatalf("redisMajorVersion error = %v, wantErr %v", err, test.wantErr)
+				t.Fatalf("parseRedisVersion error = %v, wantErr %v", err, test.wantErr)
 			}
 			if got != test.want {
-				t.Fatalf("redisMajorVersion = %d, want %d", got, test.want)
+				t.Fatalf("parseRedisVersion = %v, want %v", got, test.want)
 			}
 		})
+	}
+}
+
+func TestRedisVersionLessThan(t *testing.T) {
+	t.Parallel()
+	if !(redisVersion{major: 8, minor: 2, patch: 1}).lessThan(redisVersion{major: 8, minor: 4}) {
+		t.Fatal("Redis 8.2 must be rejected")
+	}
+	if (redisVersion{major: 8, minor: 4}).lessThan(redisVersion{major: 8, minor: 4}) {
+		t.Fatal("Redis 8.4 must be accepted")
 	}
 }
 
@@ -58,5 +69,34 @@ func TestCapabilitiesAdvertiseHybridSearch(t *testing.T) {
 	}
 	if !retrieval.Supports(&Index{}, retrieval.CapabilityHybrid) {
 		t.Fatal("capability-driven selection did not enable hybrid retrieval")
+	}
+	if !capabilities.FilterPushdown || !(&Index{}).SupportsFilter(retrieval.Filter{
+		And:   []retrieval.Filter{{Eq: map[string]any{"kind": "fact"}}},
+		Range: map[string]retrieval.Range{"confidence": {Gte: 0.5}},
+	}) {
+		t.Fatalf("Capabilities() = %#v, want native structured filter pushdown", capabilities)
+	}
+	if (&Index{}).SupportsFilter(retrieval.Filter{Match: map[string]string{"_content": "fact"}}) {
+		t.Fatal("substring Match must remain a client-side filter")
+	}
+}
+
+func TestCompileFilterBooleanConstants(t *testing.T) {
+	t.Parallel()
+	index := &Index{}
+	matchNone := retrieval.Filter{In: map[string][]any{"kind": {}}}
+	compiled, err := index.compileFilter(context.Background(), matchNone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compiled.query != impossibleFilterQuery {
+		t.Fatalf("compileFilter(empty In) = %q, want %q", compiled.query, impossibleFilterQuery)
+	}
+	compiled, err = index.compileFilter(context.Background(), retrieval.Filter{Not: &matchNone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compiled.query != "*" {
+		t.Fatalf("compileFilter(Not empty In) = %q, want match-all", compiled.query)
 	}
 }
