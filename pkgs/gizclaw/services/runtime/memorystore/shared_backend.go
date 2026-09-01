@@ -341,7 +341,16 @@ func (index *sharedBBHIndex) Rebuild(
 	policy apitypes.FlowcraftMemoryLayoutPolicy,
 	config memoryflowcraft.Config,
 ) error {
-	// Build and validate the complete replacement before blocking live users.
+	// Serialize the canonical snapshot with live index mutations. An Observe or
+	// Forget may update canonical state before it reaches this lock; after the
+	// replacement is published, that operation resumes against the new index
+	// and applies the same mutation there.
+	index.mu.Lock()
+	defer index.mu.Unlock()
+	if index.index == nil {
+		return errors.New("memory store: shared BBH index is closed")
+	}
+
 	prepared, err := prepareLocalProjection(ctx, dir, temporal, evidence, outbox, policy, config)
 	if err != nil {
 		return err
@@ -350,12 +359,6 @@ func (index *sharedBBHIndex) Rebuild(
 		return nil
 	}
 	defer prepared.Abort()
-
-	index.mu.Lock()
-	defer index.mu.Unlock()
-	if index.index == nil {
-		return errors.New("memory store: shared BBH index is closed")
-	}
 	oldConfig := index.config
 	if err := index.index.Close(); err != nil {
 		return fmt.Errorf("memory store: close previous derived index: %w", err)
