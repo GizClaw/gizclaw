@@ -12,11 +12,10 @@ spec:
       system_prompt: Do not extract conversational facts. The Graph writes case audit facts directly.
       schema_name: murder_mystery_audit
       temperature: 0
-    bbh: {search_overfetch: 20, bleve: {analyzer: standard}}
     lanes:
     - {name: case-state, kind: state, description: Deterministic case state audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace case state controls routing.}
     - {name: progress-badges, kind: state, description: Deterministic progress badge audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace case state controls routing.}
-    graph_enabled: true
+    graph_enabled: false
     write: {mode: sync, tier: general}
   mem0:
     custom_instructions: Do not extract conversational facts; accept only Graph-written case audit facts.

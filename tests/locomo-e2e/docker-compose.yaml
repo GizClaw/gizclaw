@@ -1,0 +1,36 @@
+services:
+  redis8:
+    image: redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
+    ports:
+      - "127.0.0.1:${GIZCLAW_LOCOMO_E2E_REDIS8_PORT:-16380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      - /data
+
+  mem0:
+    build:
+      context: ../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.mem0
+    entrypoint: ["uvicorn", "mem0_server:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MEM0_LLM_API_KEY: ${GIZCLAW_LOCOMO_E2E_MODEL_API_KEY:-}
+      MEM0_LLM_BASE_URL: ${GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL:-https://api.deepseek.com}
+      MEM0_LLM_MODEL: ${GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL:-deepseek-v4-flash}
+      MEM0_EMBEDDING_API_KEY: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY:-}
+      MEM0_EMBEDDING_BASE_URL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      MEM0_EMBEDDING_MODEL: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL:-qwen3.7-text-embedding}
+      MEM0_EMBEDDING_DIMENSIONS: ${GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS:-1024}
+    ports:
+      - "127.0.0.1:${GIZCLAW_LOCOMO_E2E_MEM0_PORT:-18000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=1).read()"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+      start_period: 30s
+    tmpfs:
+      - /tmp

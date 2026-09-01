@@ -26,8 +26,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
+	flowcraftredis8 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft/redis8"
 	memorymem0 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/mem0"
 	memoryvolc "github.com/GizClaw/gizclaw-go/pkgs/store/memory/volc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 type Request struct {
@@ -138,7 +140,7 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 		if err != nil {
 			return nil, nil, err
 		}
-		return openFlowcraftSQLite(ctx, dir, policy, config)
+		return openFlowcraftLocal(ctx, dir, policy, config)
 	case "flowcraft_object_store":
 		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
 		if err != nil {
@@ -152,6 +154,12 @@ func buildFlowcraft(ctx context.Context, request Request) (*memoryflowcraft.Stor
 			return nil, nil, err
 		}
 		return openFlowcraftPostgres(ctx, connection.Dsn, request.WorkspaceID, policy, config)
+	case "flowcraft_redis8":
+		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftRedis8Connection()
+		if err != nil {
+			return nil, nil, err
+		}
+		return openFlowcraftRedis8(ctx, connection, flowcraftRedis8Prefix(request), policy, config)
 	default:
 		return nil, nil, fmt.Errorf("memory store: flowcraft driver cannot use connection type %q", connectionType)
 	}
@@ -163,7 +171,7 @@ func managedBindingRoot(serverRoot, profileID, bindingName string) (string, erro
 		return "", errors.New("memory store: flowcraft_bbh requires the Server Workspace root")
 	}
 	if strings.TrimSpace(profileID) == "" || strings.TrimSpace(profileID) != profileID || !safePathSegment(bindingName) {
-		return "", errors.New("memory store: RuntimeProfile id is required and binding alias must be a safe path segment")
+		return "", errors.New("memory store: RuntimeProfile ID is required and binding alias must be a safe path segment")
 	}
 	absoluteRoot, err := filepath.Abs(serverRoot)
 	if err != nil {
@@ -182,8 +190,8 @@ func managedBindingRoot(serverRoot, profileID, bindingName string) (string, erro
 }
 
 func safePathSegment(value string) bool {
-	value = strings.TrimSpace(value)
-	return value != "" && value != "." && value != ".." && filepath.Base(value) == value &&
+	trimmed := strings.TrimSpace(value)
+	return value == trimmed && value != "" && value != "." && value != ".." && filepath.Base(value) == value &&
 		!strings.ContainsAny(value, `/\`)
 }
 
@@ -207,6 +215,59 @@ func rejectSymlinkPath(root, target string) error {
 		next := strings.Split(relative, string(filepath.Separator))[0]
 		current = filepath.Join(current, next)
 	}
+}
+
+func flowcraftRedis8Prefix(request Request) string {
+	sum := sha256.Sum256([]byte(request.ProfileID + "\x00" + request.BindingName))
+	return "gizclaw:flowcraft:redis8:" + hex.EncodeToString(sum[:16])
+}
+
+func openFlowcraftRedis8(
+	ctx context.Context,
+	connection apitypes.RuntimeProfileFlowcraftRedis8Connection,
+	prefix string,
+	policy apitypes.FlowcraftMemoryLayoutPolicy,
+	config memoryflowcraft.Config,
+) (*memoryflowcraft.Store, io.Closer, error) {
+	if boolValue(policy.GraphEnabled) {
+		return nil, nil, errors.New("memory store: flowcraft_redis8 cannot enable graph until Flowcraft exposes graph store injection")
+	}
+	tlsCAFile := ""
+	if connection.TlsCaFile != nil {
+		tlsCAFile = *connection.TlsCaFile
+	}
+	owner, err := storage.New(map[string]storage.Config{
+		"flowcraft-redis8": storage.RedisConfig{URL: connection.Url, TLSCAFile: tlsCAFile},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := owner.Redis("flowcraft-redis8")
+	if err != nil {
+		return nil, nil, errors.Join(err, owner.Close())
+	}
+	backend, err := flowcraftredis8.OpenBackend(ctx, client, prefix)
+	if err != nil {
+		return nil, nil, errors.Join(err, owner.Close())
+	}
+	if err := owner.Close(); err != nil {
+		return nil, nil, errors.Join(err, backend.Close())
+	}
+	config.TemporalStore = backend.TemporalStore()
+	config.EvidenceStore = backend.EvidenceStore()
+	config.SideEffectOutbox = backend.SideEffectOutbox()
+	config.RetrievalIndex = backend.RetrievalIndex()
+	if policy.Write.Mode == apitypes.FlowcraftMemoryWritePolicyModeAsyncSemantic {
+		config.AsyncQueue = backend.AsyncSemanticQueue()
+	}
+	store, err := memoryflowcraft.New(ctx, config)
+	if err != nil {
+		return nil, nil, errors.Join(err, backend.Close())
+	}
+	if err := rebuildAllScopes(ctx, store, backend.TemporalStore()); err != nil {
+		return nil, nil, errors.Join(err, store.Close(), backend.Close())
+	}
+	return store, multiCloser([]io.Closer{backend, store}), nil
 }
 
 func flowcraftConfig(policy apitypes.FlowcraftMemoryLayoutPolicy, loader memoryflowcraft.ModelLoader) (memoryflowcraft.Config, error) {
@@ -281,43 +342,6 @@ func openFlowcraftLocal(ctx context.Context, dir string, policy apitypes.Flowcra
 		return fail(err)
 	}
 	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(filepath.Join(dir, "retrieval"))
-	if err != nil {
-		return fail(err)
-	}
-	index, err := bbh.New(retrievalWorkspace, bbh.WithConfig(mapBBHConfig(policy.Bbh)))
-	if err != nil {
-		return fail(err)
-	}
-	owned = append(owned, index)
-	config.TemporalStore = backend.TemporalStore()
-	config.EvidenceStore = backend.EvidenceStore()
-	config.SideEffectOutbox = backend.SideEffectOutbox()
-	config.RetrievalIndex = index
-	if policy.Write.Mode == apitypes.FlowcraftMemoryWritePolicyModeAsyncSemantic {
-		config.AsyncQueue = backend.AsyncSemanticQueue()
-	}
-	store, err := memoryflowcraft.New(ctx, config)
-	if err != nil {
-		return fail(err)
-	}
-	return store, multiCloser(append(owned, store)), nil
-}
-
-func openFlowcraftSQLite(ctx context.Context, dir string, policy apitypes.FlowcraftMemoryLayoutPolicy, config memoryflowcraft.Config) (*memoryflowcraft.Store, io.Closer, error) {
-	backend, err := openManagedSQLite(ctx, dir)
-	if err != nil {
-		return nil, nil, err
-	}
-	owned := []io.Closer{backend}
-	fail := func(err error) (*memoryflowcraft.Store, io.Closer, error) {
-		return nil, nil, errors.Join(err, closeAll(owned))
-	}
-	if err := ensureLocalProjection(
-		ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config,
-	); err != nil {
-		return fail(err)
-	}
-	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDirectory(dir))
 	if err != nil {
 		return fail(err)
 	}
@@ -428,8 +452,9 @@ func prepareLocalProjection(
 	if err != nil {
 		return nil, fmt.Errorf("memory store: create derived-index staging directory: %w", err)
 	}
+	bbhConfig := mapBBHConfig(policy.Bbh)
 	prepared := &preparedLocalProjection{
-		dir: dir, stagingDir: stagingDir, config: mapBBHConfig(policy.Bbh),
+		dir: dir, stagingDir: stagingDir, config: bbhConfig,
 	}
 	fail := func(err error) (*preparedLocalProjection, error) {
 		prepared.Abort()
@@ -439,7 +464,7 @@ func prepareLocalProjection(
 	if err != nil {
 		return fail(err)
 	}
-	index, err := bbh.New(stagingWorkspace, bbh.WithConfig(mapBBHConfig(policy.Bbh)))
+	index, err := bbh.New(stagingWorkspace, bbh.WithConfig(bbhConfig))
 	if err != nil {
 		return fail(err)
 	}
@@ -537,7 +562,7 @@ func projectionSignature(policy apitypes.FlowcraftMemoryLayoutPolicy) (string, e
 	payload, err := json.Marshal(struct {
 		Embedding    *apitypes.FlowcraftMemoryModelPolicy `json:"embedding,omitempty"`
 		Rerank       *apitypes.FlowcraftMemoryModelPolicy `json:"rerank,omitempty"`
-		BBH          apitypes.FlowcraftMemoryBBHPolicy    `json:"bbh"`
+		BBH          *apitypes.FlowcraftMemoryBBHPolicy   `json:"bbh,omitempty"`
 		GraphEnabled *bool                                `json:"graph_enabled,omitempty"`
 	}{
 		Embedding: policy.Embedding, Rerank: policy.Rerank, BBH: policy.Bbh, GraphEnabled: policy.GraphEnabled,
@@ -547,6 +572,39 @@ func projectionSignature(policy apitypes.FlowcraftMemoryLayoutPolicy) (string, e
 	}
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func mapBBHConfig(policy *apitypes.FlowcraftMemoryBBHPolicy) bbh.Config {
+	config := bbh.Config{}
+	if policy == nil {
+		return config
+	}
+	if policy.SearchOverfetch != nil {
+		config.SearchOverfetch = *policy.SearchOverfetch
+	}
+	if policy.Bleve != nil {
+		if policy.Bleve.Analyzer != nil {
+			config.Bleve.Analyzer = string(*policy.Bleve.Analyzer)
+		}
+		if policy.Bleve.Gojieba != nil {
+			value := policy.Bleve.Gojieba
+			if value.Mode != nil {
+				config.Bleve.Gojieba.Mode = string(*value.Mode)
+			}
+			config.Bleve.Gojieba.HMM = value.Hmm
+			config.Bleve.Gojieba.DictPath = valueOrEmpty(value.DictPath)
+			config.Bleve.Gojieba.HMMPath = valueOrEmpty(value.HmmPath)
+			config.Bleve.Gojieba.UserDictPath = valueOrEmpty(value.UserDictPath)
+			config.Bleve.Gojieba.IDFPath = valueOrEmpty(value.IdfPath)
+			config.Bleve.Gojieba.StopWordsPath = valueOrEmpty(value.StopWordsPath)
+		}
+	}
+	if policy.Hnsw != nil && policy.Hnsw.FlushInterval != nil {
+		if value, err := time.ParseDuration(*policy.Hnsw.FlushInterval); err == nil {
+			config.HNSW.FlushInterval.Duration = value
+		}
+	}
+	return config
 }
 
 func writeProjectionManifest(path, signature string) error {
@@ -575,36 +633,6 @@ func writeProjectionManifest(path, signature string) error {
 		return fmt.Errorf("memory store: publish derived-index manifest: %w", err)
 	}
 	return nil
-}
-
-func mapBBHConfig(policy apitypes.FlowcraftMemoryBBHPolicy) bbh.Config {
-	config := bbh.Config{}
-	if policy.SearchOverfetch != nil {
-		config.SearchOverfetch = *policy.SearchOverfetch
-	}
-	if policy.Bleve != nil {
-		if policy.Bleve.Analyzer != nil {
-			config.Bleve.Analyzer = string(*policy.Bleve.Analyzer)
-		}
-		if policy.Bleve.Gojieba != nil {
-			value := policy.Bleve.Gojieba
-			if value.Mode != nil {
-				config.Bleve.Gojieba.Mode = string(*value.Mode)
-			}
-			config.Bleve.Gojieba.HMM = value.Hmm
-			config.Bleve.Gojieba.DictPath = valueOrEmpty(value.DictPath)
-			config.Bleve.Gojieba.HMMPath = valueOrEmpty(value.HmmPath)
-			config.Bleve.Gojieba.UserDictPath = valueOrEmpty(value.UserDictPath)
-			config.Bleve.Gojieba.IDFPath = valueOrEmpty(value.IdfPath)
-			config.Bleve.Gojieba.StopWordsPath = valueOrEmpty(value.StopWordsPath)
-		}
-	}
-	if policy.Hnsw != nil && policy.Hnsw.FlushInterval != nil {
-		if value, err := time.ParseDuration(*policy.Hnsw.FlushInterval); err == nil {
-			config.HNSW.FlushInterval.Duration = value
-		}
-	}
-	return config
 }
 
 func layoutLanePrompt(lanes []apitypes.FlowcraftMemoryLanePolicy) string {

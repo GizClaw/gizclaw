@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import mem0_server
 
@@ -47,6 +48,60 @@ class RoutingTest(unittest.TestCase):
             {"user_id", "agent_id", "run_id"},
         )
 
+
+class ConfigurationTest(unittest.TestCase):
+    def test_provider_models_and_endpoints_come_from_environment(self):
+        environment = {
+            "MEM0_LLM_API_KEY": "llm-key",
+            "MEM0_LLM_BASE_URL": "https://llm.example/v1",
+            "MEM0_LLM_MODEL": "llm-model",
+            "MEM0_EMBEDDING_API_KEY": "embedding-key",
+            "MEM0_EMBEDDING_BASE_URL": "https://embedding.example/v1",
+            "MEM0_EMBEDDING_MODEL": "embedding-model",
+            "MEM0_EMBEDDING_DIMENSIONS": "1024",
+        }
+        sentinel = object()
+        with mock.patch.dict(mem0_server.os.environ, environment, clear=True):
+            with mock.patch.object(
+                mem0_server.Memory,
+                "from_config",
+                return_value=sentinel,
+            ) as from_config:
+                self.assertIs(mem0_server._build_memory(), sentinel)
+
+        config = from_config.call_args.args[0]
+        self.assertEqual(
+            config["llm"]["config"],
+            {
+                "api_key": "llm-key",
+                "model": "llm-model",
+                "openai_base_url": "https://llm.example/v1",
+                "temperature": 0.1,
+            },
+        )
+        self.assertEqual(
+            config["embedder"]["config"],
+            {
+                "api_key": "embedding-key",
+                "model": "embedding-model",
+                "embedding_dims": 1024,
+                "openai_base_url": "https://embedding.example/v1",
+            },
+        )
+        self.assertEqual(
+            config["vector_store"]["config"]["embedding_model_dims"],
+            1024,
+        )
+
+    def test_embedding_dimensions_must_be_positive_integer(self):
+        environment = {
+            "MEM0_LLM_API_KEY": "llm-key",
+            "MEM0_EMBEDDING_API_KEY": "embedding-key",
+            "MEM0_EMBEDDING_DIMENSIONS": "invalid",
+        }
+        with mock.patch.dict(mem0_server.os.environ, environment, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "positive integer"):
+                mem0_server._build_memory()
 
 if __name__ == "__main__":
     unittest.main()

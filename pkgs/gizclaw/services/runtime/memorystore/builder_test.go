@@ -2,7 +2,6 @@ package memorystore
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,11 +17,12 @@ import (
 
 func TestManagedBindingRootUsesServerWorkspaceProfileAndAlias(t *testing.T) {
 	root := t.TempDir()
-	got, err := managedBindingRoot(root, "default", "pet-memory")
+	const profileID = "opaque/profile:id"
+	got, err := managedBindingRoot(root, profileID, "pet-memory")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(root, "data", "memory", customid.OpaquePathSegment("default"), "pet-memory")
+	want := filepath.Join(root, "data", "memory", customid.OpaquePathSegment(profileID), "pet-memory")
 	if got != want {
 		t.Fatalf("managedBindingRoot() = %q, want %q", got, want)
 	}
@@ -35,12 +35,7 @@ func TestManagedBindingRootRejectsUnsafeAndSymlinkPaths(t *testing.T) {
 			t.Errorf("managedBindingRoot(profile=%q) succeeded", value)
 		}
 	}
-	for _, value := range []string{".", "..", "../escape", "a/b", `a\b`} {
-		if got, err := managedBindingRoot(root, value, "memory"); err != nil {
-			t.Errorf("managedBindingRoot(profile=%q) error = %v", value, err)
-		} else if !strings.HasPrefix(got, filepath.Join(root, "data", "memory")+string(filepath.Separator)) {
-			t.Errorf("managedBindingRoot(profile=%q) = %q escaped root", value, got)
-		}
+	for _, value := range []string{".", "..", "../escape", "a/b", `a\b`, " alias "} {
 		if _, err := managedBindingRoot(root, "profile", value); err == nil {
 			t.Errorf("managedBindingRoot(alias=%q) succeeded", value)
 		}
@@ -55,20 +50,8 @@ func TestManagedBindingRootRejectsUnsafeAndSymlinkPaths(t *testing.T) {
 	}
 }
 
-func TestBuildAcceptsCanonicalLayoutID(t *testing.T) {
-	request := managedTestRequest(t)
-
-	result, err := Build(t.Context(), request)
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
-	}
-	if result.Closer != nil {
-		t.Cleanup(func() { _ = result.Closer.Close() })
-	}
-}
-
-func TestBuildManagedFlowcraftUsesSQLiteCanonicalStore(t *testing.T) {
-	request := managedTestRequest(t)
+func TestBuildManagedFlowcraftBBHPersistsCanonicalFacts(t *testing.T) {
+	request := bbhTestRequest(t)
 	root, err := managedBindingRoot(request.ServerRoot, request.ProfileID, request.BindingName)
 	if err != nil {
 		t.Fatal(err)
@@ -79,19 +62,16 @@ func TestBuildManagedFlowcraftUsesSQLiteCanonicalStore(t *testing.T) {
 	}
 	if _, err := first.Store.Observe(t.Context(), memory.Observation{
 		Scope: memory.Scope{AppID: request.WorkspaceID},
-		Facts: []memory.FactCandidate{{Text: "sqlite canonical fact"}},
-		ID:    "sqlite-observation",
+		Facts: []memory.FactCandidate{{Text: "managed BBH canonical fact"}},
+		ID:    "bbh-observation",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := first.Closer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(root, flowcraftSQLiteName)); err != nil {
-		t.Fatalf("memory.db: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, legacyFlowcraftStateName)); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("state.json exists or cannot be inspected: %v", err)
+	if _, err := os.Stat(filepath.Join(root, "state.json")); err != nil {
+		t.Fatalf("managed state.json: %v", err)
 	}
 
 	second, err := Build(t.Context(), request)
@@ -106,12 +86,24 @@ func TestBuildManagedFlowcraftUsesSQLiteCanonicalStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(recalled.Matches) != 1 {
-		t.Fatalf("Recall() matches = %d, want 1 after SQLite reopen", len(recalled.Matches))
+		t.Fatalf("Recall() matches = %d, want 1 after managed BBH reopen", len(recalled.Matches))
+	}
+}
+
+func TestBuildAcceptsCanonicalLayoutID(t *testing.T) {
+	request := objectStoreTestRequest(t)
+
+	result, err := Build(t.Context(), request)
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	if result.Closer != nil {
+		t.Cleanup(func() { _ = result.Closer.Close() })
 	}
 }
 
 func TestBuildFlowcraftObjectStoreRetainsWorkspaceCanonicalFormat(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	dir := t.TempDir()
 	connection := apitypes.RuntimeProfileMemoryConnection{}
 	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(
@@ -137,16 +129,13 @@ func TestBuildFlowcraftObjectStoreRetainsWorkspaceCanonicalFormat(t *testing.T) 
 	if err := result.Closer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, legacyFlowcraftStateName)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "state.json")); err != nil {
 		t.Fatalf("object-store state.json: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, flowcraftSQLiteName)); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("object-store memory.db exists or cannot be inspected: %v", err)
 	}
 }
 
 func TestBuildRejectsMismatchedCanonicalLayoutID(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	request.Layout.Id = "different-layout-id"
 
 	_, err := Build(t.Context(), request)
@@ -156,7 +145,7 @@ func TestBuildRejectsMismatchedCanonicalLayoutID(t *testing.T) {
 }
 
 func TestBuildRejectsEmptyCanonicalLayoutID(t *testing.T) {
-	request := managedTestRequest(t)
+	request := objectStoreTestRequest(t)
 	request.Layout.Id = ""
 
 	_, err := Build(t.Context(), request)
@@ -226,13 +215,13 @@ func TestProjectionSignatureExcludesExtractionAndWritePolicy(t *testing.T) {
 	if before != after {
 		t.Fatal("extraction/write policy changed derived-index identity")
 	}
-	policy.Bbh.SearchOverfetch = new(8)
+	policy.GraphEnabled = new(false)
 	changed, err := projectionSignature(policy)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if before == changed {
-		t.Fatal("BBH policy did not change derived-index identity")
+		t.Fatal("graph policy did not change derived-index identity")
 	}
 }
 
@@ -270,8 +259,8 @@ func TestFlowcraftConfigCanDisableModelExtraction(t *testing.T) {
 	}
 }
 
-func TestBuildManagedFlowcraftStoreKeepsWorkspaceScopesIsolated(t *testing.T) {
-	request := managedTestRequest(t)
+func TestBuildFlowcraftObjectStoreKeepsWorkspaceScopesIsolated(t *testing.T) {
+	request := objectStoreTestRequest(t)
 	request.WorkspaceID = "workspace-a"
 	request.BindingName = "memory"
 	result, err := Build(context.Background(), request)
@@ -311,8 +300,8 @@ func TestBuildManagedFlowcraftStoreKeepsWorkspaceScopesIsolated(t *testing.T) {
 	}
 }
 
-func TestManagedFlowcraftProjectionRebuildPreservesCanonicalFacts(t *testing.T) {
-	request := managedTestRequest(t)
+func TestFlowcraftObjectStoreProjectionRebuildPreservesCanonicalFacts(t *testing.T) {
+	request := objectStoreTestRequest(t)
 	first, err := Build(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -327,7 +316,7 @@ func TestManagedFlowcraftProjectionRebuildPreservesCanonicalFacts(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	request.Layout.Spec.Flowcraft.Bbh.SearchOverfetch = new(7)
+	request.Layout.Spec.Flowcraft.GraphEnabled = new(false)
 	second, err := Build(t.Context(), request)
 	if err != nil {
 		t.Fatal(err)
@@ -350,9 +339,6 @@ func testFlowcraftPolicy() apitypes.FlowcraftMemoryLayoutPolicy {
 	return apitypes.FlowcraftMemoryLayoutPolicy{
 		Extraction: apitypes.FlowcraftMemoryExtractionPolicy{
 			Mode: apitypes.FlowcraftMemoryExtractionPolicyModeTwoPass,
-		},
-		Bbh: apitypes.FlowcraftMemoryBBHPolicy{
-			SearchOverfetch: new(2),
 		},
 		Lanes: []apitypes.FlowcraftMemoryLanePolicy{{
 			Name: "facts",

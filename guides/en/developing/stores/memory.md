@@ -93,8 +93,6 @@ spec:
       mode: two_pass
     embedding:
       model: pet-care.embedding
-    bbh:
-      search_overfetch: 20
     lanes:
     - name: owner-profile
       kind: preference
@@ -120,16 +118,17 @@ spec:
         layout_id: pet-memory
         driver: flowcraft
         connection:
-          type: flowcraft_bbh
+          type: flowcraft_redis8
+          url: redis://redis:6379/0
 ```
-
-`flowcraft_bbh` is the portable connection that requires no external service. One RuntimeProfile memory binding shares one Flowcraft client, one SQLite canonical backend, and one BBH retrieval index. Canonical Facts, Evidence, the Async Semantic Queue, and the Side-effect Outbox live in `<server-workspace>/data/memory/<runtime-profile>/<memory-alias>/memory.db`. The Workspace name maps from `Scope.AppID` to SQLite `runtime_id`, so Workspaces remain scope-isolated inside the shared physical database. BBH Badger, Bleve, and HNSW data live under the binding's `retrieval/` directory and are derived projections rebuildable from SQLite Facts, not canonical truth.
 
 The Server opens that physical backend once per binding and gives every Workspace generation an independently closable logical Store. Logical Store construction for different Workspaces proceeds concurrently when the published Flowcraft projection signature is unchanged; it is not part of the binding-registry map critical section. A policy change still has one serialized projection-rebuild owner. Other constructors continue only after the complete replacement is atomically published. Normal final-lease cleanup closes the physical backend after the last logical lease and in-flight constructor have left; explicit Registry shutdown detaches the binding, rejects late constructor results, drains those constructors, and then closes the physical backend.
 
-When a legacy binding contains only a v1 `state.json`, its complete canonical state is first imported into a temporary SQLite database. Startup verifies the source digest and per-scope records, statuses, and counters before atomically publishing `memory.db`. The original `state.json` remains as recovery evidence; a later digest mismatch fails startup instead of selecting an empty or partially migrated database. Fresh bindings neither create nor read `state.json`. This SQLite backend is local to one GizClaw Server process; multi-process or multi-node sharing uses `flowcraft_postgresql`.
+The valid Flowcraft connections are managed local `flowcraft_bbh`, `flowcraft_object_store` (`directory`), `flowcraft_postgresql` (`dsn`), and `flowcraft_redis8` (`url`, optional `tls_ca_file`). `flowcraft_bbh` needs no external service and stores each binding under `<server-root>/data/memory/<profile-id-hash>/<binding>`; optional `flowcraft.bbh` Layout policy controls BBH search overfetch, Bleve analysis, and HNSW flushing. `flowcraft_redis8` requires Redis 8.4 or newer with Redis Search and keeps canonical Facts, Evidence, the Async Semantic Queue, the Side-effect Outbox, and text/vector retrieval in one Redis namespace; it does not fall back to Redis 7 or Redis 8.0/8.2. Retrieval uses Redis-native BM25, HNSW KNN, structured metadata filtering, top-K limiting, and `FT.HYBRID` RRF fusion. `rediss://` reuses Storage TLS verification and `tls_ca_file` can add a trusted CA. Flowcraft 0.1.7 does not expose a Graph store injection port, so the Redis8 connection rejects `graph_enabled` instead of silently using a non-durable process-local Graph. Driver and connection type must match. Unknown fields, missing keys, and invalid endpoints are rejected when a RuntimeProfile is written or resolved.
 
-Other valid connections are `flowcraft_object_store` (`directory`), `flowcraft_postgresql` (`dsn`), `mem0` (`project_id`, `endpoint`, `api_key`), and `volc_mem0` (`memory_project_id`, `endpoint`, `api_key`). `flowcraft_object_store` retains the workspace-backed canonical format in its explicit directory. Driver and connection type must match. Unknown fields, missing keys, and invalid endpoints are rejected when a RuntimeProfile is written or resolved.
+Flowcraft 0.1.7 defines `(runtime_id, user_id)` as the canonical hard partition. `agent_id` is soft-isolation metadata and is intentionally excluded from `ScopeEnumerator`; enumerating that hard scope still reads facts written with every AgentID in the partition instead of fragmenting cross-agent recall.
+
+There is no automatic migration from the removed `flowcraft_bbh` connection. Persisted legacy profiles fail closed with an operator-actionable replacement error, while mutation paths still allow the profile to be replaced with a supported connection. The old managed directory and its canonical data are retained unchanged; profile replacement and deletion do not remove them. `flowcraft_object_store` may continue using its local derived index internally, but BBH is not a public deployment connection or policy surface.
 
 For Mem0 and Volc, the Project ID records the deployment/control-plane identity paired with the selected data-plane API key. Runtime fact requests authenticate with that key; they do not send a separate Project ID field.
 
@@ -166,7 +165,7 @@ spec:
       - {from: observe-turn, to: __end__}
 ```
 
-All streams for one Workspace share one Agent generation. Stable data visibility requires the same Workspace AppID, memory driver, and physical connection selected by the same RuntimeProfile memory binding. Changing extraction, recall, write, prompt, `top_k`, or mode does not change canonical data. When Flowcraft embedding, rerank, or BBH policy changes, a staging index is rebuilt from canonical facts and published atomically; a failed rebuild never publishes a partial or mixed index. Changing driver or binding may select another physical source and does not migrate or delete data automatically. Switching back can access the original data if the original connection still retains it.
+All streams for one Workspace share one Agent generation. Stable data visibility requires the same Workspace AppID, memory driver, and physical connection selected by the same RuntimeProfile memory binding. Changing extraction, recall, write, prompt, `top_k`, or mode does not change canonical data. When a Flowcraft derived-index policy changes, a staging index is rebuilt from canonical facts and published atomically; a failed rebuild never publishes a partial or mixed index. Changing driver or binding may select another physical source and does not migrate or delete data automatically. Switching back can access the original data if the original connection still retains it.
 
 ## Ownership and errors
 

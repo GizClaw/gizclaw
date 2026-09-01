@@ -126,7 +126,9 @@ func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-mini-chat"), "asr": binding("volc-bigasr-sauc")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
 	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftBBHConnection(apitypes.RuntimeProfileFlowcraftBBHConnection{Type: apitypes.RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh}); err != nil {
+	if err := connection.FromRuntimeProfileFlowcraftRedis8Connection(apitypes.RuntimeProfileFlowcraftRedis8Connection{
+		Type: apitypes.RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8, Url: "redis://redis:6379/0",
+	}); err != nil {
 		t.Fatal(err)
 	}
 	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"chat-memory": {LayoutId: "chat-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}

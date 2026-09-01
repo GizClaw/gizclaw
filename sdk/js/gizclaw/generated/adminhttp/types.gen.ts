@@ -1327,7 +1327,7 @@ export type FlowcraftMemoryLayoutPolicy = {
     extraction: FlowcraftMemoryExtractionPolicy;
     embedding?: FlowcraftMemoryModelPolicy;
     rerank?: FlowcraftMemoryModelPolicy;
-    bbh: FlowcraftMemoryBbhPolicy;
+    bbh?: FlowcraftMemoryBbhPolicy;
     lanes: Array<FlowcraftMemoryLanePolicy>;
     graph_enabled?: boolean;
     write: FlowcraftMemoryWritePolicy;
@@ -1751,6 +1751,12 @@ export type RuntimeProfileFlowcraftPostgreSqlConnection = {
     dsn: string;
 };
 
+export type RuntimeProfileFlowcraftRedis8Connection = {
+    type: 'flowcraft_redis8';
+    url: string;
+    tls_ca_file?: string;
+};
+
 export type RuntimeProfileGameRewardSpec = {
     model: string;
     pet_exp_max: number;
@@ -1818,6 +1824,8 @@ export type RuntimeProfileMemoryConnection = ({
 } & RuntimeProfileFlowcraftObjectStoreConnection) | ({
     type: 'flowcraft_postgresql';
 } & RuntimeProfileFlowcraftPostgreSqlConnection) | ({
+    type: 'flowcraft_redis8';
+} & RuntimeProfileFlowcraftRedis8Connection) | ({
     type: 'mem0';
 } & RuntimeProfileMem0Connection) | ({
     type: 'volc_mem0';

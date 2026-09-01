@@ -240,23 +240,25 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 			}
 		}
 	}
-	if item.Spec.Flowcraft.Bbh.SearchOverfetch != nil && *item.Spec.Flowcraft.Bbh.SearchOverfetch < 1 {
-		return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.bbh.search_overfetch must be at least 1")
-	}
-	if bleve := item.Spec.Flowcraft.Bbh.Bleve; bleve != nil {
-		if bleve.Analyzer != nil && !bleve.Analyzer.Valid() {
-			return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.bbh.bleve.analyzer %q is invalid", *bleve.Analyzer)
+	if bbh := item.Spec.Flowcraft.Bbh; bbh != nil {
+		if bbh.SearchOverfetch != nil && *bbh.SearchOverfetch < 1 {
+			return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.bbh.search_overfetch must be at least 1")
 		}
-		if bleve.Gojieba != nil && bleve.Gojieba.Mode != nil && !bleve.Gojieba.Mode.Valid() {
-			return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.bbh.bleve.gojieba.mode %q is invalid", *bleve.Gojieba.Mode)
+		if bleve := bbh.Bleve; bleve != nil {
+			if bleve.Analyzer != nil && !bleve.Analyzer.Valid() {
+				return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.bbh.bleve.analyzer %q is invalid", *bleve.Analyzer)
+			}
+			if bleve.Gojieba != nil && bleve.Gojieba.Mode != nil && !bleve.Gojieba.Mode.Valid() {
+				return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.bbh.bleve.gojieba.mode %q is invalid", *bleve.Gojieba.Mode)
+			}
 		}
-	}
-	if hnsw := item.Spec.Flowcraft.Bbh.Hnsw; hnsw != nil && hnsw.FlushInterval != nil {
-		normalized := strings.TrimSpace(*hnsw.FlushInterval)
-		if duration, err := time.ParseDuration(normalized); err != nil || duration <= 0 {
-			return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.bbh.hnsw.flush_interval must be a positive duration")
+		if hnsw := bbh.Hnsw; hnsw != nil && hnsw.FlushInterval != nil {
+			normalized := strings.TrimSpace(*hnsw.FlushInterval)
+			if duration, err := time.ParseDuration(normalized); err != nil || duration <= 0 {
+				return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.bbh.hnsw.flush_interval must be a positive duration")
+			}
+			hnsw.FlushInterval = &normalized
 		}
-		hnsw.FlushInterval = &normalized
 	}
 	if !item.Spec.Flowcraft.Write.Mode.Valid() {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.write.mode %q is invalid", item.Spec.Flowcraft.Write.Mode)

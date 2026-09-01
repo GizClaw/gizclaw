@@ -19,6 +19,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
+	flowcraftredis8 "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft/redis8"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 // sharedBackend owns only deployment-specific physical dependencies. NewStore
@@ -107,9 +109,6 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		if err != nil {
 			return nil, err
 		}
-		if connectionType == "flowcraft_bbh" {
-			return openSharedFlowcraftSQLite(ctx, dir, policy, config)
-		}
 		metadataWorkspace, err := sdkworkspace.NewLocalWorkspace(dir)
 		if err != nil {
 			return nil, err
@@ -125,7 +124,8 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		if err != nil {
 			return nil, errors.Join(err, backend.Close())
 		}
-		rawIndex, err := bbh.New(retrievalWorkspace, bbh.WithConfig(mapBBHConfig(policy.Bbh)))
+		bbhConfig := mapBBHConfig(policy.Bbh)
+		rawIndex, err := bbh.New(retrievalWorkspace, bbh.WithConfig(bbhConfig))
 		if err != nil {
 			return nil, errors.Join(err, backend.Close())
 		}
@@ -133,7 +133,7 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 		if err != nil {
 			return nil, errors.Join(err, rawIndex.Close(), backend.Close())
 		}
-		index := newSharedBBHIndex(rawIndex, mapBBHConfig(policy.Bbh))
+		index := newSharedBBHIndex(rawIndex, bbhConfig)
 		return &sharedFlowcraftBackend{
 			temporal: backend.TemporalStore(), evidence: backend.EvidenceStore(),
 			queue: backend.AsyncSemanticQueue(), outbox: backend.SideEffectOutbox(),
@@ -159,46 +159,43 @@ func openSharedFlowcraft(ctx context.Context, request Request) (sharedBackend, e
 			queue: backend.AsyncSemanticQueue(), outbox: backend.SideEffectOutbox(),
 			backendCloser: backend, index: index, indexCloser: index,
 		}, nil
+	case "flowcraft_redis8":
+		if boolValue(policy.GraphEnabled) {
+			return nil, errors.New("memory store: flowcraft_redis8 cannot enable graph until Flowcraft exposes graph store injection")
+		}
+		connection, err := request.Binding.Connection.AsRuntimeProfileFlowcraftRedis8Connection()
+		if err != nil {
+			return nil, err
+		}
+		tlsCAFile := ""
+		if connection.TlsCaFile != nil {
+			tlsCAFile = *connection.TlsCaFile
+		}
+		owner, err := storage.New(map[string]storage.Config{
+			"flowcraft-redis8": storage.RedisConfig{URL: connection.Url, TLSCAFile: tlsCAFile},
+		})
+		if err != nil {
+			return nil, err
+		}
+		client, err := owner.Redis("flowcraft-redis8")
+		if err != nil {
+			return nil, errors.Join(err, owner.Close())
+		}
+		backend, err := flowcraftredis8.OpenBackend(ctx, client, flowcraftRedis8Prefix(request))
+		if err != nil {
+			return nil, errors.Join(err, owner.Close())
+		}
+		if err := owner.Close(); err != nil {
+			return nil, errors.Join(err, backend.Close())
+		}
+		return &sharedFlowcraftBackend{
+			temporal: backend.TemporalStore(), evidence: backend.EvidenceStore(),
+			queue: backend.AsyncSemanticQueue(), outbox: backend.SideEffectOutbox(),
+			index: backend.RetrievalIndex(), indexCloser: backend,
+		}, nil
 	default:
 		return nil, fmt.Errorf("memory store: flowcraft driver cannot use connection type %q", connectionType)
 	}
-}
-
-func openSharedFlowcraftSQLite(
-	ctx context.Context,
-	dir string,
-	policy apitypes.FlowcraftMemoryLayoutPolicy,
-	config memoryflowcraft.Config,
-) (sharedBackend, error) {
-	backend, err := openManagedSQLite(ctx, dir)
-	if err != nil {
-		return nil, err
-	}
-	if err := ensureLocalProjection(
-		ctx, dir, backend.TemporalStore(), backend.EvidenceStore(), backend.SideEffectOutbox(), policy, config,
-	); err != nil {
-		return nil, errors.Join(err, backend.Close())
-	}
-	retrievalWorkspace, err := sdkworkspace.NewLocalWorkspace(retrievalDirectory(dir))
-	if err != nil {
-		return nil, errors.Join(err, backend.Close())
-	}
-	rawIndex, err := bbh.New(retrievalWorkspace, bbh.WithConfig(mapBBHConfig(policy.Bbh)))
-	if err != nil {
-		return nil, errors.Join(err, backend.Close())
-	}
-	signature, err := projectionSignature(policy)
-	if err != nil {
-		return nil, errors.Join(err, rawIndex.Close(), backend.Close())
-	}
-	index := newSharedBBHIndex(rawIndex, mapBBHConfig(policy.Bbh))
-	return &sharedFlowcraftBackend{
-		temporal: backend.TemporalStore(), evidence: backend.EvidenceStore(),
-		queue: backend.AsyncSemanticQueue(), outbox: backend.SideEffectOutbox(),
-		backendCloser: backend, index: index, indexCloser: index,
-		local:               &sharedLocalProjection{dir: dir, index: index},
-		projectionSignature: signature,
-	}, nil
 }
 
 func sharedLocalDirectory(request Request, connectionType string) (string, error) {
@@ -344,7 +341,16 @@ func (index *sharedBBHIndex) Rebuild(
 	policy apitypes.FlowcraftMemoryLayoutPolicy,
 	config memoryflowcraft.Config,
 ) error {
-	// Build and validate the complete replacement before blocking live users.
+	// Serialize the canonical snapshot with live index mutations. An Observe or
+	// Forget may update canonical state before it reaches this lock; after the
+	// replacement is published, that operation resumes against the new index
+	// and applies the same mutation there.
+	index.mu.Lock()
+	defer index.mu.Unlock()
+	if index.index == nil {
+		return errors.New("memory store: shared BBH index is closed")
+	}
+
 	prepared, err := prepareLocalProjection(ctx, dir, temporal, evidence, outbox, policy, config)
 	if err != nil {
 		return err
@@ -353,12 +359,6 @@ func (index *sharedBBHIndex) Rebuild(
 		return nil
 	}
 	defer prepared.Abort()
-
-	index.mu.Lock()
-	defer index.mu.Unlock()
-	if index.index == nil {
-		return errors.New("memory store: shared BBH index is closed")
-	}
 	oldConfig := index.config
 	if err := index.index.Close(); err != nil {
 		return fmt.Errorf("memory store: close previous derived index: %w", err)
@@ -370,7 +370,7 @@ func (index *sharedBBHIndex) Rebuild(
 		return errors.Join(err, reopenErr)
 	}
 	index.index = replacement
-	index.config = mapBBHConfig(policy.Bbh)
+	index.config = prepared.config
 	return nil
 }
 

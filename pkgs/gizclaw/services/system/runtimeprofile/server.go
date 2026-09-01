@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
 var (
@@ -882,6 +883,31 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 			return binding, errors.New("flowcraft_postgresql connection requires dsn")
 		}
 		if err := binding.Connection.FromRuntimeProfileFlowcraftPostgreSQLConnection(value); err != nil {
+			return binding, err
+		}
+	case "flowcraft_redis8":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileFlowcraftRedis8Connection()
+		if err != nil {
+			return binding, err
+		}
+		value.Url = strings.TrimSpace(value.Url)
+		value.TlsCaFile = trimOptionalString(value.TlsCaFile)
+		if value.Url == "" {
+			return binding, errors.New("flowcraft_redis8 connection requires url")
+		}
+		if err := storage.ValidateRedisURL(value.Url); err != nil {
+			return binding, fmt.Errorf("flowcraft_redis8 connection requires a valid single-endpoint redis or rediss URL: %w", err)
+		}
+		if value.TlsCaFile != nil {
+			parsed, _ := url.Parse(value.Url)
+			if parsed.Scheme != "rediss" {
+				return binding, errors.New("flowcraft_redis8 tls_ca_file requires a rediss URL")
+			}
+		}
+		if err := binding.Connection.FromRuntimeProfileFlowcraftRedis8Connection(value); err != nil {
 			return binding, err
 		}
 	case "mem0":

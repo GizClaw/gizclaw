@@ -308,14 +308,13 @@ func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 		{"invalid dotted extraction alias", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Extraction.Model = "pet-care..extract"
 		}, "RuntimeProfile alias"},
-		{"invalid overfetch", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Bbh.SearchOverfetch = new(0)
+		{"invalid BBH overfetch", func(layout *adminhttp.MemoryLayoutUpsert) {
+			layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{SearchOverfetch: new(0)}
 		}, "search_overfetch"},
-		{"invalid analyzer", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Bbh.Bleve.Analyzer = analyzerPtr("unknown")
-		}, "analyzer"},
-		{"invalid flush interval", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Bbh.Hnsw.FlushInterval = new("invalid")
+		{"invalid BBH flush interval", func(layout *adminhttp.MemoryLayoutUpsert) {
+			layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{
+				Hnsw: &apitypes.FlowcraftMemoryHNSWPolicy{FlushInterval: new("0s")},
+			}
 		}, "flush_interval"},
 		{"empty mem0 policy", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Mem0 = apitypes.Mem0MemoryLayoutPolicy{}
@@ -370,7 +369,9 @@ func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "pet-memory")
 	layout.Spec.Flowcraft.Extraction.StageTimeout = new(" 30s ")
-	layout.Spec.Flowcraft.Bbh.Hnsw.FlushInterval = new(" 1m ")
+	layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{
+		Hnsw: &apitypes.FlowcraftMemoryHNSWPolicy{FlushInterval: new(" 2s ")},
+	}
 	layout.Spec.Mem0.CustomInstructions = new(" keep durable facts ")
 	layout.Spec.VolcMem0.Strategies[0].CustomInstructions = new(" keep pet facts ")
 
@@ -385,8 +386,8 @@ func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 	if got := *created.Spec.Flowcraft.Extraction.StageTimeout; got != "30s" {
 		t.Fatalf("stage_timeout = %q", got)
 	}
-	if got := *created.Spec.Flowcraft.Bbh.Hnsw.FlushInterval; got != "1m" {
-		t.Fatalf("flush_interval = %q", got)
+	if got := *created.Spec.Flowcraft.Bbh.Hnsw.FlushInterval; got != "2s" {
+		t.Fatalf("bbh.flush_interval = %q", got)
 	}
 	if got := *created.Spec.Mem0.CustomInstructions; got != "keep durable facts" {
 		t.Fatalf("mem0 custom_instructions = %q", got)
@@ -415,7 +416,6 @@ func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 				"extraction":{"model":"extraction","mode":"two_pass","stage_timeout":"30s"},
 				"embedding":{"model":"embedding"},
 				"rerank":{"model":"rerank-model"},
-				"bbh":{"search_overfetch":20,"bleve":{"analyzer":"standard"},"hnsw":{"flush_interval":"1m"}},
 				"lanes":[{"name":"owner-profile","kind":"preference"}],
 				"write":{"mode":"sync","tier":"general"}
 			},
@@ -428,11 +428,6 @@ func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 		t.Fatal(err)
 	}
 	return layout
-}
-
-func analyzerPtr(value string) *apitypes.FlowcraftMemoryBlevePolicyAnalyzer {
-	typed := apitypes.FlowcraftMemoryBlevePolicyAnalyzer(value)
-	return &typed
 }
 
 type blockingMemoryLayoutGetStore struct {

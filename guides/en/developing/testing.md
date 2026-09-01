@@ -762,27 +762,46 @@ hosts or WAN behavior.
 `memory.Store` implementations. It does not use Flowcraft's evaluator and is
 not part of ordinary `go test ./...`, Docker E2E, or required CI. Each live Go
 test owns its complete provider, memory-lane, and extraction configuration.
-Remote project configuration remains deployment state: the harness neither
-mutates it nor presents one endpoint/project as multiple lanes.
+Volc remote project configuration remains deployment state and the harness
+does not mutate it.
 
-Current lanes cover Flowcraft BBH BM25 single-pass, hybrid single/two-pass,
-Mem0 Platform default/custom-instructions, and Volc AgentKit Memory default.
-LoCoMo is a tagged Go test package, not a shell runner. Select a backend group
-with standard `go test -run`; selected tests validate only the environment
-variables they consume. Missing or placeholder values fail, and unselected
-backend variables are not inspected:
+Current lanes cover Flowcraft Redis 8 BM25 single-pass, hybrid single/two-pass,
+self-hosted Mem0, Mem0 Platform default/custom-instructions, and Volc AgentKit
+Memory default. LoCoMo is a tagged Go test package. The Docker runner starts the
+pinned Redis 8 service, self-hosted Mem0, or both for the selected group, runs
+the tagged Go tests from the host against those containers, and always removes
+their containers and volumes. The Mem0 Platform and Volc groups continue to use
+standard `go test -run` against their remote providers.
+Selected tests validate only the environment variables they consume. Missing
+or placeholder values fail, and unselected backend variables are not inspected:
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoVolcAgentKit' ./tests/locomo-e2e
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoFlowcraft' ./tests/locomo-e2e
+tests/locomo-e2e/run_docker.sh mem0
+tests/locomo-e2e/run_docker.sh flowcraft
+tests/locomo-e2e/run_docker.sh all
 ```
 
 Use `.env.example` as a variable inventory and inject values through the
-process environment; the test package does not read `.env` files. Use a
+process environment; the test package and runner do not read `.env` files.
+The Mem0 group uses the same extraction and embedding model/key/base-URL
+environment variables as Flowcraft. Its container pins `mem0ai 2.0.3` and
+defaults to the domestic `deepseek-v4-flash` extractor/answer model through
+`https://api.deepseek.com`
+and `qwen3.7-text-embedding` with 1024 dimensions. Select the LLM adapter with
+`GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER`; supported values are `deepseek` and
+`bytedance`. Keep `GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS` aligned with the
+selected embedding service because Mem0 must create its Qdrant collection with
+the exact vector width.
+Run a remote Mem0 Platform lane separately only when its endpoint, API key, and
+configuration fingerprint are available; those credentials are not required by
+the Docker groups. Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` or
+`GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`; the runner points both at its Docker
+services. Override `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` or
+`GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable. Use a
 30-minute package timeout and bounded session and
 question stages. The runner calls `memory.Store.Observe` by official session,
 recalls for every question, asks the configured model to answer, and computes
@@ -804,6 +823,24 @@ questions across categories 1 through 5. It is a contract smoke set, not a
 full benchmark. Exact
 upstream commit, checksum, subset, and transformation information is recorded
 in `locomo10_smoke.manifest.json`.
+
+The upstream project publishes one `data/locomo10.json` file rather than a
+`testdata` directory or one file per conversation. This repository's
+`testdata` directory contains derived, harness-native fixtures. The optional
+`locomo10_conv30.jsonl` fixture is the complete `conv-30` tier: 19 sessions,
+369 turns, and 105 questions. Select it without changing the smoke default:
+
+```sh
+GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
+  tests/locomo-e2e/run_docker.sh flowcraft
+```
+
+`tests/locomo-e2e/cmd/fixturegen` reproducibly converts one conversation from
+the pinned upstream JSON into the JSONL contract and writes its manifest. The
+generator requires the expected upstream SHA-256 and refuses drift; each
+manifest records the source commit/hash, selected IDs, transformation, license,
+and derived hash. The JSONL fixtures are stored with Git LFS because they
+contain upstream dataset content.
 
 The subset is distributed under
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) for

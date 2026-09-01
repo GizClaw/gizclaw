@@ -49,6 +49,36 @@ func TestDatasetBundledSmokeSubset(t *testing.T) {
 	}
 }
 
+func TestDatasetBundledCompleteConv30(t *testing.T) {
+	t.Parallel()
+	dataset, identity, err := loadDataset(conv30DatasetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dataset.Conversations) != 1 || len(dataset.Conversations[0].Turns) != 369 || len(dataset.Questions) != 105 {
+		t.Fatalf("conversations=%d turns=%d questions=%d, want 1, 369, and 105",
+			len(dataset.Conversations), len(dataset.Conversations[0].Turns), len(dataset.Questions))
+	}
+	conversation := dataset.Conversations[0]
+	if conversation.ID != "conv-30" || !strings.HasPrefix(identity, "locomo10_conv30.jsonl:sha256:") {
+		t.Fatalf("conversation=%q identity=%q", conversation.ID, identity)
+	}
+	sessions := map[string]struct{}{}
+	for _, turn := range conversation.Turns {
+		sessions[turn.SessionID] = struct{}{}
+	}
+	if len(sessions) != 19 {
+		t.Fatalf("sessions=%d, want 19", len(sessions))
+	}
+	categories := map[int]int{}
+	for _, question := range dataset.Questions {
+		categories[question.Category]++
+	}
+	if fmt.Sprint(categories) != "map[1:11 2:26 4:44 5:24]" {
+		t.Fatalf("category counts = %v", categories)
+	}
+}
+
 func TestDatasetRejectsInvalidReferencesAndContent(t *testing.T) {
 	t.Parallel()
 	tests := map[string]func(*benchmarkDataset){
@@ -318,12 +348,20 @@ func TestPreflightReportsAllMissingInputs(t *testing.T) {
 	}
 }
 
+func TestNewLLMRejectsUnsupportedProvider(t *testing.T) {
+	t.Parallel()
+	_, err := newLLM("unsupported", "model", "key", "", "")
+	if err == nil || !strings.Contains(err.Error(), "unsupported LoCoMo model provider") {
+		t.Fatalf("newLLM error = %v", err)
+	}
+}
+
 func TestRedactionReportContainsOnlyFingerprint(t *testing.T) {
 	t.Parallel()
 	secret := "never-print-this-token"
 	envelope := reportEnvelope{
 		Profile: "profile", ConfigFingerprint: configFingerprint("profile", "endpoint", "deployment", secret),
-		DatasetIdentity: "dataset", Models: reportModels{Answer: defaultDoubaoModel},
+		DatasetIdentity: "dataset", Models: reportModels{Answer: defaultModel},
 		Questions: []questionResult{{Query: secret, GoldAnswers: []string{secret}, Prediction: secret, Recalled: []recalledFact{{Text: secret}}}},
 	}
 	raw, err := json.Marshal(envelope)

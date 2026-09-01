@@ -67,10 +67,12 @@ type reportEnvelope struct {
 }
 
 type reportModels struct {
-	Extraction string `json:"extraction,omitempty"`
-	Embedding  string `json:"embedding,omitempty"`
-	Rerank     string `json:"rerank,omitempty"`
-	Answer     string `json:"answer"`
+	Provider            string `json:"provider,omitempty"`
+	Extraction          string `json:"extraction,omitempty"`
+	Embedding           string `json:"embedding,omitempty"`
+	EmbeddingDimensions int    `json:"embedding_dimensions,omitempty"`
+	Rerank              string `json:"rerank,omitempty"`
+	Answer              string `json:"answer"`
 }
 
 type ingestResult struct {
@@ -141,6 +143,10 @@ func runLiveProfile(t *testing.T, settings liveSettings, profile, fingerprint st
 		t.Fatal(err)
 	}
 	models.Answer = settings.answerModel
+	models.Provider = settings.modelProvider
+	if models.Embedding != "" {
+		models.EmbeddingDimensions = settings.embeddingDims
+	}
 	envelope, err := runBenchmark(context.Background(), benchmarkOptions{
 		Profile:            profile,
 		ConfigFingerprint:  fingerprint,

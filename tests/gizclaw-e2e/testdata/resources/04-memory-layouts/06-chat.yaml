@@ -11,17 +11,13 @@ spec:
       system_prompt: Extract durable user identity, preference, relationship, and long-term goal facts from the conversation.
       schema_name: claw_memory_facts
       temperature: 0
-    bbh:
-      search_overfetch: 20
-      bleve:
-        analyzer: standard
     lanes:
     - name: owner-profile
       kind: preference
       description: Durable facts about the user.
       extract: Store stable identity, preference, relationship, and long-term goal facts only.
       recall: Use these facts for conversational continuity without copying their wording.
-    graph_enabled: true
+    graph_enabled: false
     write:
       mode: async_semantic
       tier: general

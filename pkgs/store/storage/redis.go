@@ -49,29 +49,44 @@ func newRedis(name string, cfg RedisConfig) (*redis.Client, error) {
 	return client, nil
 }
 
-func redisOptions(name string, cfg RedisConfig) (*redis.Options, error) {
-	parsed, err := url.Parse(cfg.URL)
-	if cfg.URL == "" || err != nil || parsed.Scheme != "redis" && parsed.Scheme != "rediss" ||
+// ValidateRedisURL applies the same single-node URL and TLS requirements used
+// when Storage opens Redis, without reading CA files or connecting to Redis.
+func ValidateRedisURL(raw string) error {
+	_, err := parseRedisURL(raw)
+	return err
+}
+
+func parseRedisURL(raw string) (*redis.Options, error) {
+	parsed, err := url.Parse(raw)
+	if raw == "" || err != nil || parsed.Scheme != "redis" && parsed.Scheme != "rediss" ||
 		parsed.Hostname() == "" || strings.Contains(parsed.Hostname(), ",") {
-		return nil, redisConfigError(name, "parse url", errors.New("invalid single-endpoint Redis URL"))
+		return nil, errors.New("invalid single-endpoint Redis URL")
 	}
-	options, err := redis.ParseURL(cfg.URL)
+	options, err := redis.ParseURL(raw)
 	if err != nil {
-		return nil, redisConfigError(name, "parse url", err)
+		return nil, err
 	}
 	if parsed.Scheme == "rediss" {
 		if options.TLSConfig == nil {
 			options.TLSConfig = &tls.Config{}
 		}
 		if options.TLSConfig.InsecureSkipVerify {
-			return nil, redisConfigError(name, "configure tls", errors.New("certificate verification must remain enabled"))
+			return nil, errors.New("certificate verification must remain enabled")
 		}
 		options.TLSConfig.MinVersion = tls.VersionTLS12
+	}
+	return options, nil
+}
+
+func redisOptions(name string, cfg RedisConfig) (*redis.Options, error) {
+	options, err := parseRedisURL(cfg.URL)
+	if err != nil {
+		return nil, redisConfigError(name, "parse url", err)
 	}
 	if cfg.TLSCAFile == "" {
 		return options, nil
 	}
-	if parsed.Scheme != "rediss" {
+	if options.TLSConfig == nil {
 		return nil, redisConfigError(name, "configure tls", errors.New("tls_ca_file requires a rediss URL"))
 	}
 	caPEM, err := os.ReadFile(cfg.TLSCAFile)

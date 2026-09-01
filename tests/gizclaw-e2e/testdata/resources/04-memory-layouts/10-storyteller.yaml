@@ -12,10 +12,6 @@ spec:
       system_prompt: Do not extract conversational facts. The Graph writes every durable audit fact directly.
       schema_name: storyteller_audit
       temperature: 0
-    bbh:
-      search_overfetch: 20
-      bleve:
-        analyzer: standard
     lanes:
     - {name: story-state, kind: state, description: Current scene and last visible event., extract: Do not extract; the Graph writes this lane., recall: Story continuity audit only.}
     - {name: blueprint-state, kind: state, description: Active arc and phase guardrails., extract: Do not extract; the Graph writes this lane., recall: Blueprint boundary audit only.}
@@ -23,7 +19,7 @@ spec:
     - {name: user-state, kind: state, description: User choices and pacing., extract: Do not extract; the Graph writes this lane., recall: User participation audit only.}
     - {name: continuity-state, kind: state, description: Confirmed facts and open questions., extract: Do not extract; the Graph writes this lane., recall: Continuity guard audit only.}
     - {name: ending-state, kind: state, description: Conflict closure and epilogue mode., extract: Do not extract; the Graph writes this lane., recall: Ending policy audit only.}
-    graph_enabled: true
+    graph_enabled: false
     write: {mode: sync, tier: general}
   mem0:
     custom_instructions: Do not extract conversational facts; accept only Graph-written audit facts.

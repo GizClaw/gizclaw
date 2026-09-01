@@ -41,7 +41,7 @@ x-edge: &edge
 
 services:
   redis:
-    image: redis:7.0-alpine
+    image: redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

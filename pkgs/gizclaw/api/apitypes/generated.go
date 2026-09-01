@@ -2491,6 +2491,21 @@ func (e RuntimeProfileFlowcraftPostgreSQLConnectionType) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileFlowcraftRedis8ConnectionType.
+const (
+	RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8 RuntimeProfileFlowcraftRedis8ConnectionType = "flowcraft_redis8"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftRedis8ConnectionType enum.
+func (e RuntimeProfileFlowcraftRedis8ConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeProfileMem0ConnectionType.
 const (
 	RuntimeProfileMem0ConnectionTypeMem0 RuntimeProfileMem0ConnectionType = "mem0"
@@ -4298,7 +4313,7 @@ type FlowcraftMemoryLanePolicyKind string
 
 // FlowcraftMemoryLayoutPolicy defines model for FlowcraftMemoryLayoutPolicy.
 type FlowcraftMemoryLayoutPolicy struct {
-	Bbh          FlowcraftMemoryBBHPolicy        `json:"bbh"`
+	Bbh          *FlowcraftMemoryBBHPolicy       `json:"bbh,omitempty"`
 	Embedding    *FlowcraftMemoryModelPolicy     `json:"embedding,omitempty"`
 	Extraction   FlowcraftMemoryExtractionPolicy `json:"extraction"`
 	GraphEnabled *bool                           `json:"graph_enabled,omitempty"`
@@ -5832,6 +5847,16 @@ type RuntimeProfileFlowcraftPostgreSQLConnection struct {
 
 // RuntimeProfileFlowcraftPostgreSQLConnectionType defines model for RuntimeProfileFlowcraftPostgreSQLConnection.Type.
 type RuntimeProfileFlowcraftPostgreSQLConnectionType string
+
+// RuntimeProfileFlowcraftRedis8Connection defines model for RuntimeProfileFlowcraftRedis8Connection.
+type RuntimeProfileFlowcraftRedis8Connection struct {
+	TlsCaFile *string                                     `json:"tls_ca_file,omitempty"`
+	Type      RuntimeProfileFlowcraftRedis8ConnectionType `json:"type"`
+	Url       string                                      `json:"url"`
+}
+
+// RuntimeProfileFlowcraftRedis8ConnectionType defines model for RuntimeProfileFlowcraftRedis8Connection.Type.
+type RuntimeProfileFlowcraftRedis8ConnectionType string
 
 // RuntimeProfileGameRewardSpec defines model for RuntimeProfileGameRewardSpec.
 type RuntimeProfileGameRewardSpec struct {
@@ -9755,6 +9780,34 @@ func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftPostgreSQLC
 	return err
 }
 
+// AsRuntimeProfileFlowcraftRedis8Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftRedis8Connection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftRedis8Connection() (RuntimeProfileFlowcraftRedis8Connection, error) {
+	var body RuntimeProfileFlowcraftRedis8Connection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileFlowcraftRedis8Connection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftRedis8Connection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftRedis8Connection(v RuntimeProfileFlowcraftRedis8Connection) error {
+	v.Type = "flowcraft_redis8"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileFlowcraftRedis8Connection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftRedis8Connection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftRedis8Connection(v RuntimeProfileFlowcraftRedis8Connection) error {
+	v.Type = "flowcraft_redis8"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsRuntimeProfileMem0Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileMem0Connection
 func (t RuntimeProfileMemoryConnection) AsRuntimeProfileMem0Connection() (RuntimeProfileMem0Connection, error) {
 	var body RuntimeProfileMem0Connection
@@ -9831,6 +9884,8 @@ func (t RuntimeProfileMemoryConnection) ValueByDiscriminator() (interface{}, err
 		return t.AsRuntimeProfileFlowcraftObjectStoreConnection()
 	case "flowcraft_postgresql":
 		return t.AsRuntimeProfileFlowcraftPostgreSQLConnection()
+	case "flowcraft_redis8":
+		return t.AsRuntimeProfileFlowcraftRedis8Connection()
 	case "mem0":
 		return t.AsRuntimeProfileMem0Connection()
 	case "volc_mem0":

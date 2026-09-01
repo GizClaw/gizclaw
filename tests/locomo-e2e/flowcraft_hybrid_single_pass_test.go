@@ -3,7 +3,7 @@
 package locomo_e2e
 
 import (
-	"context"
+	"strconv"
 	"testing"
 
 	"github.com/GizClaw/flowcraft/memory/recall"
@@ -12,27 +12,18 @@ import (
 
 func TestLoCoMoFlowcraftHybridSinglePass(t *testing.T) {
 	settings := requireLiveSettings(t, liveNeeds{embedding: true})
-	resources := newFlowcraftResources(t, "flowcraft-hybrid-single-pass")
-	store, err := memoryflowcraft.New(context.Background(), memoryflowcraft.Config{
+	profile := "flowcraft_redis8_hybrid_single_pass"
+	store, closer := newFlowcraftRedis8Store(t, profile, memoryflowcraft.Config{
 		Loader: settings.loader(),
 		Extraction: memoryflowcraft.ExtractionConfig{
 			Model: settings.extractionModel, Mode: recall.LLMExtractionSinglePass,
 		},
-		Embedding:        memoryflowcraft.EmbeddingConfig{Model: settings.embeddingModel},
-		Rerank:           memoryflowcraft.RerankConfig{Model: settings.rerankModel},
-		RetrievalIndex:   resources.index,
-		TemporalStore:    resources.backend.TemporalStore(),
-		EvidenceStore:    resources.backend.EvidenceStore(),
-		AsyncQueue:       resources.backend.AsyncSemanticQueue(),
-		SideEffectOutbox: resources.backend.SideEffectOutbox(),
-		GraphEnabled:     true,
+		Embedding: memoryflowcraft.EmbeddingConfig{Model: settings.embeddingModel},
+		Rerank:    memoryflowcraft.RerankConfig{Model: settings.rerankModel},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	profile := "flowcraft_hybrid_single_pass"
-	fingerprint := configFingerprint(profile, settings.extractionModel, settings.embeddingModel, settings.rerankModel)
+	fingerprint := configFingerprint(profile, settings.modelProvider, settings.extractionModel,
+		settings.embeddingModel, strconv.Itoa(settings.embeddingDims), settings.rerankModel)
 	runLiveProfile(t, settings, profile, fingerprint, reportModels{
 		Extraction: settings.extractionModel, Embedding: settings.embeddingModel, Rerank: settings.rerankModel,
-	}, store, resources.closer(store))
+	}, store, closer)
 }

@@ -40,7 +40,7 @@
       },
       "FlowcraftMemoryLayoutPolicy": {
         "type": "object",
-        "required": ["extraction", "bbh", "lanes", "write"],
+        "required": ["extraction", "lanes", "write"],
         "additionalProperties": false,
         "properties": {
           "extraction": {

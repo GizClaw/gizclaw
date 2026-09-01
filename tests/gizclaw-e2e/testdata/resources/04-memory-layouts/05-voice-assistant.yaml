@@ -10,10 +10,6 @@ spec:
       mode: two_pass
       schema_name: flowcraft_voice_memory
       temperature: 0
-    bbh:
-      search_overfetch: 20
-      bleve:
-        analyzer: standard
     lanes:
     - name: conversation-memory
       kind: note
