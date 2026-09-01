@@ -26,18 +26,30 @@ import (
 const docField = "doc"
 
 type Index struct {
-	client                                     *redis.Client
-	prefix, indexName, docPrefix, dimensionKey string
+	client                                                                   *redis.Client
+	prefix, indexName, docPrefix, dimensionKey, schemaVersionKey, schemaLock string
 }
 
 func newIndex(client *redis.Client, prefix string) *Index {
 	sum := sha256.Sum256([]byte(prefix))
-	return &Index{client: client, prefix: prefix, indexName: "giz_fc8_" + hex.EncodeToString(sum[:8]), docPrefix: prefix + ":retrieval:doc:", dimensionKey: prefix + ":retrieval:vector_dim"}
+	return &Index{
+		client:           client,
+		prefix:           prefix,
+		indexName:        "giz_fc8_" + hex.EncodeToString(sum[:8]),
+		docPrefix:        prefix + ":retrieval:doc:",
+		dimensionKey:     prefix + ":retrieval:vector_dim",
+		schemaVersionKey: prefix + ":retrieval:schema_version",
+		schemaLock:       prefix + ":retrieval:schema_migration_lock",
+	}
 }
 func (index *Index) ensure(ctx context.Context) error {
 	_, err := index.client.FTInfo(ctx, index.indexName).Result()
 	if err == nil {
-		return nil
+		return index.ensureSchemaV2(ctx)
+	}
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "unknown index") && !strings.Contains(message, "no such index") {
+		return err
 	}
 	_, err = index.client.FTCreate(ctx, index.indexName, &redis.FTCreateOptions{OnHash: true, Prefix: []any{index.docPrefix}},
 		&redis.FieldSchema{FieldName: "present", FieldType: redis.SearchFieldTypeTag},
@@ -51,7 +63,130 @@ func (index *Index) ensure(ctx context.Context) error {
 	if err != nil && !strings.Contains(strings.ToLower(err.Error()), "index already exists") {
 		return err
 	}
-	return nil
+	return index.ensureSchemaV2(ctx)
+}
+
+const redisSearchSchemaVersion = "2"
+
+func (index *Index) ensureSchemaV2(ctx context.Context) error {
+	version, err := index.client.Get(ctx, index.schemaVersionKey).Result()
+	if err == nil && version == redisSearchSchemaVersion {
+		return nil
+	}
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return err
+	}
+	lockToken := strconv.FormatInt(time.Now().UnixNano(), 10)
+	locked, err := index.client.SetNX(ctx, index.schemaLock, lockToken, 5*time.Minute).Result()
+	if err != nil {
+		return err
+	}
+	if !locked {
+		deadline := time.Now().Add(30 * time.Second)
+		for {
+			version, err := index.client.Get(ctx, index.schemaVersionKey).Result()
+			if err == nil && version == redisSearchSchemaVersion {
+				return nil
+			}
+			if err != nil && !errors.Is(err, redis.Nil) {
+				return err
+			}
+			if time.Now().After(deadline) {
+				return fmt.Errorf("flowcraft redis8 retrieval: schema migration did not complete")
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(10 * time.Millisecond):
+			}
+		}
+	}
+	defer func() {
+		_, _ = index.client.Eval(context.WithoutCancel(ctx), `if redis.call("GET", KEYS[1]) == ARGV[1] then return redis.call("DEL", KEYS[1]) end return 0`, []string{index.schemaLock}, lockToken).Result()
+	}()
+
+	for _, schema := range [][]any{
+		{"present", "TAG"},
+		{metadataExactField, "TAG", "SEPARATOR", "|", "CASESENSITIVE"},
+		{metadataValuesField, "TAG", "SEPARATOR", "|", "CASESENSITIVE"},
+		{metadataExistsField, "TAG", "SEPARATOR", "|", "CASESENSITIVE"},
+	} {
+		arguments := []any{"FT.ALTER", index.indexName, "SCHEMA", "ADD"}
+		arguments = append(arguments, schema...)
+		if _, err := index.client.Do(ctx, arguments...).Result(); err != nil && !duplicateSchemaFieldError(err) {
+			return fmt.Errorf("migrate Redis Search schema: %w", err)
+		}
+	}
+	if err := index.backfillMetadataFields(ctx); err != nil {
+		return err
+	}
+	return index.client.Set(ctx, index.schemaVersionKey, redisSearchSchemaVersion, 0).Err()
+}
+
+func duplicateSchemaFieldError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "already exists") || strings.Contains(message, "duplicate field")
+}
+
+func (index *Index) backfillMetadataFields(ctx context.Context) error {
+	var cursor uint64
+	indexed := 0
+	for {
+		keys, next, err := index.client.Scan(ctx, cursor, index.docPrefix+"*", 100).Result()
+		if err != nil {
+			return err
+		}
+		for _, key := range keys {
+			raw, err := index.client.HGet(ctx, key, docField).Result()
+			if errors.Is(err, redis.Nil) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			var doc retrieval.Doc
+			if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+				return fmt.Errorf("decode retrieval document %q during schema migration: %w", key, err)
+			}
+			for metadataKey, value := range doc.Metadata {
+				if _, ok := finiteMetadataNumber(value); ok {
+					if err := index.ensureNumericMetadataField(ctx, metadataKey); err != nil {
+						return err
+					}
+				}
+			}
+			fields, _, err := metadataIndexFields(doc.Metadata)
+			if err != nil {
+				return err
+			}
+			fields["present"] = "1"
+			if err := index.client.HSet(ctx, key, fields).Err(); err != nil {
+				return err
+			}
+			indexed++
+		}
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+	if indexed == 0 {
+		return nil
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		result, err := index.client.FTSearchWithArgs(ctx, index.indexName, "@present:{1}", &redis.FTSearchOptions{CountOnly: true, DialectVersion: 2}).Result()
+		if err != nil {
+			return err
+		}
+		if result.Total >= indexed {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("flowcraft redis8 retrieval: schema migration indexing timeout: indexed %d of %d documents", result.Total, indexed)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 func encodePart(value string) string { return base64.RawURLEncoding.EncodeToString([]byte(value)) }
 func (index *Index) docKey(namespace, id string) string {
