@@ -1777,11 +1777,14 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		wantErr string
 	}{
 		{name: "Flowcraft Redis 8", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`},
+		{name: "Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
 		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis.example:6379/0","tls_ca_file":"/etc/ssl/redis-ca.pem"}}`},
+		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`},
 		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`},
 		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},
 		{name: "Volc Mem0", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com","api_key":"key"}}`},
 		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`, wantErr: "cannot use connection type"},
+		{name: "BBH driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_bbh"}}`, wantErr: "cannot use connection type"},
 		{name: "invalid Redis URL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"http://redis:6379"}}`, wantErr: "redis or rediss URL"},
 		{name: "non-numeric Redis database", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/not-a-database"}}`, wantErr: "valid single-endpoint"},
 		{name: "Redis TLS verification disabled", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis:6379/0?skip_verify=true"}}`, wantErr: "certificate verification"},
@@ -1813,6 +1816,30 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 	}
 }
 
+func TestPersistedFlowcraftBBHProfileRemainsReadable(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := kv.NewMemory(nil)
+	const id = "legacy-bbh-profile"
+	raw := []byte(`{"id":"legacy-bbh-profile","spec":{"resources":{"memories":{"legacy":{"layout_id":"default-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}}}}}`)
+	if err := store.Set(ctx, profileKey(id), raw); err != nil {
+		t.Fatal(err)
+	}
+	item, err := getProfileByID(ctx, store, id)
+	if err != nil {
+		t.Fatalf("getProfileByID() error = %v", err)
+	}
+	binding := (*item.Spec.Resources.Memories)["legacy"]
+	connectionType, err := binding.Connection.Discriminator()
+	if err != nil || connectionType != "flowcraft_bbh" {
+		t.Fatalf("legacy connection = %q, error = %v", connectionType, err)
+	}
+	stored, err := store.Get(ctx, profileKey(id))
+	if err != nil || string(stored) != string(raw) {
+		t.Fatalf("BBH profile changed while read: stored=%s error=%v", stored, err)
+	}
+}
+
 func TestNormalizeMemoryBindingTrimsConnectionValues(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -1820,6 +1847,11 @@ func TestNormalizeMemoryBindingTrimsConnectionValues(t *testing.T) {
 		raw   string
 		wants []string
 	}{
+		{
+			name:  "Flowcraft object store",
+			raw:   `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":" /var/lib/gizclaw/memory "}}`,
+			wants: []string{`"directory":"/var/lib/gizclaw/memory"`},
+		},
 		{
 			name:  "Flowcraft PostgreSQL",
 			raw:   `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":" postgres://db/memory "}}`,

@@ -52,6 +52,9 @@
           "rerank": {
             "$ref": "#/components/schemas/FlowcraftMemoryModelPolicy"
           },
+          "bbh": {
+            "$ref": "#/components/schemas/FlowcraftMemoryBBHPolicy"
+          },
           "lanes": {
             "type": "array",
             "items": {
@@ -109,6 +112,73 @@
             "minLength": 1,
             "maxLength": 63,
             "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"
+          }
+        }
+      },
+      "FlowcraftMemoryBBHPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "search_overfetch": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bleve": {
+            "$ref": "#/components/schemas/FlowcraftMemoryBlevePolicy"
+          },
+          "hnsw": {
+            "$ref": "#/components/schemas/FlowcraftMemoryHNSWPolicy"
+          }
+        }
+      },
+      "FlowcraftMemoryBlevePolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "analyzer": {
+            "type": "string",
+            "enum": ["standard", "simple", "keyword", "whitespace", "gojieba"]
+          },
+          "gojieba": {
+            "$ref": "#/components/schemas/FlowcraftMemoryGojiebaPolicy"
+          }
+        }
+      },
+      "FlowcraftMemoryGojiebaPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["search", "full", "accurate"]
+          },
+          "hmm": {
+            "type": "boolean"
+          },
+          "dict_path": {
+            "type": "string"
+          },
+          "hmm_path": {
+            "type": "string"
+          },
+          "user_dict_path": {
+            "type": "string"
+          },
+          "idf_path": {
+            "type": "string"
+          },
+          "stop_words_path": {
+            "type": "string"
+          }
+        }
+      },
+      "FlowcraftMemoryHNSWPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "flush_interval": {
+            "type": "string",
+            "minLength": 1
           }
         }
       },

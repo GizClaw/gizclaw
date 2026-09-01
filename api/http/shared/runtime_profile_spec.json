@@ -100,6 +100,12 @@
       "RuntimeProfileMemoryConnection": {
         "oneOf": [
           {
+            "$ref": "#/components/schemas/RuntimeProfileFlowcraftBBHConnection"
+          },
+          {
+            "$ref": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection"
+          },
+          {
             "$ref": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection"
           },
           {
@@ -115,10 +121,38 @@
         "discriminator": {
           "propertyName": "type",
           "mapping": {
+            "flowcraft_bbh": "#/components/schemas/RuntimeProfileFlowcraftBBHConnection",
+            "flowcraft_object_store": "#/components/schemas/RuntimeProfileFlowcraftObjectStoreConnection",
             "flowcraft_postgresql": "#/components/schemas/RuntimeProfileFlowcraftPostgreSQLConnection",
             "flowcraft_redis8": "#/components/schemas/RuntimeProfileFlowcraftRedis8Connection",
             "mem0": "#/components/schemas/RuntimeProfileMem0Connection",
             "volc_mem0": "#/components/schemas/RuntimeProfileVolcMem0Connection"
+          }
+        }
+      },
+      "RuntimeProfileFlowcraftBBHConnection": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flowcraft_bbh"]
+          }
+        }
+      },
+      "RuntimeProfileFlowcraftObjectStoreConnection": {
+        "type": "object",
+        "required": ["type", "directory"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["flowcraft_object_store"]
+          },
+          "directory": {
+            "type": "string",
+            "minLength": 1
           }
         }
       },

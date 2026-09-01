@@ -1228,6 +1228,33 @@ func (e FlowcraftLLMNodeType) Valid() bool {
 	}
 }
 
+// Defines values for FlowcraftMemoryBlevePolicyAnalyzer.
+const (
+	FlowcraftMemoryBlevePolicyAnalyzerGojieba    FlowcraftMemoryBlevePolicyAnalyzer = "gojieba"
+	FlowcraftMemoryBlevePolicyAnalyzerKeyword    FlowcraftMemoryBlevePolicyAnalyzer = "keyword"
+	FlowcraftMemoryBlevePolicyAnalyzerSimple     FlowcraftMemoryBlevePolicyAnalyzer = "simple"
+	FlowcraftMemoryBlevePolicyAnalyzerStandard   FlowcraftMemoryBlevePolicyAnalyzer = "standard"
+	FlowcraftMemoryBlevePolicyAnalyzerWhitespace FlowcraftMemoryBlevePolicyAnalyzer = "whitespace"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryBlevePolicyAnalyzer enum.
+func (e FlowcraftMemoryBlevePolicyAnalyzer) Valid() bool {
+	switch e {
+	case FlowcraftMemoryBlevePolicyAnalyzerGojieba:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerKeyword:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerSimple:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerStandard:
+		return true
+	case FlowcraftMemoryBlevePolicyAnalyzerWhitespace:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for FlowcraftMemoryExtractionPolicyMode.
 const (
 	FlowcraftMemoryExtractionPolicyModeSinglePass FlowcraftMemoryExtractionPolicyMode = "single_pass"
@@ -1255,6 +1282,27 @@ const (
 func (e FlowcraftMemoryFilterOperator) Valid() bool {
 	switch e {
 	case FlowcraftMemoryFilterOperatorEq:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FlowcraftMemoryGojiebaPolicyMode.
+const (
+	FlowcraftMemoryGojiebaPolicyModeAccurate FlowcraftMemoryGojiebaPolicyMode = "accurate"
+	FlowcraftMemoryGojiebaPolicyModeFull     FlowcraftMemoryGojiebaPolicyMode = "full"
+	FlowcraftMemoryGojiebaPolicyModeSearch   FlowcraftMemoryGojiebaPolicyMode = "search"
+)
+
+// Valid indicates whether the value is a known member of the FlowcraftMemoryGojiebaPolicyMode enum.
+func (e FlowcraftMemoryGojiebaPolicyMode) Valid() bool {
+	switch e {
+	case FlowcraftMemoryGojiebaPolicyModeAccurate:
+		return true
+	case FlowcraftMemoryGojiebaPolicyModeFull:
+		return true
+	case FlowcraftMemoryGojiebaPolicyModeSearch:
 		return true
 	default:
 		return false
@@ -2392,6 +2440,36 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	case ReusableWorkflowDriverEino:
 		return true
 	case ReusableWorkflowDriverFlowcraft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileFlowcraftBBHConnectionType.
+const (
+	RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh RuntimeProfileFlowcraftBBHConnectionType = "flowcraft_bbh"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftBBHConnectionType enum.
+func (e RuntimeProfileFlowcraftBBHConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuntimeProfileFlowcraftObjectStoreConnectionType.
+const (
+	RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore RuntimeProfileFlowcraftObjectStoreConnectionType = "flowcraft_object_store"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftObjectStoreConnectionType enum.
+func (e RuntimeProfileFlowcraftObjectStoreConnectionType) Valid() bool {
+	switch e {
+	case RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore:
 		return true
 	default:
 		return false
@@ -4155,6 +4233,22 @@ type FlowcraftLLMNodeConfig struct {
 	TrackSteps      *bool    `json:"track_steps,omitempty"`
 }
 
+// FlowcraftMemoryBBHPolicy defines model for FlowcraftMemoryBBHPolicy.
+type FlowcraftMemoryBBHPolicy struct {
+	Bleve           *FlowcraftMemoryBlevePolicy `json:"bleve,omitempty"`
+	Hnsw            *FlowcraftMemoryHNSWPolicy  `json:"hnsw,omitempty"`
+	SearchOverfetch *int                        `json:"search_overfetch,omitempty"`
+}
+
+// FlowcraftMemoryBlevePolicy defines model for FlowcraftMemoryBlevePolicy.
+type FlowcraftMemoryBlevePolicy struct {
+	Analyzer *FlowcraftMemoryBlevePolicyAnalyzer `json:"analyzer,omitempty"`
+	Gojieba  *FlowcraftMemoryGojiebaPolicy       `json:"gojieba,omitempty"`
+}
+
+// FlowcraftMemoryBlevePolicyAnalyzer defines model for FlowcraftMemoryBlevePolicy.Analyzer.
+type FlowcraftMemoryBlevePolicyAnalyzer string
+
 // FlowcraftMemoryExtractionPolicy defines model for FlowcraftMemoryExtractionPolicy.
 type FlowcraftMemoryExtractionPolicy struct {
 	// Enabled Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
@@ -4186,6 +4280,25 @@ type FlowcraftMemoryFilter struct {
 // FlowcraftMemoryFilterOperator defines model for FlowcraftMemoryFilter.Operator.
 type FlowcraftMemoryFilterOperator string
 
+// FlowcraftMemoryGojiebaPolicy defines model for FlowcraftMemoryGojiebaPolicy.
+type FlowcraftMemoryGojiebaPolicy struct {
+	DictPath      *string                           `json:"dict_path,omitempty"`
+	Hmm           *bool                             `json:"hmm,omitempty"`
+	HmmPath       *string                           `json:"hmm_path,omitempty"`
+	IdfPath       *string                           `json:"idf_path,omitempty"`
+	Mode          *FlowcraftMemoryGojiebaPolicyMode `json:"mode,omitempty"`
+	StopWordsPath *string                           `json:"stop_words_path,omitempty"`
+	UserDictPath  *string                           `json:"user_dict_path,omitempty"`
+}
+
+// FlowcraftMemoryGojiebaPolicyMode defines model for FlowcraftMemoryGojiebaPolicy.Mode.
+type FlowcraftMemoryGojiebaPolicyMode string
+
+// FlowcraftMemoryHNSWPolicy defines model for FlowcraftMemoryHNSWPolicy.
+type FlowcraftMemoryHNSWPolicy struct {
+	FlushInterval *string `json:"flush_interval,omitempty"`
+}
+
 // FlowcraftMemoryLanePolicy defines model for FlowcraftMemoryLanePolicy.
 type FlowcraftMemoryLanePolicy struct {
 	Description *string                       `json:"description,omitempty"`
@@ -4200,6 +4313,7 @@ type FlowcraftMemoryLanePolicyKind string
 
 // FlowcraftMemoryLayoutPolicy defines model for FlowcraftMemoryLayoutPolicy.
 type FlowcraftMemoryLayoutPolicy struct {
+	Bbh          *FlowcraftMemoryBBHPolicy       `json:"bbh,omitempty"`
 	Embedding    *FlowcraftMemoryModelPolicy     `json:"embedding,omitempty"`
 	Extraction   FlowcraftMemoryExtractionPolicy `json:"extraction"`
 	GraphEnabled *bool                           `json:"graph_enabled,omitempty"`
@@ -5707,6 +5821,23 @@ type RuntimeProfileCareDecaySpec struct {
 	Mood    float64 `json:"mood"`
 	Satiety float64 `json:"satiety"`
 }
+
+// RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
+type RuntimeProfileFlowcraftBBHConnection struct {
+	Type RuntimeProfileFlowcraftBBHConnectionType `json:"type"`
+}
+
+// RuntimeProfileFlowcraftBBHConnectionType defines model for RuntimeProfileFlowcraftBBHConnection.Type.
+type RuntimeProfileFlowcraftBBHConnectionType string
+
+// RuntimeProfileFlowcraftObjectStoreConnection defines model for RuntimeProfileFlowcraftObjectStoreConnection.
+type RuntimeProfileFlowcraftObjectStoreConnection struct {
+	Directory string                                           `json:"directory"`
+	Type      RuntimeProfileFlowcraftObjectStoreConnectionType `json:"type"`
+}
+
+// RuntimeProfileFlowcraftObjectStoreConnectionType defines model for RuntimeProfileFlowcraftObjectStoreConnection.Type.
+type RuntimeProfileFlowcraftObjectStoreConnectionType string
 
 // RuntimeProfileFlowcraftPostgreSQLConnection defines model for RuntimeProfileFlowcraftPostgreSQLConnection.
 type RuntimeProfileFlowcraftPostgreSQLConnection struct {
@@ -9565,6 +9696,62 @@ func (t *Resource) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsRuntimeProfileFlowcraftBBHConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftBBHConnection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftBBHConnection() (RuntimeProfileFlowcraftBBHConnection, error) {
+	var body RuntimeProfileFlowcraftBBHConnection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileFlowcraftBBHConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftBBHConnection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftBBHConnection(v RuntimeProfileFlowcraftBBHConnection) error {
+	v.Type = "flowcraft_bbh"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileFlowcraftBBHConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftBBHConnection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftBBHConnection(v RuntimeProfileFlowcraftBBHConnection) error {
+	v.Type = "flowcraft_bbh"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRuntimeProfileFlowcraftObjectStoreConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftObjectStoreConnection
+func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftObjectStoreConnection() (RuntimeProfileFlowcraftObjectStoreConnection, error) {
+	var body RuntimeProfileFlowcraftObjectStoreConnection
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRuntimeProfileFlowcraftObjectStoreConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftObjectStoreConnection
+func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
+	v.Type = "flowcraft_object_store"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRuntimeProfileFlowcraftObjectStoreConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftObjectStoreConnection
+func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
+	v.Type = "flowcraft_object_store"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsRuntimeProfileFlowcraftPostgreSQLConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftPostgreSQLConnection
 func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftPostgreSQLConnection() (RuntimeProfileFlowcraftPostgreSQLConnection, error) {
 	var body RuntimeProfileFlowcraftPostgreSQLConnection
@@ -9691,6 +9878,10 @@ func (t RuntimeProfileMemoryConnection) ValueByDiscriminator() (interface{}, err
 		return nil, err
 	}
 	switch discriminator {
+	case "flowcraft_bbh":
+		return t.AsRuntimeProfileFlowcraftBBHConnection()
+	case "flowcraft_object_store":
+		return t.AsRuntimeProfileFlowcraftObjectStoreConnection()
 	case "flowcraft_postgresql":
 		return t.AsRuntimeProfileFlowcraftPostgreSQLConnection()
 	case "flowcraft_redis8":

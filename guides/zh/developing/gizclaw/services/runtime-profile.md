@@ -102,9 +102,11 @@ spec:
 
 每个 RuntimeProfile alias 都是总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment。`asr`、`extract` 等无点名称表示共享能力；`journey.model`、`journey.narrator`、`story.journey-center-earth` 等名称表示可独立绑定的 consumer 槽位。完整名称始终是平面 map 中的一个 opaque key；Server 原样保留，不按 segment 查找，不支持 prefix、wildcard，也不会从 `journey.narrator` fallback 到 `narrator`。`journey.narrator` 与 `journey-narrator` 是两个不同 alias。空 segment、下划线以及 segment 内的首尾连字符均不合法。
 
-`resources.memories` 是产品拥有的长期 Memory 部署 binding。每个 alias 选择一个 Admin `MemoryLayout`、一个 driver 和唯一的 typed connection。封闭的 connection variant 包括：DSN 形式的 `flowcraft_postgresql`、Redis 8.4+ URL 形式的 `flowcraft_redis8`、带 endpoint/API key/Project ID 的 `mem0`，以及带 endpoint/API key/Memory Project ID 的 `volc_mem0`。`flowcraft_redis8` 接受 `redis://` 或启用证书校验的 `rediss://`，后者可选 `tls_ca_file`。外部连接值直接保存在这个仅 Admin 可读的 RuntimeProfile 中，不引用 Credential，也不会通过 Peer API projection 暴露。Driver 必须与 connection type 匹配；Flowcraft Layout 使用的 model alias 必须存在于同一 RuntimeProfile。
+`resources.memories` 是产品拥有的长期 Memory 部署 binding。每个 alias 选择一个 Admin `MemoryLayout`、一个 driver 和唯一的 typed connection。封闭的 connection variant 包括：托管本地 `flowcraft_bbh`、显式目录 `flowcraft_object_store`、DSN 形式的 `flowcraft_postgresql`、Redis 8.4+ URL 形式的 `flowcraft_redis8`、带 endpoint/API key/Project ID 的 `mem0`，以及带 endpoint/API key/Memory Project ID 的 `volc_mem0`。`flowcraft_bbh` 将数据写入 Server Workspace root，不依赖外部服务；`flowcraft_redis8` 接受 `redis://` 或启用证书校验的 `rediss://`，后者可选 `tls_ca_file`。外部连接值直接保存在这个仅 Admin 可读的 RuntimeProfile 中，不引用 Credential，也不会通过 Peer API projection 暴露。Driver 必须与 connection type 匹配；Flowcraft Layout 使用的 model alias 必须存在于同一 RuntimeProfile。
 
 这个 binding alias 表示 Workflow 标量 `memory` 字段选择的 named physical source。在相同 Workspace、driver 与 physical binding 下，修改 extraction policy、Graph Recall/Observe policy、prompt 或 `top_k` 不会创建新的 canonical data namespace；修改 driver 或 connection 可以切换到另一个数据源，但不会自动迁移或删除旧数据。
+
+`flowcraft_bbh` 不再是受支持的 connection。仍使用它的已持久化 profile 会在读取或 runtime 解析时被拒绝，错误会指出具体 profile 与 binding；管理员仍可通过 `PUT` 将其显式替换为 `flowcraft_redis8` 或 `flowcraft_object_store`。Profile 被拒绝、替换或删除时，GizClaw 都不会迁移、重新解释或删除旧的 managed local directory；operator 必须先保留或备份该目录，并在切换 binding 前显式完成所需的数据转移。
 
 每个 `gameplay.adoption.pool` 条目只引用一个 `pet_defs` alias；PetDef 的本地化名称也来自这个 RuntimeProfile binding，不在 PetDef 中重复保存 i18n。PetDef 只保存宠物角色/说话风格、PIXA 元数据和固定行为到动画 clip 的绑定。Pet Workflow 使用的 Model、Voice 和 Tool 都由真实 Workflow spec 中的 alias 声明，并从该 system Workspace owner 的 RuntimeProfile 解析。
 

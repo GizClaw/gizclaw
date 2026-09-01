@@ -308,6 +308,14 @@ func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 		{"invalid dotted extraction alias", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Flowcraft.Extraction.Model = "pet-care..extract"
 		}, "RuntimeProfile alias"},
+		{"invalid BBH overfetch", func(layout *adminhttp.MemoryLayoutUpsert) {
+			layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{SearchOverfetch: new(0)}
+		}, "search_overfetch"},
+		{"invalid BBH flush interval", func(layout *adminhttp.MemoryLayoutUpsert) {
+			layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{
+				Hnsw: &apitypes.FlowcraftMemoryHNSWPolicy{FlushInterval: new("0s")},
+			}
+		}, "flush_interval"},
 		{"empty mem0 policy", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Mem0 = apitypes.Mem0MemoryLayoutPolicy{}
 		}, "spec.mem0 must define"},
@@ -361,6 +369,9 @@ func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "pet-memory")
 	layout.Spec.Flowcraft.Extraction.StageTimeout = new(" 30s ")
+	layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{
+		Hnsw: &apitypes.FlowcraftMemoryHNSWPolicy{FlushInterval: new(" 2s ")},
+	}
 	layout.Spec.Mem0.CustomInstructions = new(" keep durable facts ")
 	layout.Spec.VolcMem0.Strategies[0].CustomInstructions = new(" keep pet facts ")
 
@@ -374,6 +385,9 @@ func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 	}
 	if got := *created.Spec.Flowcraft.Extraction.StageTimeout; got != "30s" {
 		t.Fatalf("stage_timeout = %q", got)
+	}
+	if got := *created.Spec.Flowcraft.Bbh.Hnsw.FlushInterval; got != "2s" {
+		t.Fatalf("bbh.flush_interval = %q", got)
 	}
 	if got := *created.Spec.Mem0.CustomInstructions; got != "keep durable facts" {
 		t.Fatalf("mem0 custom_instructions = %q", got)

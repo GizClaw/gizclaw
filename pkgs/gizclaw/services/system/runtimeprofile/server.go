@@ -857,6 +857,22 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 		return binding, fmt.Errorf("connection: %w", err)
 	}
 	switch connectionType {
+	case "flowcraft_bbh":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+	case "flowcraft_object_store":
+		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
+			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
+		}
+		value, err := binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
+		value.Directory = strings.TrimSpace(value.Directory)
+		if err != nil || value.Directory == "" {
+			return binding, errors.New("flowcraft_object_store connection requires directory")
+		}
+		if err := binding.Connection.FromRuntimeProfileFlowcraftObjectStoreConnection(value); err != nil {
+			return binding, err
+		}
 	case "flowcraft_postgresql":
 		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
 			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
