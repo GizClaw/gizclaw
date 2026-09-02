@@ -1,0 +1,79 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want exercise the server.device.sound.play behavior through its real transport,
+# So that the Public HTTP device contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.sound.play
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: provider_sound
+  client: peer
+  client_rpc:
+    method: client.device.sound.play
+    expect_calls: 1
+- id: primary_http
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/actions/play-sound
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      sound: chime
+      duration_ms: 1500
+    status: 204
+- id: too_long
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/actions/play-sound
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      sound: "123456789012345678901234567890123"
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

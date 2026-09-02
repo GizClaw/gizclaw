@@ -1,0 +1,94 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want exercise the server.device.reboot behavior through its real transport,
+# So that the Public HTTP device contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.reboot
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: provider_reboot
+  client: peer
+  client_rpc:
+    method: client.device.reboot
+    expect_calls: 1
+- id: provider_wifi
+  client: peer
+  client_rpc:
+    method: client.wifi.status.get
+    response:
+      connected: true
+    expect_calls: 1
+- id: before_reboot
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/wifi
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /connected:
+      equals: true
+- id: primary_http
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/actions/reboot
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      delay_ms: 10
+    status: 204
+- id: after_reboot
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/wifi
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 409
+  expect:
+    /error/code:
+      equals: DEVICE_OFFLINE
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
