@@ -938,19 +938,19 @@ static int inbound_error(
 
 static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   switch (method) {
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST:
-    case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET:
-      return true;
-    default:
-      return false;
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET:
+    return true;
+  default:
+    return false;
   }
 }
 
