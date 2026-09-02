@@ -211,10 +211,7 @@ func writeCString(out *C.char, cap C.size_t, text string) {
 	if out == nil || cap == 0 {
 		return
 	}
-	limit := int(cap) - 1
-	if len(text) < limit {
-		limit = len(text)
-	}
+	limit := min(int(cap)-1, len(text))
 	target := unsafe.Slice((*byte)(unsafe.Pointer(out)), int(cap))
 	copy(target[:limit], text)
 	target[limit] = 0

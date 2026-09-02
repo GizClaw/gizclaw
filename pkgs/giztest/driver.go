@@ -1,6 +1,9 @@
 package giztest
 
-import "context"
+import (
+	"context"
+	"slices"
+)
 
 // CoreOperations are the step operations the runner executes itself, without
 // a client. Every other operation is dispatched to the Driver.
@@ -81,18 +84,11 @@ type StepResult struct {
 
 // operationSupported reports whether the runner or driver can execute op.
 func operationSupported(driver Driver, op string) bool {
-	for _, core := range CoreOperations {
-		if op == core {
-			return true
-		}
+	if slices.Contains(CoreOperations, op) {
+		return true
 	}
 	if driver == nil {
 		return false
 	}
-	for _, supported := range driver.Operations() {
-		if op == supported {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(driver.Operations(), op)
 }
