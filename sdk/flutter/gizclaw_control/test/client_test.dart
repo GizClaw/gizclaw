@@ -685,6 +685,63 @@ void main() {
     });
   });
 
+  group('send', () {
+    test('reaches an unmodeled route and returns the status', () async {
+      final recorder = Recorder([
+        json(200, {'anything': true}),
+      ]);
+      final response = await clientWith(
+        recorder,
+      ).send(method: 'GET', path: '/gizclaw/v1/device/future?limit=5');
+      expect(recorder.single.method, 'GET');
+      expect(recorder.single.headers['Authorization'], 'Bearer $apiKey');
+      expect(
+        recorder.single.url.toString(),
+        'https://ap.gizclaw.com/gizclaw/v1/device/future?limit=5',
+      );
+      expect(response.statusCode, 200);
+      expect(response.isSuccess, isTrue);
+      expect(response.json, {'anything': true});
+    });
+
+    test('returns a non-2xx status instead of throwing', () async {
+      final recorder = Recorder([
+        error(409, 'DEVICE_OFFLINE', headers: {'x-request-id': 'req-9'}),
+      ]);
+      final response = await clientWith(recorder).send(
+        method: 'PUT',
+        path: '/gizclaw/v1/device/volume',
+        body: {'level': 1},
+      );
+      expect(response.statusCode, 409);
+      expect(response.isSuccess, isFalse);
+      expect(response.requestId, 'req-9');
+      expect(
+        classifyGizClawControlError(409, 'DEVICE_OFFLINE'),
+        GizClawControlErrorKind.deviceOffline,
+      );
+      expect(jsonDecode(recorder.single.body), {'level': 1});
+    });
+
+    test(
+      'returns null for an empty body and rejects a relative path',
+      () async {
+        final recorder = Recorder([noContent()]);
+        final client = clientWith(recorder);
+        final response = await client.send(
+          method: 'DELETE',
+          path: '/gizclaw/v1/contacts/alice',
+        );
+        expect(response.statusCode, 204);
+        expect(response.json, isNull);
+        expect(
+          () => client.send(method: 'GET', path: 'relative'),
+          throwsArgumentError,
+        );
+      },
+    );
+  });
+
   group('classifyGizClawControlError', () {
     test('device codes win over status', () {
       expect(

@@ -355,6 +355,79 @@ class GizClawControlClient {
     );
   }
 
+  /// Sends one request to `<baseUrl><path>` with the bearer header, for a
+  /// route this package does not model yet.
+  ///
+  /// [path] is absolute and may carry a query string. Unlike the typed
+  /// methods, a non-2xx status is returned rather than thrown; classify it
+  /// with [classifyGizClawControlError]. Transport failures still throw
+  /// [GizClawControlException] with [GizClawControlErrorKind.network].
+  Future<GizClawControlResponse> send({
+    required String method,
+    required String path,
+    Map<String, String> headers = const {},
+    Object? body,
+  }) async {
+    if (!path.startsWith('/')) {
+      throw ArgumentError.value(path, 'path', 'must be an absolute path');
+    }
+    if (_closed) {
+      throw const GizClawControlException(
+        kind: GizClawControlErrorKind.network,
+        message: 'send: client is closed',
+      );
+    }
+    final basePath = _baseUrl.path.replaceFirst(RegExp(r'/+$'), '');
+    final separator = path.indexOf('?');
+    final request = http.Request(
+      method,
+      _baseUrl.replace(
+        path: '$basePath${separator < 0 ? path : path.substring(0, separator)}',
+        query: separator < 0 ? null : path.substring(separator + 1),
+      ),
+    );
+    request.headers['Authorization'] = 'Bearer $_apiKey';
+    request.headers['Accept'] = 'application/json';
+    if (body != null) {
+      request.headers['Content-Type'] = 'application/json';
+      request.body = jsonEncode(body);
+    }
+    request.headers.addAll(headers);
+    final http.Response response;
+    try {
+      response = await _http
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw GizClawControlException(
+        kind: GizClawControlErrorKind.network,
+        message: 'send: no response within $_timeout',
+        cause: error,
+      );
+    } on http.ClientException catch (error) {
+      throw GizClawControlException(
+        kind: GizClawControlErrorKind.network,
+        message: 'send: ${error.message}',
+        cause: error,
+      );
+    }
+    Object? decoded;
+    final text = utf8.decode(response.bodyBytes);
+    if (text.trim().isNotEmpty) {
+      try {
+        decoded = jsonDecode(text);
+      } on FormatException {
+        decoded = text;
+      }
+    }
+    return GizClawControlResponse(
+      statusCode: response.statusCode,
+      json: decoded,
+      requestId: _requestId(response),
+    );
+  }
+
   // Transport.
 
   static String _segment(String value, String name) {
@@ -482,4 +555,24 @@ class GizClawControlClient {
     final value = response.headers['x-request-id'];
     return value == null || value.isEmpty ? null : value;
   }
+}
+
+/// One raw response from [GizClawControlClient.send].
+class GizClawControlResponse {
+  const GizClawControlResponse({
+    required this.statusCode,
+    required this.json,
+    this.requestId,
+  });
+
+  final int statusCode;
+
+  /// Decoded JSON body, the raw text when the body is not JSON, or `null`
+  /// when the response carried no body.
+  final Object? json;
+
+  /// `X-Request-ID` response header when the Server set one.
+  final String? requestId;
+
+  bool get isSuccess => statusCode >= 200 && statusCode < 300;
 }
