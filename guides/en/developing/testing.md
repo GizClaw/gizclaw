@@ -233,10 +233,16 @@ The Flutter runner is a desktop binary rather than a plain Dart CLI because the
 device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
 builds and runs it on macOS and Linux and skips it on other hosts.
 
-One known cross-runner difference: Go marshals RPC responses with protojson's
-`EmitUnpopulated`, so zero-valued fields are present, while the JavaScript and
-Dart codecs emit only fields that were set. An expectation on the zero value of
-an unset field therefore behaves differently across runners.
+Two known cross-runner differences, both in how an `rpc` step projects its
+response:
+
+- Go marshals with protojson's `EmitUnpopulated`, so zero-valued fields are
+  present, while the JavaScript and Dart codecs emit only fields that were set.
+  An expectation on the zero value of an unset field behaves differently.
+- Go and Flutter follow proto3 JSON and emit `int64` and `uint64` fields as
+  strings; the JavaScript codec emits numbers. On such a field `equals: 35`
+  passes only under JavaScript and `equals: "35"` only under Go and Flutter,
+  while `minimum` and `maximum` accept both forms.
 
 ### Giztest scenarios
 

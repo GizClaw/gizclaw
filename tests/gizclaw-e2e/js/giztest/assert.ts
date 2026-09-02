@@ -202,9 +202,8 @@ export function assertValue(
   for (const [path, expectation] of Object.entries(expectations)) {
     const { found, value } = jsonPointer(input, path);
     if (expectation.present != null && found !== expectation.present) {
-      throw new AssertionFailure(
-        `assert ${path} presence = ${expectation.present}`,
-      );
+      // The Go runner reports the observed presence, not the expected one.
+      throw new AssertionFailure(`assert ${path} presence = ${found}`);
     }
     if (!found) {
       if (expectation.present === false) {

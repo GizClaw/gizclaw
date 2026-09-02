@@ -286,14 +286,16 @@ void main() {
       expect(document.name, 'server.device.volume.set');
       expect(document.repeat, 1);
       expect(document.clients.keys, ['peer']);
+      // The client_rpc step asserts the call count, so it follows the HTTP
+      // step that makes the Server call the device.
       expect(document.steps.map((step) => step.operation).toList(), [
         'rpc',
         'rpc',
-        'client_rpc',
         'http',
         'http',
         'rpc',
         'http',
+        'client_rpc',
       ]);
       expect(document.finalizers.single.id, 'cleanup_peer');
       expect(collectReferences(document.steps[3]), ['api_key']);

@@ -203,7 +203,8 @@ void assertValue(
     final result = jsonPointer(input, path);
     final present = expectation['present'] as bool?;
     if (present != null && result.found != present) {
-      throw AssertionFailure('assert $path presence = $present');
+      // The Go runner reports the observed presence, not the expected one.
+      throw AssertionFailure('assert $path presence = ${result.found}');
     }
     if (!result.found) {
       if (present == false) {

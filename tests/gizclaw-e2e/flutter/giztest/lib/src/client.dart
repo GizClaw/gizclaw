@@ -107,6 +107,21 @@ String _camelToSnake(String name) => name.replaceAllMapped(
   (match) => '_${match.group(0)!.toLowerCase()}',
 );
 
+/// Projects an RPC response to proto3 JSON, unwrapping a response whose only
+/// field is a `value` message so scenario pointers start below it. The Go
+/// runner and the JavaScript codec apply the same rule.
+Object? unwrapValueMessage(GeneratedMessage response) {
+  final fields = response.info_.byIndex;
+  final json = response.toProto3Json();
+  if (fields.length != 1 || fields.single.name != 'value') {
+    return json;
+  }
+  if (json is Map && json.length == 1 && json['value'] is Map) {
+    return json['value'];
+  }
+  return fields.single.isGroupOrMessage ? const <String, Object?>{} : json;
+}
+
 /// Reads the `{error_code, error_message}` form a scenario uses to make a
 /// device provider fail.
 GizClawDeviceControlException? _scriptedFailure(Object? response) {
@@ -176,7 +191,7 @@ class ScenarioClient {
       );
       final identity = GiznetSignalingIdentity(
         clientPrivateKey: privateKey,
-        serverPublicKey: base58Decode(info.publicKey),
+        serverPublicKey: base58Decode(info.transportPublicKey),
       );
       final handlers = _buildHandlers(name, steps, variables);
       var publicKey = '';
@@ -193,9 +208,14 @@ class ScenarioClient {
         sendOffer: (offer) async {
           final response = await httpClient
               .post(
-                base.replace(path: info.signalingPath),
+                base.replace(path: info.transportSignalingPath),
                 body: offer.body,
-                headers: const {'Content-Type': 'application/octet-stream'},
+                headers: {
+                  'Content-Type': 'application/octet-stream',
+                  'X-Giznet-Nonce': offer.nonce,
+                  'X-Giznet-Public-Key': offer.clientPublicKey,
+                  'X-Giznet-Timestamp': '${offer.timestamp}',
+                },
               )
               .timeout(_connectTimeout);
           if (response.statusCode != 200) {
@@ -243,7 +263,7 @@ class ScenarioClient {
         method,
         request,
       );
-      return camelToSnakeKeys(response.toProto3Json());
+      return camelToSnakeKeys(unwrapValueMessage(response));
     } on RpcError catch (error) {
       throw ScenarioRpcError(error.code, error.message);
     }

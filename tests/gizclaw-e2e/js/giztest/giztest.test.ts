@@ -243,9 +243,11 @@ test("loadDocument parses a real device control scenario", async () => {
   assert.equal(document.name, "server.device.volume.set");
   assert.equal(document.repeat, 1);
   assert.deepEqual(Object.keys(document.clients), ["peer"]);
+  // The client_rpc step asserts the call count, so it follows the HTTP step
+  // that makes the server call the device.
   assert.deepEqual(
     document.steps.map((step) => stepOperation(step)),
-    ["rpc", "rpc", "client_rpc", "http", "http", "rpc", "http"],
+    ["rpc", "rpc", "http", "http", "rpc", "http", "client_rpc"],
   );
   assert.equal(document.finally.length, 1);
   assert.equal(document.finally[0]?.id, "cleanup_peer");
