@@ -226,6 +226,14 @@ jobs:
         working-directory: sdk/flutter/gizclaw_control
         run: dart analyze --fatal-infos
 
+      - name: Install giztest runner dependencies
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter pub get
+
+      - name: Analyze giztest runner
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter analyze
+
   test:
     name: Go Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -625,3 +633,15 @@ jobs:
       - name: Test control SDK
         working-directory: sdk/flutter/gizclaw_control
         run: dart test
+
+      - name: Install giztest runner dependencies
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter pub get
+
+      - name: Analyze giztest runner
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter analyze
+
+      - name: Test giztest runner
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter test

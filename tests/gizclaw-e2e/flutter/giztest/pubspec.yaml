@@ -1,0 +1,25 @@
+name: giztest
+description: Runs GizClaw scenario documents with the Flutter device SDK and the Dart control SDK.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  args: ^2.6.0
+  flutter:
+    sdk: flutter
+  flutter_webrtc: ^1.5.2
+  gizclaw:
+    path: ../../../../sdk/flutter/gizclaw
+  gizclaw_control:
+    path: ../../../../sdk/flutter/gizclaw_control
+  http: ^1.2.0
+  protobuf: ^6.0.0
+  yaml: ^3.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
