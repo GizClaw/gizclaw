@@ -161,6 +161,7 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_SERVER_API_KEY_CREATE', '2': 96, '3': {}},
     {'1': 'RPC_METHOD_SERVER_API_KEY_LIST', '2': 97, '3': {}},
     {'1': 'RPC_METHOD_SERVER_API_KEY_REVOKE', '2': 98, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_API_KEY_RESOLVE', '2': 99, '3': {}},
   ],
 };
 
@@ -380,7 +381,9 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     '9LRVlfTElTVBBhGkDC8xg8ChNzZXJ2ZXIuYXBpX2tleS5saXN0EhFBUElLZXlMaXN0UmVxdWVz'
     'dBoSQVBJS2V5TGlzdFJlc3BvbnNlEmwKIFJQQ19NRVRIT0RfU0VSVkVSX0FQSV9LRVlfUkVWT0'
     'tFEGIaRsLzGEIKFXNlcnZlci5hcGlfa2V5LnJldm9rZRITQVBJS2V5UmV2b2tlUmVxdWVzdBoU'
-    'QVBJS2V5UmV2b2tlUmVzcG9uc2U=');
+    'QVBJS2V5UmV2b2tlUmVzcG9uc2USfAohUlBDX01FVEhPRF9TRVJWRVJfQVBJX0tFWV9SRVNPTF'
+    'ZFEGMaVcLzGFEKFnNlcnZlci5hcGlfa2V5LnJlc29sdmUSGlNlcnZlckFQSUtleVJlc29sdmVS'
+    'ZXF1ZXN0GhtTZXJ2ZXJBUElLZXlSZXNvbHZlUmVzcG9uc2U=');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

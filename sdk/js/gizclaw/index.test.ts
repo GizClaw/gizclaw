@@ -1800,6 +1800,7 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
   await rpc.call("server.peer.lookup", { peer_public_key: "peer-a" });
   await rpc.call("server.peer.assign", { peer_public_key: "peer-a" });
   await rpc.call("server.route.resolve", { target_peer_public_key: "peer-a" });
+  await rpc.call("server.api_key.resolve", { api_key: "gzk_test" });
 
   assert.deepEqual(calls, [
     { method: "server.peer.lookup", params: { peer_public_key: "peer-a" } },
@@ -1808,6 +1809,7 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
       method: "server.route.resolve",
       params: { target_peer_public_key: "peer-a" },
     },
+    { method: "server.api_key.resolve", params: { api_key: "gzk_test" } },
   ]);
 });
 

@@ -16,7 +16,7 @@ func TestClientServerRouteRPCMethodsUseEdgeService(t *testing.T) {
 	listener := serverConn.ListenService(ServiceEdgeRPC)
 	defer listener.Close()
 
-	serverErrCh := make(chan error, 3)
+	serverErrCh := make(chan error, 4)
 	assignment := rpcpb.PeerAssignment{
 		ServerPublicKey: "server-pk",
 		ServerEndpoint:  "https://edge.example",
@@ -32,6 +32,9 @@ func TestClientServerRouteRPCMethodsUseEdgeService(t *testing.T) {
 		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodServerRouteResolve, rpcpb.ServerRouteResolveResponse{
 			Assignment: &assignment,
 		}, (*rpcapi.RPCPayload).FromServerRouteResolveResponse, serverErrCh)
+		serveEdgeRPCResponse(t, listener, rpcapi.RPCMethodServerAPIKeyResolve, rpcpb.ServerAPIKeyResolveResponse{
+			Assignment: &assignment,
+		}, (*rpcapi.RPCPayload).FromServerAPIKeyResolveResponse, serverErrCh)
 	}()
 
 	if _, err := client.ServerPeerLookup(context.Background(), "edge-lookup", rpcpb.ServerPeerLookupRequest{PeerPublicKey: "peer-a"}); err != nil {
@@ -43,8 +46,11 @@ func TestClientServerRouteRPCMethodsUseEdgeService(t *testing.T) {
 	if _, err := client.ServerRouteResolve(context.Background(), "edge-route-resolve", rpcpb.ServerRouteResolveRequest{TargetPeerPublicKey: "peer-a"}); err != nil {
 		t.Fatalf("ServerRouteResolve error = %v", err)
 	}
+	if _, err := client.ServerAPIKeyResolve(context.Background(), "edge-api-key-resolve", rpcpb.ServerAPIKeyResolveRequest{ApiKey: "api-key"}); err != nil {
+		t.Fatalf("ServerAPIKeyResolve error = %v", err)
+	}
 
-	for range 3 {
+	for range 4 {
 		if err := <-serverErrCh; err != nil {
 			t.Fatalf("server error = %v", err)
 		}

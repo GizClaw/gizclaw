@@ -159,4 +159,5 @@ enum RpcMethod {
   RPC_METHOD_SERVER_API_KEY_CREATE = 96 [(rpc_method) = { name: "server.api_key.create" request: "APIKeyCreateRequest" response: "APIKeyCreateResponse" }];
   RPC_METHOD_SERVER_API_KEY_LIST = 97 [(rpc_method) = { name: "server.api_key.list" request: "APIKeyListRequest" response: "APIKeyListResponse" }];
   RPC_METHOD_SERVER_API_KEY_REVOKE = 98 [(rpc_method) = { name: "server.api_key.revoke" request: "APIKeyRevokeRequest" response: "APIKeyRevokeResponse" }];
+  RPC_METHOD_SERVER_API_KEY_RESOLVE = 99 [(rpc_method) = { name: "server.api_key.resolve" request: "ServerAPIKeyResolveRequest" response: "ServerAPIKeyResolveResponse" }];
 }

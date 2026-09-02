@@ -41,3 +41,11 @@ message ServerRouteResolveRequest {
 message ServerRouteResolveResponse {
   PeerAssignment assignment = 1;
 }
+
+message ServerAPIKeyResolveRequest {
+  string api_key = 1;
+}
+
+message ServerAPIKeyResolveResponse {
+  PeerAssignment assignment = 1;
+}

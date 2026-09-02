@@ -597,6 +597,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'APIKeyRevokeRequest',
     responseType: 'APIKeyRevokeResponse',
   ),
+  'server.api_key.resolve': RpcMethodDescriptor(
+    id: 99,
+    name: 'server.api_key.resolve',
+    requestType: 'ServerAPIKeyResolveRequest',
+    responseType: 'ServerAPIKeyResolveResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -697,6 +703,7 @@ const rpcMethodNamesById = <int, String>{
   96: 'server.api_key.create',
   97: 'server.api_key.list',
   98: 'server.api_key.revoke',
+  99: 'server.api_key.resolve',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

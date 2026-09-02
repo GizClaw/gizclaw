@@ -3,6 +3,7 @@ package gizedge
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
@@ -86,38 +88,28 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 		defer gateway.Close()
 	}
 
-	listener, err := net.Listen("tcp", cfg.Listen)
-	if err != nil {
-		return fmt.Errorf("edge: listen public http: %w", err)
-	}
-	defer listener.Close()
-
 	var transport *serverInfoTransport
 	if gateway != nil {
 		transport = &serverInfoTransport{
 			Mode:          "edge-gateway",
-			Endpoint:      cfg.Endpoint,
+			Endpoint:      cfg.WebRTC.Endpoint,
 			PublicKey:     cfg.KeyPair.Public.String(),
 			SignalingPath: gizwebrtc.SignalingPath,
 		}
 	}
-	proxy := newPeerHTTPProxy(cfg.Endpoint, upstreamTransport, transport)
+	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
 	handler := edgeIngressHandler(proxy, gateway)
-	server := &http.Server{Handler: handler}
-	errCh := make(chan error, 1)
-	go func() {
-		err := server.Serve(listener)
-		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
-			err = nil
-		}
-		errCh <- err
-	}()
+	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
+	if err != nil {
+		return err
+	}
 
 	select {
-	case err := <-errCh:
-		return err
+	case err := <-httpRuntime.errCh:
+		httpRuntime.errCh <- err
+		return httpRuntime.shutdown(edgeShutdownTimeout)
 	case <-ctx.Done():
-		return shutdownHTTPServer(server, errCh, edgeShutdownTimeout)
+		return httpRuntime.shutdown(edgeShutdownTimeout)
 	}
 }
 
@@ -144,6 +136,75 @@ func installEdgeLogging(cfg Config) (func() error, error) {
 	return func() error {
 		return errors.Join(closeLogger(), logical.Close(), physical.Close())
 	}, nil
+}
+
+type edgeHTTPRuntime struct {
+	servers   []*http.Server
+	listeners []net.Listener
+	errCh     chan error
+}
+
+func startEdgeHTTP(configs []HTTPListenerConfig, handler http.Handler) (*edgeHTTPRuntime, error) {
+	type preparedListener struct {
+		server   *http.Server
+		listener net.Listener
+	}
+	prepared := make([]preparedListener, 0, len(configs))
+	for index, cfg := range configs {
+		listener, err := net.Listen("tcp", cfg.Listen)
+		if err != nil {
+			for _, item := range prepared {
+				_ = item.listener.Close()
+			}
+			return nil, fmt.Errorf("edge: listen http.listeners[%d]: %w", index, err)
+		}
+		tlsConfig, err := cfg.TLS.tlsConfig(fmt.Sprintf("http.listeners[%d].tls", index))
+		if err != nil {
+			_ = listener.Close()
+			for _, item := range prepared {
+				_ = item.listener.Close()
+			}
+			return nil, err
+		}
+		if tlsConfig != nil {
+			listener = tls.NewListener(listener, tlsConfig)
+		}
+		prepared = append(prepared, preparedListener{server: &http.Server{Handler: handler}, listener: listener})
+	}
+	runtime := &edgeHTTPRuntime{
+		servers: make([]*http.Server, 0, len(prepared)), listeners: make([]net.Listener, 0, len(prepared)),
+		errCh: make(chan error, len(prepared)),
+	}
+	for _, item := range prepared {
+		runtime.servers = append(runtime.servers, item.server)
+		runtime.listeners = append(runtime.listeners, item.listener)
+		go func(server *http.Server, listener net.Listener) {
+			err := server.Serve(listener)
+			if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+				err = nil
+			}
+			runtime.errCh <- err
+		}(item.server, item.listener)
+	}
+	return runtime, nil
+}
+
+func (r *edgeHTTPRuntime) shutdown(timeout time.Duration) error {
+	if r == nil {
+		return nil
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	var errs []error
+	for _, server := range r.servers {
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			errs = append(errs, err, server.Close())
+		}
+	}
+	for range r.servers {
+		errs = append(errs, <-r.errCh)
+	}
+	return errors.Join(errs...)
 }
 
 func shutdownHTTPServer(server *http.Server, errCh <-chan error, timeout time.Duration) error {
@@ -360,8 +421,29 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 			}
 			return nil
 		},
+		ErrorHandler: writeEdgeProxyError,
 	}
 	return proxy
+}
+
+func writeEdgeProxyError(w http.ResponseWriter, _ *http.Request, err error) {
+	status := http.StatusBadGateway
+	code := "UPSTREAM_ERROR"
+	switch {
+	case errors.Is(err, errAPIKeyUnauthorized):
+		status = http.StatusUnauthorized
+		code = "INVALID_API_KEY"
+		w.Header().Set("WWW-Authenticate", "Bearer")
+	case errors.Is(err, errAPIKeyOwnerUnavailable):
+		status = http.StatusForbidden
+		code = "API_KEY_OWNER_UNAVAILABLE"
+	case errors.Is(err, errAPIKeyTargetUnconfigured), errors.Is(err, errAPIKeyTargetUnavailable):
+		status = http.StatusServiceUnavailable
+		code = "API_KEY_SERVER_UNAVAILABLE"
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(apitypes.NewErrorResponse(code, http.StatusText(status)))
 }
 
 func edgeIngressHandler(next http.Handler, gateway *Gateway) http.Handler {

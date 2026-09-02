@@ -3,8 +3,12 @@ package gizedge
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -30,13 +34,15 @@ func TestPrepareWorkspaceConfigLoadsOneUpstream(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: 127.0.0.1:9821
-endpoint: edge.example.com:9821
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: edge.example.com:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: 127.0.0.1:9821
 metrics:
   remote-write-url: https://prometheus.example.test/api/v1/write
   query-url: https://prometheus.example.test
@@ -50,11 +56,11 @@ metrics:
 	if cfg.KeyPair == nil || !cfg.KeyPair.Public.Equal(edgeKey.Public) {
 		t.Fatalf("edge public key = %v, want %v", cfg.KeyPair.Public, edgeKey.Public)
 	}
-	if cfg.Listen != "127.0.0.1:9821" {
-		t.Fatalf("Listen = %q", cfg.Listen)
+	if cfg.WebRTC.Listen != "127.0.0.1:9821" {
+		t.Fatalf("Listen = %q", cfg.WebRTC.Listen)
 	}
-	if cfg.Endpoint != "edge.example.com:9821" {
-		t.Fatalf("Endpoint = %q", cfg.Endpoint)
+	if cfg.WebRTC.Endpoint != "edge.example.com:9821" {
+		t.Fatalf("Endpoint = %q", cfg.WebRTC.Endpoint)
 	}
 	if len(cfg.Upstreams) != 1 || cfg.Upstreams[0].Endpoint != "server-a.example.com:9820" {
 		t.Fatalf("Upstreams = %+v", cfg.Upstreams)
@@ -62,12 +68,94 @@ metrics:
 	if !cfg.Upstreams[0].PublicKey.Equal(upstreamKey.Public) {
 		t.Fatalf("Upstreams[0].PublicKey = %v, want %v", cfg.Upstreams[0].PublicKey, upstreamKey.Public)
 	}
-	if cfg.TLS.CertSource != TLSCertSourceDisabled {
-		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
-	}
 	if cfg.Metrics.RemoteWriteURL != "https://prometheus.example.test/api/v1/write" ||
 		cfg.Metrics.QueryURL != "https://prometheus.example.test" || cfg.Metrics.BearerToken != "test-token" {
 		t.Fatalf("Metrics = %#v", cfg.Metrics)
+	}
+}
+
+func TestPrepareWorkspaceConfigLoadsMultipleHTTPListenersWithTLS(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x71)
+	upstreamKey := testKeyPair(t, 0x72)
+	dir := t.TempDir()
+	certFile, keyFile := writeTestTLSFiles(t, dir)
+	writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: edge.example.com:9821
+upstreams:
+  - endpoint: server.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 127.0.0.1:9821
+    - listen: 127.0.0.1:443
+      tls:
+        cert-file: `+certFile+`
+        key-file: `+keyFile+`
+`)
+	cfg, err := PrepareWorkspaceConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.HTTP.Listeners) != 2 || cfg.HTTP.Listeners[1].Listen != "127.0.0.1:443" {
+		t.Fatalf("HTTP listeners = %+v", cfg.HTTP.Listeners)
+	}
+	tlsConfig, err := cfg.HTTP.Listeners[1].TLS.tlsConfig("test")
+	if err != nil || tlsConfig == nil || tlsConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("TLS config = %+v, %v", tlsConfig, err)
+	}
+}
+
+func writeTestTLSFiles(t *testing.T, dir string) (string, string) {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	certificate := server.TLS.Certificates[0]
+	certFile := filepath.Join(dir, "server.crt")
+	keyFile := filepath.Join(dir, "server.key")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Certificate[0]})
+	keyDER, err := x509.MarshalPKCS8PrivateKey(certificate.PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	if err := os.WriteFile(certFile, certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return certFile, keyFile
+}
+
+func TestStartEdgeHTTPServesPlaintextAndTLSListeners(t *testing.T) {
+	certFile, keyFile := writeTestTLSFiles(t, t.TempDir())
+	runtime, err := startEdgeHTTP([]HTTPListenerConfig{
+		{Listen: "127.0.0.1:0"},
+		{Listen: "127.0.0.1:0", TLS: HTTPListenerTLSConfig{CertFile: certFile, KeyFile: keyFile}},
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = runtime.shutdown(time.Second) })
+	plainResponse, err := http.Get("http://" + runtime.listeners[0].Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = plainResponse.Body.Close()
+	tlsClient := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} // Test certificate is self-signed.
+	tlsResponse, err := tlsClient.Get("https://" + runtime.listeners[1].Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = tlsResponse.Body.Close()
+	if plainResponse.StatusCode != http.StatusOK || tlsResponse.StatusCode != http.StatusOK {
+		t.Fatalf("listener statuses = %d, %d", plainResponse.StatusCode, tlsResponse.StatusCode)
 	}
 }
 
@@ -79,8 +167,9 @@ func TestPrepareWorkspaceConfigLoadsOrderedPluralUpstreams(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: 127.0.0.1:9821
-endpoint: 127.0.0.1:9821
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: 127.0.0.1:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+first.Public.String()+`
@@ -94,8 +183,9 @@ upstreams:
       - urls: [turn:192.0.2.11:3478?transport=udp]
         username: user
         credential: secret
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: 127.0.0.1:9821
 `)
 	cfg, err := PrepareWorkspaceConfig(dir)
 	if err != nil {
@@ -114,7 +204,8 @@ func TestConfigRejectsInvalidPluralUpstreams(t *testing.T) {
 	first := testKeyPair(t, 0x16)
 	second := testKeyPair(t, 0x17)
 	base := Config{
-		KeyPair: edgeKey, Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821",
+		KeyPair: edgeKey, WebRTC: WebRTCConfig{Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821"},
+		HTTP:    HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9821"}}},
 		Gateway: defaultGatewayConfig(),
 		Upstreams: []UpstreamConfig{
 			{Endpoint: "server-a.example.com:9820", PublicKey: first.Public},
@@ -152,12 +243,18 @@ func TestPrepareWorkspaceConfigIgnoresSingularUpstream(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstream:
   endpoint: ignored.example.com:1
   public-key: ignored
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -189,13 +286,15 @@ func TestPrepareWorkspaceConfigRejectsInvalidIngressPorts(t *testing.T) {
 			writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: `+tc.listen+`
-endpoint: `+tc.endpoint+`
+webrtc:
+  listen: `+tc.listen+`
+  endpoint: `+tc.endpoint+`
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: `+tc.listen+`
 `)
 			_, err := PrepareWorkspaceConfig(dir)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -292,17 +391,29 @@ func TestParseConfigDataRejectsLegacyGatewayAddresses(t *testing.T) {
 		value string
 		want  string
 	}{
-		{name: "listen value", key: "ice-udp-listen", value: "0.0.0.0:9824", want: "top-level listen"},
-		{name: "listen empty", key: "ice-udp-listen", value: `""`, want: "top-level listen"},
-		{name: "listen null", key: "ice-udp-listen", value: "null", want: "top-level listen"},
-		{name: "endpoint value", key: "public-ice-udp", value: "192.0.2.10:9824", want: "top-level endpoint"},
-		{name: "endpoint empty", key: "public-ice-udp", value: `""`, want: "top-level endpoint"},
-		{name: "endpoint null", key: "public-ice-udp", value: "null", want: "top-level endpoint"},
+		{name: "listen value", key: "ice-udp-listen", value: "0.0.0.0:9824", want: "webrtc.listen"},
+		{name: "listen empty", key: "ice-udp-listen", value: `""`, want: "webrtc.listen"},
+		{name: "listen null", key: "ice-udp-listen", value: "null", want: "webrtc.listen"},
+		{name: "endpoint value", key: "public-ice-udp", value: "192.0.2.10:9824", want: "webrtc.endpoint"},
+		{name: "endpoint empty", key: "public-ice-udp", value: `""`, want: "webrtc.endpoint"},
+		{name: "endpoint null", key: "public-ice-udp", value: "null", want: "webrtc.endpoint"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := parseConfigData([]byte("gateway:\n  " + tc.key + ": " + tc.value + "\n"))
 			if err == nil || !strings.Contains(err.Error(), "gateway."+tc.key) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("parseConfigData error = %v, want key and replacement", err)
+			}
+		})
+	}
+}
+
+func TestParseConfigDataRejectsRemovedTopLevelWebRTCFields(t *testing.T) {
+	for _, field := range []string{"listen", "endpoint"} {
+		t.Run(field, func(t *testing.T) {
+			_, err := parseConfigData([]byte(field + ": 0.0.0.0:9821\n"))
+			want := "top-level " + field + " was removed; use webrtc." + field
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("parseConfigData error = %v, want %q", err, want)
 			}
 		})
 	}
@@ -355,30 +466,33 @@ func TestPublicGatewayICEAddr(t *testing.T) {
 	}
 }
 
-func TestPrepareWorkspaceConfigDefaultsEndpointAndTLS(t *testing.T) {
+func TestPrepareWorkspaceConfigLoadsWebRTC(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x33)
 	upstreamKey := testKeyPair(t, 0x44)
 	dir := t.TempDir()
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: edge.example.com:443
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
 	if err != nil {
 		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
 	}
-	if cfg.Listen != "0.0.0.0:9821" {
-		t.Fatalf("Listen = %q", cfg.Listen)
+	if cfg.WebRTC.Listen != "0.0.0.0:9821" {
+		t.Fatalf("Listen = %q", cfg.WebRTC.Listen)
 	}
-	if cfg.Endpoint != cfg.Listen {
-		t.Fatalf("Endpoint = %q, want listen %q", cfg.Endpoint, cfg.Listen)
-	}
-	if cfg.TLS.CertSource != TLSCertSourceDisabled {
-		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
+	if cfg.WebRTC.Endpoint != "edge.example.com:443" {
+		t.Fatalf("Endpoint = %q", cfg.WebRTC.Endpoint)
 	}
 }
 
@@ -404,59 +518,126 @@ upstreams:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `,
 			want: "upstreams[0].endpoint",
+		},
+		{
+			name: "missing WebRTC listen",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  endpoint: 0.0.0.0:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+`,
+			want: "webrtc.listen is required",
+		},
+		{
+			name: "missing WebRTC endpoint",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+`,
+			want: "webrtc.endpoint is required",
 		},
 		{
 			name: "missing upstream public key",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `,
 			want: "upstreams[0].public-key",
 		},
 		{
-			name: "invalid tls source",
+			name: "removed top-level TLS",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: ` + upstreamKey.Public.String() + `
 tls:
   cert-source: acme
 `,
-			want: "tls.cert-source",
+			want: "top-level tls was removed",
 		},
 		{
-			name: "unimplemented tls edge rpc source",
+			name: "missing HTTP listeners",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+`,
+			want: "http.listeners is required",
+		},
+		{
+			name: "empty HTTP listeners",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: ` + upstreamKey.Public.String() + `
-tls:
-  cert-source: edge-rpc
+http:
+  listeners: []
 `,
-			want: "not implemented",
+			want: "http.listeners must not be empty",
 		},
 		{
-			name: "unimplemented tls file source",
+			name: "partial listener TLS",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: ` + upstreamKey.Public.String() + `
-tls:
-  cert-source: file
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+      tls:
+        cert-file: cert.pem
 `,
-			want: "not implemented",
+			want: "requires cert-file and key-file",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -515,10 +696,15 @@ func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: `+listenAddr+`
+webrtc:
+  listen: `+listenAddr+`
+  endpoint: `+listenAddr+`
 upstreams:
   - endpoint: `+signaling.URL+`
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: `+listenAddr+`
 `)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1100,6 +1286,34 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 	}
 	if got := rec.Header().Get("Content-Length"); got == "" {
 		t.Fatal("Content-Length was not set after rewrite")
+	}
+}
+
+func TestEdgeProxyMapsAPIKeyRoutingErrorsWithoutLeakingDetails(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "unauthorized", err: fmt.Errorf("%w: secret", errAPIKeyUnauthorized), status: http.StatusUnauthorized, code: "INVALID_API_KEY"},
+		{name: "owner unavailable", err: errAPIKeyOwnerUnavailable, status: http.StatusForbidden, code: "API_KEY_OWNER_UNAVAILABLE"},
+		{name: "target unconfigured", err: errAPIKeyTargetUnconfigured, status: http.StatusServiceUnavailable, code: "API_KEY_SERVER_UNAVAILABLE"},
+		{name: "target unavailable", err: errAPIKeyTargetUnavailable, status: http.StatusServiceUnavailable, code: "API_KEY_SERVER_UNAVAILABLE"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return nil, test.err
+			}))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/openai/v1/models", nil))
+			if recorder.Code != test.status || !strings.Contains(recorder.Body.String(), test.code) {
+				t.Fatalf("response = %d %s", recorder.Code, recorder.Body.String())
+			}
+			if strings.Contains(recorder.Body.String(), "secret") {
+				t.Fatal("proxy response exposed upstream error details")
+			}
+		})
 	}
 }
 

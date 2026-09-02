@@ -487,6 +487,122 @@ class ServerRouteResolveResponse extends $pb.GeneratedMessage {
   PeerAssignment ensureAssignment() => $_ensure(0);
 }
 
+class ServerAPIKeyResolveRequest extends $pb.GeneratedMessage {
+  factory ServerAPIKeyResolveRequest({
+    $core.String? apiKey,
+  }) {
+    final result = create();
+    if (apiKey != null) result.apiKey = apiKey;
+    return result;
+  }
+
+  ServerAPIKeyResolveRequest._();
+
+  factory ServerAPIKeyResolveRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerAPIKeyResolveRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerAPIKeyResolveRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'apiKey')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerAPIKeyResolveRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerAPIKeyResolveRequest copyWith(
+          void Function(ServerAPIKeyResolveRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ServerAPIKeyResolveRequest))
+          as ServerAPIKeyResolveRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerAPIKeyResolveRequest create() => ServerAPIKeyResolveRequest._();
+  @$core.override
+  ServerAPIKeyResolveRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerAPIKeyResolveRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerAPIKeyResolveRequest>(create);
+  static ServerAPIKeyResolveRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get apiKey => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set apiKey($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasApiKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearApiKey() => $_clearField(1);
+}
+
+class ServerAPIKeyResolveResponse extends $pb.GeneratedMessage {
+  factory ServerAPIKeyResolveResponse({
+    PeerAssignment? assignment,
+  }) {
+    final result = create();
+    if (assignment != null) result.assignment = assignment;
+    return result;
+  }
+
+  ServerAPIKeyResolveResponse._();
+
+  factory ServerAPIKeyResolveResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerAPIKeyResolveResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerAPIKeyResolveResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PeerAssignment>(1, _omitFieldNames ? '' : 'assignment',
+        subBuilder: PeerAssignment.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerAPIKeyResolveResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerAPIKeyResolveResponse copyWith(
+          void Function(ServerAPIKeyResolveResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ServerAPIKeyResolveResponse))
+          as ServerAPIKeyResolveResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerAPIKeyResolveResponse create() =>
+      ServerAPIKeyResolveResponse._();
+  @$core.override
+  ServerAPIKeyResolveResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerAPIKeyResolveResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerAPIKeyResolveResponse>(create);
+  static ServerAPIKeyResolveResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PeerAssignment get assignment => $_getN(0);
+  @$pb.TagNumber(1)
+  set assignment(PeerAssignment value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAssignment() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAssignment() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PeerAssignment ensureAssignment() => $_ensure(0);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

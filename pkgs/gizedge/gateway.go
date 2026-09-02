@@ -103,8 +103,8 @@ func newGateway(
 	}
 	listener, err := (&gizwebrtc.ListenConfig{
 		MetricsNodeRole:              "edge",
-		ICEUDPAddr:                   cfg.Listen,
-		PublicICEUDPAddr:             publicGatewayICEAddr(cfg.Endpoint),
+		ICEUDPAddr:                   cfg.WebRTC.Listen,
+		PublicICEUDPAddr:             publicGatewayICEAddr(cfg.WebRTC.Endpoint),
 		ICELite:                      true,
 		SecurityPolicy:               gatewayClientSecurityPolicy{},
 		AggregateServices:            true,

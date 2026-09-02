@@ -11,10 +11,16 @@ sequenceDiagram
     participant Edge as Edge-node
     participant Server as Server Edge RPC
     participant Route as Peer Route service
-    Edge->>Server: lookup / assign / resolve
-    Server->>Route: validate and query assignment
+    Edge->>Server: lookup / assign / resolve / API key resolve
+    Server->>Route: authenticate if needed, then query assignment
     Route-->>Server: assignment / route error
     Server-->>Edge: typed response / RPC error
 ```
 
-Server 使用独立 Edge RPC dispatch，只接受上述三个 methods。普通 Client RPC surface 即使共享同一 `rpc.proto` registry，也不能因为 method 可解码就获得调用权限；role authorization 与 service exposure 必须同时限制 Edge control plane。
+Server 使用独立 Edge RPC dispatch，只接受上述 route methods。普通 Client RPC surface 即使共享同一 `rpc.proto` registry，也不能因为 method 可解码就获得调用权限；role authorization 与 service exposure 必须同时限制 Edge control plane。
+
+`server.api_key.resolve` 允许 Edge 把收到的 Bearer credential 交给 Server 的 API Key service
+认证，并取得 owner Peer 的固定 assignment。多 Server 部署让 Server 共享受保护的 API Key Redis
+Store；Edge 不获得 Redis credential。RPC 只返回 assignment，不返回 API Key record、hash 或
+secret index，并且不得在错误与日志中记录请求 credential。目标 Server仍会对原始 HTTP 请求
+执行最终认证与授权。

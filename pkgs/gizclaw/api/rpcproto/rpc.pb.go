@@ -193,6 +193,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE                       RpcMethod = 96
 	RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST                         RpcMethod = 97
 	RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE                       RpcMethod = 98
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE                      RpcMethod = 99
 )
 
 // Enum value maps for RpcMethod.
@@ -296,6 +297,7 @@ var (
 		96: "RPC_METHOD_SERVER_API_KEY_CREATE",
 		97: "RPC_METHOD_SERVER_API_KEY_LIST",
 		98: "RPC_METHOD_SERVER_API_KEY_REVOKE",
+		99: "RPC_METHOD_SERVER_API_KEY_RESOLVE",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                                 0,
@@ -396,6 +398,7 @@ var (
 		"RPC_METHOD_SERVER_API_KEY_CREATE":                       96,
 		"RPC_METHOD_SERVER_API_KEY_LIST":                         97,
 		"RPC_METHOD_SERVER_API_KEY_REVOKE":                       98,
+		"RPC_METHOD_SERVER_API_KEY_RESOLVE":                      99,
 	}
 )
 
@@ -888,7 +891,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xf9\\\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xf7]\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1085,7 +1088,9 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1eRPC_METHOD_SERVER_API_KEY_LIST\x10a\x1a@\xc2\xf3\x18<\n" +
 	"\x13server.api_key.list\x12\x11APIKeyListRequest\x1a\x12APIKeyListResponse\x12l\n" +
 	" RPC_METHOD_SERVER_API_KEY_REVOKE\x10b\x1aF\xc2\xf3\x18B\n" +
-	"\x15server.api_key.revoke\x12\x13APIKeyRevokeRequest\x1a\x14APIKeyRevokeResponse:d\n" +
+	"\x15server.api_key.revoke\x12\x13APIKeyRevokeRequest\x1a\x14APIKeyRevokeResponse\x12|\n" +
+	"!RPC_METHOD_SERVER_API_KEY_RESOLVE\x10c\x1aU\xc2\xf3\x18Q\n" +
+	"\x16server.api_key.resolve\x12\x1aServerAPIKeyResolveRequest\x1a\x1bServerAPIKeyResolveResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

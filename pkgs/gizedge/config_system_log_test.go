@@ -22,9 +22,15 @@ func TestPrepareWorkspaceConfigLoadsSystemLogStore(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 storage:
   volc-logs:
     kind: volc-tls
@@ -75,9 +81,15 @@ func TestPrepareWorkspaceConfigDefaultsSystemLogToStderr(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -95,9 +107,16 @@ func TestPrepareWorkspaceConfigRejectsInvalidSystemLogTopology(t *testing.T) {
 	prefix := `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
-    public-key: ` + upstreamKey.Public.String() + "\n"
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+`
 	for _, tc := range []struct {
 		name string
 		body string
