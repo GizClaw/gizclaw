@@ -27,25 +27,6 @@ typedef struct gzc_service_channel gzc_service_channel_t;
 typedef struct gzc_event_stream gzc_event_stream_t;
 typedef struct gzc_rpc_request gzc_rpc_request_t;
 
-#define GZC_CGO_DEVICE_MAX_SAVED_WIFI 8
-/* Device-side state served by the client.device.* / client.wifi.* provider. */
-typedef struct gzc_cgo_device_state {
-  long long volume;
-  int muted;
-  int status_calls;
-  int volume_calls;
-  int sound_calls;
-  char last_sound[33];
-  long long last_duration_ms;
-  int reboot_calls;
-  long long last_delay_ms;
-  int wifi_status_calls;
-  int saved_list_calls;
-  int forget_calls;
-  int saved_count;
-  char saved[GZC_CGO_DEVICE_MAX_SAVED_WIFI][33];
-} gzc_cgo_device_state_t;
-
 int gzc_cgo_session_open(
     const char *server_endpoint,
     const char *private_key,
@@ -53,7 +34,6 @@ int gzc_cgo_session_open(
     char *errbuf,
     unsigned long errbuf_len);
 void gzc_cgo_session_close(gzc_cgo_session_t *session);
-int gzc_cgo_session_device_state(gzc_cgo_session_t *session, gzc_cgo_device_state_t *out_state);
 int gzc_cgo_session_call_rpc_payload(
     gzc_cgo_session_t *session,
     unsigned method_id,

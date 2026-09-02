@@ -10,7 +10,6 @@
 #include <string.h>
 
 struct gzc_cgo_session {
-  gzc_cgo_device_state_t device;
   gzc_cgo_backend_t backend;
   gzc_http_vtable_t http;
   gzc_platform_crypto_t crypto;
@@ -128,212 +127,6 @@ static int append_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
   return GZC_OK;
 }
 
-static int device_respond_message(
-    gzc_rpc_provider_respond_fn respond,
-    void *respond_userdata,
-    const pb_msgdesc_t *fields,
-    const void *message) {
-  uint8_t payload[256];
-  pb_ostream_t output = pb_ostream_from_buffer(payload, sizeof(payload));
-  if (!pb_encode(&output, fields, message)) {
-    return GZC_ERR_RPC;
-  }
-  const gzc_rpc_provider_response_t response = {
-      .payload = payload,
-      .payload_len = output.bytes_written,
-  };
-  return respond(respond_userdata, &response);
-}
-
-static int device_respond_error(
-    gzc_rpc_provider_respond_fn respond,
-    void *respond_userdata,
-    int code,
-    const char *message) {
-  const gzc_rpc_provider_response_t response = {
-      .has_error = true,
-      .error_code = code,
-      .error_message = gzc_str_from_cstr(message),
-  };
-  return respond(respond_userdata, &response);
-}
-
-static void device_fill_status(const gzc_cgo_device_state_t *state, gizclaw_rpc_v1_PeerStatus *status) {
-  status->has_volume = true;
-  status->volume = state->volume;
-  status->has_muted = true;
-  status->muted = state->muted != 0;
-  status->has_battery_percent = true;
-  status->battery_percent = 88;
-  status->has_charging = true;
-  status->charging = true;
-}
-
-static bool device_decode(gzc_str_t payload, const pb_msgdesc_t *fields, void *message) {
-  pb_istream_t input = pb_istream_from_buffer((const pb_byte_t *)payload.data, payload.len);
-  return pb_decode(&input, fields, message);
-}
-
-/*
- * Serves the Server-initiated client.device.* and client.wifi.* methods with
- * an in-memory device model so tests can verify the reverse RPC path.
- */
-static int device_rpc_provider(
-    void *userdata,
-    int method,
-    gzc_str_t request_payload,
-    gzc_rpc_provider_respond_fn respond,
-    void *respond_userdata) {
-  gzc_cgo_session_t *session = (gzc_cgo_session_t *)userdata;
-  if (session == NULL || respond == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  gzc_cgo_device_state_t *state = &session->device;
-  switch ((gizclaw_rpc_v1_RpcMethod)method) {
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET: {
-    state->status_calls++;
-    gizclaw_rpc_v1_ClientDeviceStatusGetResponse response =
-        gizclaw_rpc_v1_ClientDeviceStatusGetResponse_init_zero;
-    response.has_value = true;
-    device_fill_status(state, &response.value);
-    return device_respond_message(respond, respond_userdata,
-                                  gizclaw_rpc_v1_ClientDeviceStatusGetResponse_fields, &response);
-  }
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET: {
-    gizclaw_rpc_v1_ClientDeviceVolumeSetRequest request =
-        gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_init_zero;
-    if (!device_decode(request_payload, gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_fields, &request) ||
-        request.level < 0 || request.level > 100) {
-      return device_respond_error(respond, respond_userdata,
-                                  gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
-                                  "invalid volume");
-    }
-    state->volume_calls++;
-    state->volume = request.level;
-    state->muted = request.muted ? 1 : 0;
-    gizclaw_rpc_v1_ClientDeviceVolumeSetResponse response =
-        gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_zero;
-    response.has_value = true;
-    device_fill_status(state, &response.value);
-    return device_respond_message(respond, respond_userdata,
-                                  gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_fields, &response);
-  }
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY: {
-    gizclaw_rpc_v1_ClientDeviceSoundPlayRequest request =
-        gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_init_zero;
-    if (!device_decode(request_payload, gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_fields, &request)) {
-      return device_respond_error(respond, respond_userdata,
-                                  gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
-                                  "invalid sound request");
-    }
-    if (strcmp(request.sound, "chime") != 0 && strcmp(request.sound, "alarm") != 0) {
-      return device_respond_error(respond, respond_userdata,
-                                  gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
-                                  "unknown sound");
-    }
-    state->sound_calls++;
-    strcpy(state->last_sound, request.sound);
-    state->last_duration_ms = request.has_duration_ms ? request.duration_ms : -1;
-    gizclaw_rpc_v1_ClientDeviceSoundPlayResponse response =
-        gizclaw_rpc_v1_ClientDeviceSoundPlayResponse_init_zero;
-    return device_respond_message(respond, respond_userdata,
-                                  gizclaw_rpc_v1_ClientDeviceSoundPlayResponse_fields, &response);
-  }
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT: {
-    gizclaw_rpc_v1_ClientDeviceRebootRequest request =
-        gizclaw_rpc_v1_ClientDeviceRebootRequest_init_zero;
-    if (!device_decode(request_payload, gizclaw_rpc_v1_ClientDeviceRebootRequest_fields, &request)) {
-      return device_respond_error(respond, respond_userdata,
-                                  gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
-                                  "invalid reboot request");
-    }
-    state->reboot_calls++;
-    state->last_delay_ms = request.has_delay_ms ? request.delay_ms : -1;
-    gizclaw_rpc_v1_ClientDeviceRebootResponse response =
-        gizclaw_rpc_v1_ClientDeviceRebootResponse_init_zero;
-    return device_respond_message(respond, respond_userdata,
-                                  gizclaw_rpc_v1_ClientDeviceRebootResponse_fields, &response);
-  }
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET: {
-    state->wifi_status_calls++;
-    gizclaw_rpc_v1_ClientWifiStatusGetResponse response =
-        gizclaw_rpc_v1_ClientWifiStatusGetResponse_init_zero;
-    response.has_value = true;
-    response.value.connected = true;
-    response.value.has_ssid = true;
-    strcpy(response.value.ssid, "home");
-    response.value.has_rssi_dbm = true;
-    response.value.rssi_dbm = -61;
-    response.value.has_ip = true;
-    strcpy(response.value.ip, "192.0.2.20");
-    response.value.has_bssid = true;
-    strcpy(response.value.bssid, "aa:bb:cc:dd:ee:ff");
-    return device_respond_message(respond, respond_userdata,
-                                  gizclaw_rpc_v1_ClientWifiStatusGetResponse_fields, &response);
-  }
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST: {
-    state->saved_list_calls++;
-    gizclaw_rpc_v1_ClientWifiSavedListResponse response =
-        gizclaw_rpc_v1_ClientWifiSavedListResponse_init_zero;
-    response.networks_count = (pb_size_t)state->saved_count;
-    for (int i = 0; i < state->saved_count; i++) {
-      strcpy(response.networks[i].ssid, state->saved[i]);
-    }
-    return device_respond_message(respond, respond_userdata,
-                                  gizclaw_rpc_v1_ClientWifiSavedListResponse_fields, &response);
-  }
-  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET: {
-    gizclaw_rpc_v1_ClientWifiSavedForgetRequest request =
-        gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero;
-    if (!device_decode(request_payload, gizclaw_rpc_v1_ClientWifiSavedForgetRequest_fields, &request) ||
-        request.ssid[0] == 0) {
-      return device_respond_error(respond, respond_userdata,
-                                  gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
-                                  "invalid ssid");
-    }
-    state->forget_calls++;
-    for (int i = 0; i < state->saved_count; i++) {
-      if (strcmp(state->saved[i], request.ssid) == 0) {
-        for (int j = i + 1; j < state->saved_count; j++) {
-          strcpy(state->saved[j - 1], state->saved[j]);
-        }
-        state->saved_count--;
-        gizclaw_rpc_v1_ClientWifiSavedForgetResponse response =
-            gizclaw_rpc_v1_ClientWifiSavedForgetResponse_init_zero;
-        return device_respond_message(respond, respond_userdata,
-                                      gizclaw_rpc_v1_ClientWifiSavedForgetResponse_fields, &response);
-      }
-    }
-    return device_respond_error(respond, respond_userdata,
-                                gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND,
-                                "saved network not found");
-  }
-  default:
-    return device_respond_error(respond, respond_userdata,
-                                gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
-                                "unsupported client method");
-  }
-}
-
-static void device_state_init(gzc_cgo_device_state_t *state) {
-  memset(state, 0, sizeof(*state));
-  state->volume = 50;
-  state->muted = 0;
-  state->last_duration_ms = -1;
-  state->last_delay_ms = -1;
-  state->saved_count = 2;
-  strcpy(state->saved[0], "home");
-  strcpy(state->saved[1], "office");
-}
-
-int gzc_cgo_session_device_state(gzc_cgo_session_t *session, gzc_cgo_device_state_t *out_state) {
-  if (session == NULL || out_state == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  *out_state = session->device;
-  return GZC_OK;
-}
-
 int gzc_cgo_session_open(
     const char *server_endpoint,
     const char *private_key,
@@ -348,7 +141,6 @@ int gzc_cgo_session_open(
   if (session == NULL) {
     return fail(errbuf, errbuf_len, "session alloc", GZC_ERR_NO_MEMORY);
   }
-  device_state_init(&session->device);
 
   int rc = gzc_cgo_backend_init(&session->backend);
   if (rc != GZC_OK) {
@@ -372,8 +164,6 @@ int gzc_cgo_session_open(
   config.cipher_mode = GZC_CIPHER_CHACHA20_POLY1305;
   config.connect_timeout_ms = 15000;
   config.write_timeout_ms = 15000;
-  config.rpc_provider = device_rpc_provider;
-  config.rpc_provider_userdata = session;
 
   rc = gzc_client_create(&config, &session->client);
   if (rc != GZC_OK) {
