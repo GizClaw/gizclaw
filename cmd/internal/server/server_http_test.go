@@ -43,7 +43,7 @@ func TestCmdServerServeToClientsFalseRejectsProtectedRoutesBeforeAuthentication(
 	}
 	defer srv.Close()
 
-	for _, path := range []string{"/gizclaw/v1/api-keys/self", "/openai/v1/models"} {
+	for _, path := range []string{"/gizclaw/v1/api-keys/self", "/gizclaw/v1/device", "/gizclaw/v1/device/status", "/gizclaw/v1/contacts", "/openai/v1/models"} {
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodGet, path, nil)
 		request.Header.Set("Authorization", "Bearer invalid")

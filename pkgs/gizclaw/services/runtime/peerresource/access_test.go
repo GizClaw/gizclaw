@@ -10,7 +10,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -177,4 +180,105 @@ func (s workspaceNameService) GetWorkspace(_ context.Context, request adminhttp.
 
 func (workspaceNameService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, errors.New("unexpected GetWorkspaceByName")
+}
+
+type deviceReadInfoStub struct {
+	info    map[giznet.PublicKey]apitypes.DeviceInfo
+	runtime map[giznet.PublicKey]apitypes.Runtime
+	calls   []giznet.PublicKey
+}
+
+func (s *deviceReadInfoStub) GetSelfInfo(_ context.Context, key giznet.PublicKey) (apitypes.DeviceInfo, error) {
+	s.calls = append(s.calls, key)
+	info, ok := s.info[key]
+	if !ok {
+		return apitypes.DeviceInfo{}, peer.ErrPeerNotFound
+	}
+	return info, nil
+}
+
+func (s *deviceReadInfoStub) GetSelfRuntime(_ context.Context, key giznet.PublicKey) apitypes.Runtime {
+	s.calls = append(s.calls, key)
+	return s.runtime[key]
+}
+
+type deviceReadStatusStub struct {
+	status map[giznet.PublicKey]apitypes.PeerStatus
+}
+
+func (s *deviceReadStatusStub) GetStatus(_ context.Context, key giznet.PublicKey) (apitypes.PeerStatus, error) {
+	return s.status[key], nil
+}
+
+func TestDeviceReadsArePinnedToCaller(t *testing.T) {
+	owner := giznet.PublicKey{7}
+	other := giznet.PublicKey{8}
+	info := &deviceReadInfoStub{
+		info:    map[giznet.PublicKey]apitypes.DeviceInfo{owner: {Name: new("owner")}, other: {Name: new("other")}},
+		runtime: map[giznet.PublicKey]apitypes.Runtime{other: {Online: true}},
+	}
+	status := &deviceReadStatusStub{status: map[giznet.PublicKey]apitypes.PeerStatus{owner: {Volume: new(30)}, other: {Volume: new(90)}}}
+	reads := DeviceReads{Caller: owner, Info: info, Status: status}
+
+	got, err := reads.DeviceInfo(context.Background())
+	if err != nil || got.Name == nil || *got.Name != "owner" {
+		t.Fatalf("DeviceInfo = %+v, %v", got, err)
+	}
+	runtime, err := reads.DeviceRuntime(context.Background())
+	if err != nil || runtime.Online {
+		t.Fatalf("DeviceRuntime = %+v, %v; must not read another Peer", runtime, err)
+	}
+	peerStatus, err := reads.DeviceStatus(context.Background())
+	if err != nil || peerStatus.Volume == nil || *peerStatus.Volume != 30 {
+		t.Fatalf("DeviceStatus = %+v, %v", peerStatus, err)
+	}
+	for _, call := range info.calls {
+		if call != owner {
+			t.Fatalf("device read used Peer %v, want caller %v", call, owner)
+		}
+	}
+}
+
+func TestDeviceReadsReportMissingServices(t *testing.T) {
+	reads := DeviceReads{Caller: giznet.PublicKey{9}}
+	if _, err := reads.DeviceInfo(context.Background()); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceInfo error = %v", err)
+	}
+	if _, err := reads.DeviceRuntime(context.Background()); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceRuntime error = %v", err)
+	}
+	if _, err := reads.DeviceStatus(context.Background()); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceStatus error = %v", err)
+	}
+	if _, err := reads.DeviceTelemetryLatest(context.Background(), nil); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceTelemetryLatest error = %v", err)
+	}
+	if _, err := reads.DeviceTelemetryRange(context.Background(), apitypes.PeerTelemetryFieldBatteryPercent, time.Time{}, time.Time{}, 0, 0, apitypes.PeerTelemetryOrderAsc); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceTelemetryRange error = %v", err)
+	}
+	if _, err := reads.DeviceTelemetryAggregate(context.Background(), apitypes.PeerTelemetryFieldBatteryPercent, time.Time{}, time.Time{}, 0, apitypes.PeerTelemetryAggregateAvg); !errors.Is(err, ErrDeviceServiceNotConfigured) {
+		t.Fatalf("DeviceTelemetryAggregate error = %v", err)
+	}
+}
+
+func TestDeviceReadsTelemetryUsesCallerPeer(t *testing.T) {
+	owner := giznet.PublicKey{10}
+	other := giznet.PublicKey{11}
+	store := metrics.NewMemoryStore()
+	at := time.Date(2026, 9, 2, 8, 0, 0, 0, time.UTC)
+	for key, value := range map[giznet.PublicKey]float64{owner: 41, other: 99} {
+		if err := store.Append(context.Background(), []metrics.Sample{{
+			Name: peertelemetry.MetricBatteryPercent, Labels: map[string]string{"peer_id": key.String()}, Timestamp: at, Value: value,
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reads := DeviceReads{Caller: owner, Telemetry: &peertelemetry.AdminService{Metrics: store, Now: func() time.Time { return at.Add(time.Second) }}}
+	latest, err := reads.DeviceTelemetryLatest(context.Background(), []apitypes.PeerTelemetryField{apitypes.PeerTelemetryFieldBatteryPercent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest.PeerPublicKey != owner.String() || len(latest.Values) != 1 || latest.Values[0].Value != 41 {
+		t.Fatalf("latest = %+v", latest)
+	}
 }

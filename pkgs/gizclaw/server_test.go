@@ -796,3 +796,88 @@ func TestServerPeerEventHandlerDoesNotClearActivePeer(t *testing.T) {
 		t.Fatalf("runtime after offline event = %+v, want active peer unchanged", runtime)
 	}
 }
+
+func TestServerServeHTTPDeviceExtensionOnDirectAndEdge(t *testing.T) {
+	serverKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	deviceKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := completeTestServer(t, &Server{LocalStatic: *serverKey, BuildCommit: "test-build"})
+	if err := server.init(); err != nil {
+		t.Fatalf("init error = %v", err)
+	}
+	if _, err := server.manager.Peers.SavePeer(t.Context(), apitypes.Peer{
+		PublicKey: deviceKey.Public.String(), Role: apitypes.PeerRoleClient,
+		Status: apitypes.PeerRegistrationStatusActive,
+		Device: apitypes.DeviceInfo{Name: new("desk-device")},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	profiles, _ := registrationServerAndToken(t, "profile-server-device-http")
+	if err := profiles.BindOwnerProfile(t.Context(), deviceKey.Public.String(), "profile-server-device-http"); err != nil {
+		t.Fatal(err)
+	}
+	server.manager.RuntimeProfiles = profiles
+	created, err := server.apiKeys.Create(t.Context(), deviceKey.Public.String(), "phone", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.manager.PeerRun.PutStatus(t.Context(), deviceKey.Public, apitypes.PeerStatus{Volume: new(21)}); err != nil {
+		t.Fatal(err)
+	}
+
+	for name, handler := range map[string]http.Handler{
+		"direct": server,
+		"edge":   server.peerService.edgeHTTPHandler(server.apiKeys),
+	} {
+		t.Run(name, func(t *testing.T) {
+			do := func(method, path, body string, authorized bool) *httptest.ResponseRecorder {
+				request := httptest.NewRequest(method, path, strings.NewReader(body))
+				if body != "" {
+					request.Header.Set("Content-Type", "application/json")
+				}
+				if authorized {
+					request.Header.Set("Authorization", "Bearer "+created.Secret)
+				}
+				recorder := httptest.NewRecorder()
+				handler.ServeHTTP(recorder, request)
+				return recorder
+			}
+			if response := do(http.MethodGet, "/gizclaw/v1/device", "", false); response.Code != http.StatusUnauthorized {
+				t.Fatalf("unauthenticated GET device status = %d", response.Code)
+			}
+			response := do(http.MethodGet, "/gizclaw/v1/device", "", true)
+			if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"desk-device"`) {
+				t.Fatalf("GET device status = %d body=%s", response.Code, response.Body.String())
+			}
+			response = do(http.MethodGet, "/gizclaw/v1/device/status", "", true)
+			if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"volume":21`) {
+				t.Fatalf("GET status = %d body=%s", response.Code, response.Body.String())
+			}
+			response = do(http.MethodGet, "/gizclaw/v1/contacts", "", true)
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET contacts status = %d body=%s", response.Code, response.Body.String())
+			}
+			response = do(http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`, true)
+			if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "DEVICE_OFFLINE") {
+				t.Fatalf("PUT volume offline status = %d body=%s", response.Code, response.Body.String())
+			}
+			for _, path := range []string{"/login", "/me", "/side-control/sessions", "/gizclaw/v1/device/status?fresh=true&peer=x"} {
+				response := do(http.MethodGet, path, "", true)
+				if strings.HasPrefix(path, "/gizclaw/v1/") {
+					if response.Code != http.StatusOK {
+						t.Fatalf("GET %s status = %d", path, response.Code)
+					}
+					continue
+				}
+				if response.Code != http.StatusNotFound {
+					t.Fatalf("GET %s status = %d, want 404", path, response.Code)
+				}
+			}
+		})
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -135,6 +136,25 @@ func (s *PeerService) peerResourcesWithRegistration(publicKey giznet.PublicKey, 
 			return &profile
 		},
 	}
+}
+
+// deviceReadsForAPIKey builds the owner-scoped device projection used by the
+// Public HTTP device extension. Reads never contact the device.
+func (s *PeerService) deviceReadsForAPIKey(publicKey giznet.PublicKey) peerresource.DeviceReads {
+	if s == nil || s.manager == nil {
+		return peerresource.DeviceReads{Caller: publicKey}
+	}
+	reads := peerresource.DeviceReads{Caller: publicKey}
+	if s.manager.Peers != nil {
+		reads.Info = s.manager.Peers
+	}
+	if s.manager.PeerRun != nil {
+		reads.Status = s.manager.PeerRun
+	}
+	if s.manager.Metrics != nil {
+		reads.Telemetry = &peertelemetry.AdminService{Metrics: s.manager.Metrics}
+	}
+	return reads
 }
 
 type peerPublicKey giznet.PublicKey
