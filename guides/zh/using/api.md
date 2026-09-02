@@ -1,6 +1,6 @@
 # API
 
-GizClaw 为管理端和 Peer 提供两套主要接口：Admin API 用于管理整个 Server，Peer RPC 用于已连接 Peer 调用产品能力。两者都复用经过身份验证的 Giznet Peer connection，不应把 Admin API 当成无鉴权的公网 HTTP 接口。
+GizClaw 为管理端和 Peer 提供两套主要接口：Admin API 用于管理整个 Server，Peer RPC 用于已连接 Peer 调用产品能力。两者都复用经过身份验证的 Giznet Peer connection，不应把 Admin API 当成无鉴权的公网 HTTP 接口。持有设备 API Key 的手机 App 或脚本另外可以通过 Public HTTP 读取和控制绑定设备，见下文 [设备 HTTP API](#设备-http-api)。
 
 ## 如何选择
 
@@ -135,6 +135,33 @@ if err != nil {
 ```
 
 Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 request ID 应在当前连接的并发调用中保持唯一；`context` 负责取消和截止时间。
+
+## 设备 HTTP API
+
+绑定单一设备的 API Key（见 [API Key](./api-keys)）可以不建立 Peer connection，直接经 Direct Server HTTP（`serve-to-clients=true`）或 Edge HTTPS 访问 `/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*`。所有请求发送 `Authorization: Bearer <api-key>`；资源与命令始终作用于 Key 绑定的设备，不能指定其他 Peer。
+
+| Route | 作用 |
+| --- | --- |
+| `GET /gizclaw/v1/device` | 设备 name、emoji、硬件信息与标识 |
+| `GET /gizclaw/v1/device/runtime` | 在线状态、最后在线时间与流量 |
+| `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音与 GNSS |
+| `GET /gizclaw/v1/device/telemetry/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
+| `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
+| `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
+| `POST /gizclaw/v1/device/actions/reboot` | 重启设备 |
+| `GET /gizclaw/v1/device/wifi`、`/wifi/saved`，`DELETE /wifi/saved/{ssid}` | 查询 Wi‑Fi 状态、列出与清理已保存网络 |
+| `/gizclaw/v1/contacts`、`/contacts/{contactName}` | 设备联系人的 list/create/get/put/delete |
+
+读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。Wi‑Fi 配网仍由设备本地 BLE 完成。
+
+```sh
+curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"level":35,"muted":false}'
+```
+
+TypeScript 使用 `@gizclaw/gizclaw/peerhttp` 生成的 `setDeviceVolume`、`getDeviceStatus`、`listContacts` 等 operation；Go 使用 `peerhttp.ClientWithResponses`（`gizcli.Client.PeerHTTPClient()` 返回同一类型）。完整 path、参数和 response 以 [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json) 为准。
 
 ## 错误处理与连接生命周期
 

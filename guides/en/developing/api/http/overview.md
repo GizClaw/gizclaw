@@ -7,7 +7,7 @@ GizClaw Server maintains two repository-owned OpenAPI surfaces plus one limited 
 | Contract owner | Caller and Responsibilities | Go surface |
 | --- | --- | --- |
 | `admin.json` | Administrator manages resources, Peer, Telemetry and operation and maintenance actions | `pkgs/gizclaw/api/adminhttp` |
-| `peer.json` | Public/Peer login, own status, Server info and WebRTC offer | `pkgs/gizclaw/api/peerhttp` |
+| `peer.json` | Server info, WebRTC offer, and the API-key-bound device key management, device, control, and contact surface | `pkgs/gizclaw/api/peerhttp` |
 | `github.com/idy/ai-server-shell` | OpenAI-compatible model, chat and audio subset | `services/ai/openaiapi` backend adapter |
 
 ## Request flow
