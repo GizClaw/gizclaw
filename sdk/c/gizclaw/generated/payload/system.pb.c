@@ -18,6 +18,54 @@ PB_BIND(gizclaw_rpc_v1_ClientGetInfoRequest, gizclaw_rpc_v1_ClientGetInfoRequest
 PB_BIND(gizclaw_rpc_v1_ClientGetInfoResponse, gizclaw_rpc_v1_ClientGetInfoResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetRequest, gizclaw_rpc_v1_ClientDeviceStatusGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetResponse, gizclaw_rpc_v1_ClientDeviceStatusGetResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetRequest, gizclaw_rpc_v1_ClientDeviceVolumeSetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayResponse, gizclaw_rpc_v1_ClientDeviceSoundPlayResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceRebootRequest, gizclaw_rpc_v1_ClientDeviceRebootRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientDeviceRebootResponse, gizclaw_rpc_v1_ClientDeviceRebootResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_WifiStatus, gizclaw_rpc_v1_WifiStatus, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_WifiSavedNetwork, gizclaw_rpc_v1_WifiSavedNetwork, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiStatusGetRequest, gizclaw_rpc_v1_ClientWifiStatusGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiStatusGetResponse, gizclaw_rpc_v1_ClientWifiStatusGetResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiSavedListRequest, gizclaw_rpc_v1_ClientWifiSavedListRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiSavedListResponse, gizclaw_rpc_v1_ClientWifiSavedListResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiSavedForgetRequest, gizclaw_rpc_v1_ClientWifiSavedForgetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiSavedForgetResponse, gizclaw_rpc_v1_ClientWifiSavedForgetResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DeviceInfo, gizclaw_rpc_v1_DeviceInfo, 2)
 
 

@@ -46,8 +46,101 @@ export type ApiKeyList = {
     next_cursor?: string;
 };
 
+export type DeviceVolumeSetRequest = {
+    /**
+     * Absolute volume level.
+     */
+    level: number;
+    muted: boolean;
+};
+
+export type DeviceControlStatus = {
+    status: PeerStatus;
+};
+
+export type DevicePlaySoundRequest = {
+    /**
+     * Device-defined sound identifier; at most 32 UTF-8 bytes. The device validates the value.
+     */
+    sound: string;
+    /**
+     * Optional playback duration in milliseconds.
+     */
+    duration_ms?: number;
+};
+
+export type DeviceRebootRequest = {
+    /**
+     * Optional delay before the device reboots, in milliseconds.
+     */
+    delay_ms?: number;
+};
+
+export type DeviceWifiStatus = {
+    connected: boolean;
+    ssid?: string;
+    rssi_dbm?: number;
+    ip?: string;
+    bssid?: string;
+};
+
+export type DeviceWifiSavedNetwork = {
+    ssid: string;
+};
+
+export type DeviceWifiSavedList = {
+    networks: Array<DeviceWifiSavedNetwork>;
+};
+
+export type Contact = {
+    /**
+     * Owner-scoped immutable contact name.
+     */
+    name: string;
+    display_name?: string;
+    phone_number?: string;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type ContactList = {
+    items: Array<Contact>;
+    has_next: boolean;
+    next_cursor?: string;
+};
+
+export type ContactCreateRequest = {
+    /**
+     * Owner-scoped immutable contact name without surrounding whitespace.
+     */
+    name: string;
+    display_name?: string;
+    phone_number?: string;
+};
+
+export type ContactPutRequest = {
+    display_name?: string;
+    phone_number?: string;
+};
+
 export type GiznetWebRtcSignalingError = {
     error: string;
+};
+
+export type DeviceIdentifiers = {
+    /**
+     * Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.
+     */
+    sn?: string;
+    imeis?: Array<PeerImei>;
+    labels?: Array<PeerLabel>;
+};
+
+export type DeviceInfo = {
+    name?: string;
+    emoji?: string;
+    hardware?: HardwareInfo;
+    identifiers?: DeviceIdentifiers;
 };
 
 export type ErrorPayload = {
@@ -60,6 +153,102 @@ export type ErrorPayload = {
 
 export type ErrorResponse = {
     error: ErrorPayload;
+};
+
+export type HardwareInfo = {
+    manufacturer?: string;
+    model?: string;
+    hardware_revision?: string;
+};
+
+export type PeerImei = {
+    name?: string;
+    tac: string;
+    serial: string;
+};
+
+export type PeerLabel = {
+    key: string;
+    value: string;
+};
+
+export type PeerStatus = {
+    reported_at?: string;
+    volume?: number;
+    muted?: boolean;
+    battery_percent?: number;
+    charging?: boolean;
+    gnss_latitude?: number;
+    gnss_longitude?: number;
+    gnss_altitude_m?: number;
+    gnss_accuracy_m?: number;
+    labels?: {
+        [key: string]: string;
+    };
+    details?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * Bucket aggregate mode for peer telemetry range data.
+ */
+export type PeerTelemetryAggregate = 'avg' | 'min' | 'max' | 'sum' | 'count' | 'last';
+
+export type PeerTelemetryAggregatePoint = {
+    bucket_start_time_ms: number;
+    value: number;
+};
+
+export type PeerTelemetryAggregateResponse = {
+    peer_public_key: string;
+    field: PeerTelemetryField;
+    aggregate: PeerTelemetryAggregate;
+    bucket_ms: number;
+    points: Array<PeerTelemetryAggregatePoint>;
+};
+
+/**
+ * Queryable peer telemetry field name.
+ */
+export type PeerTelemetryField = 'battery.percent' | 'battery.charging' | 'battery.voltage_mv' | 'gnss.latitude' | 'gnss.longitude' | 'gnss.altitude_m' | 'gnss.accuracy_m' | 'network.rssi_dbm' | 'network.signal_level' | 'network.connected' | 'system.uptime_seconds' | 'system.free_memory_bytes' | 'system.temperature_c';
+
+export type PeerTelemetryLatestResponse = {
+    peer_public_key: string;
+    values: Array<PeerTelemetryValue>;
+};
+
+/**
+ * Telemetry point ordering.
+ */
+export type PeerTelemetryOrder = 'asc' | 'desc';
+
+export type PeerTelemetryPoint = {
+    observed_at_unix_ms: number;
+    value: number;
+};
+
+export type PeerTelemetryRangeResponse = {
+    peer_public_key: string;
+    field: PeerTelemetryField;
+    start_time_ms: number;
+    end_time_ms: number;
+    step_ms: number;
+    points: Array<PeerTelemetryPoint>;
+};
+
+export type PeerTelemetryValue = {
+    field: PeerTelemetryField;
+    value: number;
+    observed_at_unix_ms: number;
+};
+
+export type Runtime = {
+    online: boolean;
+    last_seen_at: string;
+    last_addr?: string;
+    rx_bytes?: number;
+    tx_bytes?: number;
 };
 
 export type ServerInfo = {
@@ -431,3 +620,837 @@ export type GetApiKeyResponses = {
 };
 
 export type GetApiKeyResponse = GetApiKeyResponses[keyof GetApiKeyResponses];
+
+export type GetDeviceData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device';
+};
+
+export type GetDeviceErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceError = GetDeviceErrors[keyof GetDeviceErrors];
+
+export type GetDeviceResponses = {
+    /**
+     * Device identity, hardware, and identifiers.
+     */
+    200: DeviceInfo;
+};
+
+export type GetDeviceResponse = GetDeviceResponses[keyof GetDeviceResponses];
+
+export type GetDeviceRuntimeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/runtime';
+};
+
+export type GetDeviceRuntimeErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceRuntimeError = GetDeviceRuntimeErrors[keyof GetDeviceRuntimeErrors];
+
+export type GetDeviceRuntimeResponses = {
+    /**
+     * Online state, last seen time, last address, and traffic counters.
+     */
+    200: Runtime;
+};
+
+export type GetDeviceRuntimeResponse = GetDeviceRuntimeResponses[keyof GetDeviceRuntimeResponses];
+
+export type GetDeviceStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/status';
+};
+
+export type GetDeviceStatusErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceStatusError = GetDeviceStatusErrors[keyof GetDeviceStatusErrors];
+
+export type GetDeviceStatusResponses = {
+    /**
+     * Latest PeerStatus snapshot.
+     */
+    200: PeerStatus;
+};
+
+export type GetDeviceStatusResponse = GetDeviceStatusResponses[keyof GetDeviceStatusResponses];
+
+export type GetDeviceTelemetryLatestData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Comma-separated telemetry field names. Omitted means all supported fields.
+         */
+        fields?: string;
+    };
+    url: '/gizclaw/v1/device/telemetry/latest';
+};
+
+export type GetDeviceTelemetryLatestErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceTelemetryLatestError = GetDeviceTelemetryLatestErrors[keyof GetDeviceTelemetryLatestErrors];
+
+export type GetDeviceTelemetryLatestResponses = {
+    /**
+     * Latest telemetry values.
+     */
+    200: PeerTelemetryLatestResponse;
+};
+
+export type GetDeviceTelemetryLatestResponse = GetDeviceTelemetryLatestResponses[keyof GetDeviceTelemetryLatestResponses];
+
+export type QueryDeviceTelemetryData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Telemetry field name
+         */
+        field: PeerTelemetryField;
+        /**
+         * Inclusive Unix millisecond start time
+         */
+        start_time_ms: number;
+        /**
+         * Inclusive Unix millisecond end time
+         */
+        end_time_ms: number;
+        /**
+         * Range evaluation step in milliseconds. Omitted derives a bounded step from the requested range and limit.
+         */
+        step_ms?: number;
+        /**
+         * Maximum returned points. Omitted uses the default point budget.
+         */
+        limit?: number;
+        /**
+         * Returned point order
+         */
+        order?: PeerTelemetryOrder;
+    };
+    url: '/gizclaw/v1/device/telemetry';
+};
+
+export type QueryDeviceTelemetryErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type QueryDeviceTelemetryError = QueryDeviceTelemetryErrors[keyof QueryDeviceTelemetryErrors];
+
+export type QueryDeviceTelemetryResponses = {
+    /**
+     * Sampled telemetry range.
+     */
+    200: PeerTelemetryRangeResponse;
+};
+
+export type QueryDeviceTelemetryResponse = QueryDeviceTelemetryResponses[keyof QueryDeviceTelemetryResponses];
+
+export type AggregateDeviceTelemetryData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Telemetry field name
+         */
+        field: PeerTelemetryField;
+        /**
+         * Inclusive Unix millisecond start time
+         */
+        start_time_ms: number;
+        /**
+         * Inclusive Unix millisecond end time
+         */
+        end_time_ms: number;
+        /**
+         * Bucket size in milliseconds
+         */
+        bucket_ms: number;
+        /**
+         * Aggregate mode
+         */
+        aggregate: PeerTelemetryAggregate;
+    };
+    url: '/gizclaw/v1/device/telemetry/aggregate';
+};
+
+export type AggregateDeviceTelemetryErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type AggregateDeviceTelemetryError = AggregateDeviceTelemetryErrors[keyof AggregateDeviceTelemetryErrors];
+
+export type AggregateDeviceTelemetryResponses = {
+    /**
+     * Bucketed telemetry aggregate.
+     */
+    200: PeerTelemetryAggregateResponse;
+};
+
+export type AggregateDeviceTelemetryResponse = AggregateDeviceTelemetryResponses[keyof AggregateDeviceTelemetryResponses];
+
+export type SetDeviceVolumeData = {
+    body: DeviceVolumeSetRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/volume';
+};
+
+export type SetDeviceVolumeErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type SetDeviceVolumeError = SetDeviceVolumeErrors[keyof SetDeviceVolumeErrors];
+
+export type SetDeviceVolumeResponses = {
+    /**
+     * PeerStatus reported by the device after applying the volume.
+     */
+    200: DeviceControlStatus;
+};
+
+export type SetDeviceVolumeResponse = SetDeviceVolumeResponses[keyof SetDeviceVolumeResponses];
+
+export type PlayDeviceSoundData = {
+    body: DevicePlaySoundRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/actions/play-sound';
+};
+
+export type PlayDeviceSoundErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type PlayDeviceSoundError = PlayDeviceSoundErrors[keyof PlayDeviceSoundErrors];
+
+export type PlayDeviceSoundResponses = {
+    /**
+     * The device accepted the playback request.
+     */
+    204: void;
+};
+
+export type PlayDeviceSoundResponse = PlayDeviceSoundResponses[keyof PlayDeviceSoundResponses];
+
+export type RebootDeviceData = {
+    body?: DeviceRebootRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/actions/reboot';
+};
+
+export type RebootDeviceErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type RebootDeviceError = RebootDeviceErrors[keyof RebootDeviceErrors];
+
+export type RebootDeviceResponses = {
+    /**
+     * The device accepted the reboot request.
+     */
+    204: void;
+};
+
+export type RebootDeviceResponse = RebootDeviceResponses[keyof RebootDeviceResponses];
+
+export type GetDeviceWifiData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/wifi';
+};
+
+export type GetDeviceWifiErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type GetDeviceWifiError = GetDeviceWifiErrors[keyof GetDeviceWifiErrors];
+
+export type GetDeviceWifiResponses = {
+    /**
+     * Current device Wi-Fi status.
+     */
+    200: DeviceWifiStatus;
+};
+
+export type GetDeviceWifiResponse = GetDeviceWifiResponses[keyof GetDeviceWifiResponses];
+
+export type ListDeviceSavedWifiData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/wifi/saved';
+};
+
+export type ListDeviceSavedWifiErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ListDeviceSavedWifiError = ListDeviceSavedWifiErrors[keyof ListDeviceSavedWifiErrors];
+
+export type ListDeviceSavedWifiResponses = {
+    /**
+     * Saved Wi-Fi networks.
+     */
+    200: DeviceWifiSavedList;
+};
+
+export type ListDeviceSavedWifiResponse = ListDeviceSavedWifiResponses[keyof ListDeviceSavedWifiResponses];
+
+export type ForgetDeviceSavedWifiData = {
+    body?: never;
+    path: {
+        /**
+         * Saved network SSID; at most 32 UTF-8 bytes.
+         */
+        ssid: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/device/wifi/saved/{ssid}';
+};
+
+export type ForgetDeviceSavedWifiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no saved network with this SSID.
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ForgetDeviceSavedWifiError = ForgetDeviceSavedWifiErrors[keyof ForgetDeviceSavedWifiErrors];
+
+export type ForgetDeviceSavedWifiResponses = {
+    /**
+     * The device forgot the network.
+     */
+    204: void;
+};
+
+export type ForgetDeviceSavedWifiResponse = ForgetDeviceSavedWifiResponses[keyof ForgetDeviceSavedWifiResponses];
+
+export type ListContactsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Contact name returned as next_cursor by the previous page.
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/gizclaw/v1/contacts';
+};
+
+export type ListContactsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListContactsError = ListContactsErrors[keyof ListContactsErrors];
+
+export type ListContactsResponses = {
+    /**
+     * Contacts in stable name order.
+     */
+    200: ContactList;
+};
+
+export type ListContactsResponse = ListContactsResponses[keyof ListContactsResponses];
+
+export type CreateContactData = {
+    body: ContactCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/contacts';
+};
+
+export type CreateContactErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The contact name or phone number already exists, or the owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type CreateContactError = CreateContactErrors[keyof CreateContactErrors];
+
+export type CreateContactResponses = {
+    /**
+     * Created contact.
+     */
+    201: Contact;
+};
+
+export type CreateContactResponse = CreateContactResponses[keyof CreateContactResponses];
+
+export type DeleteContactData = {
+    body?: never;
+    path: {
+        /**
+         * Owner-scoped immutable contact name.
+         */
+        contactName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/contacts/{contactName}';
+};
+
+export type DeleteContactErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The contact does not exist for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DeleteContactError = DeleteContactErrors[keyof DeleteContactErrors];
+
+export type DeleteContactResponses = {
+    /**
+     * Contact deleted.
+     */
+    204: void;
+};
+
+export type DeleteContactResponse = DeleteContactResponses[keyof DeleteContactResponses];
+
+export type GetContactData = {
+    body?: never;
+    path: {
+        /**
+         * Owner-scoped immutable contact name.
+         */
+        contactName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/contacts/{contactName}';
+};
+
+export type GetContactErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The contact does not exist for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetContactError = GetContactErrors[keyof GetContactErrors];
+
+export type GetContactResponses = {
+    /**
+     * Contact.
+     */
+    200: Contact;
+};
+
+export type GetContactResponse = GetContactResponses[keyof GetContactResponses];
+
+export type PutContactData = {
+    body: ContactPutRequest;
+    path: {
+        /**
+         * Owner-scoped immutable contact name.
+         */
+        contactName: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/contacts/{contactName}';
+};
+
+export type PutContactErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The contact does not exist for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The phone number already exists, or the owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type PutContactError = PutContactErrors[keyof PutContactErrors];
+
+export type PutContactResponses = {
+    /**
+     * Updated contact.
+     */
+    200: Contact;
+};
+
+export type PutContactResponse = PutContactResponses[keyof PutContactResponses];

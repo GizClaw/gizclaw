@@ -550,8 +550,15 @@ func (e RPCErrorCode) Valid() bool {
 const (
 	RPCMethodAllPing                                RPCMethod = "all.ping"
 	RPCMethodAllSpeedTestRun                        RPCMethod = "all.speed_test.run"
+	RPCMethodClientDeviceReboot                     RPCMethod = "client.device.reboot"
+	RPCMethodClientDeviceSoundPlay                  RPCMethod = "client.device.sound.play"
+	RPCMethodClientDeviceStatusGet                  RPCMethod = "client.device.status.get"
+	RPCMethodClientDeviceVolumeSet                  RPCMethod = "client.device.volume.set"
 	RPCMethodClientIdentifiersGet                   RPCMethod = "client.identifiers.get"
 	RPCMethodClientInfoGet                          RPCMethod = "client.info.get"
+	RPCMethodClientWifiSavedForget                  RPCMethod = "client.wifi.saved.forget"
+	RPCMethodClientWifiSavedList                    RPCMethod = "client.wifi.saved.list"
+	RPCMethodClientWifiStatusGet                    RPCMethod = "client.wifi.status.get"
 	RPCMethodServerBadgeDefPixaDownload             RPCMethod = "server.badge_def.pixa.download"
 	RPCMethodServerBadgeGet                         RPCMethod = "server.badge.get"
 	RPCMethodServerBadgeList                        RPCMethod = "server.badge.list"
@@ -654,6 +661,20 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientIdentifiersGet:
 		return true
 	case RPCMethodClientInfoGet:
+		return true
+	case RPCMethodClientDeviceStatusGet:
+		return true
+	case RPCMethodClientDeviceVolumeSet:
+		return true
+	case RPCMethodClientDeviceSoundPlay:
+		return true
+	case RPCMethodClientDeviceReboot:
+		return true
+	case RPCMethodClientWifiStatusGet:
+		return true
+	case RPCMethodClientWifiSavedList:
+		return true
+	case RPCMethodClientWifiSavedForget:
 		return true
 	case RPCMethodClientToolInvoke:
 		return true

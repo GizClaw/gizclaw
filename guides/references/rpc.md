@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 95 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 104 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -142,6 +142,30 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 80 | `server.tool.list` | 分页列出当前 RuntimeProfile 的 Tool names。 |
 | 81 | `server.tool.get` | 按 name 读取 RuntimeProfile Tool projection。 |
 | 82 | `client.tool.invoke` | Server 请求 Client 执行本地 Tool，并用 `call_id` 关联真实执行结果。 |
+
+## API Key
+
+已认证的 Peer connection 是 API Key 的根管理入口；这些方法不需要 API Key，也不检查 `manage_api_keys`。
+
+| ID | Method | 作用 |
+| ---: | --- | --- |
+| 96 | `server.api_key.create` | 为当前 Peer 创建绑定设备的长期 API Key，返回完整可恢复 credential。 |
+| 97 | `server.api_key.list` | 按 cursor 分页列出当前 Peer 拥有的 API Key。 |
+| 98 | `server.api_key.revoke` | 按 opaque name 撤销当前 Peer 拥有的一个 API Key。 |
+
+## 设备控制与 Wi‑Fi
+
+这一组 `client.*` 方法由设备的 `rpc_provider` 实现，Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时经在线 Peer connection 调用。设备只返回自身可执行的结果：参数非法返回 `INVALID_PARAMS`，未实现返回 `METHOD_NOT_FOUND`，`saved.forget` 找不到 ssid 返回 `NOT_FOUND`。`sound` 与 `ssid` 按 UTF‑8 bytes 限制 32。
+
+| ID | Method | 作用 |
+| ---: | --- | --- |
+| 99 | `client.device.status.get` | Server 从设备读取实时 `PeerStatus`；用于控制响应回写，不由 `/device/status` 读取触发。 |
+| 100 | `client.device.volume.set` | 设置绝对音量 `level`（0–100）与 `muted`，返回设备应用后的 `PeerStatus`。 |
+| 101 | `client.device.sound.play` | 播放设备自定义的提示音 `sound`，可选 `duration_ms`。 |
+| 102 | `client.device.reboot` | 设备在发出响应后重启，可选 `delay_ms`。 |
+| 103 | `client.wifi.status.get` | 读取设备当前 Wi‑Fi 连接状态（`connected`、`ssid`、`rssi_dbm`、`ip`、`bssid`）。 |
+| 104 | `client.wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
+| 105 | `client.wifi.saved.forget` | 按 `ssid` 删除设备已保存的 Wi‑Fi 网络。 |
 
 ## 独立流式语音
 
