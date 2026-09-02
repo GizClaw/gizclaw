@@ -575,6 +575,39 @@ tls:
 `,
 			want: "requires cert-file and key-file",
 		},
+		{
+			name: "legacy TLS files require file source",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+tls:
+  cert-source: disabled
+  cert-file: cert.pem
+  key-file: key.pem
+`,
+			want: "only valid with tls.cert-source",
+		},
+		{
+			name: "legacy TLS conflicts with HTTP listeners",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+tls:
+  cert-source: file
+  cert-file: cert.pem
+  key-file: key.pem
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+`,
+			want: "must not be combined with http.listeners",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()

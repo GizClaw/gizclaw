@@ -343,6 +343,13 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
+	legacyTLSFilesConfigured := cfg.TLS.CertFile != "" || cfg.TLS.KeyFile != ""
+	if cfg.TLS.CertSource != TLSCertSourceFile && legacyTLSFilesConfigured {
+		return Config{}, fmt.Errorf("edge: tls.cert-file and tls.key-file are only valid with tls.cert-source %q", TLSCertSourceFile)
+	}
+	if len(cfg.HTTP.Listeners) > 0 && cfg.TLS.CertSource == TLSCertSourceFile {
+		return Config{}, fmt.Errorf("edge: tls.cert-source %q must not be combined with http.listeners", TLSCertSourceFile)
+	}
 	if len(cfg.HTTP.Listeners) == 0 {
 		listenerTLS := HTTPListenerTLSConfig{}
 		if cfg.TLS.CertSource == TLSCertSourceFile {

@@ -189,6 +189,34 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	}
 }
 
+func TestPrepareWorkspaceConfigExpandsAbsoluteTLSPathsBeforeWorkspaceResolution(t *testing.T) {
+	workspace := t.TempDir()
+	certFile, keyFile := writeServerTestTLSFiles(t, t.TempDir())
+	t.Setenv("GIZCLAW_TEST_TLS_CERT_FILE", certFile)
+	t.Setenv("GIZCLAW_TEST_TLS_KEY_FILE", keyFile)
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.HTTP = &HTTPConfig{Listeners: []HTTPListenerConfig{{
+			Listen: cfg.Listen,
+			TLS: HTTPListenerTLSConfig{
+				CertFile: "${GIZCLAW_TEST_TLS_CERT_FILE}",
+				KeyFile:  "${GIZCLAW_TEST_TLS_KEY_FILE}",
+			},
+		}}}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	cfg, err := prepareWorkspaceConfig(workspace)
+	if err != nil {
+		t.Fatalf("prepareWorkspaceConfig error = %v", err)
+	}
+	gotTLS := cfg.HTTP.Listeners[0].TLS
+	if gotTLS.CertFile != certFile || gotTLS.KeyFile != keyFile {
+		t.Fatalf("TLS files = (%q, %q), want (%q, %q)", gotTLS.CertFile, gotTLS.KeyFile, certFile, keyFile)
+	}
+}
+
 func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()

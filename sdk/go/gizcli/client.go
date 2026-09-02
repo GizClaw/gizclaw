@@ -462,6 +462,12 @@ func (c *Client) ServerRouteResolve(ctx context.Context, id string, request rpcp
 	})
 }
 
+func (c *Client) ServerAPIKeyResolve(ctx context.Context, id string, request rpcpb.ServerAPIKeyResolveRequest) (*rpcpb.ServerAPIKeyResolveResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerAPIKeyResolveResponse, error) {
+		return client.ServerAPIKeyResolve(ctx, conn, id, request)
+	})
+}
+
 func callClientRPC[T any](c *Client, call func(*rpcClient, net.Conn) (*T, error)) (*T, error) {
 	return callClientServiceRPC(c, ServicePeerRPC, call)
 }
