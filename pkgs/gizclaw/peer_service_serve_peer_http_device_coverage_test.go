@@ -407,3 +407,66 @@ type atomicInt struct {
 }
 
 func (a *atomicInt) set(v int) { a.mu.Lock(); a.v = v; a.mu.Unlock() }
+
+// gatedStatusStore blocks the first PutStatus until released so tests can
+// interleave a second control command with an in-flight write-back.
+type gatedStatusStore struct {
+	inner   peertelemetry.PeerStatusStore
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (s *gatedStatusStore) GetStatus(ctx context.Context, peer giznet.PublicKey) (apitypes.PeerStatus, error) {
+	return s.inner.GetStatus(ctx, peer)
+}
+
+func (s *gatedStatusStore) PutStatus(ctx context.Context, peer giznet.PublicKey, status apitypes.PeerStatus) (apitypes.PeerStatus, error) {
+	first := false
+	s.once.Do(func() { first = true })
+	if first {
+		close(s.entered)
+		<-s.release
+	}
+	return s.inner.PutStatus(ctx, peer, status)
+}
+
+func TestDeviceControlWriteBackStaysInsideCommandSerialization(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	gate := &gatedStatusStore{inner: f.manager.PeerRun, entered: make(chan struct{}), release: make(chan struct{})}
+	f.control.status = gate
+	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		params, err := req.Params.AsClientDeviceVolumeSetRequest()
+		if err != nil {
+			return nil, err
+		}
+		level := int(params.Level)
+		return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level, Muted: &params.Muted})
+	})
+	f.manager.SetPeerUp(f.owner, device)
+
+	first := make(chan *httptest.ResponseRecorder, 1)
+	go func() { first <- f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`) }()
+	<-gate.entered // the first command has answered and is writing back
+	second := make(chan *httptest.ResponseRecorder, 1)
+	go func() { second <- f.do(t, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":20,"muted":true}`) }()
+	select {
+	case response := <-second:
+		t.Fatalf("second command completed during the first write-back: %d %s", response.Code, response.Body.String())
+	case <-time.After(150 * time.Millisecond):
+	}
+	if device.calls.Load() != 1 {
+		t.Fatalf("device calls = %d; the second command must wait for the first write-back", device.calls.Load())
+	}
+	close(gate.release)
+	if response := <-first; response.Code != http.StatusOK || *decodeJSON[peerhttp.DeviceControlStatus](t, response).Status.Volume != 10 {
+		t.Fatalf("first command = %d %s", response.Code, response.Body.String())
+	}
+	if response := <-second; response.Code != http.StatusOK || *decodeJSON[peerhttp.DeviceControlStatus](t, response).Status.Volume != 20 {
+		t.Fatalf("second command = %d %s", response.Code, response.Body.String())
+	}
+	stored, err := f.manager.PeerRun.GetStatus(context.Background(), f.owner)
+	if err != nil || stored.Volume == nil || *stored.Volume != 20 || stored.Muted == nil || !*stored.Muted {
+		t.Fatalf("stored status = %+v, %v; the later command must win", stored, err)
+	}
+}

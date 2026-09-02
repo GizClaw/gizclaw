@@ -124,8 +124,10 @@ type deviceControlOptions struct {
 }
 
 // callDeviceControl serializes one control RPC for owner and maps transport,
-// timeout, and device RPC errors onto the Public HTTP error contract.
-func callDeviceControl[T any](ctx context.Context, c *deviceController, owner giznet.PublicKey, opts deviceControlOptions, call func(context.Context, *rpcClient, net.Conn) (*T, error)) (*T, *deviceControlError) {
+// timeout, and device RPC errors onto the Public HTTP error contract. after
+// runs on success while the owner command lock is still held, so response
+// write-back cannot interleave with a later command for the same owner.
+func callDeviceControl[T any](ctx context.Context, c *deviceController, owner giznet.PublicKey, opts deviceControlOptions, call func(context.Context, *rpcClient, net.Conn) (*T, error), after func(context.Context, *T) error) (*T, *deviceControlError) {
 	if c == nil || c.manager == nil {
 		return nil, &deviceControlError{Status: http.StatusInternalServerError, Code: publicHTTPInternalErrorCode, Message: http.StatusText(http.StatusInternalServerError)}
 	}
@@ -157,6 +159,11 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	}
 	if opts.markReboot {
 		c.markRebooting(owner, target)
+	}
+	if after != nil {
+		if err := after(ctx, result); err != nil {
+			return nil, &deviceControlError{Status: http.StatusInternalServerError, Code: publicHTTPInternalErrorCode, Message: http.StatusText(http.StatusInternalServerError)}
+		}
 	}
 	return result, nil
 }
@@ -223,15 +230,16 @@ func (s *peerHTTP) SetDeviceVolume(ctx context.Context, request peerhttp.SetDevi
 		return peerhttp.SetDeviceVolume400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "level must be between 0 and 100"))}, nil
 	}
 	params := rpcapi.ClientDeviceVolumeSetRequest{Level: int64(request.Body.Level), Muted: request.Body.Muted}
-	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceVolumeSetResponse, error) {
+	var status apitypes.PeerStatus
+	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceVolumeSetResponse, error) {
 		return client.SetDeviceVolume(ctx, conn, "client.device.volume.set", params)
+	}, func(ctx context.Context, result *rpcapi.ClientDeviceVolumeSetResponse) error {
+		stored, err := s.DeviceControl.applyReportedStatus(ctx, owner, result.Value)
+		status = stored
+		return err
 	})
 	if controlErr != nil {
 		return setDeviceVolumeError(controlErr), nil
-	}
-	status, err := s.DeviceControl.applyReportedStatus(ctx, owner, result.Value)
-	if err != nil {
-		return peerhttp.SetDeviceVolume500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
 	return peerhttp.SetDeviceVolume200JSONResponse{Status: status}, nil
 }
@@ -271,7 +279,7 @@ func (s *peerHTTP) PlayDeviceSound(ctx context.Context, request peerhttp.PlayDev
 	params := rpcapi.ClientDeviceSoundPlayRequest{Sound: request.Body.Sound, DurationMs: request.Body.DurationMs}
 	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceSoundPlayResponse, error) {
 		return client.PlayDeviceSound(ctx, conn, "client.device.sound.play", params)
-	})
+	}, nil)
 	if controlErr != nil {
 		return playDeviceSoundError(controlErr), nil
 	}
@@ -310,7 +318,7 @@ func (s *peerHTTP) RebootDevice(ctx context.Context, request peerhttp.RebootDevi
 	}
 	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{markReboot: true}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceRebootResponse, error) {
 		return client.RebootDevice(ctx, conn, "client.device.reboot", params)
-	})
+	}, nil)
 	if controlErr != nil {
 		return rebootDeviceError(controlErr), nil
 	}
@@ -342,7 +350,7 @@ func (s *peerHTTP) GetDeviceWifi(ctx context.Context, _ peerhttp.GetDeviceWifiRe
 	}
 	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiStatusGetResponse, error) {
 		return client.GetWifiStatus(ctx, conn, "client.wifi.status.get")
-	})
+	}, nil)
 	if controlErr != nil {
 		return getDeviceWifiError(controlErr), nil
 	}
@@ -373,7 +381,7 @@ func (s *peerHTTP) ListDeviceSavedWifi(ctx context.Context, _ peerhttp.ListDevic
 	}
 	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiSavedListResponse, error) {
 		return client.ListSavedWifi(ctx, conn, "client.wifi.saved.list")
-	})
+	}, nil)
 	if controlErr != nil {
 		return listDeviceSavedWifiError(controlErr), nil
 	}
@@ -412,7 +420,7 @@ func (s *peerHTTP) ForgetDeviceSavedWifi(ctx context.Context, request peerhttp.F
 	params := rpcapi.ClientWifiSavedForgetRequest{Ssid: ssid}
 	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiSavedForgetResponse, error) {
 		return client.ForgetSavedWifi(ctx, conn, "client.wifi.saved.forget", params)
-	})
+	}, nil)
 	if controlErr != nil {
 		return forgetDeviceSavedWifiError(controlErr), nil
 	}
