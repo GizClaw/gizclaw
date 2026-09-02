@@ -732,13 +732,13 @@ test("RPC API key root management methods preserve IDs and payloads", () => {
   assert.equal(RPC_METHOD_IDS["server.api_key.create"], 96);
   assert.equal(RPC_METHOD_IDS["server.api_key.list"], 97);
   assert.equal(RPC_METHOD_IDS["server.api_key.revoke"], 98);
-  assert.equal(RPC_METHOD_IDS["client.device.status.get"], 99);
-  assert.equal(RPC_METHOD_IDS["client.device.volume.set"], 100);
-  assert.equal(RPC_METHOD_IDS["client.device.sound.play"], 101);
-  assert.equal(RPC_METHOD_IDS["client.device.reboot"], 102);
-  assert.equal(RPC_METHOD_IDS["client.wifi.status.get"], 103);
-  assert.equal(RPC_METHOD_IDS["client.wifi.saved.list"], 104);
-  assert.equal(RPC_METHOD_IDS["client.wifi.saved.forget"], 105);
+  assert.equal(RPC_METHOD_IDS["client.device.status.get"], 100);
+  assert.equal(RPC_METHOD_IDS["client.device.volume.set"], 101);
+  assert.equal(RPC_METHOD_IDS["client.device.sound.play"], 102);
+  assert.equal(RPC_METHOD_IDS["client.device.reboot"], 103);
+  assert.equal(RPC_METHOD_IDS["client.wifi.status.get"], 104);
+  assert.equal(RPC_METHOD_IDS["client.wifi.saved.list"], 105);
+  assert.equal(RPC_METHOD_IDS["client.wifi.saved.forget"], 106);
 
   const list = { cursor: "key_cursor", limit: 25 };
   assert.deepEqual(
@@ -1892,6 +1892,7 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
   await rpc.call("server.peer.lookup", { peer_public_key: "peer-a" });
   await rpc.call("server.peer.assign", { peer_public_key: "peer-a" });
   await rpc.call("server.route.resolve", { target_peer_public_key: "peer-a" });
+  await rpc.call("server.api_key.resolve", { api_key: "gzk_test" });
 
   assert.deepEqual(calls, [
     { method: "server.peer.lookup", params: { peer_public_key: "peer-a" } },
@@ -1900,6 +1901,7 @@ test("createEdgeRPCClient calls generated edge RPC methods", async () => {
       method: "server.route.resolve",
       params: { target_peer_public_key: "peer-a" },
     },
+    { method: "server.api_key.resolve", params: { api_key: "gzk_test" } },
   ]);
 });
 

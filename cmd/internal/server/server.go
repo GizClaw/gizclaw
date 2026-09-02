@@ -31,7 +31,6 @@ import (
 type CmdServer struct {
 	*gizclaw.Server
 	AdminPublicKey  giznet.PublicKey
-	ServeToClients  bool
 	stores          *stores.Stores
 	storage         *storage.Storage
 	ownsStores      bool
@@ -75,7 +74,7 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.ServeToClients && isProtectedPublicHTTPRoute(r.URL.Path) {
+	if isProtectedPublicHTTPRoute(r.URL.Path) {
 		writePrivateHTTPIngressDenied(w)
 		return
 	}
@@ -135,7 +134,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 	}()
 
-	cmdSrv := &CmdServer{stores: ss, storage: physical, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
+	cmdSrv := &CmdServer{stores: ss, storage: physical, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey}
 	pendingDeletionConfig, err := cfg.PendingDeletion.processorConfig()
 	if err != nil {
 		return nil, fmt.Errorf("server: pending_deletion: %w", err)
@@ -146,7 +145,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		MemoryRoot:            cfg.WorkspaceRoot,
 		BuildVersion:          buildinfo.Version,
 		BuildCommit:           buildinfo.Commit,
-		PublicEndpoint:        cfg.Endpoint,
+		PublicEndpoint:        cfg.WebRTC.Endpoint,
 		PublicICETCP:          newOpts.ICETCPListener != nil,
 		EdgeNodes:             cfg.EdgeNodes,
 		PendingDeletionConfig: pendingDeletionConfig,
@@ -259,7 +258,7 @@ func publicICEAddr(cfg Config) string {
 	if gizwebrtc.HasTURNServer(cfg.ICEServers) {
 		return ""
 	}
-	host, _, err := net.SplitHostPort(cfg.Endpoint)
+	host, _, err := net.SplitHostPort(cfg.WebRTC.Endpoint)
 	if err != nil {
 		return ""
 	}
@@ -267,7 +266,7 @@ func publicICEAddr(cfg Config) string {
 	if ip == nil || ip.IsUnspecified() {
 		return ""
 	}
-	return cfg.Endpoint
+	return cfg.WebRTC.Endpoint
 }
 
 func serviceStoreReferenceError(path, name, capability string, err error) error {

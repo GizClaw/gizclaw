@@ -2,7 +2,9 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -78,6 +81,79 @@ func TestEdgeRPCMapsMissingPeerToNotFound(t *testing.T) {
 	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("missing peer response = %+v", resp)
 	}
+}
+
+func TestEdgeRPCResolvesAPIKeyOwnerRoute(t *testing.T) {
+	ctx := context.Background()
+	peerKey := giznet.PublicKey{1}
+	serverKey := giznet.PublicKey{2}
+	apiKeys := apikey.NewServer(kv.NewMemory(nil))
+	created, err := apiKeys.Create(ctx, peerKey.String(), "edge route", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	routes := &peerroute.Server{
+		Store: kv.NewMemory(nil),
+		Peers: edgeTestPeers{items: map[giznet.PublicKey]apitypes.Peer{
+			peerKey: {PublicKey: peerKey.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive},
+		}},
+		ServerPublicKey: serverKey,
+		ServerEndpoint:  "server.example.com:9820",
+	}
+	if _, err := routes.Assign(ctx, peerKey, nil); err != nil {
+		t.Fatal(err)
+	}
+	server := &edgeRPCServer{routes: routes, apiKeys: apiKeys}
+	resp := edgeDispatch(t, server, "resolve-api-key", rpcapi.RPCMethodServerAPIKeyResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerAPIKeyResolveRequest, rpcpb.ServerAPIKeyResolveRequest{ApiKey: created.Secret}))
+	if resp.Error != nil || resp.Result == nil {
+		t.Fatalf("resolve response = %+v", resp)
+	}
+	result, err := resp.Result.AsServerAPIKeyResolveResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Assignment == nil || result.Assignment.PeerPublicKey != peerKey.String() || result.Assignment.ServerPublicKey != serverKey.String() {
+		t.Fatalf("assignment = %+v", result.Assignment)
+	}
+}
+
+func TestEdgeRPCRejectsInvalidAPIKeyWithoutEchoingCredential(t *testing.T) {
+	secret := "gizclaw_sk_v1_0123456789012345678901234567890123456789012"
+	server := &edgeRPCServer{
+		routes:  &peerroute.Server{Store: kv.NewMemory(nil)},
+		apiKeys: apikey.NewServer(kv.NewMemory(nil)),
+	}
+	resp := edgeDispatch(t, server, "resolve-api-key", rpcapi.RPCMethodServerAPIKeyResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerAPIKeyResolveRequest, rpcpb.ServerAPIKeyResolveRequest{ApiKey: secret}))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeForbidden {
+		t.Fatalf("invalid API key response = %+v", resp)
+	}
+	if strings.Contains(resp.Error.Message, secret) {
+		t.Fatal("RPC error exposed API key")
+	}
+}
+
+func TestEdgeRPCSanitizesAPIKeyStoreErrors(t *testing.T) {
+	secret := "gizclaw_sk_v1_0123456789012345678901234567890123456789012"
+	server := &edgeRPCServer{
+		routes:  &peerroute.Server{Store: kv.NewMemory(nil)},
+		apiKeys: apikey.NewServer(edgeAPIKeyErrorStore{Store: kv.NewMemory(nil), err: errors.New("backend failed for " + secret)}),
+	}
+	resp := edgeDispatch(t, server, "resolve-api-key", rpcapi.RPCMethodServerAPIKeyResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerAPIKeyResolveRequest, rpcpb.ServerAPIKeyResolveRequest{ApiKey: secret}))
+	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		t.Fatalf("store error response = %+v", resp)
+	}
+	if strings.Contains(resp.Error.Message, secret) {
+		t.Fatal("RPC store error exposed API key")
+	}
+}
+
+type edgeAPIKeyErrorStore struct {
+	kv.Store
+	err error
+}
+
+func (s edgeAPIKeyErrorStore) Get(context.Context, kv.Key) ([]byte, error) {
+	return nil, s.err
 }
 
 type edgeTestPeers struct {

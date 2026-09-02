@@ -19,7 +19,7 @@ Client provider 只能返回该 Client 拥有或可执行的数据。Server reso
 
 ## 设备控制 provider
 
-`client.device.status.get`（99）、`client.device.volume.set`（100）、`client.device.sound.play`（101）、`client.device.reboot`（102）、`client.wifi.status.get`（103）、`client.wifi.saved.list`（104）与 `client.wifi.saved.forget`（105）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们，超时 5 秒。Provider 责任：
+`client.device.status.get`（100）、`client.device.volume.set`（101）、`client.device.sound.play`（102）、`client.device.reboot`（103）、`client.wifi.status.get`（104）、`client.wifi.saved.list`（105）与 `client.wifi.saved.forget`（106）由设备 `rpc_provider` 实现；Server 在处理 Public HTTP `/gizclaw/v1/device*` 控制请求时调用它们，超时 5 秒。Provider 责任：
 
 - `volume.set` 设置绝对 `level`（0–100）与 `muted`，并在响应中返回应用后的完整 `PeerStatus`；`status.get` 返回当前 `PeerStatus`。相同输入重复调用结果相同。
 - `sound.play` 的 `sound` 是设备自定义字符串（最多 32 UTF‑8 bytes），由设备校验取值，未知取值返回 `INVALID_PARAMS`；`duration_ms` 可选。

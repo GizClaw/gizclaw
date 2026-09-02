@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"maps"
@@ -65,7 +66,18 @@ func prepareWorkspaceConfig(workspace string) (Config, error) {
 	}
 	cfg.Storage = resolveWorkspaceStorageConfigs(root, cfg.Storage)
 	cfg.Stores = resolveWorkspaceStoreConfigs(root, cfg.Stores)
+	cfg.HTTP = resolveWorkspaceHTTPConfig(root, cfg.HTTP)
 	return prepareConfig(cfg)
+}
+
+func resolveWorkspaceHTTPConfig(root string, cfg HTTPConfig) HTTPConfig {
+	for index := range cfg.Listeners {
+		certFile := os.ExpandEnv(cfg.Listeners[index].TLS.CertFile)
+		keyFile := os.ExpandEnv(cfg.Listeners[index].TLS.KeyFile)
+		cfg.Listeners[index].TLS.CertFile = resolveWorkspaceDir(root, certFile)
+		cfg.Listeners[index].TLS.KeyFile = resolveWorkspaceDir(root, keyFile)
+	}
+	return cfg
 }
 
 func resolveWorkspaceIdentity(configPath string, fileCfg ConfigFile) (*giznet.KeyPair, ConfigFile, error) {
@@ -238,45 +250,124 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	}
 	publicListener, err := net.Listen("tcp", cfg.PublicAPIListenAddr())
 	if err != nil {
-		return fmt.Errorf("server: listen tcp mux: %w", err)
+		return fmt.Errorf("server: listen public transport: %w", err)
 	}
-	publicMux := newPublicTCPMux(publicListener)
-	iceTCPListener := publicMux.ICETCPListener()
-	defer publicMux.Close()
+	preparedHTTP, iceTCPListener, closeIngress, err := prepareServerHTTPListeners(cfg, publicListener)
+	if err != nil {
+		_ = publicListener.Close()
+		return err
+	}
+	defer closeIngress()
 	srv, err := newWithOptions(cfg, newServerOptions{ICETCPListener: iceTCPListener, Stores: storeRegistry})
 	if err != nil {
 		return err
 	}
 	defer srv.Close()
-	publicHTTP := &http.Server{Handler: srv}
+	for index := range preparedHTTP {
+		preparedHTTP[index].server.Handler = srv
+	}
 	if err := srv.Listen(); err != nil {
 		return err
 	}
-	errCh := make(chan error, 2)
+	errCh := make(chan error, len(preparedHTTP)+1)
 	gizServer := srv.Server
 	go func() {
 		errCh <- gizServer.Serve()
 	}()
-	go func() {
-		err := publicHTTP.Serve(publicMux.HTTPListener())
-		if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
-			err = nil
-		}
-		errCh <- err
-	}()
+	for _, item := range preparedHTTP {
+		go func(item serverHTTPListener) {
+			err := item.server.Serve(item.listener)
+			if errors.Is(err, http.ErrServerClosed) || errors.Is(err, net.ErrClosed) {
+				err = nil
+			}
+			errCh <- err
+		}(item)
+	}
 
 	select {
 	case err := <-errCh:
-		_ = publicHTTP.Shutdown(context.Background())
-		_ = srv.Close()
-		return err
+		errCh <- err
+		return shutdownServerIngress(preparedHTTP, srv, errCh)
 	case <-ctx.Done():
-		shutdownErr := publicHTTP.Shutdown(context.Background())
-		closeErr := srv.Close()
-		err1 := <-errCh
-		err2 := <-errCh
-		return errors.Join(shutdownErr, closeErr, err1, err2)
+		return shutdownServerIngress(preparedHTTP, srv, errCh)
 	}
+}
+
+type serverHTTPListener struct {
+	server   *http.Server
+	listener net.Listener
+}
+
+func prepareServerHTTPListeners(cfg Config, publicListener net.Listener) ([]serverHTTPListener, net.Listener, func() error, error) {
+	primary := cfg.HTTP.Listeners[0]
+	primaryTLS, err := primary.TLS.tlsConfig("http.listeners[0].tls")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var mux *publicTCPMux
+	var iceTCPListener net.Listener
+	var primaryListener net.Listener
+	if primaryTLS == nil {
+		mux = newPublicTCPMux(publicListener)
+		primaryListener = mux.HTTPListener()
+		iceTCPListener = mux.ICETCPListener()
+	} else {
+		primaryListener = tls.NewListener(publicListener, primaryTLS)
+	}
+	prepared := []serverHTTPListener{{server: &http.Server{}, listener: primaryListener}}
+	for index := 1; index < len(cfg.HTTP.Listeners); index++ {
+		listenerCfg := cfg.HTTP.Listeners[index]
+		listener, listenErr := net.Listen("tcp", listenerCfg.Listen)
+		if listenErr != nil {
+			for _, item := range prepared[1:] {
+				_ = item.listener.Close()
+			}
+			if mux != nil {
+				_ = mux.Close()
+			}
+			return nil, nil, nil, fmt.Errorf("server: listen http.listeners[%d]: %w", index, listenErr)
+		}
+		tlsConfig, tlsErr := listenerCfg.TLS.tlsConfig(fmt.Sprintf("http.listeners[%d].tls", index))
+		if tlsErr != nil {
+			_ = listener.Close()
+			for _, item := range prepared[1:] {
+				_ = item.listener.Close()
+			}
+			if mux != nil {
+				_ = mux.Close()
+			}
+			return nil, nil, nil, tlsErr
+		}
+		if tlsConfig != nil {
+			listener = tls.NewListener(listener, tlsConfig)
+		}
+		prepared = append(prepared, serverHTTPListener{server: &http.Server{}, listener: listener})
+	}
+	closeIngress := func() error {
+		var errs []error
+		if mux != nil {
+			errs = append(errs, mux.Close())
+		} else {
+			errs = append(errs, publicListener.Close())
+		}
+		for _, item := range prepared[1:] {
+			errs = append(errs, item.listener.Close())
+		}
+		return errors.Join(errs...)
+	}
+	return prepared, iceTCPListener, closeIngress, nil
+}
+
+func shutdownServerIngress(httpListeners []serverHTTPListener, srv *CmdServer, errCh <-chan error) error {
+	var errs []error
+	for _, item := range httpListeners {
+		errs = append(errs, item.server.Shutdown(context.Background()))
+	}
+	errs = append(errs, srv.Close())
+	for range len(httpListeners) + 1 {
+		errs = append(errs, <-errCh)
+	}
+	return errors.Join(errs...)
 }
 
 func ServeWithOptions(workspace string, opts ServeOptions) error {

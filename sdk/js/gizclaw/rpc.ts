@@ -61,7 +61,10 @@ export type RPCMethodMap = Override<
 >;
 export type EdgeRPCMethodName = Extract<
   RPCMethodName,
-  "server.peer.lookup" | "server.peer.assign" | "server.route.resolve"
+  | "server.peer.lookup"
+  | "server.peer.assign"
+  | "server.route.resolve"
+  | "server.api_key.resolve"
 >;
 export type StreamingPeerRPCMethodName = Extract<
   RPCMethodName,

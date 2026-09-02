@@ -1,6 +1,7 @@
 package gizedge
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -20,19 +21,12 @@ import (
 
 const workspaceConfigFile = "config.yaml"
 
-const (
-	TLSCertSourceDisabled = "disabled"
-	TLSCertSourceEdgeRPC  = "edge-rpc"
-	TLSCertSourceFile     = "file"
-)
-
 type Config struct {
 	KeyPair          *giznet.KeyPair
-	Listen           string
-	Endpoint         string
+	WebRTC           WebRTCConfig
 	Upstreams        []UpstreamConfig
 	selectedUpstream UpstreamConfig
-	TLS              TLSConfig
+	HTTP             HTTPConfig
 	TURN             TURNConfig
 	Gateway          GatewayConfig
 	Metrics          MetricsConfig
@@ -41,6 +35,12 @@ type Config struct {
 	SystemLog        gizlog.Config
 
 	systemLogConfigured bool
+}
+
+// WebRTCConfig defines the Edge WebRTC transport bind and published tuples.
+type WebRTCConfig struct {
+	Listen   string `yaml:"listen"`
+	Endpoint string `yaml:"endpoint"`
 }
 
 type IdentityConfig struct {
@@ -54,8 +54,39 @@ type UpstreamConfig struct {
 	ICEServers         []gizwebrtc.ICEServer `yaml:"ice-servers"`
 }
 
-type TLSConfig struct {
-	CertSource string `yaml:"cert-source"`
+// HTTPConfig defines the ordered public HTTP and HTTPS listeners.
+type HTTPConfig struct {
+	Listeners []HTTPListenerConfig `yaml:"listeners"`
+}
+
+// HTTPListenerConfig defines one local bind address and optional TLS files.
+type HTTPListenerConfig struct {
+	Listen string                `yaml:"listen"`
+	TLS    HTTPListenerTLSConfig `yaml:"tls"`
+}
+
+// HTTPListenerTLSConfig enables TLS when both certificate files are set.
+type HTTPListenerTLSConfig struct {
+	CertFile string `yaml:"cert-file"`
+	KeyFile  string `yaml:"key-file"`
+}
+
+func (cfg HTTPListenerTLSConfig) enabled() bool {
+	return cfg.CertFile != "" || cfg.KeyFile != ""
+}
+
+func (cfg HTTPListenerTLSConfig) tlsConfig(path string) (*tls.Config, error) {
+	if !cfg.enabled() {
+		return nil, nil
+	}
+	if cfg.CertFile == "" || cfg.KeyFile == "" {
+		return nil, fmt.Errorf("edge: %s requires cert-file and key-file", path)
+	}
+	certificate, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("edge: %s load certificate: %w", path, err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12}, nil
 }
 
 type TURNConfig struct {
@@ -127,10 +158,9 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 
 type ConfigFile struct {
 	Identity  IdentityConfig               `yaml:"identity"`
-	Listen    string                       `yaml:"listen"`
-	Endpoint  string                       `yaml:"endpoint"`
+	WebRTC    *WebRTCConfig                `yaml:"webrtc"`
 	Upstreams *[]UpstreamConfig            `yaml:"upstreams"`
-	TLS       TLSConfig                    `yaml:"tls"`
+	HTTP      *HTTPConfig                  `yaml:"http"`
 	TURN      TURNConfig                   `yaml:"turn"`
 	Gateway   GatewayConfig                `yaml:"gateway"`
 	Metrics   MetricsConfig                `yaml:"metrics"`
@@ -148,15 +178,12 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
-	if err := rejectRetiredGatewayConfig(data); err != nil {
+	if err := rejectRetiredConfig(data); err != nil {
 		return ConfigFile{}, err
 	}
 	var raw ConfigFile
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
-	}
-	if raw.TLS.CertSource == "" {
-		raw.TLS.CertSource = TLSCertSourceDisabled
 	}
 	if raw.SystemLog != nil {
 		prepared, err := gizlog.PrepareConfigAt("system-log", *raw.SystemLog)
@@ -168,10 +195,18 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	return raw, nil
 }
 
-func rejectRetiredGatewayConfig(data []byte) error {
+func rejectRetiredConfig(data []byte) error {
 	var document map[string]any
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return err
+	}
+	if _, exists := document["tls"]; exists {
+		return fmt.Errorf("edge: top-level tls was removed; use http.listeners[].tls")
+	}
+	for _, retired := range []string{"listen", "endpoint"} {
+		if _, exists := document[retired]; exists {
+			return fmt.Errorf("edge: top-level %s was removed; use webrtc.%s", retired, retired)
+		}
 	}
 	gateway, ok := document["gateway"].(map[string]any)
 	if !ok {
@@ -181,8 +216,8 @@ func rejectRetiredGatewayConfig(data []byte) error {
 		key     string
 		message string
 	}{
-		{key: "ice-udp-listen", message: "was removed; use top-level listen"},
-		{key: "public-ice-udp", message: "was removed; use top-level endpoint"},
+		{key: "ice-udp-listen", message: "was removed; use webrtc.listen"},
+		{key: "public-ice-udp", message: "was removed; use webrtc.endpoint"},
 		{key: "streams-per-upstream", message: "is retired; use gateway.channels-per-upstream"},
 		{key: "delegated-envelope-validity", message: "is retired"},
 	}
@@ -196,11 +231,8 @@ func rejectRetiredGatewayConfig(data []byte) error {
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:   "0.0.0.0:9821",
-		Endpoint: "0.0.0.0:9821",
-		TLS: TLSConfig{
-			CertSource: TLSCertSourceDisabled,
-		},
+		WebRTC:  WebRTCConfig{Listen: "0.0.0.0:9821", Endpoint: "0.0.0.0:9821"},
+		HTTP:    HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9821"}}},
 		Gateway: defaultGatewayConfig(),
 	}
 }
@@ -235,14 +267,14 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		cfg.Upstreams = append([]UpstreamConfig(nil), (*fileCfg.Upstreams)...)
 	}
 	systemLogConfigured := !cfg.SystemLog.IsZero() || fileCfg.SystemLog != nil
-	if cfg.Listen == "" {
-		cfg.Listen = fileCfg.Listen
+	if cfg.WebRTC == (WebRTCConfig{}) && fileCfg.WebRTC != nil {
+		cfg.WebRTC = *fileCfg.WebRTC
 	}
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = fileCfg.Endpoint
+	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
+		return Config{}, fmt.Errorf("edge: http.listeners must not be empty")
 	}
-	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
-		cfg.TLS = fileCfg.TLS
+	if len(cfg.HTTP.Listeners) == 0 && fileCfg.HTTP != nil {
+		cfg.HTTP.Listeners = append([]HTTPListenerConfig(nil), fileCfg.HTTP.Listeners...)
 	}
 	if cfg.TURN.Listen == "" {
 		cfg.TURN = fileCfg.TURN
@@ -280,9 +312,6 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	cfg.SystemLog = preparedLog
 	cfg.systemLogConfigured = systemLogConfigured
-	if cfg.TLS.CertSource == "" {
-		cfg.TLS.CertSource = TLSCertSourceDisabled
-	}
 	if fileCfg.Identity.PrivateKey.IsZero() {
 		return Config{}, fmt.Errorf("edge: invalid identity.private-key: zero key")
 	}
@@ -291,11 +320,18 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		return Config{}, fmt.Errorf("edge: invalid identity.private-key: %w", err)
 	}
 	cfg.KeyPair = keyPair
-	if cfg.Listen == "" {
-		cfg.Listen = DefaultConfig().Listen
+	if cfg.WebRTC.Listen == "" {
+		return Config{}, fmt.Errorf("edge: webrtc.listen is required")
 	}
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = cfg.Listen
+	if cfg.WebRTC.Endpoint == "" {
+		return Config{}, fmt.Errorf("edge: webrtc.endpoint is required")
+	}
+	if len(cfg.HTTP.Listeners) == 0 {
+		return Config{}, fmt.Errorf("edge: http.listeners is required")
+	}
+	for index := range cfg.HTTP.Listeners {
+		cfg.HTTP.Listeners[index].TLS.CertFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.CertFile)
+		cfg.HTTP.Listeners[index].TLS.KeyFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.KeyFile)
 	}
 	cfg.Gateway = applyGatewayDefaults(cfg.Gateway)
 	if err := cfg.validate(); err != nil {
@@ -308,17 +344,38 @@ func (cfg Config) validate() error {
 	if cfg.KeyPair == nil {
 		return fmt.Errorf("edge: missing identity.private-key")
 	}
-	if cfg.Listen == "" {
-		return fmt.Errorf("edge: missing listen")
+	if cfg.WebRTC.Listen == "" {
+		return fmt.Errorf("edge: missing webrtc.listen")
 	}
-	if cfg.Endpoint == "" {
-		return fmt.Errorf("edge: missing endpoint")
+	if cfg.WebRTC.Endpoint == "" {
+		return fmt.Errorf("edge: missing webrtc.endpoint")
 	}
-	if _, _, err := netSplitNumericHostPort("listen", cfg.Listen); err != nil {
+	if _, _, err := netSplitNumericHostPort("webrtc.listen", cfg.WebRTC.Listen); err != nil {
 		return err
 	}
-	if _, _, err := netSplitNumericHostPort("endpoint", cfg.Endpoint); err != nil {
+	if _, _, err := netSplitNumericHostPort("webrtc.endpoint", cfg.WebRTC.Endpoint); err != nil {
 		return err
+	}
+	httpListeners := cfg.HTTP.Listeners
+	if len(httpListeners) == 0 {
+		return fmt.Errorf("edge: http.listeners is required")
+	}
+	if httpListeners[0].Listen != cfg.WebRTC.Listen {
+		return fmt.Errorf("edge: http.listeners[0].listen must match webrtc.listen")
+	}
+	seenHTTPListeners := make(map[string]int, len(httpListeners))
+	for index, listener := range httpListeners {
+		path := fmt.Sprintf("http.listeners[%d]", index)
+		if _, _, err := netSplitNumericHostPort(path+".listen", listener.Listen); err != nil {
+			return err
+		}
+		if previous, ok := seenHTTPListeners[listener.Listen]; ok {
+			return fmt.Errorf("edge: %s.listen duplicates http.listeners[%d]", path, previous)
+		}
+		seenHTTPListeners[listener.Listen] = index
+		if _, err := listener.TLS.tlsConfig(path + ".tls"); err != nil {
+			return err
+		}
 	}
 	upstreams, err := cfg.configuredUpstreams()
 	if err != nil {
@@ -360,14 +417,7 @@ func (cfg Config) validate() error {
 	if err := cfg.validateSystemLog(); err != nil {
 		return err
 	}
-	switch cfg.TLS.CertSource {
-	case TLSCertSourceDisabled:
-		return nil
-	case TLSCertSourceEdgeRPC, TLSCertSourceFile:
-		return fmt.Errorf("edge: tls.cert-source %q is not implemented", cfg.TLS.CertSource)
-	default:
-		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
-	}
+	return nil
 }
 
 func runtimeStorageConfigs(configs map[string]storageFileConfig) (map[string]storage.Config, error) {

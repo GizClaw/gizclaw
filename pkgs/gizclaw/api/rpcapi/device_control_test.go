@@ -10,9 +10,9 @@ import (
 
 func TestDeviceControlMethodRegistry(t *testing.T) {
 	want := map[RPCMethod]int32{
-		RPCMethodClientDeviceStatusGet: 99, RPCMethodClientDeviceVolumeSet: 100, RPCMethodClientDeviceSoundPlay: 101,
-		RPCMethodClientDeviceReboot: 102, RPCMethodClientWifiStatusGet: 103, RPCMethodClientWifiSavedList: 104,
-		RPCMethodClientWifiSavedForget: 105,
+		RPCMethodClientDeviceStatusGet: 100, RPCMethodClientDeviceVolumeSet: 101, RPCMethodClientDeviceSoundPlay: 102,
+		RPCMethodClientDeviceReboot: 103, RPCMethodClientWifiStatusGet: 104, RPCMethodClientWifiSavedList: 105,
+		RPCMethodClientWifiSavedForget: 106,
 	}
 	for method, id := range want {
 		if !method.Valid() {

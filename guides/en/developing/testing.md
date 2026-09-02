@@ -37,7 +37,7 @@ The credential-free multi-Server Docker gate is:
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-It runs Redis 7.0, two Servers with distinct local runtime state, and two Edges whose configured Server order is reversed. It verifies fixed Peer homes through both Edges, foreign-Server rejection, local-only PeerRun writes, and side-effect-free cross-Server Social conflicts. It does not test Workspace routing.
+It runs Redis, two Servers with distinct local runtime state, and two Edges whose configured Server order is reversed. It verifies fixed Peer homes through both Edges, API Key routing through an Edge to the owner Server, foreign-Server rejection, local-only PeerRun writes, and side-effect-free cross-Server Social conflicts. It does not test Workspace routing.
 
 ### Cloud ObjectStore conformance
 
@@ -184,7 +184,8 @@ set +a
 
 `GIZCLAW_E2E_EDGE_ENDPOINT` is the client-facing HTTP/signaling and WebRTC ICE
 endpoint, and
-`GIZCLAW_E2E_SERVER_ENDPOINT` is host-Admin-facing. The remaining generated
+`GIZCLAW_E2E_SERVER_ENDPOINT` is host-Admin-facing, while `GIZCLAW_TEST_ENDPOINT`
+always points to the Edge. The remaining generated
 variables provide the CLI config home, identity home, and Compose
 project. Reset the standard resource set with:
 

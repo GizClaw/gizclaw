@@ -21,7 +21,7 @@ Go Client's provider dispatch is located in the `sdk/go/gizcli` RPC Client imple
 
 ## Device control providers
 
-`client.device.status.get` (99), `client.device.volume.set` (100), `client.device.sound.play` (101), `client.device.reboot` (102), `client.wifi.status.get` (103), `client.wifi.saved.list` (104), and `client.wifi.saved.forget` (105) are implemented by the device `rpc_provider`; the Server calls them while serving Public HTTP `/gizclaw/v1/device*` control requests with a 5-second timeout. Provider responsibilities:
+`client.device.status.get` (100), `client.device.volume.set` (101), `client.device.sound.play` (102), `client.device.reboot` (103), `client.wifi.status.get` (104), `client.wifi.saved.list` (105), and `client.wifi.saved.forget` (106) are implemented by the device `rpc_provider`; the Server calls them while serving Public HTTP `/gizclaw/v1/device*` control requests with a 5-second timeout. Provider responsibilities:
 
 - `volume.set` applies an absolute `level` (0–100) and `muted` and returns the complete post-change `PeerStatus`; `status.get` returns the current `PeerStatus`. Repeating a call with equal input yields the same result.
 - `sound.play` takes a device-defined `sound` string (at most 32 UTF‑8 bytes) that the device validates; unknown values answer `INVALID_PARAMS`. `duration_ms` is optional.

@@ -44,6 +44,7 @@ gizclaw.rpc.v1.APIKeyListRequest.cursor max_size:27
 gizclaw.rpc.v1.APIKeyListResponse.items max_count:100
 gizclaw.rpc.v1.APIKeyListResponse.next_cursor max_size:27
 gizclaw.rpc.v1.APIKeyRevokeRequest.name max_size:27
+gizclaw.rpc.v1.ServerAPIKeyResolveRequest.api_key max_size:96
 gizclaw.rpc.v1.SpeechTranscribeRequest.model_name max_size:64
 gizclaw.rpc.v1.SpeechTranscribeRequest.content_type max_size:129
 gizclaw.rpc.v1.SpeechTranscribeRequest.language max_size:33

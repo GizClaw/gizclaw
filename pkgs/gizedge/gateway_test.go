@@ -265,9 +265,8 @@ func TestGatewayBridgesServiceAndPacketOverSharedUpstream(t *testing.T) {
 	gatewayConfig.ChannelsPerUpstream = 12
 	gatewayConfig.MaxPendingHandshakes = 4
 	cfg := Config{
-		KeyPair:  edgeKey,
-		Listen:   "127.0.0.1:0",
-		Endpoint: "localhost:0",
+		KeyPair: edgeKey,
+		WebRTC:  WebRTCConfig{Listen: "127.0.0.1:0", Endpoint: "localhost:0"},
 		Upstreams: []UpstreamConfig{
 			{
 				Endpoint:  upstreamHTTP.URL,
@@ -1147,9 +1146,8 @@ func openGatewayThroughputStreams(tb testing.TB, clients, maxUpstreams int) []ga
 	gatewayConfig.MaxPendingHandshakes = clients
 	gatewayConfig.DrainTimeout = time.Second
 	cfg := Config{
-		KeyPair:  edgeKey,
-		Listen:   "127.0.0.1:0",
-		Endpoint: "localhost:0",
+		KeyPair: edgeKey,
+		WebRTC:  WebRTCConfig{Listen: "127.0.0.1:0", Endpoint: "localhost:0"},
 		Upstreams: []UpstreamConfig{
 			{
 				Endpoint:  upstreamHTTP.URL,

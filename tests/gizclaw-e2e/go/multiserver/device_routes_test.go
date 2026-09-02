@@ -21,10 +21,10 @@ import (
 )
 
 // TestDeviceRoutesFollowTheKeyOwnerHome verifies the API-key device extension
-// across the multi-Server deployment: the home Server and its Edge serve the
-// owner's device routes and forward control commands to the connected device,
-// while the foreign Server and its Edge reject the key without touching the
-// foreign state store.
+// across the multi-Server deployment: the home Server and every Edge serve the
+// owner's device routes and forward control commands to the connected device
+// (an Edge resolves the key to its owner Server), while the foreign Server
+// rejects the key directly without touching its own state store.
 func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	serverA := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_A"))
 	serverB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B"))
@@ -64,6 +64,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	homeBases := map[string]string{
 		"server-a": deviceRouteBase(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_A")),
 		"edge-a":   deviceRouteBase(t, edgeAEndpoint),
+		"edge-b":   deviceRouteBase(t, edgeBEndpoint),
 	}
 	for name, base := range homeBases {
 		t.Run(name, func(t *testing.T) {
@@ -98,12 +99,12 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 		})
 	}
 
-	// The key is owned by Server A: the foreign Server and Edge reject it
-	// before any device or state lookup, and Server B keeps no PeerRun state.
+	// The key is owned by Server A: the foreign Server rejects it before any
+	// device or state lookup, and Server B keeps no PeerRun state even though
+	// Edge B routed the same key to Server A above.
 	beforeB := sqlTableSnapshot(t, stateB, "kv")
 	for name, base := range map[string]string{
 		"server-b": deviceRouteBase(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B")),
-		"edge-b":   deviceRouteBase(t, edgeBEndpoint),
 	} {
 		var rejected apitypes.ErrorResponse
 		deviceRouteJSON(t, base, apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusUnauthorized, &rejected)
@@ -114,8 +115,8 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	}
 	assertPeerRunAbsent(t, stateB, peer.Public)
 	assertSnapshotEqual(t, "Server B state after foreign device requests", beforeB, sqlTableSnapshot(t, stateB, "kv"))
-	if volume != 35 {
-		t.Fatalf("foreign requests reached the device: volume = %d", volume)
+	if volume != 35 || !muted {
+		t.Fatalf("foreign Server requests reached the device: volume = %d muted = %v", volume, muted)
 	}
 	if serverB.PublicKey.Equal(serverA.PublicKey) {
 		t.Fatal("the two Servers use the same identity")

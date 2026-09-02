@@ -1,6 +1,10 @@
 package rpcapi
 
-import "testing"
+import (
+	"testing"
+
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+)
 
 func TestAPIKeyCreateMethodAndPayloadRoundTrip(t *testing.T) {
 	protoMethod, err := ProtoMethod(RPCMethodServerAPIKeyCreate)
@@ -94,5 +98,21 @@ func TestAPIKeyManagementMethodsAndPayloadRoundTrip(t *testing.T) {
 	gotRevokeRequest, err := revokeRequestPayload.AsAPIKeyRevokeRequest()
 	if err != nil || gotRevokeRequest != revokeRequest {
 		t.Fatalf("revoke request round trip = %#v, %v", gotRevokeRequest, err)
+	}
+}
+
+func TestAPIKeyResolveMethodAndPayloadRoundTrip(t *testing.T) {
+	protoMethod, err := ProtoMethod(RPCMethodServerAPIKeyResolve)
+	if err != nil || protoMethod != 99 {
+		t.Fatalf("ProtoMethod() = %d, %v; want 99", protoMethod, err)
+	}
+	apiKey := "gizclaw_sk_v1_0123456789012345678901234567890123456789012"
+	var payload RPCPayload
+	if err := payload.FromServerAPIKeyResolveRequest(rpcpb.ServerAPIKeyResolveRequest{ApiKey: apiKey}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := payload.AsServerAPIKeyResolveRequest()
+	if err != nil || got.ApiKey != apiKey {
+		t.Fatalf("request API key round trip matches = %t, error = %v", got.ApiKey == apiKey, err)
 	}
 }

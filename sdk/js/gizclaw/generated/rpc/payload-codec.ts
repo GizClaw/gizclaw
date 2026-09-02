@@ -1076,6 +1076,12 @@ export type Runtime = {
 };
 export type RuntimeAdoptRequest = PetAdoptRequest;
 export type RuntimeAdoptResponse = PetAdoptResponse;
+export type ServerAPIKeyResolveRequest = {
+  "api_key": string;
+};
+export type ServerAPIKeyResolveResponse = {
+  "assignment": PeerAssignment;
+};
 export type ServerBadgeGetRequest = GameplayNameGetRequest;
 export type ServerBadgeGetResponse = Badge;
 export type ServerBadgeListRequest = GameplayListRequest;
@@ -1427,6 +1433,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "runtime.adopt": "RuntimeAdoptRequest",
   "server.api_key.create": "APIKeyCreateRequest",
   "server.api_key.list": "APIKeyListRequest",
+  "server.api_key.resolve": "ServerAPIKeyResolveRequest",
   "server.api_key.revoke": "APIKeyRevokeRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
@@ -1533,6 +1540,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "runtime.adopt": "RuntimeAdoptResponse",
   "server.api_key.create": "APIKeyCreateResponse",
   "server.api_key.list": "APIKeyListResponse",
+  "server.api_key.resolve": "ServerAPIKeyResolveResponse",
   "server.api_key.revoke": "APIKeyRevokeResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
@@ -6230,6 +6238,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "PetAdoptResponse"
+      }
+    ]
+  },
+  "ServerAPIKeyResolveRequest": {
+    "fields": [
+      {
+        "name": "api_key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerAPIKeyResolveResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "PeerAssignment"
       }
     ]
   },

@@ -193,13 +193,14 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE                       RpcMethod = 96
 	RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST                         RpcMethod = 97
 	RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE                       RpcMethod = 98
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET                    RpcMethod = 99
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET                    RpcMethod = 100
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY                    RpcMethod = 101
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT                        RpcMethod = 102
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET                      RpcMethod = 103
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST                      RpcMethod = 104
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET                    RpcMethod = 105
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE                      RpcMethod = 99
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET                    RpcMethod = 100
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET                    RpcMethod = 101
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY                    RpcMethod = 102
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT                        RpcMethod = 103
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET                      RpcMethod = 104
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST                      RpcMethod = 105
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET                    RpcMethod = 106
 )
 
 // Enum value maps for RpcMethod.
@@ -303,13 +304,14 @@ var (
 		96:  "RPC_METHOD_SERVER_API_KEY_CREATE",
 		97:  "RPC_METHOD_SERVER_API_KEY_LIST",
 		98:  "RPC_METHOD_SERVER_API_KEY_REVOKE",
-		99:  "RPC_METHOD_CLIENT_DEVICE_STATUS_GET",
-		100: "RPC_METHOD_CLIENT_DEVICE_VOLUME_SET",
-		101: "RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY",
-		102: "RPC_METHOD_CLIENT_DEVICE_REBOOT",
-		103: "RPC_METHOD_CLIENT_WIFI_STATUS_GET",
-		104: "RPC_METHOD_CLIENT_WIFI_SAVED_LIST",
-		105: "RPC_METHOD_CLIENT_WIFI_SAVED_FORGET",
+		99:  "RPC_METHOD_SERVER_API_KEY_RESOLVE",
+		100: "RPC_METHOD_CLIENT_DEVICE_STATUS_GET",
+		101: "RPC_METHOD_CLIENT_DEVICE_VOLUME_SET",
+		102: "RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY",
+		103: "RPC_METHOD_CLIENT_DEVICE_REBOOT",
+		104: "RPC_METHOD_CLIENT_WIFI_STATUS_GET",
+		105: "RPC_METHOD_CLIENT_WIFI_SAVED_LIST",
+		106: "RPC_METHOD_CLIENT_WIFI_SAVED_FORGET",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                                 0,
@@ -410,13 +412,14 @@ var (
 		"RPC_METHOD_SERVER_API_KEY_CREATE":                       96,
 		"RPC_METHOD_SERVER_API_KEY_LIST":                         97,
 		"RPC_METHOD_SERVER_API_KEY_REVOKE":                       98,
-		"RPC_METHOD_CLIENT_DEVICE_STATUS_GET":                    99,
-		"RPC_METHOD_CLIENT_DEVICE_VOLUME_SET":                    100,
-		"RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY":                    101,
-		"RPC_METHOD_CLIENT_DEVICE_REBOOT":                        102,
-		"RPC_METHOD_CLIENT_WIFI_STATUS_GET":                      103,
-		"RPC_METHOD_CLIENT_WIFI_SAVED_LIST":                      104,
-		"RPC_METHOD_CLIENT_WIFI_SAVED_FORGET":                    105,
+		"RPC_METHOD_SERVER_API_KEY_RESOLVE":                      99,
+		"RPC_METHOD_CLIENT_DEVICE_STATUS_GET":                    100,
+		"RPC_METHOD_CLIENT_DEVICE_VOLUME_SET":                    101,
+		"RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY":                    102,
+		"RPC_METHOD_CLIENT_DEVICE_REBOOT":                        103,
+		"RPC_METHOD_CLIENT_WIFI_STATUS_GET":                      104,
+		"RPC_METHOD_CLIENT_WIFI_SAVED_LIST":                      105,
+		"RPC_METHOD_CLIENT_WIFI_SAVED_FORGET":                    106,
 	}
 )
 
@@ -909,7 +912,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
 	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\x89d\n" +
+	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\x87e\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1106,20 +1109,22 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1eRPC_METHOD_SERVER_API_KEY_LIST\x10a\x1a@\xc2\xf3\x18<\n" +
 	"\x13server.api_key.list\x12\x11APIKeyListRequest\x1a\x12APIKeyListResponse\x12l\n" +
 	" RPC_METHOD_SERVER_API_KEY_REVOKE\x10b\x1aF\xc2\xf3\x18B\n" +
-	"\x15server.api_key.revoke\x12\x13APIKeyRevokeRequest\x1a\x14APIKeyRevokeResponse\x12\x84\x01\n" +
-	"#RPC_METHOD_CLIENT_DEVICE_STATUS_GET\x10c\x1a[\xc2\xf3\x18W\n" +
+	"\x15server.api_key.revoke\x12\x13APIKeyRevokeRequest\x1a\x14APIKeyRevokeResponse\x12|\n" +
+	"!RPC_METHOD_SERVER_API_KEY_RESOLVE\x10c\x1aU\xc2\xf3\x18Q\n" +
+	"\x16server.api_key.resolve\x12\x1aServerAPIKeyResolveRequest\x1a\x1bServerAPIKeyResolveResponse\x12\x84\x01\n" +
+	"#RPC_METHOD_CLIENT_DEVICE_STATUS_GET\x10d\x1a[\xc2\xf3\x18W\n" +
 	"\x18client.device.status.get\x12\x1cClientDeviceStatusGetRequest\x1a\x1dClientDeviceStatusGetResponse\x12\x84\x01\n" +
-	"#RPC_METHOD_CLIENT_DEVICE_VOLUME_SET\x10d\x1a[\xc2\xf3\x18W\n" +
+	"#RPC_METHOD_CLIENT_DEVICE_VOLUME_SET\x10e\x1a[\xc2\xf3\x18W\n" +
 	"\x18client.device.volume.set\x12\x1cClientDeviceVolumeSetRequest\x1a\x1dClientDeviceVolumeSetResponse\x12\x84\x01\n" +
-	"#RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY\x10e\x1a[\xc2\xf3\x18W\n" +
+	"#RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY\x10f\x1a[\xc2\xf3\x18W\n" +
 	"\x18client.device.sound.play\x12\x1cClientDeviceSoundPlayRequest\x1a\x1dClientDeviceSoundPlayResponse\x12v\n" +
-	"\x1fRPC_METHOD_CLIENT_DEVICE_REBOOT\x10f\x1aQ\xc2\xf3\x18M\n" +
+	"\x1fRPC_METHOD_CLIENT_DEVICE_REBOOT\x10g\x1aQ\xc2\xf3\x18M\n" +
 	"\x14client.device.reboot\x12\x19ClientDeviceRebootRequest\x1a\x1aClientDeviceRebootResponse\x12|\n" +
-	"!RPC_METHOD_CLIENT_WIFI_STATUS_GET\x10g\x1aU\xc2\xf3\x18Q\n" +
+	"!RPC_METHOD_CLIENT_WIFI_STATUS_GET\x10h\x1aU\xc2\xf3\x18Q\n" +
 	"\x16client.wifi.status.get\x12\x1aClientWifiStatusGetRequest\x1a\x1bClientWifiStatusGetResponse\x12|\n" +
-	"!RPC_METHOD_CLIENT_WIFI_SAVED_LIST\x10h\x1aU\xc2\xf3\x18Q\n" +
+	"!RPC_METHOD_CLIENT_WIFI_SAVED_LIST\x10i\x1aU\xc2\xf3\x18Q\n" +
 	"\x16client.wifi.saved.list\x12\x1aClientWifiSavedListRequest\x1a\x1bClientWifiSavedListResponse\x12\x84\x01\n" +
-	"#RPC_METHOD_CLIENT_WIFI_SAVED_FORGET\x10i\x1a[\xc2\xf3\x18W\n" +
+	"#RPC_METHOD_CLIENT_WIFI_SAVED_FORGET\x10j\x1a[\xc2\xf3\x18W\n" +
 	"\x18client.wifi.saved.forget\x12\x1cClientWifiSavedForgetRequest\x1a\x1dClientWifiSavedForgetResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"

@@ -34,7 +34,7 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-它运行 Redis 7.0、两台使用不同本地 runtime state 的 Server，以及配置 Server 顺序相反的两台 Edge，验证 Peer 固定归属、经任意 Edge 回到 home Server、foreign Server 拒绝、本地 PeerRun 写入和跨 Server Social 零副作用冲突。它不验证 Workspace routing。
+它运行 Redis、两台使用不同本地 runtime state 的 Server，以及配置 Server 顺序相反的两台 Edge，验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入和跨 Server Social 零副作用冲突。它不验证 Workspace routing。
 
 ### Cloud ObjectStore conformance
 
@@ -169,7 +169,7 @@ set +a
 
 其中 `GIZCLAW_E2E_EDGE_ENDPOINT` 同时是面向 client 的 HTTP/signaling 与 WebRTC ICE
 endpoint，
-`GIZCLAW_E2E_SERVER_ENDPOINT` 面向 host Admin，其他变量提供 CLI config home、
+`GIZCLAW_E2E_SERVER_ENDPOINT` 面向 host Admin，`GIZCLAW_TEST_ENDPOINT` 固定指向 Edge，其他变量提供 CLI config home、
 identity home 和 Compose project。需要重置标准资源时使用：
 
 ```sh

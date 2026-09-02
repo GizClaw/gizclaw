@@ -597,6 +597,7 @@ const (
 	RPCMethodServerInfoPut                          RPCMethod = "server.info.put"
 	RPCMethodServerAPIKeyCreate                     RPCMethod = "server.api_key.create"
 	RPCMethodServerAPIKeyList                       RPCMethod = "server.api_key.list"
+	RPCMethodServerAPIKeyResolve                    RPCMethod = "server.api_key.resolve"
 	RPCMethodServerAPIKeyRevoke                     RPCMethod = "server.api_key.revoke"
 	RPCMethodServerRegister                         RPCMethod = "server.register"
 	RPCMethodServerModelGet                         RPCMethod = "server.model.get"
@@ -753,6 +754,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerAPIKeyCreate:
 		return true
 	case RPCMethodServerAPIKeyList:
+		return true
+	case RPCMethodServerAPIKeyResolve:
 		return true
 	case RPCMethodServerAPIKeyRevoke:
 		return true
@@ -6204,6 +6207,23 @@ func (t *RPCPayload) MergeServerRouteResolveRequest(v rpcpb.ServerRouteResolveRe
 	return t.merge("ServerRouteResolveRequest", &v)
 }
 
+// AsServerAPIKeyResolveRequest decodes the RPCPayload as a ServerAPIKeyResolveRequest
+func (t RPCPayload) AsServerAPIKeyResolveRequest() (rpcpb.ServerAPIKeyResolveRequest, error) {
+	var body rpcpb.ServerAPIKeyResolveRequest
+	err := t.decode("ServerAPIKeyResolveRequest", &body)
+	return body, err
+}
+
+// FromServerAPIKeyResolveRequest overwrites any protobuf payload as the provided ServerAPIKeyResolveRequest
+func (t *RPCPayload) FromServerAPIKeyResolveRequest(v rpcpb.ServerAPIKeyResolveRequest) error {
+	return t.encode("ServerAPIKeyResolveRequest", &v)
+}
+
+// MergeServerAPIKeyResolveRequest performs a merge with any protobuf payload, using the provided ServerAPIKeyResolveRequest
+func (t *RPCPayload) MergeServerAPIKeyResolveRequest(v rpcpb.ServerAPIKeyResolveRequest) error {
+	return t.merge("ServerAPIKeyResolveRequest", &v)
+}
+
 // AsServerPeerLookupResponse decodes the RPCPayload as a ServerPeerLookupResponse
 func (t RPCPayload) AsServerPeerLookupResponse() (rpcpb.ServerPeerLookupResponse, error) {
 	var body rpcpb.ServerPeerLookupResponse
@@ -6253,6 +6273,23 @@ func (t *RPCPayload) FromServerRouteResolveResponse(v rpcpb.ServerRouteResolveRe
 // MergeServerRouteResolveResponse performs a merge with any protobuf payload, using the provided ServerRouteResolveResponse
 func (t *RPCPayload) MergeServerRouteResolveResponse(v rpcpb.ServerRouteResolveResponse) error {
 	return t.merge("ServerRouteResolveResponse", &v)
+}
+
+// AsServerAPIKeyResolveResponse decodes the RPCPayload as a ServerAPIKeyResolveResponse
+func (t RPCPayload) AsServerAPIKeyResolveResponse() (rpcpb.ServerAPIKeyResolveResponse, error) {
+	var body rpcpb.ServerAPIKeyResolveResponse
+	err := t.decode("ServerAPIKeyResolveResponse", &body)
+	return body, err
+}
+
+// FromServerAPIKeyResolveResponse overwrites any protobuf payload as the provided ServerAPIKeyResolveResponse
+func (t *RPCPayload) FromServerAPIKeyResolveResponse(v rpcpb.ServerAPIKeyResolveResponse) error {
+	return t.encode("ServerAPIKeyResolveResponse", &v)
+}
+
+// MergeServerAPIKeyResolveResponse performs a merge with any protobuf payload, using the provided ServerAPIKeyResolveResponse
+func (t *RPCPayload) MergeServerAPIKeyResolveResponse(v rpcpb.ServerAPIKeyResolveResponse) error {
+	return t.merge("ServerAPIKeyResolveResponse", &v)
 }
 
 // AsGeminiTenantVoiceProviderData returns the union data inside the VoiceProviderData as a GeminiTenantVoiceProviderData

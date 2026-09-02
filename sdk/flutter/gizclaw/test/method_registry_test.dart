@@ -15,13 +15,14 @@ void main() {
     expect(rpcMethodByName('server.api_key.create').id, 96);
     expect(rpcMethodByName('server.api_key.list').id, 97);
     expect(rpcMethodByName('server.api_key.revoke').id, 98);
-    expect(rpcMethodByName('client.device.status.get').id, 99);
-    expect(rpcMethodByName('client.device.volume.set').id, 100);
-    expect(rpcMethodByName('client.device.sound.play').id, 101);
-    expect(rpcMethodByName('client.device.reboot').id, 102);
-    expect(rpcMethodByName('client.wifi.status.get').id, 103);
-    expect(rpcMethodByName('client.wifi.saved.list').id, 104);
-    expect(rpcMethodByName('client.wifi.saved.forget').id, 105);
+    expect(rpcMethodByName('server.api_key.resolve').id, 99);
+    expect(rpcMethodByName('client.device.status.get').id, 100);
+    expect(rpcMethodByName('client.device.volume.set').id, 101);
+    expect(rpcMethodByName('client.device.sound.play').id, 102);
+    expect(rpcMethodByName('client.device.reboot').id, 103);
+    expect(rpcMethodByName('client.wifi.status.get').id, 104);
+    expect(rpcMethodByName('client.wifi.saved.list').id, 105);
+    expect(rpcMethodByName('client.wifi.saved.forget').id, 106);
     expect(
       () => rpcMethodByName('server.firmware.download'),
       throwsArgumentError,
@@ -129,6 +130,17 @@ void main() {
       expect(decodedForget.ssid, 'office');
     },
   );
+
+  test('round-trips Edge API key route payloads', () {
+    final request = ServerAPIKeyResolveRequest(apiKey: 'gzk_test');
+    final decoded =
+        decodeRpcRequestPayload(
+              'server.api_key.resolve',
+              encodeRpcRequestPayload('server.api_key.resolve', request),
+            )
+            as ServerAPIKeyResolveRequest;
+    expect(decoded.apiKey, 'gzk_test');
+  });
 
   test('round-trips API key root management payloads', () {
     final list = APIKeyListRequest(cursor: 'key_cursor', limit: Int64(25));

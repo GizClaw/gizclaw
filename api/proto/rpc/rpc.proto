@@ -159,11 +159,12 @@ enum RpcMethod {
   RPC_METHOD_SERVER_API_KEY_CREATE = 96 [(rpc_method) = { name: "server.api_key.create" request: "APIKeyCreateRequest" response: "APIKeyCreateResponse" }];
   RPC_METHOD_SERVER_API_KEY_LIST = 97 [(rpc_method) = { name: "server.api_key.list" request: "APIKeyListRequest" response: "APIKeyListResponse" }];
   RPC_METHOD_SERVER_API_KEY_REVOKE = 98 [(rpc_method) = { name: "server.api_key.revoke" request: "APIKeyRevokeRequest" response: "APIKeyRevokeResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_STATUS_GET = 99 [(rpc_method) = { name: "client.device.status.get" request: "ClientDeviceStatusGetRequest" response: "ClientDeviceStatusGetResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = 100 [(rpc_method) = { name: "client.device.volume.set" request: "ClientDeviceVolumeSetRequest" response: "ClientDeviceVolumeSetResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = 101 [(rpc_method) = { name: "client.device.sound.play" request: "ClientDeviceSoundPlayRequest" response: "ClientDeviceSoundPlayResponse" }];
-  RPC_METHOD_CLIENT_DEVICE_REBOOT = 102 [(rpc_method) = { name: "client.device.reboot" request: "ClientDeviceRebootRequest" response: "ClientDeviceRebootResponse" }];
-  RPC_METHOD_CLIENT_WIFI_STATUS_GET = 103 [(rpc_method) = { name: "client.wifi.status.get" request: "ClientWifiStatusGetRequest" response: "ClientWifiStatusGetResponse" }];
-  RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 104 [(rpc_method) = { name: "client.wifi.saved.list" request: "ClientWifiSavedListRequest" response: "ClientWifiSavedListResponse" }];
-  RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 105 [(rpc_method) = { name: "client.wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
+  RPC_METHOD_SERVER_API_KEY_RESOLVE = 99 [(rpc_method) = { name: "server.api_key.resolve" request: "ServerAPIKeyResolveRequest" response: "ServerAPIKeyResolveResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_STATUS_GET = 100 [(rpc_method) = { name: "client.device.status.get" request: "ClientDeviceStatusGetRequest" response: "ClientDeviceStatusGetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = 101 [(rpc_method) = { name: "client.device.volume.set" request: "ClientDeviceVolumeSetRequest" response: "ClientDeviceVolumeSetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = 102 [(rpc_method) = { name: "client.device.sound.play" request: "ClientDeviceSoundPlayRequest" response: "ClientDeviceSoundPlayResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_REBOOT = 103 [(rpc_method) = { name: "client.device.reboot" request: "ClientDeviceRebootRequest" response: "ClientDeviceRebootResponse" }];
+  RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104 [(rpc_method) = { name: "client.wifi.status.get" request: "ClientWifiStatusGetRequest" response: "ClientWifiStatusGetResponse" }];
+  RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105 [(rpc_method) = { name: "client.wifi.saved.list" request: "ClientWifiSavedListRequest" response: "ClientWifiSavedListResponse" }];
+  RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106 [(rpc_method) = { name: "client.wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
 }

@@ -2,7 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -57,14 +62,14 @@ func (closedPeerListener) Close() error                 { return nil }
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.Listen != "0.0.0.0:9820" {
-		t.Fatalf("Listen = %q", cfg.Listen)
+	if cfg.WebRTC.Listen != "0.0.0.0:9820" {
+		t.Fatalf("Listen = %q", cfg.WebRTC.Listen)
 	}
-	if cfg.Endpoint != "0.0.0.0:9820" {
-		t.Fatalf("Endpoint = %q", cfg.Endpoint)
+	if cfg.WebRTC.Endpoint != "0.0.0.0:9820" {
+		t.Fatalf("Endpoint = %q", cfg.WebRTC.Endpoint)
 	}
-	if cfg.ServeToClients {
-		t.Fatal("ServeToClients should default to false")
+	if len(cfg.HTTP.Listeners) != 1 || cfg.HTTP.Listeners[0].Listen != cfg.WebRTC.Listen {
+		t.Fatalf("HTTP.Listeners = %+v, want explicit default listener", cfg.HTTP.Listeners)
 	}
 	if cfg.systemLogConfig().Level != "info" {
 		t.Fatalf("SystemLog.Level = %q, want info", cfg.systemLogConfig().Level)
@@ -88,6 +93,74 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestPrepareConfigSupportsMultipleHTTPListenersWithTLS(t *testing.T) {
+	dir := t.TempDir()
+	certFile, keyFile := writeServerTestTLSFiles(t, dir)
+	cfg := validLayeredConfig(dir)
+	cfg.WebRTC.Listen = "127.0.0.1:9820"
+	cfg.WebRTC.Endpoint = cfg.WebRTC.Listen
+	cfg.HTTP.Listeners = []HTTPListenerConfig{
+		{Listen: cfg.WebRTC.Listen},
+		{Listen: "127.0.0.1:443", TLS: HTTPListenerTLSConfig{CertFile: certFile, KeyFile: keyFile}},
+	}
+	prepared, err := prepareConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prepared.HTTP.Listeners) != 2 {
+		t.Fatalf("HTTP listeners = %+v", prepared.HTTP.Listeners)
+	}
+	tlsConfig, err := prepared.HTTP.Listeners[1].TLS.tlsConfig("test")
+	if err != nil || tlsConfig == nil || tlsConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("TLS config = %+v, %v", tlsConfig, err)
+	}
+}
+
+func TestPrepareConfigRejectsInvalidHTTPListeners(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		listeners []HTTPListenerConfig
+		want      string
+	}{
+		{name: "missing", listeners: nil, want: "http.listeners is required"},
+		{name: "primary mismatch", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:443"}}, want: "must match webrtc.listen"},
+		{name: "duplicate", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820"}, {Listen: "127.0.0.1:9820"}}, want: "duplicates"},
+		{name: "partial TLS", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820", TLS: HTTPListenerTLSConfig{CertFile: "only-cert"}}}, want: "requires cert-file and key-file"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := validLayeredConfig(t.TempDir())
+			cfg.WebRTC.Listen = "127.0.0.1:9820"
+			cfg.WebRTC.Endpoint = cfg.WebRTC.Listen
+			cfg.HTTP.Listeners = test.listeners
+			if _, err := prepareConfig(cfg); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("prepareConfig() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func writeServerTestTLSFiles(t *testing.T, dir string) (string, string) {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	certificate := server.TLS.Certificates[0]
+	certFile := filepath.Join(dir, "server.crt")
+	keyFile := filepath.Join(dir, "server.key")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Certificate[0]})
+	keyDER, err := x509.MarshalPKCS8PrivateKey(certificate.PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	if err := os.WriteFile(certFile, certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return certFile, keyFile
+}
+
 func TestParsePendingDeletionConfig(t *testing.T) {
 	file, err := parseConfigData([]byte(`pending_deletion:
   scan_interval: 2s
@@ -102,6 +175,9 @@ func TestParsePendingDeletionConfig(t *testing.T) {
 		t.Fatalf("mergeFileConfig() error = %v", err)
 	}
 	merged.Services = validServicesConfig()
+	defaults := DefaultConfig()
+	merged.WebRTC = defaults.WebRTC
+	merged.HTTP = defaults.HTTP
 	prepared, err := prepareConfig(merged)
 	if err != nil {
 		t.Fatalf("prepareConfig() error = %v", err)
@@ -134,6 +210,18 @@ func TestPendingDeletionConfigRejectsInvalidInput(t *testing.T) {
 	cfg.PendingDeletion.AttemptTimeout = "2m"
 	if _, err := prepareConfig(cfg); err == nil || !strings.Contains(err.Error(), "attempt timeout must be shorter") {
 		t.Fatalf("prepareConfig() error = %v", err)
+	}
+}
+
+func TestParseConfigDataRejectsRemovedTopLevelWebRTCFields(t *testing.T) {
+	for _, field := range []string{"listen", "endpoint"} {
+		t.Run(field, func(t *testing.T) {
+			_, err := parseConfigData([]byte(field + ": 0.0.0.0:9820\n"))
+			want := "top-level " + field + " was removed; use webrtc." + field
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("parseConfigData error = %v, want %q", err, want)
+			}
+		})
 	}
 }
 
@@ -412,28 +500,14 @@ func TestParseConfigRejectsExplicitInvalidSpeechLimits(t *testing.T) {
 	}
 }
 
-func TestParseConfigServeToClients(t *testing.T) {
-	cfg, err := parseConfigData([]byte(`
-serve-to-clients: true
-listen: 127.0.0.1:9820
-endpoint: 127.0.0.1:9820
-`))
-	if err != nil {
-		t.Fatalf("parseConfigData error = %v", err)
-	}
-	if !cfg.ServeToClients {
-		t.Fatal("ServeToClients = false, want true")
-	}
-}
-
-func TestParseConfigRejectsServingPublic(t *testing.T) {
-	_, err := parseConfigData([]byte(`
-serving-public: true
-listen: 127.0.0.1:9820
-endpoint: 127.0.0.1:9820
-`))
-	if err == nil || !strings.Contains(err.Error(), "serving-public is not supported") {
-		t.Fatalf("parseConfigData error = %v, want unsupported alias error", err)
+func TestParseConfigRejectsRemovedPublicIngressSwitches(t *testing.T) {
+	for _, field := range []string{"serve-to-clients", "serving-public"} {
+		t.Run(field, func(t *testing.T) {
+			_, err := parseConfigData([]byte(field + ": true\n"))
+			if err == nil || !strings.Contains(err.Error(), field+" was removed") {
+				t.Fatalf("parseConfigData error = %v, want removed field error", err)
+			}
+		})
 	}
 }
 
@@ -805,8 +879,9 @@ func TestNewWiresPeerListenerFactory(t *testing.T) {
 
 func TestConfigValidateRequiresServices(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.Listen = "127.0.0.1:9820"
-	cfg.Endpoint = "127.0.0.1:9820"
+	cfg.WebRTC.Listen = "127.0.0.1:9820"
+	cfg.WebRTC.Endpoint = "127.0.0.1:9820"
+	cfg.HTTP.Listeners[0].Listen = cfg.WebRTC.Listen
 	if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), "services is required") {
 		t.Fatalf("validate error = %v, want required services", err)
 	}
@@ -1272,27 +1347,31 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 	}{
 		{
 			name: "invalid listen",
-			cfg:  Config{Listen: "http://127.0.0.1:9820", Endpoint: "127.0.0.1:9820"},
-			want: "server: listen must be host:port, got \"http://127.0.0.1:9820\"",
+			cfg:  Config{WebRTC: WebRTCConfig{Listen: "http://127.0.0.1:9820", Endpoint: "127.0.0.1:9820"}},
+			want: "server: webrtc.listen must be host:port, got \"http://127.0.0.1:9820\"",
 		},
 		{
 			name: "invalid endpoint",
-			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "http://127.0.0.1:9820"},
-			want: "server: endpoint must be host:port, got \"http://127.0.0.1:9820\"",
+			cfg:  Config{WebRTC: WebRTCConfig{Listen: "127.0.0.1:9820", Endpoint: "http://127.0.0.1:9820"}},
+			want: "server: webrtc.endpoint must be host:port, got \"http://127.0.0.1:9820\"",
 		},
 		{
 			name: "empty endpoint host",
-			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: ":9820"},
-			want: "server: endpoint host is empty",
+			cfg:  Config{WebRTC: WebRTCConfig{Listen: "127.0.0.1:9820", Endpoint: ":9820"}},
+			want: "server: webrtc.endpoint host is empty",
 		},
 		{
 			name: "empty endpoint port",
-			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:"},
-			want: "server: endpoint port is empty",
+			cfg:  Config{WebRTC: WebRTCConfig{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:"}},
+			want: "server: webrtc.endpoint port is empty",
 		},
 		{
 			name: "zero edge node",
-			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820", EdgeNodes: []giznet.PublicKey{{}}},
+			cfg: Config{
+				WebRTC:    WebRTCConfig{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820"},
+				HTTP:      HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820"}}},
+				EdgeNodes: []giznet.PublicKey{{}},
+			},
 			want: "server: edge-nodes[0] is zero",
 		},
 	}
@@ -1308,7 +1387,9 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 }
 
 func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
-	cfg, err := prepareConfig(Config{Services: validServicesConfig()})
+	cfg := DefaultConfig()
+	cfg.Services = validServicesConfig()
+	cfg, err := prepareConfig(cfg)
 	if err != nil {
 		t.Fatalf("prepareConfig error = %v", err)
 	}
@@ -1316,11 +1397,11 @@ func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
 		t.Fatal("KeyPair should be generated")
 	}
 	defaults := DefaultConfig()
-	if cfg.Listen != defaults.Listen {
-		t.Fatalf("Listen = %q, want %q", cfg.Listen, defaults.Listen)
+	if cfg.WebRTC.Listen != defaults.WebRTC.Listen {
+		t.Fatalf("WebRTC.Listen = %q, want %q", cfg.WebRTC.Listen, defaults.WebRTC.Listen)
 	}
-	if cfg.Endpoint != defaults.Endpoint {
-		t.Fatalf("Endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
+	if cfg.WebRTC.Endpoint != defaults.WebRTC.Endpoint {
+		t.Fatalf("WebRTC.Endpoint = %q, want %q", cfg.WebRTC.Endpoint, defaults.WebRTC.Endpoint)
 	}
 }
 
@@ -1415,8 +1496,8 @@ func TestNewAcceptsMemoryPeerRunStore(t *testing.T) {
 
 func validLayeredConfig(dir string) Config {
 	return Config{
-		Listen:   "127.0.0.1:1234",
-		Endpoint: "127.0.0.1:1234",
+		WebRTC: WebRTCConfig{Listen: "127.0.0.1:1234", Endpoint: "127.0.0.1:1234"},
+		HTTP:   HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:1234"}}},
 		Storage: map[string]storage.Config{
 			"memory":       storage.MemoryConfig{},
 			"local-files":  storage.FilesystemDirConfig{Dir: dir},

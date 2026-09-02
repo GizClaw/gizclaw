@@ -20,7 +20,7 @@ GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Run
 | Storage 与 media | Store packages 提供通用持久化/索引能力；Audio packages 提供 codec、PCM、重采样和 voiceprint。 |
 | Observability | 使用结构化日志定位单次请求，通过低 cardinality metrics 观察请求、runtime 与设备状态。具体字段与 ownership 见 [Observability](observability)。 |
 
-当前代码支持单 upstream 的 Edge ingress。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力。
+当前代码支持 Edge 配置多个 authoritative Server upstream，并按 API Key owner 的固定 Peer assignment 路由业务 HTTP 请求。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力。
 
 ## 运行时架构
 
@@ -56,7 +56,7 @@ flowchart TB
     Browser <-->|"HTTP or WebRTC"| Edge
     Edge <-->|"WebRTC upstream"| Server
     Device -. "direct deployment" .-> Server
-    Browser -. "Admin / Public HTTP" .-> Server
+    Browser -. "Admin HTTP / signaling" .-> Server
     Server --> Peer
     Peer --> Domains
     Peer --> Runtime

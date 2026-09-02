@@ -20,7 +20,7 @@ Code review should use these boundaries to determine whether changes are in the 
 | Storage and media | Store packages provide general persistence/indexing capabilities; Audio packages provide codec, PCM, resampling, and voiceprint. |
 | Observability | Use structured logs to diagnose individual requests and low-cardinality metrics to observe requests, runtimes, and device state. See [Observability](observability) for fields and ownership. |
 
-The current code supports Edge ingress with a single upstream. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities.
+The current code supports multiple configured authoritative Server upstreams and routes business HTTP requests by the API key owner's fixed Peer assignment. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities.
 
 ## Runtime architecture
 
@@ -56,7 +56,7 @@ flowchart TB
     Browser <-->|"HTTP or WebRTC"| Edge
     Edge <-->|"WebRTC upstream"| Server
     Device -. "direct deployment" .-> Server
-    Browser -. "Admin / Public HTTP" .-> Server
+    Browser -. "Admin HTTP / signaling" .-> Server
     Server --> Peer
     Peer --> Domains
     Peer --> Runtime

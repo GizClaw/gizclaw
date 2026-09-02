@@ -19,3 +19,7 @@ func (c *rpcClient) ServerPeerAssign(ctx context.Context, conn net.Conn, id stri
 func (c *rpcClient) ServerRouteResolve(ctx context.Context, conn net.Conn, id string, request rpcpb.ServerRouteResolveRequest) (*rpcpb.ServerRouteResolveResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerRouteResolve, request, (*rpcapi.RPCPayload).FromServerRouteResolveRequest, rpcapi.RPCPayload.AsServerRouteResolveResponse, "edge route resolve")
 }
+
+func (c *rpcClient) ServerAPIKeyResolve(ctx context.Context, conn net.Conn, id string, request rpcpb.ServerAPIKeyResolveRequest) (*rpcpb.ServerAPIKeyResolveResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerAPIKeyResolve, request, (*rpcapi.RPCPayload).FromServerAPIKeyResolveRequest, rpcapi.RPCPayload.AsServerAPIKeyResolveResponse, "edge API key resolve")
+}

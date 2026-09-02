@@ -1338,7 +1338,9 @@ static uint64_t test_rpc_service(gizclaw_rpc_v1_RpcMethod method) {
                  method ==
                      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN ||
                  method ==
-                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE ||
+                 method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE
              ? 0x31u
              : 0u;
 }
@@ -3929,7 +3931,7 @@ int main(void) {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
     };
-    static const int control_method_ids[] = {99, 100, 101, 102, 103, 104, 105};
+    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106};
     for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
       if (expect((int)control_methods[i] == control_method_ids[i],
                  "device control method id matches rpc.proto") != 0) {
