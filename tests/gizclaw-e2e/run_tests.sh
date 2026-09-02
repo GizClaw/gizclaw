@@ -118,7 +118,7 @@ stop_full_watchdog() {
 validate_deadlines() {
 	require_positive_seconds GIZCLAW_E2E_FULL_DEADLINE_SECONDS "$full_deadline_seconds"
 	local phase deadline
-	for phase in preflight:validate docker:setup docker:cleanup giztest:standard cli go:validate; do
+	for phase in preflight:validate docker:setup docker:cleanup giztest:standard giztest:c-sdk cli go:validate; do
 		deadline="$(phase_deadline_seconds "$phase")"
 		require_positive_seconds "deadline for $phase" "$deadline"
 	done
@@ -286,6 +286,13 @@ build_host_cli() {
 	(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
 }
 
+# The cgo runner drives the same scenarios through sdk/c/gizclaw and
+# sdk/c/gizclaw_control instead of the Go SDK, so it needs nanopb in place.
+build_c_giztest_runner() {
+	mkdir -p "$script_dir/testdata/bin"
+	(cd "$repo_root" && go build -o "$script_dir/testdata/bin/giztest-c" ./tests/gizclaw-e2e/cgo/giztest)
+}
+
 start_docker_stack() {
 	bash "$setup_dir/docker-compose-up.sh"
 }
@@ -350,6 +357,26 @@ run_standard_giztest() {
 	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --output "$report")
 }
 
+# The C runner supports rpc, client_rpc, and the /gizclaw/v1 http surface. It
+# runs the scenarios built from those operations; validate rejects anything
+# else, so an unsupported step can never pass silently here.
+run_c_giztest() {
+	local giztest_dir="$script_dir/giztest"
+	local report="$script_dir/testdata/giztest-c-report.json"
+	local -a files=()
+	while IFS= read -r file; do files+=("$file"); done < <(
+		find "$giztest_dir" -maxdepth 1 -type f \
+			\( -name 'all.ping.giztest.yaml' -o -name 'server.api_key.*.giztest.yaml' \
+			-o -name 'server.contacts.*.giztest.yaml' -o -name 'server.device.*.giztest.yaml' \) \
+			-print | sort
+	)
+	local -a validate_args=()
+	local file
+	for file in "${files[@]}"; do validate_args+=(--file "$file"); done
+	(cd "$repo_root" && "$script_dir/testdata/bin/giztest-c" test validate "${validate_args[@]}")
+	(cd "$repo_root" && "$script_dir/testdata/bin/giztest-c" test run "${files[@]}" --parallel 4 --output "$report")
+}
+
 run_failure_cleanup_giztest() {
 	local report="$script_dir/testdata/giztest-failure-cleanup-report.json"
 	if (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
@@ -378,6 +405,7 @@ run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb
 
 run_timed "preflight:host-cli" build_host_cli
+run_timed "preflight:c-giztest-runner" build_c_giztest_runner
 
 stack_started=1
 run_timed "docker:setup" start_docker_stack
@@ -397,6 +425,7 @@ run_timed "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
 run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
 run_timed "giztest:standard" run_standard_giztest
 run_timed "giztest:failure-cleanup" run_failure_cleanup_giztest
+run_timed "giztest:c-sdk" run_c_giztest
 
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
 stack_started=0

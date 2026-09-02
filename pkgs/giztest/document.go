@@ -175,6 +175,10 @@ type Expectation struct {
 	Normalize   []string `json:"normalize,omitempty" yaml:"normalize,omitempty"`
 }
 
+// ControlPathPrefix is the route prefix of the API-key HTTP surface an http
+// step targets.
+const ControlPathPrefix = "/gizclaw/v1"
+
 // MaxRelayAudioBytes bounds the audio one workspace_relay step may relay and
 // capture. It is a document-level contract, so the driver enforces the same
 // number while streaming.
