@@ -22,6 +22,9 @@ type fakeDeviceConn struct {
 	dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error)
 	calls    atomic.Int32
 	methods  chan rpcapi.RPCMethod
+	// onDial runs before the RPC stream is returned, letting tests interleave
+	// a reconnect between connection lookup and RPC dispatch.
+	onDial func()
 }
 
 func newFakeDeviceConn(dispatch func(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error)) *fakeDeviceConn {
@@ -29,6 +32,9 @@ func newFakeDeviceConn(dispatch func(context.Context, *rpcapi.RPCRequest) (*rpca
 }
 
 func (c *fakeDeviceConn) Dial(uint64) (net.Conn, error) {
+	if c.onDial != nil {
+		c.onDial()
+	}
 	client, server := net.Pipe()
 	go func() {
 		_ = handleRPC(server, func(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -420,4 +426,47 @@ func TestDeviceControlRebootMarkerIgnoresReconnectDuringAck(t *testing.T) {
 	if old.calls.Load() != 1 || replacement.calls.Load() != 1 {
 		t.Fatalf("device calls old=%d replacement=%d", old.calls.Load(), replacement.calls.Load())
 	}
+}
+
+// TestDeviceControlRebootMarkerNamesAcknowledgingConnection checks that when
+// the device reconnects between the connection lookup and the RPC dispatch,
+// the marker still names the connection that carried the acknowledgement.
+func TestDeviceControlRebootMarkerNamesAcknowledgingConnection(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	old := rebootingDevice(closedChannel(), make(chan struct{}))
+	replacement := rebootingDevice(closedChannel(), make(chan struct{}))
+	old.onDial = func() { f.manager.SetPeerUp(f.owner, replacement) }
+	f.manager.SetPeerUp(f.owner, old)
+
+	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""); response.Code != http.StatusNoContent {
+		t.Fatalf("reboot status = %d body=%s", response.Code, response.Body.String())
+	}
+	if old.calls.Load() != 1 || replacement.calls.Load() != 0 {
+		t.Fatalf("reboot reached old=%d replacement=%d, want the looked-up connection only", old.calls.Load(), replacement.calls.Load())
+	}
+	// The old connection acknowledged and is marked; the replacement is live.
+	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusOK {
+		t.Fatalf("control on replacement status = %d body=%s", response.Code, response.Body.String())
+	}
+	if replacement.calls.Load() != 1 {
+		t.Fatalf("replacement calls = %d", replacement.calls.Load())
+	}
+
+	// The acknowledging connection is what gets marked, whichever it is: a
+	// reboot answered by the replacement blocks the replacement.
+	if response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", ""); response.Code != http.StatusNoContent {
+		t.Fatalf("second reboot status = %d", response.Code)
+	}
+	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusConflict {
+		t.Fatalf("control after replacement reboot status = %d body=%s", response.Code, response.Body.String())
+	}
+	if replacement.calls.Load() != 2 {
+		t.Fatalf("replacement calls after marked reboot = %d", replacement.calls.Load())
+	}
+}
+
+func closedChannel() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }

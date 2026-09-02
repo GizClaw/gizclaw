@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -136,14 +137,21 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	if c.rebootPending(owner) {
 		return nil, deviceOfflineError()
 	}
-	// Capture the connection the command is about to use; a reconnect during
-	// the call must not be mistaken for the acknowledging device.
-	target, _ := c.manager.Peer(owner)
+	// Resolve the active connection once and dial the RPC stream on that
+	// same connection, so the reboot marker always names the connection that
+	// actually answered even if the device reconnects mid-command.
+	target, ok := c.manager.Peer(owner)
+	if !ok || target == nil {
+		return nil, deviceOfflineError()
+	}
 	callCtx, cancel := context.WithTimeout(ctx, c.controlTimeout())
 	defer cancel()
-	result, err := callPeerRPC(c.manager, callCtx, owner, func(client *rpcClient, conn net.Conn) (*T, error) {
-		return call(callCtx, client, conn)
-	})
+	stream, err := target.Dial(ServicePeerRPC)
+	if err != nil {
+		return nil, mapDeviceControlError(fmt.Errorf("dial peer rpc: %w", err), callCtx)
+	}
+	defer func() { _ = stream.Close() }()
+	result, err := call(callCtx, &rpcClient{}, stream)
 	if err != nil {
 		return nil, mapDeviceControlError(err, callCtx)
 	}
