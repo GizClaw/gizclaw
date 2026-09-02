@@ -14,16 +14,19 @@
 
 ## HTTP listeners 与 TLS
 
-Server 的顶层 `listen` 继续定义 WebRTC transport tuple，并且必须等于
+Server 的 `webrtc.listen` 定义 WebRTC transport tuple，并且必须等于
 `http.listeners[0].listen`。`http.listeners` 必填，也可以声明多个唯一的 TCP 地址；每个 listener
 都服务 `/server-info` 与 signaling。直接访问 Public API 和 OpenAI-compatible API 会始终被拒绝，
 因为业务 API 只能经 Edge 访问。listener 可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
 TLS 1.2 及以上的 HTTPS。证书路径相对 workspace 解析并支持环境变量。空列表、重复地址、
 单边或无效证书会在服务流量前失败。
 
+已移除的顶层 `listen` 与 `endpoint` 字段会被拒绝；两个值都必须放在 `webrtc` 下。
+
 ```yaml
-listen: 0.0.0.0:9820
-endpoint: server.example.com:9820
+webrtc:
+  listen: 0.0.0.0:9820
+  endpoint: server.example.com:9820
 http:
   listeners:
     - listen: 0.0.0.0:9820
@@ -33,8 +36,8 @@ http:
         key-file: ${GIZCLAW_TLS_KEY_FILE}
 ```
 
-第一个 listener 为明文时，现有 TCP mux 继续让 HTTP/signaling 与 raw ICE-TCP 共用顶层
-TCP socket。当第一个 listener 启用 TLS 时，该数字端口仍同时提供 HTTPS TCP 与 ICE UDP，
+第一个 listener 为明文时，现有 TCP mux 继续让 HTTP/signaling 与 raw ICE-TCP 共用
+`webrtc.listen` 的 TCP socket。当第一个 listener 启用 TLS 时，该数字端口仍同时提供 HTTPS TCP 与 ICE UDP，
 但不创建或发布 raw ICE-TCP listener；额外 HTTP listeners 也不增加 ICE listener。
 Server 没有 Edge 的 `gateway`：gateway 是 Edge 终止客户端 WebRTC 并桥接到 Server upstream
 pool 的能力，不是 Server HTTP listener 的别名。

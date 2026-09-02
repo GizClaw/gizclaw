@@ -2,8 +2,9 @@ identity:
   private-key: ${GIZCLAW_SERVER_PRIVATE_KEY}
 admin-public-key: ${GIZCLAW_ADMIN_PUBLIC_KEY}
 
-listen: 0.0.0.0:9820
-endpoint: gizclaw.example.com:9820
+webrtc:
+  listen: 0.0.0.0:9820
+  endpoint: gizclaw.example.com:9820
 http:
   listeners:
     - listen: 0.0.0.0:9820

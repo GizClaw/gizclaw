@@ -82,8 +82,9 @@ Server configuration has three layers:
 Use `guides/snippets/server-storage-stores-services.yaml` as the complete configuration reference. A reduced fragment looks like this, but a runnable Server still requires every core `services` block from the complete reference:
 
 ```yaml
-listen: 0.0.0.0:9820
-endpoint: gizclaw.example.com:9820
+webrtc:
+  listen: 0.0.0.0:9820
+  endpoint: gizclaw.example.com:9820
 http:
   listeners:
     - listen: 0.0.0.0:9820

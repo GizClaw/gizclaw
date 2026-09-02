@@ -80,22 +80,21 @@ business authorization model.
 The Edge workspace configuration describes the basic information required to run the current node:
 
 - The Edge Node's own giznet identity.
-- A top-level WebRTC transport listen/endpoint and one or more HTTP/signaling
-  listeners.
+- A `webrtc` transport listen/endpoint and one or more HTTP/signaling listeners.
 - At least one ordered upstream Server entry; each entry pins an endpoint,
   public key, and optional relay-only TURN pool for Edge-to-Server PeerConnections.
-- Selection of TLS certificate source.
+- Optional per-listener TLS certificate files.
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
 - Optional gateway capacity, upstream pool, buffer, idle, and drain bounds.
 - An optional Prometheus Remote Write/query metrics backend.
 - Optional process-log fan-out to stderr and an immutable LogStore backed by
   Volc TLS.
 
-Top-level `listen` is the WebRTC transport bind tuple and must also equal
+`webrtc.listen` is the WebRTC transport bind tuple and must also equal
 `http.listeners[0].listen`. The Edge opens separate TCP and UDP sockets on that
 host and numeric port: the first TCP listener carries public
 HTTP and signaling, while UDP carries ICE, DTLS, SCTP, and DataChannels when
-gateway mode is enabled. Top-level `endpoint` is the matching externally
+gateway mode is enabled. `webrtc.endpoint` is the matching externally
 reachable tuple published in `/server-info.transport.endpoint`. When its host
 is a concrete literal IP, the gateway also rewrites answer-SDP UDP host
 candidates to that exact host and port. A hostname or unspecified address does
@@ -170,13 +169,14 @@ plaintext HTTP or provides both local `cert-file` and `key-file` for HTTPS with
 TLS 1.2 or newer. Addresses must be unique, and certificate pairs are loaded
 before traffic is served. An empty list, a partial pair, an invalid certificate,
 or a duplicate address fails startup. `http.listeners` is required, and its
-first address must equal top-level `listen`. Top-level `tls` is rejected;
-certificate configuration belongs only to each listener. Certificate paths
-support environment expansion.
+first address must equal `webrtc.listen`. Removed top-level `listen`,
+`endpoint`, and `tls` fields are rejected; certificate configuration belongs
+only to each listener. Certificate paths support environment expansion.
 
 ```yaml
-listen: 0.0.0.0:9821
-endpoint: edge.example.com:443
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: edge.example.com:443
 http:
   listeners:
     - listen: 0.0.0.0:9821

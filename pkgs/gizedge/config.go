@@ -23,8 +23,7 @@ const workspaceConfigFile = "config.yaml"
 
 type Config struct {
 	KeyPair          *giznet.KeyPair
-	Listen           string
-	Endpoint         string
+	WebRTC           WebRTCConfig
 	Upstreams        []UpstreamConfig
 	selectedUpstream UpstreamConfig
 	HTTP             HTTPConfig
@@ -36,6 +35,12 @@ type Config struct {
 	SystemLog        gizlog.Config
 
 	systemLogConfigured bool
+}
+
+// WebRTCConfig defines the Edge WebRTC transport bind and published tuples.
+type WebRTCConfig struct {
+	Listen   string `yaml:"listen"`
+	Endpoint string `yaml:"endpoint"`
 }
 
 type IdentityConfig struct {
@@ -153,8 +158,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 
 type ConfigFile struct {
 	Identity  IdentityConfig               `yaml:"identity"`
-	Listen    string                       `yaml:"listen"`
-	Endpoint  string                       `yaml:"endpoint"`
+	WebRTC    *WebRTCConfig                `yaml:"webrtc"`
 	Upstreams *[]UpstreamConfig            `yaml:"upstreams"`
 	HTTP      *HTTPConfig                  `yaml:"http"`
 	TURN      TURNConfig                   `yaml:"turn"`
@@ -199,6 +203,11 @@ func rejectRetiredConfig(data []byte) error {
 	if _, exists := document["tls"]; exists {
 		return fmt.Errorf("edge: top-level tls was removed; use http.listeners[].tls")
 	}
+	for _, retired := range []string{"listen", "endpoint"} {
+		if _, exists := document[retired]; exists {
+			return fmt.Errorf("edge: top-level %s was removed; use webrtc.%s", retired, retired)
+		}
+	}
 	gateway, ok := document["gateway"].(map[string]any)
 	if !ok {
 		return nil
@@ -207,8 +216,8 @@ func rejectRetiredConfig(data []byte) error {
 		key     string
 		message string
 	}{
-		{key: "ice-udp-listen", message: "was removed; use top-level listen"},
-		{key: "public-ice-udp", message: "was removed; use top-level endpoint"},
+		{key: "ice-udp-listen", message: "was removed; use webrtc.listen"},
+		{key: "public-ice-udp", message: "was removed; use webrtc.endpoint"},
 		{key: "streams-per-upstream", message: "is retired; use gateway.channels-per-upstream"},
 		{key: "delegated-envelope-validity", message: "is retired"},
 	}
@@ -222,10 +231,9 @@ func rejectRetiredConfig(data []byte) error {
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:   "0.0.0.0:9821",
-		Endpoint: "0.0.0.0:9821",
-		HTTP:     HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9821"}}},
-		Gateway:  defaultGatewayConfig(),
+		WebRTC:  WebRTCConfig{Listen: "0.0.0.0:9821", Endpoint: "0.0.0.0:9821"},
+		HTTP:    HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9821"}}},
+		Gateway: defaultGatewayConfig(),
 	}
 }
 
@@ -259,11 +267,8 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		cfg.Upstreams = append([]UpstreamConfig(nil), (*fileCfg.Upstreams)...)
 	}
 	systemLogConfigured := !cfg.SystemLog.IsZero() || fileCfg.SystemLog != nil
-	if cfg.Listen == "" {
-		cfg.Listen = fileCfg.Listen
-	}
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = fileCfg.Endpoint
+	if cfg.WebRTC == (WebRTCConfig{}) && fileCfg.WebRTC != nil {
+		cfg.WebRTC = *fileCfg.WebRTC
 	}
 	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("edge: http.listeners must not be empty")
@@ -315,11 +320,11 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		return Config{}, fmt.Errorf("edge: invalid identity.private-key: %w", err)
 	}
 	cfg.KeyPair = keyPair
-	if cfg.Listen == "" {
-		cfg.Listen = DefaultConfig().Listen
+	if cfg.WebRTC.Listen == "" {
+		return Config{}, fmt.Errorf("edge: webrtc.listen is required")
 	}
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = cfg.Listen
+	if cfg.WebRTC.Endpoint == "" {
+		return Config{}, fmt.Errorf("edge: webrtc.endpoint is required")
 	}
 	if len(cfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("edge: http.listeners is required")
@@ -339,24 +344,24 @@ func (cfg Config) validate() error {
 	if cfg.KeyPair == nil {
 		return fmt.Errorf("edge: missing identity.private-key")
 	}
-	if cfg.Listen == "" {
-		return fmt.Errorf("edge: missing listen")
+	if cfg.WebRTC.Listen == "" {
+		return fmt.Errorf("edge: missing webrtc.listen")
 	}
-	if cfg.Endpoint == "" {
-		return fmt.Errorf("edge: missing endpoint")
+	if cfg.WebRTC.Endpoint == "" {
+		return fmt.Errorf("edge: missing webrtc.endpoint")
 	}
-	if _, _, err := netSplitNumericHostPort("listen", cfg.Listen); err != nil {
+	if _, _, err := netSplitNumericHostPort("webrtc.listen", cfg.WebRTC.Listen); err != nil {
 		return err
 	}
-	if _, _, err := netSplitNumericHostPort("endpoint", cfg.Endpoint); err != nil {
+	if _, _, err := netSplitNumericHostPort("webrtc.endpoint", cfg.WebRTC.Endpoint); err != nil {
 		return err
 	}
 	httpListeners := cfg.HTTP.Listeners
 	if len(httpListeners) == 0 {
 		return fmt.Errorf("edge: http.listeners is required")
 	}
-	if httpListeners[0].Listen != cfg.Listen {
-		return fmt.Errorf("edge: http.listeners[0].listen must match listen")
+	if httpListeners[0].Listen != cfg.WebRTC.Listen {
+		return fmt.Errorf("edge: http.listeners[0].listen must match webrtc.listen")
 	}
 	seenHTTPListeners := make(map[string]int, len(httpListeners))
 	for index, listener := range httpListeners {

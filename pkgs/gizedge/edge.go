@@ -92,12 +92,12 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	if gateway != nil {
 		transport = &serverInfoTransport{
 			Mode:          "edge-gateway",
-			Endpoint:      cfg.Endpoint,
+			Endpoint:      cfg.WebRTC.Endpoint,
 			PublicKey:     cfg.KeyPair.Public.String(),
 			SignalingPath: gizwebrtc.SignalingPath,
 		}
 	}
-	proxy := newPeerHTTPProxy(cfg.Endpoint, upstreamTransport, transport)
+	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
 	handler := edgeIngressHandler(proxy, gateway)
 	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
 	if err != nil {

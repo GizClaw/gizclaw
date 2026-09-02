@@ -23,6 +23,9 @@ func TestPrepareWorkspaceConfigLoadsUpstreamRelayPool(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`

@@ -34,8 +34,9 @@ func TestPrepareWorkspaceConfigLoadsOneUpstream(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: 127.0.0.1:9821
-endpoint: edge.example.com:9821
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: edge.example.com:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
@@ -55,11 +56,11 @@ metrics:
 	if cfg.KeyPair == nil || !cfg.KeyPair.Public.Equal(edgeKey.Public) {
 		t.Fatalf("edge public key = %v, want %v", cfg.KeyPair.Public, edgeKey.Public)
 	}
-	if cfg.Listen != "127.0.0.1:9821" {
-		t.Fatalf("Listen = %q", cfg.Listen)
+	if cfg.WebRTC.Listen != "127.0.0.1:9821" {
+		t.Fatalf("Listen = %q", cfg.WebRTC.Listen)
 	}
-	if cfg.Endpoint != "edge.example.com:9821" {
-		t.Fatalf("Endpoint = %q", cfg.Endpoint)
+	if cfg.WebRTC.Endpoint != "edge.example.com:9821" {
+		t.Fatalf("Endpoint = %q", cfg.WebRTC.Endpoint)
 	}
 	if len(cfg.Upstreams) != 1 || cfg.Upstreams[0].Endpoint != "server-a.example.com:9820" {
 		t.Fatalf("Upstreams = %+v", cfg.Upstreams)
@@ -81,8 +82,9 @@ func TestPrepareWorkspaceConfigLoadsMultipleHTTPListenersWithTLS(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: 127.0.0.1:9821
-endpoint: edge.example.com:9821
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: edge.example.com:9821
 upstreams:
   - endpoint: server.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
@@ -165,8 +167,9 @@ func TestPrepareWorkspaceConfigLoadsOrderedPluralUpstreams(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: 127.0.0.1:9821
-endpoint: 127.0.0.1:9821
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: 127.0.0.1:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+first.Public.String()+`
@@ -201,7 +204,7 @@ func TestConfigRejectsInvalidPluralUpstreams(t *testing.T) {
 	first := testKeyPair(t, 0x16)
 	second := testKeyPair(t, 0x17)
 	base := Config{
-		KeyPair: edgeKey, Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821",
+		KeyPair: edgeKey, WebRTC: WebRTCConfig{Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821"},
 		HTTP:    HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9821"}}},
 		Gateway: defaultGatewayConfig(),
 		Upstreams: []UpstreamConfig{
@@ -240,6 +243,9 @@ func TestPrepareWorkspaceConfigIgnoresSingularUpstream(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstream:
   endpoint: ignored.example.com:1
   public-key: ignored
@@ -280,8 +286,9 @@ func TestPrepareWorkspaceConfigRejectsInvalidIngressPorts(t *testing.T) {
 			writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: `+tc.listen+`
-endpoint: `+tc.endpoint+`
+webrtc:
+  listen: `+tc.listen+`
+  endpoint: `+tc.endpoint+`
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
@@ -384,17 +391,29 @@ func TestParseConfigDataRejectsLegacyGatewayAddresses(t *testing.T) {
 		value string
 		want  string
 	}{
-		{name: "listen value", key: "ice-udp-listen", value: "0.0.0.0:9824", want: "top-level listen"},
-		{name: "listen empty", key: "ice-udp-listen", value: `""`, want: "top-level listen"},
-		{name: "listen null", key: "ice-udp-listen", value: "null", want: "top-level listen"},
-		{name: "endpoint value", key: "public-ice-udp", value: "192.0.2.10:9824", want: "top-level endpoint"},
-		{name: "endpoint empty", key: "public-ice-udp", value: `""`, want: "top-level endpoint"},
-		{name: "endpoint null", key: "public-ice-udp", value: "null", want: "top-level endpoint"},
+		{name: "listen value", key: "ice-udp-listen", value: "0.0.0.0:9824", want: "webrtc.listen"},
+		{name: "listen empty", key: "ice-udp-listen", value: `""`, want: "webrtc.listen"},
+		{name: "listen null", key: "ice-udp-listen", value: "null", want: "webrtc.listen"},
+		{name: "endpoint value", key: "public-ice-udp", value: "192.0.2.10:9824", want: "webrtc.endpoint"},
+		{name: "endpoint empty", key: "public-ice-udp", value: `""`, want: "webrtc.endpoint"},
+		{name: "endpoint null", key: "public-ice-udp", value: "null", want: "webrtc.endpoint"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := parseConfigData([]byte("gateway:\n  " + tc.key + ": " + tc.value + "\n"))
 			if err == nil || !strings.Contains(err.Error(), "gateway."+tc.key) || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("parseConfigData error = %v, want key and replacement", err)
+			}
+		})
+	}
+}
+
+func TestParseConfigDataRejectsRemovedTopLevelWebRTCFields(t *testing.T) {
+	for _, field := range []string{"listen", "endpoint"} {
+		t.Run(field, func(t *testing.T) {
+			_, err := parseConfigData([]byte(field + ": 0.0.0.0:9821\n"))
+			want := "top-level " + field + " was removed; use webrtc." + field
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("parseConfigData error = %v, want %q", err, want)
 			}
 		})
 	}
@@ -447,13 +466,16 @@ func TestPublicGatewayICEAddr(t *testing.T) {
 	}
 }
 
-func TestPrepareWorkspaceConfigDefaultsEndpoint(t *testing.T) {
+func TestPrepareWorkspaceConfigLoadsWebRTC(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x33)
 	upstreamKey := testKeyPair(t, 0x44)
 	dir := t.TempDir()
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: edge.example.com:443
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
@@ -466,11 +488,11 @@ http:
 	if err != nil {
 		t.Fatalf("PrepareWorkspaceConfig error = %v", err)
 	}
-	if cfg.Listen != "0.0.0.0:9821" {
-		t.Fatalf("Listen = %q", cfg.Listen)
+	if cfg.WebRTC.Listen != "0.0.0.0:9821" {
+		t.Fatalf("Listen = %q", cfg.WebRTC.Listen)
 	}
-	if cfg.Endpoint != cfg.Listen {
-		t.Fatalf("Endpoint = %q, want listen %q", cfg.Endpoint, cfg.Listen)
+	if cfg.WebRTC.Endpoint != "edge.example.com:443" {
+		t.Fatalf("Endpoint = %q", cfg.WebRTC.Endpoint)
 	}
 }
 
@@ -496,6 +518,9 @@ upstreams:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - public-key: ` + upstreamKey.Public.String() + `
 http:
@@ -505,10 +530,45 @@ http:
 			want: "upstreams[0].endpoint",
 		},
 		{
+			name: "missing WebRTC listen",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  endpoint: 0.0.0.0:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+`,
+			want: "webrtc.listen is required",
+		},
+		{
+			name: "missing WebRTC endpoint",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+`,
+			want: "webrtc.endpoint is required",
+		},
+		{
 			name: "missing upstream public key",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
 http:
@@ -522,6 +582,9 @@ http:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: ` + upstreamKey.Public.String() + `
@@ -535,6 +598,9 @@ tls:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: ` + upstreamKey.Public.String() + `
@@ -559,6 +625,9 @@ http:
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: 0.0.0.0:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: ` + upstreamKey.Public.String() + `
@@ -627,7 +696,9 @@ func TestServeContextForwardsToUpstreamGizHTTP(t *testing.T) {
 	writeConfig(t, dir, `
 identity:
   private-key: `+edgeKey.Private.String()+`
-listen: `+listenAddr+`
+webrtc:
+  listen: `+listenAddr+`
+  endpoint: `+listenAddr+`
 upstreams:
   - endpoint: `+signaling.URL+`
     public-key: `+upstreamKey.Public.String()+`

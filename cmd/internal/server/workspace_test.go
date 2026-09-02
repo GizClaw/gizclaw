@@ -27,8 +27,7 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 	t.Helper()
 	runtime := validLayeredConfig(".")
 	cfg := ConfigFile{
-		Listen:   runtime.Listen,
-		Endpoint: runtime.Endpoint,
+		WebRTC:   &runtime.WebRTC,
 		HTTP:     &runtime.HTTP,
 		Storage:  testStorageFileConfigs(runtime.Storage),
 		Stores:   testStoreFileConfigs(runtime.Stores),
@@ -43,8 +42,7 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 	}
 	raw := struct {
 		Identity       *IdentityConfig              `yaml:"identity,omitempty"`
-		Listen         string                       `yaml:"listen,omitempty"`
-		Endpoint       string                       `yaml:"endpoint,omitempty"`
+		WebRTC         *WebRTCConfig                `yaml:"webrtc,omitempty"`
 		HTTP           *HTTPConfig                  `yaml:"http,omitempty"`
 		AdminPublicKey giznet.PublicKey             `yaml:"admin-public-key,omitempty"`
 		Storage        map[string]storageFileConfig `yaml:"storage"`
@@ -52,7 +50,7 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		Services       *ServicesConfig              `yaml:"services"`
 		Profiling      ProfilingConfig              `yaml:"profiling,omitempty"`
 	}{
-		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint, HTTP: cfg.HTTP,
+		Identity: identity, WebRTC: cfg.WebRTC, HTTP: cfg.HTTP,
 		AdminPublicKey: cfg.AdminPublicKey,
 		Storage:        cfg.Storage, Stores: cfg.Stores, Services: cfg.Services, Profiling: cfg.Profiling,
 	}
@@ -151,9 +149,9 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	adminKP := testKeyPair(t, 0xab)
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Identity.PrivateKey = serverKP.Private
-		cfg.Listen = "127.0.0.1:39001"
-		cfg.Endpoint = "127.0.0.1:39001"
-		cfg.HTTP.Listeners[0].Listen = cfg.Listen
+		cfg.WebRTC.Listen = "127.0.0.1:39001"
+		cfg.WebRTC.Endpoint = "127.0.0.1:39001"
+		cfg.HTTP.Listeners[0].Listen = cfg.WebRTC.Listen
 		cfg.AdminPublicKey = adminKP.Public
 		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
 		cfg.Storage["gameplay-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/gameplay.sqlite"}
@@ -172,11 +170,11 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 	if cfg.KeyPair.Public != serverKP.Public {
 		t.Fatalf("KeyPair.Public = %v, want %v", cfg.KeyPair.Public, serverKP.Public)
 	}
-	if cfg.Listen != "127.0.0.1:39001" {
-		t.Fatalf("Listen = %q", cfg.Listen)
+	if cfg.WebRTC.Listen != "127.0.0.1:39001" {
+		t.Fatalf("Listen = %q", cfg.WebRTC.Listen)
 	}
-	if cfg.Endpoint != "127.0.0.1:39001" {
-		t.Fatalf("Endpoint = %q", cfg.Endpoint)
+	if cfg.WebRTC.Endpoint != "127.0.0.1:39001" {
+		t.Fatalf("Endpoint = %q", cfg.WebRTC.Endpoint)
 	}
 	adminKey := adminKP.Public
 	if cfg.AdminPublicKey != adminKey {
@@ -197,7 +195,7 @@ func TestPrepareWorkspaceConfigExpandsAbsoluteTLSPathsBeforeWorkspaceResolution(
 	t.Setenv("GIZCLAW_TEST_TLS_KEY_FILE", keyFile)
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.HTTP = &HTTPConfig{Listeners: []HTTPListenerConfig{{
-			Listen: cfg.Listen,
+			Listen: cfg.WebRTC.Listen,
 			TLS: HTTPListenerTLSConfig{
 				CertFile: "${GIZCLAW_TEST_TLS_CERT_FILE}",
 				KeyFile:  "${GIZCLAW_TEST_TLS_KEY_FILE}",
@@ -222,8 +220,8 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Listen = addr
-		cfg.Endpoint = addr
+		cfg.WebRTC.Listen = addr
+		cfg.WebRTC.Endpoint = addr
 		cfg.HTTP.Listeners[0].Listen = addr
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
@@ -256,8 +254,8 @@ func TestServeContextServesHTTPSSignalingWithoutRawICETCP(t *testing.T) {
 	workspace := t.TempDir()
 	certFile, keyFile := writeServerTestTLSFiles(t, workspace)
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Listen = addr
-		cfg.Endpoint = addr
+		cfg.WebRTC.Listen = addr
+		cfg.WebRTC.Endpoint = addr
 		cfg.HTTP = &HTTPConfig{Listeners: []HTTPListenerConfig{{
 			Listen: addr,
 			TLS: HTTPListenerTLSConfig{
@@ -300,8 +298,8 @@ func TestServeContextProfilingLifecycle(t *testing.T) {
 			addr := localTCPUDPAddr(t)
 			workspace := t.TempDir()
 			data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-				cfg.Listen = addr
-				cfg.Endpoint = addr
+				cfg.WebRTC.Listen = addr
+				cfg.WebRTC.Endpoint = addr
 				cfg.HTTP.Listeners[0].Listen = addr
 				cfg.Storage["profile-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "data/profiles"}
 				cfg.Stores["runtime-profiling"] = storeFileConfig{Kind: stores.KindObjectStore, Storage: "profile-files", Prefix: "pprof"}
@@ -356,8 +354,8 @@ func TestServeContextDefaultKeepsServerInfoPublic(t *testing.T) {
 	addr := localTCPUDPAddr(t)
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Listen = addr
-		cfg.Endpoint = addr
+		cfg.WebRTC.Listen = addr
+		cfg.WebRTC.Endpoint = addr
 		cfg.HTTP.Listeners[0].Listen = addr
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
@@ -458,43 +456,25 @@ func waitForServerInfoWithClient(t *testing.T, client *http.Client, url string) 
 	return apitypes.ServerInfo{}
 }
 
-func TestPrepareWorkspaceConfigUsesDefaultPorts(t *testing.T) {
-	workspace := t.TempDir()
-	configPath := filepath.Join(workspace, workspaceConfigFile)
-	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Listen = ""
-		cfg.Endpoint = ""
-		defaults := DefaultConfig()
-		cfg.HTTP = &defaults.HTTP
-	})
-	if err := os.WriteFile(configPath, data, 0o644); err != nil {
-		t.Fatalf("WriteFile error = %v", err)
-	}
-
-	cfg, err := prepareWorkspaceConfig(workspace)
-	if err != nil {
-		t.Fatalf("prepareWorkspaceConfig error = %v", err)
-	}
-	defaults := DefaultConfig()
-	if cfg.Listen != defaults.Listen {
-		t.Fatalf("default listen = %q, want %q", cfg.Listen, defaults.Listen)
-	}
-	if cfg.Endpoint != defaults.Endpoint {
-		t.Fatalf("default endpoint = %q, want %q", cfg.Endpoint, defaults.Endpoint)
-	}
-	rewritten, err := LoadConfig(configPath)
-	if err != nil {
-		t.Fatalf("LoadConfig rewritten error = %v", err)
-	}
-	if rewritten.Identity.PrivateKey.IsZero() {
-		t.Fatal("identity.private-key should be written back to config")
-	}
-	rewrittenKeyPair, err := giznet.NewKeyPair(rewritten.Identity.PrivateKey)
-	if err != nil {
-		t.Fatalf("rewritten identity private key error = %v", err)
-	}
-	if rewrittenKeyPair.Public != cfg.KeyPair.Public {
-		t.Fatalf("rewritten public key = %v, want %v", rewrittenKeyPair.Public, cfg.KeyPair.Public)
+func TestPrepareWorkspaceConfigRequiresWebRTCFields(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*WebRTCConfig)
+		want   string
+	}{
+		{name: "listen", mutate: func(cfg *WebRTCConfig) { cfg.Listen = "" }, want: "webrtc.listen is required"},
+		{name: "endpoint", mutate: func(cfg *WebRTCConfig) { cfg.Endpoint = "" }, want: "webrtc.endpoint is required"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			workspace := t.TempDir()
+			data := validWorkspaceConfigData(t, func(cfg *ConfigFile) { test.mutate(cfg.WebRTC) })
+			if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
+				t.Fatalf("WriteFile error = %v", err)
+			}
+			if _, err := prepareWorkspaceConfig(workspace); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("prepareWorkspaceConfig error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -582,9 +562,9 @@ func TestForceServeReturnsWorkspaceLoadError(t *testing.T) {
 func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Listen = "127.0.0.1:0"
-		cfg.Endpoint = "127.0.0.1:9820"
-		cfg.HTTP.Listeners[0].Listen = cfg.Listen
+		cfg.WebRTC.Listen = "127.0.0.1:0"
+		cfg.WebRTC.Endpoint = "127.0.0.1:9820"
+		cfg.HTTP.Listeners[0].Listen = cfg.WebRTC.Listen
 		cfg.Storage["memory"] = storageFileConfig{Kind: storage.KindBadger}
 		cfg.Services.SystemLog = &gizlog.Config{Level: "debug"}
 	})
@@ -613,9 +593,9 @@ func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 	workspace := t.TempDir()
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
-		cfg.Listen = "127.0.0.1:0"
-		cfg.Endpoint = "127.0.0.1:9820"
-		cfg.HTTP.Listeners[0].Listen = cfg.Listen
+		cfg.WebRTC.Listen = "127.0.0.1:0"
+		cfg.WebRTC.Endpoint = "127.0.0.1:9820"
+		cfg.HTTP.Listeners[0].Listen = cfg.WebRTC.Listen
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)

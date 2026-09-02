@@ -60,8 +60,9 @@ func TestEdgeGatewayAndServerTunnelShareSessionCorrelation(t *testing.T) {
 	root := t.TempDir()
 	config := fmt.Sprintf(`identity:
   private-key: %s
-listen: %s
-endpoint: %s
+webrtc:
+  listen: %s
+  endpoint: %s
 upstreams:
   - endpoint: %s
     public-key: %s

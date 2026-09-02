@@ -14,7 +14,7 @@ It can combine multiple fields, but single field resource, validation, storage a
 
 ## HTTP listeners and TLS
 
-Top-level `listen` continues to define the WebRTC transport tuple and must equal
+`webrtc.listen` defines the WebRTC transport tuple and must equal
 `http.listeners[0].listen`. `http.listeners` is required and may declare multiple
 unique TCP addresses. Every listener serves `/server-info` and signaling; direct
 Public API and OpenAI-compatible API requests are always denied because those
@@ -24,9 +24,13 @@ relative to the workspace and support environment expansion. An empty list,
 duplicate address, partial pair, or invalid certificate fails before traffic is
 served.
 
+The removed top-level `listen` and `endpoint` fields are rejected; both values
+must be nested under `webrtc`.
+
 ```yaml
-listen: 0.0.0.0:9820
-endpoint: server.example.com:9820
+webrtc:
+  listen: 0.0.0.0:9820
+  endpoint: server.example.com:9820
 http:
   listeners:
     - listen: 0.0.0.0:9820
@@ -37,8 +41,8 @@ http:
 ```
 
 When the first listener is plaintext, the existing TCP mux continues to share
-the top-level TCP socket between HTTP/signaling and raw ICE-TCP. When the first
-listener enables TLS, the numeric port still provides HTTPS TCP and ICE UDP,
+the `webrtc.listen` TCP socket between HTTP/signaling and raw ICE-TCP. When the
+first listener enables TLS, the numeric port still provides HTTPS TCP and ICE UDP,
 but no raw ICE-TCP listener is created or advertised. Additional HTTP listeners
 also add no ICE listener. A Server has no Edge `gateway`: gateway is the Edge
 capability that terminates client WebRTC and bridges it into a Server upstream

@@ -20,8 +20,7 @@ import (
 type Config struct {
 	WorkspaceRoot   string `yaml:"-"`
 	KeyPair         *giznet.KeyPair
-	Listen          string
-	Endpoint        string
+	WebRTC          WebRTCConfig
 	HTTP            HTTPConfig
 	EdgeNodes       []giznet.PublicKey
 	ICEServers      []gizwebrtc.ICEServer
@@ -34,6 +33,12 @@ type Config struct {
 	Speech          SpeechConfig
 	PendingDeletion PendingDeletionConfig
 	Profiling       ProfilingConfig
+}
+
+// WebRTCConfig defines the Server WebRTC transport bind and published tuples.
+type WebRTCConfig struct {
+	Listen   string `yaml:"listen"`
+	Endpoint string `yaml:"endpoint"`
 }
 
 // HTTPConfig defines the ordered Server HTTP and HTTPS listeners.
@@ -312,8 +317,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 
 type ConfigFile struct {
 	Identity        IdentityConfig               `yaml:"identity"`
-	Listen          string                       `yaml:"listen"`
-	Endpoint        string                       `yaml:"endpoint"`
+	WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 	HTTP            *HTTPConfig                  `yaml:"http"`
 	EdgeNodes       []giznet.PublicKey           `yaml:"edge-nodes"`
 	ICEServers      []gizwebrtc.ICEServer        `yaml:"ice-servers"`
@@ -358,13 +362,17 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 			return ConfigFile{}, fmt.Errorf("server: %s was removed; public client APIs are Edge-only", retired)
 		}
 	}
+	for _, retired := range []string{"listen", "endpoint"} {
+		if _, exists := topLevel[retired]; exists {
+			return ConfigFile{}, fmt.Errorf("server: top-level %s was removed; use webrtc.%s", retired, retired)
+		}
+	}
 	if _, exists := topLevel["system_tasks"]; exists {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
 	}
 	var raw struct {
 		Identity        *IdentityConfig              `yaml:"identity"`
-		Listen          string                       `yaml:"listen"`
-		Endpoint        string                       `yaml:"endpoint"`
+		WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 		HTTP            *HTTPConfig                  `yaml:"http"`
 		EdgeNodes       []giznet.PublicKey           `yaml:"edge-nodes"`
 		ICEServers      []gizwebrtc.ICEServer        `yaml:"ice-servers"`
@@ -414,8 +422,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	}
 	cfg := ConfigFile{
 		Identity:        identity,
-		Listen:          raw.Listen,
-		Endpoint:        raw.Endpoint,
+		WebRTC:          raw.WebRTC,
 		HTTP:            raw.HTTP,
 		EdgeNodes:       raw.EdgeNodes,
 		ICEServers:      raw.ICEServers,
@@ -572,9 +579,8 @@ func resolveAdminPublicKey(publicKey *giznet.PublicKey) (giznet.PublicKey, error
 
 func DefaultConfig() Config {
 	return Config{
-		Listen:   "0.0.0.0:9820",
-		Endpoint: "0.0.0.0:9820",
-		HTTP:     HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9820"}}},
+		WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "0.0.0.0:9820"},
+		HTTP:   HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9820"}}},
 		Speech: SpeechConfig{
 			Transcription: SpeechTranscriptionConfig{MaxAudioBytes: 2097152, MaxAudioDuration: "60s", RequestTimeout: "75s"},
 			Extraction: SpeechExtractionConfig{
@@ -592,11 +598,8 @@ func DefaultConfig() Config {
 }
 
 func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
-	if cfg.Listen == "" {
-		cfg.Listen = fileCfg.Listen
-	}
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = fileCfg.Endpoint
+	if cfg.WebRTC == (WebRTCConfig{}) && fileCfg.WebRTC != nil {
+		cfg.WebRTC = *fileCfg.WebRTC
 	}
 	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("server: http.listeners must not be empty")
@@ -756,11 +759,11 @@ func mergePendingDeletionConfig(runtime, fallback PendingDeletionConfig) Pending
 
 func prepareConfig(cfg Config) (Config, error) {
 	defaults := DefaultConfig()
-	if cfg.Listen == "" {
-		cfg.Listen = defaults.Listen
+	if cfg.WebRTC.Listen == "" {
+		return Config{}, fmt.Errorf("server: webrtc.listen is required")
 	}
-	if cfg.Endpoint == "" {
-		cfg.Endpoint = cfg.Listen
+	if cfg.WebRTC.Endpoint == "" {
+		return Config{}, fmt.Errorf("server: webrtc.endpoint is required")
 	}
 	if len(cfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("server: http.listeners is required")
@@ -792,18 +795,18 @@ func prepareConfig(cfg Config) (Config, error) {
 }
 
 func (cfg Config) validate() error {
-	if err := validateHostPort("listen", cfg.Listen); err != nil {
+	if err := validateHostPort("webrtc.listen", cfg.WebRTC.Listen); err != nil {
 		return err
 	}
-	if err := validateHostPort("endpoint", cfg.Endpoint); err != nil {
+	if err := validateHostPort("webrtc.endpoint", cfg.WebRTC.Endpoint); err != nil {
 		return err
 	}
 	httpListeners := cfg.HTTP.Listeners
 	if len(httpListeners) == 0 {
 		return fmt.Errorf("server: http.listeners is required")
 	}
-	if httpListeners[0].Listen != cfg.Listen {
-		return fmt.Errorf("server: http.listeners[0].listen must match listen")
+	if httpListeners[0].Listen != cfg.WebRTC.Listen {
+		return fmt.Errorf("server: http.listeners[0].listen must match webrtc.listen")
 	}
 	seenHTTPListeners := make(map[string]int, len(httpListeners))
 	for index, listener := range httpListeners {
@@ -1401,11 +1404,11 @@ func validateFileStoreReference(path string, value any) error {
 }
 
 func (cfg Config) PublicAPIListenAddr() string {
-	return cfg.Listen
+	return cfg.WebRTC.Listen
 }
 
 func (cfg Config) ICEListenAddr() string {
-	return cfg.Listen
+	return cfg.WebRTC.Listen
 }
 
 func parseConfigDuration(value string) (time.Duration, error) {

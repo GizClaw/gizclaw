@@ -85,19 +85,19 @@ Server 从 accepted `SessionDeclaration` 取得同一个 tunnel session identifi
 Edge workspace 配置描述当前节点运行所需的基础信息：
 
 - Edge Node 自身的 giznet identity。
-- 顶层 WebRTC transport listen/endpoint，以及一个或多个 HTTP/signaling listener。
+- `webrtc` transport listen/endpoint，以及一个或多个 HTTP/signaling listener。
 - 至少一个有序 upstream Server entry；每个 entry 固定 endpoint、public key，以及可选的
   Edge-to-Server relay-only TURN pool。
-- TLS certificate source 的选择。
+- 可选的逐 listener TLS 证书文件。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
 - 可选 Prometheus Remote Write/query metrics backend。
 - 可选把进程日志 fan-out 到 stderr 和由 Volc TLS 支撑的 immutable LogStore。
 
-顶层 `listen` 是 WebRTC transport 的本地 bind tuple，同时必须等于
+`webrtc.listen` 是 WebRTC transport 的本地 bind tuple，同时必须等于
 `http.listeners[0].listen`。Edge 在同一 host 和数字端口上打开独立的
 TCP 与 UDP socket：第一个 TCP listener 承载 public HTTP 与 signaling，启用 gateway 时 UDP 承载 ICE、
-DTLS、SCTP 与 DataChannel。顶层 `endpoint` 是对应的外部可达 tuple，并通过
+DTLS、SCTP 与 DataChannel。`webrtc.endpoint` 是对应的外部可达 tuple，并通过
 `/server-info.transport.endpoint` 发布；当 host 是具体 literal IP 时，gateway 还会把
 answer SDP 的 UDP host candidate 改写为完全相同的 host 和 port。Hostname 或 unspecified
 address 不触发 DNS lookup，也不会伪造 public candidate。额外的 HTTP listener 只增加 TCP
@@ -161,12 +161,13 @@ runtime 会在打开 listener 前失败，不能替换第一个 runtime 的 logg
 HTTP listener 按声明顺序启动，每个 listener 可省略 `tls` 提供明文 HTTP，或同时配置本地
 `cert-file` 与 `key-file` 提供 TLS 1.2 及以上的 HTTPS。地址必须唯一，证书对会在打开流量前加载；
 空列表、单边证书配置、无效证书或重复地址会使启动失败。`http.listeners` 必填，并且第一个地址
-必须等于顶层 `listen`。顶层 `tls` 配置会被拒绝；证书只能配置在各 listener 内。证书路径支持
-环境变量。
+必须等于 `webrtc.listen`。已移除的顶层 `listen`、`endpoint` 和 `tls` 配置都会被拒绝；
+证书只能配置在各 listener 内。证书路径支持环境变量。
 
 ```yaml
-listen: 0.0.0.0:9821
-endpoint: edge.example.com:443
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: edge.example.com:443
 http:
   listeners:
     - listen: 0.0.0.0:9821
@@ -545,7 +546,7 @@ Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 
 - Edge Node 使用显式配置的 Server 列表，不提供动态 mesh membership 或 service discovery。
 - `ServiceEdgeHTTP` 已用于 public request forwarding。
 - `giznet/v2/tunnel/` 原生 channel namespace 已用于有界 upstream pool 上的 logical client sessions；`ServiceEdgeTunnel 0x32` 已退役。
-- Edge control-plane RPC、certificate distribution 和 TLS certificate source 尚未完整实现。
+- Edge control-plane RPC 与 certificate distribution 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。
 - 该 package 不在 Server 之间路由 Workspace、Chatroom、History 或 Social execution。
