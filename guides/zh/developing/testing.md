@@ -99,7 +99,8 @@ tests/gizclaw-e2e/
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
 ├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
-└── js/          # JavaScript/TypeScript WebRTC 测试
+├── js/          # JavaScript/TypeScript WebRTC 测试与 giztest runner
+└── flutter/     # Flutter/Dart giztest runner
 ```
 
 先复制 provider credential 模板。`.env` 只能保存 provider credential，不能保存
@@ -189,6 +190,29 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
+- `js/giztest` 与 `flutter/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
+
+### Giztest runner
+
+同一批 `giztest/*.giztest.yaml` 场景由三个 runner 执行，每个 runner 使用自己语言的
+SDK，因此一份场景同时验证 contract 与三套 SDK：
+
+| Runner | 入口 | 设备端 | 控制端 |
+| --- | --- | --- | --- |
+| Go | `gizclaw test run` | `sdk/go/gizcli` | runner 内置 HTTP |
+| JavaScript | `npm run giztest -- run`（`tests/gizclaw-e2e/js/giztest/index.ts`） | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
+| Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
+
+三者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
+并写出相同结构的 report JSON。Go runner 是 schema 的 source of truth；JavaScript 与
+Flutter runner 只实现 `rpc`、`client_rpc`、`http` 与 `output` 四种 step，遇到其他 step
+或 `audio`/`binary` 变量时把该文档记为 skipped 并在 stderr 说明，绝不静默通过。
+
+Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
+platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
+
+已知跨 runner 差异：Go 用 `protojson` 的 `EmitUnpopulated` 输出 RPC 响应，零值字段也会出现；
+JavaScript 与 Flutter 的 codec 只输出已设置的字段。断言未设置字段的零值时三者结果不同。
 
 ### Giztest 场景
 

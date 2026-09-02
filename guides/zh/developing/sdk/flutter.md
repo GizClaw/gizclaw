@@ -47,6 +47,10 @@ flutter test
 
 model 按 `api/http/peer.json` 与其引用的 `api/http/shared.json` schema 手写，没有生成步骤：contract 变化时同步修改 `models.dart` 与测试。解码规则是必填字段类型错误抛 `FormatException`（client 映射为 `malformedResponse`），未知字段忽略，`PeerStatus` 与 `DeviceInfo` 这类开放 schema 额外保留 `raw`。错误 `kind` 先按 body 的 `error.code` 匹配 `DEVICE_*`，再按 HTTP status 分类；code 常量以 `pkgs/gizclaw/peer_service_serve_peer_http_device_control.go` 为准。
 
+`send()` 是 typed method 之外的 escape hatch：它向绝对 path 发送一次带 bearer 的请求，
+返回 status 与解码后的 body 而不是抛出，用于访问本 package 尚未建模的 route；调用方可用
+`classifyGizClawControlError` 自行分类。
+
 ```sh
 cd sdk/flutter/gizclaw_control
 dart pub get

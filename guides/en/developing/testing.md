@@ -108,7 +108,8 @@ tests/gizclaw-e2e/
 ├── cmd/         # real gizclaw CLI tests
 ├── giztest/     # declarative Peer RPC, Workflow, and benchmark scenarios
 ├── go/          # focused Admin, delete, Edge, and OpenAI tests
-└── js/          # JavaScript/TypeScript WebRTC tests
+├── js/          # JavaScript/TypeScript WebRTC tests and giztest runner
+└── flutter/     # Flutter/Dart giztest runner
 ```
 
 Copy the provider credential template first. `.env` is only for provider
@@ -207,6 +208,35 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, gameplay, and Workflow behavior.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
+- `js/giztest` and `flutter/giztest` run the same giztest scenarios with their own SDKs; see the next section.
+
+### Giztest runners
+
+The same `giztest/*.giztest.yaml` scenarios run under three runners, each using
+its own language's SDK, so one scenario suite validates the contract and all
+three SDKs:
+
+| Runner | Entry point | Device side | Controller side |
+| --- | --- | --- | --- |
+| Go | `gizclaw test run` | `sdk/go/gizcli` | HTTP inside the runner |
+| JavaScript | `npm run giztest -- run` (`tests/gizclaw-e2e/js/giztest/index.ts`) | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
+| Flutter | the built `giztest` desktop binary (`tests/gizclaw-e2e/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
+
+All three accept the same command line (`validate -f <path>`, `run <path>
+--parallel N --output <report>`) and write the same report JSON structure. The
+Go runner owns the schema. The JavaScript and Flutter runners implement only
+the `rpc`, `client_rpc`, `http` and `output` step kinds; a document using any
+other step kind, or an `audio` or `binary` variable, is reported as skipped on
+stderr rather than passing silently.
+
+The Flutter runner is a desktop binary rather than a plain Dart CLI because the
+device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
+builds and runs it on macOS and Linux and skips it on other hosts.
+
+One known cross-runner difference: Go marshals RPC responses with protojson's
+`EmitUnpopulated`, so zero-valued fields are present, while the JavaScript and
+Dart codecs emit only fields that were set. An expectation on the zero value of
+an unset field therefore behaves differently across runners.
 
 ### Giztest scenarios
 

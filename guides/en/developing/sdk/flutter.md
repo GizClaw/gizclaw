@@ -48,6 +48,11 @@ flutter test
 
 Models are hand-written from `api/http/peer.json` and the `api/http/shared.json` schemas it references; there is no generation step, so a contract change updates `models.dart` and its tests together. Decoding throws `FormatException` for a required field of the wrong type (the client maps it to `malformedResponse`), ignores unknown keys, and keeps `raw` on the open-ended `PeerStatus` and `DeviceInfo` schemas. The error `kind` first matches `DEVICE_*` on the body's `error.code`, then classifies by HTTP status; the code constants are owned by `pkgs/gizclaw/peer_service_serve_peer_http_device_control.go`.
 
+`send()` is the escape hatch beside the typed methods: it issues one
+bearer-authenticated request to an absolute path and returns the status and
+decoded body instead of throwing, for a route this package does not model yet.
+The caller classifies the result with `classifyGizClawControlError`.
+
 ```sh
 cd sdk/flutter/gizclaw_control
 dart pub get

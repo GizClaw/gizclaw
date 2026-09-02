@@ -34,6 +34,14 @@ primitives.
 WebRTC bridge maps HTTP requests to GizClaw RPC methods; it is not an arbitrary
 HTTP proxy.
 
+`serveGiznetWebRTCRPC(pc, handlers)` answers the `client.*` RPCs a server
+initiates. `GizClawPeerRPCHandlers` covers `client.info.get`,
+`client.identifiers.get` and the seven `client.device.*` and `client.wifi.*`
+methods; an omitted handler answers `METHOD_NOT_FOUND`, which the server maps
+to `501 DEVICE_UNSUPPORTED`. A handler can throw `GizClawDeviceControlError` to
+answer one specific RPC error code. Handlers can also be passed through the
+`peerRPCHandlers` connect option so they are installed before signaling.
+
 ## `@gizclaw/gizclaw-control`
 
 `createGizClawControlClient` builds a separate generated client with `createPeerHTTPClient` (`baseUrl`, `auth`, optional `fetch`), one instance per API key, and never touches the `peerHTTPClient` singleton. Route methods call the `sdk.gen.ts` functions with `throwOnError: false` and convert `{ error, response }` into `GizClawControlError`: a missing `response` is `network`; otherwise the body's `error.code` is matched against `DEVICE_*` first and the status is classified second. The code constants are owned by `pkgs/gizclaw/peer_service_serve_peer_http_device_control.go`. Path parameters are `encodeURIComponent`-encoded by the generated client.
