@@ -18,6 +18,9 @@ import {
   SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS,
   SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS,
   SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
+  GizClawDeviceControlError,
+  type GizClawPeerRPCHandlers,
+  type RPCResponse,
   WebRTCRPCClient,
   WebRTCRPCError,
   applyGiznetServerInfoICEServers,
@@ -29,6 +32,7 @@ import {
   encodeTelemetryPacket,
   encodeFrame,
   encodeRPCRequest,
+  serveGiznetWebRTCRPC,
   encodeRPCResponse,
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
@@ -3233,3 +3237,200 @@ class FakeDataChannel {
     }
   }
 }
+
+type FakeChannel = {
+  binaryType: BinaryType;
+  bufferedAmount: number;
+  close(): void;
+  label: string;
+  readyState: RTCDataChannelState;
+  addEventListener(type: string, listener: (event: unknown) => void): void;
+  removeEventListener(type: string, listener: (event: unknown) => void): void;
+  send(data: ArrayBuffer): void;
+};
+
+// serveInboundClientRPC drives one inbound client.* request through the SDK's
+// built-in RPC server and returns the decoded response.
+async function serveInboundClientRPC(
+  method: string,
+  params: unknown,
+  handlers?: GizClawPeerRPCHandlers,
+): Promise<RPCResponse> {
+  const sent: ArrayBuffer[] = [];
+  const listeners = new Map<string, Set<(event: unknown) => void>>();
+  const channel: FakeChannel = {
+    binaryType: "arraybuffer",
+    bufferedAmount: 0,
+    close(): void {
+      channel.readyState = "closed";
+    },
+    label: giznetServiceDataChannelLabel(GIZCLAW_SERVICE_PEER_RPC),
+    readyState: "open",
+    addEventListener(type, listener): void {
+      const set = listeners.get(type) ?? new Set();
+      set.add(listener);
+      listeners.set(type, set);
+    },
+    removeEventListener(type, listener): void {
+      listeners.get(type)?.delete(listener);
+    },
+    send(data): void {
+      sent.push(data);
+    },
+  };
+  let openChannel: ((event: { channel: unknown }) => void) | undefined;
+  const pc = {
+    addEventListener(_type: "datachannel", listener: typeof openChannel): void {
+      openChannel = listener;
+    },
+  };
+  serveGiznetWebRTCRPC(
+    pc as unknown as Parameters<typeof serveGiznetWebRTCRPC>[0],
+    handlers,
+  );
+  assert.ok(openChannel != null);
+  openChannel({ channel });
+  for (const listener of listeners.get("message") ?? []) {
+    listener({
+      data: encodeRPCRequest({ id: "inbound-1", method, params, v: 1 }),
+    });
+  }
+  for (let tick = 0; tick < 50; tick++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.ok(sent.length > 0, `no response for ${method}`);
+  const total = sent.reduce((sum, frame) => sum + frame.byteLength, 0);
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const frame of sent) {
+    merged.set(new Uint8Array(frame), offset);
+    offset += frame.byteLength;
+  }
+  return parseRPCResponse(merged, method);
+}
+
+test("inbound client.device.volume.set answers from the handler", async () => {
+  let seen: { level: number; muted: boolean } | undefined;
+  const response = await serveInboundClientRPC(
+    "client.device.volume.set",
+    { level: 35, muted: true },
+    {
+      deviceControl: {
+        setVolume: (level, muted) => {
+          seen = { level, muted };
+          return { battery_percent: 88, muted, volume: level };
+        },
+      },
+    },
+  );
+  assert.deepEqual(seen, { level: 35, muted: true });
+  assert.equal(response.error, undefined);
+  assert.deepEqual(response.result, {
+    battery_percent: 88,
+    labels: {},
+    muted: true,
+    volume: 35,
+  });
+});
+
+test("inbound client.wifi.status.get and saved.list answer from handlers", async () => {
+  const status = await serveInboundClientRPC(
+    "client.wifi.status.get",
+    {},
+    {
+      deviceControl: { wifiStatus: () => ({ connected: true, ssid: "home" }) },
+    },
+  );
+  assert.deepEqual(status.result, { connected: true, ssid: "home" });
+
+  const saved = await serveInboundClientRPC(
+    "client.wifi.saved.list",
+    {},
+    {
+      deviceControl: {
+        savedWifi: () => [{ ssid: "home" }, { ssid: "office" }],
+      },
+    },
+  );
+  assert.deepEqual(saved.result, {
+    networks: [{ ssid: "home" }, { ssid: "office" }],
+  });
+});
+
+test("inbound client.* without a handler answers METHOD_NOT_FOUND", async () => {
+  const response = await serveInboundClientRPC(
+    "client.device.volume.set",
+    { level: 1, muted: false },
+    { deviceControl: {} },
+  );
+  assert.equal(response.error?.code, -32601);
+  assert.match(response.error?.message ?? "", /unsupported method/u);
+});
+
+test("inbound device control rejects out-of-range and oversized params", async () => {
+  const volume = await serveInboundClientRPC(
+    "client.device.volume.set",
+    { level: 101, muted: false },
+    { deviceControl: { setVolume: () => ({ volume: 1 }) } },
+  );
+  assert.equal(volume.error?.code, -32602);
+
+  const sound = await serveInboundClientRPC(
+    "client.device.sound.play",
+    { sound: "s".repeat(33) },
+    { deviceControl: { playSound: () => {} } },
+  );
+  assert.equal(sound.error?.code, -32602);
+
+  const forget = await serveInboundClientRPC(
+    "client.wifi.saved.forget",
+    { ssid: "" },
+    { deviceControl: { forgetWifi: () => {} } },
+  );
+  assert.equal(forget.error?.code, -32602);
+});
+
+test("inbound device control surfaces a scripted error code", async () => {
+  const response = await serveInboundClientRPC(
+    "client.device.sound.play",
+    { sound: "nope" },
+    {
+      deviceControl: {
+        playSound: () => {
+          throw new GizClawDeviceControlError(-32602, "unknown sound");
+        },
+      },
+    },
+  );
+  assert.equal(response.error?.code, -32602);
+  assert.equal(response.error?.message, "unknown sound");
+});
+
+test("inbound client.device.reboot and sound.play answer empty results", async () => {
+  const calls: string[] = [];
+  const reboot = await serveInboundClientRPC(
+    "client.device.reboot",
+    { delay_ms: 3000 },
+    {
+      deviceControl: {
+        reboot: (delayMs) => {
+          calls.push(`reboot:${delayMs}`);
+        },
+      },
+    },
+  );
+  assert.equal(reboot.error, undefined);
+  const play = await serveInboundClientRPC(
+    "client.device.sound.play",
+    { duration_ms: 500, sound: "chime" },
+    {
+      deviceControl: {
+        playSound: (sound, durationMs) => {
+          calls.push(`play:${sound}:${durationMs}`);
+        },
+      },
+    },
+  );
+  assert.equal(play.error, undefined);
+  assert.deepEqual(calls, ["reboot:3000", "play:chime:500"]);
+});
