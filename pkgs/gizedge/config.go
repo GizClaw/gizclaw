@@ -21,19 +21,12 @@ import (
 
 const workspaceConfigFile = "config.yaml"
 
-const (
-	TLSCertSourceDisabled = "disabled"
-	TLSCertSourceEdgeRPC  = "edge-rpc"
-	TLSCertSourceFile     = "file"
-)
-
 type Config struct {
 	KeyPair          *giznet.KeyPair
 	Listen           string
 	Endpoint         string
 	Upstreams        []UpstreamConfig
 	selectedUpstream UpstreamConfig
-	TLS              TLSConfig
 	HTTP             HTTPConfig
 	TURN             TURNConfig
 	Gateway          GatewayConfig
@@ -54,12 +47,6 @@ type UpstreamConfig struct {
 	PublicKey          giznet.PublicKey      `yaml:"public-key"`
 	ICETransportPolicy string                `yaml:"ice-transport-policy"`
 	ICEServers         []gizwebrtc.ICEServer `yaml:"ice-servers"`
-}
-
-type TLSConfig struct {
-	CertSource string `yaml:"cert-source"`
-	CertFile   string `yaml:"cert-file"`
-	KeyFile    string `yaml:"key-file"`
 }
 
 // HTTPConfig defines the ordered public HTTP and HTTPS listeners.
@@ -169,7 +156,6 @@ type ConfigFile struct {
 	Listen    string                       `yaml:"listen"`
 	Endpoint  string                       `yaml:"endpoint"`
 	Upstreams *[]UpstreamConfig            `yaml:"upstreams"`
-	TLS       TLSConfig                    `yaml:"tls"`
 	HTTP      *HTTPConfig                  `yaml:"http"`
 	TURN      TURNConfig                   `yaml:"turn"`
 	Gateway   GatewayConfig                `yaml:"gateway"`
@@ -188,15 +174,12 @@ func LoadConfig(path string) (ConfigFile, error) {
 }
 
 func parseConfigData(data []byte) (ConfigFile, error) {
-	if err := rejectRetiredGatewayConfig(data); err != nil {
+	if err := rejectRetiredConfig(data); err != nil {
 		return ConfigFile{}, err
 	}
 	var raw ConfigFile
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return ConfigFile{}, err
-	}
-	if raw.TLS.CertSource == "" {
-		raw.TLS.CertSource = TLSCertSourceDisabled
 	}
 	if raw.SystemLog != nil {
 		prepared, err := gizlog.PrepareConfigAt("system-log", *raw.SystemLog)
@@ -208,10 +191,13 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	return raw, nil
 }
 
-func rejectRetiredGatewayConfig(data []byte) error {
+func rejectRetiredConfig(data []byte) error {
 	var document map[string]any
 	if err := yaml.Unmarshal(data, &document); err != nil {
 		return err
+	}
+	if _, exists := document["tls"]; exists {
+		return fmt.Errorf("edge: top-level tls was removed; use http.listeners[].tls")
 	}
 	gateway, ok := document["gateway"].(map[string]any)
 	if !ok {
@@ -238,10 +224,8 @@ func DefaultConfig() Config {
 	return Config{
 		Listen:   "0.0.0.0:9821",
 		Endpoint: "0.0.0.0:9821",
-		TLS: TLSConfig{
-			CertSource: TLSCertSourceDisabled,
-		},
-		Gateway: defaultGatewayConfig(),
+		HTTP:     HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9821"}}},
+		Gateway:  defaultGatewayConfig(),
 	}
 }
 
@@ -280,9 +264,6 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = fileCfg.Endpoint
-	}
-	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
-		cfg.TLS = fileCfg.TLS
 	}
 	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("edge: http.listeners must not be empty")
@@ -326,9 +307,6 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	cfg.SystemLog = preparedLog
 	cfg.systemLogConfigured = systemLogConfigured
-	if cfg.TLS.CertSource == "" {
-		cfg.TLS.CertSource = TLSCertSourceDisabled
-	}
 	if fileCfg.Identity.PrivateKey.IsZero() {
 		return Config{}, fmt.Errorf("edge: invalid identity.private-key: zero key")
 	}
@@ -343,19 +321,8 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
-	legacyTLSFilesConfigured := cfg.TLS.CertFile != "" || cfg.TLS.KeyFile != ""
-	if cfg.TLS.CertSource != TLSCertSourceFile && legacyTLSFilesConfigured {
-		return Config{}, fmt.Errorf("edge: tls.cert-file and tls.key-file are only valid with tls.cert-source %q", TLSCertSourceFile)
-	}
-	if len(cfg.HTTP.Listeners) > 0 && cfg.TLS.CertSource == TLSCertSourceFile {
-		return Config{}, fmt.Errorf("edge: tls.cert-source %q must not be combined with http.listeners", TLSCertSourceFile)
-	}
 	if len(cfg.HTTP.Listeners) == 0 {
-		listenerTLS := HTTPListenerTLSConfig{}
-		if cfg.TLS.CertSource == TLSCertSourceFile {
-			listenerTLS = HTTPListenerTLSConfig{CertFile: cfg.TLS.CertFile, KeyFile: cfg.TLS.KeyFile}
-		}
-		cfg.HTTP.Listeners = []HTTPListenerConfig{{Listen: cfg.Listen, TLS: listenerTLS}}
+		return Config{}, fmt.Errorf("edge: http.listeners is required")
 	}
 	for index := range cfg.HTTP.Listeners {
 		cfg.HTTP.Listeners[index].TLS.CertFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.CertFile)
@@ -386,7 +353,7 @@ func (cfg Config) validate() error {
 	}
 	httpListeners := cfg.HTTP.Listeners
 	if len(httpListeners) == 0 {
-		httpListeners = []HTTPListenerConfig{{Listen: cfg.Listen}}
+		return fmt.Errorf("edge: http.listeners is required")
 	}
 	if httpListeners[0].Listen != cfg.Listen {
 		return fmt.Errorf("edge: http.listeners[0].listen must match listen")
@@ -445,21 +412,7 @@ func (cfg Config) validate() error {
 	if err := cfg.validateSystemLog(); err != nil {
 		return err
 	}
-	switch cfg.TLS.CertSource {
-	case TLSCertSourceDisabled:
-		return nil
-	case TLSCertSourceFile:
-		legacyTLS := HTTPListenerTLSConfig{CertFile: os.ExpandEnv(cfg.TLS.CertFile), KeyFile: os.ExpandEnv(cfg.TLS.KeyFile)}
-		if !legacyTLS.enabled() {
-			return fmt.Errorf("edge: tls requires cert-file and key-file")
-		}
-		_, err := legacyTLS.tlsConfig("tls")
-		return err
-	case TLSCertSourceEdgeRPC:
-		return fmt.Errorf("edge: tls.cert-source %q is not implemented", cfg.TLS.CertSource)
-	default:
-		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)
-	}
+	return nil
 }
 
 func runtimeStorageConfigs(configs map[string]storageFileConfig) (map[string]storage.Config, error) {

@@ -15,10 +15,10 @@ It can combine multiple fields, but single field resource, validation, storage a
 ## HTTP listeners and TLS
 
 Top-level `listen` continues to define the WebRTC transport tuple and must equal
-`http.listeners[0].listen`. Omitting `http.listeners` preserves the original
-single plaintext ingress. A deployment may instead declare multiple unique TCP
-addresses. Every listener serves the same `/server-info`, signaling, Public API,
-and OpenAI-compatible API handler, and may enable HTTPS with TLS 1.2 or newer by
+`http.listeners[0].listen`. `http.listeners` is required and may declare multiple
+unique TCP addresses. Every listener serves `/server-info` and signaling; direct
+Public API and OpenAI-compatible API requests are always denied because those
+business APIs are Edge-only. A listener may enable HTTPS with TLS 1.2 or newer by
 providing both `tls.cert-file` and `tls.key-file`. Certificate paths resolve
 relative to the workspace and support environment expansion. An empty list,
 duplicate address, partial pair, or invalid certificate fails before traffic is

@@ -84,6 +84,9 @@ Use `guides/snippets/server-storage-stores-services.yaml` as the complete config
 ```yaml
 listen: 0.0.0.0:9820
 endpoint: gizclaw.example.com:9820
+http:
+  listeners:
+    - listen: 0.0.0.0:9820
 
 storage:
   main-kv:

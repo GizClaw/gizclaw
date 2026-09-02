@@ -4,7 +4,9 @@ admin-public-key: ${GIZCLAW_ADMIN_PUBLIC_KEY}
 
 listen: 0.0.0.0:9820
 endpoint: gizclaw.example.com:9820
-serve-to-clients: true
+http:
+  listeners:
+    - listen: 0.0.0.0:9820
 
 # Dynamic registry of physical locations and connections. Each kind names the
 # concrete backend directly; there is no nested driver selector.

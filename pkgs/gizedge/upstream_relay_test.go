@@ -36,6 +36,9 @@ upstreams:
         username: relay-b
         credential: static-password
         credential-mode: static
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)

@@ -160,11 +160,9 @@ runtime 会在打开 listener 前失败，不能替换第一个 runtime 的 logg
 
 HTTP listener 按声明顺序启动，每个 listener 可省略 `tls` 提供明文 HTTP，或同时配置本地
 `cert-file` 与 `key-file` 提供 TLS 1.2 及以上的 HTTPS。地址必须唯一，证书对会在打开流量前加载；
-空列表、单边证书配置、无效证书或重复地址会使启动失败。省略 `http.listeners` 时保持一个位于
-顶层 `listen` 的明文兼容 listener。只有省略 `http.listeners` 时，Edge 原有的顶层
-`tls.cert-source: file` 才会把必需且完整的 `tls.cert-file`/`tls.key-file` 映射到这个默认
-listener；同时配置 `file` source 与任意显式 listener 会失败，不存在覆盖优先级。证书路径支持环境
-变量，`tls.cert-file`/`tls.key-file` 不能用于其他 source，`edge-rpc` certificate source 仍未实现。
+空列表、单边证书配置、无效证书或重复地址会使启动失败。`http.listeners` 必填，并且第一个地址
+必须等于顶层 `listen`。顶层 `tls` 配置会被拒绝；证书只能配置在各 listener 内。证书路径支持
+环境变量。
 
 ```yaml
 listen: 0.0.0.0:9821

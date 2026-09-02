@@ -17,8 +17,9 @@ upstreams:
         username: ${GIZCLAW_E2E_GATEWAY_RELAY_USERNAME}
         credential: ${GIZCLAW_E2E_GATEWAY_RELAY_CREDENTIAL}
         credential-mode: static
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 gateway:
   enabled: true
   max-sessions: ${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}

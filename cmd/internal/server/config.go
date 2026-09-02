@@ -23,7 +23,6 @@ type Config struct {
 	Listen          string
 	Endpoint        string
 	HTTP            HTTPConfig
-	ServeToClients  bool
 	EdgeNodes       []giznet.PublicKey
 	ICEServers      []gizwebrtc.ICEServer
 	AdminPublicKey  giznet.PublicKey
@@ -316,7 +315,6 @@ type ConfigFile struct {
 	Listen          string                       `yaml:"listen"`
 	Endpoint        string                       `yaml:"endpoint"`
 	HTTP            *HTTPConfig                  `yaml:"http"`
-	ServeToClients  bool                         `yaml:"serve-to-clients"`
 	EdgeNodes       []giznet.PublicKey           `yaml:"edge-nodes"`
 	ICEServers      []gizwebrtc.ICEServer        `yaml:"ice-servers"`
 	AdminPublicKey  giznet.PublicKey             `yaml:"admin-public-key"`
@@ -355,8 +353,10 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 			}
 		}
 	}
-	if _, exists := topLevel["serving-public"]; exists {
-		return ConfigFile{}, fmt.Errorf("server: serving-public is not supported; use serve-to-clients")
+	for _, retired := range []string{"serving-public", "serve-to-clients"} {
+		if _, exists := topLevel[retired]; exists {
+			return ConfigFile{}, fmt.Errorf("server: %s was removed; public client APIs are Edge-only", retired)
+		}
 	}
 	if _, exists := topLevel["system_tasks"]; exists {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
@@ -366,7 +366,6 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Listen          string                       `yaml:"listen"`
 		Endpoint        string                       `yaml:"endpoint"`
 		HTTP            *HTTPConfig                  `yaml:"http"`
-		ServeToClients  *bool                        `yaml:"serve-to-clients"`
 		EdgeNodes       []giznet.PublicKey           `yaml:"edge-nodes"`
 		ICEServers      []gizwebrtc.ICEServer        `yaml:"ice-servers"`
 		AdminPublicKey  *giznet.PublicKey            `yaml:"admin-public-key"`
@@ -405,7 +404,6 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		identity = *raw.Identity
 		identity.PrivateKey = keyPair.Private
 	}
-	serveToClients := raw.ServeToClients != nil && *raw.ServeToClients
 	speech, err := raw.Speech.runtimeConfig()
 	if err != nil {
 		return ConfigFile{}, err
@@ -419,7 +417,6 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		Listen:          raw.Listen,
 		Endpoint:        raw.Endpoint,
 		HTTP:            raw.HTTP,
-		ServeToClients:  serveToClients,
 		EdgeNodes:       raw.EdgeNodes,
 		ICEServers:      raw.ICEServers,
 		AdminPublicKey:  adminPublicKey,
@@ -577,6 +574,7 @@ func DefaultConfig() Config {
 	return Config{
 		Listen:   "0.0.0.0:9820",
 		Endpoint: "0.0.0.0:9820",
+		HTTP:     HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "0.0.0.0:9820"}}},
 		Speech: SpeechConfig{
 			Transcription: SpeechTranscriptionConfig{MaxAudioBytes: 2097152, MaxAudioDuration: "60s", RequestTimeout: "75s"},
 			Extraction: SpeechExtractionConfig{
@@ -605,9 +603,6 @@ func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	}
 	if len(cfg.HTTP.Listeners) == 0 && fileCfg.HTTP != nil {
 		cfg.HTTP.Listeners = append([]HTTPListenerConfig(nil), fileCfg.HTTP.Listeners...)
-	}
-	if !cfg.ServeToClients {
-		cfg.ServeToClients = fileCfg.ServeToClients
 	}
 	if len(cfg.EdgeNodes) == 0 {
 		cfg.EdgeNodes = fileCfg.EdgeNodes
@@ -768,7 +763,7 @@ func prepareConfig(cfg Config) (Config, error) {
 		cfg.Endpoint = cfg.Listen
 	}
 	if len(cfg.HTTP.Listeners) == 0 {
-		cfg.HTTP.Listeners = []HTTPListenerConfig{{Listen: cfg.Listen}}
+		return Config{}, fmt.Errorf("server: http.listeners is required")
 	}
 	for index := range cfg.HTTP.Listeners {
 		cfg.HTTP.Listeners[index].TLS.CertFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.CertFile)
@@ -805,7 +800,7 @@ func (cfg Config) validate() error {
 	}
 	httpListeners := cfg.HTTP.Listeners
 	if len(httpListeners) == 0 {
-		httpListeners = []HTTPListenerConfig{{Listen: cfg.Listen}}
+		return fmt.Errorf("server: http.listeners is required")
 	}
 	if httpListeners[0].Listen != cfg.Listen {
 		return fmt.Errorf("server: http.listeners[0].listen must match listen")

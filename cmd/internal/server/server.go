@@ -31,7 +31,6 @@ import (
 type CmdServer struct {
 	*gizclaw.Server
 	AdminPublicKey  giznet.PublicKey
-	ServeToClients  bool
 	stores          *stores.Stores
 	storage         *storage.Storage
 	ownsStores      bool
@@ -75,7 +74,7 @@ func (s *CmdServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.ServeToClients && isProtectedPublicHTTPRoute(r.URL.Path) {
+	if isProtectedPublicHTTPRoute(r.URL.Path) {
 		writePrivateHTTPIngressDenied(w)
 		return
 	}
@@ -135,7 +134,7 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 	}()
 
-	cmdSrv := &CmdServer{stores: ss, storage: physical, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey, ServeToClients: cfg.ServeToClients}
+	cmdSrv := &CmdServer{stores: ss, storage: physical, ownsStores: ownsStores, AdminPublicKey: cfg.AdminPublicKey}
 	pendingDeletionConfig, err := cfg.PendingDeletion.processorConfig()
 	if err != nil {
 		return nil, fmt.Errorf("server: pending_deletion: %w", err)

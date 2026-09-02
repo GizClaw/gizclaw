@@ -169,14 +169,10 @@ HTTP listeners start in declaration order. Each listener either omits `tls` for
 plaintext HTTP or provides both local `cert-file` and `key-file` for HTTPS with
 TLS 1.2 or newer. Addresses must be unique, and certificate pairs are loaded
 before traffic is served. An empty list, a partial pair, an invalid certificate,
-or a duplicate address fails startup. Omitting `http.listeners` keeps one
-plaintext compatibility listener at top-level `listen`. Only when
-`http.listeners` is omitted, the legacy top-level `tls.cert-source: file` maps
-its required complete `tls.cert-file` and `tls.key-file` pair to that default
-listener. Combining the file source with any explicit listener fails instead
-of applying precedence. Certificate paths support environment expansion, the
-file fields are invalid for other sources, and the `edge-rpc` certificate
-source remains unsupported.
+or a duplicate address fails startup. `http.listeners` is required, and its
+first address must equal top-level `listen`. Top-level `tls` is rejected;
+certificate configuration belongs only to each listener. Certificate paths
+support environment expansion.
 
 ```yaml
 listen: 0.0.0.0:9821

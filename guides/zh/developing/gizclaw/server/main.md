@@ -15,9 +15,9 @@
 ## HTTP listeners 与 TLS
 
 Server 的顶层 `listen` 继续定义 WebRTC transport tuple，并且必须等于
-`http.listeners[0].listen`。省略 `http.listeners` 时保持原来的单一明文入口。也可以声明多个
-唯一的 TCP 地址；每个 listener 都服务同一套 `/server-info`、signaling、Public API 和
-OpenAI-compatible API handler，并可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
+`http.listeners[0].listen`。`http.listeners` 必填，也可以声明多个唯一的 TCP 地址；每个 listener
+都服务 `/server-info` 与 signaling。直接访问 Public API 和 OpenAI-compatible API 会始终被拒绝，
+因为业务 API 只能经 Edge 访问。listener 可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
 TLS 1.2 及以上的 HTTPS。证书路径相对 workspace 解析并支持环境变量。空列表、重复地址、
 单边或无效证书会在服务流量前失败。
 

@@ -68,8 +68,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Endpoint != "0.0.0.0:9820" {
 		t.Fatalf("Endpoint = %q", cfg.Endpoint)
 	}
-	if cfg.ServeToClients {
-		t.Fatal("ServeToClients should default to false")
+	if len(cfg.HTTP.Listeners) != 1 || cfg.HTTP.Listeners[0].Listen != cfg.Listen {
+		t.Fatalf("HTTP.Listeners = %+v, want explicit default listener", cfg.HTTP.Listeners)
 	}
 	if cfg.systemLogConfig().Level != "info" {
 		t.Fatalf("SystemLog.Level = %q, want info", cfg.systemLogConfig().Level)
@@ -122,6 +122,7 @@ func TestPrepareConfigRejectsInvalidHTTPListeners(t *testing.T) {
 		listeners []HTTPListenerConfig
 		want      string
 	}{
+		{name: "missing", listeners: nil, want: "http.listeners is required"},
 		{name: "primary mismatch", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:443"}}, want: "must match listen"},
 		{name: "duplicate", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820"}, {Listen: "127.0.0.1:9820"}}, want: "duplicates"},
 		{name: "partial TLS", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820", TLS: HTTPListenerTLSConfig{CertFile: "only-cert"}}}, want: "requires cert-file and key-file"},
@@ -174,6 +175,7 @@ func TestParsePendingDeletionConfig(t *testing.T) {
 		t.Fatalf("mergeFileConfig() error = %v", err)
 	}
 	merged.Services = validServicesConfig()
+	merged.HTTP = DefaultConfig().HTTP
 	prepared, err := prepareConfig(merged)
 	if err != nil {
 		t.Fatalf("prepareConfig() error = %v", err)
@@ -484,28 +486,14 @@ func TestParseConfigRejectsExplicitInvalidSpeechLimits(t *testing.T) {
 	}
 }
 
-func TestParseConfigServeToClients(t *testing.T) {
-	cfg, err := parseConfigData([]byte(`
-serve-to-clients: true
-listen: 127.0.0.1:9820
-endpoint: 127.0.0.1:9820
-`))
-	if err != nil {
-		t.Fatalf("parseConfigData error = %v", err)
-	}
-	if !cfg.ServeToClients {
-		t.Fatal("ServeToClients = false, want true")
-	}
-}
-
-func TestParseConfigRejectsServingPublic(t *testing.T) {
-	_, err := parseConfigData([]byte(`
-serving-public: true
-listen: 127.0.0.1:9820
-endpoint: 127.0.0.1:9820
-`))
-	if err == nil || !strings.Contains(err.Error(), "serving-public is not supported") {
-		t.Fatalf("parseConfigData error = %v, want unsupported alias error", err)
+func TestParseConfigRejectsRemovedPublicIngressSwitches(t *testing.T) {
+	for _, field := range []string{"serve-to-clients", "serving-public"} {
+		t.Run(field, func(t *testing.T) {
+			_, err := parseConfigData([]byte(field + ": true\n"))
+			if err == nil || !strings.Contains(err.Error(), field+" was removed") {
+				t.Fatalf("parseConfigData error = %v, want removed field error", err)
+			}
+		})
 	}
 }
 
@@ -879,6 +867,7 @@ func TestConfigValidateRequiresServices(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Listen = "127.0.0.1:9820"
 	cfg.Endpoint = "127.0.0.1:9820"
+	cfg.HTTP.Listeners[0].Listen = cfg.Listen
 	if err := cfg.validate(); err == nil || !strings.Contains(err.Error(), "services is required") {
 		t.Fatalf("validate error = %v, want required services", err)
 	}
@@ -1364,7 +1353,11 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 		},
 		{
 			name: "zero edge node",
-			cfg:  Config{Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820", EdgeNodes: []giznet.PublicKey{{}}},
+			cfg: Config{
+				Listen: "127.0.0.1:9820", Endpoint: "127.0.0.1:9820",
+				HTTP:      HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820"}}},
+				EdgeNodes: []giznet.PublicKey{{}},
+			},
 			want: "server: edge-nodes[0] is zero",
 		},
 	}
@@ -1380,7 +1373,9 @@ func TestValidateReportsSpecificMissingFields(t *testing.T) {
 }
 
 func TestPrepareConfigGeneratesKeyPairAndDefaultPorts(t *testing.T) {
-	cfg, err := prepareConfig(Config{Services: validServicesConfig()})
+	cfg := DefaultConfig()
+	cfg.Services = validServicesConfig()
+	cfg, err := prepareConfig(cfg)
 	if err != nil {
 		t.Fatalf("prepareConfig error = %v", err)
 	}
@@ -1489,6 +1484,7 @@ func validLayeredConfig(dir string) Config {
 	return Config{
 		Listen:   "127.0.0.1:1234",
 		Endpoint: "127.0.0.1:1234",
+		HTTP:     HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:1234"}}},
 		Storage: map[string]storage.Config{
 			"memory":       storage.MemoryConfig{},
 			"local-files":  storage.FilesystemDirConfig{Dir: dir},

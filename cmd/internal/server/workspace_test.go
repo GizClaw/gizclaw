@@ -29,6 +29,7 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 	cfg := ConfigFile{
 		Listen:   runtime.Listen,
 		Endpoint: runtime.Endpoint,
+		HTTP:     &runtime.HTTP,
 		Storage:  testStorageFileConfigs(runtime.Storage),
 		Stores:   testStoreFileConfigs(runtime.Stores),
 		Services: runtime.Services,
@@ -45,7 +46,6 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		Listen         string                       `yaml:"listen,omitempty"`
 		Endpoint       string                       `yaml:"endpoint,omitempty"`
 		HTTP           *HTTPConfig                  `yaml:"http,omitempty"`
-		ServeToClients bool                         `yaml:"serve-to-clients,omitempty"`
 		AdminPublicKey giznet.PublicKey             `yaml:"admin-public-key,omitempty"`
 		Storage        map[string]storageFileConfig `yaml:"storage"`
 		Stores         map[string]storeFileConfig   `yaml:"stores"`
@@ -53,8 +53,8 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		Profiling      ProfilingConfig              `yaml:"profiling,omitempty"`
 	}{
 		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint, HTTP: cfg.HTTP,
-		ServeToClients: cfg.ServeToClients, AdminPublicKey: cfg.AdminPublicKey,
-		Storage: cfg.Storage, Stores: cfg.Stores, Services: cfg.Services, Profiling: cfg.Profiling,
+		AdminPublicKey: cfg.AdminPublicKey,
+		Storage:        cfg.Storage, Stores: cfg.Stores, Services: cfg.Services, Profiling: cfg.Profiling,
 	}
 	data, err := yaml.MarshalWithOptions(raw, yaml.OmitEmpty())
 	if err != nil {
@@ -153,6 +153,7 @@ func TestPrepareWorkspaceConfigLoadsWorkspaceConfig(t *testing.T) {
 		cfg.Identity.PrivateKey = serverKP.Private
 		cfg.Listen = "127.0.0.1:39001"
 		cfg.Endpoint = "127.0.0.1:39001"
+		cfg.HTTP.Listeners[0].Listen = cfg.Listen
 		cfg.AdminPublicKey = adminKP.Public
 		cfg.Storage["local-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "."}
 		cfg.Storage["gameplay-db"] = storageFileConfig{Kind: storage.KindSQLite, Dir: "data/gameplay.sqlite"}
@@ -223,7 +224,7 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = addr
 		cfg.Endpoint = addr
-		cfg.ServeToClients = true
+		cfg.HTTP.Listeners[0].Listen = addr
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -257,7 +258,6 @@ func TestServeContextServesHTTPSSignalingWithoutRawICETCP(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = addr
 		cfg.Endpoint = addr
-		cfg.ServeToClients = true
 		cfg.HTTP = &HTTPConfig{Listeners: []HTTPListenerConfig{{
 			Listen: addr,
 			TLS: HTTPListenerTLSConfig{
@@ -302,7 +302,7 @@ func TestServeContextProfilingLifecycle(t *testing.T) {
 			data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 				cfg.Listen = addr
 				cfg.Endpoint = addr
-				cfg.ServeToClients = true
+				cfg.HTTP.Listeners[0].Listen = addr
 				cfg.Storage["profile-files"] = storageFileConfig{Kind: storage.KindFilesystemDir, Dir: "data/profiles"}
 				cfg.Stores["runtime-profiling"] = storeFileConfig{Kind: stores.KindObjectStore, Storage: "profile-files", Prefix: "pprof"}
 				cfg.Profiling = ProfilingConfig{Enabled: enabled, Store: "runtime-profiling"}
@@ -358,6 +358,7 @@ func TestServeContextDefaultKeepsServerInfoPublic(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = addr
 		cfg.Endpoint = addr
+		cfg.HTTP.Listeners[0].Listen = addr
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -393,7 +394,7 @@ func TestServeContextDefaultKeepsServerInfoPublic(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("server-info status = %d err = %v, want 200 over active TCP mux when serve-to-clients is disabled", lastStatus, lastErr)
+	t.Fatalf("server-info status = %d err = %v, want 200 over active TCP mux", lastStatus, lastErr)
 }
 
 func localTCPUDPAddr(t *testing.T) string {
@@ -463,6 +464,8 @@ func TestPrepareWorkspaceConfigUsesDefaultPorts(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = ""
 		cfg.Endpoint = ""
+		defaults := DefaultConfig()
+		cfg.HTTP = &defaults.HTTP
 	})
 	if err := os.WriteFile(configPath, data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)
@@ -581,6 +584,7 @@ func TestServeContextUsesBootstrapLoggerOnStoreStartupFailure(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = "127.0.0.1:0"
 		cfg.Endpoint = "127.0.0.1:9820"
+		cfg.HTTP.Listeners[0].Listen = cfg.Listen
 		cfg.Storage["memory"] = storageFileConfig{Kind: storage.KindBadger}
 		cfg.Services.SystemLog = &gizlog.Config{Level: "debug"}
 	})
@@ -611,6 +615,7 @@ func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
 		cfg.Listen = "127.0.0.1:0"
 		cfg.Endpoint = "127.0.0.1:9820"
+		cfg.HTTP.Listeners[0].Listen = cfg.Listen
 	})
 	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
 		t.Fatalf("WriteFile error = %v", err)

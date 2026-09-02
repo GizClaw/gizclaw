@@ -39,8 +39,9 @@ endpoint: edge.example.com:9821
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: 127.0.0.1:9821
 metrics:
   remote-write-url: https://prometheus.example.test/api/v1/write
   query-url: https://prometheus.example.test
@@ -65,9 +66,6 @@ metrics:
 	}
 	if !cfg.Upstreams[0].PublicKey.Equal(upstreamKey.Public) {
 		t.Fatalf("Upstreams[0].PublicKey = %v, want %v", cfg.Upstreams[0].PublicKey, upstreamKey.Public)
-	}
-	if cfg.TLS.CertSource != TLSCertSourceDisabled {
-		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
 	}
 	if cfg.Metrics.RemoteWriteURL != "https://prometheus.example.test/api/v1/write" ||
 		cfg.Metrics.QueryURL != "https://prometheus.example.test" || cfg.Metrics.BearerToken != "test-token" {
@@ -182,8 +180,9 @@ upstreams:
       - urls: [turn:192.0.2.11:3478?transport=udp]
         username: user
         credential: secret
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: 127.0.0.1:9821
 `)
 	cfg, err := PrepareWorkspaceConfig(dir)
 	if err != nil {
@@ -203,6 +202,7 @@ func TestConfigRejectsInvalidPluralUpstreams(t *testing.T) {
 	second := testKeyPair(t, 0x17)
 	base := Config{
 		KeyPair: edgeKey, Listen: "127.0.0.1:9821", Endpoint: "127.0.0.1:9821",
+		HTTP:    HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9821"}}},
 		Gateway: defaultGatewayConfig(),
 		Upstreams: []UpstreamConfig{
 			{Endpoint: "server-a.example.com:9820", PublicKey: first.Public},
@@ -246,6 +246,9 @@ upstream:
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -282,8 +285,9 @@ endpoint: `+tc.endpoint+`
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: `+tc.listen+`
 `)
 			_, err := PrepareWorkspaceConfig(dir)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -443,7 +447,7 @@ func TestPublicGatewayICEAddr(t *testing.T) {
 	}
 }
 
-func TestPrepareWorkspaceConfigDefaultsEndpointAndTLS(t *testing.T) {
+func TestPrepareWorkspaceConfigDefaultsEndpoint(t *testing.T) {
 	edgeKey := testKeyPair(t, 0x33)
 	upstreamKey := testKeyPair(t, 0x44)
 	dir := t.TempDir()
@@ -453,6 +457,9 @@ identity:
 upstreams:
   - endpoint: server-a.example.com:9820
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `)
 
 	cfg, err := PrepareWorkspaceConfig(dir)
@@ -464,9 +471,6 @@ upstreams:
 	}
 	if cfg.Endpoint != cfg.Listen {
 		t.Fatalf("Endpoint = %q, want listen %q", cfg.Endpoint, cfg.Listen)
-	}
-	if cfg.TLS.CertSource != TLSCertSourceDisabled {
-		t.Fatalf("TLS.CertSource = %q", cfg.TLS.CertSource)
 	}
 }
 
@@ -494,6 +498,9 @@ identity:
   private-key: ` + edgeKey.Private.String() + `
 upstreams:
   - public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `,
 			want: "upstreams[0].endpoint",
 		},
@@ -504,11 +511,14 @@ identity:
   private-key: ` + edgeKey.Private.String() + `
 upstreams:
   - endpoint: server-a.example.com:9820
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 `,
 			want: "upstreams[0].public-key",
 		},
 		{
-			name: "invalid tls source",
+			name: "removed top-level TLS",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
@@ -518,7 +528,18 @@ upstreams:
 tls:
   cert-source: acme
 `,
-			want: "tls.cert-source",
+			want: "top-level tls was removed",
+		},
+		{
+			name: "missing HTTP listeners",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+`,
+			want: "http.listeners is required",
 		},
 		{
 			name: "empty HTTP listeners",
@@ -548,65 +569,6 @@ http:
         cert-file: cert.pem
 `,
 			want: "requires cert-file and key-file",
-		},
-		{
-			name: "unimplemented tls edge rpc source",
-			body: `
-identity:
-  private-key: ` + edgeKey.Private.String() + `
-upstreams:
-  - endpoint: server-a.example.com:9820
-    public-key: ` + upstreamKey.Public.String() + `
-tls:
-  cert-source: edge-rpc
-`,
-			want: "not implemented",
-		},
-		{
-			name: "tls file source requires certificate pair",
-			body: `
-identity:
-  private-key: ` + edgeKey.Private.String() + `
-upstreams:
-  - endpoint: server-a.example.com:9820
-    public-key: ` + upstreamKey.Public.String() + `
-tls:
-  cert-source: file
-`,
-			want: "requires cert-file and key-file",
-		},
-		{
-			name: "legacy TLS files require file source",
-			body: `
-identity:
-  private-key: ` + edgeKey.Private.String() + `
-upstreams:
-  - endpoint: server-a.example.com:9820
-    public-key: ` + upstreamKey.Public.String() + `
-tls:
-  cert-source: disabled
-  cert-file: cert.pem
-  key-file: key.pem
-`,
-			want: "only valid with tls.cert-source",
-		},
-		{
-			name: "legacy TLS conflicts with HTTP listeners",
-			body: `
-identity:
-  private-key: ` + edgeKey.Private.String() + `
-upstreams:
-  - endpoint: server-a.example.com:9820
-    public-key: ` + upstreamKey.Public.String() + `
-tls:
-  cert-source: file
-  cert-file: cert.pem
-  key-file: key.pem
-http:
-  listeners:
-    - listen: 0.0.0.0:9821
-`,
-			want: "must not be combined with http.listeners",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -669,6 +631,9 @@ listen: `+listenAddr+`
 upstreams:
   - endpoint: `+signaling.URL+`
     public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: `+listenAddr+`
 `)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

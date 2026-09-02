@@ -65,8 +65,9 @@ endpoint: %s
 upstreams:
   - endpoint: %s
     public-key: %s
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: %s
 gateway:
   enabled: true
   max-sessions: 4
@@ -78,7 +79,7 @@ gateway:
   session-buffer-bytes: 1048576
   idle-timeout: 1m
   drain-timeout: 1s
-`, edgeKey.Private.String(), edgeAddr, edgeAddr, server.baseURL, server.server.PublicKey().String())
+`, edgeKey.Private.String(), edgeAddr, edgeAddr, server.baseURL, server.server.PublicKey().String(), edgeAddr)
 	if err := os.WriteFile(filepath.Join(root, "config.yaml"), []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}

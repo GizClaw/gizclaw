@@ -29,14 +29,13 @@ func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
 	}
 }
 
-func TestCmdServerServeToClientsFalseRejectsProtectedRoutesBeforeAuthentication(t *testing.T) {
+func TestCmdServerRejectsDirectProtectedRoutesBeforeAuthentication(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := validLayeredConfig(t.TempDir())
 	cfg.KeyPair = serverKey
-	cfg.ServeToClients = false
 	srv, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
