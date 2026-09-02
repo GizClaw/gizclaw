@@ -50,6 +50,7 @@ import {
   encodeRPCResponsePayload,
 } from "./generated/rpc/payload-codec.ts";
 import { RPC_METHOD_IDS, RPC_METHODS } from "./generated/rpc/method-map.ts";
+import * as peerhttp from "./peerhttp.ts";
 import { createEdgeRPCClient, createPeerRPCClient } from "./rpc.ts";
 import {
   base58Decode,
@@ -731,6 +732,13 @@ test("RPC API key root management methods preserve IDs and payloads", () => {
   assert.equal(RPC_METHOD_IDS["server.api_key.create"], 96);
   assert.equal(RPC_METHOD_IDS["server.api_key.list"], 97);
   assert.equal(RPC_METHOD_IDS["server.api_key.revoke"], 98);
+  assert.equal(RPC_METHOD_IDS["client.device.status.get"], 99);
+  assert.equal(RPC_METHOD_IDS["client.device.volume.set"], 100);
+  assert.equal(RPC_METHOD_IDS["client.device.sound.play"], 101);
+  assert.equal(RPC_METHOD_IDS["client.device.reboot"], 102);
+  assert.equal(RPC_METHOD_IDS["client.wifi.status.get"], 103);
+  assert.equal(RPC_METHOD_IDS["client.wifi.saved.list"], 104);
+  assert.equal(RPC_METHOD_IDS["client.wifi.saved.forget"], 105);
 
   const list = { cursor: "key_cursor", limit: 25 };
   assert.deepEqual(
@@ -788,6 +796,81 @@ test("RPC payload codec decodes omitted proto3 defaults", () => {
       runtime_profile_revision: "",
     },
   );
+});
+
+test("RPC payload codec round-trips device control payloads", () => {
+  const volume = { level: 35, muted: true };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.device.volume.set",
+      encodeRPCRequestPayload("client.device.volume.set", volume),
+    ),
+    volume,
+  );
+  const status = { volume: 35, muted: true, battery_percent: 80 };
+  const decodedStatus = decodeRPCResponsePayload(
+    "client.device.volume.set",
+    encodeRPCResponsePayload("client.device.volume.set", status),
+  );
+  assert.equal(decodedStatus.volume, 35);
+  assert.equal(decodedStatus.muted, true);
+  assert.equal(decodedStatus.battery_percent, 80);
+
+  const sound = { sound: "chime", duration_ms: 1500 };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.device.sound.play",
+      encodeRPCRequestPayload("client.device.sound.play", sound),
+    ),
+    sound,
+  );
+  const wifi = { connected: true, ssid: "home", rssi_dbm: -55, ip: "192.0.2.10" };
+  const decodedWifi = decodeRPCResponsePayload(
+    "client.wifi.status.get",
+    encodeRPCResponsePayload("client.wifi.status.get", wifi),
+  );
+  assert.equal(decodedWifi.connected, true);
+  assert.equal(decodedWifi.ssid, "home");
+  assert.equal(decodedWifi.rssi_dbm, -55);
+  const saved = { networks: [{ ssid: "home" }, { ssid: "office" }] };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "client.wifi.saved.list",
+      encodeRPCResponsePayload("client.wifi.saved.list", saved),
+    ),
+    saved,
+  );
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "client.wifi.saved.forget",
+      encodeRPCRequestPayload("client.wifi.saved.forget", { ssid: "office" }),
+    ),
+    { ssid: "office" },
+  );
+});
+
+test("peer HTTP SDK exposes device and contact operations", () => {
+  for (const name of [
+    "getDevice",
+    "getDeviceRuntime",
+    "getDeviceStatus",
+    "getDeviceTelemetryLatest",
+    "queryDeviceTelemetry",
+    "aggregateDeviceTelemetry",
+    "setDeviceVolume",
+    "playDeviceSound",
+    "rebootDevice",
+    "getDeviceWifi",
+    "listDeviceSavedWifi",
+    "forgetDeviceSavedWifi",
+    "listContacts",
+    "createContact",
+    "getContact",
+    "putContact",
+    "deleteContact",
+  ]) {
+    assert.equal(typeof peerhttp[name as keyof typeof peerhttp], "function", name);
+  }
 });
 
 test("RPC payload codec preserves Tool invocation JSON strings", () => {

@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -876,5 +879,106 @@ func resourceModel(alias string) rpcapi.Model {
 		I18n:         map[string]rpcapi.ResourceI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}},
 		ProviderKind: rpcapi.ModelProviderKindOpenaiTenant,
 		OpenAITenant: &rpcapi.OpenAITenantModelProviderData{},
+	}
+}
+
+func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
+	type call struct{ method, path, body string }
+	var calls []call
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		calls = append(calls, call{method: r.Method, path: r.URL.RequestURI(), body: string(body)})
+		if r.Header.Get("Authorization") != "Bearer gizclaw_sk_v1_test" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/gizclaw/v1/device/status":
+			_, _ = w.Write([]byte(`{"volume":35,"muted":true,"battery_percent":80}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/gizclaw/v1/device/volume":
+			_, _ = w.Write([]byte(`{"status":{"volume":35,"muted":true}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/device/actions/play-sound":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodGet && r.URL.Path == "/gizclaw/v1/device/wifi/saved":
+			_, _ = w.Write([]byte(`{"networks":[{"ssid":"home"}]}`))
+		case r.Method == http.MethodDelete && r.URL.Path == "/gizclaw/v1/device/wifi/saved/home":
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodPost && r.URL.Path == "/gizclaw/v1/contacts":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"name":"mom","display_name":"Mom"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/gizclaw/v1/contacts":
+			_, _ = w.Write([]byte(`{"items":[{"name":"mom"}],"has_next":false}`))
+		case r.Method == http.MethodDelete && r.URL.Path == "/gizclaw/v1/contacts/mom":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	authorize := func(_ context.Context, r *http.Request) error {
+		r.Header.Set("Authorization", "Bearer gizclaw_sk_v1_test")
+		return nil
+	}
+	client, err := peerhttp.NewClientWithResponses(server.URL, peerhttp.WithRequestEditorFn(authorize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	status, err := client.GetDeviceStatusWithResponse(ctx)
+	if err != nil || status.JSON200 == nil || status.JSON200.Volume == nil || *status.JSON200.Volume != 35 || !*status.JSON200.Muted {
+		t.Fatalf("GetDeviceStatus = %+v, %v", status, err)
+	}
+	volume, err := client.SetDeviceVolumeWithResponse(ctx, peerhttp.SetDeviceVolumeJSONRequestBody{Level: 35, Muted: true})
+	if err != nil || volume.JSON200 == nil || *volume.JSON200.Status.Volume != 35 {
+		t.Fatalf("SetDeviceVolume = %+v, %v", volume, err)
+	}
+	sound, err := client.PlayDeviceSoundWithResponse(ctx, peerhttp.PlayDeviceSoundJSONRequestBody{Sound: "chime"})
+	if err != nil || sound.StatusCode() != http.StatusNoContent {
+		t.Fatalf("PlayDeviceSound = %+v, %v", sound, err)
+	}
+	saved, err := client.ListDeviceSavedWifiWithResponse(ctx)
+	if err != nil || saved.JSON200 == nil || len(saved.JSON200.Networks) != 1 || saved.JSON200.Networks[0].Ssid != "home" {
+		t.Fatalf("ListDeviceSavedWifi = %+v, %v", saved, err)
+	}
+	forget, err := client.ForgetDeviceSavedWifiWithResponse(ctx, "home")
+	if err != nil || forget.StatusCode() != http.StatusNoContent {
+		t.Fatalf("ForgetDeviceSavedWifi = %+v, %v", forget, err)
+	}
+	created, err := client.CreateContactWithResponse(ctx, peerhttp.CreateContactJSONRequestBody{Name: "mom", DisplayName: new("Mom")})
+	if err != nil || created.JSON201 == nil || created.JSON201.Name != "mom" {
+		t.Fatalf("CreateContact = %+v, %v", created, err)
+	}
+	limit := int32(10)
+	listed, err := client.ListContactsWithResponse(ctx, &peerhttp.ListContactsParams{Limit: &limit})
+	if err != nil || listed.JSON200 == nil || len(listed.JSON200.Items) != 1 {
+		t.Fatalf("ListContacts = %+v, %v", listed, err)
+	}
+	deleted, err := client.DeleteContactWithResponse(ctx, "mom")
+	if err != nil || deleted.StatusCode() != http.StatusNoContent {
+		t.Fatalf("DeleteContact = %+v, %v", deleted, err)
+	}
+
+	want := []call{
+		{http.MethodGet, "/gizclaw/v1/device/status", ""},
+		{http.MethodPut, "/gizclaw/v1/device/volume", `{"level":35,"muted":true}`},
+		{http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime"}`},
+		{http.MethodGet, "/gizclaw/v1/device/wifi/saved", ""},
+		{http.MethodDelete, "/gizclaw/v1/device/wifi/saved/home", ""},
+		{http.MethodPost, "/gizclaw/v1/contacts", `{"display_name":"Mom","name":"mom"}`},
+		{http.MethodGet, "/gizclaw/v1/contacts?limit=10", ""},
+		{http.MethodDelete, "/gizclaw/v1/contacts/mom", ""},
+	}
+	if len(calls) != len(want) {
+		t.Fatalf("calls = %+v", calls)
+	}
+	for i := range want {
+		got := calls[i]
+		got.body = strings.TrimSpace(got.body)
+		if got != want[i] {
+			t.Fatalf("call %d = %+v, want %+v", i, got, want[i])
+		}
 	}
 }
