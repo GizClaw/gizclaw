@@ -1,3 +1,8 @@
+// Package giztest owns the Giztest scenario language: the document schema and
+// its semantics, variables, captures and expectations, the task runner, and
+// the JSON report. It executes client-facing steps through a Driver, so the
+// gizclaw CLI and the cgo end-to-end runner share one implementation of
+// everything except how a client is dialed.
 package giztest
 
 import (
@@ -18,47 +23,38 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-type runOptions struct {
-	parallel      int
-	in            io.Reader
-	out           io.Writer
-	fullEvidence  bool
-	audioObserver audioObserver
-	speechCache   *speechFixtureCache
-	// openPeerStream overrides how peer_stream steps dial the PeerStream;
-	// nil uses the selected client's real PeerStream.
-	openPeerStream func(client *gizcli.Client) peerStreamOpener
-	// openRelayStreams substitutes paired in-memory streams in runner tests.
-	openRelayStreams func() (relayStream, relayStream, error)
-	// connectClients substitutes already-connected clients in runner tests.
-	connectClients func(context.Context, map[string]ClientSpec, []Step, *variables) (*clientSet, error)
+// Options configures one Run.
+type Options struct {
+	// Driver executes every client-facing step. Required.
+	Driver Driver
+	// Parallel bounds concurrent tasks across all selected documents.
+	Parallel int
+	// In is the terminal a review step reads its verdict from.
+	In io.Reader
+	// Out is where an output step writes and where progress is reported.
+	Out io.Writer
 }
+
 type task struct {
 	doc     *Document
 	index   int
-	barrier *taskBarrier
+	barrier *TaskBarrier
 }
 
-func runDocuments(ctx context.Context, docs []*Document, opts runOptions) Report {
+func Run(ctx context.Context, docs []*Document, opts Options) Report {
 	started := time.Now()
 	report := Report{Version: "v1", StartedAt: started}
-	if opts.speechCache == nil {
-		opts.speechCache = newSpeechFixtureCache()
-	}
 	var groups [][]task
 	taskCount := 0
 	for _, doc := range docs {
-		var barrier *taskBarrier
+		var barrier *TaskBarrier
 		if documentHasBarrier(doc) {
-			barrier = newTaskBarrier(doc.Repeat)
-			if opts.parallel < doc.Repeat {
+			barrier = NewTaskBarrier(doc.Repeat)
+			if opts.Parallel < doc.Repeat {
 				for i := range doc.Repeat {
-					report.Tasks = append(report.Tasks, TaskReport{Path: doc.Path, Name: doc.Name, TaskID: fmt.Sprintf("%s-%04d", doc.Name, i), RepeatIndex: i, Status: "failed", Error: fmt.Sprintf("parallelism %d is below barrier group %d", opts.parallel, doc.Repeat)})
+					report.Tasks = append(report.Tasks, TaskReport{Path: doc.Path, Name: doc.Name, TaskID: fmt.Sprintf("%s-%04d", doc.Name, i), RepeatIndex: i, Status: "failed", Error: fmt.Sprintf("parallelism %d is below barrier group %d", opts.Parallel, doc.Repeat)})
 				}
 				continue
 			}
@@ -78,7 +74,7 @@ func runDocuments(ctx context.Context, docs []*Document, opts runOptions) Report
 		}
 	}
 	results := make(chan TaskReport, taskCount)
-	slots := make(chan struct{}, opts.parallel)
+	slots := make(chan struct{}, opts.Parallel)
 	var wg sync.WaitGroup
 	go func() {
 		defer func() {
@@ -131,9 +127,12 @@ func cancelledTaskReport(item task, ctx context.Context) TaskReport {
 	return TaskReport{
 		Path: item.doc.Path, Name: item.doc.Name,
 		TaskID:      fmt.Sprintf("%s-%04d", item.doc.Name, item.index),
-		RepeatIndex: item.index, Status: "failed", Error: safeError(err),
+		RepeatIndex: item.index, Status: "failed", Error: SafeError(err),
 	}
 }
+
+// HasBarrier reports whether the document synchronizes its repeated tasks.
+func (d *Document) HasBarrier() bool { return documentHasBarrier(d) }
 
 func documentHasBarrier(doc *Document) bool {
 	for _, s := range doc.Steps {
@@ -144,60 +143,57 @@ func documentHasBarrier(doc *Document) bool {
 	return false
 }
 
-func runTask(parent context.Context, item task, opts runOptions) TaskReport {
+func runTask(parent context.Context, item task, opts Options) TaskReport {
 	started := time.Now()
 	result := TaskReport{Path: item.doc.Path, Name: item.doc.Name, TaskID: fmt.Sprintf("%s-%04d", item.doc.Name, item.index), RepeatIndex: item.index, Status: "failed"}
 	timeout, _ := item.doc.taskTimeout()
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
-	vars, err := newVariables(item.doc.Variables)
+	vars, err := NewVariables(item.doc.Variables)
 	if err != nil {
 		item.barrier.Abort(err)
-		result.Error = safeError(err)
+		result.Error = SafeError(err)
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
 	defer vars.release()
 	redactions := vars.redactions(item.doc.Report.Redact)
-	connect := connectClients
-	if opts.connectClients != nil {
-		connect = opts.connectClients
-	}
-	clients, err := connect(ctx, item.doc.Clients, item.doc.Steps, vars)
-	if clients != nil {
-		result.Clients = clients.fingerprints()
-		defer clients.Close()
+	session, err := opts.Driver.Open(ctx, item.doc, vars)
+	if session != nil {
+		result.Clients = session.Fingerprints()
+		defer session.Close()
 	}
 	if err != nil {
 		item.barrier.Abort(err)
-		result.Error = safeError(err, redactions...)
-		result.Cleanup, _ = runFinalizers(parent, item.doc.Path, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
+		result.Error = SafeError(err, redactions...)
+		result.Cleanup, _ = runFinalizers(parent, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
-	peerSessions := newPeerStreamSessions()
 	failed := false
 	for _, step := range item.doc.Steps {
-		stepResult, err := runStep(ctx, item.doc.Path, step, clients, vars, item.barrier, opts, redactions, peerSessions)
+		stepResult, err := RunStep(ctx, item.doc.Path, step, session, vars, item.barrier, opts, redactions)
 		result.Steps = append(result.Steps, stepResult)
 		if err != nil {
 			item.barrier.Abort(err)
-			result.Error = safeError(err, redactions...)
+			result.Error = SafeError(err, redactions...)
 			failed = true
 			break
 		}
 	}
-	if err := peerSessions.Close(); err != nil {
+	// Streams the document held open across steps close before the
+	// finalizers so cleanup observes a settled session.
+	if err := session.CloseStreams(); err != nil {
 		if result.Error == "" {
-			result.Error = safeError(err, redactions...)
+			result.Error = SafeError(err, redactions...)
 		}
 		failed = true
 	}
 	var cleanupErr error
-	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Path, item.doc.Finally, clients, vars, item.barrier, opts, redactions)
+	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
 	if cleanupErr != nil {
 		if result.Error == "" {
-			result.Error = safeError(cleanupErr, redactions...)
+			result.Error = SafeError(cleanupErr, redactions...)
 		}
 		failed = true
 	}
@@ -208,13 +204,13 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 	return result
 }
 
-func runFinalizers(parent context.Context, documentPath string, steps []Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string) ([]StepReport, error) {
+func runFinalizers(parent context.Context, documentPath string, steps []Step, session Session, vars *Variables, barrier *TaskBarrier, opts Options, redactions []string) ([]StepReport, error) {
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cleanupCancel()
 	results := make([]StepReport, 0, len(steps))
 	var firstErr error
 	for _, step := range steps {
-		stepResult, err := runStep(cleanupCtx, documentPath, step, clients, vars, barrier, opts, redactions)
+		stepResult, err := runStepStage(cleanupCtx, documentPath, step, session, vars, barrier, opts, redactions, true)
 		stepResult.Stage = "cleanup"
 		results = append(results, stepResult)
 		if err != nil && firstErr == nil {
@@ -224,27 +220,32 @@ func runFinalizers(parent context.Context, documentPath string, steps []Step, cl
 	return results, firstErr
 }
 
-type assertionFailure struct{ err error }
+// AssertionError marks a failure where the operation itself succeeded but an
+// expectation did not hold. Retry policies distinguish it from an operation
+// failure, so drivers wrap expectation failures in it.
+type AssertionError struct{ err error }
 
-func (e *assertionFailure) Error() string { return e.err.Error() }
-func (e *assertionFailure) Unwrap() error { return e.err }
+// NewAssertionError wraps err as an expectation failure.
+func NewAssertionError(err error) *AssertionError { return &AssertionError{err: err} }
 
-func runStep(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string, sessionSets ...*peerStreamSessions) (StepReport, error) {
-	var sessions *peerStreamSessions
-	if len(sessionSets) > 0 {
-		sessions = sessionSets[0]
-	}
-	if sessions == nil {
-		sessions = newPeerStreamSessions()
-		defer func() { _ = sessions.Close() }()
-	}
-	if step.Retry == nil {
-		return runStepOnce(ctx, documentPath, step, clients, vars, barrier, opts, redactions, sessions)
-	}
-	return runStepWithRetry(ctx, documentPath, step, clients, vars, barrier, opts, redactions, sessions)
+func (e *AssertionError) Error() string { return e.err.Error() }
+func (e *AssertionError) Unwrap() error { return e.err }
+
+// RunStep executes one step against session and reports it. Drivers use it to
+// exercise a single operation without building a document; Run calls it for
+// every step and finalizer.
+func RunStep(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, barrier *TaskBarrier, opts Options, redactions []string) (StepReport, error) {
+	return runStepStage(ctx, documentPath, step, session, vars, barrier, opts, redactions, false)
 }
 
-func runStepWithRetry(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string, sessions *peerStreamSessions) (StepReport, error) {
+func runStepStage(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, barrier *TaskBarrier, opts Options, redactions []string, cleanup bool) (StepReport, error) {
+	if step.Retry == nil {
+		return runStepOnce(ctx, documentPath, step, session, vars, barrier, opts, redactions, cleanup)
+	}
+	return runStepWithRetry(ctx, documentPath, step, session, vars, barrier, opts, redactions, cleanup)
+}
+
+func runStepWithRetry(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, barrier *TaskBarrier, opts Options, redactions []string, cleanup bool) (StepReport, error) {
 	started := time.Now()
 	retryOn := step.Retry.On
 	if retryOn == nil {
@@ -259,12 +260,12 @@ func runStepWithRetry(ctx context.Context, documentPath string, step Step, clien
 	var finalErr error
 	for attempt := 1; attempt <= step.Retry.Attempts; attempt++ {
 		attemptVars := cloneVariables(vars)
-		attemptReport, err := runStepOnce(ctx, documentPath, step, clients, attemptVars, barrier, opts, redactions, sessions)
+		attemptReport, err := runStepOnce(ctx, documentPath, step, session, attemptVars, barrier, opts, redactions, cleanup)
 		if err == nil {
 			if commitErr := commitAttemptVariables(vars, attemptVars); commitErr != nil {
 				err = commitErr
 				attemptReport.Status = "failed"
-				attemptReport.Error = safeError(err, redactions...)
+				attemptReport.Error = SafeError(err, redactions...)
 			}
 		}
 		kind := failureKind(err)
@@ -301,11 +302,11 @@ func waitRetryDelay(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func cloneVariables(input *variables) *variables {
-	return &variables{values: maps.Clone(input.values)}
+func cloneVariables(input *Variables) *Variables {
+	return &Variables{values: maps.Clone(input.values)}
 }
 
-func releaseAttemptVariables(base, attempt *variables) {
+func releaseAttemptVariables(base, attempt *Variables) {
 	protected := make(map[variableDataIdentity]struct{})
 	for _, current := range base.values {
 		collectVariableDataIdentities(current.data, protected)
@@ -388,14 +389,14 @@ func clearDiscardedVariableData(input any, protected, seen map[variableDataIdent
 	}
 }
 
-func commitAttemptVariables(dst, src *variables) error {
+func commitAttemptVariables(dst, src *Variables) error {
 	pending := make(map[string]any)
 	for name, current := range dst.values {
 		candidate := src.values[name]
 		if current.data != nil || candidate.data == nil {
 			continue
 		}
-		if err := checkValueType(current.spec, candidate.data); err != nil {
+		if err := CheckValueType(current.spec, candidate.data); err != nil {
 			return fmt.Errorf("variable %q: %w", name, err)
 		}
 		pending[name] = candidate.data
@@ -412,7 +413,7 @@ func failureKind(err error) string {
 	if err == nil {
 		return ""
 	}
-	var assertion *assertionFailure
+	var assertion *AssertionError
 	if errors.As(err, &assertion) {
 		return "assertion"
 	}
@@ -425,9 +426,9 @@ func failureKind(err error) string {
 	return "operation"
 }
 
-func runStepOnce(ctx context.Context, documentPath string, step Step, clients *clientSet, vars *variables, barrier *taskBarrier, opts runOptions, redactions []string, sessions *peerStreamSessions) (StepReport, error) {
+func runStepOnce(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, barrier *TaskBarrier, opts Options, redactions []string, cleanup bool) (StepReport, error) {
 	started := time.Now()
-	op := step.operation()
+	op := step.Operation()
 	report := StepReport{ID: step.ID, Operation: op, Client: step.Client, Status: "failed", Stage: op}
 	stepCtx, cancel := context.WithCancel(ctx)
 	if step.Timeout != "" {
@@ -443,143 +444,6 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 	var saved any
 	var err error
 	switch op {
-	case "rpc":
-		client, getErr := clients.get(step.Client)
-		if getErr != nil {
-			err = getErr
-			break
-		}
-		params := step.RPC.Request
-		if params == nil {
-			params = map[string]any{}
-		}
-		params, err = vars.resolve(params)
-		if err == nil {
-			value, err = invokeUnary(stepCtx, client, step, params)
-			saved = value
-		}
-	case "rpc_stream":
-		client, getErr := clients.get(step.Client)
-		if getErr != nil {
-			err = getErr
-			break
-		}
-		request, resolveErr := vars.resolve(step.RPCStream.Request)
-		if resolveErr != nil {
-			err = resolveErr
-			break
-		}
-		streamResult, invokeErr := invokeRPCStream(stepCtx, client, step, request)
-		err = invokeErr
-		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
-	case "speech":
-		client, getErr := clients.get(step.Client)
-		if getErr != nil {
-			err = getErr
-			break
-		}
-		request, resolveErr := vars.resolve(step.Speech.Request)
-		if resolveErr != nil {
-			err = resolveErr
-			break
-		}
-		input, resolveErr := vars.resolve(step.Speech.Input)
-		if resolveErr != nil && step.Speech.Input != nil {
-			err = resolveErr
-			break
-		}
-		var outputSpec VariableSpec
-		if step.SaveAs != "" {
-			outputSpec = vars.values[step.SaveAs].spec
-		}
-		inputSpec, _ := vars.referencedSpec(step.Speech.Input)
-		invoke := func() (operationResult, error) {
-			return invokeSpeech(stepCtx, client, step, request, input, inputSpec, outputSpec)
-		}
-		var speechResult operationResult
-		var invokeErr error
-		if step.Speech.Cache == "run" {
-			key, keyErr := speechFixtureKey(documentPath, step, request, outputSpec)
-			if keyErr != nil {
-				err = keyErr
-				break
-			}
-			var hit bool
-			speechResult, hit, invokeErr = opts.speechCache.Do(stepCtx, key, invoke)
-			speechResult.evidence = maps.Clone(speechResult.evidence)
-			if speechResult.evidence == nil {
-				speechResult.evidence = make(map[string]any)
-			}
-			if hit {
-				speechResult.evidence["cache"] = "hit"
-			} else {
-				speechResult.evidence["cache"] = "miss"
-			}
-		} else {
-			speechResult, invokeErr = invoke()
-		}
-		err = invokeErr
-		value, saved, evidence = speechResult.assertion, speechResult.saved, speechResult.evidence
-	case "peer_stream":
-		client, getErr := clients.get(step.Client)
-		if getErr != nil {
-			err = getErr
-			break
-		}
-		input, resolveErr := vars.resolve(step.PeerStream.Input)
-		if resolveErr != nil && step.PeerStream.Input != nil {
-			err = resolveErr
-			break
-		}
-		if spec, ok := vars.referencedSpec(step.PeerStream.Input); ok && step.PeerStream.Mode != "text" {
-			if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
-				err = fmt.Errorf("peer_stream audio input must declare audio/ogg or audio/opus with opus codec")
-				break
-			}
-		}
-		audioCaptureMaxBytes, captureErr := peerStreamAudioCaptureMaxBytes(step, vars)
-		if captureErr != nil {
-			err = captureErr
-			break
-		}
-		open := openClientPeerStream(client)
-		if opts.openPeerStream != nil {
-			open = opts.openPeerStream(client)
-		}
-		streamResult, invokeErr := invokePeerStreamWithSessions(stepCtx, client, open, sessions, step, input, audioCaptureMaxBytes, opts.audioObserver)
-		err = invokeErr
-		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
-	case "workspace_relay":
-		input, resolveErr := vars.resolve(step.WorkspaceRelay.Input)
-		if resolveErr != nil {
-			err = resolveErr
-			break
-		}
-		if spec, ok := vars.referencedSpec(step.WorkspaceRelay.Input); ok && step.WorkspaceRelay.Media == "audio" {
-			if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
-				err = fmt.Errorf("workspace_relay audio input must declare audio/ogg or audio/opus with opus codec")
-				break
-			}
-		}
-		audioCaptureMaxBytes, captureErr := relayAudioCaptureMaxBytes(step, vars)
-		if captureErr != nil {
-			err = captureErr
-			break
-		}
-		var relayOutcome operationResult
-		var invokeErr error
-		if opts.openRelayStreams == nil {
-			relayOutcome, invokeErr = invokeWorkspaceRelay(stepCtx, clients, step, input, audioCaptureMaxBytes, opts.fullEvidence, opts.audioObserver)
-		} else {
-			firstStream, secondStream, openErr := opts.openRelayStreams()
-			if openErr != nil {
-				invokeErr = openErr
-			} else {
-				relayOutcome, invokeErr = runWorkspaceRelayWithEvidence(stepCtx, step.WorkspaceRelay, firstStream, secondStream, input, audioCaptureMaxBytes, opts.fullEvidence, opts.audioObserver)
-			}
-		}
-		err = invokeErr
-		value, saved, evidence = relayOutcome.assertion, relayOutcome.saved, relayOutcome.evidence
 	case "barrier":
 		if barrier == nil {
 			err = fmt.Errorf("barrier not initialized")
@@ -588,58 +452,30 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 			evidence = map[string]any{"participants": barrier.total}
 		}
 	case "output":
-		evidence, err = emitOutput(opts.out, vars, step.Output.Variable)
+		evidence, err = emitOutput(opts.Out, vars, step.Output.Variable)
 	case "review":
-		err = runReview(opts.in, opts.out, step.ReviewOp.Message)
-	case "http":
-		endpoint, getErr := clients.endpoint(step.Client)
-		if getErr != nil {
-			err = getErr
-			break
-		}
-		var httpResult httpStepResult
-		httpResult, err = invokeHTTP(stepCtx, endpoint, step, vars)
-		value, saved, evidence = httpResult.body, httpResult.body, httpResult.evidence
-	case "client_rpc":
-		key := step.Client + ":" + step.ClientRPC.Method
-		counter := clients.inbound[key]
-		if counter == nil {
-			err = fmt.Errorf("client RPC %s was not installed", step.ClientRPC.Method)
-			break
-		}
-		expected := int64(step.ClientRPC.ExpectCalls)
-		if expected == 0 {
-			expected = 1
-		}
-		calls := counter.Load()
-		ticker := time.NewTicker(10 * time.Millisecond)
-		for calls < expected && err == nil {
-			select {
-			case <-ticker.C:
-				calls = counter.Load()
-			case <-stepCtx.Done():
-				err = fmt.Errorf("client RPC %s calls = %d, want at least %d: %w", step.ClientRPC.Method, calls, expected, context.Cause(stepCtx))
-			}
-		}
-		ticker.Stop()
-		if err != nil {
-			break
-		}
-		evidence = map[string]any{"method": step.ClientRPC.Method, "calls": calls}
-		value, saved = evidence, evidence
+		err = runReview(opts.In, opts.Out, step.ReviewOp.Message)
 	default:
-		err = fmt.Errorf("unsupported operation %q", op)
+		if session == nil {
+			err = fmt.Errorf("operation %s requires a connected session", op)
+			break
+		}
+		var result StepResult
+		result, err = session.Execute(stepCtx, StepRequest{
+			DocumentPath: documentPath, Step: step, Vars: vars, Cleanup: cleanup,
+		})
+		value, saved, evidence = result.Value, result.Saved, result.Evidence
 	}
 	if step.ExpectError != nil {
-		code, message, matched := structuredRPCError(err)
+		code, message, matched := opts.Driver.FailureCode(err)
 		if !matched {
 			if err == nil {
-				err = &assertionFailure{err: fmt.Errorf("expected RPC error code %d, got success", step.ExpectError.Code)}
+				err = &AssertionError{err: fmt.Errorf("expected RPC error code %d, got success", step.ExpectError.Code)}
 			}
 		} else if code != step.ExpectError.Code {
-			err = &assertionFailure{err: fmt.Errorf("expected RPC error code %d, got %d", step.ExpectError.Code, code)}
+			err = &AssertionError{err: fmt.Errorf("expected RPC error code %d, got %d", step.ExpectError.Code, code)}
 		} else if step.ExpectError.MessageContains != "" && !strings.Contains(message, step.ExpectError.MessageContains) {
-			err = &assertionFailure{err: fmt.Errorf("RPC error message does not contain expected text")}
+			err = &AssertionError{err: fmt.Errorf("RPC error message does not contain expected text")}
 		} else {
 			err = nil
 			evidence = map[string]any{"rpc_error_code": code}
@@ -657,7 +493,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		}
 		if err == nil {
 			if assertionErr := assertValue(step.Expect, value); assertionErr != nil {
-				err = &assertionFailure{err: assertionErr}
+				err = &AssertionError{err: assertionErr}
 			}
 		}
 		if evidence == nil {
@@ -668,7 +504,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		report.Status = "passed"
 		report.Evidence = evidence
 	} else {
-		report.Error = safeError(err, redactions...)
+		report.Error = SafeError(err, redactions...)
 		if len(evidence) != 0 {
 			report.Evidence = evidence
 		}
@@ -677,61 +513,9 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 	return report, err
 }
 
-func peerStreamAudioCaptureMaxBytes(step Step, vars *variables) (int, error) {
-	limit := 0
-	for name, pointer := range step.Capture {
-		if pointer != "/audio" {
-			continue
-		}
-		item, ok := vars.values[name]
-		if !ok {
-			return 0, fmt.Errorf("capture references unknown variable %q", name)
-		}
-		if item.spec.Type != "audio" || item.spec.MaxBytes <= 0 {
-			return 0, fmt.Errorf("peer_stream /audio capture variable %q must be audio with max_bytes", name)
-		}
-		if limit == 0 || item.spec.MaxBytes < limit {
-			limit = item.spec.MaxBytes
-		}
-	}
-	return limit, nil
-}
-
-func relayAudioCaptureMaxBytes(step Step, vars *variables) (int, error) {
-	limit := 0
-	for name, pointer := range step.Capture {
-		if pointer != "/terminal/audio" {
-			continue
-		}
-		item, ok := vars.values[name]
-		if !ok {
-			return 0, fmt.Errorf("capture references unknown variable %q", name)
-		}
-		if item.spec.Type != "audio" || item.spec.MaxBytes <= 0 || item.spec.MaxBytes > relayMaxAudioBytes {
-			return 0, fmt.Errorf("workspace_relay /terminal/audio capture variable %q must be audio with max_bytes up to %d", name, relayMaxAudioBytes)
-		}
-		if limit == 0 || item.spec.MaxBytes < limit {
-			limit = item.spec.MaxBytes
-		}
-	}
-	return limit, nil
-}
-
-func structuredRPCError(err error) (int32, string, bool) {
-	var failure *rpcFailure
-	if errors.As(err, &failure) {
-		return failure.code, failure.message, true
-	}
-	var apiError rpcapi.Error
-	if errors.As(err, &apiError) {
-		return int32(apiError.Code), apiError.Message, true
-	}
-	return 0, "", false
-}
-
-func applyCaptures(vars *variables, captures map[string]string, input any) error {
+func applyCaptures(vars *Variables, captures map[string]string, input any) error {
 	for name, pointer := range captures {
-		value, ok := jsonPointer(input, pointer)
+		value, ok := JSONPointer(input, pointer)
 		if !ok {
 			return fmt.Errorf("capture pointer %q not found", pointer)
 		}
@@ -743,7 +527,7 @@ func applyCaptures(vars *variables, captures map[string]string, input any) error
 }
 func assertValue(assertions map[string]Expectation, input any) error {
 	for path, a := range assertions {
-		value, ok := jsonPointer(input, path)
+		value, ok := JSONPointer(input, path)
 		if a.Present != nil && ok != *a.Present {
 			return fmt.Errorf("assert %s presence = %v", path, ok)
 		}
@@ -756,7 +540,7 @@ func assertValue(assertions map[string]Expectation, input any) error {
 		if a.Equals != nil {
 			matched := jsonEqual(value, a.Equals)
 			if a.Normalize != nil {
-				text, ok := stringTarget(value)
+				text, ok := StringTarget(value)
 				operand, operandOK := a.Equals.(string)
 				matched = ok && operandOK && normalizeString(text, a.Normalize) == normalizeString(operand, a.Normalize)
 			}
@@ -807,7 +591,7 @@ func assertStringMatchers(path string, a Expectation, value any) error {
 	if !hasStringMatcher {
 		return nil
 	}
-	text, ok := stringTarget(value)
+	text, ok := StringTarget(value)
 	if !ok {
 		return fmt.Errorf("assert %s requires a string or text-fragment array target", path)
 	}
@@ -901,7 +685,7 @@ func assertNumericBounds(path string, a Expectation, value any) error {
 	if a.Minimum == nil && a.Maximum == nil {
 		return nil
 	}
-	number, ok := numericTarget(value)
+	number, ok := NumericTarget(value)
 	if !ok {
 		return fmt.Errorf("assert %s requires a numeric target", path)
 	}
@@ -914,7 +698,10 @@ func assertNumericBounds(path string, a Expectation, value any) error {
 	return nil
 }
 
-func stringTarget(value any) (string, bool) {
+// StringTarget interprets a decoded JSON value as text, joining a
+// text-fragment array with no separator. Drivers use it to assert streamed
+// text in tests.
+func StringTarget(value any) (string, bool) {
 	switch x := value.(type) {
 	case string:
 		return x, true
@@ -934,7 +721,10 @@ func stringTarget(value any) (string, bool) {
 	return "", false
 }
 
-func numericTarget(value any) (float64, bool) {
+// NumericTarget interprets a decoded JSON value as a finite number. protojson
+// encodes 64-bit integer fields as decimal strings, so numeric RPC fields
+// arrive as strings and are accepted here.
+func NumericTarget(value any) (float64, bool) {
 	number, ok := rawNumericTarget(value)
 	if !ok || math.IsNaN(number) || math.IsInf(number, 0) {
 		return 0, false
@@ -965,7 +755,11 @@ func rawNumericTarget(value any) (float64, bool) {
 	}
 	return 0, false
 }
-func jsonPointer(input any, pointer string) (any, bool) {
+
+// JSONPointer resolves an RFC 6901 pointer against a decoded JSON value. It
+// backs both capture and expect, and drivers use it to assert their own step
+// values in tests.
+func JSONPointer(input any, pointer string) (any, bool) {
 	if pointer == "" {
 		return input, true
 	}
@@ -996,7 +790,7 @@ func jsonEqual(a, b any) bool {
 	bb, _ := json.Marshal(b)
 	return string(aa) == string(bb)
 }
-func safeError(err error, redactions ...string) string {
+func SafeError(err error, redactions ...string) string {
 	if err == nil {
 		return ""
 	}
@@ -1016,11 +810,15 @@ func safeError(err error, redactions ...string) string {
 	}
 	return text
 }
-func loadDocuments(paths []string) ([]*Document, error) {
+
+// LoadDocuments reads every path, rejects duplicate document names, and
+// returns the documents sorted by path. driver is passed through to
+// LoadDocument.
+func LoadDocuments(paths []string, driver Driver) ([]*Document, error) {
 	docs := make([]*Document, 0, len(paths))
 	names := map[string]string{}
 	for _, path := range paths {
-		doc, err := loadDocument(path)
+		doc, err := LoadDocument(path, driver)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}

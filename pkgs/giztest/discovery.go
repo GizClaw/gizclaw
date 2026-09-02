@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func discover(inputs []string) ([]string, error) {
+func Discover(inputs []string) ([]string, error) {
 	if len(inputs) == 0 {
 		return nil, fmt.Errorf("at least one file or directory is required")
 	}

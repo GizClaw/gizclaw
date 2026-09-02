@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 // Fixed v1 relay safety limits; the schema deliberately exposes no tuning
@@ -24,7 +25,6 @@ import (
 const (
 	relayMaxTurnEvents = 4096
 	relayMaxTextBytes  = 1 << 20
-	relayMaxAudioBytes = 16 << 20
 )
 
 // relayStream is the PeerStream surface the relay drives. *gizcli.PeerStream
@@ -161,7 +161,7 @@ func (s *relaySide) resetTurn() {
 	s.forwardMIME = ""
 }
 
-func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
+func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step giztest.Step, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
 	op := step.WorkspaceRelay
 	if op == nil {
 		return operationResult{}, fmt.Errorf("workspace_relay operation required")
@@ -190,11 +190,11 @@ func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step Step, in
 // the initial input to the first side, alternates assistant output from the
 // active side into user input for the other side chunk by chunk, and stops at
 // the terminal turn without forwarding it again.
-func runWorkspaceRelay(ctx context.Context, op *WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int) (operationResult, error) {
+func runWorkspaceRelay(ctx context.Context, op *giztest.WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int) (operationResult, error) {
 	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, false)
 }
 
-func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
+func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRelayOperation, firstStream, secondStream relayStream, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
 	var observeAudio audioObserver
 	if len(observers) > 0 {
 		observeAudio = observers[0]
@@ -430,8 +430,8 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *WorkspaceRelayOperat
 				}
 			}
 			totalAudioBytes += len(part.Data)
-			if totalAudioBytes > relayMaxAudioBytes {
-				return fail(side, "", "exceeded the fixed %d-byte relay audio limit", relayMaxAudioBytes)
+			if totalAudioBytes > giztest.MaxRelayAudioBytes {
+				return fail(side, "", "exceeded the fixed %d-byte relay audio limit", giztest.MaxRelayAudioBytes)
 			}
 			if op.Media != "audio" {
 				break // text relays consume assistant audio without forwarding it
@@ -529,15 +529,15 @@ func idleTimerStop(timer **time.Timer) {
 	}
 }
 
-func relayTerminalMediaName(op *WorkspaceRelayOperation) string {
+func relayTerminalMediaName(op *giztest.WorkspaceRelayOperation) string {
 	if op.TerminalMedia != "" {
 		return op.TerminalMedia
 	}
 	return op.Media
 }
 
-func pushRelayInput(ctx context.Context, op *WorkspaceRelayOperation, stream relayStream, input any) error {
-	streamID, err := generateValue("string")
+func pushRelayInput(ctx context.Context, op *giztest.WorkspaceRelayOperation, stream relayStream, input any) error {
+	streamID, err := newStreamID()
 	if err != nil {
 		return err
 	}
@@ -579,7 +579,7 @@ func pushRelayInput(ctx context.Context, op *WorkspaceRelayOperation, stream rel
 // first eligible fragment.
 func forwardRelayText(ctx context.Context, side, receiver *relaySide, text string) error {
 	if !side.forwardBegan {
-		streamID, err := generateValue("string")
+		streamID, err := newStreamID()
 		if err != nil {
 			return err
 		}
@@ -596,7 +596,7 @@ func forwardRelayText(ctx context.Context, side, receiver *relaySide, text strin
 
 func forwardRelayAudio(ctx context.Context, side, receiver *relaySide, blob *genx.Blob) error {
 	if !side.forwardBegan {
-		streamID, err := generateValue("string")
+		streamID, err := newStreamID()
 		if err != nil {
 			return err
 		}
@@ -615,7 +615,7 @@ func forwardRelayAudio(ctx context.Context, side, receiver *relaySide, blob *gen
 // forwardRelayTerminal rewrites the source terminal event as the receiving
 // user turn's own terminal fragment; an empty source turn still yields a
 // complete, empty user turn.
-func forwardRelayTerminal(ctx context.Context, op *WorkspaceRelayOperation, side, receiver *relaySide) error {
+func forwardRelayTerminal(ctx context.Context, op *giztest.WorkspaceRelayOperation, side, receiver *relaySide) error {
 	if op.Media == "text" {
 		if !side.forwardBegan {
 			if err := forwardRelayText(ctx, side, receiver, ""); err != nil {
@@ -659,7 +659,7 @@ func relayOpusMIME(mimeType string) bool {
 	return false
 }
 
-func relayTurns(op *WorkspaceRelayOperation, sides [2]*relaySide, includeTexts bool) map[string]any {
+func relayTurns(op *giztest.WorkspaceRelayOperation, sides [2]*relaySide, includeTexts bool) map[string]any {
 	turns := map[string]any{}
 	for _, side := range sides {
 		entry := map[string]any{"count": side.turns}
@@ -682,7 +682,7 @@ func relayTurns(op *WorkspaceRelayOperation, sides [2]*relaySide, includeTexts b
 	return turns
 }
 
-func relayEvidence(op *WorkspaceRelayOperation, sides [2]*relaySide, terminal *relaySide, completed, events, textBytes, audioBytes int, full bool) map[string]any {
+func relayEvidence(op *giztest.WorkspaceRelayOperation, sides [2]*relaySide, terminal *relaySide, completed, events, textBytes, audioBytes int, full bool) map[string]any {
 	evidence := map[string]any{
 		"completed_turns": completed,
 		"turns":           relayTurns(op, sides, full),
@@ -705,7 +705,7 @@ func relayEvidence(op *WorkspaceRelayOperation, sides [2]*relaySide, terminal *r
 
 // relayResult builds the assertion object with the terminal capture surface
 // and report evidence selected by the caller's explicit evidence mode.
-func relayResult(op *WorkspaceRelayOperation, sides [2]*relaySide, terminal *relaySide, completed, events, textBytes, audioBytes int, fullEvidence bool) (operationResult, error) {
+func relayResult(op *giztest.WorkspaceRelayOperation, sides [2]*relaySide, terminal *relaySide, completed, events, textBytes, audioBytes int, fullEvidence bool) (operationResult, error) {
 	terminalObject := map[string]any{"client": terminal.name}
 	if len(terminal.texts) > 0 && (op.Media == "text" || terminal.texts[len(terminal.texts)-1] != "") {
 		terminalObject["text"] = terminal.texts[len(terminal.texts)-1]

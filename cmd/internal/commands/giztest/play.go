@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"encoding/binary"
@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/portaudio"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 const (
@@ -366,7 +367,7 @@ func (s *playSession) close() error {
 	return errors.Join(s.playbackError(), outputErr, decoderErr)
 }
 
-func validatePlayDocument(path string, docs []*Document) error {
+func validatePlayDocument(path string, docs []*giztest.Document) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("inspect Giztest file: %w", err)
@@ -381,7 +382,7 @@ func validatePlayDocument(path string, docs []*Document) error {
 	if doc.Repeat != 1 {
 		return fmt.Errorf("play requires repeat 1, got %d", doc.Repeat)
 	}
-	if documentHasBarrier(doc) {
+	if doc.HasBarrier() {
 		return fmt.Errorf("play does not support barrier steps")
 	}
 	return nil
@@ -432,11 +433,11 @@ func (r *playRecord) abort() {
 	}
 }
 
-func (r *playRecord) commit(report Report, packets [][]byte) error {
+func (r *playRecord) commit(report giztest.Report, packets [][]byte) error {
 	if r == nil || r.temp == "" || r.committed {
 		return fmt.Errorf("play record is not open")
 	}
-	if err := writeReport(filepath.Join(r.temp, "report.json"), report); err != nil {
+	if err := giztest.WriteReport(filepath.Join(r.temp, "report.json"), report); err != nil {
 		return fmt.Errorf("write play report: %w", err)
 	}
 	if len(packets) > 0 {
@@ -454,7 +455,7 @@ func (r *playRecord) commit(report Report, packets [][]byte) error {
 	return nil
 }
 
-func writePlayRecord(path string, report Report, packets [][]byte) error {
+func writePlayRecord(path string, report giztest.Report, packets [][]byte) error {
 	record, err := newPlayRecord(path)
 	if err != nil {
 		return err

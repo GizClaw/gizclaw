@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -20,7 +21,7 @@ type clientSet struct {
 	endpoints map[string]string
 }
 
-func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []Step, vars *variables) (*clientSet, error) {
+func connectClients(ctx context.Context, specs map[string]giztest.ClientSpec, steps []giztest.Step, vars *giztest.Variables) (*clientSet, error) {
 	set := &clientSet{clients: map[string]*gizcli.Client{}, serve: map[string]<-chan error{}, inbound: map[string]*inboundCounter{}, endpoints: map[string]string{}}
 	names := make([]string, 0, len(specs))
 	for name := range specs {
@@ -29,7 +30,7 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 	sort.Strings(names)
 	for _, name := range names {
 		spec := specs[name]
-		endpointValue, err := vars.resolve(spec.AccessPoint)
+		endpointValue, err := vars.Resolve(spec.AccessPoint)
 		if err != nil {
 			return set, err
 		}
@@ -60,7 +61,7 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 		go func() { errCh <- client.Serve() }()
 		set.clients[name], set.serve[name] = client, errCh
 		if spec.RegistrationToken != "" {
-			tokenValue, err := vars.resolve(spec.RegistrationToken)
+			tokenValue, err := vars.Resolve(spec.RegistrationToken)
 			if err != nil {
 				return set, err
 			}

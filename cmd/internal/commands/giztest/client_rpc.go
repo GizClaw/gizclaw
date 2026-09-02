@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"context"
@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
 type inboundCounter struct{ atomic.Int64 }
 
-func configureClientRPC(client *gizcli.Client, clientName string, steps []Step, vars *variables, counts map[string]*inboundCounter) error {
+func configureClientRPC(client *gizcli.Client, clientName string, steps []giztest.Step, vars *giztest.Variables, counts map[string]*inboundCounter) error {
 	if err := client.ObserveClientRPC(func(method rpcapi.RPCMethod) {
 		if counter := counts[clientName+":"+string(method)]; counter != nil {
 			counter.Add(1)
@@ -28,7 +30,7 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []Step, 
 		if step.Client != clientName || step.ClientRPC == nil {
 			continue
 		}
-		response, err := vars.resolve(step.ClientRPC.Response)
+		response, err := vars.Resolve(step.ClientRPC.Response)
 		if err != nil && step.ClientRPC.Response != nil {
 			return fmt.Errorf("step %s client_rpc response: %w", step.ID, err)
 		}
@@ -184,4 +186,25 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 		handlers.ForgetWifi = func(context.Context, string) error { return nil }
 	}
 	return nil
+}
+
+// awaitInboundCalls blocks until the installed provider has been called at
+// least want times, or ctx ends.
+func awaitInboundCalls(ctx context.Context, counter *inboundCounter, want int64, method string) (int64, error) {
+	calls := counter.Load()
+	if calls >= want {
+		return calls, nil
+	}
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if calls = counter.Load(); calls >= want {
+				return calls, nil
+			}
+		case <-ctx.Done():
+			return calls, fmt.Errorf("client RPC %s calls = %d, want at least %d: %w", method, calls, want, context.Cause(ctx))
+		}
+	}
 }

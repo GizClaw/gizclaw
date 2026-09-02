@@ -20,7 +20,7 @@ const (
 
 var (
 	namePattern      = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
-	referencePattern = regexp.MustCompile(`^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$`)
+	ReferencePattern = regexp.MustCompile(`^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$`)
 )
 
 type Document struct {
@@ -174,6 +174,11 @@ type Expectation struct {
 	MaxLength   *int     `json:"max_length,omitempty" yaml:"max_length,omitempty"`
 	Normalize   []string `json:"normalize,omitempty" yaml:"normalize,omitempty"`
 }
+
+// MaxRelayAudioBytes bounds the audio one workspace_relay step may relay and
+// capture. It is a document-level contract, so the driver enforces the same
+// number while streaming.
+const MaxRelayAudioBytes = 16 << 20
 
 const (
 	maxNeedleRunes    = 256
@@ -336,7 +341,10 @@ func nonEmptyList(v string) []string {
 	return []string{v}
 }
 
-func loadDocument(path string) (*Document, error) {
+// LoadDocument reads and validates one Giztest document. driver may be nil to
+// check only the document-level contract; pass the driver that will execute
+// the document to also check operation support and driver-specific details.
+func LoadDocument(path string, driver Driver) (*Document, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -368,6 +376,11 @@ func loadDocument(path string) (*Document, error) {
 	}
 	if err := doc.validateSemantics(); err != nil {
 		return nil, err
+	}
+	if driver != nil {
+		if err := doc.validateDriver(driver); err != nil {
+			return nil, err
+		}
 	}
 	return &doc, nil
 }
@@ -447,7 +460,7 @@ func (d *Document) validateSemantics() error {
 		if step.ID == "" {
 			return fmt.Errorf("step %d requires id", i+1)
 		}
-		op := step.operation()
+		op := step.Operation()
 		if ids[step.ID] {
 			return fmt.Errorf("duplicate step id %q", step.ID)
 		}
@@ -592,15 +605,22 @@ func (d *Document) validateSemantics() error {
 				return fmt.Errorf("step %s cached speech synthesis requires save_as", step.ID)
 			}
 		}
-		if step.RPC != nil {
-			if err := validateRPCRequestShape(step.RPC.Method, step.RPC.Request, d.Variables); err != nil {
-				return fmt.Errorf("step %s: %w", step.ID, err)
-			}
+	}
+	return nil
+}
+
+// validateDriver checks every step against the driver that will execute it:
+// the operation must be one the driver supports, and the driver gets to
+// reject details only it can judge, such as an RPC request that does not
+// match its schema.
+func (d *Document) validateDriver(driver Driver) error {
+	for _, step := range append(append([]Step(nil), d.Steps...), d.Finally...) {
+		op := step.Operation()
+		if !operationSupported(driver, op) {
+			return fmt.Errorf("step %s operation %s is not supported by this runner", step.ID, op)
 		}
-		if step.RPCStream != nil {
-			if err := validateRPCRequestShape(step.RPCStream.Method, step.RPCStream.Request, d.Variables); err != nil {
-				return fmt.Errorf("step %s: %w", step.ID, err)
-			}
+		if err := driver.ValidateStep(d, step); err != nil {
+			return fmt.Errorf("step %s: %w", step.ID, err)
 		}
 	}
 	return nil
@@ -616,8 +636,8 @@ func validateRetry(step Step, finalizer bool) error {
 	if step.Retry.Attempts < 2 || step.Retry.Attempts > maxRetryAttempts {
 		return fmt.Errorf("step %s retry attempts must be between 2 and %d", step.ID, maxRetryAttempts)
 	}
-	if !retryableOperation(step.operation()) {
-		return fmt.Errorf("step %s operation %s does not support retry", step.ID, step.operation())
+	if !retryableOperation(step.Operation()) {
+		return fmt.Errorf("step %s operation %s does not support retry", step.ID, step.Operation())
 	}
 	seen := make(map[string]struct{}, len(step.Retry.On))
 	for _, kind := range step.Retry.On {
@@ -703,7 +723,7 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 	for name, pointer := range step.Capture {
 		spec, ok := d.Variables[name]
 		if !ok {
-			continue // the shared step loop reports unknown capture variables
+			continue // the shared step loop reports unknown capture Variables
 		}
 		switch {
 		case pointer == "/terminal/text":
@@ -711,8 +731,8 @@ func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) e
 				return fmt.Errorf("step %s capture %q of /terminal/text must target a string output variable", step.ID, name)
 			}
 		case pointer == "/terminal/audio" && op.Media == "audio":
-			if spec.Type != "audio" || spec.Codec != "opus" || spec.MediaType != "audio/ogg" || spec.MaxBytes <= 0 || spec.MaxBytes > relayMaxAudioBytes {
-				return fmt.Errorf("step %s capture %q of /terminal/audio must target audio/ogg opus output with max_bytes up to %d", step.ID, name, relayMaxAudioBytes)
+			if spec.Type != "audio" || spec.Codec != "opus" || spec.MediaType != "audio/ogg" || spec.MaxBytes <= 0 || spec.MaxBytes > MaxRelayAudioBytes {
+				return fmt.Errorf("step %s capture %q of /terminal/audio must target audio/ogg opus output with max_bytes up to %d", step.ID, name, MaxRelayAudioBytes)
 			}
 		default:
 			return fmt.Errorf("step %s workspace_relay allows capturing only the terminal text and relayed audio", step.ID)
@@ -735,7 +755,10 @@ func (d *Document) taskTimeout() (time.Duration, error) {
 func operationNeedsClient(op string) bool {
 	return op != "barrier" && op != "output" && op != "review" && op != "workspace_relay"
 }
-func (s Step) operation() string {
+
+// Operation names the step's single operation, or an empty string when the
+// document declared none.
+func (s Step) Operation() string {
 	switch {
 	case s.RPC != nil:
 		return "rpc"

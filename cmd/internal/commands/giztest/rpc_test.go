@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import "testing"
 

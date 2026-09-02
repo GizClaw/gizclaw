@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type taskBarrier struct {
+type TaskBarrier struct {
 	total, arrived int
 	done           chan struct{}
 	completed      bool
@@ -14,10 +14,10 @@ type taskBarrier struct {
 	mu             sync.Mutex
 }
 
-func newTaskBarrier(total int) *taskBarrier {
-	return &taskBarrier{total: total, done: make(chan struct{})}
+func NewTaskBarrier(total int) *TaskBarrier {
+	return &TaskBarrier{total: total, done: make(chan struct{})}
 }
-func (b *taskBarrier) Wait(ctx context.Context) error {
+func (b *TaskBarrier) Wait(ctx context.Context) error {
 	b.mu.Lock()
 	if b.completed {
 		err := b.err
@@ -45,7 +45,7 @@ func (b *taskBarrier) Wait(ctx context.Context) error {
 	}
 }
 
-func (b *taskBarrier) Abort(err error) {
+func (b *TaskBarrier) Abort(err error) {
 	if b == nil || err == nil {
 		return
 	}
