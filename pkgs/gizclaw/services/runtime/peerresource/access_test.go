@@ -282,3 +282,38 @@ func TestDeviceReadsTelemetryUsesCallerPeer(t *testing.T) {
 		t.Fatalf("latest = %+v", latest)
 	}
 }
+
+func TestDeviceReadsRangeAndAggregateUseCallerPeer(t *testing.T) {
+	owner := giznet.PublicKey{12}
+	other := giznet.PublicKey{13}
+	store := metrics.NewMemoryStore()
+	at := time.Date(2026, 9, 3, 8, 0, 0, 0, time.UTC)
+	for key, value := range map[giznet.PublicKey]float64{owner: 40, other: 90} {
+		for i := range 3 {
+			if err := store.Append(context.Background(), []metrics.Sample{{
+				Name: peertelemetry.MetricBatteryPercent, Labels: map[string]string{"peer_id": key.String()},
+				Timestamp: at.Add(time.Duration(i) * time.Minute), Value: value + float64(i),
+			}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	reads := DeviceReads{Caller: owner, Telemetry: &peertelemetry.AdminService{Metrics: store, Now: func() time.Time { return at.Add(time.Hour) }}}
+	rng, err := reads.DeviceTelemetryRange(context.Background(), apitypes.PeerTelemetryFieldBatteryPercent, at, at.Add(2*time.Minute), time.Minute, 10, apitypes.PeerTelemetryOrderDesc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rng.PeerPublicKey != owner.String() || len(rng.Points) != 3 || rng.Points[0].Value != 42 || rng.Points[2].Value != 40 {
+		t.Fatalf("range = %+v", rng)
+	}
+	agg, err := reads.DeviceTelemetryAggregate(context.Background(), apitypes.PeerTelemetryFieldBatteryPercent, at, at.Add(3*time.Minute), 3*time.Minute, apitypes.PeerTelemetryAggregateMax)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agg.PeerPublicKey != owner.String() || len(agg.Points) == 0 || agg.Points[0].Value != 42 {
+		t.Fatalf("aggregate = %+v", agg)
+	}
+	if _, err := reads.DeviceTelemetryRange(context.Background(), apitypes.PeerTelemetryFieldBatteryPercent, at.Add(time.Hour), at, 0, 0, apitypes.PeerTelemetryOrderAsc); !errors.Is(err, peertelemetry.ErrInvalidQuery) {
+		t.Fatalf("inverted range error = %v", err)
+	}
+}

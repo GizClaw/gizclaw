@@ -34,6 +34,7 @@ type deviceHTTPFixture struct {
 	contacts *contact.Server
 	control  *deviceController
 	metrics  *metrics.MemoryStore
+	apiKeys  *apikey.Server
 }
 
 func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
@@ -77,6 +78,7 @@ func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
 	return &deviceHTTPFixture{
 		handler: service.publicHTTPHandler(keys), owner: ownerKey.Public, secret: created.Secret,
 		manager: manager, peers: peers, contacts: contacts, control: control, metrics: manager.Metrics.(*metrics.MemoryStore),
+		apiKeys: keys,
 	}
 }
 

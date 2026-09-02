@@ -127,3 +127,36 @@ func TestApplyDeviceStatusRequiresStore(t *testing.T) {
 		t.Fatalf("empty control response puts = %d, want 1 (reported_at advances)", store.puts)
 	}
 }
+
+func TestApplyDeviceStatusPreservesTelemetryDetailsAndReplacesLabels(t *testing.T) {
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{4}
+	base := time.Date(2026, 9, 3, 6, 0, 0, 0, time.UTC)
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{ReportedAt: base, BatteryPercent: new(70), BatteryPercentAt: base}); err != nil {
+		t.Fatal(err)
+	}
+	before := store.status[peer]
+	if _, ok := telemetryStatusFieldTime(before, telemetryStatusBatteryPercentAtKey); !ok {
+		t.Fatalf("telemetry field time missing before control write: %+v", before)
+	}
+	got, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{
+		Volume: new(3), Labels: &map[string]string{"room": "a"}, Details: &map[string]any{"device_only": true},
+	}, base.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if at, ok := telemetryStatusFieldTime(got, telemetryStatusBatteryPercentAtKey); !ok || !at.Equal(base) {
+		t.Fatalf("telemetry field time after control write = %v, %v", at, ok)
+	}
+	if _, leaked := (*got.Details)["device_only"]; leaked {
+		t.Fatal("device details must not overwrite stored details")
+	}
+	got, err = sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{Labels: &map[string]string{"room": "b"}}, base.Add(2*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if (*got.Labels)["room"] != "b" || len(*got.Labels) != 1 || *got.Volume != 3 {
+		t.Fatalf("labels replaced / volume kept = %+v", got)
+	}
+}

@@ -866,6 +866,14 @@ func TestServerServeHTTPDeviceExtensionOnDirectAndEdge(t *testing.T) {
 			if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "DEVICE_OFFLINE") {
 				t.Fatalf("PUT volume offline status = %d body=%s", response.Code, response.Body.String())
 			}
+			preflight := httptest.NewRequest(http.MethodOptions, "/gizclaw/v1/device/volume", nil)
+			preflight.Header.Set("Origin", "https://app.example.com")
+			preflight.Header.Set("Access-Control-Request-Method", http.MethodPut)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, preflight)
+			if recorder.Code != http.StatusNoContent || !strings.Contains(recorder.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+				t.Fatalf("preflight = %d methods=%q", recorder.Code, recorder.Header().Get("Access-Control-Allow-Methods"))
+			}
 			for _, path := range []string{"/login", "/me", "/side-control/sessions", "/gizclaw/v1/device/status?fresh=true&peer=x"} {
 				response := do(http.MethodGet, path, "", true)
 				if strings.HasPrefix(path, "/gizclaw/v1/") {

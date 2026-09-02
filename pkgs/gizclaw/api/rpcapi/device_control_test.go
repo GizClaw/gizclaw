@@ -128,3 +128,37 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestDeviceControlMethodPayloadNames(t *testing.T) {
+	want := map[RPCMethod][2]string{
+		RPCMethodClientDeviceStatusGet: {"ClientDeviceStatusGetRequest", "ClientDeviceStatusGetResponse"},
+		RPCMethodClientDeviceVolumeSet: {"ClientDeviceVolumeSetRequest", "ClientDeviceVolumeSetResponse"},
+		RPCMethodClientDeviceSoundPlay: {"ClientDeviceSoundPlayRequest", "ClientDeviceSoundPlayResponse"},
+		RPCMethodClientDeviceReboot:    {"ClientDeviceRebootRequest", "ClientDeviceRebootResponse"},
+		RPCMethodClientWifiStatusGet:   {"ClientWifiStatusGetRequest", "ClientWifiStatusGetResponse"},
+		RPCMethodClientWifiSavedList:   {"ClientWifiSavedListRequest", "ClientWifiSavedListResponse"},
+		RPCMethodClientWifiSavedForget: {"ClientWifiSavedForgetRequest", "ClientWifiSavedForgetResponse"},
+	}
+	for method, names := range want {
+		if got := rpcRequestPayloadMessages[method]; got != names[0] {
+			t.Fatalf("%s request message = %q, want %q", method, got, names[0])
+		}
+		if got := rpcResponsePayloadMessages[method]; got != names[1] {
+			t.Fatalf("%s response message = %q, want %q", method, got, names[1])
+		}
+		// Every registered message must be resolvable by the dynamic codec.
+		for _, name := range names {
+			if _, err := newRPCPayloadMessage(name); err != nil {
+				t.Fatalf("message %s: %v", name, err)
+			}
+		}
+	}
+	// A payload encoded for one message is rejected when decoded as another.
+	var payload RPCPayload
+	if err := payload.FromClientDeviceVolumeSetRequest(ClientDeviceVolumeSetRequest{Level: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := payload.AsClientWifiSavedForgetRequest(); err == nil {
+		t.Fatal("decoding a volume request as a forget request must fail")
+	}
+}
