@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -341,3 +342,82 @@ func TestDeviceControlSerializesCommandsPerOwner(t *testing.T) {
 }
 
 var _ giznet.Conn = (*fakeDeviceConn)(nil)
+
+// rebootingDevice is a fake device whose reboot acknowledgement blocks until
+// release is closed, so tests can interleave other events deterministically.
+func rebootingDevice(release <-chan struct{}, entered chan<- struct{}) *fakeDeviceConn {
+	return newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		switch req.Method {
+		case rpcapi.RPCMethodClientDeviceReboot:
+			close(entered)
+			<-release
+			return newRPCResultResponse(req.Id, rpcapi.ClientDeviceRebootResponse{}, (*rpcapi.RPCPayload).FromClientDeviceRebootResponse)
+		case rpcapi.RPCMethodClientWifiStatusGet:
+			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{Value: rpcapi.WifiStatus{Connected: true}}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
+		default:
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+		}
+	})
+}
+
+// TestDeviceControlRebootMarkerHoldsOwnerLock checks that a command queued
+// behind an in-flight reboot observes the marker installed under the owner
+// lock and never reaches the acknowledging device.
+func TestDeviceControlRebootMarkerHoldsOwnerLock(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	f.control.timeout = 5 * time.Second
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	device := rebootingDevice(release, entered)
+	f.manager.SetPeerUp(f.owner, device)
+
+	rebootDone := make(chan int, 1)
+	go func() { rebootDone <- f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", "").Code }()
+	<-entered
+	// The reboot holds the owner lock, so this command queues behind it.
+	queuedDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() { queuedDone <- f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", "") }()
+	close(release)
+
+	if code := <-rebootDone; code != http.StatusNoContent {
+		t.Fatalf("reboot status = %d", code)
+	}
+	queued := <-queuedDone
+	if queued.Code != http.StatusConflict || errorCode(t, queued) != deviceOfflineCode {
+		t.Fatalf("queued command after reboot status = %d body=%s", queued.Code, queued.Body.String())
+	}
+	if device.calls.Load() != 1 {
+		t.Fatalf("device calls = %d; the queued command must not reach the rebooting device", device.calls.Load())
+	}
+}
+
+// TestDeviceControlRebootMarkerIgnoresReconnectDuringAck checks that a device
+// reconnecting while its reboot acknowledgement is in flight is not treated
+// as rebooting: the marker is pinned to the connection that answered.
+func TestDeviceControlRebootMarkerIgnoresReconnectDuringAck(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	f.control.timeout = 5 * time.Second
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	old := rebootingDevice(release, entered)
+	f.manager.SetPeerUp(f.owner, old)
+
+	rebootDone := make(chan int, 1)
+	go func() {
+		rebootDone <- f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/reboot", `{"delay_ms":10}`).Code
+	}()
+	<-entered
+	replacement := rebootingDevice(make(chan struct{}), make(chan struct{}))
+	f.manager.SetPeerUp(f.owner, replacement)
+	close(release)
+	if code := <-rebootDone; code != http.StatusNoContent {
+		t.Fatalf("reboot status = %d", code)
+	}
+
+	if response := f.do(t, http.MethodGet, "/gizclaw/v1/device/wifi", ""); response.Code != http.StatusOK {
+		t.Fatalf("control on replacement status = %d body=%s", response.Code, response.Body.String())
+	}
+	if old.calls.Load() != 1 || replacement.calls.Load() != 1 {
+		t.Fatalf("device calls old=%d replacement=%d", old.calls.Load(), replacement.calls.Load())
+	}
+}
