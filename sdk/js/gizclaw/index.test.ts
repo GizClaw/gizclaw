@@ -824,7 +824,12 @@ test("RPC payload codec round-trips device control payloads", () => {
     ),
     sound,
   );
-  const wifi = { connected: true, ssid: "home", rssi_dbm: -55, ip: "192.0.2.10" };
+  const wifi = {
+    connected: true,
+    ssid: "home",
+    rssi_dbm: -55,
+    ip: "192.0.2.10",
+  };
   const decodedWifi = decodeRPCResponsePayload(
     "client.wifi.status.get",
     encodeRPCResponsePayload("client.wifi.status.get", wifi),
@@ -869,7 +874,11 @@ test("peer HTTP SDK exposes device and contact operations", () => {
     "putContact",
     "deleteContact",
   ]) {
-    assert.equal(typeof peerhttp[name as keyof typeof peerhttp], "function", name);
+    assert.equal(
+      typeof peerhttp[name as keyof typeof peerhttp],
+      "function",
+      name,
+    );
   }
 });
 
