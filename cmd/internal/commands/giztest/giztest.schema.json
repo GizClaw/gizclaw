@@ -49,7 +49,7 @@
     "finalizer": {
       "type": "object", "additionalProperties": false,
       "properties": {"id": {"type": "string"}, "client": {"type": "string"}, "timeout": {"type": "string"}, "save_as": {"type": "string"}, "capture": {"type": "object", "additionalProperties": {"type": "string"}}, "expect": {"type": "object", "additionalProperties": {"$ref": "#/$defs/expectation"}}, "rpc": {"$ref": "#/$defs/rpc"}, "rpc_stream": {"$ref": "#/$defs/rpc_stream"}, "http": {"$ref": "#/$defs/http"}, "peer_stream": {"$ref": "#/$defs/peer_stream"}, "output": {"$ref": "#/$defs/output"}},
-      "oneOf": [{"required": ["rpc"]}, {"required": ["rpc_stream"]}, {"required": ["peer_stream"]}, {"required": ["output"]}]
+      "oneOf": [{"required": ["rpc"]}, {"required": ["rpc_stream"]}, {"required": ["http"]}, {"required": ["peer_stream"]}, {"required": ["output"]}]
     }
   }
 }

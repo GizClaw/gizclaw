@@ -141,6 +141,22 @@ steps:
 	if parsed.Steps[1].operation() != "http" || parsed.Steps[1].HTTP.Status != 200 {
 		t.Fatalf("http step = %+v", parsed.Steps[1])
 	}
+	withFinalizer := doc + `finally:
+  - id: cleanup_contact
+    client: peer
+    http:
+      method: DELETE
+      path: /gizclaw/v1/contacts/${api_key}
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 204
+`
+	finalized, err := load(withFinalizer)
+	if err != nil {
+		t.Fatalf("http finalizer rejected: %v", err)
+	}
+	if len(finalized.Finally) != 1 || finalized.Finally[0].operation() != "http" {
+		t.Fatalf("finalizers = %+v", finalized.Finally)
+	}
 	for name, mutated := range map[string]string{
 		"relative path":      strings.Replace(doc, "path: /gizclaw/v1/device/status", "path: gizclaw/v1/device/status", 1),
 		"unknown method":     strings.Replace(doc, "method: GET", "method: PATCH", 1),
