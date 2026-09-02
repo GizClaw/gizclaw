@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses } from './types.gen.ts';
+import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -94,4 +94,191 @@ export const getApiKey = <ThrowOnError extends boolean = false>(options: Options
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/gizclaw/v1/api-keys/{apiKeyName}',
     ...options
+});
+
+/**
+ * Get the device bound to the API key
+ */
+export const getDevice = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceData, ThrowOnError>): RequestResult<GetDeviceResponses, GetDeviceErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceResponses, GetDeviceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device',
+    ...options
+});
+
+/**
+ * Get the online runtime of the bound device
+ */
+export const getDeviceRuntime = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceRuntimeData, ThrowOnError>): RequestResult<GetDeviceRuntimeResponses, GetDeviceRuntimeErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceRuntimeResponses, GetDeviceRuntimeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/runtime',
+    ...options
+});
+
+/**
+ * Get the latest reported status of the bound device
+ *
+ * Returns the most recent authoritative PeerStatus snapshot. Reading never contacts the device or changes runtime state.
+ */
+export const getDeviceStatus = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceStatusData, ThrowOnError>): RequestResult<GetDeviceStatusResponses, GetDeviceStatusErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceStatusResponses, GetDeviceStatusErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/status',
+    ...options
+});
+
+/**
+ * Get latest sampled telemetry values for the bound device
+ */
+export const getDeviceTelemetryLatest = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceTelemetryLatestData, ThrowOnError>): RequestResult<GetDeviceTelemetryLatestResponses, GetDeviceTelemetryLatestErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceTelemetryLatestResponses, GetDeviceTelemetryLatestErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/telemetry/latest',
+    ...options
+});
+
+/**
+ * Query sampled telemetry points for the bound device
+ */
+export const queryDeviceTelemetry = <ThrowOnError extends boolean = false>(options: Options<QueryDeviceTelemetryData, ThrowOnError>): RequestResult<QueryDeviceTelemetryResponses, QueryDeviceTelemetryErrors, ThrowOnError> => (options.client ?? client).get<QueryDeviceTelemetryResponses, QueryDeviceTelemetryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/telemetry',
+    ...options
+});
+
+/**
+ * Query bucketed aggregate telemetry for the bound device
+ */
+export const aggregateDeviceTelemetry = <ThrowOnError extends boolean = false>(options: Options<AggregateDeviceTelemetryData, ThrowOnError>): RequestResult<AggregateDeviceTelemetryResponses, AggregateDeviceTelemetryErrors, ThrowOnError> => (options.client ?? client).get<AggregateDeviceTelemetryResponses, AggregateDeviceTelemetryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/telemetry/aggregate',
+    ...options
+});
+
+/**
+ * Set the absolute volume and mute state of the bound device
+ *
+ * Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.
+ */
+export const setDeviceVolume = <ThrowOnError extends boolean = false>(options: Options<SetDeviceVolumeData, ThrowOnError>): RequestResult<SetDeviceVolumeResponses, SetDeviceVolumeErrors, ThrowOnError> => (options.client ?? client).put<SetDeviceVolumeResponses, SetDeviceVolumeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/volume',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Play a device-defined sound on the bound device
+ *
+ * Forwards client.device.sound.play to the online device. The sound identifier is device-defined; the device validates it and answers DEVICE_REJECTED for unknown sounds.
+ */
+export const playDeviceSound = <ThrowOnError extends boolean = false>(options: Options<PlayDeviceSoundData, ThrowOnError>): RequestResult<PlayDeviceSoundResponses, PlayDeviceSoundErrors, ThrowOnError> => (options.client ?? client).post<PlayDeviceSoundResponses, PlayDeviceSoundErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/actions/play-sound',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Reboot the bound device
+ *
+ * Forwards client.device.reboot to the online device. The device acknowledges before rebooting; later control commands answer DEVICE_OFFLINE until the device reconnects.
+ */
+export const rebootDevice = <ThrowOnError extends boolean = false>(options?: Options<RebootDeviceData, ThrowOnError>): RequestResult<RebootDeviceResponses, RebootDeviceErrors, ThrowOnError> => (options?.client ?? client).post<RebootDeviceResponses, RebootDeviceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/actions/reboot',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
+ * Get the current Wi-Fi status of the bound device
+ *
+ * Forwards client.wifi.status.get to the online device.
+ */
+export const getDeviceWifi = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceWifiData, ThrowOnError>): RequestResult<GetDeviceWifiResponses, GetDeviceWifiErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceWifiResponses, GetDeviceWifiErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/wifi',
+    ...options
+});
+
+/**
+ * List Wi-Fi networks saved on the bound device
+ *
+ * Forwards client.wifi.saved.list to the online device.
+ */
+export const listDeviceSavedWifi = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceSavedWifiData, ThrowOnError>): RequestResult<ListDeviceSavedWifiResponses, ListDeviceSavedWifiErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceSavedWifiResponses, ListDeviceSavedWifiErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/wifi/saved',
+    ...options
+});
+
+/**
+ * Forget a Wi-Fi network saved on the bound device
+ *
+ * Forwards client.wifi.saved.forget to the online device. Unknown SSIDs answer 404.
+ */
+export const forgetDeviceSavedWifi = <ThrowOnError extends boolean = false>(options: Options<ForgetDeviceSavedWifiData, ThrowOnError>): RequestResult<ForgetDeviceSavedWifiResponses, ForgetDeviceSavedWifiErrors, ThrowOnError> => (options.client ?? client).delete<ForgetDeviceSavedWifiResponses, ForgetDeviceSavedWifiErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/wifi/saved/{ssid}',
+    ...options
+});
+
+/**
+ * List contacts owned by the bound device
+ */
+export const listContacts = <ThrowOnError extends boolean = false>(options?: Options<ListContactsData, ThrowOnError>): RequestResult<ListContactsResponses, ListContactsErrors, ThrowOnError> => (options?.client ?? client).get<ListContactsResponses, ListContactsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/contacts',
+    ...options
+});
+
+/**
+ * Create a contact owned by the bound device
+ */
+export const createContact = <ThrowOnError extends boolean = false>(options: Options<CreateContactData, ThrowOnError>): RequestResult<CreateContactResponses, CreateContactErrors, ThrowOnError> => (options.client ?? client).post<CreateContactResponses, CreateContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/contacts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a contact owned by the bound device
+ */
+export const deleteContact = <ThrowOnError extends boolean = false>(options: Options<DeleteContactData, ThrowOnError>): RequestResult<DeleteContactResponses, DeleteContactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteContactResponses, DeleteContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/contacts/{contactName}',
+    ...options
+});
+
+/**
+ * Get a contact owned by the bound device
+ */
+export const getContact = <ThrowOnError extends boolean = false>(options: Options<GetContactData, ThrowOnError>): RequestResult<GetContactResponses, GetContactErrors, ThrowOnError> => (options.client ?? client).get<GetContactResponses, GetContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/contacts/{contactName}',
+    ...options
+});
+
+/**
+ * Update a contact owned by the bound device
+ */
+export const putContact = <ThrowOnError extends boolean = false>(options: Options<PutContactData, ThrowOnError>): RequestResult<PutContactResponses, PutContactErrors, ThrowOnError> => (options.client ?? client).put<PutContactResponses, PutContactErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/contacts/{contactName}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });

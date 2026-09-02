@@ -755,8 +755,11 @@ func (s *Server) init() error {
 			WebRTCSignalingHandler: func() http.Handler {
 				return s.WebRTCSignalingHandler
 			},
+			Contacts:      contactServer,
+			DeviceControl: newDeviceController(manager, manager.PeerRun),
 		},
 	}
+	s.peerService.public.DeviceReads = s.peerService.deviceReadsForAPIKey
 	s.apiKeys = apiKeyServer
 	mux := http.NewServeMux()
 	publicHandler := s.peerService.publicHTTPHandler(apiKeyServer)

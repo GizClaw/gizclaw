@@ -289,6 +289,20 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(98, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_REVOKE');
   static const RpcMethod RPC_METHOD_SERVER_API_KEY_RESOLVE = RpcMethod._(
       99, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_RESOLVE');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_STATUS_GET = RpcMethod._(
+      100, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_STATUS_GET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_VOLUME_SET = RpcMethod._(
+      101, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_VOLUME_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY = RpcMethod._(
+      102, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_REBOOT =
+      RpcMethod._(103, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_REBOOT');
+  static const RpcMethod RPC_METHOD_CLIENT_WIFI_STATUS_GET = RpcMethod._(
+      104, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_STATUS_GET');
+  static const RpcMethod RPC_METHOD_CLIENT_WIFI_SAVED_LIST = RpcMethod._(
+      105, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SAVED_LIST');
+  static const RpcMethod RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = RpcMethod._(
+      106, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SAVED_FORGET');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -390,10 +404,17 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_API_KEY_LIST,
     RPC_METHOD_SERVER_API_KEY_REVOKE,
     RPC_METHOD_SERVER_API_KEY_RESOLVE,
+    RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
+    RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
+    RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
+    RPC_METHOD_CLIENT_DEVICE_REBOOT,
+    RPC_METHOD_CLIENT_WIFI_STATUS_GET,
+    RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
+    RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 99);
+      $pb.ProtobufEnum.$_initByValueList(values, 106);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

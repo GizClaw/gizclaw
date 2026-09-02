@@ -1,0 +1,96 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want exercise the server.contacts.list behavior through its real transport,
+# So that the Public HTTP device contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.contacts.list
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: create_contact
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/contacts
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      name: "${resource_name}"
+      display_name: Giztest Contact
+    status: 201
+  expect:
+    /name:
+      equals: "${resource_name}"
+    /display_name:
+      equals: Giztest Contact
+- id: primary_http
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/contacts?limit=50
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /items:
+      non_empty: true
+    /items/0/name:
+      equals: "${resource_name}"
+- id: invalid_limit
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/contacts?limit=0
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+finally:
+- id: cleanup_contact
+  client: peer
+  rpc:
+    method: server.contact.delete
+    request:
+      name: "${resource_name}"
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

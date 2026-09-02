@@ -22,6 +22,70 @@ message ClientGetInfoResponse {
   HardwareInfo value = 1;
 }
 
+message ClientDeviceStatusGetRequest {
+}
+
+message ClientDeviceStatusGetResponse {
+  PeerStatus value = 1;
+}
+
+message ClientDeviceVolumeSetRequest {
+  int64 level = 1;
+  bool muted = 2;
+}
+
+message ClientDeviceVolumeSetResponse {
+  PeerStatus value = 1;
+}
+
+message ClientDeviceSoundPlayRequest {
+  string sound = 1;
+  optional int64 duration_ms = 2;
+}
+
+message ClientDeviceSoundPlayResponse {
+}
+
+message ClientDeviceRebootRequest {
+  optional int64 delay_ms = 1;
+}
+
+message ClientDeviceRebootResponse {
+}
+
+message WifiStatus {
+  bool connected = 1;
+  optional string ssid = 2;
+  optional int64 rssi_dbm = 3;
+  optional string ip = 4;
+  optional string bssid = 5;
+}
+
+message WifiSavedNetwork {
+  string ssid = 1;
+}
+
+message ClientWifiStatusGetRequest {
+}
+
+message ClientWifiStatusGetResponse {
+  WifiStatus value = 1;
+}
+
+message ClientWifiSavedListRequest {
+}
+
+message ClientWifiSavedListResponse {
+  repeated WifiSavedNetwork networks = 1;
+}
+
+message ClientWifiSavedForgetRequest {
+  string ssid = 1;
+}
+
+message ClientWifiSavedForgetResponse {
+}
+
 message DeviceInfo {
   optional HardwareInfo hardware = 1;
   optional string name = 2;

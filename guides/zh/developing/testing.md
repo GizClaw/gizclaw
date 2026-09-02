@@ -206,6 +206,18 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
   --output tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
+设备控制与 Contact 的 Public HTTP 契约由 `server.device.*` 与 `server.contacts.*` 场景覆盖。
+`http` step 以当前 client 的 `access_point` 为 origin 发送一次 Public HTTP 请求（`method`、`path`、
+`headers`、JSON `body`、可选 `status`），响应 JSON 作为该 step 的值参与 `expect`、`capture` 与
+`save_as`；未声明 `status` 时 4xx/5xx 视为断言失败。API Key 由 `server.api_key.create` step
+`capture: {api_key: /api_key}` 得到，并以 `Authorization: "Bearer ${api_key}"` header 传入。
+`client_rpc` 可声明 `client.device.status.get`、`client.device.volume.set`、`client.device.sound.play`、
+`client.device.reboot`、`client.wifi.status.get`、`client.wifi.saved.list` 与 `client.wifi.saved.forget`：
+runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 provider（`volume.set` 会把请求的
+`level`/`muted` 回填进响应），`response: {error_code: -32602}` 让 provider 返回固定 RPC error；
+未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
+Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
+
 Giztest 不执行 Admin Apply。标准 Docker setup 先一次性 apply 全部 fixture（包括专用
 RuntimeProfile 和 run-scoped registration token），随后 JavaScript、C/cgo、Go、CLI 和
 Giztest 共用该环境。远端目标可预先 provision 资源，再只提供

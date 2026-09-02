@@ -71,6 +71,8 @@ type Client struct {
 	toolHandlers      map[string]ToolHandler
 	clientRPCMu       sync.RWMutex
 	clientRPCObserver func(rpcapi.RPCMethod)
+	deviceMu          sync.RWMutex
+	deviceHandlers    *DeviceControlHandlers
 }
 
 type DialTransportFunc func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error)

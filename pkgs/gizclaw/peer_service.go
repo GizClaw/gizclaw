@@ -10,6 +10,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -42,6 +44,13 @@ type peerHTTP struct {
 	APIKeys                *apikey.Server
 	WebRTCSignalingHandler func() http.Handler
 	PeerAvailability       func(context.Context, giznet.PublicKey) error
+
+	// DeviceReads builds the owner-scoped device projection for one API key
+	// owner; Contacts and DeviceControl serve the /gizclaw/v1 device and
+	// contact extension with the same owner binding.
+	DeviceReads   func(giznet.PublicKey) peerresource.DeviceReads
+	Contacts      *contact.Server
+	DeviceControl *deviceController
 }
 
 // PeerService serves one peer connection.

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,6 +61,85 @@ type APIKeyList struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 
+// Contact defines model for Contact.
+type Contact struct {
+	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	DisplayName *string    `json:"display_name,omitempty"`
+
+	// Name Owner-scoped immutable contact name.
+	Name        string     `json:"name"`
+	PhoneNumber *string    `json:"phone_number,omitempty"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
+}
+
+// ContactCreateRequest defines model for ContactCreateRequest.
+type ContactCreateRequest struct {
+	DisplayName *string `json:"display_name,omitempty"`
+
+	// Name Owner-scoped immutable contact name without surrounding whitespace.
+	Name        string  `json:"name"`
+	PhoneNumber *string `json:"phone_number,omitempty"`
+}
+
+// ContactList defines model for ContactList.
+type ContactList struct {
+	HasNext    bool      `json:"has_next"`
+	Items      []Contact `json:"items"`
+	NextCursor *string   `json:"next_cursor,omitempty"`
+}
+
+// ContactPutRequest defines model for ContactPutRequest.
+type ContactPutRequest struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	PhoneNumber *string `json:"phone_number,omitempty"`
+}
+
+// DeviceControlStatus defines model for DeviceControlStatus.
+type DeviceControlStatus struct {
+	Status externalRef0.PeerStatus `json:"status"`
+}
+
+// DevicePlaySoundRequest defines model for DevicePlaySoundRequest.
+type DevicePlaySoundRequest struct {
+	// DurationMs Optional playback duration in milliseconds.
+	DurationMs *int64 `json:"duration_ms,omitempty"`
+
+	// Sound Device-defined sound identifier; at most 32 UTF-8 bytes. The device validates the value.
+	Sound string `json:"sound"`
+}
+
+// DeviceRebootRequest defines model for DeviceRebootRequest.
+type DeviceRebootRequest struct {
+	// DelayMs Optional delay before the device reboots, in milliseconds.
+	DelayMs *int64 `json:"delay_ms,omitempty"`
+}
+
+// DeviceVolumeSetRequest defines model for DeviceVolumeSetRequest.
+type DeviceVolumeSetRequest struct {
+	// Level Absolute volume level.
+	Level int  `json:"level"`
+	Muted bool `json:"muted"`
+}
+
+// DeviceWifiSavedList defines model for DeviceWifiSavedList.
+type DeviceWifiSavedList struct {
+	Networks []DeviceWifiSavedNetwork `json:"networks"`
+}
+
+// DeviceWifiSavedNetwork defines model for DeviceWifiSavedNetwork.
+type DeviceWifiSavedNetwork struct {
+	Ssid string `json:"ssid"`
+}
+
+// DeviceWifiStatus defines model for DeviceWifiStatus.
+type DeviceWifiStatus struct {
+	Bssid     *string `json:"bssid,omitempty"`
+	Connected bool    `json:"connected"`
+	Ip        *string `json:"ip,omitempty"`
+	RssiDbm   *int64  `json:"rssi_dbm,omitempty"`
+	Ssid      *string `json:"ssid,omitempty"`
+}
+
 // GiznetWebRTCSignalingError defines model for GiznetWebRTCSignalingError.
 type GiznetWebRTCSignalingError struct {
 	Error string `json:"error"`
@@ -70,6 +150,18 @@ type BadRequest = externalRef0.ErrorResponse
 
 // Conflict defines model for Conflict.
 type Conflict = externalRef0.ErrorResponse
+
+// DeviceError defines model for DeviceError.
+type DeviceError = externalRef0.ErrorResponse
+
+// DeviceOffline defines model for DeviceOffline.
+type DeviceOffline = externalRef0.ErrorResponse
+
+// DeviceTimeout defines model for DeviceTimeout.
+type DeviceTimeout = externalRef0.ErrorResponse
+
+// DeviceUnsupported defines model for DeviceUnsupported.
+type DeviceUnsupported = externalRef0.ErrorResponse
 
 // Forbidden defines model for Forbidden.
 type Forbidden = externalRef0.ErrorResponse
@@ -92,6 +184,58 @@ type ListAPIKeysParams struct {
 	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListContactsParams defines parameters for ListContacts.
+type ListContactsParams struct {
+	// Cursor Contact name returned as next_cursor by the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// QueryDeviceTelemetryParams defines parameters for QueryDeviceTelemetry.
+type QueryDeviceTelemetryParams struct {
+	// Field Telemetry field name
+	Field externalRef0.PeerTelemetryField `form:"field" json:"field"`
+
+	// StartTimeMs Inclusive Unix millisecond start time
+	StartTimeMs int64 `form:"start_time_ms" json:"start_time_ms"`
+
+	// EndTimeMs Inclusive Unix millisecond end time
+	EndTimeMs int64 `form:"end_time_ms" json:"end_time_ms"`
+
+	// StepMs Range evaluation step in milliseconds. Omitted derives a bounded step from the requested range and limit.
+	StepMs *int64 `form:"step_ms,omitempty" json:"step_ms,omitempty"`
+
+	// Limit Maximum returned points. Omitted uses the default point budget.
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Order Returned point order
+	Order *externalRef0.PeerTelemetryOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// AggregateDeviceTelemetryParams defines parameters for AggregateDeviceTelemetry.
+type AggregateDeviceTelemetryParams struct {
+	// Field Telemetry field name
+	Field externalRef0.PeerTelemetryField `form:"field" json:"field"`
+
+	// StartTimeMs Inclusive Unix millisecond start time
+	StartTimeMs int64 `form:"start_time_ms" json:"start_time_ms"`
+
+	// EndTimeMs Inclusive Unix millisecond end time
+	EndTimeMs int64 `form:"end_time_ms" json:"end_time_ms"`
+
+	// BucketMs Bucket size in milliseconds
+	BucketMs int64 `form:"bucket_ms" json:"bucket_ms"`
+
+	// Aggregate Aggregate mode
+	Aggregate externalRef0.PeerTelemetryAggregate `form:"aggregate" json:"aggregate"`
+}
+
+// GetDeviceTelemetryLatestParams defines parameters for GetDeviceTelemetryLatest.
+type GetDeviceTelemetryLatestParams struct {
+	// Fields Comma-separated telemetry field names. Omitted means all supported fields.
+	Fields *string `form:"fields,omitempty" json:"fields,omitempty"`
+}
+
 // CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
 type CreateGiznetWebRTCOfferParams struct {
 	// XGiznetPublicKey Client public key.
@@ -106,6 +250,21 @@ type CreateGiznetWebRTCOfferParams struct {
 
 // CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
 type CreateAPIKeyJSONRequestBody = APIKeyCreateRequest
+
+// CreateContactJSONRequestBody defines body for CreateContact for application/json ContentType.
+type CreateContactJSONRequestBody = ContactCreateRequest
+
+// PutContactJSONRequestBody defines body for PutContact for application/json ContentType.
+type PutContactJSONRequestBody = ContactPutRequest
+
+// PlayDeviceSoundJSONRequestBody defines body for PlayDeviceSound for application/json ContentType.
+type PlayDeviceSoundJSONRequestBody = DevicePlaySoundRequest
+
+// RebootDeviceJSONRequestBody defines body for RebootDevice for application/json ContentType.
+type RebootDeviceJSONRequestBody = DeviceRebootRequest
+
+// SetDeviceVolumeJSONRequestBody defines body for SetDeviceVolume for application/json ContentType.
+type SetDeviceVolumeJSONRequestBody = DeviceVolumeSetRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -200,6 +359,70 @@ type ClientInterface interface {
 	// GetAPIKey request
 	GetAPIKey(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListContacts request
+	ListContacts(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateContactWithBody request with any body
+	CreateContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateContact(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteContact request
+	DeleteContact(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetContact request
+	GetContact(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutContactWithBody request with any body
+	PutContactWithBody(ctx context.Context, contactName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutContact(ctx context.Context, contactName string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDevice request
+	GetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PlayDeviceSoundWithBody request with any body
+	PlayDeviceSoundWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PlayDeviceSound(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebootDevice request without the optional body
+	RebootDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RebootDeviceWithBody request with any body
+	RebootDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RebootDeviceWithJSONBody(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceRuntime request
+	GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceStatus request
+	GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryDeviceTelemetry request
+	QueryDeviceTelemetry(ctx context.Context, params *QueryDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AggregateDeviceTelemetry request
+	AggregateDeviceTelemetry(ctx context.Context, params *AggregateDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceTelemetryLatest request
+	GetDeviceTelemetryLatest(ctx context.Context, params *GetDeviceTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetDeviceVolumeWithBody request with any body
+	SetDeviceVolumeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetDeviceVolume(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeviceWifi request
+	GetDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeviceSavedWifi request
+	ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ForgetDeviceSavedWifi request
+	ForgetDeviceSavedWifi(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetServerInfo request
 	GetServerInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -281,6 +504,282 @@ func (c *Client) RevokeAPIKey(ctx context.Context, apiKeyName string, reqEditors
 
 func (c *Client) GetAPIKey(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAPIKeyRequest(c.Server, apiKeyName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListContacts(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListContactsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateContactWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContactRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateContact(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateContactRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteContact(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteContactRequest(c.Server, contactName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetContact(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetContactRequest(c.Server, contactName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContactWithBody(ctx context.Context, contactName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContactRequestWithBody(c.Server, contactName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutContact(ctx context.Context, contactName string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutContactRequest(c.Server, contactName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PlayDeviceSoundWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlayDeviceSoundRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PlayDeviceSound(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlayDeviceSoundRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RebootDevice(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebootDeviceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RebootDeviceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebootDeviceRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RebootDeviceWithJSONBody(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRebootDeviceRequestWithJSONBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceRuntimeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryDeviceTelemetry(ctx context.Context, params *QueryDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDeviceTelemetryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AggregateDeviceTelemetry(ctx context.Context, params *AggregateDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAggregateDeviceTelemetryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceTelemetryLatest(ctx context.Context, params *GetDeviceTelemetryLatestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceTelemetryLatestRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetDeviceVolumeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetDeviceVolumeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetDeviceVolume(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetDeviceVolumeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceWifiRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeviceSavedWifiRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ForgetDeviceSavedWifi(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewForgetDeviceSavedWifiRequest(c.Server, ssid)
 	if err != nil {
 		return nil, err
 	}
@@ -543,6 +1042,764 @@ func NewGetAPIKeyRequest(server string, apiKeyName string) (*http.Request, error
 	return req, nil
 }
 
+// NewListContactsRequest generates requests for ListContacts
+func NewListContactsRequest(server string, params *ListContactsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/contacts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateContactRequest calls the generic CreateContact builder with application/json body
+func NewCreateContactRequest(server string, body CreateContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateContactRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateContactRequestWithBody generates requests for CreateContact with any type of body
+func NewCreateContactRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/contacts")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteContactRequest generates requests for DeleteContact
+func NewDeleteContactRequest(server string, contactName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "contactName", contactName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/contacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetContactRequest generates requests for GetContact
+func NewGetContactRequest(server string, contactName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "contactName", contactName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/contacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutContactRequest calls the generic PutContact builder with application/json body
+func NewPutContactRequest(server string, contactName string, body PutContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutContactRequestWithBody(server, contactName, "application/json", bodyReader)
+}
+
+// NewPutContactRequestWithBody generates requests for PutContact with any type of body
+func NewPutContactRequestWithBody(server string, contactName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "contactName", contactName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/contacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceRequest generates requests for GetDevice
+func NewGetDeviceRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPlayDeviceSoundRequest calls the generic PlayDeviceSound builder with application/json body
+func NewPlayDeviceSoundRequest(server string, body PlayDeviceSoundJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPlayDeviceSoundRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPlayDeviceSoundRequestWithBody generates requests for PlayDeviceSound with any type of body
+func NewPlayDeviceSoundRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/play-sound")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRebootDeviceRequest generates a request without the optional body.
+func NewRebootDeviceRequest(server string) (*http.Request, error) {
+	req, err := NewRebootDeviceRequestWithBody(server, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Del("Content-Type")
+	return req, nil
+}
+
+// NewRebootDeviceRequestWithJSONBody calls the generic RebootDevice builder with application/json body
+func NewRebootDeviceRequestWithJSONBody(server string, body RebootDeviceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRebootDeviceRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRebootDeviceRequestWithBody generates requests for RebootDevice with any type of body
+func NewRebootDeviceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/actions/reboot")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceRuntimeRequest generates requests for GetDeviceRuntime
+func NewGetDeviceRuntimeRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/runtime")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeviceStatusRequest generates requests for GetDeviceStatus
+func NewGetDeviceStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/status")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewQueryDeviceTelemetryRequest generates requests for QueryDeviceTelemetry
+func NewQueryDeviceTelemetryRequest(server string, params *QueryDeviceTelemetryParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/telemetry")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "field", params.Field, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.StepMs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "step_ms", *params.StepMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Order != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "order", *params.Order, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAggregateDeviceTelemetryRequest generates requests for AggregateDeviceTelemetry
+func NewAggregateDeviceTelemetryRequest(server string, params *AggregateDeviceTelemetryParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/telemetry/aggregate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "field", params.Field, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "bucket_ms", params.BucketMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "aggregate", params.Aggregate, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeviceTelemetryLatestRequest generates requests for GetDeviceTelemetryLatest
+func NewGetDeviceTelemetryLatestRequest(server string, params *GetDeviceTelemetryLatestParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/telemetry/latest")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Fields != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "fields", *params.Fields, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetDeviceVolumeRequest calls the generic SetDeviceVolume builder with application/json body
+func NewSetDeviceVolumeRequest(server string, body SetDeviceVolumeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetDeviceVolumeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetDeviceVolumeRequestWithBody generates requests for SetDeviceVolume with any type of body
+func NewSetDeviceVolumeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/volume")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetDeviceWifiRequest generates requests for GetDeviceWifi
+func NewGetDeviceWifiRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDeviceSavedWifiRequest generates requests for ListDeviceSavedWifi
+func NewListDeviceSavedWifiRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi/saved")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewForgetDeviceSavedWifiRequest generates requests for ForgetDeviceSavedWifi
+func NewForgetDeviceSavedWifiRequest(server string, ssid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "ssid", ssid, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi/saved/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetServerInfoRequest generates requests for GetServerInfo
 func NewGetServerInfoRequest(server string) (*http.Request, error) {
 	var err error
@@ -692,6 +1949,70 @@ type ClientWithResponsesInterface interface {
 
 	// GetAPIKeyWithResponse request
 	GetAPIKeyWithResponse(ctx context.Context, apiKeyName string, reqEditors ...RequestEditorFn) (*GetAPIKeyResponse, error)
+
+	// ListContactsWithResponse request
+	ListContactsWithResponse(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*ListContactsResponse, error)
+
+	// CreateContactWithBodyWithResponse request with any body
+	CreateContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContactResponse, error)
+
+	CreateContactWithResponse(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContactResponse, error)
+
+	// DeleteContactWithResponse request
+	DeleteContactWithResponse(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*DeleteContactResponse, error)
+
+	// GetContactWithResponse request
+	GetContactWithResponse(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*GetContactResponse, error)
+
+	// PutContactWithBodyWithResponse request with any body
+	PutContactWithBodyWithResponse(ctx context.Context, contactName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContactResponse, error)
+
+	PutContactWithResponse(ctx context.Context, contactName string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContactResponse, error)
+
+	// GetDeviceWithResponse request
+	GetDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceResponse, error)
+
+	// PlayDeviceSoundWithBodyWithResponse request with any body
+	PlayDeviceSoundWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error)
+
+	PlayDeviceSoundWithResponse(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error)
+
+	// RebootDeviceWithResponse request without the optional body
+	RebootDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
+
+	// RebootDeviceWithBodyWithResponse request with any body
+	RebootDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
+
+	RebootDeviceWithJSONBodyWithResponse(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
+
+	// GetDeviceRuntimeWithResponse request
+	GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error)
+
+	// GetDeviceStatusWithResponse request
+	GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error)
+
+	// QueryDeviceTelemetryWithResponse request
+	QueryDeviceTelemetryWithResponse(ctx context.Context, params *QueryDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*QueryDeviceTelemetryResponse, error)
+
+	// AggregateDeviceTelemetryWithResponse request
+	AggregateDeviceTelemetryWithResponse(ctx context.Context, params *AggregateDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*AggregateDeviceTelemetryResponse, error)
+
+	// GetDeviceTelemetryLatestWithResponse request
+	GetDeviceTelemetryLatestWithResponse(ctx context.Context, params *GetDeviceTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetDeviceTelemetryLatestResponse, error)
+
+	// SetDeviceVolumeWithBodyWithResponse request with any body
+	SetDeviceVolumeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error)
+
+	SetDeviceVolumeWithResponse(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error)
+
+	// GetDeviceWifiWithResponse request
+	GetDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceWifiResponse, error)
+
+	// ListDeviceSavedWifiWithResponse request
+	ListDeviceSavedWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceSavedWifiResponse, error)
+
+	// ForgetDeviceSavedWifiWithResponse request
+	ForgetDeviceSavedWifiWithResponse(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*ForgetDeviceSavedWifiResponse, error)
 
 	// GetServerInfoWithResponse request
 	GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error)
@@ -906,6 +2227,612 @@ func (r GetAPIKeyResponse) ContentType() string {
 	return ""
 }
 
+type ListContactsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ContactList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListContactsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListContactsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListContactsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Contact
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Contact
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Contact
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *externalRef0.ErrorResponse
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r PutContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.DeviceInfo
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PlayDeviceSoundResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r PlayDeviceSoundResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PlayDeviceSoundResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PlayDeviceSoundResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RebootDeviceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r RebootDeviceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RebootDeviceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RebootDeviceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceRuntimeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.Runtime
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceRuntimeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceRuntimeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceRuntimeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerStatus
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceStatusResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type QueryDeviceTelemetryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerTelemetryRangeResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryDeviceTelemetryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryDeviceTelemetryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r QueryDeviceTelemetryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AggregateDeviceTelemetryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerTelemetryAggregateResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r AggregateDeviceTelemetryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AggregateDeviceTelemetryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AggregateDeviceTelemetryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceTelemetryLatestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerTelemetryLatestResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceTelemetryLatestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceTelemetryLatestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceTelemetryLatestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetDeviceVolumeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeviceControlStatus
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r SetDeviceVolumeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetDeviceVolumeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetDeviceVolumeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeviceWifiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeviceWifiStatus
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceWifiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceWifiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceWifiResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDeviceSavedWifiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeviceWifiSavedList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeviceSavedWifiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeviceSavedWifiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDeviceSavedWifiResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ForgetDeviceSavedWifiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r ForgetDeviceSavedWifiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ForgetDeviceSavedWifiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ForgetDeviceSavedWifiResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetServerInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1034,6 +2961,208 @@ func (c *ClientWithResponses) GetAPIKeyWithResponse(ctx context.Context, apiKeyN
 		return nil, err
 	}
 	return ParseGetAPIKeyResponse(rsp)
+}
+
+// ListContactsWithResponse request returning *ListContactsResponse
+func (c *ClientWithResponses) ListContactsWithResponse(ctx context.Context, params *ListContactsParams, reqEditors ...RequestEditorFn) (*ListContactsResponse, error) {
+	rsp, err := c.ListContacts(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListContactsResponse(rsp)
+}
+
+// CreateContactWithBodyWithResponse request with arbitrary body returning *CreateContactResponse
+func (c *ClientWithResponses) CreateContactWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateContactResponse, error) {
+	rsp, err := c.CreateContactWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateContactResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateContactWithResponse(ctx context.Context, body CreateContactJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateContactResponse, error) {
+	rsp, err := c.CreateContact(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateContactResponse(rsp)
+}
+
+// DeleteContactWithResponse request returning *DeleteContactResponse
+func (c *ClientWithResponses) DeleteContactWithResponse(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*DeleteContactResponse, error) {
+	rsp, err := c.DeleteContact(ctx, contactName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteContactResponse(rsp)
+}
+
+// GetContactWithResponse request returning *GetContactResponse
+func (c *ClientWithResponses) GetContactWithResponse(ctx context.Context, contactName string, reqEditors ...RequestEditorFn) (*GetContactResponse, error) {
+	rsp, err := c.GetContact(ctx, contactName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetContactResponse(rsp)
+}
+
+// PutContactWithBodyWithResponse request with arbitrary body returning *PutContactResponse
+func (c *ClientWithResponses) PutContactWithBodyWithResponse(ctx context.Context, contactName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutContactResponse, error) {
+	rsp, err := c.PutContactWithBody(ctx, contactName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContactResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutContactWithResponse(ctx context.Context, contactName string, body PutContactJSONRequestBody, reqEditors ...RequestEditorFn) (*PutContactResponse, error) {
+	rsp, err := c.PutContact(ctx, contactName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutContactResponse(rsp)
+}
+
+// GetDeviceWithResponse request returning *GetDeviceResponse
+func (c *ClientWithResponses) GetDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceResponse, error) {
+	rsp, err := c.GetDevice(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceResponse(rsp)
+}
+
+// PlayDeviceSoundWithBodyWithResponse request with arbitrary body returning *PlayDeviceSoundResponse
+func (c *ClientWithResponses) PlayDeviceSoundWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error) {
+	rsp, err := c.PlayDeviceSoundWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlayDeviceSoundResponse(rsp)
+}
+
+func (c *ClientWithResponses) PlayDeviceSoundWithResponse(ctx context.Context, body PlayDeviceSoundJSONRequestBody, reqEditors ...RequestEditorFn) (*PlayDeviceSoundResponse, error) {
+	rsp, err := c.PlayDeviceSound(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlayDeviceSoundResponse(rsp)
+}
+
+// RebootDeviceWithResponse request without the optional body returning *RebootDeviceResponse
+func (c *ClientWithResponses) RebootDeviceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error) {
+	rsp, err := c.RebootDevice(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebootDeviceResponse(rsp)
+}
+
+// RebootDeviceWithBodyWithResponse request with arbitrary body returning *RebootDeviceResponse
+func (c *ClientWithResponses) RebootDeviceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error) {
+	rsp, err := c.RebootDeviceWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebootDeviceResponse(rsp)
+}
+
+func (c *ClientWithResponses) RebootDeviceWithJSONBodyWithResponse(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error) {
+	rsp, err := c.RebootDeviceWithJSONBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRebootDeviceResponse(rsp)
+}
+
+// GetDeviceRuntimeWithResponse request returning *GetDeviceRuntimeResponse
+func (c *ClientWithResponses) GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error) {
+	rsp, err := c.GetDeviceRuntime(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceRuntimeResponse(rsp)
+}
+
+// GetDeviceStatusWithResponse request returning *GetDeviceStatusResponse
+func (c *ClientWithResponses) GetDeviceStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceStatusResponse, error) {
+	rsp, err := c.GetDeviceStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceStatusResponse(rsp)
+}
+
+// QueryDeviceTelemetryWithResponse request returning *QueryDeviceTelemetryResponse
+func (c *ClientWithResponses) QueryDeviceTelemetryWithResponse(ctx context.Context, params *QueryDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*QueryDeviceTelemetryResponse, error) {
+	rsp, err := c.QueryDeviceTelemetry(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDeviceTelemetryResponse(rsp)
+}
+
+// AggregateDeviceTelemetryWithResponse request returning *AggregateDeviceTelemetryResponse
+func (c *ClientWithResponses) AggregateDeviceTelemetryWithResponse(ctx context.Context, params *AggregateDeviceTelemetryParams, reqEditors ...RequestEditorFn) (*AggregateDeviceTelemetryResponse, error) {
+	rsp, err := c.AggregateDeviceTelemetry(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAggregateDeviceTelemetryResponse(rsp)
+}
+
+// GetDeviceTelemetryLatestWithResponse request returning *GetDeviceTelemetryLatestResponse
+func (c *ClientWithResponses) GetDeviceTelemetryLatestWithResponse(ctx context.Context, params *GetDeviceTelemetryLatestParams, reqEditors ...RequestEditorFn) (*GetDeviceTelemetryLatestResponse, error) {
+	rsp, err := c.GetDeviceTelemetryLatest(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceTelemetryLatestResponse(rsp)
+}
+
+// SetDeviceVolumeWithBodyWithResponse request with arbitrary body returning *SetDeviceVolumeResponse
+func (c *ClientWithResponses) SetDeviceVolumeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error) {
+	rsp, err := c.SetDeviceVolumeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetDeviceVolumeResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetDeviceVolumeWithResponse(ctx context.Context, body SetDeviceVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*SetDeviceVolumeResponse, error) {
+	rsp, err := c.SetDeviceVolume(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetDeviceVolumeResponse(rsp)
+}
+
+// GetDeviceWifiWithResponse request returning *GetDeviceWifiResponse
+func (c *ClientWithResponses) GetDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceWifiResponse, error) {
+	rsp, err := c.GetDeviceWifi(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceWifiResponse(rsp)
+}
+
+// ListDeviceSavedWifiWithResponse request returning *ListDeviceSavedWifiResponse
+func (c *ClientWithResponses) ListDeviceSavedWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceSavedWifiResponse, error) {
+	rsp, err := c.ListDeviceSavedWifi(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeviceSavedWifiResponse(rsp)
+}
+
+// ForgetDeviceSavedWifiWithResponse request returning *ForgetDeviceSavedWifiResponse
+func (c *ClientWithResponses) ForgetDeviceSavedWifiWithResponse(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*ForgetDeviceSavedWifiResponse, error) {
+	rsp, err := c.ForgetDeviceSavedWifi(ctx, ssid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseForgetDeviceSavedWifiResponse(rsp)
 }
 
 // GetServerInfoWithResponse request returning *GetServerInfoResponse
@@ -1392,6 +3521,1120 @@ func ParseGetAPIKeyResponse(rsp *http.Response) (*GetAPIKeyResponse, error) {
 	return response, nil
 }
 
+// ParseListContactsResponse parses an HTTP response from a ListContactsWithResponse call
+func ParseListContactsResponse(rsp *http.Response) (*ListContactsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListContactsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ContactList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateContactResponse parses an HTTP response from a CreateContactWithResponse call
+func ParseCreateContactResponse(rsp *http.Response) (*CreateContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Contact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteContactResponse parses an HTTP response from a DeleteContactWithResponse call
+func ParseDeleteContactResponse(rsp *http.Response) (*DeleteContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetContactResponse parses an HTTP response from a GetContactWithResponse call
+func ParseGetContactResponse(rsp *http.Response) (*GetContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Contact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutContactResponse parses an HTTP response from a PutContactWithResponse call
+func ParsePutContactResponse(rsp *http.Response) (*PutContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Contact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceResponse parses an HTTP response from a GetDeviceWithResponse call
+func ParseGetDeviceResponse(rsp *http.Response) (*GetDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.DeviceInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePlayDeviceSoundResponse parses an HTTP response from a PlayDeviceSoundWithResponse call
+func ParsePlayDeviceSoundResponse(rsp *http.Response) (*PlayDeviceSoundResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PlayDeviceSoundResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRebootDeviceResponse parses an HTTP response from a RebootDeviceWithResponse call
+func ParseRebootDeviceResponse(rsp *http.Response) (*RebootDeviceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RebootDeviceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceRuntimeResponse parses an HTTP response from a GetDeviceRuntimeWithResponse call
+func ParseGetDeviceRuntimeResponse(rsp *http.Response) (*GetDeviceRuntimeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceRuntimeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.Runtime
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceStatusResponse parses an HTTP response from a GetDeviceStatusWithResponse call
+func ParseGetDeviceStatusResponse(rsp *http.Response) (*GetDeviceStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryDeviceTelemetryResponse parses an HTTP response from a QueryDeviceTelemetryWithResponse call
+func ParseQueryDeviceTelemetryResponse(rsp *http.Response) (*QueryDeviceTelemetryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryDeviceTelemetryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerTelemetryRangeResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAggregateDeviceTelemetryResponse parses an HTTP response from a AggregateDeviceTelemetryWithResponse call
+func ParseAggregateDeviceTelemetryResponse(rsp *http.Response) (*AggregateDeviceTelemetryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AggregateDeviceTelemetryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerTelemetryAggregateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceTelemetryLatestResponse parses an HTTP response from a GetDeviceTelemetryLatestWithResponse call
+func ParseGetDeviceTelemetryLatestResponse(rsp *http.Response) (*GetDeviceTelemetryLatestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceTelemetryLatestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerTelemetryLatestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetDeviceVolumeResponse parses an HTTP response from a SetDeviceVolumeWithResponse call
+func ParseSetDeviceVolumeResponse(rsp *http.Response) (*SetDeviceVolumeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetDeviceVolumeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceControlStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeviceWifiResponse parses an HTTP response from a GetDeviceWifiWithResponse call
+func ParseGetDeviceWifiResponse(rsp *http.Response) (*GetDeviceWifiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceWifiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceWifiStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDeviceSavedWifiResponse parses an HTTP response from a ListDeviceSavedWifiWithResponse call
+func ParseListDeviceSavedWifiResponse(rsp *http.Response) (*ListDeviceSavedWifiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeviceSavedWifiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceWifiSavedList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseForgetDeviceSavedWifiResponse parses an HTTP response from a ForgetDeviceSavedWifiWithResponse call
+func ParseForgetDeviceSavedWifiResponse(rsp *http.Response) (*ForgetDeviceSavedWifiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ForgetDeviceSavedWifiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetServerInfoResponse parses an HTTP response from a GetServerInfoWithResponse call
 func ParseGetServerInfoResponse(rsp *http.Response) (*GetServerInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1520,6 +4763,57 @@ type ServerInterface interface {
 	// Get an API key owned by the caller's device
 	// (GET /gizclaw/v1/api-keys/{apiKeyName})
 	GetAPIKey(c *fiber.Ctx, apiKeyName string) error
+	// List contacts owned by the bound device
+	// (GET /gizclaw/v1/contacts)
+	ListContacts(c *fiber.Ctx, params ListContactsParams) error
+	// Create a contact owned by the bound device
+	// (POST /gizclaw/v1/contacts)
+	CreateContact(c *fiber.Ctx) error
+	// Delete a contact owned by the bound device
+	// (DELETE /gizclaw/v1/contacts/{contactName})
+	DeleteContact(c *fiber.Ctx, contactName string) error
+	// Get a contact owned by the bound device
+	// (GET /gizclaw/v1/contacts/{contactName})
+	GetContact(c *fiber.Ctx, contactName string) error
+	// Update a contact owned by the bound device
+	// (PUT /gizclaw/v1/contacts/{contactName})
+	PutContact(c *fiber.Ctx, contactName string) error
+	// Get the device bound to the API key
+	// (GET /gizclaw/v1/device)
+	GetDevice(c *fiber.Ctx) error
+	// Play a device-defined sound on the bound device
+	// (POST /gizclaw/v1/device/actions/play-sound)
+	PlayDeviceSound(c *fiber.Ctx) error
+	// Reboot the bound device
+	// (POST /gizclaw/v1/device/actions/reboot)
+	RebootDevice(c *fiber.Ctx) error
+	// Get the online runtime of the bound device
+	// (GET /gizclaw/v1/device/runtime)
+	GetDeviceRuntime(c *fiber.Ctx) error
+	// Get the latest reported status of the bound device
+	// (GET /gizclaw/v1/device/status)
+	GetDeviceStatus(c *fiber.Ctx) error
+	// Query sampled telemetry points for the bound device
+	// (GET /gizclaw/v1/device/telemetry)
+	QueryDeviceTelemetry(c *fiber.Ctx, params QueryDeviceTelemetryParams) error
+	// Query bucketed aggregate telemetry for the bound device
+	// (GET /gizclaw/v1/device/telemetry/aggregate)
+	AggregateDeviceTelemetry(c *fiber.Ctx, params AggregateDeviceTelemetryParams) error
+	// Get latest sampled telemetry values for the bound device
+	// (GET /gizclaw/v1/device/telemetry/latest)
+	GetDeviceTelemetryLatest(c *fiber.Ctx, params GetDeviceTelemetryLatestParams) error
+	// Set the absolute volume and mute state of the bound device
+	// (PUT /gizclaw/v1/device/volume)
+	SetDeviceVolume(c *fiber.Ctx) error
+	// Get the current Wi-Fi status of the bound device
+	// (GET /gizclaw/v1/device/wifi)
+	GetDeviceWifi(c *fiber.Ctx) error
+	// List Wi-Fi networks saved on the bound device
+	// (GET /gizclaw/v1/device/wifi/saved)
+	ListDeviceSavedWifi(c *fiber.Ctx) error
+	// Forget a Wi-Fi network saved on the bound device
+	// (DELETE /gizclaw/v1/device/wifi/saved/{ssid})
+	ForgetDeviceSavedWifi(c *fiber.Ctx, ssid string) error
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(c *fiber.Ctx) error
@@ -1705,6 +4999,536 @@ func (siw *ServerInterfaceWrapper) GetAPIKey(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// ListContacts operation middleware
+func (siw *ServerInterfaceWrapper) ListContacts(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListContactsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListContacts(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// CreateContact operation middleware
+func (siw *ServerInterfaceWrapper) CreateContact(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.CreateContact(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DeleteContact operation middleware
+func (siw *ServerInterfaceWrapper) DeleteContact(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "contactName" -------------
+	var contactName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contactName", c.Params("contactName"), &contactName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter contactName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.DeleteContact(c, contactName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetContact operation middleware
+func (siw *ServerInterfaceWrapper) GetContact(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "contactName" -------------
+	var contactName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contactName", c.Params("contactName"), &contactName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter contactName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetContact(c, contactName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// PutContact operation middleware
+func (siw *ServerInterfaceWrapper) PutContact(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "contactName" -------------
+	var contactName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contactName", c.Params("contactName"), &contactName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter contactName: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.PutContact(c, contactName)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetDevice operation middleware
+func (siw *ServerInterfaceWrapper) GetDevice(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDevice(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// PlayDeviceSound operation middleware
+func (siw *ServerInterfaceWrapper) PlayDeviceSound(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.PlayDeviceSound(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// RebootDevice operation middleware
+func (siw *ServerInterfaceWrapper) RebootDevice(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.RebootDevice(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetDeviceRuntime operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceRuntime(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDeviceRuntime(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetDeviceStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceStatus(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDeviceStatus(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// QueryDeviceTelemetry operation middleware
+func (siw *ServerInterfaceWrapper) QueryDeviceTelemetry(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params QueryDeviceTelemetryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "field" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "field", query, &params.Field, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter field: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "step_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "step_ms", query, &params.StepMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter step_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "order", query, &params.Order, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter order: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.QueryDeviceTelemetry(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// AggregateDeviceTelemetry operation middleware
+func (siw *ServerInterfaceWrapper) AggregateDeviceTelemetry(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AggregateDeviceTelemetryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "field" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "field", query, &params.Field, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter field: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "bucket_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "bucket_ms", query, &params.BucketMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter bucket_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "aggregate" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "aggregate", query, &params.Aggregate, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter aggregate: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.AggregateDeviceTelemetry(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetDeviceTelemetryLatest operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceTelemetryLatest(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetDeviceTelemetryLatestParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "fields" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "fields", query, &params.Fields, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter fields: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDeviceTelemetryLatest(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// SetDeviceVolume operation middleware
+func (siw *ServerInterfaceWrapper) SetDeviceVolume(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.SetDeviceVolume(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// GetDeviceWifi operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceWifi(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDeviceWifi(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ListDeviceSavedWifi operation middleware
+func (siw *ServerInterfaceWrapper) ListDeviceSavedWifi(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListDeviceSavedWifi(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ForgetDeviceSavedWifi operation middleware
+func (siw *ServerInterfaceWrapper) ForgetDeviceSavedWifi(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ssid" -------------
+	var ssid string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ssid", c.Params("ssid"), &ssid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter ssid: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ForgetDeviceSavedWifi(c, ssid)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // GetServerInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetServerInfo(c *fiber.Ctx) error {
 
@@ -1844,6 +5668,40 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/api-keys/:apiKeyName", wrapper.GetAPIKey)
 
+	router.Get(options.BaseURL+"/gizclaw/v1/contacts", wrapper.ListContacts)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/contacts", wrapper.CreateContact)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/contacts/:contactName", wrapper.DeleteContact)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/contacts/:contactName", wrapper.GetContact)
+
+	router.Put(options.BaseURL+"/gizclaw/v1/contacts/:contactName", wrapper.PutContact)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device", wrapper.GetDevice)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/play-sound", wrapper.PlayDeviceSound)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/reboot", wrapper.RebootDevice)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime", wrapper.GetDeviceRuntime)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/status", wrapper.GetDeviceStatus)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/telemetry", wrapper.QueryDeviceTelemetry)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/telemetry/aggregate", wrapper.AggregateDeviceTelemetry)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/telemetry/latest", wrapper.GetDeviceTelemetryLatest)
+
+	router.Put(options.BaseURL+"/gizclaw/v1/device/volume", wrapper.SetDeviceVolume)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/wifi", wrapper.GetDeviceWifi)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/wifi/saved", wrapper.ListDeviceSavedWifi)
+
+	router.Delete(options.BaseURL+"/gizclaw/v1/device/wifi/saved/:ssid", wrapper.ForgetDeviceSavedWifi)
+
 	router.Get(options.BaseURL+"/server-info", wrapper.GetServerInfo)
 
 	router.Post(options.BaseURL+"/webrtc/v1/offer", wrapper.CreateGiznetWebRTCOffer)
@@ -1853,6 +5711,14 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 type BadRequestJSONResponse externalRef0.ErrorResponse
 
 type ConflictJSONResponse externalRef0.ErrorResponse
+
+type DeviceErrorJSONResponse externalRef0.ErrorResponse
+
+type DeviceOfflineJSONResponse externalRef0.ErrorResponse
+
+type DeviceTimeoutJSONResponse externalRef0.ErrorResponse
+
+type DeviceUnsupportedJSONResponse externalRef0.ErrorResponse
 
 type ForbiddenJSONResponse externalRef0.ErrorResponse
 
@@ -2212,6 +6078,1187 @@ func (response GetAPIKey500JSONResponse) VisitGetAPIKeyResponse(ctx *fiber.Ctx) 
 	return ctx.JSON(&response)
 }
 
+type ListContactsRequestObject struct {
+	Params ListContactsParams
+}
+
+type ListContactsResponseObject interface {
+	VisitListContactsResponse(ctx *fiber.Ctx) error
+}
+
+type ListContacts200JSONResponse ContactList
+
+func (response ListContacts200JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListContacts400JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListContacts401JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListContacts403JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListContacts409JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListContacts500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListContacts500JSONResponse) VisitListContactsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContactRequestObject struct {
+	Body *CreateContactJSONRequestBody
+}
+
+type CreateContactResponseObject interface {
+	VisitCreateContactResponse(ctx *fiber.Ctx) error
+}
+
+type CreateContact201JSONResponse Contact
+
+func (response CreateContact201JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(201)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateContact400JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateContact401JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateContact403JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact409JSONResponse externalRef0.ErrorResponse
+
+func (response CreateContact409JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type CreateContact500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateContact500JSONResponse) VisitCreateContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContactRequestObject struct {
+	ContactName string `json:"contactName"`
+}
+
+type DeleteContactResponseObject interface {
+	VisitDeleteContactResponse(ctx *fiber.Ctx) error
+}
+
+type DeleteContact204Response struct {
+}
+
+func (response DeleteContact204Response) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type DeleteContact401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteContact401JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteContact403JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact404JSONResponse externalRef0.ErrorResponse
+
+func (response DeleteContact404JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteContact409JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DeleteContact500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteContact500JSONResponse) VisitDeleteContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetContactRequestObject struct {
+	ContactName string `json:"contactName"`
+}
+
+type GetContactResponseObject interface {
+	VisitGetContactResponse(ctx *fiber.Ctx) error
+}
+
+type GetContact200JSONResponse Contact
+
+func (response GetContact200JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetContact401JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetContact403JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact404JSONResponse externalRef0.ErrorResponse
+
+func (response GetContact404JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetContact409JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetContact500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetContact500JSONResponse) VisitGetContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PutContactRequestObject struct {
+	ContactName string `json:"contactName"`
+	Body        *PutContactJSONRequestBody
+}
+
+type PutContactResponseObject interface {
+	VisitPutContactResponse(ctx *fiber.Ctx) error
+}
+
+type PutContact200JSONResponse Contact
+
+func (response PutContact200JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutContact400JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutContact401JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutContact403JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact404JSONResponse externalRef0.ErrorResponse
+
+func (response PutContact404JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact409JSONResponse externalRef0.ErrorResponse
+
+func (response PutContact409JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PutContact500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PutContact500JSONResponse) VisitPutContactResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRequestObject struct {
+}
+
+type GetDeviceResponseObject interface {
+	VisitGetDeviceResponse(ctx *fiber.Ctx) error
+}
+
+type GetDevice200JSONResponse externalRef0.DeviceInfo
+
+func (response GetDevice200JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDevice401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDevice401JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDevice403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDevice403JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDevice409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetDevice409JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDevice500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDevice500JSONResponse) VisitGetDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSoundRequestObject struct {
+	Body *PlayDeviceSoundJSONRequestBody
+}
+
+type PlayDeviceSoundResponseObject interface {
+	VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error
+}
+
+type PlayDeviceSound204Response struct {
+}
+
+func (response PlayDeviceSound204Response) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type PlayDeviceSound400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PlayDeviceSound400JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PlayDeviceSound401JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PlayDeviceSound403JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response PlayDeviceSound409JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response PlayDeviceSound500JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response PlayDeviceSound501JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response PlayDeviceSound502JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type PlayDeviceSound504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response PlayDeviceSound504JSONResponse) VisitPlayDeviceSoundResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDeviceRequestObject struct {
+	Body *RebootDeviceJSONRequestBody
+}
+
+type RebootDeviceResponseObject interface {
+	VisitRebootDeviceResponse(ctx *fiber.Ctx) error
+}
+
+type RebootDevice204Response struct {
+}
+
+func (response RebootDevice204Response) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type RebootDevice400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response RebootDevice400JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RebootDevice401JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RebootDevice403JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response RebootDevice409JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response RebootDevice500JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response RebootDevice501JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response RebootDevice502JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type RebootDevice504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response RebootDevice504JSONResponse) VisitRebootDeviceResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntimeRequestObject struct {
+}
+
+type GetDeviceRuntimeResponseObject interface {
+	VisitGetDeviceRuntimeResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeviceRuntime200JSONResponse externalRef0.Runtime
+
+func (response GetDeviceRuntime200JSONResponse) VisitGetDeviceRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntime401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDeviceRuntime401JSONResponse) VisitGetDeviceRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntime403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDeviceRuntime403JSONResponse) VisitGetDeviceRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntime409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetDeviceRuntime409JSONResponse) VisitGetDeviceRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceRuntime500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDeviceRuntime500JSONResponse) VisitGetDeviceRuntimeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceStatusRequestObject struct {
+}
+
+type GetDeviceStatusResponseObject interface {
+	VisitGetDeviceStatusResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeviceStatus200JSONResponse externalRef0.PeerStatus
+
+func (response GetDeviceStatus200JSONResponse) VisitGetDeviceStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceStatus401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDeviceStatus401JSONResponse) VisitGetDeviceStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDeviceStatus403JSONResponse) VisitGetDeviceStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetDeviceStatus409JSONResponse) VisitGetDeviceStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceStatus500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDeviceStatus500JSONResponse) VisitGetDeviceStatusResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type QueryDeviceTelemetryRequestObject struct {
+	Params QueryDeviceTelemetryParams
+}
+
+type QueryDeviceTelemetryResponseObject interface {
+	VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error
+}
+
+type QueryDeviceTelemetry200JSONResponse externalRef0.PeerTelemetryRangeResponse
+
+func (response QueryDeviceTelemetry200JSONResponse) VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type QueryDeviceTelemetry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response QueryDeviceTelemetry400JSONResponse) VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type QueryDeviceTelemetry401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response QueryDeviceTelemetry401JSONResponse) VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type QueryDeviceTelemetry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response QueryDeviceTelemetry403JSONResponse) VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type QueryDeviceTelemetry409JSONResponse struct{ ConflictJSONResponse }
+
+func (response QueryDeviceTelemetry409JSONResponse) VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type QueryDeviceTelemetry500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response QueryDeviceTelemetry500JSONResponse) VisitQueryDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type AggregateDeviceTelemetryRequestObject struct {
+	Params AggregateDeviceTelemetryParams
+}
+
+type AggregateDeviceTelemetryResponseObject interface {
+	VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error
+}
+
+type AggregateDeviceTelemetry200JSONResponse externalRef0.PeerTelemetryAggregateResponse
+
+func (response AggregateDeviceTelemetry200JSONResponse) VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type AggregateDeviceTelemetry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AggregateDeviceTelemetry400JSONResponse) VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type AggregateDeviceTelemetry401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AggregateDeviceTelemetry401JSONResponse) VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type AggregateDeviceTelemetry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AggregateDeviceTelemetry403JSONResponse) VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type AggregateDeviceTelemetry409JSONResponse struct{ ConflictJSONResponse }
+
+func (response AggregateDeviceTelemetry409JSONResponse) VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type AggregateDeviceTelemetry500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response AggregateDeviceTelemetry500JSONResponse) VisitAggregateDeviceTelemetryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceTelemetryLatestRequestObject struct {
+	Params GetDeviceTelemetryLatestParams
+}
+
+type GetDeviceTelemetryLatestResponseObject interface {
+	VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeviceTelemetryLatest200JSONResponse externalRef0.PeerTelemetryLatestResponse
+
+func (response GetDeviceTelemetryLatest200JSONResponse) VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceTelemetryLatest400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetDeviceTelemetryLatest400JSONResponse) VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceTelemetryLatest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDeviceTelemetryLatest401JSONResponse) VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceTelemetryLatest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDeviceTelemetryLatest403JSONResponse) VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceTelemetryLatest409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetDeviceTelemetryLatest409JSONResponse) VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceTelemetryLatest500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDeviceTelemetryLatest500JSONResponse) VisitGetDeviceTelemetryLatestResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolumeRequestObject struct {
+	Body *SetDeviceVolumeJSONRequestBody
+}
+
+type SetDeviceVolumeResponseObject interface {
+	VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error
+}
+
+type SetDeviceVolume200JSONResponse DeviceControlStatus
+
+func (response SetDeviceVolume200JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetDeviceVolume400JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetDeviceVolume401JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetDeviceVolume403JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response SetDeviceVolume409JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response SetDeviceVolume500JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response SetDeviceVolume501JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response SetDeviceVolume502JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type SetDeviceVolume504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response SetDeviceVolume504JSONResponse) VisitSetDeviceVolumeResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifiRequestObject struct {
+}
+
+type GetDeviceWifiResponseObject interface {
+	VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeviceWifi200JSONResponse DeviceWifiStatus
+
+func (response GetDeviceWifi200JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDeviceWifi401JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDeviceWifi403JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response GetDeviceWifi409JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDeviceWifi500JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response GetDeviceWifi501JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response GetDeviceWifi502JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response GetDeviceWifi504JSONResponse) VisitGetDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifiRequestObject struct {
+}
+
+type ListDeviceSavedWifiResponseObject interface {
+	VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error
+}
+
+type ListDeviceSavedWifi200JSONResponse DeviceWifiSavedList
+
+func (response ListDeviceSavedWifi200JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListDeviceSavedWifi401JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListDeviceSavedWifi403JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response ListDeviceSavedWifi409JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListDeviceSavedWifi500JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response ListDeviceSavedWifi501JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response ListDeviceSavedWifi502JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceSavedWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response ListDeviceSavedWifi504JSONResponse) VisitListDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifiRequestObject struct {
+	Ssid string `json:"ssid"`
+}
+
+type ForgetDeviceSavedWifiResponseObject interface {
+	VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error
+}
+
+type ForgetDeviceSavedWifi204Response struct {
+}
+
+func (response ForgetDeviceSavedWifi204Response) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Status(204)
+	return nil
+}
+
+type ForgetDeviceSavedWifi400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ForgetDeviceSavedWifi400JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ForgetDeviceSavedWifi401JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ForgetDeviceSavedWifi403JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi404JSONResponse externalRef0.ErrorResponse
+
+func (response ForgetDeviceSavedWifi404JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response ForgetDeviceSavedWifi409JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ForgetDeviceSavedWifi500JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response ForgetDeviceSavedWifi501JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response ForgetDeviceSavedWifi502JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type ForgetDeviceSavedWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response ForgetDeviceSavedWifi504JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
 type GetServerInfoRequestObject struct {
 }
 
@@ -2357,6 +7404,57 @@ type StrictServerInterface interface {
 	// Get an API key owned by the caller's device
 	// (GET /gizclaw/v1/api-keys/{apiKeyName})
 	GetAPIKey(ctx context.Context, request GetAPIKeyRequestObject) (GetAPIKeyResponseObject, error)
+	// List contacts owned by the bound device
+	// (GET /gizclaw/v1/contacts)
+	ListContacts(ctx context.Context, request ListContactsRequestObject) (ListContactsResponseObject, error)
+	// Create a contact owned by the bound device
+	// (POST /gizclaw/v1/contacts)
+	CreateContact(ctx context.Context, request CreateContactRequestObject) (CreateContactResponseObject, error)
+	// Delete a contact owned by the bound device
+	// (DELETE /gizclaw/v1/contacts/{contactName})
+	DeleteContact(ctx context.Context, request DeleteContactRequestObject) (DeleteContactResponseObject, error)
+	// Get a contact owned by the bound device
+	// (GET /gizclaw/v1/contacts/{contactName})
+	GetContact(ctx context.Context, request GetContactRequestObject) (GetContactResponseObject, error)
+	// Update a contact owned by the bound device
+	// (PUT /gizclaw/v1/contacts/{contactName})
+	PutContact(ctx context.Context, request PutContactRequestObject) (PutContactResponseObject, error)
+	// Get the device bound to the API key
+	// (GET /gizclaw/v1/device)
+	GetDevice(ctx context.Context, request GetDeviceRequestObject) (GetDeviceResponseObject, error)
+	// Play a device-defined sound on the bound device
+	// (POST /gizclaw/v1/device/actions/play-sound)
+	PlayDeviceSound(ctx context.Context, request PlayDeviceSoundRequestObject) (PlayDeviceSoundResponseObject, error)
+	// Reboot the bound device
+	// (POST /gizclaw/v1/device/actions/reboot)
+	RebootDevice(ctx context.Context, request RebootDeviceRequestObject) (RebootDeviceResponseObject, error)
+	// Get the online runtime of the bound device
+	// (GET /gizclaw/v1/device/runtime)
+	GetDeviceRuntime(ctx context.Context, request GetDeviceRuntimeRequestObject) (GetDeviceRuntimeResponseObject, error)
+	// Get the latest reported status of the bound device
+	// (GET /gizclaw/v1/device/status)
+	GetDeviceStatus(ctx context.Context, request GetDeviceStatusRequestObject) (GetDeviceStatusResponseObject, error)
+	// Query sampled telemetry points for the bound device
+	// (GET /gizclaw/v1/device/telemetry)
+	QueryDeviceTelemetry(ctx context.Context, request QueryDeviceTelemetryRequestObject) (QueryDeviceTelemetryResponseObject, error)
+	// Query bucketed aggregate telemetry for the bound device
+	// (GET /gizclaw/v1/device/telemetry/aggregate)
+	AggregateDeviceTelemetry(ctx context.Context, request AggregateDeviceTelemetryRequestObject) (AggregateDeviceTelemetryResponseObject, error)
+	// Get latest sampled telemetry values for the bound device
+	// (GET /gizclaw/v1/device/telemetry/latest)
+	GetDeviceTelemetryLatest(ctx context.Context, request GetDeviceTelemetryLatestRequestObject) (GetDeviceTelemetryLatestResponseObject, error)
+	// Set the absolute volume and mute state of the bound device
+	// (PUT /gizclaw/v1/device/volume)
+	SetDeviceVolume(ctx context.Context, request SetDeviceVolumeRequestObject) (SetDeviceVolumeResponseObject, error)
+	// Get the current Wi-Fi status of the bound device
+	// (GET /gizclaw/v1/device/wifi)
+	GetDeviceWifi(ctx context.Context, request GetDeviceWifiRequestObject) (GetDeviceWifiResponseObject, error)
+	// List Wi-Fi networks saved on the bound device
+	// (GET /gizclaw/v1/device/wifi/saved)
+	ListDeviceSavedWifi(ctx context.Context, request ListDeviceSavedWifiRequestObject) (ListDeviceSavedWifiResponseObject, error)
+	// Forget a Wi-Fi network saved on the bound device
+	// (DELETE /gizclaw/v1/device/wifi/saved/{ssid})
+	ForgetDeviceSavedWifi(ctx context.Context, request ForgetDeviceSavedWifiRequestObject) (ForgetDeviceSavedWifiResponseObject, error)
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(ctx context.Context, request GetServerInfoRequestObject) (GetServerInfoResponseObject, error)
@@ -2531,6 +7629,480 @@ func (sh *strictHandler) GetAPIKey(ctx *fiber.Ctx, apiKeyName string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(GetAPIKeyResponseObject); ok {
 		if err := validResponse.VisitGetAPIKeyResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListContacts operation middleware
+func (sh *strictHandler) ListContacts(ctx *fiber.Ctx, params ListContactsParams) error {
+	var request ListContactsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListContacts(ctx.UserContext(), request.(ListContactsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListContacts")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListContactsResponseObject); ok {
+		if err := validResponse.VisitListContactsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateContact operation middleware
+func (sh *strictHandler) CreateContact(ctx *fiber.Ctx) error {
+	var request CreateContactRequestObject
+
+	var body CreateContactJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateContact(ctx.UserContext(), request.(CreateContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(CreateContactResponseObject); ok {
+		if err := validResponse.VisitCreateContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeleteContact operation middleware
+func (sh *strictHandler) DeleteContact(ctx *fiber.Ctx, contactName string) error {
+	var request DeleteContactRequestObject
+
+	request.ContactName = contactName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteContact(ctx.UserContext(), request.(DeleteContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DeleteContactResponseObject); ok {
+		if err := validResponse.VisitDeleteContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetContact operation middleware
+func (sh *strictHandler) GetContact(ctx *fiber.Ctx, contactName string) error {
+	var request GetContactRequestObject
+
+	request.ContactName = contactName
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetContact(ctx.UserContext(), request.(GetContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetContactResponseObject); ok {
+		if err := validResponse.VisitGetContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PutContact operation middleware
+func (sh *strictHandler) PutContact(ctx *fiber.Ctx, contactName string) error {
+	var request PutContactRequestObject
+
+	request.ContactName = contactName
+
+	var body PutContactJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PutContact(ctx.UserContext(), request.(PutContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutContact")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PutContactResponseObject); ok {
+		if err := validResponse.VisitPutContactResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDevice operation middleware
+func (sh *strictHandler) GetDevice(ctx *fiber.Ctx) error {
+	var request GetDeviceRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDevice(ctx.UserContext(), request.(GetDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDevice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceResponseObject); ok {
+		if err := validResponse.VisitGetDeviceResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// PlayDeviceSound operation middleware
+func (sh *strictHandler) PlayDeviceSound(ctx *fiber.Ctx) error {
+	var request PlayDeviceSoundRequestObject
+
+	var body PlayDeviceSoundJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.PlayDeviceSound(ctx.UserContext(), request.(PlayDeviceSoundRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlayDeviceSound")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(PlayDeviceSoundResponseObject); ok {
+		if err := validResponse.VisitPlayDeviceSoundResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// RebootDevice operation middleware
+func (sh *strictHandler) RebootDevice(ctx *fiber.Ctx) error {
+	var request RebootDeviceRequestObject
+
+	var body RebootDeviceJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.RebootDevice(ctx.UserContext(), request.(RebootDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RebootDevice")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(RebootDeviceResponseObject); ok {
+		if err := validResponse.VisitRebootDeviceResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDeviceRuntime operation middleware
+func (sh *strictHandler) GetDeviceRuntime(ctx *fiber.Ctx) error {
+	var request GetDeviceRuntimeRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceRuntime(ctx.UserContext(), request.(GetDeviceRuntimeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceRuntime")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceRuntimeResponseObject); ok {
+		if err := validResponse.VisitGetDeviceRuntimeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDeviceStatus operation middleware
+func (sh *strictHandler) GetDeviceStatus(ctx *fiber.Ctx) error {
+	var request GetDeviceStatusRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceStatus(ctx.UserContext(), request.(GetDeviceStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceStatusResponseObject); ok {
+		if err := validResponse.VisitGetDeviceStatusResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// QueryDeviceTelemetry operation middleware
+func (sh *strictHandler) QueryDeviceTelemetry(ctx *fiber.Ctx, params QueryDeviceTelemetryParams) error {
+	var request QueryDeviceTelemetryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.QueryDeviceTelemetry(ctx.UserContext(), request.(QueryDeviceTelemetryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueryDeviceTelemetry")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(QueryDeviceTelemetryResponseObject); ok {
+		if err := validResponse.VisitQueryDeviceTelemetryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AggregateDeviceTelemetry operation middleware
+func (sh *strictHandler) AggregateDeviceTelemetry(ctx *fiber.Ctx, params AggregateDeviceTelemetryParams) error {
+	var request AggregateDeviceTelemetryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.AggregateDeviceTelemetry(ctx.UserContext(), request.(AggregateDeviceTelemetryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AggregateDeviceTelemetry")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(AggregateDeviceTelemetryResponseObject); ok {
+		if err := validResponse.VisitAggregateDeviceTelemetryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDeviceTelemetryLatest operation middleware
+func (sh *strictHandler) GetDeviceTelemetryLatest(ctx *fiber.Ctx, params GetDeviceTelemetryLatestParams) error {
+	var request GetDeviceTelemetryLatestRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceTelemetryLatest(ctx.UserContext(), request.(GetDeviceTelemetryLatestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceTelemetryLatest")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceTelemetryLatestResponseObject); ok {
+		if err := validResponse.VisitGetDeviceTelemetryLatestResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SetDeviceVolume operation middleware
+func (sh *strictHandler) SetDeviceVolume(ctx *fiber.Ctx) error {
+	var request SetDeviceVolumeRequestObject
+
+	var body SetDeviceVolumeJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.SetDeviceVolume(ctx.UserContext(), request.(SetDeviceVolumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetDeviceVolume")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(SetDeviceVolumeResponseObject); ok {
+		if err := validResponse.VisitSetDeviceVolumeResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetDeviceWifi operation middleware
+func (sh *strictHandler) GetDeviceWifi(ctx *fiber.Ctx) error {
+	var request GetDeviceWifiRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceWifi(ctx.UserContext(), request.(GetDeviceWifiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceWifi")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceWifiResponseObject); ok {
+		if err := validResponse.VisitGetDeviceWifiResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListDeviceSavedWifi operation middleware
+func (sh *strictHandler) ListDeviceSavedWifi(ctx *fiber.Ctx) error {
+	var request ListDeviceSavedWifiRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeviceSavedWifi(ctx.UserContext(), request.(ListDeviceSavedWifiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeviceSavedWifi")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListDeviceSavedWifiResponseObject); ok {
+		if err := validResponse.VisitListDeviceSavedWifiResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ForgetDeviceSavedWifi operation middleware
+func (sh *strictHandler) ForgetDeviceSavedWifi(ctx *fiber.Ctx, ssid string) error {
+	var request ForgetDeviceSavedWifiRequestObject
+
+	request.Ssid = ssid
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ForgetDeviceSavedWifi(ctx.UserContext(), request.(ForgetDeviceSavedWifiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ForgetDeviceSavedWifi")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ForgetDeviceSavedWifiResponseObject); ok {
+		if err := validResponse.VisitForgetDeviceSavedWifiResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

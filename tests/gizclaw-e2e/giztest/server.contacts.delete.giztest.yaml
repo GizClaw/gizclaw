@@ -1,0 +1,85 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want exercise the server.contacts.delete behavior through its real transport,
+# So that the Public HTTP device contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.contacts.delete
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: create_contact
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/contacts
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      name: "${resource_name}"
+      display_name: Giztest Contact
+    status: 201
+  expect:
+    /name:
+      equals: "${resource_name}"
+    /display_name:
+      equals: Giztest Contact
+- id: primary_http
+  client: peer
+  http:
+    method: DELETE
+    path: /gizclaw/v1/contacts/${resource_name}
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 204
+- id: after_delete
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/contacts/${resource_name}
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 404
+  expect:
+    /error/code:
+      equals: CONTACT_NOT_FOUND
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

@@ -157,7 +157,7 @@ func TestPeerHTTPRejectsLegacyRoutesAndSupportsCORS(t *testing.T) {
 	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "https://app.example.com" {
 		t.Fatalf("Access-Control-Allow-Origin = %q", got)
 	}
-	if got := response.Header().Get("Access-Control-Allow-Methods"); got != "GET,POST,DELETE,OPTIONS" {
+	if got := response.Header().Get("Access-Control-Allow-Methods"); got != "GET,POST,PUT,DELETE,OPTIONS" {
 		t.Fatalf("Access-Control-Allow-Methods = %q", got)
 	}
 	if got := response.Header().Get("Vary"); got != "Origin" {

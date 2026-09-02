@@ -603,6 +603,48 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerAPIKeyResolveRequest',
     responseType: 'ServerAPIKeyResolveResponse',
   ),
+  'client.device.status.get': RpcMethodDescriptor(
+    id: 100,
+    name: 'client.device.status.get',
+    requestType: 'ClientDeviceStatusGetRequest',
+    responseType: 'ClientDeviceStatusGetResponse',
+  ),
+  'client.device.volume.set': RpcMethodDescriptor(
+    id: 101,
+    name: 'client.device.volume.set',
+    requestType: 'ClientDeviceVolumeSetRequest',
+    responseType: 'ClientDeviceVolumeSetResponse',
+  ),
+  'client.device.sound.play': RpcMethodDescriptor(
+    id: 102,
+    name: 'client.device.sound.play',
+    requestType: 'ClientDeviceSoundPlayRequest',
+    responseType: 'ClientDeviceSoundPlayResponse',
+  ),
+  'client.device.reboot': RpcMethodDescriptor(
+    id: 103,
+    name: 'client.device.reboot',
+    requestType: 'ClientDeviceRebootRequest',
+    responseType: 'ClientDeviceRebootResponse',
+  ),
+  'client.wifi.status.get': RpcMethodDescriptor(
+    id: 104,
+    name: 'client.wifi.status.get',
+    requestType: 'ClientWifiStatusGetRequest',
+    responseType: 'ClientWifiStatusGetResponse',
+  ),
+  'client.wifi.saved.list': RpcMethodDescriptor(
+    id: 105,
+    name: 'client.wifi.saved.list',
+    requestType: 'ClientWifiSavedListRequest',
+    responseType: 'ClientWifiSavedListResponse',
+  ),
+  'client.wifi.saved.forget': RpcMethodDescriptor(
+    id: 106,
+    name: 'client.wifi.saved.forget',
+    requestType: 'ClientWifiSavedForgetRequest',
+    responseType: 'ClientWifiSavedForgetResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -704,6 +746,13 @@ const rpcMethodNamesById = <int, String>{
   97: 'server.api_key.list',
   98: 'server.api_key.revoke',
   99: 'server.api_key.resolve',
+  100: 'client.device.status.get',
+  101: 'client.device.volume.set',
+  102: 'client.device.sound.play',
+  103: 'client.device.reboot',
+  104: 'client.wifi.status.get',
+  105: 'client.wifi.saved.list',
+  106: 'client.wifi.saved.forget',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

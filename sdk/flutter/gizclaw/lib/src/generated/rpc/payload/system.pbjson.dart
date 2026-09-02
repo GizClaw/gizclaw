@@ -74,6 +74,268 @@ final $typed_data.Uint8List clientGetInfoResponseDescriptor = $convert.base64Dec
     'ChVDbGllbnRHZXRJbmZvUmVzcG9uc2USMgoFdmFsdWUYASABKAsyHC5naXpjbGF3LnJwYy52MS'
     '5IYXJkd2FyZUluZm9SBXZhbHVl');
 
+@$core.Deprecated('Use clientDeviceStatusGetRequestDescriptor instead')
+const ClientDeviceStatusGetRequest$json = {
+  '1': 'ClientDeviceStatusGetRequest',
+};
+
+/// Descriptor for `ClientDeviceStatusGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceStatusGetRequestDescriptor =
+    $convert.base64Decode('ChxDbGllbnREZXZpY2VTdGF0dXNHZXRSZXF1ZXN0');
+
+@$core.Deprecated('Use clientDeviceStatusGetResponseDescriptor instead')
+const ClientDeviceStatusGetResponse$json = {
+  '1': 'ClientDeviceStatusGetResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerStatus',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ClientDeviceStatusGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceStatusGetResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1DbGllbnREZXZpY2VTdGF0dXNHZXRSZXNwb25zZRIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYX'
+        'cucnBjLnYxLlBlZXJTdGF0dXNSBXZhbHVl');
+
+@$core.Deprecated('Use clientDeviceVolumeSetRequestDescriptor instead')
+const ClientDeviceVolumeSetRequest$json = {
+  '1': 'ClientDeviceVolumeSetRequest',
+  '2': [
+    {'1': 'level', '3': 1, '4': 1, '5': 3, '10': 'level'},
+    {'1': 'muted', '3': 2, '4': 1, '5': 8, '10': 'muted'},
+  ],
+};
+
+/// Descriptor for `ClientDeviceVolumeSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceVolumeSetRequestDescriptor =
+    $convert.base64Decode(
+        'ChxDbGllbnREZXZpY2VWb2x1bWVTZXRSZXF1ZXN0EhQKBWxldmVsGAEgASgDUgVsZXZlbBIUCg'
+        'VtdXRlZBgCIAEoCFIFbXV0ZWQ=');
+
+@$core.Deprecated('Use clientDeviceVolumeSetResponseDescriptor instead')
+const ClientDeviceVolumeSetResponse$json = {
+  '1': 'ClientDeviceVolumeSetResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerStatus',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ClientDeviceVolumeSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceVolumeSetResponseDescriptor =
+    $convert.base64Decode(
+        'Ch1DbGllbnREZXZpY2VWb2x1bWVTZXRSZXNwb25zZRIwCgV2YWx1ZRgBIAEoCzIaLmdpemNsYX'
+        'cucnBjLnYxLlBlZXJTdGF0dXNSBXZhbHVl');
+
+@$core.Deprecated('Use clientDeviceSoundPlayRequestDescriptor instead')
+const ClientDeviceSoundPlayRequest$json = {
+  '1': 'ClientDeviceSoundPlayRequest',
+  '2': [
+    {'1': 'sound', '3': 1, '4': 1, '5': 9, '10': 'sound'},
+    {
+      '1': 'duration_ms',
+      '3': 2,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'durationMs',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_duration_ms'},
+  ],
+};
+
+/// Descriptor for `ClientDeviceSoundPlayRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceSoundPlayRequestDescriptor =
+    $convert.base64Decode(
+        'ChxDbGllbnREZXZpY2VTb3VuZFBsYXlSZXF1ZXN0EhQKBXNvdW5kGAEgASgJUgVzb3VuZBIkCg'
+        'tkdXJhdGlvbl9tcxgCIAEoA0gAUgpkdXJhdGlvbk1ziAEBQg4KDF9kdXJhdGlvbl9tcw==');
+
+@$core.Deprecated('Use clientDeviceSoundPlayResponseDescriptor instead')
+const ClientDeviceSoundPlayResponse$json = {
+  '1': 'ClientDeviceSoundPlayResponse',
+};
+
+/// Descriptor for `ClientDeviceSoundPlayResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceSoundPlayResponseDescriptor =
+    $convert.base64Decode('Ch1DbGllbnREZXZpY2VTb3VuZFBsYXlSZXNwb25zZQ==');
+
+@$core.Deprecated('Use clientDeviceRebootRequestDescriptor instead')
+const ClientDeviceRebootRequest$json = {
+  '1': 'ClientDeviceRebootRequest',
+  '2': [
+    {
+      '1': 'delay_ms',
+      '3': 1,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'delayMs',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_delay_ms'},
+  ],
+};
+
+/// Descriptor for `ClientDeviceRebootRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceRebootRequestDescriptor =
+    $convert.base64Decode(
+        'ChlDbGllbnREZXZpY2VSZWJvb3RSZXF1ZXN0Eh4KCGRlbGF5X21zGAEgASgDSABSB2RlbGF5TX'
+        'OIAQFCCwoJX2RlbGF5X21z');
+
+@$core.Deprecated('Use clientDeviceRebootResponseDescriptor instead')
+const ClientDeviceRebootResponse$json = {
+  '1': 'ClientDeviceRebootResponse',
+};
+
+/// Descriptor for `ClientDeviceRebootResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceRebootResponseDescriptor =
+    $convert.base64Decode('ChpDbGllbnREZXZpY2VSZWJvb3RSZXNwb25zZQ==');
+
+@$core.Deprecated('Use wifiStatusDescriptor instead')
+const WifiStatus$json = {
+  '1': 'WifiStatus',
+  '2': [
+    {'1': 'connected', '3': 1, '4': 1, '5': 8, '10': 'connected'},
+    {'1': 'ssid', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'ssid', '17': true},
+    {
+      '1': 'rssi_dbm',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 1,
+      '10': 'rssiDbm',
+      '17': true
+    },
+    {'1': 'ip', '3': 4, '4': 1, '5': 9, '9': 2, '10': 'ip', '17': true},
+    {'1': 'bssid', '3': 5, '4': 1, '5': 9, '9': 3, '10': 'bssid', '17': true},
+  ],
+  '8': [
+    {'1': '_ssid'},
+    {'1': '_rssi_dbm'},
+    {'1': '_ip'},
+    {'1': '_bssid'},
+  ],
+};
+
+/// Descriptor for `WifiStatus`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List wifiStatusDescriptor = $convert.base64Decode(
+    'CgpXaWZpU3RhdHVzEhwKCWNvbm5lY3RlZBgBIAEoCFIJY29ubmVjdGVkEhcKBHNzaWQYAiABKA'
+    'lIAFIEc3NpZIgBARIeCghyc3NpX2RibRgDIAEoA0gBUgdyc3NpRGJtiAEBEhMKAmlwGAQgASgJ'
+    'SAJSAmlwiAEBEhkKBWJzc2lkGAUgASgJSANSBWJzc2lkiAEBQgcKBV9zc2lkQgsKCV9yc3NpX2'
+    'RibUIFCgNfaXBCCAoGX2Jzc2lk');
+
+@$core.Deprecated('Use wifiSavedNetworkDescriptor instead')
+const WifiSavedNetwork$json = {
+  '1': 'WifiSavedNetwork',
+  '2': [
+    {'1': 'ssid', '3': 1, '4': 1, '5': 9, '10': 'ssid'},
+  ],
+};
+
+/// Descriptor for `WifiSavedNetwork`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List wifiSavedNetworkDescriptor = $convert
+    .base64Decode('ChBXaWZpU2F2ZWROZXR3b3JrEhIKBHNzaWQYASABKAlSBHNzaWQ=');
+
+@$core.Deprecated('Use clientWifiStatusGetRequestDescriptor instead')
+const ClientWifiStatusGetRequest$json = {
+  '1': 'ClientWifiStatusGetRequest',
+};
+
+/// Descriptor for `ClientWifiStatusGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiStatusGetRequestDescriptor =
+    $convert.base64Decode('ChpDbGllbnRXaWZpU3RhdHVzR2V0UmVxdWVzdA==');
+
+@$core.Deprecated('Use clientWifiStatusGetResponseDescriptor instead')
+const ClientWifiStatusGetResponse$json = {
+  '1': 'ClientWifiStatusGetResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WifiStatus',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ClientWifiStatusGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiStatusGetResponseDescriptor =
+    $convert.base64Decode(
+        'ChtDbGllbnRXaWZpU3RhdHVzR2V0UmVzcG9uc2USMAoFdmFsdWUYASABKAsyGi5naXpjbGF3Ln'
+        'JwYy52MS5XaWZpU3RhdHVzUgV2YWx1ZQ==');
+
+@$core.Deprecated('Use clientWifiSavedListRequestDescriptor instead')
+const ClientWifiSavedListRequest$json = {
+  '1': 'ClientWifiSavedListRequest',
+};
+
+/// Descriptor for `ClientWifiSavedListRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiSavedListRequestDescriptor =
+    $convert.base64Decode('ChpDbGllbnRXaWZpU2F2ZWRMaXN0UmVxdWVzdA==');
+
+@$core.Deprecated('Use clientWifiSavedListResponseDescriptor instead')
+const ClientWifiSavedListResponse$json = {
+  '1': 'ClientWifiSavedListResponse',
+  '2': [
+    {
+      '1': 'networks',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WifiSavedNetwork',
+      '10': 'networks'
+    },
+  ],
+};
+
+/// Descriptor for `ClientWifiSavedListResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiSavedListResponseDescriptor =
+    $convert.base64Decode(
+        'ChtDbGllbnRXaWZpU2F2ZWRMaXN0UmVzcG9uc2USPAoIbmV0d29ya3MYASADKAsyIC5naXpjbG'
+        'F3LnJwYy52MS5XaWZpU2F2ZWROZXR3b3JrUghuZXR3b3Jrcw==');
+
+@$core.Deprecated('Use clientWifiSavedForgetRequestDescriptor instead')
+const ClientWifiSavedForgetRequest$json = {
+  '1': 'ClientWifiSavedForgetRequest',
+  '2': [
+    {'1': 'ssid', '3': 1, '4': 1, '5': 9, '10': 'ssid'},
+  ],
+};
+
+/// Descriptor for `ClientWifiSavedForgetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiSavedForgetRequestDescriptor =
+    $convert.base64Decode(
+        'ChxDbGllbnRXaWZpU2F2ZWRGb3JnZXRSZXF1ZXN0EhIKBHNzaWQYASABKAlSBHNzaWQ=');
+
+@$core.Deprecated('Use clientWifiSavedForgetResponseDescriptor instead')
+const ClientWifiSavedForgetResponse$json = {
+  '1': 'ClientWifiSavedForgetResponse',
+};
+
+/// Descriptor for `ClientWifiSavedForgetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiSavedForgetResponseDescriptor =
+    $convert.base64Decode('Ch1DbGllbnRXaWZpU2F2ZWRGb3JnZXRSZXNwb25zZQ==');
+
 @$core.Deprecated('Use deviceInfoDescriptor instead')
 const DeviceInfo$json = {
   '1': 'DeviceInfo',

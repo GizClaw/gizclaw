@@ -19,15 +19,64 @@ typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
 typedef GizClawToolHandler =
     FutureOr<Object?> Function(Map<String, Object?> arguments);
 
+/// Thrown by a device control handler to answer the Server with a specific
+/// RPC error code, for example `INVALID_PARAMS` for an unknown sound or
+/// `NOT_FOUND` for an unknown saved network.
+class GizClawDeviceControlException implements Exception {
+  const GizClawDeviceControlException(this.code, [this.message = '']);
+
+  final rpc.RpcErrorCode code;
+  final String message;
+
+  @override
+  String toString() => 'GizClawDeviceControlException($code, $message)';
+}
+
+/// Implements the Server-initiated `client.device.*` and `client.wifi.*`
+/// methods. A null handler answers `METHOD_NOT_FOUND`, which the Server maps
+/// to `501 DEVICE_UNSUPPORTED`.
+class GizClawDeviceControlHandlers {
+  const GizClawDeviceControlHandlers({
+    this.status,
+    this.setVolume,
+    this.playSound,
+    this.reboot,
+    this.wifiStatus,
+    this.savedWifi,
+    this.forgetWifi,
+  });
+
+  final FutureOr<payload.PeerStatus> Function()? status;
+  final FutureOr<payload.PeerStatus> Function(int level, bool muted)? setVolume;
+  final FutureOr<void> Function(String sound, int? durationMs)? playSound;
+  final FutureOr<void> Function(int? delayMs)? reboot;
+  final FutureOr<payload.WifiStatus> Function()? wifiStatus;
+  final FutureOr<List<payload.WifiSavedNetwork>> Function()? savedWifi;
+  final FutureOr<void> Function(String ssid)? forgetWifi;
+}
+
 class GizClawPeerRpcHandlers {
   GizClawPeerRpcHandlers({
     required this.deviceInfo,
     Map<String, GizClawToolHandler> tools = const {},
+    this.deviceControl,
   }) : tools = Map.unmodifiable(tools);
 
   final GizClawDeviceInfoProvider deviceInfo;
   final Map<String, GizClawToolHandler> tools;
+  final GizClawDeviceControlHandlers? deviceControl;
 }
+
+const _deviceControlMethods = {
+  'client.device.status.get',
+  'client.device.volume.set',
+  'client.device.sound.play',
+  'client.device.reboot',
+  'client.wifi.status.get',
+  'client.wifi.saved.list',
+  'client.wifi.saved.forget',
+};
+const _deviceControlMaxBytes = 32;
 
 void serveGizClawPeerRpcChannel(
   GizClawDataChannel channel, {
@@ -196,6 +245,13 @@ class _InboundPeerRpcChannel {
       case 'client.info.get':
       case 'client.identifiers.get':
       case 'client.tool.invoke':
+      case 'client.device.status.get':
+      case 'client.device.volume.set':
+      case 'client.device.sound.play':
+      case 'client.device.reboot':
+      case 'client.wifi.status.get':
+      case 'client.wifi.saved.list':
+      case 'client.wifi.saved.forget':
         return;
       default:
         _ignoreBody = true;
@@ -219,8 +275,12 @@ class _InboundPeerRpcChannel {
         'client.info.get' => await _getClientInfo(request),
         'client.identifiers.get' => await _getClientIdentifiers(request),
         'client.tool.invoke' => await _invokeClientTool(request),
+        _ when _deviceControlMethods.contains(methodName) =>
+          await _serveDeviceControl(request, methodName),
         _ => throw StateError('unsupported client method: $methodName'),
       };
+    } on GizClawDeviceControlException catch (error) {
+      response = _rpcErrorResponse(request.id, error.code, error.message);
     } catch (error) {
       response = _rpcErrorResponse(
         request.id,
@@ -352,6 +412,114 @@ class _InboundPeerRpcChannel {
         rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
         'Tool handler failed',
       );
+    }
+  }
+
+  Future<rpc.RpcResponse> _serveDeviceControl(
+    rpc.RpcRequest request,
+    String methodName,
+  ) async {
+    final handlers = this.handlers?.deviceControl;
+    rpc.RpcResponse unsupported() => _rpcErrorResponse(
+      request.id,
+      rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+      'unsupported method: $methodName',
+    );
+    rpc.RpcResponse invalid() => _rpcErrorResponse(
+      request.id,
+      rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+      'invalid params',
+    );
+    GeneratedMessage? params;
+    try {
+      params = decodeRpcRequestPayload(
+        methodName,
+        request.hasPayload() ? request.payload : const [],
+      );
+    } catch (_) {
+      return invalid();
+    }
+    switch (methodName) {
+      case 'client.device.status.get':
+        final handler = handlers?.status;
+        if (handler == null) return unsupported();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceStatusGetResponse(value: await handler()),
+        );
+      case 'client.device.volume.set':
+        final handler = handlers?.setVolume;
+        if (handler == null) return unsupported();
+        final volume = params as payload.ClientDeviceVolumeSetRequest;
+        final level = volume.level.toInt();
+        if (level < 0 || level > 100) return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceVolumeSetResponse(
+            value: await handler(level, volume.muted),
+          ),
+        );
+      case 'client.device.sound.play':
+        final handler = handlers?.playSound;
+        if (handler == null) return unsupported();
+        final sound = params as payload.ClientDeviceSoundPlayRequest;
+        if (sound.sound.isEmpty ||
+            utf8.encode(sound.sound).length > _deviceControlMaxBytes) {
+          return invalid();
+        }
+        await handler(
+          sound.sound,
+          sound.hasDurationMs() ? sound.durationMs.toInt() : null,
+        );
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceSoundPlayResponse(),
+        );
+      case 'client.device.reboot':
+        final handler = handlers?.reboot;
+        if (handler == null) return unsupported();
+        final reboot = params as payload.ClientDeviceRebootRequest;
+        await handler(reboot.hasDelayMs() ? reboot.delayMs.toInt() : null);
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientDeviceRebootResponse(),
+        );
+      case 'client.wifi.status.get':
+        final handler = handlers?.wifiStatus;
+        if (handler == null) return unsupported();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientWifiStatusGetResponse(value: await handler()),
+        );
+      case 'client.wifi.saved.list':
+        final handler = handlers?.savedWifi;
+        if (handler == null) return unsupported();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientWifiSavedListResponse(networks: await handler()),
+        );
+      case 'client.wifi.saved.forget':
+        final handler = handlers?.forgetWifi;
+        if (handler == null) return unsupported();
+        final forget = params as payload.ClientWifiSavedForgetRequest;
+        if (forget.ssid.isEmpty ||
+            utf8.encode(forget.ssid).length > _deviceControlMaxBytes) {
+          return invalid();
+        }
+        await handler(forget.ssid);
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientWifiSavedForgetResponse(),
+        );
+      default:
+        return unsupported();
     }
   }
 
@@ -500,7 +668,8 @@ class _InboundPeerRpcChannel {
   bool _isClientMethod(String methodName) {
     return methodName == 'client.info.get' ||
         methodName == 'client.identifiers.get' ||
-        methodName == 'client.tool.invoke';
+        methodName == 'client.tool.invoke' ||
+        _deviceControlMethods.contains(methodName);
   }
 
   void _close() {

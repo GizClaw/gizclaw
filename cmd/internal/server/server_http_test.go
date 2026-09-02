@@ -42,9 +42,15 @@ func TestCmdServerRejectsDirectProtectedRoutesBeforeAuthentication(t *testing.T)
 	}
 	defer srv.Close()
 
-	for _, path := range []string{"/gizclaw/v1/api-keys/self", "/openai/v1/models"} {
+	for _, route := range []struct{ method, path string }{
+		{http.MethodGet, "/gizclaw/v1/api-keys/self"}, {http.MethodGet, "/gizclaw/v1/device"}, {http.MethodGet, "/gizclaw/v1/device/status"},
+		{http.MethodPut, "/gizclaw/v1/device/volume"}, {http.MethodPost, "/gizclaw/v1/device/actions/reboot"},
+		{http.MethodDelete, "/gizclaw/v1/device/wifi/saved/home"}, {http.MethodGet, "/gizclaw/v1/contacts"},
+		{http.MethodPost, "/gizclaw/v1/contacts"}, {http.MethodGet, "/openai/v1/models"},
+	} {
+		path := route.path
 		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request := httptest.NewRequest(route.method, path, nil)
 		request.Header.Set("Authorization", "Bearer invalid")
 		srv.ServeHTTP(recorder, request)
 		if recorder.Code != http.StatusForbidden {

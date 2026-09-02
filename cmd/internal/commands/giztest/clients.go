@@ -13,14 +13,15 @@ import (
 )
 
 type clientSet struct {
-	mu      sync.Mutex
-	clients map[string]*gizcli.Client
-	serve   map[string]<-chan error
-	inbound map[string]*inboundCounter
+	mu        sync.Mutex
+	clients   map[string]*gizcli.Client
+	serve     map[string]<-chan error
+	inbound   map[string]*inboundCounter
+	endpoints map[string]string
 }
 
 func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []Step, vars *variables) (*clientSet, error) {
-	set := &clientSet{clients: map[string]*gizcli.Client{}, serve: map[string]<-chan error{}, inbound: map[string]*inboundCounter{}}
+	set := &clientSet{clients: map[string]*gizcli.Client{}, serve: map[string]<-chan error{}, inbound: map[string]*inboundCounter{}, endpoints: map[string]string{}}
 	names := make([]string, 0, len(specs))
 	for name := range specs {
 		names = append(names, name)
@@ -40,6 +41,7 @@ func connectClients(ctx context.Context, specs map[string]ClientSpec, steps []St
 		if err != nil {
 			return set, fmt.Errorf("client %s: %w", name, err)
 		}
+		set.endpoints[name] = endpoint
 		key, err := giznet.GenerateKeyPair()
 		if err != nil {
 			return set, err
@@ -82,6 +84,14 @@ func (s *clientSet) fingerprints() map[string]string {
 		}
 	}
 	return result
+}
+
+func (s *clientSet) endpoint(name string) (string, error) {
+	endpoint := s.endpoints[name]
+	if endpoint == "" {
+		return "", fmt.Errorf("unknown client %q", name)
+	}
+	return endpoint, nil
 }
 
 func (s *clientSet) get(name string) (*gizcli.Client, error) {

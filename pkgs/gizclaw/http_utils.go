@@ -75,7 +75,7 @@ func writeHTTPAPIKeyError(w http.ResponseWriter, _ error) {
 
 func setPublicHTTPCORSHeaders(header http.Header, origin string) {
 	setHTTPCORSOrigin(header, origin)
-	header.Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+	header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	header.Set("Access-Control-Expose-Headers", "Content-Length,Content-Type,X-Request-ID")
 }

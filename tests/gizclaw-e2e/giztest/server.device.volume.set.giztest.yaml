@@ -1,0 +1,112 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want exercise the server.device.volume.set behavior through its real transport,
+# So that the Public HTTP device contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.volume.set
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: provider_volume
+  client: peer
+  client_rpc:
+    method: client.device.volume.set
+    response:
+      battery_percent: 88
+    expect_calls: 1
+- id: primary_http
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/volume
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      level: 35
+      muted: true
+    status: 200
+  expect:
+    /status/volume:
+      equals: 35
+    /status/muted:
+      equals: true
+    /status/battery_percent:
+      equals: 88
+- id: read_back
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/status
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /volume:
+      equals: 35
+    /muted:
+      equals: true
+- id: rpc_read_back
+  client: peer
+  rpc:
+    method: server.status.get
+    request: {}
+  expect:
+    /volume:
+      equals: 35
+    /muted:
+      equals: true
+- id: out_of_range
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/volume
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      level: 101
+      muted: false
+    status: 400
+  expect:
+    /error/code:
+      equals: INVALID_REQUEST
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
