@@ -8,7 +8,9 @@
 
 ```text
 api/
-├── embed.go                   # 为运行时 contract consumer 提供嵌入的 HTTP 与 Protobuf source filesystem
+├── embed.go                   # 为运行时 contract consumer 提供嵌入的 Giztest、HTTP 与 Protobuf source filesystem
+├── giztest/
+│   └── giztest.schema.json     # Giztest 场景文档的跨语言 schema
 ├── http/
 │   ├── admin.json              # Admin HTTP surface
 │   ├── peer.json               # Public/Peer HTTP 与 WebRTC signaling surface

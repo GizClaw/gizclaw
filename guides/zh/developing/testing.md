@@ -96,6 +96,7 @@ tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
 ├── setup/       # 环境启动、停止和 seed 脚本
 ├── testdata/    # committed identities、resources 与 ignored runtime output
+├── cgo/         # 以 C SDK 为 client 的 cgo 测试与 Giztest runner
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
 ├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
@@ -189,6 +190,28 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
+- `cgo/giztest` 是第二个 Giztest runner，client 由 C SDK 提供：`sdk/c/gizclaw` 连接设备 Peer 并应答 server-initiated `client.*` RPC，`sdk/c/gizclaw_control` 承载全部 `http` step 对 `/gizclaw/v1` 的调用。它复用 `pkgs/giztest` 的场景语言与 report，因此两个 runner 执行同一批文件并产出同一份 JSON。
+
+### C Giztest runner
+
+`tests/gizclaw-e2e/cgo/giztest` 接受与 `gizclaw test` 相同的命令行并写出相同的 report，
+因此 `giztest:c-sdk` phase 复用 Go phase 的同一批场景文件：
+
+```sh
+tests/gizclaw-e2e/testdata/bin/giztest-c test validate -f tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml
+tests/gizclaw-e2e/testdata/bin/giztest-c test run tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml \
+  --parallel 4 --output tests/gizclaw-e2e/testdata/giztest-c-report.json
+```
+
+C driver 执行 `rpc`、`client_rpc` 与 `http`。streaming、speech 与 Workspace relay
+没有 C client，driver 不声明这些 operation，`validate` 会按 step 与 operation 名称直接
+拒绝相应文档。C runner 无法执行的 step 不会被静默放过；该 phase 选取由受支持 operation
+构成的场景，即 `all.ping`、`server.api_key.*`、`server.contacts.*` 与 `server.device.*`。
+
+两个 runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、capture 与 expect、任务
+runner 和 report。runner 只提供 `giztest.Driver` 及其任务级 `giztest.Session`；
+`barrier`、`output`、`review` 仍由 runner 自身执行。
+`api/giztest/giztest.schema.json` 是两侧共同校验的跨语言文档契约。
 
 ### Giztest 场景
 

@@ -105,6 +105,7 @@ tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints
 ├── setup/       # environment lifecycle and seed scripts
 ├── testdata/    # committed identities/resources and ignored runtime output
+├── cgo/         # cgo tests and the Giztest runner whose clients are the C SDKs
 ├── cmd/         # real gizclaw CLI tests
 ├── giztest/     # declarative Peer RPC, Workflow, and benchmark scenarios
 ├── go/          # focused Admin, delete, Edge, and OpenAI tests
@@ -207,6 +208,32 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, gameplay, and Workflow behavior.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
+- `cgo/giztest` is a second Giztest runner whose clients are the C SDKs: `sdk/c/gizclaw` dials the device Peer and answers server-initiated `client.*` RPCs, and `sdk/c/gizclaw_control` serves every `http` step against `/gizclaw/v1`. It reuses `pkgs/giztest` for the scenario language and report, so both runners execute the same files and emit the same JSON.
+
+### The C Giztest runner
+
+`tests/gizclaw-e2e/cgo/giztest` accepts the same command line as `gizclaw test`
+and writes the same report, so the `giztest:c-sdk` phase runs the same scenario
+files as the Go phase:
+
+```sh
+tests/gizclaw-e2e/testdata/bin/giztest-c test validate -f tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml
+tests/gizclaw-e2e/testdata/bin/giztest-c test run tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml \
+  --parallel 4 --output tests/gizclaw-e2e/testdata/giztest-c-report.json
+```
+
+The C driver executes `rpc`, `client_rpc`, and `http`. Streaming, speech, and
+Workspace relay steps have no C client, so the driver does not declare them and
+`validate` rejects those documents by step and operation name. A step the C
+runner cannot execute never passes silently; the phase selects the scenarios
+built from the supported operations, which is the `all.ping`,
+`server.api_key.*`, `server.contacts.*`, and `server.device.*` set.
+
+Both runners share `pkgs/giztest`, which owns the document schema, variables,
+captures and expectations, the task runner, and the report. A runner supplies a
+`giztest.Driver` and its per-task `giztest.Session`; the runner itself keeps
+`barrier`, `output`, and `review`. `api/giztest/giztest.schema.json` is the
+cross-language document contract both validate against.
 
 ### Giztest scenarios
 

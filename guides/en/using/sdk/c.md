@@ -2,6 +2,69 @@
 
 GizClaw publishes its C SDK as a deterministic source archive attached to each canonical `vMAJOR.MINOR.PATCH` GitHub Release. The SDK does not have an independent runtime version: archive version `X.Y.Z` identifies the same source commit as repository tag `vX.Y.Z`.
 
+## Two C packages
+
+`sdk/c/` is split by role, and the source archive carries both:
+
+| Package | Directory | Role | Transport |
+| --- | --- | --- | --- |
+| `gizclaw` | `sdk/c/gizclaw` | Device side: run firmware or a process as a GizClaw device/Peer, covering signaling, WebRTC, Peer RPC, and Telemetry | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels |
+| `gizclaw_control` | `sdk/c/gizclaw_control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1` |
+
+`gizclaw_control` reuses only the device SDK's `platform/gzc_platform_http.h` transport abstraction and its `gzc_json.h` codec. It adds no dependency and takes no part in WebRTC. In the archive the two are `@gizclaw_c_sdk//:gizclaw` (or `gizclaw_core`) and `@gizclaw_c_sdk//:gizclaw_control`.
+
+### The `gizclaw_control` memory contract
+
+The package never allocates. The caller declares a `gzc_control_client_t` and supplies two regions per call: `scratch` carries the request URL and body, and `response` carries the response body and backs every decoded model:
+
+```c
+#include "gzc_control.h"
+
+gzc_control_config_t config = {0};
+config.base_url = gzc_str_from_cstr("https://ap.gizclaw.com");
+config.api_key = gzc_str_from_cstr("Bearer gizclaw_sk_v1_...");
+config.http = &http_vtable; /* the same gzc_http_vtable_t the device SDK uses */
+
+gzc_control_client_t client;
+if (gzc_control_client_init(&client, &config) != GZC_OK) {
+  return;
+}
+
+uint8_t scratch[512];
+uint8_t response[8192];
+gzc_control_call_t call;
+gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response));
+
+gzc_control_peer_status_t status;
+if (gzc_control_get_device_status(&client, &call, &status) == GZC_OK && status.has_volume) {
+  use_volume(status.volume);
+}
+```
+
+Every `gzc_str_t` in a decoded model points into `response` and stays valid until the same `gzc_control_call_t` is reused. List routes take a caller array and its capacity, and report `GZC_ERR_BUFFER_TOO_SMALL` when the page is larger. Open-ended schemas (`PeerStatus`, `DeviceInfo`) expose `raw` beside their typed fields, matching the Dart and TypeScript controller packages.
+
+Request string caps come straight from the contract: SSID 32 bytes, sound 32 bytes, display_name 80 bytes. An oversized value returns `GZC_ERR_INVALID_ARGUMENT` before any transport call.
+
+### Error classification
+
+A failed call fills `gzc_control_call_t.error` with a `gzc_control_error_t`. The `kind` values and the rules that pick them match `sdk/flutter/gizclaw_control` and `sdk/js/gizclaw-control` exactly: `DEVICE_*` is matched on the response body's `error.code`, everything else on the HTTP status.
+
+| `kind` | Condition |
+| --- | --- |
+| `GZC_CONTROL_ERROR_UNAUTHORIZED` / `FORBIDDEN` / `NOT_FOUND` | `401` / `403` / `404` |
+| `GZC_CONTROL_ERROR_DEVICE_OFFLINE` | `409 DEVICE_OFFLINE` |
+| `GZC_CONTROL_ERROR_DEVICE_TIMEOUT` | `504 DEVICE_TIMEOUT` |
+| `GZC_CONTROL_ERROR_DEVICE_REJECTED` | `400 DEVICE_REJECTED` |
+| `GZC_CONTROL_ERROR_DEVICE_UNSUPPORTED` | `501 DEVICE_UNSUPPORTED` |
+| `GZC_CONTROL_ERROR_DEVICE_ERROR` | `502 DEVICE_ERROR` |
+| `GZC_CONTROL_ERROR_CONFLICT` / `INVALID_REQUEST` | any other `409` / any other `400` |
+| `GZC_CONTROL_ERROR_SERVER` | any other `5xx` |
+| `GZC_CONTROL_ERROR_UNEXPECTED_STATUS` | any other non-2xx |
+| `GZC_CONTROL_ERROR_MALFORMED_RESPONSE` | a 2xx body that is not the contract type |
+| `GZC_CONTROL_ERROR_NETWORK` | no HTTP response, or the request could not be built |
+
+`gzc_http_vtable_t` does not surface response headers, so the C package does not expose `X-Request-ID`. Classification is unaffected.
+
 ## Download and verify
 
 Download both the archive and its sidecar before adding it to a build:
