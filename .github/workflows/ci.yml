@@ -209,6 +209,10 @@ jobs:
         working-directory: sdk/flutter/gizclaw
         run: flutter pub get
 
+      - name: Install Dart control SDK dependencies
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart pub get
+
       - name: Check handwritten Dart formatting
         run: >-
           go run ./tools/quality files -language=dart -print0 |
@@ -217,6 +221,10 @@ jobs:
       - name: Analyze Flutter SDK
         working-directory: sdk/flutter/gizclaw
         run: flutter analyze
+
+      - name: Analyze Dart control SDK
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart analyze --fatal-infos
 
   test:
     name: Go Test (${{ matrix.os }})
@@ -605,3 +613,15 @@ jobs:
       - name: Test SDK
         working-directory: sdk/flutter/gizclaw
         run: flutter test
+
+      - name: Install control SDK dependencies
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart pub get
+
+      - name: Analyze control SDK
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart analyze --fatal-infos
+
+      - name: Test control SDK
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart test

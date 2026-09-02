@@ -22,4 +22,32 @@ curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
 
 `PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，设备 5 秒内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
 
+## SDK
+
+控制端 SDK 封装了同样的 route 与错误契约：Dart 的 `gizclaw_control`（[Flutter SDK](./sdk/flutter)）和 npm 的 `@gizclaw/gizclaw-control`（[TypeScript SDK](./sdk/typescript)）。读取设备状态并设置音量：
+
+```dart
+import 'package:gizclaw_control/gizclaw_control.dart';
+
+final client = GizClawControlClient(
+  baseUrl: Uri.parse('https://ap.gizclaw.com'),
+  apiKey: apiKey,
+);
+final status = await client.getDeviceStatus();
+final applied = await client.setDeviceVolume(level: 35, muted: false);
+```
+
+```ts
+import { createGizClawControlClient } from "@gizclaw/gizclaw-control";
+
+const control = createGizClawControlClient({
+  baseUrl: "https://ap.gizclaw.com",
+  apiKey,
+});
+const status = await control.device.getStatus();
+const applied = await control.device.setVolume({ level: 35, muted: false });
+```
+
+失败分别抛出 `GizClawControlException` 与 `GizClawControlError`，其 `kind` 按上文的 status 与 `DEVICE_*` code 分类，例如 `deviceOffline`、`deviceTimeout`、`unauthorized`。
+
 API Key 不会自动过期；Key 丢失或不再使用时应主动撤销。删除 Peer 会撤销该 Peer 拥有的全部 API Key。

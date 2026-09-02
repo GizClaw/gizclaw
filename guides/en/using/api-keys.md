@@ -22,4 +22,32 @@ curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
 
 A successful `PUT /device/volume` answers `200 { "status": PeerStatus }` whose `volume` and `muted` match the next `GET /device/status`; `play-sound`, `reboot`, and `DELETE /wifi/saved/{ssid}` answer `204`. When the device is offline, control routes answer `409 DEVICE_OFFLINE`; when it does not answer within 5 seconds they answer `504 DEVICE_TIMEOUT`; neither changes the stored status. After a `reboot` is acknowledged, control requests answer `409` until the device reconnects. A device that rejects the parameters answers `400 DEVICE_REJECTED`, and firmware without the capability answers `501 DEVICE_UNSUPPORTED`. Once the key is revoked or the device Peer is deleted, every device and contact request fails immediately.
 
+## SDKs
+
+The controller-side SDKs wrap the same routes and error contract: `gizclaw_control` for Dart ([Flutter SDK](./sdk/flutter)) and `@gizclaw/gizclaw-control` on npm ([TypeScript SDK](./sdk/typescript)). Read the device status and set the volume:
+
+```dart
+import 'package:gizclaw_control/gizclaw_control.dart';
+
+final client = GizClawControlClient(
+  baseUrl: Uri.parse('https://ap.gizclaw.com'),
+  apiKey: apiKey,
+);
+final status = await client.getDeviceStatus();
+final applied = await client.setDeviceVolume(level: 35, muted: false);
+```
+
+```ts
+import { createGizClawControlClient } from "@gizclaw/gizclaw-control";
+
+const control = createGizClawControlClient({
+  baseUrl: "https://ap.gizclaw.com",
+  apiKey,
+});
+const status = await control.device.getStatus();
+const applied = await control.device.setVolume({ level: 35, muted: false });
+```
+
+Failures throw `GizClawControlException` and `GizClawControlError` respectively, whose `kind` classifies the status and `DEVICE_*` codes above, such as `deviceOffline`, `deviceTimeout`, and `unauthorized`.
+
 API keys do not expire automatically. Revoke keys that are lost or no longer needed. Deleting a Peer revokes all keys owned by that Peer.
