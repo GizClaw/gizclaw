@@ -1838,3 +1838,42 @@ func matchConfigValue(config, pattern string) string {
 	}
 	return strings.TrimSpace(m[1])
 }
+
+// DeviceState is a snapshot of the in-memory device model served by the C
+// client's client.device.* / client.wifi.* provider.
+type DeviceState struct {
+	Volume          int64
+	Muted           bool
+	StatusCalls     int
+	VolumeCalls     int
+	SoundCalls      int
+	LastSound       string
+	LastDurationMs  int64
+	RebootCalls     int
+	LastDelayMs     int64
+	WifiStatusCalls int
+	SavedListCalls  int
+	ForgetCalls     int
+	SavedNetworks   []string
+}
+
+func (c *Client) DeviceState() (DeviceState, error) {
+	if c == nil || c.session == nil {
+		return DeviceState{}, fmt.Errorf("closed C SDK client")
+	}
+	var raw C.gzc_cgo_device_state_t
+	if rc := C.gzc_cgo_session_device_state(c.session, &raw); rc != C.GZC_OK {
+		return DeviceState{}, fmt.Errorf("device state rc=%d", int(rc))
+	}
+	state := DeviceState{
+		Volume: int64(raw.volume), Muted: raw.muted != 0,
+		StatusCalls: int(raw.status_calls), VolumeCalls: int(raw.volume_calls),
+		SoundCalls: int(raw.sound_calls), LastSound: C.GoString(&raw.last_sound[0]), LastDurationMs: int64(raw.last_duration_ms),
+		RebootCalls: int(raw.reboot_calls), LastDelayMs: int64(raw.last_delay_ms),
+		WifiStatusCalls: int(raw.wifi_status_calls), SavedListCalls: int(raw.saved_list_calls), ForgetCalls: int(raw.forget_calls),
+	}
+	for i := 0; i < int(raw.saved_count) && i < len(raw.saved); i++ {
+		state.SavedNetworks = append(state.SavedNetworks, C.GoString(&raw.saved[i][0]))
+	}
+	return state, nil
+}

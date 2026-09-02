@@ -18,8 +18,8 @@ import (
 // TestDeviceAPIUserStory exercises the API-key-bound device and contact
 // extension with a key created over real Peer RPC. The connected gizcli
 // client does not implement client.device.* providers, so control commands
-// verify the DEVICE_UNSUPPORTED contract; a firmware device with providers is
-// required for the volume round trip and is recorded as SKIP here.
+// verify the DEVICE_UNSUPPORTED contract; the C SDK device in
+// tests/gizclaw-e2e/cgo/device covers the volume round trip.
 func TestDeviceAPIUserStory(t *testing.T) {
 	h := clitest.NewSetupHarness(t, "902-device-api")
 	h.CreateContext("device-api-device").MustSucceed(t)
@@ -71,7 +71,6 @@ func TestDeviceAPIUserStory(t *testing.T) {
 	if controlError.Error.Code != "DEVICE_UNSUPPORTED" {
 		t.Fatalf("volume error = %+v", controlError)
 	}
-	t.Log("SKIP: volume.set round trip requires a device implementing client.device.* providers (H106 firmware)")
 
 	response = apiKeyRequest(t, h, created.APIKey, http.MethodPost, "/gizclaw/v1/contacts", []byte(`{"name":"mom","display_name":"Mom","phone_number":"+8613800000001"}`))
 	var contact peerhttp.Contact
