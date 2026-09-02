@@ -248,6 +248,14 @@ function buildHandlers(
   const count = (method: string): void => {
     inbound.set(method, (inbound.get(method) ?? 0) + 1);
   };
+  // A device always answers client.info.get, even when no step scripts it, so
+  // the server sees the same device surface as it does from the Go and Dart
+  // runners.
+  let deviceInfo: Record<string, unknown> = {};
+  handlers.deviceInfo = () => {
+    count("client.info.get");
+    return deviceInfo as never;
+  };
 
   for (const step of steps) {
     if (step.client !== clientName || step.client_rpc == null) {
@@ -261,15 +269,12 @@ function buildHandlers(
 
     switch (method) {
       case "client.info.get":
-        handlers.deviceInfo = () => {
-          count(method);
-          return scriptedObject;
-        };
+        deviceInfo = scriptedObject;
         break;
       case "client.identifiers.get":
         handlers.deviceIdentifiers = () => {
           count(method);
-          return scriptedObject;
+          return scriptedObject as never;
         };
         break;
       case "client.device.status.get":
