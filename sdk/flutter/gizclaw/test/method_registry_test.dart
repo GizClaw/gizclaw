@@ -15,10 +15,22 @@ void main() {
     expect(rpcMethodByName('server.api_key.create').id, 96);
     expect(rpcMethodByName('server.api_key.list').id, 97);
     expect(rpcMethodByName('server.api_key.revoke').id, 98);
+    expect(rpcMethodByName('server.api_key.resolve').id, 99);
     expect(
       () => rpcMethodByName('server.firmware.download'),
       throwsArgumentError,
     );
+  });
+
+  test('round-trips Edge API key route payloads', () {
+    final request = ServerAPIKeyResolveRequest(apiKey: 'gzk_test');
+    final decoded =
+        decodeRpcRequestPayload(
+              'server.api_key.resolve',
+              encodeRpcRequestPayload('server.api_key.resolve', request),
+            )
+            as ServerAPIKeyResolveRequest;
+    expect(decoded.apiKey, 'gzk_test');
   });
 
   test('round-trips API key root management payloads', () {

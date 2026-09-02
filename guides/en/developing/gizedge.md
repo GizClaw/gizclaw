@@ -80,8 +80,8 @@ business authorization model.
 The Edge workspace configuration describes the basic information required to run the current node:
 
 - The Edge Node's own giznet identity.
-- One public client-ingress listen address and external endpoint shared by
-  HTTP/signaling TCP and gateway ICE UDP.
+- A top-level WebRTC transport listen/endpoint and one or more HTTP/signaling
+  listeners.
 - At least one ordered upstream Server entry; each entry pins an endpoint,
   public key, and optional relay-only TURN pool for Edge-to-Server PeerConnections.
 - Selection of TLS certificate source.
@@ -91,14 +91,17 @@ The Edge workspace configuration describes the basic information required to run
 - Optional process-log fan-out to stderr and an immutable LogStore backed by
   Volc TLS.
 
-Top-level `listen` is the only client-ingress bind tuple. The Edge opens
-separate TCP and UDP sockets on that host and numeric port: TCP carries public
+Top-level `listen` is the WebRTC transport bind tuple and must also equal
+`http.listeners[0].listen`. The Edge opens separate TCP and UDP sockets on that
+host and numeric port: the first TCP listener carries public
 HTTP and signaling, while UDP carries ICE, DTLS, SCTP, and DataChannels when
 gateway mode is enabled. Top-level `endpoint` is the matching externally
 reachable tuple published in `/server-info.transport.endpoint`. When its host
 is a concrete literal IP, the gateway also rewrites answer-SDP UDP host
 candidates to that exact host and port. A hostname or unspecified address does
-not trigger DNS lookup or fabricate a public candidate. NAT and container
+not trigger DNS lookup or fabricate a public candidate. Additional HTTP
+listeners add TCP HTTP/HTTPS ingress only; they publish no ICE candidate and
+open no UDP socket. NAT and container
 deployments may use different local and external tuples, but the one external
 `endpoint` must map both protocols. The optional `turn.listen` and
 `turn.public-endpoint` remain separate because they configure a downstream
@@ -162,7 +165,26 @@ one Go process. A second configured runtime fails before opening listeners and
 cannot replace or later restore the first runtime's logger. After the owner
 stops and restores the host logger, another configured runtime may start.
 
-Currently only disabled paths work for the TLS certificate source; Edge RPC and file certificate sources are still not implemented. Development guidelines cannot write these configuration values ​​as supported capabilities.
+HTTP listeners start in declaration order. Each listener either omits `tls` for
+plaintext HTTP or provides both local `cert-file` and `key-file` for HTTPS with
+TLS 1.2 or newer. Addresses must be unique, and certificate pairs are loaded
+before traffic is served. An empty list, a partial pair, an invalid certificate,
+or a duplicate address fails startup. Omitting `http.listeners` keeps one
+plaintext compatibility listener at top-level `listen`. The legacy top-level
+`tls.cert-source: file` maps `tls.cert-file` and `tls.key-file` to that default
+listener; the `edge-rpc` certificate source remains unsupported.
+
+```yaml
+listen: 0.0.0.0:9821
+endpoint: edge.example.com:443
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+    - listen: 0.0.0.0:443
+      tls:
+        cert-file: ${GIZCLAW_TLS_CERT_FILE}
+        key-file: ${GIZCLAW_TLS_KEY_FILE}
+```
 
 ### Public Ingress
 
@@ -176,6 +198,21 @@ Public ingress is responsible for:
 - Close the HTTP server, upstream connection and related listeners when the process stops.
 
 Edge ingress does not have business implementations of Peer HTTP, OpenAI-compatible HTTP, or other product routes. The specific route is provided by `pkgs/gizclaw` Server, and Edge only forwards the public surface.
+
+`/gizclaw/v1/*` and `/openai/v1/*` use API-key routing. The Edge reads the
+Bearer credential and asks any reachable Server over the authenticated,
+encrypted `ServiceEdgeRPC` connection to authenticate the key, identify its
+owner Peer, and resolve that Peer's fixed Server assignment. It forwards the
+original request only to a configured upstream whose public key exactly matches
+`server_public_key`; the target Server authenticates the key again and performs
+domain authorization. The Edge never connects to the API-key Redis store and
+does not cache or log the credential. Multi-Server deployments bind every
+Server's `services.api_key.store` to the same protected Redis KV scope.
+
+An invalid or revoked key returns `401 INVALID_API_KEY`; a missing or inactive
+owner assignment returns `403 API_KEY_OWNER_UNAVAILABLE`; and an unconfigured
+or unreachable target returns `503 API_KEY_SERVER_UNAVAILABLE`. These paths do
+not fall back to the wrong Server or include the credential in an error body.
 
 ### Upstream Connection
 

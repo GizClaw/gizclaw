@@ -3,8 +3,12 @@ package gizedge
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -68,6 +72,90 @@ metrics:
 	if cfg.Metrics.RemoteWriteURL != "https://prometheus.example.test/api/v1/write" ||
 		cfg.Metrics.QueryURL != "https://prometheus.example.test" || cfg.Metrics.BearerToken != "test-token" {
 		t.Fatalf("Metrics = %#v", cfg.Metrics)
+	}
+}
+
+func TestPrepareWorkspaceConfigLoadsMultipleHTTPListenersWithTLS(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x71)
+	upstreamKey := testKeyPair(t, 0x72)
+	dir := t.TempDir()
+	certFile, keyFile := writeTestTLSFiles(t, dir)
+	writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+listen: 127.0.0.1:9821
+endpoint: edge.example.com:9821
+upstreams:
+  - endpoint: server.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
+http:
+  listeners:
+    - listen: 127.0.0.1:9821
+    - listen: 127.0.0.1:443
+      tls:
+        cert-file: `+certFile+`
+        key-file: `+keyFile+`
+`)
+	cfg, err := PrepareWorkspaceConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.HTTP.Listeners) != 2 || cfg.HTTP.Listeners[1].Listen != "127.0.0.1:443" {
+		t.Fatalf("HTTP listeners = %+v", cfg.HTTP.Listeners)
+	}
+	tlsConfig, err := cfg.HTTP.Listeners[1].TLS.tlsConfig("test")
+	if err != nil || tlsConfig == nil || tlsConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("TLS config = %+v, %v", tlsConfig, err)
+	}
+}
+
+func writeTestTLSFiles(t *testing.T, dir string) (string, string) {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	certificate := server.TLS.Certificates[0]
+	certFile := filepath.Join(dir, "server.crt")
+	keyFile := filepath.Join(dir, "server.key")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Certificate[0]})
+	keyDER, err := x509.MarshalPKCS8PrivateKey(certificate.PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	if err := os.WriteFile(certFile, certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return certFile, keyFile
+}
+
+func TestStartEdgeHTTPServesPlaintextAndTLSListeners(t *testing.T) {
+	certFile, keyFile := writeTestTLSFiles(t, t.TempDir())
+	runtime, err := startEdgeHTTP([]HTTPListenerConfig{
+		{Listen: "127.0.0.1:0"},
+		{Listen: "127.0.0.1:0", TLS: HTTPListenerTLSConfig{CertFile: certFile, KeyFile: keyFile}},
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = runtime.shutdown(time.Second) })
+	plainResponse, err := http.Get("http://" + runtime.listeners[0].Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = plainResponse.Body.Close()
+	tlsClient := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}} // Test certificate is self-signed.
+	tlsResponse, err := tlsClient.Get("https://" + runtime.listeners[1].Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = tlsResponse.Body.Close()
+	if plainResponse.StatusCode != http.StatusOK || tlsResponse.StatusCode != http.StatusOK {
+		t.Fatalf("listener statuses = %d, %d", plainResponse.StatusCode, tlsResponse.StatusCode)
 	}
 }
 
@@ -433,6 +521,35 @@ tls:
 			want: "tls.cert-source",
 		},
 		{
+			name: "empty HTTP listeners",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners: []
+`,
+			want: "http.listeners must not be empty",
+		},
+		{
+			name: "partial listener TLS",
+			body: `
+identity:
+  private-key: ` + edgeKey.Private.String() + `
+upstreams:
+  - endpoint: server-a.example.com:9820
+    public-key: ` + upstreamKey.Public.String() + `
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+      tls:
+        cert-file: cert.pem
+`,
+			want: "requires cert-file and key-file",
+		},
+		{
 			name: "unimplemented tls edge rpc source",
 			body: `
 identity:
@@ -446,7 +563,7 @@ tls:
 			want: "not implemented",
 		},
 		{
-			name: "unimplemented tls file source",
+			name: "tls file source requires certificate pair",
 			body: `
 identity:
   private-key: ` + edgeKey.Private.String() + `
@@ -456,7 +573,7 @@ upstreams:
 tls:
   cert-source: file
 `,
-			want: "not implemented",
+			want: "requires cert-file and key-file",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1100,6 +1217,34 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 	}
 	if got := rec.Header().Get("Content-Length"); got == "" {
 		t.Fatal("Content-Length was not set after rewrite")
+	}
+}
+
+func TestEdgeProxyMapsAPIKeyRoutingErrorsWithoutLeakingDetails(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{name: "unauthorized", err: fmt.Errorf("%w: secret", errAPIKeyUnauthorized), status: http.StatusUnauthorized, code: "INVALID_API_KEY"},
+		{name: "owner unavailable", err: errAPIKeyOwnerUnavailable, status: http.StatusForbidden, code: "API_KEY_OWNER_UNAVAILABLE"},
+		{name: "target unconfigured", err: errAPIKeyTargetUnconfigured, status: http.StatusServiceUnavailable, code: "API_KEY_SERVER_UNAVAILABLE"},
+		{name: "target unavailable", err: errAPIKeyTargetUnavailable, status: http.StatusServiceUnavailable, code: "API_KEY_SERVER_UNAVAILABLE"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			handler := newPeerHTTPProxy("edge.example.com:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
+				return nil, test.err
+			}))
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/openai/v1/models", nil))
+			if recorder.Code != test.status || !strings.Contains(recorder.Body.String(), test.code) {
+				t.Fatalf("response = %d %s", recorder.Code, recorder.Body.String())
+			}
+			if strings.Contains(recorder.Body.String(), "secret") {
+				t.Fatal("proxy response exposed upstream error details")
+			}
+		})
 	}
 }
 

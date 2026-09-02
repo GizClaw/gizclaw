@@ -1,6 +1,7 @@
 package gizedge
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -33,6 +34,7 @@ type Config struct {
 	Upstreams        []UpstreamConfig
 	selectedUpstream UpstreamConfig
 	TLS              TLSConfig
+	HTTP             HTTPConfig
 	TURN             TURNConfig
 	Gateway          GatewayConfig
 	Metrics          MetricsConfig
@@ -56,6 +58,43 @@ type UpstreamConfig struct {
 
 type TLSConfig struct {
 	CertSource string `yaml:"cert-source"`
+	CertFile   string `yaml:"cert-file"`
+	KeyFile    string `yaml:"key-file"`
+}
+
+// HTTPConfig defines the ordered public HTTP and HTTPS listeners.
+type HTTPConfig struct {
+	Listeners []HTTPListenerConfig `yaml:"listeners"`
+}
+
+// HTTPListenerConfig defines one local bind address and optional TLS files.
+type HTTPListenerConfig struct {
+	Listen string                `yaml:"listen"`
+	TLS    HTTPListenerTLSConfig `yaml:"tls"`
+}
+
+// HTTPListenerTLSConfig enables TLS when both certificate files are set.
+type HTTPListenerTLSConfig struct {
+	CertFile string `yaml:"cert-file"`
+	KeyFile  string `yaml:"key-file"`
+}
+
+func (cfg HTTPListenerTLSConfig) enabled() bool {
+	return cfg.CertFile != "" || cfg.KeyFile != ""
+}
+
+func (cfg HTTPListenerTLSConfig) tlsConfig(path string) (*tls.Config, error) {
+	if !cfg.enabled() {
+		return nil, nil
+	}
+	if cfg.CertFile == "" || cfg.KeyFile == "" {
+		return nil, fmt.Errorf("edge: %s requires cert-file and key-file", path)
+	}
+	certificate, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("edge: %s load certificate: %w", path, err)
+	}
+	return &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12}, nil
 }
 
 type TURNConfig struct {
@@ -131,6 +170,7 @@ type ConfigFile struct {
 	Endpoint  string                       `yaml:"endpoint"`
 	Upstreams *[]UpstreamConfig            `yaml:"upstreams"`
 	TLS       TLSConfig                    `yaml:"tls"`
+	HTTP      *HTTPConfig                  `yaml:"http"`
 	TURN      TURNConfig                   `yaml:"turn"`
 	Gateway   GatewayConfig                `yaml:"gateway"`
 	Metrics   MetricsConfig                `yaml:"metrics"`
@@ -244,6 +284,12 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.TLS.CertSource == "" || cfg.TLS.CertSource == TLSCertSourceDisabled {
 		cfg.TLS = fileCfg.TLS
 	}
+	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
+		return Config{}, fmt.Errorf("edge: http.listeners must not be empty")
+	}
+	if len(cfg.HTTP.Listeners) == 0 && fileCfg.HTTP != nil {
+		cfg.HTTP.Listeners = append([]HTTPListenerConfig(nil), fileCfg.HTTP.Listeners...)
+	}
 	if cfg.TURN.Listen == "" {
 		cfg.TURN = fileCfg.TURN
 	}
@@ -297,6 +343,17 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if cfg.Endpoint == "" {
 		cfg.Endpoint = cfg.Listen
 	}
+	if len(cfg.HTTP.Listeners) == 0 {
+		listenerTLS := HTTPListenerTLSConfig{}
+		if cfg.TLS.CertSource == TLSCertSourceFile {
+			listenerTLS = HTTPListenerTLSConfig{CertFile: cfg.TLS.CertFile, KeyFile: cfg.TLS.KeyFile}
+		}
+		cfg.HTTP.Listeners = []HTTPListenerConfig{{Listen: cfg.Listen, TLS: listenerTLS}}
+	}
+	for index := range cfg.HTTP.Listeners {
+		cfg.HTTP.Listeners[index].TLS.CertFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.CertFile)
+		cfg.HTTP.Listeners[index].TLS.KeyFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.KeyFile)
+	}
 	cfg.Gateway = applyGatewayDefaults(cfg.Gateway)
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -319,6 +376,27 @@ func (cfg Config) validate() error {
 	}
 	if _, _, err := netSplitNumericHostPort("endpoint", cfg.Endpoint); err != nil {
 		return err
+	}
+	httpListeners := cfg.HTTP.Listeners
+	if len(httpListeners) == 0 {
+		httpListeners = []HTTPListenerConfig{{Listen: cfg.Listen}}
+	}
+	if httpListeners[0].Listen != cfg.Listen {
+		return fmt.Errorf("edge: http.listeners[0].listen must match listen")
+	}
+	seenHTTPListeners := make(map[string]int, len(httpListeners))
+	for index, listener := range httpListeners {
+		path := fmt.Sprintf("http.listeners[%d]", index)
+		if _, _, err := netSplitNumericHostPort(path+".listen", listener.Listen); err != nil {
+			return err
+		}
+		if previous, ok := seenHTTPListeners[listener.Listen]; ok {
+			return fmt.Errorf("edge: %s.listen duplicates http.listeners[%d]", path, previous)
+		}
+		seenHTTPListeners[listener.Listen] = index
+		if _, err := listener.TLS.tlsConfig(path + ".tls"); err != nil {
+			return err
+		}
 	}
 	upstreams, err := cfg.configuredUpstreams()
 	if err != nil {
@@ -363,7 +441,14 @@ func (cfg Config) validate() error {
 	switch cfg.TLS.CertSource {
 	case TLSCertSourceDisabled:
 		return nil
-	case TLSCertSourceEdgeRPC, TLSCertSourceFile:
+	case TLSCertSourceFile:
+		legacyTLS := HTTPListenerTLSConfig{CertFile: os.ExpandEnv(cfg.TLS.CertFile), KeyFile: os.ExpandEnv(cfg.TLS.KeyFile)}
+		if !legacyTLS.enabled() {
+			return fmt.Errorf("edge: tls requires cert-file and key-file")
+		}
+		_, err := legacyTLS.tlsConfig("tls")
+		return err
+	case TLSCertSourceEdgeRPC:
 		return fmt.Errorf("edge: tls.cert-source %q is not implemented", cfg.TLS.CertSource)
 	default:
 		return fmt.Errorf("edge: invalid tls.cert-source %q", cfg.TLS.CertSource)

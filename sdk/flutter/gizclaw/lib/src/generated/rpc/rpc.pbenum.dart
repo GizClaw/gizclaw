@@ -287,6 +287,8 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(97, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_LIST');
   static const RpcMethod RPC_METHOD_SERVER_API_KEY_REVOKE =
       RpcMethod._(98, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_REVOKE');
+  static const RpcMethod RPC_METHOD_SERVER_API_KEY_RESOLVE = RpcMethod._(
+      99, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_RESOLVE');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -387,10 +389,11 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_API_KEY_CREATE,
     RPC_METHOD_SERVER_API_KEY_LIST,
     RPC_METHOD_SERVER_API_KEY_REVOKE,
+    RPC_METHOD_SERVER_API_KEY_RESOLVE,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 98);
+      $pb.ProtobufEnum.$_initByValueList(values, 99);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

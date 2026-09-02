@@ -121,7 +121,8 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD = 95,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE = 96,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST = 97,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE = 98
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE = 98,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE = 99
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -176,8 +177,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE+1))
 
 
 

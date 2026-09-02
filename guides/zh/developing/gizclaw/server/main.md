@@ -12,6 +12,33 @@
 
 `public_key` 仍是 authoritative Server 的唯一身份。Edge 只改写 transport endpoint，不取得 Server 业务身份，也不改变 Server 的 `public_key`、版本或构建 commit。
 
+## HTTP listeners 与 TLS
+
+Server 的顶层 `listen` 继续定义 WebRTC transport tuple，并且必须等于
+`http.listeners[0].listen`。省略 `http.listeners` 时保持原来的单一明文入口。也可以声明多个
+唯一的 TCP 地址；每个 listener 都服务同一套 `/server-info`、signaling、Public API 和
+OpenAI-compatible API handler，并可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
+TLS 1.2 及以上的 HTTPS。证书路径相对 workspace 解析并支持环境变量。空列表、重复地址、
+单边或无效证书会在服务流量前失败。
+
+```yaml
+listen: 0.0.0.0:9820
+endpoint: server.example.com:9820
+http:
+  listeners:
+    - listen: 0.0.0.0:9820
+    - listen: 0.0.0.0:443
+      tls:
+        cert-file: ${GIZCLAW_TLS_CERT_FILE}
+        key-file: ${GIZCLAW_TLS_KEY_FILE}
+```
+
+第一个 listener 为明文时，现有 TCP mux 继续让 HTTP/signaling 与 raw ICE-TCP 共用顶层
+TCP socket。当第一个 listener 启用 TLS 时，该数字端口仍同时提供 HTTPS TCP 与 ICE UDP，
+但不创建或发布 raw ICE-TCP listener；额外 HTTP listeners 也不增加 ICE listener。
+Server 没有 Edge 的 `gateway`：gateway 是 Edge 终止客户端 WebRTC 并桥接到 Server upstream
+pool 的能力，不是 Server HTTP listener 的别名。
+
 ## Storage、Store 与 Service 组合
 
 Server 配置明确分为三层：
@@ -36,6 +63,7 @@ Edge 进程。
 | --- | --- |
 | `services.peer.store` | `keyvalue`；保存共享 Peer record 与固定 Server route |
 | `services.peer_run.store` | 独立的 `keyvalue`；保存当前 Server 本地的 Peer 状态与 Agent selection |
+| `services.api_key.store` | `keyvalue`；保存 API Key、secret index 与 owner index，多 Server API routing 时必须共享 |
 | login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
 | `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.gameplay.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |

@@ -356,7 +356,7 @@ func (h *PeerConn) serveEdgeRPC() error {
 	defer func() {
 		_ = listener.Close()
 	}()
-	server := &edgeRPCServer{routes: h.Service.manager.PeerRoutes, isPeerRetiring: h.isRetiring}
+	server := &edgeRPCServer{routes: h.Service.manager.PeerRoutes, apiKeys: h.Service.apiKeys, isPeerRetiring: h.isRetiring}
 	for {
 		stream, err := listener.Accept()
 		if err != nil {

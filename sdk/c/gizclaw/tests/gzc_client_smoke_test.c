@@ -1336,7 +1336,9 @@ static uint64_t test_rpc_service(gizclaw_rpc_v1_RpcMethod method) {
                  method ==
                      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN ||
                  method ==
-                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE ||
+                 method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE
              ? 0x31u
              : 0u;
 }

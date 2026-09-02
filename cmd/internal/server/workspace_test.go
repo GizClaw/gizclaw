@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +44,7 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		Identity       *IdentityConfig              `yaml:"identity,omitempty"`
 		Listen         string                       `yaml:"listen,omitempty"`
 		Endpoint       string                       `yaml:"endpoint,omitempty"`
+		HTTP           *HTTPConfig                  `yaml:"http,omitempty"`
 		ServeToClients bool                         `yaml:"serve-to-clients,omitempty"`
 		AdminPublicKey giznet.PublicKey             `yaml:"admin-public-key,omitempty"`
 		Storage        map[string]storageFileConfig `yaml:"storage"`
@@ -50,7 +52,7 @@ func validWorkspaceConfigData(t *testing.T, mutate func(*ConfigFile)) []byte {
 		Services       *ServicesConfig              `yaml:"services"`
 		Profiling      ProfilingConfig              `yaml:"profiling,omitempty"`
 	}{
-		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint,
+		Identity: identity, Listen: cfg.Listen, Endpoint: cfg.Endpoint, HTTP: cfg.HTTP,
 		ServeToClients: cfg.ServeToClients, AdminPublicKey: cfg.AdminPublicKey,
 		Storage: cfg.Storage, Stores: cfg.Stores, Services: cfg.Services, Profiling: cfg.Profiling,
 	}
@@ -220,6 +222,50 @@ func TestServeContextServerInfoReportsTCPICE(t *testing.T) {
 	}
 }
 
+func TestServeContextServesHTTPSSignalingWithoutRawICETCP(t *testing.T) {
+	addr := localTCPUDPAddr(t)
+	workspace := t.TempDir()
+	certFile, keyFile := writeServerTestTLSFiles(t, workspace)
+	data := validWorkspaceConfigData(t, func(cfg *ConfigFile) {
+		cfg.Listen = addr
+		cfg.Endpoint = addr
+		cfg.ServeToClients = true
+		cfg.HTTP = &HTTPConfig{Listeners: []HTTPListenerConfig{{
+			Listen: addr,
+			TLS: HTTPListenerTLSConfig{
+				CertFile: certFile,
+				KeyFile:  keyFile,
+			},
+		}}}
+	})
+	if err := os.WriteFile(filepath.Join(workspace, workspaceConfigFile), data, 0o644); err != nil {
+		t.Fatalf("WriteFile error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ServeContext(ctx, workspace, ServeOptions{Force: true})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) {
+			t.Fatalf("ServeContext shutdown error = %v", err)
+		}
+	})
+
+	client := &http.Client{
+		Timeout: time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Test certificate is self-signed.
+		},
+	}
+	info := waitForServerInfoWithClient(t, client, "https://"+addr+"/server-info")
+	if !info.Ice.Udp || info.Ice.Tcp {
+		t.Fatalf("server-info ice = %+v, want udp=true tcp=false", info.Ice)
+	}
+}
+
 func TestServeContextProfilingLifecycle(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
@@ -350,6 +396,11 @@ func localTCPUDPAddr(t *testing.T) string {
 func waitForServerInfo(t *testing.T, url string) apitypes.ServerInfo {
 	t.Helper()
 	client := http.Client{Timeout: 200 * time.Millisecond}
+	return waitForServerInfoWithClient(t, &client, url)
+}
+
+func waitForServerInfoWithClient(t *testing.T, client *http.Client, url string) apitypes.ServerInfo {
+	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
@@ -718,5 +769,44 @@ func TestAcquireWorkspacePIDWritesAndRemovesCurrentPID(t *testing.T) {
 	release()
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
 		t.Fatalf("pid file should be removed, stat err = %v", err)
+	}
+}
+
+func TestPrepareServerHTTPListenersSupportsTLSPrimaryAndAdditionalListener(t *testing.T) {
+	certFile, keyFile := writeServerTestTLSFiles(t, t.TempDir())
+	publicListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{HTTP: HTTPConfig{Listeners: []HTTPListenerConfig{
+		{Listen: "127.0.0.1:0", TLS: HTTPListenerTLSConfig{CertFile: certFile, KeyFile: keyFile}},
+		{Listen: "127.0.0.1:0"},
+	}}}
+	prepared, iceTCP, closeIngress, err := prepareServerHTTPListeners(cfg, publicListener)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeIngress()
+	if iceTCP != nil {
+		t.Fatal("TLS primary listener unexpectedly enabled raw ICE-TCP on the same socket")
+	}
+	if prepared[0].listener == publicListener {
+		t.Fatal("primary listener was not wrapped for TLS")
+	}
+}
+
+func TestPrepareServerHTTPListenersPreservesPlaintextTCPMux(t *testing.T) {
+	publicListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{HTTP: HTTPConfig{Listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:0"}}}}
+	prepared, iceTCP, closeIngress, err := prepareServerHTTPListeners(cfg, publicListener)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeIngress()
+	if len(prepared) != 1 || iceTCP == nil {
+		t.Fatalf("prepared HTTP = %d, ICE-TCP = %v", len(prepared), iceTCP)
 	}
 }

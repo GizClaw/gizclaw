@@ -2,7 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -86,6 +91,73 @@ func TestDefaultConfig(t *testing.T) {
 		cfg.PendingDeletion.MaxAttempts != 10 {
 		t.Fatalf("PendingDeletion = %+v", cfg.PendingDeletion)
 	}
+}
+
+func TestPrepareConfigSupportsMultipleHTTPListenersWithTLS(t *testing.T) {
+	dir := t.TempDir()
+	certFile, keyFile := writeServerTestTLSFiles(t, dir)
+	cfg := validLayeredConfig(dir)
+	cfg.Listen = "127.0.0.1:9820"
+	cfg.Endpoint = cfg.Listen
+	cfg.HTTP.Listeners = []HTTPListenerConfig{
+		{Listen: cfg.Listen},
+		{Listen: "127.0.0.1:443", TLS: HTTPListenerTLSConfig{CertFile: certFile, KeyFile: keyFile}},
+	}
+	prepared, err := prepareConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prepared.HTTP.Listeners) != 2 {
+		t.Fatalf("HTTP listeners = %+v", prepared.HTTP.Listeners)
+	}
+	tlsConfig, err := prepared.HTTP.Listeners[1].TLS.tlsConfig("test")
+	if err != nil || tlsConfig == nil || tlsConfig.MinVersion != tls.VersionTLS12 {
+		t.Fatalf("TLS config = %+v, %v", tlsConfig, err)
+	}
+}
+
+func TestPrepareConfigRejectsInvalidHTTPListeners(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		listeners []HTTPListenerConfig
+		want      string
+	}{
+		{name: "primary mismatch", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:443"}}, want: "must match listen"},
+		{name: "duplicate", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820"}, {Listen: "127.0.0.1:9820"}}, want: "duplicates"},
+		{name: "partial TLS", listeners: []HTTPListenerConfig{{Listen: "127.0.0.1:9820", TLS: HTTPListenerTLSConfig{CertFile: "only-cert"}}}, want: "requires cert-file and key-file"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := validLayeredConfig(t.TempDir())
+			cfg.Listen = "127.0.0.1:9820"
+			cfg.Endpoint = cfg.Listen
+			cfg.HTTP.Listeners = test.listeners
+			if _, err := prepareConfig(cfg); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("prepareConfig() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func writeServerTestTLSFiles(t *testing.T, dir string) (string, string) {
+	t.Helper()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	certificate := server.TLS.Certificates[0]
+	certFile := filepath.Join(dir, "server.crt")
+	keyFile := filepath.Join(dir, "server.key")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Certificate[0]})
+	keyDER, err := x509.MarshalPKCS8PrivateKey(certificate.PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	if err := os.WriteFile(certFile, certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return certFile, keyFile
 }
 
 func TestParsePendingDeletionConfig(t *testing.T) {

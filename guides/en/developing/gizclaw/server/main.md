@@ -12,6 +12,38 @@ It can combine multiple fields, but single field resource, validation, storage a
 
 `public_key` remains the authoritative Server's only identity. An Edge rewrites only transport routing and does not change the Server's `public_key`, version, or build commit.
 
+## HTTP listeners and TLS
+
+Top-level `listen` continues to define the WebRTC transport tuple and must equal
+`http.listeners[0].listen`. Omitting `http.listeners` preserves the original
+single plaintext ingress. A deployment may instead declare multiple unique TCP
+addresses. Every listener serves the same `/server-info`, signaling, Public API,
+and OpenAI-compatible API handler, and may enable HTTPS with TLS 1.2 or newer by
+providing both `tls.cert-file` and `tls.key-file`. Certificate paths resolve
+relative to the workspace and support environment expansion. An empty list,
+duplicate address, partial pair, or invalid certificate fails before traffic is
+served.
+
+```yaml
+listen: 0.0.0.0:9820
+endpoint: server.example.com:9820
+http:
+  listeners:
+    - listen: 0.0.0.0:9820
+    - listen: 0.0.0.0:443
+      tls:
+        cert-file: ${GIZCLAW_TLS_CERT_FILE}
+        key-file: ${GIZCLAW_TLS_KEY_FILE}
+```
+
+When the first listener is plaintext, the existing TCP mux continues to share
+the top-level TCP socket between HTTP/signaling and raw ICE-TCP. When the first
+listener enables TLS, the numeric port still provides HTTPS TCP and ICE UDP,
+but no raw ICE-TCP listener is created or advertised. Additional HTTP listeners
+also add no ICE listener. A Server has no Edge `gateway`: gateway is the Edge
+capability that terminates client WebRTC and bridges it into a Server upstream
+pool, not another name for a Server HTTP listener.
+
 ## Storage, Store, and service composition
 
 Server configuration has three distinct layers:
@@ -38,6 +70,7 @@ The main capability groups are:
 | --- | --- |
 | `services.peer.store` | `keyvalue`; owns shared Peer records and fixed Server routes |
 | `services.peer_run.store` | distinct `keyvalue`; owns Server-local Peer status and Agent selection state |
+| `services.api_key.store` | `keyvalue`; stores API keys, secret indexes, and owner indexes, and must be shared for multi-Server API routing |
 | login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
 | `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.gameplay.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.gameplay.database_store` | `sql` |

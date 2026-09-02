@@ -14,6 +14,11 @@ import (
 
 var errRouteAssignmentNotFound = errors.New("edge: peer assignment not found")
 
+var (
+	errAPIKeyUnauthorized     = errors.New("edge: API key is unauthorized")
+	errAPIKeyOwnerUnavailable = errors.New("edge: API key owner is unavailable")
+)
+
 func (g *Gateway) acquirePeerUpstream(ctx context.Context, peerKey giznet.PublicKey) (*gatewayUpstream, func(), error) {
 	if g.resolvePeerRoute != nil {
 		assignment, err := g.resolvePeerRoute(ctx, peerKey)
@@ -127,6 +132,60 @@ func resolvePeerAssignment(ctx context.Context, conn giznet.Conn, peerKey giznet
 	}
 	if result.Assignment == nil {
 		return nil, errors.New("edge: route rpc returned no assignment")
+	}
+	return result.Assignment, nil
+}
+
+func resolveAPIKeyAssignment(ctx context.Context, conn giznet.Conn, apiKey string) (*rpcpb.PeerAssignment, error) {
+	stream, err := conn.Dial(gizclaw.ServiceEdgeRPC)
+	if err != nil {
+		return nil, fmt.Errorf("edge: open API route RPC: %w", err)
+	}
+	defer func() { _ = stream.Close() }()
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = stream.SetDeadline(deadline)
+	} else {
+		_ = stream.SetDeadline(time.Now().Add(upstreamDialTimeout))
+	}
+	var params rpcapi.RPCPayload
+	if err := params.FromServerAPIKeyResolveRequest(rpcpb.ServerAPIKeyResolveRequest{ApiKey: apiKey}); err != nil {
+		return nil, errors.New("edge: encode API route request")
+	}
+	request := &rpcapi.RPCRequest{
+		V: rpcapi.RPCVersionV1, Id: "edge-api-route", Method: rpcapi.RPCMethodServerAPIKeyResolve, Params: &params,
+	}
+	if err := rpcapi.WriteRequest(stream, request); err != nil {
+		return nil, fmt.Errorf("edge: write API route request: %w", err)
+	}
+	if err := rpcapi.WriteEOS(stream); err != nil {
+		return nil, fmt.Errorf("edge: finish API route request: %w", err)
+	}
+	response, err := rpcapi.ReadResponseForMethod(stream, rpcapi.RPCMethodServerAPIKeyResolve)
+	if err != nil {
+		return nil, fmt.Errorf("edge: read API route response: %w", err)
+	}
+	if err := rpcapi.ReadEOS(stream); err != nil {
+		return nil, fmt.Errorf("edge: finish API route response: %w", err)
+	}
+	if response.Error != nil {
+		switch response.Error.Code {
+		case rpcapi.RPCErrorCodeForbidden:
+			return nil, errAPIKeyUnauthorized
+		case rpcapi.RPCErrorCodeNotFound:
+			return nil, errAPIKeyOwnerUnavailable
+		default:
+			return nil, fmt.Errorf("edge: API route RPC failed with code %d", response.Error.Code)
+		}
+	}
+	if response.Result == nil {
+		return nil, errors.New("edge: API route RPC returned no result")
+	}
+	result, err := response.Result.AsServerAPIKeyResolveResponse()
+	if err != nil {
+		return nil, fmt.Errorf("edge: decode API route response: %w", err)
+	}
+	if result.Assignment == nil {
+		return nil, errors.New("edge: API route RPC returned no assignment")
 	}
 	return result.Assignment, nil
 }

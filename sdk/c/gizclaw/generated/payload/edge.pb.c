@@ -27,4 +27,10 @@ PB_BIND(gizclaw_rpc_v1_ServerRouteResolveRequest, gizclaw_rpc_v1_ServerRouteReso
 PB_BIND(gizclaw_rpc_v1_ServerRouteResolveResponse, gizclaw_rpc_v1_ServerRouteResolveResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ServerAPIKeyResolveRequest, gizclaw_rpc_v1_ServerAPIKeyResolveRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerAPIKeyResolveResponse, gizclaw_rpc_v1_ServerAPIKeyResolveResponse, AUTO)
+
+
 
