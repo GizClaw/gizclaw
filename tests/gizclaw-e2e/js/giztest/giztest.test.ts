@@ -32,6 +32,9 @@ test("jsonPointer resolves objects, arrays and escapes", () => {
   assert.deepEqual(jsonPointer(input, "/n~0m"), { found: true, value: 2 });
   assert.equal(jsonPointer(input, "/items/2").found, false);
   assert.equal(jsonPointer(input, "/items/-1").found, false);
+  // A token must parse whole, so a numeric prefix does not index the array.
+  assert.equal(jsonPointer(input, "/items/1junk").found, false);
+  assert.equal(jsonPointer(input, "/items/ 1").found, false);
   assert.equal(jsonPointer(input, "/missing").found, false);
   assert.equal(jsonPointer(input, "/nested/empty/deeper").found, false);
   assert.deepEqual(jsonPointer({ value: null }, "/value"), {

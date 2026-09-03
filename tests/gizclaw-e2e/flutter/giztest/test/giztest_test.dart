@@ -25,6 +25,8 @@ void main() {
       expect(jsonPointer(input, '/n~0m').value, 2);
       expect(jsonPointer(input, '/items/2').found, isFalse);
       expect(jsonPointer(input, '/items/-1').found, isFalse);
+      // A token must parse whole, so a numeric prefix does not index the list.
+      expect(jsonPointer(input, '/items/1junk').found, isFalse);
       expect(jsonPointer(input, '/missing').found, isFalse);
       expect(jsonPointer(input, '/nested/empty/deeper').found, isFalse);
       final nullValue = jsonPointer({'value': null}, '/value');

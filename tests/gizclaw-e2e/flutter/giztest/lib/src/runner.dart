@@ -258,6 +258,13 @@ Future<_StepResult> _runStepReport(
       failure = AssertionFailure(
         'RPC error code = $code, want ${expectError['code']}',
       );
+    } else if (expectError['message_contains'] is String &&
+        !(failure! as ScenarioRpcError).message.contains(
+          expectError['message_contains']! as String,
+        )) {
+      failure = const AssertionFailure(
+        'RPC error message does not contain expected text',
+      );
     } else {
       failure = null;
       outcome = _StepOutcome(evidence: {'rpc_error_code': code});

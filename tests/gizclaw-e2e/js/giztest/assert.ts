@@ -23,8 +23,10 @@ export function jsonPointer(input: unknown, pointer: string): PointerResult {
   for (const raw of pointer.replace(/^\//u, "").split("/")) {
     const part = raw.replaceAll("~1", "/").replaceAll("~0", "~");
     if (Array.isArray(current)) {
-      const index = Number.parseInt(part, 10);
-      if (!Number.isInteger(index) || index < 0 || index >= current.length) {
+      // The whole token must parse as an integer, matching Go's strconv.Atoi,
+      // so a token such as "1junk" does not silently resolve to index 1.
+      const index = /^[+-]?[0-9]+$/u.test(part) ? Number(part) : -1;
+      if (index < 0 || index >= current.length) {
         return { found: false, value: undefined };
       }
       current = current[index];

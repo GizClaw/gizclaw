@@ -227,6 +227,13 @@ async function runStepReport(
       failure = new AssertionFailure(
         `RPC error code = ${code}, want ${step.expect_error.code}`,
       );
+    } else if (
+      step.expect_error.message_contains != null &&
+      !(failure?.message ?? "").includes(step.expect_error.message_contains)
+    ) {
+      failure = new AssertionFailure(
+        "RPC error message does not contain expected text",
+      );
     } else {
       failure = undefined;
       outcome = { evidence: { rpc_error_code: code } };
@@ -307,11 +314,14 @@ async function runTask(
 
   try {
     for (const name of Object.keys(document.clients).sort()) {
+      // Connecting races the task budget so a multi-client document cannot
+      // overrun its timeout before the first step runs.
       const client = await ScenarioClient.connect(
         name,
         document.clients[name]!,
         document.steps,
         variables,
+        controller.signal,
       );
       clients.set(name, client);
       fingerprints[name] = client.fingerprint;

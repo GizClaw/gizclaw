@@ -193,6 +193,11 @@ class ScenarioClient {
         clientPrivateKey: privateKey,
         serverPublicKey: base58Decode(info.transportPublicKey),
       );
+      // An Edge gateway can advertise its own origin, which is where the
+      // encrypted offer must go.
+      final signalingBase = info.transport?.endpoint.isNotEmpty ?? false
+          ? httpBaseUrl(info.transport!.endpoint)
+          : base;
       final handlers = _buildHandlers(name, steps, variables);
       var publicKey = '';
       final peerConnection = await connectFlutterGiznetWebRtc(
@@ -208,7 +213,7 @@ class ScenarioClient {
         sendOffer: (offer) async {
           final response = await httpClient
               .post(
-                base.replace(path: info.transportSignalingPath),
+                signalingBase.replace(path: info.transportSignalingPath),
                 body: offer.body,
                 headers: {
                   'Content-Type': 'application/octet-stream',
@@ -302,6 +307,8 @@ class ScenarioClient {
     return _controlClients.putIfAbsent(
       key,
       () => control.GizClawControlClient(
+        // The e2e stack serves plaintext HTTP on localhost.
+        allowInsecureTransport: true,
         apiKey: key.isEmpty ? 'unauthenticated' : key,
         baseUrl: httpBaseUrl(endpoint),
       ),

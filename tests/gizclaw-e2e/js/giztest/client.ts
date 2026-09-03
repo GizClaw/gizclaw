@@ -118,6 +118,7 @@ export class ScenarioClient {
     spec: ClientSpec,
     steps: Step[],
     variables: Variables,
+    taskSignal?: AbortSignal,
   ): Promise<ScenarioClient> {
     const endpoint = variables.resolveString(spec.access_point, "access_point");
     const privateKey = new Uint8Array(randomBytes(32));
@@ -134,7 +135,13 @@ export class ScenarioClient {
         endpoint,
         pc: pc as unknown as RTCPeerConnection,
         peerRPCHandlers: handlers,
-        signal: AbortSignal.timeout(CONNECT_TIMEOUT_MS),
+        signal:
+          taskSignal == null
+            ? AbortSignal.timeout(CONNECT_TIMEOUT_MS)
+            : AbortSignal.any([
+                taskSignal,
+                AbortSignal.timeout(CONNECT_TIMEOUT_MS),
+              ]),
       });
     } catch (error) {
       pc.close();
@@ -223,6 +230,8 @@ export class ScenarioClient {
       return existing;
     }
     const created = createGizClawControlClient({
+      // The e2e stack serves plaintext HTTP on localhost.
+      allowInsecureTransport: true,
       apiKey: token == null || token === "" ? "unauthenticated" : token,
       baseUrl: httpBaseURL(this.endpoint),
     });
