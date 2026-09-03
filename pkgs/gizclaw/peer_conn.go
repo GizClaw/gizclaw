@@ -38,10 +38,15 @@ var (
 )
 
 const (
-	inputRouteReloadedCode          = "INPUT_ROUTE_RELOADED"
-	inputRouteReloadedMessage       = "input route reloaded"
-	peerConnMixerFormat             = pcm.L16Mono16K
-	peerConnOpusFrameDuration       = 20 * time.Millisecond
+	inputRouteReloadedCode    = "INPUT_ROUTE_RELOADED"
+	inputRouteReloadedMessage = "input route reloaded"
+	peerConnMixerFormat       = pcm.L16Mono16K
+	peerConnOpusFrameDuration = 20 * time.Millisecond
+	// peerConnOpusComplexity keeps the downlink encoder at the cheapest libopus
+	// complexity. The Server encodes one stream per connected peer, so the
+	// libopus default of 9 spends CPU per peer for quality the 16 kHz mono
+	// mixed downlink does not carry.
+	peerConnOpusComplexity          = 0
 	peerConnPacingBufferTarget      = 500 * time.Millisecond
 	peerConnPacingMaxRecoveryPerPkt = 5 * time.Millisecond
 	peerConnPacingMinimumPeriod     = peerConnOpusFrameDuration - peerConnPacingMaxRecoveryPerPkt
@@ -1335,9 +1340,23 @@ func (h *PeerConn) streamMixedAudioLoop() {
 	}
 }
 
+// newPeerConnOpusEncoder creates the downlink encoder with the complexity the
+// mixed peer stream is sent at.
+func newPeerConnOpusEncoder() (*opus.Encoder, error) {
+	enc, err := opus.NewEncoder(peerConnMixerFormat.SampleRate(), peerConnMixerFormat.Channels(), opus.ApplicationAudio)
+	if err != nil {
+		return nil, err
+	}
+	if err := enc.SetComplexity(peerConnOpusComplexity); err != nil {
+		_ = enc.Close()
+		return nil, err
+	}
+	return enc, nil
+}
+
 func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err error) {
 	mx := h.mixer
-	enc, err := opus.NewEncoder(peerConnMixerFormat.SampleRate(), peerConnMixerFormat.Channels(), opus.ApplicationAudio)
+	enc, err := newPeerConnOpusEncoder()
 	if err != nil {
 		return false, err
 	}
