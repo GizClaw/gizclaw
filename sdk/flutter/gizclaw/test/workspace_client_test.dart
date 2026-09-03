@@ -112,6 +112,10 @@ void main() {
       payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
     );
     final request = await _request(factory, 0);
+    // The envelope proves the generated RpcMethod lookup resolves method 107,
+    // which encodeRpcRequest needs before it can send the request at all.
+    expect(request.method, rpc.RpcMethod.RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT);
+    expect(rpc.RpcMethod.valueOf(107), isNotNull);
     final body =
         decodeRpcRequestPayload('server.workspace.input.put', request.payload)
             as payload.WorkspaceInputPutRequest;

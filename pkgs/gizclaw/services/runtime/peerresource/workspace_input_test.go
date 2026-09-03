@@ -8,8 +8,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -172,40 +174,75 @@ func TestWorkspaceInputPutRejectsUnknownWorkspaceAndInput(t *testing.T) {
 	}
 }
 
-// foreignWorkspaceService resolves every Workspace name to a record owned by
-// another Peer so the RPC owner check can be exercised on its own.
-type foreignWorkspaceService struct {
-	*workspace.Server
-	item apitypes.Workspace
-}
-
-func (s foreignWorkspaceService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
-	return s.item, nil
-}
-
 func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
-	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
-		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
-	})
 	domain, ok := server.Workspaces.(*workspace.Server)
 	if !ok {
 		t.Fatalf("Workspaces = %T", server.Workspaces)
 	}
-	stored, err := domain.GetWorkspaceByName(ownership.WithOwner(ctx, server.Caller.String()), created.Name)
-	if err != nil {
-		t.Fatalf("GetWorkspaceByName error: %v", err)
+	workflows, ok := server.Workflows.(*workflow.Server)
+	if !ok {
+		t.Fatalf("Workflows = %T", server.Workflows)
 	}
-	foreignOwner := giznet.PublicKey{9}.String()
-	stored.OwnerPublicKey = &foreignOwner
-	server.Workspaces = foreignWorkspaceService{Server: domain, item: stored}
+	chatroomWorkflow := "friend-chatroom"
+	if _, err := workflows.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{
+		Body: &adminhttp.WorkflowUpsert{Id: chatroomWorkflow, Spec: apitypes.WorkflowSpec{
+			Driver:   apitypes.WorkflowDriverChatroom,
+			Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+		}},
+	}); err != nil {
+		t.Fatalf("CreateWorkflow error: %v", err)
+	}
+
+	// A Friend relationship gives the caller a Workspace it can resolve but
+	// does not own, which is the only way a foreign Workspace becomes visible.
+	friendStore := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = friendStore.Close() })
+	friends := &friend.Server{
+		Friends:    friendStore,
+		Workspaces: domain,
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: chatroomWorkflow},
+			}}}, nil
+		},
+	}
+	other := giznet.PublicKey{9}
+	relation, err := friends.AdminCreateFriend(ctx, other.String(), server.Caller.String())
+	if err != nil {
+		t.Fatalf("AdminCreateFriend error: %v", err)
+	}
+	server.Friends = friends
+	sharedName := socialutil.StringValue(relation.WorkspaceName)
+
+	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
+		Name: sharedName, Input: rpcapi.WorkspaceInputModeRealtime,
+	})
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeForbidden {
+		t.Fatalf("workspace input put (shared foreign Workspace) response = %#v, want FORBIDDEN", response)
+	}
+}
+
+func TestWorkspaceInputPutHidesUnsharedForeignWorkspace(t *testing.T) {
+	ctx := context.Background()
+	server := newWorkspaceInputTestServer(t, ctx)
+	domain, ok := server.Workspaces.(*workspace.Server)
+	if !ok {
+		t.Fatalf("Workspaces = %T", server.Workspaces)
+	}
+	other := giznet.PublicKey{9}
+	if _, err := domain.CreatePeerWorkspace(ownership.WithOwner(ctx, other.String()), workspace.PeerWorkspaceCreateRequest{
+		Name: "journey-1", WorkflowID: "canonical-workflow",
+	}); err != nil {
+		t.Fatalf("CreatePeerWorkspace error: %v", err)
+	}
 
 	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
 		Name: "journey-1", Input: rpcapi.WorkspaceInputModeRealtime,
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeForbidden {
-		t.Fatalf("workspace input put (foreign owner) response = %#v, want FORBIDDEN", response)
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
+		t.Fatalf("workspace input put (unshared foreign Workspace) response = %#v, want NOT_FOUND", response)
 	}
 }
 
