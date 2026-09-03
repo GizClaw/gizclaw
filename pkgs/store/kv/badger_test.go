@@ -550,3 +550,88 @@ func TestBadgerCloseWaitsForInFlightReads(t *testing.T) {
 		t.Fatal("reader never observed ErrStoreClosed")
 	}
 }
+
+func TestBadgerNestedCallInsideListIsNotBlockedByClose(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	for _, name := range []string{"a", "b", "c"} {
+		if err := store.Set(ctx, kv.Key{"pending", name}, []byte(name)); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+	}
+
+	// A Get inside a List iteration is the shape KVSource.ListTasks uses. It
+	// must not be able to wedge against a concurrent Close.
+	seen := 0
+	for entry, err := range store.List(ctx, kv.Key{"pending"}) {
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		value, err := store.Get(ctx, entry.Key)
+		if err != nil {
+			t.Fatalf("nested Get: %v", err)
+		}
+		if string(value) != string(entry.Value) {
+			t.Fatalf("nested Get = %q, want %q", value, entry.Value)
+		}
+		seen++
+	}
+	if seen != 3 {
+		t.Fatalf("listed %d entries, want 3", seen)
+	}
+}
+
+func TestBadgerNestedCallRacingCloseTerminates(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	if err := store.Set(ctx, kv.Key{"pending", "a"}, []byte("a")); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	started := make(chan struct{})
+	proceed := make(chan struct{})
+	iterated := make(chan error, 1)
+	go func() {
+		var nested error
+		for entry, err := range store.List(ctx, kv.Key{"pending"}) {
+			if err != nil {
+				iterated <- err
+				return
+			}
+			close(started)
+			<-proceed
+			_, nested = store.Get(ctx, entry.Key)
+			break
+		}
+		iterated <- nested
+	}()
+
+	<-started
+	closed := make(chan error, 1)
+	go func() { closed <- store.Close() }()
+	close(proceed)
+
+	select {
+	case nested := <-iterated:
+		if nested != nil && !errors.Is(nested, kv.ErrStoreClosed) {
+			t.Fatalf("nested Get error = %v, want nil or %v", nested, kv.ErrStoreClosed)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("nested call did not finish while Close was draining")
+	}
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Close did not return")
+	}
+}

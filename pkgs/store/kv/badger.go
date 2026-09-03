@@ -13,32 +13,50 @@ import (
 
 // Badger is a persistent Store backed by BadgerDB.
 //
-// BadgerDB panics when a call reaches a closed database handle, so every
-// exported entry point holds mu for read while it touches db and Close takes
-// mu for write. A call that starts before Close blocks the close until it
-// finishes, and a call that starts after it returns ErrStoreClosed.
+// BadgerDB panics when a call reaches a closed database handle, so the store
+// counts the operations that currently touch db. Close marks the store closed
+// and waits for that count to drain before it releases the handle: an
+// operation that started first always finishes against a live handle, and
+// every call after Close answers ErrStoreClosed. The count is not a lock, so
+// nesting store calls, for example a Get inside a List iteration, stays
+// deadlock free; a nested call that starts after Close simply reports
+// ErrStoreClosed. Close must not be called from inside a List iteration, which
+// would wait for an operation that is waiting for it.
 type Badger struct {
 	db     *badger.DB
 	opts   *Options
 	ownsDB bool
 
-	mu     sync.RWMutex
+	mu     sync.Mutex
+	idle   *sync.Cond
+	active int
 	closed bool
 }
 
-// acquire keeps the store open for the duration of one operation. It returns
-// ErrStoreClosed once Close has run, and otherwise a release function the
-// caller must call when the operation no longer touches db.
+// acquire keeps db alive for the duration of one operation. It returns
+// ErrStoreClosed once Close has begun, and otherwise a release function the
+// caller must call exactly once when the operation no longer touches db.
 func (b *Badger) acquire() (release func(), err error) {
 	if b == nil {
 		return nil, ErrStoreClosed
 	}
-	b.mu.RLock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.closed {
-		b.mu.RUnlock()
 		return nil, ErrStoreClosed
 	}
-	return b.mu.RUnlock, nil
+	b.active++
+	return b.release, nil
+}
+
+// release ends one operation and wakes a Close that is draining.
+func (b *Badger) release() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.active--
+	if b.active == 0 && b.closed && b.idle != nil {
+		b.idle.Broadcast()
+	}
 }
 
 // NewBadger opens (or creates) a BadgerDB store at dir.
@@ -495,16 +513,26 @@ func (b *Badger) Close() error {
 		return nil
 	}
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	if b.closed {
+		b.mu.Unlock()
 		return nil
 	}
 	b.closed = true
-	if !b.ownsDB || b.db == nil {
+	if b.idle == nil {
+		b.idle = sync.NewCond(&b.mu)
+	}
+	for b.active > 0 {
+		b.idle.Wait()
+	}
+	db, ownsDB := b.db, b.ownsDB
+	b.ownsDB = false
+	b.mu.Unlock()
+	if !ownsDB || db == nil {
 		return nil
 	}
-	b.ownsDB = false
-	return b.db.Close()
+	// Released outside mu: no operation can reach db any more, and closing the
+	// handle is blocking native I/O that must not run under the state mutex.
+	return db.Close()
 }
 
 // listPrefix returns the byte prefix for List iteration.
