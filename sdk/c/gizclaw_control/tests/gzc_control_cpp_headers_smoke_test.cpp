@@ -8,6 +8,8 @@ static_assert(GZC_CONTROL_ERROR_UNAUTHORIZED == 1);
 static_assert(GZC_CONTROL_ERROR_DEVICE_OFFLINE == 4);
 static_assert(GZC_CONTROL_ERROR_DEVICE_ERROR == 8);
 static_assert(GZC_CONTROL_ERROR_NETWORK == 14);
+/* The C-only kind sits after every shared one, so the shared values match. */
+static_assert(GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL == 15);
 
 static_assert(GZC_CONTROL_MAX_SSID_BYTES == 32);
 static_assert(GZC_CONTROL_MAX_SOUND_BYTES == 32);

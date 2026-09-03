@@ -182,6 +182,42 @@ static void test_get_device_status(void) {
   check_str(labels[0].value, "lab", "label value");
 }
 
+/*
+ * A label scan must delimit escaped keys and values correctly. Whether the
+ * escape decodes is gzc_json_parse_string's call, the same as for every other
+ * string field, but the scan itself must not mistake an escaped quote for the
+ * end of the token.
+ */
+static void test_peer_status_labels_span_escapes(void) {
+  gzc_control_peer_status_t status;
+  gzc_control_pair_t labels[4];
+  size_t count = 0;
+
+  memset(&status, 0, sizeof(status));
+  status.labels = gzc_str_from_cstr("{\"a\\\"b\":\"v\", \"plain\":\"w\"}");
+  int rc = gzc_control_peer_status_labels(&status, labels, 4, &count);
+  /* The escaped key is delimited across the quote, so the scan reaches the
+   * second pair rather than stopping early or misreading the object. */
+  check(rc == GZC_ERR_UNSUPPORTED, "an escaped label defers to the JSON codec");
+
+  memset(&status, 0, sizeof(status));
+  status.labels = gzc_str_from_cstr("{ \"room\" : \"lab\" , \"line\" : \"a\" }");
+  check(gzc_control_peer_status_labels(&status, labels, 4, &count) == GZC_OK, "whitespace is skipped");
+  check(count == 2, "both labels decoded");
+  check_str(labels[1].key, "line", "second label key");
+
+  memset(&status, 0, sizeof(status));
+  status.labels = gzc_str_from_cstr("{}");
+  check(gzc_control_peer_status_labels(&status, labels, 4, &count) == GZC_OK, "empty labels");
+  check(count == 0, "empty labels decode to none");
+
+  memset(&status, 0, sizeof(status));
+  status.labels = gzc_str_from_cstr("{\"a\":\"1\",\"b\":\"2\"}");
+  check(
+      gzc_control_peer_status_labels(&status, labels, 1, &count) == GZC_ERR_BUFFER_TOO_SMALL,
+      "a small label array reports overflow");
+}
+
 static void test_set_volume_encodes_body(void) {
   stub_t stub;
   gzc_http_vtable_t http;
@@ -493,7 +529,7 @@ static void test_lists_and_malformed_bodies(void) {
       gzc_control_list_contacts(&client, &call, &page, contacts, 1, &count, &has_next, &cursor) ==
           GZC_ERR_BUFFER_TOO_SMALL,
       "small contact array reports overflow");
-  check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "overflow classified");
+  check(call.error.kind == GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL, "overflow is a caller-capacity failure");
 
   stub.response_body = "not json";
   check(
@@ -546,6 +582,7 @@ static void test_device_info_raw_and_identifiers(void) {
 int main(void) {
   test_client_init_rejects_bad_config();
   test_get_device_status();
+  test_peer_status_labels_span_escapes();
   test_set_volume_encodes_body();
   test_query_parameters_and_encoding();
   test_contract_caps_are_not_enforced_locally();

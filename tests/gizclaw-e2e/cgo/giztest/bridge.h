@@ -40,13 +40,15 @@ int gzt_session_poll(gzt_session_t *session, int timeout_ms, char *errbuf, unsig
  * Calls one server.* method with an already-encoded protobuf payload and
  * returns the encoded response payload, which the caller frees with gzt_free.
  *
- * A structured RPC error sets out_rpc_error_code and fills out_error_message.
+ * timeout_ms bounds the call; 0 selects the bridge default. A structured RPC
+ * error sets out_rpc_error_code and fills out_error_message.
  */
 int gzt_session_call_rpc(
     gzt_session_t *session,
     unsigned method_id,
     const unsigned char *payload,
     unsigned long payload_len,
+    int timeout_ms,
     unsigned char **out_payload,
     unsigned long *out_payload_len,
     int *out_rpc_error_code,
@@ -83,6 +85,7 @@ int gzt_control_request(
     const char *method,
     const char *path,
     const char *request_json,
+    int timeout_ms,
     int *out_status,
     unsigned char **out_body,
     unsigned long *out_body_len,

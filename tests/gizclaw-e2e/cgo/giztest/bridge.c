@@ -43,6 +43,9 @@ static void set_error(char *errbuf, unsigned long errbuf_len, const char *messag
   }
 }
 
+/* Bound on one bridge call when the caller supplies no deadline. */
+#define GZT_DEFAULT_TIMEOUT_MS 30000
+
 void gzt_free(void *ptr) { free(ptr); }
 
 /*
@@ -205,6 +208,7 @@ int gzt_session_call_rpc(
     unsigned method_id,
     const unsigned char *payload,
     unsigned long payload_len,
+    int timeout_ms,
     unsigned char **out_payload,
     unsigned long *out_payload_len,
     int *out_rpc_error_code,
@@ -223,7 +227,8 @@ int gzt_session_call_rpc(
   gzc_rpc_request_t *request = NULL;
   int rc = gzc_rpc_request_start(
       session->client, 0, (gizclaw_rpc_v1_RpcMethod)method_id,
-      gzc_str_from_parts((const char *)payload, payload_len), 30000, &request);
+      gzc_str_from_parts((const char *)payload, payload_len),
+      timeout_ms > 0 ? timeout_ms : GZT_DEFAULT_TIMEOUT_MS, &request);
   if (rc != GZC_OK) {
     return fail(errbuf, errbuf_len, "start rpc", rc);
   }
@@ -432,6 +437,7 @@ int gzt_control_request(
     const char *method,
     const char *path,
     const char *request_json,
+    int timeout_ms,
     int *out_status,
     unsigned char **out_body,
     unsigned long *out_body_len,
@@ -476,6 +482,7 @@ int gzt_control_request(
   config.api_key = gzc_str_from_cstr(api_key);
   config.http = &control_host->http;
   config.platform = control_host->backend.platform;
+  config.timeout_ms = timeout_ms;
   gzc_control_client_t control;
   int rc = gzc_control_client_init(&control, &config);
   if (rc != GZC_OK) {

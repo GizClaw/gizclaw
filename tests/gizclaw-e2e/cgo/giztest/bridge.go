@@ -102,7 +102,7 @@ type rpcResult struct {
 
 // CallRPC sends one encoded server.* request and returns the encoded response
 // or the structured RPC error the Server reported.
-func (s *cSession) CallRPC(method uint32, payload []byte) (rpcResult, error) {
+func (s *cSession) CallRPC(method uint32, payload []byte, timeoutMS int) (rpcResult, error) {
 	errbuf, freeErr := newErrorBuffer()
 	defer freeErr()
 	messageBuf, freeMessage := newErrorBuffer()
@@ -116,8 +116,8 @@ func (s *cSession) CallRPC(method uint32, payload []byte) (rpcResult, error) {
 	var outLen C.ulong
 	var rpcCode C.int
 	rc := C.gzt_session_call_rpc(
-		s.handle, C.uint(method), request, C.ulong(len(payload)), &out, &outLen, &rpcCode,
-		messageBuf, errorBufferSize, errbuf, errorBufferSize)
+		s.handle, C.uint(method), request, C.ulong(len(payload)), C.int(timeoutMS), &out, &outLen,
+		&rpcCode, messageBuf, errorBufferSize, errbuf, errorBufferSize)
 	if out != nil {
 		defer C.gzt_free(unsafe.Pointer(out))
 	}
@@ -163,7 +163,7 @@ type controlResult struct {
 
 // ControlRequest sends one controller-SDK request. An unsupported route is
 // reported as an error so a step never passes without being executed.
-func (c *cControl) Request(baseURL, apiKey, method, path, requestJSON string) (controlResult, error) {
+func (c *cControl) Request(baseURL, apiKey, method, path, requestJSON string, timeoutMS int) (controlResult, error) {
 	args := []*C.char{
 		C.CString(baseURL), C.CString(apiKey), C.CString(method), C.CString(path), C.CString(requestJSON),
 	}
@@ -179,8 +179,8 @@ func (c *cControl) Request(baseURL, apiKey, method, path, requestJSON string) (c
 	var body *C.uchar
 	var bodyLen C.ulong
 	rc := C.gzt_control_request(
-		c.handle, args[0], args[1], args[2], args[3], args[4], &status, &body, &bodyLen, &kind,
-		errbuf, errorBufferSize)
+		c.handle, args[0], args[1], args[2], args[3], args[4], C.int(timeoutMS), &status, &body,
+		&bodyLen, &kind, errbuf, errorBufferSize)
 	if body != nil {
 		defer C.gzt_free(unsafe.Pointer(body))
 	}

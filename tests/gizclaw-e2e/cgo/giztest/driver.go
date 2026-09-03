@@ -45,12 +45,36 @@ func (driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 	return nil
 }
 
+/*
+controlRoutes are the routes bridge.c dispatches to a typed controller call,
+keyed by method. A trailing "/*" marks a route that takes one path segment.
+
+The table mirrors the bridge's own dispatch so `validate` rejects a document
+the runner could not execute, instead of discovering it only once a live stack
+is up.
+*/
+var controlRoutes = map[string][]string{
+	http.MethodGet: {
+		"/device", "/device/runtime", "/device/status",
+		"/device/telemetry", "/device/telemetry/latest", "/device/telemetry/aggregate",
+		"/device/wifi", "/device/wifi/saved",
+		"/api-keys", "/api-keys/self", "/api-keys/*",
+		"/contacts", "/contacts/*",
+	},
+	http.MethodPost: {
+		"/device/actions/play-sound", "/device/actions/reboot", "/api-keys", "/contacts",
+	},
+	http.MethodPut: {"/device/volume", "/contacts/*"},
+	http.MethodDelete: {
+		"/device/wifi/saved/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
+	},
+}
+
 // validateControlRoute rejects a step the controller SDK cannot route, so an
 // unsupported contract surfaces during validate rather than at run time.
 func validateControlRoute(step giztest.Step) error {
-	switch step.HTTP.Method {
-	case http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete:
-	default:
+	routes, ok := controlRoutes[step.HTTP.Method]
+	if !ok {
 		return fmt.Errorf("the C controller SDK does not send %s requests", step.HTTP.Method)
 	}
 	path := step.HTTP.Path
@@ -60,7 +84,24 @@ func validateControlRoute(step giztest.Step) error {
 	if !strings.HasPrefix(path, giztest.ControlPathPrefix) {
 		return fmt.Errorf("path %q is outside the %s controller contract", step.HTTP.Path, giztest.ControlPathPrefix)
 	}
-	return nil
+	route := strings.TrimPrefix(path, giztest.ControlPathPrefix)
+	for _, candidate := range routes {
+		if matchesRoute(route, candidate) {
+			return nil
+		}
+	}
+	return fmt.Errorf("the C controller SDK does not route %s %s", step.HTTP.Method, path)
+}
+
+// matchesRoute reports whether route matches candidate, where a candidate
+// ending in "/*" accepts exactly one further path segment.
+func matchesRoute(route, candidate string) bool {
+	prefix, wildcard := strings.CutSuffix(candidate, "/*")
+	if !wildcard {
+		return route == candidate
+	}
+	tail, ok := strings.CutPrefix(route, prefix+"/")
+	return ok && tail != "" && !strings.Contains(tail, "/")
 }
 
 // FailureCode reports the structured RPC error an rpc step observed.
@@ -234,7 +275,10 @@ func (s *session) executeClientRPC(ctx context.Context, client *deviceClient, re
 // executeHTTP sends one `/gizclaw/v1` request through the controller SDK and
 // hands the runner the raw response body so expect and capture see the wire
 // JSON, while the SDK itself performed the typed call.
-func (s *session) executeHTTP(_ context.Context, client *deviceClient, req giztest.StepRequest) (giztest.StepResult, error) {
+func (s *session) executeHTTP(ctx context.Context, client *deviceClient, req giztest.StepRequest) (giztest.StepResult, error) {
+	if err := ctx.Err(); err != nil {
+		return giztest.StepResult{}, context.Cause(ctx)
+	}
 	step := req.Step
 	pathValue, err := resolveString(req.Vars, step.HTTP.Path)
 	if err != nil {
@@ -256,7 +300,8 @@ func (s *session) executeHTTP(_ context.Context, client *deviceClient, req gizte
 		}
 		body = string(encoded)
 	}
-	result, err := s.control.Request(client.baseURL, apiKey, step.HTTP.Method, pathValue, body)
+	result, err := s.control.Request(
+		client.baseURL, apiKey, step.HTTP.Method, pathValue, body, remainingTimeoutMS(ctx))
 	if err != nil {
 		return giztest.StepResult{}, err
 	}
@@ -383,7 +428,14 @@ func (c *deviceClient) run(endpoint, privateKey string, ready chan<- error) {
 	}
 }
 
-// submit runs fn on the poll-owning goroutine and waits for it.
+/*
+submit runs fn on the poll-owning goroutine and waits for it.
+
+A cancelled step stops waiting rather than blocking until the C call's own
+timeout. The call keeps running on the worker, so fn must not write to
+anything the caller reads after this returns; callRPC keeps its outputs inside
+the closure and reads them only once done has fired.
+*/
 func (c *deviceClient) submit(ctx context.Context, fn func(*cSession)) error {
 	done := make(chan struct{})
 	wrapped := func(s *cSession) {
@@ -402,16 +454,39 @@ func (c *deviceClient) submit(ctx context.Context, fn func(*cSession)) error {
 		return nil
 	case <-c.stopped:
 		return fmt.Errorf("client %s closed during the call", c.name)
+	case <-ctx.Done():
+		return context.Cause(ctx)
 	}
 }
 
+// callRPC bounds the C call by the step's remaining deadline, so a cancelled
+// step ends the request instead of waiting out the bridge's own timeout.
 func (c *deviceClient) callRPC(ctx context.Context, method uint32, payload []byte) (rpcResult, error) {
-	var result rpcResult
-	var callErr error
-	if err := c.submit(ctx, func(s *cSession) { result, callErr = s.CallRPC(method, payload) }); err != nil {
+	outcome := struct {
+		result rpcResult
+		err    error
+	}{}
+	timeout := remainingTimeoutMS(ctx)
+	if err := c.submit(ctx, func(s *cSession) {
+		outcome.result, outcome.err = s.CallRPC(method, payload, timeout)
+	}); err != nil {
 		return rpcResult{}, err
 	}
-	return result, callErr
+	return outcome.result, outcome.err
+}
+
+// remainingTimeoutMS turns the context deadline into the bridge's timeout. A
+// context without one selects the bridge's default.
+func remainingTimeoutMS(ctx context.Context) int {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return 0
+	}
+	remaining := time.Until(deadline).Milliseconds()
+	if remaining < 1 {
+		return 1
+	}
+	return int(remaining)
 }
 
 func (c *deviceClient) Close() {

@@ -62,6 +62,9 @@ A failed call fills `gzc_control_call_t.error` with a `gzc_control_error_t`. The
 | `GZC_CONTROL_ERROR_UNEXPECTED_STATUS` | any other non-2xx |
 | `GZC_CONTROL_ERROR_MALFORMED_RESPONSE` | a 2xx body that is not the contract type |
 | `GZC_CONTROL_ERROR_NETWORK` | no HTTP response, or the request could not be built |
+| `GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL` | a well-formed page larger than the caller's array; retry with more room or a smaller `limit` |
+
+The last kind has no counterpart in the Dart and TypeScript packages, which allocate their own lists; it sits after every shared kind so their values stay aligned.
 
 `gzc_control_call_t.error.request_id` carries the `X-Request-ID` response header. The transport delivers response headers one at a time through the `response_header_cb` sink on `gzc_http_request_t`; a backend that sets no headers simply leaves `request_id` empty.
 

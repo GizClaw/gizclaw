@@ -62,6 +62,9 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 | `GZC_CONTROL_ERROR_UNEXPECTED_STATUS` | 其他非 2xx |
 | `GZC_CONTROL_ERROR_MALFORMED_RESPONSE` | 2xx 但 body 不符合 contract 类型 |
 | `GZC_CONTROL_ERROR_NETWORK` | 未产生 HTTP 响应，或请求无法构造 |
+| `GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL` | 响应本身正常，但一页数据超出调用方数组容量；换更大的数组或更小的 `limit` 重试 |
+
+最后一个 kind 在 Dart 与 TypeScript 包中没有对应项（它们自行分配列表），因此排在全部共享 kind 之后，保持共享取值一致。
 
 `gzc_control_call_t.error.request_id` 携带 `X-Request-ID` 响应 header。transport 通过 `gzc_http_request_t` 上的 `response_header_cb` sink 逐条投递响应 header；未提供 header 的 backend 只会让 `request_id` 保持为空。
 

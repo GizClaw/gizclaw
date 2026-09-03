@@ -75,6 +75,8 @@ const char *gzc_control_error_kind_string(gzc_control_error_kind_t kind) {
     return "unexpectedStatus";
   case GZC_CONTROL_ERROR_MALFORMED_RESPONSE:
     return "malformedResponse";
+  case GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL:
+    return "outputTooSmall";
   case GZC_CONTROL_ERROR_NETWORK:
     return "network";
   }

@@ -93,7 +93,17 @@ typedef enum {
   /* A 2xx response whose body could not be decoded as the contract type. */
   GZC_CONTROL_ERROR_MALFORMED_RESPONSE,
   /* The request never produced an HTTP response, or it could not be built. */
-  GZC_CONTROL_ERROR_NETWORK
+  GZC_CONTROL_ERROR_NETWORK,
+  /*
+   * A 2xx response the caller's output array was too small to hold. The
+   * response was well formed; only the caller's capacity ran out, so the call
+   * can be repeated with a larger array or a smaller page.
+   *
+   * This kind has no counterpart in the Dart and TypeScript packages, which
+   * allocate their own lists, so it sits after every shared kind and leaves
+   * their values aligned.
+   */
+  GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL
 } gzc_control_error_kind_t;
 
 /* Human-readable name of kind, matching the Dart and TypeScript spelling. */

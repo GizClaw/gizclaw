@@ -398,9 +398,52 @@ int gzc_control_decode_peer_status(gzc_str_t object_json, gzc_control_peer_statu
   return rc;
 }
 
+/* Skips the JSON string token starting at index, honoring escapes, and
+ * reports the token including both quotes. */
+static int label_scan_string_token(gzc_str_t text, size_t *index, gzc_str_t *out) {
+  size_t i = *index;
+  if (i >= text.len || text.data[i] != '"') {
+    return GZC_ERR_JSON;
+  }
+  size_t start = i;
+  i++;
+  while (i < text.len) {
+    char ch = text.data[i];
+    if (ch == '\\') {
+      /* Skip the escape and whatever it escapes; \uXXXX is covered because
+       * none of the four hex digits can be an unescaped quote. */
+      i += 2;
+      continue;
+    }
+    if (ch == '"') {
+      i++;
+      *out = gzc_str_from_parts(text.data + start, i - start);
+      *index = i;
+      return GZC_OK;
+    }
+    i++;
+  }
+  return GZC_ERR_JSON;
+}
+
+static void label_skip_ws(gzc_str_t text, size_t *index) {
+  while (*index < text.len) {
+    char ch = text.data[*index];
+    if (ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r') {
+      return;
+    }
+    (*index)++;
+  }
+}
+
 /*
  * `PeerStatus.labels` is a JSON object of string values, so it is walked by
- * key rather than by the array iterator.
+ * key rather than by the array iterator, which only handles arrays.
+ *
+ * The scan honors escapes when finding token boundaries, so an escaped label
+ * is delimited correctly. Whether the escape itself can be decoded is left to
+ * gzc_json_parse_string, exactly as for every other string field in this
+ * package.
  */
 int gzc_control_peer_status_labels(
     const gzc_control_peer_status_t *status,
@@ -419,62 +462,32 @@ int gzc_control_peer_status_labels(
   if (rc != GZC_OK) {
     return rc;
   }
-  /* Reuse the array iterator over the object body by walking "key": value
-   * pairs: gzc_json.h exposes lookup by name only, so the scan is local. */
   size_t index = 1;
-  while (index < labels.len) {
-    while (index < labels.len && (labels.data[index] == ' ' || labels.data[index] == '\t' ||
-                                  labels.data[index] == '\n' || labels.data[index] == '\r' ||
-                                  labels.data[index] == ',')) {
+  for (;;) {
+    label_skip_ws(labels, &index);
+    while (index < labels.len && labels.data[index] == ',') {
       index++;
+      label_skip_ws(labels, &index);
     }
     if (index >= labels.len || labels.data[index] == '}') {
       return GZC_OK;
     }
-    if (labels.data[index] != '"') {
-      return GZC_ERR_JSON;
+    gzc_str_t key_raw;
+    rc = label_scan_string_token(labels, &index, &key_raw);
+    if (rc != GZC_OK) {
+      return rc;
     }
-    size_t key_start = index;
-    index++;
-    while (index < labels.len && labels.data[index] != '"') {
-      if (labels.data[index] == '\\') {
-        return GZC_ERR_UNSUPPORTED;
-      }
-      index++;
-    }
-    if (index >= labels.len) {
-      return GZC_ERR_JSON;
-    }
-    index++;
-    gzc_str_t key_raw = gzc_str_from_parts(labels.data + key_start, index - key_start);
-    while (index < labels.len && (labels.data[index] == ' ' || labels.data[index] == '\t' ||
-                                  labels.data[index] == '\n' || labels.data[index] == '\r')) {
-      index++;
-    }
+    label_skip_ws(labels, &index);
     if (index >= labels.len || labels.data[index] != ':') {
       return GZC_ERR_JSON;
     }
     index++;
-    while (index < labels.len && (labels.data[index] == ' ' || labels.data[index] == '\t' ||
-                                  labels.data[index] == '\n' || labels.data[index] == '\r')) {
-      index++;
+    label_skip_ws(labels, &index);
+    gzc_str_t value_raw;
+    rc = label_scan_string_token(labels, &index, &value_raw);
+    if (rc != GZC_OK) {
+      return rc;
     }
-    if (index >= labels.len || labels.data[index] != '"') {
-      return GZC_ERR_JSON;
-    }
-    size_t value_start = index;
-    index++;
-    while (index < labels.len && labels.data[index] != '"') {
-      if (labels.data[index] == '\\') {
-        return GZC_ERR_UNSUPPORTED;
-      }
-      index++;
-    }
-    if (index >= labels.len) {
-      return GZC_ERR_JSON;
-    }
-    index++;
-    gzc_str_t value_raw = gzc_str_from_parts(labels.data + value_start, index - value_start);
     if (*out_count == cap) {
       return GZC_ERR_BUFFER_TOO_SMALL;
     }
@@ -487,7 +500,6 @@ int gzc_control_peer_status_labels(
     }
     (*out_count)++;
   }
-  return GZC_ERR_JSON;
 }
 
 int gzc_control_decode_wifi_status(gzc_str_t object_json, gzc_control_wifi_status_t *out) {

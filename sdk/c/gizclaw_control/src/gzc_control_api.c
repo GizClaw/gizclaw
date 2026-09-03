@@ -170,8 +170,16 @@ static int decoded_object(gzc_control_call_t *call, gzc_str_t *out_object) {
   return GZC_OK;
 }
 
+/*
+ * Classifies a failure that happened after a 2xx response arrived.
+ *
+ * Running out of room in the caller's output array is a caller-resource
+ * condition, not a bad response, so it keeps its own kind: the page can be
+ * fetched again with a larger array or a smaller limit.
+ */
 static int decode_failed(gzc_control_call_t *call, int rc) {
-  call->error.kind = GZC_CONTROL_ERROR_MALFORMED_RESPONSE;
+  call->error.kind = rc == GZC_ERR_BUFFER_TOO_SMALL ? GZC_CONTROL_ERROR_OUTPUT_TOO_SMALL
+                                                    : GZC_CONTROL_ERROR_MALFORMED_RESPONSE;
   call->error.status_code = call->status_code;
   return rc;
 }
