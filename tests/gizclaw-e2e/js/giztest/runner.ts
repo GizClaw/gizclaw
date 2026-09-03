@@ -7,6 +7,7 @@ import {
   safeError,
 } from "./assert.ts";
 import {
+  type Expectation,
   type GiztestDocument,
   type Step,
   stepOperation,
@@ -252,7 +253,7 @@ async function runStepReport(
         }
         variables.assign(name, value);
       }
-      assertValue(outcome.value, step.expect ?? {});
+      assertValue(outcome.value, resolveExpectations(variables, step.expect));
     } catch (error) {
       failure = error instanceof Error ? error : new Error(String(error));
     }
@@ -272,6 +273,60 @@ async function runStepReport(
     report.evidence = evidence;
   }
   return { failure, report };
+}
+
+// resolveExpectations substitutes ${name} references in expectation operands,
+// so an assertion can compare a response against a generated input the same way
+// a request body can carry one.
+function resolveExpectations(
+  variables: Variables,
+  expectations: Record<string, Expectation> | undefined,
+): Record<string, Expectation> {
+  if (expectations == null) {
+    return {};
+  }
+  const text = (value: string, label: string): string => {
+    const resolved = variables.resolve(value);
+    if (typeof resolved !== "string") {
+      throw new Error(`expectation operand ${label} must resolve to string`);
+    }
+    return resolved;
+  };
+  const needles = (
+    value: string[] | undefined,
+    label: string,
+  ): string[] | undefined => value?.map((needle) => text(needle, label));
+
+  const resolved: Record<string, Expectation> = {};
+  for (const [path, expectation] of Object.entries(expectations)) {
+    resolved[path] = {
+      ...expectation,
+      ...(expectation.equals === undefined
+        ? {}
+        : { equals: variables.resolve(expectation.equals) }),
+      ...(expectation.contains === undefined
+        ? {}
+        : { contains: text(expectation.contains, "contains") }),
+      ...(expectation.pattern === undefined
+        ? {}
+        : { pattern: text(expectation.pattern, "pattern") }),
+      ...(expectation.contains_all === undefined
+        ? {}
+        : { contains_all: needles(expectation.contains_all, "contains_all") }),
+      ...(expectation.contains_any === undefined
+        ? {}
+        : { contains_any: needles(expectation.contains_any, "contains_any") }),
+      ...(expectation.not_contains === undefined
+        ? {}
+        : {
+            not_contains:
+              typeof expectation.not_contains === "string"
+                ? text(expectation.not_contains, "not_contains")
+                : needles(expectation.not_contains, "not_contains"),
+          }),
+    };
+  }
+  return resolved;
 }
 
 function rpcErrorCode(error: Error | undefined): number | undefined {

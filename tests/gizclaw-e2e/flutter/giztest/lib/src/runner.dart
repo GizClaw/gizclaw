@@ -210,6 +210,53 @@ Future<_StepOutcome> _runStep(
   throw StateError('step ${step.id} declares no supported operation');
 }
 
+/// Substitutes `${name}` references in expectation operands, so an assertion
+/// can compare a response against a generated input the same way a request body
+/// can carry one.
+Map<String, Map<String, Object?>> _resolveExpectations(
+  Variables variables,
+  Map<String, Map<String, Object?>> expectations,
+) {
+  if (expectations.isEmpty) {
+    return expectations;
+  }
+  String text(Object? value, String label) {
+    final resolved = variables.resolve(value);
+    if (resolved is! String) {
+      throw StateError('expectation operand $label must resolve to string');
+    }
+    return resolved;
+  }
+
+  List<String> needles(Object? value, String label) =>
+      (value! as List).map((needle) => text(needle, label)).toList();
+
+  const textOperands = ['contains', 'pattern'];
+  const needleOperands = ['contains_all', 'contains_any'];
+  return {
+    for (final entry in expectations.entries)
+      entry.key: {
+        for (final operand in entry.value.entries)
+          operand.key: switch (operand.key) {
+            'equals' => variables.resolve(operand.value),
+            final key when textOperands.contains(key) => text(
+              operand.value,
+              key,
+            ),
+            final key when needleOperands.contains(key) => needles(
+              operand.value,
+              key,
+            ),
+            'not_contains' =>
+              operand.value is String
+                  ? text(operand.value, 'not_contains')
+                  : needles(operand.value, 'not_contains'),
+            _ => operand.value,
+          },
+      },
+  };
+}
+
 class _StepResult {
   const _StepResult(this.report, this.failure);
 
@@ -283,7 +330,7 @@ Future<_StepResult> _runStepReport(
         }
         variables.assign(entry.key, result.value);
       }
-      assertValue(outcome.value, step.expect);
+      assertValue(outcome.value, _resolveExpectations(variables, step.expect));
     } catch (error) {
       failure = error;
     }

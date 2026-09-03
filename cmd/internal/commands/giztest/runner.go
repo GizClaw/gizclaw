@@ -656,7 +656,10 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 			err = applyCaptures(vars, step.Capture, value)
 		}
 		if err == nil {
-			if assertionErr := assertValue(step.Expect, value); assertionErr != nil {
+			expectations, resolveErr := resolveExpectations(vars, step.Expect)
+			if resolveErr != nil {
+				err = resolveErr
+			} else if assertionErr := assertValue(expectations, value); assertionErr != nil {
 				err = &assertionFailure{err: assertionErr}
 			}
 		}
@@ -727,6 +730,77 @@ func structuredRPCError(err error) (int32, string, bool) {
 		return int32(apiError.Code), apiError.Message, true
 	}
 	return 0, "", false
+}
+
+// resolveExpectations substitutes ${name} references in expectation operands,
+// so an assertion can compare a response against a generated input the same way
+// a request body can carry one.
+func resolveExpectations(vars *variables, assertions map[string]Expectation) (map[string]Expectation, error) {
+	if len(assertions) == 0 {
+		return assertions, nil
+	}
+	resolveText := func(text string) (string, error) {
+		value, err := vars.resolve(text)
+		if err != nil {
+			return "", err
+		}
+		resolved, ok := value.(string)
+		if !ok {
+			return "", fmt.Errorf("expectation operand %q must resolve to string", text)
+		}
+		return resolved, nil
+	}
+	resolveNeedles := func(needles []string) ([]string, error) {
+		if needles == nil {
+			return nil, nil
+		}
+		resolved := make([]string, 0, len(needles))
+		for _, needle := range needles {
+			text, err := resolveText(needle)
+			if err != nil {
+				return nil, err
+			}
+			resolved = append(resolved, text)
+		}
+		return resolved, nil
+	}
+
+	resolved := make(map[string]Expectation, len(assertions))
+	for path, expectation := range assertions {
+		if expectation.Equals != nil {
+			value, err := vars.resolve(expectation.Equals)
+			if err != nil {
+				return nil, err
+			}
+			expectation.Equals = value
+		}
+		for _, field := range []*string{&expectation.Contains, &expectation.Pattern} {
+			if *field == "" {
+				continue
+			}
+			text, err := resolveText(*field)
+			if err != nil {
+				return nil, err
+			}
+			*field = text
+		}
+		for _, field := range []*[]string{&expectation.ContainsAll, &expectation.ContainsAny} {
+			needles, err := resolveNeedles(*field)
+			if err != nil {
+				return nil, err
+			}
+			*field = needles
+		}
+		if expectation.NotContains != nil {
+			value, err := vars.resolve(expectation.NotContains)
+			if err != nil {
+				return nil, err
+			}
+			expectation.NotContains = value
+		}
+		resolved[path] = expectation
+	}
+	return resolved, nil
 }
 
 func applyCaptures(vars *variables, captures map[string]string, input any) error {
