@@ -283,7 +283,7 @@ an assertion failure. The API key comes from a `server.api_key.create` step with
 `capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
 `client_rpc` may declare `client.device.status.get`, `client.device.volume.set`,
 `client.device.sound.play`, `client.device.reboot`, `client.wifi.status.get`, `client.wifi.saved.list`,
-and `client.wifi.saved.forget`: the runner installs the scripted `response` as that client's device
+`client.wifi.saved.forget`, `client.wifi.scan`, and `client.wifi.connect`: the runner installs the scripted `response` as that client's device
 provider at connect time (`volume.set` echoes the requested `level`/`muted` into its response), and
 `response: {error_code: -32602}` makes the provider answer a fixed RPC error; undeclared methods stay
 `METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the

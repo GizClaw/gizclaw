@@ -11,7 +11,7 @@ Go 生成输出：`pkgs/gizclaw/api/peerhttp`
 
 Offer 的身份认证由签名 signaling contract 自身完成，不依赖 API Key。Public API 可以复用 `ErrorResponse`、`DeviceInfo` 和 `Runtime` 等真正 shared 类型，但不引用 Admin Resources。
 
-API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/service/api-keys)。Wi‑Fi 配网（扫描、写入凭据）和设备密码属于设备本地 BLE 通道；其余日常设备能力经 API Key 由 `/gizclaw/v1/device*` 暴露。
+API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/service/api-keys)。设备首次入网仍由本地 BLE 通道负责；设备在线后可经 API Key 和 `/gizclaw/v1/device*` 扫描或更换 Wi‑Fi。
 
 ## 设备与 Contact surface
 
@@ -46,7 +46,11 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `GET /device/wifi` | `client.wifi.status.get` | `200 DeviceWifiStatus` |
 | `GET /device/wifi/saved` | `client.wifi.saved.list` | `200 DeviceWifiSavedList` |
 | `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`；未知 ssid → `404 WIFI_NETWORK_NOT_FOUND` |
+| `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
+| `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
 
-`sound` 是设备自定义字符串，Server 只检查非空且不超过 32 UTF‑8 bytes，由设备 provider 校验取值；`ssid` 同样限制 32 bytes。设备返回 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`，`METHOD_NOT_FOUND`（设备未实现 provider）映射 `501 DEVICE_UNSUPPORTED`，其余 RPC 错误映射脱敏的 `502 DEVICE_ERROR`；响应体只携带稳定 `code` 与脱敏 `message`。同一 owner 的并发控制命令按到达顺序串行转发，不合并、不重放；`reboot` 得到设备确认后，同一连接上的后续控制命令返回 `409 DEVICE_OFFLINE`，直到设备以新连接重连。控制命令不改变 PeerRun、Workspace 或 Agent 状态。
+`sound` 是设备自定义字符串，Server 只检查非空且不超过 32 UTF‑8 bytes，由设备 provider 校验取值；`ssid` 同样限制 32 bytes。扫描 `timeout_ms` 缺省为 8000，并夹取到 1000–15000；它不复用其他控制 route 的 5 秒超时。加入开放网络时省略 `passphrase`，PSK 长度为 8–63 bytes。`202` 只表示设备接受凭据：设备先应答 RPC 再切网，随后必然掉线；掉线期间控制 route 返回 `409 DEVICE_OFFLINE`，客户端在设备重连后轮询 `GET /device/wifi`，以 `ssid` 是否变为目标网络判断成功或回退。密码只经过转发路径，不持久化、不记录日志、不回显。扫描结果由设备提供，Server 在返回前重新校验：最多 32 条，`ssid` 非空且不超过 32 bytes，`bssid` 不超过 17 bytes，`security` 不超过 5 bytes，越界的应答整体按 `502 DEVICE_ERROR` 拒绝而不回显越界值。
+
+设备返回 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`，`METHOD_NOT_FOUND`（设备未实现 provider）映射 `501 DEVICE_UNSUPPORTED`，其余 RPC 错误映射脱敏的 `502 DEVICE_ERROR`；响应体只携带稳定 `code` 与脱敏 `message`。同一 owner 的并发控制命令按到达顺序串行转发，不合并、不重放；`reboot` 或 `wifi.connect` 得到设备确认后，同一连接上的后续控制命令返回 `409 DEVICE_OFFLINE`，直到设备以新连接重连。控制命令不改变 PeerRun、Workspace 或 Agent 状态。
 
 `/server-info` 在连接前返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 与 transport 能力。Server identity 仍只由密码学 `public_key` 表达。经过 Edge 时这些构建字段保持 authoritative Server 的值，Edge transport 选择只由 `transport` 说明。
