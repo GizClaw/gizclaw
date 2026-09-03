@@ -100,7 +100,8 @@ tests/gizclaw-e2e/
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
 ├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
-└── js/          # JavaScript/TypeScript WebRTC 测试
+├── js/          # JavaScript/TypeScript WebRTC 测试与 giztest runner
+└── flutter/     # Flutter/Dart giztest runner
 ```
 
 先复制 provider credential 模板。`.env` 只能保存 provider credential，不能保存
@@ -190,28 +191,42 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
-- `cgo/giztest` 是第二个 Giztest runner，client 由 C SDK 提供：`sdk/c/gizclaw` 连接设备 Peer 并应答 server-initiated `client.*` RPC，`sdk/c/gizclaw_control` 承载全部 `http` step 对 `/gizclaw/v1` 的调用。它复用 `pkgs/giztest` 的场景语言与 report，因此两个 runner 执行同一批文件并产出同一份 JSON。
+- `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
 
-### C Giztest runner
+### Giztest runner
 
-`tests/gizclaw-e2e/cgo/giztest` 接受与 `gizclaw test` 相同的命令行并写出相同的 report，
-因此 `giztest:c-sdk` phase 复用 Go phase 的同一批场景文件：
+同一批 `giztest/*.giztest.yaml` 场景由四个 runner 执行，每个 runner 使用自己语言的
+SDK，因此一份场景同时验证 contract 与全部 SDK：
 
-```sh
-tests/gizclaw-e2e/testdata/bin/giztest-c test validate -f tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml
-tests/gizclaw-e2e/testdata/bin/giztest-c test run tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml \
-  --parallel 4 --output tests/gizclaw-e2e/testdata/giztest-c-report.json
-```
+| Runner | 入口 | 设备端 | 控制端 |
+| --- | --- | --- | --- |
+| Go | `gizclaw test run` | `sdk/go/gizcli` | runner 内置 HTTP |
+| JavaScript | `npm run giztest -- run`（`tests/gizclaw-e2e/js/giztest/index.ts`） | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
+| Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
+| C | 构建后的 `giztest-c` 二进制（`tests/gizclaw-e2e/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
 
-C driver 执行 `rpc`、`client_rpc` 与 `http`。streaming、speech 与 Workspace relay
-没有 C client，driver 不声明这些 operation，`validate` 会按 step 与 operation 名称直接
-拒绝相应文档。C runner 无法执行的 step 不会被静默放过；该 phase 选取由受支持 operation
-构成的场景，即 `all.ping`、`server.api_key.*`、`server.contacts.*` 与 `server.device.*`。
+四者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
+并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
+`http` 与 `output` 四种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
+skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc` 与 `http`，
+遇到不支持的文档在 `validate` 阶段直接拒绝并指出具体 step 与 operation，其
+`giztest:c-sdk` phase 只跑由这些 operation 构成的场景。
 
-两个 runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、capture 与 expect、任务
-runner 和 report。runner 只提供 `giztest.Driver` 及其任务级 `giztest.Session`；
+Go 与 C runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、capture 与 expect、
+任务 runner 和 report。两者各自提供 `giztest.Driver` 及其任务级 `giztest.Session`，
 `barrier`、`output`、`review` 仍由 runner 自身执行。
-`api/giztest/giztest.schema.json` 是两侧共同校验的跨语言文档契约。
+`api/giztest/giztest.schema.json` 是所有 runner 共同校验的跨语言文档契约。
+
+Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
+platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
+
+已知跨 runner 差异，都只影响 `rpc` step 的响应投影：
+
+- Go 用 `protojson` 的 `EmitUnpopulated`，零值字段也会出现；JavaScript 与 Flutter 的
+  codec 只输出已设置的字段。断言未设置字段的零值时结果不同。
+- Go 与 Flutter 按 proto3 JSON 把 `int64` / `uint64` 字段输出为字符串，JavaScript codec
+  输出数字。因此断言 `int64` 字段时，`equals: 35` 只在 JavaScript 下通过，
+  `equals: "35"` 只在 Go 与 Flutter 下通过；`minimum` / `maximum` 两种形式都接受。
 
 ### Giztest 场景
 

@@ -209,6 +209,10 @@ jobs:
         working-directory: sdk/flutter/gizclaw
         run: flutter pub get
 
+      - name: Install Dart control SDK dependencies
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart pub get
+
       - name: Check handwritten Dart formatting
         run: >-
           go run ./tools/quality files -language=dart -print0 |
@@ -216,6 +220,18 @@ jobs:
 
       - name: Analyze Flutter SDK
         working-directory: sdk/flutter/gizclaw
+        run: flutter analyze
+
+      - name: Analyze Dart control SDK
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart analyze --fatal-infos
+
+      - name: Install giztest runner dependencies
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter pub get
+
+      - name: Analyze giztest runner
+        working-directory: tests/gizclaw-e2e/flutter/giztest
         run: flutter analyze
 
   test:
@@ -655,4 +671,28 @@ jobs:
 
       - name: Test SDK
         working-directory: sdk/flutter/gizclaw
+        run: flutter test
+
+      - name: Install control SDK dependencies
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart pub get
+
+      - name: Analyze control SDK
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart analyze --fatal-infos
+
+      - name: Test control SDK
+        working-directory: sdk/flutter/gizclaw_control
+        run: dart test
+
+      - name: Install giztest runner dependencies
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter pub get
+
+      - name: Analyze giztest runner
+        working-directory: tests/gizclaw-e2e/flutter/giztest
+        run: flutter analyze
+
+      - name: Test giztest runner
+        working-directory: tests/gizclaw-e2e/flutter/giztest
         run: flutter test

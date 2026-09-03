@@ -1,0 +1,14 @@
+name: gizclaw_control
+description: Pure Dart controller client for the GizClaw API-key HTTP API.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  http: ^1.2.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.26.3

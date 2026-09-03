@@ -537,8 +537,7 @@ Document validation already treats a reference inside expect as a real
 variable reference and rejects one whose producing step has not run, so
 comparing the operand literally would contradict the document model.
 
-Pattern is deliberately left alone: it is an RE2 source string where "${" is
-regular expression syntax rather than a reference.
+Pattern is resolved too, so a generated value can anchor a regular expression.
 */
 func resolveExpectations(vars *Variables, assertions map[string]Expectation) (map[string]Expectation, error) {
 	if len(assertions) == 0 {
@@ -553,12 +552,18 @@ func resolveExpectations(vars *Variables, assertions map[string]Expectation) (ma
 			}
 			expectation.Equals = value
 		}
-		if expectation.Contains != "" {
-			text, err := resolveText(vars, expectation.Contains)
-			if err != nil {
-				return nil, fmt.Errorf("expect %s contains: %w", path, err)
+		for name, field := range map[string]*string{
+			"contains": &expectation.Contains,
+			"pattern":  &expectation.Pattern,
+		} {
+			if *field == "" {
+				continue
 			}
-			expectation.Contains = text
+			text, err := resolveText(vars, *field)
+			if err != nil {
+				return nil, fmt.Errorf("expect %s %s: %w", path, name, err)
+			}
+			*field = text
 		}
 		for name, needles := range map[string][]string{
 			"contains_all": expectation.ContainsAll,

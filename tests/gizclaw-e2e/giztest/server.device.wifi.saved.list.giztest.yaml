@@ -42,15 +42,6 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: provider_saved
-  client: peer
-  client_rpc:
-    method: client.wifi.saved.list
-    response:
-      networks:
-      - ssid: home
-      - ssid: office
-    expect_calls: 1
 - id: primary_http
   client: peer
   http:
@@ -64,6 +55,15 @@ steps:
       count: 2
     /networks/1/ssid:
       equals: office
+- id: provider_saved
+  client: peer
+  client_rpc:
+    method: client.wifi.saved.list
+    response:
+      networks:
+      - ssid: home
+      - ssid: office
+    expect_calls: 1
 finally:
 - id: cleanup_peer
   client: peer

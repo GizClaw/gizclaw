@@ -42,13 +42,6 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: provider_volume
-  client: peer
-  client_rpc:
-    method: client.device.volume.set
-    response:
-      battery_percent: 88
-    expect_calls: 1
 - id: primary_http
   client: peer
   http:
@@ -86,8 +79,11 @@ steps:
     method: server.status.get
     request: {}
   expect:
+    # volume is an int64, which proto3 JSON renders as a string. Numeric bounds
+    # assert the exact value across every runner's response projection.
     /volume:
-      equals: 35
+      minimum: 35
+      maximum: 35
     /muted:
       equals: true
 - id: out_of_range
@@ -104,6 +100,13 @@ steps:
   expect:
     /error/code:
       equals: INVALID_REQUEST
+- id: provider_volume
+  client: peer
+  client_rpc:
+    method: client.device.volume.set
+    response:
+      battery_percent: 88
+    expect_calls: 1
 finally:
 - id: cleanup_peer
   client: peer

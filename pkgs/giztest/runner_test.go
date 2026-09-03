@@ -343,8 +343,7 @@ func TestResolveExpectationsSubstitutesReferences(t *testing.T) {
 		"/summary": {Contains: "id ${name}", ContainsAll: []string{"${name}"}},
 		"/total":   {Equals: "${count}"},
 		"/note":    {NotContains: []any{"${name}"}},
-		// A pattern is RE2 source, so "${" stays literal.
-		"/pattern": {Pattern: "^[a-z]+$"},
+		"/pattern": {Pattern: "^${name}$"},
 	})
 	if err != nil {
 		t.Fatalf("resolveExpectations() error = %v", err)
@@ -365,8 +364,8 @@ func TestResolveExpectationsSubstitutesReferences(t *testing.T) {
 	if err != nil || len(notContains) != 1 || notContains[0] != "contact-7f3a" {
 		t.Fatalf("not_contains = %#v, %v", notContains, err)
 	}
-	if got := resolved["/pattern"].Pattern; got != "^[a-z]+$" {
-		t.Fatalf("pattern = %q, want it left untouched", got)
+	if got := resolved["/pattern"].Pattern; got != "^contact-7f3a$" {
+		t.Fatalf("pattern = %q, want the reference substituted", got)
 	}
 
 	// The resolved expectation is what the assertion sees.

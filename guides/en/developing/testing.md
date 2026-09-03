@@ -109,7 +109,8 @@ tests/gizclaw-e2e/
 ├── cmd/         # real gizclaw CLI tests
 ├── giztest/     # declarative Peer RPC, Workflow, and benchmark scenarios
 ├── go/          # focused Admin, delete, Edge, and OpenAI tests
-└── js/          # JavaScript/TypeScript WebRTC tests
+├── js/          # JavaScript/TypeScript WebRTC tests and giztest runner
+└── flutter/     # Flutter/Dart giztest runner
 ```
 
 Copy the provider credential template first. `.env` is only for provider
@@ -208,32 +209,50 @@ Workspace history is runtime data and must not be seeded by the reset script.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, gameplay, and Workflow behavior.
 - `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
-- `cgo/giztest` is a second Giztest runner whose clients are the C SDKs: `sdk/c/gizclaw` dials the device Peer and answers server-initiated `client.*` RPCs, and `sdk/c/gizclaw_control` serves every `http` step against `/gizclaw/v1`. It reuses `pkgs/giztest` for the scenario language and report, so both runners execute the same files and emit the same JSON.
+- `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.
 
-### The C Giztest runner
+### Giztest runners
 
-`tests/gizclaw-e2e/cgo/giztest` accepts the same command line as `gizclaw test`
-and writes the same report, so the `giztest:c-sdk` phase runs the same scenario
-files as the Go phase:
+The same `giztest/*.giztest.yaml` scenarios run under four runners, each using
+its own language's SDK, so one scenario suite validates the contract and every
+SDK:
 
-```sh
-tests/gizclaw-e2e/testdata/bin/giztest-c test validate -f tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml
-tests/gizclaw-e2e/testdata/bin/giztest-c test run tests/gizclaw-e2e/giztest/server.device.status.get.giztest.yaml \
-  --parallel 4 --output tests/gizclaw-e2e/testdata/giztest-c-report.json
-```
+| Runner | Entry point | Device side | Controller side |
+| --- | --- | --- | --- |
+| Go | `gizclaw test run` | `sdk/go/gizcli` | HTTP inside the runner |
+| JavaScript | `npm run giztest -- run` (`tests/gizclaw-e2e/js/giztest/index.ts`) | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
+| Flutter | the built `giztest` desktop binary (`tests/gizclaw-e2e/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
+| C | the built `giztest-c` binary (`tests/gizclaw-e2e/cgo/giztest`) | `sdk/c/gizclaw` through cgo | `sdk/c/gizclaw_control` |
 
-The C driver executes `rpc`, `client_rpc`, and `http`. Streaming, speech, and
-Workspace relay steps have no C client, so the driver does not declare them and
-`validate` rejects those documents by step and operation name. A step the C
-runner cannot execute never passes silently; the phase selects the scenarios
-built from the supported operations, which is the `all.ping`,
-`server.api_key.*`, `server.contacts.*`, and `server.device.*` set.
+All four accept the same command line (`validate -f <path>`, `run <path>
+--parallel N --output <report>`) and write the same report JSON structure. The
+JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`
+and `output` step kinds; a document using any other step kind, or an `audio` or
+`binary` variable, is reported as skipped on stderr rather than passing
+silently. The C runner implements `rpc`, `client_rpc`, and `http`, and rejects
+an unsupported document during `validate`, naming the step and operation, so
+its `giztest:c-sdk` phase runs the scenarios built from those operations.
 
-Both runners share `pkgs/giztest`, which owns the document schema, variables,
-captures and expectations, the task runner, and the report. A runner supplies a
-`giztest.Driver` and its per-task `giztest.Session`; the runner itself keeps
-`barrier`, `output`, and `review`. `api/giztest/giztest.schema.json` is the
-cross-language document contract both validate against.
+The Go and C runners share `pkgs/giztest`, which owns the document schema,
+variables, captures and expectations, the task runner, and the report. Each
+supplies a `giztest.Driver` and its per-task `giztest.Session` while the runner
+keeps `barrier`, `output`, and `review`. `api/giztest/giztest.schema.json` is
+the cross-language document contract every runner validates against.
+
+The Flutter runner is a desktop binary rather than a plain Dart CLI because the
+device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
+builds and runs it on macOS and Linux and skips it on other hosts.
+
+Two known cross-runner differences, both in how an `rpc` step projects its
+response:
+
+- Go marshals with protojson's `EmitUnpopulated`, so zero-valued fields are
+  present, while the JavaScript and Dart codecs emit only fields that were set.
+  An expectation on the zero value of an unset field behaves differently.
+- Go and Flutter follow proto3 JSON and emit `int64` and `uint64` fields as
+  strings; the JavaScript codec emits numbers. On such a field `equals: 35`
+  passes only under JavaScript and `equals: "35"` only under Go and Flutter,
+  while `minimum` and `maximum` accept both forms.
 
 ### Giztest scenarios
 

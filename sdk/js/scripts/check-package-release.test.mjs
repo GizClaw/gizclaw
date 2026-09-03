@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtemp, mkdir, rm, unlink, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -20,6 +28,7 @@ test("accepts publishable SDK content with a version increase", async () => {
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
       baseVersion: "0.7.1",
+      package: "@gizclaw/gizclaw",
       publish: true,
       releasePaths: ["sdk/js/gizclaw/events.ts"],
       version: "0.7.2",
@@ -118,6 +127,75 @@ test("ignores package manifest property ordering", async () => {
   });
 });
 
+test("verifies a second package selected with --package", async () => {
+  await withRepository(async ({ base, directory }) => {
+    await writePackage(directory, "0.1.1", {}, "0.1.1", "gizclaw-control");
+    await writeFile(
+      join(directory, "sdk/js/gizclaw-control/index.ts"),
+      "export {}\n",
+    );
+    commit(directory, "release control SDK");
+
+    const result = runChecker(directory, base, "sdk/js/gizclaw-control");
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      baseVersion: "0.1.0",
+      package: "@gizclaw/gizclaw-control",
+      publish: true,
+      releasePaths: ["sdk/js/gizclaw-control/index.ts"],
+      version: "0.1.1",
+    });
+  });
+});
+
+test("does not publish one package for changes owned by the other", async () => {
+  await withRepository(async ({ base, directory }) => {
+    await writeFile(
+      join(directory, "sdk/js/gizclaw-control/index.ts"),
+      "export {}\n",
+    );
+    await writePackage(directory, "0.1.1", {}, "0.1.1", "gizclaw-control");
+    commit(directory, "change control SDK only");
+
+    const result = runChecker(directory, base);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).publish, false);
+  });
+});
+
+test("publishes a package that did not exist at the base commit", async () => {
+  await withRepository(async ({ base, directory }) => {
+    await mkdir(join(directory, "sdk/js/gizclaw-new"), { recursive: true });
+    await writePackage(directory, "0.1.0", {}, "0.1.0", "gizclaw-new");
+    await writeFile(
+      join(directory, "sdk/js/gizclaw-new/index.ts"),
+      "export {}\n",
+    );
+    commit(directory, "add package");
+
+    const result = runChecker(directory, base, "sdk/js/gizclaw-new");
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      baseVersion: null,
+      package: "@gizclaw/gizclaw-new",
+      publish: true,
+      releasePaths: [
+        "sdk/js/gizclaw-new/index.ts",
+        "sdk/js/gizclaw-new/package.json",
+      ],
+      version: "0.1.0",
+    });
+  });
+});
+
+test("rejects a package directory outside sdk/js", async () => {
+  await withRepository(async ({ base, directory }) => {
+    const result = runChecker(directory, base, "tests/gizclaw");
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /directly under sdk\/js/u);
+  });
+});
+
 test("rejects a package-lock version mismatch", async () => {
   await withRepository(async ({ base, directory }) => {
     await writePackage(directory, "0.7.2", {}, "0.7.1");
@@ -137,9 +215,15 @@ async function withRepository(callback) {
     git(directory, "config", "user.email", "test@example.com");
     git(directory, "config", "user.name", "Release Contract Test");
     await mkdir(join(directory, "sdk/js/gizclaw"), { recursive: true });
+    await mkdir(join(directory, "sdk/js/gizclaw-control"), { recursive: true });
     await writePackage(directory, "0.7.1");
+    await writePackage(directory, "0.1.0", {}, "0.1.0", "gizclaw-control");
     await writeFile(
       join(directory, "sdk/js/gizclaw/events.ts"),
+      "export const initial = true;\n",
+    );
+    await writeFile(
+      join(directory, "sdk/js/gizclaw-control/index.ts"),
       "export const initial = true;\n",
     );
     commit(directory, "base");
@@ -155,29 +239,27 @@ async function writePackage(
   version,
   manifestAdditions = {},
   lockVersion = version,
+  packageDirectory = "gizclaw",
 ) {
   const manifest = {
-    name: "@gizclaw/gizclaw",
+    name: `@gizclaw/${packageDirectory}`,
     version,
     publishConfig: { registry: "https://npm.pkg.github.com" },
     ...manifestAdditions,
   };
-  const lock = {
-    packages: {
-      "sdk/js/gizclaw": {
-        name: "@gizclaw/gizclaw",
-        version: lockVersion,
-      },
-    },
+  const lockPath = join(directory, "package-lock.json");
+  const lock = existsSync(lockPath)
+    ? JSON.parse(await readFile(lockPath, "utf8"))
+    : { packages: {} };
+  lock.packages[`sdk/js/${packageDirectory}`] = {
+    name: manifest.name,
+    version: lockVersion,
   };
   await writeFile(
-    join(directory, "sdk/js/gizclaw/package.json"),
+    join(directory, `sdk/js/${packageDirectory}/package.json`),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
-  await writeFile(
-    join(directory, "package-lock.json"),
-    `${JSON.stringify(lock, null, 2)}\n`,
-  );
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 }
 
 function commit(directory, message) {
@@ -185,8 +267,9 @@ function commit(directory, message) {
   git(directory, "-c", "commit.gpgsign=false", "commit", "-m", message);
 }
 
-function runChecker(directory, base) {
-  return spawnSync(process.execPath, [checker, "--base", base], {
+function runChecker(directory, base, packagePath) {
+  const extra = packagePath == null ? [] : ["--package", packagePath];
+  return spawnSync(process.execPath, [checker, "--base", base, ...extra], {
     cwd: directory,
     encoding: "utf8",
   });

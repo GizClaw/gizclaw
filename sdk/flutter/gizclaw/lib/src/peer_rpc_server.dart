@@ -16,6 +16,8 @@ const _rpcSpeedTestFrameSize = 32 * 1024;
 const _rpcSpeedTestMaxContentLength = 1 << 30;
 
 typedef GizClawDeviceInfoProvider = FutureOr<payload.DeviceInfo> Function();
+typedef GizClawDeviceIdentifiersProvider =
+    FutureOr<payload.DeviceIdentifiers> Function();
 typedef GizClawToolHandler =
     FutureOr<Object?> Function(Map<String, Object?> arguments);
 
@@ -60,11 +62,17 @@ class GizClawPeerRpcHandlers {
     required this.deviceInfo,
     Map<String, GizClawToolHandler> tools = const {},
     this.deviceControl,
+    this.deviceIdentifiers,
   }) : tools = Map.unmodifiable(tools);
 
   final GizClawDeviceInfoProvider deviceInfo;
   final Map<String, GizClawToolHandler> tools;
   final GizClawDeviceControlHandlers? deviceControl;
+
+  /// Answers `client.identifiers.get`. When null the identifiers reported by
+  /// [deviceInfo] are used, so a device that already reports them there needs
+  /// no separate provider.
+  final GizClawDeviceIdentifiersProvider? deviceIdentifiers;
 }
 
 const _deviceControlMethods = {
@@ -329,21 +337,22 @@ class _InboundPeerRpcChannel {
   Future<rpc.RpcResponse> _getClientIdentifiers(rpc.RpcRequest request) async {
     final invalid = _validateClientRequest(request, 'client.identifiers.get');
     if (invalid != null) return invalid;
+    final identifiersProvider = handlers?.deviceIdentifiers;
     final provider = handlers?.deviceInfo;
-    if (provider == null) {
+    if (identifiersProvider == null && provider == null) {
       return _rpcErrorResponse(
         request.id,
         rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
         'peer client not configured',
       );
     }
-    final device = await provider();
+    final source = identifiersProvider != null
+        ? await identifiersProvider()
+        : (await provider!()).identifiers;
     final identifiers = payload.DeviceIdentifiers();
-    if (device.hasIdentifiers()) {
-      if (device.identifiers.hasSn()) identifiers.sn = device.identifiers.sn;
-      identifiers.imeis.addAll(device.identifiers.imeis);
-      identifiers.labels.addAll(device.identifiers.labels);
-    }
+    if (source.hasSn()) identifiers.sn = source.sn;
+    identifiers.imeis.addAll(source.imeis);
+    identifiers.labels.addAll(source.labels);
     return _rpcPayloadResponse(
       request.id,
       'client.identifiers.get',

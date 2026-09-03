@@ -326,6 +326,44 @@ run_js_rpc_tests() {
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:streams)
 }
 
+# The JavaScript and Flutter runners execute the same scenario documents as the
+# Go runner, through their own SDKs. Each reports documents that use step kinds
+# it does not implement as skipped.
+run_js_giztest() {
+	local report="$script_dir/testdata/giztest-js-report.json"
+	echo "==> node tests/gizclaw-e2e/js/giztest"
+	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:giztest-unit)
+	(cd "$repo_root/tests/gizclaw-e2e/js" &&
+		npm run giztest -- run "$script_dir/giztest" --parallel 4 --output "$report")
+}
+
+run_flutter_giztest() {
+	local package_dir="$script_dir/flutter/giztest"
+	local report="$script_dir/testdata/giztest-flutter-report.json"
+	local binary
+	if ! command -v flutter >/dev/null 2>&1; then
+		echo "==> skipping tests/gizclaw-e2e/flutter/giztest: flutter is not installed" >&2
+		return 0
+	fi
+	case "$(uname -s)" in
+		Darwin) binary="$package_dir/build/macos/Build/Products/Release/giztest.app/Contents/MacOS/giztest" ;;
+		Linux) binary="$package_dir/build/linux/x64/release/bundle/giztest" ;;
+		*)
+			echo "==> skipping tests/gizclaw-e2e/flutter/giztest: unsupported host" >&2
+			return 0
+			;;
+	esac
+	echo "==> flutter test $package_dir"
+	(cd "$package_dir" && flutter pub get && flutter test)
+	echo "==> flutter build $package_dir"
+	case "$(uname -s)" in
+		Darwin) (cd "$package_dir" && flutter build macos --release) ;;
+		Linux) (cd "$package_dir" && flutter build linux --release) ;;
+	esac
+	echo "==> $binary run"
+	"$binary" run "$script_dir/giztest" --parallel 4 --output "$report"
+}
+
 run_standard_giztest() {
 	local giztest_dir="$script_dir/giztest"
 	local report="$script_dir/testdata/giztest-standard-report.json"
@@ -415,6 +453,8 @@ source "$docker_env_path"
 set +a
 
 run_timed "javascript" run_js_rpc_tests
+run_timed "giztest:javascript" run_js_giztest
+run_timed "giztest:flutter" run_flutter_giztest
 run_timed "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
 run_timed "cgo:telemetry" run_pkg "./tests/gizclaw-e2e/cgo/telemetry"
 run_timed "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
