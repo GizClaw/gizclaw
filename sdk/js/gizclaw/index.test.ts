@@ -36,6 +36,7 @@ import {
   encodeRPCResponse,
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
+  normalizeServerBaseURL,
   getGiznetWebRTCPacketDataChannel,
   getGiznetWebRTCPeerEventDataChannel,
   parseRPCResponse,
@@ -2817,7 +2818,7 @@ test("fetchGiznetServerInfo rejects invalid Edge transport metadata", async () =
       signaling_path: "/offer",
     },
     {
-      endpoint: "https://edge.example",
+      endpoint: "ftp://edge.example",
       mode: "edge-gateway",
       public_key: edgePublicKey,
       signaling_path: "/offer",
@@ -2849,6 +2850,60 @@ test("fetchGiznetServerInfo rejects invalid Edge transport metadata", async () =
       /transport|signaling_path|base58/,
     );
   }
+});
+
+test("normalizeServerBaseURL keeps https and defaults a bare host:port to http", () => {
+  assert.equal(
+    normalizeServerBaseURL("127.0.0.1:9820"),
+    "http://127.0.0.1:9820",
+  );
+  assert.equal(
+    normalizeServerBaseURL("https://ap.gizclaw.com"),
+    "https://ap.gizclaw.com",
+  );
+  assert.equal(
+    normalizeServerBaseURL("https://ap.gizclaw.com/"),
+    "https://ap.gizclaw.com",
+  );
+  assert.equal(
+    normalizeServerBaseURL("https://ap.gizclaw.com/prefix/"),
+    "https://ap.gizclaw.com/prefix",
+  );
+  for (const value of [
+    "",
+    "ftp://ap.gizclaw.com",
+    "https://user@ap.gizclaw.com",
+    "https://ap.gizclaw.com?probe=1",
+    "https://ap.gizclaw.com#fragment",
+  ]) {
+    assert.throws(() => normalizeServerBaseURL(value), /server URL/u);
+  }
+});
+
+test("fetchGiznetServerInfo reaches an https access point and preserves a path prefix", async () => {
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
+  const requested: string[] = [];
+  const fetchImpl = async (input: Request | string | URL) => {
+    requested.push(String(input));
+    return Response.json({
+      endpoint: "ice.example:9820",
+      public_key: serverPublicKey,
+    });
+  };
+  const info = await fetchGiznetServerInfo({
+    endpoint: "https://ap.gizclaw.com/prefix/",
+    fetch: fetchImpl as unknown as typeof fetch,
+  });
+  assert.equal(info.endpoint, "ice.example:9820");
+  assert.deepEqual(requested, ["https://ap.gizclaw.com/prefix/server-info"]);
+
+  await fetchGiznetServerInfo({
+    endpoint: "127.0.0.1:9820",
+    fetch: fetchImpl as unknown as typeof fetch,
+  });
+  assert.equal(requested[1], "http://127.0.0.1:9820/server-info");
 });
 
 test("fetchGiznetServerInfo rejects invalid ICE server metadata", async () => {

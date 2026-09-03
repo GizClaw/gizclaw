@@ -63,7 +63,7 @@ func TestContextCommandsManageContexts(t *testing.T) {
 	if err := json.Unmarshal([]byte(infoOut), &info); err != nil {
 		t.Fatalf("decode info output %q: %v", infoOut, err)
 	}
-	if info.Name != "alpha" || !info.Current || info.ServerEndpoint != "127.0.0.1:9820" {
+	if info.Name != "alpha" || !info.Current || info.ServerEndpoint != "http://127.0.0.1:9820" {
 		t.Fatalf("info = %+v", info)
 	}
 
@@ -72,7 +72,7 @@ func TestContextCommandsManageContexts(t *testing.T) {
 	if err := json.Unmarshal([]byte(showOut), &shown); err != nil {
 		t.Fatalf("decode show output %q: %v", showOut, err)
 	}
-	if shown.Name != "beta" || shown.Current || shown.Description != "Beta context" || shown.ServerEndpoint != "127.0.0.1:9821" {
+	if shown.Name != "beta" || shown.Current || shown.Description != "Beta context" || shown.ServerEndpoint != "http://127.0.0.1:9821" {
 		t.Fatalf("show = %+v", shown)
 	}
 

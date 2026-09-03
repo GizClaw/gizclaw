@@ -2,6 +2,12 @@
 
 GizClaw publishes its C SDK as a deterministic source archive attached to each canonical `vMAJOR.MINOR.PATCH` GitHub Release. The SDK does not have an independent runtime version: archive version `X.Y.Z` identifies the same source commit as repository tag `vX.Y.Z`.
 
+## Access point URL
+
+`gzc_client_config_t.server_url` is the HTTP access point of the Server or Edge. It accepts an `http://` or `https://` base URL such as `https://ap.gizclaw.com`, and a bare `host:port` still resolves to `http`. A path prefix is preserved, a trailing slash is dropped, and query strings, fragments and userinfo are rejected.
+
+A TLS access point can terminate on a port that carries no ICE, so WebRTC media never reuses the URL authority. `/server-info` advertises the ICE UDP address in its `endpoint` field, and `gzc_client_ice_endpoint()` reports it as `host[:port]` after a successful connect.
+
 ## Download and verify
 
 Download both the archive and its sidecar before adding it to a build:

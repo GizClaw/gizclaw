@@ -160,6 +160,63 @@ void transportTests() {
       expect(info.transportSignalingPath, '/webrtc/v1/offer');
     });
 
+    test('exposes the advertised ICE UDP endpoint', () {
+      final info = GiznetServerInfo.fromJson({
+        'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+        'endpoint': '127.0.0.1:9820',
+      });
+      expect(info.iceEndpoint, '127.0.0.1:9820');
+      expect(
+        () => GiznetServerInfo.fromJson({
+          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+          'endpoint': 'ftp://127.0.0.1:9820',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('normalizes access points and inherits the transport scheme', () {
+      expect(
+        normalizeGiznetAccessPoint('127.0.0.1:9820').toString(),
+        'http://127.0.0.1:9820',
+      );
+      expect(
+        normalizeGiznetAccessPoint('https://ap.gizclaw.com/').toString(),
+        'https://ap.gizclaw.com',
+      );
+      expect(
+        normalizeGiznetAccessPoint('https://ap.gizclaw.com/prefix/').toString(),
+        'https://ap.gizclaw.com/prefix',
+      );
+      expect(
+        resolveGiznetTransportBaseUrl(
+          normalizeGiznetAccessPoint('https://ap.gizclaw.com'),
+          'edge.example:9821',
+        ).toString(),
+        'https://edge.example:9821',
+      );
+      expect(
+        resolveGiznetTransportBaseUrl(
+          normalizeGiznetAccessPoint('http://ap.gizclaw.com'),
+          'https://edge.example',
+        ).toString(),
+        'https://edge.example',
+      );
+      for (final value in <String>[
+        '',
+        'ftp://ap.gizclaw.com',
+        'https://user@ap.gizclaw.com',
+        'https://ap.gizclaw.com?probe=1',
+        'https://ap.gizclaw.com#fragment',
+      ]) {
+        expect(
+          () => normalizeGiznetAccessPoint(value),
+          throwsFormatException,
+          reason: value,
+        );
+      }
+    });
+
     test('rejects a gateway without a usable public key', () {
       expect(
         () => GiznetServerInfo.fromJson({

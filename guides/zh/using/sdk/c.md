@@ -2,6 +2,12 @@
 
 GizClaw 会在每个规范 `vMAJOR.MINOR.PATCH` GitHub Release 中附带一个可复现的 C SDK 源码包。C SDK 没有独立的 runtime version：源码包版本 `X.Y.Z` 与仓库 tag `vX.Y.Z` 指向同一个 source commit。
 
+## 接入点 URL
+
+`gzc_client_config_t.server_url` 是 Server 或 Edge 的 HTTP 接入点。它接受 `http://` 或 `https://` 基础 URL，例如 `https://ap.gizclaw.com`；裸 `host:port` 仍然可用，并按 `http` 解析。路径前缀会保留，结尾斜杠会被去掉，查询串、fragment 和 userinfo 会被拒绝。
+
+TLS 接入点所在端口可能不承载 ICE，因此 WebRTC 媒体不会复用该 URL 的 authority。`/server-info` 通过 `endpoint` 字段公告 ICE UDP 地址，连接成功后 `gzc_client_ice_endpoint()` 会以 `host[:port]` 返回它。
+
 ## 下载与校验
 
 接入构建前同时下载源码包及其 sidecar：

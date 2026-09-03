@@ -62,8 +62,12 @@ class GiznetServerInfoTransport {
         publicKeyBytes.every((byte) => byte == 0)) {
       throw const FormatException('server-info transport invalid public_key');
     }
+    final endpoint = (json['endpoint'] as String? ?? '').trim();
+    if (endpoint.isEmpty || !isValidGiznetAccessPoint(endpoint)) {
+      throw const FormatException('server-info transport invalid endpoint');
+    }
     return GiznetServerInfoTransport(
-      endpoint: json['endpoint'] as String? ?? '',
+      endpoint: endpoint,
       mode: json['mode'] as String? ?? '',
       publicKey: publicKey,
       signalingPath: _normalizeSignalingPath(json['signaling_path'] as String?),
@@ -105,6 +109,11 @@ class GiznetServerInfo {
   String get transportSignalingPath =>
       transport?.signalingPath ?? signalingPath;
 
+  /// host[:port] the Server accepts ICE UDP traffic on. The HTTP access point
+  /// may terminate TLS on a port that carries no ICE, so WebRTC media uses this
+  /// address rather than the URL the document was fetched from.
+  String? get iceEndpoint => endpoint;
+
   factory GiznetServerInfo.fromJson(Map<String, Object?> json) {
     final protocol = json['protocol'] as String?;
     if (protocol != null && protocol != 'gizclaw-webrtc') {
@@ -130,7 +139,7 @@ class GiznetServerInfo {
         json['build_commit'],
         'build_commit',
       ),
-      endpoint: json['endpoint'] as String?,
+      endpoint: _optionalServerInfoEndpoint(json['endpoint']),
       protocol: protocol,
       publicKey: publicKey,
       signalingPath: signalingPath,
@@ -139,6 +148,23 @@ class GiznetServerInfo {
           : null,
       version: _optionalServerInfoMetadata(json['version'], 'version'),
     );
+  }
+
+  static String? _optionalServerInfoEndpoint(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is! String) {
+      throw const FormatException('server-info invalid endpoint');
+    }
+    final endpoint = value.trim();
+    if (endpoint.isEmpty) {
+      return null;
+    }
+    if (!isValidGiznetAccessPoint(endpoint)) {
+      throw FormatException('server-info invalid endpoint $endpoint');
+    }
+    return endpoint;
   }
 
   static String? _optionalServerInfoMetadata(Object? value, String field) {
@@ -376,4 +402,69 @@ class _SignalingKeys {
   final List<int> requestNonce;
   final List<int> responseKey;
   final List<int> responseNonce;
+}
+
+
+/// Reports whether [value] is an access point this SDK can reach: an http or
+/// https base URL, or a bare host[:port] that resolves to http.
+bool isValidGiznetAccessPoint(String value) {
+  try {
+    normalizeGiznetAccessPoint(value);
+    return true;
+  } on FormatException {
+    return false;
+  }
+}
+
+/// Normalizes an access point to an absolute http or https base URL without a
+/// trailing slash. A value with no scheme defaults to http.
+Uri normalizeGiznetAccessPoint(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    throw const FormatException('access point is empty');
+  }
+  final Uri parsed;
+  try {
+    parsed = Uri.parse(
+      trimmed.contains('://') ? trimmed : 'http://$trimmed',
+    );
+  } on FormatException {
+    throw FormatException('access point is invalid: $value');
+  }
+  if (parsed.scheme != 'http' && parsed.scheme != 'https') {
+    throw FormatException('access point must use http or https: $value');
+  }
+  if (parsed.host.isEmpty ||
+      parsed.userInfo.isNotEmpty ||
+      parsed.hasQuery ||
+      parsed.hasFragment) {
+    throw FormatException(
+      'access point must be http://host[:port] or https://host[:port]: $value',
+    );
+  }
+  var path = parsed.path;
+  while (path.endsWith('/')) {
+    path = path.substring(0, path.length - 1);
+  }
+  if (path.contains('//')) {
+    throw FormatException(
+      'access point path must not contain empty segments: $value',
+    );
+  }
+  return Uri(
+    scheme: parsed.scheme,
+    host: parsed.host,
+    port: parsed.hasPort ? parsed.port : null,
+    path: path,
+  );
+}
+
+/// Resolves a server-info transport endpoint against the access point base URL.
+/// A bare host[:port] inherits the base scheme; an absolute URL is used as is.
+Uri resolveGiznetTransportBaseUrl(Uri baseUrl, String endpoint) {
+  final value = endpoint.trim();
+  if (value.contains('://')) {
+    return normalizeGiznetAccessPoint(value);
+  }
+  return normalizeGiznetAccessPoint('${baseUrl.scheme}://$value');
 }

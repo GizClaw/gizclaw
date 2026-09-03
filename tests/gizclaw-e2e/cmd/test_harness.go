@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -835,7 +836,7 @@ func (h *Harness) connectClientFromContextWithDevice(name string, device apitype
 		return nil, nil, fmt.Errorf("load context identity from config: %w", err)
 	}
 
-	serverInfo, err := fetchE2EServerInfo(cliContextDialAddr(cfg))
+	serverInfo, err := fetchE2EServerInfo(cliContextBaseURL(cfg))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1189,15 +1190,34 @@ func e2eDialTransport(cfg cliContextConfig) gizcli.DialTransportFunc {
 	}
 }
 
+// cliContextDialAddr returns the context endpoint as host:port. The CLI stores
+// an http or https base URL, so the scheme is stripped here.
 func cliContextDialAddr(cfg cliContextConfig) string {
-	return strings.TrimSpace(cfg.Server.Endpoint)
+	value := strings.TrimSpace(cfg.Server.Endpoint)
+	if !strings.Contains(value, "://") {
+		return value
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return value
+	}
+	return parsed.Host
+}
+
+// cliContextBaseURL returns the context endpoint as an absolute base URL.
+func cliContextBaseURL(cfg cliContextConfig) string {
+	value := strings.TrimSpace(cfg.Server.Endpoint)
+	if strings.Contains(value, "://") {
+		return strings.TrimRight(value, "/")
+	}
+	return "http://" + value
 }
 
 func cliContextSignalingURL(cfg cliContextConfig) string {
 	if strings.TrimSpace(cfg.signalingURL) != "" {
 		return strings.TrimSpace(cfg.signalingURL)
 	}
-	return "http://" + cliContextDialAddr(cfg) + gizwebrtc.SignalingPath
+	return cliContextBaseURL(cfg) + gizwebrtc.SignalingPath
 }
 
 func fetchE2EServerInfo(endpoint string) (gizcli.ServerInfoMetadata, error) {

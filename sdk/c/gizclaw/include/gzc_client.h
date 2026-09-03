@@ -70,7 +70,14 @@ typedef struct {
 #define GZC_OPUS_RX_CAPACITY_DEFAULT 64u
 
 typedef struct {
-  gzc_str_t server_endpoint;
+  /*
+   * Base URL of the Server or Edge HTTP entry point, such as
+   * "http://192.168.1.10:9820" or "https://ap.gizclaw.com". Only the http and
+   * https schemes are accepted. A path prefix is preserved and a trailing
+   * slash is ignored. Query strings, fragments and userinfo are rejected. A
+   * bare host[:port] is accepted and resolves to http.
+   */
+  gzc_str_t server_url;
   gzc_str_t private_key;
   const gzc_platform_t *platform;
   const gzc_platform_crypto_t *crypto;
@@ -111,6 +118,13 @@ int gzc_client_set_webrtc_media(
     gzc_client_t *client,
     const gzc_webrtc_media_vtable_t *media);
 int gzc_client_connect(gzc_client_t *client);
+/*
+ * Reports the ICE UDP endpoint advertised by /server-info as host[:port]. The
+ * view borrows client-owned storage and stays valid until the next connect or
+ * destroy. Returns GZC_ERR_UNSUPPORTED before a successful connect or when the
+ * server advertised no endpoint.
+ */
+int gzc_client_ice_endpoint(gzc_client_t *client, gzc_str_t *out_endpoint);
 /*
  * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.
  * Exactly one serialized caller owns polling; the same loop advances every

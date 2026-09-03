@@ -263,7 +263,13 @@ export type ServerInfo = {
      */
     build_commit: string;
     protocol: string;
+    /**
+     * Absolute path clients POST an encrypted WebRTC offer to, resolved against the base URL of the HTTP access point.
+     */
     signaling_path: string;
+    /**
+     * host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with.
+     */
     endpoint: string;
     ice: {
         udp: boolean;
@@ -277,10 +283,19 @@ export type ServerInfo = {
     transport?: ServerInfoTransport;
 };
 
+/**
+ * Edge gateway that terminates WebRTC signaling on behalf of the Server.
+ */
 export type ServerInfoTransport = {
     mode: 'edge-gateway';
+    /**
+     * Edge HTTP access point, either an http or https base URL or a bare host[:port] that inherits the scheme the client used to reach the Server.
+     */
     endpoint: string;
     public_key: string;
+    /**
+     * Absolute path clients POST an encrypted WebRTC offer to on the Edge.
+     */
     signaling_path: string;
 };
 

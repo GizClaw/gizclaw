@@ -68,7 +68,7 @@ func newCreateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&serverAddr, "server", "", "server endpoint (host:port)")
+	cmd.Flags().StringVar(&serverAddr, "server", "", "server access point URL, such as http://127.0.0.1:9820 or https://ap.gizclaw.com")
 	cmd.Flags().StringVar(&description, "description", "", "human-readable context description")
 	_ = cmd.MarkFlagRequired("server")
 

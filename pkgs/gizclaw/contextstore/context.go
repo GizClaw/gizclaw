@@ -2,7 +2,7 @@ package contextstore
 
 import (
 	"fmt"
-	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +13,11 @@ import (
 
 const ConfigFile = "config.yaml"
 
-// ServerConfig holds the connection info for a remote server.
+// ServerConfig holds the connection info for a remote server. Endpoint is an
+// http or https base URL such as "http://127.0.0.1:9820" or
+// "https://ap.gizclaw.com"; the scheme selects the HTTP access lane, and the
+// WebRTC ICE UDP endpoint comes from /server-info instead. A bare host:port is
+// accepted and normalized to http.
 type ServerConfig struct {
 	Endpoint string `yaml:"endpoint"`
 }
@@ -94,12 +98,14 @@ func LoadConfig(dir string) (Config, error) {
 	if err := yaml.UnmarshalWithOptions(data, &cfg, yaml.DisallowUnknownField()); err != nil {
 		return Config{}, fmt.Errorf("contextstore: parse config: %w", err)
 	}
-	if err := validateEndpoint("server.endpoint", cfg.Server.Endpoint); err != nil {
-		return Config{}, err
-	}
-	kp, err := keyPairFromPrivateKey("identity.private-key", cfg.Identity.PrivateKey)
+	normalized, err := normalizeServerURL("server.endpoint", cfg.Server.Endpoint)
 	if err != nil {
 		return Config{}, err
+	}
+	cfg.Server.Endpoint = normalized
+	kp, kpErr := keyPairFromPrivateKey("identity.private-key", cfg.Identity.PrivateKey)
+	if kpErr != nil {
+		return Config{}, kpErr
 	}
 	cfg.Identity.PrivateKey = kp.Private
 	return cfg, nil
@@ -116,27 +122,44 @@ func keyPairFromPrivateKey(field string, privateKey giznet.Key) (*giznet.KeyPair
 	return kp, nil
 }
 
-func validateEndpoint(field, endpoint string) error {
-	if endpoint == "" {
-		return fmt.Errorf("contextstore: missing %s", field)
+// normalizeServerURL validates an http or https base URL and returns it
+// without a trailing slash. A value with no scheme defaults to http.
+func normalizeServerURL(field, endpoint string) (string, error) {
+	value := strings.TrimSpace(endpoint)
+	if value == "" {
+		return "", fmt.Errorf("contextstore: missing %s", field)
 	}
-	if strings.Contains(endpoint, "://") {
-		return fmt.Errorf("contextstore: %s must be host:port, got %q", field, endpoint)
+	if !strings.Contains(value, "://") {
+		value = "http://" + value
 	}
-	host, port, err := net.SplitHostPort(endpoint)
+	parsed, err := url.Parse(value)
 	if err != nil {
-		return fmt.Errorf("contextstore: invalid %s: %w", field, err)
+		return "", fmt.Errorf("contextstore: invalid %s: %w", field, err)
 	}
-	if strings.TrimSpace(host) == "" {
-		return fmt.Errorf("contextstore: %s host is empty", field)
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf(
+			"contextstore: %s must be an http:// or https:// URL, got %q",
+			field,
+			endpoint,
+		)
 	}
-	if strings.TrimSpace(port) == "" {
-		return fmt.Errorf("contextstore: %s port is empty", field)
+	if parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf(
+			"contextstore: %s must be http://host[:port] or https://host[:port], got %q",
+			field,
+			endpoint,
+		)
 	}
-	return nil
+	path := strings.TrimRight(parsed.Path, "/")
+	if strings.Contains(path, "//") {
+		return "", fmt.Errorf("contextstore: %s path must not contain empty segments", field)
+	}
+	base := url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: path}
+	return base.String(), nil
 }
 
-// PublicAPIAddr returns the HTTP endpoint host:port.
-func (s ServerConfig) PublicAPIAddr() string {
+// BaseURL returns the absolute HTTP base URL of the Server access point.
+func (s ServerConfig) BaseURL() string {
 	return s.Endpoint
 }

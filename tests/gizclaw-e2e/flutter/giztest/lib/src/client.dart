@@ -37,25 +37,9 @@ class HttpStepResult {
   final Object? body;
 }
 
-/// Turns a client access point into an HTTP origin, dropping any path, query
-/// and fragment.
-Uri httpBaseUrl(String accessPoint) {
-  final trimmed = accessPoint.trim();
-  if (trimmed.isEmpty) {
-    throw const FormatException('invalid access point');
-  }
-  final parsed = Uri.parse(
-    trimmed.contains('://') ? trimmed : 'http://$trimmed',
-  );
-  if (parsed.host.isEmpty) {
-    throw FormatException('invalid access point $accessPoint');
-  }
-  return Uri(
-    scheme: parsed.scheme,
-    host: parsed.host,
-    port: parsed.hasPort ? parsed.port : null,
-  );
-}
+/// Turns a client access point into an HTTP base URL. A bare host:port
+/// resolves to http, so scenarios can name either form.
+Uri httpBaseUrl(String accessPoint) => normalizeGiznetAccessPoint(accessPoint);
 
 /// Converts snake_case JSON keys into the lowerCamelCase proto3 JSON names the
 /// Dart protobuf runtime expects.
@@ -179,7 +163,7 @@ class ScenarioClient {
     final httpClient = http.Client();
     try {
       final infoResponse = await httpClient
-          .get(base.replace(path: '/server-info'))
+          .get(base.replace(path: '${base.path}/server-info'))
           .timeout(_connectTimeout);
       if (infoResponse.statusCode != 200) {
         throw StateError(
@@ -196,7 +180,7 @@ class ScenarioClient {
       // An Edge gateway can advertise its own origin, which is where the
       // encrypted offer must go.
       final signalingBase = info.transport?.endpoint.isNotEmpty ?? false
-          ? httpBaseUrl(info.transport!.endpoint)
+          ? resolveGiznetTransportBaseUrl(base, info.transport!.endpoint)
           : base;
       final handlers = _buildHandlers(name, steps, variables);
       var publicKey = '';
@@ -213,7 +197,10 @@ class ScenarioClient {
         sendOffer: (offer) async {
           final response = await httpClient
               .post(
-                signalingBase.replace(path: info.transportSignalingPath),
+                signalingBase.replace(
+                  path:
+                      '${signalingBase.path}${info.transportSignalingPath}',
+                ),
                 body: offer.body,
                 headers: {
                   'Content-Type': 'application/octet-stream',

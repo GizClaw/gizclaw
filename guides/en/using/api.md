@@ -11,7 +11,7 @@ GizClaw exposes two primary interfaces for administrators and peers. The Admin A
 
 Use the Admin API for Server resources that span peers. Use Peer RPC to read or modify product data as the current peer. Edge-node route control uses the separate Edge RPC service `0x31`; it is not part of the ordinary Peer RPC client.
 
-Before calling either interface, persist the caller's own keypair and obtain the Server endpoint and public key. The examples below assume that the SDK has already connected: a dialed `*gizcli.Client` in Go, or an `RTCPeerConnection` established by `connectGiznetWebRTCFromEndpoint` in TypeScript. Never log or commit private keys, login assertions, or session credentials.
+Before calling either interface, persist the caller's own keypair and obtain the Server access point and public key. The access point is an `http://` or `https://` base URL such as `https://ap.gizclaw.com`; a bare `host:port` still resolves to `http`. The examples below assume that the SDK has already connected: a dialed `*gizcli.Client` in Go, or an `RTCPeerConnection` established by `connectGiznetWebRTCFromEndpoint` in TypeScript. WebRTC media does not reuse the access point authority, because a TLS access point can terminate on a port that carries no ICE: the SDK takes the ICE UDP address from the `endpoint` field of `/server-info`. Never log or commit private keys, login assertions, or session credentials.
 
 The TypeScript SDK is published to GitHub Packages as `@gizclaw/gizclaw`. Add
 the following entries to the consuming project's `.npmrc`, provide a GitHub

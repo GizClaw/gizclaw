@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -66,7 +65,7 @@ func NewServerRPCFixture(t *testing.T) *ServerRPCFixture {
 	})
 	httpServer := httptest.NewServer(mux)
 	client, err := NewClientWithCredentials(
-		strings.TrimPrefix(httpServer.URL, "http://"),
+		httpServer.URL,
 		clientKey.Private.String(),
 	)
 	if err != nil {

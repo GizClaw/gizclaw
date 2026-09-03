@@ -6113,8 +6113,10 @@ type RuntimeProfileWorkspaceRewardTranscriptSpec struct {
 type ServerInfo struct {
 	// BuildCommit Source commit embedded when the server binary was built.
 	BuildCommit string `json:"build_commit"`
-	Endpoint    string `json:"endpoint"`
-	Ice         struct {
+
+	// Endpoint host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with.
+	Endpoint string `json:"endpoint"`
+	Ice      struct {
 		Tcp bool `json:"tcp"`
 		Udp bool `json:"udp"`
 	} `json:"ice"`
@@ -6123,22 +6125,29 @@ type ServerInfo struct {
 		Urls       []string `json:"urls"`
 		Username   *string  `json:"username,omitempty"`
 	} `json:"ice_servers,omitempty"`
-	Protocol      string               `json:"protocol"`
-	PublicKey     string               `json:"public_key"`
-	ServerTime    int64                `json:"server_time"`
-	SignalingPath string               `json:"signaling_path"`
-	Transport     *ServerInfoTransport `json:"transport,omitempty"`
+	Protocol   string `json:"protocol"`
+	PublicKey  string `json:"public_key"`
+	ServerTime int64  `json:"server_time"`
+
+	// SignalingPath Absolute path clients POST an encrypted WebRTC offer to, resolved against the base URL of the HTTP access point.
+	SignalingPath string `json:"signaling_path"`
+
+	// Transport Edge gateway that terminates WebRTC signaling on behalf of the Server.
+	Transport *ServerInfoTransport `json:"transport,omitempty"`
 
 	// Version GizClaw software version embedded when the server binary was built. Formal releases use MAJOR.MINOR.PATCH without a leading v; development builds use dev.
 	Version string `json:"version"`
 }
 
-// ServerInfoTransport defines model for ServerInfoTransport.
+// ServerInfoTransport Edge gateway that terminates WebRTC signaling on behalf of the Server.
 type ServerInfoTransport struct {
-	Endpoint      string                  `json:"endpoint"`
-	Mode          ServerInfoTransportMode `json:"mode"`
-	PublicKey     string                  `json:"public_key"`
-	SignalingPath string                  `json:"signaling_path"`
+	// Endpoint Edge HTTP access point, either an http or https base URL or a bare host[:port] that inherits the scheme the client used to reach the Server.
+	Endpoint  string                  `json:"endpoint"`
+	Mode      ServerInfoTransportMode `json:"mode"`
+	PublicKey string                  `json:"public_key"`
+
+	// SignalingPath Absolute path clients POST an encrypted WebRTC offer to on the Edge.
+	SignalingPath string `json:"signaling_path"`
 }
 
 // ServerInfoTransportMode defines model for ServerInfoTransport.Mode.

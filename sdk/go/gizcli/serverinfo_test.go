@@ -123,7 +123,7 @@ func TestFetchServerInfoRejectsInvalidGatewayTransport(t *testing.T) {
 	transportKey := serverInfoTestKeyText(t, 0xcd)
 	for _, transport := range []string{
 		`{"mode":"future","endpoint":"edge.example:9821","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
-		`{"mode":"edge-gateway","endpoint":"https://edge.example","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
+		`{"mode":"edge-gateway","endpoint":"ftp://edge.example","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
 		`{"mode":"edge-gateway","endpoint":"","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
 		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"bad","signaling_path":"/offer"}`,
 		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"","signaling_path":"/offer"}`,
@@ -142,20 +142,88 @@ func TestFetchServerInfoRejectsInvalidGatewayTransport(t *testing.T) {
 	}
 }
 
-func TestFetchServerInfoRejectsURLEndpoint(t *testing.T) {
-	for _, endpoint := range []string{
+func TestFetchServerInfoRejectsInvalidServerURL(t *testing.T) {
+	for _, serverURL := range []string{
 		"",
 		"   ",
-		"https://example.test",
-		"server.example/other-path",
-		"server.example?query=1",
-		"server.example#fragment",
-		"user@server.example",
+		"ftp://example.test",
+		"http://",
+		"https://server.example?query=1",
+		"https://server.example#fragment",
+		"https://user@server.example",
+		"http://server.example//double",
 	} {
-		if _, err := FetchServerInfo(context.Background(), endpoint); err == nil {
-			t.Fatalf("endpoint %q accepted", endpoint)
+		if _, err := FetchServerInfo(context.Background(), serverURL); err == nil {
+			t.Fatalf("server URL %q accepted", serverURL)
 		}
 	}
+}
+
+// A bare host:port keeps the historical plaintext lane working, and an
+// https base URL reaches a TLS HTTP access point.
+func TestFetchServerInfoAcceptsBareHostPortAndHTTPSBaseURL(t *testing.T) {
+	serverKey := serverInfoTestKeyText(t, 0xab)
+	endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"ice.example:9820"}`)
+	defer closeServer()
+
+	info, err := FetchServerInfo(context.Background(), endpoint)
+	if err != nil {
+		t.Fatalf("FetchServerInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
+		t.Fatalf("signaling URL = %q", info.SignalingURL)
+	}
+	if info.ICEEndpoint != "ice.example:9820" {
+		t.Fatalf("ICE endpoint = %q", info.ICEEndpoint)
+	}
+
+	info, err = FetchServerInfo(context.Background(), "http://"+endpoint+"/")
+	if err != nil {
+		t.Fatalf("FetchServerInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
+		t.Fatalf("signaling URL from a trailing slash = %q", info.SignalingURL)
+	}
+}
+
+// An https server URL must not be downgraded when the signaling URL is built,
+// and a gateway transport endpoint without a scheme inherits it.
+func TestFetchServerInfoPreservesHTTPSScheme(t *testing.T) {
+	serverKey := serverInfoTestKeyText(t, 0xab)
+	transportKey := serverInfoTestKeyText(t, 0xcd)
+	endpoint, closeServer := newServerInfoTestServer(t, `{
+		"public_key":"`+serverKey+`",
+		"transport":{
+			"mode":"edge-gateway",
+			"endpoint":"edge.example:9821",
+			"public_key":"`+transportKey+`",
+			"signaling_path":"/edge/offer"
+		}
+	}`)
+	defer closeServer()
+
+	info, err := FetchServerInfo(context.Background(), "http://"+endpoint)
+	if err != nil {
+		t.Fatalf("FetchServerInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://edge.example:9821/edge/offer" {
+		t.Fatalf("signaling URL = %q", info.SignalingURL)
+	}
+	if got := mustNormalizeTransportBaseURL(t, "https://ap.gizclaw.com", "edge.example:9821"); got != "https://edge.example:9821" {
+		t.Fatalf("transport base URL = %q", got)
+	}
+	if got := mustNormalizeTransportBaseURL(t, "http://ap.gizclaw.com", "https://edge.example"); got != "https://edge.example" {
+		t.Fatalf("absolute transport base URL = %q", got)
+	}
+}
+
+func mustNormalizeTransportBaseURL(t *testing.T, serverBaseURL, endpoint string) string {
+	t.Helper()
+	base, err := normalizeTransportBaseURL(serverBaseURL, endpoint)
+	if err != nil {
+		t.Fatalf("normalizeTransportBaseURL(%q, %q) error = %v", serverBaseURL, endpoint, err)
+	}
+	return base
 }
 
 func TestFetchServerInfoRejectsOversizedResponse(t *testing.T) {

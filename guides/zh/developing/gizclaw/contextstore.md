@@ -46,7 +46,7 @@ classDiagram
     }
     class ServerConfig {
         string Endpoint
-        PublicAPIAddr() string
+        BaseURL() string
     }
     class Context {
         string Name
@@ -71,7 +71,7 @@ classDiagram
 | --- | --- | --- | --- |
 | `description` | `Config.Description` | Context 的可选说明。 | 创建时去除首尾空白；可省略。 |
 | `identity.private-key` | `IdentityConfig.PrivateKey` | 当前 Context 的本地 Giznet private key。 | 必填；必须能构造有效 `giznet.KeyPair`。 |
-| `server.endpoint` | `ServerConfig.Endpoint` | 目标 Server Public API 地址。 | 必填；格式必须是 `host:port`，不能包含 `http://` 或 `https://`。 |
+| `server.endpoint` | `ServerConfig.Endpoint` | 目标 Server HTTP 接入点。 | 必填；取 `http://` 或 `https://` 基础 URL，例如 `https://ap.gizclaw.com`。裸 `host:port` 仍然接受，并归一化为 `http://host:port`。结尾斜杠会被去掉，查询串、fragment 和 userinfo 会被拒绝。 |
 
 解析 `config.yaml` 时启用 unknown-field rejection。拼错或未定义的 YAML 字段会直接返回错误，不会被静默忽略。
 
@@ -104,7 +104,7 @@ flowchart TB
 | `Store.Current` / `LoadByName` | 加载当前或指定名称的 Context。 |
 | `Store.List` / `ListSummaries` | 按名称排序列出 Context，并标记当前项。 |
 | `Store.Delete` | 删除具名 Context，并在必要时移除 `current`。 |
-| `validateName` / `validateEndpoint` | 限制目录名称和 `host:port` endpoint 格式。 |
+| `validateName` / `normalizeServerURL` | 限制目录名称，并把 endpoint 归一化为 `http` 或 `https` 基础 URL。 |
 
 ## Ownership 边界
 
