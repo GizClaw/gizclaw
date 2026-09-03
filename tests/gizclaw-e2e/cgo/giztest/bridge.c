@@ -228,7 +228,7 @@ int gzt_session_call_rpc(
   int rc = gzc_rpc_request_start(
       session->client, 0, (gizclaw_rpc_v1_RpcMethod)method_id,
       gzc_str_from_parts((const char *)payload, payload_len),
-      timeout_ms > 0 ? timeout_ms : GZT_DEFAULT_TIMEOUT_MS, &request);
+      timeout_ms > 0 ? timeout_ms : GZT_DEFAULT_TIMEOUT_MS, NULL, &request);
   if (rc != GZC_OK) {
     return fail(errbuf, errbuf_len, "start rpc", rc);
   }

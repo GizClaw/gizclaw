@@ -195,11 +195,26 @@ pending 返回 `GZC_ERR_WOULD_BLOCK`。完成、取消、超时、远端关闭�
 response view 由 request 持有，直到 `gzc_rpc_request_destroy`；platform allocator
 必须比 request handle 活得更久。
 
+`gzc_rpc_request_start` 与 `gzc_rpc_request_start_stream` 的
+`const gzc_rpc_request_options_t *options` 可注册 `gzc_rpc_complete_cb`。request
+第一次进入 terminal 时，SDK 同步回调一次，并传入该 `gzc_rpc_request_t *` 与最终
+状态码：正常 response EOS、编解码或协议错误、DataChannel 关闭、传输错误和超时由
+串行 poll owner 交付；主动 cancel、client close 以及 destroy 一个 pending request
+在各自调用线程返回前交付。SDK 不为该 callback 创建线程。callback 不传递 response 所有权，返回后仍可用
+`gzc_rpc_request_result` 读取最终结果。options 传 NULL 时不注册 completion callback。
+
+callback 不得用它所属的 request 或 client 重入 SDK：`gzc_rpc_request_result` 允许，
+`gzc_rpc_request_cancel`、`gzc_rpc_request_destroy`、`gzc_client_poll`、
+`gzc_client_close` 和 `gzc_client_destroy` 不允许。close 与 destroy 会释放 poll loop
+正在遍历的 service channel，因此 request 与 client 的 teardown 必须放在交付通知的
+poll 调用返回之后。frame callback 受同样的限制。
+
 同一个 `gzc_rpc_request_t` 也承载双向或下载型 binary stream，不存在第二套
 stream RPC。调用方使用 `gzc_rpc_request_start_stream` 创建 request，通过
 `gzc_rpc_request_write` 复制并排队一个 request binary frame，并以
 `gzc_rpc_request_finish_write` 排队 request EOS。Response envelope、后续 binary
-frame 和 response EOS 都由同一个 callback 在 `gzc_client_poll` 中按到达顺序交付。
+frame 和 response EOS 都由同一个 callback 在 `gzc_client_poll` 中按到达顺序交付，
+completion callback 排在 response EOS frame callback 之后。
 上述 request API 均不自行调用 `gzc_client_poll`；当上一帧尚未写完时，write 或
 finish 返回 `GZC_ERR_WOULD_BLOCK`，调用方应等待统一 poll loop 推进后重试。
 

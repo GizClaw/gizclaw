@@ -1355,7 +1355,7 @@ static int test_rpc_call(gzc_client_t *client,
   test_last_rpc_request = NULL;
   gzc_rpc_request_t *request = NULL;
   int rc = gzc_rpc_request_start(client, test_rpc_service(method), method,
-                                 params, 5000, &request);
+                                 params, 5000, NULL, &request);
   while (rc == GZC_OK &&
          (rc = gzc_rpc_request_result(request, out_response)) ==
              GZC_ERR_WOULD_BLOCK) {
@@ -1373,7 +1373,7 @@ static int test_rpc_call_stream(gzc_client_t *client,
   gzc_rpc_request_t *request = NULL;
   int rc = gzc_rpc_request_start_stream(
       client, test_rpc_service(method), method, params, 5000, on_frame,
-      userdata, &request);
+      userdata, NULL, &request);
   while (rc == GZC_OK &&
          (rc = gzc_rpc_request_finish_write(request)) ==
              GZC_ERR_WOULD_BLOCK) {
@@ -1414,6 +1414,111 @@ static int capture_stream_error_frame(void *userdata, const gzc_rpc_frame_t *fra
   captured->code = response.error.code;
   captured->message_ok = str_eq_cstr(response.error.message, "denied");
   return GZC_OK;
+}
+
+typedef struct {
+  gzc_rpc_request_t *request;
+  int status;
+  int result_status;
+  bool result_id_ok;
+} complete_record_t;
+
+typedef struct {
+  complete_record_t records[8];
+  size_t count;
+  size_t overflow;
+} complete_log_t;
+
+/*
+ * Records one terminal notification and proves the final result is already
+ * readable from inside the completion callback.
+ */
+static void record_request_complete(
+    void *userdata,
+    gzc_rpc_request_t *request,
+    int status) {
+  complete_log_t *log = (complete_log_t *)userdata;
+  if (log == NULL) {
+    return;
+  }
+  if (log->count >= sizeof(log->records) / sizeof(log->records[0])) {
+    log->overflow++;
+    return;
+  }
+  complete_record_t *record = &log->records[log->count++];
+  record->request = request;
+  record->status = status;
+  gzc_rpc_response_t response;
+  memset(&response, 0, sizeof(response));
+  record->result_status = gzc_rpc_request_result(request, &response);
+  record->result_id_ok =
+      record->result_status == GZC_OK && str_eq_cstr(response.id, "1");
+}
+
+typedef enum {
+  RPC_EVENT_RESPONSE = 1,
+  RPC_EVENT_DATA = 2,
+  RPC_EVENT_EOS = 3,
+  RPC_EVENT_COMPLETE = 4
+} rpc_event_t;
+
+typedef struct {
+  rpc_event_t events[12];
+  size_t count;
+  size_t overflow;
+  bool saw_response;
+  complete_log_t complete;
+} stream_order_t;
+
+static void stream_order_push(stream_order_t *order, rpc_event_t event) {
+  if (order->count >= sizeof(order->events) / sizeof(order->events[0])) {
+    order->overflow++;
+    return;
+  }
+  order->events[order->count++] = event;
+}
+
+static int stream_order_frame(void *userdata, const gzc_rpc_frame_t *frame) {
+  stream_order_t *order = (stream_order_t *)userdata;
+  if (order == NULL || frame == NULL) {
+    return GZC_ERR_RPC;
+  }
+  if (frame->type == GZC_RPC_FRAME_EOS) {
+    if (frame->len != 0u) {
+      return GZC_ERR_RPC;
+    }
+    stream_order_push(order, RPC_EVENT_EOS);
+    return GZC_OK;
+  }
+  if (frame->type != GZC_RPC_FRAME_BINARY) {
+    return GZC_ERR_RPC;
+  }
+  stream_order_push(
+      order, order->saw_response ? RPC_EVENT_DATA : RPC_EVENT_RESPONSE);
+  order->saw_response = true;
+  return GZC_OK;
+}
+
+static void stream_order_complete(
+    void *userdata,
+    gzc_rpc_request_t *request,
+    int status) {
+  stream_order_t *order = (stream_order_t *)userdata;
+  if (order == NULL) {
+    return;
+  }
+  stream_order_push(order, RPC_EVENT_COMPLETE);
+  record_request_complete(&order->complete, request, status);
+}
+
+static bool complete_log_reports(
+    const complete_log_t *log,
+    const gzc_rpc_request_t *request,
+    int status) {
+  return log->count == 1u && log->overflow == 0u &&
+         log->records[0].request == request &&
+         log->records[0].status == status &&
+         log->records[0].result_status == status;
 }
 
 static int test_http_request(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
@@ -1736,6 +1841,304 @@ static int test_device_control_payload_bounds(void) {
              "volume response round trips") != 0) {
     return 1;
   }
+  return 0;
+}
+
+/*
+ * Covers every terminal transition that must reach gzc_rpc_complete_cb exactly
+ * once, plus the ordering guarantee for streaming requests. The caller owns the
+ * only gzc_client_poll() context, so every notification below is synchronous.
+ */
+static int test_rpc_completion_callbacks(
+    gzc_client_t *client,
+    fake_webrtc_t *fake,
+    gzc_str_t params) {
+  gzc_rpc_response_t response;
+  gzc_rpc_request_options_t options;
+  memset(&options, 0, sizeof(options));
+  options.on_complete = record_request_complete;
+
+  fake->response_mode = FAKE_RESPONSE_PROTO;
+  complete_log_t unary_log;
+  memset(&unary_log, 0, sizeof(unary_log));
+  options.complete_userdata = &unary_log;
+  gzc_rpc_request_t *request = NULL;
+  int rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 5000,
+      &options, &request);
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_result(request, &response)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(client, 10);
+  }
+  if (expect(rc == GZC_OK &&
+                 complete_log_reports(&unary_log, request, GZC_OK) &&
+                 unary_log.records[0].result_id_ok,
+             "unary completion runs once with the final result") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  rc = gzc_client_poll(client, 0);
+  gzc_rpc_request_cancel(request);
+  gzc_rpc_request_cancel(request);
+  rc = gzc_rpc_request_result(request, &response);
+  if (expect(unary_log.count == 1u && rc == GZC_OK &&
+                 str_eq_cstr(response.id, "1"),
+             "repeated poll and cancel keep one completion and one result") !=
+      0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_destroy(request);
+  if (expect(unary_log.count == 1u,
+             "destroying a completed request does not notify again") != 0) {
+    return 1;
+  }
+
+  complete_log_t default_log;
+  memset(&default_log, 0, sizeof(default_log));
+  request = NULL;
+  rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 5000,
+      NULL, &request);
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_result(request, &response)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(client, 10);
+  }
+  gzc_rpc_request_destroy(request);
+  if (expect(rc == GZC_OK && default_log.count == 0u,
+             "a request without completion callback keeps unary behavior") !=
+      0) {
+    return 1;
+  }
+
+  fake->response_mode = FAKE_RESPONSE_BINARY_STREAM;
+  stream_order_t order;
+  memset(&order, 0, sizeof(order));
+  options.on_complete = stream_order_complete;
+  options.complete_userdata = &order;
+  request = NULL;
+  rc = gzc_rpc_request_start_stream(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+      params, 5000, stream_order_frame, &order, &options, &request);
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_finish_write(request)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(client, 10);
+  }
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_result(request, &response)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(client, 10);
+  }
+  const rpc_event_t want_order[] = {
+      RPC_EVENT_RESPONSE, RPC_EVENT_DATA, RPC_EVENT_DATA, RPC_EVENT_EOS,
+      RPC_EVENT_COMPLETE};
+  bool order_ok = order.overflow == 0u &&
+                  order.count == sizeof(want_order) / sizeof(want_order[0]);
+  for (size_t i = 0; order_ok && i < order.count; i++) {
+    order_ok = order.events[i] == want_order[i];
+  }
+  if (expect(rc == GZC_OK && order_ok &&
+                 complete_log_reports(&order.complete, request, GZC_OK) &&
+                 order.complete.records[0].result_id_ok,
+             "streaming reports RESPONSE, DATA, EOS, then COMPLETE") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_destroy(request);
+
+  fake->response_mode = FAKE_RESPONSE_PROTO_OVERSIZED_CONTINUATION;
+  stream_order_t codec_order;
+  memset(&codec_order, 0, sizeof(codec_order));
+  options.complete_userdata = &codec_order;
+  request = NULL;
+  rc = gzc_rpc_request_start_stream(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN,
+      params, 5000, stream_order_frame, &codec_order, &options, &request);
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_result(request, &response)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(client, 10);
+  }
+  if (expect(rc == GZC_ERR_RPC &&
+                 complete_log_reports(
+                     &codec_order.complete, request, GZC_ERR_RPC),
+             "an RPC codec failure notifies completion once") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_destroy(request);
+
+  fake->response_mode = FAKE_RESPONSE_DEFERRED_PROTO;
+  options.on_complete = record_request_complete;
+
+  complete_log_t timeout_log;
+  memset(&timeout_log, 0, sizeof(timeout_log));
+  options.complete_userdata = &timeout_log;
+  request = NULL;
+  rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 20,
+      &options, &request);
+  while (rc == GZC_OK &&
+         (rc = gzc_rpc_request_result(request, &response)) ==
+             GZC_ERR_WOULD_BLOCK) {
+    rc = gzc_client_poll(client, 10);
+  }
+  if (expect(rc == GZC_ERR_TIMEOUT &&
+                 complete_log_reports(
+                     &timeout_log, request, GZC_ERR_TIMEOUT),
+             "an expired request notifies completion once") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_destroy(request);
+
+  complete_log_t transport_log;
+  memset(&transport_log, 0, sizeof(transport_log));
+  options.complete_userdata = &transport_log;
+  request = NULL;
+  rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 5000,
+      &options, &request);
+  if (expect(rc == GZC_OK && transport_log.count == 0u,
+             "a deferred request stays pending before transport failure") !=
+      0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  fake->poll_result_once = GZC_ERR_WEBRTC;
+  rc = gzc_client_poll(client, 0);
+  if (expect(rc == GZC_ERR_WEBRTC &&
+                 complete_log_reports(
+                     &transport_log, request, GZC_ERR_WEBRTC),
+             "a WebRTC transport failure notifies completion once") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  rc = gzc_client_poll(client, 0);
+  gzc_rpc_request_destroy(request);
+  if (expect(rc == GZC_OK && transport_log.count == 1u,
+             "polling after a transport failure does not notify again") != 0) {
+    return 1;
+  }
+
+  complete_log_t channel_log;
+  memset(&channel_log, 0, sizeof(channel_log));
+  options.complete_userdata = &channel_log;
+  request = NULL;
+  fake->last_send_channel = NULL;
+  rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 5000,
+      &options, &request);
+  gzc_rtc_channel_t *request_channel = fake->last_send_channel;
+  if (expect(rc == GZC_OK && request_channel != NULL &&
+                 channel_log.count == 0u,
+             "a deferred request owns an open DataChannel") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rtc_channel_info_t closed_info;
+  memset(&closed_info, 0, sizeof(closed_info));
+  closed_info.label = gzc_str_from_cstr("giznet/v1/service/0");
+  closed_info.ordered = true;
+  closed_info.reliable = true;
+  fake_emit_channel_state(
+      fake, request_channel, &closed_info, GZC_RTC_CHANNEL_CLOSED);
+  fake_emit_channel_state(
+      fake, request_channel, &closed_info, GZC_RTC_CHANNEL_CLOSED);
+  rc = gzc_client_poll(client, 0);
+  gzc_rpc_request_destroy(request);
+  if (expect(rc == GZC_OK &&
+                 complete_log_reports(
+                     &channel_log, request, GZC_ERR_CLOSED),
+             "a closed DataChannel notifies completion once") != 0) {
+    return 1;
+  }
+
+  complete_log_t cancel_log;
+  memset(&cancel_log, 0, sizeof(cancel_log));
+  options.complete_userdata = &cancel_log;
+  request = NULL;
+  rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 5000,
+      &options, &request);
+  if (expect(rc == GZC_OK && cancel_log.count == 0u,
+             "cancel target stays pending until cancelled") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_cancel(request);
+  if (expect(complete_log_reports(&cancel_log, request, GZC_ERR_CLOSED),
+             "cancel notifies completion once") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_cancel(request);
+  rc = gzc_client_poll(client, 0);
+  gzc_rpc_request_destroy(request);
+  if (expect(rc == GZC_OK && cancel_log.count == 1u,
+             "repeated cancel, poll and destroy do not notify again") != 0) {
+    return 1;
+  }
+
+  complete_log_t destroy_log;
+  memset(&destroy_log, 0, sizeof(destroy_log));
+  options.complete_userdata = &destroy_log;
+  request = NULL;
+  rc = gzc_rpc_request_start(
+      client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 5000,
+      &options, &request);
+  if (expect(rc == GZC_OK && destroy_log.count == 0u,
+             "destroy target stays pending until destroyed") != 0) {
+    gzc_rpc_request_destroy(request);
+    return 1;
+  }
+  gzc_rpc_request_t *destroyed = request;
+  gzc_rpc_request_destroy(request);
+  if (expect(complete_log_reports(&destroy_log, destroyed, GZC_ERR_CLOSED),
+             "destroying a pending request notifies completion once") != 0) {
+    return 1;
+  }
+
+  complete_log_t multi_log;
+  memset(&multi_log, 0, sizeof(multi_log));
+  options.complete_userdata = &multi_log;
+  gzc_rpc_request_t *multi[3];
+  memset(multi, 0, sizeof(multi));
+  rc = GZC_OK;
+  for (size_t i = 0; rc == GZC_OK && i < 3u; i++) {
+    rc = gzc_rpc_request_start(
+        client, 0u, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, params, 30,
+        &options, &multi[i]);
+  }
+  if (expect(rc == GZC_OK && multi_log.count == 0u,
+             "three concurrent requests start pending") != 0) {
+    for (size_t i = 0; i < 3u; i++) {
+      gzc_rpc_request_destroy(multi[i]);
+    }
+    return 1;
+  }
+  rc = gzc_client_poll(client, 50);
+  bool each_notified = multi_log.count == 3u && multi_log.overflow == 0u;
+  for (size_t i = 0; each_notified && i < 3u; i++) {
+    bool found = false;
+    for (size_t j = 0; !found && j < multi_log.count; j++) {
+      found = multi_log.records[j].request == multi[i] &&
+              multi_log.records[j].status == GZC_ERR_TIMEOUT;
+    }
+    each_notified = found;
+  }
+  for (size_t i = 0; i < 3u; i++) {
+    gzc_rpc_request_destroy(multi[i]);
+  }
+  if (expect(rc == GZC_OK && each_notified,
+             "one poll notifies every request it terminates") != 0) {
+    return 1;
+  }
+
+  fake->response_mode = FAKE_RESPONSE_PROTO;
   return 0;
 }
 
@@ -2810,7 +3213,8 @@ int main(void) {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE,
         gzc_str_from_parts((const char *)speech_params.data,
                            speech_params.len),
-        5000, count_stream_frame, &speech_stream_count, &speech_request);
+        5000, count_stream_frame, &speech_stream_count, NULL,
+        &speech_request);
   }
   const uint8_t speech_input[] = {0x01, 0x02, 0x03, 0x04};
   while (rc == GZC_OK &&
@@ -2879,7 +3283,7 @@ int main(void) {
       client, 48u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000, &unopened_request);
+      1000, NULL, &unopened_request);
   if (expect(
           rc == GZC_OK && unopened_request != NULL &&
               fake_webrtc.poll_count == poll_count_before_async_start,
@@ -2907,7 +3311,7 @@ int main(void) {
         0u,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
         gzc_str_from_parts((const char *)params.data, params.len),
-        1000,
+        1000, NULL,
         &async_requests[i]);
     async_channels[i] = fake_webrtc.last_send_channel;
     if (expect(
@@ -2983,7 +3387,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &remote_error_request);
   memset(&async_response_first, 0, sizeof(async_response_first));
   if (rc == GZC_OK) {
@@ -3006,7 +3410,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &failed_request);
   gzc_rtc_channel_t *failed_channel = fake_webrtc.last_send_channel;
   if (rc == GZC_OK) {
@@ -3015,7 +3419,7 @@ int main(void) {
         0u,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
         gzc_str_from_parts((const char *)params.data, params.len),
-        1000,
+        1000, NULL,
         &healthy_request);
   }
   gzc_rtc_channel_t *healthy_channel = fake_webrtc.last_send_channel;
@@ -3055,7 +3459,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &cancelled_request);
   gzc_rpc_request_cancel(cancelled_request);
   gzc_rpc_request_cancel(cancelled_request);
@@ -3076,7 +3480,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &remote_closed_request);
   gzc_rtc_channel_t *remote_closed_channel = fake_webrtc.last_send_channel;
   if (rc == GZC_OK) {
@@ -3103,7 +3507,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &transport_failed_request);
   fake_webrtc.poll_result_once = GZC_ERR_WEBRTC;
   if (rc == GZC_OK) {
@@ -3127,7 +3531,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      5,
+      5, NULL,
       &timeout_request);
   clock.instant_ms += 10;
   if (expect(
@@ -3147,7 +3551,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      5,
+      5, NULL,
       &poll_timeout_request);
   if (rc == GZC_OK) {
     rc = gzc_client_poll(client, -1);
@@ -3170,7 +3574,7 @@ int main(void) {
         0u,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
         gzc_str_from_parts((const char *)params.data, params.len),
-        1000,
+        1000, NULL,
         &capacity_requests[i]);
   }
   gzc_rpc_request_t *overflow_request = NULL;
@@ -3182,7 +3586,7 @@ int main(void) {
               0u,
               gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
               gzc_str_from_parts((const char *)params.data, params.len),
-              1000,
+              1000, NULL,
               &overflow_request) == GZC_ERR_CHANNEL_LIMIT &&
               overflow_request == NULL,
           "unary request capacity reports channel limit") != 0) {
@@ -3196,7 +3600,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &capacity_requests[0]);
   if (expect(rc == GZC_OK, "cancelled unary request releases its channel slot") !=
       0) {
@@ -3217,7 +3621,7 @@ int main(void) {
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
-      1000,
+      1000, NULL,
       &overflow_request);
   if (expect(
           rc == GZC_OK && overflow_request != NULL,
@@ -3324,6 +3728,13 @@ int main(void) {
   if (expect(
           rc == GZC_ERR_RPC,
           "stream callback cannot discard a frame with would-block") != 0) {
+    return 1;
+  }
+
+  if (test_rpc_completion_callbacks(
+          client,
+          &fake_webrtc,
+          gzc_str_from_parts((const char *)params.data, params.len)) != 0) {
     return 1;
   }
 
@@ -4624,16 +5035,36 @@ int main(void) {
   }
   fake_webrtc.response_mode = FAKE_RESPONSE_DEFERRED_PROTO;
   gzc_rpc_request_t *client_lifetime_request = NULL;
+  complete_log_t client_close_log;
+  memset(&client_close_log, 0, sizeof(client_close_log));
+  gzc_rpc_request_options_t client_close_options;
+  memset(&client_close_options, 0, sizeof(client_close_options));
+  client_close_options.on_complete = record_request_complete;
+  client_close_options.complete_userdata = &client_close_log;
   rc = gzc_rpc_request_start(
       client,
       0u,
       gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
       gzc_str_from_parts((const char *)params.data, params.len),
       1000,
+      &client_close_options,
       &client_lifetime_request);
+  gzc_rpc_request_t *client_lifetime_sibling = NULL;
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_start(
+        client,
+        0u,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        1000,
+        &client_close_options,
+        &client_lifetime_sibling);
+  }
   if (expect(
-          rc == GZC_OK && client_lifetime_request != NULL,
-          "pending unary request exists before client destruction") != 0) {
+          rc == GZC_OK && client_lifetime_request != NULL &&
+              client_lifetime_sibling != NULL &&
+              client_close_log.count == 0,
+          "pending unary requests exist before client destruction") != 0) {
     return 1;
   }
   gzc_rtc_opus_frame_cb late_opus_callback =
@@ -4698,9 +5129,33 @@ int main(void) {
   }
   if (expect(
           gzc_rpc_request_result(
-              client_lifetime_request, &response) == GZC_ERR_CLOSED,
+              client_lifetime_request, &response) == GZC_ERR_CLOSED &&
+              gzc_rpc_request_result(
+                  client_lifetime_sibling, &response) == GZC_ERR_CLOSED,
           "client close invalidates but does not free a unary request handle") !=
       0) {
+    return 1;
+  }
+  bool close_notified_each =
+      client_close_log.count == 2u && client_close_log.overflow == 0u;
+  for (size_t i = 0; close_notified_each && i < 2u; i++) {
+    const gzc_rpc_request_t *want =
+        i == 0u ? client_lifetime_request : client_lifetime_sibling;
+    bool found = false;
+    for (size_t j = 0; !found && j < client_close_log.count; j++) {
+      found = client_close_log.records[j].request == want &&
+              client_close_log.records[j].status == GZC_ERR_CLOSED &&
+              client_close_log.records[j].result_status == GZC_ERR_CLOSED;
+    }
+    close_notified_each = found;
+  }
+  if (expect(close_notified_each,
+             "one client close notifies every pending request once") != 0) {
+    return 1;
+  }
+  rc = gzc_client_close(client);
+  if (expect(rc == GZC_OK && client_close_log.count == 2u,
+             "repeated client close does not notify again") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.opus_unregister_count == 2,
@@ -4747,6 +5202,12 @@ int main(void) {
   test_last_rpc_request = NULL;
   gzc_client_destroy(client);
   gzc_rpc_request_destroy(client_lifetime_request);
+  gzc_rpc_request_destroy(client_lifetime_sibling);
+  if (expect(client_close_log.count == 2u,
+             "destroying already-notified requests does not notify again") !=
+      0) {
+    return 1;
+  }
 
   fake_webrtc_t fake_webrtc_custom;
   memset(&fake_webrtc_custom, 0, sizeof(fake_webrtc_custom));
