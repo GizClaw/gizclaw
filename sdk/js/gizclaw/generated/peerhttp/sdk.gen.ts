@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
+import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -206,6 +206,36 @@ export const getDeviceWifi = <ThrowOnError extends boolean = false>(options?: Op
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/gizclaw/v1/device/wifi',
     ...options
+});
+
+/**
+ * Connect the bound device to a Wi-Fi network
+ *
+ * Forwards client.wifi.connect to the online device. A 202 response means the device accepted the credentials and will switch networks after replying; poll GET /device/wifi after it reconnects to observe the result.
+ */
+export const connectDeviceWifi = <ThrowOnError extends boolean = false>(options: Options<ConnectDeviceWifiData, ThrowOnError>): RequestResult<ConnectDeviceWifiResponses, ConnectDeviceWifiErrors, ThrowOnError> => (options.client ?? client).put<ConnectDeviceWifiResponses, ConnectDeviceWifiErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/wifi',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Scan for Wi-Fi networks near the bound device
+ *
+ * Forwards client.wifi.scan to the online device using a scan-specific timeout clamped to 1000-15000 milliseconds.
+ */
+export const scanDeviceWifi = <ThrowOnError extends boolean = false>(options?: Options<ScanDeviceWifiData, ThrowOnError>): RequestResult<ScanDeviceWifiResponses, ScanDeviceWifiErrors, ThrowOnError> => (options?.client ?? client).post<ScanDeviceWifiResponses, ScanDeviceWifiErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/wifi/scan',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
 });
 
 /**

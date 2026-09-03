@@ -86,6 +86,30 @@ message ClientWifiSavedForgetRequest {
 message ClientWifiSavedForgetResponse {
 }
 
+message WifiScanResult {
+  string ssid = 1;
+  optional string bssid = 2;
+  optional int64 rssi_dbm = 3;
+  optional int64 frequency_mhz = 4;
+  optional string security = 5;
+}
+
+message ClientWifiScanRequest {
+  optional int64 timeout_ms = 1;
+}
+
+message ClientWifiScanResponse {
+  repeated WifiScanResult networks = 1;
+}
+
+message ClientWifiConnectRequest {
+  string ssid = 1;
+  optional string passphrase = 2;
+}
+
+message ClientWifiConnectResponse {
+}
+
 message DeviceInfo {
   optional HardwareInfo hardware = 1;
   optional string name = 2;
