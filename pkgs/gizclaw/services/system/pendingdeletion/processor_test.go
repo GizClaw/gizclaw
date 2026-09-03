@@ -3,6 +3,9 @@ package pendingdeletion
 import (
 	"context"
 	"errors"
+	"log"
+	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -392,3 +395,112 @@ func TestProcessorContainsHandlerPanicAsSafeTerminalFailure(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+// scanErrorRecordingSource reports the error of every failed scan so a test can
+// assert what a racing store close answers.
+type scanErrorRecordingSource struct {
+	KVSource
+	errs chan error
+}
+
+func (s *scanErrorRecordingSource) ScanDue(
+	ctx context.Context, now time.Time, limit int, cursor string,
+) ([]Reference, string, error) {
+	refs, next, err := s.KVSource.ScanDue(ctx, now, limit, cursor)
+	if err != nil {
+		select {
+		case s.errs <- err:
+		default:
+		}
+	}
+	return refs, next, err
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.buf = append(b.buf, p...)
+	return len(p), nil
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.buf)
+}
+
+func TestProcessorScanRacingStoreCloseLogsErrorAndExitsCleanly(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	record, err := New(KindPeer, "peer-close-race", nil, ReasonPeerDelete, struct{}{}, time.Now().Add(-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := CreateOrGet(ctx, store, record); err != nil {
+		t.Fatal(err)
+	}
+	source := &scanErrorRecordingSource{
+		KVSource: KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}},
+		errs:     make(chan error, 1),
+	}
+	registry := NewRegistry()
+	if err := registry.Register(source, &noopHandler{}); err != nil {
+		t.Fatal(err)
+	}
+	processor, err := NewProcessor(registry, Config{
+		ScanInterval: time.Millisecond, PageSize: 1, DispatchCapacity: 1, Workers: 1,
+		LeaseDuration: time.Second, AttemptTimeout: 500 * time.Millisecond,
+		RetryInitial: time.Millisecond, RetryMax: time.Second, MaxAttempts: 3,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var logs syncBuffer
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	processor.Start(ctx)
+	// The store closes under a running scanner: without the closed-store guard
+	// BadgerDB panics here and takes the whole test binary down.
+	if err := store.Close(); err != nil {
+		t.Fatalf("store Close: %v", err)
+	}
+
+	select {
+	case scanErr := <-source.errs:
+		if !errors.Is(scanErr, kv.ErrStoreClosed) {
+			t.Fatalf("ScanDue after store Close error = %v, want %v", scanErr, kv.ErrStoreClosed)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("scan did not report the closed store")
+	}
+
+	closed := make(chan struct{})
+	go func() {
+		processor.Close()
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("processor did not stop after the store closed")
+	}
+
+	if !strings.Contains(logs.String(), "pending deletion: scan source \"peer\" failed") {
+		t.Fatalf("scan error was not logged, log = %q", logs.String())
+	}
+}
+
+type noopHandler struct{}
+
+func (*noopHandler) Kind() Kind                          { return KindPeer }
+func (*noopHandler) Handle(context.Context, Claim) error { return nil }
