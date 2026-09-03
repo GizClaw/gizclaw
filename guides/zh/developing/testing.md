@@ -209,8 +209,8 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http` 与 `output` 四种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
 skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc` 与 `http`，
-遇到不支持的文档在 `validate` 阶段直接拒绝并指出具体 step 与 operation，其
-`giztest:c-sdk` phase 只跑由这些 operation 构成的场景。
+对不支持的文档同样记为 skipped 并指出具体 step 与 operation。三者都直接指向整个场景
+目录；文档本身有问题（而不只是不被支持）时仍然是错误，绝不降级为 skipped。
 
 Go 与 C runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、capture 与 expect、
 任务 runner 和 report。两者各自提供 `giztest.Driver` 及其任务级 `giztest.Session`，

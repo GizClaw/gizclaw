@@ -229,9 +229,10 @@ All four accept the same command line (`validate -f <path>`, `run <path>
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`
 and `output` step kinds; a document using any other step kind, or an `audio` or
 `binary` variable, is reported as skipped on stderr rather than passing
-silently. The C runner implements `rpc`, `client_rpc`, and `http`, and rejects
-an unsupported document during `validate`, naming the step and operation, so
-its `giztest:c-sdk` phase runs the scenarios built from those operations.
+silently. The C runner implements `rpc`, `client_rpc`, and `http`, and reports
+an unsupported document the same way, naming the step and operation. All three
+are pointed at the whole scenario directory; a document that is malformed
+rather than merely unsupported is still an error, never a skip.
 
 The Go and C runners share `pkgs/giztest`, which owns the document schema,
 variables, captures and expectations, the task runner, and the report. Each

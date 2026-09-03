@@ -18,12 +18,18 @@ type stubDriver struct {
 	// closeStreamsErr fails the between-steps stream close.
 	closeStreamsErr error
 
+	// operations overrides the driver's supported set; nil means all of them.
+	operations []string
+
 	mu       sync.Mutex
 	closed   int
 	streamed int
 }
 
 func (d *stubDriver) Operations() []string {
+	if d.operations != nil {
+		return d.operations
+	}
 	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "workspace_relay"}
 }
 

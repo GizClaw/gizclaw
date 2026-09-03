@@ -395,24 +395,25 @@ run_standard_giztest() {
 	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --output "$report")
 }
 
-# The C runner supports rpc, client_rpc, and the /gizclaw/v1 http surface. It
-# runs the scenarios built from those operations; validate rejects anything
-# else, so an unsupported step can never pass silently here.
+# The C runner is pointed at the whole scenario directory, like the JavaScript
+# and Flutter runners: it executes every document built from rpc, client_rpc,
+# and the /gizclaw/v1 http surface, and reports the rest as skipped on stderr
+# rather than passing them silently.
 run_c_giztest() {
-	local giztest_dir="$script_dir/giztest"
 	local report="$script_dir/testdata/giztest-c-report.json"
 	local -a files=()
+	# failure-cleanup is the fixture the next phase drives to a deliberate
+	# failure, so it is excluded here the way run_standard_giztest excludes it.
 	while IFS= read -r file; do files+=("$file"); done < <(
-		find "$giztest_dir" -maxdepth 1 -type f \
-			\( -name 'all.ping.giztest.yaml' -o -name 'server.api_key.*.giztest.yaml' \
-			-o -name 'server.contacts.*.giztest.yaml' -o -name 'server.device.*.giztest.yaml' \) \
-			-print | sort
+		find "$script_dir/giztest" -maxdepth 1 -type f -name '*.giztest.yaml' \
+			! -name 'failure-cleanup.giztest.yaml' -print | sort
 	)
 	local -a validate_args=()
 	local file
 	for file in "${files[@]}"; do validate_args+=(--file "$file"); done
 	(cd "$repo_root" && "$script_dir/testdata/bin/giztest-c" test validate "${validate_args[@]}")
-	(cd "$repo_root" && "$script_dir/testdata/bin/giztest-c" test run "${files[@]}" --parallel 4 --output "$report")
+	(cd "$repo_root" && "$script_dir/testdata/bin/giztest-c" test run "${files[@]}" \
+		--parallel 8 --output "$report")
 }
 
 run_failure_cleanup_giztest() {

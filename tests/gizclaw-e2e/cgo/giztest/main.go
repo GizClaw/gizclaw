@@ -10,6 +10,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
@@ -78,11 +79,12 @@ func newValidateCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			docs, err := load(files)
+			docs, skipped, err := load(cmd.ErrOrStderr(), files)
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "validated %d Giztest documents\n", len(docs))
+			fmt.Fprintf(
+				cmd.OutOrStdout(), "validated %d Giztest documents, skipped %d\n", len(docs), len(skipped))
 			return nil
 		},
 	}
@@ -107,7 +109,7 @@ func newRunCmd() *cobra.Command {
 			if parallel < 1 {
 				return codedError(exitValidation, fmt.Errorf("parallel must be positive"))
 			}
-			docs, err := load(args)
+			docs, skipped, err := load(cmd.ErrOrStderr(), args)
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
@@ -120,7 +122,9 @@ func newRunCmd() *cobra.Command {
 			if err := giztest.WriteReport(output, report); err != nil {
 				return codedError(exitExecution, err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Giztest %s: %d tasks in %dms\n", report.Status, len(report.Tasks), report.DurationMS)
+			fmt.Fprintf(
+				cmd.OutOrStdout(), "Giztest %s: %d tasks in %dms, %d documents skipped\n",
+				report.Status, len(report.Tasks), report.DurationMS, len(skipped))
 			if report.Status != "passed" {
 				return codedError(exitExecution, fmt.Errorf("Giztest execution failed"))
 			}
@@ -132,10 +136,26 @@ func newRunCmd() *cobra.Command {
 	return cmd
 }
 
-func load(inputs []string) ([]*giztest.Document, error) {
+/*
+load selects the documents this runner can execute.
+
+The scenario directory is shared with the Go, JavaScript, and Flutter runners,
+so it holds documents built from steps the C SDKs have no client for. Those are
+reported as skipped on stderr, naming the step and operation, the same way the
+JavaScript and Flutter runners do. They are never counted as passing, and a
+document that is malformed rather than merely unsupported is still an error.
+*/
+func load(stderr io.Writer, inputs []string) ([]*giztest.Document, []giztest.SkippedDocument, error) {
 	paths, err := giztest.Discover(inputs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return giztest.LoadDocuments(paths, driver{})
+	documents, skipped, err := giztest.LoadSupportedDocuments(paths, driver{})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, entry := range skipped {
+		fmt.Fprintf(stderr, "skipped %s: %s\n", entry.Path, entry.Reason)
+	}
+	return documents, skipped, nil
 }

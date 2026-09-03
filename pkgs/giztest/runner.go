@@ -888,6 +888,37 @@ func SafeError(err error, redactions ...string) string {
 	return text
 }
 
+// SkippedDocument is a document the selected driver cannot execute.
+type SkippedDocument struct {
+	Path string
+	// Reason names the step and operation the driver does not support.
+	Reason string
+}
+
+// LoadSupportedDocuments reads every path and separates the documents driver
+// cannot execute from the ones it can, so a runner can be pointed at a whole
+// directory of scenarios written for every SDK.
+//
+// Only an unsupported operation is a skip. A document that does not parse, or
+// that violates the schema or the language's own rules, is still an error: a
+// broken document must never be reported as merely skipped.
+func LoadSupportedDocuments(paths []string, driver Driver) ([]*Document, []SkippedDocument, error) {
+	documents, err := LoadDocuments(paths, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	supported := make([]*Document, 0, len(documents))
+	var skipped []SkippedDocument
+	for _, doc := range documents {
+		if err := doc.validateDriver(driver); err != nil {
+			skipped = append(skipped, SkippedDocument{Path: doc.Path, Reason: err.Error()})
+			continue
+		}
+		supported = append(supported, doc)
+	}
+	return supported, skipped, nil
+}
+
 // LoadDocuments reads every path, rejects duplicate document names, and
 // returns the documents sorted by path. driver is passed through to
 // LoadDocument.

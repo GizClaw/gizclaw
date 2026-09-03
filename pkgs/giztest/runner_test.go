@@ -394,3 +394,36 @@ func TestResolveExpectationsRejectsUnavailableVariable(t *testing.T) {
 		t.Fatal("an unproduced output variable must not silently compare literally")
 	}
 }
+
+func TestLoadSupportedDocumentsSeparatesUnsupportedFromBroken(t *testing.T) {
+	supportedPath := writeTestDocument(t, validDocument)
+	// The same document with its rpc step replaced by one no stub driver runs.
+	unsupported := strings.Replace(validDocument, `    rpc:
+      method: all.ping
+      request: {}`, `    speech:
+      method: server.speech.synthesize
+      request: {}`, 1)
+	unsupported = strings.Replace(unsupported, "name: ping-connectivity", "name: speech-synthesis", 1)
+	unsupportedPath := writeTestDocument(t, unsupported)
+
+	documents, skipped, err := LoadSupportedDocuments(
+		[]string{supportedPath, unsupportedPath}, &stubDriver{operations: []string{"rpc"}})
+	if err != nil {
+		t.Fatalf("LoadSupportedDocuments() error = %v", err)
+	}
+	if len(documents) != 1 || documents[0].Path != supportedPath {
+		t.Fatalf("documents = %#v", documents)
+	}
+	if len(skipped) != 1 || skipped[0].Path != unsupportedPath {
+		t.Fatalf("skipped = %#v", skipped)
+	}
+	if !strings.Contains(skipped[0].Reason, "speech") {
+		t.Fatalf("skip reason must name the operation, got %q", skipped[0].Reason)
+	}
+
+	// A document that does not parse stays an error: broken is not skipped.
+	broken := writeTestDocument(t, "version: gizclaw.test/v1alpha1\n")
+	if _, _, err := LoadSupportedDocuments([]string{broken}, &stubDriver{}); err == nil {
+		t.Fatal("a malformed document must not be reported as skipped")
+	}
+}
