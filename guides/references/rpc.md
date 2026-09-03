@@ -167,6 +167,8 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 104 | `client.wifi.status.get` | 读取设备当前 Wi‑Fi 连接状态（`connected`、`ssid`、`rssi_dbm`、`ip`、`bssid`）。 |
 | 105 | `client.wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
 | 106 | `client.wifi.saved.forget` | 按 `ssid` 删除设备已保存的 Wi‑Fi 网络。 |
+| 108 | `client.wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
+| 109 | `client.wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
 
 ## 独立流式语音
 

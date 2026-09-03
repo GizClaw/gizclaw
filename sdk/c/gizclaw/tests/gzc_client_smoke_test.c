@@ -1744,7 +1744,7 @@ static int test_json_ascii_classification(void) {
 }
 
 static int test_device_control_payload_bounds(void) {
-  uint8_t buffer[128];
+  uint8_t buffer[gizclaw_rpc_v1_ClientWifiScanResponse_size];
   gizclaw_rpc_v1_ClientWifiSavedForgetRequest forget =
       gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero;
   memset(forget.ssid, 'a', 32);
@@ -1775,6 +1775,38 @@ static int test_device_control_payload_bounds(void) {
       gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero;
   if (expect(!pb_decode(&input, gizclaw_rpc_v1_ClientWifiSavedForgetRequest_fields, &decoded),
              "33-byte ssid is rejected by the nanopb bound") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ClientWifiConnectRequest connect =
+      gizclaw_rpc_v1_ClientWifiConnectRequest_init_zero;
+  memset(connect.ssid, 's', 32);
+  connect.ssid[32] = '\0';
+  connect.has_passphrase = true;
+  memset(connect.passphrase, 'p', 63);
+  connect.passphrase[63] = '\0';
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientWifiConnectRequest_fields,
+                       &connect),
+             "maximum Wi-Fi connect credentials encode") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ClientWifiScanResponse scan =
+      gizclaw_rpc_v1_ClientWifiScanResponse_init_zero;
+  scan.networks_count = 32;
+  for (size_t i = 0; i < scan.networks_count; i++) {
+    memset(scan.networks[i].ssid, 's', 32);
+    scan.networks[i].ssid[32] = '\0';
+    scan.networks[i].has_bssid = true;
+    memcpy(scan.networks[i].bssid, "aa:bb:cc:dd:ee:ff", 18);
+    scan.networks[i].has_security = true;
+    memcpy(scan.networks[i].security, "wpa3", 5);
+  }
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientWifiScanResponse_fields,
+                       &scan),
+             "maximum Wi-Fi scan response encodes") != 0) {
     return 1;
   }
 
@@ -4452,8 +4484,10 @@ int main(void) {
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
         gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT,
     };
-    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106};
+    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106, 108, 109};
     for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
       if (expect((int)control_methods[i] == control_method_ids[i],
                  "device control method id matches rpc.proto") != 0) {

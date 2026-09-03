@@ -133,6 +133,14 @@ async function runStep(
     return { evidence, value: result.body };
   }
 
+  if (step.reconnect != null) {
+    if (client == null) {
+      throw new Error(`step ${step.id} has no connected client`);
+    }
+    await client.reconnect(step.reconnect.await_ms, signal);
+    return {};
+  }
+
   if (step.client_rpc != null) {
     if (client == null) {
       throw new Error(`step ${step.id} has no connected client`);

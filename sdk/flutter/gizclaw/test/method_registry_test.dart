@@ -23,6 +23,8 @@ void main() {
     expect(rpcMethodByName('client.wifi.status.get').id, 104);
     expect(rpcMethodByName('client.wifi.saved.list').id, 105);
     expect(rpcMethodByName('client.wifi.saved.forget').id, 106);
+    expect(rpcMethodByName('client.wifi.scan').id, 108);
+    expect(rpcMethodByName('client.wifi.connect').id, 109);
     expect(
       () => rpcMethodByName('server.firmware.download'),
       throwsArgumentError,

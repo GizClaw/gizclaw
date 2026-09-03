@@ -168,4 +168,6 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104 [(rpc_method) = { name: "client.wifi.status.get" request: "ClientWifiStatusGetRequest" response: "ClientWifiStatusGetResponse" }];
   RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105 [(rpc_method) = { name: "client.wifi.saved.list" request: "ClientWifiSavedListRequest" response: "ClientWifiSavedListResponse" }];
   RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106 [(rpc_method) = { name: "client.wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
+  RPC_METHOD_CLIENT_WIFI_SCAN = 108 [(rpc_method) = { name: "client.wifi.scan" request: "ClientWifiScanRequest" response: "ClientWifiScanResponse" }];
+  RPC_METHOD_CLIENT_WIFI_CONNECT = 109 [(rpc_method) = { name: "client.wifi.connect" request: "ClientWifiConnectRequest" response: "ClientWifiConnectResponse" }];
 }

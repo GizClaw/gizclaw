@@ -414,6 +414,29 @@ typedef struct {
   gzc_str_t bssid;
 } gzc_control_wifi_status_t;
 
+/* Body of `POST /gizclaw/v1/device/wifi/scan` (`DeviceWifiScanRequest`). */
+typedef struct {
+  bool has_timeout_ms;
+  int32_t timeout_ms;
+} gzc_control_wifi_scan_request_t;
+
+/* One nearby network reported by a device scan (`DeviceWifiScanResult`). */
+typedef struct {
+  gzc_str_t ssid;
+  gzc_str_t bssid;
+  bool has_rssi_dbm;
+  int64_t rssi_dbm;
+  bool has_frequency_mhz;
+  int64_t frequency_mhz;
+  gzc_str_t security;
+} gzc_control_wifi_scan_result_t;
+
+/* Body of `PUT /gizclaw/v1/device/wifi` (`DeviceWifiConnectRequest`). */
+typedef struct {
+  gzc_str_t ssid;
+  gzc_str_t passphrase;
+} gzc_control_wifi_connect_request_t;
+
 /* One contact owned by the bound device (`Contact`). */
 typedef struct {
   gzc_str_t name;
@@ -596,6 +619,32 @@ int gzc_control_get_device_wifi(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     gzc_control_wifi_status_t *out_status);
+
+/* `POST /gizclaw/v1/device/wifi/scan`. Decodes up to cap networks.
+ *
+ * request may be NULL to let the Server apply its default scan timeout.
+ */
+int gzc_control_scan_device_wifi(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_wifi_scan_request_t *request,
+    gzc_control_wifi_scan_result_t *out_networks,
+    size_t cap,
+    size_t *out_count);
+
+/*
+ * `PUT /gizclaw/v1/device/wifi`.
+ *
+ * Success means the device accepted the credentials and started switching
+ * networks, not that it joined them. The device goes offline during the
+ * switch; later control calls fail with GZC_CONTROL_ERROR_DEVICE_OFFLINE until
+ * it reconnects. Poll gzc_control_get_device_wifi afterwards to observe the
+ * outcome. The passphrase is forwarded to the device and never stored.
+ */
+int gzc_control_connect_device_wifi(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_wifi_connect_request_t *request);
 
 /* `GET /gizclaw/v1/device/wifi/saved`. Decodes up to cap SSIDs. */
 int gzc_control_list_device_saved_wifi(

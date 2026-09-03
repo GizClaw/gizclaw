@@ -24,6 +24,35 @@ import type { Variables } from "./variables.ts";
 const CONNECT_TIMEOUT_MS = 30_000;
 const RPC_TIMEOUT_MS = 30_000;
 
+// MAX_SCRIPTED_DELAY_MS bounds a scripted device delay. Node clamps a larger
+// setTimeout delay to a single millisecond, which would turn a scenario
+// written to exercise a timeout into one that passes on an immediate answer.
+// The Go and Dart runners reject the same values so a document behaves
+// identically everywhere.
+export const MAX_SCRIPTED_DELAY_MS = 2_147_483_647;
+
+// scriptedDelayMs reads a scripted device delay, rejecting anything the timer
+// cannot honor. An out-of-range delay would be clamped to a single
+// millisecond, so a scenario written to exercise a timeout would pass on an
+// immediate answer instead.
+export function scriptedDelayMs(scripted: Record<string, unknown>): number {
+  const delayMs = scripted["delay_ms"];
+  if (delayMs == null) {
+    return 0;
+  }
+  if (
+    typeof delayMs !== "number" ||
+    !Number.isInteger(delayMs) ||
+    delayMs < 0
+  ) {
+    throw new Error("delay_ms must be a non-negative integer");
+  }
+  if (delayMs > MAX_SCRIPTED_DELAY_MS) {
+    throw new Error(`delay_ms must be at most ${MAX_SCRIPTED_DELAY_MS}`);
+  }
+  return delayMs;
+}
+
 export type HTTPStepResult = { body: unknown; status: number };
 
 // httpBaseURL turns a client access point into an HTTP origin, dropping any
@@ -91,9 +120,13 @@ export class ScenarioClient {
   readonly name: string;
   readonly endpoint: string;
   readonly fingerprint: string;
-  readonly rpc: PeerRPCClient;
   readonly inbound: Map<string, number>;
-  private readonly pc: wrtc.RTCPeerConnection;
+  // rpc and pc are replaced by reconnect, which dials a new Peer on the same
+  // identity. The private key and handlers are kept for that redial.
+  rpc: PeerRPCClient;
+  private pc: wrtc.RTCPeerConnection;
+  private readonly privateKey: Uint8Array;
+  private readonly handlers: GizClawPeerRPCHandlers;
 
   private constructor(
     name: string,
@@ -102,6 +135,8 @@ export class ScenarioClient {
     pc: wrtc.RTCPeerConnection,
     rpc: PeerRPCClient,
     inbound: Map<string, number>,
+    privateKey: Uint8Array,
+    handlers: GizClawPeerRPCHandlers,
   ) {
     this.name = name;
     this.endpoint = endpoint;
@@ -109,6 +144,8 @@ export class ScenarioClient {
     this.pc = pc;
     this.rpc = rpc;
     this.inbound = inbound;
+    this.privateKey = privateKey;
+    this.handlers = handlers;
   }
 
   // connect brings up one ephemeral device peer with every client.* provider
@@ -157,6 +194,8 @@ export class ScenarioClient {
       pc,
       rpc,
       inbound,
+      privateKey,
+      handlers,
     );
     if (spec.registration_token != null && spec.registration_token !== "") {
       const token = variables.resolveString(
@@ -237,6 +276,34 @@ export class ScenarioClient {
     });
     this.controlClients.set(key, created);
     return created;
+  }
+
+  // reconnect drops this client's Peer connection and dials a replacement on
+  // the same identity, the way a device that switched network or rebooted
+  // reaches the Server again. The scripted providers are reinstalled and keep
+  // their inbound counts, so expect_calls still sees the total across both.
+  async reconnect(awaitMs?: number, taskSignal?: AbortSignal): Promise<void> {
+    this.pc.close();
+    const timeout = AbortSignal.timeout(awaitMs ?? CONNECT_TIMEOUT_MS);
+    const signal =
+      taskSignal == null ? timeout : AbortSignal.any([taskSignal, timeout]);
+    const pc = new wrtc.RTCPeerConnection();
+    try {
+      await connectGiznetWebRTCFromEndpoint({
+        clientPrivateKey: this.privateKey,
+        endpoint: this.endpoint,
+        pc: pc as unknown as RTCPeerConnection,
+        peerRPCHandlers: this.handlers,
+        signal,
+      });
+    } catch (error) {
+      pc.close();
+      throw error;
+    }
+    this.pc = pc;
+    this.rpc = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
+      requestTimeoutMs: RPC_TIMEOUT_MS,
+    });
   }
 
   close(): void {
@@ -337,6 +404,24 @@ function buildHandlers(
         break;
       case "client.wifi.saved.forget":
         control.forgetWifi = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
+      case "client.wifi.scan":
+        control.scanWifi = async () => {
+          count(method);
+          if (failure != null) throw failure;
+          const delayMs = scriptedDelayMs(scriptedObject);
+          if (delayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+          const networks = scriptedObject["networks"];
+          return Array.isArray(networks) ? (networks as never[]) : [];
+        };
+        break;
+      case "client.wifi.connect":
+        control.connectWifi = () => {
           count(method);
           if (failure != null) throw failure;
         };

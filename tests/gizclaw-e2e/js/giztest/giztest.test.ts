@@ -3,7 +3,11 @@ import path from "node:path";
 import test from "node:test";
 
 import { assertValue, jsonEqual, jsonPointer, safeError } from "./assert.ts";
-import { httpBaseURL } from "./client.ts";
+import {
+  MAX_SCRIPTED_DELAY_MS,
+  httpBaseURL,
+  scriptedDelayMs,
+} from "./client.ts";
 import {
   collectReferences,
   discover,
@@ -284,4 +288,22 @@ test("discover rejects a non-scenario file", async () => {
     discover([path.join(scenarioRoot, "..", "run_tests.sh")]),
     /not a \.giztest\.yaml file/u,
   );
+});
+
+// A scripted delay must never silently become an immediate answer: a scenario
+// that scripts one is written to exercise a timeout, and Node clamps an
+// out-of-range setTimeout delay to a single millisecond.
+test("scriptedDelayMs bounds the delay to the timer range", () => {
+  assert.equal(scriptedDelayMs({}), 0);
+  assert.equal(scriptedDelayMs({ delay_ms: 0 }), 0);
+  assert.equal(scriptedDelayMs({ delay_ms: 1200 }), 1200);
+  assert.equal(
+    scriptedDelayMs({ delay_ms: MAX_SCRIPTED_DELAY_MS }),
+    MAX_SCRIPTED_DELAY_MS,
+  );
+  assert.throws(() => scriptedDelayMs({ delay_ms: MAX_SCRIPTED_DELAY_MS + 1 }));
+  assert.throws(() => scriptedDelayMs({ delay_ms: Number.MAX_SAFE_INTEGER }));
+  assert.throws(() => scriptedDelayMs({ delay_ms: -1 }));
+  assert.throws(() => scriptedDelayMs({ delay_ms: 1.5 }));
+  assert.throws(() => scriptedDelayMs({ delay_ms: "1200" }));
 });

@@ -396,6 +396,46 @@
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
         }
+      },
+      "put": {
+        "operationId": "connectDeviceWifi",
+        "summary": "Connect the bound device to a Wi-Fi network",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.wifi.connect to the online device. A 202 response means the device accepted the credentials and will switch networks after replying; poll GET /device/wifi after it reconnects to observe the result.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiConnectRequest"}}}},
+        "responses": {
+          "202": {"description": "The device accepted the credentials and started switching networks."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/wifi/scan": {
+      "post": {
+        "operationId": "scanDeviceWifi",
+        "summary": "Scan for Wi-Fi networks near the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.wifi.scan to the online device using a scan-specific timeout clamped to 1000-15000 milliseconds.",
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiScanRequest"}}}},
+        "responses": {
+          "200": {"description": "Nearby Wi-Fi networks reported by the device.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiScanResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
       }
     },
     "/gizclaw/v1/device/wifi/saved": {
@@ -657,6 +697,47 @@
         "additionalProperties": false,
         "required": ["networks"],
         "properties": {"networks": {"type": "array", "items": {"$ref": "#/components/schemas/DeviceWifiSavedNetwork"}}}
+      },
+      "DeviceWifiScanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "timeout_ms": {
+            "type": "integer",
+            "format": "int64",
+            "default": 8000,
+            "description": "How long the device may scan. Values outside 1000-15000 are clamped to that range rather than rejected, so a client may send any positive duration and receive the nearest supported one."
+          }
+        }
+      },
+      "DeviceWifiScanResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ssid"],
+        "properties": {
+          "ssid": {"type": "string", "maxLength": 32},
+          "bssid": {"type": "string", "maxLength": 17},
+          "rssi_dbm": {"type": "integer", "format": "int64"},
+          "frequency_mhz": {"type": "integer", "format": "int64"},
+          "security": {"type": "string", "maxLength": 5}
+        }
+      },
+      "DeviceWifiScanResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["networks"],
+        "properties": {
+          "networks": {"type": "array", "maxItems": 32, "items": {"$ref": "#/components/schemas/DeviceWifiScanResult"}}
+        }
+      },
+      "DeviceWifiConnectRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ssid"],
+        "properties": {
+          "ssid": {"type": "string", "minLength": 1, "maxLength": 32},
+          "passphrase": {"type": "string", "minLength": 8, "maxLength": 63}
+        }
       },
       "Contact": {
         "type": "object",

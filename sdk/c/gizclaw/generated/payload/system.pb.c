@@ -66,6 +66,21 @@ PB_BIND(gizclaw_rpc_v1_ClientWifiSavedForgetRequest, gizclaw_rpc_v1_ClientWifiSa
 PB_BIND(gizclaw_rpc_v1_ClientWifiSavedForgetResponse, gizclaw_rpc_v1_ClientWifiSavedForgetResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_WifiScanResult, gizclaw_rpc_v1_WifiScanResult, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiScanRequest, gizclaw_rpc_v1_ClientWifiScanRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiScanResponse, gizclaw_rpc_v1_ClientWifiScanResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiConnectRequest, gizclaw_rpc_v1_ClientWifiConnectRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientWifiConnectResponse, gizclaw_rpc_v1_ClientWifiConnectResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_DeviceInfo, gizclaw_rpc_v1_DeviceInfo, 2)
 
 

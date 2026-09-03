@@ -336,6 +336,136 @@ const ClientWifiSavedForgetResponse$json = {
 final $typed_data.Uint8List clientWifiSavedForgetResponseDescriptor =
     $convert.base64Decode('Ch1DbGllbnRXaWZpU2F2ZWRGb3JnZXRSZXNwb25zZQ==');
 
+@$core.Deprecated('Use wifiScanResultDescriptor instead')
+const WifiScanResult$json = {
+  '1': 'WifiScanResult',
+  '2': [
+    {'1': 'ssid', '3': 1, '4': 1, '5': 9, '10': 'ssid'},
+    {'1': 'bssid', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'bssid', '17': true},
+    {
+      '1': 'rssi_dbm',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 1,
+      '10': 'rssiDbm',
+      '17': true
+    },
+    {
+      '1': 'frequency_mhz',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '9': 2,
+      '10': 'frequencyMhz',
+      '17': true
+    },
+    {
+      '1': 'security',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'security',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_bssid'},
+    {'1': '_rssi_dbm'},
+    {'1': '_frequency_mhz'},
+    {'1': '_security'},
+  ],
+};
+
+/// Descriptor for `WifiScanResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List wifiScanResultDescriptor = $convert.base64Decode(
+    'Cg5XaWZpU2NhblJlc3VsdBISCgRzc2lkGAEgASgJUgRzc2lkEhkKBWJzc2lkGAIgASgJSABSBW'
+    'Jzc2lkiAEBEh4KCHJzc2lfZGJtGAMgASgDSAFSB3Jzc2lEYm2IAQESKAoNZnJlcXVlbmN5X21o'
+    'ehgEIAEoA0gCUgxmcmVxdWVuY3lNaHqIAQESHwoIc2VjdXJpdHkYBSABKAlIA1IIc2VjdXJpdH'
+    'mIAQFCCAoGX2Jzc2lkQgsKCV9yc3NpX2RibUIQCg5fZnJlcXVlbmN5X21oekILCglfc2VjdXJp'
+    'dHk=');
+
+@$core.Deprecated('Use clientWifiScanRequestDescriptor instead')
+const ClientWifiScanRequest$json = {
+  '1': 'ClientWifiScanRequest',
+  '2': [
+    {
+      '1': 'timeout_ms',
+      '3': 1,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'timeoutMs',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_timeout_ms'},
+  ],
+};
+
+/// Descriptor for `ClientWifiScanRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiScanRequestDescriptor = $convert.base64Decode(
+    'ChVDbGllbnRXaWZpU2NhblJlcXVlc3QSIgoKdGltZW91dF9tcxgBIAEoA0gAUgl0aW1lb3V0TX'
+    'OIAQFCDQoLX3RpbWVvdXRfbXM=');
+
+@$core.Deprecated('Use clientWifiScanResponseDescriptor instead')
+const ClientWifiScanResponse$json = {
+  '1': 'ClientWifiScanResponse',
+  '2': [
+    {
+      '1': 'networks',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WifiScanResult',
+      '10': 'networks'
+    },
+  ],
+};
+
+/// Descriptor for `ClientWifiScanResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiScanResponseDescriptor =
+    $convert.base64Decode(
+        'ChZDbGllbnRXaWZpU2NhblJlc3BvbnNlEjoKCG5ldHdvcmtzGAEgAygLMh4uZ2l6Y2xhdy5ycG'
+        'MudjEuV2lmaVNjYW5SZXN1bHRSCG5ldHdvcmtz');
+
+@$core.Deprecated('Use clientWifiConnectRequestDescriptor instead')
+const ClientWifiConnectRequest$json = {
+  '1': 'ClientWifiConnectRequest',
+  '2': [
+    {'1': 'ssid', '3': 1, '4': 1, '5': 9, '10': 'ssid'},
+    {
+      '1': 'passphrase',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'passphrase',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_passphrase'},
+  ],
+};
+
+/// Descriptor for `ClientWifiConnectRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiConnectRequestDescriptor =
+    $convert.base64Decode(
+        'ChhDbGllbnRXaWZpQ29ubmVjdFJlcXVlc3QSEgoEc3NpZBgBIAEoCVIEc3NpZBIjCgpwYXNzcG'
+        'hyYXNlGAIgASgJSABSCnBhc3NwaHJhc2WIAQFCDQoLX3Bhc3NwaHJhc2U=');
+
+@$core.Deprecated('Use clientWifiConnectResponseDescriptor instead')
+const ClientWifiConnectResponse$json = {
+  '1': 'ClientWifiConnectResponse',
+};
+
+/// Descriptor for `ClientWifiConnectResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientWifiConnectResponseDescriptor =
+    $convert.base64Decode('ChlDbGllbnRXaWZpQ29ubmVjdFJlc3BvbnNl');
+
 @$core.Deprecated('Use deviceInfoDescriptor instead')
 const DeviceInfo$json = {
   '1': 'DeviceInfo',

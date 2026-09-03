@@ -89,6 +89,38 @@ typedef struct _gizclaw_rpc_v1_ClientWifiSavedForgetResponse {
     char dummy_field;
 } gizclaw_rpc_v1_ClientWifiSavedForgetResponse;
 
+typedef struct _gizclaw_rpc_v1_WifiScanResult {
+    char ssid[33];
+    bool has_bssid;
+    char bssid[18];
+    bool has_rssi_dbm;
+    int64_t rssi_dbm;
+    bool has_frequency_mhz;
+    int64_t frequency_mhz;
+    bool has_security;
+    char security[6];
+} gizclaw_rpc_v1_WifiScanResult;
+
+typedef struct _gizclaw_rpc_v1_ClientWifiScanRequest {
+    bool has_timeout_ms;
+    int64_t timeout_ms;
+} gizclaw_rpc_v1_ClientWifiScanRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientWifiScanResponse {
+    pb_size_t networks_count;
+    gizclaw_rpc_v1_WifiScanResult networks[32];
+} gizclaw_rpc_v1_ClientWifiScanResponse;
+
+typedef struct _gizclaw_rpc_v1_ClientWifiConnectRequest {
+    char ssid[33];
+    bool has_passphrase;
+    char passphrase[64];
+} gizclaw_rpc_v1_ClientWifiConnectRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientWifiConnectResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_ClientWifiConnectResponse;
+
 typedef struct _gizclaw_rpc_v1_DeviceProfile {
     bool has_name;
     char name[257];
@@ -317,6 +349,11 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientWifiSavedListResponse_init_default {0, {gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default, gizclaw_rpc_v1_WifiSavedNetwork_init_default}}
 #define gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_default {""}
 #define gizclaw_rpc_v1_ClientWifiSavedForgetResponse_init_default {0}
+#define gizclaw_rpc_v1_WifiScanResult_init_default {"", false, "", false, 0, false, 0, false, ""}
+#define gizclaw_rpc_v1_ClientWifiScanRequest_init_default {false, 0}
+#define gizclaw_rpc_v1_ClientWifiScanResponse_init_default {0, {gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default}}
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_init_default {"", false, ""}
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_init_default {0}
 #define gizclaw_rpc_v1_DeviceInfo_init_default   {false, gizclaw_rpc_v1_HardwareInfo_init_default, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_default}
 #define gizclaw_rpc_v1_DeviceProfile_init_default {false, "", false, ""}
 #define gizclaw_rpc_v1_DeviceIdentifiers_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -367,6 +404,11 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientWifiSavedListResponse_init_zero {0, {gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero, gizclaw_rpc_v1_WifiSavedNetwork_init_zero}}
 #define gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero {""}
 #define gizclaw_rpc_v1_ClientWifiSavedForgetResponse_init_zero {0}
+#define gizclaw_rpc_v1_WifiScanResult_init_zero  {"", false, "", false, 0, false, 0, false, ""}
+#define gizclaw_rpc_v1_ClientWifiScanRequest_init_zero {false, 0}
+#define gizclaw_rpc_v1_ClientWifiScanResponse_init_zero {0, {gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero}}
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_init_zero {"", false, ""}
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_init_zero {0}
 #define gizclaw_rpc_v1_DeviceInfo_init_zero      {false, gizclaw_rpc_v1_HardwareInfo_init_zero, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_zero}
 #define gizclaw_rpc_v1_DeviceProfile_init_zero   {false, "", false, ""}
 #define gizclaw_rpc_v1_DeviceIdentifiers_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -413,6 +455,15 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientWifiStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientWifiSavedListResponse_networks_tag 1
 #define gizclaw_rpc_v1_ClientWifiSavedForgetRequest_ssid_tag 1
+#define gizclaw_rpc_v1_WifiScanResult_ssid_tag   1
+#define gizclaw_rpc_v1_WifiScanResult_bssid_tag  2
+#define gizclaw_rpc_v1_WifiScanResult_rssi_dbm_tag 3
+#define gizclaw_rpc_v1_WifiScanResult_frequency_mhz_tag 4
+#define gizclaw_rpc_v1_WifiScanResult_security_tag 5
+#define gizclaw_rpc_v1_ClientWifiScanRequest_timeout_ms_tag 1
+#define gizclaw_rpc_v1_ClientWifiScanResponse_networks_tag 1
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_ssid_tag 1
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_passphrase_tag 2
 #define gizclaw_rpc_v1_DeviceProfile_name_tag    1
 #define gizclaw_rpc_v1_DeviceProfile_emoji_tag   2
 #define gizclaw_rpc_v1_DeviceIdentifiers_sn_tag  1
@@ -592,6 +643,37 @@ X(a, STATIC,   SINGULAR, STRING,   ssid,              1)
 
 #define gizclaw_rpc_v1_ClientWifiSavedForgetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientWifiSavedForgetResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_WifiScanResult_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   ssid,              1) \
+X(a, STATIC,   OPTIONAL, STRING,   bssid,             2) \
+X(a, STATIC,   OPTIONAL, INT64,    rssi_dbm,          3) \
+X(a, STATIC,   OPTIONAL, INT64,    frequency_mhz,     4) \
+X(a, STATIC,   OPTIONAL, STRING,   security,          5)
+#define gizclaw_rpc_v1_WifiScanResult_CALLBACK NULL
+#define gizclaw_rpc_v1_WifiScanResult_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientWifiScanRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, INT64,    timeout_ms,        1)
+#define gizclaw_rpc_v1_ClientWifiScanRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientWifiScanRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientWifiScanResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, MESSAGE,  networks,          1)
+#define gizclaw_rpc_v1_ClientWifiScanResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientWifiScanResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ClientWifiScanResponse_networks_MSGTYPE gizclaw_rpc_v1_WifiScanResult
+
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   ssid,              1) \
+X(a, STATIC,   OPTIONAL, STRING,   passphrase,        2)
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_DEFAULT NULL
 
 #define gizclaw_rpc_v1_DeviceInfo_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  hardware,          1) \
@@ -812,6 +894,11 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiSavedListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiSavedListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiSavedForgetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiSavedForgetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WifiScanResult_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiScanRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiScanResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiConnectRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientWifiConnectResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceInfo_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceProfile_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceIdentifiers_msg;
@@ -864,6 +951,11 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ClientWifiSavedListResponse_fields &gizclaw_rpc_v1_ClientWifiSavedListResponse_msg
 #define gizclaw_rpc_v1_ClientWifiSavedForgetRequest_fields &gizclaw_rpc_v1_ClientWifiSavedForgetRequest_msg
 #define gizclaw_rpc_v1_ClientWifiSavedForgetResponse_fields &gizclaw_rpc_v1_ClientWifiSavedForgetResponse_msg
+#define gizclaw_rpc_v1_WifiScanResult_fields &gizclaw_rpc_v1_WifiScanResult_msg
+#define gizclaw_rpc_v1_ClientWifiScanRequest_fields &gizclaw_rpc_v1_ClientWifiScanRequest_msg
+#define gizclaw_rpc_v1_ClientWifiScanResponse_fields &gizclaw_rpc_v1_ClientWifiScanResponse_msg
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_fields &gizclaw_rpc_v1_ClientWifiConnectRequest_msg
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_fields &gizclaw_rpc_v1_ClientWifiConnectResponse_msg
 #define gizclaw_rpc_v1_DeviceInfo_fields &gizclaw_rpc_v1_DeviceInfo_msg
 #define gizclaw_rpc_v1_DeviceProfile_fields &gizclaw_rpc_v1_DeviceProfile_msg
 #define gizclaw_rpc_v1_DeviceIdentifiers_fields &gizclaw_rpc_v1_DeviceIdentifiers_msg
@@ -927,10 +1019,14 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_size 13
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
+#define gizclaw_rpc_v1_ClientWifiConnectRequest_size 99
+#define gizclaw_rpc_v1_ClientWifiConnectResponse_size 0
 #define gizclaw_rpc_v1_ClientWifiSavedForgetRequest_size 34
 #define gizclaw_rpc_v1_ClientWifiSavedForgetResponse_size 0
 #define gizclaw_rpc_v1_ClientWifiSavedListRequest_size 0
 #define gizclaw_rpc_v1_ClientWifiSavedListResponse_size 576
+#define gizclaw_rpc_v1_ClientWifiScanRequest_size 11
+#define gizclaw_rpc_v1_ClientWifiScanResponse_size 2688
 #define gizclaw_rpc_v1_ClientWifiStatusGetRequest_size 0
 #define gizclaw_rpc_v1_ClientWifiStatusGetResponse_size 115
 #define gizclaw_rpc_v1_DeviceProfile_size        325
@@ -946,6 +1042,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_SpeedTestRequest_size     22
 #define gizclaw_rpc_v1_SpeedTestResponse_size    22
 #define gizclaw_rpc_v1_WifiSavedNetwork_size     34
+#define gizclaw_rpc_v1_WifiScanResult_size       82
 #define gizclaw_rpc_v1_WifiStatus_size           113
 
 #ifdef __cplusplus

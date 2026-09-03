@@ -18,9 +18,21 @@ curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"level":35,"muted":false}'
+
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/wifi/scan" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"timeout_ms":8000}'
+
+curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/wifi" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"ssid":"Office","passphrase":"correct-horse"}'
 ```
 
-`PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，设备 5 秒内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
+`PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。Wi-Fi 扫描同步返回网络列表；`timeout_ms` 缺省 8000 并夹取到 1000–15000。加入网络返回 `202`，只表示设备已接受凭据并开始切换；设备随后掉线，控制 route 返回 `409 DEVICE_OFFLINE`。设备重连后轮询 `GET /device/wifi`：`ssid` 为目标网络表示成功，仍为旧网络表示加入失败并已回退。服务端不保存、记录或回显密码。
+
+设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，普通控制在 5 秒内无响应、扫描在其请求上界内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
 
 ## SDK
 
@@ -35,6 +47,10 @@ final client = GizClawControlClient(
 );
 final status = await client.getDeviceStatus();
 final applied = await client.setDeviceVolume(level: 35, muted: false);
+final nearby = await client.scanDeviceWifi();
+await client.connectDeviceWifi(
+  const DeviceWifiConnectRequest(ssid: 'Office', passphrase: 'correct-horse'),
+);
 ```
 
 ```ts
@@ -46,6 +62,8 @@ const control = createGizClawControlClient({
 });
 const status = await control.device.getStatus();
 const applied = await control.device.setVolume({ level: 35, muted: false });
+const nearby = await control.device.scanWifi();
+await control.device.connectWifi({ ssid: "Office", passphrase: "correct-horse" });
 ```
 
 失败分别抛出 `GizClawControlException` 与 `GizClawControlError`，其 `kind` 按上文的 status 与 `DEVICE_*` code 分类，例如 `deviceOffline`、`deviceTimeout`、`unauthorized`。

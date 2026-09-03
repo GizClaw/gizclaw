@@ -44,7 +44,7 @@ console.log(status.volume, "->", applied.status.volume);
 client 按 route group 组织，方法名与 [Flutter SDK](./flutter) 的 `gizclaw_control` 一一对应：
 
 - `apiKeys`：`create`、`list`、`getSelf`、`revokeSelf`、`get`、`revoke`。
-- `device`：`get`、`getRuntime`、`getStatus`、`getTelemetryLatest`、`queryTelemetry`、`aggregateTelemetry`、`setVolume`、`playSound`、`reboot`、`getWifi`、`listSavedWifi`、`forgetSavedWifi`。
+- `device`：`get`、`getRuntime`、`getStatus`、`getTelemetryLatest`、`queryTelemetry`、`aggregateTelemetry`、`setVolume`、`playSound`、`reboot`、`getWifi`、`scanWifi`、`connectWifi`、`listSavedWifi`、`forgetSavedWifi`。
 - `contacts`：`list`、`create`、`get`、`put`、`delete`。
 
 request/response 类型直接来自 `@gizclaw/gizclaw/peerhttp` 的生成类型（`PeerStatus`、`DeviceControlStatus`、`Contact` 等），字段名与 wire format 相同。`204` route resolve 为 `void`。`control.client` 暴露已配置 bearer 与 `baseUrl` 的生成 client，可直接传给 `@gizclaw/gizclaw/peerhttp` 的其他函数。可选 `fetch` 参数用于注入自定义或测试用 fetch。

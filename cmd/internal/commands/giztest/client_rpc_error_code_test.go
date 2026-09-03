@@ -67,3 +67,20 @@ func TestInstallDeviceControlRejectsMalformedCode(t *testing.T) {
 		t.Fatal("installDeviceControl installed a provider for a malformed error_code")
 	}
 }
+
+func TestInstallDeviceControlWifiScanAndConnectErrors(t *testing.T) {
+	var handlers gizcli.DeviceControlHandlers
+	for _, method := range []string{"client.wifi.scan", "client.wifi.connect"} {
+		if err := installDeviceControl(&handlers, method, map[string]any{"error_code": -32602, "error_message": "rejected"}); err != nil {
+			t.Fatalf("install %s: %v", method, err)
+		}
+	}
+	_, scanErr := handlers.ScanWifi(t.Context(), new(int64(8000)))
+	connectErr := handlers.ConnectWifi(t.Context(), "home", new("correct-horse"))
+	for method, err := range map[string]error{"client.wifi.scan": scanErr, "client.wifi.connect": connectErr} {
+		var rpcErr rpcapi.Error
+		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeInvalidParams || rpcErr.Message != "rejected" {
+			t.Fatalf("%s error = %#v", method, err)
+		}
+	}
+}

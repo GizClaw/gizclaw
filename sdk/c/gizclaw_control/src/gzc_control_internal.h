@@ -91,6 +91,9 @@ int gzc_control_decode_device_info(gzc_str_t object_json, gzc_control_device_inf
 int gzc_control_decode_device_runtime(gzc_str_t object_json, gzc_control_device_runtime_t *out);
 int gzc_control_decode_peer_status(gzc_str_t object_json, gzc_control_peer_status_t *out);
 int gzc_control_decode_wifi_status(gzc_str_t object_json, gzc_control_wifi_status_t *out);
+int gzc_control_decode_wifi_scan_result(
+    gzc_str_t object_json,
+    gzc_control_wifi_scan_result_t *out);
 int gzc_control_decode_contact(gzc_str_t object_json, gzc_control_contact_t *out);
 int gzc_control_decode_telemetry_value(gzc_str_t object_json, gzc_control_telemetry_value_t *out);
 int gzc_control_decode_telemetry_point(gzc_str_t object_json, gzc_control_telemetry_point_t *out);
@@ -121,5 +124,6 @@ int gzc_control_decode_telemetry_value_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_telemetry_point_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_telemetry_bucket_item(gzc_str_t object_json, void *out);
 int gzc_control_decode_saved_wifi_item(gzc_str_t object_json, void *out);
+int gzc_control_decode_wifi_scan_result_item(gzc_str_t object_json, void *out);
 
 #endif

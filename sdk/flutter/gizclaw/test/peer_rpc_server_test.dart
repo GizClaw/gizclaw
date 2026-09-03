@@ -432,6 +432,9 @@ void deviceControlTests() {
     String? lastSound;
     int? lastDuration;
     int? lastDelay;
+    int? lastScanTimeout;
+    String? lastConnectSsid;
+    String? lastPassphrase;
     final saved = ['home', 'office'];
     final handlers = GizClawPeerRpcHandlers(
       deviceInfo: () => device,
@@ -469,6 +472,14 @@ void deviceControlTests() {
               'unknown network',
             );
           }
+        },
+        scanWifi: (timeoutMs) {
+          lastScanTimeout = timeoutMs;
+          return [WifiScanResult(ssid: 'office', rssiDbm: Int64(-42))];
+        },
+        connectWifi: (ssid, passphrase) {
+          lastConnectSsid = ssid;
+          lastPassphrase = passphrase;
         },
       ),
     );
@@ -594,6 +605,34 @@ void deviceControlTests() {
         decodeRpcResponsePayload('client.wifi.saved.list', response.payload)
             as ClientWifiSavedListResponse;
     expect(list.networks.map((n) => n.ssid), ['home']);
+
+    response = await callDevice(
+      handlers,
+      id: 'scan',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SCAN,
+      methodName: 'client.wifi.scan',
+      request: ClientWifiScanRequest(timeoutMs: Int64(8000)),
+    );
+    final scan =
+        decodeRpcResponsePayload('client.wifi.scan', response.payload)
+            as ClientWifiScanResponse;
+    expect(scan.networks.single.ssid, 'office');
+    expect(scan.networks.single.rssiDbm, Int64(-42));
+    expect(lastScanTimeout, 8000);
+
+    response = await callDevice(
+      handlers,
+      id: 'connect',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_CONNECT,
+      methodName: 'client.wifi.connect',
+      request: ClientWifiConnectRequest(
+        ssid: 'office',
+        passphrase: 'correct-horse',
+      ),
+    );
+    expect(response.hasError(), isFalse);
+    expect(lastConnectSsid, 'office');
+    expect(lastPassphrase, 'correct-horse');
   });
 
   test(
@@ -624,6 +663,31 @@ void deviceControlTests() {
         request: ClientWifiStatusGetRequest(),
       );
       expect(response.hasError(), isFalse);
+
+      for (final unsupported in [
+        (
+          rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SCAN,
+          'client.wifi.scan',
+          ClientWifiScanRequest(),
+        ),
+        (
+          rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_CONNECT,
+          'client.wifi.connect',
+          ClientWifiConnectRequest(ssid: 'home'),
+        ),
+      ]) {
+        response = await callDevice(
+          partial,
+          id: 'unsupported-wifi',
+          method: unsupported.$1,
+          methodName: unsupported.$2,
+          request: unsupported.$3,
+        );
+        expect(
+          response.error.code,
+          rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+        );
+      }
 
       response = await callDevice(
         null,

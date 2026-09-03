@@ -72,6 +72,7 @@ type Step struct {
 	Output         *OutputOperation         `json:"output,omitempty" yaml:"output,omitempty"`
 	ReviewOp       *ReviewOperation         `json:"review_op,omitempty" yaml:"review_op,omitempty"`
 	Barrier        *BarrierOperation        `json:"barrier,omitempty" yaml:"barrier,omitempty"`
+	Reconnect      *ReconnectOperation      `json:"reconnect,omitempty" yaml:"reconnect,omitempty"`
 	WorkspaceRelay *WorkspaceRelayOperation `json:"workspace_relay,omitempty" yaml:"workspace_relay,omitempty"`
 	SaveAs         string                   `json:"save_as,omitempty" yaml:"save_as,omitempty"`
 	Capture        map[string]string        `json:"capture,omitempty" yaml:"capture,omitempty"`
@@ -148,6 +149,17 @@ type ReviewOperation struct {
 type BarrierOperation struct {
 	Participants int `json:"participants,omitempty" yaml:"participants,omitempty"`
 }
+
+// ReconnectOperation drops one client's Peer connection and dials a new one
+// with the same identity, the way a device that switches network or reboots
+// reaches the Server again.
+//
+// The Server treats the replacement connection as the same device, which is
+// what ends a transition it is holding open. AwaitMs bounds how long the step
+// waits for the new connection; drivers apply their own default when it is 0.
+type ReconnectOperation struct {
+	AwaitMs int `json:"await_ms,omitempty" yaml:"await_ms,omitempty"`
+}
 type WorkspaceRelayOperation struct {
 	FirstClient    string `json:"first_client" yaml:"first_client"`
 	SecondClient   string `json:"second_client" yaml:"second_client"`
@@ -192,6 +204,10 @@ const (
 	maxNormalizeKinds = 4
 	maxRetryAttempts  = 10
 	maxRetryDelay     = 5 * time.Minute
+
+	// maxReconnectAwaitMs bounds how long a reconnect step may wait for the
+	// replacement connection, matching the schema's own upper bound.
+	maxReconnectAwaitMs = 60000
 )
 
 // notContainsList normalizes the YAML string-or-list operand into one list.
@@ -501,6 +517,14 @@ func (d *Document) validateSemantics() error {
 		if op == "barrier" && step.Barrier.Participants != 0 && step.Barrier.Participants != d.Repeat {
 			return fmt.Errorf("step %s barrier participants must equal repeat", step.ID)
 		}
+		if op == "reconnect" {
+			if i >= len(d.Steps) {
+				return fmt.Errorf("step %s reconnect is not allowed in finally", step.ID)
+			}
+			if step.Reconnect.AwaitMs < 0 || step.Reconnect.AwaitMs > maxReconnectAwaitMs {
+				return fmt.Errorf("step %s reconnect await_ms must be between 1 and %d", step.ID, maxReconnectAwaitMs)
+			}
+		}
 		if step.Timeout != "" {
 			if duration, err := time.ParseDuration(step.Timeout); err != nil || duration <= 0 {
 				return fmt.Errorf("step %s has invalid timeout %q", step.ID, step.Timeout)
@@ -782,6 +806,8 @@ func (s Step) Operation() string {
 		return "review"
 	case s.Barrier != nil:
 		return "barrier"
+	case s.Reconnect != nil:
+		return "reconnect"
 	case s.WorkspaceRelay != nil:
 		return "workspace_relay"
 	}

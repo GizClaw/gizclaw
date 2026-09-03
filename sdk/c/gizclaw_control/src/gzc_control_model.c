@@ -526,6 +526,38 @@ int gzc_control_decode_wifi_status(gzc_str_t object_json, gzc_control_wifi_statu
   return rc;
 }
 
+int gzc_control_decode_wifi_scan_result(
+    gzc_str_t object_json,
+    gzc_control_wifi_scan_result_t *out) {
+  if (out == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK) {
+    rc = gzc_control_req_str(object_json, "ssid", &out->ssid);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "bssid", &out->bssid);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_i64(object_json, "rssi_dbm", &out->rssi_dbm, &out->has_rssi_dbm);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_i64(
+        object_json, "frequency_mhz", &out->frequency_mhz, &out->has_frequency_mhz);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "security", &out->security);
+  }
+  return rc;
+}
+
+int gzc_control_decode_wifi_scan_result_item(gzc_str_t object_json, void *out) {
+  return gzc_control_decode_wifi_scan_result(
+      object_json, (gzc_control_wifi_scan_result_t *)out);
+}
+
 int gzc_control_decode_contact(gzc_str_t object_json, gzc_control_contact_t *out) {
   if (out == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
