@@ -28,10 +28,6 @@ type ServerInfoMetadata struct {
 	TransportPublicKey giznet.PublicKey
 	SignalingURL       string
 	ICEServers         []gizwebrtc.ICEServer
-	// ICEEndpoint is the host[:port] UDP endpoint advertised by /server-info.
-	// The HTTP entry point may terminate TLS on a port that carries no ICE, so
-	// this is the address WebRTC media uses, not the server URL authority.
-	ICEEndpoint string
 }
 
 type retryableServerInfoError struct {
@@ -105,12 +101,6 @@ func FetchServerInfo(ctx context.Context, serverURL string) (ServerInfoMetadata,
 	if serverPK.IsZero() {
 		return ServerInfoMetadata{}, fmt.Errorf("server-info invalid public_key: zero key")
 	}
-	iceEndpoint := strings.TrimSpace(body.Endpoint)
-	if iceEndpoint != "" {
-		if err := validateHostPort(iceEndpoint); err != nil {
-			return ServerInfoMetadata{}, fmt.Errorf("server-info invalid endpoint: %w", err)
-		}
-	}
 	transportPK := serverPK
 	signalingBase := baseURL
 	signalingPath := strings.TrimSpace(body.SignalingPath)
@@ -152,7 +142,6 @@ func FetchServerInfo(ctx context.Context, serverURL string) (ServerInfoMetadata,
 		TransportPublicKey: transportPK,
 		SignalingURL:       signalingBase + signalingPath,
 		ICEServers:         iceServers,
-		ICEEndpoint:        iceEndpoint,
 	}, nil
 }
 

@@ -128,12 +128,12 @@ static int append_stream_frame(void *userdata, const gzc_rpc_frame_t *frame) {
 }
 
 int gzc_cgo_session_open(
-    const char *server_url,
+    const char *server_endpoint,
     const char *private_key,
     gzc_cgo_session_t **out_session,
     char *errbuf,
     unsigned long errbuf_len) {
-  if (server_url == NULL || private_key == NULL || out_session == NULL) {
+  if (server_endpoint == NULL || private_key == NULL || out_session == NULL) {
     return fail(errbuf, errbuf_len, "session open", GZC_ERR_INVALID_ARGUMENT);
   }
   *out_session = NULL;
@@ -155,7 +155,7 @@ int gzc_cgo_session_open(
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
-  config.server_url = gzc_str_from_cstr(server_url);
+  config.server_endpoint = gzc_str_from_cstr(server_endpoint);
   config.private_key = gzc_str_from_cstr(private_key);
   config.platform = session->backend.platform;
   config.crypto = &session->crypto;

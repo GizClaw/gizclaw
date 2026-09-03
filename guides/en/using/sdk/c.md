@@ -70,9 +70,9 @@ The last kind has no counterpart in the Dart and TypeScript packages, which allo
 
 ## Access point URL
 
-`gzc_client_config_t.server_url` is the HTTP access point of the Server or Edge. It accepts an `http://` or `https://` base URL such as `https://ap.gizclaw.com`, and a bare `host:port` still resolves to `http`. A path prefix is preserved, a trailing slash is dropped, and query strings, fragments and userinfo are rejected.
+`gzc_client_config_t.server_endpoint` is the HTTP access point of the Server or Edge. It accepts an `http://` or `https://` base URL such as `https://ap.gizclaw.com`, and a bare `host:port` still resolves to `http`. A path prefix is preserved, a trailing slash is dropped, and query strings, fragments and userinfo are rejected.
 
-A TLS access point can terminate on a port that carries no ICE, so WebRTC media never reuses the URL authority. `/server-info` advertises the ICE UDP address in its `endpoint` field, and `gzc_client_ice_endpoint()` reports it as `host[:port]` after a successful connect.
+A TLS access point can terminate on a port that carries no ICE, so the access point authority is not the WebRTC media address. The SDK needs no extra configuration for that: the answer SDP carries the Server's ICE candidates.
 
 ## Download and verify
 
