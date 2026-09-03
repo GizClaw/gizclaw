@@ -22,6 +22,11 @@ import (
 	"unsafe"
 )
 
+// Supported reports whether this build links the native libopus runtime.
+func Supported() bool {
+	return true
+}
+
 // Version returns the linked libopus version string.
 func Version() string {
 	return C.GoString(C.opus_get_version_string())

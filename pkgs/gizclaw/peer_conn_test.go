@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -2502,6 +2504,9 @@ func TestPeerConnSequentialAudioRoutesKeepActiveRuntimeInput(t *testing.T) {
 }
 
 func TestNewPeerConnOpusEncoderUsesLowestComplexity(t *testing.T) {
+	if !opus.Supported() {
+		t.Skipf("requires native opus runtime, got %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
 	enc, err := newPeerConnOpusEncoder()
 	if err != nil {
 		t.Fatalf("newPeerConnOpusEncoder: %v", err)

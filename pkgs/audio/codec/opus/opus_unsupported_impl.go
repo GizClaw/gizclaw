@@ -11,6 +11,11 @@ func unsupportedErr() error {
 	return unsupportedRuntimeError(runtime.GOOS, runtime.GOARCH, nativeCGOEnabled)
 }
 
+// Supported reports whether this build links the native libopus runtime.
+func Supported() bool {
+	return false
+}
+
 // Version returns a static marker on unsupported platforms.
 func Version() string {
 	return "unsupported"
