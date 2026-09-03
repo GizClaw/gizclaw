@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"sync/atomic"
 
@@ -88,32 +89,61 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []Step, 
 
 // deviceControlErrorResponse lets a script make a device provider answer a
 // fixed RPC error: {error_code: -32602} or {error_code: 404}.
-func deviceControlErrorResponse(response any) error {
+// It returns the scripted error, or a nil error when the response scripts a
+// value rather than a failure. A malformed error_code is returned separately so
+// the document fails instead of installing a provider that answers with the
+// validation message.
+func deviceControlErrorResponse(response any) (error, error) {
 	object, ok := response.(map[string]any)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	raw, ok := object["error_code"]
 	if !ok {
-		return nil
+		return nil, nil
 	}
-	var code float64
-	switch v := raw.(type) {
-	case float64:
-		code = v
-	case int:
-		code = float64(v)
-	case int64:
-		code = float64(v)
-	default:
-		return fmt.Errorf("error_code must be an integer")
+	code, err := scriptedErrorCode(raw)
+	if err != nil {
+		return nil, err
 	}
 	message, _ := object["error_message"].(string)
-	return rpcapi.Error{Code: rpcapi.RPCErrorCode(int32(code)), Message: message}
+	return rpcapi.Error{Code: rpcapi.RPCErrorCode(code), Message: message}, nil
+}
+
+// scriptedErrorCode reads one RPC error code from a decoded scenario value. A
+// YAML document decodes a negative code as int and a non-negative one as
+// uint64, and a JSON round trip decodes either as float64, so every integral
+// form is accepted and anything else is rejected.
+func scriptedErrorCode(raw any) (int32, error) {
+	switch v := raw.(type) {
+	case int:
+		return int32(v), nil
+	case int32:
+		return v, nil
+	case int64:
+		return int32(v), nil
+	case uint:
+		return int32(v), nil
+	case uint32:
+		return int32(v), nil
+	case uint64:
+		return int32(v), nil
+	case float64:
+		if v != math.Trunc(v) {
+			return 0, fmt.Errorf("error_code must be an integer, got %v", v)
+		}
+		return int32(v), nil
+	default:
+		return 0, fmt.Errorf("error_code must be an integer, got %T", raw)
+	}
 }
 
 func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string, response any) error {
-	if scripted := deviceControlErrorResponse(response); scripted != nil {
+	scripted, scriptErr := deviceControlErrorResponse(response)
+	if scriptErr != nil {
+		return scriptErr
+	}
+	if scripted != nil {
 		fail := func(context.Context) error { return scripted }
 		switch method {
 		case "client.device.status.get":
