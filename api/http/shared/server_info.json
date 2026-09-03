@@ -40,10 +40,12 @@
             "type": "string"
           },
           "signaling_path": {
-            "type": "string"
+            "type": "string",
+            "description": "Absolute path clients POST an encrypted WebRTC offer to, resolved against the base URL of the HTTP access point."
           },
           "endpoint": {
-            "type": "string"
+            "type": "string",
+            "description": "Bare host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with. A URL, path, query, userinfo, empty port or non-numeric port is invalid."
           },
           "ice": {
             "type": "object",
@@ -93,6 +95,7 @@
       },
       "ServerInfoTransport": {
         "type": "object",
+        "description": "Edge gateway that terminates WebRTC signaling on behalf of the Server.",
         "required": [
           "mode",
           "endpoint",
@@ -107,13 +110,15 @@
             ]
           },
           "endpoint": {
-            "type": "string"
+            "type": "string",
+            "description": "Edge HTTP access point, either an http or https base URL or a bare host[:port] that inherits the scheme the client used to reach the Server."
           },
           "public_key": {
             "type": "string"
           },
           "signaling_path": {
-            "type": "string"
+            "type": "string",
+            "description": "Absolute path clients POST an encrypted WebRTC offer to on the Edge."
           }
         },
         "additionalProperties": false

@@ -37,7 +37,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 		return nil, giznet.PublicKey{}, "", fmt.Errorf("no active context; run 'gizclaw context create' first")
 	}
 
-	info, err := fetchServerInfoWithRetry(cliCtx.Config.Server.Endpoint)
+	info, err := fetchServerInfoWithRetry(cliCtx.Config.Server.BaseURL())
 	if err != nil {
 		return nil, giznet.PublicKey{}, "", err
 	}
@@ -58,7 +58,7 @@ func DialFromContext(name string) (*gizcli.Client, giznet.PublicKey, string, err
 			}
 			return l, conn, nil
 		},
-	}, info.PublicKey, cliCtx.Config.Server.Endpoint, nil
+	}, info.PublicKey, cliCtx.Config.Server.BaseURL(), nil
 }
 
 var dialFromContext = DialFromContext
@@ -73,11 +73,11 @@ var probeReady = probePeerHTTPReady
 var connectReadyTimeout = 5 * time.Second
 var connectPollInterval = 10 * time.Millisecond
 
-func fetchServerInfoWithRetry(endpoint string) (gizcli.ServerInfoMetadata, error) {
+func fetchServerInfoWithRetry(serverURL string) (gizcli.ServerInfoMetadata, error) {
 	var lastErr error
 	for attempt := range serverInfoRetryAttempts {
 		ctx, cancel := context.WithTimeout(context.Background(), serverInfoAttemptTimeout)
-		info, err := fetchServerInfo(ctx, endpoint)
+		info, err := fetchServerInfo(ctx, serverURL)
 		cancel()
 		if err == nil {
 			return info, nil

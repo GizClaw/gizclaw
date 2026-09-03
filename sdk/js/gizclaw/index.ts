@@ -234,7 +234,12 @@ export type GiznetServerInfo = {
 };
 
 export type ServerInfoBootstrapOptions = {
+  /** Base URL of the HTTP access point, such as "https://ap.gizclaw.com". */
   baseUrl?: string;
+  /**
+   * Access point URL. A bare host:port is accepted and resolves to http, so
+   * existing callers keep working against a plaintext Server.
+   */
   endpoint?: string;
   fetch?: typeof fetch;
   signal?: AbortSignal;
@@ -1230,6 +1235,9 @@ export async function connectGiznetWebRTCFromEndpoint(
   const signalingPath = normalizeServerInfoSignalingPath(
     transport?.signaling_path ?? serverInfo.signaling_path,
   );
+  const baseUrl = serverInfoBaseURL(options);
+  const signalingBaseUrl =
+    transport == null ? baseUrl : transportBaseURL(baseUrl, transport.endpoint);
   applyGiznetServerInfoICEServers(options.pc, serverInfo);
   return connectGiznetWebRTC({
     ...options,
@@ -1248,17 +1256,14 @@ export async function connectGiznetWebRTCFromEndpoint(
           transport == null
             ? rewriteGiznetWebRTCAnswerForEndpoint(
                 await prepared.openAnswer(encryptedAnswer),
-                options.endpoint,
+                serverInfo.endpoint,
               )
             : prepared.openAnswer(encryptedAnswer),
       };
     },
     sendOffer: (offer, signal) =>
       sendGiznetWebRTCOffer(offer, {
-        baseUrl:
-          transport == null
-            ? serverInfoBaseURL(options)
-            : `http://${transport.endpoint}`,
+        baseUrl: signalingBaseUrl,
         fetch: options.fetch,
         signal,
         url: signalingPath,
@@ -1266,6 +1271,12 @@ export async function connectGiznetWebRTCFromEndpoint(
   });
 }
 
+/**
+ * Rewrites host ICE candidates to the loopback endpoint advertised by
+ * /server-info. The HTTP access point may terminate TLS on a port that carries
+ * no ICE, so the UDP address comes from server-info rather than the URL used to
+ * reach it.
+ */
 export function rewriteGiznetWebRTCAnswerForEndpoint(
   answerSDP: string,
   endpoint?: string,
@@ -1334,7 +1345,7 @@ export async function fetchGiznetServerInfo(
 ): Promise<GiznetServerInfo> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   const response = await fetchImpl(
-    new URL("/server-info", serverInfoBaseURL(options)),
+    new URL(`${serverInfoBaseURL(options)}/server-info`),
     { signal: options.signal },
   );
   if (!response.ok) {
@@ -1372,9 +1383,13 @@ export async function fetchGiznetServerInfo(
     (serverInfo as { build_commit?: unknown }).build_commit,
     "build_commit",
   );
+  const iceEndpoint = normalizeServerInfoICEEndpoint(
+    (serverInfo as { endpoint?: unknown }).endpoint,
+  );
   return {
     ...serverInfo,
     build_commit: buildCommit,
+    endpoint: iceEndpoint,
     ice_servers:
       transport == null
         ? normalizeServerInfoICEServers(
@@ -1450,19 +1465,12 @@ function normalizeServerInfoTransport(
 
 function validServerInfoEndpoint(endpoint: string): boolean {
   const value = endpoint.trim();
-  if (value === "" || value.includes("://")) {
+  if (value === "") {
     return false;
   }
   try {
-    const parsed = new URL(`http://${value}`);
-    return (
-      parsed.hostname !== "" &&
-      parsed.username === "" &&
-      parsed.password === "" &&
-      parsed.pathname === "/" &&
-      parsed.search === "" &&
-      parsed.hash === ""
-    );
+    normalizeServerBaseURL(value);
+    return true;
   } catch {
     return false;
   }
@@ -1527,15 +1535,158 @@ function normalizeServerInfoICEServers(
 function serverInfoBaseURL(
   options: Pick<ServerInfoBootstrapOptions, "baseUrl" | "endpoint">,
 ): string {
-  if (options.baseUrl != null) {
-    return options.baseUrl;
-  }
-  if (options.endpoint != null) {
-    return `http://${options.endpoint}`;
+  const configured = options.baseUrl ?? options.endpoint;
+  if (configured != null) {
+    return normalizeServerBaseURL(configured);
   }
   return typeof location === "undefined"
     ? "http://gizclaw.local"
     : location.origin;
+}
+
+/**
+ * Validates the ICE UDP endpoint advertised by /server-info. WebRTC media uses
+ * this address, so a URL or malformed authority fails the connection instead of
+ * reaching candidate rewriting.
+ */
+function normalizeServerInfoICEEndpoint(endpoint: unknown): string | undefined {
+  if (endpoint == null) {
+    return undefined;
+  }
+  if (typeof endpoint !== "string") {
+    throw new Error("server-info invalid endpoint");
+  }
+  const value = endpoint.trim();
+  if (value === "") {
+    return undefined;
+  }
+  if (!isServerInfoHostPort(value)) {
+    throw new Error(`server-info invalid endpoint ${endpoint}`);
+  }
+  return value;
+}
+
+/**
+ * Reports whether a value is the bare host[:port] form that the /server-info
+ * endpoint field advertises. A URL, path, query, userinfo, empty port or
+ * non-numeric port is rejected rather than silently reinterpreted.
+ */
+export function isServerInfoHostPort(value: string): boolean {
+  const raw = value.trim();
+  if (raw === "" || /[/?#@\\\s]/u.test(raw)) {
+    return false;
+  }
+  if (!raw.startsWith("[")) {
+    return /^[^[\]:]+(?::\d{1,5})?$/u.test(raw);
+  }
+  const bracketed = /^\[([^[\]]+)\](?::\d{1,5})?$/u.exec(raw);
+  return bracketed == null ? false : isIPv6Literal(bracketed[1] ?? "");
+}
+
+/**
+ * Parses an IPv6 literal the way a bracketed host must be shaped: at most one
+ * "::" run, hextets of one to four hex digits, an optional trailing dotted-quad
+ * IPv4 tail, and no zone identifier.
+ */
+function isIPv6Literal(literal: string): boolean {
+  if (literal === "" || /[^0-9A-Fa-f:.]/u.test(literal)) {
+    return false;
+  }
+  const runs = literal.split("::");
+  if (runs.length > 2) {
+    return false;
+  }
+  const compressed = runs.length === 2;
+  let hextets = 0;
+  for (const [index, run] of runs.entries()) {
+    if (run === "") {
+      continue;
+    }
+    if (run.startsWith(":") || run.endsWith(":")) {
+      return false;
+    }
+    const groups = run.split(":");
+    for (const [groupIndex, group] of groups.entries()) {
+      const isLast =
+        index === runs.length - 1 && groupIndex === groups.length - 1;
+      if (isLast && group.includes(".")) {
+        if (!isIPv4Literal(group)) {
+          return false;
+        }
+        hextets += 2;
+        continue;
+      }
+      if (!/^[0-9A-Fa-f]{1,4}$/u.test(group)) {
+        return false;
+      }
+      hextets += 1;
+    }
+  }
+  return compressed ? hextets <= 7 : hextets === 8;
+}
+
+function isIPv4Literal(literal: string): boolean {
+  const octets = literal.split(".");
+  return (
+    octets.length === 4 &&
+    octets.every((octet) => /^\d{1,3}$/u.test(octet) && Number(octet) <= 255)
+  );
+}
+
+/**
+ * Normalizes an access point to an absolute http or https base URL without a
+ * trailing slash. A value with no scheme defaults to http.
+ */
+export function normalizeServerBaseURL(value: string): string {
+  const raw = value.trim();
+  if (raw === "") {
+    throw new Error("server URL is empty");
+  }
+  if (!raw.includes("://") && !isServerInfoHostPort(raw)) {
+    throw new Error(
+      `server URL must be http://host[:port] or https://host[:port]: ${value}`,
+    );
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.includes("://") ? raw : `http://${raw}`);
+  } catch {
+    throw new Error(`server URL is invalid: ${value}`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(`server URL must use the http or https scheme: ${value}`);
+  }
+  if (
+    parsed.hostname === "" ||
+    parsed.username !== "" ||
+    parsed.password !== "" ||
+    parsed.search !== "" ||
+    parsed.hash !== ""
+  ) {
+    throw new Error(
+      `server URL must be http://host[:port] or https://host[:port]: ${value}`,
+    );
+  }
+  const path = parsed.pathname.replace(/\/+$/u, "");
+  if (path.includes("//")) {
+    throw new Error(
+      `server URL path must not contain empty segments: ${value}`,
+    );
+  }
+  return `${parsed.origin}${path}`;
+}
+
+/**
+ * Resolves a server-info transport endpoint. A bare host:port inherits the
+ * scheme of the access point base URL; an absolute URL is used verbatim.
+ */
+function transportBaseURL(serverBaseURL: string, endpoint: string): string {
+  const value = endpoint.trim();
+  if (value.includes("://")) {
+    return normalizeServerBaseURL(value);
+  }
+  const scheme = new URL(serverBaseURL).protocol;
+  return normalizeServerBaseURL(`${scheme}//${value}`);
 }
 
 function normalizeServerInfoSignalingPath(path: string | undefined): string {
@@ -1701,10 +1852,12 @@ export async function sendGiznetWebRTCOffer(
   const fetchImpl = options.fetch ?? globalThis.fetch;
   const defaultBaseUrl =
     typeof location === "undefined" ? "http://gizclaw.local" : location.origin;
-  const requestURL = new URL(
-    options.url ?? GIZNET_WEBRTC_SIGNALING_PATH,
-    options.baseUrl ?? defaultBaseUrl,
-  );
+  const signalingPath = options.url ?? GIZNET_WEBRTC_SIGNALING_PATH;
+  const requestURL = signalingPath.startsWith("/")
+    ? new URL(
+        `${normalizeServerBaseURL(options.baseUrl ?? defaultBaseUrl)}${signalingPath}`,
+      )
+    : new URL(signalingPath, options.baseUrl ?? defaultBaseUrl);
   const data: CreateGiznetWebRtcOfferData = {
     body: offer.body,
     headers: {

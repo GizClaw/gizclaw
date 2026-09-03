@@ -68,6 +68,12 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 
 `gzc_control_call_t.error.request_id` 携带 `X-Request-ID` 响应 header。transport 通过 `gzc_http_request_t` 上的 `response_header_cb` sink 逐条投递响应 header；未提供 header 的 backend 只会让 `request_id` 保持为空。
 
+## 接入点 URL
+
+`gzc_client_config_t.server_url` 是 Server 或 Edge 的 HTTP 接入点。它接受 `http://` 或 `https://` 基础 URL，例如 `https://ap.gizclaw.com`；裸 `host:port` 仍然可用，并按 `http` 解析。路径前缀会保留，结尾斜杠会被去掉，查询串、fragment 和 userinfo 会被拒绝。
+
+TLS 接入点所在端口可能不承载 ICE，因此 WebRTC 媒体不会复用该 URL 的 authority。`/server-info` 通过 `endpoint` 字段公告 ICE UDP 地址，连接成功后 `gzc_client_ice_endpoint()` 会以 `host[:port]` 返回它。
+
 ## 下载与校验
 
 接入构建前同时下载源码包及其 sidecar：

@@ -123,7 +123,7 @@ func TestFetchServerInfoRejectsInvalidGatewayTransport(t *testing.T) {
 	transportKey := serverInfoTestKeyText(t, 0xcd)
 	for _, transport := range []string{
 		`{"mode":"future","endpoint":"edge.example:9821","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
-		`{"mode":"edge-gateway","endpoint":"https://edge.example","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
+		`{"mode":"edge-gateway","endpoint":"ftp://edge.example","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
 		`{"mode":"edge-gateway","endpoint":"","public_key":"` + transportKey + `","signaling_path":"/offer"}`,
 		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"bad","signaling_path":"/offer"}`,
 		`{"mode":"edge-gateway","endpoint":"edge.example:9821","public_key":"","signaling_path":"/offer"}`,
@@ -142,20 +142,104 @@ func TestFetchServerInfoRejectsInvalidGatewayTransport(t *testing.T) {
 	}
 }
 
-func TestFetchServerInfoRejectsURLEndpoint(t *testing.T) {
-	for _, endpoint := range []string{
+func TestFetchServerInfoRejectsInvalidServerURL(t *testing.T) {
+	for _, serverURL := range []string{
 		"",
 		"   ",
-		"https://example.test",
-		"server.example/other-path",
-		"server.example?query=1",
-		"server.example#fragment",
-		"user@server.example",
+		"ftp://example.test",
+		"http:",
+		"https:",
+		"mailto:device@server.example",
+		"http://",
+		"https://server.example?query=1",
+		"https://server.example#fragment",
+		"https://user@server.example",
+		"http://server.example//double",
+		"server.example:",
+		"server.example:port",
+		"server.example:998877",
+		":9820",
+		"[not-an-ip]",
+		"[:::]:9820",
+		"[1:2:3:4:5:6:7]",
+		"[1:2:3:4:5:6:7:8:9]",
+		"[12345::1]",
+		"[::1%eth0]",
+		"[::ffff:999.1.1.1]",
+		"[]:9820",
+		"[::1:9820",
 	} {
-		if _, err := FetchServerInfo(context.Background(), endpoint); err == nil {
-			t.Fatalf("endpoint %q accepted", endpoint)
+		if _, err := FetchServerInfo(context.Background(), serverURL); err == nil {
+			t.Fatalf("server URL %q accepted", serverURL)
 		}
 	}
+}
+
+// A bare host:port keeps the historical plaintext lane working, and an
+// https base URL reaches a TLS HTTP access point.
+func TestFetchServerInfoAcceptsBareHostPortAndHTTPSBaseURL(t *testing.T) {
+	serverKey := serverInfoTestKeyText(t, 0xab)
+	endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"ice.example:9820"}`)
+	defer closeServer()
+
+	info, err := FetchServerInfo(context.Background(), endpoint)
+	if err != nil {
+		t.Fatalf("FetchServerInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
+		t.Fatalf("signaling URL = %q", info.SignalingURL)
+	}
+	if info.ICEEndpoint != "ice.example:9820" {
+		t.Fatalf("ICE endpoint = %q", info.ICEEndpoint)
+	}
+
+	info, err = FetchServerInfo(context.Background(), "http://"+endpoint+"/")
+	if err != nil {
+		t.Fatalf("FetchServerInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://"+endpoint+gizwebrtc.SignalingPath {
+		t.Fatalf("signaling URL from a trailing slash = %q", info.SignalingURL)
+	}
+}
+
+// An https server URL must not be downgraded when the signaling URL is built,
+// and a gateway transport endpoint without a scheme inherits it.
+func TestFetchServerInfoPreservesHTTPSScheme(t *testing.T) {
+	serverKey := serverInfoTestKeyText(t, 0xab)
+	transportKey := serverInfoTestKeyText(t, 0xcd)
+	endpoint, closeServer := newServerInfoTestServer(t, `{
+		"public_key":"`+serverKey+`",
+		"transport":{
+			"mode":"edge-gateway",
+			"endpoint":"edge.example:9821",
+			"public_key":"`+transportKey+`",
+			"signaling_path":"/edge/offer"
+		}
+	}`)
+	defer closeServer()
+
+	info, err := FetchServerInfo(context.Background(), "http://"+endpoint)
+	if err != nil {
+		t.Fatalf("FetchServerInfo error = %v", err)
+	}
+	if info.SignalingURL != "http://edge.example:9821/edge/offer" {
+		t.Fatalf("signaling URL = %q", info.SignalingURL)
+	}
+	if got := mustNormalizeTransportBaseURL(t, "https://ap.gizclaw.com", "edge.example:9821"); got != "https://edge.example:9821" {
+		t.Fatalf("transport base URL = %q", got)
+	}
+	if got := mustNormalizeTransportBaseURL(t, "http://ap.gizclaw.com", "https://edge.example"); got != "https://edge.example" {
+		t.Fatalf("absolute transport base URL = %q", got)
+	}
+}
+
+func mustNormalizeTransportBaseURL(t *testing.T, serverBaseURL, endpoint string) string {
+	t.Helper()
+	base, err := normalizeTransportBaseURL(serverBaseURL, endpoint)
+	if err != nil {
+		t.Fatalf("normalizeTransportBaseURL(%q, %q) error = %v", serverBaseURL, endpoint, err)
+	}
+	return base
 }
 
 func TestFetchServerInfoRejectsOversizedResponse(t *testing.T) {
@@ -210,5 +294,53 @@ func TestFetchServerInfoMissingPublicKey(t *testing.T) {
 	_, err := FetchServerInfo(context.Background(), endpoint)
 	if err == nil || !strings.Contains(err.Error(), "server-info missing public_key") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+// The /server-info endpoint field is a bare host[:port]. A URL, path, query,
+// userinfo or malformed port must fail the connection instead of reaching the
+// ICE layer.
+func TestFetchServerInfoRejectsInvalidICEEndpoint(t *testing.T) {
+	serverKey := serverInfoTestKeyText(t, 0xab)
+	for _, iceEndpoint := range []string{
+		"https://ice.example",
+		"ice.example/path",
+		"ice.example?probe=1",
+		"ice.example#fragment",
+		"user@ice.example",
+		"ice.example:",
+		"ice.example:port",
+		"ice.example:998877",
+		":9820",
+		"[not-an-ip]",
+		"[:::]:9820",
+		"[1:2:3:4:5:6:7]",
+		"[1:2:3:4:5:6:7:8:9]",
+		"[12345::1]",
+		"[::1%eth0]",
+		"[::ffff:999.1.1.1]",
+		"[]:9820",
+		"[::1:9820",
+	} {
+		endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"`+iceEndpoint+`"}`)
+		_, err := FetchServerInfo(context.Background(), endpoint)
+		closeServer()
+		if err == nil {
+			t.Fatalf("ICE endpoint %q accepted", iceEndpoint)
+		}
+		if IsRetryableServerInfoError(err) {
+			t.Fatalf("ICE endpoint %q error should not be retryable: %v", iceEndpoint, err)
+		}
+	}
+	for _, iceEndpoint := range []string{"ice.example", "ice.example:9820", "[::]", "[::1]:9820", "[1:2:3:4:5:6:7:8]", "[::ffff:192.168.1.10]:9820"} {
+		endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"`+iceEndpoint+`"}`)
+		info, err := FetchServerInfo(context.Background(), endpoint)
+		closeServer()
+		if err != nil {
+			t.Fatalf("ICE endpoint %q rejected: %v", iceEndpoint, err)
+		}
+		if info.ICEEndpoint != iceEndpoint {
+			t.Fatalf("ICE endpoint = %q, want %q", info.ICEEndpoint, iceEndpoint)
+		}
 	}
 }

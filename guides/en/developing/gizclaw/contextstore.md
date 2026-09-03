@@ -46,7 +46,7 @@ classDiagram
     }
     class ServerConfig {
         string Endpoint
-        PublicAPIAddr() string
+        BaseURL() string
     }
     class Context {
         string Name
@@ -71,7 +71,7 @@ classDiagram
 | --- | --- | --- | --- |
 | `description` | `Config.Description` | Optional description of Context. | Remove leading and trailing whitespace when creating; can be omitted. |
 | `identity.private-key` | `IdentityConfig.PrivateKey` | The local Giznet private key of the current Context. | Required; must be able to construct valid `giznet.KeyPair`. |
-| `server.endpoint` | `ServerConfig.Endpoint` | Target Server Public API address. | Required; the format must be `host:port` and cannot contain `http://` or `https://`. |
+| `server.endpoint` | `ServerConfig.Endpoint` | Target Server HTTP access point. | Required; an `http://` or `https://` base URL such as `https://ap.gizclaw.com`. A bare `host:port` is accepted and normalized to `http://host:port`. A trailing slash is dropped, and query strings, fragments and userinfo are rejected. |
 
 Enable unknown-field rejection when parsing `config.yaml`. Misspelled or undefined YAML fields will directly return an error and will not be silently ignored.
 
@@ -104,7 +104,7 @@ flowchart TB
 | `Store.Current` / `LoadByName` | Load the context of the current or specified name. |
 | `Store.List` / `ListSummaries` | List Contexts sorted by name and mark the current item. |
 | `Store.Delete` | Delete the named Context and, if necessary, remove `current`. |
-| `validateName` / `validateEndpoint` | Restrict directory name and `host:port` endpoint format. |
+| `validateName` / `normalizeServerURL` | Restrict the directory name and normalize the endpoint to an `http` or `https` base URL. |
 
 ## Ownership Boundary
 
