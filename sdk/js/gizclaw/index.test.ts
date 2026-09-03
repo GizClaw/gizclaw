@@ -36,6 +36,7 @@ import {
   encodeRPCResponse,
   fetchGiznetServerInfo,
   giznetServiceDataChannelLabel,
+  isServerInfoHostPort,
   normalizeServerBaseURL,
   getGiznetWebRTCPacketDataChannel,
   getGiznetWebRTCPeerEventDataChannel,
@@ -2872,11 +2873,53 @@ test("normalizeServerBaseURL keeps https and defaults a bare host:port to http",
   for (const value of [
     "",
     "ftp://ap.gizclaw.com",
+    "http:",
+    "https:",
+    "mailto:device@ap.gizclaw.com",
     "https://user@ap.gizclaw.com",
     "https://ap.gizclaw.com?probe=1",
     "https://ap.gizclaw.com#fragment",
+    "ap.gizclaw.com:",
+    "ap.gizclaw.com:port",
+    "ap.gizclaw.com:998877",
+    ":9820",
+    "[::1:9820",
   ]) {
     assert.throws(() => normalizeServerBaseURL(value), /server URL/u);
+  }
+});
+
+test("fetchGiznetServerInfo rejects an ICE endpoint that is not host:port", async () => {
+  const serverPublicKey = base58Encode(
+    x25519.getPublicKey(new Uint8Array(32).fill(2)),
+  );
+  for (const endpoint of [
+    "https://ice.example",
+    "ice.example/path",
+    "ice.example?probe=1",
+    "ice.example#fragment",
+    "user@ice.example",
+    "ice.example:",
+    "ice.example:port",
+    "ice.example:998877",
+    ":9820",
+    42,
+  ]) {
+    await assert.rejects(
+      fetchGiznetServerInfo({
+        fetch: async () =>
+          Response.json({ endpoint, public_key: serverPublicKey }),
+      }),
+      /endpoint/u,
+    );
+  }
+  for (const endpoint of ["ice.example", "ice.example:9820", "[::1]:9820"]) {
+    const info = await fetchGiznetServerInfo({
+      fetch: async () =>
+        Response.json({ endpoint, public_key: serverPublicKey }),
+    });
+    assert.equal(info.endpoint, endpoint);
+    assert.ok(isServerInfoHostPort(endpoint));
   }
 });
 

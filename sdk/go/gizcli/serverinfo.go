@@ -106,7 +106,7 @@ func FetchServerInfo(ctx context.Context, serverURL string) (ServerInfoMetadata,
 	}
 	iceEndpoint := strings.TrimSpace(body.Endpoint)
 	if iceEndpoint != "" {
-		if _, err := normalizeServerInfoEndpoint(iceEndpoint); err != nil {
+		if err := validateHostPort(iceEndpoint); err != nil {
 			return ServerInfoMetadata{}, fmt.Errorf("server-info invalid endpoint: %w", err)
 		}
 	}
@@ -157,12 +157,58 @@ func FetchServerInfo(ctx context.Context, serverURL string) (ServerInfoMetadata,
 
 // normalizeServerBaseURL validates an absolute http or https base URL and
 // returns it without a trailing slash.
+// validateHostPort accepts the bare host[:port] form the /server-info endpoint
+// field advertises. A URL, path, query, userinfo, empty port, or non-numeric
+// port is rejected rather than silently reinterpreted.
+func validateHostPort(endpoint string) error {
+	value := strings.TrimSpace(endpoint)
+	if value == "" {
+		return errors.New("empty host")
+	}
+	if strings.ContainsAny(value, "/?#@\\ \t\r\n") {
+		return errors.New("must be host[:port]")
+	}
+	host := value
+	if strings.HasPrefix(value, "[") {
+		end := strings.Index(value, "]")
+		if end <= 1 {
+			return errors.New("must be host[:port]")
+		}
+		host = value[:end+1]
+	} else if prefix, _, found := strings.Cut(value, ":"); found {
+		host = prefix
+		if strings.ContainsAny(host, "[]") {
+			return errors.New("must be host[:port]")
+		}
+	}
+	if host == "" || host == "[]" {
+		return errors.New("must be host[:port]")
+	}
+	rest := value[len(host):]
+	if rest == "" {
+		return nil
+	}
+	port, ok := strings.CutPrefix(rest, ":")
+	if !ok || port == "" || len(port) > 5 {
+		return errors.New("must be host[:port]")
+	}
+	for _, digit := range port {
+		if digit < '0' || digit > '9' {
+			return errors.New("port must be numeric")
+		}
+	}
+	return nil
+}
+
 func normalizeServerBaseURL(serverURL string) (string, error) {
 	value := strings.TrimSpace(serverURL)
 	if value == "" {
 		return "", errors.New("empty server URL")
 	}
 	if !strings.Contains(value, "://") {
+		if err := validateHostPort(value); err != nil {
+			return "", fmt.Errorf("server URL must be http://host[:port] or https://host[:port]: %w", err)
+		}
 		value = "http://" + value
 	}
 	parsed, err := url.Parse(value)
@@ -191,32 +237,15 @@ func normalizeTransportBaseURL(serverBaseURL, endpoint string) (string, error) {
 	if strings.Contains(value, "://") {
 		return normalizeServerBaseURL(value)
 	}
-	host, err := normalizeServerInfoEndpoint(value)
-	if err != nil {
+	if err := validateHostPort(value); err != nil {
 		return "", err
 	}
 	parsed, err := url.Parse(serverBaseURL)
 	if err != nil {
 		return "", err
 	}
-	base := url.URL{Scheme: parsed.Scheme, Host: host}
+	base := url.URL{Scheme: parsed.Scheme, Host: value}
 	return base.String(), nil
-}
-
-func normalizeServerInfoEndpoint(endpoint string) (string, error) {
-	value := strings.TrimSpace(endpoint)
-	if value == "" {
-		return "", errors.New("empty endpoint")
-	}
-	if strings.Contains(value, "://") {
-		return "", errors.New("endpoint must be host[:port]")
-	}
-	parsed, err := url.Parse("http://" + value)
-	if err != nil || parsed.Host == "" || parsed.Hostname() == "" ||
-		parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("endpoint must be host[:port]")
-	}
-	return parsed.Host, nil
 }
 
 func serverInfoICEServers(body apitypes.ServerInfo) []gizwebrtc.ICEServer {

@@ -119,10 +119,21 @@ int gzc_client_set_webrtc_media(
     const gzc_webrtc_media_vtable_t *media);
 int gzc_client_connect(gzc_client_t *client);
 /*
- * Reports the ICE UDP endpoint advertised by /server-info as host[:port]. The
- * view borrows client-owned storage and stays valid until the next connect or
- * destroy. Returns GZC_ERR_UNSUPPORTED before a successful connect or when the
- * server advertised no endpoint.
+ * Reports the ICE UDP endpoint advertised by /server-info as host[:port].
+ *
+ * out_endpoint is a borrowed view of client-owned storage: the caller does not
+ * own it, must not free or modify it, and must copy it to outlive the window
+ * below. The bytes are not NUL terminated, so data and len are used together.
+ *
+ * The view stays valid from a successful gzc_client_connect until the next
+ * connect on the same client overwrites it or gzc_client_destroy frees it.
+ * gzc_client_close does not invalidate it, so the last advertised endpoint
+ * remains readable after close.
+ *
+ * Returns GZC_ERR_INVALID_ARGUMENT when client or out_endpoint is NULL, and
+ * GZC_ERR_UNSUPPORTED before a successful connect or when the server
+ * advertised no endpoint; out_endpoint is left untouched in both cases. Call it
+ * from the serialized poll owner, like the rest of the client API.
  */
 int gzc_client_ice_endpoint(gzc_client_t *client, gzc_str_t *out_endpoint);
 /*

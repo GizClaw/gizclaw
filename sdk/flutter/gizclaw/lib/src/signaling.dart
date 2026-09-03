@@ -161,7 +161,7 @@ class GiznetServerInfo {
     if (endpoint.isEmpty) {
       return null;
     }
-    if (!isValidGiznetAccessPoint(endpoint)) {
+    if (!isGiznetHostPort(endpoint)) {
       throw FormatException('server-info invalid endpoint $endpoint');
     }
     return endpoint;
@@ -405,6 +405,20 @@ class _SignalingKeys {
 }
 
 
+/// Reports whether [value] is the bare host[:port] form that the `/server-info`
+/// `endpoint` field advertises. A URL, path, query, userInfo, empty port or
+/// non-numeric port is rejected rather than silently reinterpreted.
+bool isGiznetHostPort(String value) {
+  final raw = value.trim();
+  if (raw.isEmpty || RegExp(r'[/?#@\\\s]').hasMatch(raw)) {
+    return false;
+  }
+  if (raw.startsWith('[')) {
+    return RegExp(r'^\[[0-9A-Fa-f:.]+\](?::\d{1,5})?$').hasMatch(raw);
+  }
+  return RegExp(r'^[^\[\]:]+(?::\d{1,5})?$').hasMatch(raw);
+}
+
 /// Reports whether [value] is an access point this SDK can reach: an http or
 /// https base URL, or a bare host[:port] that resolves to http.
 bool isValidGiznetAccessPoint(String value) {
@@ -422,6 +436,11 @@ Uri normalizeGiznetAccessPoint(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) {
     throw const FormatException('access point is empty');
+  }
+  if (!trimmed.contains('://') && !isGiznetHostPort(trimmed)) {
+    throw FormatException(
+      'access point must be http://host[:port] or https://host[:port]: $value',
+    );
   }
   final Uri parsed;
   try {
@@ -465,6 +484,9 @@ Uri resolveGiznetTransportBaseUrl(Uri baseUrl, String endpoint) {
   final value = endpoint.trim();
   if (value.contains('://')) {
     return normalizeGiznetAccessPoint(value);
+  }
+  if (!isGiznetHostPort(value)) {
+    throw FormatException('transport endpoint must be host[:port]: $endpoint');
   }
   return normalizeGiznetAccessPoint('${baseUrl.scheme}://$value');
 }

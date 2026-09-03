@@ -6114,7 +6114,7 @@ type ServerInfo struct {
 	// BuildCommit Source commit embedded when the server binary was built.
 	BuildCommit string `json:"build_commit"`
 
-	// Endpoint host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with.
+	// Endpoint Bare host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with. A URL, path, query, userinfo, empty port or non-numeric port is invalid.
 	Endpoint string `json:"endpoint"`
 	Ice      struct {
 		Tcp bool `json:"tcp"`

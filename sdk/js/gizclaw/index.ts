@@ -1383,9 +1383,13 @@ export async function fetchGiznetServerInfo(
     (serverInfo as { build_commit?: unknown }).build_commit,
     "build_commit",
   );
+  const iceEndpoint = normalizeServerInfoICEEndpoint(
+    (serverInfo as { endpoint?: unknown }).endpoint,
+  );
   return {
     ...serverInfo,
     build_commit: buildCommit,
+    endpoint: iceEndpoint,
     ice_servers:
       transport == null
         ? normalizeServerInfoICEServers(
@@ -1541,6 +1545,43 @@ function serverInfoBaseURL(
 }
 
 /**
+ * Validates the ICE UDP endpoint advertised by /server-info. WebRTC media uses
+ * this address, so a URL or malformed authority fails the connection instead of
+ * reaching candidate rewriting.
+ */
+function normalizeServerInfoICEEndpoint(endpoint: unknown): string | undefined {
+  if (endpoint == null) {
+    return undefined;
+  }
+  if (typeof endpoint !== "string") {
+    throw new Error("server-info invalid endpoint");
+  }
+  const value = endpoint.trim();
+  if (value === "") {
+    return undefined;
+  }
+  if (!isServerInfoHostPort(value)) {
+    throw new Error(`server-info invalid endpoint ${endpoint}`);
+  }
+  return value;
+}
+
+/**
+ * Reports whether a value is the bare host[:port] form that the /server-info
+ * endpoint field advertises. A URL, path, query, userinfo, empty port or
+ * non-numeric port is rejected rather than silently reinterpreted.
+ */
+export function isServerInfoHostPort(value: string): boolean {
+  const raw = value.trim();
+  if (raw === "" || /[/?#@\\\s]/u.test(raw)) {
+    return false;
+  }
+  const ipv6 = /^\[[0-9A-Fa-f:.]+\](?::\d{1,5})?$/u;
+  const hostPort = /^[^[\]:]+(?::\d{1,5})?$/u;
+  return raw.startsWith("[") ? ipv6.test(raw) : hostPort.test(raw);
+}
+
+/**
  * Normalizes an access point to an absolute http or https base URL without a
  * trailing slash. A value with no scheme defaults to http.
  */
@@ -1548,6 +1589,11 @@ export function normalizeServerBaseURL(value: string): string {
   const raw = value.trim();
   if (raw === "") {
     throw new Error("server URL is empty");
+  }
+  if (!raw.includes("://") && !isServerInfoHostPort(raw)) {
+    throw new Error(
+      `server URL must be http://host[:port] or https://host[:port]: ${value}`,
+    );
   }
   let parsed: URL;
   try {

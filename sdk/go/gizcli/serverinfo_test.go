@@ -147,11 +147,19 @@ func TestFetchServerInfoRejectsInvalidServerURL(t *testing.T) {
 		"",
 		"   ",
 		"ftp://example.test",
+		"http:",
+		"https:",
+		"mailto:device@server.example",
 		"http://",
 		"https://server.example?query=1",
 		"https://server.example#fragment",
 		"https://user@server.example",
 		"http://server.example//double",
+		"server.example:",
+		"server.example:port",
+		"server.example:998877",
+		":9820",
+		"[::1:9820",
 	} {
 		if _, err := FetchServerInfo(context.Background(), serverURL); err == nil {
 			t.Fatalf("server URL %q accepted", serverURL)
@@ -278,5 +286,44 @@ func TestFetchServerInfoMissingPublicKey(t *testing.T) {
 	_, err := FetchServerInfo(context.Background(), endpoint)
 	if err == nil || !strings.Contains(err.Error(), "server-info missing public_key") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+// The /server-info endpoint field is a bare host[:port]. A URL, path, query,
+// userinfo or malformed port must fail the connection instead of reaching the
+// ICE layer.
+func TestFetchServerInfoRejectsInvalidICEEndpoint(t *testing.T) {
+	serverKey := serverInfoTestKeyText(t, 0xab)
+	for _, iceEndpoint := range []string{
+		"https://ice.example",
+		"ice.example/path",
+		"ice.example?probe=1",
+		"ice.example#fragment",
+		"user@ice.example",
+		"ice.example:",
+		"ice.example:port",
+		"ice.example:998877",
+		":9820",
+	} {
+		endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"`+iceEndpoint+`"}`)
+		_, err := FetchServerInfo(context.Background(), endpoint)
+		closeServer()
+		if err == nil {
+			t.Fatalf("ICE endpoint %q accepted", iceEndpoint)
+		}
+		if IsRetryableServerInfoError(err) {
+			t.Fatalf("ICE endpoint %q error should not be retryable: %v", iceEndpoint, err)
+		}
+	}
+	for _, iceEndpoint := range []string{"ice.example", "ice.example:9820", "[::1]:9820"} {
+		endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"`+iceEndpoint+`"}`)
+		info, err := FetchServerInfo(context.Background(), endpoint)
+		closeServer()
+		if err != nil {
+			t.Fatalf("ICE endpoint %q rejected: %v", iceEndpoint, err)
+		}
+		if info.ICEEndpoint != iceEndpoint {
+			t.Fatalf("ICE endpoint = %q, want %q", info.ICEEndpoint, iceEndpoint)
+		}
 	}
 }

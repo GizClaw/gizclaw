@@ -1911,11 +1911,20 @@ int main(void) {
   static const char *const rejected_server_urls[] = {
       "",
       "ftp://example.invalid:9820",
+      "http:",
+      "https:",
+      "mailto:device@example.invalid",
       "http://",
       "http://example.invalid:9820?probe=1",
       "http://example.invalid:9820#fragment",
       "http://user@example.invalid:9820",
       "http://example.invalid:9820//double",
+      "example.invalid:",
+      "example.invalid:port",
+      "example.invalid:998877",
+      ":9820",
+      "[::1:9820",
+      "[]:9820",
   };
   for (size_t i = 0; i < sizeof(rejected_server_urls) / sizeof(rejected_server_urls[0]); i++) {
     invalid_config = config;
@@ -1928,6 +1937,8 @@ int main(void) {
   }
   static const char *const accepted_server_urls[] = {
       "example.invalid:9820",
+      "example.invalid",
+      "[::1]:9820",
       "http://example.invalid:9820",
       "https://ap.gizclaw.com",
       "https://ap.gizclaw.com/",

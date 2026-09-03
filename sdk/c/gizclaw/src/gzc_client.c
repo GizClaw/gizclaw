@@ -8,6 +8,7 @@
 
 #include <pb_decode.h>
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -465,15 +466,60 @@ static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == GZC_PROTOCOL_OPUS_PACKET || protocol >= gzc_protocol_custom_start;
 }
 
-/* Authority is host[:port]; server-info advertises ICE endpoints this way. */
+/*
+ * Authority is host[:port]; server-info advertises ICE endpoints this way. An
+ * IPv6 host is bracketed. A port, when present, is one to five digits, so
+ * scheme-like values such as "http:" are rejected instead of being read as a
+ * host with an empty port.
+ */
 static bool valid_authority(gzc_str_t authority) {
   if (str_empty(authority)) {
     return false;
   }
   for (size_t i = 0; i < authority.len; i++) {
     char ch = authority.data[i];
-    if (ch == '/' || ch == '?' || ch == '#' || ch == '@' ||
+    if (ch == '/' || ch == '?' || ch == '#' || ch == '@' || ch == '\\' ||
         ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+      return false;
+    }
+  }
+  size_t host_len = authority.len;
+  if (authority.data[0] == '[') {
+    const char *close = memchr(authority.data, ']', authority.len);
+    if (close == NULL || close == authority.data + 1) {
+      return false;
+    }
+    host_len = (size_t)(close - authority.data) + 1u;
+    for (size_t i = 1; i + 1 < host_len; i++) {
+      char ch = authority.data[i];
+      if (ch != ':' && ch != '.' && !isxdigit((unsigned char)ch)) {
+        return false;
+      }
+    }
+  } else {
+    const char *colon = memchr(authority.data, ':', authority.len);
+    host_len = colon == NULL ? authority.len : (size_t)(colon - authority.data);
+    for (size_t i = 0; i < host_len; i++) {
+      if (authority.data[i] == '[' || authority.data[i] == ']') {
+        return false;
+      }
+    }
+  }
+  if (host_len == 0) {
+    return false;
+  }
+  if (host_len == authority.len) {
+    return true;
+  }
+  if (authority.data[host_len] != ':') {
+    return false;
+  }
+  size_t port_len = authority.len - host_len - 1u;
+  if (port_len == 0 || port_len > 5u) {
+    return false;
+  }
+  for (size_t i = host_len + 1u; i < authority.len; i++) {
+    if (!isdigit((unsigned char)authority.data[i])) {
       return false;
     }
   }

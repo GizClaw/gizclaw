@@ -166,13 +166,41 @@ void transportTests() {
         'endpoint': '127.0.0.1:9820',
       });
       expect(info.iceEndpoint, '127.0.0.1:9820');
-      expect(
-        () => GiznetServerInfo.fromJson({
-          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
-          'endpoint': 'ftp://127.0.0.1:9820',
-        }),
-        throwsFormatException,
-      );
+      for (final endpoint in <Object>[
+        'ftp://127.0.0.1:9820',
+        'https://ice.example',
+        'ice.example/path',
+        'ice.example?probe=1',
+        'ice.example#fragment',
+        'user@ice.example',
+        'ice.example:',
+        'ice.example:port',
+        'ice.example:998877',
+        ':9820',
+        42,
+      ]) {
+        expect(
+          () => GiznetServerInfo.fromJson({
+            'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+            'endpoint': endpoint,
+          }),
+          throwsFormatException,
+          reason: '$endpoint',
+        );
+      }
+      for (final endpoint in <String>[
+        'ice.example',
+        'ice.example:9820',
+        '[::1]:9820',
+      ]) {
+        expect(
+          GiznetServerInfo.fromJson({
+            'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+            'endpoint': endpoint,
+          }).iceEndpoint,
+          endpoint,
+        );
+      }
     });
 
     test('normalizes access points and inherits the transport scheme', () {
@@ -205,9 +233,17 @@ void transportTests() {
       for (final value in <String>[
         '',
         'ftp://ap.gizclaw.com',
+        'http:',
+        'https:',
+        'mailto:device@ap.gizclaw.com',
         'https://user@ap.gizclaw.com',
         'https://ap.gizclaw.com?probe=1',
         'https://ap.gizclaw.com#fragment',
+        'ap.gizclaw.com:',
+        'ap.gizclaw.com:port',
+        'ap.gizclaw.com:998877',
+        ':9820',
+        '[::1:9820',
       ]) {
         expect(
           () => normalizeGiznetAccessPoint(value),

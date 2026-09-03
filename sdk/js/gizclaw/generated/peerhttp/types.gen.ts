@@ -268,7 +268,7 @@ export type ServerInfo = {
      */
     signaling_path: string;
     /**
-     * host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with.
+     * Bare host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with. A URL, path, query, userinfo, empty port or non-numeric port is invalid.
      */
     endpoint: string;
     ice: {
