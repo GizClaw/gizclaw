@@ -621,15 +621,22 @@ func TestBadgerNestedCallRacingCloseTerminates(t *testing.T) {
 	// is draining the List that is still in flight. An independent call
 	// answering the sentinel proves that state; under a reader/writer lock it
 	// would block behind the pending writer instead and time out here.
-	draining := time.Now().Add(10 * time.Second)
-	for {
-		if _, err := store.Get(ctx, kv.Key{"pending", "a"}); errors.Is(err, kv.ErrStoreClosed) {
-			break
+	draining := make(chan struct{})
+	go func() {
+		for {
+			if _, err := store.Get(ctx, kv.Key{"pending", "a"}); errors.Is(err, kv.ErrStoreClosed) {
+				close(draining)
+				return
+			}
+			time.Sleep(time.Millisecond)
 		}
-		if time.Now().After(draining) {
-			t.Fatal("Close did not start draining")
-		}
-		time.Sleep(time.Millisecond)
+	}()
+	select {
+	case <-draining:
+	case <-time.After(10 * time.Second):
+		// The probe itself blocks under a reader/writer-lock guard, so it is
+		// bounded here rather than left to the package test timeout.
+		t.Fatal("Close did not start draining")
 	}
 	close(proceed)
 
