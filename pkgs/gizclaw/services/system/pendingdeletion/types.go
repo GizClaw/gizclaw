@@ -50,9 +50,9 @@ const (
 	ReasonPeerDelete Reason = "peer_delete"
 	// ReasonResourceDelete identifies a domain resource deletion.
 	ReasonResourceDelete Reason = "resource_delete"
-	// ReasonFriendRelationshipDelete identifies Direct Chatroom retirement.
+	// ReasonFriendRelationshipDelete identifies Friend SFU Workspace retirement.
 	ReasonFriendRelationshipDelete Reason = "friend_relationship_delete"
-	// ReasonFriendGroupDelete identifies Group Chatroom retirement.
+	// ReasonFriendGroupDelete identifies Friend Group SFU Workspace retirement.
 	ReasonFriendGroupDelete Reason = "friend_group_delete"
 )
 

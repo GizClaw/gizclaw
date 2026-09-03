@@ -919,16 +919,13 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	client := newTestClient(t, identityDir)
 	defer client.Close()
 	registerClient(t, client, registrationToken)
-	workspaceName := fmt.Sprintf("cgo-direct-chatroom-%d", time.Now().UnixMilli())
+	workspaceName := fmt.Sprintf("cgo-echo-%d", time.Now().UnixMilli())
 	var createResponse rpcpb.WorkspaceCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE, &rpcpb.WorkspaceCreateRequest{
 		Value: &rpcpb.WorkspaceCreateBody{
 			Name:         workspaceName,
 			Collection:   "assistants",
-			WorkflowName: "chatroom",
-			Parameters: &rpcpb.WorkspaceParameters{Value: &rpcpb.WorkspaceParameters_ChatRoomWorkspaceParameters{
-				ChatRoomWorkspaceParameters: &rpcpb.ChatRoomWorkspaceParameters{},
-			}},
+			WorkflowName: "echo",
 		},
 	}, &createResponse)
 	if createResponse.GetValue().GetName() != workspaceName {
@@ -937,7 +934,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var workspaceResponse rpcpb.WorkspaceGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: workspaceName}, &workspaceResponse)
 	workspace := workspaceResponse.GetValue()
-	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "chatroom" || !workspace.GetAvailable() {
+	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "echo" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)
@@ -1467,16 +1464,6 @@ func CSDKSocialBasic(t *testing.T, identityDir, registrationToken string) {
 		&rpcpb.FriendGroupInviteTokenClearResponse{},
 		"Friend Group invite token",
 	)
-	var messageList rpcpb.FriendGroupMessageListResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
-		FriendGroupName: groupID,
-		Limit:           ptr(int64(1000)),
-	}, &messageList)
-	for _, message := range messageList.GetItems() {
-		if message.GetFriendGroupName() != groupID || message.GetName() == "" {
-			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
-		}
-	}
 }
 
 func CSDKSocialRelationships(
@@ -1599,16 +1586,6 @@ func CSDKSocialRelationships(
 	}, &memberList)
 	if !friendGroupMemberListContains(memberList.GetItems(), groupID) {
 		t.Fatalf("invalid server.friend_group.members.list: %s", memberList.String())
-	}
-	var messageList rpcpb.FriendGroupMessageListResponse
-	mustCallRPC(t, clientA, rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST, &rpcpb.FriendGroupMessageListRequest{
-		FriendGroupName: groupID,
-		Limit:           ptr(int64(1000)),
-	}, &messageList)
-	for _, message := range messageList.GetItems() {
-		if message.GetFriendGroupName() != groupID || message.GetName() == "" {
-			t.Fatalf("invalid server.friend_group.messages.list: %s", messageList.String())
-		}
 	}
 }
 

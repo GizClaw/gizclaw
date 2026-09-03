@@ -22,7 +22,7 @@ Server configuration has three distinct layers:
 | `stores` | dynamic map | Logical interface kind and prefix/table/topic scope |
 | `services` | fixed typed structure | Built-in service fields that name compatible Stores |
 
-Registry names are exact and case-sensitive. The Server never assigns meaning to names such as `peers` or `metrics`; every built-in consumer uses a fixed `services` field. Core service blocks are required. `services.agent_host`, `services.metrics`, and `services.system_log` are optional. Omitted SystemLog selects info-level stderr.
+Registry names are exact and case-sensitive. The Server never assigns meaning to names such as `peers` or `metrics`; every built-in consumer uses a fixed `services` field. Core service blocks are required. `services.agent_host`, `services.metrics`, `services.system_log`, and `services.sfu` are optional. Omitted SystemLog selects info-level stderr; omitting `services.sfu` disables Friend and Friend Group SFU Workspaces on this Server.
 
 Global and per-sink `services.system_log` levels also determine whether a newly
 accepted Edge-routed logical Peer constructs its complete Server lifecycle
@@ -44,6 +44,7 @@ The main capability groups are:
 | `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
+| `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval` and `reconnect_timeout` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
 | `services.system_log.query_store` and Store sinks | immutable Log capability |
 
 Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.

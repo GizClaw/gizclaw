@@ -25,8 +25,6 @@ type EnumDesc = {
 
 export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
-export type ChatRoomMode = "" | "direct" | "group" | "unspecified" | number;
-export type ChatRoomWorkspaceParametersAgentType = "" | "chatroom" | "unspecified" | number;
 export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
 export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
 export type DashScopeRealtimeWorkspaceParametersAgentType = "" | "dashscope-realtime" | "unspecified" | number;
@@ -51,9 +49,9 @@ export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stoppe
 export type PetBehavior = "" | "bathe" | "feed" | "heal" | "play" | "unspecified" | number;
 export type PetLifecycle = "" | "alive" | "dead" | "unspecified" | number;
 export type PetWorkspaceParametersAgentType = "" | "pet" | "unspecified" | number;
-export type ReusableWorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
+export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "chatroom" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "pet" | "sfu" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type APIKey = {
@@ -139,31 +137,6 @@ export type BadgeListResponse = {
   "has_next": boolean;
   "items": Badge[];
   "next_cursor"?: string;
-};
-export type ChatRoomWorkflowHistorySpec = {
-  "ttl"?: string;
-};
-export type ChatRoomWorkflowSpec = {
-  "history": ChatRoomWorkflowHistorySpec;
-  "transcript"?: ChatRoomWorkflowTranscriptSpec;
-};
-export type ChatRoomWorkflowTranscriptSpec = {
-  "asr_model"?: string;
-  "enabled"?: boolean;
-};
-export type ChatRoomWorkspaceHistoryParameters = {
-  "ttl"?: string;
-};
-export type ChatRoomWorkspaceParameters = {
-  "agent_type": string;
-  "history"?: ChatRoomWorkspaceHistoryParameters;
-  "input"?: WorkspaceInputMode;
-  "mode"?: ChatRoomMode;
-  "transcript"?: ChatRoomWorkspaceTranscriptParameters;
-};
-export type ChatRoomWorkspaceTranscriptParameters = {
-  "asr_model"?: string;
-  "enabled"?: boolean;
 };
 export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
@@ -543,43 +516,6 @@ export type FriendGroupMemberPutRequest = {
   "role": FriendGroupMemberMutableRole;
 };
 export type FriendGroupMemberPutResponse = FriendGroupMemberObject;
-export type FriendGroupMessageAudioDownloadRequest = {
-  "friend_group_name": string;
-  "history_name": string;
-};
-export type FriendGroupMessageAudioDownloadResponse = {
-  "friend_group_name": string;
-  "history_name": string;
-  "mime_type": string;
-  "size_bytes": number;
-};
-export type FriendGroupMessageGetRequest = {
-  "friend_group_name": string;
-  "history_name": string;
-};
-export type FriendGroupMessageGetResponse = FriendGroupMessageObject;
-export type FriendGroupMessageListRequest = {
-  "cursor"?: string;
-  "friend_group_name": string;
-  "limit"?: number;
-  "order"?: WorkspaceHistoryListRequestOrder;
-};
-export type FriendGroupMessageListResponse = {
-  "has_next": boolean;
-  "items": FriendGroupMessageObject[];
-  "next_cursor"?: string;
-};
-export type FriendGroupMessageObject = {
-  "created_at": string;
-  "expires_at"?: string;
-  "friend_group_name": string;
-  "sender_peer_public_key"?: string;
-  "name": string;
-  "actor_name": string;
-  "text": string;
-  "type": PeerRunHistoryEntryType;
-  "audio_available": boolean;
-};
 export type FriendGroupObject = {
   "created_at"?: string;
   "created_by_peer_public_key"?: string;
@@ -977,7 +913,6 @@ export type PetWorkflowSpec = {
   "flowcraft"?: FlowcraftWorkflowSpec;
   "doubao_realtime"?: DoubaoRealtimeWorkflowSpec;
   "ast_translate"?: ASTTranslateWorkflowSpec;
-  "chatroom"?: ChatRoomWorkflowSpec;
   "dashscope_realtime"?: DashScopeRealtimeWorkflowSpec;
   "doubao_realtime_duplex"?: DoubaoRealtimeDuplexWorkflowSpec;
   "eino"?: EinoWorkflowSpec;
@@ -1364,7 +1299,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters | PetWorkspaceParameters;
+export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters | PetWorkspaceParameters;
 export type WorkspacePutBody = {
   "parameters"?: WorkspaceParameters;
   "toolkit"?: ToolkitPolicy;
@@ -1406,9 +1341,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteRequest",
   "server.friend_group.members.list": "FriendGroupMemberListRequest",
   "server.friend_group.members.put": "FriendGroupMemberPutRequest",
-  "server.friend_group.messages.audio.download": "FriendGroupMessageAudioDownloadRequest",
-  "server.friend_group.messages.get": "FriendGroupMessageGetRequest",
-  "server.friend_group.messages.list": "FriendGroupMessageListRequest",
   "server.friend_group.put": "FriendGroupPutRequest",
   "server.friend.add": "FriendAddRequest",
   "server.friend.delete": "FriendDeleteRequest",
@@ -1505,9 +1437,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.friend_group.members.delete": "FriendGroupMemberDeleteResponse",
   "server.friend_group.members.list": "FriendGroupMemberListResponse",
   "server.friend_group.members.put": "FriendGroupMemberPutResponse",
-  "server.friend_group.messages.audio.download": "FriendGroupMessageAudioDownloadResponse",
-  "server.friend_group.messages.get": "FriendGroupMessageGetResponse",
-  "server.friend_group.messages.list": "FriendGroupMessageListResponse",
   "server.friend_group.put": "FriendGroupPutResponse",
   "server.friend.add": "FriendAddResponse",
   "server.friend.delete": "FriendDeleteResponse",
@@ -1936,106 +1865,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
-      }
-    ]
-  },
-  "ChatRoomWorkflowHistorySpec": {
-    "fields": [
-      {
-        "name": "ttl",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "ChatRoomWorkflowSpec": {
-    "fields": [
-      {
-        "name": "history",
-        "number": 1,
-        "type": "ChatRoomWorkflowHistorySpec"
-      },
-      {
-        "name": "transcript",
-        "number": 2,
-        "optional": true,
-        "type": "ChatRoomWorkflowTranscriptSpec"
-      }
-    ]
-  },
-  "ChatRoomWorkflowTranscriptSpec": {
-    "fields": [
-      {
-        "name": "asr_model",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "enabled",
-        "number": 2,
-        "optional": true,
-        "type": "bool"
-      }
-    ]
-  },
-  "ChatRoomWorkspaceHistoryParameters": {
-    "fields": [
-      {
-        "name": "ttl",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "ChatRoomWorkspaceParameters": {
-    "fields": [
-      {
-        "name": "agent_type",
-        "number": 1,
-        "type": "ChatRoomWorkspaceParametersAgentType"
-      },
-      {
-        "name": "history",
-        "number": 2,
-        "optional": true,
-        "type": "ChatRoomWorkspaceHistoryParameters"
-      },
-      {
-        "name": "input",
-        "number": 3,
-        "optional": true,
-        "type": "WorkspaceInputMode"
-      },
-      {
-        "name": "mode",
-        "number": 4,
-        "optional": true,
-        "type": "ChatRoomMode"
-      },
-      {
-        "name": "transcript",
-        "number": 5,
-        "optional": true,
-        "type": "ChatRoomWorkspaceTranscriptParameters"
-      }
-    ]
-  },
-  "ChatRoomWorkspaceTranscriptParameters": {
-    "fields": [
-      {
-        "name": "asr_model",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "enabled",
-        "number": 2,
-        "optional": true,
-        "type": "bool"
       }
     ]
   },
@@ -3798,166 +3627,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "FriendGroupMemberObject"
-      }
-    ]
-  },
-  "FriendGroupMessageAudioDownloadRequest": {
-    "fields": [
-      {
-        "name": "friend_group_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "history_name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "FriendGroupMessageAudioDownloadResponse": {
-    "fields": [
-      {
-        "name": "friend_group_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "history_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "mime_type",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "size_bytes",
-        "number": 4,
-        "type": "int64"
-      }
-    ]
-  },
-  "FriendGroupMessageGetRequest": {
-    "fields": [
-      {
-        "name": "friend_group_name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "history_name",
-        "number": 2,
-        "type": "string"
-      }
-    ]
-  },
-  "FriendGroupMessageGetResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "FriendGroupMessageObject"
-      }
-    ]
-  },
-  "FriendGroupMessageListRequest": {
-    "fields": [
-      {
-        "name": "cursor",
-        "number": 1,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "friend_group_name",
-        "number": 2,
-        "type": "string"
-      },
-      {
-        "name": "limit",
-        "number": 3,
-        "optional": true,
-        "type": "int64"
-      },
-      {
-        "name": "order",
-        "number": 4,
-        "optional": true,
-        "type": "WorkspaceHistoryListRequestOrder"
-      }
-    ]
-  },
-  "FriendGroupMessageListResponse": {
-    "fields": [
-      {
-        "name": "has_next",
-        "number": 1,
-        "type": "bool"
-      },
-      {
-        "name": "items",
-        "number": 2,
-        "repeated": true,
-        "type": "FriendGroupMessageObject"
-      },
-      {
-        "name": "next_cursor",
-        "number": 3,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "FriendGroupMessageObject": {
-    "fields": [
-      {
-        "name": "created_at",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "expires_at",
-        "number": 2,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "friend_group_name",
-        "number": 3,
-        "type": "string"
-      },
-      {
-        "name": "sender_peer_public_key",
-        "number": 4,
-        "optional": true,
-        "type": "string"
-      },
-      {
-        "name": "name",
-        "number": 5,
-        "type": "string"
-      },
-      {
-        "name": "actor_name",
-        "number": 6,
-        "type": "string"
-      },
-      {
-        "name": "text",
-        "number": 7,
-        "type": "string"
-      },
-      {
-        "name": "type",
-        "number": 8,
-        "type": "PeerRunHistoryEntryType"
-      },
-      {
-        "name": "audio_available",
-        "number": 9,
-        "type": "bool"
       }
     ]
   },
@@ -5749,12 +5418,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "ASTTranslateWorkflowSpec"
-      },
-      {
-        "name": "chatroom",
-        "number": 6,
-        "optional": true,
-        "type": "ChatRoomWorkflowSpec"
       },
       {
         "name": "dashscope_realtime",
@@ -7641,13 +7304,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "ASTTranslateWorkspaceParameters"
       },
       {
-        "name": "chat_room_workspace_parameters",
-        "number": 4,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "ChatRoomWorkspaceParameters"
-      },
-      {
         "name": "dash_scope_realtime_workspace_parameters",
         "number": 5,
         "oneof": true,
@@ -7738,28 +7394,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byNumber": {
       "0": "",
       "1": "ast-translate"
-    }
-  },
-  "ChatRoomMode": {
-    "byName": {
-      "direct": 1,
-      "group": 2,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "direct",
-      "2": "group"
-    }
-  },
-  "ChatRoomWorkspaceParametersAgentType": {
-    "byName": {
-      "chatroom": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "chatroom"
     }
   },
   "ConversationParametersAgentInitiativePolicy": {
@@ -8081,7 +7715,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   "ReusableWorkflowDriver": {
     "byName": {
       "ast-translate": 3,
-      "chatroom": 4,
       "dashscope-realtime": 5,
       "doubao-realtime": 2,
       "doubao-realtime-duplex": 6,
@@ -8094,7 +7727,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
-      "4": "chatroom",
       "5": "dashscope-realtime",
       "6": "doubao-realtime-duplex",
       "7": "eino"
@@ -8125,13 +7757,13 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
   "WorkflowDriver": {
     "byName": {
       "ast-translate": 3,
-      "chatroom": 4,
       "dashscope-realtime": 6,
       "doubao-realtime": 2,
       "doubao-realtime-duplex": 7,
       "eino": 8,
       "flowcraft": 1,
       "pet": 5,
+      "sfu": 9,
       "unspecified": 0
     },
     "byNumber": {
@@ -8139,11 +7771,11 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
-      "4": "chatroom",
       "5": "pet",
       "6": "dashscope-realtime",
       "7": "doubao-realtime-duplex",
-      "8": "eino"
+      "8": "eino",
+      "9": "sfu"
     }
   },
   "WorkspaceHistoryListRequestOrder": {
@@ -8646,7 +8278,6 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "flowcraft": "flowcraft_workspace_parameters",
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
-        "chatroom": "chat_room_workspace_parameters",
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
         "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
         "eino": "eino_workspace_parameters",

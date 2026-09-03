@@ -1117,454 +1117,6 @@ class ASTTranslateWorkspaceParameters extends $pb.GeneratedMessage {
   ASTTranslateVoiceParameters ensureVoice() => $_ensure(8);
 }
 
-class ChatRoomWorkflowHistorySpec extends $pb.GeneratedMessage {
-  factory ChatRoomWorkflowHistorySpec({
-    $core.String? ttl,
-  }) {
-    final result = create();
-    if (ttl != null) result.ttl = ttl;
-    return result;
-  }
-
-  ChatRoomWorkflowHistorySpec._();
-
-  factory ChatRoomWorkflowHistorySpec.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ChatRoomWorkflowHistorySpec.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ChatRoomWorkflowHistorySpec',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'ttl')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkflowHistorySpec clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkflowHistorySpec copyWith(
-          void Function(ChatRoomWorkflowHistorySpec) updates) =>
-      super.copyWith(
-              (message) => updates(message as ChatRoomWorkflowHistorySpec))
-          as ChatRoomWorkflowHistorySpec;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkflowHistorySpec create() =>
-      ChatRoomWorkflowHistorySpec._();
-  @$core.override
-  ChatRoomWorkflowHistorySpec createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkflowHistorySpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChatRoomWorkflowHistorySpec>(create);
-  static ChatRoomWorkflowHistorySpec? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get ttl => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set ttl($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasTtl() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearTtl() => $_clearField(1);
-}
-
-class ChatRoomWorkflowSpec extends $pb.GeneratedMessage {
-  factory ChatRoomWorkflowSpec({
-    ChatRoomWorkflowHistorySpec? history,
-    ChatRoomWorkflowTranscriptSpec? transcript,
-  }) {
-    final result = create();
-    if (history != null) result.history = history;
-    if (transcript != null) result.transcript = transcript;
-    return result;
-  }
-
-  ChatRoomWorkflowSpec._();
-
-  factory ChatRoomWorkflowSpec.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ChatRoomWorkflowSpec.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ChatRoomWorkflowSpec',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<ChatRoomWorkflowHistorySpec>(1, _omitFieldNames ? '' : 'history',
-        subBuilder: ChatRoomWorkflowHistorySpec.create)
-    ..aOM<ChatRoomWorkflowTranscriptSpec>(
-        2, _omitFieldNames ? '' : 'transcript',
-        subBuilder: ChatRoomWorkflowTranscriptSpec.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkflowSpec clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkflowSpec copyWith(void Function(ChatRoomWorkflowSpec) updates) =>
-      super.copyWith((message) => updates(message as ChatRoomWorkflowSpec))
-          as ChatRoomWorkflowSpec;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkflowSpec create() => ChatRoomWorkflowSpec._();
-  @$core.override
-  ChatRoomWorkflowSpec createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkflowSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChatRoomWorkflowSpec>(create);
-  static ChatRoomWorkflowSpec? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  ChatRoomWorkflowHistorySpec get history => $_getN(0);
-  @$pb.TagNumber(1)
-  set history(ChatRoomWorkflowHistorySpec value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasHistory() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearHistory() => $_clearField(1);
-  @$pb.TagNumber(1)
-  ChatRoomWorkflowHistorySpec ensureHistory() => $_ensure(0);
-
-  @$pb.TagNumber(2)
-  ChatRoomWorkflowTranscriptSpec get transcript => $_getN(1);
-  @$pb.TagNumber(2)
-  set transcript(ChatRoomWorkflowTranscriptSpec value) => $_setField(2, value);
-  @$pb.TagNumber(2)
-  $core.bool hasTranscript() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearTranscript() => $_clearField(2);
-  @$pb.TagNumber(2)
-  ChatRoomWorkflowTranscriptSpec ensureTranscript() => $_ensure(1);
-}
-
-class ChatRoomWorkflowTranscriptSpec extends $pb.GeneratedMessage {
-  factory ChatRoomWorkflowTranscriptSpec({
-    $core.String? asrModel,
-    $core.bool? enabled,
-  }) {
-    final result = create();
-    if (asrModel != null) result.asrModel = asrModel;
-    if (enabled != null) result.enabled = enabled;
-    return result;
-  }
-
-  ChatRoomWorkflowTranscriptSpec._();
-
-  factory ChatRoomWorkflowTranscriptSpec.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ChatRoomWorkflowTranscriptSpec.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ChatRoomWorkflowTranscriptSpec',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'asrModel')
-    ..aOB(2, _omitFieldNames ? '' : 'enabled')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkflowTranscriptSpec clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkflowTranscriptSpec copyWith(
-          void Function(ChatRoomWorkflowTranscriptSpec) updates) =>
-      super.copyWith(
-              (message) => updates(message as ChatRoomWorkflowTranscriptSpec))
-          as ChatRoomWorkflowTranscriptSpec;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkflowTranscriptSpec create() =>
-      ChatRoomWorkflowTranscriptSpec._();
-  @$core.override
-  ChatRoomWorkflowTranscriptSpec createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkflowTranscriptSpec getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChatRoomWorkflowTranscriptSpec>(create);
-  static ChatRoomWorkflowTranscriptSpec? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get asrModel => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set asrModel($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAsrModel() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAsrModel() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get enabled => $_getBF(1);
-  @$pb.TagNumber(2)
-  set enabled($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasEnabled() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearEnabled() => $_clearField(2);
-}
-
-class ChatRoomWorkspaceHistoryParameters extends $pb.GeneratedMessage {
-  factory ChatRoomWorkspaceHistoryParameters({
-    $core.String? ttl,
-  }) {
-    final result = create();
-    if (ttl != null) result.ttl = ttl;
-    return result;
-  }
-
-  ChatRoomWorkspaceHistoryParameters._();
-
-  factory ChatRoomWorkspaceHistoryParameters.fromBuffer(
-          $core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ChatRoomWorkspaceHistoryParameters.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ChatRoomWorkspaceHistoryParameters',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'ttl')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkspaceHistoryParameters clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkspaceHistoryParameters copyWith(
-          void Function(ChatRoomWorkspaceHistoryParameters) updates) =>
-      super.copyWith((message) =>
-              updates(message as ChatRoomWorkspaceHistoryParameters))
-          as ChatRoomWorkspaceHistoryParameters;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkspaceHistoryParameters create() =>
-      ChatRoomWorkspaceHistoryParameters._();
-  @$core.override
-  ChatRoomWorkspaceHistoryParameters createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkspaceHistoryParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChatRoomWorkspaceHistoryParameters>(
-          create);
-  static ChatRoomWorkspaceHistoryParameters? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get ttl => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set ttl($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasTtl() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearTtl() => $_clearField(1);
-}
-
-class ChatRoomWorkspaceParameters extends $pb.GeneratedMessage {
-  factory ChatRoomWorkspaceParameters({
-    $1.ChatRoomWorkspaceParametersAgentType? agentType,
-    ChatRoomWorkspaceHistoryParameters? history,
-    $1.WorkspaceInputMode? input,
-    $1.ChatRoomMode? mode,
-    ChatRoomWorkspaceTranscriptParameters? transcript,
-  }) {
-    final result = create();
-    if (agentType != null) result.agentType = agentType;
-    if (history != null) result.history = history;
-    if (input != null) result.input = input;
-    if (mode != null) result.mode = mode;
-    if (transcript != null) result.transcript = transcript;
-    return result;
-  }
-
-  ChatRoomWorkspaceParameters._();
-
-  factory ChatRoomWorkspaceParameters.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ChatRoomWorkspaceParameters.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ChatRoomWorkspaceParameters',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aE<$1.ChatRoomWorkspaceParametersAgentType>(
-        1, _omitFieldNames ? '' : 'agentType',
-        enumValues: $1.ChatRoomWorkspaceParametersAgentType.values)
-    ..aOM<ChatRoomWorkspaceHistoryParameters>(
-        2, _omitFieldNames ? '' : 'history',
-        subBuilder: ChatRoomWorkspaceHistoryParameters.create)
-    ..aE<$1.WorkspaceInputMode>(3, _omitFieldNames ? '' : 'input',
-        enumValues: $1.WorkspaceInputMode.values)
-    ..aE<$1.ChatRoomMode>(4, _omitFieldNames ? '' : 'mode',
-        enumValues: $1.ChatRoomMode.values)
-    ..aOM<ChatRoomWorkspaceTranscriptParameters>(
-        5, _omitFieldNames ? '' : 'transcript',
-        subBuilder: ChatRoomWorkspaceTranscriptParameters.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkspaceParameters clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkspaceParameters copyWith(
-          void Function(ChatRoomWorkspaceParameters) updates) =>
-      super.copyWith(
-              (message) => updates(message as ChatRoomWorkspaceParameters))
-          as ChatRoomWorkspaceParameters;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkspaceParameters create() =>
-      ChatRoomWorkspaceParameters._();
-  @$core.override
-  ChatRoomWorkspaceParameters createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkspaceParameters getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChatRoomWorkspaceParameters>(create);
-  static ChatRoomWorkspaceParameters? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $1.ChatRoomWorkspaceParametersAgentType get agentType => $_getN(0);
-  @$pb.TagNumber(1)
-  set agentType($1.ChatRoomWorkspaceParametersAgentType value) =>
-      $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAgentType() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAgentType() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  ChatRoomWorkspaceHistoryParameters get history => $_getN(1);
-  @$pb.TagNumber(2)
-  set history(ChatRoomWorkspaceHistoryParameters value) => $_setField(2, value);
-  @$pb.TagNumber(2)
-  $core.bool hasHistory() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearHistory() => $_clearField(2);
-  @$pb.TagNumber(2)
-  ChatRoomWorkspaceHistoryParameters ensureHistory() => $_ensure(1);
-
-  @$pb.TagNumber(3)
-  $1.WorkspaceInputMode get input => $_getN(2);
-  @$pb.TagNumber(3)
-  set input($1.WorkspaceInputMode value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasInput() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearInput() => $_clearField(3);
-
-  @$pb.TagNumber(4)
-  $1.ChatRoomMode get mode => $_getN(3);
-  @$pb.TagNumber(4)
-  set mode($1.ChatRoomMode value) => $_setField(4, value);
-  @$pb.TagNumber(4)
-  $core.bool hasMode() => $_has(3);
-  @$pb.TagNumber(4)
-  void clearMode() => $_clearField(4);
-
-  @$pb.TagNumber(5)
-  ChatRoomWorkspaceTranscriptParameters get transcript => $_getN(4);
-  @$pb.TagNumber(5)
-  set transcript(ChatRoomWorkspaceTranscriptParameters value) =>
-      $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasTranscript() => $_has(4);
-  @$pb.TagNumber(5)
-  void clearTranscript() => $_clearField(5);
-  @$pb.TagNumber(5)
-  ChatRoomWorkspaceTranscriptParameters ensureTranscript() => $_ensure(4);
-}
-
-class ChatRoomWorkspaceTranscriptParameters extends $pb.GeneratedMessage {
-  factory ChatRoomWorkspaceTranscriptParameters({
-    $core.String? asrModel,
-    $core.bool? enabled,
-  }) {
-    final result = create();
-    if (asrModel != null) result.asrModel = asrModel;
-    if (enabled != null) result.enabled = enabled;
-    return result;
-  }
-
-  ChatRoomWorkspaceTranscriptParameters._();
-
-  factory ChatRoomWorkspaceTranscriptParameters.fromBuffer(
-          $core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory ChatRoomWorkspaceTranscriptParameters.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ChatRoomWorkspaceTranscriptParameters',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'asrModel')
-    ..aOB(2, _omitFieldNames ? '' : 'enabled')
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkspaceTranscriptParameters clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ChatRoomWorkspaceTranscriptParameters copyWith(
-          void Function(ChatRoomWorkspaceTranscriptParameters) updates) =>
-      super.copyWith((message) =>
-              updates(message as ChatRoomWorkspaceTranscriptParameters))
-          as ChatRoomWorkspaceTranscriptParameters;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkspaceTranscriptParameters create() =>
-      ChatRoomWorkspaceTranscriptParameters._();
-  @$core.override
-  ChatRoomWorkspaceTranscriptParameters createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static ChatRoomWorkspaceTranscriptParameters getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
-          ChatRoomWorkspaceTranscriptParameters>(create);
-  static ChatRoomWorkspaceTranscriptParameters? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get asrModel => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set asrModel($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasAsrModel() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearAsrModel() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $core.bool get enabled => $_getBF(1);
-  @$pb.TagNumber(2)
-  set enabled($core.bool value) => $_setBool(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasEnabled() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearEnabled() => $_clearField(2);
-}
-
 class DashScopeRealtimeWorkflowSpec extends $pb.GeneratedMessage {
   factory DashScopeRealtimeWorkflowSpec({
     $core.String? asrModel,
@@ -4562,7 +4114,6 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
     FlowcraftWorkflowSpec? flowcraft,
     DoubaoRealtimeWorkflowSpec? doubaoRealtime,
     ASTTranslateWorkflowSpec? astTranslate,
-    ChatRoomWorkflowSpec? chatroom,
     DashScopeRealtimeWorkflowSpec? dashscopeRealtime,
     DoubaoRealtimeDuplexWorkflowSpec? doubaoRealtimeDuplex,
     EinoWorkflowSpec? eino,
@@ -4573,7 +4124,6 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
     if (flowcraft != null) result.flowcraft = flowcraft;
     if (doubaoRealtime != null) result.doubaoRealtime = doubaoRealtime;
     if (astTranslate != null) result.astTranslate = astTranslate;
-    if (chatroom != null) result.chatroom = chatroom;
     if (dashscopeRealtime != null) result.dashscopeRealtime = dashscopeRealtime;
     if (doubaoRealtimeDuplex != null)
       result.doubaoRealtimeDuplex = doubaoRealtimeDuplex;
@@ -4605,8 +4155,6 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
         subBuilder: DoubaoRealtimeWorkflowSpec.create)
     ..aOM<ASTTranslateWorkflowSpec>(5, _omitFieldNames ? '' : 'astTranslate',
         subBuilder: ASTTranslateWorkflowSpec.create)
-    ..aOM<ChatRoomWorkflowSpec>(6, _omitFieldNames ? '' : 'chatroom',
-        subBuilder: ChatRoomWorkflowSpec.create)
     ..aOM<DashScopeRealtimeWorkflowSpec>(
         7, _omitFieldNames ? '' : 'dashscopeRealtime',
         subBuilder: DashScopeRealtimeWorkflowSpec.create)
@@ -4689,51 +4237,40 @@ class PetWorkflowSpec extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   ASTTranslateWorkflowSpec ensureAstTranslate() => $_ensure(4);
 
-  @$pb.TagNumber(6)
-  ChatRoomWorkflowSpec get chatroom => $_getN(5);
-  @$pb.TagNumber(6)
-  set chatroom(ChatRoomWorkflowSpec value) => $_setField(6, value);
-  @$pb.TagNumber(6)
-  $core.bool hasChatroom() => $_has(5);
-  @$pb.TagNumber(6)
-  void clearChatroom() => $_clearField(6);
-  @$pb.TagNumber(6)
-  ChatRoomWorkflowSpec ensureChatroom() => $_ensure(5);
-
   @$pb.TagNumber(7)
-  DashScopeRealtimeWorkflowSpec get dashscopeRealtime => $_getN(6);
+  DashScopeRealtimeWorkflowSpec get dashscopeRealtime => $_getN(5);
   @$pb.TagNumber(7)
   set dashscopeRealtime(DashScopeRealtimeWorkflowSpec value) =>
       $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasDashscopeRealtime() => $_has(6);
+  $core.bool hasDashscopeRealtime() => $_has(5);
   @$pb.TagNumber(7)
   void clearDashscopeRealtime() => $_clearField(7);
   @$pb.TagNumber(7)
-  DashScopeRealtimeWorkflowSpec ensureDashscopeRealtime() => $_ensure(6);
+  DashScopeRealtimeWorkflowSpec ensureDashscopeRealtime() => $_ensure(5);
 
   @$pb.TagNumber(8)
-  DoubaoRealtimeDuplexWorkflowSpec get doubaoRealtimeDuplex => $_getN(7);
+  DoubaoRealtimeDuplexWorkflowSpec get doubaoRealtimeDuplex => $_getN(6);
   @$pb.TagNumber(8)
   set doubaoRealtimeDuplex(DoubaoRealtimeDuplexWorkflowSpec value) =>
       $_setField(8, value);
   @$pb.TagNumber(8)
-  $core.bool hasDoubaoRealtimeDuplex() => $_has(7);
+  $core.bool hasDoubaoRealtimeDuplex() => $_has(6);
   @$pb.TagNumber(8)
   void clearDoubaoRealtimeDuplex() => $_clearField(8);
   @$pb.TagNumber(8)
-  DoubaoRealtimeDuplexWorkflowSpec ensureDoubaoRealtimeDuplex() => $_ensure(7);
+  DoubaoRealtimeDuplexWorkflowSpec ensureDoubaoRealtimeDuplex() => $_ensure(6);
 
   @$pb.TagNumber(9)
-  EinoWorkflowSpec get eino => $_getN(8);
+  EinoWorkflowSpec get eino => $_getN(7);
   @$pb.TagNumber(9)
   set eino(EinoWorkflowSpec value) => $_setField(9, value);
   @$pb.TagNumber(9)
-  $core.bool hasEino() => $_has(8);
+  $core.bool hasEino() => $_has(7);
   @$pb.TagNumber(9)
   void clearEino() => $_clearField(9);
   @$pb.TagNumber(9)
-  EinoWorkflowSpec ensureEino() => $_ensure(8);
+  EinoWorkflowSpec ensureEino() => $_ensure(7);
 }
 
 enum Model_ProviderData {

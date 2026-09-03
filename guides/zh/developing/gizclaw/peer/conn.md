@@ -74,12 +74,14 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 `PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期，因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
 
 Agent input runtime 替换时，Realtime Source 把已捕获的旧 user-audio route 交给
-`PeerConn`。`PeerConn` 在 `chatroomAccessMu` 内只删除匹配旧 ID 的
+`PeerConn`。`PeerConn` 在 `inputAccessMu` 内只删除匹配旧 ID 的
 `acceptedInputStreams` 和 `acceptedAudio*` 授权；如果 fresh BOS 已经建立了更新 route，
 stale callback 不得清除它。释放授权锁后，`PeerConn` 通过现有 event broker 广播精确的
 `INPUT_ROUTE_RELOADED` EOS。Event I/O 不在 source 或授权 mutex 下执行；写入失败向
 AgentHost 传播，使 reload 不能成功；`PeerConn` 同时标记连接关闭并立即关闭底层 Conn，
 再由 serve lifecycle 完成其余资源清理，避免未收到必需 EOS 的 Peer 继续发送 fresh BOS。
+
+Friend 与 Friend Group 的 SFU Workspace 有专门的入站授权路径。输入 BOS 到达时，`PeerConn` 通过 `Manager.sfuInputAccess` 把当前选择的 Workspace 名称直接解析为权威 Social KV 中的 SFU binding（不经过按 owner 分 scope 的 Server 本地 Workspace catalog）并校验 membership：不是 SFU Workspace 的输入按原有规则准入；SFU Workspace 只在校验通过、该 Workspace 未在本连接上被撤权、且当前 runtime 已 attach 时准入，否则以 `SFU_ACCESS_REVOKED`、`SFU_ACCESS_CHECK_FAILED` 或 `SFU_RUNTIME_NOT_ATTACHED` 拒绝。已撤权 Workspace 的 Opus packet 直接丢弃并计数，不缓存。连接不接收任何撤权推送：已建立的 participant 由 SFU runtime 自己的周期重校验终止（见 [services/social](/zh/developing/gizclaw/services/social#撤权)），随后该 Workspace 的入站校验因成员身份失效而拒绝新的发言。SFU Workspace 是唯一允许非 owner restricted reload 的 Workspace，判定依据是 Social binding membership，而不是 owner 权限。
 
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 

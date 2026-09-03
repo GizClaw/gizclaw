@@ -6,15 +6,12 @@ metadata:
 spec:
   workflows:
     system:
-      friend_chatroom: chatroom-direct
-      group_chatroom: chatroom
       pet: pet-care
     collections:
       assistants:
         volc-ast-translate-tts: {resource_id: volc-ast-translate-tts, i18n: {en: {display_name: AST Translate TTS}, zh-CN: {display_name: AST 翻译 TTS}}}
         volc-ast-translate-zh-jp: {resource_id: volc-ast-translate-zh-jp, i18n: {en: {display_name: Chinese Japanese Translate}, zh-CN: {display_name: 中日翻译}}}
         volc-ast-translate: {resource_id: volc-ast-translate, i18n: {en: {display_name: AST Translate}, zh-CN: {display_name: AST 翻译}}}
-        chatroom: {resource_id: chatroom, i18n: {en: {display_name: Chatroom}, zh-CN: {display_name: 聊天室}}}
         doubao-realtime-conversation: {resource_id: doubao-realtime-conversation, i18n: {en: {display_name: Doubao Realtime}, zh-CN: {display_name: 豆包实时对话}}}
         flowcraft-voice-assistant: {resource_id: flowcraft-voice-assistant, i18n: {en: {display_name: Flowcraft Voice Assistant}, zh-CN: {display_name: Flowcraft 语音助手}}}
         flowcraft-chat-assistant: {resource_id: flowcraft-chat-assistant, i18n: {en: {display_name: Flowcraft Chat Assistant}, zh-CN: {display_name: Flowcraft 对话助手}}}
@@ -32,10 +29,7 @@ spec:
         flowcraft-realtime-chat: {resource_id: flowcraft-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}}
         flowcraft-latency-comparison: {resource_id: flowcraft-latency-comparison, i18n: {en: {display_name: Flowcraft Latency}, zh-CN: {display_name: Flowcraft 延迟}}}
         eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}}
-        chatroom-direct: {resource_id: chatroom-direct, i18n: {en: {display_name: Direct Chatroom}, zh-CN: {display_name: 单聊}}}
         pet-care: {resource_id: pet-care, i18n: {en: {display_name: Pet Care}, zh-CN: {display_name: 宠物照护}}}
-        pet-chatroom: {resource_id: pet-chatroom, i18n: {en: {display_name: Pet Chatroom}, zh-CN: {display_name: 宠物聊天}}}
-        family-circle-chatroom: {resource_id: family-circle-chatroom, i18n: {en: {display_name: Family Circle}, zh-CN: {display_name: 家庭群聊}}}
         eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}}
         giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}}
   resources:
@@ -83,7 +77,7 @@ spec:
       initial_balance: 100
     workspace_reward:
       enabled: true
-      workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+      workspace_kinds: [workflow]
       debounce: {quiet_period: 1s, max_window_age: 1m}
       transcript: {max_entries: 100, max_text_bytes: 65536}
       evaluation:

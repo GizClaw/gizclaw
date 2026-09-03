@@ -16,6 +16,8 @@ import (
 const (
 	defaultTaskTimeout = 5 * time.Minute
 	maxDocumentBytes   = 4 << 20
+	// maxListenDuration bounds a receive-only peer_stream listen window.
+	maxListenDuration = 5 * time.Minute
 )
 
 var (
@@ -72,12 +74,18 @@ type Step struct {
 	ReviewOp       *ReviewOperation         `json:"review_op,omitempty" yaml:"review_op,omitempty"`
 	Barrier        *BarrierOperation        `json:"barrier,omitempty" yaml:"barrier,omitempty"`
 	WorkspaceRelay *WorkspaceRelayOperation `json:"workspace_relay,omitempty" yaml:"workspace_relay,omitempty"`
-	SaveAs         string                   `json:"save_as,omitempty" yaml:"save_as,omitempty"`
-	Capture        map[string]string        `json:"capture,omitempty" yaml:"capture,omitempty"`
-	Expect         map[string]Expectation   `json:"expect,omitempty" yaml:"expect,omitempty"`
-	ExpectError    *ErrorExpectation        `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
-	Timeout        string                   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Retry          *RetrySpec               `json:"retry,omitempty" yaml:"retry,omitempty"`
+	// Await names an earlier background step whose result this step waits
+	// for and asserts on; it is exclusive with every operation field.
+	Await string `json:"await,omitempty" yaml:"await,omitempty"`
+	// Background starts a peer_stream step without waiting for it; a later
+	// await step consumes its result.
+	Background  bool                   `json:"background,omitempty" yaml:"background,omitempty"`
+	SaveAs      string                 `json:"save_as,omitempty" yaml:"save_as,omitempty"`
+	Capture     map[string]string      `json:"capture,omitempty" yaml:"capture,omitempty"`
+	Expect      map[string]Expectation `json:"expect,omitempty" yaml:"expect,omitempty"`
+	ExpectError *ErrorExpectation      `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
+	Timeout     string                 `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Retry       *RetrySpec             `json:"retry,omitempty" yaml:"retry,omitempty"`
 }
 
 type RetrySpec struct {
@@ -114,6 +122,7 @@ type SpeechOperation struct {
 type PeerStreamOperation struct {
 	Mode              string `json:"mode" yaml:"mode"`
 	Input             any    `json:"input,omitempty" yaml:"input,omitempty"`
+	Duration          string `json:"duration,omitempty" yaml:"duration,omitempty"`
 	Pacing            string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
 	IdleTimeout       string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
@@ -419,6 +428,8 @@ func (d *Document) validateSemantics() error {
 		}
 	}
 	ids := map[string]bool{}
+	awaited := map[string]bool{}
+	var backgroundOrder []string
 	workspaceSelected := map[string]bool{}
 	all := append(append([]Step(nil), d.Steps...), d.Finally...)
 	for i, step := range all {
@@ -441,6 +452,12 @@ func (d *Document) validateSemantics() error {
 			return fmt.Errorf("duplicate step id %q", step.ID)
 		}
 		ids[step.ID] = true
+		if err := validateBackgroundStep(step, op, i >= len(d.Steps), awaited); err != nil {
+			return err
+		}
+		if step.Background {
+			backgroundOrder = append(backgroundOrder, step.ID)
+		}
 		if step.Client != "" {
 			if _, ok := d.Clients[step.Client]; !ok {
 				return fmt.Errorf("step %s references unknown client %q", step.ID, step.Client)
@@ -488,6 +505,13 @@ func (d *Document) validateSemantics() error {
 		}
 		if step.PeerStream != nil {
 			persistent := step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != ""
+			if step.PeerStream.Mode == "listen" {
+				if err := validateListenPeerStream(step); err != nil {
+					return err
+				}
+			} else if step.PeerStream.Duration != "" {
+				return fmt.Errorf("step %s peer_stream duration is only valid for listen mode", step.ID)
+			}
 			if step.PeerStream.Session != "" && !namePattern.MatchString(step.PeerStream.Session) {
 				return fmt.Errorf("step %s has invalid peer_stream session %q", step.ID, step.PeerStream.Session)
 			}
@@ -512,7 +536,7 @@ func (d *Document) validateSemantics() error {
 			if persistent && i >= len(d.Steps) {
 				return fmt.Errorf("step %s persistent peer_stream is not allowed in finally", step.ID)
 			}
-			if step.PeerStream.Input == nil {
+			if step.PeerStream.Input == nil && step.PeerStream.Mode != "listen" {
 				return fmt.Errorf("step %s peer_stream requires input", step.ID)
 			}
 			if step.PeerStream.Pacing != "" {
@@ -563,6 +587,15 @@ func (d *Document) validateSemantics() error {
 				if step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" || step.PeerStream.WaitForHistory {
 					return fmt.Errorf("step %s first_response completion cannot interrupt or wait for terminal output/history", step.ID)
 				}
+			case "input_sent":
+				if step.PeerStream.Mode != "push-to-talk" && step.PeerStream.Mode != "realtime" {
+					return fmt.Errorf("step %s input_sent completion requires push-to-talk or realtime mode", step.ID)
+				}
+				if step.PeerStream.FirstTextTimeout != "" || step.PeerStream.FirstAudioTimeout != "" || step.PeerStream.WaitForHistory ||
+					step.PeerStream.RequireText != nil || step.PeerStream.RequireAudio != nil ||
+					step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" {
+					return fmt.Errorf("step %s input_sent completion cannot wait for output: remove first-response timeouts, require_text, require_audio, wait_for_history, interrupt_after, and terminal_label", step.ID)
+				}
 			default:
 				return fmt.Errorf("step %s has unsupported peer_stream completion %q", step.ID, step.PeerStream.Completion)
 			}
@@ -590,6 +623,89 @@ func (d *Document) validateSemantics() error {
 			if err := validateRPCRequestShape(step.RPCStream.Method, step.RPCStream.Request, d.Variables); err != nil {
 				return fmt.Errorf("step %s: %w", step.ID, err)
 			}
+		}
+	}
+	for _, id := range backgroundOrder {
+		if !awaited[id] {
+			return fmt.Errorf("background step %s must be awaited exactly once before finally", id)
+		}
+	}
+	return nil
+}
+
+// validateBackgroundStep checks the background and await step forms. awaited
+// tracks every background step declared so far and whether an await step has
+// already consumed it, so an await can only name an earlier background step.
+func validateBackgroundStep(step Step, op string, finalizer bool, awaited map[string]bool) error {
+	if !step.Background && step.Await == "" {
+		return nil
+	}
+	if finalizer {
+		return fmt.Errorf("step %s background and await steps are not allowed in finally", step.ID)
+	}
+	if step.Background {
+		if step.Await != "" {
+			return fmt.Errorf("step %s cannot be both background and await", step.ID)
+		}
+		if op != "peer_stream" {
+			return fmt.Errorf("step %s background requires a peer_stream operation", step.ID)
+		}
+		if len(step.Capture) != 0 || len(step.Expect) != 0 || step.ExpectError != nil || step.SaveAs != "" {
+			return fmt.Errorf("step %s background step cannot capture, expect, or save_as; declare them on its await step", step.ID)
+		}
+		if step.Retry != nil {
+			return fmt.Errorf("step %s background step cannot retry", step.ID)
+		}
+		if step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != "" || step.PeerStream.Session != "" {
+			return fmt.Errorf("step %s background peer_stream cannot use a session", step.ID)
+		}
+		awaited[step.ID] = false
+		return nil
+	}
+	if step.Client != "" {
+		return fmt.Errorf("step %s await takes its client from the awaited step", step.ID)
+	}
+	consumed, ok := awaited[step.Await]
+	if !ok {
+		return fmt.Errorf("step %s await references %q, which is not an earlier background step", step.ID, step.Await)
+	}
+	if consumed {
+		return fmt.Errorf("step %s await references background step %q that is already awaited", step.ID, step.Await)
+	}
+	awaited[step.Await] = true
+	return nil
+}
+
+// validateListenPeerStream checks the receive-only listen mode, which owns a
+// bounded duration and none of the input or completion controls.
+func validateListenPeerStream(step Step) error {
+	op := step.PeerStream
+	duration, err := time.ParseDuration(op.Duration)
+	if err != nil || duration <= 0 || duration > maxListenDuration {
+		return fmt.Errorf("step %s listen requires a duration between 0 and %s, got %q", step.ID, maxListenDuration, op.Duration)
+	}
+	forbidden := []struct {
+		name string
+		set  bool
+	}{
+		{"input", op.Input != nil},
+		{"pacing", op.Pacing != ""},
+		{"interrupt_after", op.InterruptAfter != ""},
+		{"idle_timeout", op.IdleTimeout != ""},
+		{"completion", op.Completion != ""},
+		{"first_text_timeout", op.FirstTextTimeout != ""},
+		{"first_audio_timeout", op.FirstAudioTimeout != ""},
+		{"terminal_label", op.TerminalLabel != ""},
+		{"require_text", op.RequireText != nil},
+		{"require_audio", op.RequireAudio != nil},
+		{"wait_for_history", op.WaitForHistory},
+		{"session", op.Session != ""},
+		{"keep_open", op.KeepOpen},
+		{"await_rearm", op.AwaitRearm != ""},
+	}
+	for _, field := range forbidden {
+		if field.set {
+			return fmt.Errorf("step %s listen peer_stream cannot set %s", step.ID, field.name)
 		}
 	}
 	return nil
@@ -722,10 +838,12 @@ func (d *Document) taskTimeout() (time.Duration, error) {
 }
 
 func operationNeedsClient(op string) bool {
-	return op != "barrier" && op != "output" && op != "review" && op != "workspace_relay"
+	return op != "barrier" && op != "output" && op != "review" && op != "workspace_relay" && op != "await"
 }
 func (s Step) operation() string {
 	switch {
+	case s.Await != "":
+		return "await"
 	case s.RPC != nil:
 		return "rpc"
 	case s.RPCStream != nil:

@@ -43,3 +43,6 @@ tests/memory/.env
 .cursor/
 skills-lock.json
 openteam/
+
+# Build output from tests/gizclaw-e2e/cmd
+/multiserver-seed

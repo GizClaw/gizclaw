@@ -123,16 +123,6 @@ func invokeRPCStream(ctx context.Context, client *gizcli.Client, step Step, requ
 			return operationResult{}, err
 		}
 		metadata = result
-	case "server.friend_group.messages.audio.download":
-		var req rpcapi.FriendGroupMessageAudioDownloadRequest
-		if err := decodeRequest(request, &req); err != nil {
-			return operationResult{}, err
-		}
-		result, err := client.DownloadFriendGroupMessageAudio(ctx, step.ID, req, buf)
-		if err != nil {
-			return operationResult{}, err
-		}
-		metadata = result
 	default:
 		return operationResult{}, fmt.Errorf("RPC method %s is not a supported binary stream", op.Method)
 	}

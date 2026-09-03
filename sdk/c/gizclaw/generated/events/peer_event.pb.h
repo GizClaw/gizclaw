@@ -32,9 +32,7 @@ typedef enum _gizclaw_events_v1_StreamKind {
 
 typedef enum _gizclaw_events_v1_WorkspaceKind {
     gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_UNSPECIFIED = 0,
-    gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW = 1,
-    gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_DIRECT_CHATROOM = 2,
-    gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM = 3
+    gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW = 1
 } gizclaw_events_v1_WorkspaceKind;
 
 typedef enum _gizclaw_events_v1_FriendRelationshipChange {
@@ -154,8 +152,8 @@ extern "C" {
 #define _gizclaw_events_v1_StreamKind_ARRAYSIZE ((gizclaw_events_v1_StreamKind)(gizclaw_events_v1_StreamKind_STREAM_KIND_MIXED+1))
 
 #define _gizclaw_events_v1_WorkspaceKind_MIN gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_UNSPECIFIED
-#define _gizclaw_events_v1_WorkspaceKind_MAX gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM
-#define _gizclaw_events_v1_WorkspaceKind_ARRAYSIZE ((gizclaw_events_v1_WorkspaceKind)(gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM+1))
+#define _gizclaw_events_v1_WorkspaceKind_MAX gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW
+#define _gizclaw_events_v1_WorkspaceKind_ARRAYSIZE ((gizclaw_events_v1_WorkspaceKind)(gizclaw_events_v1_WorkspaceKind_WORKSPACE_KIND_WORKFLOW+1))
 
 #define _gizclaw_events_v1_FriendRelationshipChange_MIN gizclaw_events_v1_FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_UNSPECIFIED
 #define _gizclaw_events_v1_FriendRelationshipChange_MAX gizclaw_events_v1_FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED

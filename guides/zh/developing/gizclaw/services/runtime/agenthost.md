@@ -48,6 +48,11 @@ dispatcher 当成新活动。
 
 ## 当前 Peer 的 Tool scope
 
+Workflow 使用 `sfu` driver 的 Workspace 是空的运行入口：`ServiceResolver` 只返回
+Workspace、Workflow 与 agent type，不解析 owner RuntimeProfile、toolkit 或 Memory。
+因此任何 Server 都能只依赖共享 Social KV 与本地 driver 激活 Social SFU Workspace，
+即使 owner Peer 注册在其他 Server 上。
+
 Tool execution context 与 Workspace-owner Resource access 相互独立。Workspace
 owner 仍决定 Workspace、Workflow、Model 与 Memory resource，但不能替换当前已连接
 Peer 的 Tool 集合。`Service.Reload` 会快照该 Peer 的 RuntimeProfile Tool binding，
@@ -85,5 +90,11 @@ Flowcraft 与 Eino 在已配置的 Memory Store 上只绑定 Workspace 这一层
 Agent 构造可以共享，但每个 connection attachment 都拥有独立 input、transformed output、consumer 与 cancellation，因此 Peer lifecycle correlation 留在这些 connection-scoped stream boundary 上，不进入共享 Agent object。GenX 通过 stream wrapper 与 terminal EOS 保留 owning boundary 写入的无 payload `FailureClass`（`provider` 或 `transform`）；首个有效 class 优先，cancellation、deadline 与 clean completion 不会被赋予 failure class。Reload failure 由有界的 `AGENT_RELOAD_FAILED` EOS 表示并映射为 `transform_error`；provider-classified output EOS 映射为 `provider_error`；未分类 failure 与 stream 未产生 EOS 就结束均映射为 `stream_error`；cancellation 与 deadline 继续分开。Lifecycle record 不增加 raw provider 或 transform error。
 
 Transformer 与 history replay 必须尽快把 provider output drain 到 growable stream buffer，不在该层按播放时钟等待。Raw Opus、Ogg/Opus、MP3 与 PCM audio 都先 decode/normalize，再进入 mixer 的 PCM stream；`PeerConn` 只在 mixer 出口每个 20ms pacing opportunity 读取一帧、编码 Opus 并写入 WebRTC。普通 EOS 使用 `CloseWrite` 让已缓存 PCM 排空，error EOS 使用 `CloseWithError` 丢弃对应 track 和尚未消费的 stream backlog。
+
+## SFU Workspace runtime
+
+Friend 与 Friend Group 的 SFU Workspace 走同一套 Reload、lease、registry 与 cancellation 路径，但 `Host.NewAgent` 对 `sfu` driver 不套 History wrapper，而是安装 `noHistoryAgent`：history list 返回空列表，play 返回 `not_found`，不写 History，也不触发 `workspace_history_updated` 与 Gameplay reward callback。SFU runtime 把 LiveKit connection、Track publish 与远端 Track reader 全部挂在 Transform context 上，因此 `Service.Reload` 先停旧 runtime 再激活新 selection 的现有顺序就是 Workspace 切换的取消通路，不新增状态机。
+
+SFU 下行每个远端 participant 使用不同的 `stream_id` 和不同的 `label`（等于 participant identity）。`MixerOutput` 按 `(StreamID, MIME)` 分离解码与 mixer track，而 cutover 会在 BOS 时替换同 `label` 的其他 stream，所以 label 不同才能让多路远端音频并发混合。connector 行为见 [SFU 组合边界](/zh/developing/gizclaw/services/ai#sfu-组合边界)，激活与撤权见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
 Direct Workspace turn 可以安装 request-scoped History observer。它在 History 已持久化且 attachment 尚未释放时接收准确 entry，不按 timestamp 扫描，也不复制文本。取消与 callback synchronization 由请求 attachment 拥有，不改变普通 Peer-run capture。

@@ -18,7 +18,7 @@ Server methods cover Peer info, runtime status, run Agent, run workspace, histor
 | `handleGetInfo` / `handlePutInfo` | Read or update the current Peer device info. |
 | `handleGetRuntime` / `handleGetStatus` | Query Peer runtime and run status. |
 | `handleGetRunAgent` / `handleSetRunAgent` | Query or select the currently running Agent. |
-| `handleGetRunWorkspace` / `handleSetRunWorkspace` / `handleReloadRunWorkspace` | Manage the current run workspace. |
+| `handleGetRunWorkspace` / `handleSetRunWorkspace` / `handleReloadRunWorkspace` | Manage the current run workspace. Selecting a Social SFU Workspace (Workflow `system-sfu`) reloads the runtime at once so the Peer joins the Room and the response carries the post-activation state; re-selecting the Workspace the runtime already runs is idempotent, and Workflow Workspaces keep lazy activation. `handleSetRunAgent` applies the same rule. |
 | `handleListRunWorkspaceHistory` / `handlePlayRunWorkspaceHistory` | List or play workspace history. |
 | `handleGetRunWorkspaceMemoryStats` / `handleRunWorkspaceRecall` | Query memory stats or execute recall. |
 | `handleReloadRun` / `handleGetRunStatus` / `handleStopRun` | Control the complete run lifecycle. |

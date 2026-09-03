@@ -146,10 +146,8 @@ func (StreamKind) EnumDescriptor() ([]byte, []int) {
 type WorkspaceKind int32
 
 const (
-	WorkspaceKind_WORKSPACE_KIND_UNSPECIFIED     WorkspaceKind = 0
-	WorkspaceKind_WORKSPACE_KIND_WORKFLOW        WorkspaceKind = 1
-	WorkspaceKind_WORKSPACE_KIND_DIRECT_CHATROOM WorkspaceKind = 2
-	WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM  WorkspaceKind = 3
+	WorkspaceKind_WORKSPACE_KIND_UNSPECIFIED WorkspaceKind = 0
+	WorkspaceKind_WORKSPACE_KIND_WORKFLOW    WorkspaceKind = 1
 )
 
 // Enum value maps for WorkspaceKind.
@@ -157,14 +155,10 @@ var (
 	WorkspaceKind_name = map[int32]string{
 		0: "WORKSPACE_KIND_UNSPECIFIED",
 		1: "WORKSPACE_KIND_WORKFLOW",
-		2: "WORKSPACE_KIND_DIRECT_CHATROOM",
-		3: "WORKSPACE_KIND_GROUP_CHATROOM",
 	}
 	WorkspaceKind_value = map[string]int32{
-		"WORKSPACE_KIND_UNSPECIFIED":     0,
-		"WORKSPACE_KIND_WORKFLOW":        1,
-		"WORKSPACE_KIND_DIRECT_CHATROOM": 2,
-		"WORKSPACE_KIND_GROUP_CHATROOM":  3,
+		"WORKSPACE_KIND_UNSPECIFIED": 0,
+		"WORKSPACE_KIND_WORKFLOW":    1,
 	}
 )
 
@@ -1237,12 +1231,10 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x10STREAM_KIND_TEXT\x10\x01\x12\x15\n" +
 	"\x11STREAM_KIND_AUDIO\x10\x02\x12\x15\n" +
 	"\x11STREAM_KIND_VIDEO\x10\x03\x12\x15\n" +
-	"\x11STREAM_KIND_MIXED\x10\x04*\x93\x01\n" +
+	"\x11STREAM_KIND_MIXED\x10\x04*L\n" +
 	"\rWorkspaceKind\x12\x1e\n" +
 	"\x1aWORKSPACE_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17WORKSPACE_KIND_WORKFLOW\x10\x01\x12\"\n" +
-	"\x1eWORKSPACE_KIND_DIRECT_CHATROOM\x10\x02\x12!\n" +
-	"\x1dWORKSPACE_KIND_GROUP_CHATROOM\x10\x03*\x96\x01\n" +
+	"\x17WORKSPACE_KIND_WORKFLOW\x10\x01*\x96\x01\n" +
 	"\x18FriendRelationshipChange\x12*\n" +
 	"&FRIEND_RELATIONSHIP_CHANGE_UNSPECIFIED\x10\x00\x12&\n" +
 	"\"FRIEND_RELATIONSHIP_CHANGE_CREATED\x10\x01\x12&\n" +

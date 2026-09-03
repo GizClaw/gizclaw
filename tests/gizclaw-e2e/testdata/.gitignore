@@ -25,3 +25,5 @@
 !cmd-config-home/gizclaw/current
 !cmd-config-home/gizclaw/*/
 !cmd-config-home/gizclaw/*/config.yaml
+!audio/
+!audio/*.ogg

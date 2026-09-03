@@ -176,7 +176,7 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	workflowResources := map[string]string{
-		"chatroom":          "chatroom-direct",
+		"echo":              "flowcraft-scenario-000",
 		"realtime-workflow": "doubao-realtime-conversation",
 	}
 	modelResources := map[string]string{
@@ -196,9 +196,7 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 			Voices: ptr(runtimeBindings(voiceResources)),
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
 			System: apitypes.RuntimeProfileSystemWorkflows{
-				FriendChatroom: "chatroom-direct",
-				GroupChatroom:  "chatroom-direct",
-				Pet:            "pet-chatroom",
+				Pet: "pet-care",
 			},
 			Collections: apitypes.RuntimeProfileWorkflowCollections{
 				"assistants": runtimeBindings(workflowResources),

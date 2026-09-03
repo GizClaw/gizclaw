@@ -10,5 +10,6 @@ RUN apt-get update \
 COPY . .
 COPY tests/gizclaw-e2e/testdata/bin/gizclaw-linux /usr/local/bin/gizclaw
 COPY tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux /usr/local/bin/multiserver-e2e
-RUN chmod +x /usr/local/bin/gizclaw /usr/local/bin/multiserver-e2e \
+COPY tests/gizclaw-e2e/testdata/bin/multiserver-seed-linux /usr/local/bin/multiserver-seed
+RUN chmod +x /usr/local/bin/gizclaw /usr/local/bin/multiserver-e2e /usr/local/bin/multiserver-seed \
  && find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +

@@ -216,52 +216,6 @@ message FriendGroupMemberPutResponse {
   FriendGroupMemberObject value = 1;
 }
 
-message FriendGroupMessageAudioDownloadRequest {
-  string friend_group_name = 1;
-  string history_name = 2;
-}
-
-message FriendGroupMessageAudioDownloadResponse {
-  string friend_group_name = 1;
-  string history_name = 2;
-  string mime_type = 3;
-  int64 size_bytes = 4;
-}
-
-message FriendGroupMessageGetRequest {
-  string friend_group_name = 1;
-  string history_name = 2;
-}
-
-message FriendGroupMessageGetResponse {
-  FriendGroupMessageObject value = 1;
-}
-
-message FriendGroupMessageListRequest {
-  optional string cursor = 1;
-  string friend_group_name = 2;
-  optional int64 limit = 3;
-  optional WorkspaceHistoryListRequestOrder order = 4;
-}
-
-message FriendGroupMessageListResponse {
-  bool has_next = 1;
-  repeated FriendGroupMessageObject items = 2;
-  optional string next_cursor = 3;
-}
-
-message FriendGroupMessageObject {
-  string created_at = 1;
-  optional string expires_at = 2;
-  string friend_group_name = 3;
-  optional string sender_peer_public_key = 4;
-  string name = 5;
-  string actor_name = 6;
-  string text = 7;
-  PeerRunHistoryEntryType type = 8;
-  bool audio_available = 9;
-}
-
 message FriendGroupObject {
   optional string created_at = 1;
   optional string created_by_peer_public_key = 2;

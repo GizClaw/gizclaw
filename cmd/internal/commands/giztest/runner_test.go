@@ -439,6 +439,49 @@ func TestAssertValueExtendedMatchers(t *testing.T) {
 	}
 }
 
+func TestResolveExpectationsInterpolatesVariables(t *testing.T) {
+	vars, err := newVariables(map[string]VariableSpec{
+		"bob_workspace": {Direction: "output", Type: "string"},
+		"fragment":      {Direction: "input", Type: "string", Value: "calling"},
+		"count":         {Direction: "input", Type: "integer", Value: 3},
+	})
+	if err != nil {
+		t.Fatalf("newVariables() error = %v", err)
+	}
+	if err := vars.assign("bob_workspace", "social-direct-1"); err != nil {
+		t.Fatalf("assign() error = %v", err)
+	}
+	value := map[string]any{"workspace_name": "social-direct-1", "transcript": "alice calling bob", "packets": 3}
+	resolved, err := resolveExpectations(vars, map[string]Expectation{
+		"/workspace_name": {Equals: "${bob_workspace}"},
+		"/transcript":     {Contains: "alice ${fragment}"},
+		"/packets":        {Equals: "${count}"},
+	})
+	if err != nil {
+		t.Fatalf("resolveExpectations() error = %v", err)
+	}
+	if resolved["/workspace_name"].Equals != "social-direct-1" || resolved["/transcript"].Contains != "alice calling" || resolved["/packets"].Equals != 3 {
+		t.Fatalf("resolved expectations = %#v", resolved)
+	}
+	if err := assertValue(resolved, value); err != nil {
+		t.Fatalf("assertValue() error = %v", err)
+	}
+	literal, err := resolveExpectations(vars, map[string]Expectation{"/transcript": {Contains: "alice", Pattern: "${fragment}"}})
+	if err != nil || literal["/transcript"].Contains != "alice" || literal["/transcript"].Pattern != "${fragment}" {
+		t.Fatalf("literal operands changed: %#v, %v", literal, err)
+	}
+	if _, err := resolveExpectations(vars, map[string]Expectation{"/workspace_name": {Equals: "${missing}"}}); err == nil {
+		t.Fatal("resolveExpectations() accepted an unknown variable")
+	}
+	unassigned, err := newVariables(map[string]VariableSpec{"later": {Direction: "output", Type: "string"}})
+	if err != nil {
+		t.Fatalf("newVariables() error = %v", err)
+	}
+	if _, err := resolveExpectations(unassigned, map[string]Expectation{"/x": {Contains: "${later}"}}); err == nil {
+		t.Fatal("resolveExpectations() accepted an unassigned output variable")
+	}
+}
+
 func TestAssertValueContentMatcherFailuresAreContentFree(t *testing.T) {
 	value := map[string]any{"text": []string{"secret story about 乌龟"}}
 	assertions := map[string]Expectation{"/text": {NotContains: []any{"乌龟"}, Contains: "乌龟"}}

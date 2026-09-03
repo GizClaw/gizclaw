@@ -1908,14 +1908,6 @@ export type RuntimeProfileSpec = {
 
 export type RuntimeProfileSystemWorkflows = {
     /**
-     * Persisted Workflow resource ID for direct friend chat Workspaces.
-     */
-    friend_chatroom: string;
-    /**
-     * Persisted Workflow resource ID for friend-group chat Workspaces.
-     */
-    group_chatroom: string;
-    /**
      * Persisted Workflow resource ID for adopted Pet Workspaces.
      */
     pet: string;
@@ -1977,7 +1969,9 @@ export type RuntimeProfileWorkspaceRewardRollingBudgetSpec = {
 
 export type RuntimeProfileWorkspaceRewardSpec = {
     enabled: boolean;
-    workspace_kinds?: Array<'workflow' | 'direct_chatroom' | 'group_chatroom'>;
+    workspace_kinds?: [
+        'workflow'
+    ];
     debounce?: RuntimeProfileWorkspaceRewardDebounceSpec;
     transcript?: RuntimeProfileWorkspaceRewardTranscriptSpec;
     evaluation?: RuntimeProfileWorkspaceRewardEvaluationSpec;
@@ -2367,13 +2361,6 @@ export type ReusableAstTranslateWorkflowVariant = {
     ast_translate: AstTranslateWorkflowSpec;
 };
 
-export type ReusableChatroomWorkflowVariant = {
-    driver: 'chatroom';
-    toolkit?: ToolkitPolicy;
-    memory?: WorkflowMemoryAlias;
-    chatroom: ChatRoomWorkflowSpec;
-};
-
 export type ReusableDashScopeRealtimeWorkflowVariant = {
     driver: 'dashscope-realtime';
     toolkit?: ToolkitPolicy;
@@ -2424,9 +2411,12 @@ export type ReusableWorkflowSpec = ({
     driver: 'eino';
 } & ReusableEinoWorkflowVariant) | ({
     driver: 'ast-translate';
-} & ReusableAstTranslateWorkflowVariant) | ({
-    driver: 'chatroom';
-} & ReusableChatroomWorkflowVariant);
+} & ReusableAstTranslateWorkflowVariant);
+
+export type SfuWorkflowVariant = {
+    driver: 'sfu';
+    sfu: SfuWorkflowSpec;
+};
 
 /**
  * RuntimeProfile resources.memories alias resolved for the Workspace.
@@ -2449,8 +2439,8 @@ export type WorkflowSpec = ({
 } & ReusableEinoWorkflowVariant) | ({
     driver: 'ast-translate';
 } & ReusableAstTranslateWorkflowVariant) | ({
-    driver: 'chatroom';
-} & ReusableChatroomWorkflowVariant) | ({
+    driver: 'sfu';
+} & SfuWorkflowVariant) | ({
     driver: 'pet';
 } & PetWorkflowVariant);
 
@@ -2489,29 +2479,6 @@ export type AstTranslateWorkflowSpec = {
     enable_source_language_detect?: boolean;
     denoise?: boolean;
     resource_id?: string;
-};
-
-export type ChatRoomWorkflowHistorySpec = {
-    /**
-     * Unified retention duration for chat history entries and their assets.
-     */
-    ttl?: string;
-};
-
-export type ChatRoomWorkflowSpec = {
-    history: ChatRoomWorkflowHistorySpec;
-    transcript?: ChatRoomWorkflowTranscriptSpec;
-};
-
-export type ChatRoomWorkflowTranscriptSpec = {
-    /**
-     * Whether gear audio should be transcribed and written as text in workspace history.
-     */
-    enabled?: boolean;
-    /**
-     * RuntimeProfile ASR Model alias resolved when the Workspace reloads.
-     */
-    asr_model?: string;
 };
 
 export type DashScopeRealtimeOptions = {
@@ -3115,6 +3082,13 @@ export type FlowcraftWorkflowSpec = {
 
 export type PetWorkflowSpec = ReusableWorkflowSpec & unknown;
 
+/**
+ * Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+ */
+export type SfuWorkflowSpec = {
+    [key: string]: never;
+};
+
 export type VoiceAdapter = {
     asr_model?: string;
     default_voice?: string;
@@ -3187,34 +3161,6 @@ export type AstTranslateWorkspaceParameters = {
      * Marks seed resources used by the local e2e harness.
      */
     e2e?: boolean;
-};
-
-export type ChatRoomMode = 'direct' | 'group';
-
-export type ChatRoomWorkspaceHistoryParameters = {
-    /**
-     * Workspace-level retention override for chat history entries and their assets.
-     */
-    ttl?: string;
-};
-
-export type ChatRoomWorkspaceParameters = {
-    agent_type: 'chatroom';
-    input?: WorkspaceInputMode;
-    mode?: ChatRoomMode;
-    history?: ChatRoomWorkspaceHistoryParameters;
-    transcript?: ChatRoomWorkspaceTranscriptParameters;
-};
-
-export type ChatRoomWorkspaceTranscriptParameters = {
-    /**
-     * Whether gear audio should be transcribed and written as text in workspace history.
-     */
-    enabled?: boolean;
-    /**
-     * Workspace-level ASR model override for gear audio transcription.
-     */
-    asr_model?: string;
 };
 
 export type ConversationParameters = {
@@ -3317,8 +3263,6 @@ export type WorkspaceParameters = ({
 } & EinoWorkspaceParameters) | ({
     agent_type: 'ast-translate';
 } & AstTranslateWorkspaceParameters) | ({
-    agent_type: 'chatroom';
-} & ChatRoomWorkspaceParameters) | ({
     agent_type: 'pet';
 } & PetWorkspaceParameters);
 
@@ -3515,6 +3459,13 @@ export type ToolSpecWritable = ({
 } & HttpToolSpecWritable) | ({
     type: 'client_rpc';
 } & ClientRpcToolSpec);
+
+/**
+ * Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+ */
+export type SfuWorkflowSpecWritable = {
+    [key: string]: never;
+};
 
 export type WorkspaceWritable = {
     id: string;

@@ -22,7 +22,7 @@ Server 配置明确分为三层：
 | `stores` | 动态 map | 逻辑接口 kind 与 prefix/table/topic scope |
 | `services` | 固定类型结构 | 内置服务用于引用兼容 Store 的固定字段 |
 
-Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`metrics` 等名称任何内置含义；每个内置消费者都通过固定的 `services` 字段绑定。核心 service block 必填，`services.agent_host`、`services.metrics` 与 `services.system_log` 可选；省略 SystemLog 时使用 info-level stderr。
+Registry 名称精确匹配并区分大小写。Server 不会赋予 `peers`、`metrics` 等名称任何内置含义；每个内置消费者都通过固定的 `services` 字段绑定。核心 service block 必填，`services.agent_host`、`services.metrics`、`services.system_log` 与 `services.sfu` 可选；省略 SystemLog 时使用 info-level stderr，省略 `services.sfu` 时本 Server 禁用 Friend 与 Friend Group 的 SFU Workspace。
 
 全局与 per-sink `services.system_log` level 也决定新接受的 Edge-routed logical Peer 是否构造
 完整 Server lifecycle observer。只有所有 sink 都拒绝 `INFO`，才会移除 connection、per-turn
@@ -42,6 +42,7 @@ Edge 进程。
 | `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
+| `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
 | `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
 
 Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。

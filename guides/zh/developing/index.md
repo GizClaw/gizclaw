@@ -20,7 +20,7 @@ GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Run
 | Storage 与 media | Store packages 提供通用持久化/索引能力；Audio packages 提供 codec、PCM、重采样和 voiceprint。 |
 | Observability | 使用结构化日志定位单次请求，通过低 cardinality metrics 观察请求、runtime 与设备状态。具体字段与 ownership 见 [Observability](observability)。 |
 
-当前代码支持单 upstream 的 Edge ingress。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力。
+当前代码支持单 upstream 的 Edge ingress。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力；Friend 与 Friend Group 通过共享 Social KV 和 SFU Workspace 实现跨 Server 语音，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
 ## 运行时架构
 

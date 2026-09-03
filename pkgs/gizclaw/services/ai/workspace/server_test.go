@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
@@ -366,17 +367,8 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
 	ctx := ownership.WithOwner(context.Background(), " peer-a ")
-	seedWorkflow(t, srv, "chatroom")
-	directMode := apitypes.ChatRoomModeDirect
-	pushToTalk := apitypes.WorkspaceInputModePushToTalk
-	parameters := apitypes.WorkspaceParameters{}
-	if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Mode:  &directMode,
-		Input: &pushToTalk,
-	}); err != nil {
-		t.Fatalf("encode initial chatroom parameters: %v", err)
-	}
-	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowId: "chatroom", Parameters: &parameters}
+	seedSFUWorkflow(t, srv)
+	body := adminhttp.WorkspaceUpsert{Name: "friend-chat", WorkflowId: socialutil.SFUWorkflowID}
 
 	created, wasCreated, err := srv.CreateSystemWorkspace(ctx, body)
 	if err != nil {
@@ -392,32 +384,19 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if wasCreated || existing.System == nil || !*existing.System {
 		t.Fatalf("CreateSystemWorkspace(existing) = %#v, created=%v", existing, wasCreated)
 	}
-	realtime := apitypes.WorkspaceInputModeRealtime
-	updatedParameters := apitypes.WorkspaceParameters{}
-	if err := updatedParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Mode:  &directMode,
-		Input: &realtime,
-	}); err != nil {
-		t.Fatalf("encode updated chatroom parameters: %v", err)
-	}
 	putBody := adminhttp.WorkspaceUpsert{
 		Id:         created.Id,
 		Name:       "friend-chat",
-		WorkflowId: "chatroom",
-		Parameters: &updatedParameters,
+		WorkflowId: socialutil.SFUWorkflowID,
 	}
-	putCtx := WithRuntimeWorkflowBindings(ctx, map[string]string{"personal": "chatroom"})
+	putCtx := WithRuntimeWorkflowBindings(ctx, map[string]string{"personal": socialutil.SFUWorkflowID})
 	putResp, err := srv.PutWorkspace(putCtx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &putBody})
 	if err != nil {
 		t.Fatalf("PutWorkspace(system) error = %v", err)
 	}
 	updated, ok := putResp.(adminhttp.PutWorkspace200JSONResponse)
-	if !ok {
-		t.Fatalf("PutWorkspace(system parameters) response = %#v", putResp)
-	}
-	chatroom, err := updated.Parameters.AsChatRoomWorkspaceParameters()
-	if err != nil || chatroom.Input == nil || *chatroom.Input != realtime {
-		t.Fatalf("PutWorkspace(system parameters) = %#v, error = %v", updated, err)
+	if !ok || updated.Parameters != nil {
+		t.Fatalf("PutWorkspace(system identity) response = %#v", putResp)
 	}
 	labels := map[string]string{"domain": "changed"}
 	conflictingLabelsBody := putBody
@@ -441,42 +420,19 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
 		t.Fatalf("PutWorkspace(system conflicting toolkit) response = %#v", conflictingToolkit)
 	}
-	transcriptEnabled := true
-	conflictingTranscriptParameters := apitypes.WorkspaceParameters{}
-	if err := conflictingTranscriptParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Mode:       &directMode,
-		Input:      &realtime,
-		Transcript: &apitypes.ChatRoomWorkspaceTranscriptParameters{Enabled: &transcriptEnabled},
-	}); err != nil {
-		t.Fatalf("encode conflicting chatroom transcript parameters: %v", err)
-	}
-	conflictingTranscriptBody := putBody
-	conflictingTranscriptBody.Parameters = &conflictingTranscriptParameters
-	conflictingTranscript, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingTranscriptBody})
-	if err != nil {
-		t.Fatalf("PutWorkspace(system conflicting transcript) error = %v", err)
-	}
-	blockedUpdate, ok = conflictingTranscript.(adminhttp.PutWorkspace409JSONResponse)
-	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
-		t.Fatalf("PutWorkspace(system conflicting transcript) response = %#v", conflictingTranscript)
-	}
-	groupMode := apitypes.ChatRoomModeGroup
 	conflictingParameters := apitypes.WorkspaceParameters{}
-	if err := conflictingParameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Mode:  &groupMode,
-		Input: &realtime,
-	}); err != nil {
-		t.Fatalf("encode conflicting chatroom parameters: %v", err)
+	if err := conflictingParameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{}); err != nil {
+		t.Fatalf("encode conflicting parameters: %v", err)
 	}
 	conflictingPutBody := putBody
 	conflictingPutBody.Parameters = &conflictingParameters
 	conflictingPut, err := srv.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: created.Id, Body: &conflictingPutBody})
 	if err != nil {
-		t.Fatalf("PutWorkspace(system conflicting mode) error = %v", err)
+		t.Fatalf("PutWorkspace(system conflicting parameters) error = %v", err)
 	}
 	blockedUpdate, ok = conflictingPut.(adminhttp.PutWorkspace409JSONResponse)
 	if !ok || blockedUpdate.Error.Code != SystemWorkspaceUpdateForbiddenCode {
-		t.Fatalf("PutWorkspace(system conflicting mode) response = %#v", conflictingPut)
+		t.Fatalf("PutWorkspace(system conflicting parameters) response = %#v", conflictingPut)
 	}
 	conflictingWorkflowBody := putBody
 	conflictingWorkflowBody.WorkflowId = "other-workflow"
@@ -631,24 +587,16 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 func TestCreateSystemWorkspaceRejectsRetiringWorkspace(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := ownership.WithOwner(context.Background(), "peer-a")
-	seedWorkflow(t, srv, "chatroom")
-	directMode := apitypes.ChatRoomModeDirect
-	parameters := apitypes.WorkspaceParameters{}
-	if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Mode: &directMode,
-	}); err != nil {
-		t.Fatalf("encode Chatroom parameters: %v", err)
-	}
+	seedSFUWorkflow(t, srv)
 	body := adminhttp.WorkspaceUpsert{
 		Name:       "friend-chat-retiring",
-		WorkflowId: "chatroom",
-		Parameters: &parameters,
+		WorkflowId: socialutil.SFUWorkflowID,
 	}
 	_, _, err := srv.CreateSystemWorkspace(ctx, body)
 	if err != nil {
 		t.Fatalf("CreateSystemWorkspace() error = %v", err)
 	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b"); err != nil {
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-b"); err != nil {
 		t.Fatalf("RetireSystemWorkspace() error = %v", err)
 	}
 	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil ||
@@ -688,24 +636,16 @@ func TestCreateSystemWorkspaceRejectsRetiringWorkspaceAfterRecordRemoval(t *test
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
 	ctx := ownership.WithOwner(context.Background(), "peer-a")
-	seedWorkflow(t, srv, "chatroom")
-	directMode := apitypes.ChatRoomModeDirect
-	parameters := apitypes.WorkspaceParameters{}
-	if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Mode: &directMode,
-	}); err != nil {
-		t.Fatalf("encode Chatroom parameters: %v", err)
-	}
+	seedSFUWorkflow(t, srv)
 	body := adminhttp.WorkspaceUpsert{
 		Name:       "friend-chat-partially-cleaned",
-		WorkflowId: "chatroom",
-		Parameters: &parameters,
+		WorkflowId: socialutil.SFUWorkflowID,
 	}
 	created, _, err := srv.CreateSystemWorkspace(ctx, body)
 	if err != nil {
 		t.Fatalf("CreateSystemWorkspace() error = %v", err)
 	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b"); err != nil {
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-b"); err != nil {
 		t.Fatalf("RetireSystemWorkspace() error = %v", err)
 	}
 	if err := srv.Store.Delete(ctx, workspaceKey(created.Id)); err != nil {
@@ -720,7 +660,7 @@ func TestCreateSystemWorkspaceRejectsRetiringWorkspaceAfterRecordRemoval(t *test
 	if len(runtime.prepared) != preparedBefore {
 		t.Fatalf("runtime prepared after pending conflict = %#v, want no new preparation", runtime.prepared)
 	}
-	retired, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-b")
+	retired, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-b")
 	if err != nil {
 		t.Fatalf("RetireSystemWorkspace(retry after cleanup) error = %v", err)
 	}
@@ -730,8 +670,14 @@ func TestCreateSystemWorkspaceRejectsRetiringWorkspaceAfterRecordRemoval(t *test
 	if retired.OwnerPublicKey == nil || *retired.OwnerPublicKey != "peer-a" {
 		t.Fatalf("RetireSystemWorkspace(retry after cleanup) owner = %#v, want peer-a", retired.OwnerPublicKey)
 	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, directMode, "peer-a:peer-c"); err == nil {
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-c"); err == nil {
 		t.Fatal("RetireSystemWorkspace(mismatched completed retry) error = nil")
+	}
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriendGroup, "peer-a:peer-b"); err == nil {
+		t.Fatal("RetireSystemWorkspace(mismatched kind) error = nil")
+	}
+	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKind("chatroom"), "peer-a:peer-b"); err == nil {
+		t.Fatal("RetireSystemWorkspace(unsupported kind) error = nil")
 	}
 }
 
@@ -741,8 +687,8 @@ func TestServerSystemWorkspaceClassificationComesFromCreationPath(t *testing.T) 
 	srv := newTestServer(t)
 	srv.RuntimeStore = &recordingRuntimeStore{}
 	ctx := context.Background()
-	seedWorkflow(t, srv, "chatroom")
-	body := adminhttp.WorkspaceUpsert{Id: "friend-user-created-id", Name: "friend-user-created", WorkflowId: "chatroom"}
+	seedSFUWorkflow(t, srv)
+	body := adminhttp.WorkspaceUpsert{Id: "friend-user-created-id", Name: "friend-user-created", WorkflowId: socialutil.SFUWorkflowID}
 
 	createResp, err := createWorkspaceForTest(srv, ctx, createWorkspaceRequestObject{Body: &body})
 	if err != nil {
@@ -1702,6 +1648,15 @@ func newTestServer(t *testing.T) *Server {
 		Workflows: testWorkflowService{store: kv.Prefixed(store, kv.Key{"workflows"})},
 		Models:    &model.Server{Store: kv.Prefixed(store, kv.Key{"models"})},
 		Voices:    &voice.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
+	}
+}
+
+func seedSFUWorkflow(t *testing.T, srv *Server) {
+	t.Helper()
+
+	store := testWorkflowStore(t, srv)
+	if err := store.Set(context.Background(), workflowReferenceKey(socialutil.SFUWorkflowID), []byte(`{"id":"system-sfu","spec":{"driver":"sfu","sfu":{}}}`)); err != nil {
+		t.Fatalf("seed SFU workflow: %v", err)
 	}
 }
 

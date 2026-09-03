@@ -135,27 +135,6 @@ PB_BIND(gizclaw_rpc_v1_FriendGroupMemberPutRequest, gizclaw_rpc_v1_FriendGroupMe
 PB_BIND(gizclaw_rpc_v1_FriendGroupMemberPutResponse, gizclaw_rpc_v1_FriendGroupMemberPutResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageAudioDownloadRequest, gizclaw_rpc_v1_FriendGroupMessageAudioDownloadRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageAudioDownloadResponse, gizclaw_rpc_v1_FriendGroupMessageAudioDownloadResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageGetRequest, gizclaw_rpc_v1_FriendGroupMessageGetRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageGetResponse, gizclaw_rpc_v1_FriendGroupMessageGetResponse, 4)
-
-
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageListRequest, gizclaw_rpc_v1_FriendGroupMessageListRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageListResponse, gizclaw_rpc_v1_FriendGroupMessageListResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_FriendGroupMessageObject, gizclaw_rpc_v1_FriendGroupMessageObject, 4)
-
-
 PB_BIND(gizclaw_rpc_v1_FriendGroupObject, gizclaw_rpc_v1_FriendGroupObject, AUTO)
 
 

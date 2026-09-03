@@ -454,9 +454,7 @@ func createRegistrationToken(t *testing.T, server *runtimeprofile.Server, profil
 func testRuntimeProfileWorkflows() apitypes.RuntimeProfileWorkflows {
 	return apitypes.RuntimeProfileWorkflows{
 		System: apitypes.RuntimeProfileSystemWorkflows{
-			FriendChatroom: "chatroom",
-			GroupChatroom:  "chatroom",
-			Pet:            "pet-care",
+			Pet: "pet-care",
 		},
 		Collections: apitypes.RuntimeProfileWorkflowCollections{},
 	}
@@ -465,19 +463,13 @@ func testRuntimeProfileWorkflows() apitypes.RuntimeProfileWorkflows {
 func installTestSystemWorkflowResolver(server *runtimeprofile.Server) {
 	fallback := server.ResolveResource
 	server.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
-		if kind == apitypes.ResourceKindWorkflow && (name == "chatroom" || name == "pet-care") {
+		if kind == apitypes.ResourceKindWorkflow && name == "pet-care" {
 			spec := apitypes.WorkflowSpec{
-				Driver:   apitypes.WorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
-			}
-			if name == "pet-care" {
-				spec = apitypes.WorkflowSpec{
-					Driver: apitypes.WorkflowDriverPet,
-					Pet: &apitypes.PetWorkflowSpec{
-						Driver:   apitypes.ReusableWorkflowDriverChatroom,
-						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
-					},
-				}
+				Driver: apitypes.WorkflowDriverPet,
+				Pet: &apitypes.PetWorkflowSpec{
+					Driver: apitypes.ReusableWorkflowDriverEino,
+					Eino:   &apitypes.EinoWorkflowSpec{},
+				},
 			}
 			var resource apitypes.Resource
 			err := resource.FromWorkflowResource(apitypes.WorkflowResource{

@@ -165,6 +165,12 @@ func (o *audioOutputTracks) channel(key audioOutputKey, label string) (*audioOut
 	return channel, nil
 }
 
+// cutover closes every other route that shares the new stream's label: a BOS
+// with the same label is a barge-in replacement, not a concurrent speaker.
+// Concurrent routes are keyed by (stream_id, mime_type) and mix freely, so a
+// producer that needs several simultaneous speakers (the SFU driver mapping
+// remote participants to routes) must give each participant a distinct
+// stream_id AND a distinct label, or its participants will cut each other off.
 func (o *audioOutputTracks) cutover(streamID, label string) error {
 	var errs error
 	cutover := false

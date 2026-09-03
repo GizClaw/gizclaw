@@ -41,39 +41,6 @@ func (e ASTTranslateWorkspaceParametersAgentType) Valid() bool {
 	}
 }
 
-// Defines values for ChatRoomMode.
-const (
-	ChatRoomModeDirect ChatRoomMode = "direct"
-	ChatRoomModeGroup  ChatRoomMode = "group"
-)
-
-// Valid indicates whether the value is a known member of the ChatRoomMode enum.
-func (e ChatRoomMode) Valid() bool {
-	switch e {
-	case ChatRoomModeDirect:
-		return true
-	case ChatRoomModeGroup:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ChatRoomWorkspaceParametersAgentType.
-const (
-	ChatRoomWorkspaceParametersAgentTypeChatroom ChatRoomWorkspaceParametersAgentType = "chatroom"
-)
-
-// Valid indicates whether the value is a known member of the ChatRoomWorkspaceParametersAgentType enum.
-func (e ChatRoomWorkspaceParametersAgentType) Valid() bool {
-	switch e {
-	case ChatRoomWorkspaceParametersAgentTypeChatroom:
-		return true
-	default:
-		return false
-	}
-}
-
 const (
 	DashScopeRealtimeWorkspaceParametersAgentTypeDashscopeRealtime DashScopeRealtimeWorkspaceParametersAgentType = "dashscope-realtime"
 )
@@ -294,7 +261,6 @@ func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
 // Defines values for ReusableWorkflowDriver.
 const (
 	ReusableWorkflowDriverAstTranslate         ReusableWorkflowDriver = "ast-translate"
-	ReusableWorkflowDriverChatroom             ReusableWorkflowDriver = "chatroom"
 	ReusableWorkflowDriverDashscopeRealtime    ReusableWorkflowDriver = "dashscope-realtime"
 	ReusableWorkflowDriverDoubaoRealtime       ReusableWorkflowDriver = "doubao-realtime"
 	ReusableWorkflowDriverDoubaoRealtimeDuplex ReusableWorkflowDriver = "doubao-realtime-duplex"
@@ -306,8 +272,6 @@ const (
 func (e ReusableWorkflowDriver) Valid() bool {
 	switch e {
 	case ReusableWorkflowDriverAstTranslate:
-		return true
-	case ReusableWorkflowDriverChatroom:
 		return true
 	case ReusableWorkflowDriverDashscopeRealtime:
 		return true
@@ -548,100 +512,97 @@ func (e RPCErrorCode) Valid() bool {
 
 // Defines values for RPCMethod.
 const (
-	RPCMethodAllPing                                RPCMethod = "all.ping"
-	RPCMethodAllSpeedTestRun                        RPCMethod = "all.speed_test.run"
-	RPCMethodClientIdentifiersGet                   RPCMethod = "client.identifiers.get"
-	RPCMethodClientInfoGet                          RPCMethod = "client.info.get"
-	RPCMethodServerBadgeDefPixaDownload             RPCMethod = "server.badge_def.pixa.download"
-	RPCMethodServerBadgeGet                         RPCMethod = "server.badge.get"
-	RPCMethodServerBadgeList                        RPCMethod = "server.badge.list"
-	RPCMethodServerContactCreate                    RPCMethod = "server.contact.create"
-	RPCMethodServerContactDelete                    RPCMethod = "server.contact.delete"
-	RPCMethodServerContactGet                       RPCMethod = "server.contact.get"
-	RPCMethodServerContactList                      RPCMethod = "server.contact.list"
-	RPCMethodServerContactPut                       RPCMethod = "server.contact.put"
-	RPCMethodServerFirmwareGet                      RPCMethod = "server.firmware.get"
-	RPCMethodServerFriendAdd                        RPCMethod = "server.friend.add"
-	RPCMethodServerFriendDelete                     RPCMethod = "server.friend.delete"
-	RPCMethodServerFriendInfoGet                    RPCMethod = "server.friend.info.get"
-	RPCMethodServerFriendGroupCreate                RPCMethod = "server.friend_group.create"
-	RPCMethodServerFriendGroupDelete                RPCMethod = "server.friend_group.delete"
-	RPCMethodServerFriendGroupGet                   RPCMethod = "server.friend_group.get"
-	RPCMethodServerFriendGroupInviteTokenClear      RPCMethod = "server.friend_group.invite_token.clear"
-	RPCMethodServerFriendGroupInviteTokenCreate     RPCMethod = "server.friend_group.invite_token.create"
-	RPCMethodServerFriendGroupInviteTokenGet        RPCMethod = "server.friend_group.invite_token.get"
-	RPCMethodServerFriendGroupJoin                  RPCMethod = "server.friend_group.join"
-	RPCMethodServerFriendGroupList                  RPCMethod = "server.friend_group.list"
-	RPCMethodServerFriendGroupMembersAdd            RPCMethod = "server.friend_group.members.add"
-	RPCMethodServerFriendGroupMembersDelete         RPCMethod = "server.friend_group.members.delete"
-	RPCMethodServerFriendGroupMembersList           RPCMethod = "server.friend_group.members.list"
-	RPCMethodServerFriendGroupMembersPut            RPCMethod = "server.friend_group.members.put"
-	RPCMethodServerFriendGroupMessagesAudioDownload RPCMethod = "server.friend_group.messages.audio.download"
-	RPCMethodServerFriendGroupMessagesGet           RPCMethod = "server.friend_group.messages.get"
-	RPCMethodServerFriendGroupMessagesList          RPCMethod = "server.friend_group.messages.list"
-	RPCMethodServerFriendGroupPut                   RPCMethod = "server.friend_group.put"
-	RPCMethodServerFriendInviteTokenClear           RPCMethod = "server.friend.invite_token.clear"
-	RPCMethodServerFriendInviteTokenCreate          RPCMethod = "server.friend.invite_token.create"
-	RPCMethodServerFriendInviteTokenGet             RPCMethod = "server.friend.invite_token.get"
-	RPCMethodServerFriendList                       RPCMethod = "server.friend.list"
-	RPCMethodServerGameResultGet                    RPCMethod = "server.game_result.get"
-	RPCMethodServerGameResultList                   RPCMethod = "server.game_result.list"
-	RPCMethodServerInfoGet                          RPCMethod = "server.info.get"
-	RPCMethodServerInfoPut                          RPCMethod = "server.info.put"
-	RPCMethodServerAPIKeyCreate                     RPCMethod = "server.api_key.create"
-	RPCMethodServerAPIKeyList                       RPCMethod = "server.api_key.list"
-	RPCMethodServerAPIKeyRevoke                     RPCMethod = "server.api_key.revoke"
-	RPCMethodServerRegister                         RPCMethod = "server.register"
-	RPCMethodServerModelGet                         RPCMethod = "server.model.get"
-	RPCMethodServerModelList                        RPCMethod = "server.model.list"
-	RPCMethodRuntimeAdopt                           RPCMethod = "runtime.adopt"
-	RPCMethodServerPetDelete                        RPCMethod = "server.pet.delete"
-	RPCMethodServerPetDrive                         RPCMethod = "server.pet.drive"
-	RPCMethodServerPetGet                           RPCMethod = "server.pet.get"
-	RPCMethodServerPetList                          RPCMethod = "server.pet.list"
-	RPCMethodServerPetPixaDownload                  RPCMethod = "server.pet.pixa.download"
-	RPCMethodServerPetActionsGet                    RPCMethod = "server.pet.actions.get"
-	RPCMethodServerPetPut                           RPCMethod = "server.pet.put"
-	RPCMethodServerPointsGet                        RPCMethod = "server.points.get"
-	RPCMethodServerPointsTransactionsGet            RPCMethod = "server.points.transactions.get"
-	RPCMethodServerPointsTransactionsList           RPCMethod = "server.points.transactions.list"
-	RPCMethodServerRewardGrantGet                   RPCMethod = "server.reward_grant.get"
-	RPCMethodServerRewardGrantList                  RPCMethod = "server.reward_grant.list"
-	RPCMethodServerPeerAssign                       RPCMethod = "server.peer.assign"
-	RPCMethodServerPeerDelete                       RPCMethod = "server.peer.delete"
-	RPCMethodServerPeerLookup                       RPCMethod = "server.peer.lookup"
-	RPCMethodServerRouteResolve                     RPCMethod = "server.route.resolve"
-	RPCMethodServerRunAgentGet                      RPCMethod = "server.run.agent.get"
-	RPCMethodServerRunAgentSet                      RPCMethod = "server.run.agent.set"
-	RPCMethodServerRunReload                        RPCMethod = "server.run.reload"
-	RPCMethodServerRunSay                           RPCMethod = "server.run.say"
-	RPCMethodServerRunStatus                        RPCMethod = "server.run.status"
-	RPCMethodServerRunStop                          RPCMethod = "server.run.stop"
-	RPCMethodServerRunWorkspaceGet                  RPCMethod = "server.run.workspace.get"
-	RPCMethodServerRunWorkspaceHistory              RPCMethod = "server.run.workspace.history"
-	RPCMethodServerRunWorkspaceHistoryPlay          RPCMethod = "server.run.workspace.history.play"
-	RPCMethodServerRunWorkspaceMemoryStats          RPCMethod = "server.run.workspace.memory.stats"
-	RPCMethodServerRunWorkspaceRecall               RPCMethod = "server.run.workspace.recall"
-	RPCMethodServerRunWorkspaceReload               RPCMethod = "server.run.workspace.reload"
-	RPCMethodServerRunWorkspaceSet                  RPCMethod = "server.run.workspace.set"
-	RPCMethodServerRuntimeGet                       RPCMethod = "server.runtime.get"
-	RPCMethodServerStatusGet                        RPCMethod = "server.status.get"
-	RPCMethodServerSpeechExtract                    RPCMethod = "server.speech.extract"
-	RPCMethodServerSpeechSynthesize                 RPCMethod = "server.speech.synthesize"
-	RPCMethodServerSpeechTranscribe                 RPCMethod = "server.speech.transcribe"
-	RPCMethodServerVoiceGet                         RPCMethod = "server.voice.get"
-	RPCMethodServerVoiceList                        RPCMethod = "server.voice.list"
-	RPCMethodServerWorkflowGet                      RPCMethod = "server.workflow.get"
-	RPCMethodServerWorkflowList                     RPCMethod = "server.workflow.list"
-	RPCMethodServerWorkspaceCreate                  RPCMethod = "server.workspace.create"
-	RPCMethodServerWorkspaceDelete                  RPCMethod = "server.workspace.delete"
-	RPCMethodServerWorkspaceGet                     RPCMethod = "server.workspace.get"
-	RPCMethodServerWorkspaceHistoryAudioDownload    RPCMethod = "server.workspace.history.audio.download"
-	RPCMethodServerWorkspaceHistoryGet              RPCMethod = "server.workspace.history.get"
-	RPCMethodServerWorkspaceHistoryList             RPCMethod = "server.workspace.history.list"
-	RPCMethodServerWorkspaceIconDownload            RPCMethod = "server.workspace.icon.download"
-	RPCMethodServerWorkspaceList                    RPCMethod = "server.workspace.list"
-	RPCMethodServerWorkspacePut                     RPCMethod = "server.workspace.put"
+	RPCMethodAllPing                             RPCMethod = "all.ping"
+	RPCMethodAllSpeedTestRun                     RPCMethod = "all.speed_test.run"
+	RPCMethodClientIdentifiersGet                RPCMethod = "client.identifiers.get"
+	RPCMethodClientInfoGet                       RPCMethod = "client.info.get"
+	RPCMethodServerBadgeDefPixaDownload          RPCMethod = "server.badge_def.pixa.download"
+	RPCMethodServerBadgeGet                      RPCMethod = "server.badge.get"
+	RPCMethodServerBadgeList                     RPCMethod = "server.badge.list"
+	RPCMethodServerContactCreate                 RPCMethod = "server.contact.create"
+	RPCMethodServerContactDelete                 RPCMethod = "server.contact.delete"
+	RPCMethodServerContactGet                    RPCMethod = "server.contact.get"
+	RPCMethodServerContactList                   RPCMethod = "server.contact.list"
+	RPCMethodServerContactPut                    RPCMethod = "server.contact.put"
+	RPCMethodServerFirmwareGet                   RPCMethod = "server.firmware.get"
+	RPCMethodServerFriendAdd                     RPCMethod = "server.friend.add"
+	RPCMethodServerFriendDelete                  RPCMethod = "server.friend.delete"
+	RPCMethodServerFriendInfoGet                 RPCMethod = "server.friend.info.get"
+	RPCMethodServerFriendGroupCreate             RPCMethod = "server.friend_group.create"
+	RPCMethodServerFriendGroupDelete             RPCMethod = "server.friend_group.delete"
+	RPCMethodServerFriendGroupGet                RPCMethod = "server.friend_group.get"
+	RPCMethodServerFriendGroupInviteTokenClear   RPCMethod = "server.friend_group.invite_token.clear"
+	RPCMethodServerFriendGroupInviteTokenCreate  RPCMethod = "server.friend_group.invite_token.create"
+	RPCMethodServerFriendGroupInviteTokenGet     RPCMethod = "server.friend_group.invite_token.get"
+	RPCMethodServerFriendGroupJoin               RPCMethod = "server.friend_group.join"
+	RPCMethodServerFriendGroupList               RPCMethod = "server.friend_group.list"
+	RPCMethodServerFriendGroupMembersAdd         RPCMethod = "server.friend_group.members.add"
+	RPCMethodServerFriendGroupMembersDelete      RPCMethod = "server.friend_group.members.delete"
+	RPCMethodServerFriendGroupMembersList        RPCMethod = "server.friend_group.members.list"
+	RPCMethodServerFriendGroupMembersPut         RPCMethod = "server.friend_group.members.put"
+	RPCMethodServerFriendGroupPut                RPCMethod = "server.friend_group.put"
+	RPCMethodServerFriendInviteTokenClear        RPCMethod = "server.friend.invite_token.clear"
+	RPCMethodServerFriendInviteTokenCreate       RPCMethod = "server.friend.invite_token.create"
+	RPCMethodServerFriendInviteTokenGet          RPCMethod = "server.friend.invite_token.get"
+	RPCMethodServerFriendList                    RPCMethod = "server.friend.list"
+	RPCMethodServerGameResultGet                 RPCMethod = "server.game_result.get"
+	RPCMethodServerGameResultList                RPCMethod = "server.game_result.list"
+	RPCMethodServerInfoGet                       RPCMethod = "server.info.get"
+	RPCMethodServerInfoPut                       RPCMethod = "server.info.put"
+	RPCMethodServerAPIKeyCreate                  RPCMethod = "server.api_key.create"
+	RPCMethodServerAPIKeyList                    RPCMethod = "server.api_key.list"
+	RPCMethodServerAPIKeyRevoke                  RPCMethod = "server.api_key.revoke"
+	RPCMethodServerRegister                      RPCMethod = "server.register"
+	RPCMethodServerModelGet                      RPCMethod = "server.model.get"
+	RPCMethodServerModelList                     RPCMethod = "server.model.list"
+	RPCMethodRuntimeAdopt                        RPCMethod = "runtime.adopt"
+	RPCMethodServerPetDelete                     RPCMethod = "server.pet.delete"
+	RPCMethodServerPetDrive                      RPCMethod = "server.pet.drive"
+	RPCMethodServerPetGet                        RPCMethod = "server.pet.get"
+	RPCMethodServerPetList                       RPCMethod = "server.pet.list"
+	RPCMethodServerPetPixaDownload               RPCMethod = "server.pet.pixa.download"
+	RPCMethodServerPetActionsGet                 RPCMethod = "server.pet.actions.get"
+	RPCMethodServerPetPut                        RPCMethod = "server.pet.put"
+	RPCMethodServerPointsGet                     RPCMethod = "server.points.get"
+	RPCMethodServerPointsTransactionsGet         RPCMethod = "server.points.transactions.get"
+	RPCMethodServerPointsTransactionsList        RPCMethod = "server.points.transactions.list"
+	RPCMethodServerRewardGrantGet                RPCMethod = "server.reward_grant.get"
+	RPCMethodServerRewardGrantList               RPCMethod = "server.reward_grant.list"
+	RPCMethodServerPeerAssign                    RPCMethod = "server.peer.assign"
+	RPCMethodServerPeerDelete                    RPCMethod = "server.peer.delete"
+	RPCMethodServerPeerLookup                    RPCMethod = "server.peer.lookup"
+	RPCMethodServerRouteResolve                  RPCMethod = "server.route.resolve"
+	RPCMethodServerRunAgentGet                   RPCMethod = "server.run.agent.get"
+	RPCMethodServerRunAgentSet                   RPCMethod = "server.run.agent.set"
+	RPCMethodServerRunReload                     RPCMethod = "server.run.reload"
+	RPCMethodServerRunSay                        RPCMethod = "server.run.say"
+	RPCMethodServerRunStatus                     RPCMethod = "server.run.status"
+	RPCMethodServerRunStop                       RPCMethod = "server.run.stop"
+	RPCMethodServerRunWorkspaceGet               RPCMethod = "server.run.workspace.get"
+	RPCMethodServerRunWorkspaceHistory           RPCMethod = "server.run.workspace.history"
+	RPCMethodServerRunWorkspaceHistoryPlay       RPCMethod = "server.run.workspace.history.play"
+	RPCMethodServerRunWorkspaceMemoryStats       RPCMethod = "server.run.workspace.memory.stats"
+	RPCMethodServerRunWorkspaceRecall            RPCMethod = "server.run.workspace.recall"
+	RPCMethodServerRunWorkspaceReload            RPCMethod = "server.run.workspace.reload"
+	RPCMethodServerRunWorkspaceSet               RPCMethod = "server.run.workspace.set"
+	RPCMethodServerRuntimeGet                    RPCMethod = "server.runtime.get"
+	RPCMethodServerStatusGet                     RPCMethod = "server.status.get"
+	RPCMethodServerSpeechExtract                 RPCMethod = "server.speech.extract"
+	RPCMethodServerSpeechSynthesize              RPCMethod = "server.speech.synthesize"
+	RPCMethodServerSpeechTranscribe              RPCMethod = "server.speech.transcribe"
+	RPCMethodServerVoiceGet                      RPCMethod = "server.voice.get"
+	RPCMethodServerVoiceList                     RPCMethod = "server.voice.list"
+	RPCMethodServerWorkflowGet                   RPCMethod = "server.workflow.get"
+	RPCMethodServerWorkflowList                  RPCMethod = "server.workflow.list"
+	RPCMethodServerWorkspaceCreate               RPCMethod = "server.workspace.create"
+	RPCMethodServerWorkspaceDelete               RPCMethod = "server.workspace.delete"
+	RPCMethodServerWorkspaceGet                  RPCMethod = "server.workspace.get"
+	RPCMethodServerWorkspaceHistoryAudioDownload RPCMethod = "server.workspace.history.audio.download"
+	RPCMethodServerWorkspaceHistoryGet           RPCMethod = "server.workspace.history.get"
+	RPCMethodServerWorkspaceHistoryList          RPCMethod = "server.workspace.history.list"
+	RPCMethodServerWorkspaceIconDownload         RPCMethod = "server.workspace.icon.download"
+	RPCMethodServerWorkspaceList                 RPCMethod = "server.workspace.list"
+	RPCMethodServerWorkspacePut                  RPCMethod = "server.workspace.put"
 )
 
 // Valid indicates whether the value is a known member of the RPCMethod enum.
@@ -704,12 +665,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerFriendGroupMembersList:
 		return true
 	case RPCMethodServerFriendGroupMembersPut:
-		return true
-	case RPCMethodServerFriendGroupMessagesAudioDownload:
-		return true
-	case RPCMethodServerFriendGroupMessagesGet:
-		return true
-	case RPCMethodServerFriendGroupMessagesList:
 		return true
 	case RPCMethodServerFriendGroupPut:
 		return true
@@ -969,21 +924,19 @@ func (e VolcTenantModelProviderDataApiMode) Valid() bool {
 // Defines values for WorkflowDriver.
 const (
 	WorkflowDriverAstTranslate         WorkflowDriver = "ast-translate"
-	WorkflowDriverChatroom             WorkflowDriver = "chatroom"
 	WorkflowDriverDashscopeRealtime    WorkflowDriver = "dashscope-realtime"
 	WorkflowDriverDoubaoRealtime       WorkflowDriver = "doubao-realtime"
 	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
 	WorkflowDriverEino                 WorkflowDriver = "eino"
 	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
 	WorkflowDriverPet                  WorkflowDriver = "pet"
+	WorkflowDriverSfu                  WorkflowDriver = "sfu"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
 func (e WorkflowDriver) Valid() bool {
 	switch e {
 	case WorkflowDriverAstTranslate:
-		return true
-	case WorkflowDriverChatroom:
 		return true
 	case WorkflowDriverDashscopeRealtime:
 		return true
@@ -996,6 +949,8 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverFlowcraft:
 		return true
 	case WorkflowDriverPet:
+		return true
+	case WorkflowDriverSfu:
 		return true
 	default:
 		return false
@@ -1149,57 +1104,6 @@ type BadgeListResponse struct {
 	HasNext    bool    `json:"has_next"`
 	Items      []Badge `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
-}
-
-// ChatRoomMode defines model for ChatRoomMode.
-type ChatRoomMode string
-
-// ChatRoomWorkflowHistorySpec defines model for ChatRoomWorkflowHistorySpec.
-type ChatRoomWorkflowHistorySpec struct {
-	// Ttl Unified retention duration for chat history entries and their assets.
-	Ttl *string `json:"ttl,omitempty"`
-}
-
-// ChatRoomWorkflowSpec defines model for ChatRoomWorkflowSpec.
-type ChatRoomWorkflowSpec struct {
-	History    ChatRoomWorkflowHistorySpec     `json:"history"`
-	Transcript *ChatRoomWorkflowTranscriptSpec `json:"transcript,omitempty"`
-}
-
-// ChatRoomWorkflowTranscriptSpec defines model for ChatRoomWorkflowTranscriptSpec.
-type ChatRoomWorkflowTranscriptSpec struct {
-	// AsrModel GizClaw ASR model resource used to transcribe gear audio.
-	AsrModel *string `json:"asr_model,omitempty"`
-
-	// Enabled Whether gear audio should be transcribed and written as text in workspace history.
-	Enabled *bool `json:"enabled,omitempty"`
-}
-
-// ChatRoomWorkspaceHistoryParameters defines model for ChatRoomWorkspaceHistoryParameters.
-type ChatRoomWorkspaceHistoryParameters struct {
-	// Ttl Workspace-level retention override for chat history entries and their assets.
-	Ttl *string `json:"ttl,omitempty"`
-}
-
-// ChatRoomWorkspaceParameters defines model for ChatRoomWorkspaceParameters.
-type ChatRoomWorkspaceParameters struct {
-	AgentType  ChatRoomWorkspaceParametersAgentType   `json:"agent_type"`
-	History    *ChatRoomWorkspaceHistoryParameters    `json:"history,omitempty"`
-	Input      *WorkspaceInputMode                    `json:"input,omitempty"`
-	Mode       *ChatRoomMode                          `json:"mode,omitempty"`
-	Transcript *ChatRoomWorkspaceTranscriptParameters `json:"transcript,omitempty"`
-}
-
-// ChatRoomWorkspaceParametersAgentType defines model for ChatRoomWorkspaceParameters.AgentType.
-type ChatRoomWorkspaceParametersAgentType string
-
-// ChatRoomWorkspaceTranscriptParameters defines model for ChatRoomWorkspaceTranscriptParameters.
-type ChatRoomWorkspaceTranscriptParameters struct {
-	// AsrModel Workspace-level ASR model override for gear audio transcription.
-	AsrModel *string `json:"asr_model,omitempty"`
-
-	// Enabled Whether gear audio should be transcribed and written as text in workspace history.
-	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // ClientGetIdentifiersRequest defines model for ClientGetIdentifiersRequest.
@@ -1834,57 +1738,6 @@ type FriendGroupMemberPutResponse = FriendGroupMemberObject
 
 // FriendGroupMemberRole defines model for FriendGroupMemberRole.
 type FriendGroupMemberRole string
-
-// FriendGroupMessageAudioDownloadRequest defines model for FriendGroupMessageAudioDownloadRequest.
-type FriendGroupMessageAudioDownloadRequest struct {
-	FriendGroupName string `json:"friend_group_name"`
-	HistoryName     string `json:"history_name"`
-}
-
-// FriendGroupMessageAudioDownloadResponse defines model for FriendGroupMessageAudioDownloadResponse.
-type FriendGroupMessageAudioDownloadResponse struct {
-	FriendGroupName string `json:"friend_group_name"`
-	HistoryName     string `json:"history_name"`
-	MimeType        string `json:"mime_type"`
-	SizeBytes       int64  `json:"size_bytes"`
-}
-
-// FriendGroupMessageGetRequest defines model for FriendGroupMessageGetRequest.
-type FriendGroupMessageGetRequest struct {
-	FriendGroupName string `json:"friend_group_name"`
-	HistoryName     string `json:"history_name"`
-}
-
-// FriendGroupMessageGetResponse defines model for FriendGroupMessageGetResponse.
-type FriendGroupMessageGetResponse = FriendGroupMessageObject
-
-// FriendGroupMessageListRequest defines model for FriendGroupMessageListRequest.
-type FriendGroupMessageListRequest struct {
-	Cursor          *string                           `json:"cursor,omitempty"`
-	FriendGroupName string                            `json:"friend_group_name"`
-	Limit           *int                              `json:"limit,omitempty"`
-	Order           *WorkspaceHistoryListRequestOrder `json:"order,omitempty"`
-}
-
-// FriendGroupMessageListResponse defines model for FriendGroupMessageListResponse.
-type FriendGroupMessageListResponse struct {
-	HasNext    bool                       `json:"has_next"`
-	Items      []FriendGroupMessageObject `json:"items"`
-	NextCursor *string                    `json:"next_cursor,omitempty"`
-}
-
-// FriendGroupMessageObject defines model for FriendGroupMessageObject.
-type FriendGroupMessageObject struct {
-	ActorName           string                  `json:"actor_name"`
-	AudioAvailable      bool                    `json:"audio_available"`
-	CreatedAt           time.Time               `json:"created_at"`
-	ExpiresAt           *time.Time              `json:"expires_at,omitempty"`
-	FriendGroupName     string                  `json:"friend_group_name"`
-	Name                string                  `json:"name"`
-	SenderPeerPublicKey *string                 `json:"sender_peer_public_key,omitempty"`
-	Text                string                  `json:"text"`
-	Type                PeerRunHistoryEntryType `json:"type"`
-}
 
 // FriendGroupObject defines model for FriendGroupObject.
 type FriendGroupObject struct {
@@ -2893,7 +2746,6 @@ const (
 // PetWorkflowSpec defines model for PetWorkflowSpec.
 type PetWorkflowSpec struct {
 	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
-	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
 	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
 	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
@@ -3043,7 +2895,6 @@ type ToolkitPolicy struct {
 // WorkflowSpec defines model for WorkflowSpec.
 type WorkflowSpec struct {
 	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
-	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
 	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
 	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
@@ -4466,57 +4317,6 @@ func (t *RPCPayload) MergeFriendGroupMemberDeleteRequest(v FriendGroupMemberDele
 	return t.merge("FriendGroupMemberDeleteRequest", v)
 }
 
-// AsFriendGroupMessageAudioDownloadRequest decodes the RPCPayload as a FriendGroupMessageAudioDownloadRequest
-func (t RPCPayload) AsFriendGroupMessageAudioDownloadRequest() (FriendGroupMessageAudioDownloadRequest, error) {
-	var body FriendGroupMessageAudioDownloadRequest
-	err := t.decode("FriendGroupMessageAudioDownloadRequest", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageAudioDownloadRequest overwrites any protobuf payload as the provided FriendGroupMessageAudioDownloadRequest
-func (t *RPCPayload) FromFriendGroupMessageAudioDownloadRequest(v FriendGroupMessageAudioDownloadRequest) error {
-	return t.encode("FriendGroupMessageAudioDownloadRequest", v)
-}
-
-// MergeFriendGroupMessageAudioDownloadRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageAudioDownloadRequest
-func (t *RPCPayload) MergeFriendGroupMessageAudioDownloadRequest(v FriendGroupMessageAudioDownloadRequest) error {
-	return t.merge("FriendGroupMessageAudioDownloadRequest", v)
-}
-
-// AsFriendGroupMessageListRequest decodes the RPCPayload as a FriendGroupMessageListRequest
-func (t RPCPayload) AsFriendGroupMessageListRequest() (FriendGroupMessageListRequest, error) {
-	var body FriendGroupMessageListRequest
-	err := t.decode("FriendGroupMessageListRequest", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageListRequest overwrites any protobuf payload as the provided FriendGroupMessageListRequest
-func (t *RPCPayload) FromFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
-	return t.encode("FriendGroupMessageListRequest", v)
-}
-
-// MergeFriendGroupMessageListRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageListRequest
-func (t *RPCPayload) MergeFriendGroupMessageListRequest(v FriendGroupMessageListRequest) error {
-	return t.merge("FriendGroupMessageListRequest", v)
-}
-
-// AsFriendGroupMessageGetRequest decodes the RPCPayload as a FriendGroupMessageGetRequest
-func (t RPCPayload) AsFriendGroupMessageGetRequest() (FriendGroupMessageGetRequest, error) {
-	var body FriendGroupMessageGetRequest
-	err := t.decode("FriendGroupMessageGetRequest", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageGetRequest overwrites any protobuf payload as the provided FriendGroupMessageGetRequest
-func (t *RPCPayload) FromFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
-	return t.encode("FriendGroupMessageGetRequest", v)
-}
-
-// MergeFriendGroupMessageGetRequest performs a merge with any protobuf payload, using the provided FriendGroupMessageGetRequest
-func (t *RPCPayload) MergeFriendGroupMessageGetRequest(v FriendGroupMessageGetRequest) error {
-	return t.merge("FriendGroupMessageGetRequest", v)
-}
-
 // AsBadgeDefPixaDownloadRequest decodes the RPCPayload as a BadgeDefPixaDownloadRequest
 func (t RPCPayload) AsBadgeDefPixaDownloadRequest() (BadgeDefPixaDownloadRequest, error) {
 	var body BadgeDefPixaDownloadRequest
@@ -5809,57 +5609,6 @@ func (t *RPCPayload) MergeFriendGroupMemberDeleteResponse(v FriendGroupMemberDel
 	return t.merge("FriendGroupMemberDeleteResponse", v)
 }
 
-// AsFriendGroupMessageAudioDownloadResponse decodes the RPCPayload as a FriendGroupMessageAudioDownloadResponse
-func (t RPCPayload) AsFriendGroupMessageAudioDownloadResponse() (FriendGroupMessageAudioDownloadResponse, error) {
-	var body FriendGroupMessageAudioDownloadResponse
-	err := t.decode("FriendGroupMessageAudioDownloadResponse", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageAudioDownloadResponse overwrites any protobuf payload as the provided FriendGroupMessageAudioDownloadResponse
-func (t *RPCPayload) FromFriendGroupMessageAudioDownloadResponse(v FriendGroupMessageAudioDownloadResponse) error {
-	return t.encode("FriendGroupMessageAudioDownloadResponse", v)
-}
-
-// MergeFriendGroupMessageAudioDownloadResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageAudioDownloadResponse
-func (t *RPCPayload) MergeFriendGroupMessageAudioDownloadResponse(v FriendGroupMessageAudioDownloadResponse) error {
-	return t.merge("FriendGroupMessageAudioDownloadResponse", v)
-}
-
-// AsFriendGroupMessageListResponse decodes the RPCPayload as a FriendGroupMessageListResponse
-func (t RPCPayload) AsFriendGroupMessageListResponse() (FriendGroupMessageListResponse, error) {
-	var body FriendGroupMessageListResponse
-	err := t.decode("FriendGroupMessageListResponse", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageListResponse overwrites any protobuf payload as the provided FriendGroupMessageListResponse
-func (t *RPCPayload) FromFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
-	return t.encode("FriendGroupMessageListResponse", v)
-}
-
-// MergeFriendGroupMessageListResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageListResponse
-func (t *RPCPayload) MergeFriendGroupMessageListResponse(v FriendGroupMessageListResponse) error {
-	return t.merge("FriendGroupMessageListResponse", v)
-}
-
-// AsFriendGroupMessageGetResponse decodes the RPCPayload as a FriendGroupMessageGetResponse
-func (t RPCPayload) AsFriendGroupMessageGetResponse() (FriendGroupMessageGetResponse, error) {
-	var body FriendGroupMessageGetResponse
-	err := t.decode("FriendGroupMessageGetResponse", &body)
-	return body, err
-}
-
-// FromFriendGroupMessageGetResponse overwrites any protobuf payload as the provided FriendGroupMessageGetResponse
-func (t *RPCPayload) FromFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
-	return t.encode("FriendGroupMessageGetResponse", v)
-}
-
-// MergeFriendGroupMessageGetResponse performs a merge with any protobuf payload, using the provided FriendGroupMessageGetResponse
-func (t *RPCPayload) MergeFriendGroupMessageGetResponse(v FriendGroupMessageGetResponse) error {
-	return t.merge("FriendGroupMessageGetResponse", v)
-}
-
 // AsBadgeDefPixaDownloadResponse decodes the RPCPayload as a BadgeDefPixaDownloadResponse
 func (t RPCPayload) AsBadgeDefPixaDownloadResponse() (BadgeDefPixaDownloadResponse, error) {
 	var body BadgeDefPixaDownloadResponse
@@ -6440,25 +6189,6 @@ func (t *WorkspaceParameters) MergeASTTranslateWorkspaceParameters(v ASTTranslat
 	return nil
 }
 
-// AsChatRoomWorkspaceParameters returns the union data inside the WorkspaceParameters as a ChatRoomWorkspaceParameters
-func (t WorkspaceParameters) AsChatRoomWorkspaceParameters() (ChatRoomWorkspaceParameters, error) {
-	return rpcUnionAs[ChatRoomWorkspaceParameters](t.Value, "WorkspaceParameters", "ChatRoomWorkspaceParameters")
-}
-
-// FromChatRoomWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided ChatRoomWorkspaceParameters
-func (t *WorkspaceParameters) FromChatRoomWorkspaceParameters(v ChatRoomWorkspaceParameters) error {
-	v.AgentType = "chatroom"
-	t.Value = v
-	return nil
-}
-
-// MergeChatRoomWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided ChatRoomWorkspaceParameters
-func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspaceParameters) error {
-	v.AgentType = "chatroom"
-	t.Value = v
-	return nil
-}
-
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	switch v := t.Value.(type) {
 	case FlowcraftWorkspaceParameters:
@@ -6475,8 +6205,6 @@ func (t WorkspaceParameters) Discriminator() (string, error) {
 		return string(v.AgentType), nil
 	case ASTTranslateWorkspaceParameters:
 		return string(v.AgentType), nil
-	case ChatRoomWorkspaceParameters:
-		return string(v.AgentType), nil
 	case nil:
 		return "", errors.New("rpc: WorkspaceParameters is empty")
 	default:
@@ -6492,8 +6220,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 	switch discriminator {
 	case "ast-translate":
 		return t.AsASTTranslateWorkspaceParameters()
-	case "chatroom":
-		return t.AsChatRoomWorkspaceParameters()
 	case "dashscope-realtime":
 		return t.AsDashScopeRealtimeWorkspaceParameters()
 	case "doubao-realtime":

@@ -605,3 +605,48 @@ jobs:
       - name: Test SDK
         working-directory: sdk/flutter/gizclaw
         run: flutter test
+
+  multi-server-e2e:
+    name: Multi-Server E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      # GitHub-hosted runners build the e2e base image from the mirror-free
+      # Dockerfile; the harness itself defaults to the CN mirrors used locally.
+      GIZCLAW_E2E_DOCKER_BASE_DOCKERFILE: build/Dockerfile.base
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          lfs: true
+
+      - name: Ensure Git LFS assets are available
+        run: git lfs pull
+
+      - name: Initialize nanopb submodule
+        run: git submodule update --init --depth=1 third_party/nanopb/upstream
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download root Go modules
+        run: go mod download
+
+      # Runs without provider credentials: the Go multi-server suite, the
+      # LiveKit lazy-create/reconnect case and the provider-free SFU audio
+      # scenario execute; TTS/ASR scenarios are skipped.
+      - name: Run multi-server E2E
+        run: bash tests/gizclaw-e2e/run_multi_server_tests.sh
+
+      - name: Upload giztest report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: multi-server-giztest-report
+          path: tests/gizclaw-e2e/testdata/multi-server/
+          if-no-files-found: ignore

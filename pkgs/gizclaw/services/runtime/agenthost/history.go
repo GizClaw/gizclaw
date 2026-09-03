@@ -77,6 +77,41 @@ func notifyWorkspaceHistory(ctx context.Context, workspaceName string, entry wor
 	}
 }
 
+// isSFUSpec reports whether the Spec resolves to the sfu Workflow driver.
+func isSFUSpec(spec Spec) bool {
+	return spec.AgentType == string(apitypes.WorkflowDriverSfu) ||
+		spec.Workflow.Spec.Driver == apitypes.WorkflowDriverSfu
+}
+
+// wrapNoHistoryAgent answers history requests for Workspaces that cannot have
+// History with an empty list and a not-found play state, never an error.
+func wrapNoHistoryAgent(agent Agent) Agent {
+	if agent == nil {
+		return nil
+	}
+	return noHistoryAgent{Agent: agent}
+}
+
+type noHistoryAgent struct {
+	Agent
+}
+
+func (a noHistoryAgent) ListHistory(context.Context, apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
+	return apitypes.PeerRunHistoryListResponse{
+		Available: false,
+		Items:     []apitypes.PeerRunHistoryEntry{},
+		HasNext:   false,
+	}, nil
+}
+
+func (a noHistoryAgent) PlayHistory(_ context.Context, req apitypes.PeerRunHistoryPlayRequest) (apitypes.PeerRunHistoryPlayResponse, error) {
+	return apitypes.PeerRunHistoryPlayResponse{
+		Accepted:    false,
+		HistoryName: req.HistoryName,
+		State:       "not_found",
+	}, nil
+}
+
 func wrapHistoryAgent(agent Agent, history *workspace.HistoryStore) Agent {
 	if agent == nil || history == nil {
 		return agent

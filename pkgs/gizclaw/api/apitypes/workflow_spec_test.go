@@ -11,11 +11,11 @@ func TestWorkflowSpecJSONOneOf(t *testing.T) {
 		raw     string
 		wantErr string
 	}{
-		"chatroom": {
-			raw: `{"driver":"chatroom","chatroom":{"history":{}}}`,
+		"sfu": {
+			raw: `{"driver":"sfu","sfu":{}}`,
 		},
-		"nested chatroom": {
-			raw: `{"driver":"pet","pet":{"driver":"chatroom","chatroom":{"history":{}}}}`,
+		"nested dashscope realtime": {
+			raw: `{"driver":"pet","pet":{"driver":"dashscope-realtime","dashscope_realtime":{"model":"realtime"}}}`,
 		},
 		"dashscope realtime": {
 			raw: `{"driver":"dashscope-realtime","dashscope_realtime":{"model":"realtime"}}`,
@@ -38,23 +38,31 @@ func TestWorkflowSpecJSONOneOf(t *testing.T) {
 			}`,
 		},
 		"missing payload": {
-			raw:     `{"driver":"chatroom"}`,
-			wantErr: "chatroom is required",
+			raw:     `{"driver":"sfu"}`,
+			wantErr: "sfu is required",
+		},
+		"non-empty sfu payload": {
+			raw:     `{"driver":"sfu","sfu":{"room":"main"}}`,
+			wantErr: "sfu must be an empty object",
 		},
 		"mismatched payload": {
-			raw:     `{"driver":"ast-translate","chatroom":{"history":{}}}`,
+			raw:     `{"driver":"ast-translate","sfu":{}}`,
 			wantErr: "ast_translate is required",
 		},
 		"multiple payloads": {
-			raw:     `{"driver":"chatroom","chatroom":{"history":{}},"ast_translate":{"translation_model":"translation"}}`,
+			raw:     `{"driver":"sfu","sfu":{},"ast_translate":{"translation_model":"translation"}}`,
 			wantErr: "does not match",
 		},
 		"recursive pet": {
 			raw:     `{"driver":"pet","pet":{"driver":"pet"}}`,
 			wantErr: "unsupported reusable driver",
 		},
+		"nested sfu": {
+			raw:     `{"driver":"pet","pet":{"driver":"sfu","sfu":{}}}`,
+			wantErr: `unknown field "sfu"`,
+		},
 		"unknown field": {
-			raw:     `{"driver":"chatroom","chatroom":{"history":{}},"config":{}}`,
+			raw:     `{"driver":"sfu","sfu":{},"config":{}}`,
 			wantErr: "unknown field",
 		},
 	} {

@@ -210,15 +210,12 @@ func SpeedTest(conn giznet.Conn, id string, up, down int64) (int64, int64, error
 	return up, downloaded, nil
 }
 
-const (
-	WorkspaceAudioPayload   = "workspace-audio-payload"
-	FriendGroupAudioPayload = "friend-group-audio-payload"
-)
+const WorkspaceAudioPayload = "workspace-audio-payload"
 
 // ServeAudioDownloads serves one successful workspace History audio download
-// and one successful Friend Group message audio download over real Peer RPC
-// service streams. It is intentionally deterministic so every SDK can share
-// the same cross-language integration fixture without provider credentials.
+// over a real Peer RPC service stream. It is intentionally deterministic so
+// every SDK can share the same cross-language integration fixture without
+// provider credentials.
 func ServeAudioDownloads(ctx context.Context, conn giznet.Conn) error {
 	if ctx == nil {
 		return fmt.Errorf("serverrpc: nil context")
@@ -237,27 +234,22 @@ func ServeAudioDownloads(ctx context.Context, conn giznet.Conn) error {
 		case <-stop:
 		}
 	}()
-	for range 2 {
-		stream, err := listener.Accept()
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			return err
+	stream, err := listener.Accept()
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
-			_ = stream.Close()
-			return err
-		}
-		if err := serveAudioDownload(stream); err != nil {
-			_ = stream.Close()
-			return err
-		}
-		if err := stream.Close(); err != nil {
-			return err
-		}
+		return err
 	}
-	return nil
+	if err := stream.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
+		_ = stream.Close()
+		return err
+	}
+	if err := serveAudioDownload(stream); err != nil {
+		_ = stream.Close()
+		return err
+	}
+	return stream.Close()
 }
 
 func serveAudioDownload(stream net.Conn) error {
@@ -290,22 +282,6 @@ func serveAudioDownload(stream net.Conn) error {
 				HistoryName:   params.HistoryName,
 				MimeType:      "audio/ogg; codecs=opus",
 				SizeBytes:     int64(len(audio)),
-			},
-		); err != nil {
-			return err
-		}
-	case rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload:
-		params, err := request.Params.AsFriendGroupMessageAudioDownloadRequest()
-		if err != nil {
-			return fmt.Errorf("decode Friend Group message audio request: %w", err)
-		}
-		audio = FriendGroupAudioPayload
-		if err := result.FromFriendGroupMessageAudioDownloadResponse(
-			rpcapi.FriendGroupMessageAudioDownloadResponse{
-				FriendGroupName: params.FriendGroupName,
-				HistoryName:     params.HistoryName,
-				MimeType:        "audio/ogg; codecs=opus",
-				SizeBytes:       int64(len(audio)),
 			},
 		); err != nil {
 			return err

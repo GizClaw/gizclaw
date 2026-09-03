@@ -126,12 +126,6 @@ func TestClientResourceMethodsRequireConnection(t *testing.T) {
 		{"friend group members delete", func() (any, error) {
 			return client.DeleteFriendGroupMember(ctx, "friend-group-members-delete", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "group-a", Name: "peer-b"})
 		}},
-		{"friend group messages list", func() (any, error) {
-			return client.ListFriendGroupMessages(ctx, "friend-group-messages-list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: "group-a"})
-		}},
-		{"friend group messages get", func() (any, error) {
-			return client.GetFriendGroupMessage(ctx, "friend-group-messages-get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: "group-a", HistoryName: "history-a"})
-		}},
 	}
 
 	for _, tc := range tests {

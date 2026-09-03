@@ -176,9 +176,19 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 		return result
 	}
 	peerSessions := newPeerStreamSessions()
+	background := newBackgroundSteps(item.doc.Steps)
 	failed := false
 	for _, step := range item.doc.Steps {
-		stepResult, err := runStep(ctx, item.doc.Path, step, clients, vars, item.barrier, opts, redactions, peerSessions)
+		var stepResult StepReport
+		var err error
+		switch {
+		case step.Background:
+			stepResult, err = background.start(ctx, step, clients, vars, opts)
+		case step.Await != "":
+			stepResult, err = background.await(ctx, step, vars, redactions)
+		default:
+			stepResult, err = runStep(ctx, item.doc.Path, step, clients, vars, item.barrier, opts, redactions, peerSessions)
+		}
 		result.Steps = append(result.Steps, stepResult)
 		if err != nil {
 			item.barrier.Abort(err)
@@ -186,6 +196,13 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 			failed = true
 			break
 		}
+	}
+	if cancelled := background.cancelRemaining(redactions); len(cancelled) != 0 {
+		result.Steps = append(result.Steps, cancelled...)
+		if result.Error == "" {
+			result.Error = cancelled[0].Error
+		}
+		failed = true
 	}
 	if err := peerSessions.Close(); err != nil {
 		if result.Error == "" {
@@ -494,7 +511,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		}
 		inputSpec, _ := vars.referencedSpec(step.Speech.Input)
 		invoke := func() (operationResult, error) {
-			return invokeSpeech(stepCtx, client, step, request, input, inputSpec, outputSpec)
+			return invokeSpeech(stepCtx, client, step, request, input, inputSpec, outputSpec, opts.fullEvidence)
 		}
 		var speechResult operationResult
 		var invokeErr error
@@ -521,34 +538,16 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		err = invokeErr
 		value, saved, evidence = speechResult.assertion, speechResult.saved, speechResult.evidence
 	case "peer_stream":
-		client, getErr := clients.get(step.Client)
-		if getErr != nil {
-			err = getErr
+		invocation, prepareErr := preparePeerStream(step, step, clients, vars, opts)
+		if prepareErr != nil {
+			err = prepareErr
 			break
 		}
-		input, resolveErr := vars.resolve(step.PeerStream.Input)
-		if resolveErr != nil && step.PeerStream.Input != nil {
-			err = resolveErr
-			break
-		}
-		if spec, ok := vars.referencedSpec(step.PeerStream.Input); ok && step.PeerStream.Mode != "text" {
-			if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
-				err = fmt.Errorf("peer_stream audio input must declare audio/ogg or audio/opus with opus codec")
-				break
-			}
-		}
-		audioCaptureMaxBytes, captureErr := peerStreamAudioCaptureMaxBytes(step, vars)
-		if captureErr != nil {
-			err = captureErr
-			break
-		}
-		open := openClientPeerStream(client)
-		if opts.openPeerStream != nil {
-			open = opts.openPeerStream(client)
-		}
-		streamResult, invokeErr := invokePeerStreamWithSessions(stepCtx, client, open, sessions, step, input, audioCaptureMaxBytes, opts.audioObserver)
+		streamResult, invokeErr := invocation.run(stepCtx, sessions)
 		err = invokeErr
 		value, saved, evidence = streamResult.assertion, streamResult.saved, streamResult.evidence
+	case "await":
+		err = fmt.Errorf("await step %q can only run inside a task", step.Await)
 	case "workspace_relay":
 		input, resolveErr := vars.resolve(step.WorkspaceRelay.Input)
 		if resolveErr != nil {
@@ -621,6 +620,59 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 	default:
 		err = fmt.Errorf("unsupported operation %q", op)
 	}
+	return completeStepReport(report, step, vars, value, saved, evidence, err, started, redactions)
+}
+
+// peerStreamInvocation is a peer_stream step whose variable reads and client
+// lookup are complete, so the stream can be driven on the task goroutine or
+// from a background step without touching task variables.
+type peerStreamInvocation struct {
+	client               *gizcli.Client
+	open                 peerStreamOpener
+	step                 Step
+	input                any
+	audioCaptureMaxBytes int
+	observer             audioObserver
+}
+
+// preparePeerStream resolves the step input and the /audio capture bound.
+// captureStep owns the capture map: the step itself, or the await step of a
+// background peer_stream.
+func preparePeerStream(step, captureStep Step, clients *clientSet, vars *variables, opts runOptions) (peerStreamInvocation, error) {
+	client, err := clients.get(step.Client)
+	if err != nil {
+		return peerStreamInvocation{}, err
+	}
+	var input any
+	if step.PeerStream.Input != nil {
+		input, err = vars.resolve(step.PeerStream.Input)
+		if err != nil {
+			return peerStreamInvocation{}, err
+		}
+	}
+	if spec, ok := vars.referencedSpec(step.PeerStream.Input); ok && step.PeerStream.Mode != "text" {
+		if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
+			return peerStreamInvocation{}, fmt.Errorf("peer_stream audio input must declare audio/ogg or audio/opus with opus codec")
+		}
+	}
+	audioCaptureMaxBytes, err := peerStreamAudioCaptureMaxBytes(captureStep, vars)
+	if err != nil {
+		return peerStreamInvocation{}, err
+	}
+	open := openClientPeerStream(client)
+	if opts.openPeerStream != nil {
+		open = opts.openPeerStream(client)
+	}
+	return peerStreamInvocation{client: client, open: open, step: step, input: input, audioCaptureMaxBytes: audioCaptureMaxBytes, observer: opts.audioObserver}, nil
+}
+
+func (p peerStreamInvocation) run(ctx context.Context, sessions *peerStreamSessions) (operationResult, error) {
+	return invokePeerStreamWithSessions(ctx, p.client, p.open, sessions, p.step, p.input, p.audioCaptureMaxBytes, p.observer)
+}
+
+// completeStepReport applies the step's expect_error, save_as, capture, and
+// expect declarations to an operation outcome and fills in the report.
+func completeStepReport(report StepReport, step Step, vars *variables, value, saved any, evidence map[string]any, err error, started time.Time, redactions []string) (StepReport, error) {
 	if step.ExpectError != nil {
 		code, message, matched := structuredRPCError(err)
 		if !matched {
@@ -647,7 +699,10 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 			err = applyCaptures(vars, step.Capture, value)
 		}
 		if err == nil {
-			if assertionErr := assertValue(step.Expect, value); assertionErr != nil {
+			expectations, resolveErr := resolveExpectations(vars, step.Expect)
+			if resolveErr != nil {
+				err = resolveErr
+			} else if assertionErr := assertValue(expectations, value); assertionErr != nil {
 				err = &assertionFailure{err: assertionErr}
 			}
 		}
@@ -732,6 +787,41 @@ func applyCaptures(vars *variables, captures map[string]string, input any) error
 	}
 	return nil
 }
+
+// resolveExpectations substitutes ${variable} references in the string
+// operands of equals and contains, so a document can assert a captured value
+// directly (for example that both sides of a Friend share one workspace_name).
+// Other matchers keep their literal operands. Unassigned variables fail the
+// step like an unresolved request field would.
+func resolveExpectations(vars *variables, assertions map[string]Expectation) (map[string]Expectation, error) {
+	if vars == nil || len(assertions) == 0 {
+		return assertions, nil
+	}
+	resolved := make(map[string]Expectation, len(assertions))
+	for path, expectation := range assertions {
+		if text, ok := expectation.Equals.(string); ok && strings.Contains(text, "${") {
+			value, err := vars.resolve(text)
+			if err != nil {
+				return nil, fmt.Errorf("expect %s equals: %w", path, err)
+			}
+			expectation.Equals = value
+		}
+		if strings.Contains(expectation.Contains, "${") {
+			value, err := vars.resolve(expectation.Contains)
+			if err != nil {
+				return nil, fmt.Errorf("expect %s contains: %w", path, err)
+			}
+			text, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("expect %s contains: variable must be string", path)
+			}
+			expectation.Contains = text
+		}
+		resolved[path] = expectation
+	}
+	return resolved, nil
+}
+
 func assertValue(assertions map[string]Expectation, input any) error {
 	for path, a := range assertions {
 		value, ok := jsonPointer(input, path)

@@ -529,3 +529,87 @@ func TestValidateSemanticsRejectsRelayInFinally(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestLoadDocumentValidatesListenPeerStream(t *testing.T) {
+	listenStep := func(extra string) string {
+		return validDocument + "  - id: listen\n    client: peer\n    peer_stream:\n      mode: listen\n" + extra
+	}
+	doc, err := loadDocument(writeTestDocument(t, listenStep("      duration: 2s\n")))
+	if err != nil {
+		t.Fatalf("listen rejected: %v", err)
+	}
+	if got := doc.Steps[len(doc.Steps)-1].PeerStream; got.Mode != "listen" || got.Duration != "2s" || got.Input != nil {
+		t.Fatalf("listen operation = %#v", got)
+	}
+	for name, tc := range map[string]struct {
+		extra string
+		want  string
+	}{
+		"missing duration":        {extra: "", want: "schema validation"},
+		"zero duration":           {extra: "      duration: 0s\n", want: "listen requires a duration"},
+		"unparsable duration":     {extra: "      duration: soon\n", want: "listen requires a duration"},
+		"duration above bound":    {extra: "      duration: 6m\n", want: "listen requires a duration"},
+		"input":                   {extra: "      duration: 2s\n      input: hello\n", want: "schema validation"},
+		"pacing":                  {extra: "      duration: 2s\n      pacing: 20ms\n", want: "cannot set pacing"},
+		"interrupt_after":         {extra: "      duration: 2s\n      interrupt_after: 1s\n", want: "cannot set interrupt_after"},
+		"idle_timeout":            {extra: "      duration: 2s\n      idle_timeout: 1s\n", want: "cannot set idle_timeout"},
+		"completion":              {extra: "      duration: 2s\n      completion: terminal\n", want: "cannot set completion"},
+		"terminal_label":          {extra: "      duration: 2s\n      terminal_label: transcript\n", want: "cannot set terminal_label"},
+		"require_text":            {extra: "      duration: 2s\n      require_text: false\n", want: "cannot set require_text"},
+		"wait_for_history":        {extra: "      duration: 2s\n      wait_for_history: true\n", want: "cannot set wait_for_history"},
+		"session":                 {extra: "      duration: 2s\n      session: mic\n      keep_open: true\n", want: "cannot set session"},
+		"await_rearm":             {extra: "      duration: 2s\n      await_rearm: INPUT_ROUTE_RELOADED\n", want: "cannot set"},
+		"duration outside listen": {extra: "", want: ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := listenStep(tc.extra)
+			if name == "duration outside listen" {
+				body = validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      input: hello\n      duration: 2s\n"
+				tc.want = "only valid for listen"
+			}
+			_, err := loadDocument(writeTestDocument(t, body))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
+	turn := func(mode, extra string) string {
+		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: " + mode + "\n      input: ${endpoint}\n      completion: input_sent\n" + extra
+	}
+	for _, mode := range []string{"push-to-talk", "realtime"} {
+		doc, err := loadDocument(writeTestDocument(t, turn(mode, "")))
+		if err != nil {
+			t.Fatalf("input_sent %s rejected: %v", mode, err)
+		}
+		if got := doc.Steps[len(doc.Steps)-1].PeerStream.Completion; got != "input_sent" {
+			t.Fatalf("completion = %q", got)
+		}
+	}
+	if _, err := loadDocument(writeTestDocument(t, turn("push-to-talk", "      pacing: 20ms\n      idle_timeout: 5s\n"))); err != nil {
+		t.Fatalf("input_sent with pacing rejected: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		mode  string
+		extra string
+		want  string
+	}{
+		"text mode":           {mode: "text", want: "requires push-to-talk or realtime"},
+		"first_text_timeout":  {mode: "push-to-talk", extra: "      first_text_timeout: 1s\n", want: "cannot wait for output"},
+		"first_audio_timeout": {mode: "realtime", extra: "      first_audio_timeout: 1s\n", want: "cannot wait for output"},
+		"wait_for_history":    {mode: "push-to-talk", extra: "      wait_for_history: true\n", want: "cannot wait for output"},
+		"require_text":        {mode: "push-to-talk", extra: "      require_text: false\n", want: "cannot wait for output"},
+		"require_audio":       {mode: "push-to-talk", extra: "      require_audio: true\n", want: "cannot wait for output"},
+		"interrupt_after":     {mode: "push-to-talk", extra: "      interrupt_after: 1s\n", want: "cannot wait for output"},
+		"terminal_label":      {mode: "push-to-talk", extra: "      terminal_label: transcript\n", want: "cannot wait for output"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadDocument(writeTestDocument(t, turn(tc.mode, tc.extra)))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}

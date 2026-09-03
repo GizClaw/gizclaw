@@ -2,6 +2,7 @@ package giztest
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -65,10 +66,17 @@ func newVariables(specs map[string]VariableSpec) (*variables, error) {
 		var data any
 		switch {
 		case spec.Env != "":
-			var ok bool
-			data, ok = os.LookupEnv(spec.Env)
+			text, ok := os.LookupEnv(spec.Env)
 			if !ok {
 				return nil, fmt.Errorf("input variable %s requires environment %s", name, spec.Env)
+			}
+			data = text
+			if spec.Type == "audio" || spec.Type == "binary" {
+				decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(text))
+				if err != nil {
+					return nil, fmt.Errorf("input variable %s: environment %s must hold standard base64 %s bytes: %w", name, spec.Env, spec.Type, err)
+				}
+				data = decoded
 			}
 		case spec.Generate != "":
 			generated, err := generateValue(spec.Generate)

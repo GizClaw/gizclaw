@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -40,7 +40,7 @@ type validatedDeletion struct {
 	OwnerPublicKey *string
 	HasIcon        bool
 	System         bool
-	Mode           *apitypes.ChatRoomMode
+	Kind           *socialutil.SFUWorkspaceKind
 }
 
 func (h DeletionHandler) Kind() pendingdeletion.Kind {
@@ -137,25 +137,25 @@ func validateWorkspaceDeletionClaim(claim pendingdeletion.Claim) (validatedDelet
 		}
 	case pendingdeletion.ReasonFriendRelationshipDelete, pendingdeletion.ReasonFriendGroupDelete:
 		if claim.Record.OwnerPublicKey != nil {
-			return validatedDeletion{}, errors.New("workspace: Chatroom Workspace marker must be ownerless")
+			return validatedDeletion{}, errors.New("workspace: Social Workspace marker must be ownerless")
 		}
-		var descriptor chatroomRetirementDescriptor
+		var descriptor socialRetirementDescriptor
 		if err := json.Unmarshal(claim.Record.Descriptor, &descriptor); err != nil {
-			return validatedDeletion{}, fmt.Errorf("workspace: decode Chatroom Workspace deletion descriptor: %w", err)
+			return validatedDeletion{}, fmt.Errorf("workspace: decode Social Workspace deletion descriptor: %w", err)
 		}
-		expectedMode := apitypes.ChatRoomModeDirect
+		expectedKind := socialutil.SFUWorkspaceKindFriend
 		if claim.Record.Reason == pendingdeletion.ReasonFriendGroupDelete {
-			expectedMode = apitypes.ChatRoomModeGroup
+			expectedKind = socialutil.SFUWorkspaceKindFriendGroup
 		}
-		if descriptor.WorkspaceKind != expectedMode || descriptor.SocialResourceID == "" {
-			return validatedDeletion{}, errors.New("workspace: Chatroom Workspace reason and domain binding mismatch")
+		if descriptor.WorkspaceKind != expectedKind || descriptor.SocialResourceID == "" {
+			return validatedDeletion{}, errors.New("workspace: Social Workspace reason and domain binding mismatch")
 		}
 		if err := customid.ValidateResourceID(descriptor.SocialResourceID); err != nil {
 			return validatedDeletion{}, fmt.Errorf("workspace: invalid Social resource ID: %w", err)
 		}
 		out = validatedDeletion{
 			ID: descriptor.ID, Name: descriptor.Name, OwnerPublicKey: cloneString(descriptor.OwnerPublicKey),
-			HasIcon: descriptor.HasIcon, System: true, Mode: &expectedMode,
+			HasIcon: descriptor.HasIcon, System: true, Kind: &expectedKind,
 		}
 	default:
 		return validatedDeletion{}, fmt.Errorf("workspace: unsupported deletion reason %q", claim.Record.Reason)
@@ -192,14 +192,8 @@ func (h DeletionHandler) validateRetainedWorkspace(ctx context.Context, descript
 		!equalOptionalString(item.OwnerPublicKey, descriptor.OwnerPublicKey) || (item.Icon != nil) != descriptor.HasIcon {
 		return pendingdeletion.Terminal("replacement_ambiguous", "Workspace no longer matches its deletion marker", nil)
 	}
-	if descriptor.Mode != nil {
-		if item.Parameters == nil {
-			return pendingdeletion.Terminal("workspace_class_mismatch", "Retained Workspace has no Chatroom parameters", nil)
-		}
-		parameters, err := item.Parameters.AsChatRoomWorkspaceParameters()
-		if err != nil || parameters.Mode == nil || *parameters.Mode != *descriptor.Mode {
-			return pendingdeletion.Terminal("workspace_class_mismatch", "Retained Workspace Chatroom mode changed", err)
-		}
+	if descriptor.Kind != nil && item.Parameters != nil {
+		return pendingdeletion.Terminal("workspace_class_mismatch", "Retained Social Workspace gained parameters", nil)
 	}
 	return nil
 }

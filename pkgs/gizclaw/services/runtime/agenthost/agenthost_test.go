@@ -156,6 +156,45 @@ func TestServiceResolverUsesWorkspaceOwnerRuntimeProfile(t *testing.T) {
 	}
 }
 
+func TestServiceResolverActivatesSFUWorkspaceWithoutOwnerRuntimeProfile(t *testing.T) {
+	owner := "owner-on-another-server"
+	ws := systemWorkspace("ws-shared", "system-sfu", nil)
+	ws.OwnerPublicKey = &owner
+	sfuWorkflow := apitypes.Workflow{Id: "system-sfu", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverSfu}}
+	profileLookups := 0
+	resolver := ServiceResolver{
+		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{"ws-shared": ws, "id-ws-shared": ws}},
+		Workflows:  fakeWorkflowService{items: map[string]apitypes.Workflow{"system-sfu": sfuWorkflow}},
+		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
+			profileLookups++
+			return apitypes.RuntimeProfile{}, errors.New("kv: not found")
+		},
+		ToolBuilder: &toolkit.Builder{},
+	}
+	for name, resolve := range map[string]func() (Spec, error){
+		"by name": func() (Spec, error) { return resolver.Resolve(t.Context(), "ws-shared") },
+		"by id":   func() (Spec, error) { return resolver.ResolveByID(t.Context(), "id-ws-shared") },
+		"memory":  func() (Spec, error) { return resolver.ResolveMemoryByID(t.Context(), "id-ws-shared") },
+	} {
+		spec, err := resolve()
+		if err != nil {
+			t.Fatalf("%s: resolve SFU Workspace error = %v", name, err)
+		}
+		if spec.Workspace.Id != "id-ws-shared" || spec.Workflow.Id != "system-sfu" {
+			t.Fatalf("%s: spec = %#v", name, spec)
+		}
+		if spec.ToolInvoker != nil || spec.MemoryBinding != nil || spec.MemoryName != "" || spec.MemoryProfileID != "" {
+			t.Fatalf("%s: SFU spec resolved owner-profile resources: %#v", name, spec)
+		}
+	}
+	if spec, err := resolver.ResolveByID(t.Context(), "id-ws-shared"); err != nil || spec.AgentType != "sfu" {
+		t.Fatalf("ResolveByID() = %#v, %v; want sfu agent type", spec, err)
+	}
+	if profileLookups != 0 {
+		t.Fatalf("owner RuntimeProfile was looked up %d times for an SFU Workspace", profileLookups)
+	}
+}
+
 func TestServiceResolverFailsWhenSelectedWorkflowIsUnavailable(t *testing.T) {
 	owner := "owner-public-key"
 	ws := systemWorkspace("shared", "missing-workflow", nil)
@@ -256,10 +295,10 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 
 func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testing.T) {
 	var params apitypes.WorkspaceParameters
-	if err := params.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		AgentType: apitypes.ChatRoomWorkspaceParametersAgentTypeChatroom,
+	if err := params.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{
+		AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
 	}); err != nil {
-		t.Fatalf("FromChatRoomWorkspaceParameters() error = %v", err)
+		t.Fatalf("FromEinoWorkspaceParameters() error = %v", err)
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -332,7 +371,7 @@ func TestAgentTypeFromWorkflowDriver(t *testing.T) {
 		want   string
 	}{
 		{driver: "flowcraft", want: "flowcraft"},
-		{driver: "chatroom", want: "chatroom"},
+		{driver: "sfu", want: "sfu"},
 		{driver: "doubao-realtime", want: "doubao-realtime"},
 		{driver: "dashscope-realtime", want: "dashscope-realtime"},
 		{driver: "doubao-realtime-duplex", want: "doubao-realtime-duplex"},

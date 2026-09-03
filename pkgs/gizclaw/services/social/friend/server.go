@@ -26,29 +26,29 @@ import (
 type WorkspaceService interface {
 	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
 	DeleteSystemWorkspace(context.Context, string) (apitypes.Workspace, error)
-	RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error)
+	RetireSystemWorkspaceByID(context.Context, string, socialutil.SFUWorkspaceKind, string) (apitypes.Workspace, error)
 }
 
 type ProfileService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 }
 
-type AssignmentService interface {
-	Lookup(context.Context, giznet.PublicKey) (apitypes.PeerAssignment, error)
-}
+// ErrSFUNotConfigured reports that the Server has no SFU URL, so no Friend
+// Workspace can be bound to an SFU Room.
+var ErrSFUNotConfigured = errors.New("social: SFU is not configured")
 
-var ErrCrossServerFriendCreation = errors.New("cross-server friend creation is not supported")
-
+// Server owns Friend relationships. Every record it writes lives in the shared
+// Social KV, so any Server in the deployment can create, resolve, or retire a
+// relationship without consulting Server-local state.
 type Server struct {
-	InviteTokens           kv.Store
-	Friends                kv.Store
-	Workspaces             WorkspaceService
-	Profiles               ProfileService
-	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
-	NotifyPeer             func(context.Context, string, *eventpb.PeerEvent)
-	PeerAvailability       func(context.Context, string) error
-	PeerAssignments        AssignmentService
-	ServerPublicKey        giznet.PublicKey
+	InviteTokens     kv.Store
+	Friends          kv.Store
+	Workspaces       WorkspaceService
+	Profiles         ProfileService
+	NotifyPeer       func(context.Context, string, *eventpb.PeerEvent)
+	PeerAvailability func(context.Context, string) error
+	// SFUURL is the SFU endpoint recorded in every new Friend SFU binding.
+	SFUURL string
 
 	Now   func() time.Time
 	NewID func() string
@@ -246,6 +246,10 @@ type retirementIntent struct {
 	CancelCreation bool         `json:"cancel_creation,omitempty"`
 }
 
+// creationIntent mints every identity of one relationship incarnation up
+// front: the Workspace name and the SFU Room token. Retries and reconciliation
+// reuse the persisted intent, so a committed relationship always carries the
+// Room identity minted for its incarnation.
 type creationIntent struct {
 	RelationID     string    `json:"relation_id"`
 	FirstPeer      string    `json:"first_peer"`
@@ -253,7 +257,8 @@ type creationIntent struct {
 	WorkspaceOwner string    `json:"workspace_owner"`
 	IncarnationID  string    `json:"incarnation_id"`
 	Workspace      string    `json:"workspace_name"`
-	Workflow       string    `json:"workflow_name"`
+	SFUURL         string    `json:"sfu_url"`
+	RoomToken      string    `json:"room_token"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 
@@ -277,10 +282,27 @@ type retirementReceipt struct {
 	CancelCreation bool      `json:"cancel_creation,omitempty"`
 }
 
+// workspaceBinding is the canonical relationship-level record shared by both
+// directional Friend rows. It carries the SFU Room binding so every Server can
+// materialize the same Workspace and attach to the same Room.
 type workspaceBinding struct {
-	RelationID    string `json:"relation_id"`
-	WorkspaceID   string `json:"workspace_id"`
-	WorkspaceName string `json:"workspace_name"`
+	RelationID     string                `json:"relation_id"`
+	WorkspaceID    string                `json:"workspace_id"`
+	WorkspaceName  string                `json:"workspace_name"`
+	WorkspaceOwner string                `json:"workspace_owner"`
+	SFU            socialutil.SFUBinding `json:"sfu"`
+}
+
+func (binding workspaceBinding) sfuWorkspaceBinding(members []string) socialutil.SFUWorkspaceBinding {
+	return socialutil.SFUWorkspaceBinding{
+		WorkspaceID:   binding.WorkspaceID,
+		WorkspaceName: binding.WorkspaceName,
+		Kind:          socialutil.SFUWorkspaceKindFriend,
+		SocialID:      binding.RelationID,
+		Owner:         binding.WorkspaceOwner,
+		Members:       members,
+		SFU:           binding.SFU,
+	}
 }
 
 var (
@@ -368,9 +390,6 @@ func (s *Server) AddFriend(ctx context.Context, owner string, req rpcapi.FriendA
 	if owner == to {
 		return rpcapi.FriendAddResponse{}, ErrInviteTokenSelfOwned
 	}
-	if err := s.requireLocalPeers(ctx, owner, to); err != nil {
-		return rpcapi.FriendAddResponse{}, err
-	}
 	relationID := socialutil.RelationID(owner, to)
 	unlock, err := s.lockRelationMutation(ctx, relationID, owner, to)
 	if err != nil {
@@ -389,9 +408,6 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	if owner == peerPublicKey {
 		return rpcapi.FriendObject{}, errors.New("social: cannot friend self")
 	}
-	if err := s.requireLocalPeers(ctx, owner, peerPublicKey); err != nil {
-		return rpcapi.FriendObject{}, err
-	}
 	relationID := socialutil.RelationID(owner, peerPublicKey)
 	unlock, err := s.lockRelationMutation(ctx, relationID, owner, peerPublicKey)
 	if err != nil {
@@ -399,26 +415,6 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	}
 	defer unlock()
 	return s.createFriend(ctx, owner, peerPublicKey, owner)
-}
-
-func (s *Server) requireLocalPeers(ctx context.Context, peers ...string) error {
-	if s == nil || s.PeerAssignments == nil || s.ServerPublicKey.IsZero() {
-		return nil
-	}
-	for _, peerText := range peers {
-		var publicKey giznet.PublicKey
-		if err := publicKey.UnmarshalText([]byte(strings.TrimSpace(peerText))); err != nil || publicKey.IsZero() {
-			return errors.New("social: invalid Peer public key")
-		}
-		assignment, err := s.PeerAssignments.Lookup(ctx, publicKey)
-		if err != nil {
-			return err
-		}
-		if assignment.ServerPublicKey != s.ServerPublicKey.String() {
-			return ErrCrossServerFriendCreation
-		}
-	}
-	return nil
 }
 
 func (s *Server) lockRelation(relationID string) func() {
@@ -593,7 +589,7 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 }
 
 // WorkspaceRecipientsByID returns the peers whose reciprocal relationship
-// binds the canonical Direct Chatroom Workspace.
+// binds the canonical Friend SFU Workspace.
 func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string) ([]string, error) {
 	store, err := s.friendsStore()
 	if err != nil {
@@ -1157,16 +1153,17 @@ func (s *Server) getOrCreateCreationIntent(
 	if s == nil || s.Workspaces == nil {
 		return creationIntent{}, errors.New("social: Workspace creation service not configured")
 	}
-	if s.RuntimeProfileForOwner == nil {
-		return creationIntent{}, errors.New("social: runtime profile resolver is not configured")
-	}
-	profile, err := s.RuntimeProfileForOwner(ctx, workspaceOwner)
-	if err != nil {
-		return creationIntent{}, err
+	sfuURL := strings.TrimSpace(s.SFUURL)
+	if sfuURL == "" {
+		return creationIntent{}, ErrSFUNotConfigured
 	}
 	incarnationID := strings.TrimSpace(s.newID())
 	if incarnationID == "" {
 		return creationIntent{}, errors.New("social: friend Workspace incarnation is empty")
+	}
+	roomToken, err := socialutil.NewRoomToken()
+	if err != nil {
+		return creationIntent{}, err
 	}
 	first, second := from, to
 	if first > second {
@@ -1179,7 +1176,8 @@ func (s *Server) getOrCreateCreationIntent(
 		WorkspaceOwner: strings.TrimSpace(workspaceOwner),
 		IncarnationID:  incarnationID,
 		Workspace:      socialutil.DirectWorkspaceIncarnationName(relationID, incarnationID),
-		Workflow:       strings.TrimSpace(profile.Spec.Workflows.System.FriendChatroom),
+		SFUURL:         sfuURL,
+		RoomToken:      roomToken,
 		CreatedAt:      s.now(),
 	}
 	if _, err := validateCreationIntent(intent, relationID, workspaceOwner); err != nil {
@@ -1228,8 +1226,10 @@ func validateCreationIntent(
 		(intent.WorkspaceOwner != first && intent.WorkspaceOwner != second) ||
 		intent.IncarnationID == "" ||
 		intent.IncarnationID != strings.TrimSpace(intent.IncarnationID) ||
-		intent.Workflow == "" ||
-		intent.Workflow != strings.TrimSpace(intent.Workflow) ||
+		intent.SFUURL == "" ||
+		intent.SFUURL != strings.TrimSpace(intent.SFUURL) ||
+		intent.RoomToken == "" ||
+		intent.RoomToken != strings.TrimSpace(intent.RoomToken) ||
 		intent.Workspace != strings.TrimSpace(intent.Workspace) ||
 		intent.Workspace != socialutil.DirectWorkspaceIncarnationName(
 			relationID,
@@ -1251,8 +1251,7 @@ func (s *Server) ensureCreationWorkspace(ctx context.Context, intent creationInt
 	body := adminhttp.WorkspaceUpsert{
 		Id:         intent.Workspace,
 		Name:       intent.Workspace,
-		WorkflowId: intent.Workflow,
-		Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
+		WorkflowId: socialutil.SFUWorkflowID,
 	}
 	workspace, _, err := s.Workspaces.CreateSystemWorkspace(
 		ownership.WithOwner(ctx, intent.WorkspaceOwner),
@@ -1310,9 +1309,15 @@ func (s *Server) commitFriendCreation(
 		return rpcapi.FriendObject{}, err
 	}
 	binding := workspaceBinding{
-		RelationID:    relationID,
-		WorkspaceID:   workspace.Id,
-		WorkspaceName: workspace.Name,
+		RelationID:     relationID,
+		WorkspaceID:    workspace.Id,
+		WorkspaceName:  workspace.Name,
+		WorkspaceOwner: intent.WorkspaceOwner,
+		SFU: socialutil.SFUBinding{
+			URL:        intent.SFUURL,
+			RoomToken:  intent.RoomToken,
+			Generation: 1,
+		},
 	}
 	bindingData, err := json.Marshal(binding)
 	if err != nil {
@@ -1355,7 +1360,8 @@ func (s *Server) commitFriendCreation(
 			if bindingErr != nil {
 				return rpcapi.FriendObject{}, bindingErr
 			}
-			if persistedBinding.WorkspaceID != workspace.Id || persistedBinding.WorkspaceName != intent.Workspace {
+			if persistedBinding.WorkspaceID != workspace.Id || persistedBinding.WorkspaceName != intent.Workspace ||
+				persistedBinding.SFU.RoomToken != intent.RoomToken {
 				return rpcapi.FriendObject{}, errors.New("social: committed Friend creation has inconsistent Workspace binding")
 			}
 			existing, active, err := readActiveRelationship(ctx, store, from, to)
@@ -1458,7 +1464,7 @@ func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, i
 		if _, err := s.Workspaces.RetireSystemWorkspaceByID(
 			ctx,
 			intent.WorkspaceID,
-			apitypes.ChatRoomModeDirect,
+			socialutil.SFUWorkspaceKindFriend,
 			intent.RelationID,
 		); err != nil {
 			return err
@@ -1735,12 +1741,24 @@ func readWorkspaceBinding(ctx context.Context, store kv.Store, relationID string
 	if err != nil {
 		return workspaceBinding{}, err
 	}
-	if binding.RelationID != relationID ||
-		binding.WorkspaceID == "" || binding.WorkspaceID != strings.TrimSpace(binding.WorkspaceID) ||
-		binding.WorkspaceName == "" || binding.WorkspaceName != strings.TrimSpace(binding.WorkspaceName) {
-		return workspaceBinding{}, fmt.Errorf("social: invalid Friend Workspace binding %q", relationID)
+	if err := validateWorkspaceBinding(binding, relationID); err != nil {
+		return workspaceBinding{}, err
 	}
 	return binding, nil
+}
+
+func validateWorkspaceBinding(binding workspaceBinding, relationID string) error {
+	if binding.RelationID != relationID ||
+		binding.WorkspaceID == "" || binding.WorkspaceID != strings.TrimSpace(binding.WorkspaceID) ||
+		binding.WorkspaceName == "" || binding.WorkspaceName != strings.TrimSpace(binding.WorkspaceName) ||
+		binding.WorkspaceOwner == "" || binding.WorkspaceOwner != strings.TrimSpace(binding.WorkspaceOwner) ||
+		binding.SFU.Generation == 0 {
+		return fmt.Errorf("social: invalid Friend Workspace binding %q", relationID)
+	}
+	if err := binding.SFU.Validate(); err != nil {
+		return fmt.Errorf("social: invalid Friend Workspace binding %q: %w", relationID, err)
+	}
+	return nil
 }
 
 func readCreationIntent(ctx context.Context, store kv.Store, relationID string) (creationIntent, error) {

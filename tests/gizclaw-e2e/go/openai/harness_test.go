@@ -134,7 +134,7 @@ func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"chat-memory": {LayoutId: "chat-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}
 	return apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
-			System:      apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: "chatroom-direct", GroupChatroom: "chatroom-direct", Pet: "pet-chatroom"},
+			System:      apitypes.RuntimeProfileSystemWorkflows{Pet: "pet-care"},
 			Collections: workflows,
 		},
 		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, Memories: &memories},

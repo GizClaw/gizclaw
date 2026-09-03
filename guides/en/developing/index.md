@@ -20,7 +20,7 @@ Code review should use these boundaries to determine whether changes are in the 
 | Storage and media | Store packages provide general persistence/indexing capabilities; Audio packages provide codec, PCM, resampling, and voiceprint. |
 | Observability | Use structured logs to diagnose individual requests and low-cardinality metrics to observe requests, runtimes, and device state. See [Observability](observability) for fields and ownership. |
 
-The current code supports Edge ingress with a single upstream. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities.
+The current code supports Edge ingress with a single upstream. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities; Friend and Friend Group voice works across Servers through the shared Social KV and the SFU Workspace, see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
 
 ## Runtime architecture
 

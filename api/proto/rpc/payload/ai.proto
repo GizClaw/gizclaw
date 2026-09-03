@@ -90,37 +90,6 @@ message ASTTranslateWorkspaceParameters {
   optional ASTTranslateVoiceParameters voice = 9;
 }
 
-message ChatRoomWorkflowHistorySpec {
-  optional string ttl = 1;
-}
-
-message ChatRoomWorkflowSpec {
-  ChatRoomWorkflowHistorySpec history = 1;
-  optional ChatRoomWorkflowTranscriptSpec transcript = 2;
-}
-
-message ChatRoomWorkflowTranscriptSpec {
-  optional string asr_model = 1;
-  optional bool enabled = 2;
-}
-
-message ChatRoomWorkspaceHistoryParameters {
-  optional string ttl = 1;
-}
-
-message ChatRoomWorkspaceParameters {
-  ChatRoomWorkspaceParametersAgentType agent_type = 1;
-  optional ChatRoomWorkspaceHistoryParameters history = 2;
-  optional WorkspaceInputMode input = 3;
-  optional ChatRoomMode mode = 4;
-  optional ChatRoomWorkspaceTranscriptParameters transcript = 5;
-}
-
-message ChatRoomWorkspaceTranscriptParameters {
-  optional string asr_model = 1;
-  optional bool enabled = 2;
-}
-
 message DashScopeRealtimeWorkflowSpec {
   optional string asr_model = 1;
   optional bool enable_asr = 2;
@@ -351,7 +320,6 @@ message PetWorkflowSpec {
   optional FlowcraftWorkflowSpec flowcraft = 3;
   optional DoubaoRealtimeWorkflowSpec doubao_realtime = 4;
   optional ASTTranslateWorkflowSpec ast_translate = 5;
-  optional ChatRoomWorkflowSpec chatroom = 6;
   optional DashScopeRealtimeWorkflowSpec dashscope_realtime = 7;
   optional DoubaoRealtimeDuplexWorkflowSpec doubao_realtime_duplex = 8;
   optional EinoWorkflowSpec eino = 9;

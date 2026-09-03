@@ -43,7 +43,7 @@ const events: PeerEvent[] = [
     kind: StreamKind.AUDIO,
     label: "assistant",
     error: {
-      code: "CHATROOM_MEMBER_REMOVED",
+      code: "MEMBER_REMOVED",
       message: "removed",
       retryable: false,
     },
@@ -67,7 +67,7 @@ const events: PeerEvent[] = [
     "workspaceHistoryUpdated",
     {
       workspaceName: "direct-a-b",
-      workspaceKind: WorkspaceKind.DIRECT_CHATROOM,
+      workspaceKind: WorkspaceKind.WORKFLOW,
       lastUpdatedAtUnixMs: 4n,
     },
   ),
@@ -116,7 +116,7 @@ test("decodes split and coalesced binary frames", () => {
     decoded.map((event) => event.type),
     ["bos", "eos"],
   );
-  assert.equal(decoded[1]?.errorCode, "CHATROOM_MEMBER_REMOVED");
+  assert.equal(decoded[1]?.errorCode, "MEMBER_REMOVED");
   decoder.finish();
 });
 
@@ -200,7 +200,7 @@ test("drops an invalid timestamp frame before reporting the error", () => {
     "workspaceHistoryUpdated",
     {
       workspaceName: "direct-a-b",
-      workspaceKind: WorkspaceKind.DIRECT_CHATROOM,
+      workspaceKind: WorkspaceKind.WORKFLOW,
       lastUpdatedAtUnixMs: 9223372036854775807n,
     },
   );

@@ -11,10 +11,6 @@ type rpcWorkspaceHistoryAudioService interface {
 	PrepareWorkspaceHistoryAudioDownload(context.Context, rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
 }
 
-type rpcFriendGroupMessageAudioService interface {
-	PrepareFriendGroupMessageAudioDownload(context.Context, rpcapi.FriendGroupMessageAudioDownloadRequest) (rpcapi.FriendGroupMessageAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
-}
-
 func (s *rpcServer) handleWorkspaceHistoryAudioDownload(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if err := stream.ReadEOS(); err != nil {
 		return err
@@ -38,31 +34,6 @@ func (s *rpcServer) handleWorkspaceHistoryAudioDownload(ctx context.Context, str
 		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
 	}
 	return writeHistoryAudioResponse(stream, req, metadata, reader, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioDownloadResponse)
-}
-
-func (s *rpcServer) handleFriendGroupMessageAudioDownload(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
-	if err := stream.ReadEOS(); err != nil {
-		return err
-	}
-	if req.Params == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
-	}
-	params, err := req.Params.AsFriendGroupMessageAudioDownloadRequest()
-	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
-	}
-	service, ok := s.serverResources.(rpcFriendGroupMessageAudioService)
-	if !ok || service == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "friend group message audio service not configured")
-	}
-	metadata, reader, rpcErr, err := service.PrepareFriendGroupMessageAudioDownload(ctx, params)
-	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, err.Error())
-	}
-	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
-	}
-	return writeHistoryAudioResponse(stream, req, metadata, reader, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioDownloadResponse)
 }
 
 func writeHistoryAudioResponse[T any](stream *rpcStream, req *rpcapi.RPCRequest, metadata T, reader io.ReadCloser, encode func(*rpcapi.RPCPayload, T) error) error {

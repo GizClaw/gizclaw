@@ -12,8 +12,6 @@ metadata:
 spec:
   workflows:
     system:
-      friend_chatroom: chatroom
-      group_chatroom: chatroom
       pet: pet-care
     collections:
       assistants:
@@ -94,7 +92,7 @@ spec:
       games: {}
 ```
 
-The three `workflows.system` values are canonical Admin-created Workflow IDs, not Collection aliases. Direct and group chats use `friend_chatroom` and `group_chatroom`; Pet adoption uses `pet`. RuntimeProfile create and update validate these IDs, their expected outer drivers, and the Model, Voice, and Tool aliases used inside those Workflows.
+`workflows.system` has exactly one required value, `pet`: a canonical Admin-created Workflow ID, not a Collection alias, used by Pet adoption. RuntimeProfile create and update validate that ID, its expected outer driver, and the Model, Voice, and Tool aliases used inside the Workflow. Friend and Friend Group Workspaces are always bound to the built-in `system-sfu` Workflow and are not selected through RuntimeProfile; see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
 
 Optional Workflow aliases live under `workflows.collections.<collection>.<alias>`. Alias IDs are globally unique across Collections, while the client owns its fixed Collection navigation, ordering, icons, and Collection translations. RuntimeProfile supplies dynamic Workflow membership and alias-level `en` and `zh-CN` display text; it has no top-level locale or Collection presentation section.
 
@@ -133,7 +131,7 @@ gameplay:
     initial_balance: 100
   workspace_reward:
     enabled: true
-    workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+    workspace_kinds: [workflow]
     debounce: {quiet_period: 2m, max_window_age: 15m}
     transcript: {max_entries: 100, max_text_bytes: 65536}
     evaluation:

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -585,7 +583,7 @@ func newFriendGroupCmd() *cobra.Command {
 		Use:   "friend-group",
 		Short: "Manage friend groups through server RPC",
 	}
-	cmd.AddCommand(newFriendGroupListCmd(), newFriendGroupGetCmd(), newFriendGroupCreateCmd(), newFriendGroupPutCmd(), newFriendGroupDeleteCmd(), newFriendGroupJoinCmd(), newFriendGroupInviteTokenCmd(), newFriendGroupMembersCmd(), newFriendGroupMessagesCmd())
+	cmd.AddCommand(newFriendGroupListCmd(), newFriendGroupGetCmd(), newFriendGroupCreateCmd(), newFriendGroupPutCmd(), newFriendGroupDeleteCmd(), newFriendGroupJoinCmd(), newFriendGroupInviteTokenCmd(), newFriendGroupMembersCmd())
 	return cmd
 }
 
@@ -848,115 +846,6 @@ func newFriendGroupMembersDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func newFriendGroupMessagesCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "messages",
-		Short: "Read the friend group's workspace history",
-	}
-	cmd.AddCommand(newFriendGroupMessagesListCmd(), newFriendGroupMessagesGetCmd(), newFriendGroupMessagesAudioCmd())
-	return cmd
-}
-
-func newFriendGroupMessagesListCmd() *cobra.Command {
-	var opts connectRPCOptions
-	var cursor string
-	var limit int
-	cmd := &cobra.Command{
-		Use:   "list <friend-group-name>",
-		Short: "List friend group workspace history",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.ListFriendGroupMessages(ctx, "friend_group.messages.list", rpcapi.FriendGroupMessageListRequest{FriendGroupName: args[0], Cursor: optionalString(cursor), Limit: optionalInt(limit)})
-			})
-		},
-	}
-	opts.addFlags(cmd)
-	cmd.Flags().StringVar(&cursor, "cursor", "", "pagination cursor")
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of messages to return")
-	return cmd
-}
-
-func newFriendGroupMessagesGetCmd() *cobra.Command {
-	var opts connectRPCOptions
-	cmd := &cobra.Command{
-		Use:   "get <friend-group-name> <history-id>",
-		Short: "Get a friend group workspace history entry",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				return c.GetFriendGroupMessage(ctx, "friend_group.messages.get", rpcapi.FriendGroupMessageGetRequest{FriendGroupName: args[0], HistoryName: args[1]})
-			})
-		},
-	}
-	opts.addFlags(cmd)
-	return cmd
-}
-
-func newFriendGroupMessagesAudioCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "audio", Short: "Download friend group workspace history audio"}
-	cmd.AddCommand(newFriendGroupMessagesAudioDownloadCmd())
-	return cmd
-}
-
-func newFriendGroupMessagesAudioDownloadCmd() *cobra.Command {
-	var opts connectRPCOptions
-	var output string
-	cmd := &cobra.Command{
-		Use:   "download <friend-group-name> <history-id> --output <file>",
-		Short: "Download audio attached to a friend group workspace history entry",
-		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.ExactArgs(2)(cmd, args); err != nil {
-				return err
-			}
-			if err := nonEmptyFlag("output", output); err != nil {
-				return err
-			}
-			if strings.TrimSpace(output) == "-" {
-				return fmt.Errorf("output must be a file path")
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConnectJSON(cmd, opts, func(ctx context.Context, c *gizcli.Client) (any, error) {
-				path := strings.TrimSpace(output)
-				out, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
-				if err != nil {
-					return nil, err
-				}
-				tmpPath := out.Name()
-				committed := false
-				defer func() {
-					if !committed {
-						_ = os.Remove(tmpPath)
-					}
-				}()
-				result, err := c.DownloadFriendGroupMessageAudio(ctx, "friend_group.messages.audio.download", rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: args[0], HistoryName: args[1]}, out)
-				closeErr := out.Close()
-				if err != nil {
-					return nil, err
-				}
-				if closeErr != nil {
-					return nil, closeErr
-				}
-				if err := os.Rename(tmpPath, path); err != nil {
-					return nil, err
-				}
-				committed = true
-				return struct {
-					Metadata rpcapi.FriendGroupMessageAudioDownloadResponse `json:"metadata"`
-					Output   string                                         `json:"output"`
-					Bytes    int64                                          `json:"bytes"`
-				}{Metadata: result.Metadata, Output: path, Bytes: result.Bytes}, nil
-			})
-		},
-	}
-	opts.addFlags(cmd)
-	cmd.Flags().StringVarP(&output, "output", "o", "", "output file")
-	return cmd
-}
-
-//go:fix inline
 func stringPtr(value string) *string {
 	return new(value)
 }

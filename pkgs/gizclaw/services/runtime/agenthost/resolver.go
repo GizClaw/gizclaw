@@ -84,15 +84,18 @@ func (r ServiceResolver) ResolveMemoryByID(ctx context.Context, workspaceID stri
 }
 
 func (r ServiceResolver) resolveWorkspaceMemory(ctx context.Context, ws apitypes.Workspace) (Spec, error) {
-	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
-	if err != nil {
-		return Spec{}, err
-	}
-	workflowName, err := resolveWorkspaceWorkflowName(resolutionCtx, ws)
+	workflowName, err := resolveWorkspaceWorkflowName(ctx, ws)
 	if err != nil {
 		return Spec{}, err
 	}
 	resolvedWorkflow, err := r.getWorkflow(ctx, workflowName)
+	if err != nil {
+		return Spec{}, err
+	}
+	if workflowIsSFU(resolvedWorkflow) {
+		return Spec{Workspace: ws, Workflow: resolvedWorkflow}, nil
+	}
+	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -153,12 +156,13 @@ func (r ServiceResolver) ResolveByID(ctx context.Context, workspaceID string) (S
 	return r.resolveWorkspace(ctx, ws)
 }
 
+// resolveWorkspace builds the Spec for one Workspace. An SFU Workspace is an
+// empty runtime entry: it binds the Peer to the Social Room through the shared
+// Social KV and the local driver alone, so its Spec carries no owner
+// RuntimeProfile, toolkit, or Memory and any Server can activate it without
+// the owner's local catalog.
 func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Workspace) (Spec, error) {
-	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
-	if err != nil {
-		return Spec{}, err
-	}
-	workflowName, err := resolveWorkspaceWorkflowName(resolutionCtx, ws)
+	workflowName, err := resolveWorkspaceWorkflowName(ctx, ws)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -167,6 +171,13 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 		return Spec{}, err
 	}
 	agentType, err := resolveAgentType(ws, workflow)
+	if err != nil {
+		return Spec{}, err
+	}
+	if workflowIsSFU(workflow) {
+		return Spec{Workspace: ws, Workflow: workflow, AgentType: agentType}, nil
+	}
+	resolutionCtx, err := r.ownerRuntimeContext(ctx, ws)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -203,6 +214,12 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 		MemoryBinding:         memoryBinding,
 		MemoryLayout:          memoryLayout,
 	}, nil
+}
+
+// workflowIsSFU reports whether the Workflow uses the provider-neutral SFU
+// driver.
+func workflowIsSFU(workflow apitypes.Workflow) bool {
+	return strings.TrimSpace(string(workflow.Spec.Driver)) == string(apitypes.WorkflowDriverSfu)
 }
 
 type runtimeProfileContextKey struct{}

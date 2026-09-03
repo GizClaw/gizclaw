@@ -18,7 +18,7 @@ Server methods 覆盖 Peer info、runtime status、run Agent、run workspace、h
 | `handleGetInfo` / `handlePutInfo` | 读取或更新当前 Peer device info。 |
 | `handleGetRuntime` / `handleGetStatus` | 查询 Peer runtime 与 run status。 |
 | `handleGetRunAgent` / `handleSetRunAgent` | 查询或选择当前运行 Agent。 |
-| `handleGetRunWorkspace` / `handleSetRunWorkspace` / `handleReloadRunWorkspace` | 管理当前 run workspace。 |
+| `handleGetRunWorkspace` / `handleSetRunWorkspace` / `handleReloadRunWorkspace` | 管理当前 run workspace。选择 Social SFU Workspace（Workflow 为 `system-sfu`）时立即 reload runtime 让 Peer 加入 Room，响应携带激活后的状态；重复选择 runtime 已运行的 Workspace 幂等，Workflow Workspace 保持懒激活。`handleSetRunAgent` 遵循同一规则。 |
 | `handleListRunWorkspaceHistory` / `handlePlayRunWorkspaceHistory` | 列出或播放 workspace history。 |
 | `handleGetRunWorkspaceMemoryStats` / `handleRunWorkspaceRecall` | 查询 memory stats 或执行 recall。 |
 | `handleReloadRun` / `handleGetRunStatus` / `handleStopRun` | 控制完整 run lifecycle。 |

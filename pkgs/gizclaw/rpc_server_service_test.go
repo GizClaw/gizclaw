@@ -7,12 +7,14 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -210,6 +212,89 @@ func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	}
 	if agent.Pending == nil || agent.Pending.WorkspaceName != "demo" || agent.Active != nil {
 		t.Fatalf("run agent after set = %+v", agent)
+	}
+}
+
+// fakeRPCRunWorkspaceSelectionResolver resolves every selection to one
+// canonical Workspace record so the eager activation decision can be tested.
+type fakeRPCRunWorkspaceSelectionResolver struct {
+	fakeRPCRunWorkspaceResources
+	workspaces map[string]apitypes.Workspace
+}
+
+func (f *fakeRPCRunWorkspaceSelectionResolver) ResolveRunWorkspaceSelection(_ context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+	f.names = append(f.names, name)
+	workspace, ok := f.workspaces[name]
+	if !ok {
+		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace not found"}
+	}
+	return workspace, nil
+}
+
+func TestRPCServerSetRunWorkspaceActivatesSFUSelectionEagerly(t *testing.T) {
+	publicKey := giznet.PublicKey{7, 7, 7}
+	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	runtime := &fakeRPCPeerRunRuntime{
+		status: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateStopped},
+		reload: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: new("sfu-room")},
+		workspaceState: apitypes.PeerRunWorkspaceState{
+			RuntimeState: apitypes.PeerRunStatusStateRunning, WorkspaceName: "sfu-room",
+		},
+	}
+	server := &rpcServer{
+		peerRun:        store,
+		peerRunRuntime: runtime,
+		serverResources: &fakeRPCRunWorkspaceSelectionResolver{workspaces: map[string]apitypes.Workspace{
+			"sfu-room": {Id: "id-sfu-room", Name: "sfu-room", WorkflowId: socialutil.SFUWorkflowID, System: new(true)},
+			"chat":     {Id: "id-chat", Name: "chat", WorkflowId: "workflow-1"},
+		}},
+		callerPublicKey: publicKey,
+	}
+	client := &rpcClient{}
+	set := func(name string) *rpcapi.ServerSetRunWorkspaceResponse {
+		return callRPCPair(t, server, func(conn net.Conn) (*rpcapi.ServerSetRunWorkspaceResponse, error) {
+			return client.SetServerRunWorkspace(context.Background(), conn, "set-"+name, rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: name})
+		})
+	}
+
+	// Selecting an SFU Workspace joins the Room immediately and reports the
+	// post-activation state rather than a pending selection.
+	state := set("sfu-room")
+	if runtime.reloadCalls != 1 {
+		t.Fatalf("reload calls after SFU selection = %d, want 1", runtime.reloadCalls)
+	}
+	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning || state.WorkspaceName != "sfu-room" || state.ActiveWorkspaceName == nil || *state.ActiveWorkspaceName != "sfu-room" {
+		t.Fatalf("SetServerRunWorkspace(sfu) = %+v", state)
+	}
+
+	// Re-selecting the Workspace the runtime already runs is idempotent.
+	runtime.status = apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: new("sfu-room")}
+	state = set("sfu-room")
+	if runtime.reloadCalls != 1 {
+		t.Fatalf("reload calls after repeated SFU selection = %d, want 1", runtime.reloadCalls)
+	}
+	if state.RuntimeState != rpcapi.PeerRunStatusStateRunning || state.WorkspaceName != "sfu-room" {
+		t.Fatalf("repeated SetServerRunWorkspace(sfu) = %+v", state)
+	}
+
+	// Workflow Workspaces keep the lazy contract: the selection stays pending.
+	runtime.workspaceState = apitypes.PeerRunWorkspaceState{RuntimeState: apitypes.PeerRunStatusStateRunning, WorkspaceName: "sfu-room"}
+	state = set("chat")
+	if runtime.reloadCalls != 1 {
+		t.Fatalf("reload calls after Workflow selection = %d, want 1", runtime.reloadCalls)
+	}
+	if state.PendingWorkspaceName == nil || *state.PendingWorkspaceName != "chat" || state.WorkspaceName != "chat" {
+		t.Fatalf("SetServerRunWorkspace(workflow) = %+v", state)
+	}
+
+	// An SFU selection whose activation fails surfaces the failure.
+	runtime.status = apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: new("chat")}
+	runtime.err = errors.New("sfu: services.sfu is not configured on this Server")
+	_, err := callRPCPairErr(server, func(conn net.Conn) (*rpcapi.ServerSetRunWorkspaceResponse, error) {
+		return client.SetServerRunWorkspace(context.Background(), conn, "set-failed", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: "sfu-room"})
+	})
+	if err == nil || !strings.Contains(err.Error(), "services.sfu") {
+		t.Fatalf("failed SFU activation error = %v, want the activation cause", err)
 	}
 }
 

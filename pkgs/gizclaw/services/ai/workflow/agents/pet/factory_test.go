@@ -155,14 +155,6 @@ func TestFactoryInjectsPetContextForEveryReusableDriver(t *testing.T) {
 			},
 			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.AstTranslate != nil },
 		},
-		{
-			name: "chatroom",
-			spec: apitypes.PetWorkflowSpec{
-				Driver:   apitypes.ReusableWorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
-			},
-			payloadPresent: func(spec apitypes.WorkflowSpec) bool { return spec.Chatroom != nil },
-		},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -218,7 +210,6 @@ func TestNestedWorkspaceParametersForwardPetInputMode(t *testing.T) {
 		{driver: apitypes.ReusableWorkflowDriverDoubaoRealtime, want: "doubao-realtime"},
 		{driver: apitypes.ReusableWorkflowDriverEino, want: "eino"},
 		{driver: apitypes.ReusableWorkflowDriverAstTranslate, want: "ast-translate"},
-		{driver: apitypes.ReusableWorkflowDriverChatroom, want: "chatroom"},
 	}
 	for _, test := range tests {
 		t.Run(string(test.driver), func(t *testing.T) {
@@ -241,8 +232,6 @@ func TestNestedWorkspaceParametersForwardPetInputMode(t *testing.T) {
 			case apitypes.EinoWorkspaceParameters:
 				assertPetNestedInput(t, typed.Input, input)
 			case apitypes.ASTTranslateWorkspaceParameters:
-				assertPetNestedInput(t, typed.Input, input)
-			case apitypes.ChatRoomWorkspaceParameters:
 				assertPetNestedInput(t, typed.Input, input)
 			default:
 				t.Fatalf("nested parameters type = %T", value)

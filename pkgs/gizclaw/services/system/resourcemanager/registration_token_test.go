@@ -24,7 +24,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		"metadata":{"id":"profile-a"},
 		"spec":{
 			"workflows":{
-				"system":{"friend_chatroom":"chatroom","group_chatroom":"chatroom","pet":"pet-care"},
+				"system":{"pet":"pet-care"},
 				"collections":{}
 			},
 			"resources":{}
@@ -38,7 +38,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 		"metadata":{"id":"profile-b"},
 		"spec":{
 			"workflows":{
-				"system":{"friend_chatroom":"chatroom","group_chatroom":"chatroom","pet":"pet-care"},
+				"system":{"pet":"pet-care"},
 				"collections":{}
 			},
 			"resources":{}

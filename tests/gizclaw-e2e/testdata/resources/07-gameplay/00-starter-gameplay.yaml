@@ -56,8 +56,6 @@ spec:
     spec:
       workflows:
         system:
-          friend_chatroom: chatroom
-          group_chatroom: chatroom
           pet: pet-care
         collections: {}
       resources:
@@ -79,7 +77,7 @@ spec:
           initial_balance: 100
         workspace_reward:
           enabled: true
-          workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+          workspace_kinds: [workflow]
           debounce: {quiet_period: 1s, max_window_age: 1m}
           transcript: {max_entries: 100, max_text_bytes: 65536}
           evaluation:

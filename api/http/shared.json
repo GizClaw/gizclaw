@@ -389,8 +389,8 @@
       "ASTTranslateWorkflowSpec": {
         "$ref": "./shared/workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
       },
-      "ChatRoomWorkflowSpec": {
-        "$ref": "./shared/workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+      "SFUWorkflowSpec": {
+        "$ref": "./shared/workflows/sfu.json#/components/schemas/SFUWorkflowSpec"
       },
       "AgentSelection": {
         "$ref": "./shared/agent_selection.json#/components/schemas/AgentSelection"

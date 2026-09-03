@@ -122,8 +122,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD = 59 [(rpc_method) = { name: "server.friend_group.members.add" request: "FriendGroupMemberAddRequest" response: "FriendGroupMemberAddResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT = 60 [(rpc_method) = { name: "server.friend_group.members.put" request: "FriendGroupMemberPutRequest" response: "FriendGroupMemberPutResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61 [(rpc_method) = { name: "server.friend_group.members.delete" request: "FriendGroupMemberDeleteRequest" response: "FriendGroupMemberDeleteResponse" }];
-  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 62 [(rpc_method) = { name: "server.friend_group.messages.list" request: "FriendGroupMessageListRequest" response: "FriendGroupMessageListResponse" }];
-  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 63 [(rpc_method) = { name: "server.friend_group.messages.get" request: "FriendGroupMessageGetRequest" response: "FriendGroupMessageGetResponse" }];
   RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 64 [(rpc_method) = { name: "server.badge_def.pixa.download" request: "BadgeDefPixaDownloadRequest" response: "BadgeDefPixaDownloadResponse" }];
   RPC_METHOD_SERVER_PET_LIST = 65 [(rpc_method) = { name: "server.pet.list" request: "ServerPetListRequest" response: "ServerPetListResponse" }];
   RPC_METHOD_SERVER_PET_GET = 66 [(rpc_method) = { name: "server.pet.get" request: "ServerPetGetRequest" response: "ServerPetGetResponse" }];
@@ -155,7 +153,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 92 [(rpc_method) = { name: "server.speech.synthesize" request: "SpeechSynthesizeRequest" response: "SpeechSynthesizeResponse" }];
   RPC_METHOD_SERVER_PEER_DELETE = 93 [(rpc_method) = { name: "server.peer.delete" request: "ServerPeerDeleteRequest" response: "ServerPeerDeleteResponse" }];
   RPC_METHOD_SERVER_SPEECH_EXTRACT = 94 [(rpc_method) = { name: "server.speech.extract" request: "SpeechExtractRequest" response: "SpeechExtractResponse" }];
-  RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD = 95 [(rpc_method) = { name: "server.friend_group.messages.audio.download" request: "FriendGroupMessageAudioDownloadRequest" response: "FriendGroupMessageAudioDownloadResponse" }];
   RPC_METHOD_SERVER_API_KEY_CREATE = 96 [(rpc_method) = { name: "server.api_key.create" request: "APIKeyCreateRequest" response: "APIKeyCreateResponse" }];
   RPC_METHOD_SERVER_API_KEY_LIST = 97 [(rpc_method) = { name: "server.api_key.list" request: "APIKeyListRequest" response: "APIKeyListResponse" }];
   RPC_METHOD_SERVER_API_KEY_REVOKE = 98 [(rpc_method) = { name: "server.api_key.revoke" request: "APIKeyRevokeRequest" response: "APIKeyRevokeResponse" }];

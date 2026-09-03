@@ -84,37 +84,6 @@ func TestCSDKHistoryAudioDownloads(t *testing.T) {
 	}
 	requireNoRPCChannels(t, client, baseline)
 
-	friendGroupFrames, err := client.CallStream(
-		rpcpb.RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD,
-		&rpcpb.FriendGroupMessageAudioDownloadRequest{
-			FriendGroupName: "group-a",
-			HistoryName:     "history-b",
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	friendGroupResponse := requireAudioDownloadFrames(
-		t,
-		rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload,
-		friendGroupFrames,
-		serverrpc.FriendGroupAudioPayload,
-	)
-	if friendGroupResponse.Result == nil {
-		t.Fatal("Friend Group audio response has no result")
-	}
-	friendGroupMetadata, err := friendGroupResponse.Result.AsFriendGroupMessageAudioDownloadResponse()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if friendGroupMetadata.FriendGroupName != "group-a" ||
-		friendGroupMetadata.HistoryName != "history-b" ||
-		friendGroupMetadata.MimeType != "audio/ogg; codecs=opus" ||
-		friendGroupMetadata.SizeBytes != int64(len(serverrpc.FriendGroupAudioPayload)) {
-		t.Fatalf("Friend Group audio metadata = %+v", friendGroupMetadata)
-	}
-	requireNoRPCChannels(t, client, baseline)
-
 	if err := <-serverErr; err != nil {
 		t.Fatal(err)
 	}

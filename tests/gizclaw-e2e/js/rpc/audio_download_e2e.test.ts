@@ -79,21 +79,6 @@ async function main(): Promise<void> {
       "workspace-audio-payload",
     );
 
-    const friendGroup = await rpc.callBinary(
-      "server.friend_group.messages.audio.download",
-      { friend_group_name: "group-a", history_name: "history-b" },
-    );
-    assert.deepEqual(friendGroup.result, {
-      friend_group_name: "group-a",
-      history_name: "history-b",
-      mime_type: "audio/ogg; codecs=opus",
-      size_bytes: 26,
-    });
-    assert.equal(
-      new TextDecoder().decode(friendGroup.body),
-      "friend-group-audio-payload",
-    );
-
     assert.deepEqual(
       JSON.parse(await nextProbeLine(lines, exit, () => stderr)),
       { ok: true },
@@ -182,9 +167,7 @@ class LineReader {
 
 main().then(
   () => {
-    console.log(
-      "ok - JavaScript SDK downloads workspace and Friend Group audio",
-    );
+    console.log("ok - JavaScript SDK downloads workspace History audio");
     process.exit(0);
   },
   (err: unknown) => {

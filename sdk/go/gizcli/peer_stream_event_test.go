@@ -234,7 +234,7 @@ func TestPeerStreamPushWritesEventsAndOpus(t *testing.T) {
 
 func TestPeerStreamEventToChunkPreservesTypedEOS(t *testing.T) {
 	event := eosEvent("s1", "assistant", "audio/opus", &eventpb.EventError{
-		Code:      "CHATROOM_MEMBER_REMOVED",
+		Code:      "MEMBER_REMOVED",
 		Message:   "removed",
 		Retryable: false,
 	})
@@ -243,7 +243,7 @@ func TestPeerStreamEventToChunkPreservesTypedEOS(t *testing.T) {
 		t.Fatalf("peerStreamEventToChunk() error = %v", err)
 	}
 	if chunk.Ctrl == nil || !chunk.Ctrl.EndOfStream || chunk.Ctrl.StreamID != "s1" ||
-		chunk.Ctrl.ErrorCode != "CHATROOM_MEMBER_REMOVED" || chunk.Ctrl.Error != "removed" {
+		chunk.Ctrl.ErrorCode != "MEMBER_REMOVED" || chunk.Ctrl.Error != "removed" {
 		t.Fatalf("chunk ctrl = %#v", chunk.Ctrl)
 	}
 	blob, ok := chunk.Part.(*genx.Blob)

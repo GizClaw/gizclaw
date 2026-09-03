@@ -85,8 +85,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD = 59,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT = 60,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE = 61,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST = 62,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET = 63,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = 64,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_LIST = 65,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PET_GET = 66,
@@ -118,7 +116,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE = 92,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_DELETE = 93,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT = 94,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD = 95,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE = 96,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST = 97,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE = 98

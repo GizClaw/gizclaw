@@ -14,6 +14,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -449,6 +451,10 @@ func (s *Server) requireOwner(requestID string, owner *string) *rpcapi.RPCRespon
 	return statusError(requestID, http.StatusForbidden, "resource is not owned by the authenticated peer")
 }
 
+// canAccessWorkspace decides Workspace access for the caller. Ordinary
+// Workspaces are owner-only. Social SFU Workspaces are never owner-granted:
+// the authoritative Social KV binding decides, and revoked or foreign
+// memberships fail closed.
 func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace) (bool, error) {
 	if s.owns(item.OwnerPublicKey) && !isSocialWorkspace(item) {
 		return true, nil
@@ -459,23 +465,19 @@ func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace
 		return false, nil
 	}
 	owner := s.Caller.String()
-	if s.Friends != nil {
-		recipients, err := s.Friends.WorkspaceRecipientsByID(ctx, workspaceID)
-		if err != nil {
-			return false, err
-		}
-		if slices.Contains(recipients, owner) {
-			return true, nil
-		}
+	binding, err := s.resolveSocialBinding(ctx, func(resolver sfu.BindingResolver) (socialutil.SFUWorkspaceBinding, error) {
+		return resolver.ResolveSFUWorkspaceBinding(ctx, workspaceID, owner)
+	})
+	switch {
+	case err == nil:
+		return binding.WorkspaceName == workspaceName, nil
+	case errors.Is(err, sfu.ErrNotMember), errors.Is(err, sfu.ErrRevoked):
+		return false, nil
+	case !errors.Is(err, kv.ErrNotFound):
+		return false, err
 	}
-	if s.FriendGroups != nil {
-		recipients, err := s.FriendGroups.WorkspaceRecipientsByID(ctx, workspaceID)
-		if err != nil && !errors.Is(err, kv.ErrNotFound) {
-			return false, err
-		}
-		if slices.Contains(recipients, owner) {
-			return true, nil
-		}
+	if isSocialWorkspace(item) {
+		return false, nil
 	}
 	if s.Gameplay != nil && s.RuntimeProfile != nil {
 		profile := s.RuntimeProfile()
@@ -504,14 +506,82 @@ func excludeSocialWorkspaces(items []apitypes.Workspace) []apitypes.Workspace {
 	return filtered
 }
 
+// isSocialWorkspace reports whether item is a Friend or Friend Group SFU
+// Workspace: a system Workspace bound to the built-in SFU Workflow.
 func isSocialWorkspace(item apitypes.Workspace) bool {
-	if item.System == nil || !*item.System || item.Parameters == nil {
-		return false
+	return item.System != nil && *item.System && item.WorkflowId == socialutil.SFUWorkflowID
+}
+
+// resolveSocialBinding asks the Friend and Friend Group services in turn for
+// the caller's SFU binding. kv.ErrNotFound means neither service binds the
+// Workspace; membership and revocation errors surface unchanged.
+func (s *Server) resolveSocialBinding(
+	ctx context.Context,
+	resolve func(sfu.BindingResolver) (socialutil.SFUWorkspaceBinding, error),
+) (socialutil.SFUWorkspaceBinding, error) {
+	resolvers := make([]sfu.BindingResolver, 0, 2)
+	if s.Friends != nil {
+		resolvers = append(resolvers, s.Friends)
 	}
-	parameters, err := item.Parameters.AsChatRoomWorkspaceParameters()
-	return err == nil &&
-		parameters.Mode != nil &&
-		(*parameters.Mode == apitypes.ChatRoomModeDirect || *parameters.Mode == apitypes.ChatRoomModeGroup)
+	if s.FriendGroups != nil {
+		resolvers = append(resolvers, s.FriendGroups)
+	}
+	for _, resolver := range resolvers {
+		binding, err := resolve(resolver)
+		if err == nil || !errors.Is(err, kv.ErrNotFound) {
+			return binding, err
+		}
+	}
+	return socialutil.SFUWorkspaceBinding{}, kv.ErrNotFound
+}
+
+type systemWorkspaceCreator interface {
+	CreateSystemWorkspace(context.Context, adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error)
+}
+
+// materializeSocialWorkspace creates this Server's copy of a Social SFU
+// Workspace when the shared Social KV binds name for the caller but the local
+// catalog has no record yet. Every Server materializes the same identity,
+// Workflow, and owner, so the copies stay interchangeable.
+func (s *Server) materializeSocialWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
+	creator, ok := s.Workspaces.(systemWorkspaceCreator)
+	if !ok {
+		return apitypes.Workspace{}, kv.ErrNotFound
+	}
+	owner := s.Caller.String()
+	binding, err := s.resolveSocialBinding(ctx, func(resolver sfu.BindingResolver) (socialutil.SFUWorkspaceBinding, error) {
+		if byName, ok := resolver.(interface {
+			ResolveSFUWorkspaceBindingByName(context.Context, string, string) (socialutil.SFUWorkspaceBinding, error)
+		}); ok {
+			return byName.ResolveSFUWorkspaceBindingByName(ctx, name, owner)
+		}
+		return socialutil.SFUWorkspaceBinding{}, kv.ErrNotFound
+	})
+	switch {
+	case errors.Is(err, sfu.ErrNotMember), errors.Is(err, sfu.ErrRevoked):
+		return apitypes.Workspace{}, kv.ErrNotFound
+	case err != nil:
+		return apitypes.Workspace{}, err
+	}
+	return s.materializeSocialWorkspaceBinding(ctx, creator, binding)
+}
+
+func (s *Server) materializeSocialWorkspaceBinding(ctx context.Context, creator systemWorkspaceCreator, binding socialutil.SFUWorkspaceBinding) (apitypes.Workspace, error) {
+	if strings.TrimSpace(binding.Owner) == "" || strings.TrimSpace(binding.WorkspaceID) == "" || strings.TrimSpace(binding.WorkspaceName) == "" {
+		return apitypes.Workspace{}, fmt.Errorf("social Workspace binding %q has no materializable identity", binding.WorkspaceName)
+	}
+	workspace, _, err := creator.CreateSystemWorkspace(ownership.WithOwner(ctx, binding.Owner), adminhttp.WorkspaceUpsert{
+		Id:         binding.WorkspaceID,
+		Name:       binding.WorkspaceName,
+		WorkflowId: socialutil.SFUWorkflowID,
+	})
+	if err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("materialize social Workspace %q: %w", binding.WorkspaceName, err)
+	}
+	if workspace.Id != binding.WorkspaceID || workspace.Name != binding.WorkspaceName {
+		return apitypes.Workspace{}, fmt.Errorf("materialized social Workspace %q has identity %q/%q", binding.WorkspaceName, workspace.Id, workspace.Name)
+	}
+	return workspace, nil
 }
 
 func (s *Server) requireWorkspaceAccess(ctx context.Context, requestID, name string) *rpcapi.RPCResponse {

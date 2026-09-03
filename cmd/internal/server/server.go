@@ -166,6 +166,11 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	if err := configureServiceStores(gizServer, ss, cfg.Services); err != nil {
 		return nil, err
 	}
+	gizServer.SFU, err = cfg.Services.SFU.connectorConfig()
+	if err != nil {
+		return nil, err
+	}
+	gizServer.SFUURL = gizServer.SFU.URL
 	cmdSrv.Server = gizServer
 	transcriptionDuration, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.MaxAudioDuration)
 	transcriptionTimeout, _ := parsePositiveConfigDuration(cfg.Speech.Transcription.RequestTimeout)

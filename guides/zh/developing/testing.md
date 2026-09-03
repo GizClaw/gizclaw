@@ -34,7 +34,9 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-它运行 Redis 7.0、两台使用不同本地 runtime state 的 Server，以及配置 Server 顺序相反的两台 Edge，验证 Peer 固定归属、经任意 Edge 回到 home Server、foreign Server 拒绝、本地 PeerRun 写入和跨 Server Social 零副作用冲突。它不验证 Workspace routing。
+它运行 Redis 7.0、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
+
+`sfu.friend.cross-server.audio-bytes` 不需要凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
 
 ### Cloud ObjectStore conformance
 
@@ -236,7 +238,8 @@ credential value。Dirty 状态下的探索性运行必须显式设置 `GIZCLAW_
 receipt 失效。GizClaw 不通过添加重试或自动 Provider fallback 让该 gate 通过。
 
 音频和 binary 只作为带 `media_type`、`codec`、`max_bytes` 的内存变量传递；`save_as`
-只赋值变量，不写文件。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
+只赋值变量，不写文件。`audio`/`binary` 输入变量声明 `env` 时，环境变量必须是标准 base64
+编码的字节，runner 解码后按 `max_bytes` 校验，供无 Provider 依赖的场景推送已提交的 fixture。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
 CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
 复制独立字节，避免把输入准备阶段的 TTS 容量误当成 Workflow 并发目标。
 
@@ -245,7 +248,7 @@ CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输�
 wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不拥有这项 wire metadata。
 
 `peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
-Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
+以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
@@ -320,12 +323,81 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 把 text 转发与 Opus audio EOS 轮次边界分开；`idle_timeout` 按 active 轮次限制不活动时间，
 由 active 侧进展重置，触发时记录 deadline、client、turn、最后事件和已观察媒体。audio relay
 保留有界 assistant 文本用于断言和终轮 capture，但不重复转发文本。默认 report 不含内容；
-本地 `--evidence full --output <path>` 才写入有界 relay 文本，产物属于敏感文件，但仍不包含
+本地 `--evidence full --output <path>` 才写入有界 relay 文本以及
+`server.speech.transcribe` 步骤识别出的 transcript，产物属于敏感文件，但仍不包含
 输入、凭据、ID 或音频 payload。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
 运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
 验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
+
+### 广播场景：listen、background/await 与 input_sent
+
+SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而不是发送方自己。runner 为此提供
+三个扩展，都遵循现有的 schema、校验、evidence 与 timeout 约定：
+
+- `peer_stream.mode: listen` 是只收不发的操作：必须声明 Go duration `duration`
+  （正数且不超过 5m），不推送任何输入，在该时长内记录 PeerStream 下发的全部 chunk。任何
+  label 的 Opus blob 都算收到的音频（SFU 下行以远端 participant 作为 label）。result 暴露
+  `audio_bytes`、`packets`、`events`、`streams`、`first_audio_ms`、`last_event_ms`、
+  `duration_ms`、`listened_ms`、有界的 `text`、`audio_pacing`，以及与现有 `peer_stream`
+  相同编码的 `/audio`（Ogg/Opus，只在声明了 `/audio` capture 且收到音频时提供，受 output
+  variable 的 `max_bytes` 约束），可以直接交给 `server.speech.transcribe`。收到零音频不是
+  错误，文档用 `expect` 断言 `audio_bytes`。listen 可以在正在发言的 client 上后台运行：两个
+  步骤共享该 connection 唯一的 Peer Event Stream 订阅，发言方听不到自己的音频
+  （mix-minus-self），因此发送方断言 `audio_bytes` 等于 0。listen 不能设置 `input`、`pacing`、
+  `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
+  `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
+  在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
+- step 级 `background: true` 与 `await: <step_id>`：后台步骤只能是 `peer_stream`，在 task
+  goroutine 上解析变量后立即在后台开始，runner 继续执行下一步；它自身不能声明 `capture`、
+  `expect`、`expect_error`、`save_as`、`retry` 或持久 session。`await` 步骤与所有操作字段互斥、
+  不能声明 `client`，等待指定的后台步骤结束（`timeout` 限制等待时长），再把自己的 `capture`、
+  `expect`、`save_as` 应用到该 result；后台步骤的失败也在 `await` 处暴露。被 `await` 的 id
+  必须是 `steps` 中更早声明的后台步骤，每个后台步骤必须在 `finally` 之前恰好被 `await`
+  一次；`finally` 中不允许后台或 `await` 步骤。报告里后台步骤记录 `started` 与它的 `await`
+  步骤 id，`await` 步骤记录完整 result、`background_duration_ms` 和 client。文档提前中止时，
+  runner 取消所有未被 `await` 的后台步骤，等待它们释放 PeerStream，并以 `cancelled` 状态记录在
+  RPC finalizer 之前。play 模式不支持后台步骤。
+- `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
+  （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
+  不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
+  `require_audio`、`interrupt_after` 或 `terminal_label` 组合。result 额外提供 `input_sent`、
+  `input_packets`、`input_ms`（声明输入的 Opus 时长）、`pushed_packets`（realtime 包含尾部
+  静音）和 `input_sent_ms`，并保留推送期间恰好到达的输出计数。
+
+```yaml
+steps:
+  - id: bob_listen
+    client: bob
+    background: true
+    timeout: 20s
+    peer_stream:
+      mode: listen
+      duration: 8s
+  - id: alice_speak
+    client: alice
+    peer_stream:
+      mode: push-to-talk
+      input: ${alice_audio}
+      completion: input_sent
+  - id: bob_heard
+    await: bob_listen
+    timeout: 15s
+    capture:
+      bob_received: /audio
+    expect:
+      /audio_bytes: {minimum: 2000}
+      /packets: {minimum: 50}
+  - id: bob_transcript
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh-CN}
+      input: ${bob_received}
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
+```
 
 ### OpenAI Conversations 与 Responses E2E
 

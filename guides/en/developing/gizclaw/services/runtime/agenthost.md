@@ -56,6 +56,12 @@ resources, but it cannot replace the current connected Peer's Tool set.
 `Service.Reload` snapshots that Peer's RuntimeProfile Tool bindings and attaches
 the exact connection execution handle to the run context.
 
+A Workspace whose Workflow uses the `sfu` driver is an empty runtime entry:
+`ServiceResolver` returns only the Workspace, Workflow, and agent type for it
+and never resolves the owner RuntimeProfile, a toolkit, or Memory. Any Server
+therefore activates a Social SFU Workspace with the shared Social KV and its
+local driver alone, even when the owner Peer registered elsewhere.
+
 `Spec` exposes only `genx.ToolInvoker`. Flowcraft, Eino, DashScope Realtime, and
 Doubao Realtime Duplex receive that interface and never receive Resource,
 RuntimeProfile, Credential, policy, alias, or Peer-transport internals.
@@ -88,5 +94,11 @@ Each `Service` serializes selection writes, reload, stop, and each Realtime inpu
 Agent construction may be shared, but every connection attachment owns independent input, transformed output, consumer, and cancellation. Peer lifecycle correlation therefore stays on those connection-scoped stream boundaries rather than on the shared Agent object. GenX carries the owning boundary's payload-free `FailureClass` (`provider` or `transform`) through stream wrappers and terminal EOS; the first valid class wins, while cancellation, deadlines, and clean completion are never assigned a failure class. A reload failure is represented by the bounded `AGENT_RELOAD_FAILED` EOS and maps to `transform_error`; provider-classified output EOS maps to `provider_error`; unclassified failures and a stream that ends without EOS map to `stream_error`; cancellation and deadlines remain distinct. No raw provider or transform error is added to lifecycle records.
 
 Transformers and history replay drain provider output into growable stream buffers without waiting on a playback clock. Raw Opus, Ogg/Opus, MP3, and PCM audio are decoded or normalized before entering the mixed PCM stream; `PeerConn` reads one frame at each 20 ms pacing opportunity, encodes Opus, and writes it to WebRTC. Normal EOS uses `CloseWrite` so buffered PCM drains, while error EOS uses `CloseWithError` to discard the matching track and its unconsumed stream backlog.
+
+## SFU Workspace runtime
+
+Friend and Friend Group SFU Workspaces share the same Reload, lease, registry, and cancellation paths, but `Host.NewAgent` does not wrap the `sfu` driver in the History wrapper; it installs `noHistoryAgent` instead: history list returns an empty list, play returns `not_found`, nothing is written to History, and neither `workspace_history_updated` nor the Gameplay reward callback fires. The SFU runtime hangs its LiveKit connection, track publication, and remote track readers on the Transform context, so the existing `Service.Reload` order of stopping the previous runtime before activating the new selection is the Workspace-switch cancellation path; no additional state machine exists.
+
+Every remote participant on the SFU downlink uses a distinct `stream_id` and a distinct `label` equal to the participant identity. `MixerOutput` separates decoding and mixer tracks by `(StreamID, MIME)`, while cutover replaces other streams with the same `label` on BOS, so distinct labels are what let multiple remote streams mix concurrently. Connector behavior is described in [SFU composition boundary](/en/developing/gizclaw/services/ai#sfu-composition-boundary); activation and revocation in [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
 
 Direct Workspace turns may install a request-scoped History observer. The observer receives the exact entry after History persistence and before the attachment is released; it does not scan by timestamp or duplicate text. Cancellation and callback synchronization are owned by the requesting attachment and do not change ordinary Peer-run capture.

@@ -90,7 +90,10 @@ func cloneOperationResult(input operationResult) operationResult {
 	return result
 }
 
-func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request, input any, inputSpec, outputSpec VariableSpec) (operationResult, error) {
+// invokeSpeech runs one speech operation. fullEvidence adds the recognized
+// text of a transcription to the report evidence; the default redacted mode
+// keeps only the method because transcripts carry spoken user content.
+func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request, input any, inputSpec, outputSpec VariableSpec, fullEvidence bool) (operationResult, error) {
 	op := step.Speech
 	if op == nil {
 		return operationResult{}, fmt.Errorf("speech operation required")
@@ -143,7 +146,11 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 			return operationResult{}, err
 		}
 		object, err := jsonObject(result)
-		return operationResult{assertion: object, saved: object, evidence: map[string]any{"method": op.Method}}, err
+		evidence := map[string]any{"method": op.Method}
+		if fullEvidence {
+			evidence["transcript"] = result.Transcript
+		}
+		return operationResult{assertion: object, saved: object, evidence: evidence}, err
 	case "server.speech.extract":
 		audio, ok := input.([]byte)
 		if !ok {

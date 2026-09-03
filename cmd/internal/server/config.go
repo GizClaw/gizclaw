@@ -3,10 +3,12 @@ package server
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -70,6 +72,7 @@ type ServicesConfig struct {
 	ProviderTenants *SingleStoreConfig     `yaml:"provider_tenants"`
 	Workflow        *SingleStoreConfig     `yaml:"workflow"`
 	Workspace       *WorkspaceStoresConfig `yaml:"workspace"`
+	SFU             *SFUConfig             `yaml:"sfu"`
 	Toolkit         *SingleStoreConfig     `yaml:"toolkit"`
 	Contact         *SingleStoreConfig     `yaml:"contact"`
 	Friend          *SingleStoreConfig     `yaml:"friend"`
@@ -89,6 +92,98 @@ type WorkspaceStoresConfig struct {
 	HistoryStore       string `yaml:"history_store"`
 	HistoryAssetsStore string `yaml:"history_assets_store"`
 	AssetsStore        string `yaml:"assets_store"`
+}
+
+// SFUConfig binds the Server to one SFU signaling endpoint. Credentials are
+// only ever loaded from files at startup; a missing section disables SFU
+// Workspaces on this Server.
+type SFUConfig struct {
+	URL              string `yaml:"url"`
+	APIKeyFile       string `yaml:"api_key_file"`
+	APISecretFile    string `yaml:"api_secret_file"`
+	RecheckInterval  string `yaml:"recheck_interval"`
+	ReconnectTimeout string `yaml:"reconnect_timeout"`
+}
+
+func (cfg *SFUConfig) validate() error {
+	if cfg == nil {
+		return nil
+	}
+	parsed, err := url.Parse(strings.TrimSpace(cfg.URL))
+	if err != nil {
+		return fmt.Errorf("server: services.sfu.url: %w", err)
+	}
+	if (parsed.Scheme != "ws" && parsed.Scheme != "wss") || parsed.Host == "" {
+		return fmt.Errorf("server: services.sfu.url must be a ws:// or wss:// URL")
+	}
+	if strings.TrimSpace(cfg.APIKeyFile) == "" {
+		return fmt.Errorf("server: services.sfu.api_key_file is required")
+	}
+	if strings.TrimSpace(cfg.APISecretFile) == "" {
+		return fmt.Errorf("server: services.sfu.api_secret_file is required")
+	}
+	if _, _, err := cfg.durations(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cfg *SFUConfig) durations() (recheck, reconnect time.Duration, err error) {
+	recheck = sfu.DefaultRecheckInterval
+	reconnect = sfu.DefaultReconnectTimeout
+	if strings.TrimSpace(cfg.RecheckInterval) != "" {
+		if recheck, err = parsePositiveConfigDuration(cfg.RecheckInterval); err != nil {
+			return 0, 0, fmt.Errorf("server: services.sfu.recheck_interval: %w", err)
+		}
+	}
+	if strings.TrimSpace(cfg.ReconnectTimeout) != "" {
+		if reconnect, err = parsePositiveConfigDuration(cfg.ReconnectTimeout); err != nil {
+			return 0, 0, fmt.Errorf("server: services.sfu.reconnect_timeout: %w", err)
+		}
+	}
+	return recheck, reconnect, nil
+}
+
+// connectorConfig loads the credential files and returns the runtime
+// connector configuration. A nil receiver yields the zero, disabled config.
+func (cfg *SFUConfig) connectorConfig() (sfu.Config, error) {
+	if cfg == nil {
+		return sfu.Config{}, nil
+	}
+	if err := cfg.validate(); err != nil {
+		return sfu.Config{}, err
+	}
+	recheck, reconnect, err := cfg.durations()
+	if err != nil {
+		return sfu.Config{}, err
+	}
+	apiKey, err := readSecretFile("services.sfu.api_key_file", cfg.APIKeyFile)
+	if err != nil {
+		return sfu.Config{}, err
+	}
+	apiSecret, err := readSecretFile("services.sfu.api_secret_file", cfg.APISecretFile)
+	if err != nil {
+		return sfu.Config{}, err
+	}
+	return sfu.Config{
+		URL:              strings.TrimSpace(cfg.URL),
+		APIKey:           apiKey,
+		APISecret:        apiSecret,
+		RecheckInterval:  recheck,
+		ReconnectTimeout: reconnect,
+	}, nil
+}
+
+func readSecretFile(path, file string) (string, error) {
+	data, err := os.ReadFile(os.ExpandEnv(strings.TrimSpace(file)))
+	if err != nil {
+		return "", fmt.Errorf("server: %s: %w", path, err)
+	}
+	value := strings.TrimSpace(string(data))
+	if value == "" {
+		return "", fmt.Errorf("server: %s is empty", path)
+	}
+	return value, nil
 }
 
 type GameplayStoresConfig struct {
@@ -992,6 +1087,9 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 	if cfg.Metrics != nil && strings.TrimSpace(cfg.Metrics.Store) == "" {
 		return fmt.Errorf("server: services.metrics.store is required and must not be whitespace-only")
 	}
+	if err := cfg.SFU.validate(); err != nil {
+		return err
+	}
 	if cfg.SystemLog != nil {
 		if _, err := gizlog.PrepareConfig(*cfg.SystemLog); err != nil {
 			return fmt.Errorf("server: %w", err)
@@ -1233,6 +1331,11 @@ func validateServicesConfigShape(services map[string]any) error {
 			return err
 		}
 	}
+	if value, exists := services["sfu"]; exists && value != nil {
+		if err := validateSFUConfigShape("services.sfu", value); err != nil {
+			return err
+		}
+	}
 	if value, exists := services["system_log"]; exists {
 		if err := validateSystemLogConfigShape("services.system_log", value); err != nil {
 			return err
@@ -1271,6 +1374,35 @@ func validateSystemLogConfigShape(path string, value any) error {
 				if err := validateFileStoreReference(fmt.Sprintf("%s.sinks[%d].%s", path, index, field), reference); err != nil {
 					return err
 				}
+			}
+		}
+	}
+	return nil
+}
+
+func validateSFUConfigShape(path string, value any) error {
+	mapping, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("server: %s must be a mapping", path)
+	}
+	for field := range mapping {
+		switch field {
+		case "url", "api_key_file", "api_secret_file", "recheck_interval", "reconnect_timeout":
+		default:
+			return fmt.Errorf("server: %s has unknown field %q; credentials are loaded from api_key_file and api_secret_file", path, field)
+		}
+	}
+	for _, field := range []string{"url", "api_key_file", "api_secret_file"} {
+		if reference, exists := mapping[field]; exists {
+			if err := validateFileStoreReference(path+"."+field, reference); err != nil {
+				return err
+			}
+		}
+	}
+	for _, field := range []string{"recheck_interval", "reconnect_timeout"} {
+		if reference, exists := mapping[field]; exists {
+			if _, ok := reference.(string); !ok {
+				return fmt.Errorf("server: %s.%s must be a string", path, field)
 			}
 		}
 	}

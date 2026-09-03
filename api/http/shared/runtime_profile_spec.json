@@ -43,19 +43,9 @@
       },
       "RuntimeProfileSystemWorkflows": {
         "type": "object",
-        "required": ["friend_chatroom", "group_chatroom", "pet"],
+        "required": ["pet"],
         "additionalProperties": false,
         "properties": {
-          "friend_chatroom": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Persisted Workflow resource ID for direct friend chat Workspaces."
-          },
-          "group_chatroom": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Persisted Workflow resource ID for friend-group chat Workspaces."
-          },
           "pet": {
             "type": "string",
             "minLength": 1,
@@ -555,11 +545,11 @@
           "workspace_kinds": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 3,
+            "maxItems": 1,
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "enum": ["workflow", "direct_chatroom", "group_chatroom"]
+              "enum": ["workflow"]
             }
           },
           "debounce": {

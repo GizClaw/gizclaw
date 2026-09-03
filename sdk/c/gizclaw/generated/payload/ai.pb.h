@@ -123,45 +123,6 @@ typedef struct _gizclaw_rpc_v1_ASTTranslateWorkspaceParameters {
     gizclaw_rpc_v1_ASTTranslateVoiceParameters voice;
 } gizclaw_rpc_v1_ASTTranslateWorkspaceParameters;
 
-typedef struct _gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec {
-    pb_callback_t ttl;
-} gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec;
-
-typedef struct _gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec {
-    pb_callback_t asr_model;
-    bool has_enabled;
-    bool enabled;
-} gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec;
-
-typedef struct _gizclaw_rpc_v1_ChatRoomWorkflowSpec {
-    bool has_history;
-    gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec history;
-    bool has_transcript;
-    gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec transcript;
-} gizclaw_rpc_v1_ChatRoomWorkflowSpec;
-
-typedef struct _gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters {
-    pb_callback_t ttl;
-} gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters;
-
-typedef struct _gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters {
-    pb_callback_t asr_model;
-    bool has_enabled;
-    bool enabled;
-} gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters;
-
-typedef struct _gizclaw_rpc_v1_ChatRoomWorkspaceParameters {
-    gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType agent_type;
-    bool has_history;
-    gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters history;
-    bool has_input;
-    gizclaw_rpc_v1_WorkspaceInputMode input;
-    bool has_mode;
-    gizclaw_rpc_v1_ChatRoomMode mode;
-    bool has_transcript;
-    gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters transcript;
-} gizclaw_rpc_v1_ChatRoomWorkspaceParameters;
-
 typedef struct _gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec {
     pb_callback_t asr_model;
     bool has_enable_asr;
@@ -732,8 +693,6 @@ typedef struct _gizclaw_rpc_v1_PetWorkflowSpec {
     gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec doubao_realtime;
     bool has_ast_translate;
     gizclaw_rpc_v1_ASTTranslateWorkflowSpec ast_translate;
-    bool has_chatroom;
-    gizclaw_rpc_v1_ChatRoomWorkflowSpec chatroom;
     bool has_dashscope_realtime;
     gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec dashscope_realtime;
     bool has_doubao_realtime_duplex;
@@ -816,15 +775,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ASTTranslateMode
-
-
-
-
-
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_input_ENUMTYPE gizclaw_rpc_v1_WorkspaceInputMode
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_mode_ENUMTYPE gizclaw_rpc_v1_ChatRoomMode
-
 
 
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_agent_type_ENUMTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType
@@ -924,12 +874,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_default}}
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default {false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_default {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_default}
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default {false, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_default}
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_default {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_default {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_default, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default}
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_default {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_default {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
@@ -960,7 +904,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ConversationParameters_init_default {false, _gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_ConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default {false, google_protobuf_Struct_init_default}
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
-#define gizclaw_rpc_v1_PetWorkflowSpec_init_default {_gizclaw_rpc_v1_ReusableWorkflowDriver_MIN, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_default, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_default, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_default}
+#define gizclaw_rpc_v1_PetWorkflowSpec_init_default {_gizclaw_rpc_v1_ReusableWorkflowDriver_MIN, false, gizclaw_rpc_v1_ToolkitPolicy_init_default, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_default, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_default, false, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_default, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_default}
 #define gizclaw_rpc_v1_Model_init_default        {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_ResourceI18nText_init_default}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_default {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -1007,12 +951,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero {0, {gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_init_zero}}
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero {false, 0, false, 0, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ASTTranslateWorkspaceParametersAgentType_MIN, false, 0, false, 0, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, {{NULL}, NULL}, false, _gizclaw_rpc_v1_ASTTranslateMode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ASTTranslateVoiceParameters_init_zero}
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero {false, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_zero}
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_init_zero {{{NULL}, NULL}, false, 0}
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_init_zero {_gizclaw_rpc_v1_ChatRoomWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_init_zero, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, _gizclaw_rpc_v1_ChatRoomMode_MIN, false, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero}
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_init_zero {{{NULL}, NULL}, false, 0}
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_init_zero {_gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParametersAgentType_MIN, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, false, 0, false, 0, {{NULL}, NULL}}
@@ -1043,7 +981,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ConversationParameters_init_zero {false, _gizclaw_rpc_v1_ConversationParametersAgentInitiativePolicy_MIN, false, _gizclaw_rpc_v1_ConversationParametersInitiative_MIN}
 #define gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero {false, google_protobuf_Struct_init_zero}
 #define gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero {_gizclaw_rpc_v1_FlowcraftWorkspaceParametersAgentType_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
-#define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {_gizclaw_rpc_v1_ReusableWorkflowDriver_MIN, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ChatRoomWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_zero, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_zero}
+#define gizclaw_rpc_v1_PetWorkflowSpec_init_zero {_gizclaw_rpc_v1_ReusableWorkflowDriver_MIN, false, gizclaw_rpc_v1_ToolkitPolicy_init_zero, false, gizclaw_rpc_v1_FlowcraftWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_ASTTranslateWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_init_zero, false, gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_init_zero, false, gizclaw_rpc_v1_EinoWorkflowSpec_init_zero}
 #define gizclaw_rpc_v1_Model_init_zero           {{{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_ModelKind_MIN, 0, {gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero}, _gizclaw_rpc_v1_ModelProviderKind_MIN}
 #define gizclaw_rpc_v1_Model_I18nEntry_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_ResourceI18nText_init_zero}
 #define gizclaw_rpc_v1_OpenAITenantModelProviderData_init_zero {{{NULL}, NULL}, false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -1123,19 +1061,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_mode_tag 7
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_translation_model_tag 8
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_tag 9
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_ttl_tag 1
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_asr_model_tag 1
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_enabled_tag 2
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_history_tag 1
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_transcript_tag 2
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_ttl_tag 1
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_asr_model_tag 1
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_enabled_tag 2
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_agent_type_tag 1
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_history_tag 2
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_input_tag 3
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_mode_tag 4
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_transcript_tag 5
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_asr_model_tag 1
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_enable_asr_tag 2
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_input_audio_format_tag 3
@@ -1415,7 +1340,6 @@ extern "C" {
 #define gizclaw_rpc_v1_PetWorkflowSpec_flowcraft_tag 3
 #define gizclaw_rpc_v1_PetWorkflowSpec_doubao_realtime_tag 4
 #define gizclaw_rpc_v1_PetWorkflowSpec_ast_translate_tag 5
-#define gizclaw_rpc_v1_PetWorkflowSpec_chatroom_tag 6
 #define gizclaw_rpc_v1_PetWorkflowSpec_dashscope_realtime_tag 7
 #define gizclaw_rpc_v1_PetWorkflowSpec_doubao_realtime_duplex_tag 8
 #define gizclaw_rpc_v1_PetWorkflowSpec_eino_tag  9
@@ -1535,47 +1459,6 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  voice,             9)
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_DEFAULT NULL
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_voice_MSGTYPE gizclaw_rpc_v1_ASTTranslateVoiceParameters
-
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   ttl,               1)
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_DEFAULT NULL
-
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  history,           1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  transcript,        2)
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_CALLBACK NULL
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_DEFAULT NULL
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_history_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_transcript_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec
-
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   asr_model,         1) \
-X(a, STATIC,   OPTIONAL, BOOL,     enabled,           2)
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_DEFAULT NULL
-
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   ttl,               1)
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_DEFAULT NULL
-
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    agent_type,        1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  history,           2) \
-X(a, STATIC,   OPTIONAL, UENUM,    input,             3) \
-X(a, STATIC,   OPTIONAL, UENUM,    mode,              4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  transcript,        5)
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_CALLBACK NULL
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_DEFAULT NULL
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_history_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_transcript_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters
-
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_FIELDLIST(X, a) \
-X(a, CALLBACK, OPTIONAL, STRING,   asr_model,         1) \
-X(a, STATIC,   OPTIONAL, BOOL,     enabled,           2)
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_DEFAULT NULL
 
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   asr_model,         1) \
@@ -1879,7 +1762,6 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  toolkit,           2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  flowcraft,         3) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  doubao_realtime,   4) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  ast_translate,     5) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  chatroom,          6) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  dashscope_realtime,   7) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  doubao_realtime_duplex,   8) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  eino,              9)
@@ -1889,7 +1771,6 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  eino,              9)
 #define gizclaw_rpc_v1_PetWorkflowSpec_flowcraft_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkflowSpec
 #define gizclaw_rpc_v1_PetWorkflowSpec_doubao_realtime_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkflowSpec
 #define gizclaw_rpc_v1_PetWorkflowSpec_ast_translate_MSGTYPE gizclaw_rpc_v1_ASTTranslateWorkflowSpec
-#define gizclaw_rpc_v1_PetWorkflowSpec_chatroom_MSGTYPE gizclaw_rpc_v1_ChatRoomWorkflowSpec
 #define gizclaw_rpc_v1_PetWorkflowSpec_dashscope_realtime_MSGTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec
 #define gizclaw_rpc_v1_PetWorkflowSpec_doubao_realtime_duplex_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec
 #define gizclaw_rpc_v1_PetWorkflowSpec_eino_MSGTYPE gizclaw_rpc_v1_EinoWorkflowSpec
@@ -2217,12 +2098,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateInternalSpeakerParameters_m
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateVoiceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkflowSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkspaceParameters_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_msg;
@@ -2302,12 +2177,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 #define gizclaw_rpc_v1_ASTTranslateVoiceParameters_fields &gizclaw_rpc_v1_ASTTranslateVoiceParameters_msg
 #define gizclaw_rpc_v1_ASTTranslateWorkflowSpec_fields &gizclaw_rpc_v1_ASTTranslateWorkflowSpec_msg
 #define gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_fields &gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_msg
-#define gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_fields &gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_msg
-#define gizclaw_rpc_v1_ChatRoomWorkflowSpec_fields &gizclaw_rpc_v1_ChatRoomWorkflowSpec_msg
-#define gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_fields &gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_msg
-#define gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_fields &gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_msg
-#define gizclaw_rpc_v1_ChatRoomWorkspaceParameters_fields &gizclaw_rpc_v1_ChatRoomWorkspaceParameters_msg
-#define gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_fields &gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_msg
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_fields &gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_msg
 #define gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_fields &gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_msg
 #define gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_fields &gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_msg
@@ -2381,12 +2250,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ToolInvokeResponse_msg;
 /* gizclaw_rpc_v1_ASTTranslateVoiceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ASTTranslateWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ChatRoomWorkflowSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ChatRoomWorkspaceParameters_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkflowSpec_size depends on runtime parameters */

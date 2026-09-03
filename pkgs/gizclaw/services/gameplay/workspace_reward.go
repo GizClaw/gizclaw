@@ -62,11 +62,10 @@ type workspaceRewardAvailability interface {
 
 type WorkspaceRewardKind string
 
-const (
-	WorkspaceRewardKindWorkflow       WorkspaceRewardKind = "workflow"
-	WorkspaceRewardKindDirectChatroom WorkspaceRewardKind = "direct_chatroom"
-	WorkspaceRewardKindGroupChatroom  WorkspaceRewardKind = "group_chatroom"
-)
+// WorkspaceRewardKindWorkflow is the only Workspace kind with History-backed
+// reward evaluation. Social SFU Workspaces carry no History and no Agent
+// output, so no reward kind exists for them.
+const WorkspaceRewardKindWorkflow WorkspaceRewardKind = "workflow"
 
 type WorkspaceRewardBadgePolicy struct {
 	Alias           string `json:"alias"`

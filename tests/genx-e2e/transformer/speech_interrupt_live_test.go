@@ -13,8 +13,6 @@ import (
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoasr"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaoast"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaotts"
@@ -46,28 +44,6 @@ func TestDoubaoASRLiveRepeatedInterrupt(t *testing.T) {
 		t.Fatalf("doubaoasr.New() failed: %v", err)
 	}
 	runLiveTranscriptRepeatedInterrupt(t, transformer, "doubao-asr")
-}
-
-func TestChatroomLiveRepeatedInterrupt(t *testing.T) {
-	loadGenXE2EEnv(t)
-	pacing := false
-	asr, err := doubaoasr.New(doubaoasr.Config{
-		Client: liveDoubaoClient(t), EmitInterim: true, RealtimePacing: &pacing,
-	})
-	if err != nil {
-		t.Fatalf("doubaoasr.New() failed: %v", err)
-	}
-	mux := transformers.NewMux()
-	if err := mux.Handle("asr?emit_interim=true", asr); err != nil {
-		t.Fatalf("register ASR: %v", err)
-	}
-	transformer, err := chatroom.New(chatroom.Config{
-		ASR: mux, TranscriptEnabled: true, ASRPattern: "asr", InputMode: chatroom.InputModeRealtime,
-	})
-	if err != nil {
-		t.Fatalf("chatroom.New() failed: %v", err)
-	}
-	runLiveTranscriptRepeatedInterrupt(t, transformer, "chatroom")
 }
 
 func TestDoubaoSeedV2TTSLiveRepeatedInterrupt(t *testing.T) {

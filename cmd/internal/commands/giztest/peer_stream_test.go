@@ -899,3 +899,187 @@ func TestInvokePeerStreamIdleTimeoutAppliesAfterInterruptReplacement(t *testing.
 		t.Fatalf("evidence = %#v", result.evidence)
 	}
 }
+
+func listenStep(duration string) Step {
+	return Step{ID: "listen", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "listen", Duration: duration}}
+}
+
+func TestListenPeerStreamCapturesReceivedOpusFromAnyLabel(t *testing.T) {
+	stream := newFakeRelayStream()
+	oggAudio, packets := testOggOpus(t)
+	wantBytes := 0
+	for _, packet := range packets {
+		wantBytes += len(packet)
+	}
+	stream.in <- &genx.MessageChunk{Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "remote-a", Label: "participant-a"}}
+	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: packets[0]}, Ctrl: &genx.StreamCtrl{StreamID: "remote-a", Label: "participant-a"}}
+	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: packets[1]}, Ctrl: &genx.StreamCtrl{StreamID: "remote-b", Label: "participant-b"}}
+	stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "text/plain"}, Ctrl: &genx.StreamCtrl{StreamID: "remote-a", Label: "participant-a", EndOfStream: true}}
+	started := time.Now()
+	result, err := listenPeerStream(context.Background(), stream, listenStep("250ms"), len(oggAudio)*4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed < 250*time.Millisecond || elapsed > 3*time.Second {
+		t.Fatalf("listen returned after %s, want the declared duration", elapsed)
+	}
+	object := result.assertion.(map[string]any)
+	if object["audio_bytes"] != wantBytes || object["packets"] != 2 || object["events"] != 4 || object["streams"] != 2 {
+		t.Fatalf("listen result = %#v", object)
+	}
+	if first, _ := object["first_audio_ms"].(int64); first < 1 {
+		t.Fatalf("first_audio_ms = %v", object["first_audio_ms"])
+	}
+	if texts, _ := object["text"].([]string); len(texts) != 1 {
+		t.Fatalf("text fragments = %#v", object["text"])
+	}
+	audio, ok := object["audio"].([]byte)
+	if !ok || !bytes.HasPrefix(audio, []byte("OggS")) {
+		t.Fatalf("captured audio is not Ogg: %#v", object["audio"])
+	}
+	decoded, err := decodeOpusPackets(audio)
+	if err != nil || len(decoded) != 2 {
+		t.Fatalf("captured Ogg decodes to %d packets, err %v", len(decoded), err)
+	}
+	if result.evidence["audio_bytes"] != wantBytes || result.evidence["mode"] != "listen" || result.evidence["duration_ms"] != int64(250) {
+		t.Fatalf("listen evidence = %#v", result.evidence)
+	}
+	if _, present := result.evidence["audio"]; present {
+		t.Fatal("listen evidence leaks audio payload")
+	}
+	if _, present := object["audio_pacing"]; !present {
+		t.Fatalf("listen result lacks audio_pacing: %#v", object)
+	}
+}
+
+func TestListenPeerStreamAcceptsSilence(t *testing.T) {
+	stream := newFakeRelayStream()
+	result, err := listenPeerStream(context.Background(), stream, listenStep("50ms"), 4096)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	if object["audio_bytes"] != 0 || object["packets"] != 0 || object["events"] != 0 {
+		t.Fatalf("silent listen result = %#v", object)
+	}
+	if _, present := object["audio"]; present {
+		t.Fatal("silent listen produced audio")
+	}
+	if _, present := object["audio_pacing"]; present {
+		t.Fatal("silent listen produced audio_pacing")
+	}
+}
+
+func TestListenPeerStreamEnforcesCaptureBound(t *testing.T) {
+	stream := newFakeRelayStream()
+	_, packets := testOggOpus(t)
+	for _, packet := range packets {
+		stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: "remote", Label: "participant"}}
+	}
+	_, err := listenPeerStream(context.Background(), stream, listenStep("1s"), len(packets[0]))
+	if err == nil || !strings.Contains(err.Error(), "exceeds output variable max_bytes") {
+		t.Fatalf("capture bound error = %v", err)
+	}
+}
+
+func TestListenPeerStreamFailsOnEarlyCloseAndCancellation(t *testing.T) {
+	closed := newFakeRelayStream()
+	close(closed.in)
+	result, err := listenPeerStream(context.Background(), closed, listenStep("1s"), 0)
+	if err == nil || !strings.Contains(err.Error(), "closed before the listen duration") || result.evidence["events"] != 0 {
+		t.Fatalf("early close error = %v, evidence %#v", err, result.evidence)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	result, err = listenPeerStream(ctx, newFakeRelayStream(), listenStep("10s"), 0)
+	if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != "timeout" {
+		t.Fatalf("cancellation error = %v, evidence %#v", err, result.evidence)
+	}
+}
+
+func TestInvokePeerStreamListenModeUsesListenPath(t *testing.T) {
+	stream := newFakeRelayStream()
+	result, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, listenStep("20ms"), nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.evidence["mode"] != "listen" || len(stream.pushes) != 0 {
+		t.Fatalf("listen pushed input or used the wrong path: %#v pushes=%d", result.evidence, len(stream.pushes))
+	}
+	select {
+	case <-stream.closed:
+	default:
+		t.Fatal("listen stream was not closed")
+	}
+}
+
+func TestInvokePeerStreamInputSentCompletesAfterEOS(t *testing.T) {
+	stream := newFakeRelayStream()
+	oggAudio, packets := testOggOpus(t)
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk", Completion: "input_sent"}}
+	started := time.Now()
+	result, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, step, oggAudio, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(started) > 2*time.Second {
+		t.Fatal("input_sent waited for output")
+	}
+	if got := len(stream.pushes); got != len(packets)+2 {
+		t.Fatalf("pushed chunks = %d, want BOS + %d packets + EOS", got, len(packets))
+	}
+	var last *genx.MessageChunk
+	for len(stream.pushes) > 0 {
+		last = <-stream.pushes
+	}
+	if !last.IsEndOfStream() {
+		t.Fatal("input_sent returned before the EOS was pushed")
+	}
+	object := result.assertion.(map[string]any)
+	if object["input_sent"] != true || object["input_packets"] != len(packets) || object["input_ms"] != int64(40) || object["pushed_packets"] != len(packets) || object["audio_bytes"] != 0 {
+		t.Fatalf("input_sent result = %#v", object)
+	}
+	if result.evidence["input_packets"] != len(packets) || result.evidence["input_ms"] != int64(40) {
+		t.Fatalf("input_sent evidence = %#v", result.evidence)
+	}
+}
+
+func TestInvokePeerStreamInputSentRecordsAlreadyArrivedOutput(t *testing.T) {
+	stream := newFakeRelayStream()
+	oggAudio, packets := testOggOpus(t)
+	stream.in <- assistantText("s1", "early", false)
+	pushed := make(chan int, 1)
+	go func() {
+		count := 0
+		for {
+			select {
+			case <-stream.pushes:
+				count++
+			case <-stream.closed:
+				for len(stream.pushes) > 0 {
+					<-stream.pushes
+					count++
+				}
+				pushed <- count
+				return
+			}
+		}
+	}()
+	// Pacing keeps the push loop busy long enough for the reader to deliver
+	// the queued assistant text before the last packet is on the wire.
+	step := Step{ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "realtime", Completion: "input_sent", Pacing: "2ms"}}
+	result, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, step, oggAudio, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	if got := <-pushed; got != object["pushed_packets"].(int)+1 {
+		t.Fatalf("pushed chunks = %d, want BOS + %v realtime packets without EOS", got, object["pushed_packets"])
+	}
+	if object["input_packets"] != len(packets) || object["pushed_packets"].(int) <= len(packets) {
+		t.Fatalf("realtime input_sent result = %#v", object)
+	}
+	if texts, _ := object["text"].([]string); len(texts) != 1 || texts[0] != "early" {
+		t.Fatalf("already arrived output = %#v", object["text"])
+	}
+}

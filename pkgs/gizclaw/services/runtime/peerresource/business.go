@@ -14,10 +14,8 @@ import (
 
 func businessError(id string, err error) *rpcapi.RPCResponse {
 	switch {
-	case errors.Is(err, friend.ErrCrossServerFriendCreation):
-		return statusError(id, http.StatusConflict, friend.ErrCrossServerFriendCreation.Error())
-	case errors.Is(err, friendgroup.ErrCrossServerFriendGroupMembership):
-		return statusError(id, http.StatusConflict, friendgroup.ErrCrossServerFriendGroupMembership.Error())
+	case errors.Is(err, friendgroup.ErrFriendGroupFull):
+		return statusError(id, http.StatusConflict, "friend group is full")
 	case errors.Is(err, friend.ErrInviteTokenRequired):
 		return statusError(id, http.StatusBadRequest, "friend invite token is required")
 	case errors.Is(err, friend.ErrInviteTokenUnavailable):

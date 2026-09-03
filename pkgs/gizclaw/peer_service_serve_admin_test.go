@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
@@ -51,14 +52,13 @@ func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	}
 }
 
-func TestAdminSocialErrorMapsCrossServerConflicts(t *testing.T) {
+func TestAdminSocialErrorMapsFriendGroupFull(t *testing.T) {
 	for _, test := range []struct {
 		err     error
 		code    string
 		message string
 	}{
-		{err: friend.ErrCrossServerFriendCreation, code: "CROSS_SERVER_FRIEND_CREATION_UNSUPPORTED", message: "cross-server friend creation is not supported"},
-		{err: friendgroup.ErrCrossServerFriendGroupMembership, code: "CROSS_SERVER_FRIEND_GROUP_MEMBERSHIP_UNSUPPORTED", message: "cross-server friend group membership is not supported"},
+		{err: friendgroup.ErrFriendGroupFull, code: "FRIEND_GROUP_FULL", message: friendgroup.ErrFriendGroupFull.Error()},
 	} {
 		status, body := adminSocialError(fmt.Errorf("wrapped: %w", test.err))
 		if status != http.StatusConflict || body.Error.Code != test.code || body.Error.Message != test.message {
@@ -231,18 +231,7 @@ func newTestFriendServer(store kv.Store) *friend.Server {
 	return &friend.Server{
 		Friends:    store,
 		Workspaces: &adminGameplayWorkspaceService{},
-		RuntimeProfileForOwner: func(
-			context.Context,
-			string,
-		) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-				Workflows: apitypes.RuntimeProfileWorkflows{
-					System: apitypes.RuntimeProfileSystemWorkflows{
-						FriendChatroom: "friend-chatroom",
-					},
-				},
-			}}, nil
-		},
+		SFUURL:     "wss://sfu.test",
 	}
 }
 
@@ -265,19 +254,19 @@ func (s *adminGameplayWorkspaceService) GetWorkspace(_ context.Context, request 
 	return adminhttp.GetWorkspace200JSONResponse(apitypes.Workspace{Id: request.Id}), nil
 }
 
-func (s *adminGameplayWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *adminGameplayWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Name: name}, nil
 }
 
-func (s *adminGameplayWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *adminGameplayWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Id: id}, nil
 }
 
-func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, _ string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, _ string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
-func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, _ string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *adminGameplayWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, _ string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
@@ -448,11 +437,9 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		Belongs:           groupStore,
 		RelationshipStore: groupStore,
 		Workspaces:        &adminGameplayWorkspaceService{},
-		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{System: apitypes.RuntimeProfileSystemWorkflows{GroupChatroom: "chatroom"}}}}, nil
-		},
-		Now:   func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
-		NewID: func() string { return "group-a" },
+		SFUURL:            "wss://sfu.test",
+		Now:               func() time.Time { return time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC) },
+		NewID:             func() string { return "group-a" },
 	}
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	adminhttp.RegisterHandlers(app, adminhttp.NewStrictHandler(&adminService{Friends: friendService, FriendGroups: groupService}, nil))

@@ -5,6 +5,7 @@ package admin_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -19,9 +20,9 @@ import (
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
-func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) {
+func TestAdminAPIWorkspaceHistoryListAndGetFromWorkflowWorkspace(t *testing.T) {
 	env := newAdminAPIHarness(t)
-	_, workspaceID, texts := createAdminSocialConversationHistory(t, env)
+	_, workspaceID, texts := createAdminWorkflowWorkspaceHistory(t, env)
 	order := adminhttp.Asc
 	limit := 2
 
@@ -67,7 +68,7 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromSocialConversation(t *testing.T) 
 	}
 }
 
-func TestAdminAPISocialWorkspaceHistoryStartsEmptyUntilConversation(t *testing.T) {
+func TestAdminAPISocialWorkspaceHistoryIsEmpty(t *testing.T) {
 	env := newAdminAPIHarness(t)
 	peer := env.h.ConnectClientFromContext("admin-api-peer")
 	defer peer.Close()
@@ -108,47 +109,45 @@ func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness,
 	}
 	requireStatusOK(t, history, history.Body)
 	if history.JSON200 == nil || len(history.JSON200.Items) != 0 || history.JSON200.HasNext {
-		t.Fatalf("%s workspace history = %#v, want empty setup history", label, history.JSON200)
+		t.Fatalf("%s workspace history = %#v, want empty SFU Workspace history", label, history.JSON200)
 	}
 }
 
-func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (string, string, []string) {
+const (
+	adminHistoryCollection    = "assistants"
+	adminHistoryWorkflowAlias = "echo"
+	adminHistoryWorkflowID    = "flowcraft-scenario-000"
+)
+
+func createAdminWorkflowWorkspaceHistory(t *testing.T, env *adminAPIHarness) (string, string, []string) {
 	t.Helper()
 
-	const (
-		writerContext = "admin-history-writer"
-		readerContext = "admin-history-reader"
-	)
+	const writerContext = "admin-history-writer"
 	env.h.CreateContext(writerContext).MustSucceed(t)
 	env.h.RegisterContext(writerContext, "--sn", "admin-history-writer-sn").MustSucceed(t)
-	env.h.CreateContext(readerContext).MustSucceed(t)
-	env.h.RegisterContext(readerContext, "--sn", "admin-history-reader-sn").MustSucceed(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	reader := env.h.ConnectClientFromContext(readerContext)
-	defer reader.Close()
-	token, err := reader.CreateFriendInviteToken(ctx, "admin.history.friend.invite_token.create", rpcapi.FriendInviteTokenCreateRequest{})
-	if err != nil {
-		t.Fatalf("create friend invite token: %v", err)
-	}
-
 	writer := env.h.ConnectClientFromContext(writerContext)
 	defer writer.Close()
 	env.reconnectAdminAPI(t)
-	registerAdminHistoryPeers(t, env, writer, reader)
-	friend, err := writer.AddFriend(ctx, "admin.history.friend.add", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
+	registerAdminHistoryPeers(t, env, writer)
+	workspaceName := fmt.Sprintf("admin-history-%d", time.Now().UnixNano())
+	created, err := writer.CreateWorkspace(ctx, "admin.history.workspace.create", rpcapi.WorkspaceCreateRequest{
+		Name: workspaceName, Collection: adminHistoryCollection, WorkflowName: adminHistoryWorkflowAlias,
+	})
 	if err != nil {
-		t.Fatalf("add friend by invite token: %v", err)
+		t.Fatalf("create Workflow Workspace %q: %v", workspaceName, err)
 	}
-	workspaceName := adminStringValue(friend.WorkspaceName)
-	if strings.TrimSpace(workspaceName) == "" {
-		t.Fatalf("friend workspace name is empty: %#v", friend)
-	}
+	t.Cleanup(func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+		_, _ = writer.DeleteWorkspace(cleanupCtx, "admin.history.workspace.cleanup", rpcapi.WorkspaceDeleteRequest{Name: created.Name})
+	})
 	workspace, found, err := clitest.WorkspaceByName(env.ctx, env.api, workspaceName)
 	if err != nil || !found {
-		t.Fatalf("resolve friend workspace %q: found=%v err=%v", workspaceName, found, err)
+		t.Fatalf("resolve Workflow Workspace %q: found=%v err=%v", workspaceName, found, err)
 	}
 	if _, err := writer.SetServerRunWorkspace(ctx, "admin.history.workspace.set", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: workspaceName}); err != nil {
 		t.Fatalf("set run workspace %q: %v", workspaceName, err)
@@ -167,9 +166,9 @@ func createAdminSocialConversationHistory(t *testing.T, env *adminAPIHarness) (s
 	defer chat.Close()
 
 	texts := []string{
-		"admin history social round one",
-		"admin history social round two",
-		"admin history social round three",
+		"admin history workflow round one",
+		"admin history workflow round two",
+		"admin history workflow round three",
 	}
 	for i, text := range texts {
 		sendAdminChatText(t, ctx, chat, "admin-chat-text-"+strconv.Itoa(i+1), text)
@@ -186,10 +185,10 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		tokenName   = "admin-workspace-history"
 	)
 	binding := apitypes.RuntimeProfileBinding{
-		ResourceId: "chatroom-direct",
+		ResourceId: adminHistoryWorkflowID,
 		I18n: map[string]apitypes.RuntimeProfileI18nText{
-			"en":    {DisplayName: "Direct chat"},
-			"zh-CN": {DisplayName: "私聊"},
+			"en":    {DisplayName: "Echo"},
+			"zh-CN": {DisplayName: "回声"},
 		},
 	}
 	profile, err := clitest.UpsertRuntimeProfile(env.ctx, env.api, adminhttp.RuntimeProfileUpsert{
@@ -198,12 +197,10 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 			Resources: apitypes.RuntimeProfileResources{},
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: "chatroom-direct",
-					GroupChatroom:  "chatroom-direct",
-					Pet:            "pet-chatroom",
+					Pet: "pet-care",
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
-					"social": {"direct": binding},
+					adminHistoryCollection: {adminHistoryWorkflowAlias: binding},
 				},
 			},
 		},
@@ -327,11 +324,4 @@ func (s *adminSliceStream) Close() error {
 func (s *adminSliceStream) CloseWithError(error) error {
 	s.chunks = nil
 	return nil
-}
-
-func adminStringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }

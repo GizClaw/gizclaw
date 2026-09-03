@@ -508,16 +508,6 @@ export enum WorkspaceKind {
    * @generated from enum value: WORKSPACE_KIND_WORKFLOW = 1;
    */
   WORKFLOW = 1,
-
-  /**
-   * @generated from enum value: WORKSPACE_KIND_DIRECT_CHATROOM = 2;
-   */
-  DIRECT_CHATROOM = 2,
-
-  /**
-   * @generated from enum value: WORKSPACE_KIND_GROUP_CHATROOM = 3;
-   */
-  GROUP_CHATROOM = 3,
 }
 
 /**

@@ -206,12 +206,6 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE');
-  static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST =
-      RpcMethod._(62,
-          _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST');
-  static const RpcMethod RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET =
-      RpcMethod._(63,
-          _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET');
   static const RpcMethod RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD = RpcMethod
       ._(64, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_PET_LIST =
@@ -275,12 +269,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(93, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PEER_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_SPEECH_EXTRACT =
       RpcMethod._(94, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SPEECH_EXTRACT');
-  static const RpcMethod
-      RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD = RpcMethod._(
-          95,
-          _omitEnumNames
-              ? ''
-              : 'RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD');
   static const RpcMethod RPC_METHOD_SERVER_API_KEY_CREATE =
       RpcMethod._(96, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_API_KEY_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_API_KEY_LIST =
@@ -350,8 +338,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD,
     RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT,
     RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE,
-    RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST,
-    RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET,
     RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD,
     RPC_METHOD_SERVER_PET_LIST,
     RPC_METHOD_SERVER_PET_GET,
@@ -383,7 +369,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_SPEECH_SYNTHESIZE,
     RPC_METHOD_SERVER_PEER_DELETE,
     RPC_METHOD_SERVER_SPEECH_EXTRACT,
-    RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD,
     RPC_METHOD_SERVER_API_KEY_CREATE,
     RPC_METHOD_SERVER_API_KEY_LIST,
     RPC_METHOD_SERVER_API_KEY_REVOKE,

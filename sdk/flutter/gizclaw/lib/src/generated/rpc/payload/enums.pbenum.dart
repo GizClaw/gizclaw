@@ -89,58 +89,6 @@ class ASTTranslateWorkspaceParametersAgentType extends $pb.ProtobufEnum {
   const ASTTranslateWorkspaceParametersAgentType._(super.value, super.name);
 }
 
-class ChatRoomMode extends $pb.ProtobufEnum {
-  static const ChatRoomMode CHAT_ROOM_MODE_UNSPECIFIED =
-      ChatRoomMode._(0, _omitEnumNames ? '' : 'CHAT_ROOM_MODE_UNSPECIFIED');
-  static const ChatRoomMode CHAT_ROOM_MODE_DIRECT =
-      ChatRoomMode._(1, _omitEnumNames ? '' : 'CHAT_ROOM_MODE_DIRECT');
-  static const ChatRoomMode CHAT_ROOM_MODE_GROUP =
-      ChatRoomMode._(2, _omitEnumNames ? '' : 'CHAT_ROOM_MODE_GROUP');
-
-  static const $core.List<ChatRoomMode> values = <ChatRoomMode>[
-    CHAT_ROOM_MODE_UNSPECIFIED,
-    CHAT_ROOM_MODE_DIRECT,
-    CHAT_ROOM_MODE_GROUP,
-  ];
-
-  static final $core.List<ChatRoomMode?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static ChatRoomMode? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ChatRoomMode._(super.value, super.name);
-}
-
-class ChatRoomWorkspaceParametersAgentType extends $pb.ProtobufEnum {
-  static const ChatRoomWorkspaceParametersAgentType
-      CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
-      ChatRoomWorkspaceParametersAgentType._(
-          0,
-          _omitEnumNames
-              ? ''
-              : 'CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
-  static const ChatRoomWorkspaceParametersAgentType
-      CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_CHATROOM =
-      ChatRoomWorkspaceParametersAgentType._(
-          1,
-          _omitEnumNames
-              ? ''
-              : 'CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_CHATROOM');
-
-  static const $core.List<ChatRoomWorkspaceParametersAgentType> values =
-      <ChatRoomWorkspaceParametersAgentType>[
-    CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
-    CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_CHATROOM,
-  ];
-
-  static final $core.List<ChatRoomWorkspaceParametersAgentType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 1);
-  static ChatRoomWorkspaceParametersAgentType? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const ChatRoomWorkspaceParametersAgentType._(super.value, super.name);
-}
-
 class DashScopeTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
   static const DashScopeTenantModelProviderDataApiMode
       DASH_SCOPE_TENANT_MODEL_PROVIDER_DATA_API_MODE_UNSPECIFIED =
@@ -874,8 +822,6 @@ class WorkflowDriver extends $pb.ProtobufEnum {
           2, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DOUBAO_REALTIME');
   static const WorkflowDriver WORKFLOW_DRIVER_AST_TRANSLATE = WorkflowDriver._(
       3, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_AST_TRANSLATE');
-  static const WorkflowDriver WORKFLOW_DRIVER_CHATROOM =
-      WorkflowDriver._(4, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_CHATROOM');
   static const WorkflowDriver WORKFLOW_DRIVER_PET =
       WorkflowDriver._(5, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_PET');
   static const WorkflowDriver WORKFLOW_DRIVER_DASH_SCOPE_REALTIME =
@@ -886,21 +832,23 @@ class WorkflowDriver extends $pb.ProtobufEnum {
           7, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX');
   static const WorkflowDriver WORKFLOW_DRIVER_EINO =
       WorkflowDriver._(8, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_EINO');
+  static const WorkflowDriver WORKFLOW_DRIVER_SFU =
+      WorkflowDriver._(9, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_SFU');
 
   static const $core.List<WorkflowDriver> values = <WorkflowDriver>[
     WORKFLOW_DRIVER_UNSPECIFIED,
     WORKFLOW_DRIVER_FLOWCRAFT,
     WORKFLOW_DRIVER_DOUBAO_REALTIME,
     WORKFLOW_DRIVER_AST_TRANSLATE,
-    WORKFLOW_DRIVER_CHATROOM,
     WORKFLOW_DRIVER_PET,
     WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,
     WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX,
     WORKFLOW_DRIVER_EINO,
+    WORKFLOW_DRIVER_SFU,
   ];
 
   static final $core.List<WorkflowDriver?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 8);
+      $pb.ProtobufEnum.$_initByValueList(values, 9);
   static WorkflowDriver? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -920,9 +868,6 @@ class ReusableWorkflowDriver extends $pb.ProtobufEnum {
   static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE =
       ReusableWorkflowDriver._(
           3, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE');
-  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_CHATROOM =
-      ReusableWorkflowDriver._(
-          4, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_CHATROOM');
   static const ReusableWorkflowDriver
       REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME = ReusableWorkflowDriver._(5,
           _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME');
@@ -943,7 +888,6 @@ class ReusableWorkflowDriver extends $pb.ProtobufEnum {
     REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT,
     REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME,
     REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE,
-    REUSABLE_WORKFLOW_DRIVER_CHATROOM,
     REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,
     REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX,
     REUSABLE_WORKFLOW_DRIVER_EINO,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -1477,5 +1478,110 @@ func validServicesConfig() *ServicesConfig {
 			Store: "gameplay", AssetsStore: "gameplay-assets", DatabaseStore: "gameplay-db",
 		},
 		AgentHost: &AgentHostConfig{RuntimeStore: "agenthost"},
+	}
+}
+
+func TestParseConfigSFUShape(t *testing.T) {
+	valid := "services:\n  sfu:\n    url: wss://sfu.internal\n    api_key_file: /run/secrets/sfu_key\n    api_secret_file: /run/secrets/sfu_secret\n    recheck_interval: 5s\n    reconnect_timeout: 30s\n"
+	cfg, err := parseConfigData([]byte(valid))
+	if err != nil {
+		t.Fatalf("parseConfigData(valid sfu) error = %v", err)
+	}
+	if cfg.Services == nil || cfg.Services.SFU == nil || cfg.Services.SFU.URL != "wss://sfu.internal" || cfg.Services.SFU.APIKeyFile != "/run/secrets/sfu_key" || cfg.Services.SFU.RecheckInterval != "5s" {
+		t.Fatalf("services.sfu = %+v", cfg.Services)
+	}
+	absent, err := parseConfigData([]byte("services:\n  peer:\n    store: peers\n"))
+	if err != nil {
+		t.Fatalf("parseConfigData(no sfu) error = %v", err)
+	}
+	if absent.Services.SFU != nil {
+		t.Fatalf("services.sfu = %+v, want nil", absent.Services.SFU)
+	}
+	for _, test := range []struct{ yaml, want string }{
+		{"services:\n  sfu: wss://sfu.internal\n", "services.sfu must be a mapping"},
+		{"services:\n  sfu:\n    url: wss://sfu.internal\n    api_key: inline\n", `unknown field "api_key"`},
+		{"services:\n  sfu:\n    url: wss://sfu.internal\n    api_secret: inline\n", `unknown field "api_secret"`},
+		{"services:\n  sfu:\n    url: 42\n", "services.sfu.url must be a string"},
+		{"services:\n  sfu:\n    api_key_file: \"\"\n", "services.sfu.api_key_file must not be empty"},
+		{"services:\n  sfu:\n    recheck_interval: 5\n", "services.sfu.recheck_interval must be a string"},
+	} {
+		if _, err := parseConfigData([]byte(test.yaml)); err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Errorf("parseConfigData(%q) error = %v, want %q", test.yaml, err, test.want)
+		}
+	}
+}
+
+func TestSFUConfigValidate(t *testing.T) {
+	var absent *SFUConfig
+	if err := absent.validate(); err != nil {
+		t.Fatalf("nil SFUConfig validate error = %v", err)
+	}
+	for name, test := range map[string]struct {
+		cfg  SFUConfig
+		want string
+	}{
+		"http scheme":       {SFUConfig{URL: "https://sfu.internal", APIKeyFile: "k", APISecretFile: "s"}, "ws:// or wss://"},
+		"missing host":      {SFUConfig{URL: "wss://", APIKeyFile: "k", APISecretFile: "s"}, "ws:// or wss://"},
+		"missing key file":  {SFUConfig{URL: "wss://sfu.internal", APISecretFile: "s"}, "api_key_file is required"},
+		"blank secret file": {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: " "}, "api_secret_file is required"},
+		"bad recheck":       {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", RecheckInterval: "soon"}, "recheck_interval"},
+		"zero reconnect":    {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", ReconnectTimeout: "0s"}, "reconnect_timeout"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := test.cfg.validate(); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("validate() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+	services := validServicesConfig()
+	services.SFU = &SFUConfig{URL: "ws://sfu.internal:7880", APIKeyFile: "k", APISecretFile: "s"}
+	if err := validateServicesConfig(services); err != nil {
+		t.Fatalf("validateServicesConfig(valid sfu) error = %v", err)
+	}
+	services.SFU.URL = "tcp://sfu.internal"
+	if err := validateServicesConfig(services); err == nil || !strings.Contains(err.Error(), "services.sfu.url") {
+		t.Fatalf("validateServicesConfig(bad sfu url) error = %v", err)
+	}
+}
+
+func TestSFUConfigConnectorConfigLoadsCredentialFiles(t *testing.T) {
+	var absent *SFUConfig
+	zero, err := absent.connectorConfig()
+	if err != nil || zero != (sfu.Config{}) {
+		t.Fatalf("nil connectorConfig() = %+v, %v", zero, err)
+	}
+	dir := t.TempDir()
+	keyFile := filepath.Join(dir, "key")
+	secretFile := filepath.Join(dir, "secret")
+	if err := os.WriteFile(keyFile, []byte("  api-key \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secretFile, []byte("api-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &SFUConfig{URL: " wss://sfu.internal ", APIKeyFile: keyFile, APISecretFile: secretFile}
+	got, err := cfg.connectorConfig()
+	if err != nil {
+		t.Fatalf("connectorConfig() error = %v", err)
+	}
+	want := sfu.Config{URL: "wss://sfu.internal", APIKey: "api-key", APISecret: "api-secret", RecheckInterval: sfu.DefaultRecheckInterval, ReconnectTimeout: sfu.DefaultReconnectTimeout}
+	if got != want {
+		t.Fatalf("connectorConfig() = %+v, want %+v", got, want)
+	}
+	cfg.RecheckInterval = "2s"
+	cfg.ReconnectTimeout = "1m"
+	got, err = cfg.connectorConfig()
+	if err != nil || got.RecheckInterval != 2*time.Second || got.ReconnectTimeout != time.Minute {
+		t.Fatalf("connectorConfig(durations) = %+v, %v", got, err)
+	}
+	if err := os.WriteFile(secretFile, []byte(" \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfg.connectorConfig(); err == nil || !strings.Contains(err.Error(), "api_secret_file is empty") {
+		t.Fatalf("connectorConfig(empty secret) error = %v", err)
+	}
+	cfg.APIKeyFile = filepath.Join(dir, "missing")
+	if _, err := cfg.connectorConfig(); err == nil || !strings.Contains(err.Error(), "services.sfu.api_key_file") {
+		t.Fatalf("connectorConfig(missing key) error = %v", err)
 	}
 }

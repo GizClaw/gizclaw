@@ -18,7 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
@@ -71,15 +71,17 @@ type PeerConn struct {
 	agentInput              peerAgentInput
 	agentInputMu            sync.Mutex
 	events                  *peerStreamEventBroker
-	chatroomAccessMu        sync.Mutex
+	inputAccessMu           sync.Mutex
 	deniedInputStreams      map[string]struct{}
 	acceptedInputStreams    map[string]eventpb.StreamKind
 	deniedAudioInput        bool
 	deniedAudioStream       string
+	deniedAudioSFU          bool
 	acceptedAudioInput      bool
 	acceptedAudioStream     string
-	acceptedAudioChatroom   bool
+	acceptedAudioSFU        bool
 	acceptedAudioWorkspace  string
+	sfuDroppedPackets       atomic.Uint64
 	telemetryStatusMu       *sync.Mutex
 	serverGenX              *peergenx.Service
 	mixer                   *pcm.Mixer
@@ -200,7 +202,6 @@ func (h *PeerConn) serve() error {
 			h.Conn.PublicKey(),
 			h.Conn,
 			h.events,
-			h.observePeerEvent,
 		)
 	}
 
@@ -479,6 +480,7 @@ func (h *PeerConn) initAgentHost() {
 		manager.FlowcraftState,
 		manager.MemoryRoot,
 		manager.MemoryStores,
+		sfu.Factory{Config: manager.SFU, Bindings: manager.sfuBindings()},
 	)
 	h.agentHost = &agenthost.Service{
 		Host:           host,
@@ -493,8 +495,10 @@ func (h *PeerConn) initAgentHost() {
 			}
 			return canonicalName, nil
 		},
-		AllowRestrictedReload: manager.isChatroomWorkspace,
-		Source:                h.agentInput,
+		AllowRestrictedReload: func(ctx context.Context, workspaceName string) bool {
+			return manager.allowSFURestrictedReload(ctx, h.Conn.PublicKey(), workspaceName)
+		},
+		Source: h.agentInput,
 		Consumer: peerAgentOutput{
 			Events:        h.events,
 			Tracks:        h,
@@ -507,8 +511,25 @@ func (h *PeerConn) initAgentHost() {
 			Lifecycle:         h.streamLifecycle,
 			LifecycleDisabled: h.streamLifecycleDisabled,
 		},
-		OnConsumerError:           h.broadcastAgentOutputError,
-		OnWorkspaceActivated:      manager.handleWorkspaceActivated,
+		OnConsumerError: h.broadcastAgentOutputError,
+		OnWorkspaceActivated: func(ctx context.Context, workspaceName string) {
+			// The Server-local name index is scoped by owner, so the record
+			// is resolved through the same access path that activated it.
+			item, rpcErr := resources.ResolveAccessibleWorkspace(ctx, workspaceName)
+			var err error
+			if rpcErr != nil {
+				err = errors.New(rpcErr.Message)
+			} else {
+				err = manager.handleWorkspaceActivated(ctx, item)
+			}
+			if err != nil {
+				slog.Error("activate Workspace reward",
+					"workspace", workspaceName,
+					"error_class", "activation",
+					"error", err,
+				)
+			}
+		},
 		OnWorkspaceHistoryUpdated: manager.handleWorkspaceHistoryUpdated,
 	}
 	if h.rpc != nil {
@@ -520,15 +541,15 @@ func (h *PeerConn) replaceAudioInputRoute(_ context.Context, route peerAudioInpu
 	if h == nil || route.streamID == "" {
 		return nil
 	}
-	h.chatroomAccessMu.Lock()
+	h.inputAccessMu.Lock()
 	delete(h.acceptedInputStreams, route.streamID)
 	if h.acceptedAudioStream == route.streamID {
 		h.acceptedAudioInput = false
 		h.acceptedAudioStream = ""
-		h.acceptedAudioChatroom = false
+		h.acceptedAudioSFU = false
 		h.acceptedAudioWorkspace = ""
 	}
-	h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Unlock()
 	if h.events == nil {
 		return errPeerEventStreamClosed
 	}
@@ -756,7 +777,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if h.isRetiring() {
 			return ErrPeerConnRetiring
 		}
-		authorized, err := h.authorizeChatroomEvent(context.Background(), event)
+		authorized, err := h.authorizeInputEvent(context.Background(), event)
 		if err != nil {
 			return err
 		}
@@ -787,7 +808,12 @@ func (h *PeerConn) rejectDuplicateEventStreams(listener giznet.ServiceListener) 
 	}
 }
 
-func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.PeerEvent) (bool, error) {
+// authorizeInputEvent gates BOS/EOS and text turns on the Peer's current run
+// Workspace. Workflow Workspaces admit input as before. SFU Workspaces admit
+// input only while the Peer is a current member of the bound Social resource,
+// the Workspace has not been revoked on this connection, and the SFU runtime
+// is active; anything else is denied and never cached.
+func (h *PeerConn) authorizeInputEvent(ctx context.Context, event *eventpb.PeerEvent) (bool, error) {
 	if h == nil || event == nil || h.Service == nil || h.Service.manager == nil || h.Conn == nil {
 		return true, nil
 	}
@@ -807,40 +833,31 @@ func (h *PeerConn) authorizeChatroomEvent(ctx context.Context, event *eventpb.Pe
 		}
 		return false, nil
 	}
-	workspaceName, workspaceErr := h.currentInputWorkspace(ctx)
-	if workspaceErr != nil {
-		return h.rejectChatroomEvent(
-			ctx,
-			event,
-			streamID,
-			chatroom.AccessCheckFailedError(),
-		)
+	run, err := h.currentRunState(ctx)
+	if err != nil {
+		return h.rejectInputEvent(ctx, event, streamID, sfuAccessCheckFailedError())
 	}
+	workspaceName := run.workspaceName
 	if workspaceName == "" {
 		h.acceptInputEvent(event, streamID, "", false)
 		return true, nil
 	}
-	workspace, rpcErr := h.peerResources().ResolveAccessibleWorkspace(ctx, workspaceName)
-	if rpcErr != nil {
-		var err error
-		workspace, err = h.peerResources().ResolveWorkspaceForAccessCheck(ctx, workspaceName)
-		if err != nil {
-			return h.rejectChatroomEvent(ctx, event, streamID, chatroom.AccessCheckFailedError())
-		}
+	isSFU, denial := h.Service.manager.sfuInputAccess(ctx, h.Conn.PublicKey(), workspaceName)
+	if denial == nil && isSFU && !run.active {
+		denial = sfuRuntimeNotAttachedError()
 	}
-	isChatroom, denial := h.Service.manager.chatroomAccessStateForWorkspace(ctx, h.Conn.PublicKey(), workspace)
-	if denial == nil {
-		h.acceptInputEvent(event, streamID, workspaceName, isChatroom)
-		return true, nil
+	if denial != nil {
+		return h.rejectInputEvent(ctx, event, streamID, denial)
 	}
-	return h.rejectChatroomEvent(ctx, event, streamID, denial)
+	h.acceptInputEvent(event, streamID, workspaceName, isSFU)
+	return true, nil
 }
 
-func (h *PeerConn) rejectChatroomEvent(
+func (h *PeerConn) rejectInputEvent(
 	ctx context.Context,
 	event *eventpb.PeerEvent,
 	streamID string,
-	denial *chatroom.AccessError,
+	denial *inputAccessError,
 ) (bool, error) {
 	abortCurrentTurn := h.markDeniedInputStream(streamID, event.StreamKindValue())
 	terminal := event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS ||
@@ -859,7 +876,7 @@ func (h *PeerConn) rejectChatroomEvent(
 			StreamId: streamID,
 			Kind:     event.StreamKindValue(),
 			Label:    "assistant",
-			Error:    chatroomEventError(denial),
+			Error:    inputAccessEventError(denial),
 		}},
 	})
 	if err := errors.Join(abortErr, broadcastErr); err != nil {
@@ -910,37 +927,41 @@ func agentInputInterruptChunk() *genx.MessageChunk {
 	}
 }
 
-func chatroomEventError(err *chatroom.AccessError) *eventpb.EventError {
-	if err == nil {
-		return nil
-	}
-	return &eventpb.EventError{
-		Code:      err.Code,
-		Message:   err.Message,
-		Retryable: err.Retryable,
-	}
+// peerRunState is the input-facing view of the Peer's run selection: the
+// Workspace input belongs to, and whether its runtime is already active.
+type peerRunState struct {
+	workspaceName string
+	active        bool
 }
 
-func (h *PeerConn) currentInputWorkspace(ctx context.Context) (string, error) {
+func (h *PeerConn) currentRunState(ctx context.Context) (peerRunState, error) {
 	if h == nil || h.Service == nil || h.Service.manager == nil || h.Service.manager.PeerRun == nil || h.Conn == nil {
-		return "", errors.New("gizclaw: Peer run state is unavailable")
+		return peerRunState{}, errors.New("gizclaw: Peer run state is unavailable")
 	}
 	run, err := h.Service.manager.PeerRun.GetRunAgent(ctx, h.Conn.PublicKey())
 	if err != nil {
-		return "", err
+		return peerRunState{}, err
 	}
 	if run.Active != nil {
-		return strings.TrimSpace(run.Active.WorkspaceName), nil
+		return peerRunState{workspaceName: strings.TrimSpace(run.Active.WorkspaceName), active: true}, nil
 	}
 	if run.Pending != nil {
-		return strings.TrimSpace(run.Pending.WorkspaceName), nil
+		return peerRunState{workspaceName: strings.TrimSpace(run.Pending.WorkspaceName)}, nil
 	}
-	return "", nil
+	return peerRunState{}, nil
+}
+
+func (h *PeerConn) currentInputWorkspace(ctx context.Context) (string, error) {
+	run, err := h.currentRunState(ctx)
+	if err != nil {
+		return "", err
+	}
+	return run.workspaceName, nil
 }
 
 func (h *PeerConn) inputStreamDenied(streamID string) bool {
-	h.chatroomAccessMu.Lock()
-	defer h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Lock()
+	defer h.inputAccessMu.Unlock()
 	if streamID == "audio" && h.deniedAudioInput {
 		return true
 	}
@@ -949,8 +970,8 @@ func (h *PeerConn) inputStreamDenied(streamID string) bool {
 }
 
 func (h *PeerConn) markDeniedInputStream(streamID string, kind eventpb.StreamKind) bool {
-	h.chatroomAccessMu.Lock()
-	defer h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Lock()
+	defer h.inputAccessMu.Unlock()
 	_, accepted := h.acceptedInputStreams[streamID]
 	delete(h.acceptedInputStreams, streamID)
 	if h.deniedInputStreams == nil {
@@ -963,21 +984,23 @@ func (h *PeerConn) markDeniedInputStream(streamID string, kind eventpb.StreamKin
 	if kind == eventpb.StreamKind_STREAM_KIND_AUDIO {
 		h.deniedAudioInput = true
 		h.deniedAudioStream = streamID
+		h.deniedAudioSFU = h.acceptedAudioSFU && h.acceptedAudioStream == streamID
 		h.acceptedAudioInput = false
 		h.acceptedAudioStream = ""
-		h.acceptedAudioChatroom = false
+		h.acceptedAudioSFU = false
 		h.acceptedAudioWorkspace = ""
 	}
 	return accepted
 }
 
 func (h *PeerConn) clearDeniedInputStream(streamID string, kind eventpb.StreamKind) {
-	h.chatroomAccessMu.Lock()
-	defer h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Lock()
+	defer h.inputAccessMu.Unlock()
 	delete(h.deniedInputStreams, streamID)
 	if kind == eventpb.StreamKind_STREAM_KIND_AUDIO || streamID == h.deniedAudioStream {
 		h.deniedAudioInput = false
 		h.deniedAudioStream = ""
+		h.deniedAudioSFU = false
 	}
 }
 
@@ -985,13 +1008,13 @@ func (h *PeerConn) acceptInputEvent(
 	event *eventpb.PeerEvent,
 	streamID string,
 	workspaceName string,
-	isChatroom bool,
+	isSFU bool,
 ) {
 	if event == nil {
 		return
 	}
-	h.chatroomAccessMu.Lock()
-	defer h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Lock()
+	defer h.inputAccessMu.Unlock()
 	if h.acceptedInputStreams == nil {
 		h.acceptedInputStreams = make(map[string]eventpb.StreamKind)
 	}
@@ -1007,7 +1030,7 @@ func (h *PeerConn) acceptInputEvent(
 			h.deniedAudioStream = ""
 			h.acceptedAudioInput = true
 			h.acceptedAudioStream = streamID
-			h.acceptedAudioChatroom = isChatroom
+			h.acceptedAudioSFU = isSFU
 			h.acceptedAudioWorkspace = strings.TrimSpace(workspaceName)
 		}
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
@@ -1021,28 +1044,35 @@ func (h *PeerConn) acceptInputEvent(
 		if streamID == "" || streamID == h.acceptedAudioStream {
 			h.acceptedAudioInput = false
 			h.acceptedAudioStream = ""
-			h.acceptedAudioChatroom = false
+			h.acceptedAudioSFU = false
 			h.acceptedAudioWorkspace = ""
 		}
 	}
 }
 
 func (h *PeerConn) audioInputAccepted() bool {
-	h.chatroomAccessMu.Lock()
-	defer h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Lock()
+	defer h.inputAccessMu.Unlock()
 	return h.acceptedAudioInput && !h.deniedAudioInput
 }
 
-func (h *PeerConn) authorizeChatroomAudioPacket(ctx context.Context) (bool, error) {
+// authorizeAudioPacket admits a direct Opus packet only for the accepted audio
+// stream of the Peer's current Workspace. Packets of a revoked SFU Workspace
+// are dropped and counted; nothing is cached for later forwarding.
+func (h *PeerConn) authorizeAudioPacket(ctx context.Context) (bool, error) {
 	if h == nil {
 		return false, nil
 	}
-	h.chatroomAccessMu.Lock()
+	h.inputAccessMu.Lock()
 	accepted := h.acceptedAudioInput && !h.deniedAudioInput
+	countDrop := !accepted && h.deniedAudioInput && h.deniedAudioSFU
 	streamID := h.acceptedAudioStream
 	workspaceName := h.acceptedAudioWorkspace
-	h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Unlock()
 	if !accepted {
+		if countDrop {
+			h.sfuDroppedPackets.Add(1)
+		}
 		return false, nil
 	}
 	if workspaceName == "" {
@@ -1055,95 +1085,18 @@ func (h *PeerConn) authorizeChatroomAudioPacket(ctx context.Context) (bool, erro
 	if strings.TrimSpace(currentWorkspace) == workspaceName {
 		return true, nil
 	}
-	h.chatroomAccessMu.Lock()
+	h.inputAccessMu.Lock()
 	if h.acceptedAudioInput &&
 		h.acceptedAudioStream == streamID &&
 		h.acceptedAudioWorkspace == workspaceName {
 		delete(h.acceptedInputStreams, streamID)
 		h.acceptedAudioInput = false
 		h.acceptedAudioStream = ""
-		h.acceptedAudioChatroom = false
+		h.acceptedAudioSFU = false
 		h.acceptedAudioWorkspace = ""
 	}
-	h.chatroomAccessMu.Unlock()
+	h.inputAccessMu.Unlock()
 	return false, nil
-}
-
-func (h *PeerConn) observePeerEvent(event *eventpb.PeerEvent) {
-	if h == nil || event == nil || h.Conn == nil {
-		return
-	}
-	h.chatroomAccessMu.Lock()
-	if !h.acceptedAudioInput || !h.acceptedAudioChatroom || h.deniedAudioInput {
-		h.chatroomAccessMu.Unlock()
-		return
-	}
-	streamID := h.acceptedAudioStream
-	workspaceName := h.acceptedAudioWorkspace
-	h.chatroomAccessMu.Unlock()
-
-	var denial *chatroom.AccessError
-	switch event.Type {
-	case eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED:
-		update := event.GetFriendRelationshipUpdated()
-		if update.GetWorkspaceName() == workspaceName &&
-			update.GetChange() == eventpb.FriendRelationshipChange_FRIEND_RELATIONSHIP_CHANGE_DELETED {
-			denial = chatroom.FriendRemovedError()
-		}
-	case eventpb.PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED:
-		update := event.GetFriendGroupUpdated()
-		if update.GetWorkspaceName() != workspaceName {
-			break
-		}
-		switch update.GetChange() {
-		case eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_DELETED:
-			denial = chatroom.GroupDeletedError()
-		case eventpb.FriendGroupChange_FRIEND_GROUP_CHANGE_MEMBER_REMOVED:
-			if update.GetAffectedPeerPublicKey() == h.Conn.PublicKey().String() {
-				denial = chatroom.MemberRemovedError()
-			}
-		}
-	}
-	if denial == nil {
-		return
-	}
-	h.rejectChatroomAudioFromInvalidation(streamID, denial)
-}
-
-func (h *PeerConn) rejectChatroomAudioFromInvalidation(
-	streamID string,
-	denial *chatroom.AccessError,
-) {
-	event := audioEndEvent(streamID)
-	if !h.markDeniedInputStream(streamID, event.StreamKindValue()) {
-		return
-	}
-	if err := h.abortAgentInputTurn(context.Background()); err != nil {
-		slog.Warn("gizclaw: abort invalid Chatroom audio turn", "error", err)
-	}
-	if h.events != nil {
-		_ = h.events.Notify(&eventpb.PeerEvent{
-			Version: eventpb.Version,
-			Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
-			Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
-				StreamId: streamID,
-				Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
-				Label:    "assistant",
-				Error:    chatroomEventError(denial),
-			}},
-		})
-	}
-}
-
-func audioEndEvent(streamID string) *eventpb.PeerEvent {
-	return &eventpb.PeerEvent{
-		Version: eventpb.Version,
-		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_EOS,
-		Payload: &eventpb.PeerEvent_Eos{Eos: &eventpb.StreamEnd{
-			StreamId: streamID,
-			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
-		}},
-	}
 }
 
 func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err error) {
@@ -1212,7 +1165,7 @@ func (h *PeerConn) serveDirectPackets() error {
 			if !ok {
 				continue
 			}
-			authorized, err := h.authorizeChatroomAudioPacket(context.Background())
+			authorized, err := h.authorizeAudioPacket(context.Background())
 			if err != nil {
 				return err
 			}

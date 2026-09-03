@@ -2203,458 +2203,6 @@ func (x *FriendGroupMemberPutResponse) GetValue() *FriendGroupMemberObject {
 	return nil
 }
 
-type FriendGroupMessageAudioDownloadRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageAudioDownloadRequest) Reset() {
-	*x = FriendGroupMessageAudioDownloadRequest{}
-	mi := &file_payload_social_proto_msgTypes[43]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageAudioDownloadRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageAudioDownloadRequest) ProtoMessage() {}
-
-func (x *FriendGroupMessageAudioDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[43]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageAudioDownloadRequest.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageAudioDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{43}
-}
-
-func (x *FriendGroupMessageAudioDownloadRequest) GetFriendGroupName() string {
-	if x != nil {
-		return x.FriendGroupName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageAudioDownloadRequest) GetHistoryName() string {
-	if x != nil {
-		return x.HistoryName
-	}
-	return ""
-}
-
-type FriendGroupMessageAudioDownloadResponse struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
-	MimeType        string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	SizeBytes       int64                  `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageAudioDownloadResponse) Reset() {
-	*x = FriendGroupMessageAudioDownloadResponse{}
-	mi := &file_payload_social_proto_msgTypes[44]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageAudioDownloadResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageAudioDownloadResponse) ProtoMessage() {}
-
-func (x *FriendGroupMessageAudioDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[44]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageAudioDownloadResponse.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageAudioDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{44}
-}
-
-func (x *FriendGroupMessageAudioDownloadResponse) GetFriendGroupName() string {
-	if x != nil {
-		return x.FriendGroupName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageAudioDownloadResponse) GetHistoryName() string {
-	if x != nil {
-		return x.HistoryName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageAudioDownloadResponse) GetMimeType() string {
-	if x != nil {
-		return x.MimeType
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageAudioDownloadResponse) GetSizeBytes() int64 {
-	if x != nil {
-		return x.SizeBytes
-	}
-	return 0
-}
-
-type FriendGroupMessageGetRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	FriendGroupName string                 `protobuf:"bytes,1,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	HistoryName     string                 `protobuf:"bytes,2,opt,name=history_name,json=historyName,proto3" json:"history_name,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageGetRequest) Reset() {
-	*x = FriendGroupMessageGetRequest{}
-	mi := &file_payload_social_proto_msgTypes[45]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageGetRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageGetRequest) ProtoMessage() {}
-
-func (x *FriendGroupMessageGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[45]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageGetRequest.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{45}
-}
-
-func (x *FriendGroupMessageGetRequest) GetFriendGroupName() string {
-	if x != nil {
-		return x.FriendGroupName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageGetRequest) GetHistoryName() string {
-	if x != nil {
-		return x.HistoryName
-	}
-	return ""
-}
-
-type FriendGroupMessageGetResponse struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Value         *FriendGroupMessageObject `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageGetResponse) Reset() {
-	*x = FriendGroupMessageGetResponse{}
-	mi := &file_payload_social_proto_msgTypes[46]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageGetResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageGetResponse) ProtoMessage() {}
-
-func (x *FriendGroupMessageGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[46]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageGetResponse.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{46}
-}
-
-func (x *FriendGroupMessageGetResponse) GetValue() *FriendGroupMessageObject {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type FriendGroupMessageListRequest struct {
-	state           protoimpl.MessageState            `protogen:"open.v1"`
-	Cursor          *string                           `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
-	FriendGroupName string                            `protobuf:"bytes,2,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	Limit           *int64                            `protobuf:"varint,3,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Order           *WorkspaceHistoryListRequestOrder `protobuf:"varint,4,opt,name=order,proto3,enum=gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder,oneof" json:"order,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageListRequest) Reset() {
-	*x = FriendGroupMessageListRequest{}
-	mi := &file_payload_social_proto_msgTypes[47]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageListRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageListRequest) ProtoMessage() {}
-
-func (x *FriendGroupMessageListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[47]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageListRequest.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{47}
-}
-
-func (x *FriendGroupMessageListRequest) GetCursor() string {
-	if x != nil && x.Cursor != nil {
-		return *x.Cursor
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageListRequest) GetFriendGroupName() string {
-	if x != nil {
-		return x.FriendGroupName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageListRequest) GetLimit() int64 {
-	if x != nil && x.Limit != nil {
-		return *x.Limit
-	}
-	return 0
-}
-
-func (x *FriendGroupMessageListRequest) GetOrder() WorkspaceHistoryListRequestOrder {
-	if x != nil && x.Order != nil {
-		return *x.Order
-	}
-	return WorkspaceHistoryListRequestOrder_WORKSPACE_HISTORY_LIST_REQUEST_ORDER_UNSPECIFIED
-}
-
-type FriendGroupMessageListResponse struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	HasNext       bool                        `protobuf:"varint,1,opt,name=has_next,json=hasNext,proto3" json:"has_next,omitempty"`
-	Items         []*FriendGroupMessageObject `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
-	NextCursor    *string                     `protobuf:"bytes,3,opt,name=next_cursor,json=nextCursor,proto3,oneof" json:"next_cursor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageListResponse) Reset() {
-	*x = FriendGroupMessageListResponse{}
-	mi := &file_payload_social_proto_msgTypes[48]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageListResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageListResponse) ProtoMessage() {}
-
-func (x *FriendGroupMessageListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[48]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageListResponse.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{48}
-}
-
-func (x *FriendGroupMessageListResponse) GetHasNext() bool {
-	if x != nil {
-		return x.HasNext
-	}
-	return false
-}
-
-func (x *FriendGroupMessageListResponse) GetItems() []*FriendGroupMessageObject {
-	if x != nil {
-		return x.Items
-	}
-	return nil
-}
-
-func (x *FriendGroupMessageListResponse) GetNextCursor() string {
-	if x != nil && x.NextCursor != nil {
-		return *x.NextCursor
-	}
-	return ""
-}
-
-type FriendGroupMessageObject struct {
-	state               protoimpl.MessageState  `protogen:"open.v1"`
-	CreatedAt           string                  `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ExpiresAt           *string                 `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`
-	FriendGroupName     string                  `protobuf:"bytes,3,opt,name=friend_group_name,json=friendGroupName,proto3" json:"friend_group_name,omitempty"`
-	SenderPeerPublicKey *string                 `protobuf:"bytes,4,opt,name=sender_peer_public_key,json=senderPeerPublicKey,proto3,oneof" json:"sender_peer_public_key,omitempty"`
-	Name                string                  `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
-	ActorName           string                  `protobuf:"bytes,6,opt,name=actor_name,json=actorName,proto3" json:"actor_name,omitempty"`
-	Text                string                  `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`
-	Type                PeerRunHistoryEntryType `protobuf:"varint,8,opt,name=type,proto3,enum=gizclaw.rpc.v1.PeerRunHistoryEntryType" json:"type,omitempty"`
-	AudioAvailable      bool                    `protobuf:"varint,9,opt,name=audio_available,json=audioAvailable,proto3" json:"audio_available,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
-}
-
-func (x *FriendGroupMessageObject) Reset() {
-	*x = FriendGroupMessageObject{}
-	mi := &file_payload_social_proto_msgTypes[49]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *FriendGroupMessageObject) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*FriendGroupMessageObject) ProtoMessage() {}
-
-func (x *FriendGroupMessageObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[49]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use FriendGroupMessageObject.ProtoReflect.Descriptor instead.
-func (*FriendGroupMessageObject) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{49}
-}
-
-func (x *FriendGroupMessageObject) GetCreatedAt() string {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetExpiresAt() string {
-	if x != nil && x.ExpiresAt != nil {
-		return *x.ExpiresAt
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetFriendGroupName() string {
-	if x != nil {
-		return x.FriendGroupName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetSenderPeerPublicKey() string {
-	if x != nil && x.SenderPeerPublicKey != nil {
-		return *x.SenderPeerPublicKey
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetActorName() string {
-	if x != nil {
-		return x.ActorName
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetText() string {
-	if x != nil {
-		return x.Text
-	}
-	return ""
-}
-
-func (x *FriendGroupMessageObject) GetType() PeerRunHistoryEntryType {
-	if x != nil {
-		return x.Type
-	}
-	return PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED
-}
-
-func (x *FriendGroupMessageObject) GetAudioAvailable() bool {
-	if x != nil {
-		return x.AudioAvailable
-	}
-	return false
-}
-
 type FriendGroupObject struct {
 	state                  protoimpl.MessageState `protogen:"open.v1"`
 	CreatedAt              *string                `protobuf:"bytes,1,opt,name=created_at,json=createdAt,proto3,oneof" json:"created_at,omitempty"`
@@ -2671,7 +2219,7 @@ type FriendGroupObject struct {
 
 func (x *FriendGroupObject) Reset() {
 	*x = FriendGroupObject{}
-	mi := &file_payload_social_proto_msgTypes[50]
+	mi := &file_payload_social_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2683,7 +2231,7 @@ func (x *FriendGroupObject) String() string {
 func (*FriendGroupObject) ProtoMessage() {}
 
 func (x *FriendGroupObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[50]
+	mi := &file_payload_social_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2696,7 +2244,7 @@ func (x *FriendGroupObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupObject.ProtoReflect.Descriptor instead.
 func (*FriendGroupObject) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{50}
+	return file_payload_social_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *FriendGroupObject) GetCreatedAt() string {
@@ -2766,7 +2314,7 @@ type FriendGroupPutRequest struct {
 
 func (x *FriendGroupPutRequest) Reset() {
 	*x = FriendGroupPutRequest{}
-	mi := &file_payload_social_proto_msgTypes[51]
+	mi := &file_payload_social_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2778,7 +2326,7 @@ func (x *FriendGroupPutRequest) String() string {
 func (*FriendGroupPutRequest) ProtoMessage() {}
 
 func (x *FriendGroupPutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[51]
+	mi := &file_payload_social_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2791,7 +2339,7 @@ func (x *FriendGroupPutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupPutRequest.ProtoReflect.Descriptor instead.
 func (*FriendGroupPutRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{51}
+	return file_payload_social_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *FriendGroupPutRequest) GetDescription() string {
@@ -2824,7 +2372,7 @@ type FriendGroupPutResponse struct {
 
 func (x *FriendGroupPutResponse) Reset() {
 	*x = FriendGroupPutResponse{}
-	mi := &file_payload_social_proto_msgTypes[52]
+	mi := &file_payload_social_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2836,7 +2384,7 @@ func (x *FriendGroupPutResponse) String() string {
 func (*FriendGroupPutResponse) ProtoMessage() {}
 
 func (x *FriendGroupPutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[52]
+	mi := &file_payload_social_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2849,7 +2397,7 @@ func (x *FriendGroupPutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupPutResponse.ProtoReflect.Descriptor instead.
 func (*FriendGroupPutResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{52}
+	return file_payload_social_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *FriendGroupPutResponse) GetValue() *FriendGroupObject {
@@ -2867,7 +2415,7 @@ type FriendInviteTokenClearRequest struct {
 
 func (x *FriendInviteTokenClearRequest) Reset() {
 	*x = FriendInviteTokenClearRequest{}
-	mi := &file_payload_social_proto_msgTypes[53]
+	mi := &file_payload_social_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2879,7 +2427,7 @@ func (x *FriendInviteTokenClearRequest) String() string {
 func (*FriendInviteTokenClearRequest) ProtoMessage() {}
 
 func (x *FriendInviteTokenClearRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[53]
+	mi := &file_payload_social_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2892,7 +2440,7 @@ func (x *FriendInviteTokenClearRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenClearRequest.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenClearRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{53}
+	return file_payload_social_proto_rawDescGZIP(), []int{46}
 }
 
 type FriendInviteTokenClearResponse struct {
@@ -2903,7 +2451,7 @@ type FriendInviteTokenClearResponse struct {
 
 func (x *FriendInviteTokenClearResponse) Reset() {
 	*x = FriendInviteTokenClearResponse{}
-	mi := &file_payload_social_proto_msgTypes[54]
+	mi := &file_payload_social_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2915,7 +2463,7 @@ func (x *FriendInviteTokenClearResponse) String() string {
 func (*FriendInviteTokenClearResponse) ProtoMessage() {}
 
 func (x *FriendInviteTokenClearResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[54]
+	mi := &file_payload_social_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2928,7 +2476,7 @@ func (x *FriendInviteTokenClearResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenClearResponse.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenClearResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{54}
+	return file_payload_social_proto_rawDescGZIP(), []int{47}
 }
 
 type FriendInviteTokenCreateRequest struct {
@@ -2939,7 +2487,7 @@ type FriendInviteTokenCreateRequest struct {
 
 func (x *FriendInviteTokenCreateRequest) Reset() {
 	*x = FriendInviteTokenCreateRequest{}
-	mi := &file_payload_social_proto_msgTypes[55]
+	mi := &file_payload_social_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2951,7 +2499,7 @@ func (x *FriendInviteTokenCreateRequest) String() string {
 func (*FriendInviteTokenCreateRequest) ProtoMessage() {}
 
 func (x *FriendInviteTokenCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[55]
+	mi := &file_payload_social_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2964,7 +2512,7 @@ func (x *FriendInviteTokenCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenCreateRequest.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenCreateRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{55}
+	return file_payload_social_proto_rawDescGZIP(), []int{48}
 }
 
 type FriendInviteTokenCreateResponse struct {
@@ -2977,7 +2525,7 @@ type FriendInviteTokenCreateResponse struct {
 
 func (x *FriendInviteTokenCreateResponse) Reset() {
 	*x = FriendInviteTokenCreateResponse{}
-	mi := &file_payload_social_proto_msgTypes[56]
+	mi := &file_payload_social_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2989,7 +2537,7 @@ func (x *FriendInviteTokenCreateResponse) String() string {
 func (*FriendInviteTokenCreateResponse) ProtoMessage() {}
 
 func (x *FriendInviteTokenCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[56]
+	mi := &file_payload_social_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3002,7 +2550,7 @@ func (x *FriendInviteTokenCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenCreateResponse.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenCreateResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{56}
+	return file_payload_social_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *FriendInviteTokenCreateResponse) GetExpiresAt() string {
@@ -3027,7 +2575,7 @@ type FriendInviteTokenGetRequest struct {
 
 func (x *FriendInviteTokenGetRequest) Reset() {
 	*x = FriendInviteTokenGetRequest{}
-	mi := &file_payload_social_proto_msgTypes[57]
+	mi := &file_payload_social_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3039,7 +2587,7 @@ func (x *FriendInviteTokenGetRequest) String() string {
 func (*FriendInviteTokenGetRequest) ProtoMessage() {}
 
 func (x *FriendInviteTokenGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[57]
+	mi := &file_payload_social_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3052,7 +2600,7 @@ func (x *FriendInviteTokenGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenGetRequest.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenGetRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{57}
+	return file_payload_social_proto_rawDescGZIP(), []int{50}
 }
 
 type FriendInviteTokenGetResponse struct {
@@ -3065,7 +2613,7 @@ type FriendInviteTokenGetResponse struct {
 
 func (x *FriendInviteTokenGetResponse) Reset() {
 	*x = FriendInviteTokenGetResponse{}
-	mi := &file_payload_social_proto_msgTypes[58]
+	mi := &file_payload_social_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3077,7 +2625,7 @@ func (x *FriendInviteTokenGetResponse) String() string {
 func (*FriendInviteTokenGetResponse) ProtoMessage() {}
 
 func (x *FriendInviteTokenGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[58]
+	mi := &file_payload_social_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3090,7 +2638,7 @@ func (x *FriendInviteTokenGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendInviteTokenGetResponse.ProtoReflect.Descriptor instead.
 func (*FriendInviteTokenGetResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{58}
+	return file_payload_social_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *FriendInviteTokenGetResponse) GetExpiresAt() string {
@@ -3117,7 +2665,7 @@ type FriendListRequest struct {
 
 func (x *FriendListRequest) Reset() {
 	*x = FriendListRequest{}
-	mi := &file_payload_social_proto_msgTypes[59]
+	mi := &file_payload_social_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3129,7 +2677,7 @@ func (x *FriendListRequest) String() string {
 func (*FriendListRequest) ProtoMessage() {}
 
 func (x *FriendListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[59]
+	mi := &file_payload_social_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3142,7 +2690,7 @@ func (x *FriendListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendListRequest.ProtoReflect.Descriptor instead.
 func (*FriendListRequest) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{59}
+	return file_payload_social_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *FriendListRequest) GetCursor() string {
@@ -3170,7 +2718,7 @@ type FriendListResponse struct {
 
 func (x *FriendListResponse) Reset() {
 	*x = FriendListResponse{}
-	mi := &file_payload_social_proto_msgTypes[60]
+	mi := &file_payload_social_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3182,7 +2730,7 @@ func (x *FriendListResponse) String() string {
 func (*FriendListResponse) ProtoMessage() {}
 
 func (x *FriendListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[60]
+	mi := &file_payload_social_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3195,7 +2743,7 @@ func (x *FriendListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendListResponse.ProtoReflect.Descriptor instead.
 func (*FriendListResponse) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{60}
+	return file_payload_social_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *FriendListResponse) GetHasNext() bool {
@@ -3232,7 +2780,7 @@ type FriendObject struct {
 
 func (x *FriendObject) Reset() {
 	*x = FriendObject{}
-	mi := &file_payload_social_proto_msgTypes[61]
+	mi := &file_payload_social_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3244,7 +2792,7 @@ func (x *FriendObject) String() string {
 func (*FriendObject) ProtoMessage() {}
 
 func (x *FriendObject) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_social_proto_msgTypes[61]
+	mi := &file_payload_social_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3257,7 +2805,7 @@ func (x *FriendObject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendObject.ProtoReflect.Descriptor instead.
 func (*FriendObject) Descriptor() ([]byte, []int) {
-	return file_payload_social_proto_rawDescGZIP(), []int{61}
+	return file_payload_social_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *FriendObject) GetCreatedAt() string {
@@ -3461,50 +3009,7 @@ const file_payload_social_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12@\n" +
 	"\x04role\x18\x03 \x01(\x0e2,.gizclaw.rpc.v1.FriendGroupMemberMutableRoleR\x04role\"]\n" +
 	"\x1cFriendGroupMemberPutResponse\x12=\n" +
-	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"w\n" +
-	"&FriendGroupMessageAudioDownloadRequest\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
-	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\"\xb4\x01\n" +
-	"'FriendGroupMessageAudioDownloadResponse\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
-	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\x12\x1b\n" +
-	"\tmime_type\x18\x03 \x01(\tR\bmimeType\x12\x1d\n" +
-	"\n" +
-	"size_bytes\x18\x04 \x01(\x03R\tsizeBytes\"m\n" +
-	"\x1cFriendGroupMessageGetRequest\x12*\n" +
-	"\x11friend_group_name\x18\x01 \x01(\tR\x0ffriendGroupName\x12!\n" +
-	"\fhistory_name\x18\x02 \x01(\tR\vhistoryName\"_\n" +
-	"\x1dFriendGroupMessageGetResponse\x12>\n" +
-	"\x05value\x18\x01 \x01(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05value\"\xef\x01\n" +
-	"\x1dFriendGroupMessageListRequest\x12\x1b\n" +
-	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12*\n" +
-	"\x11friend_group_name\x18\x02 \x01(\tR\x0ffriendGroupName\x12\x19\n" +
-	"\x05limit\x18\x03 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12K\n" +
-	"\x05order\x18\x04 \x01(\x0e20.gizclaw.rpc.v1.WorkspaceHistoryListRequestOrderH\x02R\x05order\x88\x01\x01B\t\n" +
-	"\a_cursorB\b\n" +
-	"\x06_limitB\b\n" +
-	"\x06_order\"\xb1\x01\n" +
-	"\x1eFriendGroupMessageListResponse\x12\x19\n" +
-	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12>\n" +
-	"\x05items\x18\x02 \x03(\v2(.gizclaw.rpc.v1.FriendGroupMessageObjectR\x05items\x12$\n" +
-	"\vnext_cursor\x18\x03 \x01(\tH\x00R\n" +
-	"nextCursor\x88\x01\x01B\x0e\n" +
-	"\f_next_cursor\"\x9a\x03\n" +
-	"\x18FriendGroupMessageObject\x12\x1d\n" +
-	"\n" +
-	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12\"\n" +
-	"\n" +
-	"expires_at\x18\x02 \x01(\tH\x00R\texpiresAt\x88\x01\x01\x12*\n" +
-	"\x11friend_group_name\x18\x03 \x01(\tR\x0ffriendGroupName\x128\n" +
-	"\x16sender_peer_public_key\x18\x04 \x01(\tH\x01R\x13senderPeerPublicKey\x88\x01\x01\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04name\x12\x1d\n" +
-	"\n" +
-	"actor_name\x18\x06 \x01(\tR\tactorName\x12\x12\n" +
-	"\x04text\x18\a \x01(\tR\x04text\x12;\n" +
-	"\x04type\x18\b \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04type\x12'\n" +
-	"\x0faudio_available\x18\t \x01(\bR\x0eaudioAvailableB\r\n" +
-	"\v_expires_atB\x19\n" +
-	"\x17_sender_peer_public_key\"\xed\x03\n" +
+	"\x05value\x18\x01 \x01(\v2'.gizclaw.rpc.v1.FriendGroupMemberObjectR\x05value\"\xed\x03\n" +
 	"\x11FriendGroupObject\x12\"\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tH\x00R\tcreatedAt\x88\x01\x01\x12?\n" +
@@ -3582,74 +3087,65 @@ func file_payload_social_proto_rawDescGZIP() []byte {
 	return file_payload_social_proto_rawDescData
 }
 
-var file_payload_social_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
+var file_payload_social_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_payload_social_proto_goTypes = []any{
-	(*ContactCreateRequest)(nil),                    // 0: gizclaw.rpc.v1.ContactCreateRequest
-	(*ContactCreateResponse)(nil),                   // 1: gizclaw.rpc.v1.ContactCreateResponse
-	(*ContactDeleteRequest)(nil),                    // 2: gizclaw.rpc.v1.ContactDeleteRequest
-	(*ContactDeleteResponse)(nil),                   // 3: gizclaw.rpc.v1.ContactDeleteResponse
-	(*ContactGetRequest)(nil),                       // 4: gizclaw.rpc.v1.ContactGetRequest
-	(*ContactGetResponse)(nil),                      // 5: gizclaw.rpc.v1.ContactGetResponse
-	(*ContactListRequest)(nil),                      // 6: gizclaw.rpc.v1.ContactListRequest
-	(*ContactListResponse)(nil),                     // 7: gizclaw.rpc.v1.ContactListResponse
-	(*ContactObject)(nil),                           // 8: gizclaw.rpc.v1.ContactObject
-	(*ContactPutRequest)(nil),                       // 9: gizclaw.rpc.v1.ContactPutRequest
-	(*ContactPutResponse)(nil),                      // 10: gizclaw.rpc.v1.ContactPutResponse
-	(*FriendAddRequest)(nil),                        // 11: gizclaw.rpc.v1.FriendAddRequest
-	(*FriendAddResponse)(nil),                       // 12: gizclaw.rpc.v1.FriendAddResponse
-	(*FriendDeleteRequest)(nil),                     // 13: gizclaw.rpc.v1.FriendDeleteRequest
-	(*FriendDeleteResponse)(nil),                    // 14: gizclaw.rpc.v1.FriendDeleteResponse
-	(*FriendInfo)(nil),                              // 15: gizclaw.rpc.v1.FriendInfo
-	(*FriendInfoGetRequest)(nil),                    // 16: gizclaw.rpc.v1.FriendInfoGetRequest
-	(*FriendInfoGetResponse)(nil),                   // 17: gizclaw.rpc.v1.FriendInfoGetResponse
-	(*FriendGroupCreateRequest)(nil),                // 18: gizclaw.rpc.v1.FriendGroupCreateRequest
-	(*FriendGroupCreateResponse)(nil),               // 19: gizclaw.rpc.v1.FriendGroupCreateResponse
-	(*FriendGroupDeleteRequest)(nil),                // 20: gizclaw.rpc.v1.FriendGroupDeleteRequest
-	(*FriendGroupDeleteResponse)(nil),               // 21: gizclaw.rpc.v1.FriendGroupDeleteResponse
-	(*FriendGroupGetRequest)(nil),                   // 22: gizclaw.rpc.v1.FriendGroupGetRequest
-	(*FriendGroupGetResponse)(nil),                  // 23: gizclaw.rpc.v1.FriendGroupGetResponse
-	(*FriendGroupInviteTokenClearRequest)(nil),      // 24: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
-	(*FriendGroupInviteTokenClearResponse)(nil),     // 25: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
-	(*FriendGroupInviteTokenCreateRequest)(nil),     // 26: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
-	(*FriendGroupInviteTokenCreateResponse)(nil),    // 27: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
-	(*FriendGroupInviteTokenGetRequest)(nil),        // 28: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
-	(*FriendGroupInviteTokenGetResponse)(nil),       // 29: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
-	(*FriendGroupJoinRequest)(nil),                  // 30: gizclaw.rpc.v1.FriendGroupJoinRequest
-	(*FriendGroupJoinResponse)(nil),                 // 31: gizclaw.rpc.v1.FriendGroupJoinResponse
-	(*FriendGroupListRequest)(nil),                  // 32: gizclaw.rpc.v1.FriendGroupListRequest
-	(*FriendGroupListResponse)(nil),                 // 33: gizclaw.rpc.v1.FriendGroupListResponse
-	(*FriendGroupMemberAddRequest)(nil),             // 34: gizclaw.rpc.v1.FriendGroupMemberAddRequest
-	(*FriendGroupMemberAddResponse)(nil),            // 35: gizclaw.rpc.v1.FriendGroupMemberAddResponse
-	(*FriendGroupMemberDeleteRequest)(nil),          // 36: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
-	(*FriendGroupMemberDeleteResponse)(nil),         // 37: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
-	(*FriendGroupMemberListRequest)(nil),            // 38: gizclaw.rpc.v1.FriendGroupMemberListRequest
-	(*FriendGroupMemberListResponse)(nil),           // 39: gizclaw.rpc.v1.FriendGroupMemberListResponse
-	(*FriendGroupMemberObject)(nil),                 // 40: gizclaw.rpc.v1.FriendGroupMemberObject
-	(*FriendGroupMemberPutRequest)(nil),             // 41: gizclaw.rpc.v1.FriendGroupMemberPutRequest
-	(*FriendGroupMemberPutResponse)(nil),            // 42: gizclaw.rpc.v1.FriendGroupMemberPutResponse
-	(*FriendGroupMessageAudioDownloadRequest)(nil),  // 43: gizclaw.rpc.v1.FriendGroupMessageAudioDownloadRequest
-	(*FriendGroupMessageAudioDownloadResponse)(nil), // 44: gizclaw.rpc.v1.FriendGroupMessageAudioDownloadResponse
-	(*FriendGroupMessageGetRequest)(nil),            // 45: gizclaw.rpc.v1.FriendGroupMessageGetRequest
-	(*FriendGroupMessageGetResponse)(nil),           // 46: gizclaw.rpc.v1.FriendGroupMessageGetResponse
-	(*FriendGroupMessageListRequest)(nil),           // 47: gizclaw.rpc.v1.FriendGroupMessageListRequest
-	(*FriendGroupMessageListResponse)(nil),          // 48: gizclaw.rpc.v1.FriendGroupMessageListResponse
-	(*FriendGroupMessageObject)(nil),                // 49: gizclaw.rpc.v1.FriendGroupMessageObject
-	(*FriendGroupObject)(nil),                       // 50: gizclaw.rpc.v1.FriendGroupObject
-	(*FriendGroupPutRequest)(nil),                   // 51: gizclaw.rpc.v1.FriendGroupPutRequest
-	(*FriendGroupPutResponse)(nil),                  // 52: gizclaw.rpc.v1.FriendGroupPutResponse
-	(*FriendInviteTokenClearRequest)(nil),           // 53: gizclaw.rpc.v1.FriendInviteTokenClearRequest
-	(*FriendInviteTokenClearResponse)(nil),          // 54: gizclaw.rpc.v1.FriendInviteTokenClearResponse
-	(*FriendInviteTokenCreateRequest)(nil),          // 55: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
-	(*FriendInviteTokenCreateResponse)(nil),         // 56: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
-	(*FriendInviteTokenGetRequest)(nil),             // 57: gizclaw.rpc.v1.FriendInviteTokenGetRequest
-	(*FriendInviteTokenGetResponse)(nil),            // 58: gizclaw.rpc.v1.FriendInviteTokenGetResponse
-	(*FriendListRequest)(nil),                       // 59: gizclaw.rpc.v1.FriendListRequest
-	(*FriendListResponse)(nil),                      // 60: gizclaw.rpc.v1.FriendListResponse
-	(*FriendObject)(nil),                            // 61: gizclaw.rpc.v1.FriendObject
-	(FriendGroupMemberMutableRole)(0),               // 62: gizclaw.rpc.v1.FriendGroupMemberMutableRole
-	(FriendGroupMemberRole)(0),                      // 63: gizclaw.rpc.v1.FriendGroupMemberRole
-	(WorkspaceHistoryListRequestOrder)(0),           // 64: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(PeerRunHistoryEntryType)(0),                    // 65: gizclaw.rpc.v1.PeerRunHistoryEntryType
+	(*ContactCreateRequest)(nil),                 // 0: gizclaw.rpc.v1.ContactCreateRequest
+	(*ContactCreateResponse)(nil),                // 1: gizclaw.rpc.v1.ContactCreateResponse
+	(*ContactDeleteRequest)(nil),                 // 2: gizclaw.rpc.v1.ContactDeleteRequest
+	(*ContactDeleteResponse)(nil),                // 3: gizclaw.rpc.v1.ContactDeleteResponse
+	(*ContactGetRequest)(nil),                    // 4: gizclaw.rpc.v1.ContactGetRequest
+	(*ContactGetResponse)(nil),                   // 5: gizclaw.rpc.v1.ContactGetResponse
+	(*ContactListRequest)(nil),                   // 6: gizclaw.rpc.v1.ContactListRequest
+	(*ContactListResponse)(nil),                  // 7: gizclaw.rpc.v1.ContactListResponse
+	(*ContactObject)(nil),                        // 8: gizclaw.rpc.v1.ContactObject
+	(*ContactPutRequest)(nil),                    // 9: gizclaw.rpc.v1.ContactPutRequest
+	(*ContactPutResponse)(nil),                   // 10: gizclaw.rpc.v1.ContactPutResponse
+	(*FriendAddRequest)(nil),                     // 11: gizclaw.rpc.v1.FriendAddRequest
+	(*FriendAddResponse)(nil),                    // 12: gizclaw.rpc.v1.FriendAddResponse
+	(*FriendDeleteRequest)(nil),                  // 13: gizclaw.rpc.v1.FriendDeleteRequest
+	(*FriendDeleteResponse)(nil),                 // 14: gizclaw.rpc.v1.FriendDeleteResponse
+	(*FriendInfo)(nil),                           // 15: gizclaw.rpc.v1.FriendInfo
+	(*FriendInfoGetRequest)(nil),                 // 16: gizclaw.rpc.v1.FriendInfoGetRequest
+	(*FriendInfoGetResponse)(nil),                // 17: gizclaw.rpc.v1.FriendInfoGetResponse
+	(*FriendGroupCreateRequest)(nil),             // 18: gizclaw.rpc.v1.FriendGroupCreateRequest
+	(*FriendGroupCreateResponse)(nil),            // 19: gizclaw.rpc.v1.FriendGroupCreateResponse
+	(*FriendGroupDeleteRequest)(nil),             // 20: gizclaw.rpc.v1.FriendGroupDeleteRequest
+	(*FriendGroupDeleteResponse)(nil),            // 21: gizclaw.rpc.v1.FriendGroupDeleteResponse
+	(*FriendGroupGetRequest)(nil),                // 22: gizclaw.rpc.v1.FriendGroupGetRequest
+	(*FriendGroupGetResponse)(nil),               // 23: gizclaw.rpc.v1.FriendGroupGetResponse
+	(*FriendGroupInviteTokenClearRequest)(nil),   // 24: gizclaw.rpc.v1.FriendGroupInviteTokenClearRequest
+	(*FriendGroupInviteTokenClearResponse)(nil),  // 25: gizclaw.rpc.v1.FriendGroupInviteTokenClearResponse
+	(*FriendGroupInviteTokenCreateRequest)(nil),  // 26: gizclaw.rpc.v1.FriendGroupInviteTokenCreateRequest
+	(*FriendGroupInviteTokenCreateResponse)(nil), // 27: gizclaw.rpc.v1.FriendGroupInviteTokenCreateResponse
+	(*FriendGroupInviteTokenGetRequest)(nil),     // 28: gizclaw.rpc.v1.FriendGroupInviteTokenGetRequest
+	(*FriendGroupInviteTokenGetResponse)(nil),    // 29: gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse
+	(*FriendGroupJoinRequest)(nil),               // 30: gizclaw.rpc.v1.FriendGroupJoinRequest
+	(*FriendGroupJoinResponse)(nil),              // 31: gizclaw.rpc.v1.FriendGroupJoinResponse
+	(*FriendGroupListRequest)(nil),               // 32: gizclaw.rpc.v1.FriendGroupListRequest
+	(*FriendGroupListResponse)(nil),              // 33: gizclaw.rpc.v1.FriendGroupListResponse
+	(*FriendGroupMemberAddRequest)(nil),          // 34: gizclaw.rpc.v1.FriendGroupMemberAddRequest
+	(*FriendGroupMemberAddResponse)(nil),         // 35: gizclaw.rpc.v1.FriendGroupMemberAddResponse
+	(*FriendGroupMemberDeleteRequest)(nil),       // 36: gizclaw.rpc.v1.FriendGroupMemberDeleteRequest
+	(*FriendGroupMemberDeleteResponse)(nil),      // 37: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse
+	(*FriendGroupMemberListRequest)(nil),         // 38: gizclaw.rpc.v1.FriendGroupMemberListRequest
+	(*FriendGroupMemberListResponse)(nil),        // 39: gizclaw.rpc.v1.FriendGroupMemberListResponse
+	(*FriendGroupMemberObject)(nil),              // 40: gizclaw.rpc.v1.FriendGroupMemberObject
+	(*FriendGroupMemberPutRequest)(nil),          // 41: gizclaw.rpc.v1.FriendGroupMemberPutRequest
+	(*FriendGroupMemberPutResponse)(nil),         // 42: gizclaw.rpc.v1.FriendGroupMemberPutResponse
+	(*FriendGroupObject)(nil),                    // 43: gizclaw.rpc.v1.FriendGroupObject
+	(*FriendGroupPutRequest)(nil),                // 44: gizclaw.rpc.v1.FriendGroupPutRequest
+	(*FriendGroupPutResponse)(nil),               // 45: gizclaw.rpc.v1.FriendGroupPutResponse
+	(*FriendInviteTokenClearRequest)(nil),        // 46: gizclaw.rpc.v1.FriendInviteTokenClearRequest
+	(*FriendInviteTokenClearResponse)(nil),       // 47: gizclaw.rpc.v1.FriendInviteTokenClearResponse
+	(*FriendInviteTokenCreateRequest)(nil),       // 48: gizclaw.rpc.v1.FriendInviteTokenCreateRequest
+	(*FriendInviteTokenCreateResponse)(nil),      // 49: gizclaw.rpc.v1.FriendInviteTokenCreateResponse
+	(*FriendInviteTokenGetRequest)(nil),          // 50: gizclaw.rpc.v1.FriendInviteTokenGetRequest
+	(*FriendInviteTokenGetResponse)(nil),         // 51: gizclaw.rpc.v1.FriendInviteTokenGetResponse
+	(*FriendListRequest)(nil),                    // 52: gizclaw.rpc.v1.FriendListRequest
+	(*FriendListResponse)(nil),                   // 53: gizclaw.rpc.v1.FriendListResponse
+	(*FriendObject)(nil),                         // 54: gizclaw.rpc.v1.FriendObject
+	(FriendGroupMemberMutableRole)(0),            // 55: gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	(FriendGroupMemberRole)(0),                   // 56: gizclaw.rpc.v1.FriendGroupMemberRole
 }
 var file_payload_social_proto_depIdxs = []int32{
 	8,  // 0: gizclaw.rpc.v1.ContactCreateResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
@@ -3657,34 +3153,30 @@ var file_payload_social_proto_depIdxs = []int32{
 	8,  // 2: gizclaw.rpc.v1.ContactGetResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
 	8,  // 3: gizclaw.rpc.v1.ContactListResponse.items:type_name -> gizclaw.rpc.v1.ContactObject
 	8,  // 4: gizclaw.rpc.v1.ContactPutResponse.value:type_name -> gizclaw.rpc.v1.ContactObject
-	61, // 5: gizclaw.rpc.v1.FriendAddResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
-	61, // 6: gizclaw.rpc.v1.FriendDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
+	54, // 5: gizclaw.rpc.v1.FriendAddResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
+	54, // 6: gizclaw.rpc.v1.FriendDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendObject
 	15, // 7: gizclaw.rpc.v1.FriendInfoGetResponse.value:type_name -> gizclaw.rpc.v1.FriendInfo
-	50, // 8: gizclaw.rpc.v1.FriendGroupCreateResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	50, // 9: gizclaw.rpc.v1.FriendGroupDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	50, // 10: gizclaw.rpc.v1.FriendGroupGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	50, // 11: gizclaw.rpc.v1.FriendGroupJoinResponse.group:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	43, // 8: gizclaw.rpc.v1.FriendGroupCreateResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	43, // 9: gizclaw.rpc.v1.FriendGroupDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	43, // 10: gizclaw.rpc.v1.FriendGroupGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	43, // 11: gizclaw.rpc.v1.FriendGroupJoinResponse.group:type_name -> gizclaw.rpc.v1.FriendGroupObject
 	40, // 12: gizclaw.rpc.v1.FriendGroupJoinResponse.member:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	50, // 13: gizclaw.rpc.v1.FriendGroupListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	62, // 14: gizclaw.rpc.v1.FriendGroupMemberAddRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	43, // 13: gizclaw.rpc.v1.FriendGroupListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	55, // 14: gizclaw.rpc.v1.FriendGroupMemberAddRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
 	40, // 15: gizclaw.rpc.v1.FriendGroupMemberAddResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
 	40, // 16: gizclaw.rpc.v1.FriendGroupMemberDeleteResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
 	40, // 17: gizclaw.rpc.v1.FriendGroupMemberListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	63, // 18: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	62, // 19: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
+	56, // 18: gizclaw.rpc.v1.FriendGroupMemberObject.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	55, // 19: gizclaw.rpc.v1.FriendGroupMemberPutRequest.role:type_name -> gizclaw.rpc.v1.FriendGroupMemberMutableRole
 	40, // 20: gizclaw.rpc.v1.FriendGroupMemberPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMemberObject
-	49, // 21: gizclaw.rpc.v1.FriendGroupMessageGetResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	64, // 22: gizclaw.rpc.v1.FriendGroupMessageListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	49, // 23: gizclaw.rpc.v1.FriendGroupMessageListResponse.items:type_name -> gizclaw.rpc.v1.FriendGroupMessageObject
-	65, // 24: gizclaw.rpc.v1.FriendGroupMessageObject.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
-	63, // 25: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
-	50, // 26: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
-	61, // 27: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	56, // 21: gizclaw.rpc.v1.FriendGroupObject.my_role:type_name -> gizclaw.rpc.v1.FriendGroupMemberRole
+	43, // 22: gizclaw.rpc.v1.FriendGroupPutResponse.value:type_name -> gizclaw.rpc.v1.FriendGroupObject
+	54, // 23: gizclaw.rpc.v1.FriendListResponse.items:type_name -> gizclaw.rpc.v1.FriendObject
+	24, // [24:24] is the sub-list for method output_type
+	24, // [24:24] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_payload_social_proto_init() }
@@ -3706,22 +3198,19 @@ func file_payload_social_proto_init() {
 	file_payload_social_proto_msgTypes[38].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[39].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[40].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[47].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[48].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[49].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[50].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[43].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[44].OneofWrappers = []any{}
 	file_payload_social_proto_msgTypes[51].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[58].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[59].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[60].OneofWrappers = []any{}
-	file_payload_social_proto_msgTypes[61].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[52].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[53].OneofWrappers = []any{}
+	file_payload_social_proto_msgTypes[54].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_social_proto_rawDesc), len(file_payload_social_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   62,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

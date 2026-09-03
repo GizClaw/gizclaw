@@ -552,7 +552,6 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
         "flowcraft": "flowcraft_workspace_parameters",
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
-        "chatroom": "chat_room_workspace_parameters",
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
         "doubao-realtime-duplex": "doubao_realtime_duplex_workspace_parameters",
         "eino": "eino_workspace_parameters",
@@ -1208,8 +1207,7 @@ function isOneofDiscriminatorField(field) {
     field.name === "agent_type" &&
     (field.type === "FlowcraftWorkspaceParametersAgentType" ||
       field.type === "DoubaoRealtimeWorkspaceParametersAgentType" ||
-      field.type === "ASTTranslateWorkspaceParametersAgentType" ||
-      field.type === "ChatRoomWorkspaceParametersAgentType")
+      field.type === "ASTTranslateWorkspaceParametersAgentType")
   );
 }
 

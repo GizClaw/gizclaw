@@ -67,14 +67,6 @@ final _messageFactories = <String, MessageFactory>{
   'FriendGroupMemberListResponse': payload.FriendGroupMemberListResponse.new,
   'FriendGroupMemberPutRequest': payload.FriendGroupMemberPutRequest.new,
   'FriendGroupMemberPutResponse': payload.FriendGroupMemberPutResponse.new,
-  'FriendGroupMessageAudioDownloadRequest':
-      payload.FriendGroupMessageAudioDownloadRequest.new,
-  'FriendGroupMessageAudioDownloadResponse':
-      payload.FriendGroupMessageAudioDownloadResponse.new,
-  'FriendGroupMessageGetRequest': payload.FriendGroupMessageGetRequest.new,
-  'FriendGroupMessageGetResponse': payload.FriendGroupMessageGetResponse.new,
-  'FriendGroupMessageListRequest': payload.FriendGroupMessageListRequest.new,
-  'FriendGroupMessageListResponse': payload.FriendGroupMessageListResponse.new,
   'FriendGroupPutRequest': payload.FriendGroupPutRequest.new,
   'FriendGroupPutResponse': payload.FriendGroupPutResponse.new,
   'FriendInfoGetRequest': payload.FriendInfoGetRequest.new,
@@ -288,14 +280,6 @@ final _messageTypes = <String, Type>{
   'FriendGroupMemberListResponse': payload.FriendGroupMemberListResponse,
   'FriendGroupMemberPutRequest': payload.FriendGroupMemberPutRequest,
   'FriendGroupMemberPutResponse': payload.FriendGroupMemberPutResponse,
-  'FriendGroupMessageAudioDownloadRequest':
-      payload.FriendGroupMessageAudioDownloadRequest,
-  'FriendGroupMessageAudioDownloadResponse':
-      payload.FriendGroupMessageAudioDownloadResponse,
-  'FriendGroupMessageGetRequest': payload.FriendGroupMessageGetRequest,
-  'FriendGroupMessageGetResponse': payload.FriendGroupMessageGetResponse,
-  'FriendGroupMessageListRequest': payload.FriendGroupMessageListRequest,
-  'FriendGroupMessageListResponse': payload.FriendGroupMessageListResponse,
   'FriendGroupPutRequest': payload.FriendGroupPutRequest,
   'FriendGroupPutResponse': payload.FriendGroupPutResponse,
   'FriendInfoGetRequest': payload.FriendInfoGetRequest,

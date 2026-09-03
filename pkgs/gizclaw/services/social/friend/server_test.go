@@ -18,6 +18,7 @@ import (
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -33,50 +34,170 @@ type friendNotification struct {
 	event     *eventpb.PeerEvent
 }
 
-type assignmentStub map[giznet.PublicKey]apitypes.PeerAssignment
-
-func (s assignmentStub) Lookup(_ context.Context, key giznet.PublicKey) (apitypes.PeerAssignment, error) {
-	assignment, ok := s[key]
-	if !ok {
-		return apitypes.PeerAssignment{}, kv.ErrNotFound
-	}
-	return assignment, nil
-}
-
-func TestCrossServerFriendCreationStopsBeforeMutation(t *testing.T) {
+func TestCrossServerFriendCreationSucceedsThroughSharedKV(t *testing.T) {
 	localKey := giznet.PublicKey{1}
 	foreignKey := giznet.PublicKey{2}
-	serverKey := giznet.PublicKey{8}
-	foreignServerKey := giznet.PublicKey{9}
-	s := newTestServer()
-	s.ServerPublicKey = serverKey
-	s.PeerAssignments = assignmentStub{
-		localKey:   {PeerPublicKey: localKey.String(), ServerPublicKey: serverKey.String()},
-		foreignKey: {PeerPublicKey: foreignKey.String(), ServerPublicKey: foreignServerKey.String()},
-	}
-	workspaces := s.Workspaces.(*recordingWorkspaceService)
-	profileCalls := 0
-	s.RuntimeProfileForOwner = func(context.Context, string) (apitypes.RuntimeProfile, error) {
-		profileCalls++
-		return apitypes.RuntimeProfile{}, errors.New("profile must not be resolved")
-	}
-	token, err := s.CreateFriendInviteToken(t.Context(), foreignKey.String(), rpcapi.FriendInviteTokenCreateRequest{})
+	inviteTokens := kv.NewMemory(nil)
+	friends := kv.NewMemory(nil)
+	workspaces := &recordingWorkspaceService{}
+	home := newTestServer()
+	home.InviteTokens, home.Friends, home.Workspaces = inviteTokens, friends, workspaces
+	other := newTestServer()
+	other.InviteTokens, other.Friends, other.Workspaces = inviteTokens, friends, &recordingWorkspaceService{}
+	token, err := home.CreateFriendInviteToken(t.Context(), foreignKey.String(), rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AddFriend(t.Context(), localKey.String(), rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); !errors.Is(err, ErrCrossServerFriendCreation) {
-		t.Fatalf("AddFriend() error = %v, want cross-server conflict", err)
+	created, err := other.AddFriend(t.Context(), localKey.String(), rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
+	if err != nil {
+		t.Fatalf("AddFriend() across Servers error = %v", err)
 	}
-	if profileCalls != 0 || len(workspaces.created) != 0 {
-		t.Fatalf("rejected creation resolved %d profiles and created %d Workspaces", profileCalls, len(workspaces.created))
+	if len(workspaces.created) != 0 {
+		t.Fatalf("home Server created Workspaces = %#v, want none", workspaces.created)
+	}
+	if _, err := readCreationIntent(t.Context(), friends, socialutil.RelationID(localKey.String(), foreignKey.String())); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("creation intent after cross-server commit error = %v, want not found", err)
+	}
+	binding, err := home.ResolveSFUWorkspaceBindingByName(t.Context(), socialutil.StringValue(created.WorkspaceName), foreignKey.String())
+	if err != nil {
+		t.Fatalf("ResolveSFUWorkspaceBindingByName() on the other Server error = %v", err)
+	}
+	if binding.Owner != foreignKey.String() || binding.SFU.URL != home.SFUURL || binding.SFU.Generation != 1 {
+		t.Fatalf("shared binding = %#v", binding)
+	}
+	if _, err := home.AdminCreateFriend(t.Context(), localKey.String(), foreignKey.String()); err != nil {
+		t.Fatalf("AdminCreateFriend() existing cross-server relation error = %v", err)
+	}
+}
+
+func TestFriendCreationMintsRoomTokenOncePerIncarnation(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	workspaces := s.Workspaces.(*recordingWorkspaceService)
+	intent, err := s.getOrCreateCreationIntent(ctx, s.Friends, "peer-a", "peer-b", "peer-a")
+	if err != nil {
+		t.Fatalf("getOrCreateCreationIntent: %v", err)
+	}
+	if !strings.HasPrefix(intent.RoomToken, "room-") || intent.SFUURL != s.SFUURL {
+		t.Fatalf("creation intent = %#v, want minted room token and SFU url", intent)
+	}
+	retried, err := s.getOrCreateCreationIntent(ctx, s.Friends, "peer-b", "peer-a", "peer-a")
+	if err != nil {
+		t.Fatalf("getOrCreateCreationIntent(retry): %v", err)
+	}
+	if retried.RoomToken != intent.RoomToken || retried.IncarnationID != intent.IncarnationID {
+		t.Fatalf("retried intent = %#v, want reuse of %#v", retried, intent)
+	}
+	first, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != socialutil.SFUWorkflowID || workspaces.created[0].Parameters != nil {
+		t.Fatalf("created Workspaces = %#v, want SFU Workflow without parameters", workspaces.created)
+	}
+	binding, err := readWorkspaceBinding(ctx, s.Friends, socialutil.RelationID("peer-a", "peer-b"))
+	if err != nil {
+		t.Fatalf("readWorkspaceBinding: %v", err)
+	}
+	if binding.SFU.RoomToken != intent.RoomToken || binding.SFU.URL != s.SFUURL || binding.SFU.Generation != 1 || binding.WorkspaceOwner != "peer-a" {
+		t.Fatalf("committed binding = %#v", binding)
+	}
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	second, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebound, err := readWorkspaceBinding(ctx, s.Friends, socialutil.RelationID("peer-a", "peer-b"))
+	if err != nil {
+		t.Fatalf("readWorkspaceBinding(re-added): %v", err)
+	}
+	if rebound.SFU.RoomToken == binding.SFU.RoomToken || socialutil.StringValue(second.WorkspaceName) == socialutil.StringValue(first.WorkspaceName) {
+		t.Fatalf("re-added Friend reused retired identity: %#v vs %#v", rebound, binding)
+	}
+}
+
+func TestFriendCreationRequiresSFUConfiguration(t *testing.T) {
+	s := newTestServer()
+	s.SFUURL = " "
+	if _, err := s.AdminCreateFriend(t.Context(), "peer-a", "peer-b"); !errors.Is(err, ErrSFUNotConfigured) {
+		t.Fatalf("AdminCreateFriend() error = %v, want %v", err, ErrSFUNotConfigured)
 	}
 	assertNoFriendCreationState(t, s.Friends)
-	active, ok, err := s.activeInviteToken(t.Context(), s.InviteTokens, foreignKey.String())
-	if err != nil || !ok || active.InviteToken != token.InviteToken {
-		t.Fatalf("invite after rejection = %+v, %v, %v", active, ok, err)
+}
+
+func TestResolveSFUWorkspaceBindingChecksMembershipAndRetirement(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	created, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := s.AdminCreateFriend(t.Context(), localKey.String(), foreignKey.String()); !errors.Is(err, ErrCrossServerFriendCreation) {
-		t.Fatalf("AdminCreateFriend() error = %v, want cross-server conflict", err)
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	stored, err := readWorkspaceBinding(ctx, s.Friends, relationID)
+	if err != nil {
+		t.Fatalf("readWorkspaceBinding: %v", err)
+	}
+	for _, peer := range []string{"peer-a", "peer-b"} {
+		binding, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, peer)
+		if err != nil {
+			t.Fatalf("ResolveSFUWorkspaceBinding(%s) error = %v", peer, err)
+		}
+		if binding.WorkspaceID != stored.WorkspaceID || binding.WorkspaceName != socialutil.StringValue(created.WorkspaceName) ||
+			binding.Kind != socialutil.SFUWorkspaceKindFriend || binding.SocialID != relationID || binding.Owner != "peer-a" ||
+			binding.SFU != stored.SFU || !slices.Equal(binding.Members, []string{"peer-a", "peer-b"}) {
+			t.Fatalf("ResolveSFUWorkspaceBinding(%s) = %#v", peer, binding)
+		}
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "peer-c"); !errors.Is(err, sfu.ErrNotMember) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(non-member) error = %v, want %v", err, sfu.ErrNotMember)
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, "unknown-workspace", "peer-a"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(unbound) error = %v, want not found", err)
+	}
+	if _, err := s.ResolveSFUWorkspaceBindingByName(ctx, socialutil.StringValue(created.WorkspaceName), "peer-b"); err != nil {
+		t.Fatalf("ResolveSFUWorkspaceBindingByName() error = %v", err)
+	}
+	listed, err := s.ListSFUWorkspaceBindingsForPeer(ctx, "peer-b")
+	if err != nil || len(listed) != 1 || listed[0].WorkspaceID != stored.WorkspaceID {
+		t.Fatalf("ListSFUWorkspaceBindingsForPeer() = %#v, %v", listed, err)
+	}
+	if _, err := s.DeleteFriend(ctx, "peer-b", rpcapi.FriendDeleteRequest{Name: "peer-a"}); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "peer-a"); !errors.Is(err, sfu.ErrRevoked) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(retired) error = %v, want %v", err, sfu.ErrRevoked)
+	}
+	if listed, err := s.ListSFUWorkspaceBindingsForPeer(ctx, "peer-b"); err != nil || len(listed) != 0 {
+		t.Fatalf("ListSFUWorkspaceBindingsForPeer(retired) = %#v, %v", listed, err)
+	}
+}
+
+func TestDeleteFriendDropsTheSFUBinding(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b"); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := readWorkspaceBinding(ctx, s.Friends, socialutil.RelationID("peer-a", "peer-b"))
+	if err != nil {
+		t.Fatalf("readWorkspaceBinding: %v", err)
+	}
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); err != nil {
+		t.Fatalf("DeleteFriend: %v", err)
+	}
+	if _, err := readWorkspaceBinding(ctx, s.Friends, socialutil.RelationID("peer-a", "peer-b")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("binding after delete error = %v, want not found", err)
+	}
+	// Both former members now fail closed on their next re-validation.
+	for _, peer := range []string{"peer-a", "peer-b"} {
+		if _, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, peer); err == nil {
+			t.Fatalf("ResolveSFUWorkspaceBinding(%s) after delete succeeded", peer)
+		}
+	}
+	if _, err := s.DeleteFriend(ctx, "peer-a", rpcapi.FriendDeleteRequest{Name: "peer-b"}); err != nil {
+		t.Fatalf("DeleteFriend(retry): %v", err)
 	}
 }
 
@@ -333,16 +454,6 @@ func TestAddFriendWorkspaceBelongsToInviteTokenCreator(t *testing.T) {
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer()
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
-		if owner != "peer-b" {
-			t.Fatalf("RuntimeProfileForOwner owner = %q, want peer-b", owner)
-		}
-		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: "owner-direct-chat"},
-			},
-		}}, nil
-	}
 	token, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -350,7 +461,7 @@ func TestAddFriendWorkspaceBelongsToInviteTokenCreator(t *testing.T) {
 	if _, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err != nil {
 		t.Fatal(err)
 	}
-	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != "owner-direct-chat" {
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != socialutil.SFUWorkflowID {
 		t.Fatalf("created Workspaces = %#v", workspaces.created)
 	}
 	if len(workspaces.owners) != 1 || workspaces.owners[0] != "peer-b" {
@@ -377,19 +488,9 @@ func TestAdminCreateExistingFriendPreservesWorkspaceBinding(t *testing.T) {
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer()
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
-		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: owner + "-direct-chat"},
-			},
-		}}, nil
-	}
 	first, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b")
 	if err != nil {
 		t.Fatal(err)
-	}
-	s.RuntimeProfileForOwner = func(context.Context, string) (apitypes.RuntimeProfile, error) {
-		return apitypes.RuntimeProfile{}, errors.New("existing relation must not resolve a new system Workflow")
 	}
 	existing, err := s.AdminCreateFriend(ctx, "peer-b", "peer-a")
 	if err != nil {
@@ -663,20 +764,6 @@ func TestReconcileCreationIntentReusesWorkspaceIdentity(t *testing.T) {
 	s := newTestServer()
 	s.Friends = friendStore
 	s.Workspaces = workspaces
-	resolverCalls := 0
-	s.RuntimeProfileForOwner = func(
-		context.Context,
-		string,
-	) (apitypes.RuntimeProfile, error) {
-		resolverCalls++
-		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: "durable-friend-chatroom",
-				},
-			},
-		}}, nil
-	}
 
 	if _, err := s.AdminCreateFriend(ctx, "peer-a", "peer-b"); err == nil {
 		t.Fatal("AdminCreateFriend commit failure error = nil")
@@ -704,20 +791,17 @@ func TestReconcileCreationIntentReusesWorkspaceIdentity(t *testing.T) {
 		Now:        s.Now,
 		NotifyPeer: s.NotifyPeer,
 		NewID:      func() string { return "must-not-be-used" },
-		RuntimeProfileForOwner: func(
-			context.Context,
-			string,
-		) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{}, errors.New(
-				"reconciliation must reuse the persisted Workflow",
-			)
-		},
+		SFUURL:     "wss://must-not-be-used",
 	}
 	if err := restarted.ReconcileCreationIntents(ctx); err != nil {
 		t.Fatalf("ReconcileCreationIntents: %v", err)
 	}
-	if resolverCalls != 1 {
-		t.Fatalf("runtime profile resolver calls = %d, want 1", resolverCalls)
+	reconciledBinding, err := readWorkspaceBinding(ctx, friendStore, relationID)
+	if err != nil {
+		t.Fatalf("readWorkspaceBinding after reconciliation: %v", err)
+	}
+	if reconciledBinding.SFU.RoomToken != intent.RoomToken || reconciledBinding.SFU.URL != intent.SFUURL {
+		t.Fatalf("reconciled binding = %#v, want persisted intent identity %#v", reconciledBinding.SFU, intent)
 	}
 	for _, pair := range [][2]string{{"peer-a", "peer-b"}, {"peer-b", "peer-a"}} {
 		item, err := restarted.GetFriendRelation(ctx, pair[0], pair[1])
@@ -1233,14 +1317,9 @@ func TestConcurrentAdminCreateFriendSerializesWorkspaceLifecycle(t *testing.T) {
 	s.Workspaces = workspaces
 	resolverCalls := make(chan string, 2)
 	releaseResolver := make(chan struct{})
-	s.RuntimeProfileForOwner = func(_ context.Context, owner string) (apitypes.RuntimeProfile, error) {
+	workspaces.onCreate = func(owner string) {
 		resolverCalls <- owner
 		<-releaseResolver
-		return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: "direct-chat"},
-			},
-		}}, nil
 	}
 	firstDone := make(chan error, 1)
 	go func() {
@@ -1671,16 +1750,8 @@ func newTestServer() *Server {
 		InviteTokens: kv.NewMemory(nil),
 		Friends:      kv.NewMemory(nil),
 		Workspaces:   &recordingWorkspaceService{},
-		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-				Workflows: apitypes.RuntimeProfileWorkflows{
-					System: apitypes.RuntimeProfileSystemWorkflows{
-						FriendChatroom: "friend-chatroom",
-					},
-				},
-			}}, nil
-		},
-		Now: func() time.Time { return now },
+		SFUURL:       "wss://sfu.test",
+		Now:          func() time.Time { return now },
 		NewID: func() string {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
@@ -1840,10 +1911,14 @@ type recordingWorkspaceService struct {
 	retired   []string
 	owners    []string
 	retireErr error
+	onCreate  func(owner string)
 }
 
 func (s *recordingWorkspaceService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
 	owner, _ := ownership.FromContext(ctx)
+	if s.onCreate != nil {
+		s.onCreate(owner)
+	}
 	s.owners = append(s.owners, owner)
 	for _, existing := range s.created {
 		if existing.Name == body.Name {
@@ -1870,12 +1945,12 @@ func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, nam
 	return apitypes.Workspace{Name: name}, nil
 }
 
-func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	s.retired = append(s.retired, name)
 	return apitypes.Workspace{Name: name}, s.retireErr
 }
 
-func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	s.retired = append(s.retired, id)
 	return apitypes.Workspace{Id: id}, s.retireErr
 }

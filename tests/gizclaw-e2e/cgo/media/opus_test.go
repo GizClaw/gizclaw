@@ -95,13 +95,10 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 				},
 				Workflows: apitypes.RuntimeProfileWorkflows{
 					System: apitypes.RuntimeProfileSystemWorkflows{
-						FriendChatroom: "chatroom-direct",
-						GroupChatroom:  "chatroom-direct",
-						Pet:            "pet-chatroom",
+						Pet: "pet-care",
 					},
 					Collections: apitypes.RuntimeProfileWorkflowCollections{
 						"assistants": runtimeBindings(map[string]string{
-							"chatroom":          "chatroom-direct",
 							"realtime-workflow": "doubao-realtime-conversation",
 						}),
 					},

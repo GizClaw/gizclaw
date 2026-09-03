@@ -343,7 +343,7 @@ func TestSnapshotWorkspaceRewardPolicyResolvesFrozenResources(t *testing.T) {
 	if disallowed, err := runtime.SnapshotWorkspaceRewardPolicy(
 		ctx,
 		profile,
-		WorkspaceRewardKindGroupChatroom,
+		WorkspaceRewardKind("group_chatroom"),
 	); err != nil || disallowed != nil {
 		t.Fatalf("SnapshotWorkspaceRewardPolicy(disallowed) = %#v, %v", disallowed, err)
 	}

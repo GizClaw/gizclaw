@@ -17,6 +17,16 @@ func WithPeerPublicKey(ctx context.Context, publicKey string) context.Context {
 	return context.WithValue(ctx, peerPublicKeyContextKey{}, publicKey)
 }
 
+// PeerPublicKey returns the Peer identity attached by WithPeerPublicKey, or
+// an empty string when the context carries none.
+func PeerPublicKey(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	publicKey, _ := ctx.Value(peerPublicKeyContextKey{}).(string)
+	return publicKey
+}
+
 type contextHandler struct {
 	root       slog.Handler
 	scoped     slog.Handler
