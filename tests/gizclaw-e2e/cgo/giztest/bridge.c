@@ -330,11 +330,27 @@ static bool route_is(const gzt_route_t *route, const char *prefix, bool with_tai
 /* Splits a route so `/contacts/alice` yields route `/contacts` and tail
  * `alice`. Known two-segment routes stay whole. */
 static void split_route(gzc_str_t path, gzt_route_t *out) {
+  /*
+   * Routes the controller SDK addresses as a whole, longest first: a prefix
+   * check alone would split `/device/telemetry/latest` into
+   * `/device/telemetry` plus a `latest` segment.
+   */
   static const char *whole[] = {
-      "/api-keys/self", "/device/runtime", "/device/status", "/device/telemetry",
-      "/device/telemetry/latest", "/device/telemetry/aggregate", "/device/volume",
-      "/device/actions/play-sound", "/device/actions/reboot", "/device/wifi",
-      "/device/wifi/saved", "/device", "/api-keys", "/contacts"};
+      "/device/telemetry/aggregate",
+      "/device/actions/play-sound",
+      "/device/telemetry/latest",
+      "/device/actions/reboot",
+      "/device/wifi/saved",
+      "/device/telemetry",
+      "/device/runtime",
+      "/device/status",
+      "/device/volume",
+      "/api-keys/self",
+      "/device/wifi",
+      "/api-keys",
+      "/contacts",
+      "/device",
+  };
   out->route = path;
   out->tail = gzc_str_from_parts(NULL, 0);
   for (size_t i = 0; i < sizeof(whole) / sizeof(whole[0]); i++) {
@@ -342,6 +358,9 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
     if (path.len == len && memcmp(path.data, whole[i], len) == 0) {
       return;
     }
+  }
+  for (size_t i = 0; i < sizeof(whole) / sizeof(whole[0]); i++) {
+    size_t len = strlen(whole[i]);
     if (path.len > len && memcmp(path.data, whole[i], len) == 0 && path.data[len] == '/') {
       out->route = gzc_str_from_parts(path.data, len);
       out->tail = gzc_str_from_parts(path.data + len + 1, path.len - len - 1);
