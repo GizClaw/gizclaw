@@ -62,7 +62,11 @@ class GiznetServerInfoTransport {
         publicKeyBytes.every((byte) => byte == 0)) {
       throw const FormatException('server-info transport invalid public_key');
     }
-    final endpoint = (json['endpoint'] as String? ?? '').trim();
+    final rawEndpoint = json['endpoint'];
+    if (rawEndpoint != null && rawEndpoint is! String) {
+      throw const FormatException('server-info transport invalid endpoint');
+    }
+    final endpoint = ((rawEndpoint as String?) ?? '').trim();
     if (endpoint.isEmpty || !isValidGiznetAccessPoint(endpoint)) {
       throw const FormatException('server-info transport invalid endpoint');
     }
@@ -134,7 +138,7 @@ class GiznetServerInfo {
         json['build_commit'],
         'build_commit',
       ),
-      endpoint: json['endpoint'] as String?,
+      endpoint: json['endpoint'] is String ? json['endpoint'] as String : null,
       protocol: protocol,
       publicKey: publicKey,
       signalingPath: signalingPath,

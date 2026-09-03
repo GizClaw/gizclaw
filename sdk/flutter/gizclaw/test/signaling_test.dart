@@ -160,6 +160,34 @@ void transportTests() {
       expect(info.transportSignalingPath, '/webrtc/v1/offer');
     });
 
+    test('ignores an unconsumed endpoint of any JSON type', () {
+      for (final endpoint in <Object?>[
+        42,
+        <String, Object?>{},
+        <Object?>[],
+        true,
+        'https://ice.example/path?probe=1',
+      ]) {
+        final info = GiznetServerInfo.fromJson({
+          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+          'endpoint': endpoint,
+        });
+        expect(info.transportPublicKey, info.publicKey, reason: '$endpoint');
+      }
+      expect(
+        () => GiznetServerInfo.fromJson({
+          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+          'transport': {
+            'mode': 'edge-gateway',
+            'endpoint': 42,
+            'public_key': 'FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs',
+            'signaling_path': '/webrtc/v1/offer',
+          },
+        }),
+        throwsFormatException,
+      );
+    });
+
     test('normalizes access points and inherits the transport scheme', () {
       expect(
         normalizeGiznetAccessPoint('127.0.0.1:9820').toString(),
