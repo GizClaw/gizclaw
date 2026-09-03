@@ -71,7 +71,7 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。
 
-`PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期，因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
+`PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing，以及 SFU passthrough 下行：带 `agenthost.OpusPassthroughMIME` 的 chunk 由 `peerAgentOutput` 在 mixer 之前认领，payload 原样、按收到的节奏写入 Device Opus Track，不解码、不混音、不走 pacer；mixer 出口与 passthrough 共用一把写锁串行写 Track。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期（passthrough route 的 BOS/EOS 也经同一 aggregator 成对发出），因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
 
 Agent input runtime 替换时，Realtime Source 把已捕获的旧 user-audio route 交给
 `PeerConn`。`PeerConn` 在 `inputAccessMu` 内只删除匹配旧 ID 的

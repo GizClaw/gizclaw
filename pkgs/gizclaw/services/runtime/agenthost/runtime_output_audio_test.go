@@ -930,3 +930,81 @@ func TestMixerOutputObservesTextWhileAudioDrains(t *testing.T) {
 	}
 	<-readDone
 }
+
+func passthroughOutputChunk(streamID string, data []byte, bos, eos bool) *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Part: &genx.Blob{MIMEType: OpusPassthroughMIME, Data: data},
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "remote", BeginOfStream: bos, EndOfStream: eos},
+	}
+}
+
+// TestMixerOutputPassthroughBypassesDecoderAndTracks pins the zero-decode
+// contract: a passthrough route is handed to the Passthrough hook in order,
+// never creates a decoder or mixer track, and is still observed so route
+// bookkeeping sees its BOS and EOS.
+func TestMixerOutputPassthroughBypassesDecoderAndTracks(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	packet := []byte{0x78, 0x01, 0x02}
+	output := &sliceStream{chunks: []*genx.MessageChunk{
+		passthroughOutputChunk("floor-1", nil, true, false),
+		passthroughOutputChunk("floor-1", packet, false, false),
+		passthroughOutputChunk("floor-1", nil, false, true),
+	}}
+	var claimed, observed []*genx.MessageChunk
+	err := (MixerOutput{
+		Tracks:            creator,
+		WaitForAudioDrain: true,
+		Passthrough: func(chunk *genx.MessageChunk) error {
+			claimed = append(claimed, chunk)
+			return nil
+		},
+		Observe: func(chunk *genx.MessageChunk) error {
+			observed = append(observed, chunk)
+			return nil
+		},
+	}).ConsumeAgentOutput(context.Background(), output)
+	if err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+	if len(creator.tracks) != 0 {
+		t.Fatalf("passthrough created %d mixer tracks, want 0", len(creator.tracks))
+	}
+	if len(claimed) != 3 || !claimed[0].IsBeginOfStream() || !bytes.Equal(claimed[1].Part.(*genx.Blob).Data, packet) || !claimed[2].IsEndOfStream() {
+		t.Fatalf("claimed chunks = %d (%+v)", len(claimed), claimed)
+	}
+	if len(observed) != 3 || !observed[0].IsBeginOfStream() || !observed[2].IsEndOfStream() {
+		t.Fatalf("observed chunks = %d, want BOS/packet/EOS", len(observed))
+	}
+}
+
+func TestMixerOutputRejectsPassthroughWithoutWriter(t *testing.T) {
+	creator := newRecordingAudioTrackCreator()
+	output := &sliceStream{chunks: []*genx.MessageChunk{
+		passthroughOutputChunk("floor-1", []byte{0x78, 0x01}, true, false),
+	}}
+	err := (MixerOutput{Tracks: creator}).ConsumeAgentOutput(context.Background(), output)
+	if err == nil || !strings.Contains(err.Error(), "passthrough") {
+		t.Fatalf("ConsumeAgentOutput() error = %v, want passthrough rejection", err)
+	}
+	if len(creator.tracks) != 0 {
+		t.Fatalf("rejected passthrough created %d mixer tracks", len(creator.tracks))
+	}
+}
+
+func TestIsOpusPassthroughMIME(t *testing.T) {
+	for mimeType, want := range map[string]bool{
+		OpusPassthroughMIME:            true,
+		"AUDIO/OPUS; PASSTHROUGH=1":    true,
+		"audio/opus":                   false,
+		"audio/opus; passthrough=0":    false,
+		"audio/ogg; passthrough=1":     false,
+		"audio/opus; rate=48000; x=1":  false,
+		"":                             false,
+		"audio/opus;; passthrough=1":   false,
+		"audio/opus; passthrough=1; a": false,
+	} {
+		if got := IsOpusPassthroughMIME(mimeType); got != want {
+			t.Errorf("IsOpusPassthroughMIME(%q) = %v, want %v", mimeType, got, want)
+		}
+	}
+}

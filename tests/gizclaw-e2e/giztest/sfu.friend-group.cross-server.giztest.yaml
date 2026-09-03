@@ -1,7 +1,7 @@
 # User Story:
 # As a device on Server A that owns a Friend Group joined from Server B,
-# I want every member to hear each other's speech, the 10-member cap to hold, and removed members to fall silent,
-# So that the cross-server Friend Group SFU Workspace enforces membership end to end.
+# I want every member to hear each other's speech one speaker at a time, the 10-member cap to hold, and removed members to fall silent,
+# So that the cross-server Friend Group SFU Workspace enforces the floor and membership end to end.
 version: gizclaw.test/v1alpha1
 name: sfu.friend-group.cross-server
 clients:
@@ -98,6 +98,24 @@ variables:
     media_type: audio/ogg
     codec: opus
   carol_received_again:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_long_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_short_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  alice_received_floor:
     direction: output
     type: audio
     max_bytes: 16777216
@@ -356,6 +374,118 @@ steps:
       input: ${carol_received_again}
     expect:
       /transcript: {contains: 谢谢你们的热情帮助, normalize: [case, punctuation, whitespace]}
+  # Floor: bob and carol speak at the same time. bob's utterance opens first,
+  # so every listener grants him the floor; carol's shorter utterance opens
+  # and closes while bob still holds it and is never forwarded to alice. bob
+  # hears nothing (half-duplex, and carol is done before he finishes); carol
+  # hears bob before her press and again after it (floor handoff back to the
+  # utterance that is still open).
+  - id: bob_synthesize_long
+    client: bob
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 谢谢你们的热情帮助，我们下次再一起出去玩吧
+        accepted_content_types: [audio/ogg]
+    save_as: bob_long_audio
+  - id: carol_synthesize_short
+    client: carol
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我在听
+        accepted_content_types: [audio/ogg]
+    save_as: carol_short_audio
+  - id: alice_listen_floor
+    client: alice
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: listen
+      duration: 12s
+  - id: bob_listen_self_floor
+    client: bob
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: listen
+      duration: 12s
+  - id: carol_listen_floor
+    client: carol
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: listen
+      duration: 12s
+  - id: bob_speak_floor
+    client: bob
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: push-to-talk
+      input: ${bob_long_audio}
+      pacing: 20ms
+      completion: input_sent
+  # A receive-only window on an idle client is the runner's only pause; it
+  # makes bob's BOS reach every listener before carol's.
+  - id: stagger_carol
+    client: m1
+    timeout: 10s
+    peer_stream:
+      mode: listen
+      duration: 600ms
+  - id: carol_speak_floor
+    client: carol
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: push-to-talk
+      input: ${carol_short_audio}
+      pacing: 20ms
+      completion: input_sent
+  - id: bob_spoke_floor
+    await: bob_speak_floor
+    timeout: 30s
+    expect:
+      /input_sent: {equals: true}
+  - id: carol_spoke_floor
+    await: carol_speak_floor
+    timeout: 30s
+    expect:
+      /input_sent: {equals: true}
+  - id: alice_heard_floor
+    await: alice_listen_floor
+    timeout: 20s
+    capture:
+      alice_received_floor: /audio
+    expect:
+      /audio_bytes: {minimum: 2000}
+      /packets: {minimum: 50}
+  - id: bob_hears_nothing_while_talking
+    await: bob_listen_self_floor
+    timeout: 20s
+    expect:
+      /audio_bytes: {maximum: 0}
+  - id: carol_heard_bob_around_her_press
+    await: carol_listen_floor
+    timeout: 20s
+    expect:
+      /audio_bytes: {minimum: 2000}
+  - id: alice_transcript_floor
+    client: alice
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${alice_received_floor}
+    expect:
+      /transcript:
+        contains: 谢谢你们的热情帮助
+        not_contains: 我在听
+        normalize: [case, punctuation, whitespace]
   # Fill the Group to the fixed cap of 10 members (owner included), then the
   # 11th join must be rejected without consuming the invite token.
   - id: m1_join

@@ -2,6 +2,7 @@ package sfu
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"slices"
@@ -23,6 +24,11 @@ const (
 	testWorkspaceID = "ws-test"
 	testPeer        = "peer-a"
 	testRemote      = "peer-b"
+	testRemoteC     = "peer-c"
+	// testTalkHangover and testFloorIdle keep the timer-driven cases fast
+	// while staying far above the polling granularity of waitFor.
+	testTalkHangover = 80 * time.Millisecond
+	testFloorIdle    = 60 * time.Millisecond
 )
 
 type fakeResolver struct {
@@ -57,6 +63,8 @@ func (r *fakeResolver) set(mutate func(*fakeResolver)) {
 type fakeClient struct {
 	mu           sync.Mutex
 	samples      []media.Sample
+	published    []talkMessage
+	topics       []string
 	disconnected int
 	events       roomEvents
 	params       connectParams
@@ -66,6 +74,18 @@ func (c *fakeClient) WriteAudio(sample media.Sample) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.samples = append(c.samples, sample)
+	return nil
+}
+
+func (c *fakeClient) PublishData(topic string, payload []byte) error {
+	message, err := decodeTalkMessage(payload)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.published = append(c.published, message)
+	c.topics = append(c.topics, topic)
 	return nil
 }
 
@@ -82,10 +102,29 @@ func (c *fakeClient) sampleCount() int {
 	return len(c.samples)
 }
 
+func (c *fakeClient) talk() []talkMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.published)
+}
+
+func (c *fakeClient) talkCount() int {
+	return len(c.talk())
+}
+
 func (c *fakeClient) disconnects() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.disconnected
+}
+
+// remoteTalk injects a talk message as if participant identity published it.
+func (c *fakeClient) remoteTalk(identity, kind, utterance string, seq uint64) {
+	payload, err := talkMessage{V: talkProtocolVersion, Type: kind, Utterance: utterance, Seq: seq}.encode()
+	if err != nil {
+		panic(err)
+	}
+	c.events.onDataPacket(identity, talkTopic, payload)
 }
 
 type fakeConnector struct {
@@ -129,15 +168,16 @@ func (c *fakeConnector) count() int {
 	return len(c.clients)
 }
 
-// fakeReader feeds RTP packets to a remote route until closed.
+// fakeReader feeds RTP packets to a remote track until closed.
 type fakeReader struct {
 	packets chan *rtp.Packet
 	closed  chan struct{}
 	once    sync.Once
+	seq     uint16
 }
 
 func newFakeReader() *fakeReader {
-	return &fakeReader{packets: make(chan *rtp.Packet, 64), closed: make(chan struct{})}
+	return &fakeReader{packets: make(chan *rtp.Packet, 256), closed: make(chan struct{})}
 }
 
 func (r *fakeReader) ReadRTP() (*rtp.Packet, interceptor.Attributes, error) {
@@ -151,6 +191,18 @@ func (r *fakeReader) ReadRTP() (*rtp.Packet, interceptor.Attributes, error) {
 
 func (r *fakeReader) send(seq uint16, ts uint32, payload ...byte) {
 	r.packets <- &rtp.Packet{Header: rtp.Header{SequenceNumber: seq, Timestamp: ts}, Payload: payload}
+}
+
+// voiced sends the next in-order voiced packet tagged with marker.
+func (r *fakeReader) voiced(marker byte) {
+	r.seq++
+	r.send(r.seq, uint32(r.seq)*960, 0x78, marker, 0x00, 0x00)
+}
+
+// silence sends the next in-order Opus silence packet.
+func (r *fakeReader) silence() {
+	r.seq++
+	r.send(r.seq, uint32(r.seq)*960, 0xf8, 0xff, 0xfe)
 }
 
 func (r *fakeReader) close() {
@@ -178,6 +230,12 @@ func newHarness(t *testing.T, config Config) *harness {
 	}
 	if config.ReconnectTimeout == 0 {
 		config.ReconnectTimeout = 500 * time.Millisecond
+	}
+	if config.TalkHangover == 0 {
+		config.TalkHangover = testTalkHangover
+	}
+	if config.FloorIdle == 0 {
+		config.FloorIdle = testFloorIdle
 	}
 	factory := Factory{Config: config, Bindings: resolver, connector: connector}
 	agent, err := factory.NewAgent(context.Background(), agenthost.Spec{Workspace: apitypes.Workspace{Id: testWorkspaceID, Name: "ws"}})
@@ -214,14 +272,42 @@ func (h *harness) queued(peer string) int {
 	return len(s.out.queue)
 }
 
-func (h *harness) routeCount(peer string) int {
+func (h *harness) trackCount(peer string) int {
 	s := h.session(peer)
 	if s == nil {
 		return -1
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return len(s.routes)
+	return len(s.tracks)
+}
+
+func (h *harness) floorHolder(peer string) string {
+	s := h.session(peer)
+	if s == nil {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.floor == nil {
+		return ""
+	}
+	return s.floor.identity
+}
+
+func (h *harness) talking(peer string) bool {
+	s := h.session(peer)
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.talk.open
+}
+
+func (h *harness) dropped(peer string) uint64 {
+	status, _ := h.agent.SessionStatus(peer)
+	return status.DroppedPackets
 }
 
 // collect drains the output until it ends and returns the chunks plus the
@@ -265,6 +351,85 @@ func opusChunk(payload ...byte) *genx.MessageChunk {
 	return &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: payload}}
 }
 
+func voicedChunk(marker byte) *genx.MessageChunk {
+	return opusChunk(0x78, marker)
+}
+
+func silenceChunk() *genx.MessageChunk {
+	return opusChunk(0xf8, 0xff, 0xfe)
+}
+
+func inputBOS(streamID string) *genx.MessageChunk {
+	return &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, BeginOfStream: true}}
+}
+
+func inputEOS(streamID string) *genx.MessageChunk {
+	return &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: streamID, EndOfStream: true}}
+}
+
+// streams groups downlink chunks by stream_id in first-seen order.
+type streamRecord struct {
+	id      string
+	label   string
+	name    string
+	bos     bool
+	eos     bool
+	payload [][]byte
+}
+
+func groupStreams(t *testing.T, chunks []*genx.MessageChunk) []*streamRecord {
+	t.Helper()
+	var order []*streamRecord
+	byID := map[string]*streamRecord{}
+	for _, chunk := range chunks {
+		if chunk.Ctrl == nil || chunk.Ctrl.StreamID == "" {
+			t.Fatalf("chunk without stream id: %+v", chunk)
+		}
+		blob, ok := chunk.Part.(*genx.Blob)
+		if !ok || blob.MIMEType != agenthost.OpusPassthroughMIME {
+			t.Fatalf("chunk part = %#v, want passthrough Opus blob", chunk.Part)
+		}
+		record := byID[chunk.Ctrl.StreamID]
+		if record == nil {
+			if !chunk.Ctrl.BeginOfStream {
+				t.Fatalf("stream %s did not start with BOS", chunk.Ctrl.StreamID)
+			}
+			record = &streamRecord{id: chunk.Ctrl.StreamID, label: chunk.Ctrl.Label, name: chunk.Name}
+			byID[chunk.Ctrl.StreamID] = record
+			order = append(order, record)
+		}
+		if chunk.Ctrl.Label != record.label || chunk.Name != record.name {
+			t.Fatalf("stream %s changed label or name", chunk.Ctrl.StreamID)
+		}
+		switch {
+		case chunk.Ctrl.BeginOfStream:
+			if record.bos {
+				t.Fatalf("stream %s has two BOS", record.id)
+			}
+			record.bos = true
+		case chunk.Ctrl.EndOfStream:
+			if record.eos {
+				t.Fatalf("stream %s has two EOS", record.id)
+			}
+			record.eos = true
+		default:
+			if record.eos {
+				t.Fatalf("stream %s carried payload after EOS", record.id)
+			}
+			record.payload = append(record.payload, blob.Data)
+		}
+	}
+	return order
+}
+
+func markers(payload [][]byte) []byte {
+	out := make([]byte, 0, len(payload))
+	for _, packet := range payload {
+		out = append(out, packet[1])
+	}
+	return out
+}
+
 func TestTransformFailsClosedOnBindingErrors(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx := context.Background()
@@ -299,12 +464,12 @@ func TestTransformUplinkForwardsOpusFrames(t *testing.T) {
 	if client.params.Identity != testPeer || client.params.Room != "room-1" || client.params.URL != "wss://sfu.test" {
 		t.Fatalf("connect params = %+v", client.params)
 	}
-	input.push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "in", BeginOfStream: true}})
+	input.push(inputBOS("in"))
 	input.push(opusChunk(0x78, 0x01))
 	input.push(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("ignored")})
 	input.push(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}}})
 	input.push(opusChunk(0xFB, 0x03, 0xAA))
-	input.push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "in", EndOfStream: true}})
+	input.push(inputEOS("in"))
 	waitFor(t, func() bool { return client.sampleCount() == 2 }, "uplink samples")
 	client.mu.Lock()
 	first, second := client.samples[0], client.samples[1]
@@ -329,189 +494,387 @@ func TestTransformUplinkForwardsOpusFrames(t *testing.T) {
 	}
 }
 
-func TestTransformDownlinkRoutesPerParticipant(t *testing.T) {
+// TestUplinkPushToTalkSegmentsPerPress covers the push-to-talk input mode:
+// the device brackets every press with BOS and EOS. The utterance opens on
+// the first voiced frame, closes on the device EOS well before the hangover
+// could fire, and every press publishes exactly one bos/eos pair with a new
+// utterance id and increasing seq.
+func TestUplinkPushToTalkSegmentsPerPress(t *testing.T) {
+	h := newHarness(t, Config{TalkHangover: 5 * time.Second})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	_, input := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+
+	input.push(inputBOS("press-1"))
+	input.push(silenceChunk())
+	time.Sleep(20 * time.Millisecond)
+	if client.talkCount() != 0 || client.sampleCount() != 0 {
+		t.Fatalf("BOS plus silence published %d talk messages and wrote %d samples, want 0/0", client.talkCount(), client.sampleCount())
+	}
+	input.push(voicedChunk(0x01))
+	waitFor(t, func() bool { return client.talkCount() == 1 }, "press-1 bos")
+	input.push(voicedChunk(0x02))
+	input.push(silenceChunk())
+	input.push(inputEOS("press-1"))
+	waitFor(t, func() bool { return client.talkCount() == 2 }, "press-1 eos")
+	if h.talking(testPeer) {
+		t.Fatal("utterance still open after the device EOS")
+	}
+	waitFor(t, func() bool { return client.sampleCount() == 3 }, "press-1 samples")
+
+	input.push(inputBOS("press-2"))
+	input.push(voicedChunk(0x03))
+	input.push(inputEOS("press-2"))
+	waitFor(t, func() bool { return client.talkCount() == 4 }, "press-2 bos/eos")
+	time.Sleep(30 * time.Millisecond)
+	if client.talkCount() != 4 {
+		t.Fatalf("talk messages = %d, want exactly bos/eos per press", client.talkCount())
+	}
+	talk := client.talk()
+	for i, message := range talk {
+		if message.Seq != uint64(i+1) {
+			t.Fatalf("talk[%d].seq = %d, want %d", i, message.Seq, i+1)
+		}
+		if message.V != talkProtocolVersion {
+			t.Fatalf("talk[%d].v = %d", i, message.V)
+		}
+	}
+	if talk[0].Type != talkTypeBOS || talk[1].Type != talkTypeEOS || talk[2].Type != talkTypeBOS || talk[3].Type != talkTypeEOS {
+		t.Fatalf("talk types = %+v", talk)
+	}
+	if talk[0].Utterance != talk[1].Utterance || talk[2].Utterance != talk[3].Utterance {
+		t.Fatalf("utterance ids differ within a press: %+v", talk)
+	}
+	if talk[0].Utterance == talk[2].Utterance {
+		t.Fatal("second press reused the first utterance id")
+	}
+	for _, topic := range client.topics {
+		if topic != talkTopic {
+			t.Fatalf("published on topic %q, want %q", topic, talkTopic)
+		}
+	}
+	if client.disconnects() != 0 {
+		t.Fatal("device BOS/EOS touched the connection")
+	}
+}
+
+// TestUplinkRealtimeHangoverSegments covers the realtime input mode: one
+// BOS, a continuous stream and never an EOS. Silence alone opens nothing,
+// the hangover closes the utterance once voiced frames stop, speaking again
+// opens a new utterance, and a continuous voiced stream keeps exactly one
+// utterance open.
+func TestUplinkRealtimeHangoverSegments(t *testing.T) {
+	h := newHarness(t, Config{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	_, input := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+
+	input.push(inputBOS("live"))
+	for range 3 {
+		input.push(silenceChunk())
+	}
+	time.Sleep(2 * testTalkHangover)
+	if client.talkCount() != 0 {
+		t.Fatalf("silence frames published %d talk messages", client.talkCount())
+	}
+	if client.sampleCount() != 0 {
+		t.Fatal("silence frames were written to the track while no utterance was open")
+	}
+
+	input.push(voicedChunk(0x01))
+	input.push(silenceChunk())
+	waitFor(t, func() bool { return client.talkCount() == 1 && client.sampleCount() == 2 }, "first utterance bos")
+	if !h.talking(testPeer) {
+		t.Fatal("utterance not open after a voiced frame")
+	}
+	waitFor(t, func() bool { return client.talkCount() == 2 }, "hangover eos")
+	if h.talking(testPeer) {
+		t.Fatal("utterance still open after the hangover")
+	}
+	input.push(silenceChunk())
+	time.Sleep(20 * time.Millisecond)
+	if client.sampleCount() != 2 {
+		t.Fatal("silence after the hangover was written to the track")
+	}
+
+	// A continuous voiced stream (frames well inside the hangover) keeps one
+	// utterance open without flapping.
+	stop := time.Now().Add(3 * testTalkHangover)
+	for time.Now().Before(stop) {
+		input.push(voicedChunk(0x02))
+		time.Sleep(testTalkHangover / 8)
+	}
+	waitFor(t, func() bool { return client.talkCount() == 3 }, "second utterance bos")
+	if client.talkCount() != 3 || !h.talking(testPeer) {
+		t.Fatalf("continuous stream flapped: %d talk messages", client.talkCount())
+	}
+	waitFor(t, func() bool { return client.talkCount() == 4 }, "second utterance eos")
+	talk := client.talk()
+	if talk[0].Type != talkTypeBOS || talk[1].Type != talkTypeEOS || talk[2].Type != talkTypeBOS || talk[3].Type != talkTypeEOS {
+		t.Fatalf("talk types = %+v", talk)
+	}
+	if talk[0].Utterance != talk[1].Utterance || talk[2].Utterance != talk[3].Utterance || talk[0].Utterance == talk[2].Utterance {
+		t.Fatalf("utterance ids = %+v", talk)
+	}
+	for i := 1; i < len(talk); i++ {
+		if talk[i].Seq <= talk[i-1].Seq {
+			t.Fatalf("seq not increasing: %+v", talk)
+		}
+	}
+}
+
+// subscribeRemote attaches a remote participant's track and announces its
+// open utterance, then waits for the floor to be granted to it.
+func subscribeRemote(t *testing.T, h *harness, client *fakeClient, identity, trackID, utterance string, seq uint64) *fakeReader {
+	t.Helper()
+	reader := newFakeReader()
+	client.events.onTrackSubscribed(identity, trackID, reader)
+	client.remoteTalk(identity, talkTypeBOS, utterance, seq)
+	return reader
+}
+
+// TestHalfDuplexPushToTalkDropsDownlinkWhileTalking: the local press releases
+// the floor and drops every remote packet until the device EOS closes the
+// utterance, after which the still-open remote utterance retakes the floor
+// on a fresh stream.
+func TestHalfDuplexPushToTalkDropsDownlinkWhileTalking(t *testing.T) {
+	h := newHarness(t, Config{TalkHangover: 5 * time.Second})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	output, input := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+	reader := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor granted")
+	reader.voiced(0xB1)
+	waitFor(t, func() bool { return h.queued(testPeer) == 2 }, "remote packet forwarded")
+
+	input.push(inputBOS("press"))
+	input.push(voicedChunk(0x01))
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == "" }, "floor released by local talk")
+	waitFor(t, func() bool { return h.queued(testPeer) == 3 }, "floor EOS")
+	for i := range maxPrerollPackets + 4 {
+		reader.voiced(byte(0xC0 + i))
+	}
+	waitFor(t, func() bool { return h.dropped(testPeer) >= 4 }, "remote packets dropped while talking")
+	// Idle the preroll window so the resume below only carries new packets.
+	time.Sleep(2 * testFloorIdle)
+	if h.queued(testPeer) != 3 || h.floorHolder(testPeer) != "" {
+		t.Fatalf("downlink continued while talking: queued=%d holder=%q", h.queued(testPeer), h.floorHolder(testPeer))
+	}
+
+	input.push(inputEOS("press"))
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor retaken after EOS")
+	reader.voiced(0xD1)
+	waitFor(t, func() bool { return h.queued(testPeer) >= 5 }, "downlink resumed")
+	cancel()
+	chunks, _ := collect(t, output)
+	streams := groupStreams(t, chunks)
+	if len(streams) != 2 || streams[0].id == streams[1].id {
+		t.Fatalf("streams = %d, want two distinct holds", len(streams))
+	}
+	if got := markers(streams[0].payload); !slices.Equal(got, []byte{0xB1}) {
+		t.Fatalf("first hold payload markers = %x", got)
+	}
+	if got := markers(streams[1].payload); !slices.Contains(got, 0xD1) || slices.ContainsFunc(got, func(m byte) bool { return m >= 0xC0 && m < 0xD0 }) {
+		t.Fatalf("second hold carried packets from the talking window: %x", got)
+	}
+}
+
+// TestHalfDuplexRealtimeResumesAfterHangover: in realtime mode the device
+// never sends EOS, so the downlink resumes when the talk hangover closes the
+// local utterance.
+func TestHalfDuplexRealtimeResumesAfterHangover(t *testing.T) {
+	h := newHarness(t, Config{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	_, input := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+	reader := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor granted")
+	input.push(inputBOS("live"))
+	input.push(voicedChunk(0x01))
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == "" && h.talking(testPeer) }, "floor released by local talk")
+	reader.voiced(0xB1)
+	time.Sleep(20 * time.Millisecond)
+	if got := h.queued(testPeer); got != 2 {
+		t.Fatalf("queued while talking = %d, want BOS/EOS only", got)
+	}
+	waitFor(t, func() bool { return !h.talking(testPeer) }, "hangover closed the utterance")
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor retaken after the hangover")
+	reader.voiced(0xB2)
+	waitFor(t, func() bool { return h.queued(testPeer) >= 4 }, "downlink resumed")
+}
+
+// TestFloorLocksToFirstBOSAndDropsOthers: with two remote utterances open,
+// only the earlier one's packets reach the device; the other participant's
+// voiced packets are dropped and counted.
+func TestFloorLocksToFirstBOSAndDropsOthers(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	output, _ := h.attach(ctx, testPeer)
 	client := h.connector.client(0)
-
-	readerB := newFakeReader()
-	readerC := newFakeReader()
-	client.events.onTrackSubscribed(testRemote, "TR_b", readerB)
-	client.events.onTrackSubscribed("peer-c", "TR_c", readerC)
+	readerB := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor to B")
+	readerC := subscribeRemote(t, h, client, testRemoteC, "TR_c", "u-c", 7)
 	// The local participant's own track never becomes a route.
 	client.events.onTrackSubscribed(testPeer, "TR_self", newFakeReader())
 
 	readerB.send(1, 0, 0x78, 0xB1, 0x00, 0x00)
 	readerB.send(3, 1920, 0x78, 0xB3, 0x00, 0x00)
 	readerB.send(2, 960, 0x78, 0xB2, 0x00, 0x00)
-	readerC.send(7, 0, 0x78, 0xC1, 0x00, 0x00)
-	// B: BOS + 3 payloads, C: BOS + 1 payload.
-	waitFor(t, func() bool { return h.queued(testPeer) == 6 }, "downlink chunks")
-	readerB.close()
-	client.events.onTrackUnsubscribed("TR_b")
-	waitFor(t, func() bool { return h.routeCount(testPeer) == 1 }, "route B to close")
-	client.events.onParticipantDisconnected("peer-c")
-	waitFor(t, func() bool { return h.routeCount(testPeer) == 0 }, "route C to close")
+	for i := range maxPrerollPackets + 2 {
+		readerC.voiced(byte(0xC0 + i))
+	}
+	waitFor(t, func() bool { return h.dropped(testPeer) == 2 }, "C packets dropped")
+	waitFor(t, func() bool { return h.queued(testPeer) == 4 }, "B packets forwarded")
+	if h.floorHolder(testPeer) != testRemote {
+		t.Fatalf("floor holder = %q, want B", h.floorHolder(testPeer))
+	}
+	if got := h.trackCount(testPeer); got != 2 {
+		t.Fatalf("tracks = %d, want 2", got)
+	}
 	cancel()
 	chunks, err := collect(t, output)
 	if !errors.Is(err, io.EOF) {
 		t.Fatalf("output ended with %v, want EOF", err)
 	}
-
-	type route struct {
-		label   string
-		bos     bool
-		eos     bool
-		payload [][]byte
+	streams := groupStreams(t, chunks)
+	if len(streams) != 1 || streams[0].label != testRemote || streams[0].name != testRemote || !streams[0].bos || !streams[0].eos {
+		t.Fatalf("streams = %+v", streams)
 	}
-	routes := map[string]*route{}
-	order := []string{}
-	for _, chunk := range chunks {
-		if chunk.Ctrl == nil || chunk.Ctrl.StreamID == "" {
-			t.Fatalf("chunk without stream id: %+v", chunk)
-		}
-		if chunk.Name != chunk.Ctrl.Label {
-			t.Fatalf("chunk name %q != label %q", chunk.Name, chunk.Ctrl.Label)
-		}
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || blob.MIMEType != "audio/opus" {
-			t.Fatalf("chunk part = %#v", chunk.Part)
-		}
-		r := routes[chunk.Ctrl.StreamID]
-		if r == nil {
-			if !chunk.Ctrl.BeginOfStream {
-				t.Fatalf("stream %s did not start with BOS", chunk.Ctrl.StreamID)
-			}
-			r = &route{label: chunk.Ctrl.Label}
-			routes[chunk.Ctrl.StreamID] = r
-			order = append(order, chunk.Ctrl.StreamID)
-		}
-		if chunk.Ctrl.Label != r.label {
-			t.Fatalf("stream %s changed label", chunk.Ctrl.StreamID)
-		}
-		switch {
-		case chunk.Ctrl.BeginOfStream:
-			r.bos = true
-		case chunk.Ctrl.EndOfStream:
-			r.eos = true
-		default:
-			r.payload = append(r.payload, blob.Data)
-		}
-	}
-	if len(routes) != 2 {
-		t.Fatalf("routes = %d, want 2 (%v)", len(routes), order)
-	}
-	labels := map[string]int{}
-	for id, r := range routes {
-		labels[r.label]++
-		if !r.bos || !r.eos {
-			t.Fatalf("stream %s bos=%v eos=%v", id, r.bos, r.eos)
-		}
-		switch r.label {
-		case testRemote:
-			if len(r.payload) != 3 || r.payload[0][1] != 0xB1 || r.payload[1][1] != 0xB2 || r.payload[2][1] != 0xB3 {
-				t.Fatalf("route B payloads = %x", r.payload)
-			}
-		case "peer-c":
-			if len(r.payload) != 1 || r.payload[0][1] != 0xC1 {
-				t.Fatalf("route C payloads = %x", r.payload)
-			}
-		default:
-			t.Fatalf("unexpected label %q", r.label)
-		}
-	}
-	if labels[testRemote] != 1 || labels["peer-c"] != 1 {
-		t.Fatalf("labels = %v", labels)
+	if got := markers(streams[0].payload); !slices.Equal(got, []byte{0xB1, 0xB2, 0xB3}) {
+		t.Fatalf("reordered payload markers = %x", got)
 	}
 }
 
-func TestTransformMuteOpensNewStreamID(t *testing.T) {
+// TestFloorHandsOffToEarliestOpenUtterance: the holder's EOS (a push-to-talk
+// remote) releases the floor to the earliest utterance still open, not the
+// newest one, and replays that participant's recent preroll.
+func TestFloorHandsOffToEarliestOpenUtterance(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	output, _ := h.attach(ctx, testPeer)
 	client := h.connector.client(0)
-	reader := newFakeReader()
-	client.events.onTrackSubscribed(testRemote, "TR_b", reader)
-	reader.send(1, 0, 0x78, 0x01, 0x00, 0x00)
-	waitFor(t, func() bool { return h.queued(testPeer) == 2 }, "first burst")
-	client.events.onTrackMuted("TR_b")
-	reader.send(2, 960, 0x78, 0x02, 0x00, 0x00)
-	waitFor(t, func() bool { return h.queued(testPeer) == 5 }, "second burst")
+	readerB := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor to B")
+	readerC := subscribeRemote(t, h, client, testRemoteC, "TR_c", "u-c", 1)
+	readerD := subscribeRemote(t, h, client, "peer-d", "TR_d", "u-d", 1)
+	readerB.voiced(0xB1)
+	waitFor(t, func() bool { return h.queued(testPeer) == 2 }, "B forwarded")
+	readerC.voiced(0xC1)
+	readerD.voiced(0xD1)
+	time.Sleep(20 * time.Millisecond)
+	client.remoteTalk(testRemote, talkTypeEOS, "u-b", 2)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemoteC }, "floor handed to C")
+	readerC.voiced(0xC2)
+	waitFor(t, func() bool { return h.queued(testPeer) >= 6 }, "C forwarded with preroll")
+	client.remoteTalk(testRemoteC, talkTypeEOS, "u-c", 2)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == "peer-d" }, "floor handed to D")
 	cancel()
 	chunks, _ := collect(t, output)
-	if len(chunks) != 6 {
-		t.Fatalf("chunks = %d, want 6", len(chunks))
+	streams := groupStreams(t, chunks)
+	if len(streams) != 3 || streams[0].label != testRemote || streams[1].label != testRemoteC || streams[2].label != "peer-d" {
+		t.Fatalf("stream labels = %+v", streams)
 	}
-	first, second := chunks[0].Ctrl.StreamID, chunks[3].Ctrl.StreamID
-	if first == second {
-		t.Fatalf("mute reused stream id %s", first)
+	if got := markers(streams[1].payload); !slices.Equal(got, []byte{0xC1, 0xC2}) {
+		t.Fatalf("C payload markers = %x, want preroll then live packet", got)
 	}
-	if !chunks[2].Ctrl.EndOfStream || chunks[2].Ctrl.StreamID != first {
-		t.Fatalf("mute did not close first stream: %+v", chunks[2].Ctrl)
-	}
-	if !chunks[3].Ctrl.BeginOfStream || !chunks[5].Ctrl.EndOfStream || chunks[5].Ctrl.StreamID != second {
-		t.Fatalf("second burst boundaries wrong: %+v %+v", chunks[3].Ctrl, chunks[5].Ctrl)
-	}
-	if chunks[0].Ctrl.Label != testRemote || chunks[3].Ctrl.Label != testRemote {
-		t.Fatal("label changed across bursts")
+	for _, stream := range streams {
+		if !stream.bos || !stream.eos {
+			t.Fatalf("stream %s bos=%v eos=%v", stream.id, stream.bos, stream.eos)
+		}
 	}
 }
 
-// TestTransformSilenceFramesNeverOpenBurstAndIdleClosesIt covers the
-// mix-minus-self downlink: an idle publisher only yields Opus silence frames,
-// which must not open a device route, and a burst closes on its own once the
-// speaker goes quiet so the mixer stops feeding the device.
-func TestTransformSilenceFramesNeverOpenBurstAndIdleClosesIt(t *testing.T) {
+// TestFloorReleasesOnIdleForRealtimeRemote: a realtime remote keeps its
+// utterance open while it goes quiet. floor_idle releases the floor, a
+// waiting utterance takes it, and the quiet participant is heard again on a
+// fresh stream once it speaks with its utterance still open.
+func TestFloorReleasesOnIdleForRealtimeRemote(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	output, _ := h.attach(ctx, testPeer)
 	client := h.connector.client(0)
-	reader := newFakeReader()
-	client.events.onTrackSubscribed(testRemote, "TR_b", reader)
-
-	reader.send(1, 0, 0xf8, 0xff, 0xfe)
-	reader.send(2, 960, 0xf8)
-	// The SFU zero-pads the silence frame for an idle publisher.
-	reader.send(2, 1920, append([]byte{0xf8, 0xff, 0xfe}, make([]byte, 77)...)...)
-	time.Sleep(2 * routeIdleFlush)
-	if got := h.queued(testPeer); got != 0 {
-		t.Fatalf("silence frames opened a burst: queued = %d", got)
-	}
-	reader.send(3, 2880, 0x78, 0x01, 0x00, 0x00)
-	reader.send(4, 3840, 0xf8, 0xff, 0xfe)
-	waitFor(t, func() bool { return h.queued(testPeer) == 3 }, "voiced burst with trailing silence")
-	waitFor(t, func() bool { return h.queued(testPeer) == 4 }, "burst idle EOS")
-	reader.send(5, 4800, 0xf8, 0xff, 0xfe)
-	time.Sleep(2 * routeIdleFlush)
+	readerB := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor to B")
+	readerB.voiced(0xB1)
+	readerB.silence()
+	waitFor(t, func() bool { return h.queued(testPeer) == 3 }, "B forwarded with trailing silence")
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == "" }, "floor idle release")
 	if got := h.queued(testPeer); got != 4 {
-		t.Fatalf("silence after the burst reopened it: queued = %d", got)
+		t.Fatalf("queued after idle release = %d, want BOS/2 packets/EOS", got)
 	}
-	reader.send(6, 5760, 0x78, 0x02, 0x00, 0x00)
-	waitFor(t, func() bool { return h.queued(testPeer) == 6 }, "second burst")
+	// Silence alone does not retake the floor for the idle utterance.
+	readerB.silence()
+	time.Sleep(2 * testFloorIdle)
+	if h.floorHolder(testPeer) != "" || h.queued(testPeer) != 4 {
+		t.Fatalf("silence retook the floor: holder=%q queued=%d", h.floorHolder(testPeer), h.queued(testPeer))
+	}
+	readerC := subscribeRemote(t, h, client, testRemoteC, "TR_c", "u-c", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemoteC }, "waiting utterance took the floor")
+	readerC.voiced(0xC1)
+	waitFor(t, func() bool { return h.queued(testPeer) == 6 }, "C forwarded")
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == "" }, "C idle release")
+	readerB.voiced(0xB2)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "B heard again")
 	cancel()
 	chunks, _ := collect(t, output)
-	if len(chunks) != 7 {
-		t.Fatalf("chunks = %d, want 7", len(chunks))
+	streams := groupStreams(t, chunks)
+	if len(streams) != 3 || streams[0].label != testRemote || streams[1].label != testRemoteC || streams[2].label != testRemote {
+		t.Fatalf("stream labels = %+v", streams)
 	}
-	if !chunks[0].Ctrl.BeginOfStream || !chunks[3].Ctrl.EndOfStream || chunks[3].Ctrl.StreamID != chunks[0].Ctrl.StreamID {
-		t.Fatalf("first burst boundaries wrong: %+v %+v", chunks[0].Ctrl, chunks[3].Ctrl)
+	if streams[0].id == streams[2].id {
+		t.Fatal("re-granted floor reused the stream id")
 	}
-	if !chunks[4].Ctrl.BeginOfStream || chunks[4].Ctrl.StreamID == chunks[0].Ctrl.StreamID {
-		t.Fatalf("second burst did not open a fresh stream: %+v", chunks[4].Ctrl)
-	}
-	if payload := chunks[2].Part.(*genx.Blob).Data; len(payload) != 3 {
-		t.Fatalf("trailing silence inside the burst was not forwarded: %x", payload)
+	if got := markers(streams[2].payload); !slices.Equal(got, []byte{0xB2}) {
+		t.Fatalf("second B hold markers = %x", got)
 	}
 }
 
-// TestTransformShortVoicedPacketsOpenBurst pins the boundary between silence
-// and speech: a valid Opus frame can be two or three bytes at a low bitrate,
-// so only the identifiable silence encodings may be held back.
-func TestTransformShortVoicedPacketsOpenBurst(t *testing.T) {
+func TestFloorReleasesOnMuteUnsubscribeAndLeave(t *testing.T) {
+	for name, release := range map[string]func(client *fakeClient, reader *fakeReader){
+		"mute":        func(client *fakeClient, _ *fakeReader) { client.events.onTrackMuted("TR_b") },
+		"unsubscribe": func(client *fakeClient, _ *fakeReader) { client.events.onTrackUnsubscribed("TR_b") },
+		"reader end":  func(_ *fakeClient, reader *fakeReader) { reader.close() },
+		"leave":       func(client *fakeClient, _ *fakeReader) { client.events.onParticipantDisconnected(testRemote) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t, Config{FloorIdle: 5 * time.Second})
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			output, _ := h.attach(ctx, testPeer)
+			client := h.connector.client(0)
+			readerB := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+			waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor to B")
+			readerC := subscribeRemote(t, h, client, testRemoteC, "TR_c", "u-c", 1)
+			readerB.voiced(0xB1)
+			waitFor(t, func() bool { return h.queued(testPeer) == 2 }, "B forwarded")
+			release(client, readerB)
+			waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemoteC }, "floor handed to C")
+			readerC.voiced(0xC1)
+			waitFor(t, func() bool { return h.queued(testPeer) == 5 }, "C forwarded")
+			if name != "mute" {
+				waitFor(t, func() bool { return h.trackCount(testPeer) == 1 }, "B track detached")
+			}
+			cancel()
+			chunks, _ := collect(t, output)
+			streams := groupStreams(t, chunks)
+			if len(streams) != 2 || streams[0].label != testRemote || streams[1].label != testRemoteC || !streams[0].eos {
+				t.Fatalf("streams = %+v", streams)
+			}
+		})
+	}
+}
+
+// TestFloorPrerollDeliversPacketsThatRacedTheBOS: media that reaches the
+// listener a moment before its sender's BOS on the data channel is still
+// delivered once the BOS grants the floor.
+func TestFloorPrerollDeliversPacketsThatRacedTheBOS(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -519,20 +882,117 @@ func TestTransformShortVoicedPacketsOpenBurst(t *testing.T) {
 	client := h.connector.client(0)
 	reader := newFakeReader()
 	client.events.onTrackSubscribed(testRemote, "TR_b", reader)
-
-	reader.send(1, 0, 0x78, 0x01)
-	reader.send(2, 960, 0x78, 0x02, 0x03)
-	waitFor(t, func() bool { return h.queued(testPeer) == 3 }, "burst opened by short voiced packets")
+	reader.voiced(0xB1)
+	reader.voiced(0xB2)
+	time.Sleep(20 * time.Millisecond)
+	if h.queued(testPeer) != 0 || h.floorHolder(testPeer) != "" {
+		t.Fatal("packets without a BOS were forwarded")
+	}
+	client.remoteTalk(testRemote, talkTypeBOS, "u-b", 1)
+	waitFor(t, func() bool { return h.queued(testPeer) == 3 }, "preroll replayed after BOS")
+	client.remoteTalk(testRemote, talkTypeEOS, "u-b", 2)
 	cancel()
 	chunks, _ := collect(t, output)
-	if len(chunks) < 3 || !chunks[0].Ctrl.BeginOfStream {
-		t.Fatalf("short voiced packets did not open a burst: %d chunks", len(chunks))
+	streams := groupStreams(t, chunks)
+	if len(streams) != 1 || !slices.Equal(markers(streams[0].payload), []byte{0xB1, 0xB2}) {
+		t.Fatalf("streams = %+v", streams)
 	}
-	if payload := chunks[1].Part.(*genx.Blob).Data; len(payload) != 2 {
-		t.Fatalf("first forwarded payload = %x, want the two-byte frame", payload)
+	if h.dropped(testPeer) != 0 {
+		t.Fatalf("dropped = %d, want 0", h.dropped(testPeer))
 	}
-	if payload := chunks[2].Part.(*genx.Blob).Data; len(payload) != 3 {
-		t.Fatalf("second forwarded payload = %x, want the three-byte frame", payload)
+}
+
+func TestMalformedTalkDataIsCountedAndIgnored(t *testing.T) {
+	h := newHarness(t, Config{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+	client.events.onTrackSubscribed(testRemote, "TR_b", newFakeReader())
+	rejected := func() uint64 {
+		status, _ := h.agent.SessionStatus(testPeer)
+		return status.RejectedData
+	}
+	for i, payload := range [][]byte{
+		[]byte("not json"),
+		[]byte(`{"v":2,"type":"bos","utterance":"u","seq":1}`),
+		[]byte(`{"v":1,"type":"hello","utterance":"u","seq":1}`),
+		[]byte(`{"v":1,"type":"bos","utterance":"","seq":1}`),
+		[]byte(`{"v":1,"type":"bos","utterance":"u","seq":0}`),
+		nil,
+	} {
+		client.events.onDataPacket(testRemote, talkTopic, payload)
+		if got := rejected(); got != uint64(i+1) {
+			t.Fatalf("rejected after payload %d = %d, want %d", i, got, i+1)
+		}
+	}
+	if h.floorHolder(testPeer) != "" {
+		t.Fatal("malformed data granted the floor")
+	}
+	before := rejected()
+	// Other topics, the Peer's own identity and a stale EOS are ignored
+	// without counting.
+	client.events.onDataPacket(testRemote, "other.topic", []byte("x"))
+	client.events.onDataPacket(testPeer, talkTopic, mustEncodeTalk(talkTypeBOS, "self", 1))
+	client.events.onDataPacket("", talkTopic, mustEncodeTalk(talkTypeBOS, "anon", 1))
+	client.events.onDataPacket(testRemote, talkTopic, mustEncodeTalk(talkTypeEOS, "unknown", 9))
+	if got := rejected(); got != before {
+		t.Fatalf("ignored data was counted: %d -> %d", before, got)
+	}
+	if h.floorHolder(testPeer) != "" {
+		t.Fatal("ignored data granted the floor")
+	}
+	// The payload's identity never matters: the sender identity is the SFU's.
+	client.events.onDataPacket(testRemote, talkTopic, mustEncodeTalk(talkTypeBOS, "u-b", 1))
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "valid BOS grants the floor")
+	// A duplicate BOS for the same utterance changes nothing.
+	client.events.onDataPacket(testRemote, talkTopic, mustEncodeTalk(talkTypeBOS, "u-b", 1))
+	if got := h.queued(testPeer); got != 1 {
+		t.Fatalf("duplicate BOS reopened the stream: queued = %d", got)
+	}
+}
+
+func mustEncodeTalk(kind, utterance string, seq uint64) []byte {
+	payload, err := json.Marshal(talkMessage{V: talkProtocolVersion, Type: kind, Utterance: utterance, Seq: seq})
+	if err != nil {
+		panic(err)
+	}
+	return payload
+}
+
+// TestDownlinkChunksArePassthroughOpus pins the chunk shape the peer side
+// relies on: passthrough MIME, label and name equal to the participant
+// identity, a fresh stream_id per hold, and raw payload bytes unchanged.
+func TestDownlinkChunksArePassthroughOpus(t *testing.T) {
+	h := newHarness(t, Config{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	output, _ := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+	reader := subscribeRemote(t, h, client, testRemote, "TR_b", "u-1", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor")
+	reader.send(1, 0, 0x78, 0x01)
+	waitFor(t, func() bool { return h.queued(testPeer) == 2 }, "packet")
+	client.remoteTalk(testRemote, talkTypeEOS, "u-1", 2)
+	client.remoteTalk(testRemote, talkTypeBOS, "u-2", 3)
+	waitFor(t, func() bool { return h.queued(testPeer) == 4 }, "second hold")
+	cancel()
+	chunks, _ := collect(t, output)
+	for _, chunk := range chunks {
+		blob := chunk.Part.(*genx.Blob)
+		if !agenthost.IsOpusPassthroughChunk(chunk) || blob.MIMEType != agenthost.OpusPassthroughMIME {
+			t.Fatalf("chunk MIME = %q", blob.MIMEType)
+		}
+		if chunk.Role != genx.RoleModel || chunk.Name != testRemote || chunk.Ctrl.Label != testRemote {
+			t.Fatalf("chunk identity = %q/%q", chunk.Name, chunk.Ctrl.Label)
+		}
+	}
+	streams := groupStreams(t, chunks)
+	if len(streams) != 2 || streams[0].id == streams[1].id {
+		t.Fatalf("streams = %+v", streams)
+	}
+	if got := streams[0].payload; len(got) != 1 || !slices.Equal(got[0], []byte{0x78, 0x01}) {
+		t.Fatalf("payload = %x, want the raw two-byte frame", got)
 	}
 }
 
@@ -646,15 +1106,17 @@ func TestTransformDuplicateIdentityTerminatesWithoutReconnect(t *testing.T) {
 }
 
 func TestTransformReconnectsAfterNetworkDisconnect(t *testing.T) {
-	h := newHarness(t, Config{})
+	h := newHarness(t, Config{FloorIdle: 5 * time.Second, TalkHangover: 5 * time.Second})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	output, input := h.attach(ctx, testPeer)
 	first := h.connector.client(0)
-	reader := newFakeReader()
-	first.events.onTrackSubscribed(testRemote, "TR_b", reader)
-	reader.send(1, 0, 0x78, 0x01, 0x00, 0x00)
+	reader := subscribeRemote(t, h, first, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor")
+	reader.voiced(0xB1)
 	waitFor(t, func() bool { return h.queued(testPeer) == 2 }, "downlink before disconnect")
+	input.push(voicedChunk(0x01))
+	waitFor(t, func() bool { return first.talkCount() == 1 }, "local bos before disconnect")
 
 	first.events.onDisconnected(disconnectOther)
 	waitFor(t, func() bool { return h.connector.count() == 2 }, "reconnect")
@@ -666,17 +1128,24 @@ func TestTransformReconnectsAfterNetworkDisconnect(t *testing.T) {
 	if first.disconnects() != 1 {
 		t.Fatalf("old client disconnects = %d, want 1", first.disconnects())
 	}
-	input.push(opusChunk(0x78, 0x02))
+	if h.floorHolder(testPeer) != "" || h.trackCount(testPeer) != 0 || h.talking(testPeer) {
+		t.Fatal("reconnect kept the floor, remote tracks or the open utterance")
+	}
+	input.push(voicedChunk(0x02))
 	waitFor(t, func() bool { return second.sampleCount() == 1 }, "uplink on new client")
-	if first.sampleCount() != 0 {
-		t.Fatal("uplink written to stale client")
+	waitFor(t, func() bool { return second.talkCount() == 1 }, "fresh utterance announced on new client")
+	if first.sampleCount() != 1 {
+		t.Fatalf("stale client samples = %d, want only the pre-disconnect frame", first.sampleCount())
+	}
+	if first.talk()[0].Utterance == second.talk()[0].Utterance {
+		t.Fatal("utterance id survived the reconnect")
 	}
 	cancel()
 	chunks, err := collect(t, output)
 	if !errors.Is(err, io.EOF) {
 		t.Fatalf("output ended with %v, want EOF", err)
 	}
-	// The old route was closed on reconnect: BOS, payload, EOS.
+	// The floor was released on reconnect: BOS, payload, EOS.
 	if len(chunks) != 3 || !chunks[2].Ctrl.EndOfStream {
 		t.Fatalf("chunks = %d, want BOS/payload/EOS", len(chunks))
 	}
@@ -787,7 +1256,9 @@ func TestNewAgentRequiresConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAgent() error = %v", err)
 	}
-	if got := agent.(*Agent).config; got.RecheckInterval != DefaultRecheckInterval || got.ReconnectTimeout != DefaultReconnectTimeout {
+	got := agent.(*Agent).config
+	if got.RecheckInterval != DefaultRecheckInterval || got.ReconnectTimeout != DefaultReconnectTimeout ||
+		got.TalkHangover != DefaultTalkHangover || got.FloorIdle != DefaultFloorIdle {
 		t.Fatalf("defaults = %+v", got)
 	}
 }

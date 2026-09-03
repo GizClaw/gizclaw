@@ -52,11 +52,17 @@ type roomEvents interface {
 	onTrackUnsubscribed(trackID string)
 	onTrackMuted(trackID string)
 	onParticipantDisconnected(identity string)
+	// onDataPacket delivers one user data packet. identity is the sender as
+	// authenticated by the SFU, never taken from the payload.
+	onDataPacket(identity, topic string, payload []byte)
 }
 
 // roomClient is one live participant connection. Disconnect is idempotent.
 type roomClient interface {
 	WriteAudio(sample media.Sample) error
+	// PublishData sends one payload on the reliable data channel to every
+	// participant of the Room under the given topic.
+	PublishData(topic string, payload []byte) error
 	Disconnect()
 }
 
@@ -94,6 +100,13 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 			}
 		},
 		ParticipantCallback: lksdk.ParticipantCallback{
+			OnDataPacket: func(data lksdk.DataPacket, params lksdk.DataReceiveParams) {
+				user, ok := data.(*lksdk.UserDataPacket)
+				if !ok || user == nil {
+					return
+				}
+				events.onDataPacket(params.SenderIdentity, user.Topic, user.Payload)
+			},
 			OnTrackSubscribed: func(track *webrtc.TrackRemote, publication *lksdk.RemoteTrackPublication, participant *lksdk.RemoteParticipant) {
 				if track == nil || publication == nil || participant == nil || track.Kind() != webrtc.RTPCodecTypeAudio {
 					return
@@ -148,6 +161,7 @@ func (c livekitConnector) mintToken(params connectParams) (string, error) {
 	}
 	grant := &auth.VideoGrant{RoomJoin: true, Room: params.Room}
 	grant.SetCanPublish(true)
+	grant.SetCanPublishData(true)
 	grant.SetCanSubscribe(true)
 	token, err := auth.NewAccessToken(c.apiKey, c.apiSecret).
 		SetIdentity(params.Identity).
@@ -179,6 +193,10 @@ type livekitRoom struct {
 
 func (r *livekitRoom) WriteAudio(sample media.Sample) error {
 	return r.track.WriteSample(sample)
+}
+
+func (r *livekitRoom) PublishData(topic string, payload []byte) error {
+	return r.room.LocalParticipant.PublishData(payload, lksdk.WithDataPublishReliable(true), lksdk.WithDataPublishTopic(topic))
 }
 
 func (r *livekitRoom) Disconnect() {

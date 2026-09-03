@@ -92,11 +92,11 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 Factory 持有 Server 级 `services.sfu` credential 与 `BindingResolver`。每个 Workspace 在一台 Server 上只构造一个共享 Agent；每次 Transform 把调用 Peer 作为一个 LiveKit participant attach 到 Room，participant identity 就是 Peer public key，attach 的生命周期由 Transform context 拥有。attach 前先通过 `BindingResolver` 校验权威 membership，`ErrNotMember`、`ErrRevoked`、`ErrNotBound` 都 fail closed；连接失败作为 reload failure 返回。
 
-上行：GenX `audio/opus` chunk 携带裸 Opus frame，session 按帧写入本地 48 kHz Opus track，不解码也不重新编码；BOS/EOS 只界定一次发言，不创建或销毁 Room，也不断开 participant。
+上行：GenX `audio/opus` chunk 携带裸 Opus frame，session 按帧写入本地 48 kHz Opus track，不解码也不重新编码。session 把上行切成 talk utterance（第一个有声帧打开，Device EOS 或 `talk_hangover` 关闭），并在 Room 的 reliable data channel 上以 topic `gizclaw.sfu.talk` 发布 BOS/EOS；Device 的 BOS/EOS 不创建或销毁 Room，也不断开 participant。
 
-下行：每个远端 participant 的 Track 各自映射为一条 GenX audio route，`label` 固定为该 participant identity，每个 talk burst 使用新的 `stream_id`，因此 AgentHost `MixerOutput` 为每个 participant 保留一条独立 mixer track，并沿用 Device 侧现有的 16 kHz 单声道 mixer 与 Opus 出口。LiveKit participant 不订阅自己的 Track，下行天然是 mix-minus-self。connector 在每条远端 Track 上按 RTP sequence 做重排缓冲，只把有序、完整的 Opus 流交给 mixer；Track 静默、mute 或 participant 离开时只关闭对应 route，不结束整个 Workspace output。
+下行：session 按 data channel 上的远端 utterance 维护 floor，同一时刻只转发一位持有者的 Opus packet（经 RTP 重排缓冲），其他 participant 的 packet 丢弃并计数；本 Peer 发言期间不转发任何下行（半双工）。转发的 packet 以 `agenthost.OpusPassthroughMIME`（`audio/opus; passthrough=1`）标记，每次 floor 持有使用新的 `stream_id`，`label` 为 participant identity；`MixerOutput` 不解码它们，`PeerConn` 直接把 payload 写入 Device 的 Opus Track。floor 在持有者 EOS、`floor_idle` 无有声 packet、Track mute/unsubscribe、participant 离开或本 Peer 开始发言时释放，由最早仍打开的远端 utterance 接手；这些事件只关闭对应 route，不结束整个 Workspace output。规则细节见 [services/social](/zh/developing/gizclaw/services/social#媒体与下行)。
 
-生命周期：网络错误或 SFU 重启触发指数退避重连，超过 `reconnect_timeout` 则以错误终止；重连期间丢弃上行帧并关闭远端 route。LiveKit 因同一 identity 从其他 Server 加入而断开（`DuplicateIdentity`）视为正常终止，不重连。session 按 `recheck_interval` 周期重读 binding，generation 变化、成员失效或 resolver 出错时以 `ErrRevoked` 立即停止转发。Transform context 取消（Workspace 切换、Peer 断开、撤权、Server shutdown）走同一条 teardown：停止消费 GenX input、停止写入 Track、关闭远端 reader、断开 participant、关闭输出 Stream。
+生命周期：网络错误或 SFU 重启触发指数退避重连，超过 `reconnect_timeout` 则以错误终止；重连期间丢弃上行帧、释放 floor 并忘记远端 utterance（重连后由下一次 BOS 重新学习）。LiveKit 因同一 identity 从其他 Server 加入而断开（`DuplicateIdentity`）视为正常终止，不重连。session 按 `recheck_interval` 周期重读 binding，generation 变化、成员失效或 resolver 出错时以 `ErrRevoked` 立即停止转发。Transform context 取消（Workspace 切换、Peer 断开、撤权、Server shutdown）走同一条 teardown：停止消费 GenX input、停止写入 Track、关闭远端 reader、断开 participant、关闭输出 Stream。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 

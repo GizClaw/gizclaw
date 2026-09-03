@@ -164,8 +164,12 @@ func (b *peerStreamEventBroker) removeSubscriber(subscriber *peerStreamEventSubs
 }
 
 type peerAgentOutput struct {
-	Events            *peerStreamEventBroker
-	Tracks            agenthost.AudioTrackCreator
+	Events *peerStreamEventBroker
+	Tracks agenthost.AudioTrackCreator
+	// Packets writes one raw Opus packet to the device's Opus track. It
+	// serves passthrough routes (agenthost.OpusPassthroughMIME), whose
+	// payloads bypass the mixer entirely; nil rejects such routes.
+	Packets           func([]byte) error
 	Logger            *slog.Logger
 	PeerPublicKey     string
 	WorkspaceName     func(context.Context) string
@@ -180,6 +184,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
+		Passthrough:       o.writePassthrough,
 		OnAudioCutover: func(chunk *genx.MessageChunk) error {
 			event, owner := audio.cutoverOwned(chunk)
 			if event == nil {
@@ -226,6 +231,28 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 		return errors.Join(err, o.broadcastAudioAbort(audio, err))
 	}
 	return nil
+}
+
+// writePassthrough forwards the payload of one passthrough chunk straight to
+// the device's Opus track. BOS and EOS chunks carry no payload and only
+// bracket the route; they are still observed by MixerOutput so the audio
+// route aggregator emits the matching Peer Events. Packets are written as
+// received: the producer delivers them at source pace and no pacer sits in
+// between, so a passthrough route must never share the device track with a
+// mixer route.
+func (o peerAgentOutput) writePassthrough(chunk *genx.MessageChunk) error {
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil || len(blob.Data) == 0 {
+		return nil
+	}
+	if o.Packets == nil {
+		streamID := ""
+		if chunk.Ctrl != nil {
+			streamID = chunk.Ctrl.StreamID
+		}
+		return fmt.Errorf("gizclaw: passthrough audio stream_id=%q has no device packet writer", streamID)
+	}
+	return o.Packets(blob.Data)
 }
 
 func (o peerAgentOutput) ObserveAgentRuntimeTerminal(err error) {

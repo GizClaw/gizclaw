@@ -14,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -25,7 +26,8 @@ const (
 	// StateConnected reports an attached participant forwarding audio.
 	StateConnected State = "connected"
 	// StateReconnecting reports a bounded reconnect after a network error or
-	// SFU restart; uplink frames are dropped and downlink routes are closed.
+	// SFU restart; uplink frames are dropped and the downlink floor is
+	// released.
 	StateReconnecting State = "reconnecting"
 	// StateClosed reports that the attachment ended; Err carries the cause.
 	StateClosed State = "closed"
@@ -40,6 +42,12 @@ type SessionStatus struct {
 	// clean cancel and ErrRevoked, ErrDuplicateIdentity or a connector error
 	// otherwise.
 	Err error
+	// DroppedPackets counts voiced remote Opus packets that were discarded
+	// because their participant did not hold the floor.
+	DroppedPackets uint64
+	// RejectedData counts talk data packets that were malformed or carried
+	// an unsupported protocol version.
+	RejectedData uint64
 }
 
 const (
@@ -47,14 +55,13 @@ const (
 	reconnectMinBackoff = 250 * time.Millisecond
 	reconnectMaxBackoff = 5 * time.Second
 	// routeIdleFlush releases packets held for a missing predecessor when the
-	// track goes quiet (DTX, mute) so the tail of a burst is not delayed
-	// until the next burst.
+	// holder's track goes quiet (DTX, mute) so the tail of an utterance is
+	// not delayed until the next packet.
 	routeIdleFlush = 60 * time.Millisecond
-	// routeBurstIdle ends a talk burst once no voiced packet arrived for this
-	// long. Closing the mixer route lets the device downlink go quiet between
-	// utterances instead of carrying encoded silence for as long as the
-	// remote participant stays subscribed.
-	routeBurstIdle = 300 * time.Millisecond
+	// maxPrerollPackets bounds the voiced packets a non-holder track keeps so
+	// that the packets which raced ahead of their sender's BOS on the data
+	// channel can still be delivered once that sender takes the floor.
+	maxPrerollPackets = 16
 	// opusEmptyFrameMaxBytes is the largest Opus packet that carries no frame
 	// data at all: a bare TOC byte, whose single code-0 frame has zero
 	// compressed bytes. That is how DTX reaches the connector.
@@ -68,6 +75,12 @@ var opusSilencePrefix = []byte{0xf8, 0xff, 0xfe}
 
 // session bridges one Peer's GenX streams to one SFU participant. The
 // Transform context owns its lifetime.
+//
+// Uplink: the device's Opus frames are split into talk utterances that are
+// announced on the Room data channel (see talk.go) and written to the local
+// track. Downlink: the session grants the floor to one remote utterance at a
+// time and forwards only that participant's raw Opus packets to the device
+// as passthrough audio; nothing is decoded on this path.
 type session struct {
 	agent     *Agent
 	peer      string
@@ -82,15 +95,66 @@ type session struct {
 	done   chan struct{}
 
 	disconnects chan disconnectReason
+	talkNotify  chan struct{}
 
+	// mu guards every field below. Timer callbacks and connector callbacks
+	// take it briefly; no network or blocking I/O runs under it.
 	mu         sync.Mutex
 	state      State
 	err        error
 	client     roomClient
 	forwarding bool
-	routes     map[string]*remoteRoute
-	routeSeq   atomic.Uint64
 	finished   bool
+
+	talk      talkState
+	talkQueue []talkMessage
+
+	tracks         map[string]*remoteTrack
+	utterances     map[string]*remoteUtterance
+	utteranceOrder uint64
+	floor          *floorHold
+	floorGen       uint64
+	floorIdle      *time.Timer
+	floorIdleGen   uint64
+
+	routeSeq       atomic.Uint64
+	talkSeq        atomic.Uint64
+	droppedPackets atomic.Uint64
+	rejectedData   atomic.Uint64
+}
+
+// talkState is the Peer's own open utterance on the uplink.
+type talkState struct {
+	open      bool
+	utterance string
+	gen       uint64
+	// hangover is re-armed on every voiced frame; hangoverGen records which
+	// utterance generation its callback checks so a stale timer is replaced
+	// instead of reset.
+	hangover    *time.Timer
+	hangoverGen uint64
+}
+
+// remoteUtterance is one open utterance announced by a remote participant.
+type remoteUtterance struct {
+	id  string
+	seq uint64
+	// order ranks utterances by arrival so a release hands the floor to the
+	// earliest one still open.
+	order uint64
+	// idle marks an utterance the floor released because its holder went
+	// quiet, muted or lost its track. It stays open but is not eligible for
+	// the floor until a voiced packet arrives from that participant again;
+	// otherwise a silent-but-open realtime stream would take the floor,
+	// idle out and take it again forever.
+	idle bool
+}
+
+// floorHold names the participant currently forwarded to the device.
+type floorHold struct {
+	identity  string
+	utterance string
+	streamID  string
 }
 
 func newSession(parent context.Context, agent *Agent, peer string, binding socialutil.SFUWorkspaceBinding) *session {
@@ -107,8 +171,10 @@ func newSession(parent context.Context, agent *Agent, peer string, binding socia
 		out:         newOutputStream(),
 		done:        make(chan struct{}),
 		disconnects: make(chan disconnectReason, 8),
+		talkNotify:  make(chan struct{}, 1),
 		state:       StateReconnecting,
-		routes:      make(map[string]*remoteRoute),
+		tracks:      make(map[string]*remoteTrack),
+		utterances:  make(map[string]*remoteUtterance),
 	}
 }
 
@@ -135,13 +201,21 @@ func (s *session) connect(ctx context.Context) error {
 func (s *session) start(input genx.Stream) {
 	go s.supervise()
 	go s.consumeInput(input)
+	go s.publishTalk()
 	go s.recheck()
 }
 
 func (s *session) status() SessionStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return SessionStatus{Peer: s.peer, Room: s.binding.SFU.RoomToken, State: s.state, Err: s.err}
+	return SessionStatus{
+		Peer:           s.peer,
+		Room:           s.binding.SFU.RoomToken,
+		State:          s.state,
+		Err:            s.err,
+		DroppedPackets: s.droppedPackets.Load(),
+		RejectedData:   s.rejectedData.Load(),
+	}
 }
 
 // supervise owns the connection lifecycle: context cancellation, SFU
@@ -178,16 +252,21 @@ func terminalCause(ctx context.Context) error {
 }
 
 // reconnect retries the join with exponential backoff until
-// Config.ReconnectTimeout elapses. Remote routes are closed first so the
-// mixer does not wait on tracks that will be re-subscribed with new IDs.
+// Config.ReconnectTimeout elapses. The floor, every remote track and the
+// Peer's open utterance are dropped first: the new participant sees the Room
+// afresh and remote utterances are learned again from their next BOS.
 func (s *session) reconnect() error {
 	s.mu.Lock()
 	s.forwarding = false
 	s.state = StateReconnecting
 	old := s.client
 	s.client = nil
+	s.resetTalkLocked()
+	tracks := s.resetDownlinkLocked()
 	s.mu.Unlock()
-	s.closeRoutes(nil)
+	for _, track := range tracks {
+		track.close()
+	}
 	if old != nil {
 		old.Disconnect()
 	}
@@ -296,8 +375,23 @@ func (s *session) revoke(cause error) {
 	s.cancel(ErrRevoked)
 }
 
-// consumeInput forwards every raw Opus frame to the local track. BOS and
-// EOS only delimit talk bursts; they never touch the connection.
+// consumeInput splits the device uplink into talk utterances and forwards
+// the Opus frames of open utterances to the local track.
+//
+// Push-to-talk (BOS, frames, EOS per press) and realtime (one BOS, a
+// continuous stream, EOS only at the end) are handled by one rule: an
+// utterance opens on the first voiced frame and closes when the device sends
+// EOS or when no voiced frame arrived for Config.TalkHangover. Voiced means
+// not an Opus silence frame (see isOpusSilenceFrame); that frame-based rule
+// is the only uplink voice activity detection. A device that streams raw,
+// un-gated audio in realtime mode therefore keeps one utterance open for as
+// long as it streams and holds the floor of every listener; the fix for such
+// a device is a sender-side energy VAD that emits DTX or stops sending while
+// nobody speaks, which is deliberately out of scope here.
+//
+// Silence frames are written to the track only while an utterance is open,
+// so between utterances the SFU sees DTX and nothing else. Device BOS and
+// EOS never touch the connection.
 func (s *session) consumeInput(input genx.Stream) {
 	for {
 		chunk, err := input.Next()
@@ -307,24 +401,43 @@ func (s *session) consumeInput(input genx.Stream) {
 		if s.ctx.Err() != nil {
 			return
 		}
-		frame, ok := opusFrame(chunk)
-		if !ok {
-			continue
+		if frame, ok := opusFrame(chunk); ok {
+			s.forwardUplinkFrame(frame)
 		}
-		duration, err := OpusPacketDuration(frame)
-		if err != nil {
-			continue
+		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.EndOfStream {
+			s.mu.Lock()
+			s.closeTalkLocked()
+			s.mu.Unlock()
 		}
-		s.mu.Lock()
-		client := s.client
-		forwarding := s.forwarding
+	}
+}
+
+func (s *session) forwardUplinkFrame(frame []byte) {
+	duration, err := OpusPacketDuration(frame)
+	if err != nil {
+		return
+	}
+	voiced := !isOpusSilenceFrame(frame)
+	s.mu.Lock()
+	client := s.client
+	if !s.forwarding || client == nil {
+		// Frames are dropped while reconnecting; the utterance cannot be
+		// announced, so it is closed silently and reopens on the next voiced
+		// frame after the rejoin.
+		s.resetTalkLocked()
 		s.mu.Unlock()
-		if !forwarding || client == nil {
-			continue
-		}
-		if err := client.WriteAudio(media.Sample{Data: frame, Duration: duration}); err != nil {
-			s.logger.Debug("sfu: write uplink sample", "error", err)
-		}
+		return
+	}
+	if voiced {
+		s.openTalkLocked()
+		s.armTalkHangoverLocked()
+	} else if !s.talk.open {
+		s.mu.Unlock()
+		return
+	}
+	s.mu.Unlock()
+	if err := client.WriteAudio(media.Sample{Data: frame, Duration: duration}); err != nil {
+		s.logger.Debug("sfu: write uplink sample", "error", err)
 	}
 }
 
@@ -343,6 +456,115 @@ func opusFrame(chunk *genx.MessageChunk) ([]byte, bool) {
 	return blob.Data, true
 }
 
+// openTalkLocked opens the Peer's utterance: it announces BOS and, because
+// the link is half-duplex, releases the downlink floor. No floor is taken
+// again until the utterance closes.
+func (s *session) openTalkLocked() {
+	if s.talk.open {
+		return
+	}
+	s.talk.open = true
+	s.talk.utterance = newUtteranceID()
+	s.talk.gen++
+	s.queueTalkLocked(talkTypeBOS, s.talk.utterance)
+	s.releaseFloorLocked(false)
+	s.logger.Debug("sfu: talk utterance opened", "utterance", s.talk.utterance)
+}
+
+// closeTalkLocked closes the Peer's utterance, announces EOS and lets the
+// earliest open remote utterance take the floor.
+func (s *session) closeTalkLocked() {
+	if !s.talk.open {
+		return
+	}
+	s.queueTalkLocked(talkTypeEOS, s.talk.utterance)
+	s.logger.Debug("sfu: talk utterance closed", "utterance", s.talk.utterance)
+	s.resetTalkLocked()
+	s.acquireFloorLocked()
+}
+
+// resetTalkLocked forgets the open utterance without announcing anything.
+func (s *session) resetTalkLocked() {
+	if s.talk.hangover != nil {
+		s.talk.hangover.Stop()
+	}
+	s.talk.gen++
+	s.talk.open = false
+	s.talk.utterance = ""
+}
+
+func (s *session) armTalkHangoverLocked() {
+	gen := s.talk.gen
+	if s.talk.hangover != nil && s.talk.hangoverGen == gen {
+		s.talk.hangover.Reset(s.config.TalkHangover)
+		return
+	}
+	if s.talk.hangover != nil {
+		s.talk.hangover.Stop()
+	}
+	s.talk.hangoverGen = gen
+	s.talk.hangover = time.AfterFunc(s.config.TalkHangover, func() { s.onTalkHangover(gen) })
+}
+
+func (s *session) onTalkHangover(gen uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.finished || !s.talk.open || s.talk.gen != gen {
+		return
+	}
+	s.closeTalkLocked()
+}
+
+func (s *session) queueTalkLocked(kind, utterance string) {
+	s.talkQueue = append(s.talkQueue, talkMessage{
+		V:         talkProtocolVersion,
+		Type:      kind,
+		Utterance: utterance,
+		Seq:       s.talkSeq.Add(1),
+	})
+	select {
+	case s.talkNotify <- struct{}{}:
+	default:
+	}
+}
+
+// publishTalk publishes queued talk messages on the reliable data channel
+// in queue order. It is the only goroutine that touches the data channel,
+// so the order the state machine produced is the order the Room sees, and
+// no network I/O runs under s.mu.
+func (s *session) publishTalk() {
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-s.talkNotify:
+		}
+		for {
+			s.mu.Lock()
+			if len(s.talkQueue) == 0 {
+				s.mu.Unlock()
+				break
+			}
+			message := s.talkQueue[0]
+			s.talkQueue = s.talkQueue[1:]
+			client := s.client
+			forwarding := s.forwarding
+			s.mu.Unlock()
+			if client == nil || !forwarding {
+				continue
+			}
+			payload, err := message.encode()
+			if err != nil {
+				s.logger.Warn("sfu: encode talk message", "error", err)
+				continue
+			}
+			if err := client.PublishData(talkTopic, payload); err != nil {
+				s.logger.Debug("sfu: publish talk message", "type", message.Type, "error", err)
+			}
+		}
+	}
+}
+
 // finish tears the attachment down exactly once. A nil cause closes the
 // output cleanly; any other cause closes it with that error.
 func (s *session) finish(cause error) {
@@ -357,10 +579,14 @@ func (s *session) finish(cause error) {
 	s.err = cause
 	client := s.client
 	s.client = nil
+	s.resetTalkLocked()
+	tracks := s.resetDownlinkLocked()
 	s.mu.Unlock()
 
 	s.cancel(context.Canceled)
-	s.closeRoutes(nil)
+	for _, track := range tracks {
+		track.close()
+	}
 	if client != nil {
 		client.Disconnect()
 	}
@@ -371,6 +597,20 @@ func (s *session) finish(cause error) {
 	}
 	s.agent.removeSession(s.peer, s)
 	close(s.done)
+}
+
+// resetDownlinkLocked releases the floor, forgets every remote utterance and
+// detaches every remote track. The caller closes the returned tracks
+// outside the lock.
+func (s *session) resetDownlinkLocked() []*remoteTrack {
+	s.releaseFloorLocked(false)
+	clear(s.utterances)
+	tracks := make([]*remoteTrack, 0, len(s.tracks))
+	for id, track := range s.tracks {
+		tracks = append(tracks, track)
+		delete(s.tracks, id)
+	}
+	return tracks
 }
 
 // roomEvents implementation. Every callback returns promptly.
@@ -406,7 +646,7 @@ func (s *session) onTrackSubscribed(identity, trackID string, reader rtpReader) 
 	if reader == nil || identity == "" || identity == s.peer {
 		return
 	}
-	route := &remoteRoute{
+	track := &remoteTrack{
 		session:  s,
 		identity: identity,
 		trackID:  trackID,
@@ -418,142 +658,277 @@ func (s *session) onTrackSubscribed(identity, trackID string, reader rtpReader) 
 		s.mu.Unlock()
 		return
 	}
-	previous := s.routes[trackID]
-	s.routes[trackID] = route
+	previous := s.tracks[trackID]
+	s.tracks[trackID] = track
 	s.mu.Unlock()
 	if previous != nil {
 		previous.close()
 	}
-	go route.run()
+	go track.run()
 }
 
 func (s *session) onTrackUnsubscribed(trackID string) {
 	s.mu.Lock()
-	route := s.routes[trackID]
-	delete(s.routes, trackID)
+	track := s.tracks[trackID]
 	s.mu.Unlock()
-	if route != nil {
-		route.close()
+	if track != nil {
+		track.close()
 	}
 }
 
+// onTrackMuted releases the floor when the holder's track is muted. The
+// utterance stays open but idle until the participant is heard again.
 func (s *session) onTrackMuted(trackID string) {
 	s.mu.Lock()
-	route := s.routes[trackID]
-	s.mu.Unlock()
-	if route != nil {
-		route.endBurst()
+	defer s.mu.Unlock()
+	track := s.tracks[trackID]
+	if track == nil || !s.holdsFloorLocked(track.identity) {
+		return
 	}
+	s.releaseFloorLocked(true)
+	s.acquireFloorLocked()
 }
 
 func (s *session) onParticipantDisconnected(identity string) {
-	s.closeRoutes(func(route *remoteRoute) bool { return route.identity == identity })
-}
-
-func (s *session) closeRoutes(match func(*remoteRoute) bool) {
 	s.mu.Lock()
-	var closing []*remoteRoute
-	for id, route := range s.routes {
-		if match == nil || match(route) {
-			closing = append(closing, route)
-			delete(s.routes, id)
+	delete(s.utterances, identity)
+	var closing []*remoteTrack
+	for id, track := range s.tracks {
+		if track.identity == identity {
+			closing = append(closing, track)
+			delete(s.tracks, id)
 		}
 	}
+	if s.holdsFloorLocked(identity) {
+		s.releaseFloorLocked(false)
+		s.acquireFloorLocked()
+	}
 	s.mu.Unlock()
-	for _, route := range closing {
-		route.close()
+	for _, track := range closing {
+		track.close()
 	}
 }
 
-func (s *session) removeRoute(route *remoteRoute) {
+// onDataPacket applies one remote talk message. Malformed messages are
+// counted and ignored; a stale EOS for an utterance this session never saw
+// open (for example one announced while this participant was rejoining) is
+// ignored without counting.
+func (s *session) onDataPacket(identity, topic string, payload []byte) {
+	if topic != talkTopic || identity == "" || identity == s.peer {
+		return
+	}
+	message, err := decodeTalkMessage(payload)
+	if err != nil {
+		s.rejectedData.Add(1)
+		s.logger.Debug("sfu: talk message rejected", "participant", identity, "error", err)
+		return
+	}
 	s.mu.Lock()
-	if s.routes[route.trackID] == route {
-		delete(s.routes, route.trackID)
+	defer s.mu.Unlock()
+	if s.finished {
+		return
 	}
-	s.mu.Unlock()
-}
-
-func (s *session) nextStreamID(identity, trackID string) string {
-	return fmt.Sprintf("sfu/%s/%s/%d", identity, trackID, s.routeSeq.Add(1))
-}
-
-// remoteRoute turns one remote audio track into ordered GenX audio chunks.
-// Each talk burst uses a fresh stream_id; the label is always the remote
-// participant identity so the mixer keeps one route per participant.
-type remoteRoute struct {
-	session  *session
-	identity string
-	trackID  string
-	reader   rtpReader
-	reorder  *reorderBuffer
-
-	mu        sync.Mutex
-	streamID  string
-	idle      *time.Timer
-	burstIdle *time.Timer
-	closed    bool
-}
-
-func (r *remoteRoute) run() {
-	defer r.close()
-	for {
-		packet, _, err := r.reader.ReadRTP()
-		if err != nil {
+	switch message.Type {
+	case talkTypeBOS:
+		if current := s.utterances[identity]; current != nil && current.id == message.Utterance {
 			return
 		}
-		if packet == nil || len(packet.Payload) == 0 {
+		if s.holdsFloorLocked(identity) {
+			// The holder opened a new utterance without closing the previous
+			// one (its EOS was lost); hand the floor over cleanly.
+			s.releaseFloorLocked(false)
+		}
+		s.utteranceOrder++
+		s.utterances[identity] = &remoteUtterance{id: message.Utterance, seq: message.Seq, order: s.utteranceOrder}
+		s.acquireFloorLocked()
+	case talkTypeEOS:
+		current := s.utterances[identity]
+		if current == nil || current.id != message.Utterance {
+			s.logger.Debug("sfu: stale talk EOS ignored", "participant", identity, "utterance", message.Utterance)
+			return
+		}
+		delete(s.utterances, identity)
+		if s.holdsFloorLocked(identity) {
+			s.releaseFloorLocked(false)
+			s.acquireFloorLocked()
+		}
+	}
+}
+
+func (s *session) holdsFloorLocked(identity string) bool {
+	return s.floor != nil && s.floor.identity == identity
+}
+
+// acquireFloorLocked grants the floor to the earliest open, non-idle remote
+// utterance when the floor is free, this Peer is not talking and the
+// participant is connected. It opens the passthrough route and replays the
+// holder's recent preroll packets. It reports whether a floor was taken.
+func (s *session) acquireFloorLocked() bool {
+	if s.floor != nil || s.talk.open || !s.forwarding || s.finished {
+		return false
+	}
+	var (
+		holder    string
+		utterance *remoteUtterance
+	)
+	for identity, candidate := range s.utterances {
+		if candidate.idle {
 			continue
 		}
-		r.push(packet)
+		if utterance == nil || candidate.order < utterance.order {
+			holder, utterance = identity, candidate
+		}
 	}
-}
-
-// push reorders one packet and emits everything that became deliverable.
-// Reordering and emission share r.mu so the idle flush cannot interleave
-// with a concurrent read.
-func (r *remoteRoute) push(packet *rtp.Packet) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed {
-		return
+	if utterance == nil {
+		return false
 	}
-	if r.idle != nil {
-		r.idle.Stop()
-	}
-	r.emitLocked(r.reorder.Push(packet))
-	if r.reorder.Len() > 0 {
-		r.idle = time.AfterFunc(routeIdleFlush, r.flushIdle)
-	}
-}
-
-func (r *remoteRoute) flushIdle() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed {
-		return
-	}
-	r.emitLocked(r.reorder.Flush())
-}
-
-// emitLocked pushes ordered payloads to the output, opening a new stream_id
-// for the first voiced packet of a burst. Silence frames are forwarded while
-// a burst is open so the mixer timing stays continuous, but they never open
-// one. The output push never blocks.
-func (r *remoteRoute) emitLocked(packets []*rtp.Packet) {
-	for _, packet := range packets {
-		voiced := !isOpusSilenceFrame(packet.Payload)
-		if r.streamID == "" {
-			if !voiced {
+	s.floorGen++
+	s.floor = &floorHold{identity: holder, utterance: utterance.id, streamID: s.nextStreamID(holder)}
+	s.logger.Debug("sfu: floor granted", "participant", holder, "utterance", utterance.id)
+	s.out.push(s.chunk(holder, s.floor.streamID, nil, true, false))
+	now := time.Now()
+	for _, track := range s.tracks {
+		if track.identity != holder {
+			continue
+		}
+		// Whatever the reorder buffer expected before this hold is gone;
+		// start ordering from the first packet of this hold.
+		track.reorder = newReorderBuffer(0, 0)
+		track.stopIdleLocked()
+		for _, held := range track.preroll {
+			if now.Sub(held.at) > s.config.FloorIdle {
+				s.droppedPackets.Add(1)
 				continue
 			}
-			r.streamID = r.session.nextStreamID(r.identity, r.trackID)
-			r.session.logger.Debug("sfu: downlink burst opened", "participant", r.identity, "track", r.trackID, "payload_bytes", len(packet.Payload))
-			r.session.out.push(r.chunk(r.streamID, nil, true, false))
+			s.forwardLocked(track, held.packet, true)
 		}
-		r.session.out.push(r.chunk(r.streamID, packet.Payload, false, false))
-		if voiced {
-			r.armBurstIdleLocked()
+		track.preroll = nil
+	}
+	s.armFloorIdleLocked()
+	return true
+}
+
+// releaseFloorLocked closes the passthrough route of the current holder.
+// markIdle records that the holder went quiet so its still-open utterance
+// does not immediately retake the floor.
+func (s *session) releaseFloorLocked(markIdle bool) {
+	if s.floor == nil {
+		return
+	}
+	floor := s.floor
+	for _, track := range s.tracks {
+		if track.identity != floor.identity {
+			continue
 		}
+		track.stopIdleLocked()
+		s.emitLocked(track.reorder.Flush())
+	}
+	s.out.push(s.chunk(floor.identity, floor.streamID, nil, false, true))
+	if markIdle {
+		if utterance := s.utterances[floor.identity]; utterance != nil && utterance.id == floor.utterance {
+			utterance.idle = true
+		}
+	}
+	s.floor = nil
+	s.floorGen++
+	if s.floorIdle != nil {
+		s.floorIdle.Stop()
+	}
+	s.logger.Debug("sfu: floor released", "participant", floor.identity, "idle", markIdle)
+}
+
+func (s *session) armFloorIdleLocked() {
+	gen := s.floorGen
+	if s.floorIdle != nil && s.floorIdleGen == gen {
+		s.floorIdle.Reset(s.config.FloorIdle)
+		return
+	}
+	if s.floorIdle != nil {
+		s.floorIdle.Stop()
+	}
+	s.floorIdleGen = gen
+	s.floorIdle = time.AfterFunc(s.config.FloorIdle, func() { s.onFloorIdle(gen) })
+}
+
+func (s *session) onFloorIdle(gen uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.finished || s.floor == nil || s.floorGen != gen {
+		return
+	}
+	s.releaseFloorLocked(true)
+	s.acquireFloorLocked()
+}
+
+// onPacket routes one remote packet: the holder's packets are reordered and
+// forwarded, a voiced packet from anyone else may take a free floor or is
+// held briefly for preroll, and silence from non-holders is ignored.
+func (s *session) onPacket(track *remoteTrack, packet *rtp.Packet) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if track.closed || s.finished {
+		return
+	}
+	voiced := !isOpusSilenceFrame(packet.Payload)
+	if s.holdsFloorLocked(track.identity) {
+		s.forwardLocked(track, packet, voiced)
+		return
+	}
+	if !voiced {
+		return
+	}
+	if utterance := s.utterances[track.identity]; utterance != nil && utterance.idle {
+		utterance.idle = false
+	}
+	if s.acquireFloorLocked() && s.holdsFloorLocked(track.identity) {
+		s.forwardLocked(track, packet, true)
+		return
+	}
+	track.holdPrerollLocked(packet)
+}
+
+// forwardLocked reorders one packet of the floor holder and emits everything
+// that became deliverable. A voiced packet re-arms the floor idle timer.
+func (s *session) forwardLocked(track *remoteTrack, packet *rtp.Packet, voiced bool) {
+	track.stopIdleLocked()
+	s.emitLocked(track.reorder.Push(packet))
+	if track.reorder.Len() > 0 {
+		gen := s.floorGen
+		track.idle = time.AfterFunc(routeIdleFlush, func() { track.flushIdle(gen) })
+	}
+	if voiced {
+		s.armFloorIdleLocked()
+	}
+}
+
+// emitLocked pushes ordered payloads of the floor holder as passthrough
+// packets. The output push never blocks.
+func (s *session) emitLocked(packets []*rtp.Packet) {
+	if s.floor == nil {
+		return
+	}
+	for _, packet := range packets {
+		s.out.push(s.chunk(s.floor.identity, s.floor.streamID, packet.Payload, false, false))
+	}
+}
+
+func (s *session) nextStreamID(identity string) string {
+	return fmt.Sprintf("sfu/%s/%d", identity, s.routeSeq.Add(1))
+}
+
+// chunk builds one passthrough downlink chunk. The label is the remote
+// participant identity and each floor hold uses a fresh stream_id.
+func (s *session) chunk(identity, streamID string, payload []byte, bos, eos bool) *genx.MessageChunk {
+	return &genx.MessageChunk{
+		Role: genx.RoleModel,
+		Name: identity,
+		Part: &genx.Blob{MIMEType: agenthost.OpusPassthroughMIME, Data: payload},
+		Ctrl: &genx.StreamCtrl{
+			StreamID:      streamID,
+			Label:         identity,
+			BeginOfStream: bos,
+			EndOfStream:   eos,
+		},
 	}
 }
 
@@ -563,7 +938,7 @@ func (r *remoteRoute) emitLocked(packets []*rtp.Packet) {
 // DTX arrives) and the canonical CELT silence packet, which the SFU pads with
 // trailing zeros to a fixed size. Every other packet counts as speech, because
 // a valid low-bitrate frame can be two or three bytes and a length threshold
-// would drop real audio instead of opening the burst.
+// would drop real audio instead of opening the utterance.
 func isOpusSilenceFrame(payload []byte) bool {
 	if len(payload) <= opusEmptyFrameMaxBytes {
 		return true
@@ -579,76 +954,88 @@ func isOpusSilenceFrame(payload []byte) bool {
 	return true
 }
 
-func (r *remoteRoute) armBurstIdleLocked() {
-	if r.burstIdle == nil {
-		r.burstIdle = time.AfterFunc(routeBurstIdle, r.endBurstIdle)
-		return
-	}
-	r.burstIdle.Stop()
-	r.burstIdle.Reset(routeBurstIdle)
+// remoteTrack is one subscribed remote audio track. Its reader goroutine
+// drains RTP for the lifetime of the subscription; whether a packet is
+// forwarded is decided by the session's floor.
+type remoteTrack struct {
+	session  *session
+	identity string
+	trackID  string
+	reader   rtpReader
+
+	// The fields below are guarded by session.mu.
+	reorder *reorderBuffer
+	idle    *time.Timer
+	preroll []prerollPacket
+	closed  bool
 }
 
-func (r *remoteRoute) endBurstIdle() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed {
-		return
-	}
-	r.endBurstLocked()
+// prerollPacket is a voiced packet received while its participant did not
+// hold the floor, kept so a BOS that arrives just after its first packets
+// still delivers them.
+type prerollPacket struct {
+	packet *rtp.Packet
+	at     time.Time
 }
 
-// endBurstLocked flushes pending packets and closes the current mixer
-// route; the next voiced packet opens a new stream_id.
-func (r *remoteRoute) endBurstLocked() {
-	r.emitLocked(r.reorder.Flush())
-	if r.burstIdle != nil {
-		r.burstIdle.Stop()
+func (t *remoteTrack) run() {
+	defer t.close()
+	for {
+		packet, _, err := t.reader.ReadRTP()
+		if err != nil {
+			return
+		}
+		if packet == nil || len(packet.Payload) == 0 {
+			continue
+		}
+		t.session.onPacket(t, packet)
 	}
-	if r.streamID == "" {
-		return
-	}
-	r.session.out.push(r.chunk(r.streamID, nil, false, true))
-	r.streamID = ""
 }
 
-// endBurst closes the current mixer route without ending the track.
-func (r *remoteRoute) endBurst() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed {
-		return
+func (t *remoteTrack) holdPrerollLocked(packet *rtp.Packet) {
+	if len(t.preroll) >= maxPrerollPackets {
+		t.session.droppedPackets.Add(1)
+		t.preroll = t.preroll[1:]
 	}
-	r.endBurstLocked()
+	t.preroll = append(t.preroll, prerollPacket{packet: packet, at: time.Now()})
 }
 
-func (r *remoteRoute) close() {
-	r.mu.Lock()
-	if r.closed {
-		r.mu.Unlock()
-		return
+func (t *remoteTrack) stopIdleLocked() {
+	if t.idle != nil {
+		t.idle.Stop()
 	}
-	r.closed = true
-	if r.idle != nil {
-		r.idle.Stop()
-	}
-	if r.burstIdle != nil {
-		r.burstIdle.Stop()
-	}
-	r.endBurstLocked()
-	r.mu.Unlock()
-	r.session.removeRoute(r)
 }
 
-func (r *remoteRoute) chunk(streamID string, payload []byte, bos, eos bool) *genx.MessageChunk {
-	return &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: r.identity,
-		Part: &genx.Blob{MIMEType: audioOpusMIME, Data: payload},
-		Ctrl: &genx.StreamCtrl{
-			StreamID:      streamID,
-			Label:         r.identity,
-			BeginOfStream: bos,
-			EndOfStream:   eos,
-		},
+// flushIdle releases packets waiting for a lost predecessor once the holder
+// went quiet; a stale timer from an earlier hold does nothing.
+func (t *remoteTrack) flushIdle(gen uint64) {
+	s := t.session
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if t.closed || s.floorGen != gen || !s.holdsFloorLocked(t.identity) {
+		return
+	}
+	s.emitLocked(t.reorder.Flush())
+}
+
+// close detaches the track. When it belongs to the floor holder the floor is
+// released as idle and the next open utterance takes it.
+func (t *remoteTrack) close() {
+	s := t.session
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if t.closed {
+		return
+	}
+	t.closed = true
+	t.stopIdleLocked()
+	s.droppedPackets.Add(uint64(len(t.preroll)))
+	t.preroll = nil
+	if s.tracks[t.trackID] == t {
+		delete(s.tracks, t.trackID)
+	}
+	if s.holdsFloorLocked(t.identity) && !s.finished {
+		s.releaseFloorLocked(true)
+		s.acquireFloorLocked()
 	}
 }

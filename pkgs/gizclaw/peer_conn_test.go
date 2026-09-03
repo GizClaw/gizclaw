@@ -2205,3 +2205,47 @@ func TestPeerConnSequentialAudioRoutesKeepActiveRuntimeInput(t *testing.T) {
 		t.Fatalf("Status() after sequential routes = %+v, want same running runtime", currentStatus)
 	}
 }
+
+// TestPeerConnMixedAudioEgressIdlesWithoutTracks pins the pacing contract a
+// passthrough route depends on: while the mixer owns no track, the paced
+// egress writes nothing to the device, so raw SFU packets written through
+// writeOpusPacket are never interleaved with encoded mixer silence.
+func TestPeerConnMixedAudioEgressIdlesWithoutTracks(t *testing.T) {
+	mx := pcm.NewMixer(peerConnMixerFormat)
+	conn := &recordingGiznetConn{written: make(chan struct{}, 8)}
+	ticks := make(chan time.Time, 8)
+	peer := &PeerConn{Conn: conn, mixer: mx, audioPacing: ticks}
+	result := make(chan error, 1)
+	go func() {
+		_, err := peer.streamMixedAudio(false)
+		result <- err
+	}()
+	for range 3 {
+		ticks <- time.Now()
+	}
+	select {
+	case <-conn.written:
+		t.Fatal("mixer egress wrote a packet without any mixer track")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if err := peer.writeOpusPacket([]byte{0x78, 0x01}); err != nil {
+		t.Fatalf("writeOpusPacket() error = %v", err)
+	}
+	<-conn.written
+	if got := conn.recordedPackets(); len(got) != 1 || !bytes.Equal(got[0], []byte{0x78, 0x01}) {
+		t.Fatalf("device packets = %x, want only the passthrough packet", got)
+	}
+	peer.closed.Store(true)
+	close(ticks)
+	if err := mx.Close(); err != nil {
+		t.Fatalf("mixer.Close() error = %v", err)
+	}
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("streamMixedAudio() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("streamMixedAudio() did not stop")
+	}
+}

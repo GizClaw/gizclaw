@@ -73,7 +73,7 @@ Edge 进程。
 | `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
-| `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
+| `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout`、`talk_hangover`、`floor_idle` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
 | `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
 
 Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。

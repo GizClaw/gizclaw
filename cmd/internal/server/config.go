@@ -144,6 +144,19 @@ type SFUConfig struct {
 	APISecretFile    string `yaml:"api_secret_file"`
 	RecheckInterval  string `yaml:"recheck_interval"`
 	ReconnectTimeout string `yaml:"reconnect_timeout"`
+	// TalkHangover closes a Peer's talk utterance after that long without a
+	// voiced Opus frame; FloorIdle releases the downlink floor after that
+	// long without a voiced packet from its holder.
+	TalkHangover string `yaml:"talk_hangover"`
+	FloorIdle    string `yaml:"floor_idle"`
+}
+
+// sfuDurations holds the parsed optional durations of services.sfu.
+type sfuDurations struct {
+	recheck      time.Duration
+	reconnect    time.Duration
+	talkHangover time.Duration
+	floorIdle    time.Duration
 }
 
 func (cfg *SFUConfig) validate() error {
@@ -163,26 +176,39 @@ func (cfg *SFUConfig) validate() error {
 	if strings.TrimSpace(cfg.APISecretFile) == "" {
 		return fmt.Errorf("server: services.sfu.api_secret_file is required")
 	}
-	if _, _, err := cfg.durations(); err != nil {
+	if _, err := cfg.durations(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (cfg *SFUConfig) durations() (recheck, reconnect time.Duration, err error) {
-	recheck = sfu.DefaultRecheckInterval
-	reconnect = sfu.DefaultReconnectTimeout
-	if strings.TrimSpace(cfg.RecheckInterval) != "" {
-		if recheck, err = parsePositiveConfigDuration(cfg.RecheckInterval); err != nil {
-			return 0, 0, fmt.Errorf("server: services.sfu.recheck_interval: %w", err)
-		}
+func (cfg *SFUConfig) durations() (sfuDurations, error) {
+	parsed := sfuDurations{
+		recheck:      sfu.DefaultRecheckInterval,
+		reconnect:    sfu.DefaultReconnectTimeout,
+		talkHangover: sfu.DefaultTalkHangover,
+		floorIdle:    sfu.DefaultFloorIdle,
 	}
-	if strings.TrimSpace(cfg.ReconnectTimeout) != "" {
-		if reconnect, err = parsePositiveConfigDuration(cfg.ReconnectTimeout); err != nil {
-			return 0, 0, fmt.Errorf("server: services.sfu.reconnect_timeout: %w", err)
+	for _, field := range []struct {
+		name  string
+		value string
+		into  *time.Duration
+	}{
+		{"recheck_interval", cfg.RecheckInterval, &parsed.recheck},
+		{"reconnect_timeout", cfg.ReconnectTimeout, &parsed.reconnect},
+		{"talk_hangover", cfg.TalkHangover, &parsed.talkHangover},
+		{"floor_idle", cfg.FloorIdle, &parsed.floorIdle},
+	} {
+		if strings.TrimSpace(field.value) == "" {
+			continue
 		}
+		duration, err := parsePositiveConfigDuration(field.value)
+		if err != nil {
+			return sfuDurations{}, fmt.Errorf("server: services.sfu.%s: %w", field.name, err)
+		}
+		*field.into = duration
 	}
-	return recheck, reconnect, nil
+	return parsed, nil
 }
 
 // connectorConfig loads the credential files and returns the runtime
@@ -194,7 +220,7 @@ func (cfg *SFUConfig) connectorConfig() (sfu.Config, error) {
 	if err := cfg.validate(); err != nil {
 		return sfu.Config{}, err
 	}
-	recheck, reconnect, err := cfg.durations()
+	durations, err := cfg.durations()
 	if err != nil {
 		return sfu.Config{}, err
 	}
@@ -210,8 +236,10 @@ func (cfg *SFUConfig) connectorConfig() (sfu.Config, error) {
 		URL:              strings.TrimSpace(cfg.URL),
 		APIKey:           apiKey,
 		APISecret:        apiSecret,
-		RecheckInterval:  recheck,
-		ReconnectTimeout: reconnect,
+		RecheckInterval:  durations.recheck,
+		ReconnectTimeout: durations.reconnect,
+		TalkHangover:     durations.talkHangover,
+		FloorIdle:        durations.floorIdle,
 	}, nil
 }
 
@@ -1459,7 +1487,7 @@ func validateSFUConfigShape(path string, value any) error {
 	}
 	for field := range mapping {
 		switch field {
-		case "url", "api_key_file", "api_secret_file", "recheck_interval", "reconnect_timeout":
+		case "url", "api_key_file", "api_secret_file", "recheck_interval", "reconnect_timeout", "talk_hangover", "floor_idle":
 		default:
 			return fmt.Errorf("server: %s has unknown field %q; credentials are loaded from api_key_file and api_secret_file", path, field)
 		}
@@ -1471,7 +1499,7 @@ func validateSFUConfigShape(path string, value any) error {
 			}
 		}
 	}
-	for _, field := range []string{"recheck_interval", "reconnect_timeout"} {
+	for _, field := range []string{"recheck_interval", "reconnect_timeout", "talk_hangover", "floor_idle"} {
 		if reference, exists := mapping[field]; exists {
 			if _, ok := reference.(string); !ok {
 				return fmt.Errorf("server: %s.%s must be a string", path, field)

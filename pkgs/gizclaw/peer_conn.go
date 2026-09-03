@@ -85,6 +85,7 @@ type PeerConn struct {
 	telemetryStatusMu       *sync.Mutex
 	serverGenX              *peergenx.Service
 	mixer                   *pcm.Mixer
+	opusWriteMu             sync.Mutex
 	rpc                     *rpcServer
 	audioPacing             <-chan time.Time
 	runtimeStopTimeout      time.Duration
@@ -502,6 +503,7 @@ func (h *PeerConn) initAgentHost() {
 		Consumer: peerAgentOutput{
 			Events:        h.events,
 			Tracks:        h,
+			Packets:       h.writeOpusPacket,
 			Logger:        slog.Default(),
 			PeerPublicKey: h.Conn.PublicKey().String(),
 			WorkspaceName: func(ctx context.Context) string {
@@ -1324,10 +1326,26 @@ func (h *PeerConn) streamMixedAudio(hasWrittenBefore bool) (wrote bool, err erro
 			hasWrittenBefore = true
 			wrote = true
 		}
-		if _, err := h.Conn.Write(giznet.ProtocolOpusPacket, packet); err != nil {
+		if err := h.writeOpusPacket(packet); err != nil {
 			return wrote, err
 		}
 	}
+}
+
+// writeOpusPacket writes one Opus packet to the device track. The mixer
+// egress and passthrough routes share the track, and the underlying
+// packetizer is not safe for concurrent writers, so every write is
+// serialized here. The mixer only writes while it owns at least one track
+// (pcm.Mixer.Read blocks otherwise), so an SFU passthrough route, which
+// creates no mixer track, is never interleaved with mixer silence.
+func (h *PeerConn) writeOpusPacket(packet []byte) error {
+	if h == nil || h.Conn == nil {
+		return ErrNilPeerConnTransport
+	}
+	h.opusWriteMu.Lock()
+	defer h.opusWriteMu.Unlock()
+	_, err := h.Conn.Write(giznet.ProtocolOpusPacket, packet)
+	return err
 }
 
 type peerConnAudioPacer struct {

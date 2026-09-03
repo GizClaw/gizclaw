@@ -20,6 +20,10 @@ const (
 	DefaultRecheckInterval = 5 * time.Second
 	// DefaultReconnectTimeout is used when Config.ReconnectTimeout is zero.
 	DefaultReconnectTimeout = 30 * time.Second
+	// DefaultTalkHangover is used when Config.TalkHangover is zero.
+	DefaultTalkHangover = 500 * time.Millisecond
+	// DefaultFloorIdle is used when Config.FloorIdle is zero.
+	DefaultFloorIdle = 300 * time.Millisecond
 )
 
 // Factory builds the shared per-Workspace SFU Agent. Config carries the
@@ -51,6 +55,12 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 	}
 	if config.ReconnectTimeout <= 0 {
 		config.ReconnectTimeout = DefaultReconnectTimeout
+	}
+	if config.TalkHangover <= 0 {
+		config.TalkHangover = DefaultTalkHangover
+	}
+	if config.FloorIdle <= 0 {
+		config.FloorIdle = DefaultFloorIdle
 	}
 	connector := f.connector
 	if connector == nil {
@@ -91,9 +101,10 @@ type Agent struct {
 var _ agenthost.Agent = (*Agent)(nil)
 
 // Transform attaches the Peer identified by the context to the Room. The
-// returned stream carries the remote participants' audio and closes when
-// the context is cancelled, the binding is revoked, the participant is
-// replaced by a newer connection or reconnection gives up.
+// returned stream carries the floor holder's raw Opus packets as passthrough
+// audio (see agenthost.OpusPassthroughMIME) and closes when the context is
+// cancelled, the binding is revoked, the participant is replaced by a newer
+// connection or reconnection gives up.
 func (a *Agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if input == nil {
 		return nil, errors.New("sfu: input stream is required")

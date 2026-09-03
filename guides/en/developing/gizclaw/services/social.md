@@ -144,6 +144,18 @@ Each Peer uses its own public key as its unique LiveKit participant identity. On
 
 Inbound Opus packets and BOS/EOS from the Peer enter GenX input only while the active runtime is an attached SFU runtime. When the runtime is not attached, has been revoked, or cannot be verified, the Server rejects the turn with a typed EOS on the same `stream_id`; the error codes are listed in [Events](/references/events). Connector behavior is described in [SFU composition boundary](/en/developing/gizclaw/services/ai#sfu-composition-boundary).
 
+### Media and downlink
+
+An SFU Workspace is a walkie-talkie: every listener hears one speaker at a time, the link is half-duplex, and the downlink decodes nothing.
+
+Uplink: the runtime splits the Device's Opus stream into utterances. The first voiced frame (anything but an Opus silence frame) opens an utterance; the Device's EOS for that stream, or `services.sfu.talk_hangover` (default 500ms) without a voiced frame, closes it. Push-to-talk (BOS, frames, EOS per press) and realtime (one BOS, a continuous stream, EOS only when the session ends) follow that one rule, and Device BOS/EOS never touch the LiveKit connection. On open and close the runtime publishes `{"v":1,"type":"bos"|"eos","utterance":"<random id>","seq":<monotonic per sender>}` on the LiveKit reliable data channel under topic `gizclaw.sfu.talk`; the sender identity is LiveKit's `SenderIdentity`, never the payload, and messages with an unknown version or shape are counted and dropped. Silence frames are not written to the track while no utterance is open, so LiveKit sees DTX only. The frame rule is the only uplink VAD: a Device that streams raw, un-gated audio in realtime mode keeps one utterance open for as long as it streams; a sender-side energy VAD is the fix.
+
+Half-duplex: while this Peer's utterance is open the runtime forwards no downlink and never takes the floor; remote BOS received meanwhile is only remembered as open.
+
+Floor: the runtime tracks the open utterances per remote identity from the data channel. When the floor is free and the Peer is not talking, the first remote BOS takes it; on release the earliest still-open remote utterance takes over. Only the holder's Opus packets are forwarded, after RTP reordering; every other identity's packets are dropped and counted. The floor is released by the holder's EOS; by `services.sfu.floor_idle` (default 300ms) without a voiced packet from the holder (the utterance is marked idle and competes again only once a voiced packet arrives); by the holder's track being muted or unsubscribed; by the holder leaving the Room; or by this Peer starting its own utterance.
+
+Downlink passthrough: forwarded packets reach AgentHost as GenX chunks marked `audio/opus; passthrough=1`, with a fresh `stream_id` per floor hold and the participant identity as `label`. `PeerConn` writes each payload unchanged to the Device's Opus track, bypassing the AgentHost decoder and mixer, as received (LiveKit already delivers at source pace). The Opus RTP clock is always 48 kHz while the payload keeps the sending Device's internal bandwidth, so no transcoding is needed. BOS/EOS still pass through `MixerOutput` route bookkeeping, so the Device receives paired audio BOS/EOS Peer Events.
+
 ### Revocation
 
 The following changes terminate established SFU participants:
@@ -170,6 +182,8 @@ services:
     api_secret_file: /etc/gizclaw/sfu/api_secret
     recheck_interval: 5s      # optional, default 5s
     reconnect_timeout: 30s    # optional, default 30s
+    talk_hangover: 500ms      # optional, default 500ms; closes an uplink utterance without voiced frames
+    floor_idle: 300ms         # optional, default 300ms; releases the downlink floor without voiced packets
 ```
 
 Credentials are read from files at startup only and never enter the Social KV, Workspaces, Peer APIs, Events, logs, or generated SDKs; SFU is not selected per profile through RuntimeProfile, Workspace, or Admin API. Omitting the block disables SFU Workspaces on that Server.
@@ -178,6 +192,7 @@ Credentials are read from files at startup only and never enter the Social KV, W
 
 - A Friend Group holds at most 10 members including the owner; exceeding it returns `FRIEND_GROUP_FULL`.
 - One participant per Peer at a time; one shared Agent per Workspace per Server.
+- Every listener hears one speaker at a time (the floor), half-duplex; no mixing and no downlink decoding.
 - No voice mail, message history, recording download, or history playback.
 - No PTT, realtime, ASR, transcript, model, or memory configuration on the Workspace; push-to-talk and continuous input share one publish path.
 - Restarting the single-node LiveKit interrupts in-progress calls; the runtime reconnects within `reconnect_timeout` and does not promise lossless failover.

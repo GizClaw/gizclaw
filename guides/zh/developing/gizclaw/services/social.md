@@ -140,6 +140,18 @@ SFU attach 前必须从权威 Social KV 校验：Friend 当前 incarnation 仍�
 
 Peer 入站 Opus packet 与 BOS/EOS 只在当前 active runtime 是已 attach 的 SFU runtime 时才进入 GenX input；runtime 未 attach、已撤权或无法校验时，Server 用同一 `stream_id` 的 typed EOS 拒绝，错误码见 [Events](/references/events)。connector 行为见 [SFU 组合边界](/zh/developing/gizclaw/services/ai#sfu-组合边界)。
 
+### 媒体与下行
+
+SFU Workspace 是对讲机模型：每个听者同一时刻只听一位发言者，半双工，下行不解码。
+
+上行：runtime 把 Device 的 Opus 流切成 utterance。第一个有声帧（非 Opus 静音帧）打开一个 utterance，Device 对该 stream 发送 EOS 或连续 `services.sfu.talk_hangover`（默认 500ms）没有有声帧时关闭。PTT（每次按键 BOS/帧/EOS）与 realtime（一个 BOS、连续流、会话结束才 EOS）走同一条规则，Device 的 BOS/EOS 不接触 LiveKit 连接。utterance 打开与关闭时，runtime 在 LiveKit reliable data channel 上以 topic `gizclaw.sfu.talk` 发布 `{"v":1,"type":"bos"|"eos","utterance":"<随机 id>","seq":<发送方单调递增>}`；发送方身份取自 LiveKit 的 `SenderIdentity`，不取自 payload，版本或格式不合法的消息被计数并丢弃。没有 utterance 打开时静音帧不写入 Track，LiveKit 只看到 DTX。帧级规则是唯一的上行 VAD：realtime 模式下持续发送未 gating 原始音频的 Device 会一直占着一个 utterance，需要 Device 侧的能量 VAD 才能解决。
+
+半双工：本 Peer 的 utterance 打开期间不转发任何下行，也不争取 floor；期间收到的远端 BOS 只记为“已打开”。
+
+Floor：runtime 按远端 identity 记录 data channel 上仍打开的 utterance。floor 空闲且本 Peer 未发言时，第一个远端 BOS 取得 floor；释放时由最早仍打开的远端 utterance 接手。持有 floor 的 identity 的 Opus packet 经 RTP 重排后转发，其他 identity 的 packet 丢弃并计数。以下情况释放 floor：持有者 EOS；`services.sfu.floor_idle`（默认 300ms）内没有持有者的有声 packet（该 utterance 记为 idle，再次收到有声 packet 才重新参与竞争）；持有者 Track mute 或 unsubscribe；持有者离开 Room；本 Peer 开始发言。
+
+下行 passthrough：转发的 packet 以 `audio/opus; passthrough=1` 标记的 GenX chunk 交给 AgentHost，每次 floor 持有使用独立的 `stream_id`，`label` 为 participant identity。`PeerConn` 把每个 payload 原样写入 Device 的 Opus Track，不经过 AgentHost decoder 与 mixer，按收到的节奏写出（LiveKit 已按源节奏投递）。Opus RTP 时钟固定为 48 kHz，payload 保留发送 Device 的内部带宽，因此不需要转码。BOS/EOS 仍经过 `MixerOutput` 的 route bookkeeping，Device 收到成对的音频 BOS/EOS Peer Event。
+
 ### 撤权
 
 下列变化会终止已经建立的 SFU participant：
@@ -166,6 +178,8 @@ services:
     api_secret_file: /etc/gizclaw/sfu/api_secret
     recheck_interval: 5s      # 可选，默认 5s
     reconnect_timeout: 30s    # 可选，默认 30s
+    talk_hangover: 500ms      # 可选，默认 500ms，上行 utterance 无有声帧后关闭
+    floor_idle: 300ms         # 可选，默认 300ms，下行 floor 无有声 packet 后释放
 ```
 
 credential 只通过文件在启动时读取，不进入 Social KV、Workspace、Peer API、Event、日志或生成 SDK；不在 RuntimeProfile、Workspace 或 Admin API 中按 profile 区分 SFU。省略整个 block 会禁用本 Server 的 SFU Workspace。
@@ -174,6 +188,7 @@ credential 只通过文件在启动时读取，不进入 Social KV、Workspace�
 
 - Friend Group 成员上限 10 人（含 owner），超出返回 `FRIEND_GROUP_FULL`。
 - 每个 Peer 同一时刻只有一个 participant；同一 Server 上每个 Workspace 只有一个共享 Agent。
+- 每个听者同一时刻只听一位发言者（floor），半双工；不混音，不解码下行。
 - 不提供语音留言、历史消息、录音下载或历史播放。
 - 不在 Workspace 中配置 PTT、realtime、ASR、transcript、model 或 memory；PTT 与连续输入走同一条 publish 路径。
 - 单机 LiveKit 重启会中断进行中的通话；runtime 在 `reconnect_timeout` 内有界重连，不承诺无损故障转移。

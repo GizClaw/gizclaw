@@ -11,10 +11,11 @@ const (
 	// SFUWorkflowID is the built-in system Workflow every Server materializes
 	// for Friend and Friend Group SFU Workspaces.
 	SFUWorkflowID = "system-sfu"
-	// FriendGroupMemberLimit is the fixed member cap, owner included. Every
-	// participant decodes the other N-1 remote tracks, so Server-side decode
-	// cost grows with the square of the room size; ten keeps one full room
-	// affordable. It is deliberately not configurable.
+	// FriendGroupMemberLimit is the fixed member cap, owner included. The SFU
+	// downlink forwards one floor holder's raw Opus packets per listener
+	// without decoding, so Server cost no longer grows with the square of the
+	// room size; the cap is kept as a product limit for now and is
+	// deliberately not configurable.
 	FriendGroupMemberLimit = 10
 )
 

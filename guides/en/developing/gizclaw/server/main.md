@@ -81,7 +81,7 @@ The main capability groups are:
 | `services.workspace.history_store` | `log.mutable` |
 | `services.agent_host.flowcraft.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
-| `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval` and `reconnect_timeout` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
+| `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval`, `reconnect_timeout`, `talk_hangover`, and `floor_idle` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
 | `services.system_log.query_store` and Store sinks | immutable Log capability |
 
 Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Flowcraft History, and unknown fields fail before listeners open.

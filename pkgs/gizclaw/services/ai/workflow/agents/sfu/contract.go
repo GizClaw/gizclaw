@@ -41,6 +41,15 @@ type Config struct {
 	// ReconnectTimeout bounds reconnection attempts after a network error or
 	// SFU restart before the runtime reports failure.
 	ReconnectTimeout time.Duration
+	// TalkHangover closes the Peer's open talk utterance once no voiced Opus
+	// frame arrived from the device for this long. It is the only uplink
+	// voice activity rule: an utterance opens on the first voiced frame and
+	// closes on the device's EOS or on this hangover.
+	TalkHangover time.Duration
+	// FloorIdle releases the downlink floor once the holding participant
+	// delivered no voiced packet for this long, so a stalled or silent holder
+	// cannot keep every other participant muted.
+	FloorIdle time.Duration
 }
 
 // BindingResolver resolves the authoritative SFU binding for one Workspace

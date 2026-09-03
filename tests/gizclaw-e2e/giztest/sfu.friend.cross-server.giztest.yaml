@@ -1,7 +1,7 @@
 # User Story:
 # As a device registered on one GizClaw Server whose friend lives on the other Server,
-# I want spoken push-to-talk audio from one side to be heard and transcribed on the other,
-# So that the cross-server Friend SFU Workspace broadcasts real speech in both directions.
+# I want spoken push-to-talk and realtime audio from one side to be heard and transcribed on the other,
+# So that the cross-server Friend SFU Workspace forwards real speech in both directions and in both input modes.
 version: gizclaw.test/v1alpha1
 name: sfu.friend.cross-server
 clients:
@@ -66,6 +66,12 @@ variables:
     media_type: audio/ogg
     codec: opus
   alice_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_received_realtime:
     direction: output
     type: audio
     max_bytes: 16777216
@@ -250,6 +256,56 @@ steps:
       input: ${alice_received}
     expect:
       /transcript: {contains: 我们一起去公园散步, normalize: [case, punctuation, whitespace]}
+  # Realtime input: one BOS, a continuous stream (the same clip alice pushed
+  # with push-to-talk above, followed by the runner's encoded silence tail)
+  # and no per-press EOS. The Server splits it into talk utterances by
+  # itself, so bob still hears and transcribes the phrase while alice's own
+  # listen stays silent.
+  - id: bob_listen_realtime
+    client: bob
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: listen
+      duration: 12s
+  - id: alice_listen_self_realtime
+    client: alice
+    background: true
+    timeout: 30s
+    peer_stream:
+      mode: listen
+      duration: 12s
+  - id: alice_speak_realtime
+    client: alice
+    timeout: 30s
+    peer_stream:
+      mode: realtime
+      input: ${alice_audio}
+      pacing: 20ms
+      completion: input_sent
+  - id: bob_heard_alice_realtime
+    await: bob_listen_realtime
+    timeout: 20s
+    capture:
+      bob_received_realtime: /audio
+    expect:
+      /audio_bytes: {minimum: 2000}
+      /packets: {minimum: 50}
+  - id: alice_hears_nothing_of_herself_realtime
+    await: alice_listen_self_realtime
+    timeout: 20s
+    expect:
+      /audio_bytes: {maximum: 0}
+  - id: bob_transcript_realtime
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${bob_received_realtime}
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
 finally:
   - client: alice
     rpc:

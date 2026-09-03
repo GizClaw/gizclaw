@@ -1563,12 +1563,13 @@ func validServicesConfig() *ServicesConfig {
 }
 
 func TestParseConfigSFUShape(t *testing.T) {
-	valid := "services:\n  sfu:\n    url: wss://sfu.internal\n    api_key_file: /run/secrets/sfu_key\n    api_secret_file: /run/secrets/sfu_secret\n    recheck_interval: 5s\n    reconnect_timeout: 30s\n"
+	valid := "services:\n  sfu:\n    url: wss://sfu.internal\n    api_key_file: /run/secrets/sfu_key\n    api_secret_file: /run/secrets/sfu_secret\n    recheck_interval: 5s\n    reconnect_timeout: 30s\n    talk_hangover: 500ms\n    floor_idle: 300ms\n"
 	cfg, err := parseConfigData([]byte(valid))
 	if err != nil {
 		t.Fatalf("parseConfigData(valid sfu) error = %v", err)
 	}
-	if cfg.Services == nil || cfg.Services.SFU == nil || cfg.Services.SFU.URL != "wss://sfu.internal" || cfg.Services.SFU.APIKeyFile != "/run/secrets/sfu_key" || cfg.Services.SFU.RecheckInterval != "5s" {
+	if cfg.Services == nil || cfg.Services.SFU == nil || cfg.Services.SFU.URL != "wss://sfu.internal" || cfg.Services.SFU.APIKeyFile != "/run/secrets/sfu_key" || cfg.Services.SFU.RecheckInterval != "5s" ||
+		cfg.Services.SFU.TalkHangover != "500ms" || cfg.Services.SFU.FloorIdle != "300ms" {
 		t.Fatalf("services.sfu = %+v", cfg.Services)
 	}
 	absent, err := parseConfigData([]byte("services:\n  peer:\n    store: peers\n"))
@@ -1585,6 +1586,9 @@ func TestParseConfigSFUShape(t *testing.T) {
 		{"services:\n  sfu:\n    url: 42\n", "services.sfu.url must be a string"},
 		{"services:\n  sfu:\n    api_key_file: \"\"\n", "services.sfu.api_key_file must not be empty"},
 		{"services:\n  sfu:\n    recheck_interval: 5\n", "services.sfu.recheck_interval must be a string"},
+		{"services:\n  sfu:\n    talk_hangover: 500\n", "services.sfu.talk_hangover must be a string"},
+		{"services:\n  sfu:\n    floor_idle: [300ms]\n", "services.sfu.floor_idle must be a string"},
+		{"services:\n  sfu:\n    url: wss://sfu.internal\n    burst_idle: 300ms\n", `unknown field "burst_idle"`},
 	} {
 		if _, err := parseConfigData([]byte(test.yaml)); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Errorf("parseConfigData(%q) error = %v, want %q", test.yaml, err, test.want)
@@ -1607,6 +1611,9 @@ func TestSFUConfigValidate(t *testing.T) {
 		"blank secret file": {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: " "}, "api_secret_file is required"},
 		"bad recheck":       {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", RecheckInterval: "soon"}, "recheck_interval"},
 		"zero reconnect":    {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", ReconnectTimeout: "0s"}, "reconnect_timeout"},
+		"bad hangover":      {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", TalkHangover: "soon"}, "talk_hangover"},
+		"zero hangover":     {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", TalkHangover: "0s"}, "talk_hangover"},
+		"negative idle":     {SFUConfig{URL: "wss://sfu.internal", APIKeyFile: "k", APISecretFile: "s", FloorIdle: "-1s"}, "floor_idle"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := test.cfg.validate(); err == nil || !strings.Contains(err.Error(), test.want) {
@@ -1645,14 +1652,21 @@ func TestSFUConfigConnectorConfigLoadsCredentialFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connectorConfig() error = %v", err)
 	}
-	want := sfu.Config{URL: "wss://sfu.internal", APIKey: "api-key", APISecret: "api-secret", RecheckInterval: sfu.DefaultRecheckInterval, ReconnectTimeout: sfu.DefaultReconnectTimeout}
+	want := sfu.Config{
+		URL: "wss://sfu.internal", APIKey: "api-key", APISecret: "api-secret",
+		RecheckInterval: sfu.DefaultRecheckInterval, ReconnectTimeout: sfu.DefaultReconnectTimeout,
+		TalkHangover: sfu.DefaultTalkHangover, FloorIdle: sfu.DefaultFloorIdle,
+	}
 	if got != want {
 		t.Fatalf("connectorConfig() = %+v, want %+v", got, want)
 	}
 	cfg.RecheckInterval = "2s"
 	cfg.ReconnectTimeout = "1m"
+	cfg.TalkHangover = "750ms"
+	cfg.FloorIdle = "250ms"
 	got, err = cfg.connectorConfig()
-	if err != nil || got.RecheckInterval != 2*time.Second || got.ReconnectTimeout != time.Minute {
+	if err != nil || got.RecheckInterval != 2*time.Second || got.ReconnectTimeout != time.Minute ||
+		got.TalkHangover != 750*time.Millisecond || got.FloorIdle != 250*time.Millisecond {
 		t.Fatalf("connectorConfig(durations) = %+v, %v", got, err)
 	}
 	if err := os.WriteFile(secretFile, []byte(" \n"), 0o600); err != nil {

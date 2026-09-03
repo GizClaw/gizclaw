@@ -98,6 +98,7 @@ tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
 ├── setup/       # 环境启动、停止和 seed 脚本
 ├── testdata/    # committed identities、resources 与 ignored runtime output
+├── cgo/         # 以 C SDK 为 client 的 cgo 测试与 Giztest runner
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
 ├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
@@ -192,23 +193,31 @@ Workspace history 是运行时数据，不能由 reset 脚本直接 seed。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social、gameplay 和 Workflow 行为。
 - `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
-- `js/giztest` 与 `flutter/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
+- `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
 
 ### Giztest runner
 
-同一批 `giztest/*.giztest.yaml` 场景由三个 runner 执行，每个 runner 使用自己语言的
-SDK，因此一份场景同时验证 contract 与三套 SDK：
+同一批 `giztest/*.giztest.yaml` 场景由四个 runner 执行，每个 runner 使用自己语言的
+SDK，因此一份场景同时验证 contract 与全部 SDK：
 
 | Runner | 入口 | 设备端 | 控制端 |
 | --- | --- | --- | --- |
 | Go | `gizclaw test run` | `sdk/go/gizcli` | runner 内置 HTTP |
 | JavaScript | `npm run giztest -- run`（`tests/gizclaw-e2e/js/giztest/index.ts`） | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
 | Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
+| C | 构建后的 `giztest-c` 二进制（`tests/gizclaw-e2e/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
 
-三者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
-并写出相同结构的 report JSON。Go runner 是 schema 的 source of truth；JavaScript 与
-Flutter runner 只实现 `rpc`、`client_rpc`、`http` 与 `output` 四种 step，遇到其他 step
-或 `audio`/`binary` 变量时把该文档记为 skipped 并在 stderr 说明，绝不静默通过。
+四者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
+并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
+`http` 与 `output` 四种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
+skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc` 与 `http`，
+对不支持的文档同样记为 skipped 并指出具体 step 与 operation。三者都直接指向整个场景
+目录；文档本身有问题（而不只是不被支持）时仍然是错误，绝不降级为 skipped。
+
+Go 与 C runner 共用 `pkgs/giztest`，由它拥有文档 schema、变量、capture 与 expect、
+任务 runner 和 report。两者各自提供 `giztest.Driver` 及其任务级 `giztest.Session`，
+`barrier`、`output`、`review` 仍由 runner 自身执行。
+`api/giztest/giztest.schema.json` 是所有 runner 共同校验的跨语言文档契约。
 
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
