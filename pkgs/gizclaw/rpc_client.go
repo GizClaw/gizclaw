@@ -116,3 +116,27 @@ func (c *rpcClient) ForgetSavedWifi(ctx context.Context, conn net.Conn, id strin
 	}
 	return result, nil
 }
+
+func (c *rpcClient) ScanWifi(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientWifiScanRequest) (*rpcapi.ClientWifiScanResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientWifiScanRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiScan, params), rpcapi.RPCPayload.AsClientWifiScanResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("wifi scan", err)
+	}
+	return result, nil
+}
+
+func (c *rpcClient) ConnectWifi(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientWifiConnectRequest) (*rpcapi.ClientWifiConnectResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientWifiConnectRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientWifiConnect, params), rpcapi.RPCPayload.AsClientWifiConnectResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("wifi connect", err)
+	}
+	return result, nil
+}
