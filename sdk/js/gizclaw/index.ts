@@ -2100,14 +2100,17 @@ function deviceControlTextTooLong(value: string): boolean {
   return new TextEncoder().encode(value).length > DEVICE_CONTROL_MAX_BYTES;
 }
 
-// Inbound RPC parameters are untrusted, so an optional duration must be a
-// non-negative integer before it reaches a handler. `undefined` means absent.
+// Inbound RPC parameters are untrusted, so an optional duration must already
+// be a non-negative integer before it reaches a handler. A string or boolean is
+// rejected rather than coerced. `undefined` means absent; `null` means invalid.
 function deviceControlDuration(value: unknown): number | undefined | null {
   if (value == null) {
     return undefined;
   }
-  const duration = Number(value);
-  return Number.isInteger(duration) && duration >= 0 ? duration : null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
 }
 
 // answerClientRequest answers one inbound client.* RPC from the handlers the
