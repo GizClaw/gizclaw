@@ -206,12 +206,6 @@ static void test_set_volume_encodes_body(void) {
   check(strcmp(stub.body, "{\"level\":35,\"muted\":false}") == 0, "volume body");
   check(stub.saw_content_type, "body request sends Content-Type");
   check(status.has_volume && status.volume == 35, "applied volume");
-
-  request.level = 101;
-  check(
-      gzc_control_set_device_volume(&client, &call, &request, &status) == GZC_ERR_INVALID_ARGUMENT,
-      "out-of-range volume rejected");
-  check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "out-of-range volume classified");
 }
 
 static void test_query_parameters_and_encoding(void) {
@@ -260,17 +254,22 @@ static void test_query_parameters_and_encoding(void) {
   check(stub.method == GZC_HTTP_METHOD_DELETE, "forget method");
 }
 
-static void test_contract_caps(void) {
+/*
+ * The contract caps are documented, not enforced: an oversized value must
+ * reach the Server so the caller observes its 400 rather than a local
+ * rejection the sibling SDKs do not make.
+ */
+static void test_contract_caps_are_not_enforced_locally(void) {
   stub_t stub;
   gzc_http_vtable_t http;
   gzc_control_client_t client;
   memset(&stub, 0, sizeof(stub));
-  stub.status_code = 204;
-  stub.response_body = "";
+  stub.status_code = 400;
+  stub.response_body = "{\"error\":{\"code\":\"INVALID_REQUEST\",\"message\":\"sound too long\"}}";
   init_client(&client, &stub, &http);
 
   uint8_t scratch[512];
-  uint8_t response[256];
+  uint8_t response[512];
   gzc_control_call_t call;
   check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
 
@@ -280,18 +279,37 @@ static void test_contract_caps(void) {
   gzc_control_play_sound_request_t sound;
   memset(&sound, 0, sizeof(sound));
   sound.sound = gzc_str_from_cstr(oversized);
-  check(
-      gzc_control_play_device_sound(&client, &call, &sound) == GZC_ERR_INVALID_ARGUMENT,
-      "oversized sound rejected");
+  check(gzc_control_play_device_sound(&client, &call, &sound) == GZC_ERR_HTTP, "oversized sound is sent");
+  check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "the Server's 400 is what classifies");
 
   char long_ssid[GZC_CONTROL_MAX_SSID_BYTES + 2];
   memset(long_ssid, 'b', sizeof(long_ssid) - 1);
   long_ssid[sizeof(long_ssid) - 1] = 0;
   check(
-      gzc_control_forget_device_saved_wifi(&client, &call, gzc_str_from_cstr(long_ssid)) ==
-          GZC_ERR_INVALID_ARGUMENT,
-      "oversized ssid rejected");
+      gzc_control_forget_device_saved_wifi(&client, &call, gzc_str_from_cstr(long_ssid)) == GZC_ERR_HTTP,
+      "oversized ssid is sent");
 
+  gzc_control_volume_request_t volume;
+  gzc_control_peer_status_t status;
+  volume.level = 101;
+  volume.muted = false;
+  check(
+      gzc_control_set_device_volume(&client, &call, &volume, &status) == GZC_ERR_HTTP,
+      "out-of-range volume is sent");
+  check(call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST, "out-of-range volume classifies on the response");
+
+  /* A value that cannot form a request at all is still refused locally. */
+  memset(&sound, 0, sizeof(sound));
+  check(
+      gzc_control_play_device_sound(&client, &call, &sound) == GZC_ERR_INVALID_ARGUMENT,
+      "an empty sound is refused");
+  check(
+      gzc_control_forget_device_saved_wifi(&client, &call, gzc_str_from_parts(NULL, 0)) ==
+          GZC_ERR_INVALID_ARGUMENT,
+      "an empty ssid segment is refused");
+
+  stub.status_code = 204;
+  stub.response_body = "";
   sound.sound = gzc_str_from_cstr("chime");
   sound.has_duration_ms = true;
   sound.duration_ms = 1200;
@@ -530,7 +548,7 @@ int main(void) {
   test_get_device_status();
   test_set_volume_encodes_body();
   test_query_parameters_and_encoding();
-  test_contract_caps();
+  test_contract_caps_are_not_enforced_locally();
   test_response_header_validation();
   test_error_classification();
   test_error_response_is_decoded();

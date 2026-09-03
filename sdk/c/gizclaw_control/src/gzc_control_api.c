@@ -126,12 +126,17 @@ static gzc_str_t builder_body(gzc_control_builder_t *builder, gzc_json_writer_t 
       (const char *)builder->buf.data + builder->url_len, builder->buf.len - builder->url_len);
 }
 
-/* Validates a contract-capped request string. */
-static int check_cap(gzc_str_t value, size_t cap, bool required) {
-  if (gzc_control_str_empty(value)) {
-    return required ? GZC_ERR_INVALID_ARGUMENT : GZC_OK;
-  }
-  return value.len > cap ? GZC_ERR_INVALID_ARGUMENT : GZC_OK;
+/*
+ * Checks that a required request string is present.
+ *
+ * The contract's byte caps are documented on the constants in gzc_control.h
+ * but are not enforced here: the Server owns that validation and answers 400,
+ * and rejecting locally would deny the caller the classified error its
+ * siblings return. Only a value that cannot form a request at all, such as an
+ * empty path segment, is refused.
+ */
+static int check_required(gzc_str_t value) {
+  return gzc_control_str_empty(value) ? GZC_ERR_INVALID_ARGUMENT : GZC_OK;
 }
 
 /* Sends the assembled request, or reports the build failure through call. */
@@ -190,7 +195,7 @@ int gzc_control_create_api_key(
   if (rc != GZC_OK || request == NULL || out_value == NULL || out_api_key == NULL) {
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   }
-  rc = check_cap(request->display_name, GZC_CONTROL_MAX_DISPLAY_NAME_BYTES, true);
+  rc = check_required(request->display_name);
   if (rc != GZC_OK) {
     return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
   }
@@ -592,9 +597,6 @@ int gzc_control_set_device_volume(
   if (rc != GZC_OK || request == NULL || out_status == NULL) {
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   }
-  if (request->level < GZC_CONTROL_MIN_VOLUME_LEVEL || request->level > GZC_CONTROL_MAX_VOLUME_LEVEL) {
-    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, GZC_ERR_INVALID_ARGUMENT);
-  }
   gzc_control_builder_t builder;
   builder_begin(&builder, client, call, "/device/volume");
   gzc_str_t url = builder_url(&builder);
@@ -635,7 +637,7 @@ int gzc_control_play_device_sound(
   if (rc != GZC_OK || request == NULL) {
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
   }
-  rc = check_cap(request->sound, GZC_CONTROL_MAX_SOUND_BYTES, true);
+  rc = check_required(request->sound);
   if (rc != GZC_OK) {
     return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
   }
@@ -734,7 +736,7 @@ int gzc_control_forget_device_saved_wifi(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     gzc_str_t ssid) {
-  int rc = check_cap(ssid, GZC_CONTROL_MAX_SSID_BYTES, true);
+  int rc = check_required(ssid);
   if (rc != GZC_OK) {
     return rc;
   }
@@ -818,10 +820,6 @@ int gzc_control_create_contact(
   if (gzc_control_str_empty(request->name)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  rc = check_cap(request->display_name, GZC_CONTROL_MAX_DISPLAY_NAME_BYTES, false);
-  if (rc != GZC_OK) {
-    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
-  }
   gzc_control_builder_t builder;
   builder_begin(&builder, client, call, "/contacts");
   gzc_str_t url = builder_url(&builder);
@@ -880,10 +878,6 @@ int gzc_control_put_contact(
   int rc = check_args(client, call);
   if (rc != GZC_OK || request == NULL || out_contact == NULL || gzc_control_str_empty(contact_name)) {
     return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-  }
-  rc = check_cap(request->display_name, GZC_CONTROL_MAX_DISPLAY_NAME_BYTES, false);
-  if (rc != GZC_OK) {
-    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
   }
   gzc_control_builder_t builder;
   builder_begin(&builder, client, call, "/contacts");

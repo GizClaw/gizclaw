@@ -7,8 +7,10 @@ package main
 import "C"
 
 import (
+	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"runtime/cgo"
 	"sync"
 	"sync/atomic"
@@ -82,36 +84,68 @@ func (p *clientRPCProvider) lookup(method string) (any, bool) {
 
 // errorResponse reads a scripted structured RPC error, matching the Go
 // runner's `response: {error_code: ...}` form.
-func errorResponse(response any) (int32, string, bool) {
+func errorResponse(response any) (int32, string, error) {
 	object, ok := response.(map[string]any)
 	if !ok {
-		return 0, "", false
+		return 0, "", errNotScripted
 	}
 	raw, ok := object["error_code"]
 	if !ok {
-		return 0, "", false
+		return 0, "", errNotScripted
 	}
-	code, ok := numeric(raw)
-	if !ok {
-		return 0, "", false
+	code, err := scriptedErrorCode(raw)
+	if err != nil {
+		return 0, "", err
 	}
 	message, _ := object["error_message"].(string)
 	if message == "" {
 		message = "scripted client RPC error"
 	}
-	return int32(code), message, true
+	return code, message, nil
 }
 
-func numeric(value any) (float64, bool) {
-	switch v := value.(type) {
+// errNotScripted marks a response that carries no scripted RPC error, so the
+// provider encodes it as a normal result instead.
+var errNotScripted = errors.New("response carries no error_code")
+
+// scriptedErrorCode reads one RPC error code from a decoded scenario value. A
+// YAML document decodes a negative code as int and a non-negative one as
+// uint64, and a JSON round trip decodes either as float64, so every integral
+// form is accepted. A value that is not integral, or that does not fit the
+// int32 wire field, is rejected rather than silently becoming another code.
+func scriptedErrorCode(raw any) (int32, error) {
+	var value int64
+	switch v := raw.(type) {
 	case int:
-		return float64(v), true
+		value = int64(v)
+	case int32:
+		return v, nil
 	case int64:
-		return float64(v), true
+		value = v
+	case uint:
+		if uint64(v) > math.MaxInt64 {
+			return 0, fmt.Errorf("error_code must fit in int32, got %d", v)
+		}
+		value = int64(v)
+	case uint32:
+		value = int64(v)
+	case uint64:
+		if v > math.MaxInt64 {
+			return 0, fmt.Errorf("error_code must fit in int32, got %d", v)
+		}
+		value = int64(v)
 	case float64:
-		return v, true
+		if v != math.Trunc(v) {
+			return 0, fmt.Errorf("error_code must be an integer, got %v", v)
+		}
+		value = int64(v)
+	default:
+		return 0, fmt.Errorf("error_code must be an integer, got %T", raw)
 	}
-	return 0, false
+	if value < math.MinInt32 || value > math.MaxInt32 {
+		return 0, fmt.Errorf("error_code must fit in int32, got %d", value)
+	}
+	return int32(value), nil
 }
 
 // answer builds the encoded response payload for one inbound client.* call.
@@ -126,8 +160,11 @@ func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, requestPayload []byte) ([
 		// to 501 DEVICE_UNSUPPORTED exactly as it does for real firmware.
 		return nil, int32(rpcpb.RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND), "method not found", nil
 	}
-	if code, message, scripted := errorResponse(response); scripted {
+	switch code, message, scriptErr := errorResponse(response); {
+	case scriptErr == nil:
 		return nil, code, message, nil
+	case !errors.Is(scriptErr, errNotScripted):
+		return nil, 0, "", scriptErr
 	}
 	value := response
 	if name == "client.device.volume.set" {

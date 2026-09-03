@@ -34,8 +34,11 @@ extern "C" {
 
 /*
  * Contract string caps, in UTF-8 bytes, taken from `api/http/peer.json`.
- * Requests carrying a longer value are rejected with
- * GZC_ERR_INVALID_ARGUMENT before any transport call.
+ *
+ * They document the limits so a caller can check its own input. The package
+ * does not enforce them: the Server owns that validation and answers 400,
+ * which classifies as GZC_CONTROL_ERROR_INVALID_REQUEST, and refusing locally
+ * would hide that response the way the Dart and TypeScript packages do not.
  */
 #define GZC_CONTROL_MAX_SSID_BYTES 32
 #define GZC_CONTROL_MAX_SOUND_BYTES 32
@@ -47,7 +50,7 @@ extern "C" {
  */
 #define GZC_CONTROL_MAX_REQUEST_ID_BYTES 64
 
-/* Volume level bounds for `PUT /gizclaw/v1/device/volume`. */
+/* Volume level bounds the Server enforces for `PUT /gizclaw/v1/device/volume`. */
 #define GZC_CONTROL_MIN_VOLUME_LEVEL 0
 #define GZC_CONTROL_MAX_VOLUME_LEVEL 100
 
@@ -207,7 +210,7 @@ typedef struct {
 
 /* Body of `POST /gizclaw/v1/api-keys` (`APIKeyCreateRequest`). */
 typedef struct {
-  /* At most GZC_CONTROL_MAX_DISPLAY_NAME_BYTES UTF-8 bytes. */
+  /* The Server caps this at GZC_CONTROL_MAX_DISPLAY_NAME_BYTES UTF-8 bytes. */
   gzc_str_t display_name;
   bool manage_api_keys;
 } gzc_control_api_key_create_request_t;
@@ -369,8 +372,8 @@ typedef struct {
 
 /* Body of `PUT /gizclaw/v1/device/volume` (`DeviceVolumeSetRequest`). */
 typedef struct {
-  /* Absolute level from GZC_CONTROL_MIN_VOLUME_LEVEL to
-   * GZC_CONTROL_MAX_VOLUME_LEVEL. */
+  /* Absolute level; the Server accepts GZC_CONTROL_MIN_VOLUME_LEVEL through
+   * GZC_CONTROL_MAX_VOLUME_LEVEL and rejects anything else with 400. */
   int32_t level;
   bool muted;
 } gzc_control_volume_request_t;
@@ -378,7 +381,8 @@ typedef struct {
 /* Body of `POST /gizclaw/v1/device/actions/play-sound`
  * (`DevicePlaySoundRequest`). */
 typedef struct {
-  /* Device-defined identifier; at most GZC_CONTROL_MAX_SOUND_BYTES bytes. */
+  /* Device-defined identifier; the Server caps it at
+   * GZC_CONTROL_MAX_SOUND_BYTES bytes. */
   gzc_str_t sound;
   bool has_duration_ms;
   int32_t duration_ms;
@@ -414,7 +418,7 @@ typedef struct {
  * `name`). Empty optional fields are omitted from the encoded body. */
 typedef struct {
   gzc_str_t name;
-  /* At most GZC_CONTROL_MAX_DISPLAY_NAME_BYTES UTF-8 bytes. */
+  /* The Server caps this at GZC_CONTROL_MAX_DISPLAY_NAME_BYTES UTF-8 bytes. */
   gzc_str_t display_name;
   gzc_str_t phone_number;
 } gzc_control_contact_request_t;
