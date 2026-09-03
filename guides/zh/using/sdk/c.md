@@ -63,7 +63,7 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 | `GZC_CONTROL_ERROR_MALFORMED_RESPONSE` | 2xx 但 body 不符合 contract 类型 |
 | `GZC_CONTROL_ERROR_NETWORK` | 未产生 HTTP 响应，或请求无法构造 |
 
-`gzc_http_vtable_t` 不暴露响应 header，因此 C package 不提供 `X-Request-ID`；分类本身不受影响。
+`gzc_control_call_t.error.request_id` 携带 `X-Request-ID` 响应 header。transport 通过 `gzc_http_request_t` 上的 `response_header_cb` sink 逐条投递响应 header；未提供 header 的 backend 只会让 `request_id` 保持为空。
 
 ## 下载与校验
 

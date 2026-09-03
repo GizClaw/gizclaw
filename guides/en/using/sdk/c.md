@@ -63,7 +63,7 @@ A failed call fills `gzc_control_call_t.error` with a `gzc_control_error_t`. The
 | `GZC_CONTROL_ERROR_MALFORMED_RESPONSE` | a 2xx body that is not the contract type |
 | `GZC_CONTROL_ERROR_NETWORK` | no HTTP response, or the request could not be built |
 
-`gzc_http_vtable_t` does not surface response headers, so the C package does not expose `X-Request-ID`. Classification is unaffected.
+`gzc_control_call_t.error.request_id` carries the `X-Request-ID` response header. The transport delivers response headers one at a time through the `response_header_cb` sink on `gzc_http_request_t`; a backend that sets no headers simply leaves `request_id` empty.
 
 ## Download and verify
 

@@ -41,6 +41,7 @@ typedef struct {
   bool saw_content_type;
   int status_code;
   const char *response_body;
+  const char *request_id;
   int result;
   int free_calls;
 } stub_t;
@@ -70,6 +71,15 @@ static int stub_request(void *userdata, const gzc_http_request_t *request, gzc_h
   }
   if (stub->result != GZC_OK) {
     return stub->result;
+  }
+  /* Replay the response headers through the platform contract's sink. */
+  int header_rc = gzc_http_deliver_response_header(request, "Content-Type", 12, "application/json", 16);
+  if (header_rc == GZC_OK && stub->request_id != NULL) {
+    header_rc = gzc_http_deliver_response_header(
+        request, "x-request-id", 12, stub->request_id, strlen(stub->request_id));
+  }
+  if (header_rc != GZC_OK) {
+    return header_rc;
   }
   out_response->status_code = stub->status_code;
   size_t length = stub->response_body == NULL ? 0 : strlen(stub->response_body);
@@ -289,6 +299,27 @@ static void test_contract_caps(void) {
   check(strcmp(stub.body, "{\"sound\":\"chime\",\"duration_ms\":1200}") == 0, "play sound body");
 }
 
+/* The header sink must reject header injection identically in every backend. */
+static void test_response_header_validation(void) {
+  gzc_http_request_t request;
+  memset(&request, 0, sizeof(request));
+  check(
+      gzc_http_deliver_response_header(&request, "X-Request-ID", 12, "abc", 3) == GZC_OK,
+      "header without a sink is accepted");
+  check(
+      gzc_http_deliver_response_header(NULL, "X", 1, "a", 1) == GZC_ERR_INVALID_ARGUMENT,
+      "null request rejected");
+  check(
+      gzc_http_deliver_response_header(&request, "", 0, "a", 1) == GZC_ERR_INVALID_ARGUMENT,
+      "empty header name rejected");
+  check(
+      gzc_http_deliver_response_header(&request, "X\nY", 3, "a", 1) == GZC_ERR_INVALID_ARGUMENT,
+      "newline in header name rejected");
+  check(
+      gzc_http_deliver_response_header(&request, "X", 1, "a\r", 2) == GZC_ERR_INVALID_ARGUMENT,
+      "carriage return in header value rejected");
+}
+
 static void test_error_classification(void) {
   struct {
     int status;
@@ -328,6 +359,7 @@ static void test_error_response_is_decoded(void) {
   gzc_control_client_t client;
   memset(&stub, 0, sizeof(stub));
   stub.status_code = 409;
+  stub.request_id = "req-1";
   stub.response_body =
       "{\"error\":{\"code\":\"DEVICE_OFFLINE\",\"message\":\"device is not connected\","
       "\"details\":{\"peer\":\"pk\"}}}";
@@ -345,6 +377,7 @@ static void test_error_response_is_decoded(void) {
   check_str(call.error.code, "DEVICE_OFFLINE", "offline code");
   check_str(call.error.message, "device is not connected", "offline message");
   check_str(call.error.details, "{\"peer\":\"pk\"}", "offline details");
+  check_str(call.error.request_id, "req-1", "offline request id");
 
   /* A non-2xx body that is not an ErrorResponse still classifies by status. */
   stub.status_code = 502;
@@ -487,6 +520,7 @@ int main(void) {
   test_set_volume_encodes_body();
   test_query_parameters_and_encoding();
   test_contract_caps();
+  test_response_header_validation();
   test_error_classification();
   test_error_response_is_decoded();
   test_transport_failure_is_network();

@@ -221,6 +221,54 @@ int gzc_control_fail(gzc_control_call_t *call, gzc_control_error_kind_t kind, in
   return status;
 }
 
+/*
+ * Captures X-Request-ID out of the response headers. Every other header is
+ * ignored, and an oversized value is truncated: the id is diagnostic and must
+ * never fail an otherwise good call.
+ */
+static bool header_is(gzc_str_t name, const char *lowercase) {
+  size_t len = strlen(lowercase);
+  if (name.len != len || name.data == NULL) {
+    return false;
+  }
+  for (size_t i = 0; i < len; i++) {
+    char actual = name.data[i];
+    if (actual >= 'A' && actual <= 'Z') {
+      actual = (char)(actual - 'A' + 'a');
+    }
+    if (actual != lowercase[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/*
+ * Captures X-Request-ID out of the response headers. Every other header is
+ * ignored, and an oversized value is truncated: the id is diagnostic and must
+ * never fail an otherwise good call.
+ */
+static int capture_request_id(
+    void *userdata,
+    const gzc_http_request_t *request,
+    gzc_str_t name,
+    gzc_str_t value) {
+  (void)request;
+  gzc_control_call_t *call = (gzc_control_call_t *)userdata;
+  if (call == NULL || !header_is(name, "x-request-id")) {
+    return GZC_OK;
+  }
+  size_t count = value.len;
+  if (count > sizeof(call->request_id)) {
+    count = sizeof(call->request_id);
+  }
+  if (count > 0 && value.data != NULL) {
+    memcpy(call->request_id, value.data, count);
+  }
+  call->request_id_len = count;
+  return GZC_OK;
+}
+
 /* Reads `error.code`, `error.message`, and `error.details` out of a non-2xx
  * body. A body that is not an ErrorResponse leaves every field empty. */
 static void decode_error_payload(gzc_str_t body, gzc_control_error_t *out) {
@@ -249,6 +297,7 @@ int gzc_control_send(
   memset(&call->error, 0, sizeof(call->error));
   call->status_code = 0;
   call->body = gzc_str_from_parts(NULL, 0);
+  call->request_id_len = 0;
 
   gzc_http_header_t headers[3];
   size_t header_count = 0;
@@ -272,6 +321,8 @@ int gzc_control_send(
   http_request.header_count = header_count;
   http_request.body = (const uint8_t *)request->body.data;
   http_request.body_len = request->body.len;
+  http_request.response_header_cb = capture_request_id;
+  http_request.response_header_userdata = call;
   http_request.timeout_ms = client->config.timeout_ms;
   http_request.interface_name = client->config.interface_name;
   http_request.response_buf = call->response;
@@ -311,6 +362,7 @@ int gzc_control_send(
     return GZC_OK;
   }
   call->error.status_code = response.status_code;
+  call->error.request_id = gzc_str_from_parts(call->request_id, call->request_id_len);
   decode_error_payload(call->body, &call->error);
   call->error.kind = gzc_control_classify(response.status_code, call->error.code);
   return GZC_ERR_HTTP;

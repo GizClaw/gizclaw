@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -53,6 +54,7 @@ type HTTPHeader struct {
 
 type HTTPResponse struct {
 	StatusCode int
+	Headers    []HTTPHeader
 	Body       []byte
 }
 
@@ -224,7 +226,27 @@ func (b *Backend) HTTPRequest(method int, url string, headers []HTTPHeader, body
 	if err != nil {
 		return HTTPResponse{}, err
 	}
-	return HTTPResponse{StatusCode: resp.StatusCode, Body: respBody}, nil
+	return HTTPResponse{StatusCode: resp.StatusCode, Headers: responseHeaders(resp.Header), Body: respBody}, nil
+}
+
+// responseHeaders flattens the response header map into the flat, ordered
+// list the platform contract delivers one entry at a time.
+func responseHeaders(header http.Header) []HTTPHeader {
+	if len(header) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(header))
+	for name := range header {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	headers := make([]HTTPHeader, 0, len(names))
+	for _, name := range names {
+		for _, value := range header.Values(name) {
+			headers = append(headers, HTTPHeader{Name: name, Value: value})
+		}
+	}
+	return headers
 }
 
 func (b *Backend) CreatePeer() error {

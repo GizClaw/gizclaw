@@ -41,6 +41,12 @@ extern "C" {
 #define GZC_CONTROL_MAX_SOUND_BYTES 32
 #define GZC_CONTROL_MAX_DISPLAY_NAME_BYTES 80
 
+/*
+ * Longest `X-Request-ID` the client keeps. A longer header is truncated
+ * rather than rejected: the id is diagnostic, not part of the contract.
+ */
+#define GZC_CONTROL_MAX_REQUEST_ID_BYTES 64
+
 /* Volume level bounds for `PUT /gizclaw/v1/device/volume`. */
 #define GZC_CONTROL_MIN_VOLUME_LEVEL 0
 #define GZC_CONTROL_MAX_VOLUME_LEVEL 100
@@ -105,8 +111,9 @@ gzc_control_error_kind_t gzc_control_classify(int status_code, gzc_str_t code);
  * are empty when the body carried no `ErrorResponse`. `status_code` is 0 for
  * GZC_CONTROL_ERROR_NETWORK. `details` is the raw `error.details` JSON object.
  *
- * The `X-Request-ID` response header is not exposed: `gzc_http_vtable_t` does
- * not surface response headers. Classification is unaffected.
+ * `request_id` is the `X-Request-ID` response header, captured through the
+ * transport's response-header sink and copied into the call. It is empty when
+ * the Server set none or the transport delivers no headers.
  */
 typedef struct {
   gzc_control_error_kind_t kind;
@@ -114,6 +121,7 @@ typedef struct {
   gzc_str_t code;
   gzc_str_t message;
   gzc_str_t details;
+  gzc_str_t request_id;
 } gzc_control_error_t;
 
 /* Configuration of one controller client. Every pointer is borrowed. */
@@ -164,6 +172,10 @@ typedef struct {
   size_t scratch_cap;
   uint8_t *response;
   size_t response_cap;
+
+  /* Storage for the captured X-Request-ID; error.request_id points here. */
+  char request_id[GZC_CONTROL_MAX_REQUEST_ID_BYTES];
+  size_t request_id_len;
 
   /* HTTP status of the last call, or 0 when no response arrived. */
   int status_code;
