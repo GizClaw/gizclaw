@@ -52,6 +52,22 @@ func TestIntegrationPeerHTTPAutoPeerAndReadBack(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("PutInfo error: %v", err)
 	}
+	renamed, err := putInfo(context.Background(), device, apitypes.DeviceInfo{Name: new("demo-device-3")})
+	if err != nil {
+		t.Fatalf("PutInfo(name only) error: %v", err)
+	}
+	if renamed.Name == nil || *renamed.Name != "demo-device-3" ||
+		renamed.Emoji == nil || *renamed.Emoji != "🧑‍🚀" {
+		t.Fatalf("PutInfo(name only) = %+v, want emoji preserved", renamed)
+	}
+	reemojied, err := putInfo(context.Background(), device, apitypes.DeviceInfo{Emoji: new("🦊")})
+	if err != nil {
+		t.Fatalf("PutInfo(emoji only) error: %v", err)
+	}
+	if reemojied.Name == nil || *reemojied.Name != "demo-device-3" ||
+		reemojied.Emoji == nil || *reemojied.Emoji != "🦊" {
+		t.Fatalf("PutInfo(emoji only) = %+v, want name preserved", reemojied)
+	}
 	if _, err := getRuntime(context.Background(), device); err != nil {
 		t.Fatalf("GetRuntime error: %v", err)
 	}

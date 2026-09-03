@@ -828,3 +828,43 @@ func TestPeerHTTPHandlersPutInfoAndRuntime(t *testing.T) {
 		t.Fatalf("GetSelfRuntime = %+v", publicRuntime)
 	}
 }
+
+func TestPutSelfInfoPartialUpdate(t *testing.T) {
+	peerKey := giznet.PublicKey{5}
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	name := "device-1"
+	emoji := "🐈"
+	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Name: &name, Emoji: &emoji})
+
+	newName := "device-2"
+	updated, err := server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Name: &newName})
+	if err != nil {
+		t.Fatalf("PutSelfInfo(name only) error: %v", err)
+	}
+	if updated.Name == nil || *updated.Name != newName {
+		t.Fatalf("PutSelfInfo(name only) name = %+v, want %q", updated.Name, newName)
+	}
+	if updated.Emoji == nil || *updated.Emoji != emoji {
+		t.Fatalf("PutSelfInfo(name only) emoji = %+v, want %q", updated.Emoji, emoji)
+	}
+
+	newEmoji := "🦊"
+	updated, err = server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{Emoji: &newEmoji})
+	if err != nil {
+		t.Fatalf("PutSelfInfo(emoji only) error: %v", err)
+	}
+	if updated.Name == nil || *updated.Name != newName {
+		t.Fatalf("PutSelfInfo(emoji only) name = %+v, want %q", updated.Name, newName)
+	}
+	if updated.Emoji == nil || *updated.Emoji != newEmoji {
+		t.Fatalf("PutSelfInfo(emoji only) emoji = %+v, want %q", updated.Emoji, newEmoji)
+	}
+
+	updated, err = server.PutSelfInfo(context.Background(), peerKey, apitypes.DeviceInfo{})
+	if err != nil {
+		t.Fatalf("PutSelfInfo(empty) error: %v", err)
+	}
+	if updated.Name == nil || *updated.Name != newName || updated.Emoji == nil || *updated.Emoji != newEmoji {
+		t.Fatalf("PutSelfInfo(empty) = %+v, want profile unchanged", updated)
+	}
+}

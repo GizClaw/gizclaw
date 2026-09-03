@@ -1454,3 +1454,31 @@ func TestErrorUsesFallbackMessage(t *testing.T) {
 		t.Fatalf("RPCResponse().Error = %+v", errResp.Error)
 	}
 }
+
+func TestServerPutInfoRequestPreservesFieldPresence(t *testing.T) {
+	name := "device-1"
+	emoji := "🐈"
+	for _, tc := range []struct {
+		label string
+		value ServerPutInfoRequest
+	}{
+		{label: "name only", value: ServerPutInfoRequest{Name: &name}},
+		{label: "emoji only", value: ServerPutInfoRequest{Emoji: &emoji}},
+		{label: "both", value: ServerPutInfoRequest{Name: &name, Emoji: &emoji}},
+		{label: "neither", value: ServerPutInfoRequest{}},
+	} {
+		t.Run(tc.label, func(t *testing.T) {
+			var payload RPCPayload
+			if err := payload.FromServerPutInfoRequest(tc.value); err != nil {
+				t.Fatalf("FromServerPutInfoRequest() error = %v", err)
+			}
+			got, err := payload.AsServerPutInfoRequest()
+			if err != nil {
+				t.Fatalf("AsServerPutInfoRequest() error = %v", err)
+			}
+			if !reflect.DeepEqual(got, tc.value) {
+				t.Fatalf("AsServerPutInfoRequest() = %+v, want %+v", got, tc.value)
+			}
+		})
+	}
+}
