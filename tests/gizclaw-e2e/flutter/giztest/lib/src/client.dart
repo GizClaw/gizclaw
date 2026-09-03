@@ -341,7 +341,7 @@ _Handlers _buildHandlers(
   void count(String method) => inbound[method] = (inbound[method] ?? 0) + 1;
 
   Map<String, Object?> deviceInfo = const {};
-  Map<String, Object?> identifiers = const {};
+  Map<String, Object?>? identifiers;
   var control = const GizClawDeviceControlHandlers();
 
   for (final step in steps) {
@@ -447,10 +447,11 @@ _Handlers _buildHandlers(
       snakeToCamelKeys(deviceInfo),
       ignoreUnknownFields: true,
     );
-  if (identifiers.isNotEmpty) {
+  final scriptedIdentifiers = identifiers;
+  if (scriptedIdentifiers != null) {
     info.identifiers = DeviceIdentifiers()
       ..mergeFromProto3Json(
-        snakeToCamelKeys(identifiers),
+        snakeToCamelKeys(scriptedIdentifiers),
         ignoreUnknownFields: true,
       );
   }
@@ -460,6 +461,17 @@ _Handlers _buildHandlers(
         count('client.info.get');
         return info;
       },
+      // Installed only when a step scripts it, so client.identifiers.get keeps
+      // its own call count instead of being attributed to client.info.get.
+      deviceIdentifiers: scriptedIdentifiers == null
+          ? null
+          : () {
+              count('client.identifiers.get');
+              return DeviceIdentifiers()..mergeFromProto3Json(
+                snakeToCamelKeys(scriptedIdentifiers),
+                ignoreUnknownFields: true,
+              );
+            },
       deviceControl: control,
     ),
     inbound,
