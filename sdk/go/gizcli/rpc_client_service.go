@@ -98,7 +98,7 @@ func (c *rpcClient) handleGetClientInfo(ctx context.Context, req *rpcapi.RPCRequ
 		return nil, err
 	}
 	if c.peer == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
 	}
 	c.peer.observeClientRPC(req.Method)
 	result, err := convertRPCType[rpcapi.ClientGetInfoResponse](peerDeviceToPeerRefreshInfo(c.peer.Device))
@@ -116,7 +116,7 @@ func (c *rpcClient) handleGetClientIdentifiers(ctx context.Context, req *rpcapi.
 		return nil, err
 	}
 	if c.peer == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
 	}
 	c.peer.observeClientRPC(req.Method)
 	result, err := convertRPCType[rpcapi.ClientGetIdentifiersResponse](peerDeviceToPeerRefreshIdentifiers(c.peer.Device))
@@ -139,28 +139,28 @@ func (c *rpcClient) handleInvokeTool(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	name := strings.TrimSpace(params.InvokeName)
 	if c.peer == nil || !clientToolNamePattern.MatchString(name) {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid Tool name"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid Tool name"}.RPCResponse(), nil
 	}
 	c.peer.toolMu.RLock()
 	handler := c.peer.toolHandlers[name]
 	c.peer.toolMu.RUnlock()
 	if handler == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "Tool unavailable"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "Tool unavailable"}.RPCResponse(), nil
 	}
 	c.peer.observeClientRPC(req.Method)
 	args, err := json.Marshal(params.Args)
 	if err != nil || len(args) > maxClientToolArgumentsBytes {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid Tool arguments"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid Tool arguments"}.RPCResponse(), nil
 	}
 	result, err := handler(ctx, json.RawMessage(args))
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "Tool handler failed"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "Tool handler failed"}.RPCResponse(), nil
 	}
 	if len(result) == 0 {
 		result = json.RawMessage(`null`)
 	}
 	if len(result) > maxClientToolResultBytes || !json.Valid(result) {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "Tool handler returned invalid JSON"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "Tool handler returned invalid JSON"}.RPCResponse(), nil
 	}
 	return newRPCResultResponse(req.Id, rpcapi.ToolInvokeResponse{DataJson: string(result)}, (*rpcapi.RPCPayload).FromToolInvokeResponse)
 }

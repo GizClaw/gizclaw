@@ -18,15 +18,15 @@ class RpcCallResult {
   final GeneratedMessage response;
 }
 
-class RpcError implements Exception {
-  RpcError(this.code, this.message, {this.requestId});
+class RpcStatus implements Exception {
+  RpcStatus(this.code, this.message, {this.requestId});
 
   final int code;
   final String message;
   final String? requestId;
 
   @override
-  String toString() => 'RpcError($code, $message)';
+  String toString() => 'RpcStatus($code, $message)';
 }
 
 class PeerRpcClient {
@@ -297,10 +297,10 @@ RpcCallResult decodeRpcResponse(
         body: Uint8List.fromList(body),
         response: decodeRpcResponsePayload(methodName, envelope.payload),
       );
-    case rpc.RpcResponse_Body.error:
-      throw RpcError(
-        envelope.error.code.value,
-        envelope.error.message,
+    case rpc.RpcResponse_Body.status:
+      throw RpcStatus(
+        envelope.status.code.value,
+        envelope.status.message,
         requestId: envelope.id,
       );
     case rpc.RpcResponse_Body.notSet:
@@ -424,7 +424,7 @@ class _ResponseReader {
 }
 
 bool _responseEnvelopeHasError(List<int> envelopeBytes) {
-  return rpc.RpcResponse.fromBuffer(envelopeBytes).hasError();
+  return rpc.RpcResponse.fromBuffer(envelopeBytes).hasStatus();
 }
 
 void _unawaited(Future<void> future) {}

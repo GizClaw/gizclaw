@@ -157,11 +157,11 @@ func TestResolveAPIKeyAssignmentUsesEdgeRPC(t *testing.T) {
 func TestResolveAPIKeyAssignmentMapsAuthorizationAndOwnerErrors(t *testing.T) {
 	for _, test := range []struct {
 		name string
-		code rpcapi.RPCErrorCode
+		code rpcapi.StatusCode
 		want error
 	}{
-		{name: "invalid key", code: rpcapi.RPCErrorCodeForbidden, want: errAPIKeyUnauthorized},
-		{name: "owner unavailable", code: rpcapi.RPCErrorCodeNotFound, want: errAPIKeyOwnerUnavailable},
+		{name: "invalid key", code: rpcapi.StatusCodePermissionDenied, want: errAPIKeyUnauthorized},
+		{name: "owner unavailable", code: rpcapi.StatusCodeNotFound, want: errAPIKeyOwnerUnavailable},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			conn := &routeRPCGiznetConn{
@@ -266,7 +266,7 @@ type routeRPCGiznetConn struct {
 	*failingGiznetConn
 	assignment    *rpcpb.PeerAssignment
 	apiAssignment *rpcpb.PeerAssignment
-	apiErrorCode  rpcapi.RPCErrorCode
+	apiErrorCode  rpcapi.StatusCode
 	apiKey        atomic.Value
 	calls         atomic.Int32
 	httpServerID  string
@@ -336,7 +336,7 @@ func (c *routeRPCGiznetConn) Dial(service uint64) (net.Conn, error) {
 		if c.assignment == nil {
 			_ = rpcapi.WriteResponseForMethod(server, rpcapi.RPCMethodServerRouteResolve, (rpcapi.Error{
 				RequestID: request.Id,
-				Code:      rpcapi.RPCErrorCodeNotFound,
+				Code:      rpcapi.StatusCodeNotFound,
 				Message:   "assignment not found",
 			}).RPCResponse())
 			_ = rpcapi.WriteEOS(server)

@@ -114,16 +114,20 @@ func deviceControlErrorResponse(response any) (error, error) {
 	if err != nil {
 		return nil, err
 	}
+	status := rpcapi.StatusCode(code)
+	if !status.Valid() {
+		return nil, fmt.Errorf("error_code must be a canonical status code, got %d", code)
+	}
 	message, _ := object["error_message"].(string)
-	return rpcapi.Error{Code: rpcapi.RPCErrorCode(code), Message: message}, nil
+	return rpcapi.Error{Code: status, Message: message}, nil
 }
 
-// scriptedErrorCode reads one RPC error code from a decoded scenario value. A
+// scriptedErrorCode reads one RPC status code from a decoded scenario value. A
 // YAML document decodes a negative code as int and a non-negative one as
 // uint64, and a JSON round trip decodes either as float64, so every integral
 // form is accepted. A value that is not integral, or that does not fit the
 // int32 wire field, is rejected rather than silently converted to a different
-// code.
+// code. The caller checks the decoded value against the canonical status set.
 func scriptedErrorCode(raw any) (int32, error) {
 	var value int64
 	switch v := raw.(type) {

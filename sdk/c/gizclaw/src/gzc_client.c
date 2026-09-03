@@ -1910,7 +1910,7 @@ int gzc_client_dispatch_rpc_internal(
       const gzc_rpc_provider_response_t response = {
           .has_error = true,
           .error_code =
-              gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+              gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
           .error_message = {.data = "invalid Tool request", .len = 20u},
       };
       return respond(respond_userdata, &response);
@@ -1930,7 +1930,7 @@ int gzc_client_dispatch_rpc_internal(
     const gzc_rpc_provider_response_t response = {
         .has_error = true,
         .error_code =
-            gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
+            gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED,
         .error_message = {.data = "Tool unavailable", .len = 16u},
     };
     return respond(respond_userdata, &response);

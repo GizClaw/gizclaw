@@ -22,73 +22,95 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type RpcErrorCode int32
+// StatusCode is the canonical gRPC status code set (google.rpc.Code).
+type StatusCode int32
 
 const (
-	RpcErrorCode_RPC_ERROR_CODE_UNSPECIFIED      RpcErrorCode = 0
-	RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR      RpcErrorCode = -32700
-	RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST  RpcErrorCode = -32600
-	RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND RpcErrorCode = -32601
-	RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS   RpcErrorCode = -32602
-	RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR   RpcErrorCode = -32603
-	RpcErrorCode_RPC_ERROR_CODE_BAD_REQUEST      RpcErrorCode = 400
-	RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN        RpcErrorCode = 403
-	RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND        RpcErrorCode = 404
-	RpcErrorCode_RPC_ERROR_CODE_CONFLICT         RpcErrorCode = 409
+	StatusCode_STATUS_CODE_OK                  StatusCode = 0
+	StatusCode_STATUS_CODE_CANCELLED           StatusCode = 1
+	StatusCode_STATUS_CODE_UNKNOWN             StatusCode = 2
+	StatusCode_STATUS_CODE_INVALID_ARGUMENT    StatusCode = 3
+	StatusCode_STATUS_CODE_DEADLINE_EXCEEDED   StatusCode = 4
+	StatusCode_STATUS_CODE_NOT_FOUND           StatusCode = 5
+	StatusCode_STATUS_CODE_ALREADY_EXISTS      StatusCode = 6
+	StatusCode_STATUS_CODE_PERMISSION_DENIED   StatusCode = 7
+	StatusCode_STATUS_CODE_RESOURCE_EXHAUSTED  StatusCode = 8
+	StatusCode_STATUS_CODE_FAILED_PRECONDITION StatusCode = 9
+	StatusCode_STATUS_CODE_ABORTED             StatusCode = 10
+	StatusCode_STATUS_CODE_OUT_OF_RANGE        StatusCode = 11
+	StatusCode_STATUS_CODE_UNIMPLEMENTED       StatusCode = 12
+	StatusCode_STATUS_CODE_INTERNAL            StatusCode = 13
+	StatusCode_STATUS_CODE_UNAVAILABLE         StatusCode = 14
+	StatusCode_STATUS_CODE_DATA_LOSS           StatusCode = 15
+	StatusCode_STATUS_CODE_UNAUTHENTICATED     StatusCode = 16
 )
 
-// Enum value maps for RpcErrorCode.
+// Enum value maps for StatusCode.
 var (
-	RpcErrorCode_name = map[int32]string{
-		0:      "RPC_ERROR_CODE_UNSPECIFIED",
-		-32700: "RPC_ERROR_CODE_PARSE_ERROR",
-		-32600: "RPC_ERROR_CODE_INVALID_REQUEST",
-		-32601: "RPC_ERROR_CODE_METHOD_NOT_FOUND",
-		-32602: "RPC_ERROR_CODE_INVALID_PARAMS",
-		-32603: "RPC_ERROR_CODE_INTERNAL_ERROR",
-		400:    "RPC_ERROR_CODE_BAD_REQUEST",
-		403:    "RPC_ERROR_CODE_FORBIDDEN",
-		404:    "RPC_ERROR_CODE_NOT_FOUND",
-		409:    "RPC_ERROR_CODE_CONFLICT",
+	StatusCode_name = map[int32]string{
+		0:  "STATUS_CODE_OK",
+		1:  "STATUS_CODE_CANCELLED",
+		2:  "STATUS_CODE_UNKNOWN",
+		3:  "STATUS_CODE_INVALID_ARGUMENT",
+		4:  "STATUS_CODE_DEADLINE_EXCEEDED",
+		5:  "STATUS_CODE_NOT_FOUND",
+		6:  "STATUS_CODE_ALREADY_EXISTS",
+		7:  "STATUS_CODE_PERMISSION_DENIED",
+		8:  "STATUS_CODE_RESOURCE_EXHAUSTED",
+		9:  "STATUS_CODE_FAILED_PRECONDITION",
+		10: "STATUS_CODE_ABORTED",
+		11: "STATUS_CODE_OUT_OF_RANGE",
+		12: "STATUS_CODE_UNIMPLEMENTED",
+		13: "STATUS_CODE_INTERNAL",
+		14: "STATUS_CODE_UNAVAILABLE",
+		15: "STATUS_CODE_DATA_LOSS",
+		16: "STATUS_CODE_UNAUTHENTICATED",
 	}
-	RpcErrorCode_value = map[string]int32{
-		"RPC_ERROR_CODE_UNSPECIFIED":      0,
-		"RPC_ERROR_CODE_PARSE_ERROR":      -32700,
-		"RPC_ERROR_CODE_INVALID_REQUEST":  -32600,
-		"RPC_ERROR_CODE_METHOD_NOT_FOUND": -32601,
-		"RPC_ERROR_CODE_INVALID_PARAMS":   -32602,
-		"RPC_ERROR_CODE_INTERNAL_ERROR":   -32603,
-		"RPC_ERROR_CODE_BAD_REQUEST":      400,
-		"RPC_ERROR_CODE_FORBIDDEN":        403,
-		"RPC_ERROR_CODE_NOT_FOUND":        404,
-		"RPC_ERROR_CODE_CONFLICT":         409,
+	StatusCode_value = map[string]int32{
+		"STATUS_CODE_OK":                  0,
+		"STATUS_CODE_CANCELLED":           1,
+		"STATUS_CODE_UNKNOWN":             2,
+		"STATUS_CODE_INVALID_ARGUMENT":    3,
+		"STATUS_CODE_DEADLINE_EXCEEDED":   4,
+		"STATUS_CODE_NOT_FOUND":           5,
+		"STATUS_CODE_ALREADY_EXISTS":      6,
+		"STATUS_CODE_PERMISSION_DENIED":   7,
+		"STATUS_CODE_RESOURCE_EXHAUSTED":  8,
+		"STATUS_CODE_FAILED_PRECONDITION": 9,
+		"STATUS_CODE_ABORTED":             10,
+		"STATUS_CODE_OUT_OF_RANGE":        11,
+		"STATUS_CODE_UNIMPLEMENTED":       12,
+		"STATUS_CODE_INTERNAL":            13,
+		"STATUS_CODE_UNAVAILABLE":         14,
+		"STATUS_CODE_DATA_LOSS":           15,
+		"STATUS_CODE_UNAUTHENTICATED":     16,
 	}
 )
 
-func (x RpcErrorCode) Enum() *RpcErrorCode {
-	p := new(RpcErrorCode)
+func (x StatusCode) Enum() *StatusCode {
+	p := new(StatusCode)
 	*p = x
 	return p
 }
 
-func (x RpcErrorCode) String() string {
+func (x StatusCode) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (RpcErrorCode) Descriptor() protoreflect.EnumDescriptor {
+func (StatusCode) Descriptor() protoreflect.EnumDescriptor {
 	return file_rpc_proto_enumTypes[0].Descriptor()
 }
 
-func (RpcErrorCode) Type() protoreflect.EnumType {
+func (StatusCode) Type() protoreflect.EnumType {
 	return &file_rpc_proto_enumTypes[0]
 }
 
-func (x RpcErrorCode) Number() protoreflect.EnumNumber {
+func (x StatusCode) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use RpcErrorCode.Descriptor instead.
-func (RpcErrorCode) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use StatusCode.Descriptor instead.
+func (StatusCode) EnumDescriptor() ([]byte, []int) {
 	return file_rpc_proto_rawDescGZIP(), []int{0}
 }
 
@@ -465,7 +487,7 @@ type RpcResponse struct {
 	// Types that are valid to be assigned to Body:
 	//
 	//	*RpcResponse_Payload
-	//	*RpcResponse_Error
+	//	*RpcResponse_Status
 	Body          isRpcResponse_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -524,10 +546,10 @@ func (x *RpcResponse) GetPayload() []byte {
 	return nil
 }
 
-func (x *RpcResponse) GetError() *RpcError {
+func (x *RpcResponse) GetStatus() *RpcStatus {
 	if x != nil {
-		if x, ok := x.Body.(*RpcResponse_Error); ok {
-			return x.Error
+		if x, ok := x.Body.(*RpcResponse_Status); ok {
+			return x.Status
 		}
 	}
 	return nil
@@ -541,13 +563,13 @@ type RpcResponse_Payload struct {
 	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3,oneof"`
 }
 
-type RpcResponse_Error struct {
-	Error *RpcError `protobuf:"bytes,3,opt,name=error,proto3,oneof"`
+type RpcResponse_Status struct {
+	Status *RpcStatus `protobuf:"bytes,5,opt,name=status,proto3,oneof"`
 }
 
 func (*RpcResponse_Payload) isRpcResponse_Body() {}
 
-func (*RpcResponse_Error) isRpcResponse_Body() {}
+func (*RpcResponse_Status) isRpcResponse_Body() {}
 
 type RpcStreamFrame struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -555,8 +577,8 @@ type RpcStreamFrame struct {
 	// Types that are valid to be assigned to Body:
 	//
 	//	*RpcStreamFrame_Payload
-	//	*RpcStreamFrame_Error
 	//	*RpcStreamFrame_End
+	//	*RpcStreamFrame_Status
 	Body          isRpcStreamFrame_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -615,19 +637,19 @@ func (x *RpcStreamFrame) GetPayload() []byte {
 	return nil
 }
 
-func (x *RpcStreamFrame) GetError() *RpcError {
+func (x *RpcStreamFrame) GetEnd() *RpcStreamEnd {
 	if x != nil {
-		if x, ok := x.Body.(*RpcStreamFrame_Error); ok {
-			return x.Error
+		if x, ok := x.Body.(*RpcStreamFrame_End); ok {
+			return x.End
 		}
 	}
 	return nil
 }
 
-func (x *RpcStreamFrame) GetEnd() *RpcStreamEnd {
+func (x *RpcStreamFrame) GetStatus() *RpcStatus {
 	if x != nil {
-		if x, ok := x.Body.(*RpcStreamFrame_End); ok {
-			return x.End
+		if x, ok := x.Body.(*RpcStreamFrame_Status); ok {
+			return x.Status
 		}
 	}
 	return nil
@@ -641,42 +663,47 @@ type RpcStreamFrame_Payload struct {
 	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3,oneof"`
 }
 
-type RpcStreamFrame_Error struct {
-	Error *RpcError `protobuf:"bytes,3,opt,name=error,proto3,oneof"`
-}
-
 type RpcStreamFrame_End struct {
 	End *RpcStreamEnd `protobuf:"bytes,4,opt,name=end,proto3,oneof"`
 }
 
-func (*RpcStreamFrame_Payload) isRpcStreamFrame_Body() {}
+type RpcStreamFrame_Status struct {
+	Status *RpcStatus `protobuf:"bytes,5,opt,name=status,proto3,oneof"`
+}
 
-func (*RpcStreamFrame_Error) isRpcStreamFrame_Body() {}
+func (*RpcStreamFrame_Payload) isRpcStreamFrame_Body() {}
 
 func (*RpcStreamFrame_End) isRpcStreamFrame_Body() {}
 
-type RpcError struct {
+func (*RpcStreamFrame_Status) isRpcStreamFrame_Body() {}
+
+// RpcStatus is the terminal status of one RPC. It follows google.rpc.Status
+// with one deviation: details is a typed ErrorInfo rather than
+// repeated google.protobuf.Any, because nanopb cannot resolve type URLs at
+// runtime and the C SDK allocates nothing.
+type RpcStatus struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          RpcErrorCode           `protobuf:"varint,1,opt,name=code,proto3,enum=gizclaw.rpc.v1.RpcErrorCode" json:"code,omitempty"`
+	Code          StatusCode             `protobuf:"varint,1,opt,name=code,proto3,enum=gizclaw.rpc.v1.StatusCode" json:"code,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Info          *ErrorInfo             `protobuf:"bytes,3,opt,name=info,proto3" json:"info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RpcError) Reset() {
-	*x = RpcError{}
+func (x *RpcStatus) Reset() {
+	*x = RpcStatus{}
 	mi := &file_rpc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RpcError) String() string {
+func (x *RpcStatus) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RpcError) ProtoMessage() {}
+func (*RpcStatus) ProtoMessage() {}
 
-func (x *RpcError) ProtoReflect() protoreflect.Message {
+func (x *RpcStatus) ProtoReflect() protoreflect.Message {
 	mi := &file_rpc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -688,21 +715,84 @@ func (x *RpcError) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RpcError.ProtoReflect.Descriptor instead.
-func (*RpcError) Descriptor() ([]byte, []int) {
+// Deprecated: Use RpcStatus.ProtoReflect.Descriptor instead.
+func (*RpcStatus) Descriptor() ([]byte, []int) {
 	return file_rpc_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RpcError) GetCode() RpcErrorCode {
+func (x *RpcStatus) GetCode() StatusCode {
 	if x != nil {
 		return x.Code
 	}
-	return RpcErrorCode_RPC_ERROR_CODE_UNSPECIFIED
+	return StatusCode_STATUS_CODE_OK
 }
 
-func (x *RpcError) GetMessage() string {
+func (x *RpcStatus) GetMessage() string {
 	if x != nil {
 		return x.Message
+	}
+	return ""
+}
+
+func (x *RpcStatus) GetInfo() *ErrorInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+// ErrorInfo names the specific failure behind a StatusCode. code is the class
+// a client branches on; reason is the reason a human or a UI reads. It follows
+// google.rpc.ErrorInfo without the metadata map, which no caller needs and
+// which nanopb can only express as a bounded repeated entry message.
+type ErrorInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reason        string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	Domain        string                 `protobuf:"bytes,2,opt,name=domain,proto3" json:"domain,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ErrorInfo) Reset() {
+	*x = ErrorInfo{}
+	mi := &file_rpc_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ErrorInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ErrorInfo) ProtoMessage() {}
+
+func (x *ErrorInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_rpc_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ErrorInfo.ProtoReflect.Descriptor instead.
+func (*ErrorInfo) Descriptor() ([]byte, []int) {
+	return file_rpc_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ErrorInfo) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *ErrorInfo) GetDomain() string {
+	if x != nil {
+		return x.Domain
 	}
 	return ""
 }
@@ -715,7 +805,7 @@ type RpcStreamEnd struct {
 
 func (x *RpcStreamEnd) Reset() {
 	*x = RpcStreamEnd{}
-	mi := &file_rpc_proto_msgTypes[3]
+	mi := &file_rpc_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +817,7 @@ func (x *RpcStreamEnd) String() string {
 func (*RpcStreamEnd) ProtoMessage() {}
 
 func (x *RpcStreamEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[3]
+	mi := &file_rpc_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +830,7 @@ func (x *RpcStreamEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcStreamEnd.ProtoReflect.Descriptor instead.
 func (*RpcStreamEnd) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{3}
+	return file_rpc_proto_rawDescGZIP(), []int{4}
 }
 
 type RpcMethodOptions struct {
@@ -754,7 +844,7 @@ type RpcMethodOptions struct {
 
 func (x *RpcMethodOptions) Reset() {
 	*x = RpcMethodOptions{}
-	mi := &file_rpc_proto_msgTypes[4]
+	mi := &file_rpc_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -766,7 +856,7 @@ func (x *RpcMethodOptions) String() string {
 func (*RpcMethodOptions) ProtoMessage() {}
 
 func (x *RpcMethodOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[4]
+	mi := &file_rpc_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -779,7 +869,7 @@ func (x *RpcMethodOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcMethodOptions.ProtoReflect.Descriptor instead.
 func (*RpcMethodOptions) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{4}
+	return file_rpc_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RpcMethodOptions) GetName() string {
@@ -814,7 +904,7 @@ type RpcRequest struct {
 
 func (x *RpcRequest) Reset() {
 	*x = RpcRequest{}
-	mi := &file_rpc_proto_msgTypes[5]
+	mi := &file_rpc_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -826,7 +916,7 @@ func (x *RpcRequest) String() string {
 func (*RpcRequest) ProtoMessage() {}
 
 func (x *RpcRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[5]
+	mi := &file_rpc_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -839,7 +929,7 @@ func (x *RpcRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcRequest.ProtoReflect.Descriptor instead.
 func (*RpcRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{5}
+	return file_rpc_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RpcRequest) GetId() string {
@@ -884,21 +974,25 @@ var File_rpc_proto protoreflect.FileDescriptor
 
 const file_rpc_proto_rawDesc = "" +
 	"\n" +
-	"\trpc.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"s\n" +
+	"\trpc.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"\x83\x01\n" +
 	"\vRpcResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x120\n" +
-	"\x05error\x18\x03 \x01(\v2\x18.gizclaw.rpc.v1.RpcErrorH\x00R\x05errorB\x06\n" +
-	"\x04body\"\xa8\x01\n" +
+	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x123\n" +
+	"\x06status\x18\x05 \x01(\v2\x19.gizclaw.rpc.v1.RpcStatusH\x00R\x06statusB\x06\n" +
+	"\x04bodyJ\x04\b\x03\x10\x04R\x05error\"\xb8\x01\n" +
 	"\x0eRpcStreamFrame\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x120\n" +
-	"\x05error\x18\x03 \x01(\v2\x18.gizclaw.rpc.v1.RpcErrorH\x00R\x05error\x120\n" +
-	"\x03end\x18\x04 \x01(\v2\x1c.gizclaw.rpc.v1.RpcStreamEndH\x00R\x03endB\x06\n" +
-	"\x04body\"V\n" +
-	"\bRpcError\x120\n" +
-	"\x04code\x18\x01 \x01(\x0e2\x1c.gizclaw.rpc.v1.RpcErrorCodeR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x0e\n" +
+	"\x03end\x18\x04 \x01(\v2\x1c.gizclaw.rpc.v1.RpcStreamEndH\x00R\x03end\x123\n" +
+	"\x06status\x18\x05 \x01(\v2\x19.gizclaw.rpc.v1.RpcStatusH\x00R\x06statusB\x06\n" +
+	"\x04bodyJ\x04\b\x03\x10\x04R\x05error\"\x84\x01\n" +
+	"\tRpcStatus\x12.\n" +
+	"\x04code\x18\x01 \x01(\x0e2\x1a.gizclaw.rpc.v1.StatusCodeR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
+	"\x04info\x18\x03 \x01(\v2\x19.gizclaw.rpc.v1.ErrorInfoR\x04info\";\n" +
+	"\tErrorInfo\x12\x16\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\x12\x16\n" +
+	"\x06domain\x18\x02 \x01(\tR\x06domain\"\x0e\n" +
 	"\fRpcStreamEnd\"\\\n" +
 	"\x10RpcMethodOptions\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
@@ -910,18 +1004,27 @@ const file_rpc_proto_rawDesc = "" +
 	"\x06method\x18\x02 \x01(\x0e2\x19.gizclaw.rpc.v1.RpcMethodR\x06method\x12\x1d\n" +
 	"\apayload\x18\x03 \x01(\fH\x00R\apayload\x88\x01\x01B\n" +
 	"\n" +
-	"\b_payload*\x87\x03\n" +
-	"\fRpcErrorCode\x12\x1e\n" +
-	"\x1aRPC_ERROR_CODE_UNSPECIFIED\x10\x00\x12'\n" +
-	"\x1aRPC_ERROR_CODE_PARSE_ERROR\x10Ā\xfe\xff\xff\xff\xff\xff\xff\x01\x12+\n" +
-	"\x1eRPC_ERROR_CODE_INVALID_REQUEST\x10\xa8\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12,\n" +
-	"\x1fRPC_ERROR_CODE_METHOD_NOT_FOUND\x10\xa7\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12*\n" +
-	"\x1dRPC_ERROR_CODE_INVALID_PARAMS\x10\xa6\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12*\n" +
-	"\x1dRPC_ERROR_CODE_INTERNAL_ERROR\x10\xa5\x81\xfe\xff\xff\xff\xff\xff\xff\x01\x12\x1f\n" +
-	"\x1aRPC_ERROR_CODE_BAD_REQUEST\x10\x90\x03\x12\x1d\n" +
-	"\x18RPC_ERROR_CODE_FORBIDDEN\x10\x93\x03\x12\x1d\n" +
-	"\x18RPC_ERROR_CODE_NOT_FOUND\x10\x94\x03\x12\x1c\n" +
-	"\x17RPC_ERROR_CODE_CONFLICT\x10\x99\x03*\xe6g\n" +
+	"\b_payload*\x89\x04\n" +
+	"\n" +
+	"StatusCode\x12\x12\n" +
+	"\x0eSTATUS_CODE_OK\x10\x00\x12\x19\n" +
+	"\x15STATUS_CODE_CANCELLED\x10\x01\x12\x17\n" +
+	"\x13STATUS_CODE_UNKNOWN\x10\x02\x12 \n" +
+	"\x1cSTATUS_CODE_INVALID_ARGUMENT\x10\x03\x12!\n" +
+	"\x1dSTATUS_CODE_DEADLINE_EXCEEDED\x10\x04\x12\x19\n" +
+	"\x15STATUS_CODE_NOT_FOUND\x10\x05\x12\x1e\n" +
+	"\x1aSTATUS_CODE_ALREADY_EXISTS\x10\x06\x12!\n" +
+	"\x1dSTATUS_CODE_PERMISSION_DENIED\x10\a\x12\"\n" +
+	"\x1eSTATUS_CODE_RESOURCE_EXHAUSTED\x10\b\x12#\n" +
+	"\x1fSTATUS_CODE_FAILED_PRECONDITION\x10\t\x12\x17\n" +
+	"\x13STATUS_CODE_ABORTED\x10\n" +
+	"\x12\x1c\n" +
+	"\x18STATUS_CODE_OUT_OF_RANGE\x10\v\x12\x1d\n" +
+	"\x19STATUS_CODE_UNIMPLEMENTED\x10\f\x12\x18\n" +
+	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
+	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
+	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xe6g\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1157,31 +1260,33 @@ func file_rpc_proto_rawDescGZIP() []byte {
 }
 
 var file_rpc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_rpc_proto_goTypes = []any{
-	(RpcErrorCode)(0),                     // 0: gizclaw.rpc.v1.RpcErrorCode
+	(StatusCode)(0),                       // 0: gizclaw.rpc.v1.StatusCode
 	(RpcMethod)(0),                        // 1: gizclaw.rpc.v1.RpcMethod
 	(*RpcResponse)(nil),                   // 2: gizclaw.rpc.v1.RpcResponse
 	(*RpcStreamFrame)(nil),                // 3: gizclaw.rpc.v1.RpcStreamFrame
-	(*RpcError)(nil),                      // 4: gizclaw.rpc.v1.RpcError
-	(*RpcStreamEnd)(nil),                  // 5: gizclaw.rpc.v1.RpcStreamEnd
-	(*RpcMethodOptions)(nil),              // 6: gizclaw.rpc.v1.RpcMethodOptions
-	(*RpcRequest)(nil),                    // 7: gizclaw.rpc.v1.RpcRequest
-	(*descriptorpb.EnumValueOptions)(nil), // 8: google.protobuf.EnumValueOptions
+	(*RpcStatus)(nil),                     // 4: gizclaw.rpc.v1.RpcStatus
+	(*ErrorInfo)(nil),                     // 5: gizclaw.rpc.v1.ErrorInfo
+	(*RpcStreamEnd)(nil),                  // 6: gizclaw.rpc.v1.RpcStreamEnd
+	(*RpcMethodOptions)(nil),              // 7: gizclaw.rpc.v1.RpcMethodOptions
+	(*RpcRequest)(nil),                    // 8: gizclaw.rpc.v1.RpcRequest
+	(*descriptorpb.EnumValueOptions)(nil), // 9: google.protobuf.EnumValueOptions
 }
 var file_rpc_proto_depIdxs = []int32{
-	4, // 0: gizclaw.rpc.v1.RpcResponse.error:type_name -> gizclaw.rpc.v1.RpcError
-	4, // 1: gizclaw.rpc.v1.RpcStreamFrame.error:type_name -> gizclaw.rpc.v1.RpcError
-	5, // 2: gizclaw.rpc.v1.RpcStreamFrame.end:type_name -> gizclaw.rpc.v1.RpcStreamEnd
-	0, // 3: gizclaw.rpc.v1.RpcError.code:type_name -> gizclaw.rpc.v1.RpcErrorCode
-	1, // 4: gizclaw.rpc.v1.RpcRequest.method:type_name -> gizclaw.rpc.v1.RpcMethod
-	8, // 5: gizclaw.rpc.v1.rpc_method:extendee -> google.protobuf.EnumValueOptions
-	6, // 6: gizclaw.rpc.v1.rpc_method:type_name -> gizclaw.rpc.v1.RpcMethodOptions
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	6, // [6:7] is the sub-list for extension type_name
-	5, // [5:6] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	4, // 0: gizclaw.rpc.v1.RpcResponse.status:type_name -> gizclaw.rpc.v1.RpcStatus
+	6, // 1: gizclaw.rpc.v1.RpcStreamFrame.end:type_name -> gizclaw.rpc.v1.RpcStreamEnd
+	4, // 2: gizclaw.rpc.v1.RpcStreamFrame.status:type_name -> gizclaw.rpc.v1.RpcStatus
+	0, // 3: gizclaw.rpc.v1.RpcStatus.code:type_name -> gizclaw.rpc.v1.StatusCode
+	5, // 4: gizclaw.rpc.v1.RpcStatus.info:type_name -> gizclaw.rpc.v1.ErrorInfo
+	1, // 5: gizclaw.rpc.v1.RpcRequest.method:type_name -> gizclaw.rpc.v1.RpcMethod
+	9, // 6: gizclaw.rpc.v1.rpc_method:extendee -> google.protobuf.EnumValueOptions
+	7, // 7: gizclaw.rpc.v1.rpc_method:type_name -> gizclaw.rpc.v1.RpcMethodOptions
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	7, // [7:8] is the sub-list for extension type_name
+	6, // [6:7] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_rpc_proto_init() }
@@ -1191,21 +1296,21 @@ func file_rpc_proto_init() {
 	}
 	file_rpc_proto_msgTypes[0].OneofWrappers = []any{
 		(*RpcResponse_Payload)(nil),
-		(*RpcResponse_Error)(nil),
+		(*RpcResponse_Status)(nil),
 	}
 	file_rpc_proto_msgTypes[1].OneofWrappers = []any{
 		(*RpcStreamFrame_Payload)(nil),
-		(*RpcStreamFrame_Error)(nil),
 		(*RpcStreamFrame_End)(nil),
+		(*RpcStreamFrame_Status)(nil),
 	}
-	file_rpc_proto_msgTypes[5].OneofWrappers = []any{}
+	file_rpc_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_proto_rawDesc), len(file_rpc_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 1,
 			NumServices:   0,
 		},

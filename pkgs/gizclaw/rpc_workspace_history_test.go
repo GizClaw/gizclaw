@@ -187,7 +187,7 @@ type fakeWorkspaceHistoryAudioService struct {
 	request  rpcapi.WorkspaceHistoryAudioDownloadRequest
 }
 
-func (f *fakeWorkspaceHistoryAudioService) PrepareWorkspaceHistoryAudioDownload(_ context.Context, request rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (f *fakeWorkspaceHistoryAudioService) PrepareWorkspaceHistoryAudioDownload(_ context.Context, request rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	f.request = request
 	return f.metadata, io.NopCloser(bytes.NewReader(f.payload)), nil, nil
 }
@@ -202,7 +202,7 @@ type fakeFriendGroupMessageAudioService struct {
 	request  rpcapi.FriendGroupMessageAudioDownloadRequest
 }
 
-func (f *fakeFriendGroupMessageAudioService) PrepareFriendGroupMessageAudioDownload(_ context.Context, request rpcapi.FriendGroupMessageAudioDownloadRequest) (rpcapi.FriendGroupMessageAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (f *fakeFriendGroupMessageAudioService) PrepareFriendGroupMessageAudioDownload(_ context.Context, request rpcapi.FriendGroupMessageAudioDownloadRequest) (rpcapi.FriendGroupMessageAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	f.request = request
 	return f.metadata, io.NopCloser(bytes.NewReader(f.payload)), nil, nil
 }

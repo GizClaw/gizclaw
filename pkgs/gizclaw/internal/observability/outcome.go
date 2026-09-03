@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 const maxDimensionLength = 128
@@ -81,10 +83,14 @@ func (o *Outcome) SetRPC(code int, result Result) {
 	defer o.mu.Unlock()
 	o.rpcCode = code
 	o.hasRPCCode = code != 0
-	if code > 0 {
-		o.statusClass = statusClass(code)
-	} else {
+	// RPC codes are canonical gRPC status codes, so they have to be projected
+	// onto an HTTP status before the 2xx/4xx/5xx class means anything. Reading
+	// the code as a status directly would put every RPC outcome in "unknown".
+	// Zero means no code was recorded, not OK, so it stays unclassified.
+	if code == 0 {
 		o.statusClass = StatusClassUnknown
+	} else {
+		o.statusClass = statusClass(rpcapi.StatusCode(code).HTTPStatus())
 	}
 	o.result = result
 }

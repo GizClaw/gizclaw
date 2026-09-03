@@ -27,7 +27,7 @@ typedef GizClawToolHandler =
 class GizClawDeviceControlException implements Exception {
   const GizClawDeviceControlException(this.code, [this.message = '']);
 
-  final rpc.RpcErrorCode code;
+  final rpc.StatusCode code;
   final String message;
 
   @override
@@ -243,7 +243,7 @@ class _InboundPeerRpcChannel {
             _sendEnvelopeOnly(
               _rpcErrorResponse(
                 request.id,
-                rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+                rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
                 'invalid params',
               ),
             ).catchError((_) => _close()),
@@ -276,7 +276,7 @@ class _InboundPeerRpcChannel {
           _sendEnvelopeOnly(
             _rpcErrorResponse(
               request.id,
-              rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+              rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
               'unsupported method: $methodName',
             ),
           ).catchError((_) => _close()),
@@ -301,7 +301,7 @@ class _InboundPeerRpcChannel {
     } catch (error) {
       response = _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        rpc.StatusCode.STATUS_CODE_INTERNAL,
         error.toString(),
       );
     }
@@ -320,7 +320,7 @@ class _InboundPeerRpcChannel {
     if (provider == null) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        rpc.StatusCode.STATUS_CODE_INTERNAL,
         'peer client not configured',
       );
     }
@@ -351,7 +351,7 @@ class _InboundPeerRpcChannel {
     if (identifiersProvider == null && provider == null) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        rpc.StatusCode.STATUS_CODE_INTERNAL,
         'peer client not configured',
       );
     }
@@ -373,7 +373,7 @@ class _InboundPeerRpcChannel {
     if (!request.hasPayload()) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
         'invalid params',
       );
     }
@@ -385,7 +385,7 @@ class _InboundPeerRpcChannel {
     } catch (_) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
         'invalid params',
       );
     }
@@ -393,7 +393,7 @@ class _InboundPeerRpcChannel {
     if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_-]{0,63}$').hasMatch(name)) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
         'invalid Tool name',
       );
     }
@@ -401,7 +401,7 @@ class _InboundPeerRpcChannel {
     if (handler == null) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+        rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
         'Tool unavailable',
       );
     }
@@ -427,7 +427,7 @@ class _InboundPeerRpcChannel {
     } catch (_) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+        rpc.StatusCode.STATUS_CODE_INTERNAL,
         'Tool handler failed',
       );
     }
@@ -440,12 +440,12 @@ class _InboundPeerRpcChannel {
     final handlers = this.handlers?.deviceControl;
     rpc.RpcResponse unsupported() => _rpcErrorResponse(
       request.id,
-      rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+      rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
       'unsupported method: $methodName',
     );
     rpc.RpcResponse invalid() => _rpcErrorResponse(
       request.id,
-      rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+      rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
       'invalid params',
     );
     GeneratedMessage? params;
@@ -588,7 +588,7 @@ class _InboundPeerRpcChannel {
     } catch (_) {
       return _rpcErrorResponse(
         request.id,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+        rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
         'invalid params',
       );
     }
@@ -612,7 +612,7 @@ class _InboundPeerRpcChannel {
         _sendEnvelopeOnly(
           _rpcErrorResponse(
             request.id,
-            rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+            rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
             'missing params',
           ),
         ).catchError((_) => _close()),
@@ -703,12 +703,12 @@ class _InboundPeerRpcChannel {
 
   rpc.RpcResponse _rpcErrorResponse(
     String id,
-    rpc.RpcErrorCode code,
+    rpc.StatusCode code,
     String message,
   ) {
     return rpc.RpcResponse(
       id: id,
-      error: rpc.RpcError(code: code, message: message),
+      status: rpc.RpcStatus(code: code, message: message),
     );
   }
 

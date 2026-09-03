@@ -144,14 +144,14 @@ func callRPCSpeedTest(ctx context.Context, conn net.Conn, id string, request rpc
 
 func (s *rpcServer) handleSpeedTest(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if req.Params == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "missing params")
 	}
 	params, err := req.Params.AsSpeedTestRequest()
 	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "invalid params")
 	}
 	if err := validateSpeedTestRequest(params); err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, err.Error())
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
 
 	result, err := newRPCResultResponse(req.Id, rpcapi.SpeedTestResponse{
@@ -220,7 +220,7 @@ func validateSpeedTestRequest(request rpcapi.SpeedTestRequest) error {
 	return nil
 }
 
-func writeRPCErrorResponse(stream *rpcStream, id string, code rpcapi.RPCErrorCode, message string) error {
+func writeRPCErrorResponse(stream *rpcStream, id string, code rpcapi.StatusCode, message string) error {
 	if _, err := stream.WriteResponseEnvelope(rpcapi.Error{RequestID: id, Code: code, Message: message}.RPCResponse()); err != nil {
 		return err
 	}

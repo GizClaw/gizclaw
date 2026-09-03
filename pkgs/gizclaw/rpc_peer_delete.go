@@ -13,13 +13,13 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 		if err := stream.drainRequest(); err != nil {
 			return err
 		}
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "invalid params")
 	}
 	if err := stream.ReadEOS(); err != nil {
 		return err
 	}
 	if s.peer == nil && s.deletePeerSelf == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "peer service not configured")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "peer service not configured")
 	}
 	var err error
 	if s.deletePeerSelf != nil {
@@ -29,12 +29,12 @@ func (s *rpcServer) handlePeerDelete(ctx context.Context, stream *rpcStream, req
 	}
 	if err != nil {
 		if errors.Is(err, peer.ErrPeerNotFound) {
-			return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeNotFound, err.Error())
+			return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeNotFound, err.Error())
 		}
 		if errors.Is(err, ErrPeerConnNotActive) {
-			return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeConflict, err.Error())
+			return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeFailedPrecondition, err.Error())
 		}
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, err.Error())
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, err.Error())
 	}
 	if s.onPeerRetiring != nil {
 		s.onPeerRetiring()

@@ -352,7 +352,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 		return internalError(req.Id, "runtime profile not configured")
 	}
 	if _, exists := profile.Spec.Workflows.Collections[collection]; !exists {
-		return statusError(req.Id, http.StatusNotFound, "workflow collection not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow collection not found")
 	}
 	items, err := s.effectiveWorkspacesByLabels(ctx, map[string]string{"collection": collection})
 	if err != nil {
@@ -371,7 +371,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	sort.Strings(names)
 	pageNames, hasNext, nextCursor, conflict := pageAliases(names, params.Cursor, params.Limit, profile.Revision)
 	if conflict {
-		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
 	page := make([]rpcapi.Workspace, 0, len(pageNames))
 	for _, name := range pageNames {
@@ -390,7 +390,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string) (apitypes.Workspace, *rpcapi.RPCResponse, error) {
 	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.Workspace{}, statusError(requestID, http.StatusNotFound, "workspace not found"), nil
+		return apitypes.Workspace{}, statusError(requestID, rpcapi.StatusCodeNotFound, "workspace not found"), nil
 	}
 	return item, nil, err
 }
@@ -590,47 +590,57 @@ func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Works
 
 // ResolveAccessibleWorkspace resolves a Peer-visible name to the canonical
 // Workspace and verifies that the current peer may access it.
-func (s *Server) ResolveAccessibleWorkspace(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+func (s *Server) ResolveAccessibleWorkspace(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCStatus) {
 	if s == nil || s.Workspaces == nil {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service not configured"}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "workspace service not configured"}
 	}
 	workspace, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace not found"}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "workspace not found"}
+	}
+	// A Workspace whose deletion is still running is neither absent nor a
+	// server fault. Reporting it as FAILED_PRECONDITION lets a caller poll
+	// until the row is gone instead of reading an internal error.
+	if isWorkspacePendingDeletion(err) {
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{
+			Code:    rpcapi.StatusCodeFailedPrecondition,
+			Reason:  "WORKSPACE_PENDING_DELETION",
+			Message: "workspace deletion is pending",
+		}
 	}
 	if err != nil {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: err.Error()}
 	}
 	canonicalName := strings.TrimSpace(workspace.Name)
 	if canonicalName == "" || canonicalName != workspace.Name {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "workspace service returned an invalid canonical name"}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "workspace service returned an invalid canonical name"}
 	}
 	allowed, err := s.canAccessWorkspace(ctx, workspace)
 	if err != nil {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: err.Error()}
 	}
 	if !allowed {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "workspace is not accessible to the authenticated peer"}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodePermissionDenied, Message: "workspace is not accessible to the authenticated peer"}
 	}
 	return workspace, nil
 }
 
 // ResolveRunWorkspaceSelection additionally verifies that the resolved
 // Workspace workflow is available in the current RuntimeProfile.
-func (s *Server) ResolveRunWorkspaceSelection(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+func (s *Server) ResolveRunWorkspaceSelection(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCStatus) {
 	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, name)
 	if rpcErr != nil {
 		return apitypes.Workspace{}, rpcErr
 	}
 	if !workspaceAvailable(s.currentRuntimeProfile(), workspace) {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace workflow is not available in the current runtime profile"}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "workspace workflow is not available in the current runtime profile"}
 	}
 	return workspace, nil
 }
 
 // ValidateRunWorkspaceSelection retains the Peer RPC name-only contract while
 // the runtime can separately consume the canonical Workspace identity.
-func (s *Server) ValidateRunWorkspaceSelection(ctx context.Context, name string) (string, *rpcapi.RPCError) {
+func (s *Server) ValidateRunWorkspaceSelection(ctx context.Context, name string) (string, *rpcapi.RPCStatus) {
 	workspace, rpcErr := s.ResolveRunWorkspaceSelection(ctx, name)
 	if rpcErr != nil {
 		return "", rpcErr
@@ -648,7 +658,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 	}
 	item, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return statusError(req.Id, http.StatusNotFound, "workspace not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found")
 	}
 	if err != nil {
 		return internalError(req.Id, err.Error())
@@ -658,7 +668,7 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 		return internalError(req.Id, err.Error())
 	}
 	if !allowed {
-		return statusError(req.Id, http.StatusNotFound, "workspace not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found")
 	}
 	profile := s.currentRuntimeProfile()
 	if profile == nil {
@@ -703,13 +713,21 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 			switch createErr.Kind {
 			case workspace.PeerWorkspaceCreateInvalid:
 				observability.SetErrorCode(ctx, "INVALID_WORKSPACE")
-				return statusError(req.Id, http.StatusBadRequest, createErr.Error()), true, nil
+				return statusError(req.Id, rpcapi.StatusCodeInvalidArgument, createErr.Error()), true, nil
 			case workspace.PeerWorkspaceCreateNotFound:
 				observability.SetErrorCode(ctx, "WORKFLOW_NOT_FOUND")
-				return statusError(req.Id, http.StatusNotFound, createErr.Error()), true, nil
+				return statusError(req.Id, rpcapi.StatusCodeNotFound, createErr.Error()), true, nil
 			case workspace.PeerWorkspaceCreateConflict:
+				// The kind covers both a name already in use and a Workspace
+				// still being deleted. They need different codes: the first is
+				// permanent until the caller picks another name, the second
+				// clears on its own once deletion finishes.
+				if errors.Is(createErr, workspace.ErrWorkspacePendingDeletion) {
+					observability.SetErrorCode(ctx, "WORKSPACE_PENDING_DELETION")
+					return statusError(req.Id, rpcapi.StatusCodeFailedPrecondition, createErr.Error()), true, nil
+				}
 				observability.SetErrorCode(ctx, "WORKSPACE_ALREADY_EXISTS")
-				return statusError(req.Id, http.StatusConflict, createErr.Error()), true, nil
+				return statusError(req.Id, rpcapi.StatusCodeAlreadyExists, createErr.Error()), true, nil
 			}
 		}
 		return internalError(req.Id, err.Error()), true, nil
@@ -731,7 +749,7 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 	}
 	current, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return statusError(req.Id, http.StatusNotFound, "workspace not found"), true, nil
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found"), true, nil
 	}
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
@@ -797,7 +815,7 @@ func (s *Server) handleWorkspaceInputPut(ctx context.Context, req *rpcapi.RPCReq
 	ownerCtx := s.ownerContext(ctx)
 	current, err := s.getWorkspaceByName(ownerCtx, params.Name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return statusError(req.Id, http.StatusNotFound, "workspace not found"), true, nil
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found"), true, nil
 	}
 	if err != nil {
 		return internalError(req.Id, err.Error()), true, nil
@@ -820,13 +838,13 @@ func (s *Server) handleWorkspaceInputPut(ctx context.Context, req *rpcapi.RPCReq
 			switch inputErr.Kind {
 			case workspace.PeerWorkspaceInputPutInvalid:
 				observability.SetErrorCode(ctx, "INVALID_WORKSPACE")
-				return statusError(req.Id, http.StatusBadRequest, inputErr.Error()), true, nil
+				return statusError(req.Id, rpcapi.StatusCodeInvalidArgument, inputErr.Error()), true, nil
 			case workspace.PeerWorkspaceInputPutNotFound:
 				observability.SetErrorCode(ctx, "WORKSPACE_NOT_FOUND")
-				return statusError(req.Id, http.StatusNotFound, inputErr.Error()), true, nil
+				return statusError(req.Id, rpcapi.StatusCodeNotFound, inputErr.Error()), true, nil
 			case workspace.PeerWorkspaceInputPutConflict:
 				observability.SetErrorCode(ctx, "WORKSPACE_UPDATE_FORBIDDEN")
-				return statusError(req.Id, http.StatusConflict, inputErr.Error()), true, nil
+				return statusError(req.Id, rpcapi.StatusCodeFailedPrecondition, inputErr.Error()), true, nil
 			}
 		}
 		return internalError(req.Id, err.Error()), true, nil
@@ -848,7 +866,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 	}
 	current, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
 	if errors.Is(err, kv.ErrNotFound) {
-		return statusError(req.Id, http.StatusNotFound, "workspace not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found")
 	}
 	if err != nil {
 		return internalError(req.Id, err.Error())
@@ -879,7 +897,7 @@ func (s *Server) handleWorkspaceHistoryList(ctx context.Context, req *rpcapi.RPC
 		return invalidParams(req.Id)
 	}
 	if params.Order != nil && !params.Order.Valid() {
-		return statusError(req.Id, http.StatusBadRequest, "unsupported workspace history order")
+		return statusError(req.Id, rpcapi.StatusCodeInvalidArgument, "unsupported workspace history order")
 	}
 	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
 	if rpcErr != nil {
@@ -959,25 +977,25 @@ func (s *Server) handleFriendGroupMessagesAudioDownload(ctx context.Context, req
 
 // PrepareFriendGroupMessageAudioDownload authorizes the caller through the Group
 // binding, then opens the retained Workspace History audio without buffering.
-func (s *Server) PrepareFriendGroupMessageAudioDownload(ctx context.Context, params rpcapi.FriendGroupMessageAudioDownloadRequest) (rpcapi.FriendGroupMessageAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (s *Server) PrepareFriendGroupMessageAudioDownload(ctx context.Context, params rpcapi.FriendGroupMessageAudioDownloadRequest) (rpcapi.FriendGroupMessageAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	if strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryName) == "" {
-		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}, nil
+		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid params"}, nil
 	}
 	if s.FriendGroups == nil {
-		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "friend group service not configured"}, nil
+		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "friend group service not configured"}, nil
 	}
 	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
 	if err != nil {
 		resp := businessError("", err)
-		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
 	history, resp := s.workspaceHistoryService("")
 	if resp != nil {
-		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
 	mimeType, sizeBytes, reader, rpcErr := openWorkspaceHistoryAudio(ctx, history, workspaceID, params.HistoryName)
 	if rpcErr != nil {
-		if rpcErr.Code == rpcapi.RPCErrorCodeNotFound {
+		if rpcErr.Code == rpcapi.StatusCodeNotFound {
 			rpcErr.Message = "not found"
 		}
 		return rpcapi.FriendGroupMessageAudioDownloadResponse{}, nil, rpcErr, nil
@@ -988,13 +1006,13 @@ func (s *Server) PrepareFriendGroupMessageAudioDownload(ctx context.Context, par
 	}, reader, nil, nil
 }
 
-func (s *Server) PrepareWorkspaceHistoryAudioDownload(ctx context.Context, params rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (s *Server) PrepareWorkspaceHistoryAudioDownload(ctx context.Context, params rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	if strings.TrimSpace(params.WorkspaceName) == "" || strings.TrimSpace(params.HistoryName) == "" {
-		return rpcapi.WorkspaceHistoryAudioDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}, nil
+		return rpcapi.WorkspaceHistoryAudioDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid params"}, nil
 	}
 	history, resp := s.workspaceHistoryService("")
 	if resp != nil {
-		return rpcapi.WorkspaceHistoryAudioDownloadResponse{}, nil, &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}, nil
+		return rpcapi.WorkspaceHistoryAudioDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: resp.Error.Code, Message: resp.Error.Message}, nil
 	}
 	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, params.WorkspaceName)
 	if rpcErr != nil {
@@ -1012,7 +1030,7 @@ func (s *Server) PrepareWorkspaceHistoryAudioDownload(ctx context.Context, param
 	}, r, nil, nil
 }
 
-func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryService, workspaceID, historyName string) (string, int64, io.ReadCloser, *rpcapi.RPCError) {
+func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryService, workspaceID, historyName string) (string, int64, io.ReadCloser, *rpcapi.RPCStatus) {
 	entry, err := history.GetWorkspaceHistoryByID(ctx, workspaceID, historyName)
 	if err != nil {
 		return "", 0, nil, historyRPCError(err)
@@ -1028,7 +1046,7 @@ func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryServ
 		}
 	}
 	if mimeType == "" {
-		return "", 0, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace history entry has no audio"}
+		return "", 0, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "workspace history entry has no audio"}
 	}
 	r, err := history.ReadWorkspaceHistoryAssetByID(ctx, workspaceID, asset.Name)
 	if err != nil {
@@ -1037,14 +1055,14 @@ func openWorkspaceHistoryAudio(ctx context.Context, history WorkspaceHistoryServ
 	return mimeType, asset.Bytes, r, nil
 }
 
-func historyRPCError(err error) *rpcapi.RPCError {
+func historyRPCError(err error) *rpcapi.RPCStatus {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, kv.ErrNotFound), errors.Is(err, fs.ErrNotExist):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
+		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: err.Error()}
 	default:
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}
+		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: err.Error()}
 	}
 }
 
@@ -1094,12 +1112,12 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 	}
 	bindings, exists := profile.Spec.Workflows.Collections[strings.TrimSpace(params.Collection)]
 	if !exists {
-		return statusError(req.Id, http.StatusNotFound, "workflow collection not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow collection not found")
 	}
 	aliases := sortedBindingAliases(bindings)
 	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
 	if conflict {
-		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
 	items, err := s.listRuntimeWorkflows(ctx, params.Collection, bindings, page)
 	if err != nil {
@@ -1148,7 +1166,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	}
 	collection, binding, exists := workflowBinding(profile, params.Name)
 	if !exists {
-		return statusError(req.Id, http.StatusNotFound, "workflow not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow not found")
 	}
 	adminResp, err := s.Workflows.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: binding.ResourceId})
 	if err != nil {
@@ -1160,7 +1178,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	}
 	if rpcResp != nil {
 		if isNotFoundResponse(rpcResp) {
-			return statusError(req.Id, http.StatusNotFound, "workflow not found")
+			return statusError(req.Id, rpcapi.StatusCodeNotFound, "workflow not found")
 		}
 		return withRequestID(req.Id, rpcResp)
 	}
@@ -1197,14 +1215,14 @@ func (s *Server) handleModelList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	aliases := sortedBindingAliases(bindings)
 	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
 	if conflict {
-		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
 	items := make([]rpcapi.Model, 0, len(page))
 	for _, alias := range page {
 		binding := bindings[alias]
 		item, response := s.getModelValue(ctx, binding.ResourceId)
 		if response != nil {
-			if response.Error != nil && response.Error.Code == rpcapi.RPCErrorCodeNotFound {
+			if response.Error != nil && response.Error.Code == rpcapi.StatusCodeNotFound {
 				continue
 			}
 			return withRequestID(req.Id, response)
@@ -1235,12 +1253,12 @@ func (s *Server) handleModelGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	binding, exists := bindingMap(profile.Spec.Resources.Models)[strings.TrimSpace(params.Name)]
 	if !exists {
-		return statusError(req.Id, http.StatusNotFound, "model not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "model not found")
 	}
 	item, response := s.getModelValue(ctx, binding.ResourceId)
 	if response != nil {
 		if isNotFoundResponse(response) {
-			return statusError(req.Id, http.StatusNotFound, "model not found")
+			return statusError(req.Id, rpcapi.StatusCodeNotFound, "model not found")
 		}
 		return withRequestID(req.Id, response)
 	}
@@ -1348,7 +1366,7 @@ func (s *Server) handleVoiceList(ctx context.Context, req *rpcapi.RPCRequest) *r
 	aliases := sortedBindingAliases(bindings)
 	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
 	if conflict {
-		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
 	items := make([]rpcapi.Voice, 0, len(page))
 	for _, alias := range page {
@@ -1389,7 +1407,7 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	binding, exists := bindingMap(profile.Spec.Resources.Voices)[strings.TrimSpace(params.Name)]
 	if !exists {
-		return statusError(req.Id, http.StatusNotFound, "voice not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "voice not found")
 	}
 	adminResp, err := s.Voices.GetVoice(ctx, adminhttp.GetVoiceRequestObject{Id: binding.ResourceId})
 	if err != nil {
@@ -1401,7 +1419,7 @@ func (s *Server) handleVoiceGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	if rpcResp != nil {
 		if isNotFoundResponse(rpcResp) {
-			return statusError(req.Id, http.StatusNotFound, "voice not found")
+			return statusError(req.Id, rpcapi.StatusCodeNotFound, "voice not found")
 		}
 		return withRequestID(req.Id, rpcResp)
 	}
@@ -1457,9 +1475,9 @@ func adminResultWithCode[T any](visit func(*fiber.Ctx) error) (T, *rpcapi.RPCRes
 		if message == "" {
 			message = http.StatusText(status)
 		}
-		return result, statusError("", status, message), apiErr.Error.Code, nil
+		return result, statusError("", rpcapi.StatusCodeFromHTTP(status), message), apiErr.Error.Code, nil
 	}
-	return result, statusError("", status, http.StatusText(status)), "", nil
+	return result, statusError("", rpcapi.StatusCodeFromHTTP(status), http.StatusText(status)), "", nil
 }
 
 func renderAdminResponse(visit func(*fiber.Ctx) error) (int, []byte, error) {
@@ -1663,20 +1681,29 @@ func valueOrZero[T any](value *T) T {
 }
 
 func invalidParams(id string) *rpcapi.RPCResponse {
-	return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}.RPCResponse()
+	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid params"}.RPCResponse()
 }
 
 func internalError(id, message string) *rpcapi.RPCResponse {
-	return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeInternalError, Message: message}.RPCResponse()
+	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeInternal, Message: message}.RPCResponse()
 }
 
-func statusError(id string, statusCode int, message string) *rpcapi.RPCResponse {
-	if message == "" {
-		message = http.StatusText(statusCode)
-	}
-	code := rpcapi.RPCErrorCode(statusCode)
+// isWorkspacePendingDeletion reports whether err is the pending-deletion
+// sentinel. It lives at file scope because the callers name their local
+// Workspace value "workspace", which shadows the package of the same name.
+func isWorkspacePendingDeletion(err error) bool {
+	return errors.Is(err, workspace.ErrWorkspacePendingDeletion)
+}
+
+// statusError builds a failed RPC response from a canonical status code. It
+// used to take an HTTP status and cast it into the error code, which silently
+// turned every status outside the old enum into an internal error.
+func statusError(id string, code rpcapi.StatusCode, message string) *rpcapi.RPCResponse {
 	if !code.Valid() {
-		code = rpcapi.RPCErrorCodeInternalError
+		code = rpcapi.StatusCodeInternal
+	}
+	if message == "" {
+		message = code.String()
 	}
 	return rpcapi.Error{RequestID: id, Code: code, Message: message}.RPCResponse()
 }

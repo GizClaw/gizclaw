@@ -47,7 +47,7 @@ func TestRPCRegistrationReplacesSnapshotAndRejectedTokenPreservesIt(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rejected.Error == nil || rejected.Error.Code != rpcapi.RPCErrorCodeForbidden {
+	if rejected.Error == nil || rejected.Error.Code != rpcapi.StatusCodePermissionDenied {
 		t.Fatalf("invalid registration response = %#v", rejected)
 	}
 	if got := snapshot.Load(); got == nil || got.RuntimeProfile.Id != "profile-a" {
@@ -264,7 +264,7 @@ func TestRPCRegistrationFirmwareBindingFailurePreservesSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("server.register = %#v, want internal error", response)
 	}
 	if active := snapshot.Load(); active == nil || active.RuntimeProfile.Id != "previous-profile" {
@@ -308,7 +308,7 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("server.register = %#v, want internal error", response)
 	}
 	stored, err := peers.LoadPeer(ctx, publicKey)

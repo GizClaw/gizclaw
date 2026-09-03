@@ -3,7 +3,7 @@ export 'src/generated/events/peer_event.pb.dart';
 export 'src/generated/events/peer_event.pbenum.dart';
 export 'src/generated/rpc/payload.pb.dart';
 export 'src/generated/rpc/payload.pbenum.dart';
-export 'src/generated/rpc/rpc.pbenum.dart' show RpcErrorCode;
+export 'src/generated/rpc/rpc.pbenum.dart' show StatusCode;
 export 'src/method_registry.dart';
 export 'src/payload_codec.dart';
 export 'src/peer_rpc_server.dart';

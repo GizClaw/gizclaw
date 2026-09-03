@@ -93,10 +93,10 @@ func handleRPCPing(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResp
 		return nil, err
 	}
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	if _, err := req.Params.AsPingRequest(); err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid params"}.RPCResponse(), nil
 	}
 	return newRPCPingResponse(req.Id, rpcapi.PingResponse{ServerTime: time.Now().UnixMilli()})
 }
@@ -272,7 +272,7 @@ func validateRPCParams[T any](params *rpcapi.RPCPayload, decode func(rpcapi.RPCP
 }
 
 func rpcInvalidParams(id string) *rpcapi.RPCResponse {
-	return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "invalid params"}.RPCResponse()
+	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid params"}.RPCResponse()
 }
 
 func rpcAPIError(id string, statusCode int, body apitypes.ErrorResponse) *rpcapi.RPCResponse {
@@ -280,13 +280,13 @@ func rpcAPIError(id string, statusCode int, body apitypes.ErrorResponse) *rpcapi
 	if message == "" {
 		message = http.StatusText(statusCode)
 	}
-	return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCode(statusCode), Message: message}.RPCResponse()
+	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCode(statusCode), Message: message}.RPCResponse()
 }
 
 func rpcUnexpectedResponse(id string, response any) *rpcapi.RPCResponse {
 	return rpcapi.Error{
 		RequestID: id,
-		Code:      rpcapi.RPCErrorCodeInternalError,
+		Code:      rpcapi.StatusCodeInternal,
 		Message:   fmt.Sprintf("unexpected server service response: %T", response),
 	}.RPCResponse()
 }

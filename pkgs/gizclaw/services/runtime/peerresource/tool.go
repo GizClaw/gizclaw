@@ -3,7 +3,6 @@ package peerresource
 import (
 	"context"
 	"errors"
-	"net/http"
 	"sort"
 	"strings"
 
@@ -28,7 +27,7 @@ func (s *Server) handleToolList(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	aliases := sortedBindingAliases(bindings)
 	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, profile.Revision)
 	if conflict {
-		return statusError(req.Id, http.StatusConflict, "runtime profile revision changed")
+		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
 	}
 	items := make([]rpcapi.Tool, 0, len(page))
 	for _, alias := range page {
@@ -62,11 +61,11 @@ func (s *Server) handleToolGet(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	}
 	binding, ok := bindingMap(profile.Spec.Resources.Tools)[strings.TrimSpace(params.Name)]
 	if !ok {
-		return statusError(req.Id, http.StatusNotFound, "tool not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "tool not found")
 	}
 	tool, err := s.Tools.GetToolByID(ctx, binding.ResourceId)
 	if errors.Is(err, toolkit.ErrToolNotFound) {
-		return statusError(req.Id, http.StatusNotFound, "tool not found")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "tool not found")
 	}
 	if err != nil {
 		return internalError(req.Id, err.Error())

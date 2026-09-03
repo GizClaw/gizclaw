@@ -24,7 +24,7 @@ func (c *rpcClient) dispatchStream(ctx context.Context, stream *rpcStream, req *
 
 func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req == nil {
-		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
+		return rpcapi.Error{Code: rpcapi.StatusCodeInvalidArgument, Message: "nil request"}.RPCResponse(), nil
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodClientInfoGet:
@@ -37,12 +37,12 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
 		rpcapi.RPCMethodClientWifiSavedForget, rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect:
 		if c.peer == nil {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer client not configured"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer client not configured"}.RPCResponse(), nil
 		}
 		return c.handleDeviceControl(ctx, req)
 	case rpcapi.RPCMethodAllPing:
 		return handleRPCPing(ctx, req)
 	default:
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported method: " + string(req.Method)}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported method: " + string(req.Method)}.RPCResponse(), nil
 	}
 }

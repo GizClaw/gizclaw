@@ -232,7 +232,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callRPC() error = %v", err)
 	}
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %#v", resp)
 	}
 	if resp.Error.Message != "unchanged client message" {
@@ -251,7 +251,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 	}
 	for key, want := range map[string]any{
 		"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
-		"result": "client_error", "rpc_code": int64(400), "request_id": "request-1",
+		"result": "client_error", "rpc_code": int64(rpcapi.StatusCodeInvalidArgument), "request_id": "request-1",
 		"error_code": "INVALID_WORKSPACE", "workspace_name": "workspace-a", "workflow_name": "chat",
 	} {
 		if got := attrs[key]; got != want {
@@ -322,7 +322,7 @@ func TestRPCServerLogsExistingParseErrorResponseAsWarn(t *testing.T) {
 	serverErrCh := make(chan error, 1)
 	go func() {
 		serverErrCh <- handleRPCWithStreamObserved(serverSide, func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeParseError, Message: "secret parse text"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "secret parse text"}.RPCResponse(), nil
 		}, nil, &rpcObservationOptions{peerPublicKey: "peer-key"})
 	}()
 
@@ -332,7 +332,7 @@ func TestRPCServerLogsExistingParseErrorResponseAsWarn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callRPC() error = %v", err)
 	}
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeParseError {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %#v", resp)
 	}
 	_ = clientSide.Close()
@@ -340,7 +340,7 @@ func TestRPCServerLogsExistingParseErrorResponseAsWarn(t *testing.T) {
 		t.Fatalf("server error = %v", err)
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
-	if record.Level.String() != "WARN" || attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeParseError) || attrs["result"] != "client_error" {
+	if record.Level.String() != "WARN" || attrs["rpc_code"] != int64(rpcapi.StatusCodeInvalidArgument) || attrs["result"] != "client_error" {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
 	if strings.Contains(fmt.Sprint(attrs), "secret parse text") {
@@ -477,7 +477,7 @@ func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
 				if err := stream.ReadEOS(); err != nil {
 					return false, err
 				}
-				return true, writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "secret invalid params")
+				return true, writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "secret invalid params")
 			},
 			&rpcObservationOptions{peerPublicKey: "peer-key"},
 		)
@@ -489,7 +489,7 @@ func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callRPC() error = %v", err)
 	}
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %#v", resp)
 	}
 	_ = clientSide.Close()
@@ -497,7 +497,7 @@ func TestRPCServerLogsStreamingErrorResponse(t *testing.T) {
 		t.Fatalf("server error = %v", err)
 	}
 	record, attrs := onlyCapturedRecord(t, capture)
-	if record.Level.String() != "WARN" || attrs["result"] != "client_error" || attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeInvalidParams) {
+	if record.Level.String() != "WARN" || attrs["result"] != "client_error" || attrs["rpc_code"] != int64(rpcapi.StatusCodeInvalidArgument) {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
 	if strings.Contains(fmt.Sprint(attrs), "secret invalid params") {

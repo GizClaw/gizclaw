@@ -9,10 +9,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
-// A YAML document decodes a negative error code as int and a non-negative one
-// as uint64, so a scripted 404 has to survive both forms.
+// A YAML document decodes a code as int and a JSON round trip as float64, so a
+// scripted status code has to survive every integral form.
 func TestDeviceControlErrorResponseAcceptsEveryIntegralForm(t *testing.T) {
-	for _, raw := range []any{404, int64(404), uint64(404), uint(404), float64(404)} {
+	for _, raw := range []any{5, int64(5), uint64(5), uint(5), float64(5)} {
 		scripted, err := deviceControlErrorResponse(map[string]any{"error_code": raw})
 		if err != nil {
 			t.Fatalf("%T: unexpected error %v", raw, err)
@@ -21,23 +21,37 @@ func TestDeviceControlErrorResponseAcceptsEveryIntegralForm(t *testing.T) {
 		if !errors.As(scripted, &rpcErr) {
 			t.Fatalf("%T: scripted error = %v", raw, scripted)
 		}
-		if rpcErr.Code != rpcapi.RPCErrorCodeNotFound {
-			t.Fatalf("%T: code = %d, want %d", raw, rpcErr.Code, rpcapi.RPCErrorCodeNotFound)
+		if rpcErr.Code != rpcapi.StatusCodeNotFound {
+			t.Fatalf("%T: code = %d, want %d", raw, rpcErr.Code, rpcapi.StatusCodeNotFound)
 		}
 	}
-	scripted, err := deviceControlErrorResponse(map[string]any{"error_code": -32602, "error_message": "no"})
+	scripted, err := deviceControlErrorResponse(map[string]any{"error_code": 3, "error_message": "no"})
 	if err != nil {
-		t.Fatalf("negative code: unexpected error %v", err)
+		t.Fatalf("message-carrying code: unexpected error %v", err)
 	}
 	var rpcErr rpcapi.Error
-	if !errors.As(scripted, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeInvalidParams || rpcErr.Message != "no" {
-		t.Fatalf("negative code = %+v", rpcErr)
+	if !errors.As(scripted, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeInvalidArgument || rpcErr.Message != "no" {
+		t.Fatalf("message-carrying code = %+v", rpcErr)
+	}
+}
+
+// A document that still carries a retired JSON-RPC or HTTP code fails the step
+// instead of scripting a provider whose answer no peer can interpret.
+func TestDeviceControlErrorResponseRejectsNonCanonicalCodes(t *testing.T) {
+	for _, raw := range []any{-32700, -32603, -32602, 400, 403, 404, 409, 17} {
+		scripted, err := deviceControlErrorResponse(map[string]any{"error_code": raw})
+		if err == nil {
+			t.Fatalf("%v: expected a validation error, got scripted %v", raw, scripted)
+		}
+		if scripted != nil {
+			t.Fatalf("%v: validation error must not install a provider", raw)
+		}
 	}
 }
 
 func TestDeviceControlErrorResponseRejectsMalformedCode(t *testing.T) {
 	// A value that does not fit the int32 wire field would otherwise wrap into
-	// a different RPC error code.
+	// a different status code.
 	outOfRange := []any{
 		int64(math.MaxInt32) + 1,
 		uint64(math.MaxInt32) + 1,
@@ -71,7 +85,7 @@ func TestInstallDeviceControlRejectsMalformedCode(t *testing.T) {
 func TestInstallDeviceControlWifiScanAndConnectErrors(t *testing.T) {
 	var handlers gizcli.DeviceControlHandlers
 	for _, method := range []string{"client.wifi.scan", "client.wifi.connect"} {
-		if err := installDeviceControl(&handlers, method, map[string]any{"error_code": -32602, "error_message": "rejected"}); err != nil {
+		if err := installDeviceControl(&handlers, method, map[string]any{"error_code": 3, "error_message": "rejected"}); err != nil {
 			t.Fatalf("install %s: %v", method, err)
 		}
 	}
@@ -79,7 +93,7 @@ func TestInstallDeviceControlWifiScanAndConnectErrors(t *testing.T) {
 	connectErr := handlers.ConnectWifi(t.Context(), "home", new("correct-horse"))
 	for method, err := range map[string]error{"client.wifi.scan": scanErr, "client.wifi.connect": connectErr} {
 		var rpcErr rpcapi.Error
-		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeInvalidParams || rpcErr.Message != "rejected" {
+		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeInvalidArgument || rpcErr.Message != "rejected" {
 			t.Fatalf("%s error = %#v", method, err)
 		}
 	}

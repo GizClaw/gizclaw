@@ -386,13 +386,13 @@ func (rpcPixaWorkspaceService) GetWorkspaceByName(_ context.Context, name string
 	return apitypes.Workspace{Id: "id-" + name, Name: name}, nil
 }
 
-func (f *fakeGameplayPixaDownloadService) PreparePetPixaDownload(_ context.Context, request rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (f *fakeGameplayPixaDownloadService) PreparePetPixaDownload(_ context.Context, request rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	f.petPixaRequest = request
 	return f.petPixaMetadata, io.NopCloser(bytes.NewReader(f.petPixaPayload)), nil, nil
 }
 
-func (f *fakeGameplayPixaDownloadService) PrepareBadgeDefPixaDownload(context.Context, rpcapi.BadgeDefPixaDownloadRequest) (rpcapi.BadgeDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
-	return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "not found"}, nil
+func (f *fakeGameplayPixaDownloadService) PrepareBadgeDefPixaDownload(context.Context, rpcapi.BadgeDefPixaDownloadRequest) (rpcapi.BadgeDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
+	return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "not found"}, nil
 }
 
 func (f *fakeGameplayPixaDownloadService) Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {

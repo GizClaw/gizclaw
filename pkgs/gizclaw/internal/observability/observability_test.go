@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 type captureHandler struct {
@@ -98,7 +100,7 @@ func TestOutcomeRejectsUnsafeValuesAndMapsLevels(t *testing.T) {
 	}
 }
 
-func TestOutcomeOmitsAbsentRPCCodeAndMapsHTTPStyleCodeClass(t *testing.T) {
+func TestOutcomeOmitsAbsentRPCCodeAndClassesCanonicalStatus(t *testing.T) {
 	outcome := NewOutcome(TransportRPC, SurfacePeerRPC, "server.workspace.get")
 	outcome.SetRPC(0, ResultSuccess)
 	_, attrs := outcome.logRecord()
@@ -108,14 +110,28 @@ func TestOutcomeOmitsAbsentRPCCodeAndMapsHTTPStyleCodeClass(t *testing.T) {
 		}
 	}
 
-	outcome.SetRPC(404, ResultClientError)
-	_, attrs = outcome.logRecord()
-	got := make(map[string]any)
-	for _, attr := range attrs {
-		got[attr.Key] = attr.Value.Any()
-	}
-	if got["rpc_code"] != int64(404) || got["status_class"] != "4xx" {
-		t.Fatalf("attrs = %#v", got)
+	// Canonical status codes are small integers, so the class has to come from
+	// the HTTP status each one projects onto. Reading the code as a status
+	// would put every RPC outcome in "unknown".
+	for _, test := range []struct {
+		code  int
+		class string
+	}{
+		{int(rpcapi.StatusCodeNotFound), "4xx"},
+		{int(rpcapi.StatusCodeInvalidArgument), "4xx"},
+		{int(rpcapi.StatusCodePermissionDenied), "4xx"},
+		{int(rpcapi.StatusCodeInternal), "5xx"},
+		{int(rpcapi.StatusCodeUnavailable), "5xx"},
+	} {
+		outcome.SetRPC(test.code, ResultClientError)
+		_, attrs = outcome.logRecord()
+		got := make(map[string]any)
+		for _, attr := range attrs {
+			got[attr.Key] = attr.Value.Any()
+		}
+		if got["rpc_code"] != int64(test.code) || got["status_class"] != test.class {
+			t.Fatalf("code %d attrs = %#v, want class %s", test.code, got, test.class)
+		}
 	}
 }
 

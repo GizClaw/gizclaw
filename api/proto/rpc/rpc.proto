@@ -8,39 +8,69 @@ option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpc
 
 message RpcResponse {
   string id = 1;
+  // Field 3 carried RpcError, whose RpcErrorCode mixed JSON-RPC 2.0 reserved
+  // codes with HTTP status numbers. RpcStatus replaces it on a new field so a
+  // build predating the change fails to find a body rather than decoding a
+  // canonical StatusCode as an unknown member of the old enum.
+  reserved 3;
+  reserved "error";
   oneof body {
     bytes payload = 2;
-    RpcError error = 3;
+    RpcStatus status = 5;
   }
 }
 
 message RpcStreamFrame {
   string id = 1;
+  reserved 3;
+  reserved "error";
   oneof body {
     bytes payload = 2;
-    RpcError error = 3;
     RpcStreamEnd end = 4;
+    RpcStatus status = 5;
   }
 }
 
-message RpcError {
-  RpcErrorCode code = 1;
+// RpcStatus is the terminal status of one RPC. It follows google.rpc.Status
+// with one deviation: details is a typed ErrorInfo rather than
+// repeated google.protobuf.Any, because nanopb cannot resolve type URLs at
+// runtime and the C SDK allocates nothing.
+message RpcStatus {
+  StatusCode code = 1;
   string message = 2;
+  ErrorInfo info = 3;
+}
+
+// ErrorInfo names the specific failure behind a StatusCode. code is the class
+// a client branches on; reason is the reason a human or a UI reads. It follows
+// google.rpc.ErrorInfo without the metadata map, which no caller needs and
+// which nanopb can only express as a bounded repeated entry message.
+message ErrorInfo {
+  string reason = 1;
+  string domain = 2;
 }
 
 message RpcStreamEnd {}
 
-enum RpcErrorCode {
-  RPC_ERROR_CODE_UNSPECIFIED = 0;
-  RPC_ERROR_CODE_PARSE_ERROR = -32700;
-  RPC_ERROR_CODE_INVALID_REQUEST = -32600;
-  RPC_ERROR_CODE_METHOD_NOT_FOUND = -32601;
-  RPC_ERROR_CODE_INVALID_PARAMS = -32602;
-  RPC_ERROR_CODE_INTERNAL_ERROR = -32603;
-  RPC_ERROR_CODE_BAD_REQUEST = 400;
-  RPC_ERROR_CODE_FORBIDDEN = 403;
-  RPC_ERROR_CODE_NOT_FOUND = 404;
-  RPC_ERROR_CODE_CONFLICT = 409;
+// StatusCode is the canonical gRPC status code set (google.rpc.Code).
+enum StatusCode {
+  STATUS_CODE_OK = 0;
+  STATUS_CODE_CANCELLED = 1;
+  STATUS_CODE_UNKNOWN = 2;
+  STATUS_CODE_INVALID_ARGUMENT = 3;
+  STATUS_CODE_DEADLINE_EXCEEDED = 4;
+  STATUS_CODE_NOT_FOUND = 5;
+  STATUS_CODE_ALREADY_EXISTS = 6;
+  STATUS_CODE_PERMISSION_DENIED = 7;
+  STATUS_CODE_RESOURCE_EXHAUSTED = 8;
+  STATUS_CODE_FAILED_PRECONDITION = 9;
+  STATUS_CODE_ABORTED = 10;
+  STATUS_CODE_OUT_OF_RANGE = 11;
+  STATUS_CODE_UNIMPLEMENTED = 12;
+  STATUS_CODE_INTERNAL = 13;
+  STATUS_CODE_UNAVAILABLE = 14;
+  STATUS_CODE_DATA_LOSS = 15;
+  STATUS_CODE_UNAUTHENTICATED = 16;
 }
 
 

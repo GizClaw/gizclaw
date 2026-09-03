@@ -166,7 +166,7 @@ TypeScript 使用 `@gizclaw/gizclaw/peerhttp` 生成的 `setDeviceVolume`、`get
 ## 错误处理与连接生命周期
 
 - Admin API 的 HTTP error body 使用稳定的 error code；不要依赖 message 文本做程序分支。
-- RPC failure 使用 `RpcErrorCode`。标准 code 包括 parse error、invalid request、method not found、invalid params、internal error，以及 `400`、`403`、`404`、`409`。
+- RPC failure 使用 `RpcStatus`：一个 canonical gRPC `StatusCode`（`google.rpc.Code`，`0`-`16`）、一条 message，以及可选的 `ErrorInfo`，其 `reason` 说明该 code 背后的具体原因。`NOT_FOUND` 是分类，`WORKSPACE_PENDING_DELETION` 是原因。
 - transport error、timeout 或 connection close 不代表写操作一定没有生效。重试变更操作前，应先查询 Server 的最终状态。
 - TypeScript 会话结束时关闭 `RTCPeerConnection`；Go 会话结束时关闭 `gizcli.Client`。连接断开后应重新连接，不要继续复用旧 client。
 

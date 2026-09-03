@@ -29,7 +29,7 @@ void main() {
 
     final response = _singleEnvelopeResponse(channel);
     expect(response.id, 'srv-ping');
-    expect(response.hasError(), isFalse);
+    expect(response.hasStatus(), isFalse);
     final decoded =
         decodeRpcResponsePayload('all.ping', response.payload) as PingResponse;
     expect(decoded.serverTime.toInt(), greaterThan(0));
@@ -85,7 +85,7 @@ void main() {
 
     final response = _singleEnvelopeResponse(channel);
     expect(response.id, 'srv-missing-ping');
-    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
   });
 
   test('rejects server-initiated all.speed_test.run without payload', () async {
@@ -102,7 +102,7 @@ void main() {
 
     final response = _singleEnvelopeResponse(channel);
     expect(response.id, 'srv-missing-speed');
-    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
   });
 
   final device = DeviceInfo(
@@ -322,11 +322,8 @@ void main() {
       methodName: 'client.tool.invoke',
       request: ToolInvokeRequest(invokeName: 'missing_tool'),
     );
-    expect(
-      response.error.code,
-      rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
-    );
-    expect(response.error.message, 'Tool unavailable');
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
+    expect(response.status.message, 'Tool unavailable');
   });
 }
 
@@ -452,7 +449,7 @@ void deviceControlTests() {
         playSound: (sound, durationMs) {
           if (sound != 'chime') {
             throw const GizClawDeviceControlException(
-              rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+              rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
               'unknown sound',
             );
           }
@@ -468,7 +465,7 @@ void deviceControlTests() {
         forgetWifi: (ssid) {
           if (!saved.remove(ssid)) {
             throw const GizClawDeviceControlException(
-              rpc.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND,
+              rpc.StatusCode.STATUS_CODE_NOT_FOUND,
               'unknown network',
             );
           }
@@ -491,7 +488,7 @@ void deviceControlTests() {
       methodName: 'client.device.volume.set',
       request: ClientDeviceVolumeSetRequest(level: Int64(35), muted: true),
     );
-    expect(response.hasError(), isFalse);
+    expect(response.hasStatus(), isFalse);
     final applied =
         decodeRpcResponsePayload('client.device.volume.set', response.payload)
             as ClientDeviceVolumeSetResponse;
@@ -507,7 +504,7 @@ void deviceControlTests() {
       methodName: 'client.device.volume.set',
       request: ClientDeviceVolumeSetRequest(level: Int64(101), muted: false),
     );
-    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
     expect(volume, 35);
 
     response = await callDevice(
@@ -532,7 +529,7 @@ void deviceControlTests() {
         durationMs: Int64(1500),
       ),
     );
-    expect(response.hasError(), isFalse);
+    expect(response.hasStatus(), isFalse);
     expect(lastSound, 'chime');
     expect(lastDuration, 1500);
     response = await callDevice(
@@ -542,8 +539,8 @@ void deviceControlTests() {
       methodName: 'client.device.sound.play',
       request: ClientDeviceSoundPlayRequest(sound: 'unknown'),
     );
-    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
-    expect(response.error.message, 'unknown sound');
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
+    expect(response.status.message, 'unknown sound');
     response = await callDevice(
       handlers,
       id: 'sound-too-long',
@@ -551,7 +548,7 @@ void deviceControlTests() {
       methodName: 'client.device.sound.play',
       request: ClientDeviceSoundPlayRequest(sound: 'a' * 33),
     );
-    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
 
     response = await callDevice(
       handlers,
@@ -560,7 +557,7 @@ void deviceControlTests() {
       methodName: 'client.device.reboot',
       request: ClientDeviceRebootRequest(delayMs: Int64(2000)),
     );
-    expect(response.hasError(), isFalse);
+    expect(response.hasStatus(), isFalse);
     expect(lastDelay, 2000);
 
     response = await callDevice(
@@ -584,7 +581,7 @@ void deviceControlTests() {
       methodName: 'client.wifi.saved.forget',
       request: ClientWifiSavedForgetRequest(ssid: 'office'),
     );
-    expect(response.hasError(), isFalse);
+    expect(response.hasStatus(), isFalse);
     response = await callDevice(
       handlers,
       id: 'forget-missing',
@@ -592,7 +589,7 @@ void deviceControlTests() {
       methodName: 'client.wifi.saved.forget',
       request: ClientWifiSavedForgetRequest(ssid: 'office'),
     );
-    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND);
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_NOT_FOUND);
 
     response = await callDevice(
       handlers,
@@ -630,7 +627,7 @@ void deviceControlTests() {
         passphrase: 'correct-horse',
       ),
     );
-    expect(response.hasError(), isFalse);
+    expect(response.hasStatus(), isFalse);
     expect(lastConnectSsid, 'office');
     expect(lastPassphrase, 'correct-horse');
   });
@@ -651,10 +648,7 @@ void deviceControlTests() {
         methodName: 'client.device.volume.set',
         request: ClientDeviceVolumeSetRequest(level: Int64(1), muted: false),
       );
-      expect(
-        response.error.code,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
-      );
+      expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
       response = await callDevice(
         partial,
         id: 'wifi-ok',
@@ -662,7 +656,7 @@ void deviceControlTests() {
         methodName: 'client.wifi.status.get',
         request: ClientWifiStatusGetRequest(),
       );
-      expect(response.hasError(), isFalse);
+      expect(response.hasStatus(), isFalse);
 
       for (final unsupported in [
         (
@@ -683,10 +677,7 @@ void deviceControlTests() {
           methodName: unsupported.$2,
           request: unsupported.$3,
         );
-        expect(
-          response.error.code,
-          rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
-        );
+        expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
       }
 
       response = await callDevice(
@@ -696,10 +687,7 @@ void deviceControlTests() {
         methodName: 'client.device.reboot',
         request: ClientDeviceRebootRequest(),
       );
-      expect(
-        response.error.code,
-        rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
-      );
+      expect(response.status.code, rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED);
     },
   );
 }

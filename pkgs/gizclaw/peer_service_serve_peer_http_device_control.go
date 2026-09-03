@@ -37,12 +37,13 @@ const (
 	maxWifiScanBSSIDBytes = 17
 	maxWifiSecurityBytes  = 5
 
-	deviceOfflineCode      = "DEVICE_OFFLINE"
-	deviceTimeoutCode      = "DEVICE_TIMEOUT"
-	deviceRejectedCode     = "DEVICE_REJECTED"
-	deviceUnsupportedCode  = "DEVICE_UNSUPPORTED"
-	deviceErrorCode        = "DEVICE_ERROR"
-	wifiNetworkNotFoundKey = "WIFI_NETWORK_NOT_FOUND"
+	deviceOfflineCode         = "DEVICE_OFFLINE"
+	deviceTimeoutCode         = "DEVICE_TIMEOUT"
+	deviceRejectedCode        = "DEVICE_REJECTED"
+	deviceUnsupportedCode     = "DEVICE_UNSUPPORTED"
+	deviceErrorCode           = "DEVICE_ERROR"
+	wifiNetworkNotFoundKey    = "WIFI_NETWORK_NOT_FOUND"
+	deviceResourceNotFoundKey = "DEVICE_RESOURCE_NOT_FOUND"
 )
 
 // deviceController forwards Public HTTP control commands to the API key
@@ -135,6 +136,10 @@ type deviceControlOptions struct {
 	// transitioning before the owner command lock is released.
 	markTransition bool
 	timeout        time.Duration
+	// notFoundCode is the Public HTTP error code for a NOT_FOUND answer from
+	// this route. Routes that name a specific resource set it; the rest fall
+	// back to the generic code rather than borrowing another route's.
+	notFoundCode string
 }
 
 // callDeviceControl serializes one control RPC for owner and maps transport,
@@ -168,12 +173,12 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	defer cancel()
 	stream, err := target.Dial(ServicePeerRPC)
 	if err != nil {
-		return nil, mapDeviceControlError(fmt.Errorf("dial peer rpc: %w", err), callCtx)
+		return nil, mapDeviceControlError(fmt.Errorf("dial peer rpc: %w", err), callCtx, opts.notFoundCode)
 	}
 	defer func() { _ = stream.Close() }()
 	result, err := call(callCtx, &rpcClient{}, stream)
 	if err != nil {
-		return nil, mapDeviceControlError(err, callCtx)
+		return nil, mapDeviceControlError(err, callCtx, opts.notFoundCode)
 	}
 	if opts.markTransition {
 		c.markTransitioning(owner, target)
@@ -186,7 +191,12 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	return result, nil
 }
 
-func mapDeviceControlError(err error, ctx context.Context) *deviceControlError {
+// mapDeviceControlError projects one control failure onto the Public HTTP
+// error contract. The HTTP status comes from the canonical status code table,
+// so a code this function does not name specifically still reaches the client
+// as itself instead of a bad gateway. notFoundCode names the resource a
+// NOT_FOUND answer refers to on the calling route.
+func mapDeviceControlError(err error, ctx context.Context, notFoundCode string) *deviceControlError {
 	switch {
 	case errors.Is(err, ErrDeviceOffline), isPeerDisconnectedError(err):
 		return deviceOfflineError()
@@ -194,13 +204,25 @@ func mapDeviceControlError(err error, ctx context.Context) *deviceControlError {
 	var rpcErr rpcapi.Error
 	if errors.As(err, &rpcErr) {
 		switch rpcErr.Code {
-		case rpcapi.RPCErrorCodeInvalidParams:
+		case rpcapi.StatusCodeInvalidArgument, rpcapi.StatusCodeOutOfRange:
 			return &deviceControlError{Status: http.StatusBadRequest, Code: deviceRejectedCode, Message: "device rejected the request parameters"}
-		case rpcapi.RPCErrorCodeMethodNotFound:
+		case rpcapi.StatusCodeUnimplemented:
 			return &deviceControlError{Status: http.StatusNotImplemented, Code: deviceUnsupportedCode, Message: "device does not support this command"}
-		case rpcapi.RPCErrorCodeNotFound:
-			return &deviceControlError{Status: http.StatusNotFound, Code: wifiNetworkNotFoundKey, Message: "device has no matching resource"}
+		case rpcapi.StatusCodeNotFound:
+			code := notFoundCode
+			if code == "" {
+				code = deviceResourceNotFoundKey
+			}
+			return &deviceControlError{Status: http.StatusNotFound, Code: code, Message: "device has no matching resource"}
+		case rpcapi.StatusCodeDeadlineExceeded:
+			return &deviceControlError{Status: http.StatusGatewayTimeout, Code: deviceTimeoutCode, Message: "device did not respond in time"}
+		case rpcapi.StatusCodeUnavailable:
+			return deviceOfflineError()
 		default:
+			// A code with no projection stays a bad gateway: the fault is the
+			// device's, and its own permission or state model is not the
+			// Public HTTP contract's. Redacting it also keeps device detail
+			// out of the response.
 			return &deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned an error"}
 		}
 	}
@@ -578,7 +600,7 @@ func (s *peerHTTP) ForgetDeviceSavedWifi(ctx context.Context, request peerhttp.F
 		return forgetDeviceSavedWifiError(e), nil
 	}
 	params := rpcapi.ClientWifiSavedForgetRequest{Ssid: ssid}
-	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiSavedForgetResponse, error) {
+	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{notFoundCode: wifiNetworkNotFoundKey}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiSavedForgetResponse, error) {
 		return client.ForgetSavedWifi(ctx, conn, "client.wifi.saved.forget", params)
 	}, nil)
 	if controlErr != nil {

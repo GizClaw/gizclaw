@@ -10,18 +10,26 @@
 #endif
 
 /* Enum definitions */
-typedef enum _gizclaw_rpc_v1_RpcErrorCode {
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_UNSPECIFIED = 0,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR = -32700,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST = -32600,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND = -32601,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS = -32602,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR = -32603,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_BAD_REQUEST = 400,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN = 403,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND = 404,
-    gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT = 409
-} gizclaw_rpc_v1_RpcErrorCode;
+/* StatusCode is the canonical gRPC status code set (google.rpc.Code). */
+typedef enum _gizclaw_rpc_v1_StatusCode {
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_OK = 0,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_CANCELLED = 1,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNKNOWN = 2,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT = 3,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_DEADLINE_EXCEEDED = 4,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_NOT_FOUND = 5,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_ALREADY_EXISTS = 6,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_PERMISSION_DENIED = 7,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_RESOURCE_EXHAUSTED = 8,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_FAILED_PRECONDITION = 9,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_ABORTED = 10,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_OUT_OF_RANGE = 11,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED = 12,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL = 13,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAVAILABLE = 14,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_DATA_LOSS = 15,
+    gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED = 16
+} gizclaw_rpc_v1_StatusCode;
 
 typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED = 0,
@@ -136,16 +144,31 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
-typedef struct _gizclaw_rpc_v1_RpcError {
-    gizclaw_rpc_v1_RpcErrorCode code;
+/* ErrorInfo names the specific failure behind a StatusCode. code is the class
+ a client branches on; reason is the reason a human or a UI reads. It follows
+ google.rpc.ErrorInfo without the metadata map, which no caller needs and
+ which nanopb can only express as a bounded repeated entry message. */
+typedef struct _gizclaw_rpc_v1_ErrorInfo {
+    pb_callback_t reason;
+    pb_callback_t domain;
+} gizclaw_rpc_v1_ErrorInfo;
+
+/* RpcStatus is the terminal status of one RPC. It follows google.rpc.Status
+ with one deviation: details is a typed ErrorInfo rather than
+ repeated google.protobuf.Any, because nanopb cannot resolve type URLs at
+ runtime and the C SDK allocates nothing. */
+typedef struct _gizclaw_rpc_v1_RpcStatus {
+    gizclaw_rpc_v1_StatusCode code;
     pb_callback_t message;
-} gizclaw_rpc_v1_RpcError;
+    bool has_info;
+    gizclaw_rpc_v1_ErrorInfo info;
+} gizclaw_rpc_v1_RpcStatus;
 
 typedef struct _gizclaw_rpc_v1_RpcResponse {
     pb_callback_t id;
     pb_callback_t payload;
-    bool has_error;
-    gizclaw_rpc_v1_RpcError error;
+    bool has_status;
+    gizclaw_rpc_v1_RpcStatus status;
 } gizclaw_rpc_v1_RpcResponse;
 
 typedef struct _gizclaw_rpc_v1_RpcStreamEnd {
@@ -155,10 +178,10 @@ typedef struct _gizclaw_rpc_v1_RpcStreamEnd {
 typedef struct _gizclaw_rpc_v1_RpcStreamFrame {
     pb_callback_t id;
     pb_callback_t payload;
-    bool has_error;
-    gizclaw_rpc_v1_RpcError error;
     bool has_end;
     gizclaw_rpc_v1_RpcStreamEnd end;
+    bool has_status;
+    gizclaw_rpc_v1_RpcStatus status;
 } gizclaw_rpc_v1_RpcStreamFrame;
 
 typedef struct _gizclaw_rpc_v1_RpcMethodOptions {
@@ -182,9 +205,9 @@ extern "C" {
 #endif
 
 /* Helper constants for enums */
-#define _gizclaw_rpc_v1_RpcErrorCode_MIN gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR
-#define _gizclaw_rpc_v1_RpcErrorCode_MAX gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT
-#define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
+#define _gizclaw_rpc_v1_StatusCode_MIN gizclaw_rpc_v1_StatusCode_STATUS_CODE_OK
+#define _gizclaw_rpc_v1_StatusCode_MAX gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED
+#define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
 #define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT
@@ -192,7 +215,8 @@ extern "C" {
 
 
 
-#define gizclaw_rpc_v1_RpcError_code_ENUMTYPE gizclaw_rpc_v1_RpcErrorCode
+#define gizclaw_rpc_v1_RpcStatus_code_ENUMTYPE gizclaw_rpc_v1_StatusCode
+
 
 
 
@@ -200,29 +224,34 @@ extern "C" {
 
 
 /* Initializer values for message structs */
-#define gizclaw_rpc_v1_RpcResponse_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_default}
-#define gizclaw_rpc_v1_RpcStreamFrame_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_default, false, gizclaw_rpc_v1_RpcStreamEnd_init_default}
-#define gizclaw_rpc_v1_RpcError_init_default     {_gizclaw_rpc_v1_RpcErrorCode_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_RpcResponse_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStatus_init_default}
+#define gizclaw_rpc_v1_RpcStreamFrame_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStreamEnd_init_default, false, gizclaw_rpc_v1_RpcStatus_init_default}
+#define gizclaw_rpc_v1_RpcStatus_init_default    {_gizclaw_rpc_v1_StatusCode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ErrorInfo_init_default}
+#define gizclaw_rpc_v1_ErrorInfo_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcStreamEnd_init_default {0}
 #define gizclaw_rpc_v1_RpcMethodOptions_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcRequest_init_default   {{{NULL}, NULL}, _gizclaw_rpc_v1_RpcMethod_MIN, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_RpcResponse_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_zero}
-#define gizclaw_rpc_v1_RpcStreamFrame_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcError_init_zero, false, gizclaw_rpc_v1_RpcStreamEnd_init_zero}
-#define gizclaw_rpc_v1_RpcError_init_zero        {_gizclaw_rpc_v1_RpcErrorCode_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_RpcResponse_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStatus_init_zero}
+#define gizclaw_rpc_v1_RpcStreamFrame_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStreamEnd_init_zero, false, gizclaw_rpc_v1_RpcStatus_init_zero}
+#define gizclaw_rpc_v1_RpcStatus_init_zero       {_gizclaw_rpc_v1_StatusCode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ErrorInfo_init_zero}
+#define gizclaw_rpc_v1_ErrorInfo_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcStreamEnd_init_zero    {0}
 #define gizclaw_rpc_v1_RpcMethodOptions_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcRequest_init_zero      {{{NULL}, NULL}, _gizclaw_rpc_v1_RpcMethod_MIN, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define gizclaw_rpc_v1_RpcError_code_tag         1
-#define gizclaw_rpc_v1_RpcError_message_tag      2
+#define gizclaw_rpc_v1_ErrorInfo_reason_tag      1
+#define gizclaw_rpc_v1_ErrorInfo_domain_tag      2
+#define gizclaw_rpc_v1_RpcStatus_code_tag        1
+#define gizclaw_rpc_v1_RpcStatus_message_tag     2
+#define gizclaw_rpc_v1_RpcStatus_info_tag        3
 #define gizclaw_rpc_v1_RpcResponse_id_tag        1
 #define gizclaw_rpc_v1_RpcResponse_payload_tag   2
-#define gizclaw_rpc_v1_RpcResponse_error_tag     3
+#define gizclaw_rpc_v1_RpcResponse_status_tag    5
 #define gizclaw_rpc_v1_RpcStreamFrame_id_tag     1
 #define gizclaw_rpc_v1_RpcStreamFrame_payload_tag 2
-#define gizclaw_rpc_v1_RpcStreamFrame_error_tag  3
 #define gizclaw_rpc_v1_RpcStreamFrame_end_tag    4
+#define gizclaw_rpc_v1_RpcStreamFrame_status_tag 5
 #define gizclaw_rpc_v1_RpcMethodOptions_name_tag 1
 #define gizclaw_rpc_v1_RpcMethodOptions_request_tag 2
 #define gizclaw_rpc_v1_RpcMethodOptions_response_tag 3
@@ -235,26 +264,34 @@ extern "C" {
 #define gizclaw_rpc_v1_RpcResponse_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
 X(a, CALLBACK, SINGULAR, BYTES,    payload,           2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  error,             3)
+X(a, STATIC,   OPTIONAL, MESSAGE,  status,            5)
 #define gizclaw_rpc_v1_RpcResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcResponse_DEFAULT NULL
-#define gizclaw_rpc_v1_RpcResponse_error_MSGTYPE gizclaw_rpc_v1_RpcError
+#define gizclaw_rpc_v1_RpcResponse_status_MSGTYPE gizclaw_rpc_v1_RpcStatus
 
 #define gizclaw_rpc_v1_RpcStreamFrame_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
 X(a, CALLBACK, SINGULAR, BYTES,    payload,           2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  error,             3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  end,               4)
+X(a, STATIC,   OPTIONAL, MESSAGE,  end,               4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  status,            5)
 #define gizclaw_rpc_v1_RpcStreamFrame_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcStreamFrame_DEFAULT NULL
-#define gizclaw_rpc_v1_RpcStreamFrame_error_MSGTYPE gizclaw_rpc_v1_RpcError
 #define gizclaw_rpc_v1_RpcStreamFrame_end_MSGTYPE gizclaw_rpc_v1_RpcStreamEnd
+#define gizclaw_rpc_v1_RpcStreamFrame_status_MSGTYPE gizclaw_rpc_v1_RpcStatus
 
-#define gizclaw_rpc_v1_RpcError_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, ENUM,     code,              1) \
-X(a, CALLBACK, SINGULAR, STRING,   message,           2)
-#define gizclaw_rpc_v1_RpcError_CALLBACK pb_default_field_callback
-#define gizclaw_rpc_v1_RpcError_DEFAULT NULL
+#define gizclaw_rpc_v1_RpcStatus_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UENUM,    code,              1) \
+X(a, CALLBACK, SINGULAR, STRING,   message,           2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  info,              3)
+#define gizclaw_rpc_v1_RpcStatus_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_RpcStatus_DEFAULT NULL
+#define gizclaw_rpc_v1_RpcStatus_info_MSGTYPE gizclaw_rpc_v1_ErrorInfo
+
+#define gizclaw_rpc_v1_ErrorInfo_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   reason,            1) \
+X(a, CALLBACK, SINGULAR, STRING,   domain,            2)
+#define gizclaw_rpc_v1_ErrorInfo_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ErrorInfo_DEFAULT NULL
 
 #define gizclaw_rpc_v1_RpcStreamEnd_FIELDLIST(X, a) \
 
@@ -277,7 +314,8 @@ X(a, CALLBACK, OPTIONAL, BYTES,    payload,           3)
 
 extern const pb_msgdesc_t gizclaw_rpc_v1_RpcResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_RpcStreamFrame_msg;
-extern const pb_msgdesc_t gizclaw_rpc_v1_RpcError_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_RpcStatus_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ErrorInfo_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_RpcStreamEnd_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_RpcMethodOptions_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_RpcRequest_msg;
@@ -285,7 +323,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_RpcRequest_msg;
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_RpcResponse_fields &gizclaw_rpc_v1_RpcResponse_msg
 #define gizclaw_rpc_v1_RpcStreamFrame_fields &gizclaw_rpc_v1_RpcStreamFrame_msg
-#define gizclaw_rpc_v1_RpcError_fields &gizclaw_rpc_v1_RpcError_msg
+#define gizclaw_rpc_v1_RpcStatus_fields &gizclaw_rpc_v1_RpcStatus_msg
+#define gizclaw_rpc_v1_ErrorInfo_fields &gizclaw_rpc_v1_ErrorInfo_msg
 #define gizclaw_rpc_v1_RpcStreamEnd_fields &gizclaw_rpc_v1_RpcStreamEnd_msg
 #define gizclaw_rpc_v1_RpcMethodOptions_fields &gizclaw_rpc_v1_RpcMethodOptions_msg
 #define gizclaw_rpc_v1_RpcRequest_fields &gizclaw_rpc_v1_RpcRequest_msg
@@ -293,7 +332,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_RpcRequest_msg;
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_RpcResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_RpcStreamFrame_size depends on runtime parameters */
-/* gizclaw_rpc_v1_RpcError_size depends on runtime parameters */
+/* gizclaw_rpc_v1_RpcStatus_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ErrorInfo_size depends on runtime parameters */
 /* gizclaw_rpc_v1_RpcMethodOptions_size depends on runtime parameters */
 /* gizclaw_rpc_v1_RpcRequest_size depends on runtime parameters */
 #define gizclaw_rpc_v1_RpcStreamEnd_size         0

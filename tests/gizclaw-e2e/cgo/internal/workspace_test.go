@@ -19,10 +19,10 @@ func TestIsolatedWorkspaceName(t *testing.T) {
 }
 
 func TestIsCSDKNotFound(t *testing.T) {
-	if !isCSDKNotFound(&RPCError{Code: rpcpb.RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND}) {
+	if !isCSDKNotFound(&RPCStatus{Code: rpcpb.StatusCode_STATUS_CODE_NOT_FOUND}) {
 		t.Fatal("C SDK not-found error was not recognized")
 	}
-	if isCSDKNotFound(&RPCError{Code: rpcpb.RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR}) {
+	if isCSDKNotFound(&RPCStatus{Code: rpcpb.StatusCode_STATUS_CODE_INTERNAL}) {
 		t.Fatal("C SDK internal error was recognized as not-found")
 	}
 }

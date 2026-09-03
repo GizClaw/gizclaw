@@ -165,7 +165,7 @@ func TestRPCSpeedTestStopsUploadWhenServerReturnsError(t *testing.T) {
 			serverErr <- err
 			return
 		}
-		if err := writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "server rejected speed test"); err != nil {
+		if err := writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "server rejected speed test"); err != nil {
 			serverErr <- err
 			return
 		}

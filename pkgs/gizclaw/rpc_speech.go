@@ -134,11 +134,11 @@ func (s *rpcServer) speechService() rpcSpeechService {
 
 func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if req.Params == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "missing params")
 	}
 	params, err := req.Params.AsSpeechTranscribeRequest()
 	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "invalid params")
 	}
 	contentType, err := validateSpeechTranscribeRequest(params)
 	if err != nil {
@@ -146,11 +146,11 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 			code, message := speechRPCError(err)
 			return writeRPCErrorResponse(stream, req.Id, code, message)
 		}
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, err.Error())
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
 	service := s.speechService()
 	if service == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech service not configured")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech service not configured")
 	}
 
 	limits := s.normalizedSpeechLimits()
@@ -188,10 +188,10 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 		return writeRPCErrorResponse(stream, req.Id, code, message)
 	}
 	if !utf8.ValidString(transcript) {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech provider returned invalid transcript")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech provider returned invalid transcript")
 	}
 	if len(transcript) > rpcSpeechMaxTranscriptBytes {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeBadRequest, "speech provider returned an oversized transcript")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "speech provider returned an oversized transcript")
 	}
 	response, err := newRPCResultResponse(req.Id, rpcapi.SpeechTranscribeResponse{Transcript: transcript}, (*rpcapi.RPCPayload).FromSpeechTranscribeResponse)
 	if err != nil {
@@ -212,12 +212,12 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if req.Params == nil {
 		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_INVALID_INPUT")
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "missing params")
 	}
 	params, err := req.Params.AsSpeechExtractRequest()
 	if err != nil {
 		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_INVALID_INPUT")
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "invalid params")
 	}
 	limits := s.normalizedSpeechLimits()
 	contentType, language, instruction, err := validateSpeechExtractRequest(params, limits)
@@ -227,12 +227,12 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 			code, message := speechRPCError(err)
 			return writeRPCErrorResponse(stream, req.Id, code, message)
 		}
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, err.Error())
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
 	service := s.speechService()
 	if service == nil {
 		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_NOT_CONFIGURED")
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech service not configured")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech service not configured")
 	}
 
 	callCtx, cancel := context.WithTimeout(ctx, limits.ExtractionRequestTimeout)
@@ -278,11 +278,11 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 	}
 	if !utf8.ValidString(extraction.Transcript) || len(extraction.Transcript) > rpcSpeechMaxTranscriptBytes {
 		observability.SetErrorCode(callCtx, "SPEECH_EXTRACT_RESPONSE_INVALID_OUTPUT")
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech extraction returned an invalid transcript")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech extraction returned an invalid transcript")
 	}
 	if !utf8.ValidString(extraction.ResultJSON) || len(extraction.ResultJSON) > limits.ExtractionMaxResultBytes {
 		observability.SetErrorCode(callCtx, "SPEECH_EXTRACT_RESPONSE_INVALID_OUTPUT")
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech extraction returned an invalid result")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech extraction returned an invalid result")
 	}
 	response, err := newRPCResultResponse(req.Id, rpcapi.SpeechExtractResponse{
 		Transcript: extraction.Transcript,
@@ -395,11 +395,11 @@ func drainSpeechUpload(stream *rpcStream) {
 
 func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
 	if req.Params == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "missing params")
 	}
 	params, err := req.Params.AsSpeechSynthesizeRequest()
 	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "invalid params")
 	}
 	limits := s.normalizedSpeechLimits()
 	accepted, err := validateSpeechSynthesizeRequest(params, limits.SynthesisMaxTextBytes)
@@ -408,11 +408,11 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 			code, message := speechRPCError(err)
 			return writeRPCErrorResponse(stream, req.Id, code, message)
 		}
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, err.Error())
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
 	service := s.speechService()
 	if service == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech service not configured")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech service not configured")
 	}
 
 	callCtx, cancel := context.WithTimeout(ctx, limits.SynthesisRequestTimeout)
@@ -427,7 +427,7 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 			if closeErr := callStream.Close(); closeErr != nil {
 				return closeErr
 			}
-			return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech request timed out")
+			return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech request timed out")
 		}
 		return err
 	}
@@ -442,7 +442,7 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 		return writeRPCErrorResponse(stream, req.Id, code, message)
 	}
 	if synthesis.Stream == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "speech provider returned no audio")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech provider returned no audio")
 	}
 	contentType, err := validateSpeechSynthesisMetadata(synthesis, accepted)
 	if err != nil {
@@ -659,34 +659,34 @@ func validRuntimeAlias(value string) bool {
 	return runtimeprofile.ValidateAlias("speech alias", value) == nil
 }
 
-func speechRPCError(err error) (rpcapi.RPCErrorCode, string) {
+func speechRPCError(err error) (rpcapi.StatusCode, string) {
 	switch {
 	case errors.Is(err, errSpeechBadRequest):
-		return rpcapi.RPCErrorCodeBadRequest, err.Error()
+		return rpcapi.StatusCodeInvalidArgument, err.Error()
 	case errors.Is(err, peergenx.ErrNotFound):
-		return rpcapi.RPCErrorCodeNotFound, "speech alias not found"
+		return rpcapi.StatusCodeNotFound, "speech alias not found"
 	case errors.Is(err, peergenx.ErrInvalid), errors.Is(err, peergenx.ErrUnsupported):
-		return rpcapi.RPCErrorCodeBadRequest, "speech request is not supported"
+		return rpcapi.StatusCodeInvalidArgument, "speech request is not supported"
 	case errors.Is(err, context.DeadlineExceeded):
-		return rpcapi.RPCErrorCodeInternalError, "speech request timed out"
+		return rpcapi.StatusCodeInternal, "speech request timed out"
 	default:
-		return rpcapi.RPCErrorCodeInternalError, "speech provider failed"
+		return rpcapi.StatusCodeInternal, "speech provider failed"
 	}
 }
 
-func speechExtractRPCError(err error) (rpcapi.RPCErrorCode, string) {
+func speechExtractRPCError(err error) (rpcapi.StatusCode, string) {
 	switch {
 	case errors.Is(err, errSpeechBadRequest):
-		return rpcapi.RPCErrorCodeBadRequest, err.Error()
+		return rpcapi.StatusCodeInvalidArgument, err.Error()
 	case errors.Is(err, peergenx.ErrNotFound):
-		return rpcapi.RPCErrorCodeNotFound, "speech alias not found"
+		return rpcapi.StatusCodeNotFound, "speech alias not found"
 	case errors.Is(err, peergenx.ErrInvalidOutput):
-		return rpcapi.RPCErrorCodeInternalError, "speech extraction failed"
+		return rpcapi.StatusCodeInternal, "speech extraction failed"
 	case errors.Is(err, peergenx.ErrInvalid), errors.Is(err, peergenx.ErrUnsupported):
-		return rpcapi.RPCErrorCodeBadRequest, "speech extraction request is not supported"
+		return rpcapi.StatusCodeInvalidArgument, "speech extraction request is not supported"
 	case errors.Is(err, context.DeadlineExceeded):
-		return rpcapi.RPCErrorCodeInternalError, "speech extraction timed out"
+		return rpcapi.StatusCodeInternal, "speech extraction timed out"
 	default:
-		return rpcapi.RPCErrorCodeInternalError, "speech extraction provider failed"
+		return rpcapi.StatusCodeInternal, "speech extraction provider failed"
 	}
 }

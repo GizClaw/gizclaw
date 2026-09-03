@@ -42,7 +42,7 @@ type peerAgentWorkspaceTestResolver struct {
 	resolvedName string
 }
 
-func (r *peerAgentWorkspaceTestResolver) ResolveRunWorkspaceSelection(_ context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+func (r *peerAgentWorkspaceTestResolver) ResolveRunWorkspaceSelection(_ context.Context, name string) (apitypes.Workspace, *rpcapi.RPCStatus) {
 	r.resolvedName = name
 	return apitypes.Workspace{Id: "01K1HZZZ9PV2KYRHZJ4V94Z0DQ", Name: name}, nil
 }

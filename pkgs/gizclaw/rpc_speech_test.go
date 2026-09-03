@@ -189,13 +189,13 @@ func TestRPCSpeechExtractMapsAndSanitizesTerminalErrors(t *testing.T) {
 	tests := []struct {
 		name    string
 		service error
-		code    rpcapi.RPCErrorCode
+		code    rpcapi.StatusCode
 		message string
 	}{
-		{name: "unknown alias", service: peergenx.ErrNotFound, code: rpcapi.RPCErrorCodeNotFound, message: "speech alias not found"},
-		{name: "wrong model kind", service: peergenx.ErrInvalid, code: rpcapi.RPCErrorCodeBadRequest, message: "speech extraction request is not supported"},
-		{name: "invalid invocation output", service: peergenx.ErrInvalidOutput, code: rpcapi.RPCErrorCodeInternalError, message: "speech extraction failed"},
-		{name: "provider failure", service: errors.New("secret upstream credential"), code: rpcapi.RPCErrorCodeInternalError, message: "speech extraction provider failed"},
+		{name: "unknown alias", service: peergenx.ErrNotFound, code: rpcapi.StatusCodeNotFound, message: "speech alias not found"},
+		{name: "wrong model kind", service: peergenx.ErrInvalid, code: rpcapi.StatusCodeInvalidArgument, message: "speech extraction request is not supported"},
+		{name: "invalid invocation output", service: peergenx.ErrInvalidOutput, code: rpcapi.StatusCodeInternal, message: "speech extraction failed"},
+		{name: "provider failure", service: errors.New("secret upstream credential"), code: rpcapi.StatusCodeInternal, message: "speech extraction provider failed"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -251,7 +251,7 @@ func TestRPCSpeechExtractCompletionLogHasSafeErrorCode(t *testing.T) {
 	finishSpeechRPCServer(t, client, serverDone)
 	record, attrs := onlyCapturedRecord(t, capture)
 	if record.Level.String() != "ERROR" || attrs["operation"] != string(rpcapi.RPCMethodServerSpeechExtract) ||
-		attrs["request_id"] != "speech-safe-code" || attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeInternalError) ||
+		attrs["request_id"] != "speech-safe-code" || attrs["rpc_code"] != int64(rpcapi.StatusCodeInternal) ||
 		attrs["error_code"] != "SPEECH_EXTRACT_PROVIDER_FAILURE" {
 		t.Fatalf("completion record = (%s, %#v)", record.Level, attrs)
 	}
@@ -316,7 +316,7 @@ func TestRPCSpeechExtractTimeoutCancelsUploadAndInvocation(t *testing.T) {
 				t.Fatalf("ReadResponse() error = %v", err)
 			}
 			if response.Error == nil ||
-				response.Error.Code != rpcapi.RPCErrorCodeInternalError ||
+				response.Error.Code != rpcapi.StatusCodeInternal ||
 				response.Error.Message != "speech extraction timed out" {
 				t.Fatalf("response = %+v", response)
 			}
@@ -345,7 +345,7 @@ func TestRPCSpeechExtractRejectsInputAndOutputLimits(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadResponse() error = %v", err)
 		}
-		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 			t.Fatalf("response = %+v", response)
 		}
 		readSpeechEOS(t, stream)
@@ -373,7 +373,7 @@ func TestRPCSpeechExtractRejectsInputAndOutputLimits(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadResponse() error = %v", err)
 		}
-		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 			t.Fatalf("response = %+v", response)
 		}
 		readSpeechEOS(t, stream)
@@ -412,7 +412,7 @@ func TestRPCSpeechExtractRejectsInputAndOutputLimits(t *testing.T) {
 			t.Fatalf("ReadResponse() error = %v", err)
 		}
 		if response.Error == nil ||
-			response.Error.Code != rpcapi.RPCErrorCodeInternalError ||
+			response.Error.Code != rpcapi.StatusCodeInternal ||
 			response.Error.Message != "speech extraction returned an invalid result" {
 			t.Fatalf("response = %+v", response)
 		}
@@ -464,10 +464,10 @@ func TestValidateSpeechExtractRequestRejectsBoundedMetadata(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			_, _, _, err := validateSpeechExtractRequest(test.request, DefaultSpeechLimits())
 			if !errors.Is(err, errSpeechBadRequest) {
-				t.Fatalf("validateSpeechExtractRequest() error = %v, want BAD_REQUEST", err)
+				t.Fatalf("validateSpeechExtractRequest() error = %v, want INVALID_ARGUMENT", err)
 			}
-			if code, _ := speechExtractRPCError(err); code != rpcapi.RPCErrorCodeBadRequest {
-				t.Fatalf("speechExtractRPCError() code = %v, want BAD_REQUEST", code)
+			if code, _ := speechExtractRPCError(err); code != rpcapi.StatusCodeInvalidArgument {
+				t.Fatalf("speechExtractRPCError() code = %v, want INVALID_ARGUMENT", code)
 			}
 		})
 	}
@@ -598,7 +598,7 @@ func TestRPCSpeechTranscribeLimitIsBadRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -626,7 +626,7 @@ func TestRPCSpeechTranscribeRejectsEmptyAudio(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -645,7 +645,7 @@ func TestRPCSpeechTranscribeRejectsUnsupportedMIME(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -683,7 +683,7 @@ func TestRPCSpeechTranscribeSanitizesProviderError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError || response.Error.Message != "speech provider failed" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "speech provider failed" {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -708,7 +708,7 @@ func TestRPCSpeechTranscribeTimeoutInterruptsStalledUpload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError || response.Error.Message != "speech request timed out" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "speech request timed out" {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -741,7 +741,7 @@ func TestRPCSpeechTranscribeEarlyErrorUnblocksBufferedUpload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -778,7 +778,7 @@ func TestRPCSpeechTranscribeEarlyErrorCancelsStalledUpload(t *testing.T) {
 		if result.err != nil {
 			t.Fatalf("ReadResponse() error = %v", result.err)
 		}
-		if result.response.Error == nil || result.response.Error.Code != rpcapi.RPCErrorCodeInternalError {
+		if result.response.Error == nil || result.response.Error.Code != rpcapi.StatusCodeInternal {
 			t.Fatalf("response = %+v", result.response)
 		}
 	case <-time.After(time.Second):
@@ -899,7 +899,7 @@ func TestRPCSpeechSynthesizeTimeoutInterruptsMissingEOS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError || response.Error.Message != "speech request timed out" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "speech request timed out" {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -926,7 +926,7 @@ func TestRPCSpeechSynthesizeRejectsUnsupportedFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -983,8 +983,8 @@ func TestValidateSpeechSynthesizeRequestRejectsDuplicateMediaTypes(t *testing.T)
 	if !errors.Is(err, errSpeechBadRequest) {
 		t.Fatalf("validateSpeechSynthesizeRequest() error = %v, want errSpeechBadRequest", err)
 	}
-	if code, _ := speechRPCError(err); code != rpcapi.RPCErrorCodeBadRequest {
-		t.Fatalf("speechRPCError() code = %v, want BAD_REQUEST", code)
+	if code, _ := speechRPCError(err); code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("speechRPCError() code = %v, want INVALID_ARGUMENT", code)
 	}
 }
 

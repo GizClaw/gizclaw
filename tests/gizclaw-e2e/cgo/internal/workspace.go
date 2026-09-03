@@ -104,6 +104,6 @@ func isolatedWorkspaceName(workflow, name string) string {
 }
 
 func isCSDKNotFound(err error) bool {
-	var rpcErr *RPCError
-	return errors.As(err, &rpcErr) && rpcErr.Code == rpcpb.RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND
+	var rpcErr *RPCStatus
+	return errors.As(err, &rpcErr) && rpcErr.Code == rpcpb.StatusCode_STATUS_CODE_NOT_FOUND
 }

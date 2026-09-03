@@ -241,7 +241,7 @@ func TestCrossServerSocialRejectsWithoutConsumingInvites(t *testing.T) {
 	assertNoPeerEvents(t, []*gizcli.Client{clientA, clientB}, func() {
 		for attempt := 1; attempt <= 2; attempt++ {
 			_, err = clientA.AddFriend(ctx, "friend-add", rpcapi.FriendAddRequest{InviteToken: friendInvite.InviteToken})
-			assertRPCConflict(t, err, "cross-server friend creation is not supported")
+			assertRPCFailedPrecondition(t, err, "cross-server friend creation is not supported")
 		}
 	})
 	assertSnapshotEqual(t, "shared Redis after Friend rejection", friendSharedBefore, redisSnapshot(t, shared))
@@ -292,7 +292,7 @@ func TestCrossServerSocialRejectsWithoutConsumingInvites(t *testing.T) {
 				InviteToken: groupInvite.InviteToken,
 				Name:        "server-b-room",
 			})
-			assertRPCConflict(t, err, "cross-server friend group membership is not supported")
+			assertRPCFailedPrecondition(t, err, "cross-server friend group membership is not supported")
 		}
 	})
 	assertSnapshotEqual(t, "shared Redis after FriendGroup rejection", groupSharedBefore, redisSnapshot(t, shared))
@@ -654,14 +654,14 @@ func connectAndServe(
 	return client
 }
 
-func assertRPCConflict(t *testing.T, err error, message string) {
+func assertRPCFailedPrecondition(t *testing.T, err error, message string) {
 	t.Helper()
 	var rpcErr rpcapi.Error
 	if !errors.As(err, &rpcErr) {
-		t.Fatalf("error = %v, want RPC conflict %q", err, message)
+		t.Fatalf("error = %v, want RPC failed-precondition %q", err, message)
 	}
-	if rpcErr.Code != rpcapi.RPCErrorCodeConflict || rpcErr.Message != message {
-		t.Fatalf("RPC error = (%d, %q), want (%d, %q)", rpcErr.Code, rpcErr.Message, rpcapi.RPCErrorCodeConflict, message)
+	if rpcErr.Code != rpcapi.StatusCodeFailedPrecondition || rpcErr.Message != message {
+		t.Fatalf("RPC error = (%d, %q), want (%d, %q)", rpcErr.Code, rpcErr.Message, rpcapi.StatusCodeFailedPrecondition, message)
 	}
 }
 

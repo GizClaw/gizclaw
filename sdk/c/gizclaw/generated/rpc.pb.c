@@ -12,7 +12,10 @@ PB_BIND(gizclaw_rpc_v1_RpcResponse, gizclaw_rpc_v1_RpcResponse, AUTO)
 PB_BIND(gizclaw_rpc_v1_RpcStreamFrame, gizclaw_rpc_v1_RpcStreamFrame, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_RpcError, gizclaw_rpc_v1_RpcError, AUTO)
+PB_BIND(gizclaw_rpc_v1_RpcStatus, gizclaw_rpc_v1_RpcStatus, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ErrorInfo, gizclaw_rpc_v1_ErrorInfo, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_RpcStreamEnd, gizclaw_rpc_v1_RpcStreamEnd, AUTO)

@@ -180,10 +180,10 @@ func TestInstallDeviceControlScriptsProviders(t *testing.T) {
 	if err := installDeviceControl(&handlers, "client.wifi.saved.list", map[string]any{"networks": []any{map[string]any{"ssid": "home"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDeviceControl(&handlers, "client.device.sound.play", map[string]any{"error_code": -32602}); err != nil {
+	if err := installDeviceControl(&handlers, "client.device.sound.play", map[string]any{"error_code": 3}); err != nil {
 		t.Fatal(err)
 	}
-	if err := installDeviceControl(&handlers, "client.wifi.saved.forget", map[string]any{"error_code": 404, "error_message": "unknown"}); err != nil {
+	if err := installDeviceControl(&handlers, "client.wifi.saved.forget", map[string]any{"error_code": 5, "error_message": "unknown"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := installDeviceControl(&handlers, "client.device.status.get", map[string]any{"battery_percent": "eighty"}); err == nil {
@@ -198,10 +198,10 @@ func TestInstallDeviceControlScriptsProviders(t *testing.T) {
 		t.Fatalf("scripted saved list = %+v, %v", networks, err)
 	}
 	var rpcErr rpcapi.Error
-	if err := handlers.PlaySound(context.Background(), "chime", nil); !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if err := handlers.PlaySound(context.Background(), "chime", nil); !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("scripted sound error = %v", err)
 	}
-	if err := handlers.ForgetWifi(context.Background(), "x"); !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "unknown" {
+	if err := handlers.ForgetWifi(context.Background(), "x"); !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.Message != "unknown" {
 		t.Fatalf("scripted forget error = %v", err)
 	}
 	if handlers.Reboot != nil || handlers.Status != nil {

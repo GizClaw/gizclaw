@@ -167,7 +167,7 @@ TypeScript uses the generated `setDeviceVolume`, `getDeviceStatus`, `listContact
 ## Errors and connection lifecycle
 
 - Admin API HTTP error bodies use stable error codes. Do not branch on message text.
-- RPC failures use `RpcErrorCode`. Standard codes include parse error, invalid request, method not found, invalid params, internal error, and `400`, `403`, `404`, and `409`.
+- RPC failures use `RpcStatus`: a canonical gRPC `StatusCode` (`google.rpc.Code`, `0`-`16`), a message, and an optional `ErrorInfo` whose `reason` names the specific failure behind the code. `NOT_FOUND` is the class; `WORKSPACE_PENDING_DELETION` is the reason.
 - A transport error, timeout, or closed connection does not prove that a write had no effect. Read the final Server state before retrying a mutation.
 - Close the `RTCPeerConnection` when a TypeScript session ends and the `gizcli.Client` when a Go session ends. Reconnect after a disconnect instead of reusing a stale client.
 
