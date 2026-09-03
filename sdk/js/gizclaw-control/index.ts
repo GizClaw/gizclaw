@@ -8,6 +8,7 @@
  */
 import {
   aggregateDeviceTelemetry,
+  connectDeviceWifi,
   createApiKey,
   createContact,
   createPeerHTTPClient,
@@ -30,6 +31,7 @@ import {
   rebootDevice,
   revokeApiKey,
   revokeSelfApiKey,
+  scanDeviceWifi,
   setDeviceVolume,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
@@ -46,7 +48,10 @@ import type {
   DevicePlaySoundRequest,
   DeviceRebootRequest,
   DeviceVolumeSetRequest,
+  DeviceWifiConnectRequest,
   DeviceWifiSavedList,
+  DeviceWifiScanRequest,
+  DeviceWifiScanResponse,
   DeviceWifiStatus,
   ErrorResponse,
   PeerHTTPClient,
@@ -74,7 +79,11 @@ export type {
   DevicePlaySoundRequest,
   DeviceRebootRequest,
   DeviceVolumeSetRequest,
+  DeviceWifiConnectRequest,
   DeviceWifiSavedList,
+  DeviceWifiScanRequest,
+  DeviceWifiScanResponse,
+  DeviceWifiScanResult,
   DeviceWifiStatus,
   ErrorPayload,
   ErrorResponse,
@@ -314,6 +323,17 @@ export interface GizClawControlDevice {
   reboot(body?: DeviceRebootRequest): Promise<void>;
   /** `GET /gizclaw/v1/device/wifi`. */
   getWifi(): Promise<DeviceWifiStatus>;
+  /** `POST /gizclaw/v1/device/wifi/scan`. */
+  scanWifi(body?: DeviceWifiScanRequest): Promise<DeviceWifiScanResponse>;
+  /**
+   * `PUT /gizclaw/v1/device/wifi`.
+   *
+   * Resolving means the device accepted the credentials and began switching
+   * networks, not that it joined them. The device goes offline during the
+   * switch; poll {@link GizClawControlDevice.getWifi} after it reconnects to
+   * observe the outcome.
+   */
+  connectWifi(body: DeviceWifiConnectRequest): Promise<void>;
   /** `GET /gizclaw/v1/device/wifi/saved`. */
   listSavedWifi(): Promise<DeviceWifiSavedList>;
   /** `DELETE /gizclaw/v1/device/wifi/saved/{ssid}`. */
@@ -462,6 +482,13 @@ export function createGizClawControlClient(
       reboot: (body = {}) =>
         unwrapEmpty("rebootDevice", rebootDevice({ ...common, body })),
       getWifi: () => unwrap("getDeviceWifi", getDeviceWifi(common)),
+      scanWifi: (body = {}) =>
+        unwrap("scanDeviceWifi", scanDeviceWifi({ ...common, body })),
+      connectWifi: (body) =>
+        unwrapEmpty(
+          "connectDeviceWifi",
+          connectDeviceWifi({ ...common, body }),
+        ),
       listSavedWifi: () =>
         unwrap("listDeviceSavedWifi", listDeviceSavedWifi(common)),
       forgetSavedWifi: async (ssid) =>

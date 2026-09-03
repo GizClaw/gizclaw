@@ -538,6 +538,99 @@ static void test_lists_and_malformed_bodies(void) {
   check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "malformed body classified");
 }
 
+static void test_device_wifi_scan_and_connect(void) {
+  stub_t stub;
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  memset(&stub, 0, sizeof(stub));
+  stub.status_code = 200;
+  stub.response_body =
+      "{\"networks\":[{\"ssid\":\"Office\",\"bssid\":\"aa:bb:cc:dd:ee:ff\","
+      "\"rssi_dbm\":-42,\"frequency_mhz\":5180,\"security\":\"wpa3\"},"
+      "{\"ssid\":\"Open Network\"}]}";
+  init_client(&client, &stub, &http);
+
+  uint8_t scratch[512];
+  uint8_t response[1024];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "call init");
+
+  gzc_control_wifi_scan_request_t scan;
+  memset(&scan, 0, sizeof(scan));
+  scan.has_timeout_ms = true;
+  scan.timeout_ms = 8000;
+  gzc_control_wifi_scan_result_t networks[4];
+  size_t count = 0;
+  check(
+      gzc_control_scan_device_wifi(&client, &call, &scan, networks, 4, &count) == GZC_OK,
+      "scan device wifi");
+  check(stub.method == GZC_HTTP_METHOD_POST, "scan method");
+  check(
+      strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/wifi/scan") == 0,
+      "scan url");
+  check(strcmp(stub.body, "{\"timeout_ms\":8000}") == 0, "scan body");
+  check(count == 2, "scan network count");
+  check(
+      networks[0].has_rssi_dbm && networks[0].rssi_dbm == -42 &&
+          networks[0].has_frequency_mhz && networks[0].frequency_mhz == 5180,
+      "scan signal fields");
+  check(
+      !networks[1].has_rssi_dbm && networks[1].security.len == 0,
+      "scan omits absent fields");
+
+  /* rssi_dbm and frequency_mhz are int64 on the wire, so a value the Go, JS
+   * and Flutter SDKs can represent must not fail here either. */
+  stub.response_body =
+      "{\"networks\":[{\"ssid\":\"Wide\",\"rssi_dbm\":-2147483649,"
+      "\"frequency_mhz\":2147483648}]}";
+  check(
+      gzc_control_scan_device_wifi(&client, &call, &scan, networks, 4, &count) == GZC_OK,
+      "scan decodes out-of-int32 metrics");
+  check(
+      count == 1 && networks[0].rssi_dbm == INT64_C(-2147483649) &&
+          networks[0].frequency_mhz == INT64_C(2147483648),
+      "scan metrics keep int64 range");
+
+  /* Omitting the request lets the Server apply its own scan timeout. */
+  stub.response_body = "{\"networks\":[]}";
+  check(
+      gzc_control_scan_device_wifi(&client, &call, NULL, networks, 4, &count) == GZC_OK,
+      "scan without a request");
+  check(strcmp(stub.body, "{}") == 0, "default scan body");
+
+  /* The join is accepted with 202; the device switches networks afterwards. */
+  stub.status_code = 202;
+  stub.response_body = "";
+  gzc_control_wifi_connect_request_t connect;
+  memset(&connect, 0, sizeof(connect));
+  connect.ssid = gzc_str_from_cstr("Office");
+  connect.passphrase = gzc_str_from_cstr("correct-horse");
+  check(
+      gzc_control_connect_device_wifi(&client, &call, &connect) == GZC_OK,
+      "connect device wifi");
+  check(stub.method == GZC_HTTP_METHOD_PUT, "connect method");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/wifi") == 0, "connect url");
+  check(
+      strcmp(stub.body, "{\"ssid\":\"Office\",\"passphrase\":\"correct-horse\"}") == 0,
+      "connect body");
+
+  /* An open network carries no passphrase field at all. */
+  connect.passphrase = gzc_str_from_parts(NULL, 0);
+  check(
+      gzc_control_connect_device_wifi(&client, &call, &connect) == GZC_OK,
+      "connect open network");
+  check(strcmp(stub.body, "{\"ssid\":\"Office\"}") == 0, "open network body");
+
+  /* A missing SSID is rejected before anything reaches the transport. */
+  connect.ssid = gzc_str_from_parts(NULL, 0);
+  check(
+      gzc_control_connect_device_wifi(&client, &call, &connect) == GZC_ERR_INVALID_ARGUMENT,
+      "connect requires an ssid");
+  check(
+      call.error.kind == GZC_CONTROL_ERROR_INVALID_REQUEST,
+      "missing ssid is an invalid request");
+}
+
 static void test_device_info_raw_and_identifiers(void) {
   stub_t stub;
   gzc_http_vtable_t http;
@@ -592,6 +685,7 @@ int main(void) {
   test_transport_failure_is_network();
   test_scratch_exhaustion_is_reported();
   test_lists_and_malformed_bodies();
+  test_device_wifi_scan_and_connect();
   test_device_info_raw_and_identifiers();
   if (failures != 0) {
     (void)fprintf(stderr, "%d control SDK smoke checks failed\n", failures);

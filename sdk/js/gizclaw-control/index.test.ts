@@ -47,6 +47,10 @@ function noContent(): Answer {
   return () => new Response(null, { status: 204 });
 }
 
+function accepted(): Answer {
+  return () => new Response(null, { status: 202 });
+}
+
 function errorResponse(
   status: number,
   code: string,
@@ -338,6 +342,45 @@ test("device control: volume, sound, reboot, wifi", async () => {
     h.seen[6]!.url.pathname,
     "/gizclaw/v1/device/wifi/saved/Caf%C3%A9%20Wi-Fi%2F5G%20%232",
   );
+});
+
+test("device wifi: scan and connect", async () => {
+  const h = harness([
+    json(200, {
+      networks: [
+        {
+          ssid: "Office",
+          bssid: "aa:bb:cc:dd:ee:ff",
+          rssi_dbm: -42,
+          frequency_mhz: 5180,
+          security: "wpa3",
+        },
+      ],
+    }),
+    accepted(),
+    accepted(),
+  ]);
+  const scan = await h.client.device.scanWifi({ timeout_ms: 8000 });
+  await h.client.device.connectWifi({
+    ssid: "Office",
+    passphrase: "correct-horse",
+  });
+  await h.client.device.connectWifi({ ssid: "Open Network" });
+
+  assert.equal(h.seen[0]!.method, "POST");
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/wifi/scan");
+  assert.deepEqual(JSON.parse(h.seen[0]!.body), { timeout_ms: 8000 });
+  assert.equal(scan.networks[0]!.ssid, "Office");
+  assert.equal(scan.networks[0]!.rssi_dbm, -42);
+  assert.equal(scan.networks[0]!.frequency_mhz, 5180);
+  assert.equal(scan.networks[0]!.security, "wpa3");
+  assert.equal(h.seen[1]!.method, "PUT");
+  assert.equal(h.seen[1]!.url.pathname, "/gizclaw/v1/device/wifi");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    ssid: "Office",
+    passphrase: "correct-horse",
+  });
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), { ssid: "Open Network" });
 });
 
 test("rejects an empty path parameter before sending", async () => {

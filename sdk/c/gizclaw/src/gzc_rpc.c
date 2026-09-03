@@ -979,6 +979,8 @@ static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT:
     return true;
   default:
     return false;

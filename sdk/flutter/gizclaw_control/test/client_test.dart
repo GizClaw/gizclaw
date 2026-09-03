@@ -74,6 +74,10 @@ http.Response Function(http.Request) noContent() {
   return (_) => http.Response('', 204);
 }
 
+http.Response Function(http.Request) accepted() {
+  return (_) => http.Response('', 202);
+}
+
 GizClawControlClient clientWith(
   Recorder recorder, {
   Uri? base,
@@ -514,6 +518,53 @@ void main() {
       expect(status.connected, isTrue);
       expect(status.rssiDbm, -50);
       expect(saved.networks.map((n) => n.ssid), ['Home', 'Office']);
+    });
+
+    test('scanDeviceWifi posts timeout and decodes networks', () async {
+      final recorder = Recorder([
+        json(200, {
+          'networks': [
+            {
+              'ssid': 'Office',
+              'bssid': 'aa:bb:cc:dd:ee:ff',
+              'rssi_dbm': -42,
+              'frequency_mhz': 5180,
+              'security': 'wpa3',
+            },
+          ],
+        }),
+      ]);
+      final result = await clientWith(
+        recorder,
+      ).scanDeviceWifi(const DeviceWifiScanRequest(timeoutMs: 8000));
+      expect(recorder.single.method, 'POST');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/wifi/scan');
+      expect(jsonDecode(recorder.single.body), {'timeout_ms': 8000});
+      expect(result.networks.single.ssid, 'Office');
+      expect(result.networks.single.rssiDbm, -42);
+      expect(result.networks.single.frequencyMhz, 5180);
+      expect(result.networks.single.security, 'wpa3');
+    });
+
+    test('connectDeviceWifi puts credentials and accepts 202', () async {
+      final recorder = Recorder([accepted(), accepted()]);
+      final client = clientWith(recorder);
+      await client.connectDeviceWifi(
+        const DeviceWifiConnectRequest(
+          ssid: 'Office',
+          passphrase: 'correct-horse',
+        ),
+      );
+      await client.connectDeviceWifi(
+        const DeviceWifiConnectRequest(ssid: 'Open Network'),
+      );
+      expect(recorder.requests[0].method, 'PUT');
+      expect(recorder.requests[0].url.path, '/gizclaw/v1/device/wifi');
+      expect(jsonDecode(recorder.requests[0].body), {
+        'ssid': 'Office',
+        'passphrase': 'correct-horse',
+      });
+      expect(jsonDecode(recorder.requests[1].body), {'ssid': 'Open Network'});
     });
 
     test('forgetDeviceSavedWifi percent-encodes the SSID', () async {
