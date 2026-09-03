@@ -419,10 +419,17 @@ typedef struct {
   gzc_str_t phone_number;
 } gzc_control_contact_request_t;
 
-/* Cursor page options shared by the two list routes. 0 and an empty cursor
- * leave the parameter off the request. */
+/*
+ * Cursor page options shared by the two list routes. An empty cursor leaves
+ * the parameter off the request.
+ *
+ * has_limit is what puts `limit` on the request, so a caller can send limit=0
+ * and observe the Server reject it. A zero limit is not the same as an absent
+ * one.
+ */
 typedef struct {
   gzc_str_t cursor;
+  bool has_limit;
   int32_t limit;
 } gzc_control_page_t;
 

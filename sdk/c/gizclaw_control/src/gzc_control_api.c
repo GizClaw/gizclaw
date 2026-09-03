@@ -247,7 +247,7 @@ int gzc_control_list_api_keys(
   builder_begin(&builder, client, call, "/api-keys");
   if (page != NULL) {
     builder_query_str(&builder, "cursor", page->cursor);
-    if (page->limit > 0) {
+    if (page->has_limit) {
       builder_query_i64(&builder, "limit", page->limit);
     }
   }
@@ -764,7 +764,7 @@ int gzc_control_list_contacts(
   builder_begin(&builder, client, call, "/contacts");
   if (page != NULL) {
     builder_query_str(&builder, "cursor", page->cursor);
-    if (page->limit > 0) {
+    if (page->has_limit) {
       builder_query_i64(&builder, "limit", page->limit);
     }
   }

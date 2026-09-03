@@ -445,6 +445,7 @@ static void test_lists_and_malformed_bodies(void) {
 
   gzc_control_page_t page;
   memset(&page, 0, sizeof(page));
+  page.has_limit = true;
   page.limit = 2;
   gzc_control_contact_t contacts[4];
   size_t count = 0;
@@ -454,6 +455,16 @@ static void test_lists_and_malformed_bodies(void) {
       gzc_control_list_contacts(&client, &call, &page, contacts, 4, &count, &has_next, &cursor) == GZC_OK,
       "list contacts");
   check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/contacts?limit=2") == 0, "contacts url");
+
+  /* A zero limit is a real request the Server rejects, not an absent one. */
+  gzc_control_page_t zero;
+  memset(&zero, 0, sizeof(zero));
+  zero.has_limit = true;
+  (void)gzc_control_list_contacts(&client, &call, &zero, contacts, 4, &count, &has_next, &cursor);
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/contacts?limit=0") == 0, "zero limit is sent");
+  memset(&zero, 0, sizeof(zero));
+  (void)gzc_control_list_contacts(&client, &call, &zero, contacts, 4, &count, &has_next, &cursor);
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/contacts") == 0, "absent limit is omitted");
   check(count == 2 && has_next, "contacts page");
   check_str(contacts[0].display_name, "Ann", "contact display name");
   check(contacts[1].display_name.len == 0, "absent display name stays empty");

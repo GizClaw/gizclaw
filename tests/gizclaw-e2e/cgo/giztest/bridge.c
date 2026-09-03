@@ -395,6 +395,20 @@ static bool query_i64(gzc_str_t query, const char *name, int64_t *out) {
   return query_param(query, name, &raw) && gzc_json_parse_i64(raw, out) == GZC_OK;
 }
 
+/*
+ * Reads the cursor and limit a list step put in its query string. A limit of
+ * zero is preserved so the step can observe the Server rejecting it.
+ */
+static void read_page(gzc_str_t query, gzc_control_page_t *out) {
+  int64_t limit = 0;
+  memset(out, 0, sizeof(*out));
+  (void)query_param(query, "cursor", &out->cursor);
+  if (query_i64(query, "limit", &limit)) {
+    out->has_limit = true;
+    out->limit = (int32_t)limit;
+  }
+}
+
 /* Percent-decodes one path segment in place into out, which must hold len
  * bytes. Giztest paths only ever carry SDK-encoded segments. */
 static size_t decode_segment(gzc_str_t segment, char *out, size_t cap) {
@@ -607,8 +621,10 @@ int gzt_control_request(
     }
     rc = gzc_control_reboot_device(&control, &call, &request);
   } else if (get && route_is(&route, "/api-keys", false)) {
+    gzc_control_page_t page;
+    read_page(query, &page);
     rc = gzc_control_list_api_keys(
-        &control, &call, NULL, api_keys, sizeof(api_keys) / sizeof(api_keys[0]), &count, &text);
+        &control, &call, &page, api_keys, sizeof(api_keys) / sizeof(api_keys[0]), &count, &text);
   } else if (post && route_is(&route, "/api-keys", false)) {
     gzc_control_api_key_create_request_t request;
     memset(&request, 0, sizeof(request));
@@ -624,8 +640,10 @@ int gzt_control_request(
   } else if (del && route_is(&route, "/api-keys", true)) {
     rc = gzc_control_revoke_api_key(&control, &call, tail);
   } else if (get && route_is(&route, "/contacts", false)) {
+    gzc_control_page_t page;
+    read_page(query, &page);
     rc = gzc_control_list_contacts(
-        &control, &call, NULL, contacts, sizeof(contacts) / sizeof(contacts[0]), &count, &has_next,
+        &control, &call, &page, contacts, sizeof(contacts) / sizeof(contacts[0]), &count, &has_next,
         &text);
   } else if (post && route_is(&route, "/contacts", false)) {
     gzc_control_contact_request_t request;
