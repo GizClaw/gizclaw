@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"os"
@@ -17,7 +18,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -158,7 +158,7 @@ func TestAPIKeyHTTPRoutesAcrossEdgeToOwnerServer(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	registerSocialPeer(t, ctx, clientB, serverB)
+	registerSocialPeer(t, ctx, clientB, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
 	created, err := clientB.CreateAPIKey(ctx, "multi-server-api-key", rpcapi.APIKeyCreateRequest{
 		DisplayName: "multi-server-edge-route",
 	})
@@ -399,7 +399,7 @@ func sqlTableSnapshot(t *testing.T, path, table string) byteSnapshot {
 
 func querySQLTableSnapshot(path, table string) (byteSnapshot, error) {
 	switch table {
-	case "peer_runs", "runtime-profiles", "workflows", "workspaces":
+	case "kv", "peer_runs", "runtime-profiles", "workflows", "workspaces":
 	default:
 		return nil, fmt.Errorf("unsupported E2E table %q", table)
 	}

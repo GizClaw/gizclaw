@@ -40,7 +40,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	}
 	device := connectAndServe(t, peer, serverA, serverA.PublicKey, "device-routes-home")
 	defer device.Close()
-	registerSocialPeer(t, ctx, device, serverA)
+	registerSocialPeer(t, ctx, device, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
 	var volume int64 = 50
 	var muted bool
 	if err := device.HandleDeviceControl(gizcli.DeviceControlHandlers{
