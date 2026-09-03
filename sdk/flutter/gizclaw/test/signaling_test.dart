@@ -6,6 +6,7 @@ import 'package:gizclaw/src/signaling.dart';
 import 'package:test/test.dart';
 
 void main() {
+  transportTests();
   test('validates server-info payloads', () {
     final publicKey = base58Encode(List<int>.filled(32, 7));
     final info = GiznetServerInfo.fromJson({
@@ -127,4 +128,46 @@ Future<Uint8List> _encryptAnswer({
     aad: signalingAad(clientPublicKey, timestamp, nonce, answer: true),
   );
   return box.concatenation(nonce: false);
+}
+
+void transportTests() {
+  group('server-info transport', () {
+    test('parses an advertised Edge gateway', () {
+      final info = GiznetServerInfo.fromJson({
+        'protocol': 'gizclaw-webrtc',
+        'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+        'transport': {
+          'mode': 'edge-gateway',
+          'endpoint': '127.0.0.1:9821',
+          'public_key': 'FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs',
+          'signaling_path': '/webrtc/v1/offer',
+        },
+      });
+      expect(info.transport?.mode, 'edge-gateway');
+      expect(
+        info.transportPublicKey,
+        'FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs',
+      );
+      expect(info.transportSignalingPath, '/webrtc/v1/offer');
+    });
+
+    test('falls back to the Server key when no gateway is advertised', () {
+      final info = GiznetServerInfo.fromJson({
+        'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+      });
+      expect(info.transport, isNull);
+      expect(info.transportPublicKey, info.publicKey);
+      expect(info.transportSignalingPath, '/webrtc/v1/offer');
+    });
+
+    test('rejects a gateway without a usable public key', () {
+      expect(
+        () => GiznetServerInfo.fromJson({
+          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+          'transport': {'mode': 'edge-gateway'},
+        }),
+        throwsFormatException,
+      );
+    });
+  });
 }

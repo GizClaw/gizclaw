@@ -15,6 +15,7 @@ guides/public/api/specs/
 guides/references/flutter/
 guides/references/typescript/
 sdk/js/gizclaw/dist/
+sdk/js/gizclaw-control/dist/
 *.dll
 *.dylib
 *.exe

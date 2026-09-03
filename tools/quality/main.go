@@ -24,6 +24,10 @@ var generatedDirectories = []string{
 	"sdk/c/gizclaw/generated/",
 	"sdk/flutter/gizclaw/lib/src/generated/",
 	"sdk/js/gizclaw/generated/",
+	// Desktop scaffolding written by `flutter create`, updated by regenerating
+	// the platform directory rather than by hand.
+	"tests/gizclaw-e2e/flutter/giztest/linux/",
+	"tests/gizclaw-e2e/flutter/giztest/macos/",
 }
 
 var generatedFiles = map[string]bool{
