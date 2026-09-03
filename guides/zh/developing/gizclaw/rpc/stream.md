@@ -37,10 +37,10 @@ response envelope 和 EOS 都到达后结果为 `GZC_OK`；远端 RPC error 仍�
 
 两个 start 接口都接收 borrowed 的 `const gzc_rpc_request_options_t *`，其中
 `on_complete` 与 `complete_userdata` 注册 `gzc_rpc_complete_cb`。request 第一次进入
-terminal 时，SDK 在 poll owner 上同步且只回调一次，调用方无需遍历 pending request。
-response EOS、编解码或协议错误、DataChannel 关闭、传输错误、超时、
+terminal 时 SDK 同步且只回调一次，调用方无需遍历 pending request。全部终态都会通知：
+response EOS、编解码或协议错误、DataChannel 关闭、传输错误和超时由 poll owner 交付；
 `gzc_rpc_request_cancel`、`gzc_client_close`，以及对 pending request 调用
-`gzc_rpc_request_destroy`，都会触发通知。callback 只通知最终状态，不转移所有权；
+`gzc_rpc_request_destroy`，则在各自调用线程返回前交付。SDK 不为该 callback 创建线程。callback 只通知最终状态，不转移所有权；
 callback 内外调用 `gzc_rpc_request_result` 得到相同结果。callback 内禁止 cancel 或
 destroy 当前 request。options 传 NULL 表示不注册 completion callback。
 

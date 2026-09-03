@@ -48,8 +48,11 @@ typedef struct gzc_rpc_request gzc_rpc_request_t;
 
 /*
  * Reports that request reached its terminal state for the first time. It runs
- * exactly once per started request, synchronously on the serial poll owner that
- * advanced the request, and never from a thread the SDK creates.
+ * exactly once per started request, synchronously, and never from a thread the
+ * SDK creates: the serial gzc_client_poll() owner delivers it for response EOS,
+ * protocol failures, DataChannel close, transport errors and deadline expiry,
+ * while gzc_rpc_request_cancel(), gzc_rpc_request_destroy() and
+ * gzc_client_close() deliver it on their own calling thread before returning.
  *
  * status is the final request status: GZC_OK once a response envelope and its
  * RPC EOS arrived, GZC_ERR_TIMEOUT on deadline expiry, GZC_ERR_CLOSED for

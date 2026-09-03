@@ -40,11 +40,13 @@ destroy.
 
 Both start entry points take a borrowed `const gzc_rpc_request_options_t *`.
 Its `on_complete` and `complete_userdata` register a `gzc_rpc_complete_cb` that
-the SDK invokes exactly once, synchronously on the poll owner, the first time
-the request reaches a terminal state, so a caller never scans pending requests.
-Every terminal path notifies: response EOS, codec or protocol failure,
-DataChannel close, transport error, deadline, `gzc_rpc_request_cancel`,
-`gzc_client_close`, and `gzc_rpc_request_destroy` on a still-pending request.
+the SDK invokes exactly once, synchronously, the first time the request reaches
+a terminal state, so a caller never scans pending requests. Every terminal path
+notifies. The poll owner delivers response EOS, codec or protocol failure,
+DataChannel close, transport error, and deadline; `gzc_rpc_request_cancel`,
+`gzc_client_close`, and `gzc_rpc_request_destroy` on a still-pending request
+deliver it on their own calling thread before they return. The SDK creates no
+thread for the callback.
 The callback only reports the final status; it takes no ownership, and
 `gzc_rpc_request_result` returns the same result inside the callback and after
 it returns. The callback must not cancel or destroy its own request. A NULL

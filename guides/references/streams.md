@@ -197,10 +197,10 @@ response view 由 request 持有，直到 `gzc_rpc_request_destroy`；platform a
 
 `gzc_rpc_request_start` 与 `gzc_rpc_request_start_stream` 的
 `const gzc_rpc_request_options_t *options` 可注册 `gzc_rpc_complete_cb`。request
-第一次进入 terminal 时，SDK 在推进它的串行 poll owner 上同步回调一次，并传入该
-`gzc_rpc_request_t *` 与最终状态码；正常 response EOS、编解码或协议错误、
-DataChannel 关闭、传输错误、超时、主动 cancel、client close 以及 destroy 一个
-pending request 都会通知。callback 不传递 response 所有权，返回后仍可用
+第一次进入 terminal 时，SDK 同步回调一次，并传入该 `gzc_rpc_request_t *` 与最终
+状态码：正常 response EOS、编解码或协议错误、DataChannel 关闭、传输错误和超时由
+串行 poll owner 交付；主动 cancel、client close 以及 destroy 一个 pending request
+在各自调用线程返回前交付。SDK 不为该 callback 创建线程。callback 不传递 response 所有权，返回后仍可用
 `gzc_rpc_request_result` 读取最终结果；callback 内不得 cancel 或 destroy 当前
 request。options 传 NULL 时不注册 completion callback。
 
