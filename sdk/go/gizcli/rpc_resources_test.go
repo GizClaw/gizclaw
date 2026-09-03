@@ -49,6 +49,9 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspacePut, rpcapi.WorkspacePutResponse{}, (*rpcapi.RPCPayload).FromWorkspacePutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspacePutResponse, error) {
 			return client.PutWorkspace(ctx, conn, "workspace-put", rpcapi.WorkspacePutRequest{Name: "main"})
 		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceInputPut, rpcapi.WorkspaceInputPutResponse{}, (*rpcapi.RPCPayload).FromWorkspaceInputPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceInputPutResponse, error) {
+			return client.PutWorkspaceInput(ctx, conn, "workspace-input-put", rpcapi.WorkspaceInputPutRequest{Name: "main", Input: rpcapi.WorkspaceInputModeRealtime})
+		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceDelete, rpcapi.WorkspaceDeleteResponse{}, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceDeleteResponse, error) {
 			return client.DeleteWorkspace(ctx, conn, "workspace-delete", rpcapi.WorkspaceDeleteRequest{Name: "main"})
 		})

@@ -171,6 +171,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'WorkspacePutRequest',
     responseType: 'WorkspacePutResponse',
   ),
+  'server.workspace.input.put': RpcMethodDescriptor(
+    id: 107,
+    name: 'server.workspace.input.put',
+    requestType: 'WorkspaceInputPutRequest',
+    responseType: 'WorkspaceInputPutResponse',
+  ),
   'server.workspace.delete': RpcMethodDescriptor(
     id: 28,
     name: 'server.workspace.delete',
@@ -674,6 +680,7 @@ const rpcMethodNamesById = <int, String>{
   25: 'server.workspace.get',
   26: 'server.workspace.create',
   27: 'server.workspace.put',
+  107: 'server.workspace.input.put',
   28: 'server.workspace.delete',
   29: 'server.workspace.history.list',
   30: 'server.workspace.history.get',

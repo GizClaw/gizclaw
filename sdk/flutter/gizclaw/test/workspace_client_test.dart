@@ -103,6 +103,38 @@ void main() {
     expect((await future).value.name, 'mobile-ast-device');
   });
 
+  test('updates only the workspace input mode', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+
+    final future = client.putWorkspaceInput(
+      'mobile-ast-device',
+      payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+    final request = await _request(factory, 0);
+    final body =
+        decodeRpcRequestPayload('server.workspace.input.put', request.payload)
+            as payload.WorkspaceInputPutRequest;
+    expect(body.name, 'mobile-ast-device');
+    expect(
+      body.input,
+      payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+    _respond(
+      factory.channels.single,
+      request.id,
+      'server.workspace.input.put',
+      payload.WorkspaceInputPutResponse(
+        value: payload.Workspace(
+          name: 'mobile-ast-device',
+          workflowName: 'volc-ast-translate',
+        ),
+      ),
+    );
+
+    expect((await future).value.name, 'mobile-ast-device');
+  });
+
   test('selects and reloads a run workspace', () async {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);

@@ -3614,6 +3614,102 @@ func (x *WorkspacePutResponse) GetValue() *Workspace {
 	return nil
 }
 
+type WorkspaceInputPutRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Input         WorkspaceInputMode     `protobuf:"varint,2,opt,name=input,proto3,enum=gizclaw.rpc.v1.WorkspaceInputMode" json:"input,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkspaceInputPutRequest) Reset() {
+	*x = WorkspaceInputPutRequest{}
+	mi := &file_payload_workspace_proto_msgTypes[64]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkspaceInputPutRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkspaceInputPutRequest) ProtoMessage() {}
+
+func (x *WorkspaceInputPutRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_workspace_proto_msgTypes[64]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkspaceInputPutRequest.ProtoReflect.Descriptor instead.
+func (*WorkspaceInputPutRequest) Descriptor() ([]byte, []int) {
+	return file_payload_workspace_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *WorkspaceInputPutRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *WorkspaceInputPutRequest) GetInput() WorkspaceInputMode {
+	if x != nil {
+		return x.Input
+	}
+	return WorkspaceInputMode_WORKSPACE_INPUT_MODE_UNSPECIFIED
+}
+
+type WorkspaceInputPutResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         *Workspace             `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkspaceInputPutResponse) Reset() {
+	*x = WorkspaceInputPutResponse{}
+	mi := &file_payload_workspace_proto_msgTypes[65]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkspaceInputPutResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkspaceInputPutResponse) ProtoMessage() {}
+
+func (x *WorkspaceInputPutResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_workspace_proto_msgTypes[65]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkspaceInputPutResponse.ProtoReflect.Descriptor instead.
+func (*WorkspaceInputPutResponse) Descriptor() ([]byte, []int) {
+	return file_payload_workspace_proto_rawDescGZIP(), []int{65}
+}
+
+func (x *WorkspaceInputPutResponse) GetValue() *Workspace {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
 var File_payload_workspace_proto protoreflect.FileDescriptor
 
 const file_payload_workspace_proto_rawDesc = "" +
@@ -3928,6 +4024,11 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +
 	"\x14WorkspacePutResponse\x12/\n" +
+	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05value\"h\n" +
+	"\x18WorkspaceInputPutRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x128\n" +
+	"\x05input\x18\x02 \x01(\x0e2\".gizclaw.rpc.v1.WorkspaceInputModeR\x05input\"L\n" +
+	"\x19WorkspaceInputPutResponse\x12/\n" +
 	"\x05value\x18\x01 \x01(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05valueB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
@@ -3942,7 +4043,7 @@ func file_payload_workspace_proto_rawDescGZIP() []byte {
 	return file_payload_workspace_proto_rawDescData
 }
 
-var file_payload_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
+var file_payload_workspace_proto_msgTypes = make([]protoimpl.MessageInfo, 66)
 var file_payload_workspace_proto_goTypes = []any{
 	(*AgentSelection)(nil),                           // 0: gizclaw.rpc.v1.AgentSelection
 	(*PeerRunAgent)(nil),                             // 1: gizclaw.rpc.v1.PeerRunAgent
@@ -4008,42 +4109,45 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*WorkspaceParameters)(nil),                      // 61: gizclaw.rpc.v1.WorkspaceParameters
 	(*WorkspacePutRequest)(nil),                      // 62: gizclaw.rpc.v1.WorkspacePutRequest
 	(*WorkspacePutResponse)(nil),                     // 63: gizclaw.rpc.v1.WorkspacePutResponse
-	(PeerRunHistoryEntryType)(0),                     // 64: gizclaw.rpc.v1.PeerRunHistoryEntryType
-	(PeerRunHistoryListRequestOrder)(0),              // 65: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
-	(*structpb.Struct)(nil),                          // 66: google.protobuf.Struct
-	(PeerRunStatusState)(0),                          // 67: gizclaw.rpc.v1.PeerRunStatusState
-	(*Runtime)(nil),                                  // 68: gizclaw.rpc.v1.Runtime
-	(*ToolkitPolicy)(nil),                            // 69: gizclaw.rpc.v1.ToolkitPolicy
-	(*Icon)(nil),                                     // 70: gizclaw.rpc.v1.Icon
-	(IconFormat)(0),                                  // 71: gizclaw.rpc.v1.IconFormat
-	(WorkspaceHistoryListRequestOrder)(0),            // 72: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(*FlowcraftWorkspaceParameters)(nil),             // 73: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	(*DoubaoRealtimeWorkspaceParameters)(nil),        // 74: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	(*ASTTranslateWorkspaceParameters)(nil),          // 75: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	(*ChatRoomWorkspaceParameters)(nil),              // 76: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	(*DashScopeRealtimeWorkspaceParameters)(nil),     // 77: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
-	(*DoubaoRealtimeDuplexWorkspaceParameters)(nil),  // 78: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
-	(*EinoWorkspaceParameters)(nil),                  // 79: gizclaw.rpc.v1.EinoWorkspaceParameters
-	(*PetWorkspaceParameters)(nil),                   // 80: gizclaw.rpc.v1.PetWorkspaceParameters
+	(*WorkspaceInputPutRequest)(nil),                 // 64: gizclaw.rpc.v1.WorkspaceInputPutRequest
+	(*WorkspaceInputPutResponse)(nil),                // 65: gizclaw.rpc.v1.WorkspaceInputPutResponse
+	(PeerRunHistoryEntryType)(0),                     // 66: gizclaw.rpc.v1.PeerRunHistoryEntryType
+	(PeerRunHistoryListRequestOrder)(0),              // 67: gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	(*structpb.Struct)(nil),                          // 68: google.protobuf.Struct
+	(PeerRunStatusState)(0),                          // 69: gizclaw.rpc.v1.PeerRunStatusState
+	(*Runtime)(nil),                                  // 70: gizclaw.rpc.v1.Runtime
+	(*ToolkitPolicy)(nil),                            // 71: gizclaw.rpc.v1.ToolkitPolicy
+	(*Icon)(nil),                                     // 72: gizclaw.rpc.v1.Icon
+	(IconFormat)(0),                                  // 73: gizclaw.rpc.v1.IconFormat
+	(WorkspaceHistoryListRequestOrder)(0),            // 74: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	(*FlowcraftWorkspaceParameters)(nil),             // 75: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	(*DoubaoRealtimeWorkspaceParameters)(nil),        // 76: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	(*ASTTranslateWorkspaceParameters)(nil),          // 77: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	(*ChatRoomWorkspaceParameters)(nil),              // 78: gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	(*DashScopeRealtimeWorkspaceParameters)(nil),     // 79: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
+	(*DoubaoRealtimeDuplexWorkspaceParameters)(nil),  // 80: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
+	(*EinoWorkspaceParameters)(nil),                  // 81: gizclaw.rpc.v1.EinoWorkspaceParameters
+	(*PetWorkspaceParameters)(nil),                   // 82: gizclaw.rpc.v1.PetWorkspaceParameters
+	(WorkspaceInputMode)(0),                          // 83: gizclaw.rpc.v1.WorkspaceInputMode
 }
 var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
 	0,  // 1: gizclaw.rpc.v1.PeerRunAgent.pending:type_name -> gizclaw.rpc.v1.AgentSelection
-	64, // 2: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
-	65, // 3: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
+	66, // 2: gizclaw.rpc.v1.PeerRunHistoryEntry.type:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntryType
+	67, // 3: gizclaw.rpc.v1.PeerRunHistoryListRequest.order:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequestOrder
 	2,  // 4: gizclaw.rpc.v1.PeerRunHistoryListResponse.items:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	66, // 5: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
-	66, // 6: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
-	66, // 7: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
+	68, // 5: gizclaw.rpc.v1.PeerRunMemoryStatsResponse.metadata:type_name -> google.protobuf.Struct
+	68, // 6: gizclaw.rpc.v1.PeerRunRecallHit.metadata:type_name -> google.protobuf.Struct
+	68, // 7: gizclaw.rpc.v1.PeerRunRecallRequest.filters:type_name -> google.protobuf.Struct
 	9,  // 8: gizclaw.rpc.v1.PeerRunRecallResponse.hits:type_name -> gizclaw.rpc.v1.PeerRunRecallHit
-	67, // 9: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
-	67, // 10: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
+	69, // 9: gizclaw.rpc.v1.PeerRunStatus.state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
+	69, // 10: gizclaw.rpc.v1.PeerRunWorkspaceState.runtime_state:type_name -> gizclaw.rpc.v1.PeerRunStatusState
 	1,  // 11: gizclaw.rpc.v1.ServerGetRunAgentResponse.value:type_name -> gizclaw.rpc.v1.PeerRunAgent
 	12, // 12: gizclaw.rpc.v1.ServerGetRunStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
 	7,  // 13: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsRequest.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsRequest
 	8,  // 14: gizclaw.rpc.v1.ServerGetRunWorkspaceMemoryStatsResponse.value:type_name -> gizclaw.rpc.v1.PeerRunMemoryStatsResponse
 	13, // 15: gizclaw.rpc.v1.ServerGetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
-	68, // 16: gizclaw.rpc.v1.ServerGetRuntimeResponse.value:type_name -> gizclaw.rpc.v1.Runtime
+	70, // 16: gizclaw.rpc.v1.ServerGetRuntimeResponse.value:type_name -> gizclaw.rpc.v1.Runtime
 	3,  // 17: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListRequest
 	4,  // 18: gizclaw.rpc.v1.ServerListRunWorkspaceHistoryResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
 	5,  // 19: gizclaw.rpc.v1.ServerPlayRunWorkspaceHistoryRequest.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryPlayRequest
@@ -4058,37 +4162,39 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	13, // 28: gizclaw.rpc.v1.ServerSetRunWorkspaceResponse.value:type_name -> gizclaw.rpc.v1.PeerRunWorkspaceState
 	12, // 29: gizclaw.rpc.v1.ServerStopRunResponse.value:type_name -> gizclaw.rpc.v1.PeerRunStatus
 	61, // 30: gizclaw.rpc.v1.Workspace.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	69, // 31: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	70, // 32: gizclaw.rpc.v1.Workspace.icon:type_name -> gizclaw.rpc.v1.Icon
+	71, // 31: gizclaw.rpc.v1.Workspace.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	72, // 32: gizclaw.rpc.v1.Workspace.icon:type_name -> gizclaw.rpc.v1.Icon
 	61, // 33: gizclaw.rpc.v1.WorkspaceCreateBody.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	69, // 34: gizclaw.rpc.v1.WorkspaceCreateBody.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	71, // 34: gizclaw.rpc.v1.WorkspaceCreateBody.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
 	61, // 35: gizclaw.rpc.v1.WorkspacePutBody.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParameters
-	69, // 36: gizclaw.rpc.v1.WorkspacePutBody.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
-	71, // 37: gizclaw.rpc.v1.WorkspaceIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
-	71, // 38: gizclaw.rpc.v1.WorkspaceIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
+	71, // 36: gizclaw.rpc.v1.WorkspacePutBody.toolkit:type_name -> gizclaw.rpc.v1.ToolkitPolicy
+	73, // 37: gizclaw.rpc.v1.WorkspaceIconDownloadRequest.format:type_name -> gizclaw.rpc.v1.IconFormat
+	73, // 38: gizclaw.rpc.v1.WorkspaceIconDownloadResponse.format:type_name -> gizclaw.rpc.v1.IconFormat
 	43, // 39: gizclaw.rpc.v1.WorkspaceCreateRequest.value:type_name -> gizclaw.rpc.v1.WorkspaceCreateBody
 	42, // 40: gizclaw.rpc.v1.WorkspaceCreateResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	42, // 41: gizclaw.rpc.v1.WorkspaceDeleteResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	42, // 42: gizclaw.rpc.v1.WorkspaceGetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
 	2,  // 43: gizclaw.rpc.v1.WorkspaceHistoryGetResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryEntry
-	72, // 44: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
+	74, // 44: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
 	4,  // 45: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
 	42, // 46: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
-	73, // 47: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	74, // 48: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	75, // 49: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	76, // 50: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
-	77, // 51: gizclaw.rpc.v1.WorkspaceParameters.dash_scope_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
-	78, // 52: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_duplex_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
-	79, // 53: gizclaw.rpc.v1.WorkspaceParameters.eino_workspace_parameters:type_name -> gizclaw.rpc.v1.EinoWorkspaceParameters
-	80, // 54: gizclaw.rpc.v1.WorkspaceParameters.pet_workspace_parameters:type_name -> gizclaw.rpc.v1.PetWorkspaceParameters
+	75, // 47: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
+	76, // 48: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	77, // 49: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	78, // 50: gizclaw.rpc.v1.WorkspaceParameters.chat_room_workspace_parameters:type_name -> gizclaw.rpc.v1.ChatRoomWorkspaceParameters
+	79, // 51: gizclaw.rpc.v1.WorkspaceParameters.dash_scope_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
+	80, // 52: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_duplex_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
+	81, // 53: gizclaw.rpc.v1.WorkspaceParameters.eino_workspace_parameters:type_name -> gizclaw.rpc.v1.EinoWorkspaceParameters
+	82, // 54: gizclaw.rpc.v1.WorkspaceParameters.pet_workspace_parameters:type_name -> gizclaw.rpc.v1.PetWorkspaceParameters
 	44, // 55: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspacePutBody
 	42, // 56: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	57, // [57:57] is the sub-list for method output_type
-	57, // [57:57] is the sub-list for method input_type
-	57, // [57:57] is the sub-list for extension type_name
-	57, // [57:57] is the sub-list for extension extendee
-	0,  // [0:57] is the sub-list for field type_name
+	83, // 57: gizclaw.rpc.v1.WorkspaceInputPutRequest.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	42, // 58: gizclaw.rpc.v1.WorkspaceInputPutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	59, // [59:59] is the sub-list for method output_type
+	59, // [59:59] is the sub-list for method input_type
+	59, // [59:59] is the sub-list for extension type_name
+	59, // [59:59] is the sub-list for extension extendee
+	0,  // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_payload_workspace_proto_init() }
@@ -4133,7 +4239,7 @@ func file_payload_workspace_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_workspace_proto_rawDesc), len(file_payload_workspace_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   64,
+			NumMessages:   66,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

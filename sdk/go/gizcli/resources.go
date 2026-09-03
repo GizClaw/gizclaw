@@ -68,6 +68,15 @@ func (c *Client) PutWorkspace(ctx context.Context, id string, request rpcapi.Wor
 	})
 }
 
+// PutWorkspaceInput changes only the input mode of one Workspace. The Server
+// keeps every other Workspace parameter and the toolkit policy, so callers must
+// not read the Workspace or its Workflow first.
+func (c *Client) PutWorkspaceInput(ctx context.Context, id string, request rpcapi.WorkspaceInputPutRequest) (*rpcapi.WorkspaceInputPutResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceInputPutResponse, error) {
+		return client.PutWorkspaceInput(ctx, conn, id, request)
+	})
+}
+
 func (c *Client) DeleteWorkspace(ctx context.Context, id string, request rpcapi.WorkspaceDeleteRequest) (*rpcapi.WorkspaceDeleteResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceDeleteResponse, error) {
 		return client.DeleteWorkspace(ctx, conn, id, request)
