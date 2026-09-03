@@ -1827,7 +1827,7 @@ int main(void) {
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
-  config.server_url = gzc_str_from_cstr("http://example.invalid:9820");
+  config.server_endpoint = gzc_str_from_cstr("http://example.invalid:9820");
   config.private_key = gzc_str_from_cstr("7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz");
   config.platform = platform;
   config.crypto = &crypto;
@@ -1908,7 +1908,7 @@ int main(void) {
              "buffer-too-small status string") != 0) {
     return 1;
   }
-  static const char *const rejected_server_urls[] = {
+  static const char *const rejected_server_endpoints[] = {
       "",
       "ftp://example.invalid:9820",
       "http:",
@@ -1933,16 +1933,16 @@ int main(void) {
       "[::1%eth0]",
       "[::ffff:999.1.1.1]",
   };
-  for (size_t i = 0; i < sizeof(rejected_server_urls) / sizeof(rejected_server_urls[0]); i++) {
+  for (size_t i = 0; i < sizeof(rejected_server_endpoints) / sizeof(rejected_server_endpoints[0]); i++) {
     invalid_config = config;
-    invalid_config.server_url = gzc_str_from_cstr(rejected_server_urls[i]);
+    invalid_config.server_endpoint = gzc_str_from_cstr(rejected_server_endpoints[i]);
     rc = gzc_client_create(&invalid_config, &client);
     if (expect(rc == GZC_ERR_INVALID_ARGUMENT && client == NULL,
                "server URL must be an absolute http or https URL") != 0) {
       return 1;
     }
   }
-  static const char *const accepted_server_urls[] = {
+  static const char *const accepted_server_endpoints[] = {
       "example.invalid:9820",
       "example.invalid",
       "[::1]:9820",
@@ -1954,10 +1954,10 @@ int main(void) {
       "https://ap.gizclaw.com/",
       "https://ap.gizclaw.com/prefix",
   };
-  for (size_t i = 0; i < sizeof(accepted_server_urls) / sizeof(accepted_server_urls[0]); i++) {
+  for (size_t i = 0; i < sizeof(accepted_server_endpoints) / sizeof(accepted_server_endpoints[0]); i++) {
     gzc_client_t *url_client = NULL;
     invalid_config = config;
-    invalid_config.server_url = gzc_str_from_cstr(accepted_server_urls[i]);
+    invalid_config.server_endpoint = gzc_str_from_cstr(accepted_server_endpoints[i]);
     rc = gzc_client_create(&invalid_config, &url_client);
     if (expect(rc == GZC_OK && url_client != NULL,
                "http, https and bare host:port server URLs are accepted") != 0) {
@@ -2092,13 +2092,6 @@ int main(void) {
     return 1;
   }
   if (expect(fake_webrtc.ice_server_count == 1, "server-info ICE server applied before offer") != 0) {
-    return 1;
-  }
-  gzc_str_t ice_endpoint;
-  memset(&ice_endpoint, 0, sizeof(ice_endpoint));
-  if (expect(gzc_client_ice_endpoint(client, &ice_endpoint) == GZC_OK &&
-                 str_eq_cstr(ice_endpoint, "ice.invalid:9820"),
-             "server-info advertises the ICE UDP endpoint") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.opus_register_count == 2,

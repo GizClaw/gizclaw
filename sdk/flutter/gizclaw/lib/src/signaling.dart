@@ -109,11 +109,6 @@ class GiznetServerInfo {
   String get transportSignalingPath =>
       transport?.signalingPath ?? signalingPath;
 
-  /// host[:port] the Server accepts ICE UDP traffic on. The HTTP access point
-  /// may terminate TLS on a port that carries no ICE, so WebRTC media uses this
-  /// address rather than the URL the document was fetched from.
-  String? get iceEndpoint => endpoint;
-
   factory GiznetServerInfo.fromJson(Map<String, Object?> json) {
     final protocol = json['protocol'] as String?;
     if (protocol != null && protocol != 'gizclaw-webrtc') {
@@ -139,7 +134,7 @@ class GiznetServerInfo {
         json['build_commit'],
         'build_commit',
       ),
-      endpoint: _optionalServerInfoEndpoint(json['endpoint']),
+      endpoint: json['endpoint'] as String?,
       protocol: protocol,
       publicKey: publicKey,
       signalingPath: signalingPath,
@@ -148,23 +143,6 @@ class GiznetServerInfo {
           : null,
       version: _optionalServerInfoMetadata(json['version'], 'version'),
     );
-  }
-
-  static String? _optionalServerInfoEndpoint(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is! String) {
-      throw const FormatException('server-info invalid endpoint');
-    }
-    final endpoint = value.trim();
-    if (endpoint.isEmpty) {
-      return null;
-    }
-    if (!isGiznetHostPort(endpoint)) {
-      throw FormatException('server-info invalid endpoint $endpoint');
-    }
-    return endpoint;
   }
 
   static String? _optionalServerInfoMetadata(Object? value, String field) {

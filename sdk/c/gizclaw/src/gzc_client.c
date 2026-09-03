@@ -74,8 +74,6 @@ struct gzc_client {
   gzc_service_channel_t *event_channel;
   gzc_event_stream_t *event_handle;
   gzc_public_key_t server_public_key;
-  /* host[:port] ICE UDP endpoint advertised by /server-info. */
-  gzc_buf_t ice_endpoint;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
   gzc_opus_rx_slot_t *opus_rx;
@@ -685,7 +683,7 @@ static bool valid_base_url(gzc_str_t url, gzc_str_t *out_base) {
  * Accepts an absolute http or https base URL, or a bare host[:port] that keeps
  * the historical plaintext lane working.
  */
-static bool valid_server_url(gzc_str_t url) {
+static bool valid_server_endpoint(gzc_str_t url) {
   gzc_str_t base;
   if (url_scheme_len(url) != 0u) {
     return valid_base_url(url, &base);
@@ -734,7 +732,7 @@ static int build_transport_url(
   if (client == NULL || out_url == NULL || !valid_path(path)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  size_t scheme_len = url_scheme_len(client->config.server_url);
+  size_t scheme_len = url_scheme_len(client->config.server_endpoint);
   if (str_has_scheme(endpoint) || scheme_len == 0u) {
     return build_url(client, endpoint, path, out_url);
   }
@@ -745,7 +743,7 @@ static int build_transport_url(
   int rc = gzc_buf_append(
       out_url,
       client->config.platform,
-      (const uint8_t *)client->config.server_url.data,
+      (const uint8_t *)client->config.server_endpoint.data,
       scheme_len);
   if (rc != GZC_OK) {
     return rc;
@@ -761,7 +759,7 @@ static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *o
   if (client == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  return build_url(client, client->config.server_url, path, out_url);
+  return build_url(client, client->config.server_endpoint, path, out_url);
 }
 
 static void free_http_response(gzc_client_t *client, gzc_http_response_t *response) {
@@ -998,10 +996,9 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
   if (client == NULL || signaling == NULL || signaling_url == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (!valid_server_url(client->config.server_url)) {
+  if (!valid_server_endpoint(client->config.server_endpoint)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  gzc_buf_reset(&client->ice_endpoint);
 
   gzc_buf_t server_info_url;
   gzc_buf_init(&server_info_url);
@@ -1064,26 +1061,8 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
     }
   }
 
-  /*
-   * The HTTP entry point may terminate TLS on a port that carries no ICE, so
-   * the UDP endpoint comes from server-info rather than from the server URL.
-   */
-  if (gzc_json_find_field(body, "endpoint", &raw) == GZC_OK) {
-    gzc_str_t ice_endpoint;
-    rc = gzc_json_parse_string(raw, &ice_endpoint);
-    if (rc != GZC_OK || !valid_authority(ice_endpoint)) {
-      free_http_response(client, &response);
-      return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
-    }
-    rc = gzc_buf_append_str(&client->ice_endpoint, client->config.platform, ice_endpoint);
-    if (rc != GZC_OK) {
-      free_http_response(client, &response);
-      return rc;
-    }
-  }
-
   signaling->remote_public_key = client->server_public_key;
-  gzc_str_t signaling_endpoint = client->config.server_url;
+  gzc_str_t signaling_endpoint = client->config.server_endpoint;
   gzc_str_t signaling_path = gzc_str_from_cstr(GZC_SIGNALING_PATH);
   bool gateway_transport = false;
   gzc_str_t transport_raw;
@@ -1479,7 +1458,7 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       config->write_timeout_ms <= 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (!valid_server_url(config->server_url)) {
+  if (!valid_server_endpoint(config->server_endpoint)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   if ((config->webrtc->channel_buffered_amount == NULL) !=
@@ -1527,7 +1506,6 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   client->config.service_write_high_water_bytes = high_water;
   client->config.service_write_low_water_bytes = low_water;
   gzc_buf_init(&client->local_sdp);
-  gzc_buf_init(&client->ice_endpoint);
   gzc_buf_init(&client->packet_rx);
   client->opus_rx_capacity = GZC_OPUS_RX_CAPACITY_DEFAULT;
   *out_client = client;
@@ -1539,17 +1517,6 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
     return GZC_ERR_INVALID_ARGUMENT;
   }
   client->peer_add_ice_server = fn;
-  return GZC_OK;
-}
-
-int gzc_client_ice_endpoint(gzc_client_t *client, gzc_str_t *out_endpoint) {
-  if (client == NULL || out_endpoint == NULL) {
-    return GZC_ERR_INVALID_ARGUMENT;
-  }
-  if (client->ice_endpoint.len == 0) {
-    return GZC_ERR_UNSUPPORTED;
-  }
-  *out_endpoint = gzc_str_from_parts((const char *)client->ice_endpoint.data, client->ice_endpoint.len);
   return GZC_OK;
 }
 
@@ -1973,7 +1940,6 @@ void gzc_client_destroy(gzc_client_t *client) {
   const gzc_platform_t *platform = client->config.platform == NULL ? gzc_default_platform() : client->config.platform;
   (void)gzc_client_close(client);
   gzc_buf_free(&client->local_sdp, platform);
-  gzc_buf_free(&client->ice_endpoint, platform);
   gzc_buf_free(&client->packet_rx, platform);
   if (client->opus_rx != NULL) {
     platform->free(platform->userdata, client->opus_rx);

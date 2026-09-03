@@ -116,7 +116,7 @@ int gzt_session_open(
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
-  config.server_url = gzc_str_from_cstr(endpoint);
+  config.server_endpoint = gzc_str_from_cstr(endpoint);
   config.private_key = gzc_str_from_cstr(private_key);
   config.platform = session->backend.platform;
   config.crypto = &session->crypto;
