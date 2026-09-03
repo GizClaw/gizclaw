@@ -113,6 +113,8 @@ class RpcMethod extends $pb.ProtobufEnum {
       26, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_PUT =
       RpcMethod._(27, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PUT');
+  static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT = RpcMethod._(
+      107, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_DELETE = RpcMethod._(
       28, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = RpcMethod._(
@@ -320,6 +322,7 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_GET,
     RPC_METHOD_SERVER_WORKSPACE_CREATE,
     RPC_METHOD_SERVER_WORKSPACE_PUT,
+    RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT,
     RPC_METHOD_SERVER_WORKSPACE_DELETE,
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST,
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET,
@@ -399,7 +402,7 @@ class RpcMethod extends $pb.ProtobufEnum {
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 106);
+      $pb.ProtobufEnum.$_initByValueList(values, 107);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

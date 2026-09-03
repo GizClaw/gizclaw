@@ -609,6 +609,7 @@ const (
 	RPCMethodServerWorkspaceHistoryGet           RPCMethod = "server.workspace.history.get"
 	RPCMethodServerWorkspaceHistoryList          RPCMethod = "server.workspace.history.list"
 	RPCMethodServerWorkspaceIconDownload         RPCMethod = "server.workspace.icon.download"
+	RPCMethodServerWorkspaceInputPut             RPCMethod = "server.workspace.input.put"
 	RPCMethodServerWorkspaceList                 RPCMethod = "server.workspace.list"
 	RPCMethodServerWorkspacePut                  RPCMethod = "server.workspace.put"
 )
@@ -815,6 +816,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerWorkspaceHistoryList:
 		return true
 	case RPCMethodServerWorkspaceIconDownload:
+		return true
+	case RPCMethodServerWorkspaceInputPut:
 		return true
 	case RPCMethodServerWorkspaceList:
 		return true
@@ -3041,6 +3044,15 @@ type WorkspaceHistoryListResponse = PeerRunHistoryListResponse
 // WorkspaceInputMode defines model for WorkspaceInputMode.
 type WorkspaceInputMode string
 
+// WorkspaceInputPutRequest defines model for WorkspaceInputPutRequest.
+type WorkspaceInputPutRequest struct {
+	Input WorkspaceInputMode `json:"input"`
+	Name  string             `json:"name"`
+}
+
+// WorkspaceInputPutResponse defines model for WorkspaceInputPutResponse.
+type WorkspaceInputPutResponse = Workspace
+
 // WorkspaceListRequest defines model for WorkspaceListRequest.
 type WorkspaceListRequest struct {
 	Cursor     *string `json:"cursor,omitempty"`
@@ -3744,6 +3756,23 @@ func (t *RPCPayload) FromWorkspaceCreateRequest(v WorkspaceCreateRequest) error 
 // MergeWorkspaceCreateRequest performs a merge with any protobuf payload, using the provided WorkspaceCreateRequest
 func (t *RPCPayload) MergeWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
 	return t.merge("WorkspaceCreateRequest", v)
+}
+
+// AsWorkspaceInputPutRequest decodes the RPCPayload as a WorkspaceInputPutRequest
+func (t RPCPayload) AsWorkspaceInputPutRequest() (WorkspaceInputPutRequest, error) {
+	var body WorkspaceInputPutRequest
+	err := t.decode("WorkspaceInputPutRequest", &body)
+	return body, err
+}
+
+// FromWorkspaceInputPutRequest overwrites any protobuf payload as the provided WorkspaceInputPutRequest
+func (t *RPCPayload) FromWorkspaceInputPutRequest(v WorkspaceInputPutRequest) error {
+	return t.encode("WorkspaceInputPutRequest", v)
+}
+
+// MergeWorkspaceInputPutRequest performs a merge with any protobuf payload, using the provided WorkspaceInputPutRequest
+func (t *RPCPayload) MergeWorkspaceInputPutRequest(v WorkspaceInputPutRequest) error {
+	return t.merge("WorkspaceInputPutRequest", v)
 }
 
 // AsWorkspacePutRequest decodes the RPCPayload as a WorkspacePutRequest
@@ -5036,6 +5065,23 @@ func (t *RPCPayload) FromWorkspaceCreateResponse(v WorkspaceCreateResponse) erro
 // MergeWorkspaceCreateResponse performs a merge with any protobuf payload, using the provided WorkspaceCreateResponse
 func (t *RPCPayload) MergeWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
 	return t.merge("WorkspaceCreateResponse", v)
+}
+
+// AsWorkspaceInputPutResponse decodes the RPCPayload as a WorkspaceInputPutResponse
+func (t RPCPayload) AsWorkspaceInputPutResponse() (WorkspaceInputPutResponse, error) {
+	var body WorkspaceInputPutResponse
+	err := t.decode("WorkspaceInputPutResponse", &body)
+	return body, err
+}
+
+// FromWorkspaceInputPutResponse overwrites any protobuf payload as the provided WorkspaceInputPutResponse
+func (t *RPCPayload) FromWorkspaceInputPutResponse(v WorkspaceInputPutResponse) error {
+	return t.encode("WorkspaceInputPutResponse", v)
+}
+
+// MergeWorkspaceInputPutResponse performs a merge with any protobuf payload, using the provided WorkspaceInputPutResponse
+func (t *RPCPayload) MergeWorkspaceInputPutResponse(v WorkspaceInputPutResponse) error {
+	return t.merge("WorkspaceInputPutResponse", v)
 }
 
 // AsWorkspacePutResponse decodes the RPCPayload as a WorkspacePutResponse

@@ -103,6 +103,8 @@ func isAutoConnectedPeer(peer apitypes.Peer) bool {
 		peer.Status == apitypes.PeerRegistrationStatusActive
 }
 
+// putInfo applies a partial device profile update. Only the fields present in
+// info are written; absent fields keep their stored value.
 func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info apitypes.DeviceInfo) (apitypes.Peer, error) {
 	if info.Hardware != nil || info.Identifiers != nil {
 		return apitypes.Peer{}, fmt.Errorf("%w: hardware and identifiers are read-only", ErrInvalidInfo)
@@ -119,8 +121,12 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
-	peer.Device.Name = info.Name
-	peer.Device.Emoji = info.Emoji
+	if info.Name != nil {
+		peer.Device.Name = info.Name
+	}
+	if info.Emoji != nil {
+		peer.Device.Emoji = info.Emoji
+	}
 	return s.putRecord(ctx, peer)
 }
 

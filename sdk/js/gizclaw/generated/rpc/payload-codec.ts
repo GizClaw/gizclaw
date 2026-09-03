@@ -1328,6 +1328,11 @@ export type WorkspaceIconDownloadResponse = {
   "format": IconFormat;
   "size_bytes": number;
 };
+export type WorkspaceInputPutRequest = {
+  "name": string;
+  "input": WorkspaceInputMode;
+};
+export type WorkspaceInputPutResponse = Workspace;
 export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1453,6 +1458,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.history.get": "WorkspaceHistoryGetRequest",
   "server.workspace.history.list": "WorkspaceHistoryListRequest",
   "server.workspace.icon.download": "WorkspaceIconDownloadRequest",
+  "server.workspace.input.put": "WorkspaceInputPutRequest",
   "server.workspace.list": "WorkspaceListRequest",
   "server.workspace.put": "WorkspacePutRequest"
 };
@@ -1557,6 +1563,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.history.get": "WorkspaceHistoryGetResponse",
   "server.workspace.history.list": "WorkspaceHistoryListResponse",
   "server.workspace.icon.download": "WorkspaceIconDownloadResponse",
+  "server.workspace.input.put": "WorkspaceInputPutResponse",
   "server.workspace.list": "WorkspaceListResponse",
   "server.workspace.put": "WorkspacePutResponse"
 };
@@ -7440,6 +7447,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "size_bytes",
         "number": 3,
         "type": "int64"
+      }
+    ]
+  },
+  "WorkspaceInputPutRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "input",
+        "number": 2,
+        "type": "WorkspaceInputMode"
+      }
+    ]
+  },
+  "WorkspaceInputPutResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Workspace"
       }
     ]
   },

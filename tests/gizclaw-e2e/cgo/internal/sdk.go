@@ -939,6 +939,19 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "echo" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
+	var inputResponse rpcpb.WorkspaceInputPutResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT, &rpcpb.WorkspaceInputPutRequest{
+		Name: workspaceName, Input: rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME,
+	}, &inputResponse)
+	if mode := inputResponse.GetValue().GetParameters().GetChatRoomWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME {
+		t.Fatalf("invalid server.workspace.input.put: %s", inputResponse.String())
+	}
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT, &rpcpb.WorkspaceInputPutRequest{
+		Name: workspaceName, Input: rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+	}, &inputResponse)
+	if mode := inputResponse.GetValue().GetParameters().GetChatRoomWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
+		t.Fatalf("invalid server.workspace.input.put revert: %s", inputResponse.String())
+	}
 	setChatWorkspace(t, client, workspaceName)
 	var getResponse rpcpb.ServerGetRunWorkspaceResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET, &rpcpb.ServerGetRunWorkspaceRequest{}, &getResponse)

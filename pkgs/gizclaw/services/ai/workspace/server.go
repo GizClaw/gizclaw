@@ -1044,6 +1044,21 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if normalized.Id != id {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("RESOURCE_ID_MISMATCH", "body id must match path id")), nil
 	}
+	return s.putWorkspaceRecord(ctx, id, request.Body.Icon, func(apitypes.Workspace) (adminhttp.WorkspaceUpsert, error) {
+		return normalized, nil
+	})
+}
+
+// putWorkspaceRecord updates one stored Workspace under its record lock. build
+// receives the record that lock protects, so a caller that patches individual
+// fields never writes values read before the lock was held. icon is the icon
+// projection the caller requested, which normalizeWorkspaceUpsert drops.
+func (s *Server) putWorkspaceRecord(
+	ctx context.Context,
+	id string,
+	icon *apitypes.Icon,
+	build func(previous apitypes.Workspace) (adminhttp.WorkspaceUpsert, error),
+) (adminhttp.PutWorkspaceResponseObject, error) {
 	store, err := s.store()
 	if err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -1066,6 +1081,13 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 	if err := s.ensureWorkspaceOwnerAvailable(ctx, previous); err != nil {
 		return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(peerAvailabilityCode(err), err.Error())), nil
 	}
+	normalized, err := build(previous)
+	if err != nil {
+		if isInvalidWorkspaceReference(err) {
+			return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
+		}
+		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
 	if normalized.Name != previous.Name {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", fmt.Sprintf("name %q must match immutable name %q", normalized.Name, previous.Name))), nil
 	}
@@ -1082,7 +1104,7 @@ func (s *Server) PutWorkspace(ctx context.Context, request adminhttp.PutWorkspac
 		}
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := iconasset.ValidateProjection(previous.Icon, request.Body.Icon); err != nil {
+	if err := iconasset.ValidateProjection(previous.Icon, icon); err != nil {
 		return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil
 	}
 	now := time.Now().UTC()

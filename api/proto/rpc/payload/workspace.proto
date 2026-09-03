@@ -355,3 +355,12 @@ message WorkspacePutRequest {
 message WorkspacePutResponse {
   Workspace value = 1;
 }
+
+message WorkspaceInputPutRequest {
+  string name = 1;
+  WorkspaceInputMode input = 2;
+}
+
+message WorkspaceInputPutResponse {
+  Workspace value = 1;
+}

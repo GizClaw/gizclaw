@@ -417,6 +417,16 @@ typedef struct _gizclaw_rpc_v1_WorkspacePutResponse {
     gizclaw_rpc_v1_Workspace value;
 } gizclaw_rpc_v1_WorkspacePutResponse;
 
+typedef struct _gizclaw_rpc_v1_WorkspaceInputPutRequest {
+    char name[256];
+    gizclaw_rpc_v1_WorkspaceInputMode input;
+} gizclaw_rpc_v1_WorkspaceInputPutRequest;
+
+typedef struct _gizclaw_rpc_v1_WorkspaceInputPutResponse {
+    bool has_value;
+    gizclaw_rpc_v1_Workspace value;
+} gizclaw_rpc_v1_WorkspaceInputPutResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -487,6 +497,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_default {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_default {false, gizclaw_rpc_v1_WorkspacePutBody_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_init_default {"", _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
 #define gizclaw_rpc_v1_AgentSelection_init_zero  {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunAgent_init_zero    {false, gizclaw_rpc_v1_AgentSelection_init_zero, false, gizclaw_rpc_v1_AgentSelection_init_zero}
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunHistoryEntryType_MIN}
@@ -551,6 +563,8 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParameters_init_zero {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_zero {false, gizclaw_rpc_v1_WorkspacePutBody_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_init_zero {"", _gizclaw_rpc_v1_WorkspaceInputMode_MIN}
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_AgentSelection_workspace_name_tag 1
@@ -703,6 +717,9 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspacePutRequest_body_tag 1
 #define gizclaw_rpc_v1_WorkspacePutRequest_name_tag 2
 #define gizclaw_rpc_v1_WorkspacePutResponse_value_tag 1
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_name_tag 1
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_input_tag 2
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_value_tag 1
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_AgentSelection_FIELDLIST(X, a) \
@@ -1168,6 +1185,18 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
 #define gizclaw_rpc_v1_WorkspacePutResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_WorkspacePutResponse_value_MSGTYPE gizclaw_rpc_v1_Workspace
 
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   name,              1) \
+X(a, STATIC,   SINGULAR, UENUM,    input,             2)
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             1)
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_value_MSGTYPE gizclaw_rpc_v1_Workspace
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_AgentSelection_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerRunAgent_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerRunHistoryEntry_msg;
@@ -1232,6 +1261,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceParameters_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceInputPutRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspaceInputPutResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_AgentSelection_fields &gizclaw_rpc_v1_AgentSelection_msg
@@ -1298,6 +1329,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_WorkspacePutResponse_msg;
 #define gizclaw_rpc_v1_WorkspaceParameters_fields &gizclaw_rpc_v1_WorkspaceParameters_msg
 #define gizclaw_rpc_v1_WorkspacePutRequest_fields &gizclaw_rpc_v1_WorkspacePutRequest_msg
 #define gizclaw_rpc_v1_WorkspacePutResponse_fields &gizclaw_rpc_v1_WorkspacePutResponse_msg
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_fields &gizclaw_rpc_v1_WorkspaceInputPutRequest_msg
+#define gizclaw_rpc_v1_WorkspaceInputPutResponse_fields &gizclaw_rpc_v1_WorkspaceInputPutResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 #if defined(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters_size) && defined(gizclaw_rpc_v1_DoubaoRealtimeDuplexWorkspaceParameters_size)
@@ -1352,6 +1385,7 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 /* gizclaw_rpc_v1_WorkspaceListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspacePutRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_WorkspacePutResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_WorkspaceInputPutResponse_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_WORKSPACE_PB_H_MAX_SIZE gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size
 #define gizclaw_rpc_v1_PeerRunMemoryStatsRequest_size 0
 #define gizclaw_rpc_v1_ServerGetRunAgentRequest_size 0
@@ -1365,6 +1399,7 @@ union gizclaw_rpc_v1_WorkspaceParameters_value_size_union {char f2[(6 + gizclaw_
 #define gizclaw_rpc_v1_ServerStopRunRequest_size 0
 #define gizclaw_rpc_v1_WorkspaceIconDownloadRequest_size 260
 #define gizclaw_rpc_v1_WorkspaceIconDownloadResponse_size 271
+#define gizclaw_rpc_v1_WorkspaceInputPutRequest_size 260
 #if defined(gizclaw_rpc_v1_Runtime_size)
 #define gizclaw_rpc_v1_ServerGetRuntimeResponse_size (6 + gizclaw_rpc_v1_Runtime_size)
 #endif

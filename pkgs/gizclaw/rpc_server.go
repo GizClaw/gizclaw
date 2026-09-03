@@ -260,6 +260,7 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,
 		rpcapi.RPCMethodServerWorkspacePut,
+		rpcapi.RPCMethodServerWorkspaceInputPut,
 		rpcapi.RPCMethodServerWorkspaceDelete,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
