@@ -533,7 +533,6 @@ static bool valid_ipv6_literal(gzc_str_t text) {
         return false;
       }
       hextets += 2;
-      i = text.len;
       break;
     }
     if (digits > 4) {
@@ -580,7 +579,7 @@ static bool valid_authority(gzc_str_t authority) {
       return false;
     }
   }
-  size_t host_len = authority.len;
+  size_t host_len;
   if (authority.data[0] == '[') {
     const char *close = memchr(authority.data, ']', authority.len);
     if (close == NULL || close == authority.data + 1) {
