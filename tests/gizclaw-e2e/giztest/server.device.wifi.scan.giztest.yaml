@@ -1,0 +1,133 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want to scan for nearby Wi-Fi networks through the bound device,
+# So that I can choose a replacement network remotely.
+version: gizclaw.test/v1alpha1
+name: server.device.wifi.scan
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+  slow:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  slow_api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: register_slow
+  client: slow
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+- id: create_slow_api_key
+  client: slow
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    slow_api_key: /api_key
+- id: scan
+  client: peer
+  http:
+    method: POST
+    path: /gizclaw/v1/device/wifi/scan
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      timeout_ms: 8000
+    status: 200
+  expect:
+    /networks:
+      count: 2
+    /networks/0/ssid:
+      equals: Office
+    /networks/0/rssi_dbm:
+      equals: -42
+    /networks/0/security:
+      equals: wpa3
+- id: provider_scan
+  client: peer
+  client_rpc:
+    method: client.wifi.scan
+    response:
+      networks:
+      - ssid: Office
+        bssid: aa:bb:cc:dd:ee:ff
+        rssi_dbm: -42
+        frequency_mhz: 5180
+        security: wpa3
+      - ssid: Guest
+        rssi_dbm: -67
+        frequency_mhz: 2412
+        security: open
+    expect_calls: 1
+- id: timeout
+  client: slow
+  http:
+    method: POST
+    path: /gizclaw/v1/device/wifi/scan
+    headers:
+      Authorization: "Bearer ${slow_api_key}"
+    body:
+      timeout_ms: 1000
+    status: 504
+  expect:
+    /error/code:
+      equals: DEVICE_TIMEOUT
+- id: provider_timeout
+  client: slow
+  client_rpc:
+    method: client.wifi.scan
+    response:
+      delay_ms: 1200
+      networks: []
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
+- id: cleanup_slow
+  client: slow
+  rpc:
+    method: server.peer.delete
+    request: {}

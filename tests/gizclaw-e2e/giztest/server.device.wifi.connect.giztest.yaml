@@ -1,0 +1,120 @@
+# User Story:
+# As a GizClaw API key holder,
+# I want the device to accept replacement Wi-Fi credentials before switching,
+# So that I can observe the switch complete once the device comes back.
+version: gizclaw.test/v1alpha1
+name: server.device.wifi.connect
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_api_key
+  client: peer
+  rpc:
+    method: server.api_key.create
+    request:
+      display_name: "${resource_name}"
+  capture:
+    api_key: /api_key
+# A scenario installs one scripted response per client method, so the stub
+# reports the network it ends up on. Before the switch this step only proves
+# the route is reachable; the SSID assertion belongs to after_connect, where
+# answering at all is what the switch has to restore.
+- id: before_connect
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/wifi
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /connected:
+      equals: true
+- id: connect
+  client: peer
+  http:
+    method: PUT
+    path: /gizclaw/v1/device/wifi
+    headers:
+      Authorization: "Bearer ${api_key}"
+    body:
+      ssid: Office
+      passphrase: correct-horse
+    status: 202
+- id: switching_is_offline
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/wifi
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 409
+  expect:
+    /error/code:
+      equals: DEVICE_OFFLINE
+# The device switched networks, so it reaches the Server on a new Peer
+# connection under the same identity. That replacement is what ends the
+# transition the Server is holding open.
+- id: switched_networks
+  client: peer
+  reconnect:
+    await_ms: 30000
+- id: after_connect
+  client: peer
+  http:
+    method: GET
+    path: /gizclaw/v1/device/wifi
+    headers:
+      Authorization: "Bearer ${api_key}"
+    status: 200
+  expect:
+    /ssid:
+      equals: Office
+    /connected:
+      equals: true
+- id: provider_status
+  client: peer
+  client_rpc:
+    method: client.wifi.status.get
+    response:
+      connected: true
+      ssid: Office
+    expect_calls: 2
+- id: provider_connect
+  client: peer
+  client_rpc:
+    method: client.wifi.connect
+    expect_calls: 1
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

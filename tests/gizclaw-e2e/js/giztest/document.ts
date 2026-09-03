@@ -45,6 +45,8 @@ export const CLIENT_RPC_METHODS = [
   "client.wifi.status.get",
   "client.wifi.saved.list",
   "client.wifi.saved.forget",
+  "client.wifi.scan",
+  "client.wifi.connect",
 ] as const;
 
 // Methods this runner can install a provider for. `client.tool.invoke` needs
@@ -59,6 +61,8 @@ export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
   "client.wifi.status.get",
   "client.wifi.saved.list",
   "client.wifi.saved.forget",
+  "client.wifi.scan",
+  "client.wifi.connect",
 ]);
 
 export type Operation = (typeof ALL_OPERATIONS)[number];

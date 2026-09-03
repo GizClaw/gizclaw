@@ -3,6 +3,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
@@ -478,6 +479,40 @@ _Handlers _buildHandlers(
             if (failure != null) throw failure;
           },
         );
+      case 'client.wifi.scan':
+        control = _copyControl(
+          control,
+          scanWifi: (_) {
+            count(method);
+            if (failure != null) throw failure;
+            final delayMs = object['delay_ms'];
+            if (delayMs != null) {
+              if (delayMs is! int || delayMs < 0) {
+                throw StateError('delay_ms must be a non-negative integer');
+              }
+              sleep(Duration(milliseconds: delayMs));
+            }
+            final networks = object['networks'];
+            if (networks is! List) return const <WifiScanResult>[];
+            return networks
+                .map(
+                  (item) => WifiScanResult()
+                    ..mergeFromProto3Json(
+                      snakeToCamelKeys(item),
+                      ignoreUnknownFields: true,
+                    ),
+                )
+                .toList();
+          },
+        );
+      case 'client.wifi.connect':
+        control = _copyControl(
+          control,
+          connectWifi: (_, _) {
+            count(method);
+            if (failure != null) throw failure;
+          },
+        );
       default:
         throw StateError('unsupported client RPC $method');
     }
@@ -532,12 +567,16 @@ GizClawDeviceControlHandlers _copyControl(
   WifiStatus Function()? wifiStatus,
   List<WifiSavedNetwork> Function()? savedWifi,
   void Function(String ssid)? forgetWifi,
+  List<WifiScanResult> Function(int? timeoutMs)? scanWifi,
+  void Function(String ssid, String? passphrase)? connectWifi,
 }) {
   return GizClawDeviceControlHandlers(
+    connectWifi: connectWifi ?? base.connectWifi,
     forgetWifi: forgetWifi ?? base.forgetWifi,
     playSound: playSound ?? base.playSound,
     reboot: reboot ?? base.reboot,
     savedWifi: savedWifi ?? base.savedWifi,
+    scanWifi: scanWifi ?? base.scanWifi,
     setVolume: setVolume ?? base.setVolume,
     status: status ?? base.status,
     wifiStatus: wifiStatus ?? base.wifiStatus,

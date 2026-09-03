@@ -379,6 +379,31 @@ function buildHandlers(
           if (failure != null) throw failure;
         };
         break;
+      case "client.wifi.scan":
+        control.scanWifi = async () => {
+          count(method);
+          if (failure != null) throw failure;
+          const delayMs = scriptedObject["delay_ms"];
+          if (delayMs != null) {
+            if (
+              typeof delayMs !== "number" ||
+              !Number.isInteger(delayMs) ||
+              delayMs < 0
+            ) {
+              throw new Error("delay_ms must be a non-negative integer");
+            }
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+          const networks = scriptedObject["networks"];
+          return Array.isArray(networks) ? (networks as never[]) : [];
+        };
+        break;
+      case "client.wifi.connect":
+        control.connectWifi = () => {
+          count(method);
+          if (failure != null) throw failure;
+        };
+        break;
       default:
         throw new Error(`unsupported client RPC ${method}`);
     }

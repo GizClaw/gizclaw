@@ -48,6 +48,8 @@ const clientRpcMethods = {
   'client.wifi.status.get',
   'client.wifi.saved.list',
   'client.wifi.saved.forget',
+  'client.wifi.scan',
+  'client.wifi.connect',
 };
 
 /// Methods this runner can install a provider for. `client.tool.invoke` needs
@@ -62,6 +64,8 @@ const supportedClientRpcMethods = {
   'client.wifi.status.get',
   'client.wifi.saved.list',
   'client.wifi.saved.forget',
+  'client.wifi.scan',
+  'client.wifi.connect',
 };
 
 final _namePattern = RegExp(r'^[a-z0-9][a-z0-9._-]{0,127}$');
