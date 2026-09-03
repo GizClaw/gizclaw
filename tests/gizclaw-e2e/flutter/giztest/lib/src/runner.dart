@@ -160,6 +160,18 @@ Future<_StepOutcome> _runStep(
     return _StepOutcome(value: result.body, evidence: evidence);
   }
 
+  final reconnect = step.reconnect;
+  if (reconnect != null) {
+    if (client == null) {
+      throw StateError('step ${step.id} has no connected client');
+    }
+    final awaitMs = reconnect['await_ms'] as int?;
+    await client.reconnect(
+      await_: awaitMs == null ? null : Duration(milliseconds: awaitMs),
+    );
+    return const _StepOutcome();
+  }
+
   final clientRpc = step.clientRpc;
   if (clientRpc != null) {
     if (client == null) {

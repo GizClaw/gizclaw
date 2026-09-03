@@ -134,13 +134,21 @@ class ScenarioClient {
     this._peerConnection,
     this._client,
     this.inbound,
+    this._privateKey,
+    this._handlers,
   );
 
   final String name;
   final String endpoint;
   final String fingerprint;
-  final rtc.RTCPeerConnection _peerConnection;
-  final GizClawClient _client;
+
+  // The peer connection and RPC client are replaced by [reconnect], which
+  // dials a new Peer on the same identity. The private key and the scripted
+  // providers are kept so that redial installs the same device behavior.
+  rtc.RTCPeerConnection _peerConnection;
+  GizClawClient _client;
+  final List<int> _privateKey;
+  final GizClawPeerRpcHandlers _handlers;
 
   /// Cumulative inbound call counts keyed by client RPC method name.
   final Map<String, int> inbound;
@@ -162,58 +170,14 @@ class ScenarioClient {
 
     final httpClient = http.Client();
     try {
-      final infoResponse = await httpClient
-          .get(base.replace(path: '${base.path}/server-info'))
-          .timeout(_connectTimeout);
-      if (infoResponse.statusCode != 200) {
-        throw StateError(
-          'server-info returned HTTP ${infoResponse.statusCode}',
-        );
-      }
-      final info = GiznetServerInfo.fromJson(
-        jsonDecode(infoResponse.body) as Map<String, Object?>,
-      );
-      final identity = GiznetSignalingIdentity(
-        clientPrivateKey: privateKey,
-        serverPublicKey: base58Decode(info.transportPublicKey),
-      );
-      // An Edge gateway can advertise its own origin, which is where the
-      // encrypted offer must go.
-      final signalingBase = info.transport?.endpoint.isNotEmpty ?? false
-          ? resolveGiznetTransportBaseUrl(base, info.transport!.endpoint)
-          : base;
       final handlers = _buildHandlers(name, steps, variables);
       var publicKey = '';
-      final peerConnection = await connectFlutterGiznetWebRtc(
-        peerRpcHandlers: handlers.handlers,
-        prepareOffer: (offerSdp) async {
-          final offer = await prepareEncryptedGiznetWebRtcOffer(
-            identity,
-            offerSdp,
-          );
-          publicKey = offer.clientPublicKey;
-          return offer;
-        },
-        sendOffer: (offer) async {
-          final response = await httpClient
-              .post(
-                signalingBase.replace(
-                  path: '${signalingBase.path}${info.transportSignalingPath}',
-                ),
-                body: offer.body,
-                headers: {
-                  'Content-Type': 'application/octet-stream',
-                  'X-Giznet-Nonce': offer.nonce,
-                  'X-Giznet-Public-Key': offer.clientPublicKey,
-                  'X-Giznet-Timestamp': '${offer.timestamp}',
-                },
-              )
-              .timeout(_connectTimeout);
-          if (response.statusCode != 200) {
-            throw StateError('signaling returned HTTP ${response.statusCode}');
-          }
-          return response.bodyBytes;
-        },
+      final peerConnection = await _dial(
+        httpClient,
+        base,
+        handlers.handlers,
+        privateKey,
+        (value) => publicKey = value,
       );
       final client = GizClawClient(
         FlutterWebRtcDataChannelFactory(peerConnection),
@@ -226,6 +190,8 @@ class ScenarioClient {
         peerConnection,
         client,
         handlers.inbound,
+        privateKey,
+        handlers.handlers,
       );
       final token = spec.registrationToken;
       if (token != null && token.isNotEmpty) {
@@ -237,6 +203,95 @@ class ScenarioClient {
     } finally {
       httpClient.close();
     }
+  }
+
+  /// Drops this client's Peer connection and dials a replacement on the same
+  /// identity, the way a device that switched network or rebooted reaches the
+  /// Server again.
+  ///
+  /// The scripted providers are reinstalled and keep their inbound counts, so
+  /// `expect_calls` still sees the total across both connections.
+  Future<void> reconnect({Duration? await_}) async {
+    await _peerConnection.close();
+    final httpClient = http.Client();
+    try {
+      final peerConnection = await _dial(
+        httpClient,
+        httpBaseUrl(endpoint),
+        _handlers,
+        _privateKey,
+        (_) {},
+        timeout: await_,
+      );
+      _peerConnection = peerConnection;
+      _client = GizClawClient(
+        FlutterWebRtcDataChannelFactory(peerConnection),
+        requestTimeout: _rpcTimeout,
+      );
+    } finally {
+      httpClient.close();
+    }
+  }
+
+  /// Runs GizNet signaling and returns the negotiated peer connection.
+  static Future<rtc.RTCPeerConnection> _dial(
+    http.Client httpClient,
+    Uri base,
+    GizClawPeerRpcHandlers handlers,
+    List<int> privateKey,
+    void Function(String) onPublicKey, {
+    Duration? timeout,
+  }) async {
+    final connectTimeout = timeout ?? _connectTimeout;
+    final infoResponse = await httpClient
+        .get(base.replace(path: '${base.path}/server-info'))
+        .timeout(connectTimeout);
+    if (infoResponse.statusCode != 200) {
+      throw StateError('server-info returned HTTP ${infoResponse.statusCode}');
+    }
+    final info = GiznetServerInfo.fromJson(
+      jsonDecode(infoResponse.body) as Map<String, Object?>,
+    );
+    final identity = GiznetSignalingIdentity(
+      clientPrivateKey: privateKey,
+      serverPublicKey: base58Decode(info.transportPublicKey),
+    );
+    // An Edge gateway can advertise its own origin, which is where the
+    // encrypted offer must go.
+    final signalingBase = info.transport?.endpoint.isNotEmpty ?? false
+        ? resolveGiznetTransportBaseUrl(base, info.transport!.endpoint)
+        : base;
+    return connectFlutterGiznetWebRtc(
+      peerRpcHandlers: handlers,
+      prepareOffer: (offerSdp) async {
+        final offer = await prepareEncryptedGiznetWebRtcOffer(
+          identity,
+          offerSdp,
+        );
+        onPublicKey(offer.clientPublicKey);
+        return offer;
+      },
+      sendOffer: (offer) async {
+        final response = await httpClient
+            .post(
+              signalingBase.replace(
+                path: '${signalingBase.path}${info.transportSignalingPath}',
+              ),
+              body: offer.body,
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                'X-Giznet-Nonce': offer.nonce,
+                'X-Giznet-Public-Key': offer.clientPublicKey,
+                'X-Giznet-Timestamp': '${offer.timestamp}',
+              },
+            )
+            .timeout(connectTimeout);
+        if (response.statusCode != 200) {
+          throw StateError('signaling returned HTTP ${response.statusCode}');
+        }
+        return response.bodyBytes;
+      },
+    );
   }
 
   /// Sends one unary Peer RPC by name and returns the decoded response as

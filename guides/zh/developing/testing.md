@@ -207,8 +207,8 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 
 四者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
 并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
-`http` 与 `output` 四种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
-skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc` 与 `http`，
+`http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
+skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc`、`http` 与 `reconnect`，
 对不支持的文档同样记为 skipped 并指出具体 step 与 operation。三者都直接指向整个场景
 目录；文档本身有问题（而不只是不被支持）时仍然是错误，绝不降级为 skipped。
 
@@ -255,6 +255,14 @@ runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 p
 `level`/`muted` 回填进响应），`response: {error_code: -32602}` 让 provider 返回固定 RPC error；
 未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
 Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
+
+`reconnect` step 断开该 client 的 Peer 连接，并用同一身份拨一条新的，用来复现设备重启或
+换网后重新接入 Server 的时序——Server 正是以「同一 owner 出现替换连接」判定这类过渡结束，
+在此之前控制 route 一直答 `409 DEVICE_OFFLINE`。可选的 `await_ms` 限制重拨等待时间，
+上界 60000。脚本给定的 provider 会重新安装到新连接上，且沿用原有的调用计数，
+因此 `expect_calls` 断言的是两条连接上的总次数。一个场景为每个方法只安装一份
+`response`，所以断开前后设备上报的值相同；`reconnect` 之后要断言的是控制 route 从
+`409` 恢复为可应答，而不是同一方法返回了不同的值。
 
 Giztest 不执行 Admin Apply。标准 Docker setup 先一次性 apply 全部 fixture（包括专用
 RuntimeProfile 和 run-scoped registration token），随后 JavaScript、C/cgo、Go、CLI 和

@@ -91,9 +91,13 @@ export class ScenarioClient {
   readonly name: string;
   readonly endpoint: string;
   readonly fingerprint: string;
-  readonly rpc: PeerRPCClient;
   readonly inbound: Map<string, number>;
-  private readonly pc: wrtc.RTCPeerConnection;
+  // rpc and pc are replaced by reconnect, which dials a new Peer on the same
+  // identity. The private key and handlers are kept for that redial.
+  rpc: PeerRPCClient;
+  private pc: wrtc.RTCPeerConnection;
+  private readonly privateKey: Uint8Array;
+  private readonly handlers: GizClawPeerRPCHandlers;
 
   private constructor(
     name: string,
@@ -102,6 +106,8 @@ export class ScenarioClient {
     pc: wrtc.RTCPeerConnection,
     rpc: PeerRPCClient,
     inbound: Map<string, number>,
+    privateKey: Uint8Array,
+    handlers: GizClawPeerRPCHandlers,
   ) {
     this.name = name;
     this.endpoint = endpoint;
@@ -109,6 +115,8 @@ export class ScenarioClient {
     this.pc = pc;
     this.rpc = rpc;
     this.inbound = inbound;
+    this.privateKey = privateKey;
+    this.handlers = handlers;
   }
 
   // connect brings up one ephemeral device peer with every client.* provider
@@ -157,6 +165,8 @@ export class ScenarioClient {
       pc,
       rpc,
       inbound,
+      privateKey,
+      handlers,
     );
     if (spec.registration_token != null && spec.registration_token !== "") {
       const token = variables.resolveString(
@@ -237,6 +247,34 @@ export class ScenarioClient {
     });
     this.controlClients.set(key, created);
     return created;
+  }
+
+  // reconnect drops this client's Peer connection and dials a replacement on
+  // the same identity, the way a device that switched network or rebooted
+  // reaches the Server again. The scripted providers are reinstalled and keep
+  // their inbound counts, so expect_calls still sees the total across both.
+  async reconnect(awaitMs?: number, taskSignal?: AbortSignal): Promise<void> {
+    this.pc.close();
+    const timeout = AbortSignal.timeout(awaitMs ?? CONNECT_TIMEOUT_MS);
+    const signal =
+      taskSignal == null ? timeout : AbortSignal.any([taskSignal, timeout]);
+    const pc = new wrtc.RTCPeerConnection();
+    try {
+      await connectGiznetWebRTCFromEndpoint({
+        clientPrivateKey: this.privateKey,
+        endpoint: this.endpoint,
+        pc: pc as unknown as RTCPeerConnection,
+        peerRPCHandlers: this.handlers,
+        signal,
+      });
+    } catch (error) {
+      pc.close();
+      throw error;
+    }
+    this.pc = pc;
+    this.rpc = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
+      requestTimeoutMs: RPC_TIMEOUT_MS,
+    });
   }
 
   close(): void {

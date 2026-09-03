@@ -226,10 +226,11 @@ SDK:
 
 All four accept the same command line (`validate -f <path>`, `run <path>
 --parallel N --output <report>`) and write the same report JSON structure. The
-JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`
-and `output` step kinds; a document using any other step kind, or an `audio` or
-`binary` variable, is reported as skipped on stderr rather than passing
-silently. The C runner implements `rpc`, `client_rpc`, and `http`, and reports
+JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,
+`output` and `reconnect` step kinds; a document using any other step kind, or
+an `audio` or `binary` variable, is reported as skipped on stderr rather than
+passing silently. The C runner implements `rpc`, `client_rpc`, `http` and
+`reconnect`, and reports
 an unsupported document the same way, naming the step and operation. All three
 are pointed at the whole scenario directory; a document that is malformed
 rather than merely unsupported is still an error, never a skip.
@@ -287,6 +288,17 @@ provider at connect time (`volume.set` echoes the requested `level`/`muted` into
 `response: {error_code: -32602}` makes the provider answer a fixed RPC error; undeclared methods stay
 `METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
 Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
+
+A `reconnect` step drops that client's Peer connection and dials a replacement
+on the same identity, reproducing how a device reaches the Server again after a
+reboot or a network switch. The Server ends such a transition exactly when a
+replacement connection arrives for the same owner; until then control routes
+answer `409 DEVICE_OFFLINE`. The optional `await_ms` bounds the redial and is
+capped at 60000. The scripted providers are reinstalled on the new connection
+and keep their call counts, so `expect_calls` asserts the total across both.
+A scenario installs one `response` per method, so the device reports the same
+values before and after; what a step after `reconnect` asserts is that a control
+route recovered from `409`, not that a method answered differently.
 
 Giztest never performs Admin Apply. Standard Docker setup applies all fixtures,
 including the dedicated RuntimeProfile and run-scoped registration token, once

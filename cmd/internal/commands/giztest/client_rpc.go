@@ -36,8 +36,14 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 			return fmt.Errorf("step %s client_rpc response: %w", step.ID, err)
 		}
 		key := clientName + ":" + step.ClientRPC.Method
-		counter := &inboundCounter{}
-		counts[key] = counter
+		// A reconnect reinstalls the providers on a new connection. Keep the
+		// counter the first connection registered so expect_calls still sees
+		// the total across both.
+		counter := counts[key]
+		if counter == nil {
+			counter = &inboundCounter{}
+			counts[key] = counter
+		}
 		switch step.ClientRPC.Method {
 		case "client.info.get":
 			var device apitypes.DeviceInfo

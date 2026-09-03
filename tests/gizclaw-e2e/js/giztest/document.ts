@@ -17,6 +17,7 @@ export const SUPPORTED_OPERATIONS = [
   "client_rpc",
   "http",
   "output",
+  "reconnect",
 ] as const;
 
 export const ALL_OPERATIONS = [
@@ -29,6 +30,7 @@ export const ALL_OPERATIONS = [
   "output",
   "review_op",
   "barrier",
+  "reconnect",
   "workspace_relay",
 ] as const;
 
@@ -111,6 +113,7 @@ export type Step = {
     status?: number;
   };
   output?: { variable: string };
+  reconnect?: { await_ms?: number };
 };
 
 export type GiztestDocument = {
