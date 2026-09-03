@@ -4995,10 +4995,22 @@ int main(void) {
       1000,
       &client_close_options,
       &client_lifetime_request);
+  gzc_rpc_request_t *client_lifetime_sibling = NULL;
+  if (rc == GZC_OK) {
+    rc = gzc_rpc_request_start(
+        client,
+        0u,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING,
+        gzc_str_from_parts((const char *)params.data, params.len),
+        1000,
+        &client_close_options,
+        &client_lifetime_sibling);
+  }
   if (expect(
           rc == GZC_OK && client_lifetime_request != NULL &&
+              client_lifetime_sibling != NULL &&
               client_close_log.count == 0,
-          "pending unary request exists before client destruction") != 0) {
+          "pending unary requests exist before client destruction") != 0) {
     return 1;
   }
   gzc_rtc_opus_frame_cb late_opus_callback =
@@ -5063,9 +5075,33 @@ int main(void) {
   }
   if (expect(
           gzc_rpc_request_result(
-              client_lifetime_request, &response) == GZC_ERR_CLOSED,
+              client_lifetime_request, &response) == GZC_ERR_CLOSED &&
+              gzc_rpc_request_result(
+                  client_lifetime_sibling, &response) == GZC_ERR_CLOSED,
           "client close invalidates but does not free a unary request handle") !=
       0) {
+    return 1;
+  }
+  bool close_notified_each =
+      client_close_log.count == 2u && client_close_log.overflow == 0u;
+  for (size_t i = 0; close_notified_each && i < 2u; i++) {
+    const gzc_rpc_request_t *want =
+        i == 0u ? client_lifetime_request : client_lifetime_sibling;
+    bool found = false;
+    for (size_t j = 0; !found && j < client_close_log.count; j++) {
+      found = client_close_log.records[j].request == want &&
+              client_close_log.records[j].status == GZC_ERR_CLOSED &&
+              client_close_log.records[j].result_status == GZC_ERR_CLOSED;
+    }
+    close_notified_each = found;
+  }
+  if (expect(close_notified_each,
+             "one client close notifies every pending request once") != 0) {
+    return 1;
+  }
+  rc = gzc_client_close(client);
+  if (expect(rc == GZC_OK && client_close_log.count == 2u,
+             "repeated client close does not notify again") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.opus_unregister_count == 2,
@@ -5112,6 +5148,12 @@ int main(void) {
   test_last_rpc_request = NULL;
   gzc_client_destroy(client);
   gzc_rpc_request_destroy(client_lifetime_request);
+  gzc_rpc_request_destroy(client_lifetime_sibling);
+  if (expect(client_close_log.count == 2u,
+             "destroying already-notified requests does not notify again") !=
+      0) {
+    return 1;
+  }
 
   fake_webrtc_t fake_webrtc_custom;
   memset(&fake_webrtc_custom, 0, sizeof(fake_webrtc_custom));

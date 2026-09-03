@@ -69,8 +69,14 @@ typedef struct gzc_rpc_request gzc_rpc_request_t;
  * callback with GZC_ERR_CLOSED before the request memory is released, so a
  * started request always reports completion exactly once.
  *
- * The callback must not cancel or destroy its own request, and must not call
- * gzc_client_poll(); either reenters state the SDK is still advancing.
+ * The callback notifies only, so it must not reenter the SDK with the request
+ * or the client it was delivered for. gzc_rpc_request_result() on its own
+ * request is safe; gzc_rpc_request_cancel(), gzc_rpc_request_destroy(),
+ * gzc_client_poll(), gzc_client_close() and gzc_client_destroy() are not.
+ * gzc_client_close() and gzc_client_destroy() unlink and free the service
+ * channel the poll loop is currently walking, so calling either from the
+ * callback frees state the SDK is still using. Perform request and client
+ * teardown after the poll call that delivered the notification returns.
  */
 typedef void (*gzc_rpc_complete_cb)(
     void *userdata,
@@ -110,9 +116,11 @@ int gzc_rpc_request_start(
 /*
  * Starts one mixed-frame RPC without closing the request direction. Incoming
  * response, binary data, and EOS frames are delivered from gzc_client_poll().
- * Callback frame storage is borrowed only until the callback returns. The
- * callback must not cancel or destroy its request reentrantly. options is
- * borrowed for the call only; NULL selects the defaults.
+ * Callback frame storage is borrowed only until the callback returns. The frame
+ * callback carries the same reentrancy restrictions as gzc_rpc_complete_cb: it
+ * must not cancel or destroy its request, and must not call gzc_client_poll(),
+ * gzc_client_close() or gzc_client_destroy(). options is borrowed for the call
+ * only; NULL selects the defaults.
  */
 int gzc_rpc_request_start_stream(
     gzc_client_t *client,

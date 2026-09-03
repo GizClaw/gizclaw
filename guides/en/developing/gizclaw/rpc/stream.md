@@ -49,8 +49,16 @@ deliver it on their own calling thread before they return. The SDK creates no
 thread for the callback.
 The callback only reports the final status; it takes no ownership, and
 `gzc_rpc_request_result` returns the same result inside the callback and after
-it returns. The callback must not cancel or destroy its own request. A NULL
-options pointer starts a request with no completion callback.
+it returns. A NULL options pointer starts a request with no completion callback.
+
+The callback notifies only, so it must not reenter the SDK with the request or
+the client it was delivered for. `gzc_rpc_request_result` on its own request is
+safe; `gzc_rpc_request_cancel`, `gzc_rpc_request_destroy`, `gzc_client_poll`,
+`gzc_client_close` and `gzc_client_destroy` are not. The last two unlink and
+free the service channel the poll loop is currently walking, so calling either
+from the callback frees state the SDK is still using. Request and client
+teardown belongs after the poll call that delivered the notification returns.
+The frame callback carries the same restrictions.
 
 Streaming calls use the same request handle. The caller starts them with
 `gzc_rpc_request_start_stream`, queues binary request frames with

@@ -201,8 +201,13 @@ response view 由 request 持有，直到 `gzc_rpc_request_destroy`；platform a
 状态码：正常 response EOS、编解码或协议错误、DataChannel 关闭、传输错误和超时由
 串行 poll owner 交付；主动 cancel、client close 以及 destroy 一个 pending request
 在各自调用线程返回前交付。SDK 不为该 callback 创建线程。callback 不传递 response 所有权，返回后仍可用
-`gzc_rpc_request_result` 读取最终结果；callback 内不得 cancel 或 destroy 当前
-request。options 传 NULL 时不注册 completion callback。
+`gzc_rpc_request_result` 读取最终结果。options 传 NULL 时不注册 completion callback。
+
+callback 不得用它所属的 request 或 client 重入 SDK：`gzc_rpc_request_result` 允许，
+`gzc_rpc_request_cancel`、`gzc_rpc_request_destroy`、`gzc_client_poll`、
+`gzc_client_close` 和 `gzc_client_destroy` 不允许。close 与 destroy 会释放 poll loop
+正在遍历的 service channel，因此 request 与 client 的 teardown 必须放在交付通知的
+poll 调用返回之后。frame callback 受同样的限制。
 
 同一个 `gzc_rpc_request_t` 也承载双向或下载型 binary stream，不存在第二套
 stream RPC。调用方使用 `gzc_rpc_request_start_stream` 创建 request，通过
