@@ -198,8 +198,7 @@ class ScenarioClient {
           final response = await httpClient
               .post(
                 signalingBase.replace(
-                  path:
-                      '${signalingBase.path}${info.transportSignalingPath}',
+                  path: '${signalingBase.path}${info.transportSignalingPath}',
                 ),
                 body: offer.body,
                 headers: {
