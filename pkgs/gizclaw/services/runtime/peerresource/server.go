@@ -387,6 +387,12 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 	}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
 }
 
+// getWorkspaceForList resolves one name during an enumeration. A pending
+// deletion is returned as the sentinel error rather than a response, because
+// the enumerations skip such a Workspace instead of failing: one unfinished
+// asynchronous deletion must not hide the caller's remaining Workspaces. The
+// single-Workspace fences classify it as FAILED_PRECONDITION instead, through
+// workspaceLookupResponse.
 func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string) (apitypes.Workspace, *rpcapi.RPCResponse, error) {
 	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
 	if errors.Is(err, kv.ErrNotFound) {
@@ -598,15 +604,8 @@ func (s *Server) ResolveAccessibleWorkspace(ctx context.Context, name string) (a
 	if errors.Is(err, kv.ErrNotFound) {
 		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "workspace not found"}
 	}
-	// A Workspace whose deletion is still running is neither absent nor a
-	// server fault. Reporting it as FAILED_PRECONDITION lets a caller poll
-	// until the row is gone instead of reading an internal error.
 	if isWorkspacePendingDeletion(err) {
-		return apitypes.Workspace{}, &rpcapi.RPCStatus{
-			Code:    rpcapi.StatusCodeFailedPrecondition,
-			Reason:  "WORKSPACE_PENDING_DELETION",
-			Message: "workspace deletion is pending",
-		}
+		return apitypes.Workspace{}, workspacePendingDeletionStatus()
 	}
 	if err != nil {
 		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: err.Error()}
@@ -657,11 +656,8 @@ func (s *Server) handleWorkspaceGet(ctx context.Context, req *rpcapi.RPCRequest)
 		return invalidParams(req.Id)
 	}
 	item, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
-	if errors.Is(err, kv.ErrNotFound) {
-		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found")
-	}
-	if err != nil {
-		return internalError(req.Id, err.Error())
+	if response := workspaceLookupResponse(req.Id, err); response != nil {
+		return response
 	}
 	allowed, err := s.canAccessWorkspace(ctx, item)
 	if err != nil {
@@ -814,11 +810,8 @@ func (s *Server) handleWorkspaceInputPut(ctx context.Context, req *rpcapi.RPCReq
 	}
 	ownerCtx := s.ownerContext(ctx)
 	current, err := s.getWorkspaceByName(ownerCtx, params.Name)
-	if errors.Is(err, kv.ErrNotFound) {
-		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found"), true, nil
-	}
-	if err != nil {
-		return internalError(req.Id, err.Error()), true, nil
+	if response := workspaceLookupResponse(req.Id, err); response != nil {
+		return response, true, nil
 	}
 	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
 		return response, true, nil
@@ -1693,6 +1686,37 @@ func internalError(id, message string) *rpcapi.RPCResponse {
 // Workspace value "workspace", which shadows the package of the same name.
 func isWorkspacePendingDeletion(err error) bool {
 	return errors.Is(err, workspace.ErrWorkspacePendingDeletion)
+}
+
+// workspacePendingDeletionStatus is the answer for a Workspace whose deletion
+// is still running. It is neither absent nor a server fault, so the caller can
+// poll until the row is gone. Every getWorkspaceByName caller shares this so
+// one path cannot report the state as an internal error while another reports
+// it correctly.
+func workspacePendingDeletionStatus() *rpcapi.RPCStatus {
+	return &rpcapi.RPCStatus{
+		Code:    rpcapi.StatusCodeFailedPrecondition,
+		Reason:  "WORKSPACE_PENDING_DELETION",
+		Message: "workspace deletion is pending",
+	}
+}
+
+// workspaceLookupResponse projects a getWorkspaceByName failure onto an RPC
+// response, or nil when err is nil.
+func workspaceLookupResponse(requestID string, err error) *rpcapi.RPCResponse {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, kv.ErrNotFound):
+		return statusError(requestID, rpcapi.StatusCodeNotFound, "workspace not found")
+	case isWorkspacePendingDeletion(err):
+		status := workspacePendingDeletionStatus()
+		return rpcapi.Error{
+			RequestID: requestID, Code: status.Code, Reason: status.Reason, Message: status.Message,
+		}.RPCResponse()
+	default:
+		return internalError(requestID, err.Error())
+	}
 }
 
 // statusError builds a failed RPC response from a canonical status code. It

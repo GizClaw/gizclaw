@@ -46,18 +46,18 @@ class RpcResponse extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, RpcResponse_Body> _RpcResponse_BodyByTag = {
     2: RpcResponse_Body.payload,
-    5: RpcResponse_Body.status,
+    3: RpcResponse_Body.status,
     0: RpcResponse_Body.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [2, 5])
+    ..oo(0, [2, 3])
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
-    ..aOM<RpcStatus>(5, _omitFieldNames ? '' : 'status',
+    ..aOM<RpcStatus>(3, _omitFieldNames ? '' : 'status',
         subBuilder: RpcStatus.create)
     ..hasRequiredFields = false;
 
@@ -81,10 +81,10 @@ class RpcResponse extends $pb.GeneratedMessage {
   static RpcResponse? _defaultInstance;
 
   @$pb.TagNumber(2)
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   RpcResponse_Body whichBody() => _RpcResponse_BodyByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(2)
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   void clearBody() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -105,32 +105,32 @@ class RpcResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPayload() => $_clearField(2);
 
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
   RpcStatus get status => $_getN(2);
-  @$pb.TagNumber(5)
-  set status(RpcStatus value) => $_setField(5, value);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
+  set status(RpcStatus value) => $_setField(3, value);
+  @$pb.TagNumber(3)
   $core.bool hasStatus() => $_has(2);
-  @$pb.TagNumber(5)
-  void clearStatus() => $_clearField(5);
-  @$pb.TagNumber(5)
+  @$pb.TagNumber(3)
+  void clearStatus() => $_clearField(3);
+  @$pb.TagNumber(3)
   RpcStatus ensureStatus() => $_ensure(2);
 }
 
-enum RpcStreamFrame_Body { payload, end, status, notSet }
+enum RpcStreamFrame_Body { payload, status, end, notSet }
 
 class RpcStreamFrame extends $pb.GeneratedMessage {
   factory RpcStreamFrame({
     $core.String? id,
     $core.List<$core.int>? payload,
-    RpcStreamEnd? end,
     RpcStatus? status,
+    RpcStreamEnd? end,
   }) {
     final result = create();
     if (id != null) result.id = id;
     if (payload != null) result.payload = payload;
-    if (end != null) result.end = end;
     if (status != null) result.status = status;
+    if (end != null) result.end = end;
     return result;
   }
 
@@ -146,22 +146,22 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   static const $core.Map<$core.int, RpcStreamFrame_Body>
       _RpcStreamFrame_BodyByTag = {
     2: RpcStreamFrame_Body.payload,
+    3: RpcStreamFrame_Body.status,
     4: RpcStreamFrame_Body.end,
-    5: RpcStreamFrame_Body.status,
     0: RpcStreamFrame_Body.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RpcStreamFrame',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [2, 4, 5])
+    ..oo(0, [2, 3, 4])
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
+    ..aOM<RpcStatus>(3, _omitFieldNames ? '' : 'status',
+        subBuilder: RpcStatus.create)
     ..aOM<RpcStreamEnd>(4, _omitFieldNames ? '' : 'end',
         subBuilder: RpcStreamEnd.create)
-    ..aOM<RpcStatus>(5, _omitFieldNames ? '' : 'status',
-        subBuilder: RpcStatus.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -184,13 +184,13 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   static RpcStreamFrame? _defaultInstance;
 
   @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
   @$pb.TagNumber(4)
-  @$pb.TagNumber(5)
   RpcStreamFrame_Body whichBody() =>
       _RpcStreamFrame_BodyByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
   @$pb.TagNumber(4)
-  @$pb.TagNumber(5)
   void clearBody() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -211,27 +211,27 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPayload() => $_clearField(2);
 
+  @$pb.TagNumber(3)
+  RpcStatus get status => $_getN(2);
+  @$pb.TagNumber(3)
+  set status(RpcStatus value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStatus() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStatus() => $_clearField(3);
+  @$pb.TagNumber(3)
+  RpcStatus ensureStatus() => $_ensure(2);
+
   @$pb.TagNumber(4)
-  RpcStreamEnd get end => $_getN(2);
+  RpcStreamEnd get end => $_getN(3);
   @$pb.TagNumber(4)
   set end(RpcStreamEnd value) => $_setField(4, value);
   @$pb.TagNumber(4)
-  $core.bool hasEnd() => $_has(2);
+  $core.bool hasEnd() => $_has(3);
   @$pb.TagNumber(4)
   void clearEnd() => $_clearField(4);
   @$pb.TagNumber(4)
-  RpcStreamEnd ensureEnd() => $_ensure(2);
-
-  @$pb.TagNumber(5)
-  RpcStatus get status => $_getN(3);
-  @$pb.TagNumber(5)
-  set status(RpcStatus value) => $_setField(5, value);
-  @$pb.TagNumber(5)
-  $core.bool hasStatus() => $_has(3);
-  @$pb.TagNumber(5)
-  void clearStatus() => $_clearField(5);
-  @$pb.TagNumber(5)
-  RpcStatus ensureStatus() => $_ensure(3);
+  RpcStreamEnd ensureEnd() => $_ensure(3);
 }
 
 /// RpcStatus is the terminal status of one RPC. It follows google.rpc.Status

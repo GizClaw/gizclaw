@@ -435,7 +435,7 @@ const RpcResponse$json = {
     {'1': 'payload', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'payload'},
     {
       '1': 'status',
-      '3': 5,
+      '3': 3,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.RpcStatus',
@@ -446,17 +446,13 @@ const RpcResponse$json = {
   '8': [
     {'1': 'body'},
   ],
-  '9': [
-    {'1': 3, '2': 4},
-  ],
-  '10': ['error'],
 };
 
 /// Descriptor for `RpcResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List rpcResponseDescriptor = $convert.base64Decode(
     'CgtScGNSZXNwb25zZRIOCgJpZBgBIAEoCVICaWQSGgoHcGF5bG9hZBgCIAEoDEgAUgdwYXlsb2'
-    'FkEjMKBnN0YXR1cxgFIAEoCzIZLmdpemNsYXcucnBjLnYxLlJwY1N0YXR1c0gAUgZzdGF0dXNC'
-    'BgoEYm9keUoECAMQBFIFZXJyb3I=');
+    'FkEjMKBnN0YXR1cxgDIAEoCzIZLmdpemNsYXcucnBjLnYxLlJwY1N0YXR1c0gAUgZzdGF0dXNC'
+    'BgoEYm9keQ==');
 
 @$core.Deprecated('Use rpcStreamFrameDescriptor instead')
 const RpcStreamFrame$json = {
@@ -464,6 +460,15 @@ const RpcStreamFrame$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'payload', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'payload'},
+    {
+      '1': 'status',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.RpcStatus',
+      '9': 0,
+      '10': 'status'
+    },
     {
       '1': 'end',
       '3': 4,
@@ -473,31 +478,18 @@ const RpcStreamFrame$json = {
       '9': 0,
       '10': 'end'
     },
-    {
-      '1': 'status',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.RpcStatus',
-      '9': 0,
-      '10': 'status'
-    },
   ],
   '8': [
     {'1': 'body'},
   ],
-  '9': [
-    {'1': 3, '2': 4},
-  ],
-  '10': ['error'],
 };
 
 /// Descriptor for `RpcStreamFrame`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List rpcStreamFrameDescriptor = $convert.base64Decode(
     'Cg5ScGNTdHJlYW1GcmFtZRIOCgJpZBgBIAEoCVICaWQSGgoHcGF5bG9hZBgCIAEoDEgAUgdwYX'
-    'lsb2FkEjAKA2VuZBgEIAEoCzIcLmdpemNsYXcucnBjLnYxLlJwY1N0cmVhbUVuZEgAUgNlbmQS'
-    'MwoGc3RhdHVzGAUgASgLMhkuZ2l6Y2xhdy5ycGMudjEuUnBjU3RhdHVzSABSBnN0YXR1c0IGCg'
-    'Rib2R5SgQIAxAEUgVlcnJvcg==');
+    'lsb2FkEjMKBnN0YXR1cxgDIAEoCzIZLmdpemNsYXcucnBjLnYxLlJwY1N0YXR1c0gAUgZzdGF0'
+    'dXMSMAoDZW5kGAQgASgLMhwuZ2l6Y2xhdy5ycGMudjEuUnBjU3RyZWFtRW5kSABSA2VuZEIGCg'
+    'Rib2R5');
 
 @$core.Deprecated('Use rpcStatusDescriptor instead')
 const RpcStatus$json = {

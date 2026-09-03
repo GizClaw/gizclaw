@@ -8,26 +8,18 @@ option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpc
 
 message RpcResponse {
   string id = 1;
-  // Field 3 carried RpcError, whose RpcErrorCode mixed JSON-RPC 2.0 reserved
-  // codes with HTTP status numbers. RpcStatus replaces it on a new field so a
-  // build predating the change fails to find a body rather than decoding a
-  // canonical StatusCode as an unknown member of the old enum.
-  reserved 3;
-  reserved "error";
   oneof body {
     bytes payload = 2;
-    RpcStatus status = 5;
+    RpcStatus status = 3;
   }
 }
 
 message RpcStreamFrame {
   string id = 1;
-  reserved 3;
-  reserved "error";
   oneof body {
     bytes payload = 2;
+    RpcStatus status = 3;
     RpcStreamEnd end = 4;
-    RpcStatus status = 5;
   }
 }
 

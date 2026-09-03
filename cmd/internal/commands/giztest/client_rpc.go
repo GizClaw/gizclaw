@@ -96,7 +96,8 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 }
 
 // deviceControlErrorResponse lets a script make a device provider answer a
-// fixed RPC error: {error_code: -32602} or {error_code: 404}.
+// fixed RPC status: {error_code: 3} for INVALID_ARGUMENT or {error_code: 5}
+// for NOT_FOUND.
 // It returns the scripted error, or a nil error when the response scripts a
 // value rather than a failure. A malformed error_code is returned separately so
 // the document fails instead of installing a provider that answers with the
@@ -115,8 +116,8 @@ func deviceControlErrorResponse(response any) (error, error) {
 		return nil, err
 	}
 	status := rpcapi.StatusCode(code)
-	if !status.Valid() {
-		return nil, fmt.Errorf("error_code must be a canonical status code, got %d", code)
+	if !status.Valid() || status == rpcapi.StatusCodeOK {
+		return nil, fmt.Errorf("error_code must be a canonical status code other than OK, got %d", code)
 	}
 	message, _ := object["error_message"].(string)
 	return rpcapi.Error{Code: status, Message: message}, nil

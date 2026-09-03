@@ -19,14 +19,21 @@ class RpcCallResult {
 }
 
 class RpcStatus implements Exception {
-  RpcStatus(this.code, this.message, {this.requestId});
+  RpcStatus(this.code, this.message, {this.requestId, this.reason = ''});
 
+  /// Canonical gRPC status code (google.rpc.Code).
   final int code;
   final String message;
   final String? requestId;
 
+  /// Names the specific failure behind [code]. Empty when the responder did
+  /// not classify it.
+  final String reason;
+
   @override
-  String toString() => 'RpcStatus($code, $message)';
+  String toString() => reason.isEmpty
+      ? 'RpcStatus($code, $message)'
+      : 'RpcStatus($code, $reason, $message)';
 }
 
 class PeerRpcClient {
@@ -302,6 +309,7 @@ RpcCallResult decodeRpcResponse(
         envelope.status.code.value,
         envelope.status.message,
         requestId: envelope.id,
+        reason: envelope.status.info.reason,
       );
     case rpc.RpcResponse_Body.notSet:
       throw FormatException(

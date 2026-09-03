@@ -1124,8 +1124,7 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
     rc = append_test_proto_bytes(fake->platform, &response_payload, 1, (const uint8_t *)response_id, strlen(response_id));
   }
   if (rc == GZC_OK && fake->response_mode == FAKE_RESPONSE_PROTO_ERROR) {
-    /* RpcResponse.status is field 5; field 3 was the retired RpcError. */
-    rc = append_test_proto_bytes(fake->platform, &response_payload, 5, response_error.data, response_error.len);
+    rc = append_test_proto_bytes(fake->platform, &response_payload, 3, response_error.data, response_error.len);
   }
   if (rc == GZC_OK) {
     if (fake->response_mode != FAKE_RESPONSE_PROTO_ERROR) {

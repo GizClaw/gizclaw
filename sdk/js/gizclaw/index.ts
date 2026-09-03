@@ -2003,7 +2003,7 @@ function encodeRPCResponseEnvelope(
       info.string(2, RPC_ERROR_DOMAIN);
       status.bytes(3, info.finish());
     }
-    writer.bytes(5, status.finish());
+    writer.bytes(3, status.finish());
   } else {
     writer.bytes(2, encodeRPCResponsePayload(method, response.result ?? {}));
   }
@@ -2047,7 +2047,7 @@ function decodeRPCResponseEnvelope<TResult>(
         response.result = decodeRPCResponsePayload(method, body) as TResult;
         break;
       }
-      case 5:
+      case 3:
         response.error = decodeRPCStatus(reader.bytes(field));
         break;
       default:

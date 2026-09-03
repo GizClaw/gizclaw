@@ -35,10 +35,11 @@ func TestDeviceControlErrorResponseAcceptsEveryIntegralForm(t *testing.T) {
 	}
 }
 
-// A document that still carries a retired JSON-RPC or HTTP code fails the step
-// instead of scripting a provider whose answer no peer can interpret.
+// A document that still carries a retired JSON-RPC or HTTP code, or scripts OK
+// as a failure, fails the step instead of installing a provider whose answer no
+// peer can interpret.
 func TestDeviceControlErrorResponseRejectsNonCanonicalCodes(t *testing.T) {
-	for _, raw := range []any{-32700, -32603, -32602, 400, 403, 404, 409, 17} {
+	for _, raw := range []any{-32700, -32603, -32602, 400, 403, 404, 409, 17, 0} {
 		scripted, err := deviceControlErrorResponse(map[string]any{"error_code": raw})
 		if err == nil {
 			t.Fatalf("%v: expected a validation error, got scripted %v", raw, scripted)

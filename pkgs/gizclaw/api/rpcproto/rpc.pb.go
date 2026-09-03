@@ -564,7 +564,7 @@ type RpcResponse_Payload struct {
 }
 
 type RpcResponse_Status struct {
-	Status *RpcStatus `protobuf:"bytes,5,opt,name=status,proto3,oneof"`
+	Status *RpcStatus `protobuf:"bytes,3,opt,name=status,proto3,oneof"`
 }
 
 func (*RpcResponse_Payload) isRpcResponse_Body() {}
@@ -577,8 +577,8 @@ type RpcStreamFrame struct {
 	// Types that are valid to be assigned to Body:
 	//
 	//	*RpcStreamFrame_Payload
-	//	*RpcStreamFrame_End
 	//	*RpcStreamFrame_Status
+	//	*RpcStreamFrame_End
 	Body          isRpcStreamFrame_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -637,19 +637,19 @@ func (x *RpcStreamFrame) GetPayload() []byte {
 	return nil
 }
 
-func (x *RpcStreamFrame) GetEnd() *RpcStreamEnd {
+func (x *RpcStreamFrame) GetStatus() *RpcStatus {
 	if x != nil {
-		if x, ok := x.Body.(*RpcStreamFrame_End); ok {
-			return x.End
+		if x, ok := x.Body.(*RpcStreamFrame_Status); ok {
+			return x.Status
 		}
 	}
 	return nil
 }
 
-func (x *RpcStreamFrame) GetStatus() *RpcStatus {
+func (x *RpcStreamFrame) GetEnd() *RpcStreamEnd {
 	if x != nil {
-		if x, ok := x.Body.(*RpcStreamFrame_Status); ok {
-			return x.Status
+		if x, ok := x.Body.(*RpcStreamFrame_End); ok {
+			return x.End
 		}
 	}
 	return nil
@@ -663,19 +663,19 @@ type RpcStreamFrame_Payload struct {
 	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3,oneof"`
 }
 
+type RpcStreamFrame_Status struct {
+	Status *RpcStatus `protobuf:"bytes,3,opt,name=status,proto3,oneof"`
+}
+
 type RpcStreamFrame_End struct {
 	End *RpcStreamEnd `protobuf:"bytes,4,opt,name=end,proto3,oneof"`
 }
 
-type RpcStreamFrame_Status struct {
-	Status *RpcStatus `protobuf:"bytes,5,opt,name=status,proto3,oneof"`
-}
-
 func (*RpcStreamFrame_Payload) isRpcStreamFrame_Body() {}
 
-func (*RpcStreamFrame_End) isRpcStreamFrame_Body() {}
-
 func (*RpcStreamFrame_Status) isRpcStreamFrame_Body() {}
+
+func (*RpcStreamFrame_End) isRpcStreamFrame_Body() {}
 
 // RpcStatus is the terminal status of one RPC. It follows google.rpc.Status
 // with one deviation: details is a typed ErrorInfo rather than
@@ -974,18 +974,18 @@ var File_rpc_proto protoreflect.FileDescriptor
 
 const file_rpc_proto_rawDesc = "" +
 	"\n" +
-	"\trpc.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"\x83\x01\n" +
+	"\trpc.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"v\n" +
 	"\vRpcResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x123\n" +
-	"\x06status\x18\x05 \x01(\v2\x19.gizclaw.rpc.v1.RpcStatusH\x00R\x06statusB\x06\n" +
-	"\x04bodyJ\x04\b\x03\x10\x04R\x05error\"\xb8\x01\n" +
+	"\x06status\x18\x03 \x01(\v2\x19.gizclaw.rpc.v1.RpcStatusH\x00R\x06statusB\x06\n" +
+	"\x04body\"\xab\x01\n" +
 	"\x0eRpcStreamFrame\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
-	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x120\n" +
-	"\x03end\x18\x04 \x01(\v2\x1c.gizclaw.rpc.v1.RpcStreamEndH\x00R\x03end\x123\n" +
-	"\x06status\x18\x05 \x01(\v2\x19.gizclaw.rpc.v1.RpcStatusH\x00R\x06statusB\x06\n" +
-	"\x04bodyJ\x04\b\x03\x10\x04R\x05error\"\x84\x01\n" +
+	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x123\n" +
+	"\x06status\x18\x03 \x01(\v2\x19.gizclaw.rpc.v1.RpcStatusH\x00R\x06status\x120\n" +
+	"\x03end\x18\x04 \x01(\v2\x1c.gizclaw.rpc.v1.RpcStreamEndH\x00R\x03endB\x06\n" +
+	"\x04body\"\x84\x01\n" +
 	"\tRpcStatus\x12.\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x1a.gizclaw.rpc.v1.StatusCodeR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
@@ -1275,8 +1275,8 @@ var file_rpc_proto_goTypes = []any{
 }
 var file_rpc_proto_depIdxs = []int32{
 	4, // 0: gizclaw.rpc.v1.RpcResponse.status:type_name -> gizclaw.rpc.v1.RpcStatus
-	6, // 1: gizclaw.rpc.v1.RpcStreamFrame.end:type_name -> gizclaw.rpc.v1.RpcStreamEnd
-	4, // 2: gizclaw.rpc.v1.RpcStreamFrame.status:type_name -> gizclaw.rpc.v1.RpcStatus
+	4, // 1: gizclaw.rpc.v1.RpcStreamFrame.status:type_name -> gizclaw.rpc.v1.RpcStatus
+	6, // 2: gizclaw.rpc.v1.RpcStreamFrame.end:type_name -> gizclaw.rpc.v1.RpcStreamEnd
 	0, // 3: gizclaw.rpc.v1.RpcStatus.code:type_name -> gizclaw.rpc.v1.StatusCode
 	5, // 4: gizclaw.rpc.v1.RpcStatus.info:type_name -> gizclaw.rpc.v1.ErrorInfo
 	1, // 5: gizclaw.rpc.v1.RpcRequest.method:type_name -> gizclaw.rpc.v1.RpcMethod
@@ -1300,8 +1300,8 @@ func file_rpc_proto_init() {
 	}
 	file_rpc_proto_msgTypes[1].OneofWrappers = []any{
 		(*RpcStreamFrame_Payload)(nil),
-		(*RpcStreamFrame_End)(nil),
 		(*RpcStreamFrame_Status)(nil),
+		(*RpcStreamFrame_End)(nil),
 	}
 	file_rpc_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}

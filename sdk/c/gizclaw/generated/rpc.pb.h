@@ -178,10 +178,10 @@ typedef struct _gizclaw_rpc_v1_RpcStreamEnd {
 typedef struct _gizclaw_rpc_v1_RpcStreamFrame {
     pb_callback_t id;
     pb_callback_t payload;
-    bool has_end;
-    gizclaw_rpc_v1_RpcStreamEnd end;
     bool has_status;
     gizclaw_rpc_v1_RpcStatus status;
+    bool has_end;
+    gizclaw_rpc_v1_RpcStreamEnd end;
 } gizclaw_rpc_v1_RpcStreamFrame;
 
 typedef struct _gizclaw_rpc_v1_RpcMethodOptions {
@@ -225,14 +225,14 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_RpcResponse_init_default  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStatus_init_default}
-#define gizclaw_rpc_v1_RpcStreamFrame_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStreamEnd_init_default, false, gizclaw_rpc_v1_RpcStatus_init_default}
+#define gizclaw_rpc_v1_RpcStreamFrame_init_default {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStatus_init_default, false, gizclaw_rpc_v1_RpcStreamEnd_init_default}
 #define gizclaw_rpc_v1_RpcStatus_init_default    {_gizclaw_rpc_v1_StatusCode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ErrorInfo_init_default}
 #define gizclaw_rpc_v1_ErrorInfo_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcStreamEnd_init_default {0}
 #define gizclaw_rpc_v1_RpcMethodOptions_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcRequest_init_default   {{{NULL}, NULL}, _gizclaw_rpc_v1_RpcMethod_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcResponse_init_zero     {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStatus_init_zero}
-#define gizclaw_rpc_v1_RpcStreamFrame_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStreamEnd_init_zero, false, gizclaw_rpc_v1_RpcStatus_init_zero}
+#define gizclaw_rpc_v1_RpcStreamFrame_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, false, gizclaw_rpc_v1_RpcStatus_init_zero, false, gizclaw_rpc_v1_RpcStreamEnd_init_zero}
 #define gizclaw_rpc_v1_RpcStatus_init_zero       {_gizclaw_rpc_v1_StatusCode_MIN, {{NULL}, NULL}, false, gizclaw_rpc_v1_ErrorInfo_init_zero}
 #define gizclaw_rpc_v1_ErrorInfo_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_RpcStreamEnd_init_zero    {0}
@@ -247,11 +247,11 @@ extern "C" {
 #define gizclaw_rpc_v1_RpcStatus_info_tag        3
 #define gizclaw_rpc_v1_RpcResponse_id_tag        1
 #define gizclaw_rpc_v1_RpcResponse_payload_tag   2
-#define gizclaw_rpc_v1_RpcResponse_status_tag    5
+#define gizclaw_rpc_v1_RpcResponse_status_tag    3
 #define gizclaw_rpc_v1_RpcStreamFrame_id_tag     1
 #define gizclaw_rpc_v1_RpcStreamFrame_payload_tag 2
+#define gizclaw_rpc_v1_RpcStreamFrame_status_tag 3
 #define gizclaw_rpc_v1_RpcStreamFrame_end_tag    4
-#define gizclaw_rpc_v1_RpcStreamFrame_status_tag 5
 #define gizclaw_rpc_v1_RpcMethodOptions_name_tag 1
 #define gizclaw_rpc_v1_RpcMethodOptions_request_tag 2
 #define gizclaw_rpc_v1_RpcMethodOptions_response_tag 3
@@ -264,7 +264,7 @@ extern "C" {
 #define gizclaw_rpc_v1_RpcResponse_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
 X(a, CALLBACK, SINGULAR, BYTES,    payload,           2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  status,            5)
+X(a, STATIC,   OPTIONAL, MESSAGE,  status,            3)
 #define gizclaw_rpc_v1_RpcResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_RpcResponse_status_MSGTYPE gizclaw_rpc_v1_RpcStatus
@@ -272,12 +272,12 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  status,            5)
 #define gizclaw_rpc_v1_RpcStreamFrame_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
 X(a, CALLBACK, SINGULAR, BYTES,    payload,           2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  end,               4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  status,            5)
+X(a, STATIC,   OPTIONAL, MESSAGE,  status,            3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  end,               4)
 #define gizclaw_rpc_v1_RpcStreamFrame_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_RpcStreamFrame_DEFAULT NULL
-#define gizclaw_rpc_v1_RpcStreamFrame_end_MSGTYPE gizclaw_rpc_v1_RpcStreamEnd
 #define gizclaw_rpc_v1_RpcStreamFrame_status_MSGTYPE gizclaw_rpc_v1_RpcStatus
+#define gizclaw_rpc_v1_RpcStreamFrame_end_MSGTYPE gizclaw_rpc_v1_RpcStreamEnd
 
 #define gizclaw_rpc_v1_RpcStatus_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    code,              1) \

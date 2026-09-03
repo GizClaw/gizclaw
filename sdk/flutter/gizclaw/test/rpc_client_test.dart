@@ -153,6 +153,10 @@ void main() {
             status: rpc.RpcStatus(
               code: rpc.StatusCode.STATUS_CODE_NOT_FOUND,
               message: 'not found',
+              info: rpc.ErrorInfo(
+                reason: 'WORKSPACE_PENDING_DELETION',
+                domain: 'gizclaw.rpc.v1',
+              ),
             ),
           ).writeToBuffer(),
         ),
@@ -166,6 +170,11 @@ void main() {
         isA<RpcStatus>()
             .having((error) => error.code, 'code', 5)
             .having((error) => error.message, 'message', 'not found')
+            .having(
+              (error) => error.reason,
+              'reason',
+              'WORKSPACE_PENDING_DELETION',
+            )
             .having((error) => error.requestId, 'requestId', 'rpc-err'),
       ),
     );

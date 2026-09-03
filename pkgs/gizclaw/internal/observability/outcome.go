@@ -238,7 +238,11 @@ func levelFor(result Result, status, rpcCode int) slog.Level {
 	if result == ResultCanceled {
 		return slog.LevelWarn
 	}
-	if result == ResultPanic || result == ResultTransportError || result == ResultServerError || status >= http.StatusInternalServerError || rpcCode == -32603 || rpcCode >= 500 && rpcCode <= 599 {
+	// An RPC code is a canonical status code, so its severity comes from the
+	// HTTP status it projects onto rather than from an HTTP range check on the
+	// code itself. Zero means no code was recorded, not OK.
+	rpcServerError := rpcCode != 0 && rpcapi.StatusCode(rpcCode).HTTPStatus() >= http.StatusInternalServerError
+	if result == ResultPanic || result == ResultTransportError || result == ResultServerError || status >= http.StatusInternalServerError || rpcServerError {
 		return slog.LevelError
 	}
 	if result == ResultClientError || status >= http.StatusBadRequest || rpcCode != 0 {

@@ -280,7 +280,7 @@ func rpcAPIError(id string, statusCode int, body apitypes.ErrorResponse) *rpcapi
 	if message == "" {
 		message = http.StatusText(statusCode)
 	}
-	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCode(statusCode), Message: message}.RPCResponse()
+	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeFromHTTP(statusCode), Message: message}.RPCResponse()
 }
 
 func rpcUnexpectedResponse(id string, response any) *rpcapi.RPCResponse {

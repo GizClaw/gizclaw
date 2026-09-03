@@ -99,8 +99,8 @@ func errorResponse(response any) (int32, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
-	if !rpcapi.StatusCode(code).Valid() {
-		return 0, "", fmt.Errorf("error_code must be a canonical status code, got %d", code)
+	if status := rpcapi.StatusCode(code); !status.Valid() || status == rpcapi.StatusCodeOK {
+		return 0, "", fmt.Errorf("error_code must be a canonical status code other than OK, got %d", code)
 	}
 	message, _ := object["error_message"].(string)
 	if message == "" {

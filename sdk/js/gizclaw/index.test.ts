@@ -15,6 +15,7 @@ import {
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_BINARY,
   RPC_FRAME_TYPE_TEXT,
+  STATUS_CODE_INTERNAL,
   STATUS_CODE_INVALID_ARGUMENT,
   STATUS_CODE_UNIMPLEMENTED,
   SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS,
@@ -1695,7 +1696,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
   channel.receive(
     encodeRPCResponse(
       {
-        error: { code: -32000, message: "x".repeat(70000) },
+        error: { code: STATUS_CODE_INTERNAL, message: "x".repeat(70000) },
         id: "req-binary-error",
         v: 1,
       },
@@ -1705,7 +1706,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
-    assert.equal((err as WebRTCRPCError).code, -32000);
+    assert.equal((err as WebRTCRPCError).code, STATUS_CODE_INTERNAL);
     assert.equal((err as WebRTCRPCError).message, "x".repeat(70000));
     return true;
   });
@@ -1720,14 +1721,18 @@ test("WebRTCRPCClient rejects RPC error responses", async () => {
   channel.open();
   channel.receive(
     encodeRPCResponse(
-      { error: { code: -32000, message: "boom" }, id: "req-2", v: 1 },
+      {
+        error: { code: STATUS_CODE_INTERNAL, message: "boom" },
+        id: "req-2",
+        v: 1,
+      },
       "server.run.workspace.reload",
     ),
   );
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
-    assert.equal((err as WebRTCRPCError).code, -32000);
+    assert.equal((err as WebRTCRPCError).code, STATUS_CODE_INTERNAL);
     assert.equal((err as WebRTCRPCError).message, "boom");
     return true;
   });

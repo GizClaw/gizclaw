@@ -38,7 +38,7 @@ func TestOutcomeLogsBoundedScalarContract(t *testing.T) {
 	Annotate(ctx, AnnotationWorkflowName, "workflow-1")
 	Annotate(ctx, AnnotationKey("authorization"), "secret")
 	SetErrorCode(ctx, "INVALID_WORKSPACE")
-	outcome.SetRPC(400, ResultClientError)
+	outcome.SetRPC(int(rpcapi.StatusCodeInvalidArgument), ResultClientError)
 	Log(ctx, outcome)
 
 	if len(handler.records) != 1 {
@@ -51,7 +51,7 @@ func TestOutcomeLogsBoundedScalarContract(t *testing.T) {
 	attrs := recordAttrs(record)
 	for key, want := range map[string]any{
 		"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
-		"result": "client_error", "rpc_code": int64(400), "request_id": "request-1",
+		"result": "client_error", "rpc_code": int64(rpcapi.StatusCodeInvalidArgument), "request_id": "request-1",
 		"peer_public_key": "peer-key", "peer_role": "client", "error_code": "INVALID_WORKSPACE",
 		"workspace_name": "workspace-1", "workflow_name": "workflow-1",
 	} {
