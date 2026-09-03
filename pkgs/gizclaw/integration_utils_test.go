@@ -173,6 +173,10 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 	}
 	server.WorkspaceHistory = history
 	server.WorkspaceHistoryAssets = newTestObjectStore(t)
+	// Registered after every store cleanup above, so cleanup order (last in,
+	// first out) always stops the Server, and with it the pending deletion
+	// processor, before the stores it scans are closed.
+	t.Cleanup(func() { _ = server.Close() })
 	return server
 }
 
