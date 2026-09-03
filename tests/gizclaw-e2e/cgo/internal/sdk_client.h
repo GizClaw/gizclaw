@@ -28,7 +28,7 @@ typedef struct gzc_event_stream gzc_event_stream_t;
 typedef struct gzc_rpc_request gzc_rpc_request_t;
 
 int gzc_cgo_session_open(
-    const char *server_url,
+    const char *server_endpoint,
     const char *private_key,
     gzc_cgo_session_t **out_session,
     char *errbuf,

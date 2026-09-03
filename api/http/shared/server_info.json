@@ -45,7 +45,7 @@
           },
           "endpoint": {
             "type": "string",
-            "description": "Bare host[:port] the Server accepts WebRTC ICE UDP traffic on. An HTTP access point may terminate TLS on a different port that carries no ICE, so clients take the media address from here rather than from the URL they fetched this document with. A URL, path, query, userinfo, empty port or non-numeric port is invalid."
+            "description": "Bare host[:port] the Server accepts WebRTC ICE UDP traffic on. It is not the HTTP access point: a TLS listener may terminate on a port that carries no ICE. A client does not need this field to connect, because the answer SDP already carries the Server's ICE candidates with host candidates rewritten to this address; it exists for a client that rewrites those candidates itself, such as a loopback development setup. A URL, path, query, userinfo, empty port or non-numeric port is invalid."
           },
           "ice": {
             "type": "object",

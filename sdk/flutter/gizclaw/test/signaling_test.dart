@@ -160,59 +160,32 @@ void transportTests() {
       expect(info.transportSignalingPath, '/webrtc/v1/offer');
     });
 
-    test('exposes the advertised ICE UDP endpoint', () {
-      final info = GiznetServerInfo.fromJson({
-        'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
-        'endpoint': '127.0.0.1:9820',
-      });
-      expect(info.iceEndpoint, '127.0.0.1:9820');
-      for (final endpoint in <Object>[
-        'ftp://127.0.0.1:9820',
-        'https://ice.example',
-        'ice.example/path',
-        'ice.example?probe=1',
-        'ice.example#fragment',
-        'user@ice.example',
-        'ice.example:',
-        'ice.example:port',
-        'ice.example:998877',
-        ':9820',
-        '[not-an-ip]',
-        '[:::]:9820',
-        '[1:2:3:4:5:6:7]',
-        '[1:2:3:4:5:6:7:8:9]',
-        '[12345::1]',
-        '[::1%eth0]',
-        '[::ffff:999.1.1.1]',
-        '[]:9820',
-        '[::1:9820',
+    test('ignores an unconsumed endpoint of any JSON type', () {
+      for (final endpoint in <Object?>[
         42,
+        <String, Object?>{},
+        <Object?>[],
+        true,
+        'https://ice.example/path?probe=1',
       ]) {
-        expect(
-          () => GiznetServerInfo.fromJson({
-            'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
-            'endpoint': endpoint,
-          }),
-          throwsFormatException,
-          reason: '$endpoint',
-        );
+        final info = GiznetServerInfo.fromJson({
+          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+          'endpoint': endpoint,
+        });
+        expect(info.transportPublicKey, info.publicKey, reason: '$endpoint');
       }
-      for (final endpoint in <String>[
-        'ice.example',
-        'ice.example:9820',
-        '[::]',
-        '[::1]:9820',
-        '[1:2:3:4:5:6:7:8]',
-        '[::ffff:192.168.1.10]:9820',
-      ]) {
-        expect(
-          GiznetServerInfo.fromJson({
-            'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
-            'endpoint': endpoint,
-          }).iceEndpoint,
-          endpoint,
-        );
-      }
+      expect(
+        () => GiznetServerInfo.fromJson({
+          'public_key': 'BoYfN5LcjihD8j7HmzDW56s3E9F2R1AX8JsucW5Zvd7T',
+          'transport': {
+            'mode': 'edge-gateway',
+            'endpoint': 42,
+            'public_key': 'FNSseo3ePDEyJR27qEbDCSKBX4baMg826xXcanV4Huqs',
+            'signaling_path': '/webrtc/v1/offer',
+          },
+        }),
+        throwsFormatException,
+      );
     });
 
     test('normalizes access points and inherits the transport scheme', () {
