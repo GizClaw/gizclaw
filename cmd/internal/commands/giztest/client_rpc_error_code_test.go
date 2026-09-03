@@ -2,6 +2,7 @@ package giztest
 
 import (
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -35,7 +36,16 @@ func TestDeviceControlErrorResponseAcceptsEveryIntegralForm(t *testing.T) {
 }
 
 func TestDeviceControlErrorResponseRejectsMalformedCode(t *testing.T) {
-	for _, raw := range []any{"404", true, 1.5, nil} {
+	// A value that does not fit the int32 wire field would otherwise wrap into
+	// a different RPC error code.
+	outOfRange := []any{
+		int64(math.MaxInt32) + 1,
+		uint64(math.MaxInt32) + 1,
+		int64(math.MinInt32) - 1,
+		float64(math.MaxInt32) + 1,
+		uint64(math.MaxInt64) + 1,
+	}
+	for _, raw := range append([]any{"404", true, 1.5, nil}, outOfRange...) {
 		scripted, err := deviceControlErrorResponse(map[string]any{"error_code": raw})
 		if err == nil {
 			t.Fatalf("%T: expected a validation error, got scripted %v", raw, scripted)

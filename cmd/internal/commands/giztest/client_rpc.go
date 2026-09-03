@@ -113,29 +113,45 @@ func deviceControlErrorResponse(response any) (error, error) {
 // scriptedErrorCode reads one RPC error code from a decoded scenario value. A
 // YAML document decodes a negative code as int and a non-negative one as
 // uint64, and a JSON round trip decodes either as float64, so every integral
-// form is accepted and anything else is rejected.
+// form is accepted. A value that is not integral, or that does not fit the
+// int32 wire field, is rejected rather than silently converted to a different
+// code.
 func scriptedErrorCode(raw any) (int32, error) {
+	var value int64
 	switch v := raw.(type) {
 	case int:
-		return int32(v), nil
+		value = int64(v)
 	case int32:
 		return v, nil
 	case int64:
-		return int32(v), nil
+		value = v
 	case uint:
-		return int32(v), nil
+		if uint64(v) > math.MaxInt64 {
+			return 0, fmt.Errorf("error_code must fit in int32, got %d", v)
+		}
+		value = int64(v)
 	case uint32:
-		return int32(v), nil
+		value = int64(v)
 	case uint64:
-		return int32(v), nil
+		if v > math.MaxInt64 {
+			return 0, fmt.Errorf("error_code must fit in int32, got %d", v)
+		}
+		value = int64(v)
 	case float64:
 		if v != math.Trunc(v) {
 			return 0, fmt.Errorf("error_code must be an integer, got %v", v)
+		}
+		if v < math.MinInt32 || v > math.MaxInt32 {
+			return 0, fmt.Errorf("error_code must fit in int32, got %v", v)
 		}
 		return int32(v), nil
 	default:
 		return 0, fmt.Errorf("error_code must be an integer, got %T", raw)
 	}
+	if value < math.MinInt32 || value > math.MaxInt32 {
+		return 0, fmt.Errorf("error_code must fit in int32, got %d", value)
+	}
+	return int32(value), nil
 }
 
 func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string, response any) error {
