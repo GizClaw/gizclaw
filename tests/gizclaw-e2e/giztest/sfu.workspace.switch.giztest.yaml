@@ -226,44 +226,35 @@ steps:
       request: {}
     expect:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
-  - id: bob_listen_x
-    client: bob
-    background: true
+  - id: alice_speaks_x
     timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: carol_listen_x
-    client: carol
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: alice_speak_x
-    client: alice
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio_x}
-      pacing: 20ms
-      completion: input_sent
-  - id: bob_heard_x
-    await: bob_listen_x
-    timeout: 20s
+    parallel:
+      - id: bob_listen_x
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_x
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak_x
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio_x}
+          pacing: 20ms
+          completion: input_sent
     capture:
-      bob_received: /audio
+      bob_received: /bob_listen_x/audio
     expect:
       # A real spoken clip, not the short Opus silence frames LiveKit forwards
       # for an idle publisher: the transcript below can only assert the phrase
       # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: carol_silent_x
-    await: carol_listen_x
-    timeout: 20s
-    expect:
-      /audio_bytes: {maximum: 0}
+      /bob_listen_x/audio_bytes: {minimum: 2000}
+      /bob_listen_x/packets: {minimum: 50}
+      /carol_listen_x/audio_bytes: {maximum: 0}
   - id: bob_transcript_x
     client: bob
     speech:
@@ -292,44 +283,35 @@ steps:
       request: {}
     expect:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
-  - id: bob_listen_y
-    client: bob
-    background: true
+  - id: alice_speaks_y
     timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: carol_listen_y
-    client: carol
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: alice_speak_y
-    client: alice
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio_y}
-      pacing: 20ms
-      completion: input_sent
-  - id: carol_heard_y
-    await: carol_listen_y
-    timeout: 20s
+    parallel:
+      - id: bob_listen_y
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_y
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak_y
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio_y}
+          pacing: 20ms
+          completion: input_sent
     capture:
-      carol_received: /audio
+      carol_received: /carol_listen_y/audio
     expect:
       # A real spoken clip, not the short Opus silence frames LiveKit forwards
       # for an idle publisher: the transcript below can only assert the phrase
       # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: bob_silent_y
-    await: bob_listen_y
-    timeout: 20s
-    expect:
-      /audio_bytes: {maximum: 0}
+      /carol_listen_y/audio_bytes: {minimum: 2000}
+      /carol_listen_y/packets: {minimum: 50}
+      /bob_listen_y/audio_bytes: {maximum: 0}
   - id: carol_transcript_y
     client: carol
     speech:
@@ -358,44 +340,35 @@ steps:
       request: {}
     expect:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
-  - id: bob_listen_y_again
-    client: bob
-    background: true
+  - id: alice_speaks_y_again
     timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: carol_listen_y_again
-    client: carol
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: alice_speak_y_again
-    client: alice
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio_y}
-      pacing: 20ms
-      completion: input_sent
-  - id: carol_heard_y_again
-    await: carol_listen_y_again
-    timeout: 20s
+    parallel:
+      - id: bob_listen_y_again
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_y_again
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak_y_again
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio_y}
+          pacing: 20ms
+          completion: input_sent
     capture:
-      carol_received_again: /audio
+      carol_received_again: /carol_listen_y_again/audio
     expect:
       # A real spoken clip, not the short Opus silence frames LiveKit forwards
       # for an idle publisher: the transcript below can only assert the phrase
       # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: bob_silent_y_again
-    await: bob_listen_y_again
-    timeout: 20s
-    expect:
-      /audio_bytes: {maximum: 0}
+      /carol_listen_y_again/audio_bytes: {minimum: 2000}
+      /carol_listen_y_again/packets: {minimum: 50}
+      /bob_listen_y_again/audio_bytes: {maximum: 0}
   - id: carol_transcript_y_again
     client: carol
     speech:

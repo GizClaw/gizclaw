@@ -20,12 +20,11 @@ type Driver interface {
 	// CoreOperations. LoadDocuments rejects any document that uses an
 	// operation outside the union of the two sets.
 	//
-	// "await" is the operation of a step that consumes a background step.
-	// The runner executes it itself, but only a driver whose Session
-	// implements BackgroundSession lists it: a driver that cannot run a
-	// peer_stream step concurrently with the task omits it, so a document
-	// with background steps is rejected or skipped instead of failing at run
-	// time.
+	// "parallel" is the operation of a step that runs its children at once.
+	// The runner orchestrates it itself, but only a driver whose Session
+	// implements ParallelSession lists it: a driver that cannot run steps
+	// concurrently omits it, so a document with parallel steps is rejected or
+	// skipped instead of failing at run time.
 	Operations() []string
 
 	// ValidateStep checks driver-specific details of one step without
@@ -76,42 +75,42 @@ type StepRequest struct {
 	Vars *Variables
 	// Cleanup reports whether the step came from the document's finally block.
 	Cleanup bool
-	// Awaiter is the await step that consumes Step's result, set only when
-	// Step is a background step. A background step declares no capture of
-	// its own, so the awaiter's capture map is what bounds the data the
-	// background step retains, such as the /audio capture limit.
-	Awaiter *Step
+	// Parent is the parallel step that owns Step, set only when Step is one of
+	// its children. A child declares no capture of its own, so the parent's
+	// capture map is what bounds the data the child retains, such as the
+	// /audio capture limit; ParallelChildCaptures reads it.
+	Parent *Step
 }
 
 /*
-BackgroundSession is the optional Session capability behind background and
-await steps. The runner keeps the orchestration itself: it starts the step in
-a goroutine, bounds every wait on it, joins it in the await step, cancels the
-ones the document never reached, and refuses to tear the session down while a
-goroutine that ignored cancellation still owns a stream. The driver only
-splits one step into a prepare phase and a run phase.
+ParallelSession is the optional Session capability behind parallel steps. The
+runner keeps the orchestration itself: it prepares every child on the task
+goroutine, releases them all at the same moment, bounds every wait on them,
+cancels them when the step timeout expires, and refuses to tear the session
+down while a goroutine that ignored cancellation still owns a stream. The
+driver only splits one child into a prepare phase and a run phase.
 
 Prepare runs on the task goroutine while it still owns req.Vars exclusively:
-it resolves the step input, the awaiter's capture bounds, and the client, and
-fails fast when the driver cannot run this step concurrently. Run then drives
-the operation from the background goroutine without touching Variables,
-because the task goroutine keeps assigning them while the step runs. The
-cancellation of the context passed to Run is the only stop signal a
-background step receives; a driver must release its stream promptly when it
-fires, or the runner reports the task as leaking that stream.
+it resolves the child input, the parent's capture bounds, and the client, and
+fails fast when the driver cannot run this child concurrently. Run then drives
+the operation from the child goroutine without touching Variables, because the
+task goroutine keeps assigning them while the child runs. The cancellation of
+the context passed to Run is the only stop signal a child receives; a driver
+must release its stream promptly when it fires, or the runner reports the task
+as leaking that stream.
 */
-type BackgroundSession interface {
+type ParallelSession interface {
 	Session
 
-	// PrepareBackground resolves everything req.Step needs from req.Vars and
-	// returns the step's run phase. req.Awaiter is the await step that will
-	// consume the result.
-	PrepareBackground(req StepRequest) (BackgroundStep, error)
+	// PrepareParallel resolves everything req.Step needs from req.Vars and
+	// returns the child's run phase. req.Parent is the parallel step that
+	// owns the child.
+	PrepareParallel(req StepRequest) (ParallelChild, error)
 }
 
-// BackgroundStep is the run phase of a prepared background step.
-type BackgroundStep interface {
-	// Run drives the step until it completes or ctx is cancelled. It must
+// ParallelChild is the run phase of a prepared parallel child.
+type ParallelChild interface {
+	// Run drives the child until it completes or ctx is cancelled. It must
 	// not read or assign Variables.
 	Run(ctx context.Context) (StepResult, error)
 }

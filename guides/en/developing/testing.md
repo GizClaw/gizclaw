@@ -476,7 +476,7 @@ gates and the repeat-20 relay gate
 (`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
 `--parallel 20`), and always cleans the stack up.
 
-### Broadcast scenarios: listen, background/await, and input_sent
+### Broadcast scenarios: listen, parallel, and input_sent
 
 In SFU Workspace broadcast scenarios the response appears on the other clients
 in the room rather than on the sender. The runner provides three extensions for
@@ -494,37 +494,45 @@ conventions:
   is declared and audio arrived, bounded by the output variable's
   `max_bytes`), so it feeds `server.speech.transcribe` directly. Receiving no
   audio is not an error; the document asserts `audio_bytes` with `expect`.
-  A listen may run in the background on the client that is speaking: both
-  steps share that connection's single Peer Event Stream subscription, and the
-  speaker's own audio never comes back (mix-minus-self), so the sender asserts
-  `audio_bytes` equal to 0. Listen cannot set `input`, `pacing`, `interrupt_after`, `idle_timeout`,
+  A listen may sit in the same `parallel` step as the speaking client's own
+  turn: both children share that connection's single Peer Event Stream
+  subscription, and the speaker's own audio never comes back
+  (mix-minus-self), so the sender asserts `audio_bytes` equal to 0. Listen
+  cannot set `input`, `pacing`, `interrupt_after`, `idle_timeout`,
   `completion`, `terminal_label`, `require_text`, `require_audio`,
   `wait_for_history`, `session`, `keep_open`, or `await_rearm`. The step fails
   when the PeerStream closes before the window ends, when the step or document
   timeout expires, or when a terminal error arrives.
-- Step-level `background: true` and `await: <step_id>`. A background step must
-  be a `peer_stream`; the runner resolves its variables on the task goroutine,
-  starts it in the background, and proceeds to the next step. The background
-  step itself cannot declare `capture`, `expect`, `expect_error`, `save_as`,
-  `retry`, or a persistent session. An `await` step is exclusive with every
-  operation field, omits `client`, waits for the named background step to
-  finish (its `timeout` bounds the wait), and then applies its own `capture`,
-  `expect`, and `save_as` to that result; background failures surface at the
-  `await` step. The awaited id must be a background step declared earlier in
-  `steps`, every background step must be awaited exactly once before
-  `finally`, and `finally` allows neither background nor `await` steps. The
-  report records the background step as `started` with its `await` step id,
-  and the `await` step with the full result, `background_duration_ms`, and the
-  client. When the document aborts early, the runner cancels every background
-  step that was not awaited, waits up to 30s for it to release its PeerStream,
-  and records it as `cancelled` before RPC finalizers run. Every wait on a
-  background step is bounded by that grace, including the `await` timeout: a
-  PeerStream that ignores cancellation cannot hold the task open, and its step
-  is reported as unfinished instead. A background step still holding its
-  PeerStream after the grace also still owns the task's shared clients, so the
-  task ends there and reports it: `finally` steps and client teardown are
-  skipped rather than run against a stream that is still in use. Play mode does
-  not support background steps.
+- Step-level `parallel`. A `parallel` step owns a list of child steps, starts
+  every one of them at the same moment, waits for all of them, and reports
+  them together, so "one client speaks while another listens" needs no
+  separate synchronization step. A child is a plain step body: `client` plus
+  exactly one `peer_stream` operation in any mode, between 2 and 16 of them,
+  each with an `id` that is required and unique across the whole document. A
+  child cannot declare `parallel`, `barrier`, `retry`, `timeout`, `save_as`,
+  `capture`, `expect`, or `expect_error`, and cannot use a persistent
+  peer_stream session: the assertions belong to the parallel step. The
+  parallel step itself keeps `id`, `timeout`, `capture`, `expect`,
+  `expect_error`, `retry`, and `save_as`, takes no `client`, and is not
+  allowed in `finally`.
+  The step's result is an object keyed by child `id`, so `capture` and
+  `expect` address one child's result with a `/<child_id>/...` JSON pointer; a
+  pointer that names no declared child is rejected by validation. The runner
+  resolves every child's inputs on the task goroutine first, because
+  `Variables` is not safe for concurrent use, and releases the children only
+  once all of them are prepared; when one child fails to prepare, the step
+  fails and no child starts.
+  The step's `timeout` bounds the whole group: on expiry the runner cancels
+  every child, waits up to 30s more for them to release their PeerStream, and
+  reports each child's own outcome. A child that ignores cancellation is
+  recorded as unfinished and still owns the task's shared clients, so the task
+  ends there and reports it: `finally` steps and client teardown are skipped
+  rather than run against a stream that is still in use.
+  One failing child fails the parallel step, and the report's `children` array
+  keeps every child's `status`, `duration_ms`, `error`, and evidence. Play
+  mode does not support parallel steps, and a driver that cannot run steps
+  concurrently does not list the `parallel` operation, so such a document is
+  rejected or skipped by `validate` instead of failing at run time.
 - `peer_stream.completion: input_sent` is valid for `push-to-talk` and
   `realtime`: the step completes once the input is fully pushed (including the
   EOS for push-to-talk) without waiting for its own text or audio output and
@@ -537,27 +545,26 @@ conventions:
 
 ```yaml
 steps:
-  - id: bob_listen
-    client: bob
-    background: true
+  - id: alice_speaks
     timeout: 20s
-    peer_stream:
-      mode: listen
-      duration: 8s
-  - id: alice_speak
-    client: alice
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio}
-      completion: input_sent
-  - id: bob_heard
-    await: bob_listen
-    timeout: 15s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          completion: input_sent
     capture:
-      bob_received: /audio
+      bob_received: /bob_listen/audio
     expect:
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_speak/input_sent: {equals: true}
   - id: bob_transcript
     client: bob
     speech:

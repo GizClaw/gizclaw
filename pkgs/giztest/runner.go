@@ -35,9 +35,12 @@ type Options struct {
 	In io.Reader
 	// Out is where an output step writes and where progress is reported.
 	Out io.Writer
-	// backgroundCancelGrace shortens the wait for a cancelled background step
-	// in runner tests; zero uses the package default.
-	backgroundCancelGrace time.Duration
+	// parallelCancelGrace shortens the wait for the cancelled children of a
+	// parallel step in runner tests; zero uses the package default.
+	parallelCancelGrace time.Duration
+	// parallel tracks the parallel children of one task that ignored
+	// cancellation. runTask sets it on its own copy of Options.
+	parallel *parallelTracker
 }
 
 type task struct {
@@ -180,19 +183,10 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
-	background := newBackgroundSteps(item.doc.Steps, opts.backgroundCancelGrace)
+	opts.parallel = newParallelTracker(opts.parallelCancelGrace)
 	failed := false
 	for _, step := range item.doc.Steps {
-		var stepResult StepReport
-		var err error
-		switch {
-		case step.Background:
-			stepResult, err = background.start(ctx, item.doc.Path, step, session, vars, opts)
-		case step.Await != "":
-			stepResult, err = background.await(ctx, step, vars, opts, redactions)
-		default:
-			stepResult, err = RunStep(ctx, item.doc.Path, step, session, vars, item.barrier, opts, redactions)
-		}
+		stepResult, err := RunStep(ctx, item.doc.Path, step, session, vars, item.barrier, opts, redactions)
 		result.Steps = append(result.Steps, stepResult)
 		if err != nil {
 			item.barrier.Abort(err)
@@ -201,19 +195,12 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 			break
 		}
 	}
-	if cancelled := background.cancelRemaining(redactions); len(cancelled) != 0 {
-		result.Steps = append(result.Steps, cancelled...)
-		if result.Error == "" {
-			result.Error = cancelled[0].Error
-		}
-		failed = true
-	}
-	// A background step that ignored cancellation still owns a stream on the
+	// A parallel child that ignored cancellation still owns a stream on the
 	// task's shared clients. Session teardown, finalizers, and client close
 	// would all race it, so the task ends here and reports the leak instead.
-	if running := background.join(); len(running) != 0 {
+	if running := opts.parallel.join(); len(running) != 0 {
 		closeSession = false
-		leak := SafeError(fmt.Errorf("background steps %s still hold their PeerStream after cancellation; skipped finally steps and client teardown", strings.Join(running, ", ")), redactions...)
+		leak := SafeError(fmt.Errorf("parallel children %s still hold their PeerStream after cancellation; skipped finally steps and client teardown", strings.Join(running, ", ")), redactions...)
 		if result.Error == "" {
 			result.Error = leak
 		} else {
@@ -496,10 +483,14 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 		evidence, err = emitOutput(opts.Out, vars, step.Output.Variable)
 	case "review":
 		err = runReview(opts.In, opts.Out, step.ReviewOp.Message)
-	case "await":
-		// Run consumes await steps in the task loop; the report of a lone
-		// await step has no background result to apply.
-		err = fmt.Errorf("await step %q can only run inside a task", step.Await)
+	case "parallel":
+		var children []StepReport
+		var childValues map[string]any
+		childValues, children, evidence, err = runParallel(stepCtx, documentPath, step, session, vars, opts.parallel, redactions)
+		report.Children = children
+		if childValues != nil {
+			value = childValues
+		}
 	default:
 		if session == nil {
 			err = fmt.Errorf("operation %s requires a connected session", op)
@@ -515,8 +506,7 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 }
 
 // completeStepReport applies the step's expect_error, save_as, capture, and
-// expect declarations to an operation outcome and fills in the report. The
-// await step reuses it for the result of the background step it consumed.
+// expect declarations to an operation outcome and fills in the report.
 func completeStepReport(report StepReport, step Step, vars *Variables, value, saved any, evidence map[string]any, err error, started time.Time, opts Options, redactions []string) (StepReport, error) {
 	if step.ExpectError != nil {
 		code, message, matched := opts.Driver.FailureCode(err)

@@ -390,7 +390,7 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
 
-### 广播场景：listen、background/await 与 input_sent
+### 广播场景：listen、parallel 与 input_sent
 
 SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而不是发送方自己。runner 为此提供
 三个扩展，都遵循现有的 schema、校验、evidence 与 timeout 约定：
@@ -402,25 +402,32 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `duration_ms`、`listened_ms`、有界的 `text`、`audio_pacing`，以及与现有 `peer_stream`
   相同编码的 `/audio`（Ogg/Opus，只在声明了 `/audio` capture 且收到音频时提供，受 output
   variable 的 `max_bytes` 约束），可以直接交给 `server.speech.transcribe`。收到零音频不是
-  错误，文档用 `expect` 断言 `audio_bytes`。listen 可以在正在发言的 client 上后台运行：两个
-  步骤共享该 connection 唯一的 Peer Event Stream 订阅，发言方听不到自己的音频
+  错误，文档用 `expect` 断言 `audio_bytes`。listen 可以与同一 client 的发言 step 放在同一个 `parallel` step 中：两个
+  child 共享该 connection 唯一的 Peer Event Stream 订阅，发言方听不到自己的音频
   （mix-minus-self），因此发送方断言 `audio_bytes` 等于 0。listen 不能设置 `input`、`pacing`、
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
   `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
   在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
-- step 级 `background: true` 与 `await: <step_id>`：后台步骤只能是 `peer_stream`，在 task
-  goroutine 上解析变量后立即在后台开始，runner 继续执行下一步；它自身不能声明 `capture`、
-  `expect`、`expect_error`、`save_as`、`retry` 或持久 session。`await` 步骤与所有操作字段互斥、
-  不能声明 `client`，等待指定的后台步骤结束（`timeout` 限制等待时长），再把自己的 `capture`、
-  `expect`、`save_as` 应用到该 result；后台步骤的失败也在 `await` 处暴露。被 `await` 的 id
-  必须是 `steps` 中更早声明的后台步骤，每个后台步骤必须在 `finally` 之前恰好被 `await`
-  一次；`finally` 中不允许后台或 `await` 步骤。报告里后台步骤记录 `started` 与它的 `await`
-  步骤 id，`await` 步骤记录完整 result、`background_duration_ms` 和 client。文档提前中止时，
-  runner 取消所有未被 `await` 的后台步骤，最多等待 30s 让它们释放 PeerStream，并以 `cancelled`
-  状态记录在 RPC finalizer 之前。所有对后台步骤的等待都受这个 grace 限制，`await` 的 timeout
-  也一样：忽略取消的 PeerStream 不会拖住整个 task，对应步骤按 unfinished 记录。超过 grace 仍
-  未释放 PeerStream 的后台步骤同时还占用 task 的共享 client，因此 task 到此结束并报告该情况，
-  跳过 `finally` 步骤与 client 拆除，不在仍被占用的 stream 上执行清理。play 模式不支持后台步骤。
+- step 级 `parallel`：一个 `parallel` step 拥有一组 child step，把它们**同时**启动、
+  等全部结束后一起报告，因此“一个 client 说、另一个 client 同时听”不需要任何额外的
+  同步 step。child 只能是 `client` 加恰好一个 `peer_stream`（任意 mode），数量 2 到 16，
+  `id` 必填且在整个文档内唯一。child 不能声明 `parallel`、`barrier`、`retry`、`timeout`、
+  `save_as`、`capture`、`expect`、`expect_error`，也不能使用持久 peer_stream session：
+  断言属于 `parallel` step 自己。`parallel` step 保留 `id`、`timeout`、`capture`、
+  `expect`、`expect_error`、`retry`、`save_as`，不能声明 `client`，且不允许出现在
+  `finally` 中。
+  step 的 result 是一个以 child `id` 为键的对象，所以 `capture` 与 `expect` 用
+  `/<child_id>/...` 这样的 JSON pointer 定位某个 child 的结果；指向未声明 child 的 pointer
+  会被校验拒绝。runner 在 task goroutine 上先解析所有 child 的输入（`Variables` 不支持并发
+  访问），全部解析成功后才同时放行；任何一个 child 解析失败，整个 step 失败且没有 child 被
+  启动。
+  step 的 `timeout` 限制整组：超时后 runner 取消全部 child，最多再等 30s 让它们释放
+  PeerStream，并按 child 记录各自的结果。忽略取消的 child 会被记为 unfinished，此时它仍占用
+  task 的共享 client，task 到此结束并报告该情况，跳过 `finally` 步骤与 client 拆除。
+  任何一个 child 失败都会让 `parallel` step 失败，同时报告里的 `children` 数组保留每个
+  child 的 `status`、`duration_ms`、`error` 与 evidence。play 模式不支持 `parallel` step；
+  无法并发执行步骤的 driver 不声明 `parallel` 操作，这类文档在 `validate` 阶段就被拒绝或跳过，
+  而不是运行时失败。
 - `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
   （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
   不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
@@ -430,27 +437,26 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
 
 ```yaml
 steps:
-  - id: bob_listen
-    client: bob
-    background: true
+  - id: alice_speaks
     timeout: 20s
-    peer_stream:
-      mode: listen
-      duration: 8s
-  - id: alice_speak
-    client: alice
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio}
-      completion: input_sent
-  - id: bob_heard
-    await: bob_listen
-    timeout: 15s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          completion: input_sent
     capture:
-      bob_received: /audio
+      bob_received: /bob_listen/audio
     expect:
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_speak/input_sent: {equals: true}
   - id: bob_transcript
     client: bob
     speech:

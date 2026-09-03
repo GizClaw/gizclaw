@@ -385,6 +385,11 @@ func validatePlayDocument(path string, docs []*giztest.Document) error {
 	if doc.HasBarrier() {
 		return fmt.Errorf("play does not support barrier steps")
 	}
+	for _, step := range doc.Steps {
+		if step.Parallel != nil {
+			return fmt.Errorf("play does not support parallel steps")
+		}
+	}
 	return nil
 }
 

@@ -31,10 +31,10 @@ func newDriver(fullEvidence bool, observer audioObserver) *driver {
 	return &driver{fullEvidence: fullEvidence, audioObserver: observer, speechCache: newSpeechFixtureCache()}
 }
 
-// Operations lists "await" because session implements
-// giztest.BackgroundSession for peer_stream steps.
+// Operations lists "parallel" because session implements
+// giztest.ParallelSession for peer_stream steps.
 func (d *driver) Operations() []string {
-	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "await"}
+	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "parallel"}
 }
 
 func (d *driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
@@ -196,21 +196,22 @@ func (s *session) executePeerStream(ctx context.Context, req giztest.StepRequest
 	return result.stepResult(), err
 }
 
-// PrepareBackground implements giztest.BackgroundSession for peer_stream
-// steps. Every variable read and the client lookup happen here, on the task
-// goroutine; the returned run phase only drives the PeerStream. The await
-// step owns the capture map, so its /audio bound applies from the start.
-func (s *session) PrepareBackground(req giztest.StepRequest) (giztest.BackgroundStep, error) {
+// PrepareParallel implements giztest.ParallelSession for peer_stream steps.
+// Every variable read and the client lookup happen here, on the task
+// goroutine; the returned run phase only drives the PeerStream. The parallel
+// step owns the capture map, so the bound it declared for this child, such as
+// the /audio limit, applies from the start.
+func (s *session) PrepareParallel(req giztest.StepRequest) (giztest.ParallelChild, error) {
 	step := req.Step
 	if step.PeerStream == nil {
-		return nil, fmt.Errorf("background step %s requires peer_stream", step.ID)
+		return nil, fmt.Errorf("parallel child %s requires peer_stream", step.ID)
 	}
 	if s.driver.audioObserver != nil {
-		return nil, fmt.Errorf("background steps cannot play audio interactively")
+		return nil, fmt.Errorf("parallel children cannot play audio interactively")
 	}
 	captureStep := step
-	if req.Awaiter != nil {
-		captureStep = *req.Awaiter
+	if req.Parent != nil {
+		captureStep = giztest.Step{ID: step.ID, Capture: giztest.ParallelChildCaptures(*req.Parent, step.ID)}
 	}
 	invocation, err := s.preparePeerStream(step, captureStep, req.Vars)
 	if err != nil {
@@ -221,7 +222,7 @@ func (s *session) PrepareBackground(req giztest.StepRequest) (giztest.Background
 
 // peerStreamInvocation is a peer_stream step whose variable reads and client
 // lookup are complete, so the stream can be driven on the task goroutine or
-// from a background goroutine without touching task variables.
+// from a parallel child goroutine without touching task variables.
 type peerStreamInvocation struct {
 	client               *gizcli.Client
 	open                 peerStreamOpener
@@ -232,8 +233,8 @@ type peerStreamInvocation struct {
 }
 
 // preparePeerStream resolves the step input and the /audio capture bound.
-// captureStep owns the capture map: the step itself, or the await step of a
-// background peer_stream.
+// captureStep owns the capture map: the step itself, or the child-scoped view
+// of the capture map of the parallel step that owns it.
 func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztest.Variables) (peerStreamInvocation, error) {
 	client, err := s.clients.get(step.Client)
 	if err != nil {
@@ -263,12 +264,12 @@ func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztes
 }
 
 // run drives the stream. sessions is the task's held-open stream set, or nil
-// for a background step, which validation keeps out of sessions.
+// for a parallel child, which validation keeps out of sessions.
 func (p peerStreamInvocation) run(ctx context.Context, sessions *peerStreamSessions) (operationResult, error) {
 	return invokePeerStreamWithSessions(ctx, p.client, p.open, sessions, p.step, p.input, p.audioCaptureMaxBytes, p.observer)
 }
 
-// Run implements giztest.BackgroundStep.
+// Run implements giztest.ParallelChild.
 func (p peerStreamInvocation) Run(ctx context.Context) (giztest.StepResult, error) {
 	result, err := p.run(ctx, nil)
 	return result.stepResult(), err

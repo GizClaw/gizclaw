@@ -614,55 +614,61 @@ func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
 	}
 }
 
-func TestLoadDocumentAcceptsBackgroundAwaitListen(t *testing.T) {
-	doc, err := LoadDocument(writeTestDocument(t, validDocument+`  - id: listen
-    client: peer
-    background: true
-    peer_stream:
-      mode: listen
-      duration: 3s
-  - id: wait
-    await: listen
-    timeout: 10s
+func TestLoadDocumentAcceptsParallelListenAndSpeak(t *testing.T) {
+	doc, err := LoadDocument(writeTestDocument(t, validDocument+`  - id: talk
+    timeout: 30s
+    parallel:
+      - id: listen
+        client: peer
+        peer_stream:
+          mode: listen
+          duration: 3s
+      - id: speak
+        client: peer
+        peer_stream:
+          mode: push-to-talk
+          input: ${endpoint}
+          completion: input_sent
     expect:
-      /audio_bytes:
+      /listen/audio_bytes:
         equals: 0
 `), nil)
 	if err != nil {
-		t.Fatalf("background listen document rejected: %v", err)
+		t.Fatalf("parallel document rejected: %v", err)
 	}
-	listen, wait := doc.Steps[1], doc.Steps[2]
-	if !listen.Background || listen.PeerStream.Mode != "listen" || listen.PeerStream.Duration != "3s" {
-		t.Fatalf("listen step = %#v", listen)
+	talk := doc.Steps[1]
+	if talk.Operation() != "parallel" || operationNeedsClient(talk.Operation()) || len(talk.Parallel) != 2 {
+		t.Fatalf("parallel step = %#v", talk)
 	}
-	if wait.Await != "listen" || wait.Operation() != "await" || operationNeedsClient(wait.Operation()) {
-		t.Fatalf("await step = %#v", wait)
+	if talk.Parallel[0].PeerStream.Mode != "listen" || talk.Parallel[0].PeerStream.Duration != "3s" || talk.Parallel[1].Client != "peer" {
+		t.Fatalf("parallel children = %#v", talk.Parallel)
 	}
 }
 
-func TestLoadDocumentRejectsInvalidBackgroundAwait(t *testing.T) {
-	listen := func(extra string) string {
-		return "  - id: listen\n    client: peer\n    background: true\n    peer_stream:\n      mode: listen\n      duration: 3s\n" + extra
+func TestLoadDocumentRejectsInvalidParallel(t *testing.T) {
+	group := func(children string, extra string) string {
+		return "  - id: talk\n" + extra + "    parallel:\n" + children
+	}
+	listen := func(id string) string {
+		return "      - id: " + id + "\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"
 	}
 	for name, tc := range map[string]struct {
 		body string
 		want string
 	}{
-		"background never awaited":  {body: listen(""), want: "must be awaited exactly once"},
-		"await unknown step":        {body: listen("  - id: wait\n    await: other\n"), want: "not an earlier background step"},
-		"await before background":   {body: "  - id: wait\n    await: listen\n" + listen(""), want: "not an earlier background step"},
-		"await twice":               {body: listen("  - id: wait\n    await: listen\n  - id: again\n    await: listen\n"), want: "already awaited"},
-		"await with client":         {body: listen("  - id: wait\n    client: peer\n    await: listen\n"), want: "takes its client"},
-		"await with operation":      {body: listen("  - id: wait\n    await: listen\n    rpc:\n      method: all.ping\n      request: {}\n"), want: "schema validation"},
-		"await with retry":          {body: listen("  - id: wait\n    await: listen\n    retry:\n      attempts: 2\n"), want: "does not support retry"},
-		"background rpc":            {body: "  - id: bg\n    client: peer\n    background: true\n    rpc:\n      method: all.ping\n      request: {}\n  - id: wait\n    await: bg\n", want: "requires a peer_stream"},
-		"background expect":         {body: "  - id: listen\n    client: peer\n    background: true\n    peer_stream:\n      mode: listen\n      duration: 3s\n    expect:\n      /audio_bytes:\n        equals: 0\n  - id: wait\n    await: listen\n", want: "cannot capture, expect, or save_as"},
-		"background retry":          {body: "  - id: listen\n    client: peer\n    background: true\n    retry:\n      attempts: 2\n    peer_stream:\n      mode: listen\n      duration: 3s\n  - id: wait\n    await: listen\n", want: "cannot retry"},
-		"background session":        {body: "  - id: turn\n    client: peer\n    background: true\n    peer_stream:\n      mode: realtime\n      input: ${endpoint}\n      session: mic\n      keep_open: true\n  - id: wait\n    await: turn\n", want: "cannot use a session"},
-		"background in finally":     {body: listen("  - id: wait\n    await: listen\n") + "finally:\n  - id: late\n    client: peer\n    background: true\n    peer_stream:\n      mode: listen\n      duration: 1s\n", want: "schema validation"},
-		"background and await":      {body: listen("  - id: wait\n    await: listen\n    background: true\n"), want: "cannot be both background and await"},
-		"await in finally":          {body: listen("  - id: wait\n    await: listen\n") + "finally:\n  - id: late\n    await: listen\n", want: "schema validation"},
-		"await before finally only": {body: listen("") + "finally:\n  - id: cleanup\n    client: peer\n    rpc:\n      method: all.ping\n      request: {}\n", want: "must be awaited exactly once"},
+		"one child":            {body: group(listen("a"), ""), want: "schema validation"},
+		"client on parent":     {body: group(listen("a")+listen("b"), "    client: peer\n"), want: "takes its clients from its children"},
+		"duplicate child id":   {body: group(listen("a")+listen("a"), ""), want: `duplicate step id "a"`},
+		"child id collides":    {body: group(listen("ping")+listen("b"), ""), want: `duplicate step id "ping"`},
+		"child without id":     {body: group("      - client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"+listen("b"), ""), want: "schema validation"},
+		"child rpc":            {body: group("      - id: a\n        client: peer\n        rpc:\n          method: all.ping\n          request: {}\n"+listen("b"), ""), want: "schema validation"},
+		"child expect":         {body: group(listen("a")+"      - id: b\n        client: peer\n        expect:\n          /audio_bytes:\n            equals: 0\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: "schema validation"},
+		"child unknown client": {body: group(listen("a")+"      - id: b\n        client: ghost\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: `unknown client "ghost"`},
+		"child session":        {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: realtime\n          input: ${endpoint}\n          session: mic\n          keep_open: true\n", ""), want: "persistent peer_stream session"},
+		"child listen input":   {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n          input: ${endpoint}\n", ""), want: "schema validation"},
+		"capture pointer":      {body: group(listen("a")+listen("b"), "") + "    capture:\n      server_time: /audio\n", want: "must address a parallel child by id"},
+		"expect pointer":       {body: group(listen("a")+listen("b"), "") + "    expect:\n      /ghost/audio_bytes:\n        equals: 0\n", want: "must address a parallel child by id"},
+		"in finally":           {body: "finally:\n  - id: late\n    parallel:\n" + listen("a") + listen("b"), want: "schema validation"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := LoadDocument(writeTestDocument(t, validDocument+tc.body), nil)
@@ -673,27 +679,31 @@ func TestLoadDocumentRejectsInvalidBackgroundAwait(t *testing.T) {
 	}
 }
 
-// A driver that cannot run steps in the background does not list "await", so
-// a document with background steps is rejected by validate and skipped by
+// A driver that cannot run steps concurrently does not list "parallel", so a
+// document with parallel steps is rejected by validate and skipped by
 // LoadSupportedDocuments instead of failing once a task is running.
-func TestLoadDocumentGatesBackgroundStepsOnDriverAwaitSupport(t *testing.T) {
-	path := writeTestDocument(t, validDocument+`  - id: listen
-    client: peer
-    background: true
-    peer_stream:
-      mode: listen
-      duration: 3s
-  - id: wait
-    await: listen
+func TestLoadDocumentGatesParallelStepsOnDriverSupport(t *testing.T) {
+	path := writeTestDocument(t, validDocument+`  - id: talk
+    parallel:
+      - id: listen
+        client: peer
+        peer_stream:
+          mode: listen
+          duration: 3s
+      - id: listen_too
+        client: peer
+        peer_stream:
+          mode: listen
+          duration: 3s
 `)
-	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream"}}); err == nil || !strings.Contains(err.Error(), "operation await is not supported") {
-		t.Fatalf("driver without await accepted background steps: %v", err)
+	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream"}}); err == nil || !strings.Contains(err.Error(), "operation parallel is not supported") {
+		t.Fatalf("driver without parallel accepted parallel steps: %v", err)
 	}
-	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream", "await"}}); err != nil {
-		t.Fatalf("driver with await rejected background steps: %v", err)
+	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream", "parallel"}}); err != nil {
+		t.Fatalf("driver with parallel rejected parallel steps: %v", err)
 	}
 	documents, skipped, err := LoadSupportedDocuments([]string{path}, &stubDriver{operations: []string{"rpc", "peer_stream"}})
-	if err != nil || len(documents) != 0 || len(skipped) != 1 || !strings.Contains(skipped[0].Reason, "await") {
+	if err != nil || len(documents) != 0 || len(skipped) != 1 || !strings.Contains(skipped[0].Reason, "parallel") {
 		t.Fatalf("documents = %#v skipped = %#v err = %v", documents, skipped, err)
 	}
 }

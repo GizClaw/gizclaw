@@ -167,6 +167,10 @@ for task in report.get("tasks", []):
         if step.get("status") == "passed":
             continue
         print(f"  step {step.get('id')} {step.get('operation')} client={step.get('client', '')} status={step.get('status')} error={step.get('error', '')}")
+        for child in step.get("children", []):
+            if child.get("status") == "passed":
+                continue
+            print(f"    child {child.get('id')} {child.get('operation')} client={child.get('client', '')} status={child.get('status')} error={child.get('error', '')}")
 PY
 }
 

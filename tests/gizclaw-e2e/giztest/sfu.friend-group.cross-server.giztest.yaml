@@ -103,19 +103,31 @@ variables:
     max_bytes: 16777216
     media_type: audio/ogg
     codec: opus
-  bob_long_audio:
+  carol_audio:
     direction: output
     type: audio
     max_bytes: 16777216
     media_type: audio/ogg
     codec: opus
-  carol_short_audio:
+  m1_heard_three:
     direction: output
     type: audio
     max_bytes: 16777216
     media_type: audio/ogg
     codec: opus
-  alice_received_floor:
+  m1_heard_modes:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  m1_heard_two:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_heard_two:
     direction: output
     type: audio
     max_bytes: 16777216
@@ -216,6 +228,28 @@ steps:
       request: {}
     expect:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  # A fourth member joins here so it can listen while three others speak at
+  # once below; it still counts toward the 10-member cap checked further down.
+  - id: m1_join
+    client: m1
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m1_select
+    client: m1
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${alice_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: m1_select_running
+    client: m1
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
   - id: alice_synthesize
     client: alice
     speech:
@@ -234,50 +268,48 @@ steps:
         text: 谢谢你们的热情帮助
         accepted_content_types: [audio/ogg]
     save_as: bob_audio
-  - id: bob_listen
-    client: bob
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: carol_listen
+  - id: carol_synthesize
     client: carol
-    background: true
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们一起去公园散步
+        accepted_content_types: [audio/ogg]
+    save_as: carol_audio
+  # One step starts the speaker and every listen window at the same moment, so
+  # the windows cover the whole utterance.
+  - id: alice_speaks
     timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: alice_speak
-    client: alice
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio}
-      pacing: 20ms
-      completion: input_sent
-  - id: bob_heard_alice
-    await: bob_listen
-    timeout: 20s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
     capture:
-      bob_received: /audio
+      bob_received: /bob_listen/audio
+      carol_received: /carol_listen/audio
     expect:
       # A real spoken clip, not the short Opus silence frames LiveKit forwards
-      # for an idle publisher: the transcript below can only assert the phrase
+      # for an idle publisher: the transcripts below can only assert the phrase
       # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: carol_heard_alice
-    await: carol_listen
-    timeout: 20s
-    capture:
-      carol_received: /audio
-    expect:
-      # A real spoken clip, not the short Opus silence frames LiveKit forwards
-      # for an idle publisher: the transcript below can only assert the phrase
-      # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /carol_listen/audio_bytes: {minimum: 2000}
+      /carol_listen/packets: {minimum: 50}
   - id: bob_transcript
     client: bob
     speech:
@@ -298,62 +330,45 @@ steps:
       input: ${carol_received}
     expect:
       /transcript: {contains: 欢迎大家参加这次活动, normalize: [case, punctuation, whitespace]}
-  - id: alice_listen
-    client: alice
-    background: true
+  - id: bob_speaks
     timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: carol_listen_bob
-    client: carol
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: bob_listen_self
-    client: bob
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 10s
-  - id: bob_speak
-    client: bob
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${bob_audio}
-      pacing: 20ms
-      completion: input_sent
-  - id: alice_heard_bob
-    await: alice_listen
-    timeout: 20s
+    parallel:
+      - id: alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_bob
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: bob_listen_self
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: bob_speak
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${bob_audio}
+          pacing: 20ms
+          completion: input_sent
     capture:
-      alice_received: /audio
+      alice_received: /alice_listen/audio
+      carol_received_again: /carol_listen_bob/audio
     expect:
       # A real spoken clip, not the short Opus silence frames LiveKit forwards
-      # for an idle publisher: the transcript below can only assert the phrase
+      # for an idle publisher: the transcripts below can only assert the phrase
       # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: carol_heard_bob
-    await: carol_listen_bob
-    timeout: 20s
-    capture:
-      carol_received_again: /audio
-    expect:
-      # A real spoken clip, not the short Opus silence frames LiveKit forwards
-      # for an idle publisher: the transcript below can only assert the phrase
-      # when the whole utterance was captured.
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: bob_hears_nothing_of_himself
-    await: bob_listen_self
-    timeout: 20s
-    expect:
-      /audio_bytes: {maximum: 0}
+      /alice_listen/audio_bytes: {minimum: 2000}
+      /alice_listen/packets: {minimum: 50}
+      /carol_listen_bob/audio_bytes: {minimum: 2000}
+      /carol_listen_bob/packets: {minimum: 50}
+      # Half-duplex: the speaker never hears the Room while its own utterance
+      # is open.
+      /bob_listen_self/audio_bytes: {maximum: 0}
   - id: alice_transcript
     client: alice
     speech:
@@ -374,123 +389,155 @@ steps:
       input: ${carol_received_again}
     expect:
       /transcript: {contains: 谢谢你们的热情帮助, normalize: [case, punctuation, whitespace]}
-  # Floor: bob and carol speak at the same time. bob's utterance opens first,
-  # so every listener grants him the floor; carol's shorter utterance opens
-  # and closes while bob still holds it and is never forwarded to alice. bob
-  # hears nothing (half-duplex, and carol is done before he finishes); carol
-  # hears bob before her press and again after it (floor handoff back to the
-  # utterance that is still open).
-  - id: bob_synthesize_long
-    client: bob
-    speech:
-      method: server.speech.synthesize
-      request:
-        voice_name: narrator
-        text: 谢谢你们的热情帮助，我们下次再一起出去玩吧
-        accepted_content_types: [audio/ogg]
-    save_as: bob_long_audio
-  - id: carol_synthesize_short
-    client: carol
-    speech:
-      method: server.speech.synthesize
-      request:
-        voice_name: narrator
-        text: 我在听
-        accepted_content_types: [audio/ogg]
-    save_as: carol_short_audio
-  - id: alice_listen_floor
-    client: alice
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 12s
-  - id: bob_listen_self_floor
-    client: bob
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 12s
-  - id: carol_listen_floor
-    client: carol
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 12s
-  - id: bob_speak_floor
-    client: bob
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${bob_long_audio}
-      pacing: 20ms
-      completion: input_sent
-  # A receive-only window on an idle client is the runner's only pause; it
-  # makes bob's BOS reach every listener before carol's.
-  - id: stagger_carol
-    client: m1
-    timeout: 10s
-    peer_stream:
-      mode: listen
-      duration: 600ms
-  - id: carol_speak_floor
-    client: carol
-    background: true
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${carol_short_audio}
-      pacing: 20ms
-      completion: input_sent
-  - id: bob_spoke_floor
-    await: bob_speak_floor
-    timeout: 30s
-    expect:
-      /input_sent: {equals: true}
-  - id: carol_spoke_floor
-    await: carol_speak_floor
-    timeout: 30s
-    expect:
-      /input_sent: {equals: true}
-  - id: alice_heard_floor
-    await: alice_listen_floor
-    timeout: 20s
+  # Continuity of the forwarded audio under contention. Three members press at
+  # the same moment while a fourth listens. Which speaker wins the floor is
+  # deliberately not fixed and may differ per listener, so nothing here asserts
+  # a winner; what must hold is that the winner arrives whole. Each phrase is
+  # about two seconds and lexically distinct, and the anchored pattern admits
+  # exactly one speaker's distinctive fragment (活动, 热情 or 公园), so a lost
+  # head, a splice of two speakers, reordering or a mid-sentence cut all fail:
+  # the full phrase would no longer be present, or a second fragment would be.
+  - id: three_speak_at_once
+    timeout: 60s
+    parallel:
+      - id: alice_speak_contention
+        client: alice
+        peer_stream: {mode: push-to-talk, input: "${alice_audio}", pacing: 20ms, completion: input_sent}
+      - id: bob_speak_contention
+        client: bob
+        peer_stream: {mode: push-to-talk, input: "${bob_audio}", pacing: 20ms, completion: input_sent}
+      - id: carol_speak_contention
+        client: carol
+        peer_stream: {mode: push-to-talk, input: "${carol_audio}", pacing: 20ms, completion: input_sent}
+      - id: m1_listen_contention
+        client: m1
+        peer_stream: {mode: listen, duration: 12s}
+      # The speakers listen only while their own utterance is certainly still
+      # open, which is where half-duplex must hold.
+      - id: alice_listen_contention
+        client: alice
+        peer_stream: {mode: listen, duration: 1s}
+      - id: bob_listen_contention
+        client: bob
+        peer_stream: {mode: listen, duration: 1s}
+      - id: carol_listen_contention
+        client: carol
+        peer_stream: {mode: listen, duration: 1s}
     capture:
-      alice_received_floor: /audio
+      m1_heard_three: /m1_listen_contention/audio
     expect:
-      /audio_bytes: {minimum: 2000}
-      /packets: {minimum: 50}
-  - id: bob_hears_nothing_while_talking
-    await: bob_listen_self_floor
-    timeout: 20s
-    expect:
-      /audio_bytes: {maximum: 0}
-  - id: carol_heard_bob_around_her_press
-    await: carol_listen_floor
-    timeout: 20s
-    expect:
-      /audio_bytes: {minimum: 2000}
-  - id: alice_transcript_floor
-    client: alice
+      /alice_speak_contention/input_sent: {equals: true}
+      /bob_speak_contention/input_sent: {equals: true}
+      /carol_speak_contention/input_sent: {equals: true}
+      /m1_listen_contention/audio_bytes: {minimum: 2000}
+      /m1_listen_contention/packets: {minimum: 50}
+      /alice_listen_contention/audio_bytes: {maximum: 0}
+      /bob_listen_contention/audio_bytes: {maximum: 0}
+      /carol_listen_contention/audio_bytes: {maximum: 0}
+  - id: m1_transcript_contention
+    client: m1
     speech:
       method: server.speech.transcribe
       request:
         model_name: asr
         language: zh-CN
-      input: ${alice_received_floor}
+      input: ${m1_heard_three}
     expect:
       /transcript:
-        contains: 谢谢你们的热情帮助
-        not_contains: 我在听
+        contains_any: [欢迎大家参加这次活动, 谢谢你们的热情帮助, 我们一起去公园散步]
+        pattern: "^[^活动公园热情]*(活动|公园|热情)[^活动公园热情]*$"
+        normalize: [case, punctuation, whitespace]
+  # The two input modes contend for the same floor: bob streams continuously
+  # while carol presses, both starting at the same moment. The listener still
+  # receives exactly one utterance, whole.
+  - id: realtime_versus_push_to_talk
+    timeout: 60s
+    parallel:
+      - id: bob_speak_realtime
+        client: bob
+        peer_stream: {mode: realtime, input: "${bob_audio}", pacing: 20ms, completion: input_sent}
+      - id: carol_speak_press
+        client: carol
+        peer_stream: {mode: push-to-talk, input: "${carol_audio}", pacing: 20ms, completion: input_sent}
+      - id: m1_listen_modes
+        client: m1
+        peer_stream: {mode: listen, duration: 12s}
+    capture:
+      m1_heard_modes: /m1_listen_modes/audio
+    expect:
+      /bob_speak_realtime/input_sent: {equals: true}
+      /carol_speak_press/input_sent: {equals: true}
+      /m1_listen_modes/audio_bytes: {minimum: 2000}
+      /m1_listen_modes/packets: {minimum: 50}
+  - id: m1_transcript_modes
+    client: m1
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${m1_heard_modes}
+    expect:
+      /transcript:
+        contains_any: [谢谢你们的热情帮助, 我们一起去公园散步]
+        pattern: "^[^公园热情]*(公园|热情)[^公园热情]*$"
+        normalize: [case, punctuation, whitespace]
+  # Two listeners observe the same two simultaneous speakers. Each listener
+  # grants its own floor, so the two transcripts are allowed to name different
+  # speakers by design; both must carry one phrase whole and only one.
+  - id: two_listeners_one_pair_of_speakers
+    timeout: 60s
+    parallel:
+      - id: alice_speak_two
+        client: alice
+        peer_stream: {mode: push-to-talk, input: "${alice_audio}", pacing: 20ms, completion: input_sent}
+      - id: bob_speak_two
+        client: bob
+        peer_stream: {mode: push-to-talk, input: "${bob_audio}", pacing: 20ms, completion: input_sent}
+      - id: m1_listen_two
+        client: m1
+        peer_stream: {mode: listen, duration: 12s}
+      - id: carol_listen_two
+        client: carol
+        peer_stream: {mode: listen, duration: 12s}
+    capture:
+      m1_heard_two: /m1_listen_two/audio
+      carol_heard_two: /carol_listen_two/audio
+    expect:
+      /alice_speak_two/input_sent: {equals: true}
+      /bob_speak_two/input_sent: {equals: true}
+      /m1_listen_two/audio_bytes: {minimum: 2000}
+      /m1_listen_two/packets: {minimum: 50}
+      /carol_listen_two/audio_bytes: {minimum: 2000}
+      /carol_listen_two/packets: {minimum: 50}
+  - id: m1_transcript_two
+    client: m1
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${m1_heard_two}
+    expect:
+      /transcript:
+        contains_any: [欢迎大家参加这次活动, 谢谢你们的热情帮助]
+        pattern: "^[^活动热情]*(活动|热情)[^活动热情]*$"
+        normalize: [case, punctuation, whitespace]
+  - id: carol_transcript_two
+    client: carol
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${carol_heard_two}
+    expect:
+      /transcript:
+        contains_any: [欢迎大家参加这次活动, 谢谢你们的热情帮助]
+        pattern: "^[^活动热情]*(活动|热情)[^活动热情]*$"
         normalize: [case, punctuation, whitespace]
   # Fill the Group to the fixed cap of 10 members (owner included), then the
   # 11th join must be rejected without consuming the invite token.
-  - id: m1_join
-    client: m1
-    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
   - id: m2_join
     client: m2
     rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
@@ -552,26 +599,24 @@ steps:
       request: {}
     expect:
       /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$"}
-  - id: carol_listen_after_removal
-    client: carol
-    background: true
+  - id: alice_speaks_after_removal
     timeout: 30s
-    peer_stream:
-      mode: listen
-      duration: 8s
-  - id: alice_speak_after_removal
-    client: alice
-    timeout: 30s
-    peer_stream:
-      mode: push-to-talk
-      input: ${alice_audio}
-      pacing: 20ms
-      completion: input_sent
-  - id: carol_hears_nothing
-    await: carol_listen_after_removal
-    timeout: 20s
+    parallel:
+      - id: carol_listen_after_removal
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak_after_removal
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
     expect:
-      /audio_bytes: {maximum: 0}
+      /alice_speak_after_removal/input_sent: {equals: true}
+      /carol_listen_after_removal/audio_bytes: {maximum: 0}
   - id: carol_still_connected
     client: carol
     rpc:
