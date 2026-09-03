@@ -3390,8 +3390,9 @@ test("inbound device control rejects out-of-range and oversized params", async (
   assert.equal(forget.error?.code, -32602);
 });
 
-// A proto3 bool always decodes to a value, so `muted` cannot arrive
-// malformed; the optional durations can.
+// A proto3 bool always decodes to a value, so `muted` cannot arrive malformed,
+// and the codec renders an explicit null optional field as absent. The
+// remaining reachable malformation is an out-of-range duration.
 test("inbound device control rejects out-of-range durations", async () => {
   const badDuration = await serveInboundClientRPC(
     "client.device.sound.play",

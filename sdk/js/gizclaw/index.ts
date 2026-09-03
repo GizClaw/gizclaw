@@ -2101,10 +2101,12 @@ function deviceControlTextTooLong(value: string): boolean {
 }
 
 // Inbound RPC parameters are untrusted, so an optional duration must already
-// be a non-negative integer before it reaches a handler. A string or boolean is
-// rejected rather than coerced. `undefined` means absent; `null` means invalid.
+// be a non-negative integer before it reaches a handler. Only an absent field
+// is accepted as unset: an explicit null, a string or a boolean is rejected
+// rather than coerced. The return is the duration, `undefined` when the field
+// is absent, or `null` when it is invalid.
 function deviceControlDuration(value: unknown): number | undefined | null {
-  if (value == null) {
+  if (value === undefined) {
     return undefined;
   }
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
