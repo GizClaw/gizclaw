@@ -808,6 +808,77 @@ func structuredRPCError(err error) (int32, string, bool) {
 	return 0, "", false
 }
 
+// resolveExpectations substitutes ${name} references in expectation operands,
+// so an assertion can compare a response against a generated input the same way
+// a request body can carry one.
+func resolveExpectations(vars *variables, assertions map[string]Expectation) (map[string]Expectation, error) {
+	if len(assertions) == 0 {
+		return assertions, nil
+	}
+	resolveText := func(text string) (string, error) {
+		value, err := vars.resolve(text)
+		if err != nil {
+			return "", err
+		}
+		resolved, ok := value.(string)
+		if !ok {
+			return "", fmt.Errorf("expectation operand %q must resolve to string", text)
+		}
+		return resolved, nil
+	}
+	resolveNeedles := func(needles []string) ([]string, error) {
+		if needles == nil {
+			return nil, nil
+		}
+		resolved := make([]string, 0, len(needles))
+		for _, needle := range needles {
+			text, err := resolveText(needle)
+			if err != nil {
+				return nil, err
+			}
+			resolved = append(resolved, text)
+		}
+		return resolved, nil
+	}
+
+	resolved := make(map[string]Expectation, len(assertions))
+	for path, expectation := range assertions {
+		if expectation.Equals != nil {
+			value, err := vars.resolve(expectation.Equals)
+			if err != nil {
+				return nil, err
+			}
+			expectation.Equals = value
+		}
+		for _, field := range []*string{&expectation.Contains, &expectation.Pattern} {
+			if *field == "" {
+				continue
+			}
+			text, err := resolveText(*field)
+			if err != nil {
+				return nil, err
+			}
+			*field = text
+		}
+		for _, field := range []*[]string{&expectation.ContainsAll, &expectation.ContainsAny} {
+			needles, err := resolveNeedles(*field)
+			if err != nil {
+				return nil, err
+			}
+			*field = needles
+		}
+		if expectation.NotContains != nil {
+			value, err := vars.resolve(expectation.NotContains)
+			if err != nil {
+				return nil, err
+			}
+			expectation.NotContains = value
+		}
+		resolved[path] = expectation
+	}
+	return resolved, nil
+}
+
 func applyCaptures(vars *variables, captures map[string]string, input any) error {
 	for name, pointer := range captures {
 		value, ok := jsonPointer(input, pointer)
@@ -819,40 +890,6 @@ func applyCaptures(vars *variables, captures map[string]string, input any) error
 		}
 	}
 	return nil
-}
-
-// resolveExpectations substitutes ${variable} references in the string
-// operands of equals and contains, so a document can assert a captured value
-// directly (for example that both sides of a Friend share one workspace_name).
-// Other matchers keep their literal operands. Unassigned variables fail the
-// step like an unresolved request field would.
-func resolveExpectations(vars *variables, assertions map[string]Expectation) (map[string]Expectation, error) {
-	if vars == nil || len(assertions) == 0 {
-		return assertions, nil
-	}
-	resolved := make(map[string]Expectation, len(assertions))
-	for path, expectation := range assertions {
-		if text, ok := expectation.Equals.(string); ok && strings.Contains(text, "${") {
-			value, err := vars.resolve(text)
-			if err != nil {
-				return nil, fmt.Errorf("expect %s equals: %w", path, err)
-			}
-			expectation.Equals = value
-		}
-		if strings.Contains(expectation.Contains, "${") {
-			value, err := vars.resolve(expectation.Contains)
-			if err != nil {
-				return nil, fmt.Errorf("expect %s contains: %w", path, err)
-			}
-			text, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("expect %s contains: variable must be string", path)
-			}
-			expectation.Contains = text
-		}
-		resolved[path] = expectation
-	}
-	return resolved, nil
 }
 
 func assertValue(assertions map[string]Expectation, input any) error {

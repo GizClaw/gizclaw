@@ -8,7 +8,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const value = process.argv[index + 1];
   if (name == null || value == null || !name.startsWith("--")) {
     throw new Error(
-      "usage: check-package-release.mjs --base COMMIT [--github-output PATH]",
+      "usage: check-package-release.mjs --base COMMIT [--package sdk/js/NAME] [--github-output PATH]",
     );
   }
   args.set(name, value);
@@ -20,14 +20,20 @@ if (!/^[0-9a-f]{40}$/u.test(base)) {
 }
 git("cat-file", "-e", `${base}^{commit}`);
 
-const manifestPath = "sdk/js/gizclaw/package.json";
+const packagePath = args.get("--package") ?? "sdk/js/gizclaw";
+const packageMatch = /^sdk\/js\/([a-z][a-z0-9-]*)$/u.exec(packagePath);
+if (packageMatch == null) {
+  throw new Error("--package must be a directory directly under sdk/js");
+}
+const packageName = `@gizclaw/${packageMatch[1]}`;
+const manifestPath = `${packagePath}/package.json`;
 const lockPath = "package-lock.json";
 const manifest = readJSON(manifestPath);
-const baseManifest = JSON.parse(git("show", `${base}:${manifestPath}`));
+const baseManifest = readBaseManifest();
 const lock = readJSON(lockPath);
-const lockedManifest = lock.packages?.["sdk/js/gizclaw"];
+const lockedManifest = lock.packages?.[packagePath];
 
-if (manifest.name !== "@gizclaw/gizclaw") {
+if (manifest.name !== packageName) {
   throw new Error(`unexpected JavaScript SDK package name: ${manifest.name}`);
 }
 if (manifest.publishConfig?.registry !== "https://npm.pkg.github.com") {
@@ -40,7 +46,10 @@ if (lockedManifest?.version !== manifest.version) {
 }
 
 const currentVersion = parseStableVersion(manifest.version, "current package");
-const baseVersion = parseStableVersion(baseManifest.version, "base package");
+const baseVersion =
+  baseManifest == null
+    ? [0, 0, 0]
+    : parseStableVersion(baseManifest.version, "base package");
 const changedPaths = git(
   "diff",
   "--name-only",
@@ -51,7 +60,9 @@ const changedPaths = git(
   .filter(Boolean);
 const releasePaths = changedPaths.filter((path) => {
   if (path === manifestPath) {
-    return hasManifestReleaseChange(baseManifest, manifest);
+    return (
+      baseManifest == null || hasManifestReleaseChange(baseManifest, manifest)
+    );
   }
   return isReleasePath(path);
 });
@@ -59,10 +70,10 @@ const publish = releasePaths.length > 0;
 
 if (publish && compareVersions(currentVersion, baseVersion) <= 0) {
   throw new Error(
-    `JavaScript SDK release files changed without increasing ${baseManifest.version}`,
+    `JavaScript SDK release files changed without increasing ${baseManifest?.version ?? "0.0.0"}`,
   );
 }
-if (!publish && manifest.version !== baseManifest.version) {
+if (!publish && manifest.version !== baseManifest?.version) {
   throw new Error(
     "JavaScript SDK version changed without a publishable SDK change",
   );
@@ -77,7 +88,8 @@ if (outputPath != null) {
 }
 console.log(
   JSON.stringify({
-    baseVersion: baseManifest.version,
+    baseVersion: baseManifest?.version ?? null,
+    package: packageName,
     publish,
     releasePaths,
     version: manifest.version,
@@ -86,7 +98,7 @@ console.log(
 
 function isReleasePath(path) {
   if (path === "sdk/js/scripts/prepare-published-sdk.mjs") return true;
-  if (!path.startsWith("sdk/js/gizclaw/")) return false;
+  if (!path.startsWith(`${packagePath}/`)) return false;
   if (path === manifestPath) return false;
   if (path.endsWith(".test.ts")) return false;
   return !path.endsWith("/tsconfig.json");
@@ -115,10 +127,29 @@ function compareVersions(left, right) {
   return 0;
 }
 
+// The base manifest is null when the package did not exist at the base commit.
+function readBaseManifest() {
+  try {
+    return JSON.parse(git("show", `${base}:${manifestPath}`));
+  } catch (error) {
+    if (
+      /does not exist|exists on disk, but not in/u.test(
+        String(error.stderr ?? error),
+      )
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function readJSON(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
 function git(...arguments_) {
-  return execFileSync("git", arguments_, { encoding: "utf8" }).trim();
+  return execFileSync("git", arguments_, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
 }

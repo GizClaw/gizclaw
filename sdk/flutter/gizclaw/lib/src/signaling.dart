@@ -41,6 +41,41 @@ class PreparedGiznetWebRtcOffer {
   final int timestamp;
 }
 
+/// The Edge gateway a Server advertises for WebRTC signaling. When present,
+/// an offer is encrypted to [publicKey] and posted to [signalingPath] on
+/// [endpoint] instead of to the Server's own key and path.
+class GiznetServerInfoTransport {
+  const GiznetServerInfoTransport({
+    required this.endpoint,
+    required this.mode,
+    required this.publicKey,
+    this.signalingPath = giznetWebRtcSignalingPath,
+  });
+
+  factory GiznetServerInfoTransport.fromJson(Map<String, Object?> json) {
+    final publicKey = (json['public_key'] as String?)?.trim();
+    if (publicKey == null || publicKey.isEmpty) {
+      throw const FormatException('server-info transport missing public_key');
+    }
+    final publicKeyBytes = base58Decode(publicKey);
+    if (publicKeyBytes.length != 32 ||
+        publicKeyBytes.every((byte) => byte == 0)) {
+      throw const FormatException('server-info transport invalid public_key');
+    }
+    return GiznetServerInfoTransport(
+      endpoint: json['endpoint'] as String? ?? '',
+      mode: json['mode'] as String? ?? '',
+      publicKey: publicKey,
+      signalingPath: _normalizeSignalingPath(json['signaling_path'] as String?),
+    );
+  }
+
+  final String endpoint;
+  final String mode;
+  final String publicKey;
+  final String signalingPath;
+}
+
 class GiznetServerInfo {
   const GiznetServerInfo({
     this.buildCommit,
@@ -48,6 +83,7 @@ class GiznetServerInfo {
     this.protocol,
     required this.publicKey,
     this.signalingPath = giznetWebRtcSignalingPath,
+    this.transport,
     this.version,
   });
 
@@ -56,7 +92,18 @@ class GiznetServerInfo {
   final String? protocol;
   final String publicKey;
   final String signalingPath;
+
+  /// Edge gateway to signal through, when the Server advertises one.
+  final GiznetServerInfoTransport? transport;
   final String? version;
+
+  /// Public key an offer must be encrypted to: the Edge gateway's key when the
+  /// Server advertises one, otherwise the Server's own key.
+  String get transportPublicKey => transport?.publicKey ?? publicKey;
+
+  /// Signaling path an offer must be posted to.
+  String get transportSignalingPath =>
+      transport?.signalingPath ?? signalingPath;
 
   factory GiznetServerInfo.fromJson(Map<String, Object?> json) {
     final protocol = json['protocol'] as String?;
@@ -77,6 +124,7 @@ class GiznetServerInfo {
     final signalingPath = _normalizeSignalingPath(
       json['signaling_path'] as String?,
     );
+    final transport = json['transport'];
     return GiznetServerInfo(
       buildCommit: _optionalServerInfoMetadata(
         json['build_commit'],
@@ -86,6 +134,9 @@ class GiznetServerInfo {
       protocol: protocol,
       publicKey: publicKey,
       signalingPath: signalingPath,
+      transport: transport is Map<String, Object?>
+          ? GiznetServerInfoTransport.fromJson(transport)
+          : null,
       version: _optionalServerInfoMetadata(json['version'], 'version'),
     );
   }

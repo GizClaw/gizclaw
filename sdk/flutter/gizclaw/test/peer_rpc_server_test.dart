@@ -165,6 +165,39 @@ void main() {
     expect(identifiers.value.labels.single.value, 'test');
   });
 
+  test('prefers a dedicated identifiers provider over device info', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    var identifiersCalls = 0;
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => device,
+        deviceIdentifiers: () {
+          identifiersCalls++;
+          return DeviceIdentifiers(
+            sn: 'scripted-serial',
+            labels: [PeerLabel(key: 'source', value: 'provider')],
+          );
+        },
+      ),
+    );
+    final response = await _callInbound(
+      channel,
+      id: 'identifiers-2',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_IDENTIFIERS_GET,
+      methodName: 'client.identifiers.get',
+      request: ClientGetIdentifiersRequest(),
+    );
+    final identifiers =
+        decodeRpcResponsePayload('client.identifiers.get', response.payload)
+            as ClientGetIdentifiersResponse;
+    expect(identifiersCalls, 1);
+    expect(identifiers.value.sn, 'scripted-serial');
+    expect(identifiers.value.labels.single.value, 'provider');
+    expect(identifiers.value.imeis, isEmpty);
+  });
+
   test('serves configured client tool invocations', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);

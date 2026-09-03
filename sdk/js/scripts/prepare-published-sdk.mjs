@@ -1,15 +1,41 @@
-import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 
-const packageRoot = new URL("../gizclaw/", import.meta.url);
+// Usage: prepare-published-sdk.mjs [package-directory-name]
+// Finalizes one sdk/js/<package>/dist tree after `tsc`: copies committed
+// generated JavaScript that tsc does not emit and rewrites `.ts` import
+// specifiers in declaration files to the published `.js` names.
+const packageName = process.argv[2] ?? "gizclaw";
+if (!/^[a-z][a-z0-9-]*$/u.test(packageName)) {
+  throw new Error(`invalid package directory name: ${packageName}`);
+}
+const packageRoot = new URL(`../${packageName}/`, import.meta.url);
 const distRoot = new URL("dist/", packageRoot);
 const eventSource = new URL("generated/events/", packageRoot);
 const eventOutput = new URL("generated/events/", distRoot);
 
-await mkdir(eventOutput, { recursive: true });
-for (const name of ["peer_event_pb.js", "peer_event_pb.d.ts"]) {
-  await cp(new URL(name, eventSource), new URL(name, eventOutput));
+if (await exists(eventSource)) {
+  await mkdir(eventOutput, { recursive: true });
+  for (const name of ["peer_event_pb.js", "peer_event_pb.d.ts"]) {
+    await cp(new URL(name, eventSource), new URL(name, eventOutput));
+  }
 }
 await rewriteDeclarationImports(distRoot);
+
+async function exists(url) {
+  try {
+    await stat(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function rewriteDeclarationImports(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {

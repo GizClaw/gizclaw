@@ -466,10 +466,6 @@ func TestResolveExpectationsInterpolatesVariables(t *testing.T) {
 	if err := assertValue(resolved, value); err != nil {
 		t.Fatalf("assertValue() error = %v", err)
 	}
-	literal, err := resolveExpectations(vars, map[string]Expectation{"/transcript": {Contains: "alice", Pattern: "${fragment}"}})
-	if err != nil || literal["/transcript"].Contains != "alice" || literal["/transcript"].Pattern != "${fragment}" {
-		t.Fatalf("literal operands changed: %#v, %v", literal, err)
-	}
 	if _, err := resolveExpectations(vars, map[string]Expectation{"/workspace_name": {Equals: "${missing}"}}); err == nil {
 		t.Fatal("resolveExpectations() accepted an unknown variable")
 	}

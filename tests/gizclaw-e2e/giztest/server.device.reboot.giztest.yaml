@@ -42,18 +42,6 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
-- id: provider_reboot
-  client: peer
-  client_rpc:
-    method: client.device.reboot
-    expect_calls: 1
-- id: provider_wifi
-  client: peer
-  client_rpc:
-    method: client.wifi.status.get
-    response:
-      connected: true
-    expect_calls: 1
 - id: before_reboot
   client: peer
   http:
@@ -86,6 +74,18 @@ steps:
   expect:
     /error/code:
       equals: DEVICE_OFFLINE
+- id: provider_reboot
+  client: peer
+  client_rpc:
+    method: client.device.reboot
+    expect_calls: 1
+- id: provider_wifi
+  client: peer
+  client_rpc:
+    method: client.wifi.status.get
+    response:
+      connected: true
+    expect_calls: 1
 finally:
 - id: cleanup_peer
   client: peer

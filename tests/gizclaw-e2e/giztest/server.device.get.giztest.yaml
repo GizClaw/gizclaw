@@ -42,6 +42,13 @@ steps:
       display_name: "${resource_name}"
   capture:
     api_key: /api_key
+- id: provider_identifiers
+  client: peer
+  client_rpc:
+    method: client.identifiers.get
+    response:
+      sn: giztest-device-sn
+    expect_calls: 1
 - id: primary_http
   client: peer
   http:
@@ -53,6 +60,8 @@ steps:
   expect:
     /identifiers:
       present: true
+    /identifiers/sn:
+      equals: giztest-device-sn
 finally:
 - id: cleanup_peer
   client: peer

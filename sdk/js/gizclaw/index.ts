@@ -13,6 +13,15 @@ import {
   type SpeechTranscribeRequest,
   type SpeechTranscribeResponse,
   type SpeedTestRequest,
+  type ClientDeviceRebootRequest,
+  type ClientDeviceSoundPlayRequest,
+  type ClientDeviceVolumeSetRequest,
+  type ClientGetIdentifiersResponse,
+  type ClientGetInfoResponse,
+  type ClientWifiSavedForgetRequest,
+  type PeerStatus,
+  type WifiSavedNetwork,
+  type WifiStatus,
 } from "./generated/rpc/payload-codec.ts";
 import {
   base58Decode,
@@ -57,6 +66,7 @@ const giznetPacketDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 const giznetPeerEventDataChannels = new WeakMap<object, WebRTCRPCDataChannel>();
 const giznetPreparedPeerConnections = new WeakSet<object>();
 const giznetRPCServers = new WeakSet<object>();
+const giznetRPCHandlers = new WeakMap<object, GizClawPeerRPCHandlers>();
 const rpcMethodNamesByID = new Map<number, string>(
   Object.entries(RPC_METHOD_IDS).map(([name, id]) => [id, name]),
 );
@@ -142,9 +152,55 @@ export type PreparedGiznetWebRTCOffer = {
   timestamp: number;
 };
 
+// GizClawDeviceStatus is the PeerStatus shape a device handler reports. The
+// generated PeerStatus type describes a decoded response, where protobuf maps
+// are always present; a device supplies them only when it has labels or
+// details to report.
+export type GizClawDeviceStatus = Omit<PeerStatus, "details" | "labels"> &
+  Partial<Pick<PeerStatus, "details" | "labels">>;
+
+// GizClawDeviceControlHandlers answers the client.device.* and client.wifi.*
+// RPCs the GizClaw server forwards on behalf of an API key holder. An omitted
+// handler answers METHOD_NOT_FOUND, which the server maps to
+// 501 DEVICE_UNSUPPORTED.
+export type GizClawDeviceControlHandlers = {
+  forgetWifi?: (ssid: string) => Promise<void> | void;
+  playSound?: (sound: string, durationMs?: number) => Promise<void> | void;
+  reboot?: (delayMs?: number) => Promise<void> | void;
+  savedWifi?: () => Promise<WifiSavedNetwork[]> | WifiSavedNetwork[];
+  setVolume?: (
+    level: number,
+    muted: boolean,
+  ) => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
+  status?: () => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
+  wifiStatus?: () => Promise<WifiStatus> | WifiStatus;
+};
+
+// GizClawPeerRPCHandlers answers the client.* RPCs a GizClaw server initiates.
+// Every group is optional; an unhandled method answers METHOD_NOT_FOUND.
+export type GizClawPeerRPCHandlers = {
+  deviceControl?: GizClawDeviceControlHandlers;
+  deviceIdentifiers?: () =>
+    Promise<ClientGetIdentifiersResponse> | ClientGetIdentifiersResponse;
+  deviceInfo?: () => Promise<ClientGetInfoResponse> | ClientGetInfoResponse;
+};
+
+// GizClawDeviceControlError makes a device control handler answer one specific
+// RPC error code instead of the default internal error.
+export class GizClawDeviceControlError extends Error {
+  readonly code: number;
+
+  constructor(code: number, message = "") {
+    super(message);
+    this.name = "GizClawDeviceControlError";
+    this.code = code;
+  }
+}
+
 export type ConnectGiznetWebRTCOptions = {
   addAudioTransceiver?: boolean;
   createPacketDataChannel?: boolean;
+  peerRPCHandlers?: GizClawPeerRPCHandlers;
   fetch?: typeof fetch;
   iceGatheringTimeoutMs?: number;
   pc: RTCPeerConnection;
@@ -1497,7 +1553,7 @@ export function prepareGiznetWebRTCPeerConnection(
   pc: RTCPeerConnection,
   options: Pick<
     ConnectGiznetWebRTCOptions,
-    "addAudioTransceiver" | "createPacketDataChannel"
+    "addAudioTransceiver" | "createPacketDataChannel" | "peerRPCHandlers"
   > = {},
 ): void {
   if (options.createPacketDataChannel === false) {
@@ -1518,7 +1574,7 @@ export function prepareGiznetWebRTCPeerConnection(
   if (giznetPreparedPeerConnections.has(pc)) {
     return;
   }
-  serveGiznetWebRTCRPC(pc);
+  serveGiznetWebRTCRPC(pc, options.peerRPCHandlers);
   let packetDataChannel: WebRTCRPCDataChannel | undefined;
   let eventDataChannel: WebRTCRPCDataChannel | undefined;
   try {
@@ -1554,9 +1610,19 @@ export function prepareGiznetWebRTCPeerConnection(
 }
 
 // serveGiznetWebRTCRPC installs the built-in server for RPC streams initiated
-// by the remote GizClaw server. Installation is idempotent for each peer
-// connection and handles all.ping plus all.speed_test.run.
-export function serveGiznetWebRTCRPC(pc: WebRTCRPCDataChannelServer): void {
+// by the remote GizClaw server. It always handles all.ping and
+// all.speed_test.run, and answers the client.* methods covered by handlers.
+// Installation is idempotent for each peer connection; calling it again
+// replaces the handlers used by later inbound requests.
+export function serveGiznetWebRTCRPC(
+  pc: WebRTCRPCDataChannelServer,
+  handlers?: GizClawPeerRPCHandlers,
+): void {
+  if (handlers == null) {
+    giznetRPCHandlers.delete(pc);
+  } else {
+    giznetRPCHandlers.set(pc, handlers);
+  }
   if (giznetRPCServers.has(pc)) {
     return;
   }
@@ -1576,7 +1642,7 @@ export function serveGiznetWebRTCRPC(pc: WebRTCRPCDataChannelServer): void {
     ) {
       return;
     }
-    handleInboundRPCDataChannel(channel);
+    handleInboundRPCDataChannel(channel, () => giznetRPCHandlers.get(pc));
   });
 }
 
@@ -1835,7 +1901,10 @@ function decodeRPCRequestEnvelope(payload: Uint8Array): RPCRequest {
   };
 }
 
-function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
+function handleInboundRPCDataChannel(
+  channel: WebRTCRPCDataChannel,
+  getHandlers: () => GizClawPeerRPCHandlers | undefined = () => undefined,
+): void {
   channel.binaryType = "arraybuffer";
   let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array();
   let messageQueue = Promise.resolve();
@@ -1904,14 +1973,9 @@ function handleInboundRPCDataChannel(channel: WebRTCRPCDataChannel): void {
       }
       default:
         ignoreBody = true;
-        void sendResponse(
-          rpcErrorResponse(
-            next.id,
-            -32601,
-            `unsupported method: ${next.method}`,
-          ),
-          next.method,
-        ).catch(fail);
+        void answerClientRequest(next, getHandlers())
+          .then((response) => sendResponse(response, next.method))
+          .catch(fail);
     }
   };
 
@@ -2025,6 +2089,156 @@ function validSpeedTestParams(value: unknown): SpeedTestRequest | null {
     return null;
   }
   return params as SpeedTestRequest;
+}
+
+const RPC_ERROR_METHOD_NOT_FOUND = -32601;
+const RPC_ERROR_INVALID_PARAMS = -32602;
+const RPC_ERROR_INTERNAL = -32603;
+const DEVICE_CONTROL_MAX_BYTES = 32;
+
+function deviceControlTextTooLong(value: string): boolean {
+  return new TextEncoder().encode(value).length > DEVICE_CONTROL_MAX_BYTES;
+}
+
+// Inbound RPC parameters are untrusted, so an optional duration must already
+// be a non-negative integer before it reaches a handler. Only an absent field
+// is accepted as unset: an explicit null, a string or a boolean is rejected
+// rather than coerced. The return is the duration, `undefined` when the field
+// is absent, or `null` when it is invalid.
+function deviceControlDuration(value: unknown): number | undefined | null {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+// answerClientRequest answers one inbound client.* RPC from the handlers the
+// caller installed. An unhandled method answers METHOD_NOT_FOUND so the server
+// maps it to 501 DEVICE_UNSUPPORTED, matching the Go and Dart SDKs.
+async function answerClientRequest(
+  request: RPCRequest,
+  handlers: GizClawPeerRPCHandlers | undefined,
+): Promise<RPCResponse> {
+  const unsupported = (): RPCResponse =>
+    rpcErrorResponse(
+      request.id,
+      RPC_ERROR_METHOD_NOT_FOUND,
+      `unsupported method: ${request.method}`,
+    );
+  const invalid = (): RPCResponse =>
+    rpcErrorResponse(request.id, RPC_ERROR_INVALID_PARAMS, "invalid params");
+  const ok = (result: unknown): RPCResponse =>
+    ({ id: request.id, result, v: RPC_VERSION }) satisfies RPCResponse;
+  const control = handlers?.deviceControl;
+
+  try {
+    switch (request.method) {
+      case "client.info.get": {
+        const handler = handlers?.deviceInfo;
+        return handler == null ? unsupported() : ok(await handler());
+      }
+      case "client.identifiers.get": {
+        const handler = handlers?.deviceIdentifiers;
+        return handler == null ? unsupported() : ok(await handler());
+      }
+      case "client.device.status.get": {
+        const handler = control?.status;
+        return handler == null ? unsupported() : ok(await handler());
+      }
+      case "client.device.volume.set": {
+        const handler = control?.setVolume;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientDeviceVolumeSetRequest;
+        const level = Number(params?.level);
+        if (
+          !Number.isInteger(level) ||
+          level < 0 ||
+          level > 100 ||
+          typeof params?.muted !== "boolean"
+        ) {
+          return invalid();
+        }
+        return ok(await handler(level, params.muted));
+      }
+      case "client.device.sound.play": {
+        const handler = control?.playSound;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientDeviceSoundPlayRequest;
+        const sound = params?.sound;
+        if (
+          typeof sound !== "string" ||
+          sound.length === 0 ||
+          deviceControlTextTooLong(sound)
+        ) {
+          return invalid();
+        }
+        const durationMs = deviceControlDuration(params.duration_ms);
+        if (durationMs === null) {
+          return invalid();
+        }
+        await handler(sound, durationMs);
+        return ok({});
+      }
+      case "client.device.reboot": {
+        const handler = control?.reboot;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientDeviceRebootRequest | undefined;
+        const delayMs = deviceControlDuration(params?.delay_ms);
+        if (delayMs === null) {
+          return invalid();
+        }
+        await handler(delayMs);
+        return ok({});
+      }
+      case "client.wifi.status.get": {
+        const handler = control?.wifiStatus;
+        return handler == null ? unsupported() : ok(await handler());
+      }
+      case "client.wifi.saved.list": {
+        const handler = control?.savedWifi;
+        return handler == null
+          ? unsupported()
+          : ok({ networks: await handler() });
+      }
+      case "client.wifi.saved.forget": {
+        const handler = control?.forgetWifi;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientWifiSavedForgetRequest;
+        const ssid = params?.ssid;
+        if (
+          typeof ssid !== "string" ||
+          ssid.length === 0 ||
+          deviceControlTextTooLong(ssid)
+        ) {
+          return invalid();
+        }
+        await handler(ssid);
+        return ok({});
+      }
+      default:
+        return unsupported();
+    }
+  } catch (error) {
+    if (error instanceof GizClawDeviceControlError) {
+      return rpcErrorResponse(request.id, error.code, error.message);
+    }
+    return rpcErrorResponse(
+      request.id,
+      RPC_ERROR_INTERNAL,
+      "device control handler failed",
+    );
+  }
 }
 
 function rpcErrorResponse(
