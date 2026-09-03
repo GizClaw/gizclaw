@@ -5,16 +5,40 @@ import (
 	"context"
 	"errors"
 	"iter"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
 )
 
 // Badger is a persistent Store backed by BadgerDB.
+//
+// BadgerDB panics when a call reaches a closed database handle, so every
+// exported entry point holds mu for read while it touches db and Close takes
+// mu for write. A call that starts before Close blocks the close until it
+// finishes, and a call that starts after it returns ErrStoreClosed.
 type Badger struct {
 	db     *badger.DB
 	opts   *Options
 	ownsDB bool
+
+	mu     sync.RWMutex
+	closed bool
+}
+
+// acquire keeps the store open for the duration of one operation. It returns
+// ErrStoreClosed once Close has run, and otherwise a release function the
+// caller must call when the operation no longer touches db.
+func (b *Badger) acquire() (release func(), err error) {
+	if b == nil {
+		return nil, ErrStoreClosed
+	}
+	b.mu.RLock()
+	if b.closed {
+		b.mu.RUnlock()
+		return nil, ErrStoreClosed
+	}
+	return b.mu.RUnlock, nil
 }
 
 // NewBadger opens (or creates) a BadgerDB store at dir.
@@ -39,11 +63,16 @@ func NewBadgerWithDB(db *badger.DB, opts *Options) (*Badger, error) {
 }
 
 func (b *Badger) Get(ctx context.Context, key Key) ([]byte, error) {
+	release, err := b.acquire()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	var val []byte
-	err := b.db.View(func(txn *badger.Txn) error {
+	err = b.db.View(func(txn *badger.Txn) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -64,6 +93,11 @@ func (b *Badger) Get(ctx context.Context, key Key) ([]byte, error) {
 }
 
 func (b *Badger) Set(ctx context.Context, key Key, value []byte) error {
+	release, err := b.acquire()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -76,10 +110,15 @@ func (b *Badger) Set(ctx context.Context, key Key, value []byte) error {
 }
 
 func (b *Badger) Delete(ctx context.Context, key Key) error {
+	release, err := b.acquire()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	err := b.db.Update(func(txn *badger.Txn) error {
+	err = b.db.Update(func(txn *badger.Txn) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -93,11 +132,17 @@ func (b *Badger) Delete(ctx context.Context, key Key) error {
 
 func (b *Badger) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
 	return func(yield func(Entry, error) bool) {
+		release, err := b.acquire()
+		if err != nil {
+			yield(Entry{}, err)
+			return
+		}
+		defer release()
 		if err := ctx.Err(); err != nil {
 			yield(Entry{}, err)
 			return
 		}
-		err := b.db.View(func(txn *badger.Txn) error {
+		err = b.db.View(func(txn *badger.Txn) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
@@ -135,6 +180,11 @@ func (b *Badger) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
 }
 
 func (b *Badger) ListAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error) {
+	release, err := b.acquire()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if limit <= 0 {
 		return nil, nil
 	}
@@ -150,7 +200,7 @@ func (b *Badger) ListAfter(ctx context.Context, prefix, after Key, limit int) ([
 		afterBytes = b.opts.encode(after)
 	}
 
-	err := b.db.View(func(txn *badger.Txn) error {
+	err = b.db.View(func(txn *badger.Txn) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -205,6 +255,11 @@ func (b *Badger) ListAfter(ctx context.Context, prefix, after Key, limit int) ([
 }
 
 func (b *Badger) BatchSet(ctx context.Context, entries []Entry) error {
+	release, err := b.acquire()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -231,6 +286,11 @@ func (b *Badger) BatchSet(ctx context.Context, entries []Entry) error {
 }
 
 func (b *Badger) BatchDelete(ctx context.Context, keys []Key) error {
+	release, err := b.acquire()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -248,6 +308,11 @@ func (b *Badger) BatchDelete(ctx context.Context, keys []Key) error {
 }
 
 func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) error {
+	release, err := b.acquire()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -282,11 +347,27 @@ func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 }
 
 func (b *Badger) CreateIfAbsent(ctx context.Context, guard Entry, entries []Entry) ([]byte, bool, error) {
-	_, existing, created, err := b.CreateIfAllAbsent(ctx, []Entry{guard}, entries)
+	release, err := b.acquire()
+	if err != nil {
+		return nil, false, err
+	}
+	defer release()
+	_, existing, created, err := b.createIfAllAbsent(ctx, []Entry{guard}, entries)
 	return existing, created, err
 }
 
 func (b *Badger) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries []Entry) (Key, []byte, bool, error) {
+	release, err := b.acquire()
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer release()
+	return b.createIfAllAbsent(ctx, guards, entries)
+}
+
+// createIfAllAbsent runs the conditional create. The caller already holds the
+// store open, so exported entry points must not acquire it twice.
+func (b *Badger) createIfAllAbsent(ctx context.Context, guards []Entry, entries []Entry) (Key, []byte, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, nil, false, err
 	}
@@ -346,6 +427,11 @@ func (b *Badger) CompareAndMutate(
 	entries []Entry,
 	keys []Key,
 ) (bool, error) {
+	release, err := b.acquire()
+	if err != nil {
+		return false, err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -400,8 +486,21 @@ func (b *Badger) CompareAndMutate(
 	}
 }
 
+// Close marks the store closed and closes the underlying database when the
+// store owns it. It waits for in-flight operations, is idempotent, and reports
+// the underlying close error only on the first call. Every later use of the
+// store answers ErrStoreClosed instead of reaching the closed handle.
 func (b *Badger) Close() error {
-	if b == nil || !b.ownsDB || b.db == nil {
+	if b == nil {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return nil
+	}
+	b.closed = true
+	if !b.ownsDB || b.db == nil {
 		return nil
 	}
 	b.ownsDB = false
@@ -448,12 +547,25 @@ func NewBadgerInMemory(opts *Options) (*Badger, error) {
 // RunGC triggers BadgerDB's value log garbage collection.
 // discardRatio is the minimum fraction of entries that must be discarded
 // for a rewrite to happen (typically 0.5).
-// Returns nil if GC ran, badger.ErrNoRewrite if nothing to collect.
+// Returns nil if GC ran, badger.ErrNoRewrite if nothing to collect, and
+// ErrStoreClosed once the store is closed.
 func (b *Badger) RunGC(discardRatio float64) error {
+	release, err := b.acquire()
+	if err != nil {
+		return err
+	}
+	defer release()
 	return b.db.RunValueLogGC(discardRatio)
 }
 
-// Size returns the on-disk size in bytes as reported by BadgerDB.
-func (b *Badger) Size() (lsm, vlog int64) {
-	return b.db.Size()
+// Size returns the on-disk size in bytes as reported by BadgerDB. It reports
+// ErrStoreClosed once the store is closed, with both sizes zero.
+func (b *Badger) Size() (lsm, vlog int64, err error) {
+	release, err := b.acquire()
+	if err != nil {
+		return 0, 0, err
+	}
+	defer release()
+	lsm, vlog = b.db.Size()
+	return lsm, vlog, nil
 }
