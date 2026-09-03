@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
@@ -136,5 +137,69 @@ func TestWorkspaceParametersWithInputRejectsDriversWithoutInput(t *testing.T) {
 	}
 	if _, err := workspaceParametersWithInput(nil, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkspaceInputModeRealtime); err == nil {
 		t.Fatal("workspaceParametersWithInput(doubao-realtime-duplex) error = nil, want unsupported driver")
+	}
+}
+
+func TestPutPeerWorkspaceInputReadsUnderTheRecordLock(t *testing.T) {
+	srv := newTestServer(t)
+	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
+	ctx := ownership.WithOwner(t.Context(), "peer-owner")
+
+	staleTools := []string{"tool-a"}
+	created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
+		Name: "workspace-1", WorkflowID: "workflow-1",
+		Toolkit: &apitypes.ToolkitPolicy{ToolIds: &staleTools},
+	})
+	if err != nil {
+		t.Fatalf("CreatePeerWorkspace() error = %v", err)
+	}
+
+	// Hold the record lock so the input update cannot read the Workspace, then
+	// commit a concurrent toolkit change before releasing it. An update that
+	// read the record before locking would write the stale toolkit back.
+	unlock := srv.IconLocks.LockRecord(created.Id)
+	updated := make(chan apitypes.Workspace, 1)
+	failed := make(chan error, 1)
+	started := make(chan struct{})
+	go func() {
+		close(started)
+		workspace, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{
+			ID: created.Id, Input: apitypes.WorkspaceInputModeRealtime,
+		})
+		if err != nil {
+			failed <- err
+			return
+		}
+		updated <- workspace
+	}()
+	<-started
+	time.Sleep(50 * time.Millisecond)
+
+	store, err := srv.store()
+	if err != nil {
+		t.Fatalf("store() error = %v", err)
+	}
+	concurrentTools := []string{"tool-b"}
+	concurrent := created
+	concurrent.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &concurrentTools}
+	if err := writeWorkspace(ctx, store, concurrent); err != nil {
+		t.Fatalf("writeWorkspace() error = %v", err)
+	}
+	unlock()
+
+	select {
+	case err := <-failed:
+		t.Fatalf("PutPeerWorkspaceInput() error = %v", err)
+	case workspace := <-updated:
+		if mode := workspaceInputMode(t, workspace); mode == nil || *mode != apitypes.WorkspaceInputModeRealtime {
+			t.Fatalf("input = %+v, want realtime", mode)
+		}
+		if workspace.Toolkit == nil || workspace.Toolkit.ToolIds == nil ||
+			!reflect.DeepEqual(*workspace.Toolkit.ToolIds, concurrentTools) {
+			t.Fatalf("toolkit = %+v, want the concurrent update %v", workspace.Toolkit, concurrentTools)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("PutPeerWorkspaceInput() did not finish after the record lock was released")
 	}
 }

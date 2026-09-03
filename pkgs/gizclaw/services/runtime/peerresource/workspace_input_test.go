@@ -5,10 +5,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -167,5 +169,64 @@ func TestWorkspaceInputPutRejectsUnknownWorkspaceAndInput(t *testing.T) {
 	invalid := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{Name: "journey-1"})
 	if invalid.Error == nil || invalid.Error.Code != rpcapi.RPCErrorCodeBadRequest {
 		t.Fatalf("workspace input put (invalid mode) response = %#v, want BAD_REQUEST", invalid)
+	}
+}
+
+// foreignWorkspaceService resolves every Workspace name to a record owned by
+// another Peer so the RPC owner check can be exercised on its own.
+type foreignWorkspaceService struct {
+	*workspace.Server
+	item apitypes.Workspace
+}
+
+func (s foreignWorkspaceService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
+	return s.item, nil
+}
+
+func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
+	ctx := context.Background()
+	server := newWorkspaceInputTestServer(t, ctx)
+	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
+		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
+	})
+	domain, ok := server.Workspaces.(*workspace.Server)
+	if !ok {
+		t.Fatalf("Workspaces = %T", server.Workspaces)
+	}
+	stored, err := domain.GetWorkspaceByName(ownership.WithOwner(ctx, server.Caller.String()), created.Name)
+	if err != nil {
+		t.Fatalf("GetWorkspaceByName error: %v", err)
+	}
+	foreignOwner := giznet.PublicKey{9}.String()
+	stored.OwnerPublicKey = &foreignOwner
+	server.Workspaces = foreignWorkspaceService{Server: domain, item: stored}
+
+	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
+		Name: "journey-1", Input: rpcapi.WorkspaceInputModeRealtime,
+	})
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeForbidden {
+		t.Fatalf("workspace input put (foreign owner) response = %#v, want FORBIDDEN", response)
+	}
+}
+
+func TestWorkspaceInputPutRejectsForbiddenSystemWorkspaceUpdate(t *testing.T) {
+	ctx := context.Background()
+	server := newWorkspaceInputTestServer(t, ctx)
+	domain, ok := server.Workspaces.(*workspace.Server)
+	if !ok {
+		t.Fatalf("Workspaces = %T", server.Workspaces)
+	}
+	ownerCtx := ownership.WithOwner(ctx, server.Caller.String())
+	if _, _, err := domain.CreateSystemWorkspace(ownerCtx, adminhttp.WorkspaceUpsert{
+		Id: "system-workspace", Name: "system-1", WorkflowId: "canonical-workflow",
+	}); err != nil {
+		t.Fatalf("CreateSystemWorkspace error: %v", err)
+	}
+
+	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
+		Name: "system-1", Input: rpcapi.WorkspaceInputModeRealtime,
+	})
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+		t.Fatalf("workspace input put (system workspace) response = %#v, want CONFLICT", response)
 	}
 }

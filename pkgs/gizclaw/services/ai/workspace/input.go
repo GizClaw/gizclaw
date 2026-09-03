@@ -7,7 +7,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // PeerWorkspaceInputPutRequest is the transport-independent input for changing
@@ -65,36 +64,20 @@ func (s *Server) PutPeerWorkspaceInput(ctx context.Context, request PeerWorkspac
 			fmt.Errorf("workspace: unsupported input mode %q", request.Input),
 		)
 	}
-	store, err := s.store()
-	if err != nil {
-		return apitypes.Workspace{}, peerWorkspaceInputPutError(PeerWorkspaceInputPutInternal, err)
-	}
-	current, err := getWorkspaceByID(ctx, store, request.ID)
-	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.Workspace{}, peerWorkspaceInputPutError(
-			PeerWorkspaceInputPutNotFound,
-			fmt.Errorf("workspace %q not found", request.ID),
-		)
-	}
-	if err != nil {
-		return apitypes.Workspace{}, peerWorkspaceInputPutError(PeerWorkspaceInputPutInternal, err)
-	}
-	workflow, err := s.getWorkflow(ctx, current.WorkflowId)
-	if err != nil {
-		if isInvalidWorkspaceReference(err) {
-			return apitypes.Workspace{}, peerWorkspaceInputPutError(PeerWorkspaceInputPutInvalid, err)
+	response, err := s.putWorkspaceRecord(ctx, request.ID, nil, func(previous apitypes.Workspace) (adminhttp.WorkspaceUpsert, error) {
+		workflow, err := s.getWorkflow(ctx, previous.WorkflowId)
+		if err != nil {
+			return adminhttp.WorkspaceUpsert{}, err
 		}
-		return apitypes.Workspace{}, peerWorkspaceInputPutError(PeerWorkspaceInputPutInternal, err)
-	}
-	parameters, err := workspaceParametersWithInput(current.Parameters, workflow.Spec.Driver, request.Input)
-	if err != nil {
-		return apitypes.Workspace{}, peerWorkspaceInputPutError(PeerWorkspaceInputPutInvalid, err)
-	}
-	body := adminhttp.PutWorkspaceJSONRequestBody{
-		Id: current.Id, Name: current.Name, WorkflowId: current.WorkflowId,
-		Labels: current.Labels, Parameters: parameters, Toolkit: current.Toolkit,
-	}
-	response, err := s.PutWorkspace(ctx, adminhttp.PutWorkspaceRequestObject{Id: current.Id, Body: &body})
+		parameters, err := workspaceParametersWithInput(previous.Parameters, workflow.Spec.Driver, request.Input)
+		if err != nil {
+			return adminhttp.WorkspaceUpsert{}, err
+		}
+		return adminhttp.WorkspaceUpsert{
+			Id: previous.Id, Name: previous.Name, WorkflowId: previous.WorkflowId,
+			Labels: previous.Labels, Parameters: parameters, Toolkit: previous.Toolkit,
+		}, nil
+	})
 	if err != nil {
 		return apitypes.Workspace{}, peerWorkspaceInputPutError(PeerWorkspaceInputPutInternal, err)
 	}
@@ -112,7 +95,7 @@ func (s *Server) PutPeerWorkspaceInput(ctx context.Context, request PeerWorkspac
 	default:
 		return apitypes.Workspace{}, peerWorkspaceInputPutError(
 			PeerWorkspaceInputPutInternal,
-			fmt.Errorf("put workspace %q: unexpected response %T", current.Id, response),
+			fmt.Errorf("put workspace %q: unexpected response %T", request.ID, response),
 		)
 	}
 }
@@ -130,10 +113,10 @@ func workspaceParametersWithInput(
 	if parameters != nil {
 		discriminator, err := parameters.Discriminator()
 		if err != nil {
-			return nil, fmt.Errorf("workspace: unreadable parameters: %w", err)
+			return nil, invalidWorkspaceReference("workspace: unreadable parameters: %v", err)
 		}
 		if discriminator != variant {
-			return nil, fmt.Errorf("workspace: parameters agent_type is %q, want %q", discriminator, variant)
+			return nil, invalidWorkspaceReference("workspace: parameters agent_type is %q, want %q", discriminator, variant)
 		}
 	}
 	updated := &apitypes.WorkspaceParameters{}
@@ -181,7 +164,7 @@ func workspaceParametersWithInput(
 		value.Input = &input
 		return updated, updated.FromPetWorkspaceParameters(value)
 	default:
-		return nil, fmt.Errorf("workspace: %q workspaces have no input mode", variant)
+		return nil, invalidWorkspaceReference("workspace: %q workspaces have no input mode", variant)
 	}
 }
 
@@ -195,7 +178,7 @@ func decodeWorkspaceParametersVariant[T any](
 	}
 	value, err := as(*parameters)
 	if err != nil {
-		return fmt.Errorf("workspace: unreadable parameters: %w", err)
+		return invalidWorkspaceReference("workspace: unreadable parameters: %v", err)
 	}
 	*out = value
 	return nil

@@ -868,3 +868,44 @@ func TestPutSelfInfoPartialUpdate(t *testing.T) {
 		t.Fatalf("PutSelfInfo(empty) = %+v, want profile unchanged", updated)
 	}
 }
+
+func TestPutPeerInfoPartialUpdate(t *testing.T) {
+	ctx := context.Background()
+	peerKey := giznet.PublicKey{6}
+	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	name := "device-1"
+	emoji := "🐈"
+	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Name: &name, Emoji: &emoji})
+
+	put := func(body adminhttp.PutPeerInfoJSONRequestBody) apitypes.DeviceInfo {
+		t.Helper()
+		response, err := server.PutPeerInfo(ctx, adminhttp.PutPeerInfoRequestObject{
+			PublicKey: peerKey.String(), Body: &body,
+		})
+		if err != nil {
+			t.Fatalf("PutPeerInfo error: %v", err)
+		}
+		updated, ok := response.(adminhttp.PutPeerInfo200JSONResponse)
+		if !ok {
+			t.Fatalf("PutPeerInfo response type = %T", response)
+		}
+		return apitypes.DeviceInfo(updated)
+	}
+
+	newName := "device-2"
+	renamed := put(adminhttp.PutPeerInfoJSONRequestBody{Name: &newName})
+	if renamed.Name == nil || *renamed.Name != newName || renamed.Emoji == nil || *renamed.Emoji != emoji {
+		t.Fatalf("PutPeerInfo(name only) = %+v, want emoji %q preserved", renamed, emoji)
+	}
+
+	newEmoji := "🦊"
+	reemojied := put(adminhttp.PutPeerInfoJSONRequestBody{Emoji: &newEmoji})
+	if reemojied.Name == nil || *reemojied.Name != newName || reemojied.Emoji == nil || *reemojied.Emoji != newEmoji {
+		t.Fatalf("PutPeerInfo(emoji only) = %+v, want name %q preserved", reemojied, newName)
+	}
+
+	unchanged := put(adminhttp.PutPeerInfoJSONRequestBody{})
+	if unchanged.Name == nil || *unchanged.Name != newName || unchanged.Emoji == nil || *unchanged.Emoji != newEmoji {
+		t.Fatalf("PutPeerInfo(empty) = %+v, want profile unchanged", unchanged)
+	}
+}
