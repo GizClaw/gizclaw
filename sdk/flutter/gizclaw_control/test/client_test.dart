@@ -105,6 +105,34 @@ void main() {
       );
     });
 
+    test('rejects a plaintext base URL unless allowed', () {
+      expect(
+        () => GizClawControlClient(
+          baseUrl: Uri.parse('http://ap.gizclaw.com'),
+          apiKey: apiKey,
+        ),
+        throwsArgumentError,
+      );
+      // A local test deployment opts in explicitly.
+      final client = GizClawControlClient(
+        allowInsecureTransport: true,
+        apiKey: apiKey,
+        baseUrl: Uri.parse('http://127.0.0.1:9821'),
+      );
+      expect(client.baseUrl.scheme, 'http');
+      client.close();
+    });
+
+    test('rejects a non-http scheme', () {
+      expect(
+        () => GizClawControlClient(
+          baseUrl: Uri.parse('ftp://ap.gizclaw.com'),
+          apiKey: apiKey,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects a relative base URL', () {
       expect(
         () => GizClawControlClient(

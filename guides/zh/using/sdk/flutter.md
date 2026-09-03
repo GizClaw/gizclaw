@@ -41,6 +41,9 @@ print('${status.volume} -> ${applied.status.volume}');
 client.close();
 ```
 
+每个请求都携带 API Key，因此 `baseUrl` 必须是 `https`。只有本地测试部署才用
+`allowInsecureTransport: true` 连接明文 `http` 服务端，那会把凭据以明文发送。
+
 `GizClawControlClient` 覆盖 `/gizclaw/v1/*` 的全部 route：
 
 - API Key：`createApiKey`、`listApiKeys`、`getSelfApiKey`、`revokeSelfApiKey`、`getApiKey`、`revokeApiKey`。

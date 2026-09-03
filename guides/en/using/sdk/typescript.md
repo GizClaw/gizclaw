@@ -38,6 +38,10 @@ const applied = await control.device.setVolume({ level: 35, muted: false });
 console.log(status.volume, "->", applied.status.volume);
 ```
 
+Every request carries the API key, so `baseUrl` must be `https`. Only a local
+test deployment sets `allowInsecureTransport: true` to reach a plaintext `http`
+server, which sends the credential in the clear.
+
 The client is organized by route group, with method names that mirror the `gizclaw_control` package in the [Flutter SDK](./flutter):
 
 - `apiKeys`: `create`, `list`, `getSelf`, `revokeSelf`, `get`, `revoke`.

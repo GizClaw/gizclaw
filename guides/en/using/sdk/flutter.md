@@ -41,6 +41,10 @@ print('${status.volume} -> ${applied.status.volume}');
 client.close();
 ```
 
+Every request carries the API key, so `baseUrl` must be `https`. Only a local
+test deployment sets `allowInsecureTransport: true` to reach a plaintext `http`
+server, which sends the credential in the clear.
+
 `GizClawControlClient` covers every `/gizclaw/v1/*` route:
 
 - API keys: `createApiKey`, `listApiKeys`, `getSelfApiKey`, `revokeSelfApiKey`, `getApiKey`, `revokeApiKey`.

@@ -255,6 +255,12 @@ export interface GizClawControlClientOptions {
   apiKey: string;
   /** Fetch implementation; defaults to `globalThis.fetch`. */
   fetch?: typeof fetch;
+  /**
+   * Allow a plaintext `http` base URL. Every request carries the API key, so
+   * this sends the credential in the clear and is only appropriate for a local
+   * test deployment.
+   */
+  allowInsecureTransport?: boolean;
 }
 
 export interface GizClawControlApiKeys {
@@ -381,6 +387,14 @@ export function createGizClawControlClient(
   const baseUrl = new URL(options.baseUrl);
   if (baseUrl.protocol !== "https:" && baseUrl.protocol !== "http:") {
     throw new TypeError("baseUrl must be an http(s) URL");
+  }
+  if (
+    baseUrl.protocol !== "https:" &&
+    options.allowInsecureTransport !== true
+  ) {
+    throw new TypeError(
+      "baseUrl must use https; set allowInsecureTransport to send the API key over plaintext",
+    );
   }
   const client = createPeerHTTPClient({
     baseUrl: baseUrl.href.replace(/\/+$/u, ""),

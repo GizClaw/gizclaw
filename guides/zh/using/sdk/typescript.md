@@ -38,6 +38,9 @@ const applied = await control.device.setVolume({ level: 35, muted: false });
 console.log(status.volume, "->", applied.status.volume);
 ```
 
+每个请求都携带 API Key，因此 `baseUrl` 必须是 `https`。只有本地测试部署才用
+`allowInsecureTransport: true` 连接明文 `http` 服务端，那会把凭据以明文发送。
+
 client 按 route group 组织，方法名与 [Flutter SDK](./flutter) 的 `gizclaw_control` 一一对应：
 
 - `apiKeys`：`create`、`list`、`getSelf`、`revokeSelf`、`get`、`revoke`。

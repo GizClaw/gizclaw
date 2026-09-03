@@ -25,11 +25,17 @@ class GizClawControlClient {
   /// credential. [httpClient] lets callers inject a transport; the SDK creates
   /// and owns one otherwise. [timeout] bounds every request from send to the
   /// end of the response body.
+  ///
+  /// Every request carries the API key, so [baseUrl] must be `https`. Set
+  /// [allowInsecureTransport] to reach a plaintext `http` server, which sends
+  /// the credential in the clear and is only appropriate for a local test
+  /// deployment.
   GizClawControlClient({
     required Uri baseUrl,
     required String apiKey,
     http.Client? httpClient,
     Duration timeout = const Duration(seconds: 30),
+    bool allowInsecureTransport = false,
   }) : _baseUrl = baseUrl,
        _apiKey = apiKey,
        _http = httpClient ?? http.Client(),
@@ -38,11 +44,20 @@ class GizClawControlClient {
     if (apiKey.isEmpty) {
       throw ArgumentError.value(apiKey, 'apiKey', 'must not be empty');
     }
-    if (!baseUrl.hasScheme || baseUrl.host.isEmpty) {
+    if (baseUrl.host.isEmpty ||
+        (baseUrl.scheme != 'https' && baseUrl.scheme != 'http')) {
       throw ArgumentError.value(
         baseUrl,
         'baseUrl',
         'must be an absolute http(s) URL',
+      );
+    }
+    if (baseUrl.scheme != 'https' && !allowInsecureTransport) {
+      throw ArgumentError.value(
+        baseUrl,
+        'baseUrl',
+        'must use https; set allowInsecureTransport to send the API key '
+            'over plaintext',
       );
     }
   }

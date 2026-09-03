@@ -118,6 +118,21 @@ test("rejects an empty API key and a non-http base URL", () => {
   );
 });
 
+test("rejects a plaintext base URL unless it is allowed", () => {
+  assert.throws(
+    () =>
+      createGizClawControlClient({ apiKey, baseUrl: "http://ap.gizclaw.com" }),
+    /must use https/u,
+  );
+  // A local test deployment opts in explicitly.
+  const control = createGizClawControlClient({
+    allowInsecureTransport: true,
+    apiKey,
+    baseUrl: "http://127.0.0.1:9821",
+  });
+  assert.ok(control.client != null);
+});
+
 test("sends the bearer header on every request", async () => {
   const h = harness([
     json(200, apiKeyJson),
