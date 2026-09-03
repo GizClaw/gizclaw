@@ -4,7 +4,7 @@ kind: MiniMaxTenant
 metadata:
   id: minimax-cn
 spec:
-  app_id: "${GIZCLAW_E2E_MINIMAX_CN_APP_ID}"
+  app_id: "${GIZCLAW_E2E_MINIMAX_CN_APP_ID:-}"
   group_id: "${GIZCLAW_E2E_MINIMAX_CN_GROUP_ID}"
   credential_id: minimax-cn-credential
   description: MiniMax CN tenant

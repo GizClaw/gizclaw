@@ -64,7 +64,7 @@ func (r *Report) finish(start time.Time) {
 		return r.Tasks[i].RepeatIndex < r.Tasks[j].RepeatIndex
 	})
 }
-func writeReport(path string, report Report) error {
+func WriteReport(path string, report Report) error {
 	if path == "" {
 		return nil
 	}

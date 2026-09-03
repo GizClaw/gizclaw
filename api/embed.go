@@ -4,7 +4,7 @@ package api
 
 import "embed"
 
-// Files contains the complete HTTP and protobuf API source trees.
+// Files contains the complete HTTP, protobuf, and Giztest API source trees.
 //
-//go:embed all:http all:proto
+//go:embed all:giztest all:http all:proto
 var Files embed.FS

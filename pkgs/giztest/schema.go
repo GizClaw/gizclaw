@@ -2,18 +2,27 @@ package giztest
 
 import (
 	"bytes"
-	_ "embed"
 	"fmt"
 	"io"
 	"sync"
 
+	"github.com/GizClaw/gizclaw-go/api"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-//go:embed giztest.schema.json
-var schemaData []byte
+// SchemaPath locates the Giztest document schema inside api.Files. The schema
+// is a cross-language contract: every runner that claims to execute Giztest
+// documents validates against this one file.
+const SchemaPath = "giztest/giztest.schema.json"
+
+// Schema returns the raw Giztest document schema.
+func Schema() ([]byte, error) { return api.Files.ReadFile(SchemaPath) }
 
 var schemaOnce = sync.OnceValues(func() (*jsonschema.Schema, error) {
+	schemaData, err := Schema()
+	if err != nil {
+		return nil, err
+	}
 	c := jsonschema.NewCompiler()
 	resource, err := jsonschema.UnmarshalJSON(bytes.NewReader(schemaData))
 	if err != nil {

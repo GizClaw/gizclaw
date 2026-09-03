@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 func testOggOpus(t *testing.T) ([]byte, [][]byte) {
@@ -57,17 +58,17 @@ func TestPeerStreamTerminalErrorIsNotInterruption(t *testing.T) {
 }
 
 func TestPeerStreamAudioCaptureMaxBytes(t *testing.T) {
-	vars := &variables{values: map[string]value{
-		"audio": {spec: VariableSpec{Direction: "output", Type: "audio", MaxBytes: 4096}},
-	}}
+	vars := mustVariables(t, map[string]giztest.VariableSpec{
+		"audio": {Direction: "output", Type: "audio", MaxBytes: 4096},
+	})
 	for _, tc := range []struct {
 		name string
-		step Step
+		step giztest.Step
 		want int
 	}{
-		{name: "streamed without buffering", step: Step{}, want: 0},
-		{name: "explicit audio capture", step: Step{Capture: map[string]string{"audio": "/audio"}}, want: 4096},
-		{name: "unrelated capture", step: Step{Capture: map[string]string{"audio": "/text"}}, want: 0},
+		{name: "streamed without buffering", step: giztest.Step{}, want: 0},
+		{name: "explicit audio capture", step: giztest.Step{Capture: map[string]string{"audio": "/audio"}}, want: 4096},
+		{name: "unrelated capture", step: giztest.Step{Capture: map[string]string{"audio": "/text"}}, want: 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := peerStreamAudioCaptureMaxBytes(tc.step, vars)
@@ -141,8 +142,8 @@ func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	var role string
 	var observed [][]byte
 	open := func() (peerStream, error) { return stream, nil }
-	result, err := invokePeerStream(context.Background(), nil, open, Step{
-		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
+	result, err := invokePeerStream(context.Background(), nil, open, giztest.Step{
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "text"},
 	}, "hello", 0, func(gotClient, gotRole string, gotPacket []byte, _ bool) error {
 		client = gotClient
 		role = gotRole
@@ -174,8 +175,8 @@ func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
 		stream.in <- assistantBlob("s1", nil, true)
 	}()
 	var roles []string
-	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, Step{
-		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
+	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk"},
 	}, []byte{1}, 0, func(_ string, role string, _ []byte, end bool) error {
 		if end {
 			roles = append(roles, role)
@@ -207,8 +208,8 @@ func TestInvokePeerStreamDoesNotWaitForUserPlaybackBeforePush(t *testing.T) {
 	defer cancel()
 	result := make(chan error, 1)
 	go func() {
-		_, invokeErr := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, Step{
-			ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "push-to-talk"},
+		_, invokeErr := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+			ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk"},
 		}, audio.Bytes(), 0, session.observe)
 		result <- invokeErr
 	}()
@@ -241,8 +242,8 @@ func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
 		stream.in <- assistantBlob("s1", nil, true)
 	}()
 	open := func() (peerStream, error) { return stream, nil }
-	_, err := invokePeerStream(context.Background(), nil, open, Step{
-		ID: "turn", Client: "peer", PeerStream: &PeerStreamOperation{Mode: "text"},
+	_, err := invokePeerStream(context.Background(), nil, open, giztest.Step{
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "text"},
 	}, "hello", 0, func(string, string, []byte, bool) error { return errors.New("speaker failed") })
 	if err == nil || !strings.Contains(err.Error(), "speaker failed") {
 		t.Fatalf("observer error = %v", err)
@@ -319,7 +320,7 @@ func transcriptText(id, text string, eos bool) *genx.MessageChunk {
 	}
 }
 
-func invokeFakePeerStream(ctx context.Context, op PeerStreamOperation, streams ...*fakeRelayStream) (operationResult, error) {
+func invokeFakePeerStream(ctx context.Context, op giztest.PeerStreamOperation, streams ...*fakeRelayStream) (operationResult, error) {
 	index := 0
 	open := func() (peerStream, error) {
 		if index >= len(streams) {
@@ -329,7 +330,7 @@ func invokeFakePeerStream(ctx context.Context, op PeerStreamOperation, streams .
 		index++
 		return stream, nil
 	}
-	return invokePeerStream(ctx, nil, open, Step{ID: "turn", PeerStream: &op}, "hello", 0)
+	return invokePeerStream(ctx, nil, open, giztest.Step{ID: "turn", PeerStream: &op}, "hello", 0)
 }
 
 func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
@@ -342,7 +343,7 @@ func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
 		return stream, nil
 	}
 	requireAudio := false
-	firstStep := Step{ID: "first", Client: "peer", PeerStream: &PeerStreamOperation{
+	firstStep := giztest.Step{ID: "first", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 		Mode: "realtime", Session: "microphone", KeepOpen: true,
 		Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
 	}}
@@ -368,7 +369,7 @@ func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
 		StreamID: oldID, Label: "user", EndOfStream: true,
 		ErrorCode: "INPUT_ROUTE_RELOADED", Error: "input route reloaded", ErrorRetryable: true,
 	}}
-	secondStep := Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
+	secondStep := giztest.Step{ID: "second", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
 		KeepOpen: true, Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
 	}}
@@ -409,7 +410,7 @@ func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
 		}
 		stream.in <- assistantText("assistant-3", "ready once more", false)
 	}()
-	third, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, Step{ID: "third", Client: "peer", PeerStream: &PeerStreamOperation{
+	third, err := invokePeerStreamWithSessions(context.Background(), nil, open, sessions, giztest.Step{ID: "third", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
 		Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &requireAudio,
 	}}, []byte{1}, 0)
@@ -440,7 +441,7 @@ func TestInvokePeerStreamAwaitRearmTimesOutWithCausalEvidence(t *testing.T) {
 	result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
 		t.Fatal("await_rearm opened a replacement PeerStream")
 		return nil, nil
-	}, sessions, Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
+	}, sessions, giztest.Step{ID: "second", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
 	}}, []byte{1}, 0)
 	if err == nil || !strings.Contains(err.Error(), "timed out waiting for re-arm INPUT_ROUTE_RELOADED") {
@@ -487,7 +488,7 @@ func TestInvokePeerStreamAwaitRearmPreservesSuccessfulBOSEvidenceOnResponseTimeo
 	result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
 		t.Fatal("await_rearm opened a replacement PeerStream")
 		return nil, nil
-	}, sessions, Step{ID: "second", Client: "peer", PeerStream: &PeerStreamOperation{
+	}, sessions, giztest.Step{ID: "second", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 		Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
 	}}, []byte{1}, 0)
 	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
@@ -517,7 +518,7 @@ func TestInvokePeerStreamIdleTimeoutAllowsLongReply(t *testing.T) {
 		}
 		finishAssistantTurn(stream, "s1")
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", IdleTimeout: "120ms"}, stream)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text", IdleTimeout: "120ms"}, stream)
 	if err != nil {
 		t.Fatalf("long reply failed: %v", err)
 	}
@@ -538,7 +539,7 @@ func TestInvokePeerStreamIdleTimeoutFailsOnStall(t *testing.T) {
 		drainPushes(stream, 3)
 		stream.in <- assistantText("s1", "hello", false)
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", IdleTimeout: "50ms"}, stream)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text", IdleTimeout: "50ms"}, stream)
 	if err == nil || !strings.HasPrefix(err.Error(), "peer_stream idle timeout exceeded after 50ms") || !strings.Contains(err.Error(), "deadline=idle_timeout") {
 		t.Fatalf("error = %v", err)
 	}
@@ -565,7 +566,7 @@ func TestInvokePeerStreamStepTimeoutWinsOverIdleTimeout(t *testing.T) {
 			}
 		}
 	}()
-	result, err := invokeFakePeerStream(ctx, PeerStreamOperation{Mode: "text", IdleTimeout: "1s"}, stream)
+	result, err := invokeFakePeerStream(ctx, giztest.PeerStreamOperation{Mode: "text", IdleTimeout: "1s"}, stream)
 	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "deadline=timeout") {
 		t.Fatalf("error = %v", err)
 	}
@@ -585,7 +586,7 @@ func TestInvokePeerStreamWithoutIdleTimeoutWaitsThroughGaps(t *testing.T) {
 		time.Sleep(120 * time.Millisecond)
 		finishAssistantTurn(stream, "s1")
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text"}, stream)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text"}, stream)
 	if err != nil {
 		t.Fatalf("reply without idle_timeout failed: %v", err)
 	}
@@ -605,7 +606,7 @@ func TestInvokePeerStreamFirstResponseReturnsWithoutEOS(t *testing.T) {
 		stream.in <- assistantText("s1", "hello", false)
 		stream.in <- assistantBlob("s1", []byte{1, 2, 3}, false)
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{
 		Mode: "text", Completion: "first_response", FirstTextTimeout: "100ms", FirstAudioTimeout: "150ms",
 	}, stream)
 	if err != nil {
@@ -630,12 +631,12 @@ func TestInvokePeerStreamFirstResponseSelectedModalities(t *testing.T) {
 	textDisabled, audioDisabled := false, false
 	for _, tc := range []struct {
 		name string
-		op   PeerStreamOperation
+		op   giztest.PeerStreamOperation
 		send func(*fakeRelayStream)
 	}{
 		{
 			name: "text only",
-			op: PeerStreamOperation{
+			op: giztest.PeerStreamOperation{
 				Mode: "text", Completion: "first_response", FirstTextTimeout: "100ms",
 				RequireText: &textRequired, RequireAudio: &audioDisabled,
 			},
@@ -643,7 +644,7 @@ func TestInvokePeerStreamFirstResponseSelectedModalities(t *testing.T) {
 		},
 		{
 			name: "audio only",
-			op: PeerStreamOperation{
+			op: giztest.PeerStreamOperation{
 				Mode: "text", Completion: "first_response", FirstAudioTimeout: "100ms",
 				RequireText: &textDisabled, RequireAudio: &audioRequired,
 			},
@@ -676,12 +677,12 @@ func TestInvokePeerStreamFirstResponseSelectedModalityDeadlines(t *testing.T) {
 	textDisabled, audioDisabled := false, false
 	for _, tc := range []struct {
 		name     string
-		op       PeerStreamOperation
+		op       giztest.PeerStreamOperation
 		deadline string
 	}{
 		{
 			name: "text only",
-			op: PeerStreamOperation{
+			op: giztest.PeerStreamOperation{
 				Mode: "text", Completion: "first_response", FirstTextTimeout: "30ms",
 				RequireText: &textRequired, RequireAudio: &audioDisabled,
 			},
@@ -689,7 +690,7 @@ func TestInvokePeerStreamFirstResponseSelectedModalityDeadlines(t *testing.T) {
 		},
 		{
 			name: "audio only",
-			op: PeerStreamOperation{
+			op: giztest.PeerStreamOperation{
 				Mode: "text", Completion: "first_response", FirstAudioTimeout: "30ms",
 				RequireText: &textDisabled, RequireAudio: &audioRequired,
 			},
@@ -713,7 +714,7 @@ func TestInvokePeerStreamFirstResponseSelectedModalityHonorsContext(t *testing.T
 	stream := newFakeRelayStream()
 	go drainPushes(stream, 3)
 	audioDisabled := false
-	result, err := invokeFakePeerStream(ctx, PeerStreamOperation{
+	result, err := invokeFakePeerStream(ctx, giztest.PeerStreamOperation{
 		Mode: "text", Completion: "first_response", FirstTextTimeout: "1s", RequireAudio: &audioDisabled,
 	}, stream)
 	if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != "timeout" || !strings.Contains(err.Error(), "deadline=timeout") {
@@ -744,7 +745,7 @@ func TestInvokePeerStreamFirstResponseDeadlines(t *testing.T) {
 				drainPushes(stream, 3)
 				tc.send(stream)
 			}()
-			result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
+			result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{
 				Mode: "text", Completion: "first_response", FirstTextTimeout: tc.textLimit, FirstAudioTimeout: tc.audioLimit,
 			}, stream)
 			if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != tc.deadline || !strings.Contains(err.Error(), "deadline="+tc.deadline) {
@@ -766,7 +767,7 @@ func TestInvokePeerStreamFirstResponseDeadlineStartsAfterInput(t *testing.T) {
 		stream.in <- assistantText("s1", "hello", false)
 	}()
 	audioDisabled := false
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{
 		Mode: "text", Completion: "first_response", FirstTextTimeout: "20ms", RequireAudio: &audioDisabled,
 	}, stream)
 	if err != nil {
@@ -790,7 +791,7 @@ func TestInvokePeerStreamTerminalLatencyKeepsOperationClock(t *testing.T) {
 		}
 		finishAssistantTurn(stream, "s1")
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text"}, stream)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text"}, stream)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -847,7 +848,7 @@ func TestInvokePeerStreamIdleTimeoutRearmsAfterInterrupt(t *testing.T) {
 		time.Sleep(110 * time.Millisecond)
 		finishAssistantTurn(second, "s2")
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", InterruptAfter: "50ms", IdleTimeout: "150ms"}, first, second)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text", InterruptAfter: "50ms", IdleTimeout: "150ms"}, first, second)
 	if err != nil {
 		t.Fatalf("interrupted turn failed: %v", err)
 	}
@@ -873,7 +874,7 @@ func TestInvokePeerStreamIdleTimeoutSuspendedDuringInterruptReplacement(t *testi
 		drainPushes(second, 3)
 		finishAssistantTurn(second, "s2")
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", InterruptAfter: "40ms", IdleTimeout: "100ms"}, first, second)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text", InterruptAfter: "40ms", IdleTimeout: "100ms"}, first, second)
 	if err != nil {
 		t.Fatalf("blocked replacement push tripped the idle bound: %v", err)
 	}
@@ -891,7 +892,7 @@ func TestInvokePeerStreamIdleTimeoutAppliesAfterInterruptReplacement(t *testing.
 		drainPushes(second, 3)
 		// The reopened stream never answers the interrupting turn.
 	}()
-	result, err := invokeFakePeerStream(context.Background(), PeerStreamOperation{Mode: "text", InterruptAfter: "40ms", IdleTimeout: "80ms"}, first, second)
+	result, err := invokeFakePeerStream(context.Background(), giztest.PeerStreamOperation{Mode: "text", InterruptAfter: "40ms", IdleTimeout: "80ms"}, first, second)
 	if err == nil || !strings.Contains(err.Error(), "deadline=idle_timeout") || !strings.Contains(err.Error(), "interrupt_sent=true") {
 		t.Fatalf("error = %v", err)
 	}

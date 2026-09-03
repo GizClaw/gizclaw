@@ -63,6 +63,8 @@ def allowed_file(relative: str) -> bool:
         "SOURCE_PROVENANCE.json",
         "THIRD_PARTY_LICENSES/nanopb-LICENSE.txt",
         "tests/gzc_client_smoke_test.c",
+        "tests/gzc_control_cpp_headers_smoke_test.cpp",
+        "tests/gzc_control_smoke_test.c",
         "tests/gzc_cpp_headers_smoke_test.cpp",
         "tests/gzc_custom_platform_smoke_test.c",
     }
@@ -74,6 +76,10 @@ def allowed_file(relative: str) -> bool:
     if path.parts[:1] == ("generated",) and path.name.endswith((".pb.c", ".pb.h")):
         return True
     if path.parts[:1] == ("src",) and path.suffix in {".c", ".h"}:
+        return True
+    if path.parts[:2] == ("control", "include") and path.suffix == ".h":
+        return True
+    if path.parts[:2] == ("control", "src") and path.suffix in {".c", ".h"}:
         return True
     if path.parts[:2] == ("third_party", "nanopb") and path.name in {
         "pb.h", "pb_common.c", "pb_common.h", "pb_decode.c", "pb_decode.h", "pb_encode.c", "pb_encode.h"
@@ -140,6 +146,10 @@ required = {
     "BUILD.bazel", "LICENSE", "MODULE.bazel", "SOURCE_PROVENANCE.json",
     "THIRD_PARTY_LICENSES/nanopb-LICENSE.txt", "tests/gzc_client_smoke_test.c",
     "tests/gzc_cpp_headers_smoke_test.cpp", "tests/gzc_custom_platform_smoke_test.c",
+    "tests/gzc_control_smoke_test.c", "tests/gzc_control_cpp_headers_smoke_test.cpp",
+    "control/include/gzc_control.h", "control/src/gzc_control_api.c",
+    "control/src/gzc_control_error.c", "control/src/gzc_control_http.c",
+    "control/src/gzc_control_internal.h", "control/src/gzc_control_model.c",
     "src/gzc_platform.c", "third_party/nanopb/pb.h", "third_party/nanopb/pb_common.c",
     "third_party/nanopb/pb_common.h", "third_party/nanopb/pb_decode.c",
     "third_party/nanopb/pb_decode.h", "third_party/nanopb/pb_encode.c",
@@ -176,7 +186,7 @@ if (
 ):
     raise SystemExit("module identity mismatch")
 build = (root / "BUILD.bazel").read_text(encoding="utf-8")
-for target in ("gizclaw_core", "default_platform", "gizclaw"):
+for target in ("gizclaw_core", "default_platform", "gizclaw", "gizclaw_control"):
     if f'name = "{target}"' not in build:
         raise SystemExit(f"missing Bazel target: {target}")
 PY
@@ -200,6 +210,22 @@ cc "${common_flags[@]}" "$root/tests/gzc_custom_platform_smoke_test.c" "${core_s
 c++ -std=c++17 -Wall -Wextra -Werror -I "$root/include" -I "$root/generated" -I "$root/third_party/nanopb" \
   "$root/tests/gzc_cpp_headers_smoke_test.cpp" -o "$extract_parent/cpp-headers-smoke"
 "$extract_parent/cpp-headers-smoke"
+
+control_sources=()
+while IFS= read -r source; do
+  control_sources+=("$source")
+done < <(find "$root/control/src" -type f -name '*.c' -print | LC_ALL=C sort)
+control_flags=("${common_flags[@]}" -I "$root/control/include" -I "$root/control/src")
+
+cc "${control_flags[@]}" "$root/tests/gzc_control_smoke_test.c" "${control_sources[@]}" \
+  "$root/src/gzc_buffer.c" "$root/src/gzc_common.c" "$root/src/gzc_json.c" "$root/src/gzc_platform.c" \
+  -o "$extract_parent/control-smoke"
+"$extract_parent/control-smoke"
+
+c++ -std=c++17 -Wall -Wextra -Werror -I "$root/include" -I "$root/generated" \
+  -I "$root/third_party/nanopb" -I "$root/control/include" \
+  "$root/tests/gzc_control_cpp_headers_smoke_test.cpp" -o "$extract_parent/control-cpp-headers-smoke"
+"$extract_parent/control-cpp-headers-smoke"
 
 if [[ "$(uname -s)" == Linux ]]; then
   cc "${common_flags[@]}" -fsanitize=address,undefined -fno-omit-frame-pointer -g \

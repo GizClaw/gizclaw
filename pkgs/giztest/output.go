@@ -8,7 +8,7 @@ import (
 
 const maxOutputTextBytes = 4096
 
-func emitOutput(w io.Writer, vars *variables, name string) (map[string]any, error) {
+func emitOutput(w io.Writer, vars *Variables, name string) (map[string]any, error) {
 	item, ok := vars.values[name]
 	if !ok || item.data == nil {
 		return nil, fmt.Errorf("output variable %q unavailable", name)

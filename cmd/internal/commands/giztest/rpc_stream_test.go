@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"reflect"
@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 func TestBoundedBufferRejectsOverflowWithoutPartialWrite(t *testing.T) {
@@ -87,7 +89,7 @@ func TestSpeedTestOperationResultKeepsZeroDirectionsNumeric(t *testing.T) {
 		"up_mbps",
 		"down_mbps",
 	} {
-		value, ok := numericTarget(object[key])
+		value, ok := giztest.NumericTarget(object[key])
 		if !ok || value != 0 {
 			t.Fatalf("%s = %#v, want numeric zero", key, object[key])
 		}

@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 type fakeRelayStream struct {
@@ -120,12 +121,12 @@ func drainUserTurn(t *testing.T, stream *fakeRelayStream) []string {
 	}
 }
 
-func textRelayOperation(maxTurns int) *WorkspaceRelayOperation {
+func textRelayOperation(maxTurns int) *giztest.WorkspaceRelayOperation {
 	terminal := "tester"
 	if maxTurns%2 == 0 {
 		terminal = "candidate"
 	}
-	return &WorkspaceRelayOperation{FirstClient: "tester", SecondClient: "candidate", Media: "text", MaxTurns: maxTurns, TerminalClient: terminal}
+	return &giztest.WorkspaceRelayOperation{FirstClient: "tester", SecondClient: "candidate", Media: "text", MaxTurns: maxTurns, TerminalClient: terminal}
 }
 
 func TestWorkspaceRelayForwardsTextIncrementally(t *testing.T) {

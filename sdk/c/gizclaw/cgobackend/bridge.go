@@ -101,7 +101,7 @@ func gzcGoTimeInstantMs() C.int64_t {
 }
 
 //export gzcGoHTTPRequest
-func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C.size_t, headers *C.gzc_http_header_t, headerCount C.size_t, data *C.uint8_t, length C.size_t, outStatus *C.int, outData **C.uint8_t, outLen *C.size_t) C.int {
+func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C.size_t, headers *C.gzc_http_header_t, headerCount C.size_t, data *C.uint8_t, length C.size_t, request *C.gzc_http_request_t, outStatus *C.int, outData **C.uint8_t, outLen *C.size_t) C.int {
 	b := backendFromHandle(handle)
 	if b == nil || urlData == nil || outStatus == nil || outData == nil || outLen == nil {
 		return C.GZC_ERR_INVALID_ARGUMENT
@@ -121,6 +121,11 @@ func gzcGoHTTPRequest(handle C.uint64_t, method C.int, urlData *C.char, urlLen C
 	resp, err := b.HTTPRequest(int(method), url, headerList, body)
 	if err != nil {
 		return C.GZC_ERR_HTTP
+	}
+	// Response headers are pushed through the platform contract's sink so the
+	// SDK sees them without the backend allocating a header list.
+	if rc := deliverResponseHeaders(request, resp.Headers); rc != C.GZC_OK {
+		return rc
 	}
 	*outStatus = C.int(resp.StatusCode)
 	if len(resp.Body) > 0 {
@@ -551,4 +556,25 @@ func cArrayLen(ptr unsafe.Pointer, count uint64) (int, bool) {
 		return 0, false
 	}
 	return int(count), true
+}
+
+// deliverResponseHeaders hands each response header to the request's sink
+// through gzc_http_deliver_response_header, which applies the contract's
+// validation. A request without a sink returns immediately.
+func deliverResponseHeaders(request *C.gzc_http_request_t, headers []HTTPHeader) C.int {
+	if request == nil || request.response_header_cb == nil || len(headers) == 0 {
+		return C.GZC_OK
+	}
+	for _, header := range headers {
+		name := C.CString(header.Name)
+		value := C.CString(header.Value)
+		rc := C.gzc_http_deliver_response_header(
+			request, name, C.size_t(len(header.Name)), value, C.size_t(len(header.Value)))
+		C.free(unsafe.Pointer(name))
+		C.free(unsafe.Pointer(value))
+		if rc != C.GZC_OK {
+			return rc
+		}
+	}
+	return C.GZC_OK
 }
