@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -30,8 +31,11 @@ func TestInvokeHTTPSendsBearerBodyAndDecodesJSON(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":{"volume":35,"muted":true}}`))
 	}))
 	defer server.Close()
-	vars := &variables{values: map[string]value{"api_key": {data: "gizclaw_sk_v1_test"}, "level": {data: float64(35)}}}
-	step := Step{ID: "volume", Client: "peer", HTTP: &HTTPOperation{
+	vars := mustVariables(t, map[string]giztest.VariableSpec{
+		"api_key": {Direction: "input", Type: "string", Value: "gizclaw_sk_v1_test"},
+		"level":   {Direction: "input", Type: "number", Value: float64(35)},
+	})
+	step := giztest.Step{ID: "volume", Client: "peer", HTTP: &giztest.HTTPOperation{
 		Method: http.MethodPut, Path: "/gizclaw/v1/device/volume?x=1",
 		Headers: map[string]string{"Authorization": "Bearer ${api_key}"},
 		Body:    map[string]any{"level": "${level}", "muted": true},
@@ -54,7 +58,7 @@ func TestInvokeHTTPSendsBearerBodyAndDecodesJSON(t *testing.T) {
 	if result.evidence["status"] != http.StatusOK {
 		t.Fatalf("evidence = %v", result.evidence)
 	}
-	if value, ok := jsonPointer(result.body, "/status/volume"); !ok || value != float64(35) {
+	if value, ok := giztest.JSONPointer(result.body, "/status/volume"); !ok || value != float64(35) {
 		t.Fatalf("json pointer = %v, %v", value, ok)
 	}
 }
@@ -66,27 +70,27 @@ func TestInvokeHTTPStatusExpectations(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":{"code":"DEVICE_OFFLINE","message":"device is offline"}}`))
 	}))
 	defer server.Close()
-	vars := &variables{values: map[string]value{}}
+	vars := mustVariables(t, nil)
 	endpoint := strings.TrimPrefix(server.URL, "http://")
 
-	result, err := invokeHTTP(context.Background(), endpoint, Step{HTTP: &HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi"}}, vars)
-	var failure *assertionFailure
+	result, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi"}}, vars)
+	var failure *giztest.AssertionError
 	if !errors.As(err, &failure) {
 		t.Fatalf("unexpected 4xx without status expectation must be an assertion failure: %v", err)
 	}
-	if value, ok := jsonPointer(result.body, "/error/code"); !ok || value != "DEVICE_OFFLINE" {
+	if value, ok := giztest.JSONPointer(result.body, "/error/code"); !ok || value != "DEVICE_OFFLINE" {
 		t.Fatalf("error body kept for evidence: %#v", result.body)
 	}
-	if _, err := invokeHTTP(context.Background(), endpoint, Step{HTTP: &HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi", Status: http.StatusConflict}}, vars); err != nil {
+	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi", Status: http.StatusConflict}}, vars); err != nil {
 		t.Fatalf("expected status must pass: %v", err)
 	}
-	if _, err := invokeHTTP(context.Background(), endpoint, Step{HTTP: &HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi", Status: http.StatusOK}}, vars); !errors.As(err, &failure) {
+	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/gizclaw/v1/device/wifi", Status: http.StatusOK}}, vars); !errors.As(err, &failure) {
 		t.Fatalf("mismatched status must fail: %v", err)
 	}
-	if _, err := invokeHTTP(context.Background(), "", Step{HTTP: &HTTPOperation{Method: http.MethodGet, Path: "/x"}}, vars); err == nil {
+	if _, err := invokeHTTP(context.Background(), "", giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "/x"}}, vars); err == nil {
 		t.Fatal("empty endpoint accepted")
 	}
-	if _, err := invokeHTTP(context.Background(), endpoint, Step{HTTP: &HTTPOperation{Method: http.MethodGet, Path: "relative"}}, vars); err == nil {
+	if _, err := invokeHTTP(context.Background(), endpoint, giztest.Step{HTTP: &giztest.HTTPOperation{Method: http.MethodGet, Path: "relative"}}, vars); err == nil {
 		t.Fatal("relative path accepted")
 	}
 }
@@ -127,18 +131,18 @@ steps:
       response: {battery_percent: 88}
       expect_calls: 1
 `
-	load := func(text string) (*Document, error) {
+	load := func(text string) (*giztest.Document, error) {
 		path := filepath.Join(t.TempDir(), "device.giztest.yaml")
 		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		return loadDocument(path)
+		return giztest.LoadDocument(path, newDriver(false, nil))
 	}
 	parsed, err := load(doc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Steps[1].operation() != "http" || parsed.Steps[1].HTTP.Status != 200 {
+	if parsed.Steps[1].Operation() != "http" || parsed.Steps[1].HTTP.Status != 200 {
 		t.Fatalf("http step = %+v", parsed.Steps[1])
 	}
 	withFinalizer := doc + `finally:
@@ -154,7 +158,7 @@ steps:
 	if err != nil {
 		t.Fatalf("http finalizer rejected: %v", err)
 	}
-	if len(finalized.Finally) != 1 || finalized.Finally[0].operation() != "http" {
+	if len(finalized.Finally) != 1 || finalized.Finally[0].Operation() != "http" {
 		t.Fatalf("finalizers = %+v", finalized.Finally)
 	}
 	for name, mutated := range map[string]string{
@@ -206,8 +210,8 @@ func TestInstallDeviceControlScriptsProviders(t *testing.T) {
 
 	client := &gizcli.Client{}
 	counts := map[string]*inboundCounter{}
-	steps := []Step{{ID: "volume", Client: "peer", ClientRPC: &ClientRPCOperation{Method: "client.device.volume.set"}}}
-	if err := configureClientRPC(client, "peer", steps, &variables{values: map[string]value{}}, counts); err != nil {
+	steps := []giztest.Step{{ID: "volume", Client: "peer", ClientRPC: &giztest.ClientRPCOperation{Method: "client.device.volume.set"}}}
+	if err := configureClientRPC(client, "peer", steps, mustVariables(t, nil), counts); err != nil {
 		t.Fatal(err)
 	}
 	if counts["peer:client.device.volume.set"] == nil {

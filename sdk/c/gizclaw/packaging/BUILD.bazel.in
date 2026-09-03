@@ -90,3 +90,23 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
 )
+
+# Controller side: the API-key HTTP client for the /gizclaw/v1 routes. It
+# reuses the device SDK's transport abstraction and JSON codec and adds no
+# dependency of its own.
+cc_library(
+    name = "gizclaw_control",
+    srcs = glob(["control/src/*.c"]),
+    hdrs = glob([
+        "control/include/*.h",
+        "control/src/*.h",
+    ]),
+    includes = [
+        "control/include",
+        "control/src",
+    ],
+    conlyopts = c_only_options,
+    copts = warning_options,
+    deps = [":gizclaw_headers"],
+    visibility = ["//visibility:public"],
+)

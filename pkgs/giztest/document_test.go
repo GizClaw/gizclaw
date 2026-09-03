@@ -49,9 +49,9 @@ func writeTestDocument(t *testing.T, content string) string {
 }
 
 func TestLoadDocumentCanonicalContract(t *testing.T) {
-	doc, err := loadDocument(writeTestDocument(t, validDocument))
+	doc, err := LoadDocument(writeTestDocument(t, validDocument), nil)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
 	if doc.Version != "gizclaw.test/v1alpha1" || doc.Steps[0].RPC.Method != "all.ping" {
 		t.Fatalf("document = %#v", doc)
@@ -60,14 +60,14 @@ func TestLoadDocumentCanonicalContract(t *testing.T) {
 
 func TestLoadDocumentRejectsReadBeforeAssignment(t *testing.T) {
 	content := strings.Replace(validDocument, "request: {}", "request:\n        value: ${server_time}", 1)
-	_, err := loadDocument(writeTestDocument(t, content))
+	_, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err == nil || !strings.Contains(err.Error(), "unavailable variable") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestLoadDocumentRejectsMissingUserStory(t *testing.T) {
-	_, err := loadDocument(writeTestDocument(t, strings.SplitN(validDocument, "version:", 2)[1]))
+	_, err := LoadDocument(writeTestDocument(t, strings.SplitN(validDocument, "version:", 2)[1]), nil)
 	if err == nil || !strings.Contains(err.Error(), "User Story") {
 		t.Fatalf("error = %v", err)
 	}
@@ -75,7 +75,7 @@ func TestLoadDocumentRejectsMissingUserStory(t *testing.T) {
 
 func TestLoadDocumentRejectsUnknownReportRedaction(t *testing.T) {
 	content := strings.Replace(validDocument, "steps:\n", "report:\n  redact: [missing]\nsteps:\n", 1)
-	_, err := loadDocument(writeTestDocument(t, content))
+	_, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err == nil || !strings.Contains(err.Error(), "report redact references unknown variable") {
 		t.Fatalf("error = %v", err)
 	}
@@ -83,7 +83,7 @@ func TestLoadDocumentRejectsUnknownReportRedaction(t *testing.T) {
 
 func TestLoadDocumentRejectsInvalidStepDurationOffline(t *testing.T) {
 	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    timeout: later\n", 1)
-	_, err := loadDocument(writeTestDocument(t, content))
+	_, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err == nil || !strings.Contains(err.Error(), "invalid timeout") {
 		t.Fatalf("error = %v", err)
 	}
@@ -93,7 +93,7 @@ func TestLoadDocumentValidatesPeerStreamIdleTimeoutOffline(t *testing.T) {
 	peerStreamStep := func(idleTimeout string) string {
 		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      input: hello\n      idle_timeout: " + idleTimeout + "\n"
 	}
-	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("15s")))
+	doc, err := LoadDocument(writeTestDocument(t, peerStreamStep("15s")), nil)
 	if err != nil {
 		t.Fatalf("idle_timeout 15s rejected: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestLoadDocumentValidatesPeerStreamIdleTimeoutOffline(t *testing.T) {
 		t.Fatalf("idle_timeout = %q", got)
 	}
 	for _, invalid := range []string{"0s", "soon"} {
-		_, err := loadDocument(writeTestDocument(t, peerStreamStep(invalid)))
+		_, err := LoadDocument(writeTestDocument(t, peerStreamStep(invalid)), nil)
 		if err == nil || !strings.Contains(err.Error(), "step turn has invalid idle_timeout") {
 			t.Fatalf("idle_timeout %q error = %v", invalid, err)
 		}
@@ -117,7 +117,7 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
       input: hello
 ` + extra
 	}
-	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n")))
+	doc, err := LoadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n")), nil)
 	if err != nil {
 		t.Fatalf("first_response completion rejected: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		"audio only": "      completion: first_response\n      first_audio_timeout: 3s\n      require_text: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err != nil {
+			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err != nil {
 				t.Fatalf("modality-selective first_response rejected: %v", err)
 			}
 		})
@@ -143,12 +143,12 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		"disabled audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
+			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err == nil {
 				t.Fatal("invalid first_response completion accepted")
 			}
 		})
 	}
-	_, err = loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      require_text: false\n      require_audio: false\n")))
+	_, err = LoadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      require_text: false\n      require_audio: false\n")), nil)
 	if err == nil || !strings.Contains(err.Error(), "first_response requires text or audio output") {
 		t.Fatalf("no-modality error = %v", err)
 	}
@@ -163,7 +163,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
       input: audio-fixture
 ` + extra
 	}
-	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      keep_open: true\n")))
+	doc, err := LoadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      keep_open: true\n")), nil)
 	if err != nil {
 		t.Fatalf("persistent peer_stream rejected: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
 	if op.Session != "microphone" || !op.KeepOpen {
 		t.Fatalf("peer_stream operation = %#v", op)
 	}
-	if _, err := loadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      await_rearm: INPUT_ROUTE_RELOADED\n      keep_open: true\n"))); err != nil {
+	if _, err := LoadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      await_rearm: INPUT_ROUTE_RELOADED\n      keep_open: true\n")), nil); err != nil {
 		t.Fatalf("await_rearm peer_stream rejected: %v", err)
 	}
 	for name, extra := range map[string]string{
@@ -184,7 +184,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
 		"non-realtime":     "      session: microphone\n      keep_open: true\n      mode: text\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
+			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err == nil {
 				t.Fatal("invalid persistent peer_stream accepted")
 			}
 		})
@@ -197,7 +197,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
       session: microphone
       keep_open: true
 `
-	if _, err := loadDocument(writeTestDocument(t, finalizer)); err == nil || !strings.Contains(err.Error(), "not allowed in finally") {
+	if _, err := LoadDocument(writeTestDocument(t, finalizer), nil); err == nil || !strings.Contains(err.Error(), "not allowed in finally") {
 		t.Fatalf("persistent finalizer error = %v", err)
 	}
 }
@@ -209,7 +209,7 @@ func TestLoadDocumentAssignsStableFinalizerID(t *testing.T) {
       method: server.run.stop
       request: {}
 `
-	doc, err := loadDocument(writeTestDocument(t, content))
+	doc, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,8 +244,8 @@ func TestDocumentRejectsSpeechCacheOutsideSavedSynthesis(t *testing.T) {
 
 func TestLoadDocumentAcceptsCombinedMatchers(t *testing.T) {
 	content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time:\n        pattern: \"^[0-9TZ:.-]+$\"\n        min_length: 4\n        max_length: 64\n        not_contains: [ERROR]\n", 1)
-	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+	if _, err := LoadDocument(writeTestDocument(t, content), nil); err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
 }
 
@@ -264,7 +264,7 @@ func TestLoadDocumentRejectsInvalidExpectationsOffline(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time: "+tc.expect+"\n", 1)
-			_, err := loadDocument(writeTestDocument(t, content))
+			_, err := LoadDocument(writeTestDocument(t, content), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
@@ -307,9 +307,9 @@ func TestExpectationValidateDoesNotEchoInvalidPattern(t *testing.T) {
 func TestLoadDocumentAcceptsNormalizationAndRetry(t *testing.T) {
 	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry:\n      attempts: 3\n      on: [timeout, assertion]\n      delay: 5s\n", 1)
 	content = strings.Replace(content, "        present: true\n", "        equals: １２三\n        normalize: [digits, case]\n", 1)
-	doc, err := loadDocument(writeTestDocument(t, content))
+	doc, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
 	if doc.Steps[0].Retry.Attempts != 3 || len(doc.Steps[0].Expect["/server_time"].Normalize) != 2 {
 		t.Fatalf("document = %#v", doc)
@@ -328,8 +328,8 @@ func TestLoadDocumentRejectsInvalidNormalizationOffline(t *testing.T) {
 	for name, expectation := range cases {
 		t.Run(name, func(t *testing.T) {
 			content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time: "+expectation+"\n", 1)
-			if _, err := loadDocument(writeTestDocument(t, content)); err == nil {
-				t.Fatal("loadDocument() accepted invalid normalization")
+			if _, err := LoadDocument(writeTestDocument(t, content), nil); err == nil {
+				t.Fatal("LoadDocument() accepted invalid normalization")
 			}
 		})
 	}
@@ -348,8 +348,8 @@ func TestLoadDocumentRejectsInvalidRetryOffline(t *testing.T) {
 	for name, retry := range cases {
 		t.Run(name, func(t *testing.T) {
 			content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry: "+retry+"\n", 1)
-			if _, err := loadDocument(writeTestDocument(t, content)); err == nil {
-				t.Fatal("loadDocument() accepted invalid retry")
+			if _, err := LoadDocument(writeTestDocument(t, content), nil); err == nil {
+				t.Fatal("LoadDocument() accepted invalid retry")
 			}
 		})
 	}
@@ -426,18 +426,18 @@ steps:
 `
 
 func TestLoadDocumentAcceptsWorkspaceRelay(t *testing.T) {
-	doc, err := loadDocument(writeTestDocument(t, relayDocument))
+	doc, err := LoadDocument(writeTestDocument(t, relayDocument), nil)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if doc.Steps[2].WorkspaceRelay.MaxTurns != 15 || doc.Steps[2].operation() != "workspace_relay" {
+	if doc.Steps[2].WorkspaceRelay.MaxTurns != 15 || doc.Steps[2].Operation() != "workspace_relay" {
 		t.Fatalf("relay step = %#v", doc.Steps[2])
 	}
 }
 
 func TestLoadDocumentAcceptsMultimodalWorkspaceRelay(t *testing.T) {
 	content := strings.Replace(relayDocument, "      media: text\n", "      media: text\n      terminal_media: audio\n      idle_timeout: 45s\n", 1)
-	doc, err := loadDocument(writeTestDocument(t, content))
+	doc, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +449,7 @@ func TestLoadDocumentAcceptsMultimodalWorkspaceRelay(t *testing.T) {
 
 func TestLoadDocumentAllowsTerminalTextCaptureForAudioRelay(t *testing.T) {
 	content := strings.Replace(relayDocument, "      media: text\n", "      media: audio\n", 1)
-	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
+	if _, err := LoadDocument(writeTestDocument(t, content), nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -502,7 +502,7 @@ func TestLoadDocumentRejectsInvalidWorkspaceRelay(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := loadDocument(writeTestDocument(t, tc.mutate(relayDocument)))
+			_, err := LoadDocument(writeTestDocument(t, tc.mutate(relayDocument)), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}

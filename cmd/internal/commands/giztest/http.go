@@ -1,10 +1,11 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"io"
 	"net/http"
 	"net/url"
@@ -33,12 +34,12 @@ func httpBaseURL(endpoint string) (string, error) {
 	return strings.TrimSuffix(parsed.String(), "/"), nil
 }
 
-func invokeHTTP(ctx context.Context, endpoint string, step Step, vars *variables) (httpStepResult, error) {
+func invokeHTTP(ctx context.Context, endpoint string, step giztest.Step, vars *giztest.Variables) (httpStepResult, error) {
 	base, err := httpBaseURL(endpoint)
 	if err != nil {
 		return httpStepResult{}, err
 	}
-	pathValue, err := vars.resolve(step.HTTP.Path)
+	pathValue, err := vars.Resolve(step.HTTP.Path)
 	if err != nil {
 		return httpStepResult{}, err
 	}
@@ -48,7 +49,7 @@ func invokeHTTP(ctx context.Context, endpoint string, step Step, vars *variables
 	}
 	var body io.Reader
 	if step.HTTP.Body != nil {
-		resolved, err := vars.resolve(step.HTTP.Body)
+		resolved, err := vars.Resolve(step.HTTP.Body)
 		if err != nil {
 			return httpStepResult{}, err
 		}
@@ -66,7 +67,7 @@ func invokeHTTP(ctx context.Context, endpoint string, step Step, vars *variables
 		request.Header.Set("Content-Type", "application/json")
 	}
 	for name, raw := range step.HTTP.Headers {
-		resolved, err := vars.resolve(raw)
+		resolved, err := vars.Resolve(raw)
 		if err != nil {
 			return httpStepResult{}, fmt.Errorf("header %s: %w", name, err)
 		}
@@ -98,10 +99,10 @@ func invokeHTTP(ctx context.Context, endpoint string, step Step, vars *variables
 		}
 	}
 	if step.HTTP.Status != 0 && response.StatusCode != step.HTTP.Status {
-		return result, &assertionFailure{err: fmt.Errorf("http status = %d, want %d", response.StatusCode, step.HTTP.Status)}
+		return result, giztest.NewAssertionError(fmt.Errorf("http status = %d, want %d", response.StatusCode, step.HTTP.Status))
 	}
 	if step.HTTP.Status == 0 && response.StatusCode >= http.StatusBadRequest {
-		return result, &assertionFailure{err: fmt.Errorf("http status = %d", response.StatusCode)}
+		return result, giztest.NewAssertionError(fmt.Errorf("http status = %d", response.StatusCode))
 	}
 	return result, nil
 }

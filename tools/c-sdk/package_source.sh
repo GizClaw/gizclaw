@@ -41,6 +41,10 @@ owned_paths=(
   sdk/c/gizclaw/tests/gzc_cpp_headers_smoke_test.cpp
   sdk/c/gizclaw/tests/gzc_custom_platform_smoke_test.c
   sdk/c/gizclaw/packaging
+  sdk/c/gizclaw_control/include
+  sdk/c/gizclaw_control/src
+  sdk/c/gizclaw_control/tests/gzc_control_smoke_test.c
+  sdk/c/gizclaw_control/tests/gzc_control_cpp_headers_smoke_test.cpp
   tools/c-sdk
 )
 git -C "$repo_root" diff --quiet -- "${owned_paths[@]}" || { echo "C SDK source archive inputs have unstaged changes" >&2; exit 1; }
@@ -88,10 +92,14 @@ copy_tracked_tree() {
 copy_tracked_tree sdk/c/gizclaw/include include
 copy_tracked_tree sdk/c/gizclaw/generated generated
 copy_tracked_tree sdk/c/gizclaw/src src
+copy_tracked_tree sdk/c/gizclaw_control/include control/include
+copy_tracked_tree sdk/c/gizclaw_control/src control/src
 cp "$repo_root/LICENSE" "$stage/LICENSE"
 cp "$repo_root/sdk/c/gizclaw/tests/gzc_client_smoke_test.c" "$stage/tests/"
 cp "$repo_root/sdk/c/gizclaw/tests/gzc_cpp_headers_smoke_test.cpp" "$stage/tests/"
 cp "$repo_root/sdk/c/gizclaw/tests/gzc_custom_platform_smoke_test.c" "$stage/tests/"
+cp "$repo_root/sdk/c/gizclaw_control/tests/gzc_control_smoke_test.c" "$stage/tests/"
+cp "$repo_root/sdk/c/gizclaw_control/tests/gzc_control_cpp_headers_smoke_test.cpp" "$stage/tests/"
 sed "s/@VERSION@/$version/g" "$repo_root/sdk/c/gizclaw/packaging/MODULE.bazel.in" >"$stage/MODULE.bazel"
 cp "$repo_root/sdk/c/gizclaw/packaging/BUILD.bazel.in" "$stage/BUILD.bazel"
 

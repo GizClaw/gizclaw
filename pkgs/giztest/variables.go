@@ -16,9 +16,12 @@ type value struct {
 	spec VariableSpec
 }
 
-type variables struct{ values map[string]value }
+// Variables holds one task's variable values. Input variables are populated
+// at construction; each output variable is assigned exactly once by the step
+// that produces it.
+type Variables struct{ values map[string]value }
 
-func (v *variables) release() {
+func (v *Variables) release() {
 	if v == nil {
 		return
 	}
@@ -31,7 +34,7 @@ func (v *variables) release() {
 	}
 }
 
-func (v *variables) redactions(names []string) []string {
+func (v *Variables) redactions(names []string) []string {
 	if v == nil {
 		return nil
 	}
@@ -55,8 +58,11 @@ func (v *variables) redactions(names []string) []string {
 	return redactions
 }
 
-func newVariables(specs map[string]VariableSpec) (*variables, error) {
-	v := &variables{values: make(map[string]value, len(specs))}
+// NewVariables materializes the document's declared variables, reading
+// environment inputs and generating requested values. Output variables start
+// unassigned.
+func NewVariables(specs map[string]VariableSpec) (*Variables, error) {
+	v := &Variables{values: make(map[string]value, len(specs))}
 	for name, spec := range specs {
 		if spec.Direction == "output" {
 			v.values[name] = value{spec: spec}
@@ -79,7 +85,7 @@ func newVariables(specs map[string]VariableSpec) (*variables, error) {
 		default:
 			data = spec.Value
 		}
-		if err := checkValueType(spec, data); err != nil {
+		if err := CheckValueType(spec, data); err != nil {
 			return nil, fmt.Errorf("variable %s: %w", name, err)
 		}
 		v.values[name] = value{data: data, spec: spec}
@@ -102,7 +108,7 @@ func generateValue(kind string) (string, error) {
 	return "g" + hex.EncodeToString(b), nil
 }
 
-func checkValueType(spec VariableSpec, data any) error {
+func CheckValueType(spec VariableSpec, data any) error {
 	if data == nil && spec.Direction == "output" {
 		return nil
 	}
@@ -160,7 +166,7 @@ func isInteger(v any) bool {
 	return false
 }
 
-func (v *variables) assign(name string, data any) error {
+func (v *Variables) assign(name string, data any) error {
 	current, ok := v.values[name]
 	if !ok {
 		return fmt.Errorf("unknown variable %q", name)
@@ -171,7 +177,7 @@ func (v *variables) assign(name string, data any) error {
 	if current.data != nil {
 		return fmt.Errorf("variable %q already assigned", name)
 	}
-	if err := checkValueType(current.spec, data); err != nil {
+	if err := CheckValueType(current.spec, data); err != nil {
 		return err
 	}
 	current.data = data
@@ -179,10 +185,14 @@ func (v *variables) assign(name string, data any) error {
 	return nil
 }
 
-func (v *variables) resolve(input any) (any, error) {
+// Resolve substitutes ${name} references in input, recursing through slices
+// and maps. A string that is exactly one reference resolves to the variable's
+// typed value; a reference embedded in a longer string requires a string
+// variable.
+func (v *Variables) Resolve(input any) (any, error) {
 	switch x := input.(type) {
 	case string:
-		if m := referencePattern.FindStringSubmatch(x); m != nil {
+		if m := ReferencePattern.FindStringSubmatch(x); m != nil {
 			item, ok := v.values[m[1]]
 			if !ok || item.data == nil {
 				return nil, fmt.Errorf("variable %q unavailable", m[1])
@@ -205,7 +215,7 @@ func (v *variables) resolve(input any) (any, error) {
 	case []any:
 		out := make([]any, len(x))
 		for i := range x {
-			value, err := v.resolve(x[i])
+			value, err := v.Resolve(x[i])
 			if err != nil {
 				return nil, err
 			}
@@ -215,7 +225,7 @@ func (v *variables) resolve(input any) (any, error) {
 	case map[string]any:
 		out := make(map[string]any, len(x))
 		for k, raw := range x {
-			value, err := v.resolve(raw)
+			value, err := v.Resolve(raw)
 			if err != nil {
 				return nil, err
 			}
@@ -227,12 +237,14 @@ func (v *variables) resolve(input any) (any, error) {
 	}
 }
 
-func (v *variables) referencedSpec(input any) (VariableSpec, bool) {
+// ReferencedSpec reports the spec of the variable input references, when
+// input is exactly one ${name} reference.
+func (v *Variables) ReferencedSpec(input any) (VariableSpec, bool) {
 	text, ok := input.(string)
 	if !ok {
 		return VariableSpec{}, false
 	}
-	match := referencePattern.FindStringSubmatch(text)
+	match := ReferencePattern.FindStringSubmatch(text)
 	if match == nil {
 		return VariableSpec{}, false
 	}
@@ -240,8 +252,21 @@ func (v *variables) referencedSpec(input any) (VariableSpec, bool) {
 	return item.spec, ok
 }
 
+// Value reports the current value of one variable. An output variable that no
+// step has produced yet reports nil.
+func (v *Variables) Value(name string) (any, bool) {
+	item, ok := v.values[name]
+	return item.data, ok
+}
+
+// Spec reports the declared spec of one variable.
+func (v *Variables) Spec(name string) (VariableSpec, bool) {
+	item, ok := v.values[name]
+	return item.spec, ok
+}
+
 func regexpReferences(s string) []string {
-	matches := regexpReferenceAll.FindAllStringSubmatch(s, -1)
+	matches := AllReferencesPattern.FindAllStringSubmatch(s, -1)
 	out := make([]string, 0, len(matches))
 	for _, m := range matches {
 		out = append(out, m[1])
@@ -249,4 +274,4 @@ func regexpReferences(s string) []string {
 	return out
 }
 
-var regexpReferenceAll = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
+var AllReferencesPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)

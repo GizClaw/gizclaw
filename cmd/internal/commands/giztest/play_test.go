@@ -1,8 +1,9 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
 	"errors"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"io"
 	"os"
 	"path/filepath"
@@ -320,7 +321,7 @@ func TestWritePlayRecordCreatesReportAndOptionalAudio(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			output := filepath.Join(t.TempDir(), "record")
-			report := Report{Version: "v1", Status: "failed", StartedAt: time.Unix(1, 0)}
+			report := giztest.Report{Version: "v1", Status: "failed", StartedAt: time.Unix(1, 0)}
 			if err := writePlayRecord(output, report, tc.packets); err != nil {
 				t.Fatal(err)
 			}
@@ -391,14 +392,14 @@ func TestValidatePlayDocumentRejectsConcurrentShapes(t *testing.T) {
 	if err := os.WriteFile(file, []byte("test"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	valid := &Document{Repeat: 1}
-	if err := validatePlayDocument(file, []*Document{valid}); err != nil {
+	valid := &giztest.Document{Repeat: 1}
+	if err := validatePlayDocument(file, []*giztest.Document{valid}); err != nil {
 		t.Fatal(err)
 	}
-	for name, docs := range map[string][]*Document{
+	for name, docs := range map[string][]*giztest.Document{
 		"multiple": {valid, valid},
 		"repeat":   {{Repeat: 2}},
-		"barrier":  {{Repeat: 1, Steps: []Step{{Barrier: &BarrierOperation{}}}}},
+		"barrier":  {{Repeat: 1, Steps: []giztest.Step{{Barrier: &giztest.BarrierOperation{}}}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := validatePlayDocument(file, docs); err == nil {
@@ -406,13 +407,13 @@ func TestValidatePlayDocumentRejectsConcurrentShapes(t *testing.T) {
 			}
 		})
 	}
-	if err := validatePlayDocument(filepath.Dir(file), []*Document{valid}); err == nil || !strings.Contains(err.Error(), "regular") {
+	if err := validatePlayDocument(filepath.Dir(file), []*giztest.Document{valid}); err == nil || !strings.Contains(err.Error(), "regular") {
 		t.Fatalf("directory error = %v", err)
 	}
 }
 
 func TestMarkPlayReportFailed(t *testing.T) {
-	report := Report{Status: "passed", Tasks: []TaskReport{{Status: "passed"}}}
+	report := giztest.Report{Status: "passed", Tasks: []giztest.TaskReport{{Status: "passed"}}}
 	markPlayReportFailed(&report, errors.New("close failed"))
 	if report.Status != "failed" || report.Tasks[0].Status != "failed" || report.Tasks[0].Error != "close failed" {
 		t.Fatalf("report = %#v", report)

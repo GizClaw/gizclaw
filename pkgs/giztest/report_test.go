@@ -11,7 +11,7 @@ import (
 func TestWriteReportIsRedactedAndAtomic(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "report.json")
 	r := Report{Version: "v1", Status: "passed", Tasks: []TaskReport{{Name: "case", Status: "passed"}}}
-	if err := writeReport(path, r); err != nil {
+	if err := WriteReport(path, r); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -38,7 +38,7 @@ func TestWriteReportIncludesExplicitRetryAttempts(t *testing.T) {
 			}},
 		}},
 	}
-	if err := writeReport(path, r); err != nil {
+	if err := WriteReport(path, r); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -53,8 +53,8 @@ func TestWriteReportIncludesExplicitRetryAttempts(t *testing.T) {
 }
 
 func TestSafeErrorRedactsExactValues(t *testing.T) {
-	got := safeError(errors.New("request failed for opaque-value"), "opaque-value")
+	got := SafeError(errors.New("request failed for opaque-value"), "opaque-value")
 	if got != "request failed for [REDACTED]" {
-		t.Fatalf("safeError() = %q", got)
+		t.Fatalf("SafeError() = %q", got)
 	}
 }

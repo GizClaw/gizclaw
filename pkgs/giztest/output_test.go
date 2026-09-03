@@ -12,7 +12,7 @@ func TestEmitOutputRejectsSecretAndMedia(t *testing.T) {
 		"audio":  {data: []byte{1}, spec: VariableSpec{Type: "audio"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := emitOutput(&bytes.Buffer{}, &variables{values: map[string]value{name: item}}, name); err == nil {
+			if _, err := emitOutput(&bytes.Buffer{}, &Variables{values: map[string]value{name: item}}, name); err == nil {
 				t.Fatal("unsafe output accepted")
 			}
 		})
@@ -21,7 +21,7 @@ func TestEmitOutputRejectsSecretAndMedia(t *testing.T) {
 
 func TestEmitOutputWritesOnlyDeclaredScalar(t *testing.T) {
 	var output bytes.Buffer
-	vars := &variables{values: map[string]value{"status": {data: "ready", spec: VariableSpec{Type: "string"}}}}
+	vars := &Variables{values: map[string]value{"status": {data: "ready", spec: VariableSpec{Type: "string"}}}}
 	if _, err := emitOutput(&output, vars, "status"); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestEmitOutputWritesOnlyDeclaredScalar(t *testing.T) {
 }
 
 func TestEmitOutputBoundsUntrustedText(t *testing.T) {
-	vars, err := newVariables(map[string]VariableSpec{"evidence": {Direction: "input", Type: "string", Value: strings.Repeat("界", maxOutputTextBytes)}})
+	vars, err := NewVariables(map[string]VariableSpec{"evidence": {Direction: "input", Type: "string", Value: strings.Repeat("界", maxOutputTextBytes)}})
 	if err != nil {
 		t.Fatal(err)
 	}

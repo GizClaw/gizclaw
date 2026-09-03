@@ -1,9 +1,10 @@
-package giztest
+package giztestcmd
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/spf13/cobra"
 )
 
@@ -39,7 +40,7 @@ func newPlayCmd() *cobra.Command {
 	var output string
 	cmd := &cobra.Command{
 		Use:   "play [--output <record-directory>] <file.giztest.yaml>",
-		Short: "Run and audibly play one Giztest document",
+		Short: "giztest.Run and audibly play one Giztest document",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return codedError(exitValidation, fmt.Errorf("play requires exactly one Giztest file"))
@@ -50,11 +51,11 @@ func newPlayCmd() *cobra.Command {
 			if err := validatePlayOutput(output); err != nil {
 				return codedError(exitValidation, err)
 			}
-			paths, err := discover(args)
+			paths, err := giztest.Discover(args)
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
-			docs, err := loadDocuments(paths)
+			docs, err := giztest.LoadDocuments(paths, newDriver(false, nil))
 			if err != nil {
 				return codedError(exitValidation, err)
 			}
@@ -78,11 +79,11 @@ func newPlayCmd() *cobra.Command {
 				_ = session.close()
 				return codedError(exitExecution, err)
 			}
-			report := runDocuments(cmd.Context(), docs, runOptions{
-				parallel:      1,
-				in:            os.Stdin,
-				out:           cmd.OutOrStdout(),
-				audioObserver: session.observe,
+			report := giztest.Run(cmd.Context(), docs, giztest.Options{
+				Driver:   newDriver(false, session.observe),
+				Parallel: 1,
+				In:       os.Stdin,
+				Out:      cmd.OutOrStdout(),
 			})
 			if closeErr := session.close(); closeErr != nil {
 				markPlayReportFailed(&report, fmt.Errorf("close playback: %w", closeErr))
@@ -111,7 +112,7 @@ func newPlayCmd() *cobra.Command {
 	return cmd
 }
 
-func markPlayReportFailed(report *Report, err error) {
+func markPlayReportFailed(report *giztest.Report, err error) {
 	if report == nil || err == nil {
 		return
 	}
@@ -121,7 +122,7 @@ func markPlayReportFailed(report *Report, err error) {
 	}
 	report.Tasks[0].Status = "failed"
 	if report.Tasks[0].Error == "" {
-		report.Tasks[0].Error = safeError(err)
+		report.Tasks[0].Error = giztest.SafeError(err)
 	}
 }
 func newValidateCmd() *cobra.Command {
@@ -132,11 +133,11 @@ func newValidateCmd() *cobra.Command {
 		}
 		return nil
 	}, RunE: func(cmd *cobra.Command, _ []string) error {
-		paths, err := discover(files)
+		paths, err := giztest.Discover(files)
 		if err != nil {
 			return codedError(exitValidation, err)
 		}
-		docs, err := loadDocuments(paths)
+		docs, err := giztest.LoadDocuments(paths, newDriver(false, nil))
 		if err != nil {
 			return codedError(exitValidation, err)
 		}
@@ -151,7 +152,7 @@ func newRunCmd() *cobra.Command {
 	var parallel int
 	var output string
 	var evidence string
-	cmd := &cobra.Command{Use: "run <file-or-directory>...", Short: "Run Giztest documents", Args: func(_ *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "run <file-or-directory>...", Short: "giztest.Run Giztest documents", Args: func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return codedError(exitValidation, fmt.Errorf("run requires at least one file or directory"))
 		}
@@ -160,11 +161,12 @@ func newRunCmd() *cobra.Command {
 		if err := validateRunOptions(parallel, output, evidence); err != nil {
 			return codedError(exitValidation, err)
 		}
-		paths, err := discover(args)
+		paths, err := giztest.Discover(args)
 		if err != nil {
 			return codedError(exitValidation, err)
 		}
-		docs, err := loadDocuments(paths)
+		fullEvidence := evidence == "full"
+		docs, err := giztest.LoadDocuments(paths, newDriver(fullEvidence, nil))
 		if err != nil {
 			return codedError(exitValidation, err)
 		}
@@ -173,8 +175,13 @@ func newRunCmd() *cobra.Command {
 				return codedError(exitValidation, fmt.Errorf("review document %s requires --parallel 1", doc.Name))
 			}
 		}
-		report := runDocuments(cmd.Context(), docs, runOptions{parallel: parallel, in: os.Stdin, out: cmd.OutOrStdout(), fullEvidence: evidence == "full"})
-		if err := writeReport(output, report); err != nil {
+		report := giztest.Run(cmd.Context(), docs, giztest.Options{
+			Driver:   newDriver(fullEvidence, nil),
+			Parallel: parallel,
+			In:       os.Stdin,
+			Out:      cmd.OutOrStdout(),
+		})
+		if err := giztest.WriteReport(output, report); err != nil {
 			return codedError(exitExecution, err)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Giztest %s: %d tasks in %dms\n", report.Status, len(report.Tasks), report.DurationMS)
@@ -205,7 +212,7 @@ func validateRunOptions(parallel int, output, evidence string) error {
 	return nil
 }
 
-func reportHasReviewFailure(report Report) bool {
+func reportHasReviewFailure(report giztest.Report) bool {
 	for _, task := range report.Tasks {
 		for _, step := range task.Steps {
 			if step.Operation == "review" && step.Status != "passed" {
