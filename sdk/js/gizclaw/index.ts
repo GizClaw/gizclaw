@@ -2100,6 +2100,16 @@ function deviceControlTextTooLong(value: string): boolean {
   return new TextEncoder().encode(value).length > DEVICE_CONTROL_MAX_BYTES;
 }
 
+// Inbound RPC parameters are untrusted, so an optional duration must be a
+// non-negative integer before it reaches a handler. `undefined` means absent.
+function deviceControlDuration(value: unknown): number | undefined | null {
+  if (value == null) {
+    return undefined;
+  }
+  const duration = Number(value);
+  return Number.isInteger(duration) && duration >= 0 ? duration : null;
+}
+
 // answerClientRequest answers one inbound client.* RPC from the handlers the
 // caller installed. An unhandled method answers METHOD_NOT_FOUND so the server
 // maps it to 501 DEVICE_UNSUPPORTED, matching the Go and Dart SDKs.
@@ -2140,10 +2150,15 @@ async function answerClientRequest(
         }
         const params = request.params as ClientDeviceVolumeSetRequest;
         const level = Number(params?.level);
-        if (!Number.isInteger(level) || level < 0 || level > 100) {
+        if (
+          !Number.isInteger(level) ||
+          level < 0 ||
+          level > 100 ||
+          typeof params?.muted !== "boolean"
+        ) {
           return invalid();
         }
-        return ok(await handler(level, params.muted === true));
+        return ok(await handler(level, params.muted));
       }
       case "client.device.sound.play": {
         const handler = control?.playSound;
@@ -2159,7 +2174,11 @@ async function answerClientRequest(
         ) {
           return invalid();
         }
-        await handler(sound, params.duration_ms);
+        const durationMs = deviceControlDuration(params.duration_ms);
+        if (durationMs === null) {
+          return invalid();
+        }
+        await handler(sound, durationMs);
         return ok({});
       }
       case "client.device.reboot": {
@@ -2168,7 +2187,11 @@ async function answerClientRequest(
           return unsupported();
         }
         const params = request.params as ClientDeviceRebootRequest | undefined;
-        await handler(params?.delay_ms);
+        const delayMs = deviceControlDuration(params?.delay_ms);
+        if (delayMs === null) {
+          return invalid();
+        }
+        await handler(delayMs);
         return ok({});
       }
       case "client.wifi.status.get": {
