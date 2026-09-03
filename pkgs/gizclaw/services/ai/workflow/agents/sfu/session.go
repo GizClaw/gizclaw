@@ -81,6 +81,16 @@ var opusSilencePrefix = []byte{0xf8, 0xff, 0xfe}
 // track. Downlink: the session grants the floor to one remote utterance at a
 // time and forwards only that participant's raw Opus packets to the device
 // as passthrough audio; nothing is decoded on this path.
+//
+// The floor is per-listener state, not a room-wide decision: there is no
+// arbitrator and no total order over the data channel. When several
+// participants open an utterance at once, the reliable messages can reach two
+// listeners in different orders, so those listeners can lock onto different
+// speakers. That is intended. What half-duplex guarantees here is that any one
+// listener hears exactly one speaker at a time and that a speaker receives no
+// downlink at all, not that the whole Room converges on the same speaker.
+// Room-wide convergence would need an arbitrator, which would put a network
+// round trip in front of every utterance.
 type session struct {
 	agent     *Agent
 	peer      string

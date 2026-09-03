@@ -2919,6 +2919,9 @@ type WorkflowListResponse struct {
 	RuntimeProfileRevision string     `json:"runtime_profile_revision"`
 }
 
+// SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+type SFUWorkflowSpec = map[string]any
+
 // ToolkitPolicy defines model for ToolkitPolicy.
 type ToolkitPolicy struct {
 	// ToolNames Explicit list of Peer-scoped Tool names an agent runtime may see. Omit to inherit a broader policy; set an empty list to expose no tools.
@@ -2936,7 +2939,10 @@ type WorkflowSpec struct {
 	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 	Memory               *string                           `json:"memory,omitempty"`
 	Pet                  *PetWorkflowSpec                  `json:"pet,omitempty"`
-	Toolkit              *ToolkitPolicy                    `json:"toolkit,omitempty"`
+
+	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+	Sfu     *SFUWorkflowSpec `json:"sfu,omitempty"`
+	Toolkit *ToolkitPolicy   `json:"toolkit,omitempty"`
 }
 
 // Workspace defines model for Workspace.

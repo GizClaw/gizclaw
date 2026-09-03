@@ -406,6 +406,47 @@ func TestAdminCreateFriendGroupRejectsDuplicateCallerID(t *testing.T) {
 	}
 }
 
+// TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores pins that a
+// membership is deleted from the very keys createMember wrote. The member and
+// belong stores are mounted under prefixes the Server's own prefix fields do
+// not name, so a delete that trusted those fields would silently remove
+// nothing and leave the removed Peer able to keep talking in the Room.
+func TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores(t *testing.T) {
+	ctx := t.Context()
+	root := kv.NewMemory(nil)
+	s := newTestServer(t)
+	s.Groups = kv.Prefixed(root, kv.Key{"groups"})
+	s.InviteTokens = kv.Prefixed(root, kv.Key{"invite-tokens"})
+	s.Members = kv.Prefixed(root, kv.Key{"members"})
+	s.Belongs = kv.Prefixed(root, kv.Key{"belongs"})
+	s.RelationshipStore = root
+	s.GroupRelationshipPrefix = kv.Key{"groups"}
+	s.InviteRelationshipPrefix = kv.Key{"invite-tokens"}
+	// Deliberately wrong: nothing was ever written under these.
+	s.MemberRelationshipPrefix = kv.Key{"unused-members"}
+	s.BelongRelationshipPrefix = kv.Key{"unused-belongs"}
+
+	group, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
+	if err != nil {
+		t.Fatalf("AdminCreateFriendGroup: %v", err)
+	}
+	if _, err := s.AdminPutFriendGroupMember(ctx, group.Id, "peer-b", "family-b", rpcapi.FriendGroupMemberRoleMember); err != nil {
+		t.Fatalf("AdminPutFriendGroupMember: %v", err)
+	}
+	if _, err := s.AdminDeleteFriendGroupMember(ctx, group.Id, "peer-b"); err != nil {
+		t.Fatalf("AdminDeleteFriendGroupMember: %v", err)
+	}
+	if _, err := s.groupMember(ctx, group.Id, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("groupMember after delete error = %v, want not found", err)
+	}
+	if _, err := s.Belongs.Get(ctx, socialutil.GroupBelongKey("peer-b", group.Id)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("belongs after delete error = %v, want not found", err)
+	}
+	if _, err := s.Belongs.Get(ctx, socialutil.GroupNameKey("peer-b", "family-b")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("name projection after delete error = %v, want not found", err)
+	}
+}
+
 func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing.T) {
 	ctx := t.Context()
 	groups := kv.NewMemory(nil)
@@ -437,15 +478,18 @@ func TestAdminDeleteFriendGroupMemberIsAtomicAndKeepsTheRoom(t *testing.T) {
 	if _, err := s.AdminPutFriendGroupMember(ctx, friendGroupID, "peer-b", "family-b", rpcapi.FriendGroupMemberRoleMember); err != nil {
 		t.Fatalf("AdminPutFriendGroupMember: %v", err)
 	}
+	// removeMember resolves its transaction boundary from the member and
+	// belong stores, so the failure has to be injected there.
 	healthy := s.RelationshipStore
-	s.RelationshipStore = failingBatchMutateStore{Store: healthy}
+	failing := failingBatchMutateStore{Store: healthy}
+	s.RelationshipStore, s.Members, s.Belongs = failing, failing, failing
 	if _, err := s.AdminDeleteFriendGroupMember(ctx, friendGroupID, "peer-b"); err == nil {
 		t.Fatal("AdminDeleteFriendGroupMember with failing relationship store error = nil")
 	}
 	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); err != nil {
 		t.Fatalf("groupMember after failed admin delete = %v, want retained", err)
 	}
-	s.RelationshipStore = healthy
+	s.RelationshipStore, s.Members, s.Belongs = healthy, healthy, healthy
 	if binding, err := s.readWorkspaceBinding(ctx, friendGroupID); err != nil || binding.SFU.Generation != 1 {
 		t.Fatalf("binding after failed delete = %#v, %v, want generation 1", binding, err)
 	}

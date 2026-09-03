@@ -36,17 +36,30 @@ func (s *Server) requireMemberCapacity(ctx context.Context, friendGroupID string
 // refused at once, and the removed Peer's SFU runtime terminates on its next
 // binding recheck.
 func (s *Server) removeMember(ctx context.Context, friendGroupID, peerID string, current rpcapi.FriendGroupMemberObject) error {
-	store, err := s.relationshipStore()
+	members, err := s.membersStore()
 	if err != nil {
 		return err
+	}
+	belongs, err := s.belongsStore()
+	if err != nil {
+		return err
+	}
+	// Resolve the transaction boundary and the key prefixes from the member
+	// and belong stores themselves, exactly as createMember does. Reading the
+	// prefixes off the configured Server fields instead would let a wiring
+	// that binds those stores elsewhere delete keys nobody ever wrote, leaving
+	// the membership in place and the removed Peer still able to talk.
+	store, prefixes, ok := kv.SharedAtomicStore(members, belongs)
+	if !ok {
+		return errors.New("social: group member stores do not share an atomic store")
 	}
 	if err := store.BatchMutate(
 		ctx,
 		nil,
 		[]kv.Key{
-			s.relationshipKey(s.MemberRelationshipPrefix, socialutil.GroupMemberKey(friendGroupID, peerID)),
-			s.relationshipKey(s.BelongRelationshipPrefix, socialutil.GroupBelongKey(peerID, friendGroupID)),
-			s.relationshipKey(s.BelongRelationshipPrefix, socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName))),
+			s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID)),
+			s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)),
+			s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName))),
 		},
 	); err != nil {
 		return err

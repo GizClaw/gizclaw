@@ -1066,6 +1066,14 @@ func (h *PeerConn) audioInputAccepted() bool {
 // authorizeAudioPacket admits a direct Opus packet only for the accepted audio
 // stream of the Peer's current Workspace. Packets of a revoked SFU Workspace
 // are dropped and counted; nothing is cached for later forwarding.
+//
+// This runs once per 20 ms packet, so it deliberately re-checks only the
+// Workspace selection, which is local state. Membership and the SFU binding
+// are resolved when the utterance opens, not per packet: resolving them here
+// would put a shared Social KV read on every packet. Membership revoked in the
+// middle of an utterance therefore stops the forwarding through the SFU
+// session's periodic binding recheck instead, which bounds the exposure by one
+// services.sfu.recheck_interval. The next utterance is refused at BOS.
 func (h *PeerConn) authorizeAudioPacket(ctx context.Context) (bool, error) {
 	if h == nil {
 		return false, nil
