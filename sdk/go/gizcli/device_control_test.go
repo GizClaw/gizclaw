@@ -35,6 +35,9 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	var gotMuted bool
 	var gotSound string
 	var gotDuration, gotDelay *int64
+	var gotScanTimeout *int64
+	var gotConnectSSID string
+	var gotPassphrase *string
 	if err := device.HandleDeviceControl(DeviceControlHandlers{
 		Status: func(context.Context) (rpcapi.PeerStatus, error) { return rpcapi.PeerStatus{Volume: new(50)}, nil },
 		SetVolume: func(_ context.Context, level int64, muted bool) (rpcapi.PeerStatus, error) {
@@ -58,6 +61,14 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 			if ssid != "office" {
 				return ErrDeviceResourceNotFound
 			}
+			return nil
+		},
+		ScanWifi: func(_ context.Context, timeoutMs *int64) ([]rpcapi.WifiScanResult, error) {
+			gotScanTimeout = timeoutMs
+			return []rpcapi.WifiScanResult{{Ssid: "office", RssiDbm: new(int64(-42))}}, nil
+		},
+		ConnectWifi: func(_ context.Context, ssid string, passphrase *string) error {
+			gotConnectSSID, gotPassphrase = ssid, passphrase
 			return nil
 		},
 	}); err != nil {
@@ -127,7 +138,21 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	}); resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
 		t.Fatalf("forget missing = %#v", resp)
 	}
-	if len(observed) != 10 {
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiScan, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientWifiScanRequest(rpcapi.ClientWifiScanRequest{TimeoutMs: new(int64(8000))})
+	})
+	scan, err := resp.Result.AsClientWifiScanResponse()
+	if err != nil || len(scan.Networks) != 1 || scan.Networks[0].Ssid != "office" || gotScanTimeout == nil || *gotScanTimeout != 8000 {
+		t.Fatalf("scan = %+v, %v timeout=%v", scan, err, gotScanTimeout)
+	}
+	passphrase := "correct-horse"
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiConnect, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientWifiConnectRequest(rpcapi.ClientWifiConnectRequest{Ssid: "office", Passphrase: &passphrase})
+	})
+	if resp.Error != nil || gotConnectSSID != "office" || gotPassphrase == nil || *gotPassphrase != passphrase {
+		t.Fatalf("connect = %#v ssid=%q passphrase=%v", resp, gotConnectSSID, gotPassphrase)
+	}
+	if len(observed) != 12 {
 		t.Fatalf("observed %d valid dispatches: %v", len(observed), observed)
 	}
 }
@@ -136,6 +161,7 @@ func TestRPCClientDeviceControlUnsupportedAndFailures(t *testing.T) {
 	// No handlers installed: every device method is METHOD_NOT_FOUND.
 	for _, method := range []rpcapi.RPCMethod{
 		rpcapi.RPCMethodClientDeviceStatusGet, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
+		rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect,
 	} {
 		resp := deviceControlDispatch(t, &Client{}, method, nil)
 		if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound {

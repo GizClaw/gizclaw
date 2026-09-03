@@ -19,9 +19,12 @@ import {
   type ClientGetIdentifiersResponse,
   type ClientGetInfoResponse,
   type ClientWifiSavedForgetRequest,
+  type ClientWifiConnectRequest,
+  type ClientWifiScanRequest,
   type PeerStatus,
   type WifiSavedNetwork,
   type WifiStatus,
+  type WifiScanResult,
 } from "./generated/rpc/payload-codec.ts";
 import {
   base58Decode,
@@ -164,10 +167,14 @@ export type GizClawDeviceStatus = Omit<PeerStatus, "details" | "labels"> &
 // handler answers METHOD_NOT_FOUND, which the server maps to
 // 501 DEVICE_UNSUPPORTED.
 export type GizClawDeviceControlHandlers = {
+  connectWifi?: (ssid: string, passphrase?: string) => Promise<void> | void;
   forgetWifi?: (ssid: string) => Promise<void> | void;
   playSound?: (sound: string, durationMs?: number) => Promise<void> | void;
   reboot?: (delayMs?: number) => Promise<void> | void;
   savedWifi?: () => Promise<WifiSavedNetwork[]> | WifiSavedNetwork[];
+  scanWifi?: (
+    timeoutMs?: number,
+  ) => Promise<WifiScanResult[]> | WifiScanResult[];
   setVolume?: (
     level: number,
     muted: boolean,
@@ -2377,6 +2384,45 @@ async function answerClientRequest(
           return invalid();
         }
         await handler(ssid);
+        return ok({});
+      }
+      case "client.wifi.scan": {
+        const handler = control?.scanWifi;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientWifiScanRequest | undefined;
+        const timeoutMs = params?.timeout_ms;
+        if (
+          timeoutMs != null &&
+          (!Number.isInteger(timeoutMs) ||
+            timeoutMs < 1000 ||
+            timeoutMs > 15000)
+        ) {
+          return invalid();
+        }
+        return ok({ networks: await handler(timeoutMs) });
+      }
+      case "client.wifi.connect": {
+        const handler = control?.connectWifi;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as ClientWifiConnectRequest;
+        const ssid = params?.ssid;
+        const passphrase = params?.passphrase;
+        if (
+          typeof ssid !== "string" ||
+          ssid.length === 0 ||
+          deviceControlTextTooLong(ssid) ||
+          (passphrase != null &&
+            (typeof passphrase !== "string" ||
+              new TextEncoder().encode(passphrase).length < 8 ||
+              new TextEncoder().encode(passphrase).length > 63))
+        ) {
+          return invalid();
+        }
+        await handler(ssid, passphrase);
         return ok({});
       }
       default:

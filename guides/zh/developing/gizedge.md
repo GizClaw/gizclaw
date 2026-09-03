@@ -85,7 +85,7 @@ Server 从 accepted `SessionDeclaration` 取得同一个 tunnel session identifi
 Edge workspace 配置描述当前节点运行所需的基础信息：
 
 - Edge Node 自身的 giznet identity。
-- `webrtc` transport listen/endpoint，以及一个或多个 HTTP/signaling listener。
+- `webrtc` transport listen/endpoint、可选的公网 HTTP endpoint，以及一个或多个 HTTP/signaling listener。
 - 至少一个有序 upstream Server entry；每个 entry 固定 endpoint、public key，以及可选的
   Edge-to-Server relay-only TURN pool。
 - 可选的逐 listener TLS 证书文件。
@@ -97,12 +97,15 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 `webrtc.listen` 是 WebRTC transport 的本地 bind tuple，同时必须等于
 `http.listeners[0].listen`。Edge 在同一 host 和数字端口上打开独立的
 TCP 与 UDP socket：第一个 TCP listener 承载 public HTTP 与 signaling，启用 gateway 时 UDP 承载 ICE、
-DTLS、SCTP 与 DataChannel。`webrtc.endpoint` 是对应的外部可达 tuple，并通过
-`/server-info.transport.endpoint` 发布；当 host 是具体 literal IP 时，gateway 还会把
+DTLS、SCTP 与 DataChannel。`webrtc.endpoint` 是外部可达的 ICE UDP tuple，并通过顶层
+`/server-info.endpoint` 发布；当 host 是具体 literal IP 时，gateway 还会把
 answer SDP 的 UDP host candidate 改写为完全相同的 host 和 port。Hostname 或 unspecified
 address 不触发 DNS lookup，也不会伪造 public candidate。额外的 HTTP listener 只增加 TCP
-HTTP/HTTPS 入口，不发布 ICE candidate，也不创建 UDP socket。NAT 或 container 部署可以让本地
-tuple 与外部 tuple 不同，但唯一的外部 `endpoint` 必须同时映射 TCP 和 UDP。可选的
+HTTP/HTTPS 入口，不发布 ICE candidate，也不创建 UDP socket。可选的 `http.endpoint` 是通过
+`/server-info.transport.endpoint` 发布的绝对 `http` 或 `https` 公网 access-point base URL，
+因此可以使用与 ICE UDP tuple 不同的 host 和 port。省略时 transport endpoint 回退为
+`webrtc.endpoint`，兼容原有的明文单入口部署。URL 可以包含 path prefix，但不能包含 userinfo、
+query、fragment、空 path segment 或无效 port；非法取值会在 listener 打开前失败。可选的
 `turn.listen` 与 `turn.public-endpoint` 保持独立，因为它们配置的是 downstream relay
 service，而不是客户端 HTTP/WebRTC 入口。
 
@@ -167,8 +170,9 @@ HTTP listener 按声明顺序启动，每个 listener 可省略 `tls` 提供明�
 ```yaml
 webrtc:
   listen: 0.0.0.0:9821
-  endpoint: edge.example.com:443
+  endpoint: 192.0.2.10:9821
 http:
+  endpoint: https://ap.gizclaw.com
   listeners:
     - listen: 0.0.0.0:9821
     - listen: 0.0.0.0:443
@@ -185,7 +189,7 @@ Public ingress 负责：
 - 将允许的 browser/device API 请求转发给 authoritative Server。
 - 为浏览器请求提供 ingress 所需的 CORS 行为。
 - CORS 使用请求中的实际 `Origin` 并返回 `Vary: Origin`；受支持路径的 `OPTIONS` 预检在 Edge 终止，不占用 upstream，方法与 headers contract 和 authoritative Public HTTP 保持一致。
-- 在 server-info response 中发布 Edge Node 对外 endpoint。
+- 在 server-info response 中分别发布 Edge HTTP access point 与 ICE UDP endpoint。
 - 在进程停止时关闭 HTTP server、上游 connection 和相关 listener。
 
 Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product route 的业务实现。具体 route 由 `pkgs/gizclaw` Server 提供，Edge 只转发公开 surface。

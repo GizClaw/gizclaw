@@ -297,6 +297,33 @@ class GizClawControlClient {
     );
   }
 
+  /// `POST /gizclaw/v1/device/wifi/scan`.
+  Future<DeviceWifiScanResponse> scanDeviceWifi([
+    DeviceWifiScanRequest request = const DeviceWifiScanRequest(),
+  ]) {
+    return _json(
+      'POST',
+      '/device/wifi/scan',
+      DeviceWifiScanResponse.fromJson,
+      body: request.toJson(),
+      operation: 'scanDeviceWifi',
+    );
+  }
+
+  /// `PUT /gizclaw/v1/device/wifi`.
+  ///
+  /// A successful return means the device accepted the credentials and began
+  /// switching networks. Poll [getDeviceWifi] after the device reconnects to
+  /// observe whether it joined [request.ssid].
+  Future<void> connectDeviceWifi(DeviceWifiConnectRequest request) {
+    return _noContent(
+      'PUT',
+      '/device/wifi',
+      body: request.toJson(),
+      operation: 'connectDeviceWifi',
+    );
+  }
+
   /// `GET /gizclaw/v1/device/wifi/saved`.
   Future<DeviceWifiSavedList> listDeviceSavedWifi() {
     return _json(

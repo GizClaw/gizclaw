@@ -705,6 +705,79 @@ class DeviceWifiSavedList {
   };
 }
 
+/// Body of `POST /gizclaw/v1/device/wifi/scan`.
+class DeviceWifiScanRequest {
+  const DeviceWifiScanRequest({this.timeoutMs});
+
+  final int? timeoutMs;
+
+  JsonObject toJson() => withoutNulls({'timeout_ms': timeoutMs});
+}
+
+/// One nearby Wi-Fi network reported by the device.
+class WifiScanResult {
+  const WifiScanResult({
+    required this.ssid,
+    this.bssid,
+    this.rssiDbm,
+    this.frequencyMhz,
+    this.security,
+  });
+
+  factory WifiScanResult.fromJson(Object? json) {
+    final object = asJsonObject(json, 'WifiScanResult');
+    return WifiScanResult(
+      ssid: readString(object, 'ssid'),
+      bssid: readOptionalString(object, 'bssid'),
+      rssiDbm: readOptionalInt(object, 'rssi_dbm'),
+      frequencyMhz: readOptionalInt(object, 'frequency_mhz'),
+      security: readOptionalString(object, 'security'),
+    );
+  }
+
+  final String ssid;
+  final String? bssid;
+  final int? rssiDbm;
+  final int? frequencyMhz;
+  final String? security;
+
+  JsonObject toJson() => withoutNulls({
+    'ssid': ssid,
+    'bssid': bssid,
+    'rssi_dbm': rssiDbm,
+    'frequency_mhz': frequencyMhz,
+    'security': security,
+  });
+}
+
+/// Nearby Wi-Fi networks returned by a device scan.
+class DeviceWifiScanResponse {
+  const DeviceWifiScanResponse({required this.networks});
+
+  factory DeviceWifiScanResponse.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceWifiScanResponse');
+    return DeviceWifiScanResponse(
+      networks: readList(object, 'networks', WifiScanResult.fromJson),
+    );
+  }
+
+  final List<WifiScanResult> networks;
+
+  JsonObject toJson() => {
+    'networks': networks.map((item) => item.toJson()).toList(growable: false),
+  };
+}
+
+/// Body of `PUT /gizclaw/v1/device/wifi`.
+class DeviceWifiConnectRequest {
+  const DeviceWifiConnectRequest({required this.ssid, this.passphrase});
+
+  final String ssid;
+  final String? passphrase;
+
+  JsonObject toJson() => withoutNulls({'ssid': ssid, 'passphrase': passphrase});
+}
+
 /// One contact owned by the bound device (`Contact`).
 class Contact {
   const Contact({

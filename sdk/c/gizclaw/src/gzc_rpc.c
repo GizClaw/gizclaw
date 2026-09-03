@@ -55,8 +55,12 @@ struct gzc_rpc_request {
   bool saw_response;
   bool saw_continuation;
   bool write_finished;
+  bool notify_armed;
+  bool notified;
   gzc_rpc_frame_cb on_frame;
   void *frame_userdata;
+  gzc_rpc_complete_cb on_complete;
+  void *complete_userdata;
 };
 
 static int request_terminalize(gzc_rpc_request_t *request, int status);
@@ -128,6 +132,22 @@ static int request_queue_frame(gzc_rpc_request_t *request,
   return progress_rc == GZC_ERR_WOULD_BLOCK ? GZC_OK : progress_rc;
 }
 
+/*
+ * Delivers the terminal notification once the request owns its final status and
+ * stored response. Arming happens only after the request is handed to the
+ * caller, so a start that fails and frees the request never notifies.
+ */
+static void request_notify_complete(gzc_rpc_request_t *request) {
+  if (request == NULL || request->notified || !request->notify_armed ||
+      request->status == GZC_ERR_WOULD_BLOCK) {
+    return;
+  }
+  request->notified = true;
+  if (request->on_complete != NULL) {
+    request->on_complete(request->complete_userdata, request, request->status);
+  }
+}
+
 static int request_terminalize(gzc_rpc_request_t *request, int status) {
   if (request == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -135,6 +155,7 @@ static int request_terminalize(gzc_rpc_request_t *request, int status) {
   if (request->status == GZC_ERR_WOULD_BLOCK) {
     request->status = status;
   }
+  request_notify_complete(request);
   return request->status;
 }
 
@@ -550,6 +571,7 @@ static int rpc_request_start_internal(
     bool finish_write,
     gzc_rpc_frame_cb on_frame,
     void *frame_userdata,
+    const gzc_rpc_request_options_t *options,
     gzc_rpc_request_t **out_request) {
   if (out_request != NULL) {
     *out_request = NULL;
@@ -574,6 +596,10 @@ static int rpc_request_start_internal(
   request->status = GZC_ERR_WOULD_BLOCK;
   request->on_frame = on_frame;
   request->frame_userdata = frame_userdata;
+  if (options != NULL) {
+    request->on_complete = options->on_complete;
+    request->complete_userdata = options->complete_userdata;
+  }
   gzc_buf_init(&request->rx);
   gzc_buf_init(&request->envelope);
   gzc_buf_init(&request->response_payload);
@@ -612,6 +638,8 @@ static int rpc_request_start_internal(
     request_release_channel(request);
   }
   *out_request = request;
+  request->notify_armed = true;
+  request_notify_complete(request);
   return GZC_OK;
 }
 
@@ -621,6 +649,7 @@ int gzc_rpc_request_start(
     gizclaw_rpc_v1_RpcMethod method,
     gzc_str_t params_payload,
     int timeout_ms,
+    const gzc_rpc_request_options_t *options,
     gzc_rpc_request_t **out_request) {
   return rpc_request_start_internal(
       client,
@@ -631,6 +660,7 @@ int gzc_rpc_request_start(
       true,
       NULL,
       NULL,
+      options,
       out_request);
 }
 
@@ -642,6 +672,7 @@ int gzc_rpc_request_start_stream(
     int timeout_ms,
     gzc_rpc_frame_cb on_frame,
     void *userdata,
+    const gzc_rpc_request_options_t *options,
     gzc_rpc_request_t **out_request) {
   if (on_frame == NULL) {
     if (out_request != NULL)
@@ -650,7 +681,7 @@ int gzc_rpc_request_start_stream(
   }
   return rpc_request_start_internal(
       client, service, method, params_payload, timeout_ms, false,
-      on_frame, userdata, out_request);
+      on_frame, userdata, options, out_request);
 }
 
 int gzc_rpc_request_write(gzc_rpc_request_t *request,
@@ -948,6 +979,8 @@ static bool inbound_is_client_method(gizclaw_rpc_v1_RpcMethod method) {
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST:
   case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN:
+  case gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT:
     return true;
   default:
     return false;

@@ -54,8 +54,9 @@ type UpstreamConfig struct {
 	ICEServers         []gizwebrtc.ICEServer `yaml:"ice-servers"`
 }
 
-// HTTPConfig defines the ordered public HTTP and HTTPS listeners.
+// HTTPConfig defines the public HTTP access point and ordered HTTP/HTTPS listeners.
 type HTTPConfig struct {
+	Endpoint  string               `yaml:"endpoint"`
 	Listeners []HTTPListenerConfig `yaml:"listeners"`
 }
 
@@ -273,6 +274,9 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("edge: http.listeners must not be empty")
 	}
+	if cfg.HTTP.Endpoint == "" && fileCfg.HTTP != nil {
+		cfg.HTTP.Endpoint = fileCfg.HTTP.Endpoint
+	}
 	if len(cfg.HTTP.Listeners) == 0 && fileCfg.HTTP != nil {
 		cfg.HTTP.Listeners = append([]HTTPListenerConfig(nil), fileCfg.HTTP.Listeners...)
 	}
@@ -329,6 +333,12 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	if len(cfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("edge: http.listeners is required")
 	}
+	if cfg.HTTP.Endpoint != "" {
+		cfg.HTTP.Endpoint, err = normalizeHTTPPublicEndpoint(cfg.HTTP.Endpoint)
+		if err != nil {
+			return Config{}, fmt.Errorf("edge: invalid http.endpoint: %w", err)
+		}
+	}
 	for index := range cfg.HTTP.Listeners {
 		cfg.HTTP.Listeners[index].TLS.CertFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.CertFile)
 		cfg.HTTP.Listeners[index].TLS.KeyFile = os.ExpandEnv(cfg.HTTP.Listeners[index].TLS.KeyFile)
@@ -338,6 +348,41 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+func normalizeHTTPPublicEndpoint(endpoint string) (string, error) {
+	value := strings.TrimSpace(endpoint)
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.Hostname() == "" || parsed.Opaque != "" {
+		return "", fmt.Errorf("must be an absolute http or https URL")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("scheme must be http or https")
+	}
+	if parsed.User != nil || parsed.ForceQuery || parsed.RawQuery != "" || strings.Contains(value, "#") {
+		return "", fmt.Errorf("must not contain userinfo, query, or fragment")
+	}
+	if strings.HasSuffix(parsed.Host, ":") {
+		return "", fmt.Errorf("port must not be empty")
+	}
+	if port := parsed.Port(); port != "" {
+		portNumber, err := strconv.Atoi(port)
+		if err != nil || portNumber < 1 || portNumber > 65535 {
+			return "", fmt.Errorf("port must be between 1 and 65535")
+		}
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	if strings.Contains(path, "//") {
+		return "", fmt.Errorf("path must not contain empty segments")
+	}
+	return (&url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: path}).String(), nil
+}
+
+func (cfg Config) publicHTTPEndpoint() string {
+	if cfg.HTTP.Endpoint != "" {
+		return cfg.HTTP.Endpoint
+	}
+	return cfg.WebRTC.Endpoint
 }
 
 func (cfg Config) validate() error {

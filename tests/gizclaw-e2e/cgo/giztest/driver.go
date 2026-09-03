@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
@@ -27,7 +28,7 @@ import (
 // skipping the step.
 type driver struct{}
 
-func (driver) Operations() []string { return []string{"rpc", "client_rpc", "http"} }
+func (driver) Operations() []string { return []string{"rpc", "client_rpc", "http", "reconnect"} }
 
 func (driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 	switch step.Operation() {
@@ -207,6 +208,10 @@ func (s *session) Execute(ctx context.Context, req giztest.StepRequest) (giztest
 		return s.executeClientRPC(ctx, client, req)
 	case "http":
 		return s.executeHTTP(ctx, client, req)
+	case "reconnect":
+		bounded, cancel := reconnectContext(ctx, req.Step)
+		defer cancel()
+		return giztest.StepResult{}, client.reconnect(bounded)
 	}
 	return giztest.StepResult{}, fmt.Errorf("unsupported operation %q", req.Step.Operation())
 }
@@ -354,9 +359,24 @@ type deviceClient struct {
 	fingerprint string
 	provider    *clientRPCProvider
 
+	// endpoint and privateKey are kept so reconnect can dial a replacement
+	// connection on the same identity.
+	endpoint   string
+	privateKey string
+
+	// mu guards the channel triple, which reconnect replaces wholesale when
+	// it starts a new poll goroutine.
+	mu       sync.Mutex
 	commands chan func(*cSession)
 	stopped  chan struct{}
 	closeOne chan struct{}
+}
+
+// channels reads the current poll goroutine's channel triple.
+func (c *deviceClient) channels() (chan func(*cSession), chan struct{}, chan struct{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.commands, c.stopped, c.closeOne
 }
 
 func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest.Step) (*deviceClient, error) {
@@ -382,12 +402,14 @@ func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest
 		baseURL:     baseURL,
 		fingerprint: key.Public.ShortString(),
 		provider:    provider,
+		endpoint:    endpoint,
+		privateKey:  key.Private.String(),
 		commands:    make(chan func(*cSession)),
 		stopped:     make(chan struct{}),
 		closeOne:    make(chan struct{}),
 	}
 	ready := make(chan error, 1)
-	go client.run(endpoint, key.Private.String(), ready)
+	go client.run(client.commands, client.stopped, client.closeOne, ready)
 	select {
 	case err := <-ready:
 		if err != nil {
@@ -403,12 +425,12 @@ func newDeviceClient(ctx context.Context, name, endpoint string, steps []giztest
 // run owns the C session for its whole life: it dials, then alternates
 // between running queued commands and polling the transport so inbound
 // server-initiated RPCs are answered while the runner waits elsewhere.
-func (c *deviceClient) run(endpoint, privateKey string, ready chan<- error) {
+func (c *deviceClient) run(commands chan func(*cSession), stopped, closeOne chan struct{}, ready chan<- error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	defer close(c.stopped)
+	defer close(stopped)
 
-	cSession, err := openSession(endpoint, privateKey, c.provider)
+	cSession, err := openSession(c.endpoint, c.privateKey, c.provider)
 	ready <- err
 	if err != nil {
 		return
@@ -416,15 +438,39 @@ func (c *deviceClient) run(endpoint, privateKey string, ready chan<- error) {
 	defer cSession.Close()
 	for {
 		select {
-		case command := <-c.commands:
+		case command := <-commands:
 			command(cSession)
-		case <-c.closeOne:
+		case <-closeOne:
 			return
 		default:
 			if pollErr := cSession.Poll(10); pollErr != nil {
 				return
 			}
 		}
+	}
+}
+
+// reconnect closes this client's connection and opens a replacement on the
+// same identity, which is how a device that switched network or rebooted
+// reaches the Server again. The provider keeps its scripted responses and
+// inbound counts, so expect_calls still sees the total across both
+// connections.
+func (c *deviceClient) reconnect(ctx context.Context) error {
+	c.Close()
+	commands := make(chan func(*cSession))
+	stopped := make(chan struct{})
+	closeOne := make(chan struct{})
+	ready := make(chan error, 1)
+	c.mu.Lock()
+	c.commands, c.stopped, c.closeOne = commands, stopped, closeOne
+	c.mu.Unlock()
+	go c.run(commands, stopped, closeOne, ready)
+	select {
+	case err := <-ready:
+		return err
+	case <-ctx.Done():
+		close(closeOne)
+		return context.Cause(ctx)
 	}
 }
 
@@ -442,9 +488,10 @@ func (c *deviceClient) submit(ctx context.Context, fn func(*cSession)) error {
 		defer close(done)
 		fn(s)
 	}
+	commands, stopped, _ := c.channels()
 	select {
-	case c.commands <- wrapped:
-	case <-c.stopped:
+	case commands <- wrapped:
+	case <-stopped:
 		return fmt.Errorf("client %s is closed", c.name)
 	case <-ctx.Done():
 		return context.Cause(ctx)
@@ -452,7 +499,7 @@ func (c *deviceClient) submit(ctx context.Context, fn func(*cSession)) error {
 	select {
 	case <-done:
 		return nil
-	case <-c.stopped:
+	case <-stopped:
 		return fmt.Errorf("client %s closed during the call", c.name)
 	case <-ctx.Done():
 		return context.Cause(ctx)
@@ -475,6 +522,15 @@ func (c *deviceClient) callRPC(ctx context.Context, method uint32, payload []byt
 	return outcome.result, outcome.err
 }
 
+// reconnectContext bounds a reconnect by the step's await_ms. It governs the
+// replacement dial only, not the lifetime of the connection it opens.
+func reconnectContext(ctx context.Context, step giztest.Step) (context.Context, context.CancelFunc) {
+	if step.Reconnect == nil || step.Reconnect.AwaitMs <= 0 {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, time.Duration(step.Reconnect.AwaitMs)*time.Millisecond)
+}
+
 // remainingTimeoutMS turns the context deadline into the bridge's timeout. A
 // context without one selects the bridge's default.
 func remainingTimeoutMS(ctx context.Context) int {
@@ -490,13 +546,14 @@ func remainingTimeoutMS(ctx context.Context) int {
 }
 
 func (c *deviceClient) Close() {
+	_, stopped, closeOne := c.channels()
 	select {
-	case <-c.stopped:
+	case <-stopped:
 		return
 	default:
 	}
-	close(c.closeOne)
-	<-c.stopped
+	close(closeOne)
+	<-stopped
 }
 
 // controlBaseURL turns a client access point into the origin the controller

@@ -20,9 +20,22 @@ import (
 )
 
 const (
-	deviceControlTimeout = 5 * time.Second
-	maxDeviceSoundBytes  = 32
-	maxDeviceSSIDBytes   = 32
+	deviceControlTimeout   = 5 * time.Second
+	deviceWifiScanTimeout  = 8 * time.Second
+	minWifiScanTimeout     = time.Second
+	maxWifiScanTimeout     = 15 * time.Second
+	maxDeviceSoundBytes    = 32
+	maxDeviceSSIDBytes     = 32
+	minWifiPassphraseBytes = 8
+	maxWifiPassphraseBytes = 63
+
+	// Bounds a device may not exceed in a client.wifi.scan answer. They match
+	// api/proto/rpc/nanopb.options, which only constrains the C SDK; a device
+	// built on any other SDK can answer with more, so the Server enforces them
+	// again before the values reach the Public HTTP contract.
+	maxWifiScanResults    = 32
+	maxWifiScanBSSIDBytes = 17
+	maxWifiSecurityBytes  = 5
 
 	deviceOfflineCode      = "DEVICE_OFFLINE"
 	deviceTimeoutCode      = "DEVICE_TIMEOUT"
@@ -46,8 +59,8 @@ type deviceController struct {
 
 	locks keyedlock.Locker[giznet.PublicKey]
 
-	mu        sync.Mutex
-	rebooting map[giznet.PublicKey]giznet.Conn
+	mu            sync.Mutex
+	transitioning map[giznet.PublicKey]giznet.Conn
 }
 
 func newDeviceController(manager *Manager, status peertelemetry.PeerStatusStore) *deviceController {
@@ -83,13 +96,13 @@ func (c *deviceController) clock() time.Time {
 	return c.now()
 }
 
-// rebootPending reports whether the connection that acknowledged a reboot is
-// still the owner's active connection. A replaced or removed connection clears
-// the marker.
-func (c *deviceController) rebootPending(owner giznet.PublicKey) bool {
+// transitionPending reports whether a connection that acknowledged an action
+// requiring disconnect is still the owner's active connection. A replaced or
+// removed connection clears the marker.
+func (c *deviceController) transitionPending(owner giznet.PublicKey) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conn, ok := c.rebooting[owner]
+	conn, ok := c.transitioning[owner]
 	if !ok {
 		return false
 	}
@@ -97,30 +110,31 @@ func (c *deviceController) rebootPending(owner giznet.PublicKey) bool {
 	if active && current == conn {
 		return true
 	}
-	delete(c.rebooting, owner)
+	delete(c.transitioning, owner)
 	return false
 }
 
-// markRebooting records conn as the connection that acknowledged a reboot.
-// Callers hold the owner command lock so a queued command cannot slip through
-// between the acknowledgement and the marker.
-func (c *deviceController) markRebooting(owner giznet.PublicKey, conn giznet.Conn) {
+// markTransitioning records conn as the connection that acknowledged an action
+// requiring disconnect. Callers hold the owner command lock so a queued command
+// cannot slip through between the acknowledgement and the marker.
+func (c *deviceController) markTransitioning(owner giznet.PublicKey, conn giznet.Conn) {
 	if conn == nil {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.rebooting == nil {
-		c.rebooting = make(map[giznet.PublicKey]giznet.Conn)
+	if c.transitioning == nil {
+		c.transitioning = make(map[giznet.PublicKey]giznet.Conn)
 	}
-	c.rebooting[owner] = conn
+	c.transitioning[owner] = conn
 }
 
 // deviceControlOptions tunes one forwarded control command.
 type deviceControlOptions struct {
-	// markReboot records the connection that answered the command as
-	// rebooting before the owner command lock is released.
-	markReboot bool
+	// markTransition records the connection that answered the command as
+	// transitioning before the owner command lock is released.
+	markTransition bool
+	timeout        time.Duration
 }
 
 // callDeviceControl serializes one control RPC for owner and maps transport,
@@ -136,7 +150,7 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 		return nil, &deviceControlError{Status: http.StatusInternalServerError, Code: publicHTTPInternalErrorCode, Message: http.StatusText(http.StatusInternalServerError)}
 	}
 	defer release()
-	if c.rebootPending(owner) {
+	if c.transitionPending(owner) {
 		return nil, deviceOfflineError()
 	}
 	// Resolve the active connection once and dial the RPC stream on that
@@ -146,7 +160,11 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	if !ok || target == nil {
 		return nil, deviceOfflineError()
 	}
-	callCtx, cancel := context.WithTimeout(ctx, c.controlTimeout())
+	timeout := opts.timeout
+	if timeout <= 0 {
+		timeout = c.controlTimeout()
+	}
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	stream, err := target.Dial(ServicePeerRPC)
 	if err != nil {
@@ -157,8 +175,8 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	if err != nil {
 		return nil, mapDeviceControlError(err, callCtx)
 	}
-	if opts.markReboot {
-		c.markRebooting(owner, target)
+	if opts.markTransition {
+		c.markTransitioning(owner, target)
 	}
 	if after != nil {
 		if err := after(ctx, result); err != nil {
@@ -316,7 +334,7 @@ func (s *peerHTTP) RebootDevice(ctx context.Context, request peerhttp.RebootDevi
 		}
 		params.DelayMs = request.Body.DelayMs
 	}
-	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{markReboot: true}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceRebootResponse, error) {
+	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{markTransition: true}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientDeviceRebootResponse, error) {
 		return client.RebootDevice(ctx, conn, "client.device.reboot", params)
 	}, nil)
 	if controlErr != nil {
@@ -371,6 +389,148 @@ func getDeviceWifiError(e *deviceControlError) peerhttp.GetDeviceWifiResponseObj
 		return peerhttp.GetDeviceWifi500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
 	default:
 		return peerhttp.GetDeviceWifi502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
+	}
+}
+
+func (s *peerHTTP) ScanDeviceWifi(ctx context.Context, request peerhttp.ScanDeviceWifiRequestObject) (peerhttp.ScanDeviceWifiResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
+	if err != nil {
+		return peerhttp.ScanDeviceWifi401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+	}
+	timeout := deviceWifiScanTimeout
+	if request.Body != nil && request.Body.TimeoutMs != nil {
+		timeout = wifiScanTimeout(*request.Body.TimeoutMs)
+	}
+	timeoutMs := timeout.Milliseconds()
+	params := rpcapi.ClientWifiScanRequest{TimeoutMs: &timeoutMs}
+	result, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{timeout: timeout}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiScanResponse, error) {
+		return client.ScanWifi(ctx, conn, "client.wifi.scan", params)
+	}, nil)
+	if controlErr != nil {
+		return scanDeviceWifiError(controlErr), nil
+	}
+	networks, invalid := wifiScanResults(result.Networks)
+	if invalid != nil {
+		return scanDeviceWifiError(invalid), nil
+	}
+	return peerhttp.ScanDeviceWifi200JSONResponse{Networks: networks}, nil
+}
+
+// wifiScanTimeout clamps a caller-supplied scan duration in milliseconds to
+// the supported range.
+//
+// The clamp runs on the integer before the conversion: milliseconds arrive as
+// an unvalidated int64, and multiplying one large enough by time.Millisecond
+// would wrap time.Duration negative and select the minimum where the caller
+// asked for more than the maximum.
+func wifiScanTimeout(milliseconds int64) time.Duration {
+	milliseconds = min(max(milliseconds, minWifiScanTimeout.Milliseconds()), maxWifiScanTimeout.Milliseconds())
+	return time.Duration(milliseconds) * time.Millisecond
+}
+
+// wifiScanResults projects an untrusted device answer onto the Public HTTP
+// contract, rejecting the whole answer when it exceeds the declared bounds.
+//
+// The device is the sole source of these values and only the C SDK is bounded
+// by nanopb, so an unbounded answer would otherwise be reflected verbatim to
+// the API key holder. The failure is reported as a plain device error and
+// never quotes the offending value.
+func wifiScanResults(results []rpcapi.WifiScanResult) ([]peerhttp.DeviceWifiScanResult, *deviceControlError) {
+	if len(results) > maxWifiScanResults {
+		return nil, invalidDeviceScanError()
+	}
+	networks := make([]peerhttp.DeviceWifiScanResult, len(results))
+	for i := range results {
+		network := results[i]
+		if !validDeviceScanString(&network.Ssid, maxDeviceSSIDBytes, true) ||
+			!validDeviceScanString(network.Bssid, maxWifiScanBSSIDBytes, false) ||
+			!validDeviceScanString(network.Security, maxWifiSecurityBytes, false) {
+			return nil, invalidDeviceScanError()
+		}
+		networks[i] = peerhttp.DeviceWifiScanResult{
+			Ssid: network.Ssid, Bssid: network.Bssid, RssiDbm: network.RssiDbm,
+			FrequencyMhz: network.FrequencyMhz, Security: network.Security,
+		}
+	}
+	return networks, nil
+}
+
+// validDeviceScanString reports whether an optional device-provided string
+// fits the contract. An absent value is valid unless the field is required.
+func validDeviceScanString(value *string, maxBytes int, required bool) bool {
+	if value == nil {
+		return !required
+	}
+	if required && *value == "" {
+		return false
+	}
+	return len(*value) <= maxBytes && utf8.ValidString(*value)
+}
+
+func invalidDeviceScanError() *deviceControlError {
+	return &deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned an invalid scan result"}
+}
+
+func scanDeviceWifiError(e *deviceControlError) peerhttp.ScanDeviceWifiResponseObject {
+	body := e.response()
+	switch e.Status {
+	case http.StatusBadRequest:
+		return peerhttp.ScanDeviceWifi400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
+	case http.StatusConflict:
+		return peerhttp.ScanDeviceWifi409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
+	case http.StatusNotImplemented:
+		return peerhttp.ScanDeviceWifi501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
+	case http.StatusGatewayTimeout:
+		return peerhttp.ScanDeviceWifi504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
+	case http.StatusInternalServerError:
+		return peerhttp.ScanDeviceWifi500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
+	default:
+		return peerhttp.ScanDeviceWifi502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
+	}
+}
+
+func (s *peerHTTP) ConnectDeviceWifi(ctx context.Context, request peerhttp.ConnectDeviceWifiRequestObject) (peerhttp.ConnectDeviceWifiResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
+	if err != nil {
+		return peerhttp.ConnectDeviceWifi401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+	}
+	if request.Body == nil {
+		return peerhttp.ConnectDeviceWifi400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "request body is required"))}, nil
+	}
+	if e := validateDeviceString("ssid", request.Body.Ssid, maxDeviceSSIDBytes); e != nil {
+		return connectDeviceWifiError(e), nil
+	}
+	if request.Body.Passphrase != nil {
+		length := len(*request.Body.Passphrase)
+		if length < minWifiPassphraseBytes || length > maxWifiPassphraseBytes {
+			return peerhttp.ConnectDeviceWifi400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "passphrase must be between 8 and 63 bytes"))}, nil
+		}
+	}
+	params := rpcapi.ClientWifiConnectRequest{Ssid: request.Body.Ssid, Passphrase: request.Body.Passphrase}
+	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{markTransition: true}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientWifiConnectResponse, error) {
+		return client.ConnectWifi(ctx, conn, "client.wifi.connect", params)
+	}, nil)
+	if controlErr != nil {
+		return connectDeviceWifiError(controlErr), nil
+	}
+	return peerhttp.ConnectDeviceWifi202Response{}, nil
+}
+
+func connectDeviceWifiError(e *deviceControlError) peerhttp.ConnectDeviceWifiResponseObject {
+	body := e.response()
+	switch e.Status {
+	case http.StatusBadRequest:
+		return peerhttp.ConnectDeviceWifi400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
+	case http.StatusConflict:
+		return peerhttp.ConnectDeviceWifi409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
+	case http.StatusNotImplemented:
+		return peerhttp.ConnectDeviceWifi501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
+	case http.StatusGatewayTimeout:
+		return peerhttp.ConnectDeviceWifi504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
+	case http.StatusInternalServerError:
+		return peerhttp.ConnectDeviceWifi500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
+	default:
+		return peerhttp.ConnectDeviceWifi502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
 	}
 }
 

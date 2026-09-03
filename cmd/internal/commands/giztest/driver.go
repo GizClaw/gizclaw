@@ -34,7 +34,7 @@ func newDriver(fullEvidence bool, observer audioObserver) *driver {
 // Operations lists "await" because session implements
 // giztest.BackgroundSession for peer_stream steps.
 func (d *driver) Operations() []string {
-	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "workspace_relay", "await"}
+	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "await"}
 }
 
 func (d *driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
@@ -137,6 +137,8 @@ func (s *session) Execute(ctx context.Context, req giztest.StepRequest) (giztest
 		return giztest.StepResult{Value: result.body, Saved: result.body, Evidence: result.evidence}, err
 	case "client_rpc":
 		return s.executeClientRPC(ctx, step)
+	case "reconnect":
+		return giztest.StepResult{}, s.clients.reconnect(ctx, step.Client, step.Reconnect.AwaitMs)
 	}
 	return giztest.StepResult{}, fmt.Errorf("unsupported operation %q", step.Operation())
 }

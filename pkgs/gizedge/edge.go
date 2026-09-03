@@ -92,7 +92,7 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 	if gateway != nil {
 		transport = &serverInfoTransport{
 			Mode:          "edge-gateway",
-			Endpoint:      cfg.WebRTC.Endpoint,
+			Endpoint:      cfg.publicHTTPEndpoint(),
 			PublicKey:     cfg.KeyPair.Public.String(),
 			SignalingPath: gizwebrtc.SignalingPath,
 		}

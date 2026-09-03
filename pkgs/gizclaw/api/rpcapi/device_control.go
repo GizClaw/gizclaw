@@ -74,6 +74,34 @@ type ClientWifiSavedForgetRequest struct {
 // ClientWifiSavedForgetResponse acknowledges a forget request.
 type ClientWifiSavedForgetResponse struct{}
 
+// WifiScanResult describes one nearby Wi-Fi network reported by the device.
+type WifiScanResult struct {
+	Ssid         string  `json:"ssid"`
+	Bssid        *string `json:"bssid,omitempty"`
+	RssiDbm      *int64  `json:"rssi_dbm,omitempty"`
+	FrequencyMhz *int64  `json:"frequency_mhz,omitempty"`
+	Security     *string `json:"security,omitempty"`
+}
+
+// ClientWifiScanRequest asks the device to scan for nearby Wi-Fi networks.
+type ClientWifiScanRequest struct {
+	TimeoutMs *int64 `json:"timeout_ms,omitempty"`
+}
+
+// ClientWifiScanResponse carries nearby Wi-Fi networks reported by the device.
+type ClientWifiScanResponse struct {
+	Networks []WifiScanResult `json:"networks"`
+}
+
+// ClientWifiConnectRequest asks the device to join a Wi-Fi network.
+type ClientWifiConnectRequest struct {
+	Ssid       string  `json:"ssid"`
+	Passphrase *string `json:"passphrase,omitempty"`
+}
+
+// ClientWifiConnectResponse acknowledges that the device accepted credentials.
+type ClientWifiConnectResponse struct{}
+
 // AsClientDeviceStatusGetRequest decodes the RPCPayload as a ClientDeviceStatusGetRequest.
 func (t RPCPayload) AsClientDeviceStatusGetRequest() (ClientDeviceStatusGetRequest, error) {
 	var body ClientDeviceStatusGetRequest
@@ -240,4 +268,52 @@ func (t RPCPayload) AsClientWifiSavedForgetResponse() (ClientWifiSavedForgetResp
 // FromClientWifiSavedForgetResponse encodes the ClientWifiSavedForgetResponse into the RPCPayload.
 func (t *RPCPayload) FromClientWifiSavedForgetResponse(v ClientWifiSavedForgetResponse) error {
 	return t.encode("ClientWifiSavedForgetResponse", v)
+}
+
+// AsClientWifiScanRequest decodes the RPCPayload as a ClientWifiScanRequest.
+func (t RPCPayload) AsClientWifiScanRequest() (ClientWifiScanRequest, error) {
+	var body ClientWifiScanRequest
+	err := t.decode("ClientWifiScanRequest", &body)
+	return body, err
+}
+
+// FromClientWifiScanRequest encodes the ClientWifiScanRequest into the RPCPayload.
+func (t *RPCPayload) FromClientWifiScanRequest(v ClientWifiScanRequest) error {
+	return t.encode("ClientWifiScanRequest", v)
+}
+
+// AsClientWifiScanResponse decodes the RPCPayload as a ClientWifiScanResponse.
+func (t RPCPayload) AsClientWifiScanResponse() (ClientWifiScanResponse, error) {
+	var body ClientWifiScanResponse
+	err := t.decode("ClientWifiScanResponse", &body)
+	return body, err
+}
+
+// FromClientWifiScanResponse encodes the ClientWifiScanResponse into the RPCPayload.
+func (t *RPCPayload) FromClientWifiScanResponse(v ClientWifiScanResponse) error {
+	return t.encode("ClientWifiScanResponse", v)
+}
+
+// AsClientWifiConnectRequest decodes the RPCPayload as a ClientWifiConnectRequest.
+func (t RPCPayload) AsClientWifiConnectRequest() (ClientWifiConnectRequest, error) {
+	var body ClientWifiConnectRequest
+	err := t.decode("ClientWifiConnectRequest", &body)
+	return body, err
+}
+
+// FromClientWifiConnectRequest encodes the ClientWifiConnectRequest into the RPCPayload.
+func (t *RPCPayload) FromClientWifiConnectRequest(v ClientWifiConnectRequest) error {
+	return t.encode("ClientWifiConnectRequest", v)
+}
+
+// AsClientWifiConnectResponse decodes the RPCPayload as a ClientWifiConnectResponse.
+func (t RPCPayload) AsClientWifiConnectResponse() (ClientWifiConnectResponse, error) {
+	var body ClientWifiConnectResponse
+	err := t.decode("ClientWifiConnectResponse", &body)
+	return body, err
+}
+
+// FromClientWifiConnectResponse encodes the ClientWifiConnectResponse into the RPCPayload.
+func (t *RPCPayload) FromClientWifiConnectResponse(v ClientWifiConnectResponse) error {
+	return t.encode("ClientWifiConnectResponse", v)
 }

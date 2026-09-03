@@ -80,7 +80,7 @@ business authorization model.
 The Edge workspace configuration describes the basic information required to run the current node:
 
 - The Edge Node's own giznet identity.
-- A `webrtc` transport listen/endpoint and one or more HTTP/signaling listeners.
+- A `webrtc` transport listen/endpoint, an optional public HTTP endpoint, and one or more HTTP/signaling listeners.
 - At least one ordered upstream Server entry; each entry pins an endpoint,
   public key, and optional relay-only TURN pool for Edge-to-Server PeerConnections.
 - Optional per-listener TLS certificate files.
@@ -94,15 +94,19 @@ The Edge workspace configuration describes the basic information required to run
 `http.listeners[0].listen`. The Edge opens separate TCP and UDP sockets on that
 host and numeric port: the first TCP listener carries public
 HTTP and signaling, while UDP carries ICE, DTLS, SCTP, and DataChannels when
-gateway mode is enabled. `webrtc.endpoint` is the matching externally
-reachable tuple published in `/server-info.transport.endpoint`. When its host
+gateway mode is enabled. `webrtc.endpoint` is the externally reachable ICE UDP
+tuple published in the top-level `/server-info.endpoint`. When its host
 is a concrete literal IP, the gateway also rewrites answer-SDP UDP host
 candidates to that exact host and port. A hostname or unspecified address does
 not trigger DNS lookup or fabricate a public candidate. Additional HTTP
 listeners add TCP HTTP/HTTPS ingress only; they publish no ICE candidate and
-open no UDP socket. NAT and container
-deployments may use different local and external tuples, but the one external
-`endpoint` must map both protocols. The optional `turn.listen` and
+open no UDP socket. Optional `http.endpoint` is the absolute `http` or `https`
+public access-point base URL published in `/server-info.transport.endpoint`.
+It may use a different host and port from the ICE UDP tuple. When omitted, the
+transport endpoint falls back to `webrtc.endpoint` for compatibility with a
+plaintext single-entry deployment. The URL may contain a path prefix but no
+userinfo, query, fragment, empty path segment, or invalid port; invalid values
+fail before listeners open. The optional `turn.listen` and
 `turn.public-endpoint` remain separate because they configure a downstream
 relay service rather than the client HTTP/WebRTC ingress.
 
@@ -176,8 +180,9 @@ only to each listener. Certificate paths support environment expansion.
 ```yaml
 webrtc:
   listen: 0.0.0.0:9821
-  endpoint: edge.example.com:443
+  endpoint: 192.0.2.10:9821
 http:
+  endpoint: https://ap.gizclaw.com
   listeners:
     - listen: 0.0.0.0:9821
     - listen: 0.0.0.0:443
@@ -194,7 +199,7 @@ Public ingress is responsible for:
 - Forward allowed browser/device API requests to authoritative Server.
 - Provides the CORS behavior required by ingress for browser requests.
 - CORS returns the request's actual `Origin` with `Vary: Origin`; `OPTIONS` preflight for supported paths terminates at the Edge without consuming upstream capacity, and its method and header contract matches authoritative Public HTTP.
-- Publish Edge Node external endpoint in server-info response.
+- Publish the distinct Edge HTTP access point and ICE UDP endpoint in the server-info response.
 - Close the HTTP server, upstream connection and related listeners when the process stops.
 
 Edge ingress does not have business implementations of Peer HTTP, OpenAI-compatible HTTP, or other product routes. The specific route is provided by `pkgs/gizclaw` Server, and Edge only forwards the public surface.

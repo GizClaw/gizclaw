@@ -3479,6 +3479,43 @@ test("inbound client.wifi.status.get and saved.list answer from handlers", async
   });
 });
 
+test("inbound client.wifi.scan and connect answer from handlers", async () => {
+  let connected: { passphrase?: string; ssid: string } | undefined;
+  const scan = await serveInboundClientRPC(
+    "client.wifi.scan",
+    { timeout_ms: 8000 },
+    {
+      deviceControl: {
+        scanWifi: (timeoutMs) => {
+          assert.equal(timeoutMs, 8000);
+          return [{ rssi_dbm: -42, security: "wpa3", ssid: "office" }];
+        },
+      },
+    },
+  );
+  assert.deepEqual(scan.result, {
+    networks: [{ rssi_dbm: -42, security: "wpa3", ssid: "office" }],
+  });
+
+  const connect = await serveInboundClientRPC(
+    "client.wifi.connect",
+    { passphrase: "correct-horse", ssid: "office" },
+    {
+      deviceControl: {
+        connectWifi: (ssid, passphrase) => {
+          connected = { passphrase, ssid };
+        },
+      },
+    },
+  );
+  assert.equal(connect.error, undefined);
+  assert.deepEqual(connect.result, {});
+  assert.deepEqual(connected, {
+    passphrase: "correct-horse",
+    ssid: "office",
+  });
+});
+
 test("inbound client.* without a handler answers METHOD_NOT_FOUND", async () => {
   const response = await serveInboundClientRPC(
     "client.device.volume.set",
@@ -3510,6 +3547,20 @@ test("inbound device control rejects out-of-range and oversized params", async (
     { deviceControl: { forgetWifi: () => {} } },
   );
   assert.equal(forget.error?.code, -32602);
+
+  const scan = await serveInboundClientRPC(
+    "client.wifi.scan",
+    { timeout_ms: 999 },
+    { deviceControl: { scanWifi: () => [] } },
+  );
+  assert.equal(scan.error?.code, -32602);
+
+  const connect = await serveInboundClientRPC(
+    "client.wifi.connect",
+    { passphrase: "short", ssid: "home" },
+    { deviceControl: { connectWifi: () => {} } },
+  );
+  assert.equal(connect.error?.code, -32602);
 });
 
 // A proto3 bool always decodes to a value, so `muted` cannot arrive malformed,

@@ -15,7 +15,13 @@ const documentVersion = 'gizclaw.test/v1alpha1';
 const maxDocumentBytes = 4 << 20;
 const defaultTaskTimeout = Duration(minutes: 5);
 
-const supportedOperations = {'rpc', 'client_rpc', 'http', 'output'};
+const supportedOperations = {
+  'rpc',
+  'client_rpc',
+  'http',
+  'output',
+  'reconnect',
+};
 
 const allOperations = [
   'rpc',
@@ -27,6 +33,7 @@ const allOperations = [
   'output',
   'review_op',
   'barrier',
+  'reconnect',
   'workspace_relay',
 ];
 
@@ -41,6 +48,8 @@ const clientRpcMethods = {
   'client.wifi.status.get',
   'client.wifi.saved.list',
   'client.wifi.saved.forget',
+  'client.wifi.scan',
+  'client.wifi.connect',
 };
 
 /// Methods this runner can install a provider for. `client.tool.invoke` needs
@@ -55,6 +64,8 @@ const supportedClientRpcMethods = {
   'client.wifi.status.get',
   'client.wifi.saved.list',
   'client.wifi.saved.forget',
+  'client.wifi.scan',
+  'client.wifi.connect',
 };
 
 final _namePattern = RegExp(r'^[a-z0-9][a-z0-9._-]{0,127}$');
@@ -149,6 +160,8 @@ class Step {
       raw['client_rpc'] as Map<String, Object?>?;
   Map<String, Object?>? get http => raw['http'] as Map<String, Object?>?;
   Map<String, Object?>? get output => raw['output'] as Map<String, Object?>?;
+  Map<String, Object?>? get reconnect =>
+      raw['reconnect'] as Map<String, Object?>?;
 
   String get operation {
     for (final name in allOperations) {

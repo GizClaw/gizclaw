@@ -523,6 +523,8 @@ const (
 	RPCMethodClientWifiSavedForget               RPCMethod = "client.wifi.saved.forget"
 	RPCMethodClientWifiSavedList                 RPCMethod = "client.wifi.saved.list"
 	RPCMethodClientWifiStatusGet                 RPCMethod = "client.wifi.status.get"
+	RPCMethodClientWifiScan                      RPCMethod = "client.wifi.scan"
+	RPCMethodClientWifiConnect                   RPCMethod = "client.wifi.connect"
 	RPCMethodServerBadgeDefPixaDownload          RPCMethod = "server.badge_def.pixa.download"
 	RPCMethodServerBadgeGet                      RPCMethod = "server.badge.get"
 	RPCMethodServerBadgeList                     RPCMethod = "server.badge.list"
@@ -638,6 +640,10 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientWifiSavedList:
 		return true
 	case RPCMethodClientWifiSavedForget:
+		return true
+	case RPCMethodClientWifiScan:
+		return true
+	case RPCMethodClientWifiConnect:
 		return true
 	case RPCMethodClientToolInvoke:
 		return true

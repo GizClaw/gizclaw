@@ -11,7 +11,7 @@ See the [API Reference](/api/) for exact endpoints, parameters, requests, and re
 
 The Offer is authenticated by the signed signaling contract itself and does not depend on an API key. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
 
-See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authentication and management contract. Wi‑Fi provisioning (scanning, writing credentials) and device passwords stay on the device-local BLE channel; every other day-to-day device capability is exposed under `/gizclaw/v1/device*` behind an API key.
+See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authentication and management contract. First-time provisioning stays on the device-local BLE channel; once the device is online, an API key can scan or change Wi-Fi through `/gizclaw/v1/device*`.
 
 ## Device and contact surface
 
@@ -46,7 +46,11 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 | `GET /device/wifi` | `client.wifi.status.get` | `200 DeviceWifiStatus` |
 | `GET /device/wifi/saved` | `client.wifi.saved.list` | `200 DeviceWifiSavedList` |
 | `DELETE /device/wifi/saved/{ssid}` | `client.wifi.saved.forget` | `204`; unknown ssid → `404 WIFI_NETWORK_NOT_FOUND` |
+| `POST /device/wifi/scan` `{ timeout_ms? }` | `client.wifi.scan` | `200 { networks }` |
+| `PUT /device/wifi` `{ ssid, passphrase? }` | `client.wifi.connect` | `202` |
 
-`sound` is a device-defined string: the Server only checks that it is non-empty and at most 32 UTF‑8 bytes, and the device provider validates the value; `ssid` has the same 32-byte bound. A device `INVALID_PARAMS` maps to `400 DEVICE_REJECTED`, `METHOD_NOT_FOUND` (no provider implemented) maps to `501 DEVICE_UNSUPPORTED`, and every other RPC error maps to a redacted `502 DEVICE_ERROR`; bodies carry only a stable `code` and a redacted `message`. Concurrent control commands for one owner are forwarded serially in arrival order and are never merged or replayed. After a device acknowledges `reboot`, later control commands on that same connection answer `409 DEVICE_OFFLINE` until the device reconnects. Control commands never change PeerRun, Workspace, or Agent state.
+`sound` is a device-defined string: the Server only checks that it is non-empty and at most 32 UTF‑8 bytes, and the device provider validates the value; `ssid` has the same 32-byte bound. Wi-Fi scan defaults `timeout_ms` to 8000 and clamps it to 1000–15000 instead of using the normal 5-second control timeout. Omit `passphrase` for an open network; a PSK is 8–63 bytes. A `202` connect response only means the device accepted the credentials: it answers RPC before switching, then necessarily goes offline. Control routes answer `409 DEVICE_OFFLINE` during the outage. After reconnect, clients poll `GET /device/wifi` and compare `ssid` with the target to distinguish success from fallback. The passphrase is only forwarded and is never persisted, logged, or echoed. Scan results come from the device, so the Server revalidates them before answering: at most 32 entries, a non-empty `ssid` of at most 32 bytes, a `bssid` of at most 17, and a `security` of at most 5. An answer outside those bounds is rejected whole as `502 DEVICE_ERROR` without echoing the offending value.
+
+A device `INVALID_PARAMS` maps to `400 DEVICE_REJECTED`, `METHOD_NOT_FOUND` (no provider implemented) maps to `501 DEVICE_UNSUPPORTED`, and every other RPC error maps to a redacted `502 DEVICE_ERROR`; bodies carry only a stable `code` and a redacted `message`. Concurrent control commands for one owner are forwarded serially in arrival order and are never merged or replayed. After a device acknowledges `reboot` or `wifi.connect`, later control commands on that same connection answer `409 DEVICE_OFFLINE` until the device reconnects. Control commands never change PeerRun, Workspace, or Agent state.
 
 Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Server identity remains the cryptographic `public_key`. Through an Edge, the build fields remain those of the authoritative Server, while the `transport` object alone selects the Edge route.

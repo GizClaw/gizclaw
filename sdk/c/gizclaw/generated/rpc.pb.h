@@ -127,7 +127,9 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT = 103,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN = 108,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT = 109
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -182,8 +184,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_RpcErrorCode_ARRAYSIZE ((gizclaw_rpc_v1_RpcErrorCode)(gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT+1))
 
 
 

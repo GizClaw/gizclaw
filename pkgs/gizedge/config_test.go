@@ -1262,7 +1262,12 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"endpoint":"server.internal:9820","public_key":"server-key","signaling_path":"/custom/offer","ice_servers":[{"urls":["turn:edge.example.com:3478"]}]}`)),
 			Request:    req,
 		}, nil
-	})), nil)
+	}), &serverInfoTransport{
+		Mode:          "edge-gateway",
+		Endpoint:      "https://ap.gizclaw.com",
+		PublicKey:     "edge-key",
+		SignalingPath: gizwebrtc.SignalingPath,
+	}), nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
 	rec := httptest.NewRecorder()
@@ -1277,6 +1282,10 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 	}
 	if got := body["endpoint"]; got != "edge.example.com:9821" {
 		t.Fatalf("endpoint = %q, want edge.example.com:9821", got)
+	}
+	transport, ok := body["transport"].(map[string]any)
+	if !ok || transport["endpoint"] != "https://ap.gizclaw.com" {
+		t.Fatalf("transport = %#v", body["transport"])
 	}
 	if got := body["signaling_path"]; got != gizwebrtc.SignalingPath {
 		t.Fatalf("signaling_path = %q, want %q", got, gizwebrtc.SignalingPath)
@@ -1439,6 +1448,84 @@ func TestE2EEdgeWorkspaceTemplateParses(t *testing.T) {
 	}
 	if _, err := prepareConfig(Config{}, fileCfg); err != nil {
 		t.Fatalf("prepareConfig edge template: %v", err)
+	}
+}
+
+func TestPrepareWorkspaceConfigLoadsHTTPPublicEndpoint(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x73)
+	upstreamKey := testKeyPair(t, 0x74)
+	dir := t.TempDir()
+	writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: edge.example.com:9821
+upstreams:
+  - endpoint: server.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
+http:
+  endpoint: https://edge.example.com/api/
+  listeners:
+    - listen: 127.0.0.1:9821
+`)
+	cfg, err := PrepareWorkspaceConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HTTP.Endpoint != "https://edge.example.com/api" {
+		t.Fatalf("HTTP endpoint = %q", cfg.HTTP.Endpoint)
+	}
+}
+
+func TestPrepareWorkspaceConfigRejectsInvalidHTTPEndpoint(t *testing.T) {
+	edgeKey := testKeyPair(t, 0x75)
+	upstreamKey := testKeyPair(t, 0x76)
+	for _, endpoint := range []string{
+		"edge.example.com:9821",
+		"ftp://edge.example.com",
+		"https://",
+		"https://user@edge.example.com",
+		"https://edge.example.com?",
+		"https://edge.example.com?region=ap",
+		"https://edge.example.com#",
+		"https://edge.example.com#gateway",
+		"https://edge.example.com:",
+		"https://edge.example.com:0",
+		"https://edge.example.com:65536",
+		"https://edge.example.com/api//v1",
+	} {
+		t.Run(endpoint, func(t *testing.T) {
+			dir := t.TempDir()
+			writeConfig(t, dir, `
+identity:
+  private-key: `+edgeKey.Private.String()+`
+webrtc:
+  listen: 127.0.0.1:9821
+  endpoint: edge.example.com:9821
+upstreams:
+  - endpoint: server.example.com:9820
+    public-key: `+upstreamKey.Public.String()+`
+http:
+  endpoint: '`+endpoint+`'
+  listeners:
+    - listen: 127.0.0.1:9821
+`)
+			if _, err := PrepareWorkspaceConfig(dir); err == nil || !strings.Contains(err.Error(), "http.endpoint") {
+				t.Fatalf("PrepareWorkspaceConfig endpoint %q error = %v", endpoint, err)
+			}
+		})
+	}
+}
+
+func TestPublicHTTPEndpointFallsBackToWebRTC(t *testing.T) {
+	cfg := Config{WebRTC: WebRTCConfig{Endpoint: "edge.example.com:9821"}}
+	if got := cfg.publicHTTPEndpoint(); got != "edge.example.com:9821" {
+		t.Fatalf("public HTTP endpoint = %q", got)
+	}
+	cfg.HTTP.Endpoint = "https://ap.gizclaw.com"
+	if got := cfg.publicHTTPEndpoint(); got != "https://ap.gizclaw.com" {
+		t.Fatalf("public HTTP endpoint = %q", got)
 	}
 }
 
