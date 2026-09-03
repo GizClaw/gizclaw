@@ -492,7 +492,10 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 			err = applyCaptures(vars, step.Capture, value)
 		}
 		if err == nil {
-			if assertionErr := assertValue(step.Expect, value); assertionErr != nil {
+			expectations, resolveErr := resolveExpectations(vars, step.Expect)
+			if resolveErr != nil {
+				err = resolveErr
+			} else if assertionErr := assertValue(expectations, value); assertionErr != nil {
 				err = &AssertionError{err: assertionErr}
 			}
 		}
@@ -525,6 +528,75 @@ func applyCaptures(vars *Variables, captures map[string]string, input any) error
 	}
 	return nil
 }
+
+/*
+resolveExpectations substitutes ${name} references in the text operands of
+every expectation.
+
+Document validation already treats a reference inside expect as a real
+variable reference and rejects one whose producing step has not run, so
+comparing the operand literally would contradict the document model.
+
+Pattern is deliberately left alone: it is an RE2 source string where "${" is
+regular expression syntax rather than a reference.
+*/
+func resolveExpectations(vars *Variables, assertions map[string]Expectation) (map[string]Expectation, error) {
+	if len(assertions) == 0 {
+		return assertions, nil
+	}
+	resolved := make(map[string]Expectation, len(assertions))
+	for path, expectation := range assertions {
+		if expectation.Equals != nil {
+			value, err := vars.Resolve(expectation.Equals)
+			if err != nil {
+				return nil, fmt.Errorf("expect %s equals: %w", path, err)
+			}
+			expectation.Equals = value
+		}
+		if expectation.Contains != "" {
+			text, err := resolveText(vars, expectation.Contains)
+			if err != nil {
+				return nil, fmt.Errorf("expect %s contains: %w", path, err)
+			}
+			expectation.Contains = text
+		}
+		for name, needles := range map[string][]string{
+			"contains_all": expectation.ContainsAll,
+			"contains_any": expectation.ContainsAny,
+		} {
+			for i, needle := range needles {
+				text, err := resolveText(vars, needle)
+				if err != nil {
+					return nil, fmt.Errorf("expect %s %s: %w", path, name, err)
+				}
+				needles[i] = text
+			}
+		}
+		if expectation.NotContains != nil {
+			value, err := vars.Resolve(expectation.NotContains)
+			if err != nil {
+				return nil, fmt.Errorf("expect %s not_contains: %w", path, err)
+			}
+			expectation.NotContains = value
+		}
+		resolved[path] = expectation
+	}
+	return resolved, nil
+}
+
+// resolveText resolves one operand that must stay a string after substitution.
+func resolveText(vars *Variables, input string) (string, error) {
+	value, err := vars.Resolve(input)
+	if err != nil {
+		return "", err
+	}
+	text, ok := value.(string)
+	if !ok {
+		return "", fmt.Errorf("must resolve to a string")
+	}
+	return text, nil
+}
+
 func assertValue(assertions map[string]Expectation, input any) error {
 	for path, a := range assertions {
 		value, ok := JSONPointer(input, path)

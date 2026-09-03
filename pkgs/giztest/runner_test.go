@@ -329,3 +329,69 @@ func TestCommitAttemptVariablesValidatesBeforePublishing(t *testing.T) {
 		t.Fatalf("partial outputs published: %#v", vars.values)
 	}
 }
+
+func TestResolveExpectationsSubstitutesReferences(t *testing.T) {
+	vars, err := NewVariables(map[string]VariableSpec{
+		"name":  {Direction: "input", Type: "string", Value: "contact-7f3a"},
+		"count": {Direction: "input", Type: "integer", Value: 3},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := resolveExpectations(vars, map[string]Expectation{
+		"/name":    {Equals: "${name}"},
+		"/summary": {Contains: "id ${name}", ContainsAll: []string{"${name}"}},
+		"/total":   {Equals: "${count}"},
+		"/note":    {NotContains: []any{"${name}"}},
+		// A pattern is RE2 source, so "${" stays literal.
+		"/pattern": {Pattern: "^[a-z]+$"},
+	})
+	if err != nil {
+		t.Fatalf("resolveExpectations() error = %v", err)
+	}
+	if got := resolved["/name"].Equals; got != "contact-7f3a" {
+		t.Fatalf("equals = %#v, want the variable value", got)
+	}
+	if got := resolved["/summary"].Contains; got != "id contact-7f3a" {
+		t.Fatalf("contains = %q, want the embedded reference substituted", got)
+	}
+	if got := resolved["/summary"].ContainsAll[0]; got != "contact-7f3a" {
+		t.Fatalf("contains_all = %q", got)
+	}
+	if got := resolved["/total"].Equals; got != 3 {
+		t.Fatalf("equals = %#v, want the typed variable value", got)
+	}
+	notContains, err := resolved["/note"].notContainsList()
+	if err != nil || len(notContains) != 1 || notContains[0] != "contact-7f3a" {
+		t.Fatalf("not_contains = %#v, %v", notContains, err)
+	}
+	if got := resolved["/pattern"].Pattern; got != "^[a-z]+$" {
+		t.Fatalf("pattern = %q, want it left untouched", got)
+	}
+
+	// The resolved expectation is what the assertion sees.
+	if err := assertValue(resolved, map[string]any{
+		"/name": "contact-7f3a",
+	}); err == nil {
+		t.Fatal("assertValue must still evaluate the resolved expectations")
+	}
+	if err := assertValue(map[string]Expectation{"/name": resolved["/name"]}, map[string]any{
+		"name": "contact-7f3a",
+	}); err != nil {
+		t.Fatalf("resolved equals did not match: %v", err)
+	}
+}
+
+func TestResolveExpectationsRejectsUnavailableVariable(t *testing.T) {
+	vars, err := NewVariables(map[string]VariableSpec{
+		"result": {Direction: "output", Type: "string"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resolveExpectations(vars, map[string]Expectation{
+		"/name": {Equals: "${result}"},
+	}); err == nil {
+		t.Fatal("an unproduced output variable must not silently compare literally")
+	}
+}
