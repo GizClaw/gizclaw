@@ -616,12 +616,27 @@ func TestBadgerNestedCallRacingCloseTerminates(t *testing.T) {
 	<-started
 	closed := make(chan error, 1)
 	go func() { closed <- store.Close() }()
+
+	// Release the nested call only once Close has marked the store closed and
+	// is draining the List that is still in flight. An independent call
+	// answering the sentinel proves that state; under a reader/writer lock it
+	// would block behind the pending writer instead and time out here.
+	draining := time.Now().Add(10 * time.Second)
+	for {
+		if _, err := store.Get(ctx, kv.Key{"pending", "a"}); errors.Is(err, kv.ErrStoreClosed) {
+			break
+		}
+		if time.Now().After(draining) {
+			t.Fatal("Close did not start draining")
+		}
+		time.Sleep(time.Millisecond)
+	}
 	close(proceed)
 
 	select {
 	case nested := <-iterated:
-		if nested != nil && !errors.Is(nested, kv.ErrStoreClosed) {
-			t.Fatalf("nested Get error = %v, want nil or %v", nested, kv.ErrStoreClosed)
+		if !errors.Is(nested, kv.ErrStoreClosed) {
+			t.Fatalf("nested Get error = %v, want %v", nested, kv.ErrStoreClosed)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("nested call did not finish while Close was draining")
