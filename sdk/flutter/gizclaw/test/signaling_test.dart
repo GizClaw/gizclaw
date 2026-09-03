@@ -177,6 +177,15 @@ void transportTests() {
         'ice.example:port',
         'ice.example:998877',
         ':9820',
+        '[not-an-ip]',
+        '[:::]:9820',
+        '[1:2:3:4:5:6:7]',
+        '[1:2:3:4:5:6:7:8:9]',
+        '[12345::1]',
+        '[::1%eth0]',
+        '[::ffff:999.1.1.1]',
+        '[]:9820',
+        '[::1:9820',
         42,
       ]) {
         expect(
@@ -191,7 +200,10 @@ void transportTests() {
       for (final endpoint in <String>[
         'ice.example',
         'ice.example:9820',
+        '[::]',
         '[::1]:9820',
+        '[1:2:3:4:5:6:7:8]',
+        '[::ffff:192.168.1.10]:9820',
       ]) {
         expect(
           GiznetServerInfo.fromJson({
@@ -243,6 +255,14 @@ void transportTests() {
         'ap.gizclaw.com:port',
         'ap.gizclaw.com:998877',
         ':9820',
+        '[not-an-ip]',
+        '[:::]:9820',
+        '[1:2:3:4:5:6:7]',
+        '[1:2:3:4:5:6:7:8:9]',
+        '[12345::1]',
+        '[::1%eth0]',
+        '[::ffff:999.1.1.1]',
+        '[]:9820',
         '[::1:9820',
       ]) {
         expect(

@@ -404,7 +404,6 @@ class _SignalingKeys {
   final List<int> responseNonce;
 }
 
-
 /// Reports whether [value] is the bare host[:port] form that the `/server-info`
 /// `endpoint` field advertises. A URL, path, query, userInfo, empty port or
 /// non-numeric port is rejected rather than silently reinterpreted.
@@ -414,7 +413,16 @@ bool isGiznetHostPort(String value) {
     return false;
   }
   if (raw.startsWith('[')) {
-    return RegExp(r'^\[[0-9A-Fa-f:.]+\](?::\d{1,5})?$').hasMatch(raw);
+    final match = RegExp(r'^\[([^\[\]]+)\](?::\d{1,5})?$').firstMatch(raw);
+    if (match == null) {
+      return false;
+    }
+    try {
+      Uri.parseIPv6Address(match.group(1)!);
+    } on FormatException {
+      return false;
+    }
+    return true;
   }
   return RegExp(r'^[^\[\]:]+(?::\d{1,5})?$').hasMatch(raw);
 }
@@ -444,9 +452,7 @@ Uri normalizeGiznetAccessPoint(String value) {
   }
   final Uri parsed;
   try {
-    parsed = Uri.parse(
-      trimmed.contains('://') ? trimmed : 'http://$trimmed',
-    );
+    parsed = Uri.parse(trimmed.contains('://') ? trimmed : 'http://$trimmed');
   } on FormatException {
     throw FormatException('access point is invalid: $value');
   }

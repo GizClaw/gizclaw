@@ -2883,6 +2883,14 @@ test("normalizeServerBaseURL keeps https and defaults a bare host:port to http",
     "ap.gizclaw.com:port",
     "ap.gizclaw.com:998877",
     ":9820",
+    "[not-an-ip]",
+    "[:::]:9820",
+    "[1:2:3:4:5:6:7]",
+    "[1:2:3:4:5:6:7:8:9]",
+    "[12345::1]",
+    "[::1%eth0]",
+    "[::ffff:999.1.1.1]",
+    "[]:9820",
     "[::1:9820",
   ]) {
     assert.throws(() => normalizeServerBaseURL(value), /server URL/u);
@@ -2903,6 +2911,15 @@ test("fetchGiznetServerInfo rejects an ICE endpoint that is not host:port", asyn
     "ice.example:port",
     "ice.example:998877",
     ":9820",
+    "[not-an-ip]",
+    "[:::]:9820",
+    "[1:2:3:4:5:6:7]",
+    "[1:2:3:4:5:6:7:8:9]",
+    "[12345::1]",
+    "[::1%eth0]",
+    "[::ffff:999.1.1.1]",
+    "[]:9820",
+    "[::1:9820",
     42,
   ]) {
     await assert.rejects(
@@ -2913,7 +2930,14 @@ test("fetchGiznetServerInfo rejects an ICE endpoint that is not host:port", asyn
       /endpoint/u,
     );
   }
-  for (const endpoint of ["ice.example", "ice.example:9820", "[::1]:9820"]) {
+  for (const endpoint of [
+    "ice.example",
+    "ice.example:9820",
+    "[::]",
+    "[::1]:9820",
+    "[1:2:3:4:5:6:7:8]",
+    "[::ffff:192.168.1.10]:9820",
+  ]) {
     const info = await fetchGiznetServerInfo({
       fetch: async () =>
         Response.json({ endpoint, public_key: serverPublicKey }),

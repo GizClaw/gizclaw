@@ -466,6 +466,103 @@ static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == GZC_PROTOCOL_OPUS_PACKET || protocol >= gzc_protocol_custom_start;
 }
 
+/* Four decimal octets, used for the IPv4 tail of an IPv6 literal. */
+static bool valid_ipv4_literal(gzc_str_t text) {
+  size_t octets = 0;
+  size_t i = 0;
+  while (i < text.len) {
+    size_t digits = 0;
+    unsigned value = 0;
+    while (i < text.len && isdigit((unsigned char)text.data[i])) {
+      value = value * 10u + (unsigned)(text.data[i] - '0');
+      digits++;
+      i++;
+    }
+    if (digits == 0 || digits > 3 || value > 255u) {
+      return false;
+    }
+    octets++;
+    if (i == text.len) {
+      break;
+    }
+    if (text.data[i] != '.') {
+      return false;
+    }
+    i++;
+    if (i == text.len) {
+      return false;
+    }
+  }
+  return octets == 4;
+}
+
+/*
+ * A bracketed host must be an IPv6 literal: at most one "::" run, hextets of
+ * one to four hex digits, an optional trailing dotted-quad IPv4 tail, and no
+ * zone identifier.
+ */
+static bool valid_ipv6_literal(gzc_str_t text) {
+  if (text.len == 0) {
+    return false;
+  }
+  size_t i = 0;
+  size_t hextets = 0;
+  bool compressed = false;
+  if (text.data[0] == ':') {
+    if (text.len < 2 || text.data[1] != ':') {
+      return false;
+    }
+    compressed = true;
+    i = 2;
+    if (i == text.len) {
+      return true;
+    }
+  }
+  while (i < text.len) {
+    size_t start = i;
+    size_t digits = 0;
+    while (i < text.len && isxdigit((unsigned char)text.data[i])) {
+      digits++;
+      i++;
+    }
+    if (digits == 0) {
+      return false;
+    }
+    if (i < text.len && text.data[i] == '.') {
+      if (!valid_ipv4_literal(gzc_str_from_parts(text.data + start, text.len - start))) {
+        return false;
+      }
+      hextets += 2;
+      i = text.len;
+      break;
+    }
+    if (digits > 4) {
+      return false;
+    }
+    hextets += 1;
+    if (i == text.len) {
+      break;
+    }
+    if (text.data[i] != ':') {
+      return false;
+    }
+    i++;
+    if (i < text.len && text.data[i] == ':') {
+      if (compressed) {
+        return false;
+      }
+      compressed = true;
+      i++;
+      if (i == text.len) {
+        break;
+      }
+    } else if (i == text.len) {
+      return false;
+    }
+  }
+  return compressed ? hextets <= 7 : hextets == 8;
+}
+
 /*
  * Authority is host[:port]; server-info advertises ICE endpoints this way. An
  * IPv6 host is bracketed. A port, when present, is one to five digits, so
@@ -490,11 +587,8 @@ static bool valid_authority(gzc_str_t authority) {
       return false;
     }
     host_len = (size_t)(close - authority.data) + 1u;
-    for (size_t i = 1; i + 1 < host_len; i++) {
-      char ch = authority.data[i];
-      if (ch != ':' && ch != '.' && !isxdigit((unsigned char)ch)) {
-        return false;
-      }
+    if (!valid_ipv6_literal(gzc_str_from_parts(authority.data + 1, host_len - 2u))) {
+      return false;
     }
   } else {
     const char *colon = memchr(authority.data, ':', authority.len);

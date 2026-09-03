@@ -1576,9 +1576,61 @@ export function isServerInfoHostPort(value: string): boolean {
   if (raw === "" || /[/?#@\\\s]/u.test(raw)) {
     return false;
   }
-  const ipv6 = /^\[[0-9A-Fa-f:.]+\](?::\d{1,5})?$/u;
-  const hostPort = /^[^[\]:]+(?::\d{1,5})?$/u;
-  return raw.startsWith("[") ? ipv6.test(raw) : hostPort.test(raw);
+  if (!raw.startsWith("[")) {
+    return /^[^[\]:]+(?::\d{1,5})?$/u.test(raw);
+  }
+  const bracketed = /^\[([^[\]]+)\](?::\d{1,5})?$/u.exec(raw);
+  return bracketed == null ? false : isIPv6Literal(bracketed[1] ?? "");
+}
+
+/**
+ * Parses an IPv6 literal the way a bracketed host must be shaped: at most one
+ * "::" run, hextets of one to four hex digits, an optional trailing dotted-quad
+ * IPv4 tail, and no zone identifier.
+ */
+function isIPv6Literal(literal: string): boolean {
+  if (literal === "" || /[^0-9A-Fa-f:.]/u.test(literal)) {
+    return false;
+  }
+  const runs = literal.split("::");
+  if (runs.length > 2) {
+    return false;
+  }
+  const compressed = runs.length === 2;
+  let hextets = 0;
+  for (const [index, run] of runs.entries()) {
+    if (run === "") {
+      continue;
+    }
+    if (run.startsWith(":") || run.endsWith(":")) {
+      return false;
+    }
+    const groups = run.split(":");
+    for (const [groupIndex, group] of groups.entries()) {
+      const isLast =
+        index === runs.length - 1 && groupIndex === groups.length - 1;
+      if (isLast && group.includes(".")) {
+        if (!isIPv4Literal(group)) {
+          return false;
+        }
+        hextets += 2;
+        continue;
+      }
+      if (!/^[0-9A-Fa-f]{1,4}$/u.test(group)) {
+        return false;
+      }
+      hextets += 1;
+    }
+  }
+  return compressed ? hextets <= 7 : hextets === 8;
+}
+
+function isIPv4Literal(literal: string): boolean {
+  const octets = literal.split(".");
+  return (
+    octets.length === 4 &&
+    octets.every((octet) => /^\d{1,3}$/u.test(octet) && Number(octet) <= 255)
+  );
 }
 
 /**
@@ -1617,7 +1669,9 @@ export function normalizeServerBaseURL(value: string): string {
   }
   const path = parsed.pathname.replace(/\/+$/u, "");
   if (path.includes("//")) {
-    throw new Error(`server URL path must not contain empty segments: ${value}`);
+    throw new Error(
+      `server URL path must not contain empty segments: ${value}`,
+    );
   }
   return `${parsed.origin}${path}`;
 }

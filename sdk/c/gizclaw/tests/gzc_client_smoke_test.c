@@ -1925,6 +1925,13 @@ int main(void) {
       ":9820",
       "[::1:9820",
       "[]:9820",
+      "[not-an-ip]",
+      "[:::]:9820",
+      "[1:2:3:4:5:6:7]",
+      "[1:2:3:4:5:6:7:8:9]",
+      "[12345::1]",
+      "[::1%eth0]",
+      "[::ffff:999.1.1.1]",
   };
   for (size_t i = 0; i < sizeof(rejected_server_urls) / sizeof(rejected_server_urls[0]); i++) {
     invalid_config = config;
@@ -1939,6 +1946,9 @@ int main(void) {
       "example.invalid:9820",
       "example.invalid",
       "[::1]:9820",
+      "[::]",
+      "[1:2:3:4:5:6:7:8]",
+      "[::ffff:192.168.1.10]:9820",
       "http://example.invalid:9820",
       "https://ap.gizclaw.com",
       "https://ap.gizclaw.com/",

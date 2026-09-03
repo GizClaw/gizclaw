@@ -159,6 +159,14 @@ func TestFetchServerInfoRejectsInvalidServerURL(t *testing.T) {
 		"server.example:port",
 		"server.example:998877",
 		":9820",
+		"[not-an-ip]",
+		"[:::]:9820",
+		"[1:2:3:4:5:6:7]",
+		"[1:2:3:4:5:6:7:8:9]",
+		"[12345::1]",
+		"[::1%eth0]",
+		"[::ffff:999.1.1.1]",
+		"[]:9820",
 		"[::1:9820",
 	} {
 		if _, err := FetchServerInfo(context.Background(), serverURL); err == nil {
@@ -304,6 +312,15 @@ func TestFetchServerInfoRejectsInvalidICEEndpoint(t *testing.T) {
 		"ice.example:port",
 		"ice.example:998877",
 		":9820",
+		"[not-an-ip]",
+		"[:::]:9820",
+		"[1:2:3:4:5:6:7]",
+		"[1:2:3:4:5:6:7:8:9]",
+		"[12345::1]",
+		"[::1%eth0]",
+		"[::ffff:999.1.1.1]",
+		"[]:9820",
+		"[::1:9820",
 	} {
 		endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"`+iceEndpoint+`"}`)
 		_, err := FetchServerInfo(context.Background(), endpoint)
@@ -315,7 +332,7 @@ func TestFetchServerInfoRejectsInvalidICEEndpoint(t *testing.T) {
 			t.Fatalf("ICE endpoint %q error should not be retryable: %v", iceEndpoint, err)
 		}
 	}
-	for _, iceEndpoint := range []string{"ice.example", "ice.example:9820", "[::1]:9820"} {
+	for _, iceEndpoint := range []string{"ice.example", "ice.example:9820", "[::]", "[::1]:9820", "[1:2:3:4:5:6:7:8]", "[::ffff:192.168.1.10]:9820"} {
 		endpoint, closeServer := newServerInfoTestServer(t, `{"public_key":"`+serverKey+`","endpoint":"`+iceEndpoint+`"}`)
 		info, err := FetchServerInfo(context.Background(), endpoint)
 		closeServer()

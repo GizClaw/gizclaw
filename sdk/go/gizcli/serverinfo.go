@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -173,6 +174,10 @@ func validateHostPort(endpoint string) error {
 		end := strings.Index(value, "]")
 		if end <= 1 {
 			return errors.New("must be host[:port]")
+		}
+		literal := value[1:end]
+		if ip := net.ParseIP(literal); ip == nil || !strings.Contains(literal, ":") {
+			return errors.New("bracketed host must be an IPv6 literal")
 		}
 		host = value[:end+1]
 	} else if prefix, _, found := strings.Cut(value, ":"); found {
