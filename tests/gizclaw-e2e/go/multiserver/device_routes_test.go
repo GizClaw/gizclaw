@@ -148,7 +148,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 		t.Fatalf("control after disconnect = %+v", offline)
 	}
 	var status apitypes.PeerStatus
-	deviceRouteJSON(t, homeBases["server-a"], apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusOK, &status)
+	deviceRouteJSON(t, homeBases["edge-a"], apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusOK, &status)
 	if status.Volume == nil || *status.Volume != 35 {
 		t.Fatalf("status after disconnect = %+v", status)
 	}
