@@ -421,9 +421,9 @@ pkgs/gizclaw/api/adminhttp/generated.go:9472:24: Ranging over SplitSeq is more e
 pkgs/gizclaw/api/adminhttp/generated.go:9484:24: Ranging over SplitSeq is more efficient
 pkgs/gizclaw/api/adminhttp/generated.go:9829:24: Ranging over SplitSeq is more efficient
 pkgs/gizclaw/api/adminhttp/generated.go:9841:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/apitypes/generated.go:10041:47: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:10142:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:10511:54: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:10050:47: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:10151:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:10520:54: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3110:25: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3349:22: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3839:8: interface{} can be replaced by any
@@ -440,15 +440,15 @@ pkgs/gizclaw/api/apitypes/generated.go:5016:25: interface{} can be replaced by a
 pkgs/gizclaw/api/apitypes/generated.go:5026:22: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:5071:29: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:5998:35: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6092:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6232:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6239:21: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6403:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:7278:51: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8435:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8624:48: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9529:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9776:65: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6101:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6241:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6248:21: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6412:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:7287:51: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8444:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8633:48: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9538:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9785:65: interface{} can be replaced by any
 pkgs/gizclaw/api/eventproto/peer_event.pb.go:1323:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/peerhttp/generated.go:1078:24: Ranging over SplitSeq is more efficient
 pkgs/gizclaw/api/peerhttp/generated.go:1090:24: Ranging over SplitSeq is more efficient

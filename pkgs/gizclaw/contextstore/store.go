@@ -33,9 +33,11 @@ func (s *Store) CreateWithOptions(name, endpoint string, opts CreateOptions) err
 	if err := validateName(name); err != nil {
 		return err
 	}
-	if err := validateEndpoint("server.endpoint", endpoint); err != nil {
+	normalized, err := normalizeServerURL("server.endpoint", endpoint)
+	if err != nil {
 		return err
 	}
+	endpoint = normalized
 	dir := filepath.Join(s.Root, name)
 	if _, err := os.Stat(dir); err == nil {
 		return fmt.Errorf("contextstore: %q already exists", name)

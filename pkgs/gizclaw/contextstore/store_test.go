@@ -23,7 +23,7 @@ func TestStoreCreateLoadListEndpointContext(t *testing.T) {
 	if ctx == nil || ctx.Name != "local" {
 		t.Fatalf("Current() = %#v", ctx)
 	}
-	if ctx.Config.Description != "Local dev" || ctx.Config.Server.Endpoint != "127.0.0.1:9820" {
+	if ctx.Config.Description != "Local dev" || ctx.Config.Server.Endpoint != "http://127.0.0.1:9820" {
 		t.Fatalf("config = %#v", ctx.Config)
 	}
 	if ctx.Config.Identity.PrivateKey.IsZero() || ctx.KeyPair == nil {
@@ -161,8 +161,8 @@ server:
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	if cfg.Server.PublicAPIAddr() != "127.0.0.1:9820" {
-		t.Fatalf("PublicAPIAddr() = %q", cfg.Server.PublicAPIAddr())
+	if cfg.Server.BaseURL() != "http://127.0.0.1:9820" {
+		t.Fatalf("BaseURL() = %q", cfg.Server.BaseURL())
 	}
 
 	summary, err := LoadSummary(dir)
@@ -211,8 +211,9 @@ func TestLoadConfigRejectsMissingAndMalformedConfig(t *testing.T) {
 		{name: "bad-yaml", body: "server: [", want: "parse config"},
 		{name: "missing-identity", body: "server:\n  endpoint: 127.0.0.1:9820\n", want: "missing identity.private-key"},
 		{name: "missing-endpoint", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver: {}\n", want: "missing server.endpoint"},
-		{name: "url-endpoint", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: http://127.0.0.1:9820\n", want: "host:port"},
-		{name: "empty-host", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: :9820\n", want: "host is empty"},
+		{name: "bad-scheme", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: ftp://127.0.0.1:9820\n", want: "http:// or https://"},
+		{name: "empty-host", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: :9820\n", want: "http://host[:port]"},
+		{name: "query-string", body: "identity:\n  private-key: " + testPrivateKey(t, 0xaa).String() + "\nserver:\n  endpoint: https://ap.gizclaw.com?probe=1\n", want: "http://host[:port]"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -247,10 +248,33 @@ server:
 	}
 }
 
-func TestCreateRejectsEndpointURL(t *testing.T) {
+func TestCreateNormalizesServerURL(t *testing.T) {
+	for _, tc := range []struct{ name, endpoint, want string }{
+		{name: "bare-host-port", endpoint: "127.0.0.1:9820", want: "http://127.0.0.1:9820"},
+		{name: "https", endpoint: "https://ap.gizclaw.com", want: "https://ap.gizclaw.com"},
+		{name: "trailing-slash", endpoint: "https://ap.gizclaw.com/", want: "https://ap.gizclaw.com"},
+		{name: "path-prefix", endpoint: "https://ap.gizclaw.com/gizclaw/", want: "https://ap.gizclaw.com/gizclaw"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &Store{Root: t.TempDir()}
+			if err := store.Create(tc.name, tc.endpoint); err != nil {
+				t.Fatalf("Create() error = %v", err)
+			}
+			ctx, err := store.LoadByName(tc.name)
+			if err != nil {
+				t.Fatalf("LoadByName() error = %v", err)
+			}
+			if ctx.Config.Server.BaseURL() != tc.want {
+				t.Fatalf("BaseURL() = %q, want %q", ctx.Config.Server.BaseURL(), tc.want)
+			}
+		})
+	}
+}
+
+func TestCreateRejectsInvalidServerURL(t *testing.T) {
 	store := &Store{Root: t.TempDir()}
-	err := store.Create("bad", "http://127.0.0.1:9820")
-	if err == nil || !strings.Contains(err.Error(), "host:port") {
+	err := store.Create("bad", "ftp://127.0.0.1:9820")
+	if err == nil || !strings.Contains(err.Error(), "http:// or https://") {
 		t.Fatalf("Create() error = %v", err)
 	}
 }

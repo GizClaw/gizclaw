@@ -253,7 +253,7 @@ func TestDialFromContextUsesCurrentContext(t *testing.T) {
 	if serverPK.String() != testServerPublicKeyText(0xab) {
 		t.Fatalf("server public key = %s", serverPK)
 	}
-	if serverAddr != endpoint {
+	if serverAddr != "http://"+endpoint {
 		t.Fatalf("server address = %q", serverAddr)
 	}
 }

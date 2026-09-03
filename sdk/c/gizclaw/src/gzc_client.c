@@ -8,6 +8,7 @@
 
 #include <pb_decode.h>
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -73,6 +74,8 @@ struct gzc_client {
   gzc_service_channel_t *event_channel;
   gzc_event_stream_t *event_handle;
   gzc_public_key_t server_public_key;
+  /* host[:port] ICE UDP endpoint advertised by /server-info. */
+  gzc_buf_t ice_endpoint;
   gzc_buf_t local_sdp;
   gzc_buf_t packet_rx;
   gzc_opus_rx_slot_t *opus_rx;
@@ -463,27 +466,287 @@ static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == GZC_PROTOCOL_OPUS_PACKET || protocol >= gzc_protocol_custom_start;
 }
 
-static bool valid_endpoint(gzc_str_t endpoint) {
-  if (str_empty(endpoint)) {
+/* Four decimal octets, used for the IPv4 tail of an IPv6 literal. */
+static bool valid_ipv4_literal(gzc_str_t text) {
+  size_t octets = 0;
+  size_t i = 0;
+  while (i < text.len) {
+    size_t digits = 0;
+    unsigned value = 0;
+    while (i < text.len && isdigit((unsigned char)text.data[i])) {
+      value = value * 10u + (unsigned)(text.data[i] - '0');
+      digits++;
+      i++;
+    }
+    if (digits == 0 || digits > 3 || value > 255u) {
+      return false;
+    }
+    octets++;
+    if (i == text.len) {
+      break;
+    }
+    if (text.data[i] != '.') {
+      return false;
+    }
+    i++;
+    if (i == text.len) {
+      return false;
+    }
+  }
+  return octets == 4;
+}
+
+/*
+ * A bracketed host must be an IPv6 literal: at most one "::" run, hextets of
+ * one to four hex digits, an optional trailing dotted-quad IPv4 tail, and no
+ * zone identifier.
+ */
+static bool valid_ipv6_literal(gzc_str_t text) {
+  if (text.len == 0) {
     return false;
   }
-  for (size_t i = 0; i < endpoint.len; i++) {
-    char ch = endpoint.data[i];
-    if (ch == '/' || ch == '?' || ch == '#' || ch == '@' ||
+  size_t i = 0;
+  size_t hextets = 0;
+  bool compressed = false;
+  if (text.data[0] == ':') {
+    if (text.len < 2 || text.data[1] != ':') {
+      return false;
+    }
+    compressed = true;
+    i = 2;
+    if (i == text.len) {
+      return true;
+    }
+  }
+  while (i < text.len) {
+    size_t start = i;
+    size_t digits = 0;
+    while (i < text.len && isxdigit((unsigned char)text.data[i])) {
+      digits++;
+      i++;
+    }
+    if (digits == 0) {
+      return false;
+    }
+    if (i < text.len && text.data[i] == '.') {
+      if (!valid_ipv4_literal(gzc_str_from_parts(text.data + start, text.len - start))) {
+        return false;
+      }
+      hextets += 2;
+      break;
+    }
+    if (digits > 4) {
+      return false;
+    }
+    hextets += 1;
+    if (i == text.len) {
+      break;
+    }
+    if (text.data[i] != ':') {
+      return false;
+    }
+    i++;
+    if (i < text.len && text.data[i] == ':') {
+      if (compressed) {
+        return false;
+      }
+      compressed = true;
+      i++;
+      if (i == text.len) {
+        break;
+      }
+    } else if (i == text.len) {
+      return false;
+    }
+  }
+  return compressed ? hextets <= 7 : hextets == 8;
+}
+
+/*
+ * Authority is host[:port]; server-info advertises ICE endpoints this way. An
+ * IPv6 host is bracketed. A port, when present, is one to five digits, so
+ * scheme-like values such as "http:" are rejected instead of being read as a
+ * host with an empty port.
+ */
+static bool valid_authority(gzc_str_t authority) {
+  if (str_empty(authority)) {
+    return false;
+  }
+  for (size_t i = 0; i < authority.len; i++) {
+    char ch = authority.data[i];
+    if (ch == '/' || ch == '?' || ch == '#' || ch == '@' || ch == '\\' ||
         ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+      return false;
+    }
+  }
+  size_t host_len;
+  if (authority.data[0] == '[') {
+    const char *close = memchr(authority.data, ']', authority.len);
+    if (close == NULL || close == authority.data + 1) {
+      return false;
+    }
+    host_len = (size_t)(close - authority.data) + 1u;
+    if (!valid_ipv6_literal(gzc_str_from_parts(authority.data + 1, host_len - 2u))) {
+      return false;
+    }
+  } else {
+    const char *colon = memchr(authority.data, ':', authority.len);
+    host_len = colon == NULL ? authority.len : (size_t)(colon - authority.data);
+    for (size_t i = 0; i < host_len; i++) {
+      if (authority.data[i] == '[' || authority.data[i] == ']') {
+        return false;
+      }
+    }
+  }
+  if (host_len == 0) {
+    return false;
+  }
+  if (host_len == authority.len) {
+    return true;
+  }
+  if (authority.data[host_len] != ':') {
+    return false;
+  }
+  size_t port_len = authority.len - host_len - 1u;
+  if (port_len == 0 || port_len > 5u) {
+    return false;
+  }
+  for (size_t i = host_len + 1u; i < authority.len; i++) {
+    if (!isdigit((unsigned char)authority.data[i])) {
       return false;
     }
   }
   return true;
 }
 
-static int build_url(gzc_client_t *client, gzc_str_t endpoint, gzc_str_t path, gzc_buf_t *out_url) {
-  if (client == NULL || out_url == NULL || !valid_endpoint(endpoint) ||
-      str_empty(path) || path.data[0] != '/' || (path.len >= 2 && path.data[1] == '/')) {
+static bool valid_path(gzc_str_t path) {
+  return !str_empty(path) && path.data[0] == '/' &&
+         !(path.len >= 2 && path.data[1] == '/');
+}
+
+/* Returns the length of a supported URL scheme prefix, or zero. */
+static size_t url_scheme_len(gzc_str_t url) {
+  if (str_has_cstr_prefix(url, "https://")) {
+    return 8u;
+  }
+  if (str_has_cstr_prefix(url, "http://")) {
+    return 7u;
+  }
+  return 0u;
+}
+
+static bool str_has_scheme(gzc_str_t value) {
+  if (value.data == NULL || value.len < 3) {
+    return false;
+  }
+  for (size_t i = 0; i + 2 < value.len; i++) {
+    if (value.data[i] == ':' && value.data[i + 1] == '/' && value.data[i + 2] == '/') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/*
+ * Validates an absolute http or https base URL and returns it without any
+ * trailing slash. out_base borrows the caller's storage.
+ */
+static bool valid_base_url(gzc_str_t url, gzc_str_t *out_base) {
+  size_t scheme_len = url_scheme_len(url);
+  if (scheme_len == 0u || out_base == NULL) {
+    return false;
+  }
+  size_t authority_len = 0;
+  while (scheme_len + authority_len < url.len && url.data[scheme_len + authority_len] != '/') {
+    authority_len++;
+  }
+  if (!valid_authority(gzc_str_from_parts(url.data + scheme_len, authority_len))) {
+    return false;
+  }
+  for (size_t i = scheme_len + authority_len; i < url.len; i++) {
+    char ch = url.data[i];
+    if (ch == '?' || ch == '#' || ch == '@' ||
+        ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+      return false;
+    }
+    if (ch == '/' && i + 1 < url.len && url.data[i + 1] == '/') {
+      return false;
+    }
+  }
+  size_t base_len = url.len;
+  while (base_len > scheme_len + authority_len && url.data[base_len - 1] == '/') {
+    base_len--;
+  }
+  *out_base = gzc_str_from_parts(url.data, base_len);
+  return true;
+}
+
+/*
+ * Accepts an absolute http or https base URL, or a bare host[:port] that keeps
+ * the historical plaintext lane working.
+ */
+static bool valid_server_url(gzc_str_t url) {
+  gzc_str_t base;
+  if (url_scheme_len(url) != 0u) {
+    return valid_base_url(url, &base);
+  }
+  return !str_has_scheme(url) && valid_authority(url);
+}
+
+static int build_url(gzc_client_t *client, gzc_str_t base_url, gzc_str_t path, gzc_buf_t *out_url) {
+  if (client == NULL || out_url == NULL || !valid_path(path)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_str_t base = base_url;
+  bool implicit_http = url_scheme_len(base_url) == 0u;
+  if (implicit_http) {
+    if (str_has_scheme(base_url) || !valid_authority(base_url)) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+  } else if (!valid_base_url(base_url, &base)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_buf_reset(out_url);
-  int rc = gzc_buf_append_cstr(out_url, client->config.platform, "http://");
+  int rc = GZC_OK;
+  if (implicit_http) {
+    rc = gzc_buf_append_cstr(out_url, client->config.platform, "http://");
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  rc = gzc_buf_append_str(out_url, client->config.platform, base);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  return gzc_buf_append_str(out_url, client->config.platform, path);
+}
+
+/*
+ * Builds a signaling URL from server-info transport metadata. A bare
+ * host[:port] inherits the configured server URL scheme; an absolute URL is
+ * used verbatim.
+ */
+static int build_transport_url(
+    gzc_client_t *client,
+    gzc_str_t endpoint,
+    gzc_str_t path,
+    gzc_buf_t *out_url) {
+  if (client == NULL || out_url == NULL || !valid_path(path)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  size_t scheme_len = url_scheme_len(client->config.server_url);
+  if (str_has_scheme(endpoint) || scheme_len == 0u) {
+    return build_url(client, endpoint, path, out_url);
+  }
+  if (!valid_authority(endpoint)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_buf_reset(out_url);
+  int rc = gzc_buf_append(
+      out_url,
+      client->config.platform,
+      (const uint8_t *)client->config.server_url.data,
+      scheme_len);
   if (rc != GZC_OK) {
     return rc;
   }
@@ -498,7 +761,7 @@ static int build_endpoint_url(gzc_client_t *client, gzc_str_t path, gzc_buf_t *o
   if (client == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  return build_url(client, client->config.server_endpoint, path, out_url);
+  return build_url(client, client->config.server_url, path, out_url);
 }
 
 static void free_http_response(gzc_client_t *client, gzc_http_response_t *response) {
@@ -735,9 +998,10 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
   if (client == NULL || signaling == NULL || signaling_url == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (str_empty(client->config.server_endpoint)) {
+  if (!valid_server_url(client->config.server_url)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  gzc_buf_reset(&client->ice_endpoint);
 
   gzc_buf_t server_info_url;
   gzc_buf_init(&server_info_url);
@@ -800,8 +1064,26 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
     }
   }
 
+  /*
+   * The HTTP entry point may terminate TLS on a port that carries no ICE, so
+   * the UDP endpoint comes from server-info rather than from the server URL.
+   */
+  if (gzc_json_find_field(body, "endpoint", &raw) == GZC_OK) {
+    gzc_str_t ice_endpoint;
+    rc = gzc_json_parse_string(raw, &ice_endpoint);
+    if (rc != GZC_OK || !valid_authority(ice_endpoint)) {
+      free_http_response(client, &response);
+      return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+    }
+    rc = gzc_buf_append_str(&client->ice_endpoint, client->config.platform, ice_endpoint);
+    if (rc != GZC_OK) {
+      free_http_response(client, &response);
+      return rc;
+    }
+  }
+
   signaling->remote_public_key = client->server_public_key;
-  gzc_str_t signaling_endpoint = client->config.server_endpoint;
+  gzc_str_t signaling_endpoint = client->config.server_url;
   gzc_str_t signaling_path = gzc_str_from_cstr(GZC_SIGNALING_PATH);
   bool gateway_transport = false;
   gzc_str_t transport_raw;
@@ -821,8 +1103,7 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
     }
     gzc_str_t endpoint_raw;
     if (gzc_json_find_field(transport_raw, "endpoint", &endpoint_raw) != GZC_OK ||
-        gzc_json_parse_string(endpoint_raw, &signaling_endpoint) != GZC_OK ||
-        !valid_endpoint(signaling_endpoint)) {
+        gzc_json_parse_string(endpoint_raw, &signaling_endpoint) != GZC_OK) {
       free_http_response(client, &response);
       return GZC_ERR_INVALID_ARGUMENT;
     }
@@ -858,7 +1139,7 @@ static int load_server_info(gzc_client_t *client, int timeout_ms, gzc_signaling_
       return rc;
     }
   }
-  rc = build_url(client, signaling_endpoint, signaling_path, signaling_url);
+  rc = build_transport_url(client, signaling_endpoint, signaling_path, signaling_url);
   free_http_response(client, &response);
   if (rc != GZC_OK) {
     return rc;
@@ -1198,6 +1479,9 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       config->write_timeout_ms <= 0) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  if (!valid_server_url(config->server_url)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   if ((config->webrtc->channel_buffered_amount == NULL) !=
       (config->webrtc->channel_set_buffered_amount_low_threshold == NULL)) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -1243,6 +1527,7 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
   client->config.service_write_high_water_bytes = high_water;
   client->config.service_write_low_water_bytes = low_water;
   gzc_buf_init(&client->local_sdp);
+  gzc_buf_init(&client->ice_endpoint);
   gzc_buf_init(&client->packet_rx);
   client->opus_rx_capacity = GZC_OPUS_RX_CAPACITY_DEFAULT;
   *out_client = client;
@@ -1254,6 +1539,17 @@ int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_se
     return GZC_ERR_INVALID_ARGUMENT;
   }
   client->peer_add_ice_server = fn;
+  return GZC_OK;
+}
+
+int gzc_client_ice_endpoint(gzc_client_t *client, gzc_str_t *out_endpoint) {
+  if (client == NULL || out_endpoint == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (client->ice_endpoint.len == 0) {
+    return GZC_ERR_UNSUPPORTED;
+  }
+  *out_endpoint = gzc_str_from_parts((const char *)client->ice_endpoint.data, client->ice_endpoint.len);
   return GZC_OK;
 }
 
@@ -1677,6 +1973,7 @@ void gzc_client_destroy(gzc_client_t *client) {
   const gzc_platform_t *platform = client->config.platform == NULL ? gzc_default_platform() : client->config.platform;
   (void)gzc_client_close(client);
   gzc_buf_free(&client->local_sdp, platform);
+  gzc_buf_free(&client->ice_endpoint, platform);
   gzc_buf_free(&client->packet_rx, platform);
   if (client->opus_rx != NULL) {
     platform->free(platform->userdata, client->opus_rx);

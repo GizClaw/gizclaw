@@ -43,7 +43,7 @@ func TestCSDKHistoryAudioDownloads(t *testing.T) {
 		t.Fatal(err)
 	}
 	client, err := cgointernal.NewClientWithCredentials(
-		server.Endpoint,
+		"http://"+server.Endpoint,
 		identity.Private.String(),
 	)
 	if err != nil {

@@ -109,11 +109,13 @@ func NewClient(identityDir string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewClientWithCredentials(cfg.endpoint, cfg.privateKey)
+	return NewClientWithCredentials("http://"+cfg.endpoint, cfg.privateKey)
 }
 
-func NewClientWithCredentials(endpoint, privateKey string) (*Client, error) {
-	cEndpoint := C.CString(endpoint)
+// NewClientWithCredentials dials serverURL, an absolute http or https base URL
+// such as "http://127.0.0.1:9820".
+func NewClientWithCredentials(serverURL, privateKey string) (*Client, error) {
+	cEndpoint := C.CString(serverURL)
 	defer C.free(unsafe.Pointer(cEndpoint))
 	cPrivateKey := C.CString(privateKey)
 	defer C.free(unsafe.Pointer(cPrivateKey))

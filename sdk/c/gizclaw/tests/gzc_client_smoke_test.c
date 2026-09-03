@@ -1429,7 +1429,7 @@ static int test_http_request(void *userdata, const gzc_http_request_t *request, 
       return GZC_ERR_INVALID_ARGUMENT;
     }
     const char *body = fake->server_info_body == NULL
-                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"signaling_path\":\"/custom/offer\",\"ice_servers\":[{\"urls\":[\"turn:edge.example.com:3478?transport=udp\"],\"username\":\"edge\\\"node\",\"credential\":\"sec\\\\ret\"}]}"
+                           ? "{\"protocol\":\"gizclaw-webrtc\",\"public_key\":\"8mfzTdZB1JA43QmNAMWfTfkj5GC9TJxJFveThi9tvK6J\",\"endpoint\":\"ice.invalid:9820\",\"signaling_path\":\"/custom/offer\",\"ice_servers\":[{\"urls\":[\"turn:edge.example.com:3478?transport=udp\"],\"username\":\"edge\\\"node\",\"credential\":\"sec\\\\ret\"}]}"
                            : fake->server_info_body;
     return gzc_buf_append_cstr(&out_response->body, fake->platform, body);
   }
@@ -1827,7 +1827,7 @@ int main(void) {
 
   gzc_client_config_t config;
   memset(&config, 0, sizeof(config));
-  config.server_endpoint = gzc_str_from_cstr("example.invalid:9820");
+  config.server_url = gzc_str_from_cstr("http://example.invalid:9820");
   config.private_key = gzc_str_from_cstr("7gyGAp71YXQRoxmFBaHxofQXAipvgHyBKPyxmdSJxyvz");
   config.platform = platform;
   config.crypto = &crypto;
@@ -1907,6 +1907,63 @@ int main(void) {
                     "buffer too small") == 0,
              "buffer-too-small status string") != 0) {
     return 1;
+  }
+  static const char *const rejected_server_urls[] = {
+      "",
+      "ftp://example.invalid:9820",
+      "http:",
+      "https:",
+      "mailto:device@example.invalid",
+      "http://",
+      "http://example.invalid:9820?probe=1",
+      "http://example.invalid:9820#fragment",
+      "http://user@example.invalid:9820",
+      "http://example.invalid:9820//double",
+      "example.invalid:",
+      "example.invalid:port",
+      "example.invalid:998877",
+      ":9820",
+      "[::1:9820",
+      "[]:9820",
+      "[not-an-ip]",
+      "[:::]:9820",
+      "[1:2:3:4:5:6:7]",
+      "[1:2:3:4:5:6:7:8:9]",
+      "[12345::1]",
+      "[::1%eth0]",
+      "[::ffff:999.1.1.1]",
+  };
+  for (size_t i = 0; i < sizeof(rejected_server_urls) / sizeof(rejected_server_urls[0]); i++) {
+    invalid_config = config;
+    invalid_config.server_url = gzc_str_from_cstr(rejected_server_urls[i]);
+    rc = gzc_client_create(&invalid_config, &client);
+    if (expect(rc == GZC_ERR_INVALID_ARGUMENT && client == NULL,
+               "server URL must be an absolute http or https URL") != 0) {
+      return 1;
+    }
+  }
+  static const char *const accepted_server_urls[] = {
+      "example.invalid:9820",
+      "example.invalid",
+      "[::1]:9820",
+      "[::]",
+      "[1:2:3:4:5:6:7:8]",
+      "[::ffff:192.168.1.10]:9820",
+      "http://example.invalid:9820",
+      "https://ap.gizclaw.com",
+      "https://ap.gizclaw.com/",
+      "https://ap.gizclaw.com/prefix",
+  };
+  for (size_t i = 0; i < sizeof(accepted_server_urls) / sizeof(accepted_server_urls[0]); i++) {
+    gzc_client_t *url_client = NULL;
+    invalid_config = config;
+    invalid_config.server_url = gzc_str_from_cstr(accepted_server_urls[i]);
+    rc = gzc_client_create(&invalid_config, &url_client);
+    if (expect(rc == GZC_OK && url_client != NULL,
+               "http, https and bare host:port server URLs are accepted") != 0) {
+      return 1;
+    }
+    gzc_client_destroy(url_client);
   }
   invalid_config = config;
   invalid_config.tool_handler_count = 0u;
@@ -2035,6 +2092,13 @@ int main(void) {
     return 1;
   }
   if (expect(fake_webrtc.ice_server_count == 1, "server-info ICE server applied before offer") != 0) {
+    return 1;
+  }
+  gzc_str_t ice_endpoint;
+  memset(&ice_endpoint, 0, sizeof(ice_endpoint));
+  if (expect(gzc_client_ice_endpoint(client, &ice_endpoint) == GZC_OK &&
+                 str_eq_cstr(ice_endpoint, "ice.invalid:9820"),
+             "server-info advertises the ICE UDP endpoint") != 0) {
     return 1;
   }
   if (expect(fake_webrtc.opus_register_count == 2,

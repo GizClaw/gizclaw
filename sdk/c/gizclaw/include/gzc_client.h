@@ -70,7 +70,14 @@ typedef struct {
 #define GZC_OPUS_RX_CAPACITY_DEFAULT 64u
 
 typedef struct {
-  gzc_str_t server_endpoint;
+  /*
+   * Base URL of the Server or Edge HTTP entry point, such as
+   * "http://192.168.1.10:9820" or "https://ap.gizclaw.com". Only the http and
+   * https schemes are accepted. A path prefix is preserved and a trailing
+   * slash is ignored. Query strings, fragments and userinfo are rejected. A
+   * bare host[:port] is accepted and resolves to http.
+   */
+  gzc_str_t server_url;
   gzc_str_t private_key;
   const gzc_platform_t *platform;
   const gzc_platform_crypto_t *crypto;
@@ -111,6 +118,24 @@ int gzc_client_set_webrtc_media(
     gzc_client_t *client,
     const gzc_webrtc_media_vtable_t *media);
 int gzc_client_connect(gzc_client_t *client);
+/*
+ * Reports the ICE UDP endpoint advertised by /server-info as host[:port].
+ *
+ * out_endpoint is a borrowed view of client-owned storage: the caller does not
+ * own it, must not free or modify it, and must copy it to outlive the window
+ * below. The bytes are not NUL terminated, so data and len are used together.
+ *
+ * The view stays valid from a successful gzc_client_connect until the next
+ * connect on the same client overwrites it or gzc_client_destroy frees it.
+ * gzc_client_close does not invalidate it, so the last advertised endpoint
+ * remains readable after close.
+ *
+ * Returns GZC_ERR_INVALID_ARGUMENT when client or out_endpoint is NULL, and
+ * GZC_ERR_UNSUPPORTED before a successful connect or when the server
+ * advertised no endpoint; out_endpoint is left untouched in both cases. Call it
+ * from the serialized poll owner, like the rest of the client API.
+ */
+int gzc_client_ice_endpoint(gzc_client_t *client, gzc_str_t *out_endpoint);
 /*
  * Drives queued WebRTC callbacks and inbound RPC work on the caller's thread.
  * Exactly one serialized caller owns polling; the same loop advances every
