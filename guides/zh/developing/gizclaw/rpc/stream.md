@@ -35,9 +35,19 @@ response envelope 和 EOS 都到达后结果为 `GZC_OK`；远端 RPC error 仍�
 的远端关闭或 client close 返回 `GZC_ERR_CLOSED`。任一 terminal transition 只执行
 一次 channel detach/close，request-owned response view 保持到 destroy。
 
+两个 start 接口都接收 borrowed 的 `const gzc_rpc_request_options_t *`，其中
+`on_complete` 与 `complete_userdata` 注册 `gzc_rpc_complete_cb`。request 第一次进入
+terminal 时，SDK 在 poll owner 上同步且只回调一次，调用方无需遍历 pending request。
+response EOS、编解码或协议错误、DataChannel 关闭、传输错误、超时、
+`gzc_rpc_request_cancel`、`gzc_client_close`，以及对 pending request 调用
+`gzc_rpc_request_destroy`，都会触发通知。callback 只通知最终状态，不转移所有权；
+callback 内外调用 `gzc_rpc_request_result` 得到相同结果。callback 内禁止 cancel 或
+destroy 当前 request。options 传 NULL 表示不注册 completion callback。
+
 流式调用复用同一个 request handle：调用方通过
 `gzc_rpc_request_start_stream` 创建请求，用 `gzc_rpc_request_write` 排队 binary
 request frame，再用 `gzc_rpc_request_finish_write` 排队 request EOS。Response
 envelope、binary data 与 response EOS 由 frame callback 在 `gzc_client_poll` 中按序
-交付。上一帧仍 pending 时 write 返回 `GZC_ERR_WOULD_BLOCK`，调用方 poll 后重试，
+交付，completion callback 在 response EOS 的 frame callback 返回之后触发。
+上一帧仍 pending 时 write 返回 `GZC_ERR_WOULD_BLOCK`，调用方 poll 后重试，
 不引入第二套 stream lifecycle。

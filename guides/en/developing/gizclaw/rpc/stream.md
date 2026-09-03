@@ -38,10 +38,23 @@ close returns `GZC_ERR_CLOSED`. A terminal transition detaches and closes the
 channel exactly once, and request-owned response views remain valid until
 destroy.
 
+Both start entry points take a borrowed `const gzc_rpc_request_options_t *`.
+Its `on_complete` and `complete_userdata` register a `gzc_rpc_complete_cb` that
+the SDK invokes exactly once, synchronously on the poll owner, the first time
+the request reaches a terminal state, so a caller never scans pending requests.
+Every terminal path notifies: response EOS, codec or protocol failure,
+DataChannel close, transport error, deadline, `gzc_rpc_request_cancel`,
+`gzc_client_close`, and `gzc_rpc_request_destroy` on a still-pending request.
+The callback only reports the final status; it takes no ownership, and
+`gzc_rpc_request_result` returns the same result inside the callback and after
+it returns. The callback must not cancel or destroy its own request. A NULL
+options pointer starts a request with no completion callback.
+
 Streaming calls use the same request handle. The caller starts them with
 `gzc_rpc_request_start_stream`, queues binary request frames with
 `gzc_rpc_request_write`, and queues request EOS with
 `gzc_rpc_request_finish_write`. Response envelope, binary data, and response EOS
-are delivered in order by the frame callback during `gzc_client_poll`. A write
+are delivered in order by the frame callback during `gzc_client_poll`, and the
+completion callback runs after that response EOS frame callback returns. A write
 returns `GZC_ERR_WOULD_BLOCK` while the previous frame is still pending; the
 caller polls and retries without introducing a second stream lifecycle.

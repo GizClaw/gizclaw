@@ -239,7 +239,7 @@ int gzc_cgo_session_call_rpc_payload(
   int rc = gzc_rpc_request_start(
       session->client, rpc_service_for_method(method), method,
       gzc_str_from_parts((const char *)params_payload, (size_t)params_payload_len),
-      5000, &request);
+      5000, NULL, &request);
   if (rc == GZC_OK) {
     rc = wait_rpc_result(session, request, &response);
   }
@@ -295,6 +295,7 @@ int gzc_cgo_session_start_rpc_request(
       gzc_str_from_parts(
           (const char *)params_payload, (size_t)params_payload_len),
       timeout_ms,
+      NULL,
       out_request);
   if (rc != GZC_OK) {
     return fail(errbuf, errbuf_len, "start rpc request", rc);
@@ -574,7 +575,7 @@ int gzc_cgo_session_call_stream_collect(
   int rc = gzc_rpc_request_start_stream(
       session->client, rpc_service_for_method(method), method,
       gzc_str_from_parts((const char *)params_payload, (size_t)params_payload_len),
-      5000, append_stream_frame, &state, &request);
+      5000, append_stream_frame, &state, NULL, &request);
   while (rc == GZC_OK && request_data_len > 0 &&
          (rc = gzc_rpc_request_write(request, request_data,
                                      (size_t)request_data_len)) ==

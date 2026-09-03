@@ -46,6 +46,43 @@ typedef int (*gzc_rpc_frame_cb)(void *userdata, const gzc_rpc_frame_t *frame);
 
 typedef struct gzc_rpc_request gzc_rpc_request_t;
 
+/*
+ * Reports that request reached its terminal state for the first time. It runs
+ * exactly once per started request, synchronously on the serial poll owner that
+ * advanced the request, and never from a thread the SDK creates.
+ *
+ * status is the final request status: GZC_OK once a response envelope and its
+ * RPC EOS arrived, GZC_ERR_TIMEOUT on deadline expiry, GZC_ERR_CLOSED for
+ * gzc_rpc_request_cancel(), DataChannel close and gzc_client_close(),
+ * GZC_ERR_RPC for codec or protocol failures, and the transport status for
+ * WebRTC errors. For a streaming request the frame callback has already
+ * received the response envelope, every data frame, and the response EOS before
+ * this runs.
+ *
+ * The callback only notifies; it neither receives nor takes ownership of the
+ * response. request stays valid and gzc_rpc_request_result() returns the final
+ * result both inside the callback and after it returns, until the caller calls
+ * gzc_rpc_request_destroy(). Destroying a still-pending request delivers this
+ * callback with GZC_ERR_CLOSED before the request memory is released, so a
+ * started request always reports completion exactly once.
+ *
+ * The callback must not cancel or destroy its own request, and must not call
+ * gzc_client_poll(); either reenters state the SDK is still advancing.
+ */
+typedef void (*gzc_rpc_complete_cb)(
+    void *userdata,
+    gzc_rpc_request_t *request,
+    int status);
+
+/*
+ * Optional per-request settings passed to the start entry points. Zero-
+ * initialize before use; a NULL options pointer selects the same defaults.
+ */
+typedef struct {
+  gzc_rpc_complete_cb on_complete;
+  void *complete_userdata;
+} gzc_rpc_request_options_t;
+
 int gzc_rpc_encode_request_envelope(
     const gzc_platform_t *platform,
     gzc_str_t id,
@@ -56,7 +93,8 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
 /*
  * Starts one unary RPC on a request-owned DataChannel. The caller remains the
  * sole gzc_client_poll() owner; result() never polls. Response views returned
- * by result() remain valid until this request is destroyed.
+ * by result() remain valid until this request is destroyed. options is borrowed
+ * for the call only; NULL selects the defaults.
  */
 int gzc_rpc_request_start(
     gzc_client_t *client,
@@ -64,12 +102,14 @@ int gzc_rpc_request_start(
     gizclaw_rpc_v1_RpcMethod method,
     gzc_str_t params_payload,
     int timeout_ms,
+    const gzc_rpc_request_options_t *options,
     gzc_rpc_request_t **out_request);
 /*
  * Starts one mixed-frame RPC without closing the request direction. Incoming
  * response, binary data, and EOS frames are delivered from gzc_client_poll().
  * Callback frame storage is borrowed only until the callback returns. The
- * callback must not cancel or destroy its request reentrantly.
+ * callback must not cancel or destroy its request reentrantly. options is
+ * borrowed for the call only; NULL selects the defaults.
  */
 int gzc_rpc_request_start_stream(
     gzc_client_t *client,
@@ -79,6 +119,7 @@ int gzc_rpc_request_start_stream(
     int timeout_ms,
     gzc_rpc_frame_cb on_frame,
     void *userdata,
+    const gzc_rpc_request_options_t *options,
     gzc_rpc_request_t **out_request);
 /*
  * Copies and queues one binary frame without polling. Returns
@@ -94,9 +135,16 @@ int gzc_rpc_request_finish_write(gzc_rpc_request_t *request);
 int gzc_rpc_request_result(
     gzc_rpc_request_t *request,
     gzc_rpc_response_t *out_response);
-/* Idempotently terminates a pending request with GZC_ERR_CLOSED. */
+/*
+ * Idempotently terminates a pending request with GZC_ERR_CLOSED. The first call
+ * on a pending request delivers gzc_rpc_complete_cb; later calls do not.
+ */
 void gzc_rpc_request_cancel(gzc_rpc_request_t *request);
-/* A NULL request is a no-op. The configured platform allocator must outlive it. */
+/*
+ * A NULL request is a no-op. The configured platform allocator must outlive it.
+ * Destroying a still-pending request delivers gzc_rpc_complete_cb with
+ * GZC_ERR_CLOSED before the request is released.
+ */
 void gzc_rpc_request_destroy(gzc_rpc_request_t *request);
 void gzc_rpc_response_free(gzc_client_t *client, gzc_rpc_response_t *response);
 
