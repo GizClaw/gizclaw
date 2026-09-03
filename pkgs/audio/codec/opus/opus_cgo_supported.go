@@ -9,6 +9,10 @@ package opus
 	static int gizclaw_opus_encoder_set_complexity(OpusEncoder *enc, int complexity) {
 		return opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(complexity));
 	}
+
+	static int gizclaw_opus_encoder_get_complexity(OpusEncoder *enc, int *complexity) {
+		return opus_encoder_ctl(enc, OPUS_GET_COMPLEXITY(complexity));
+	}
 */
 import "C"
 
@@ -17,6 +21,11 @@ import (
 	"runtime"
 	"unsafe"
 )
+
+// Supported reports whether this build links the native libopus runtime.
+func Supported() bool {
+	return true
+}
 
 // Version returns the linked libopus version string.
 func Version() string {
@@ -86,6 +95,19 @@ func (e *Encoder) SetComplexity(complexity int) error {
 		return codecError("encoder_set_complexity", ret)
 	}
 	return nil
+}
+
+// Complexity returns the current libopus encoder complexity.
+func (e *Encoder) Complexity() (int, error) {
+	if e == nil || e.enc == nil {
+		return 0, fmt.Errorf("opus: encoder is nil")
+	}
+	value := C.int(0)
+	ret := C.gizclaw_opus_encoder_get_complexity(e.enc, &value)
+	if ret != C.OPUS_OK {
+		return 0, codecError("encoder_get_complexity", ret)
+	}
+	return int(value), nil
 }
 
 // Encode encodes one PCM frame into one Opus packet.

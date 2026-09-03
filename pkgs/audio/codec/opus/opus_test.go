@@ -204,6 +204,9 @@ func TestEncodeDecodeRoundTripAndClose(t *testing.T) {
 	if err := enc.SetComplexity(0); err != nil {
 		t.Fatalf("SetComplexity(0): %v", err)
 	}
+	if got, err := enc.Complexity(); err != nil || got != 0 {
+		t.Fatalf("Complexity() = %d, %v; want 0, nil", got, err)
+	}
 	if err := enc.SetComplexity(11); err == nil {
 		t.Fatal("SetComplexity(11) expected error")
 	}

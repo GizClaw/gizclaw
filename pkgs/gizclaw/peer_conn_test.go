@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -2247,5 +2249,25 @@ func TestPeerConnMixedAudioEgressIdlesWithoutTracks(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("streamMixedAudio() did not stop")
+	}
+}
+
+func TestNewPeerConnOpusEncoderUsesLowestComplexity(t *testing.T) {
+	if !opus.Supported() {
+		t.Skipf("requires native opus runtime, got %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+	enc, err := newPeerConnOpusEncoder()
+	if err != nil {
+		t.Fatalf("newPeerConnOpusEncoder: %v", err)
+	}
+	defer func() {
+		_ = enc.Close()
+	}()
+	complexity, err := enc.Complexity()
+	if err != nil {
+		t.Fatalf("Complexity: %v", err)
+	}
+	if complexity != peerConnOpusComplexity {
+		t.Fatalf("complexity = %d, want %d", complexity, peerConnOpusComplexity)
 	}
 }
