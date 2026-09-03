@@ -85,7 +85,7 @@ func (store *SQL) lock() (func(), error) {
 	store.mu.RLock()
 	if store.closed || store.db == nil {
 		store.mu.RUnlock()
-		return nil, errors.New("kv: sql store is closed")
+		return nil, fmt.Errorf("kv: sql store is closed: %w", ErrStoreClosed)
 	}
 	return store.mu.RUnlock, nil
 }
