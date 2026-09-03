@@ -529,9 +529,14 @@ int gzt_control_request(
     static const struct {
       const char *name;
       gzc_control_aggregate_t value;
-    } modes[] = {{"avg", GZC_CONTROL_AGGREGATE_AVG}, {"min", GZC_CONTROL_AGGREGATE_MIN},
-                 {"max", GZC_CONTROL_AGGREGATE_MAX}, {"sum", GZC_CONTROL_AGGREGATE_SUM},
-                 {"count", GZC_CONTROL_AGGREGATE_COUNT}, {"last", GZC_CONTROL_AGGREGATE_LAST}};
+    } modes[] = {
+        {"avg", GZC_CONTROL_AGGREGATE_AVG},
+        {"min", GZC_CONTROL_AGGREGATE_MIN},
+        {"max", GZC_CONTROL_AGGREGATE_MAX},
+        {"sum", GZC_CONTROL_AGGREGATE_SUM},
+        {"count", GZC_CONTROL_AGGREGATE_COUNT},
+        {"last", GZC_CONTROL_AGGREGATE_LAST},
+    };
     bool matched = false;
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
       size_t len = strlen(modes[i].name);
