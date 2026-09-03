@@ -127,6 +127,12 @@ GizClawDeviceControlException? _scriptedFailure(Object? response) {
 Map<String, Object?> _asObject(Object? value) =>
     value is Map ? value.cast<String, Object?>() : const {};
 
+/// Bounds a scripted device delay. Node clamps a larger `setTimeout` delay to
+/// a single millisecond, which would turn a scenario written to exercise a
+/// timeout into one that passes on an immediate answer. Every runner rejects
+/// the same values so a document behaves identically everywhere.
+const maxScriptedDelayMs = 2147483647;
+
 class ScenarioClient {
   ScenarioClient._(
     this.name,
@@ -489,6 +495,11 @@ _Handlers _buildHandlers(
             if (delayMs != null) {
               if (delayMs is! int || delayMs < 0) {
                 throw StateError('delay_ms must be a non-negative integer');
+              }
+              if (delayMs > maxScriptedDelayMs) {
+                throw StateError(
+                  'delay_ms must be at most $maxScriptedDelayMs',
+                );
               }
               sleep(Duration(milliseconds: delayMs));
             }

@@ -24,6 +24,35 @@ import type { Variables } from "./variables.ts";
 const CONNECT_TIMEOUT_MS = 30_000;
 const RPC_TIMEOUT_MS = 30_000;
 
+// MAX_SCRIPTED_DELAY_MS bounds a scripted device delay. Node clamps a larger
+// setTimeout delay to a single millisecond, which would turn a scenario
+// written to exercise a timeout into one that passes on an immediate answer.
+// The Go and Dart runners reject the same values so a document behaves
+// identically everywhere.
+export const MAX_SCRIPTED_DELAY_MS = 2_147_483_647;
+
+// scriptedDelayMs reads a scripted device delay, rejecting anything the timer
+// cannot honor. An out-of-range delay would be clamped to a single
+// millisecond, so a scenario written to exercise a timeout would pass on an
+// immediate answer instead.
+export function scriptedDelayMs(scripted: Record<string, unknown>): number {
+  const delayMs = scripted["delay_ms"];
+  if (delayMs == null) {
+    return 0;
+  }
+  if (
+    typeof delayMs !== "number" ||
+    !Number.isInteger(delayMs) ||
+    delayMs < 0
+  ) {
+    throw new Error("delay_ms must be a non-negative integer");
+  }
+  if (delayMs > MAX_SCRIPTED_DELAY_MS) {
+    throw new Error(`delay_ms must be at most ${MAX_SCRIPTED_DELAY_MS}`);
+  }
+  return delayMs;
+}
+
 export type HTTPStepResult = { body: unknown; status: number };
 
 // httpBaseURL turns a client access point into an HTTP origin, dropping any
@@ -383,15 +412,8 @@ function buildHandlers(
         control.scanWifi = async () => {
           count(method);
           if (failure != null) throw failure;
-          const delayMs = scriptedObject["delay_ms"];
-          if (delayMs != null) {
-            if (
-              typeof delayMs !== "number" ||
-              !Number.isInteger(delayMs) ||
-              delayMs < 0
-            ) {
-              throw new Error("delay_ms must be a non-negative integer");
-            }
+          const delayMs = scriptedDelayMs(scriptedObject);
+          if (delayMs > 0) {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
           const networks = scriptedObject["networks"];

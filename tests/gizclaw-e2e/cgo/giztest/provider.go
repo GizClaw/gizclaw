@@ -14,6 +14,7 @@ import (
 	"runtime/cgo"
 	"sync"
 	"sync/atomic"
+	"time"
 	"unsafe"
 
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
@@ -166,7 +167,15 @@ func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, requestPayload []byte) ([
 	case !errors.Is(scriptErr, errNotScripted):
 		return nil, 0, "", scriptErr
 	}
-	value := response
+	value, delay, err := scriptedDelay(response)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	if delay > 0 {
+		// The Server is waiting on this RPC, so a slow device is a slow
+		// answer. Blocking the poll thread is what makes the wait observable.
+		time.Sleep(delay)
+	}
 	if name == "client.device.volume.set" {
 		value, err = echoVolume(info.request, requestPayload, response)
 		if err != nil {
@@ -178,6 +187,33 @@ func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, requestPayload []byte) ([
 		return nil, 0, "", err
 	}
 	return payload, 0, "", nil
+}
+
+// maxScriptedDelayMs bounds a scripted device delay. Node clamps a larger
+// setTimeout delay to a single millisecond, which would turn a scenario
+// written to exercise a timeout into one that passes on an immediate answer.
+// Every runner rejects the same values so a document behaves identically.
+const maxScriptedDelayMs = 2147483647
+
+// scriptedDelay splits an optional delay_ms out of a scripted response. The
+// key is a runner instruction, not a payload field, so it is removed before
+// the rest is encoded as the method's response message.
+func scriptedDelay(response any) (any, time.Duration, error) {
+	object, ok := response.(map[string]any)
+	if !ok || object["delay_ms"] == nil {
+		return response, 0, nil
+	}
+	value, err := scriptedErrorCode(object["delay_ms"])
+	if err != nil || value < 0 {
+		return nil, 0, fmt.Errorf("delay_ms must be a non-negative integer")
+	}
+	if value > maxScriptedDelayMs {
+		return nil, 0, fmt.Errorf("delay_ms must be at most %d", maxScriptedDelayMs)
+	}
+	remaining := make(map[string]any, len(object))
+	maps.Copy(remaining, object)
+	delete(remaining, "delay_ms")
+	return remaining, time.Duration(value) * time.Millisecond, nil
 }
 
 // echoVolume overlays the requested level and mute state onto the scripted

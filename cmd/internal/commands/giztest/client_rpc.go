@@ -269,6 +269,13 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 	return nil
 }
 
+// maxScriptedDelayMs bounds a scripted device delay across every runner. It is
+// the largest value Node accepts for setTimeout; a larger one is clamped to a
+// single millisecond there, which would turn a scenario written to exercise a
+// timeout into one that passes on an immediate answer. The Go and Dart runners
+// reject the same values so a document behaves identically everywhere.
+const maxScriptedDelayMs = 2147483647
+
 func scriptedDeviceDelay(response any) (time.Duration, error) {
 	object, ok := response.(map[string]any)
 	if !ok || object["delay_ms"] == nil {
@@ -277,6 +284,9 @@ func scriptedDeviceDelay(response any) (time.Duration, error) {
 	value, err := scriptedErrorCode(object["delay_ms"])
 	if err != nil || value < 0 {
 		return 0, fmt.Errorf("delay_ms must be a non-negative integer")
+	}
+	if value > maxScriptedDelayMs {
+		return 0, fmt.Errorf("delay_ms must be at most %d", maxScriptedDelayMs)
 	}
 	return time.Duration(value) * time.Millisecond, nil
 }
