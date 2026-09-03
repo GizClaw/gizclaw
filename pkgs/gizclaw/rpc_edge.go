@@ -10,11 +10,13 @@ import (
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type edgeRPCServer struct {
 	routes         *peerroute.Server
+	apiKeys        *apikey.Server
 	isPeerRetiring func() bool
 }
 
@@ -36,9 +38,40 @@ func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*
 		return s.handleAssign(ctx, req), nil
 	case rpcapi.RPCMethodServerRouteResolve:
 		return s.handleResolve(ctx, req), nil
+	case rpcapi.RPCMethodServerAPIKeyResolve:
+		return s.handleAPIKeyResolve(ctx, req), nil
 	default:
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
+}
+
+func (s *edgeRPCServer) handleAPIKeyResolve(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s == nil || s.routes == nil {
+		return edgeRPCError(req.Id, peerroute.ErrStoreNil)
+	}
+	if s.apiKeys == nil {
+		return edgeRPCError(req.Id, errors.New("api key service is not configured"))
+	}
+	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerAPIKeyResolveRequest)
+	if err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
+	}
+	principal, err := s.apiKeys.Authenticate(ctx, params.ApiKey)
+	if err != nil {
+		if !errors.Is(err, apikey.ErrInvalidAPIKey) {
+			err = errors.New("api key authentication failed")
+		}
+		return edgeRPCError(req.Id, err)
+	}
+	publicKey, err := peerroute.ParsePublicKey(principal.Key.Owner)
+	if err != nil {
+		return edgeRPCError(req.Id, err)
+	}
+	assignment, err := s.routes.Resolve(ctx, publicKey)
+	if err != nil {
+		return edgeRPCError(req.Id, err)
+	}
+	return edgeRPCResult(req.Id, rpcpb.ServerAPIKeyResolveResponse{Assignment: peerroute.ToRPC(assignment)}, (*rpcapi.RPCPayload).FromServerAPIKeyResolveResponse)
 }
 
 func (s *edgeRPCServer) handleLookup(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -117,6 +150,8 @@ func edgeRPCResult[T any](id string, value T, encode func(*rpcapi.RPCPayload, T)
 func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
 	code := rpcapi.RPCErrorCodeInternalError
 	switch {
+	case errors.Is(err, apikey.ErrInvalidAPIKey):
+		code = rpcapi.RPCErrorCodeForbidden
 	case errors.Is(err, peerroute.ErrInvalidPublicKey), errors.Is(err, peerroute.ErrPeerNotAssignable):
 		code = rpcapi.RPCErrorCodeInvalidParams
 	case errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, peerroute.ErrPeerInactive), errors.Is(err, peer.ErrPeerNotFound), errors.Is(err, kv.ErrNotFound):

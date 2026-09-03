@@ -1,6 +1,6 @@
 # API
 
-GizClaw exposes two primary interfaces for administrators and peers. The Admin API manages the Server as a whole, while Peer RPC lets a connected peer call product capabilities. Both reuse an authenticated Giznet peer connection; the Admin API is not an unauthenticated public HTTP endpoint.
+GizClaw exposes two primary interfaces for administrators and peers. The Admin API manages the Server as a whole, while Peer RPC lets a connected peer call product capabilities. Both reuse an authenticated Giznet peer connection; the Admin API is not an unauthenticated public HTTP endpoint. A phone app or script holding a device API key can additionally read and control its bound device over Public HTTP; see [Device HTTP API](#device-http-api) below.
 
 ## Choosing an interface
 
@@ -136,6 +136,33 @@ if err != nil {
 ```
 
 The Go SDK exposes common RPCs as typed methods on `gizcli.Client`. The supplied request ID must be unique among concurrent calls on the current connection. Use the `context` for cancellation and deadlines.
+
+## Device HTTP API
+
+An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` without a Peer connection, through Direct Server HTTP (`serve-to-clients=true`) or Edge HTTPS. Send `Authorization: Bearer <api-key>` on every request; resources and commands always target the key's bound device and cannot name another Peer.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /gizclaw/v1/device` | Device name, emoji, hardware info, and identifiers |
+| `GET /gizclaw/v1/device/runtime` | Online state, last seen time, and traffic |
+| `GET /gizclaw/v1/device/status` | Latest reported battery, charging, volume, mute, and GNSS |
+| `GET /gizclaw/v1/device/telemetry/latest`, `/telemetry`, `/telemetry/aggregate` | Sampled telemetry queries with Admin telemetry semantics |
+| `PUT /gizclaw/v1/device/volume` | Set volume and mute; returns the status the device reports |
+| `POST /gizclaw/v1/device/actions/play-sound` | Play a device-defined sound |
+| `POST /gizclaw/v1/device/actions/reboot` | Reboot the device |
+| `GET /gizclaw/v1/device/wifi`, `/wifi/saved`, `DELETE /wifi/saved/{ssid}` | Query Wi‑Fi status, list and forget saved networks |
+| `/gizclaw/v1/contacts`, `/contacts/{contactName}` | List/create/get/put/delete the device's contacts |
+
+Read routes project data the Server already holds and never wake the device. Control routes execute live over a Server-to-device RPC: an offline device answers `409 DEVICE_OFFLINE`, no answer within 5 seconds gives `504 DEVICE_TIMEOUT`, and a device without the provider gives `501 DEVICE_UNSUPPORTED`. Poll `GET /device/status` for state changes. Wi‑Fi provisioning stays on the device-local BLE channel.
+
+```sh
+curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"level":35,"muted":false}'
+```
+
+TypeScript uses the generated `setDeviceVolume`, `getDeviceStatus`, `listContacts`, and related operations from `@gizclaw/gizclaw/peerhttp`; Go uses `peerhttp.ClientWithResponses` (the same type `gizcli.Client.PeerHTTPClient()` returns). The exact paths, parameters, and responses are defined by [`api/http/peer.json`](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json).
 
 ## Errors and connection lifecycle
 

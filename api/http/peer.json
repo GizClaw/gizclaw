@@ -2,13 +2,16 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Peer HTTP API",
-    "description": "Peer bootstrap and device-bound API key endpoints.",
+    "description": "Peer bootstrap, device-bound API key, device, and contact endpoints.",
     "version": "1.0.0"
   },
   "servers": [{"url": "/"}],
   "tags": [
     {"name": "Public", "description": "Unauthenticated bootstrap operations"},
-    {"name": "APIKeys", "description": "Device-bound API key management"}
+    {"name": "APIKeys", "description": "Device-bound API key management"},
+    {"name": "Device", "description": "Read the device bound to the API key"},
+    {"name": "DeviceControl", "description": "Control the device bound to the API key over Server-to-device RPC"},
+    {"name": "Contacts", "description": "Contacts owned by the device bound to the API key"}
   ],
   "paths": {
     "/server-info": {
@@ -173,6 +176,368 @@
         }
       }
     }
+,
+    "/gizclaw/v1/device": {
+      "get": {
+        "operationId": "getDevice",
+        "summary": "Get the device bound to the API key",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Device identity, hardware, and identifiers.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/runtime": {
+      "get": {
+        "operationId": "getDeviceRuntime",
+        "summary": "Get the online runtime of the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Online state, last seen time, last address, and traffic counters.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/Runtime"}}}
+          },
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/status": {
+      "get": {
+        "operationId": "getDeviceStatus",
+        "summary": "Get the latest reported status of the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "description": "Returns the most recent authoritative PeerStatus snapshot. Reading never contacts the device or changes runtime state.",
+        "responses": {
+          "200": {"description": "Latest PeerStatus snapshot.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerStatus"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/telemetry/latest": {
+      "get": {
+        "operationId": "getDeviceTelemetryLatest",
+        "summary": "Get latest sampled telemetry values for the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {
+            "name": "fields",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated telemetry field names. Omitted means all supported fields.",
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {"description": "Latest telemetry values.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryLatestResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/telemetry": {
+      "get": {
+        "operationId": "queryDeviceTelemetry",
+        "summary": "Query sampled telemetry points for the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "field", "in": "query", "required": true, "description": "Telemetry field name", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
+          {"name": "start_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond start time", "schema": {"type": "integer", "format": "int64"}},
+          {"name": "end_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond end time", "schema": {"type": "integer", "format": "int64"}},
+          {
+            "name": "step_ms",
+            "in": "query",
+            "required": false,
+            "description": "Range evaluation step in milliseconds. Omitted derives a bounded step from the requested range and limit.",
+            "schema": {"type": "integer", "format": "int64"}
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum returned points. Omitted uses the default point budget.",
+            "schema": {"type": "integer", "format": "int32"}
+          },
+          {"name": "order", "in": "query", "required": false, "description": "Returned point order", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryOrder"}}
+        ],
+        "responses": {
+          "200": {"description": "Sampled telemetry range.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryRangeResponse"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/telemetry/aggregate": {
+      "get": {
+        "operationId": "aggregateDeviceTelemetry",
+        "summary": "Query bucketed aggregate telemetry for the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "field", "in": "query", "required": true, "description": "Telemetry field name", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
+          {"name": "start_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond start time", "schema": {"type": "integer", "format": "int64"}},
+          {"name": "end_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond end time", "schema": {"type": "integer", "format": "int64"}},
+          {"name": "bucket_ms", "in": "query", "required": true, "description": "Bucket size in milliseconds", "schema": {"type": "integer", "format": "int64"}},
+          {"name": "aggregate", "in": "query", "required": true, "description": "Aggregate mode", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregate"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucketed telemetry aggregate.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregateResponse"}}}
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/volume": {
+      "put": {
+        "operationId": "setDeviceVolume",
+        "summary": "Set the absolute volume and mute state of the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceVolumeSetRequest"}}}},
+        "responses": {
+          "200": {
+            "description": "PeerStatus reported by the device after applying the volume.",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceControlStatus"}}}
+          },
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/actions/play-sound": {
+      "post": {
+        "operationId": "playDeviceSound",
+        "summary": "Play a device-defined sound on the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.device.sound.play to the online device. The sound identifier is device-defined; the device validates it and answers DEVICE_REJECTED for unknown sounds.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DevicePlaySoundRequest"}}}},
+        "responses": {
+          "204": {"description": "The device accepted the playback request."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/actions/reboot": {
+      "post": {
+        "operationId": "rebootDevice",
+        "summary": "Reboot the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.device.reboot to the online device. The device acknowledges before rebooting; later control commands answer DEVICE_OFFLINE until the device reconnects.",
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRebootRequest"}}}},
+        "responses": {
+          "204": {"description": "The device accepted the reboot request."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/wifi": {
+      "get": {
+        "operationId": "getDeviceWifi",
+        "summary": "Get the current Wi-Fi status of the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.wifi.status.get to the online device.",
+        "responses": {
+          "200": {"description": "Current device Wi-Fi status.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiStatus"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/wifi/saved": {
+      "get": {
+        "operationId": "listDeviceSavedWifi",
+        "summary": "List Wi-Fi networks saved on the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.wifi.saved.list to the online device.",
+        "responses": {
+          "200": {"description": "Saved Wi-Fi networks.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiSavedList"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/wifi/saved/{ssid}": {
+      "parameters": [
+        {
+          "name": "ssid",
+          "in": "path",
+          "required": true,
+          "description": "Saved network SSID; at most 32 UTF-8 bytes.",
+          "schema": {"type": "string", "minLength": 1, "maxLength": 32}
+        }
+      ],
+      "delete": {
+        "operationId": "forgetDeviceSavedWifi",
+        "summary": "Forget a Wi-Fi network saved on the bound device",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.wifi.saved.forget to the online device. Unknown SSIDs answer 404.",
+        "responses": {
+          "204": {"description": "The device forgot the network."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {
+            "description": "The device has no saved network with this SSID.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/contacts": {
+      "get": {
+        "operationId": "listContacts",
+        "summary": "List contacts owned by the bound device",
+        "tags": ["Contacts"],
+        "security": [{"BearerAuth": []}],
+        "parameters": [
+          {"name": "cursor", "in": "query", "required": false, "description": "Contact name returned as next_cursor by the previous page.", "schema": {"type": "string"}},
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}}
+        ],
+        "responses": {
+          "200": {"description": "Contacts in stable name order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactList"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "createContact",
+        "summary": "Create a contact owned by the bound device",
+        "tags": ["Contacts"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactCreateRequest"}}}},
+        "responses": {
+          "201": {"description": "Created contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {
+            "description": "The contact name or phone number already exists, or the owner is pending deletion.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
+    "/gizclaw/v1/contacts/{contactName}": {
+      "parameters": [{"name": "contactName", "in": "path", "required": true, "description": "Owner-scoped immutable contact name.", "schema": {"type": "string", "minLength": 1}}],
+      "get": {
+        "operationId": "getContact",
+        "summary": "Get a contact owned by the bound device",
+        "tags": ["Contacts"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "put": {
+        "operationId": "putContact",
+        "summary": "Update a contact owned by the bound device",
+        "tags": ["Contacts"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactPutRequest"}}}},
+        "responses": {
+          "200": {"description": "Updated contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {
+            "description": "The phone number already exists, or the owner is pending deletion.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "delete": {
+        "operationId": "deleteContact",
+        "summary": "Delete a contact owned by the bound device",
+        "tags": ["Contacts"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "204": {"description": "Contact deleted."},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+          "409": {"$ref": "#/components/responses/Conflict"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    }
   },
   "components": {
     "responses": {
@@ -181,7 +546,23 @@
       "Forbidden": {"description": "The API key does not authorize this operation.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "NotFound": {"description": "The API key was not found for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "Conflict": {"description": "The API key owner is pending deletion.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
-      "InternalError": {"description": "The API key operation failed.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}}
+      "InternalError": {"description": "The API key operation failed.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "DeviceOffline": {
+        "description": "The device has no active connection, or is rebooting and has not reconnected.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "DeviceTimeout": {
+        "description": "The device did not answer within the control timeout.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "DeviceUnsupported": {
+        "description": "The device does not implement this control method.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      },
+      "DeviceError": {
+        "description": "The device answered with an unexpected RPC error.",
+        "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+      }
     },
     "securitySchemes": {
       "BearerAuth": {"type": "http", "scheme": "bearer"}
@@ -226,6 +607,89 @@
           "items": {"type": "array", "items": {"$ref": "#/components/schemas/APIKey"}},
           "next_cursor": {"type": "string"}
         }
+      },
+      "DeviceVolumeSetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["level", "muted"],
+        "properties": {"level": {"type": "integer", "minimum": 0, "maximum": 100, "description": "Absolute volume level."}, "muted": {"type": "boolean"}}
+      },
+      "DeviceControlStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": {"status": {"$ref": "./shared.json#/components/schemas/PeerStatus"}}
+      },
+      "DevicePlaySoundRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sound"],
+        "properties": {
+          "sound": {"type": "string", "minLength": 1, "maxLength": 32, "description": "Device-defined sound identifier; at most 32 UTF-8 bytes. The device validates the value."},
+          "duration_ms": {"type": "integer", "format": "int64", "minimum": 0, "description": "Optional playback duration in milliseconds."}
+        }
+      },
+      "DeviceRebootRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {"delay_ms": {"type": "integer", "format": "int64", "minimum": 0, "description": "Optional delay before the device reboots, in milliseconds."}}
+      },
+      "DeviceWifiStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["connected"],
+        "properties": {
+          "connected": {"type": "boolean"},
+          "ssid": {"type": "string", "maxLength": 32},
+          "rssi_dbm": {"type": "integer", "format": "int64"},
+          "ip": {"type": "string"},
+          "bssid": {"type": "string"}
+        }
+      },
+      "DeviceWifiSavedNetwork": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ssid"],
+        "properties": {"ssid": {"type": "string", "maxLength": 32}}
+      },
+      "DeviceWifiSavedList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["networks"],
+        "properties": {"networks": {"type": "array", "items": {"$ref": "#/components/schemas/DeviceWifiSavedNetwork"}}}
+      },
+      "Contact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "description": "Owner-scoped immutable contact name."},
+          "display_name": {"type": "string"},
+          "phone_number": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "ContactList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items", "has_next"],
+        "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/Contact"}}, "has_next": {"type": "boolean"}, "next_cursor": {"type": "string"}}
+      },
+      "ContactCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "description": "Owner-scoped immutable contact name without surrounding whitespace."},
+          "display_name": {"type": "string"},
+          "phone_number": {"type": "string"}
+        }
+      },
+      "ContactPutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {"display_name": {"type": "string"}, "phone_number": {"type": "string"}}
       },
       "GiznetWebRTCSignalingError": {
         "type": "object",

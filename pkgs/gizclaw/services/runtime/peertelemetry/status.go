@@ -41,6 +41,70 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	if err != nil {
 		return err
 	}
+	if !applyTelemetryStatusPatch(&status, patch) {
+		return nil
+	}
+	_, err = s.Store.PutStatus(ctx, peer, status)
+	return err
+}
+
+// ApplyDeviceStatus merges a PeerStatus that the device reported in response
+// to a Server-initiated control command into the stored owner-scoped status.
+//
+// Volume, muted, and labels come from the control response verbatim because
+// no telemetry frame carries them. Battery and GNSS fields use the same
+// per-field observation ordering as telemetry reports, so an older control
+// response never overwrites a newer telemetry observation. The reported time
+// defaults to now when the device omits it; the stored reported_at never moves
+// backwards.
+func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey, reported apitypes.PeerStatus, now time.Time) (apitypes.PeerStatus, error) {
+	if s.Store == nil {
+		return apitypes.PeerStatus{}, ErrStatusServiceNil
+	}
+	reportedAt := now.UTC()
+	if reported.ReportedAt != nil && !reported.ReportedAt.IsZero() {
+		reportedAt = reported.ReportedAt.UTC()
+	}
+	status, err := s.Store.GetStatus(ctx, peer)
+	if err != nil {
+		return apitypes.PeerStatus{}, err
+	}
+	patch := StatusPatch{ReportedAt: reportedAt, BatteryPercent: reported.BatteryPercent, Charging: reported.Charging}
+	if reported.GnssLatitude != nil {
+		patch.GNSSLatitude = new(float64(*reported.GnssLatitude))
+	}
+	if reported.GnssLongitude != nil {
+		patch.GNSSLongitude = new(float64(*reported.GnssLongitude))
+	}
+	if reported.GnssAltitudeM != nil {
+		patch.GNSSAltitudeM = new(float64(*reported.GnssAltitudeM))
+	}
+	if reported.GnssAccuracyM != nil {
+		patch.GNSSAccuracyM = new(float64(*reported.GnssAccuracyM))
+	}
+	changed := applyTelemetryStatusPatch(&status, patch)
+	if reported.Volume != nil {
+		value := *reported.Volume
+		status.Volume = &value
+		changed = true
+	}
+	if reported.Muted != nil {
+		value := *reported.Muted
+		status.Muted = &value
+		changed = true
+	}
+	if reported.Labels != nil {
+		labels := maps.Clone(*reported.Labels)
+		status.Labels = &labels
+		changed = true
+	}
+	if !changed {
+		return status, nil
+	}
+	return s.Store.PutStatus(ctx, peer, status)
+}
+
+func applyTelemetryStatusPatch(status *apitypes.PeerStatus, patch StatusPatch) bool {
 	changed := false
 	if !patch.ReportedAt.IsZero() {
 		reportedAt := patch.ReportedAt.UTC()
@@ -49,47 +113,43 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 			changed = true
 		}
 	}
-	if patch.BatteryPercent != nil && shouldApplyTelemetryStatusField(status, telemetryStatusBatteryPercentAtKey, status.BatteryPercent == nil, patch.BatteryPercentAt, patch.ReportedAt) {
+	if patch.BatteryPercent != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusBatteryPercentAtKey, status.BatteryPercent == nil, patch.BatteryPercentAt, patch.ReportedAt) {
 		value := *patch.BatteryPercent
 		status.BatteryPercent = &value
-		setTelemetryStatusFieldTime(&status, telemetryStatusBatteryPercentAtKey, patch.BatteryPercentAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, telemetryStatusBatteryPercentAtKey, patch.BatteryPercentAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.Charging != nil && shouldApplyTelemetryStatusField(status, telemetryStatusChargingAtKey, status.Charging == nil, patch.ChargingAt, patch.ReportedAt) {
+	if patch.Charging != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusChargingAtKey, status.Charging == nil, patch.ChargingAt, patch.ReportedAt) {
 		value := *patch.Charging
 		status.Charging = &value
-		setTelemetryStatusFieldTime(&status, telemetryStatusChargingAtKey, patch.ChargingAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, telemetryStatusChargingAtKey, patch.ChargingAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSLatitude != nil && shouldApplyTelemetryStatusField(status, telemetryStatusGNSSLatitudeAtKey, status.GnssLatitude == nil, patch.GNSSLatitudeAt, patch.ReportedAt) {
+	if patch.GNSSLatitude != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSLatitudeAtKey, status.GnssLatitude == nil, patch.GNSSLatitudeAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSLatitude)
 		status.GnssLatitude = &value
-		setTelemetryStatusFieldTime(&status, telemetryStatusGNSSLatitudeAtKey, patch.GNSSLatitudeAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, telemetryStatusGNSSLatitudeAtKey, patch.GNSSLatitudeAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSLongitude != nil && shouldApplyTelemetryStatusField(status, telemetryStatusGNSSLongitudeAtKey, status.GnssLongitude == nil, patch.GNSSLongitudeAt, patch.ReportedAt) {
+	if patch.GNSSLongitude != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSLongitudeAtKey, status.GnssLongitude == nil, patch.GNSSLongitudeAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSLongitude)
 		status.GnssLongitude = &value
-		setTelemetryStatusFieldTime(&status, telemetryStatusGNSSLongitudeAtKey, patch.GNSSLongitudeAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, telemetryStatusGNSSLongitudeAtKey, patch.GNSSLongitudeAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSAltitudeM != nil && shouldApplyTelemetryStatusField(status, telemetryStatusGNSSAltitudeMAtKey, status.GnssAltitudeM == nil, patch.GNSSAltitudeMAt, patch.ReportedAt) {
+	if patch.GNSSAltitudeM != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSAltitudeMAtKey, status.GnssAltitudeM == nil, patch.GNSSAltitudeMAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSAltitudeM)
 		status.GnssAltitudeM = &value
-		setTelemetryStatusFieldTime(&status, telemetryStatusGNSSAltitudeMAtKey, patch.GNSSAltitudeMAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, telemetryStatusGNSSAltitudeMAtKey, patch.GNSSAltitudeMAt, patch.ReportedAt)
 		changed = true
 	}
-	if patch.GNSSAccuracyM != nil && shouldApplyTelemetryStatusField(status, telemetryStatusGNSSAccuracyMAtKey, status.GnssAccuracyM == nil, patch.GNSSAccuracyMAt, patch.ReportedAt) {
+	if patch.GNSSAccuracyM != nil && shouldApplyTelemetryStatusField(*status, telemetryStatusGNSSAccuracyMAtKey, status.GnssAccuracyM == nil, patch.GNSSAccuracyMAt, patch.ReportedAt) {
 		value := float32(*patch.GNSSAccuracyM)
 		status.GnssAccuracyM = &value
-		setTelemetryStatusFieldTime(&status, telemetryStatusGNSSAccuracyMAtKey, patch.GNSSAccuracyMAt, patch.ReportedAt)
+		setTelemetryStatusFieldTime(status, telemetryStatusGNSSAccuracyMAtKey, patch.GNSSAccuracyMAt, patch.ReportedAt)
 		changed = true
 	}
-	if !changed {
-		return nil
-	}
-	_, err = s.Store.PutStatus(ctx, peer, status)
-	return err
+	return changed
 }
 
 func shouldApplyTelemetryStatusField(status apitypes.PeerStatus, fieldKey string, currentMissing bool, fieldAt time.Time, fallback time.Time) bool {

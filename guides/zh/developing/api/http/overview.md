@@ -7,7 +7,7 @@ GizClaw Server 对外维护两个仓库自有 OpenAPI surface，以及一个由 
 | Contract owner | Caller 与职责 | Go surface |
 | --- | --- | --- |
 | `admin.json` | 管理员管理资源、Peer、Telemetry 和运维动作 | `pkgs/gizclaw/api/adminhttp` |
-| `peer.json` | Public/Peer 登录、自身状态、Server info 与 WebRTC offer | `pkgs/gizclaw/api/peerhttp` |
+| `peer.json` | Server info、WebRTC offer，以及 API Key 绑定设备的 Key 管理、device、控制与 Contact surface | `pkgs/gizclaw/api/peerhttp` |
 | `github.com/idy/ai-server-shell` | OpenAI-compatible model、chat 与 audio subset | `services/ai/openaiapi` backend adapter |
 
 ## 请求流

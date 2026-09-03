@@ -138,10 +138,36 @@ export type BadgeListResponse = {
   "items": Badge[];
   "next_cursor"?: string;
 };
+export type ClientDeviceRebootRequest = {
+  "delay_ms"?: number;
+};
+export type ClientDeviceRebootResponse = Record<string, never>;
+export type ClientDeviceSoundPlayRequest = {
+  "sound": string;
+  "duration_ms"?: number;
+};
+export type ClientDeviceSoundPlayResponse = Record<string, never>;
+export type ClientDeviceStatusGetRequest = Record<string, never>;
+export type ClientDeviceStatusGetResponse = PeerStatus;
+export type ClientDeviceVolumeSetRequest = {
+  "level": number;
+  "muted": boolean;
+};
+export type ClientDeviceVolumeSetResponse = PeerStatus;
 export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientWifiSavedForgetRequest = {
+  "ssid": string;
+};
+export type ClientWifiSavedForgetResponse = Record<string, never>;
+export type ClientWifiSavedListRequest = Record<string, never>;
+export type ClientWifiSavedListResponse = {
+  "networks": WifiSavedNetwork[];
+};
+export type ClientWifiStatusGetRequest = Record<string, never>;
+export type ClientWifiStatusGetResponse = WifiStatus;
 export type ContactCreateRequest = {
   "name": string;
   "display_name"?: string;
@@ -985,6 +1011,12 @@ export type Runtime = {
 };
 export type RuntimeAdoptRequest = PetAdoptRequest;
 export type RuntimeAdoptResponse = PetAdoptResponse;
+export type ServerAPIKeyResolveRequest = {
+  "api_key": string;
+};
+export type ServerAPIKeyResolveResponse = {
+  "assignment": PeerAssignment;
+};
 export type ServerBadgeGetRequest = GameplayNameGetRequest;
 export type ServerBadgeGetResponse = Badge;
 export type ServerBadgeListRequest = GameplayListRequest;
@@ -1195,6 +1227,16 @@ export type VolcTenantModelProviderData = {
   "thinking_levels": string[];
   "default_thinking_level"?: string;
 };
+export type WifiSavedNetwork = {
+  "ssid": string;
+};
+export type WifiStatus = {
+  "connected": boolean;
+  "ssid"?: string;
+  "rssi_dbm"?: number;
+  "ip"?: string;
+  "bssid"?: string;
+};
 export type Workflow = {
   "name": string;
   "i18n": Record<string, ResourceI18nText>;
@@ -1313,12 +1355,20 @@ export type WorkspacePutResponse = Workspace;
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
   "all.speed_test.run": "SpeedTestRequest",
+  "client.device.reboot": "ClientDeviceRebootRequest",
+  "client.device.sound.play": "ClientDeviceSoundPlayRequest",
+  "client.device.status.get": "ClientDeviceStatusGetRequest",
+  "client.device.volume.set": "ClientDeviceVolumeSetRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
+  "client.wifi.saved.forget": "ClientWifiSavedForgetRequest",
+  "client.wifi.saved.list": "ClientWifiSavedListRequest",
+  "client.wifi.status.get": "ClientWifiStatusGetRequest",
   "runtime.adopt": "RuntimeAdoptRequest",
   "server.api_key.create": "APIKeyCreateRequest",
   "server.api_key.list": "APIKeyListRequest",
+  "server.api_key.resolve": "ServerAPIKeyResolveRequest",
   "server.api_key.revoke": "APIKeyRevokeRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
@@ -1409,12 +1459,20 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingResponse",
   "all.speed_test.run": "SpeedTestResponse",
+  "client.device.reboot": "ClientDeviceRebootResponse",
+  "client.device.sound.play": "ClientDeviceSoundPlayResponse",
+  "client.device.status.get": "ClientDeviceStatusGetResponse",
+  "client.device.volume.set": "ClientDeviceVolumeSetResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
+  "client.wifi.saved.forget": "ClientWifiSavedForgetResponse",
+  "client.wifi.saved.list": "ClientWifiSavedListResponse",
+  "client.wifi.status.get": "ClientWifiStatusGetResponse",
   "runtime.adopt": "RuntimeAdoptResponse",
   "server.api_key.create": "APIKeyCreateResponse",
   "server.api_key.list": "APIKeyListResponse",
+  "server.api_key.resolve": "ServerAPIKeyResolveResponse",
   "server.api_key.revoke": "APIKeyRevokeResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
@@ -1868,6 +1926,72 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientDeviceRebootRequest": {
+    "fields": [
+      {
+        "name": "delay_ms",
+        "number": 1,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "ClientDeviceRebootResponse": {
+    "fields": []
+  },
+  "ClientDeviceSoundPlayRequest": {
+    "fields": [
+      {
+        "name": "sound",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "duration_ms",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "ClientDeviceSoundPlayResponse": {
+    "fields": []
+  },
+  "ClientDeviceStatusGetRequest": {
+    "fields": []
+  },
+  "ClientDeviceStatusGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PeerStatus"
+      }
+    ]
+  },
+  "ClientDeviceVolumeSetRequest": {
+    "fields": [
+      {
+        "name": "level",
+        "number": 1,
+        "type": "int64"
+      },
+      {
+        "name": "muted",
+        "number": 2,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientDeviceVolumeSetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PeerStatus"
+      }
+    ]
+  },
   "ClientGetIdentifiersRequest": {
     "fields": []
   },
@@ -1889,6 +2013,43 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "HardwareInfo"
+      }
+    ]
+  },
+  "ClientWifiSavedForgetRequest": {
+    "fields": [
+      {
+        "name": "ssid",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientWifiSavedForgetResponse": {
+    "fields": []
+  },
+  "ClientWifiSavedListRequest": {
+    "fields": []
+  },
+  "ClientWifiSavedListResponse": {
+    "fields": [
+      {
+        "name": "networks",
+        "number": 1,
+        "repeated": true,
+        "type": "WifiSavedNetwork"
+      }
+    ]
+  },
+  "ClientWifiStatusGetRequest": {
+    "fields": []
+  },
+  "ClientWifiStatusGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "WifiStatus"
       }
     ]
   },
@@ -5743,6 +5904,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ServerAPIKeyResolveRequest": {
+    "fields": [
+      {
+        "name": "api_key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerAPIKeyResolveResponse": {
+    "fields": [
+      {
+        "name": "assignment",
+        "number": 1,
+        "type": "PeerAssignment"
+      }
+    ]
+  },
   "ServerBadgeGetRequest": {
     "fields": [
       {
@@ -6824,6 +7003,48 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "default_thinking_level",
         "number": 13,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "WifiSavedNetwork": {
+    "fields": [
+      {
+        "name": "ssid",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "WifiStatus": {
+    "fields": [
+      {
+        "name": "connected",
+        "number": 1,
+        "type": "bool"
+      },
+      {
+        "name": "ssid",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "rssi_dbm",
+        "number": 3,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "ip",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "bssid",
+        "number": 5,
         "optional": true,
         "type": "string"
       }

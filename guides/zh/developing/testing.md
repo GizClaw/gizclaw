@@ -34,7 +34,7 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-它运行 Redis 7.0、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
+它运行 Redis、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
 
 `sfu.friend.cross-server.audio-bytes` 不需要凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
 
@@ -171,7 +171,7 @@ set +a
 
 其中 `GIZCLAW_E2E_EDGE_ENDPOINT` 同时是面向 client 的 HTTP/signaling 与 WebRTC ICE
 endpoint，
-`GIZCLAW_E2E_SERVER_ENDPOINT` 面向 host Admin，其他变量提供 CLI config home、
+`GIZCLAW_E2E_SERVER_ENDPOINT` 面向 host Admin，`GIZCLAW_TEST_ENDPOINT` 固定指向 Edge，其他变量提供 CLI config home、
 identity home 和 Compose project。需要重置标准资源时使用：
 
 ```sh
@@ -207,6 +207,18 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
   --output tests/gizclaw-e2e/testdata/giztest-report.json
 ```
+
+设备控制与 Contact 的 Public HTTP 契约由 `server.device.*` 与 `server.contacts.*` 场景覆盖。
+`http` step 以当前 client 的 `access_point` 为 origin 发送一次 Public HTTP 请求（`method`、`path`、
+`headers`、JSON `body`、可选 `status`），响应 JSON 作为该 step 的值参与 `expect`、`capture` 与
+`save_as`；未声明 `status` 时 4xx/5xx 视为断言失败。API Key 由 `server.api_key.create` step
+`capture: {api_key: /api_key}` 得到，并以 `Authorization: "Bearer ${api_key}"` header 传入。
+`client_rpc` 可声明 `client.device.status.get`、`client.device.volume.set`、`client.device.sound.play`、
+`client.device.reboot`、`client.wifi.status.get`、`client.wifi.saved.list` 与 `client.wifi.saved.forget`：
+runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 provider（`volume.set` 会把请求的
+`level`/`muted` 回填进响应），`response: {error_code: -32602}` 让 provider 返回固定 RPC error；
+未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
+Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
 
 Giztest 不执行 Admin Apply。标准 Docker setup 先一次性 apply 全部 fixture（包括专用
 RuntimeProfile 和 run-scoped registration token），随后 JavaScript、C/cgo、Go、CLI 和

@@ -71,6 +71,8 @@ type Client struct {
 	toolHandlers      map[string]ToolHandler
 	clientRPCMu       sync.RWMutex
 	clientRPCObserver func(rpcapi.RPCMethod)
+	deviceMu          sync.RWMutex
+	deviceHandlers    *DeviceControlHandlers
 }
 
 type DialTransportFunc func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error)
@@ -450,6 +452,12 @@ func (c *Client) ServerPeerAssign(ctx context.Context, id string, request rpcpb.
 func (c *Client) ServerRouteResolve(ctx context.Context, id string, request rpcpb.ServerRouteResolveRequest) (*rpcpb.ServerRouteResolveResponse, error) {
 	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerRouteResolveResponse, error) {
 		return client.ServerRouteResolve(ctx, conn, id, request)
+	})
+}
+
+func (c *Client) ServerAPIKeyResolve(ctx context.Context, id string, request rpcpb.ServerAPIKeyResolveRequest) (*rpcpb.ServerAPIKeyResolveResponse, error) {
+	return callClientServiceRPC(c, ServiceEdgeRPC, func(client *rpcClient, conn net.Conn) (*rpcpb.ServerAPIKeyResolveResponse, error) {
+		return client.ServerAPIKeyResolve(ctx, conn, id, request)
 	})
 }
 

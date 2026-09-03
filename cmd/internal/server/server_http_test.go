@@ -29,23 +29,28 @@ func TestCmdServerServeHTTPNilServerReturnsNotFound(t *testing.T) {
 	}
 }
 
-func TestCmdServerServeToClientsFalseRejectsProtectedRoutesBeforeAuthentication(t *testing.T) {
+func TestCmdServerRejectsDirectProtectedRoutesBeforeAuthentication(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := validLayeredConfig(t.TempDir())
 	cfg.KeyPair = serverKey
-	cfg.ServeToClients = false
 	srv, err := New(cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 	defer srv.Close()
 
-	for _, path := range []string{"/gizclaw/v1/api-keys/self", "/openai/v1/models"} {
+	for _, route := range []struct{ method, path string }{
+		{http.MethodGet, "/gizclaw/v1/api-keys/self"}, {http.MethodGet, "/gizclaw/v1/device"}, {http.MethodGet, "/gizclaw/v1/device/status"},
+		{http.MethodPut, "/gizclaw/v1/device/volume"}, {http.MethodPost, "/gizclaw/v1/device/actions/reboot"},
+		{http.MethodDelete, "/gizclaw/v1/device/wifi/saved/home"}, {http.MethodGet, "/gizclaw/v1/contacts"},
+		{http.MethodPost, "/gizclaw/v1/contacts"}, {http.MethodGet, "/openai/v1/models"},
+	} {
+		path := route.path
 		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request := httptest.NewRequest(route.method, path, nil)
 		request.Header.Set("Authorization", "Bearer invalid")
 		srv.ServeHTTP(recorder, request)
 		if recorder.Code != http.StatusForbidden {
@@ -191,7 +196,7 @@ func TestNewWithOptionsConcurrentMetricsInstallPreservesExistingRecorder(t *test
 }
 
 func TestConfigListenAddrs(t *testing.T) {
-	cfg := Config{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:9820"}
+	cfg := Config{WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:9820"}}
 	if got := cfg.PublicAPIListenAddr(); got != "0.0.0.0:9820" {
 		t.Fatalf("PublicAPIListenAddr = %q", got)
 	}
@@ -204,7 +209,7 @@ func TestWebRTCListenConfigUsesListenAndPublicEndpoint(t *testing.T) {
 	policy := testGatewaySCTPSecurityPolicy{}
 	handler := testPeerEventHandler{}
 	iceTCPListener := &testListener{addr: testAddr("0.0.0.0:9820")}
-	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"}, gizclaw.PeerListenerOptions{
+	cfg := webRTCListenConfig(Config{WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"}}, gizclaw.PeerListenerOptions{
 		SecurityPolicy:   policy,
 		PeerEventHandler: handler,
 	}, iceTCPListener)
@@ -239,7 +244,7 @@ func TestWebRTCListenConfigUsesListenAndPublicEndpoint(t *testing.T) {
 }
 
 func TestWebRTCListenConfigSkipsUnspecifiedPublicEndpoint(t *testing.T) {
-	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "0.0.0.0:9820"}, gizclaw.PeerListenerOptions{}, nil)
+	cfg := webRTCListenConfig(Config{WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "0.0.0.0:9820"}}, gizclaw.PeerListenerOptions{}, nil)
 	if cfg.PublicICEUDPAddr != "" {
 		t.Fatalf("PublicICEUDPAddr = %q, want empty", cfg.PublicICEUDPAddr)
 	}
@@ -249,7 +254,7 @@ func TestWebRTCListenConfigSkipsUnspecifiedPublicEndpoint(t *testing.T) {
 }
 
 func TestWebRTCListenConfigSkipsHostnamePublicEndpoint(t *testing.T) {
-	cfg := webRTCListenConfig(Config{Listen: "0.0.0.0:9820", Endpoint: "example.com:9820"}, gizclaw.PeerListenerOptions{}, nil)
+	cfg := webRTCListenConfig(Config{WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "example.com:9820"}}, gizclaw.PeerListenerOptions{}, nil)
 	if cfg.PublicICEUDPAddr != "" {
 		t.Fatalf("PublicICEUDPAddr = %q, want empty", cfg.PublicICEUDPAddr)
 	}
@@ -260,8 +265,7 @@ func TestWebRTCListenConfigSkipsHostnamePublicEndpoint(t *testing.T) {
 
 func TestWebRTCListenConfigUsesRelayOnlyWithICEServers(t *testing.T) {
 	cfg := webRTCListenConfig(Config{
-		Listen:   "0.0.0.0:9820",
-		Endpoint: "192.168.1.20:19820",
+		WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"},
 		ICEServers: []gizwebrtc.ICEServer{{
 			URLs:       []string{"turn:edge.example.com:3478?transport=udp"},
 			Username:   "edge",
@@ -276,8 +280,7 @@ func TestWebRTCListenConfigUsesRelayOnlyWithICEServers(t *testing.T) {
 
 func TestWebRTCListenConfigKeepsTURNRESTCredentialsForPerAnswerMinting(t *testing.T) {
 	cfg := webRTCListenConfig(Config{
-		Listen:   "0.0.0.0:9820",
-		Endpoint: "192.168.1.20:19820",
+		WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"},
 		ICEServers: []gizwebrtc.ICEServer{{
 			URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
 			Username:       "edge",
@@ -296,8 +299,7 @@ func TestWebRTCListenConfigKeepsTURNRESTCredentialsForPerAnswerMinting(t *testin
 
 func TestWebRTCListenConfigRejectsEmptyTURNRESTSecret(t *testing.T) {
 	cfg := webRTCListenConfig(Config{
-		Listen:   "0.0.0.0:9820",
-		Endpoint: "192.168.1.20:19820",
+		WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"},
 		ICEServers: []gizwebrtc.ICEServer{{
 			URLs:           []string{"turn:edge.example.com:3478?transport=udp"},
 			Username:       "edge",
@@ -311,8 +313,7 @@ func TestWebRTCListenConfigRejectsEmptyTURNRESTSecret(t *testing.T) {
 
 func TestWebRTCListenConfigKeepsDefaultPolicyWithSTUNOnlyICEServers(t *testing.T) {
 	cfg := webRTCListenConfig(Config{
-		Listen:   "0.0.0.0:9820",
-		Endpoint: "192.168.1.20:19820",
+		WebRTC: WebRTCConfig{Listen: "0.0.0.0:9820", Endpoint: "192.168.1.20:19820"},
 		ICEServers: []gizwebrtc.ICEServer{{
 			URLs: []string{"stun:edge.example.com:3478"},
 		}},

@@ -144,6 +144,7 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 		if !strings.HasPrefix(ctx.Path(), "/gizclaw/v1/") {
 			return ctx.Next()
 		}
+		normalizeOptionalJSONBody(ctx)
 		principal, ok := authenticateFiberAPIKey(ctx, apiKeys)
 		if !ok {
 			return nil
@@ -233,6 +234,17 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 	return publicKey, true
 }
 
+// normalizeOptionalJSONBody lets routes with an optional JSON request body
+// accept an empty POST: the generated strict handler only tolerates a JSON
+// body, so an absent body becomes the empty object.
+func normalizeOptionalJSONBody(ctx *fiber.Ctx) {
+	if ctx.Method() != http.MethodPost || ctx.Path() != "/gizclaw/v1/device/actions/reboot" || len(ctx.Body()) != 0 {
+		return
+	}
+	ctx.Request().Header.SetContentType(fiber.MIMEApplicationJSON)
+	ctx.Request().SetBodyString("{}")
+}
+
 func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 	origin := ctx.Get(fiber.HeaderOrigin)
 	if origin == "" {
@@ -241,7 +253,7 @@ func setPeerHTTPCORSHeaders(ctx *fiber.Ctx) {
 		ctx.Vary(fiber.HeaderOrigin)
 	}
 	ctx.Set(fiber.HeaderAccessControlAllowOrigin, origin)
-	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,DELETE,OPTIONS")
+	ctx.Set(fiber.HeaderAccessControlAllowMethods, "GET,POST,PUT,DELETE,OPTIONS")
 	ctx.Set(fiber.HeaderAccessControlAllowHeaders, "Authorization,Content-Type,X-Giznet-Nonce,X-Giznet-Public-Key,X-Giznet-Timestamp,X-Request-ID")
 	ctx.Set(fiber.HeaderAccessControlExposeHeaders, "Content-Length,Content-Type,X-Request-ID")
 }

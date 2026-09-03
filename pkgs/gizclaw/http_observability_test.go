@@ -209,7 +209,7 @@ func TestPublicCORSAllowsAndExposesRequestID(t *testing.T) {
 	if got := header.Get("Vary"); got != "Origin" {
 		t.Fatalf("vary = %q", got)
 	}
-	if got := header.Get("Access-Control-Allow-Methods"); got != "GET,POST,DELETE,OPTIONS" {
+	if got := header.Get("Access-Control-Allow-Methods"); got != "GET,POST,PUT,DELETE,OPTIONS" {
 		t.Fatalf("allow methods = %q", got)
 	}
 	if !strings.Contains(header.Get("Access-Control-Allow-Headers"), requestIDHeader) {

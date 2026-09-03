@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
+import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
@@ -9,6 +10,7 @@ import 'package:test/test.dart';
 import 'fake_transport.dart';
 
 void main() {
+  deviceControlTests();
   test('serves server-initiated all.ping requests', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     serveGizClawPeerRpcChannel(channel);
@@ -365,4 +367,242 @@ Future<rpc.RpcResponse> _callInbound(
   );
   expect(frames.last.type, rpcFrameTypeEos);
   return rpc.RpcResponse.fromBuffer(frames.first.payload);
+}
+
+void deviceControlTests() {
+  final device = DeviceInfo(name: 'device-control');
+
+  // Each server-initiated request owns one service channel, so every call
+  // serves a fresh channel with the same handlers.
+  Future<rpc.RpcResponse> callDevice(
+    GizClawPeerRpcHandlers? handlers, {
+    required String id,
+    required rpc.RpcMethod method,
+    required String methodName,
+    required GeneratedMessage request,
+  }) {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    serveGizClawPeerRpcChannel(channel, handlers: handlers);
+    return _callInbound(
+      channel,
+      id: id,
+      method: method,
+      methodName: methodName,
+      request: request,
+    );
+  }
+
+  test('serves configured device control providers', () async {
+    var volume = 50;
+    var muted = false;
+    String? lastSound;
+    int? lastDuration;
+    int? lastDelay;
+    final saved = ['home', 'office'];
+    final handlers = GizClawPeerRpcHandlers(
+      deviceInfo: () => device,
+      deviceControl: GizClawDeviceControlHandlers(
+        status: () => PeerStatus(volume: Int64(volume), muted: muted),
+        setVolume: (level, isMuted) {
+          volume = level;
+          muted = isMuted;
+          return PeerStatus(
+            volume: Int64(level),
+            muted: isMuted,
+            batteryPercent: Int64(88),
+          );
+        },
+        playSound: (sound, durationMs) {
+          if (sound != 'chime') {
+            throw const GizClawDeviceControlException(
+              rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS,
+              'unknown sound',
+            );
+          }
+          lastSound = sound;
+          lastDuration = durationMs;
+        },
+        reboot: (delayMs) => lastDelay = delayMs,
+        wifiStatus: () =>
+            WifiStatus(connected: true, ssid: 'home', rssiDbm: Int64(-61)),
+        savedWifi: () => [
+          for (final ssid in saved) WifiSavedNetwork(ssid: ssid),
+        ],
+        forgetWifi: (ssid) {
+          if (!saved.remove(ssid)) {
+            throw const GizClawDeviceControlException(
+              rpc.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND,
+              'unknown network',
+            );
+          }
+        },
+      ),
+    );
+
+    var response = await callDevice(
+      handlers,
+      id: 'volume',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
+      methodName: 'client.device.volume.set',
+      request: ClientDeviceVolumeSetRequest(level: Int64(35), muted: true),
+    );
+    expect(response.hasError(), isFalse);
+    final applied =
+        decodeRpcResponsePayload('client.device.volume.set', response.payload)
+            as ClientDeviceVolumeSetResponse;
+    expect(applied.value.volume, Int64(35));
+    expect(applied.value.muted, isTrue);
+    expect(applied.value.batteryPercent, Int64(88));
+    expect(volume, 35);
+
+    response = await callDevice(
+      handlers,
+      id: 'volume-range',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
+      methodName: 'client.device.volume.set',
+      request: ClientDeviceVolumeSetRequest(level: Int64(101), muted: false),
+    );
+    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+    expect(volume, 35);
+
+    response = await callDevice(
+      handlers,
+      id: 'status',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
+      methodName: 'client.device.status.get',
+      request: ClientDeviceStatusGetRequest(),
+    );
+    final status =
+        decodeRpcResponsePayload('client.device.status.get', response.payload)
+            as ClientDeviceStatusGetResponse;
+    expect(status.value.volume, Int64(35));
+
+    response = await callDevice(
+      handlers,
+      id: 'sound',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
+      methodName: 'client.device.sound.play',
+      request: ClientDeviceSoundPlayRequest(
+        sound: 'chime',
+        durationMs: Int64(1500),
+      ),
+    );
+    expect(response.hasError(), isFalse);
+    expect(lastSound, 'chime');
+    expect(lastDuration, 1500);
+    response = await callDevice(
+      handlers,
+      id: 'sound-rejected',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
+      methodName: 'client.device.sound.play',
+      request: ClientDeviceSoundPlayRequest(sound: 'unknown'),
+    );
+    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+    expect(response.error.message, 'unknown sound');
+    response = await callDevice(
+      handlers,
+      id: 'sound-too-long',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
+      methodName: 'client.device.sound.play',
+      request: ClientDeviceSoundPlayRequest(sound: 'a' * 33),
+    );
+    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_INVALID_PARAMS);
+
+    response = await callDevice(
+      handlers,
+      id: 'reboot',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_REBOOT,
+      methodName: 'client.device.reboot',
+      request: ClientDeviceRebootRequest(delayMs: Int64(2000)),
+    );
+    expect(response.hasError(), isFalse);
+    expect(lastDelay, 2000);
+
+    response = await callDevice(
+      handlers,
+      id: 'wifi',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_STATUS_GET,
+      methodName: 'client.wifi.status.get',
+      request: ClientWifiStatusGetRequest(),
+    );
+    final wifi =
+        decodeRpcResponsePayload('client.wifi.status.get', response.payload)
+            as ClientWifiStatusGetResponse;
+    expect(wifi.value.connected, isTrue);
+    expect(wifi.value.ssid, 'home');
+    expect(wifi.value.rssiDbm, Int64(-61));
+
+    response = await callDevice(
+      handlers,
+      id: 'forget',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
+      methodName: 'client.wifi.saved.forget',
+      request: ClientWifiSavedForgetRequest(ssid: 'office'),
+    );
+    expect(response.hasError(), isFalse);
+    response = await callDevice(
+      handlers,
+      id: 'forget-missing',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
+      methodName: 'client.wifi.saved.forget',
+      request: ClientWifiSavedForgetRequest(ssid: 'office'),
+    );
+    expect(response.error.code, rpc.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND);
+
+    response = await callDevice(
+      handlers,
+      id: 'saved',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
+      methodName: 'client.wifi.saved.list',
+      request: ClientWifiSavedListRequest(),
+    );
+    final list =
+        decodeRpcResponsePayload('client.wifi.saved.list', response.payload)
+            as ClientWifiSavedListResponse;
+    expect(list.networks.map((n) => n.ssid), ['home']);
+  });
+
+  test(
+    'answers METHOD_NOT_FOUND for device control without handlers',
+    () async {
+      final partial = GizClawPeerRpcHandlers(
+        deviceInfo: () => device,
+        deviceControl: GizClawDeviceControlHandlers(
+          wifiStatus: () => WifiStatus(connected: false),
+        ),
+      );
+      var response = await callDevice(
+        partial,
+        id: 'no-volume',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
+        methodName: 'client.device.volume.set',
+        request: ClientDeviceVolumeSetRequest(level: Int64(1), muted: false),
+      );
+      expect(
+        response.error.code,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+      );
+      response = await callDevice(
+        partial,
+        id: 'wifi-ok',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_WIFI_STATUS_GET,
+        methodName: 'client.wifi.status.get',
+        request: ClientWifiStatusGetRequest(),
+      );
+      expect(response.hasError(), isFalse);
+
+      response = await callDevice(
+        null,
+        id: 'no-handlers',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_REBOOT,
+        methodName: 'client.device.reboot',
+        request: ClientDeviceRebootRequest(),
+      );
+      expect(
+        response.error.code,
+        rpc.RpcErrorCode.RPC_ERROR_CODE_METHOD_NOT_FOUND,
+      );
+    },
+  );
 }

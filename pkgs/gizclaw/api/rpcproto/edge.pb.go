@@ -379,6 +379,94 @@ func (x *ServerRouteResolveResponse) GetAssignment() *PeerAssignment {
 	return nil
 }
 
+type ServerAPIKeyResolveRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApiKey        string                 `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerAPIKeyResolveRequest) Reset() {
+	*x = ServerAPIKeyResolveRequest{}
+	mi := &file_payload_edge_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerAPIKeyResolveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerAPIKeyResolveRequest) ProtoMessage() {}
+
+func (x *ServerAPIKeyResolveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_edge_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerAPIKeyResolveRequest.ProtoReflect.Descriptor instead.
+func (*ServerAPIKeyResolveRequest) Descriptor() ([]byte, []int) {
+	return file_payload_edge_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ServerAPIKeyResolveRequest) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
+type ServerAPIKeyResolveResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Assignment    *PeerAssignment        `protobuf:"bytes,1,opt,name=assignment,proto3" json:"assignment,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerAPIKeyResolveResponse) Reset() {
+	*x = ServerAPIKeyResolveResponse{}
+	mi := &file_payload_edge_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerAPIKeyResolveResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerAPIKeyResolveResponse) ProtoMessage() {}
+
+func (x *ServerAPIKeyResolveResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_edge_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerAPIKeyResolveResponse.ProtoReflect.Descriptor instead.
+func (*ServerAPIKeyResolveResponse) Descriptor() ([]byte, []int) {
+	return file_payload_edge_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ServerAPIKeyResolveResponse) GetAssignment() *PeerAssignment {
+	if x != nil {
+		return x.Assignment
+	}
+	return nil
+}
+
 var File_payload_edge_proto protoreflect.FileDescriptor
 
 const file_payload_edge_proto_rawDesc = "" +
@@ -411,6 +499,12 @@ const file_payload_edge_proto_rawDesc = "" +
 	"\x1aServerRouteResolveResponse\x12>\n" +
 	"\n" +
 	"assignment\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.PeerAssignmentR\n" +
+	"assignment\"5\n" +
+	"\x1aServerAPIKeyResolveRequest\x12\x17\n" +
+	"\aapi_key\x18\x01 \x01(\tR\x06apiKey\"]\n" +
+	"\x1bServerAPIKeyResolveResponse\x12>\n" +
+	"\n" +
+	"assignment\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.PeerAssignmentR\n" +
 	"assignmentB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
@@ -425,27 +519,30 @@ func file_payload_edge_proto_rawDescGZIP() []byte {
 	return file_payload_edge_proto_rawDescData
 }
 
-var file_payload_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_payload_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_payload_edge_proto_goTypes = []any{
-	(*PeerAssignment)(nil),             // 0: gizclaw.rpc.v1.PeerAssignment
-	(*ServerPeerLookupRequest)(nil),    // 1: gizclaw.rpc.v1.ServerPeerLookupRequest
-	(*ServerPeerLookupResponse)(nil),   // 2: gizclaw.rpc.v1.ServerPeerLookupResponse
-	(*ServerPeerAssignRequest)(nil),    // 3: gizclaw.rpc.v1.ServerPeerAssignRequest
-	(*ServerPeerAssignResponse)(nil),   // 4: gizclaw.rpc.v1.ServerPeerAssignResponse
-	(*ServerRouteResolveRequest)(nil),  // 5: gizclaw.rpc.v1.ServerRouteResolveRequest
-	(*ServerRouteResolveResponse)(nil), // 6: gizclaw.rpc.v1.ServerRouteResolveResponse
-	(PeerRole)(0),                      // 7: gizclaw.rpc.v1.PeerRole
+	(*PeerAssignment)(nil),              // 0: gizclaw.rpc.v1.PeerAssignment
+	(*ServerPeerLookupRequest)(nil),     // 1: gizclaw.rpc.v1.ServerPeerLookupRequest
+	(*ServerPeerLookupResponse)(nil),    // 2: gizclaw.rpc.v1.ServerPeerLookupResponse
+	(*ServerPeerAssignRequest)(nil),     // 3: gizclaw.rpc.v1.ServerPeerAssignRequest
+	(*ServerPeerAssignResponse)(nil),    // 4: gizclaw.rpc.v1.ServerPeerAssignResponse
+	(*ServerRouteResolveRequest)(nil),   // 5: gizclaw.rpc.v1.ServerRouteResolveRequest
+	(*ServerRouteResolveResponse)(nil),  // 6: gizclaw.rpc.v1.ServerRouteResolveResponse
+	(*ServerAPIKeyResolveRequest)(nil),  // 7: gizclaw.rpc.v1.ServerAPIKeyResolveRequest
+	(*ServerAPIKeyResolveResponse)(nil), // 8: gizclaw.rpc.v1.ServerAPIKeyResolveResponse
+	(PeerRole)(0),                       // 9: gizclaw.rpc.v1.PeerRole
 }
 var file_payload_edge_proto_depIdxs = []int32{
-	7, // 0: gizclaw.rpc.v1.PeerAssignment.role:type_name -> gizclaw.rpc.v1.PeerRole
+	9, // 0: gizclaw.rpc.v1.PeerAssignment.role:type_name -> gizclaw.rpc.v1.PeerRole
 	0, // 1: gizclaw.rpc.v1.ServerPeerLookupResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
 	0, // 2: gizclaw.rpc.v1.ServerPeerAssignResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
 	0, // 3: gizclaw.rpc.v1.ServerRouteResolveResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0, // 4: gizclaw.rpc.v1.ServerAPIKeyResolveResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_payload_edge_proto_init() }
@@ -461,7 +558,7 @@ func file_payload_edge_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_edge_proto_rawDesc), len(file_payload_edge_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

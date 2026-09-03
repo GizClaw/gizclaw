@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -139,6 +142,56 @@ func TestSharedAssignmentRoutesAcrossBothEdges(t *testing.T) {
 	// the Edge whose bootstrap order starts with the foreign Server.
 	connectAndPing(t, peerA, edgeB, serverA.PublicKey, "peer-a-owner-still-a")
 	connectAndPing(t, peerB, edgeA, serverB.PublicKey, "peer-b-owner-still-b")
+}
+
+func TestAPIKeyHTTPRoutesAcrossEdgeToOwnerServer(t *testing.T) {
+	serverB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B"))
+	edgeB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_EDGE_B"))
+	edgeAEndpoint := requiredEnv(t, "GIZCLAW_E2E_EDGE_A")
+
+	peerB, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientB := connectAndServe(t, peerB, edgeB, serverB.PublicKey, "api-key-owner-server-b-via-edge-b")
+	defer clientB.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	registerSocialPeer(t, ctx, clientB, serverB)
+	created, err := clientB.CreateAPIKey(ctx, "multi-server-api-key", rpcapi.APIKeyCreateRequest{
+		DisplayName: "multi-server-edge-route",
+	})
+	if err != nil {
+		t.Fatalf("create API key on Server B: %v", err)
+	}
+
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		"http://"+edgeAEndpoint+"/gizclaw/v1/api-keys/self",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+created.APIKey)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("request Server B API key through Edge A: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("request Server B API key through Edge A status=%d body=%s", response.StatusCode, body)
+	}
+	var got peerhttp.APIKey
+	if err := json.NewDecoder(response.Body).Decode(&got); err != nil {
+		t.Fatalf("decode API key response through Edge A: %v", err)
+	}
+	if got.ApiKey != created.APIKey || got.DisplayName != "multi-server-edge-route" {
+		t.Fatalf("API key through Edge A = %+v, want Server B key %q", got, created.APIKey)
+	}
 }
 
 // TestCrossServerSocialSharesWorkspaceIdentity creates a Friend and a Friend

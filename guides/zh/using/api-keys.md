@@ -4,6 +4,22 @@ GizClaw 使用长期有效、绑定设备的 API Key 访问公开的 GizClaw API
 
 访问 `/gizclaw/v1/*` 和 `/openai/v1/*` 时发送 `Authorization: Bearer <api-key>`，不再需要 public-key header 或 login 交换。
 
-普通 Key 可以使用公开 API，通过 `GET /gizclaw/v1/api-keys/self` 查看自己，并通过 `DELETE /gizclaw/v1/api-keys/self` 撤销自己。带 `manage_api_keys: true` 的 Key 还可以通过 `/gizclaw/v1/api-keys` 创建、列举、查看和撤销同一设备的其他 Key。
+普通 Key 可以使用公开 API，通过 `GET /gizclaw/v1/api-keys/self` 查看自己，并通过 `DELETE /gizclaw/v1/api-keys/self` 撤销自己。带 `manage_api_keys: true` 的 Key 还可以通过 `/gizclaw/v1/api-keys` 创建、列举、查看和撤销同一设备的其他 Key。`manage_api_keys` 只控制 Key 管理；任何 Key 都能读取和控制它绑定的设备，能力完全相同。
+
+## 设备读取与控制
+
+Key 绑定的设备是所有 `/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*` 请求的固定目标（route 列表见 [API](./api#设备-http-api)）。读取设备状态和设置音量：
+
+```sh
+curl -sS "$GIZCLAW_URL/gizclaw/v1/device/status" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY"
+
+curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"level":35,"muted":false}'
+```
+
+`PUT /device/volume` 成功返回 `200 { "status": PeerStatus }`，其中的 `volume`、`muted` 与随后 `GET /device/status` 读到的一致；`play-sound`、`reboot` 与 `DELETE /wifi/saved/{ssid}` 成功返回 `204`。设备不在线时控制 route 返回 `409 DEVICE_OFFLINE`，设备 5 秒内无响应返回 `504 DEVICE_TIMEOUT`，两者都不会改变已存储的 status；`reboot` 得到确认后，设备重连前的控制请求同样返回 `409`。设备拒绝参数返回 `400 DEVICE_REJECTED`，设备固件未实现对应能力返回 `501 DEVICE_UNSUPPORTED`。Key 被撤销或设备 Peer 被删除后，所有设备与 Contact 请求立即失败。
 
 API Key 不会自动过期；Key 丢失或不再使用时应主动撤销。删除 Peer 会撤销该 Peer 拥有的全部 API Key。

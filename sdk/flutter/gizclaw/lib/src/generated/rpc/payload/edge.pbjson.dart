@@ -165,3 +165,37 @@ final $typed_data.Uint8List serverRouteResolveResponseDescriptor =
     $convert.base64Decode(
         'ChpTZXJ2ZXJSb3V0ZVJlc29sdmVSZXNwb25zZRI+Cgphc3NpZ25tZW50GAEgASgLMh4uZ2l6Y2'
         'xhdy5ycGMudjEuUGVlckFzc2lnbm1lbnRSCmFzc2lnbm1lbnQ=');
+
+@$core.Deprecated('Use serverAPIKeyResolveRequestDescriptor instead')
+const ServerAPIKeyResolveRequest$json = {
+  '1': 'ServerAPIKeyResolveRequest',
+  '2': [
+    {'1': 'api_key', '3': 1, '4': 1, '5': 9, '10': 'apiKey'},
+  ],
+};
+
+/// Descriptor for `ServerAPIKeyResolveRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverAPIKeyResolveRequestDescriptor =
+    $convert.base64Decode(
+        'ChpTZXJ2ZXJBUElLZXlSZXNvbHZlUmVxdWVzdBIXCgdhcGlfa2V5GAEgASgJUgZhcGlLZXk=');
+
+@$core.Deprecated('Use serverAPIKeyResolveResponseDescriptor instead')
+const ServerAPIKeyResolveResponse$json = {
+  '1': 'ServerAPIKeyResolveResponse',
+  '2': [
+    {
+      '1': 'assignment',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerAssignment',
+      '10': 'assignment'
+    },
+  ],
+};
+
+/// Descriptor for `ServerAPIKeyResolveResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverAPIKeyResolveResponseDescriptor =
+    $convert.base64Decode(
+        'ChtTZXJ2ZXJBUElLZXlSZXNvbHZlUmVzcG9uc2USPgoKYXNzaWdubWVudBgBIAEoCzIeLmdpem'
+        'NsYXcucnBjLnYxLlBlZXJBc3NpZ25tZW50Ugphc3NpZ25tZW50');

@@ -139,6 +139,7 @@ typedef enum {
 typedef struct {
   int call_count;
   int method;
+  size_t last_payload_len;
   fake_rpc_provider_mode_t mode;
 } fake_rpc_provider_t;
 
@@ -213,11 +214,12 @@ static int test_rpc_provider(
     gzc_rpc_provider_respond_fn respond,
     void *respond_userdata) {
   fake_rpc_provider_t *provider = (fake_rpc_provider_t *)userdata;
-  if (provider == NULL || respond == NULL || request_payload.len != 0u) {
+  if (provider == NULL || respond == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   provider->call_count++;
   provider->method = method;
+  provider->last_payload_len = request_payload.len;
   if (provider->mode == FAKE_RPC_PROVIDER_NO_RESPONSE) {
     return GZC_OK;
   }
@@ -1336,7 +1338,9 @@ static uint64_t test_rpc_service(gizclaw_rpc_v1_RpcMethod method) {
                  method ==
                      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN ||
                  method ==
-                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE ||
+                 method ==
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE
              ? 0x31u
              : 0u;
 }
@@ -1632,6 +1636,107 @@ static int test_json_ascii_classification(void) {
       gzc_json_validate_object(gzc_str_from_parts(
           high_string_json, sizeof(high_string_json))) == GZC_OK,
       "preserve high bytes inside a delimited JSON string");
+}
+
+static int test_device_control_payload_bounds(void) {
+  uint8_t buffer[128];
+  gizclaw_rpc_v1_ClientWifiSavedForgetRequest forget =
+      gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero;
+  memset(forget.ssid, 'a', 32);
+  forget.ssid[32] = '\0';
+  pb_ostream_t output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientWifiSavedForgetRequest_fields, &forget),
+             "32-byte ssid encodes within the nanopb bound") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ClientWifiSavedForgetRequest decoded =
+      gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero;
+  pb_istream_t input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientWifiSavedForgetRequest_fields, &decoded) &&
+                 strcmp(decoded.ssid, forget.ssid) == 0,
+             "32-byte ssid round trips") != 0) {
+    return 1;
+  }
+
+  /* A 33-byte ssid is a valid protobuf string but exceeds the bounded field. */
+  uint8_t oversized[64];
+  size_t oversized_len = 0;
+  oversized[oversized_len++] = 0x0a;
+  oversized[oversized_len++] = 33;
+  memset(oversized + oversized_len, 'b', 33);
+  oversized_len += 33;
+  input = pb_istream_from_buffer(oversized, oversized_len);
+  decoded = (gizclaw_rpc_v1_ClientWifiSavedForgetRequest)
+      gizclaw_rpc_v1_ClientWifiSavedForgetRequest_init_zero;
+  if (expect(!pb_decode(&input, gizclaw_rpc_v1_ClientWifiSavedForgetRequest_fields, &decoded),
+             "33-byte ssid is rejected by the nanopb bound") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ClientDeviceSoundPlayRequest sound =
+      gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_init_zero;
+  memset(sound.sound, 'c', 32);
+  sound.sound[32] = '\0';
+  sound.has_duration_ms = true;
+  sound.duration_ms = 1500;
+  output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_fields, &sound),
+             "32-byte sound encodes within the nanopb bound") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ClientDeviceSoundPlayRequest decoded_sound =
+      gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_init_zero;
+  input = pb_istream_from_buffer(buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_fields, &decoded_sound) &&
+                 strcmp(decoded_sound.sound, sound.sound) == 0 &&
+                 decoded_sound.has_duration_ms && decoded_sound.duration_ms == 1500,
+             "sound request round trips") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ClientWifiSavedListResponse saved =
+      gizclaw_rpc_v1_ClientWifiSavedListResponse_init_zero;
+  saved.networks_count = 2;
+  strcpy(saved.networks[0].ssid, "home");
+  strcpy(saved.networks[1].ssid, "office");
+  uint8_t saved_buffer[256];
+  output = pb_ostream_from_buffer(saved_buffer, sizeof(saved_buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientWifiSavedListResponse_fields, &saved),
+             "saved network list encodes") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ClientWifiSavedListResponse decoded_saved =
+      gizclaw_rpc_v1_ClientWifiSavedListResponse_init_zero;
+  input = pb_istream_from_buffer(saved_buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientWifiSavedListResponse_fields, &decoded_saved) &&
+                 decoded_saved.networks_count == 2 &&
+                 strcmp(decoded_saved.networks[1].ssid, "office") == 0,
+             "saved network list round trips") != 0) {
+    return 1;
+  }
+
+  gizclaw_rpc_v1_ClientDeviceVolumeSetResponse volume =
+      gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_zero;
+  volume.has_value = true;
+  volume.value.has_volume = true;
+  volume.value.volume = 35;
+  volume.value.has_muted = true;
+  volume.value.muted = true;
+  output = pb_ostream_from_buffer(saved_buffer, sizeof(saved_buffer));
+  if (expect(pb_encode(&output, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_fields, &volume),
+             "volume response with PeerStatus encodes") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ClientDeviceVolumeSetResponse decoded_volume =
+      gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_init_zero;
+  input = pb_istream_from_buffer(saved_buffer, output.bytes_written);
+  if (expect(pb_decode(&input, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_fields, &decoded_volume) &&
+                 decoded_volume.has_value && decoded_volume.value.has_volume &&
+                 decoded_volume.value.volume == 35 && decoded_volume.value.muted,
+             "volume response round trips") != 0) {
+    return 1;
+  }
+  return 0;
 }
 
 int main(void) {
@@ -3793,11 +3898,98 @@ int main(void) {
                  (uint8_t)inbound_response.result_payload.data[1] == 0x00u &&
                  rpc_provider.call_count == 1 &&
                  rpc_provider.method ==
-                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET,
+                     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_INFO_GET &&
+                 rpc_provider.last_payload_len == 0u,
              "inbound client-info dispatches configured provider") != 0) {
     return 1;
   }
   close_remote_rpc(&fake_webrtc, 0);
+
+  if (test_device_control_payload_bounds() != 0) {
+    return 1;
+  }
+  {
+    gizclaw_rpc_v1_ClientDeviceVolumeSetRequest volume_request =
+        gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_init_zero;
+    volume_request.level = 35;
+    volume_request.muted = true;
+    gzc_buf_t control_payload;
+    gzc_buf_init(&control_payload);
+    rc = encode_test_pb_message(
+        platform, gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_fields,
+        &volume_request, &control_payload);
+    if (expect(rc == GZC_OK && control_payload.len > 0u,
+               "encode device volume request") != 0) {
+      return 1;
+    }
+    static const gizclaw_rpc_v1_RpcMethod control_methods[] = {
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
+        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
+    };
+    static const int control_method_ids[] = {100, 101, 102, 103, 104, 105, 106};
+    for (size_t i = 0; i < sizeof(control_methods) / sizeof(control_methods[0]); i++) {
+      if (expect((int)control_methods[i] == control_method_ids[i],
+                 "device control method id matches rpc.proto") != 0) {
+        return 1;
+      }
+      gzc_str_t control_params = gzc_str_from_parts("", 0);
+      if (control_methods[i] ==
+          gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET) {
+        control_params = gzc_str_from_parts((const char *)control_payload.data,
+                                            control_payload.len);
+      }
+      announce_remote_rpc(&fake_webrtc, 0);
+      gzc_buf_reset(&inbound_request);
+      gzc_buf_reset(&inbound_framed);
+      gzc_buf_reset(&fake_webrtc.sent);
+      rc = gzc_rpc_encode_request_envelope(
+          platform, gzc_str_from_cstr("client-device-control"),
+          control_methods[i], control_params, &inbound_request);
+      if (rc == GZC_OK) {
+        rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_BINARY,
+                               inbound_request.data, inbound_request.len);
+      }
+      if (rc == GZC_OK) {
+        rc = append_test_frame(platform, &inbound_framed, GZC_RPC_FRAME_EOS,
+                               NULL, 0);
+      }
+      if (expect(rc == GZC_OK, "build inbound device control request") != 0) {
+        return 1;
+      }
+      int control_calls_before = rpc_provider.call_count;
+      fake_webrtc.callbacks.on_channel_message(
+          fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+          &fake_webrtc.remote_channels[0], NULL, inbound_framed.data,
+          inbound_framed.len, false);
+      rc = gzc_client_poll(client, 0);
+      if (expect(rc == GZC_OK, "poll dispatches inbound device control") != 0) {
+        return 1;
+      }
+      inbound_frame_size = first_frame_size(&fake_webrtc.sent);
+      rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, inbound_frame_size,
+                                &inbound_frame);
+      if (rc == GZC_OK) {
+        rc = gzc_rpc_decode_response_envelope(
+            gzc_str_from_parts((const char *)inbound_frame.data,
+                               inbound_frame.len),
+            &inbound_response);
+      }
+      if (expect(rc == GZC_OK && !inbound_response.has_error &&
+                     rpc_provider.call_count == control_calls_before + 1 &&
+                     rpc_provider.method == (int)control_methods[i] &&
+                     rpc_provider.last_payload_len == control_params.len,
+                 "inbound device control dispatches configured provider") != 0) {
+        return 1;
+      }
+      close_remote_rpc(&fake_webrtc, 0);
+    }
+    gzc_buf_free(&control_payload, platform);
+  }
 
   gizclaw_rpc_v1_ToolInvokeRequest tool_request =
       gizclaw_rpc_v1_ToolInvokeRequest_init_zero;

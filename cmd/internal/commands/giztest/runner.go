@@ -590,6 +590,15 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, clients *c
 		evidence, err = emitOutput(opts.out, vars, step.Output.Variable)
 	case "review":
 		err = runReview(opts.in, opts.out, step.ReviewOp.Message)
+	case "http":
+		endpoint, getErr := clients.endpoint(step.Client)
+		if getErr != nil {
+			err = getErr
+			break
+		}
+		var httpResult httpStepResult
+		httpResult, err = invokeHTTP(stepCtx, endpoint, step, vars)
+		value, saved, evidence = httpResult.body, httpResult.body, httpResult.evidence
 	case "client_rpc":
 		key := step.Client + ":" + step.ClientRPC.Method
 		counter := clients.inbound[key]

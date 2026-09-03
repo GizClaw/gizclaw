@@ -49,6 +49,15 @@ typedef struct _gizclaw_rpc_v1_ServerRouteResolveResponse {
     gizclaw_rpc_v1_PeerAssignment assignment;
 } gizclaw_rpc_v1_ServerRouteResolveResponse;
 
+typedef struct _gizclaw_rpc_v1_ServerAPIKeyResolveRequest {
+    char api_key[96];
+} gizclaw_rpc_v1_ServerAPIKeyResolveRequest;
+
+typedef struct _gizclaw_rpc_v1_ServerAPIKeyResolveResponse {
+    bool has_assignment;
+    gizclaw_rpc_v1_PeerAssignment assignment;
+} gizclaw_rpc_v1_ServerAPIKeyResolveResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,6 +71,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPeerAssignResponse_init_default {false, gizclaw_rpc_v1_PeerAssignment_init_default}
 #define gizclaw_rpc_v1_ServerRouteResolveRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_init_default {false, gizclaw_rpc_v1_PeerAssignment_init_default}
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_init_default {""}
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_init_default {false, gizclaw_rpc_v1_PeerAssignment_init_default}
 #define gizclaw_rpc_v1_PeerAssignment_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRole_MIN, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerPeerLookupRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerPeerLookupResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
@@ -69,6 +80,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPeerAssignResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
 #define gizclaw_rpc_v1_ServerRouteResolveRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_init_zero {""}
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_PeerAssignment_peer_public_key_tag 1
@@ -84,6 +97,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPeerAssignResponse_assignment_tag 1
 #define gizclaw_rpc_v1_ServerRouteResolveRequest_target_peer_public_key_tag 1
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_assignment_tag 1
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_api_key_tag 1
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_assignment_tag 1
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_PeerAssignment_FIELDLIST(X, a) \
@@ -130,6 +145,17 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  assignment,        1)
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_assignment_MSGTYPE gizclaw_rpc_v1_PeerAssignment
 
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   api_key,           1)
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  assignment,        1)
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_assignment_MSGTYPE gizclaw_rpc_v1_PeerAssignment
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerAssignment_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerLookupRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerLookupResponse_msg;
@@ -137,6 +163,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerAssignRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerAssignResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRouteResolveRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRouteResolveResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerAPIKeyResolveRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerAPIKeyResolveResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_PeerAssignment_fields &gizclaw_rpc_v1_PeerAssignment_msg
@@ -146,6 +174,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRouteResolveResponse_msg;
 #define gizclaw_rpc_v1_ServerPeerAssignResponse_fields &gizclaw_rpc_v1_ServerPeerAssignResponse_msg
 #define gizclaw_rpc_v1_ServerRouteResolveRequest_fields &gizclaw_rpc_v1_ServerRouteResolveRequest_msg
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_fields &gizclaw_rpc_v1_ServerRouteResolveResponse_msg
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_fields &gizclaw_rpc_v1_ServerAPIKeyResolveRequest_msg
+#define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_fields &gizclaw_rpc_v1_ServerAPIKeyResolveResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_PeerAssignment_size depends on runtime parameters */
@@ -155,6 +185,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRouteResolveResponse_msg;
 /* gizclaw_rpc_v1_ServerPeerAssignResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerRouteResolveRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerRouteResolveResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ServerAPIKeyResolveResponse_size depends on runtime parameters */
+#define GIZCLAW_RPC_V1_PAYLOAD_EDGE_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerAPIKeyResolveRequest_size
+#define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_size 97
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -85,22 +85,23 @@ Server 从 accepted `SessionDeclaration` 取得同一个 tunnel session identifi
 Edge workspace 配置描述当前节点运行所需的基础信息：
 
 - Edge Node 自身的 giznet identity。
-- HTTP/signaling TCP 与 gateway ICE UDP 共用的一组 public client-ingress
-  listen address 和对外 endpoint。
+- `webrtc` transport listen/endpoint，以及一个或多个 HTTP/signaling listener。
 - 至少一个有序 upstream Server entry；每个 entry 固定 endpoint、public key，以及可选的
   Edge-to-Server relay-only TURN pool。
-- TLS certificate source 的选择。
+- 可选的逐 listener TLS 证书文件。
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
 - 可选 Prometheus Remote Write/query metrics backend。
 - 可选把进程日志 fan-out 到 stderr 和由 Volc TLS 支撑的 immutable LogStore。
 
-顶层 `listen` 是客户端入口唯一的本地 bind tuple。Edge 在同一 host 和数字端口上打开独立的
-TCP 与 UDP socket：TCP 承载 public HTTP 与 signaling，启用 gateway 时 UDP 承载 ICE、
-DTLS、SCTP 与 DataChannel。顶层 `endpoint` 是对应的外部可达 tuple，并通过
+`webrtc.listen` 是 WebRTC transport 的本地 bind tuple，同时必须等于
+`http.listeners[0].listen`。Edge 在同一 host 和数字端口上打开独立的
+TCP 与 UDP socket：第一个 TCP listener 承载 public HTTP 与 signaling，启用 gateway 时 UDP 承载 ICE、
+DTLS、SCTP 与 DataChannel。`webrtc.endpoint` 是对应的外部可达 tuple，并通过
 `/server-info.transport.endpoint` 发布；当 host 是具体 literal IP 时，gateway 还会把
 answer SDP 的 UDP host candidate 改写为完全相同的 host 和 port。Hostname 或 unspecified
-address 不触发 DNS lookup，也不会伪造 public candidate。NAT 或 container 部署可以让本地
+address 不触发 DNS lookup，也不会伪造 public candidate。额外的 HTTP listener 只增加 TCP
+HTTP/HTTPS 入口，不发布 ICE candidate，也不创建 UDP socket。NAT 或 container 部署可以让本地
 tuple 与外部 tuple 不同，但唯一的外部 `endpoint` 必须同时映射 TCP 和 UDP。可选的
 `turn.listen` 与 `turn.public-endpoint` 保持独立，因为它们配置的是 downstream relay
 service，而不是客户端 HTTP/WebRTC 入口。
@@ -157,7 +158,24 @@ sink。Edge runtime 停止后再恢复此前的进程 logger，并关闭 logical
 runtime 会在打开 listener 前失败，不能替换第一个 runtime 的 logger，也不能在退出时恢复
 过期 logger。owner 停止并恢复宿主 logger 后，另一个配置化 runtime 才能启动。
 
-当前 TLS certificate source 只有 disabled 路径可运行；Edge RPC 和 file certificate source 仍未实现。开发指引不能把这些配置值写成已支持能力。
+HTTP listener 按声明顺序启动，每个 listener 可省略 `tls` 提供明文 HTTP，或同时配置本地
+`cert-file` 与 `key-file` 提供 TLS 1.2 及以上的 HTTPS。地址必须唯一，证书对会在打开流量前加载；
+空列表、单边证书配置、无效证书或重复地址会使启动失败。`http.listeners` 必填，并且第一个地址
+必须等于 `webrtc.listen`。已移除的顶层 `listen`、`endpoint` 和 `tls` 配置都会被拒绝；
+证书只能配置在各 listener 内。证书路径支持环境变量。
+
+```yaml
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: edge.example.com:443
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+    - listen: 0.0.0.0:443
+      tls:
+        cert-file: ${GIZCLAW_TLS_CERT_FILE}
+        key-file: ${GIZCLAW_TLS_KEY_FILE}
+```
 
 ### Public Ingress
 
@@ -171,6 +189,18 @@ Public ingress 负责：
 - 在进程停止时关闭 HTTP server、上游 connection 和相关 listener。
 
 Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product route 的业务实现。具体 route 由 `pkgs/gizclaw` Server 提供，Edge 只转发公开 surface。
+
+`/gizclaw/v1/*` 与 `/openai/v1/*` 是 API Key 路由路径。Edge 从 Bearer header 取得 credential，
+通过已经认证并加密的 `ServiceEdgeRPC` 请求任一可达 Server 认证 API Key、取得 owner Peer，
+再解析该 Peer 的固定 Server assignment。Edge 只向 `server_public_key` 精确匹配的已配置 upstream
+转发原始请求，目标 Server 仍会重新认证 API Key 并执行领域授权。Edge 不连接 API Key Redis，
+也不缓存或记录 credential。多 Server 部署应让各 Server 的 `services.api_key.store` 绑定同一个
+受保护的 Redis KV scope。
+
+无效或撤销的 key 返回 `401 INVALID_API_KEY`；owner assignment 缺失或 inactive 返回
+`403 API_KEY_OWNER_UNAVAILABLE`；目标 Server 未配置或不可达返回
+`503 API_KEY_SERVER_UNAVAILABLE`。这些路径都不会回退到错误的 Server，也不会把 credential
+写入错误响应。
 
 ### Upstream Connection
 
@@ -516,7 +546,7 @@ Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 
 - Edge Node 使用显式配置的 Server 列表，不提供动态 mesh membership 或 service discovery。
 - `ServiceEdgeHTTP` 已用于 public request forwarding。
 - `giznet/v2/tunnel/` 原生 channel namespace 已用于有界 upstream pool 上的 logical client sessions；`ServiceEdgeTunnel 0x32` 已退役。
-- Edge control-plane RPC、certificate distribution 和 TLS certificate source 尚未完整实现。
+- Edge control-plane RPC 与 certificate distribution 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。
 - 该 package 不在 Server 之间路由 Workspace、History 或 Social execution。Friend 与 Friend Group 的跨 Server 语音由 GizClaw Server 通过共享 Social KV 与 SFU Room 完成，Edge 不参与。

@@ -68,6 +68,7 @@ type Step struct {
 	RPC            *RPCOperation            `json:"rpc,omitempty" yaml:"rpc,omitempty"`
 	RPCStream      *RPCStreamOperation      `json:"rpc_stream,omitempty" yaml:"rpc_stream,omitempty"`
 	ClientRPC      *ClientRPCOperation      `json:"client_rpc,omitempty" yaml:"client_rpc,omitempty"`
+	HTTP           *HTTPOperation           `json:"http,omitempty" yaml:"http,omitempty"`
 	Speech         *SpeechOperation         `json:"speech,omitempty" yaml:"speech,omitempty"`
 	PeerStream     *PeerStreamOperation     `json:"peer_stream,omitempty" yaml:"peer_stream,omitempty"`
 	Output         *OutputOperation         `json:"output,omitempty" yaml:"output,omitempty"`
@@ -107,6 +108,16 @@ type RPCStreamOperation struct {
 	Method   string `json:"method" yaml:"method"`
 	Request  any    `json:"request" yaml:"request"`
 	MaxBytes int    `json:"max_bytes,omitempty" yaml:"max_bytes,omitempty"`
+}
+
+// HTTPOperation sends one Public HTTP request to the client's access point.
+// The response JSON body is the step value for expect, capture, and save_as.
+type HTTPOperation struct {
+	Method  string            `json:"method" yaml:"method"`
+	Path    string            `json:"path" yaml:"path"`
+	Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Body    any               `json:"body,omitempty" yaml:"body,omitempty"`
+	Status  int               `json:"status,omitempty" yaml:"status,omitempty"`
 }
 type ClientRPCOperation struct {
 	Method      string `json:"method" yaml:"method"`
@@ -850,6 +861,8 @@ func (s Step) operation() string {
 		return "rpc_stream"
 	case s.ClientRPC != nil:
 		return "client_rpc"
+	case s.HTTP != nil:
+		return "http"
 	case s.Speech != nil:
 		return "speech"
 	case s.PeerStream != nil:

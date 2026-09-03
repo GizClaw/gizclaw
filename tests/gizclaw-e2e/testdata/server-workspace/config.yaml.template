@@ -1,8 +1,11 @@
 identity:
   private-key: 287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu
-listen: 0.0.0.0:9820
-endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
-serve-to-clients: true
+webrtc:
+  listen: 0.0.0.0:9820
+  endpoint: ${GIZCLAW_E2E_SERVER_ENDPOINT}
+http:
+  listeners:
+    - listen: 0.0.0.0:9820
 ice-servers:
   - urls:
       - turn:${GIZCLAW_E2E_TURN_ENDPOINT}?transport=udp

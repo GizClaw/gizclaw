@@ -215,6 +215,886 @@ class ClientGetInfoResponse extends $pb.GeneratedMessage {
   HardwareInfo ensureValue() => $_ensure(0);
 }
 
+class ClientDeviceStatusGetRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceStatusGetRequest() => create();
+
+  ClientDeviceStatusGetRequest._();
+
+  factory ClientDeviceStatusGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceStatusGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceStatusGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceStatusGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceStatusGetRequest copyWith(
+          void Function(ClientDeviceStatusGetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceStatusGetRequest))
+          as ClientDeviceStatusGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceStatusGetRequest create() =>
+      ClientDeviceStatusGetRequest._();
+  @$core.override
+  ClientDeviceStatusGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceStatusGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceStatusGetRequest>(create);
+  static ClientDeviceStatusGetRequest? _defaultInstance;
+}
+
+class ClientDeviceStatusGetResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceStatusGetResponse({
+    PeerStatus? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ClientDeviceStatusGetResponse._();
+
+  factory ClientDeviceStatusGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceStatusGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceStatusGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PeerStatus>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PeerStatus.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceStatusGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceStatusGetResponse copyWith(
+          void Function(ClientDeviceStatusGetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceStatusGetResponse))
+          as ClientDeviceStatusGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceStatusGetResponse create() =>
+      ClientDeviceStatusGetResponse._();
+  @$core.override
+  ClientDeviceStatusGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceStatusGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceStatusGetResponse>(create);
+  static ClientDeviceStatusGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PeerStatus get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PeerStatus value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PeerStatus ensureValue() => $_ensure(0);
+}
+
+class ClientDeviceVolumeSetRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceVolumeSetRequest({
+    $fixnum.Int64? level,
+    $core.bool? muted,
+  }) {
+    final result = create();
+    if (level != null) result.level = level;
+    if (muted != null) result.muted = muted;
+    return result;
+  }
+
+  ClientDeviceVolumeSetRequest._();
+
+  factory ClientDeviceVolumeSetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceVolumeSetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceVolumeSetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'level')
+    ..aOB(2, _omitFieldNames ? '' : 'muted')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceVolumeSetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceVolumeSetRequest copyWith(
+          void Function(ClientDeviceVolumeSetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceVolumeSetRequest))
+          as ClientDeviceVolumeSetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceVolumeSetRequest create() =>
+      ClientDeviceVolumeSetRequest._();
+  @$core.override
+  ClientDeviceVolumeSetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceVolumeSetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceVolumeSetRequest>(create);
+  static ClientDeviceVolumeSetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get level => $_getI64(0);
+  @$pb.TagNumber(1)
+  set level($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLevel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLevel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get muted => $_getBF(1);
+  @$pb.TagNumber(2)
+  set muted($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMuted() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMuted() => $_clearField(2);
+}
+
+class ClientDeviceVolumeSetResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceVolumeSetResponse({
+    PeerStatus? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ClientDeviceVolumeSetResponse._();
+
+  factory ClientDeviceVolumeSetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceVolumeSetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceVolumeSetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PeerStatus>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PeerStatus.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceVolumeSetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceVolumeSetResponse copyWith(
+          void Function(ClientDeviceVolumeSetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceVolumeSetResponse))
+          as ClientDeviceVolumeSetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceVolumeSetResponse create() =>
+      ClientDeviceVolumeSetResponse._();
+  @$core.override
+  ClientDeviceVolumeSetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceVolumeSetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceVolumeSetResponse>(create);
+  static ClientDeviceVolumeSetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PeerStatus get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PeerStatus value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PeerStatus ensureValue() => $_ensure(0);
+}
+
+class ClientDeviceSoundPlayRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceSoundPlayRequest({
+    $core.String? sound,
+    $fixnum.Int64? durationMs,
+  }) {
+    final result = create();
+    if (sound != null) result.sound = sound;
+    if (durationMs != null) result.durationMs = durationMs;
+    return result;
+  }
+
+  ClientDeviceSoundPlayRequest._();
+
+  factory ClientDeviceSoundPlayRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceSoundPlayRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceSoundPlayRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'sound')
+    ..aInt64(2, _omitFieldNames ? '' : 'durationMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSoundPlayRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSoundPlayRequest copyWith(
+          void Function(ClientDeviceSoundPlayRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceSoundPlayRequest))
+          as ClientDeviceSoundPlayRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSoundPlayRequest create() =>
+      ClientDeviceSoundPlayRequest._();
+  @$core.override
+  ClientDeviceSoundPlayRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSoundPlayRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSoundPlayRequest>(create);
+  static ClientDeviceSoundPlayRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get sound => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set sound($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSound() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSound() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get durationMs => $_getI64(1);
+  @$pb.TagNumber(2)
+  set durationMs($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDurationMs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDurationMs() => $_clearField(2);
+}
+
+class ClientDeviceSoundPlayResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceSoundPlayResponse() => create();
+
+  ClientDeviceSoundPlayResponse._();
+
+  factory ClientDeviceSoundPlayResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceSoundPlayResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceSoundPlayResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSoundPlayResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSoundPlayResponse copyWith(
+          void Function(ClientDeviceSoundPlayResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceSoundPlayResponse))
+          as ClientDeviceSoundPlayResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSoundPlayResponse create() =>
+      ClientDeviceSoundPlayResponse._();
+  @$core.override
+  ClientDeviceSoundPlayResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSoundPlayResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSoundPlayResponse>(create);
+  static ClientDeviceSoundPlayResponse? _defaultInstance;
+}
+
+class ClientDeviceRebootRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceRebootRequest({
+    $fixnum.Int64? delayMs,
+  }) {
+    final result = create();
+    if (delayMs != null) result.delayMs = delayMs;
+    return result;
+  }
+
+  ClientDeviceRebootRequest._();
+
+  factory ClientDeviceRebootRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceRebootRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceRebootRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'delayMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceRebootRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceRebootRequest copyWith(
+          void Function(ClientDeviceRebootRequest) updates) =>
+      super.copyWith((message) => updates(message as ClientDeviceRebootRequest))
+          as ClientDeviceRebootRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceRebootRequest create() => ClientDeviceRebootRequest._();
+  @$core.override
+  ClientDeviceRebootRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceRebootRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceRebootRequest>(create);
+  static ClientDeviceRebootRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get delayMs => $_getI64(0);
+  @$pb.TagNumber(1)
+  set delayMs($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDelayMs() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDelayMs() => $_clearField(1);
+}
+
+class ClientDeviceRebootResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceRebootResponse() => create();
+
+  ClientDeviceRebootResponse._();
+
+  factory ClientDeviceRebootResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceRebootResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceRebootResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceRebootResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceRebootResponse copyWith(
+          void Function(ClientDeviceRebootResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceRebootResponse))
+          as ClientDeviceRebootResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceRebootResponse create() => ClientDeviceRebootResponse._();
+  @$core.override
+  ClientDeviceRebootResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceRebootResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceRebootResponse>(create);
+  static ClientDeviceRebootResponse? _defaultInstance;
+}
+
+class WifiStatus extends $pb.GeneratedMessage {
+  factory WifiStatus({
+    $core.bool? connected,
+    $core.String? ssid,
+    $fixnum.Int64? rssiDbm,
+    $core.String? ip,
+    $core.String? bssid,
+  }) {
+    final result = create();
+    if (connected != null) result.connected = connected;
+    if (ssid != null) result.ssid = ssid;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
+    if (ip != null) result.ip = ip;
+    if (bssid != null) result.bssid = bssid;
+    return result;
+  }
+
+  WifiStatus._();
+
+  factory WifiStatus.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WifiStatus.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WifiStatus',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'connected')
+    ..aOS(2, _omitFieldNames ? '' : 'ssid')
+    ..aInt64(3, _omitFieldNames ? '' : 'rssiDbm')
+    ..aOS(4, _omitFieldNames ? '' : 'ip')
+    ..aOS(5, _omitFieldNames ? '' : 'bssid')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WifiStatus clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WifiStatus copyWith(void Function(WifiStatus) updates) =>
+      super.copyWith((message) => updates(message as WifiStatus)) as WifiStatus;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WifiStatus create() => WifiStatus._();
+  @$core.override
+  WifiStatus createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WifiStatus getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WifiStatus>(create);
+  static WifiStatus? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get connected => $_getBF(0);
+  @$pb.TagNumber(1)
+  set connected($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasConnected() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConnected() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get ssid => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set ssid($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSsid() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSsid() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get rssiDbm => $_getI64(2);
+  @$pb.TagNumber(3)
+  set rssiDbm($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRssiDbm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRssiDbm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get ip => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set ip($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasIp() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearIp() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get bssid => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set bssid($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasBssid() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearBssid() => $_clearField(5);
+}
+
+class WifiSavedNetwork extends $pb.GeneratedMessage {
+  factory WifiSavedNetwork({
+    $core.String? ssid,
+  }) {
+    final result = create();
+    if (ssid != null) result.ssid = ssid;
+    return result;
+  }
+
+  WifiSavedNetwork._();
+
+  factory WifiSavedNetwork.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WifiSavedNetwork.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WifiSavedNetwork',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'ssid')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WifiSavedNetwork clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WifiSavedNetwork copyWith(void Function(WifiSavedNetwork) updates) =>
+      super.copyWith((message) => updates(message as WifiSavedNetwork))
+          as WifiSavedNetwork;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WifiSavedNetwork create() => WifiSavedNetwork._();
+  @$core.override
+  WifiSavedNetwork createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WifiSavedNetwork getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WifiSavedNetwork>(create);
+  static WifiSavedNetwork? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ssid => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ssid($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSsid() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSsid() => $_clearField(1);
+}
+
+class ClientWifiStatusGetRequest extends $pb.GeneratedMessage {
+  factory ClientWifiStatusGetRequest() => create();
+
+  ClientWifiStatusGetRequest._();
+
+  factory ClientWifiStatusGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiStatusGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiStatusGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiStatusGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiStatusGetRequest copyWith(
+          void Function(ClientWifiStatusGetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientWifiStatusGetRequest))
+          as ClientWifiStatusGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiStatusGetRequest create() => ClientWifiStatusGetRequest._();
+  @$core.override
+  ClientWifiStatusGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiStatusGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiStatusGetRequest>(create);
+  static ClientWifiStatusGetRequest? _defaultInstance;
+}
+
+class ClientWifiStatusGetResponse extends $pb.GeneratedMessage {
+  factory ClientWifiStatusGetResponse({
+    WifiStatus? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ClientWifiStatusGetResponse._();
+
+  factory ClientWifiStatusGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiStatusGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiStatusGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<WifiStatus>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: WifiStatus.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiStatusGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiStatusGetResponse copyWith(
+          void Function(ClientWifiStatusGetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientWifiStatusGetResponse))
+          as ClientWifiStatusGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiStatusGetResponse create() =>
+      ClientWifiStatusGetResponse._();
+  @$core.override
+  ClientWifiStatusGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiStatusGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiStatusGetResponse>(create);
+  static ClientWifiStatusGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  WifiStatus get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(WifiStatus value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  WifiStatus ensureValue() => $_ensure(0);
+}
+
+class ClientWifiSavedListRequest extends $pb.GeneratedMessage {
+  factory ClientWifiSavedListRequest() => create();
+
+  ClientWifiSavedListRequest._();
+
+  factory ClientWifiSavedListRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiSavedListRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiSavedListRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedListRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedListRequest copyWith(
+          void Function(ClientWifiSavedListRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientWifiSavedListRequest))
+          as ClientWifiSavedListRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedListRequest create() => ClientWifiSavedListRequest._();
+  @$core.override
+  ClientWifiSavedListRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedListRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiSavedListRequest>(create);
+  static ClientWifiSavedListRequest? _defaultInstance;
+}
+
+class ClientWifiSavedListResponse extends $pb.GeneratedMessage {
+  factory ClientWifiSavedListResponse({
+    $core.Iterable<WifiSavedNetwork>? networks,
+  }) {
+    final result = create();
+    if (networks != null) result.networks.addAll(networks);
+    return result;
+  }
+
+  ClientWifiSavedListResponse._();
+
+  factory ClientWifiSavedListResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiSavedListResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiSavedListResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPM<WifiSavedNetwork>(1, _omitFieldNames ? '' : 'networks',
+        subBuilder: WifiSavedNetwork.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedListResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedListResponse copyWith(
+          void Function(ClientWifiSavedListResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientWifiSavedListResponse))
+          as ClientWifiSavedListResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedListResponse create() =>
+      ClientWifiSavedListResponse._();
+  @$core.override
+  ClientWifiSavedListResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedListResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiSavedListResponse>(create);
+  static ClientWifiSavedListResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<WifiSavedNetwork> get networks => $_getList(0);
+}
+
+class ClientWifiSavedForgetRequest extends $pb.GeneratedMessage {
+  factory ClientWifiSavedForgetRequest({
+    $core.String? ssid,
+  }) {
+    final result = create();
+    if (ssid != null) result.ssid = ssid;
+    return result;
+  }
+
+  ClientWifiSavedForgetRequest._();
+
+  factory ClientWifiSavedForgetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiSavedForgetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiSavedForgetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'ssid')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedForgetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedForgetRequest copyWith(
+          void Function(ClientWifiSavedForgetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientWifiSavedForgetRequest))
+          as ClientWifiSavedForgetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedForgetRequest create() =>
+      ClientWifiSavedForgetRequest._();
+  @$core.override
+  ClientWifiSavedForgetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedForgetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiSavedForgetRequest>(create);
+  static ClientWifiSavedForgetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ssid => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ssid($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSsid() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSsid() => $_clearField(1);
+}
+
+class ClientWifiSavedForgetResponse extends $pb.GeneratedMessage {
+  factory ClientWifiSavedForgetResponse() => create();
+
+  ClientWifiSavedForgetResponse._();
+
+  factory ClientWifiSavedForgetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiSavedForgetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiSavedForgetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedForgetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiSavedForgetResponse copyWith(
+          void Function(ClientWifiSavedForgetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientWifiSavedForgetResponse))
+          as ClientWifiSavedForgetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedForgetResponse create() =>
+      ClientWifiSavedForgetResponse._();
+  @$core.override
+  ClientWifiSavedForgetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiSavedForgetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiSavedForgetResponse>(create);
+  static ClientWifiSavedForgetResponse? _defaultInstance;
+}
+
 class DeviceInfo extends $pb.GeneratedMessage {
   factory DeviceInfo({
     HardwareInfo? hardware,

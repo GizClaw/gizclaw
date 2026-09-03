@@ -51,6 +51,7 @@ perl -0pi -e '
   s/ice-servers:\n(?:  .*\n)+?(?=edge-nodes:)/""/e;
   s/storage:\n/storage:\n  shared-redis:\n    kind: redis\n    url: $ENV{GIZCLAW_E2E_REDIS_DSN}\n/;
   s/(  peers:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
+  s/(  api-keys:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friends:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friend-groups:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  workspaces:\n    kind: keyvalue\n    storage:) memory/$1 gameplay-db/;

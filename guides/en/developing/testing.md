@@ -37,7 +37,7 @@ The credential-free multi-Server Docker gate is:
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-It runs Redis 7.0, two Servers with distinct local runtime state, two Edges whose configured Server order is reversed, and one single-node LiveKit; both Servers point `services.sfu` at the same signaling URL with test credentials generated for that Compose project's lifetime. The Go cases verify fixed Peer homes through both Edges, foreign-Server rejection, local-only PeerRun writes, shared-KV versus local-state isolation, lazy SFU Room creation, and bounded reconnection after a LiveKit restart. giztest then runs the `sfu.*.giztest.yaml` scenarios serially: clients register on different Servers through different Edges and verify cross-Server friend creation, group join, the member cap, revocation after member removal, and that a `listen`-mode broadcast reaches only the other members of the room. The real LiveKit is the only acceptance environment; no in-memory fake replaces it. It does not test Workflow Workspace routing.
+It runs Redis 7.0, two Servers with distinct local runtime state, two Edges whose configured Server order is reversed, and one single-node LiveKit; both Servers point `services.sfu` at the same signaling URL with test credentials generated for that Compose project's lifetime. The Go cases verify fixed Peer homes through both Edges, API Key routing through an Edge to the owner Server, foreign-Server rejection, local-only PeerRun writes, shared-KV versus local-state isolation, lazy SFU Room creation, and bounded reconnection after a LiveKit restart. giztest then runs the `sfu.*.giztest.yaml` scenarios serially: clients register on different Servers through different Edges and verify cross-Server friend creation, group join, the member cap, revocation after member removal, and that a `listen`-mode broadcast reaches only the other members of the room. The real LiveKit is the only acceptance environment; no in-memory fake replaces it. It does not test Workflow Workspace routing.
 
 `sfu.friend.cross-server.audio-bytes` needs no credentials and always runs; the other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
 
@@ -186,7 +186,8 @@ set +a
 
 `GIZCLAW_E2E_EDGE_ENDPOINT` is the client-facing HTTP/signaling and WebRTC ICE
 endpoint, and
-`GIZCLAW_E2E_SERVER_ENDPOINT` is host-Admin-facing. The remaining generated
+`GIZCLAW_E2E_SERVER_ENDPOINT` is host-Admin-facing, while `GIZCLAW_TEST_ENDPOINT`
+always points to the Edge. The remaining generated
 variables provide the CLI config home, identity home, and Compose
 project. Reset the standard resource set with:
 
@@ -227,6 +228,20 @@ gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
   --output tests/gizclaw-e2e/testdata/giztest-report.json
 ```
+
+The device control and Contact Public HTTP contract is covered by the `server.device.*` and
+`server.contacts.*` scenarios. An `http` step sends one Public HTTP request to the current client's
+`access_point` origin (`method`, `path`, `headers`, JSON `body`, optional `status`); the response JSON
+is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without a declared `status` is
+an assertion failure. The API key comes from a `server.api_key.create` step with
+`capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
+`client_rpc` may declare `client.device.status.get`, `client.device.volume.set`,
+`client.device.sound.play`, `client.device.reboot`, `client.wifi.status.get`, `client.wifi.saved.list`,
+and `client.wifi.saved.forget`: the runner installs the scripted `response` as that client's device
+provider at connect time (`volume.set` echoes the requested `level`/`muted` into its response), and
+`response: {error_code: -32602}` makes the provider answer a fixed RPC error; undeclared methods stay
+`METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
+Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
 
 Giztest never performs Admin Apply. Standard Docker setup applies all fixtures,
 including the dedicated RuntimeProfile and run-scoped registration token, once

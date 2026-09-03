@@ -1,12 +1,14 @@
 identity:
   private-key: ${GIZCLAW_E2E_EDGE_PRIVATE_KEY}
-listen: 0.0.0.0:9821
-endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: ${GIZCLAW_E2E_EDGE_ENDPOINT}
 upstreams:
   - endpoint: ${GIZCLAW_E2E_EDGE_UPSTREAM_ENDPOINT}
     public-key: ${GIZCLAW_E2E_EDGE_UPSTREAM_PUBLIC_KEY}
-tls:
-  cert-source: disabled
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
 gateway:
   enabled: true
   max-sessions: ${GIZCLAW_E2E_GATEWAY_MAX_SESSIONS}
