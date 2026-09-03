@@ -6,11 +6,11 @@ import (
 )
 
 func TestVariablesPreserveTypedReferencesAndSingleAssignment(t *testing.T) {
-	v, err := newVariables(map[string]VariableSpec{"count": {Direction: "input", Type: "integer", Value: 3}, "result": {Direction: "output", Type: "string"}})
+	v, err := NewVariables(map[string]VariableSpec{"count": {Direction: "input", Type: "integer", Value: 3}, "result": {Direction: "output", Type: "string"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := v.resolve("${count}")
+	got, err := v.Resolve("${count}")
 	if err != nil || got != 3 {
 		t.Fatalf("resolve = %#v, %v", got, err)
 	}
@@ -21,13 +21,14 @@ func TestVariablesPreserveTypedReferencesAndSingleAssignment(t *testing.T) {
 		t.Fatal("second assignment succeeded")
 	}
 }
+
 func TestEnvironmentAudioVariablesDecodeBase64(t *testing.T) {
 	t.Setenv("GIZTEST_TEST_AUDIO", "T2dnUw==")
-	v, err := newVariables(map[string]VariableSpec{"tone": {Direction: "input", Type: "audio", Env: "GIZTEST_TEST_AUDIO", MaxBytes: 16}})
+	v, err := NewVariables(map[string]VariableSpec{"tone": {Direction: "input", Type: "audio", Env: "GIZTEST_TEST_AUDIO", MaxBytes: 16}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := v.resolve("${tone}")
+	got, err := v.Resolve("${tone}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,15 +36,15 @@ func TestEnvironmentAudioVariablesDecodeBase64(t *testing.T) {
 		t.Fatalf("resolve = %#v, want decoded Ogg prefix", got)
 	}
 	t.Setenv("GIZTEST_TEST_AUDIO", "not base64!")
-	if _, err := newVariables(map[string]VariableSpec{"tone": {Direction: "input", Type: "audio", Env: "GIZTEST_TEST_AUDIO"}}); err == nil {
+	if _, err := NewVariables(map[string]VariableSpec{"tone": {Direction: "input", Type: "audio", Env: "GIZTEST_TEST_AUDIO"}}); err == nil {
 		t.Fatal("invalid base64 audio environment was accepted")
 	}
 }
 
 func TestGeneratedValuesAreIsolated(t *testing.T) {
 	spec := map[string]VariableSpec{"id": {Direction: "input", Type: "string", Generate: "uuid"}}
-	a, _ := newVariables(spec)
-	b, _ := newVariables(spec)
+	a, _ := NewVariables(spec)
+	b, _ := NewVariables(spec)
 	if a.values["id"].data == b.values["id"].data {
 		t.Fatal("generated values are shared")
 	}
@@ -60,7 +61,7 @@ func TestGeneratedTokenFitsResourceID(t *testing.T) {
 }
 
 func TestVariableRedactionsIncludeSecretsAndReportSelection(t *testing.T) {
-	v, err := newVariables(map[string]VariableSpec{
+	v, err := NewVariables(map[string]VariableSpec{
 		"credential": {Direction: "input", Type: "string", Value: "secret-value-long", Secret: true},
 		"prefix":     {Direction: "input", Type: "string", Value: "secret-value", Secret: true},
 		"selected":   {Direction: "input", Type: "string", Value: "selected-value"},

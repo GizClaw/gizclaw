@@ -19,12 +19,12 @@ func TestDiscoverRecursiveSortedAndDeduplicated(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	got, err := discover([]string{root, a})
+	got, err := Discover([]string{root, a})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 2 || got[0] != a || got[1] != b {
-		t.Fatalf("discover = %#v", got)
+		t.Fatalf("Discover = %#v", got)
 	}
 }
 func TestDiscoverRejectsSymlink(t *testing.T) {
@@ -37,7 +37,7 @@ func TestDiscoverRejectsSymlink(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := discover([]string{link}); err == nil {
-		t.Fatal("discover accepted symlink")
+	if _, err := Discover([]string{link}); err == nil {
+		t.Fatal("Discover accepted symlink")
 	}
 }

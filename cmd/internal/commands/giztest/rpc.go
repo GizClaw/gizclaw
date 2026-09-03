@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -56,7 +57,7 @@ func dynamicMessage(name string) (*dynamicpb.Message, error) {
 	return dynamicpb.NewMessage(mt.Descriptor()), nil
 }
 
-func invokeUnary(ctx context.Context, client *gizcli.Client, step Step, params any) (map[string]any, error) {
+func invokeUnary(ctx context.Context, client *gizcli.Client, step giztest.Step, params any) (map[string]any, error) {
 	if step.RPC == nil {
 		return nil, fmt.Errorf("rpc operation is required")
 	}
@@ -148,7 +149,7 @@ func invokeUnary(ctx context.Context, client *gizcli.Client, step Step, params a
 	return result, nil
 }
 
-func validateRPCRequestShape(method string, request any, specs map[string]VariableSpec) error {
+func validateRPCRequestShape(method string, request any, specs map[string]giztest.VariableSpec) error {
 	info, err := lookupMethod(method)
 	if err != nil {
 		return err
@@ -197,10 +198,10 @@ func unwrapValueMessage(descriptor protoreflect.MessageDescriptor, input map[str
 	return value, ok
 }
 
-func validationValue(input any, specs map[string]VariableSpec) (any, error) {
+func validationValue(input any, specs map[string]giztest.VariableSpec) (any, error) {
 	switch value := input.(type) {
 	case string:
-		if match := referencePattern.FindStringSubmatch(value); match != nil {
+		if match := giztest.ReferencePattern.FindStringSubmatch(value); match != nil {
 			spec, ok := specs[match[1]]
 			if !ok {
 				return nil, fmt.Errorf("unknown variable %q", match[1])
@@ -220,7 +221,7 @@ func validationValue(input any, specs map[string]VariableSpec) (any, error) {
 				return nil, fmt.Errorf("variable %q type %s cannot be used in an RPC JSON request", match[1], spec.Type)
 			}
 		}
-		return regexpReferenceAll.ReplaceAllString(value, "validation"), nil
+		return giztest.AllReferencesPattern.ReplaceAllString(value, "validation"), nil
 	case []any:
 		result := make([]any, len(value))
 		for i := range value {

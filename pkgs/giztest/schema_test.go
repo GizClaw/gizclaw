@@ -11,7 +11,7 @@ func TestEmbeddedSchemaCompiles(t *testing.T) {
 	}
 }
 func TestSchemaRejectsUnknownField(t *testing.T) {
-	_, err := loadDocument(writeTestDocument(t, strings.Replace(validDocument, "name: ping-connectivity", "name: ping-connectivity\nunknown: true", 1)))
+	_, err := LoadDocument(writeTestDocument(t, strings.Replace(validDocument, "name: ping-connectivity", "name: ping-connectivity\nunknown: true", 1)), nil)
 	if err == nil || !strings.Contains(err.Error(), "unknown") {
 		t.Fatalf("error = %v", err)
 	}
@@ -19,7 +19,7 @@ func TestSchemaRejectsUnknownField(t *testing.T) {
 
 func TestEmbeddedSchemaValidatesPersistentPeerStreamFields(t *testing.T) {
 	valid := persistentPeerStreamDocument("      session: microphone\n      keep_open: true\n")
-	if _, err := loadDocument(writeTestDocument(t, valid)); err != nil {
+	if _, err := LoadDocument(writeTestDocument(t, valid), nil); err != nil {
 		t.Fatalf("persistent peer_stream schema rejected valid document: %v", err)
 	}
 	for name, fields := range map[string]string{
@@ -28,7 +28,7 @@ func TestEmbeddedSchemaValidatesPersistentPeerStreamFields(t *testing.T) {
 		"unknown field":    "      session: microphone\n      keep_open: true\n      retain_forever: true\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, persistentPeerStreamDocument(fields))); err == nil || !strings.Contains(err.Error(), "schema") {
+			if _, err := LoadDocument(writeTestDocument(t, persistentPeerStreamDocument(fields)), nil); err == nil || !strings.Contains(err.Error(), "schema") {
 				t.Fatalf("schema error = %v", err)
 			}
 		})

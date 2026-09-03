@@ -413,8 +413,247 @@ func TestBadgerGCAndSize(t *testing.T) {
 
 	_ = s.RunGC(0.5)
 
-	lsm, vlog := s.Size()
+	lsm, vlog, err := s.Size()
+	if err != nil {
+		t.Fatalf("Size: %v", err)
+	}
 	if lsm < 0 || vlog < 0 {
 		t.Fatalf("unexpected negative sizes: lsm=%d, vlog=%d", lsm, vlog)
+	}
+}
+
+func TestBadgerClosedStoreAnswersErrorInsteadOfPanic(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	key := kv.Key{"pending", "task"}
+	if err := store.Set(ctx, key, []byte("value")); err != nil {
+		t.Fatalf("Set before Close: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	entries := []kv.Entry{{Key: key, Value: []byte("value")}}
+	keys := []kv.Key{key}
+	calls := []struct {
+		name string
+		call func() error
+	}{
+		{"Get", func() error { _, err := store.Get(ctx, key); return err }},
+		{"Set", func() error { return store.Set(ctx, key, []byte("value")) }},
+		{"Delete", func() error { return store.Delete(ctx, key) }},
+		{"List", func() error {
+			for _, err := range store.List(ctx, kv.Key{"pending"}) {
+				return err
+			}
+			return nil
+		}},
+		{"ListAfter", func() error {
+			_, err := store.ListAfter(ctx, kv.Key{"pending"}, nil, 10)
+			return err
+		}},
+		{"BatchSet", func() error { return store.BatchSet(ctx, entries) }},
+		{"BatchDelete", func() error { return store.BatchDelete(ctx, keys) }},
+		{"BatchMutate", func() error { return store.BatchMutate(ctx, entries, keys) }},
+		{"CreateIfAbsent", func() error {
+			_, _, err := store.CreateIfAbsent(ctx, entries[0], nil)
+			return err
+		}},
+		{"CreateIfAllAbsent", func() error {
+			_, _, _, err := store.CreateIfAllAbsent(ctx, entries, nil)
+			return err
+		}},
+		{"CompareAndMutate", func() error {
+			_, err := store.CompareAndMutate(ctx, key, []byte("value"), entries, nil)
+			return err
+		}},
+		{"RunGC", func() error { return store.RunGC(0.5) }},
+		{"Size", func() error {
+			lsm, vlog, err := store.Size()
+			if lsm != 0 || vlog != 0 {
+				t.Errorf("Size() = (%d, %d), want (0, 0) on a closed store", lsm, vlog)
+			}
+			return err
+		}},
+	}
+	for _, tc := range calls {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.call(); !errors.Is(err, kv.ErrStoreClosed) {
+				t.Fatalf("%s() error = %v, want %v", tc.name, err, kv.ErrStoreClosed)
+			}
+		})
+	}
+}
+
+func TestBadgerCloseIsIdempotent(t *testing.T) {
+	store, err := kv.NewBadger(t.TempDir(), nil)
+	if err != nil {
+		t.Fatalf("NewBadger: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	for range 2 {
+		if err := store.Close(); err != nil {
+			t.Fatalf("repeated Close: %v", err)
+		}
+	}
+	if _, err := store.Get(context.Background(), kv.Key{"a"}); !errors.Is(err, kv.ErrStoreClosed) {
+		t.Fatalf("Get after repeated Close error = %v, want %v", err, kv.ErrStoreClosed)
+	}
+}
+
+func TestBadgerCloseWaitsForInFlightReads(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	for i := range 32 {
+		key := kv.Key{"pending", "by-id", strings.Repeat("0", 4) + string(rune('a'+i%26))}
+		if err := store.Set(ctx, key, []byte("value")); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+	}
+
+	readerDone := make(chan struct{})
+	closedSeen := make(chan struct{})
+	go func() {
+		defer close(readerDone)
+		for {
+			_, err := store.ListAfter(ctx, kv.Key{"pending", "by-id"}, nil, 16)
+			if errors.Is(err, kv.ErrStoreClosed) {
+				close(closedSeen)
+				return
+			}
+			if err != nil {
+				t.Errorf("ListAfter before close error = %v", err)
+				return
+			}
+		}
+	}()
+
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	select {
+	case <-readerDone:
+	case <-time.After(10 * time.Second):
+		t.Fatal("reader did not exit after Close")
+	}
+	select {
+	case <-closedSeen:
+	default:
+		t.Fatal("reader never observed ErrStoreClosed")
+	}
+}
+
+func TestBadgerNestedCallInsideListIsNotBlockedByClose(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	for _, name := range []string{"a", "b", "c"} {
+		if err := store.Set(ctx, kv.Key{"pending", name}, []byte(name)); err != nil {
+			t.Fatalf("Set: %v", err)
+		}
+	}
+
+	// A Get inside a List iteration is the shape KVSource.ListTasks uses. It
+	// must not be able to wedge against a concurrent Close.
+	seen := 0
+	for entry, err := range store.List(ctx, kv.Key{"pending"}) {
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		value, err := store.Get(ctx, entry.Key)
+		if err != nil {
+			t.Fatalf("nested Get: %v", err)
+		}
+		if string(value) != string(entry.Value) {
+			t.Fatalf("nested Get = %q, want %q", value, entry.Value)
+		}
+		seen++
+	}
+	if seen != 3 {
+		t.Fatalf("listed %d entries, want 3", seen)
+	}
+}
+
+func TestBadgerNestedCallRacingCloseTerminates(t *testing.T) {
+	ctx := context.Background()
+	store, err := kv.NewBadgerInMemory(nil)
+	if err != nil {
+		t.Fatalf("NewBadgerInMemory: %v", err)
+	}
+	if err := store.Set(ctx, kv.Key{"pending", "a"}, []byte("a")); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+
+	started := make(chan struct{})
+	proceed := make(chan struct{})
+	iterated := make(chan error, 1)
+	go func() {
+		var nested error
+		for entry, err := range store.List(ctx, kv.Key{"pending"}) {
+			if err != nil {
+				iterated <- err
+				return
+			}
+			close(started)
+			<-proceed
+			_, nested = store.Get(ctx, entry.Key)
+			break
+		}
+		iterated <- nested
+	}()
+
+	<-started
+	closed := make(chan error, 1)
+	go func() { closed <- store.Close() }()
+
+	// Release the nested call only once Close has marked the store closed and
+	// is draining the List that is still in flight. An independent call
+	// answering the sentinel proves that state; under a reader/writer lock it
+	// would block behind the pending writer instead and time out here.
+	draining := make(chan struct{})
+	go func() {
+		for {
+			if _, err := store.Get(ctx, kv.Key{"pending", "a"}); errors.Is(err, kv.ErrStoreClosed) {
+				close(draining)
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	select {
+	case <-draining:
+	case <-time.After(10 * time.Second):
+		// The probe itself blocks under a reader/writer-lock guard, so it is
+		// bounded here rather than left to the package test timeout.
+		t.Fatal("Close did not start draining")
+	}
+	close(proceed)
+
+	select {
+	case nested := <-iterated:
+		if !errors.Is(nested, kv.ErrStoreClosed) {
+			t.Fatalf("nested Get error = %v, want %v", nested, kv.ErrStoreClosed)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("nested call did not finish while Close was draining")
+	}
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatalf("Close: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Close did not return")
 	}
 }

@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -65,12 +66,12 @@ func (c *speechFixtureCache) Do(ctx context.Context, key string, invoke func() (
 	return cloneOperationResult(result), false, err
 }
 
-func speechFixtureKey(documentPath string, step Step, request any, outputSpec VariableSpec) (string, error) {
+func speechFixtureKey(documentPath string, step giztest.Step, request any, outputSpec giztest.VariableSpec) (string, error) {
 	payload, err := json.Marshal(struct {
 		Document string
 		Step     string
 		Request  any
-		Output   VariableSpec
+		Output   giztest.VariableSpec
 	}{Document: documentPath, Step: step.ID, Request: request, Output: outputSpec})
 	if err != nil {
 		return "", fmt.Errorf("encode speech fixture cache key: %w", err)
@@ -93,7 +94,7 @@ func cloneOperationResult(input operationResult) operationResult {
 // invokeSpeech runs one speech operation. fullEvidence adds the recognized
 // text of a transcription to the report evidence; the default redacted mode
 // keeps only the method because transcripts carry spoken user content.
-func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request, input any, inputSpec, outputSpec VariableSpec, fullEvidence bool) (operationResult, error) {
+func invokeSpeech(ctx context.Context, client *gizcli.Client, step giztest.Step, request, input any, inputSpec, outputSpec giztest.VariableSpec, fullEvidence bool) (operationResult, error) {
 	op := step.Speech
 	if op == nil {
 		return operationResult{}, fmt.Errorf("speech operation required")
@@ -178,7 +179,7 @@ func invokeSpeech(ctx context.Context, client *gizcli.Client, step Step, request
 	}
 }
 
-func prepareTranscriptionRequest(audio []byte, spec VariableSpec, request rpcapi.SpeechTranscribeRequest) ([]byte, rpcapi.SpeechTranscribeRequest, error) {
+func prepareTranscriptionRequest(audio []byte, spec giztest.VariableSpec, request rpcapi.SpeechTranscribeRequest) ([]byte, rpcapi.SpeechTranscribeRequest, error) {
 	if spec.Codec == "opus" {
 		if spec.MediaType != "audio/ogg" {
 			return nil, rpcapi.SpeechTranscribeRequest{}, fmt.Errorf("speech transcription Opus input media_type must be audio/ogg, got %q", spec.MediaType)
@@ -197,7 +198,7 @@ func prepareTranscriptionRequest(audio []byte, spec VariableSpec, request rpcapi
 	return audio, request, nil
 }
 
-func speechPCMInput(audio []byte, spec VariableSpec) ([]byte, error) {
+func speechPCMInput(audio []byte, spec giztest.VariableSpec) ([]byte, error) {
 	if spec.Codec != "opus" {
 		return audio, nil
 	}

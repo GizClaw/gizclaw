@@ -7,7 +7,7 @@ import (
 )
 
 func TestBarrierReleasesExactGroup(t *testing.T) {
-	b := newTaskBarrier(2)
+	b := NewTaskBarrier(2)
 	done := make(chan error, 2)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -21,7 +21,7 @@ func TestBarrierReleasesExactGroup(t *testing.T) {
 }
 
 func TestBarrierAbortReleasesWaiters(t *testing.T) {
-	b := newTaskBarrier(2)
+	b := NewTaskBarrier(2)
 	done := make(chan error, 1)
 	go func() { done <- b.Wait(context.Background()) }()
 	b.Abort(context.Canceled)

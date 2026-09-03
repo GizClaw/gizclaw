@@ -369,6 +369,57 @@ jobs:
       - name: Run C++ SDK headers smoke test
         run: /tmp/gzc_cpp_headers_smoke_test
 
+      - name: Compile C control SDK smoke test
+        run: >-
+          cc -std=c11 -Wall -Wextra -Werror
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw_control/include
+          -I sdk/c/gizclaw_control/src
+          sdk/c/gizclaw_control/tests/gzc_control_smoke_test.c
+          sdk/c/gizclaw_control/src/*.c
+          sdk/c/gizclaw/src/gzc_buffer.c
+          sdk/c/gizclaw/src/gzc_common.c
+          sdk/c/gizclaw/src/gzc_json.c
+          sdk/c/gizclaw/src/gzc_platform.c
+          -o /tmp/gzc_control_smoke_test
+
+      - name: Run C control SDK smoke test
+        run: /tmp/gzc_control_smoke_test
+
+      - name: Compile C control SDK sanitizer smoke test
+        if: matrix.os == 'ubuntu-latest'
+        run: >-
+          cc -std=c11 -Wall -Wextra -Werror
+          -fsanitize=address,undefined -fno-omit-frame-pointer -g
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw_control/include
+          -I sdk/c/gizclaw_control/src
+          sdk/c/gizclaw_control/tests/gzc_control_smoke_test.c
+          sdk/c/gizclaw_control/src/*.c
+          sdk/c/gizclaw/src/gzc_buffer.c
+          sdk/c/gizclaw/src/gzc_common.c
+          sdk/c/gizclaw/src/gzc_json.c
+          sdk/c/gizclaw/src/gzc_platform.c
+          -o /tmp/gzc_control_sanitizer_smoke_test
+
+      - name: Run C control SDK sanitizer smoke test
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: /tmp/gzc_control_sanitizer_smoke_test
+
+      - name: Compile C++ control SDK headers
+        run: >-
+          c++ -std=c++17 -Wall -Wextra -Werror
+          -I sdk/c/gizclaw/include
+          -I sdk/c/gizclaw_control/include
+          sdk/c/gizclaw_control/tests/gzc_control_cpp_headers_smoke_test.cpp
+          -o /tmp/gzc_control_cpp_headers_smoke_test
+
+      - name: Run C++ control SDK headers smoke test
+        run: /tmp/gzc_control_cpp_headers_smoke_test
+
       - name: Run tests
         env:
           GOFLAGS: -mod=readonly

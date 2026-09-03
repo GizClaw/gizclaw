@@ -200,6 +200,10 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 		cursor := p.scanCursors[source.Name()]
 		refs, next, err := source.ScanDue(ctx, p.now().UTC(), p.config.PageSize, cursor)
 		if err != nil {
+			// A store closed under a running scan reports an error here. Log it
+			// so a shutdown-order mistake is visible instead of silent, and
+			// keep scanning the remaining sources.
+			log.Printf("pending deletion: scan source %q failed: %v", source.Name(), err)
 			p.observe(source.Name(), "", "", "", "scan_error")
 			continue
 		}

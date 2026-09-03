@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -12,11 +12,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 func TestSpeechTranscribeRejectsUntypedInputBeforeRPC(t *testing.T) {
-	step := Step{ID: "transcribe", Speech: &SpeechOperation{Method: "server.speech.transcribe"}}
-	_, err := invokeSpeech(context.Background(), nil, step, map[string]any{}, "not audio", VariableSpec{}, VariableSpec{}, false)
+	step := giztest.Step{ID: "transcribe", Speech: &giztest.SpeechOperation{Method: "server.speech.transcribe"}}
+	_, err := invokeSpeech(context.Background(), nil, step, map[string]any{}, "not audio", giztest.VariableSpec{}, giztest.VariableSpec{}, false)
 	if err == nil || !strings.Contains(err.Error(), "audio bytes") {
 		t.Fatalf("error = %v", err)
 	}
@@ -36,7 +37,7 @@ func TestPrepareTranscriptionRequestDerivesWireContentType(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		audio, request, err := prepareTranscriptionRequest(encoded.Bytes(), VariableSpec{
+		audio, request, err := prepareTranscriptionRequest(encoded.Bytes(), giztest.VariableSpec{
 			Type: "audio", MediaType: "audio/ogg", Codec: "opus", MaxBytes: 4096,
 		}, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
 		if err != nil {
@@ -52,7 +53,7 @@ func TestPrepareTranscriptionRequestDerivesWireContentType(t *testing.T) {
 
 	t.Run("pass through", func(t *testing.T) {
 		input := []byte("pcm")
-		audio, request, err := prepareTranscriptionRequest(input, VariableSpec{
+		audio, request, err := prepareTranscriptionRequest(input, giztest.VariableSpec{
 			Type: "audio", MediaType: speechPCM16ContentType, Codec: "pcm_s16le",
 		}, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
 		if err != nil {
@@ -68,7 +69,7 @@ func TestPrepareTranscriptionRequestDerivesWireContentType(t *testing.T) {
 }
 
 func TestPrepareTranscriptionRequestPropagatesConversionError(t *testing.T) {
-	_, _, err := prepareTranscriptionRequest([]byte("not-ogg"), VariableSpec{
+	_, _, err := prepareTranscriptionRequest([]byte("not-ogg"), giztest.VariableSpec{
 		Type: "audio", MediaType: "audio/ogg", Codec: "opus", MaxBytes: 1024,
 	}, rpcapi.SpeechTranscribeRequest{ModelName: "asr"})
 	if err == nil || !strings.Contains(err.Error(), "decode synthesized Ogg Opus for speech input") {
@@ -79,22 +80,22 @@ func TestPrepareTranscriptionRequestPropagatesConversionError(t *testing.T) {
 func TestPrepareTranscriptionRequestRejectsUnsupportedAudioBeforeRPC(t *testing.T) {
 	tests := []struct {
 		name string
-		spec VariableSpec
+		spec giztest.VariableSpec
 		want string
 	}{
 		{
 			name: "Opus without Ogg container",
-			spec: VariableSpec{Type: "audio", MediaType: "audio/opus", Codec: "opus", MaxBytes: 1024},
+			spec: giztest.VariableSpec{Type: "audio", MediaType: "audio/opus", Codec: "opus", MaxBytes: 1024},
 			want: "Opus input media_type must be audio/ogg",
 		},
 		{
 			name: "unsupported codec",
-			spec: VariableSpec{Type: "audio", MediaType: "audio/mpeg", Codec: "mp3", MaxBytes: 1024},
+			spec: giztest.VariableSpec{Type: "audio", MediaType: "audio/mpeg", Codec: "mp3", MaxBytes: 1024},
 			want: "input must be Ogg/Opus or 16 kHz mono PCM",
 		},
 		{
 			name: "PCM with unsupported metadata",
-			spec: VariableSpec{Type: "audio", MediaType: "audio/L16;rate=48000;channels=2", Codec: "pcm_s16le", MaxBytes: 1024},
+			spec: giztest.VariableSpec{Type: "audio", MediaType: "audio/L16;rate=48000;channels=2", Codec: "pcm_s16le", MaxBytes: 1024},
 			want: "input must be Ogg/Opus or 16 kHz mono PCM",
 		},
 	}

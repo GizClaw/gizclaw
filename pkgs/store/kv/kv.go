@@ -26,6 +26,10 @@ var (
 	// ErrCompareAndMutateUnsupported is returned when a Store does not implement
 	// the optional atomic compare-and-mutate capability.
 	ErrCompareAndMutateUnsupported = errors.New("kv: atomic compare-and-mutate unsupported")
+	// ErrStoreClosed is returned when a Store is used after Close. Using a
+	// closed store is a programming error at the call site, so callers should
+	// treat it as a shutdown signal and stop, not retry.
+	ErrStoreClosed = errors.New("kv: store closed")
 )
 
 // Key is a hierarchical path represented as a slice of string segments.

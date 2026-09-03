@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"maps"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -52,7 +53,7 @@ func jsonObject(input any) (map[string]any, error) {
 	return out, nil
 }
 
-func invokeRPCStream(ctx context.Context, client *gizcli.Client, step Step, request any) (operationResult, error) {
+func invokeRPCStream(ctx context.Context, client *gizcli.Client, step giztest.Step, request any) (operationResult, error) {
 	op := step.RPCStream
 	if op == nil {
 		return operationResult{}, fmt.Errorf("rpc_stream operation required")

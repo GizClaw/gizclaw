@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -1410,4 +1411,78 @@ type peerStreamFakeTrack struct {
 func (t *peerStreamFakeTrack) Write(chunk pcm.Chunk) error {
 	t.chunks = append(t.chunks, chunk)
 	return nil
+}
+
+// TestPeerAgentOutputPassthroughReachesDeviceWithoutDecoder pins the SFU
+// zero-decode downlink: a passthrough route writes each raw Opus payload to
+// the device packet writer, never creates a decoder or mixer track, and still
+// brackets the route with audio BOS/EOS Peer Events.
+func TestPeerAgentOutputPassthroughReachesDeviceWithoutDecoder(t *testing.T) {
+	var events bytes.Buffer
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(&events)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer unsubscribe()
+	tracks := &peerStreamFakeTracks{}
+	// Deliberately not a decodable Opus packet: a decoder would reject it,
+	// so reaching the device unchanged proves nothing decoded it.
+	packets := [][]byte{{0x78, 0xAA, 0xBB}, {0x78, 0xCC}}
+	var written [][]byte
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
+		{Name: "peer-b", Part: &genx.Blob{MIMEType: agenthost.OpusPassthroughMIME}, Ctrl: &genx.StreamCtrl{StreamID: "sfu/peer-b/1", Label: "peer-b", BeginOfStream: true}},
+		{Name: "peer-b", Part: &genx.Blob{MIMEType: agenthost.OpusPassthroughMIME, Data: packets[0]}, Ctrl: &genx.StreamCtrl{StreamID: "sfu/peer-b/1", Label: "peer-b"}},
+		{Name: "peer-b", Part: &genx.Blob{MIMEType: agenthost.OpusPassthroughMIME, Data: packets[1]}, Ctrl: &genx.StreamCtrl{StreamID: "sfu/peer-b/1", Label: "peer-b"}},
+		{Name: "peer-b", Part: &genx.Blob{MIMEType: agenthost.OpusPassthroughMIME}, Ctrl: &genx.StreamCtrl{StreamID: "sfu/peer-b/1", Label: "peer-b", EndOfStream: true}},
+	}, doneErr: genx.ErrDone}
+	err = (peerAgentOutput{
+		Events: broker,
+		Tracks: tracks,
+		Packets: func(packet []byte) error {
+			written = append(written, append([]byte(nil), packet...))
+			return nil
+		},
+	}).ConsumeAgentOutput(t.Context(), output)
+	if err != nil {
+		t.Fatalf("ConsumeAgentOutput() error = %v", err)
+	}
+	if tracks.created != 0 {
+		t.Fatalf("passthrough created %d mixer tracks, want 0", tracks.created)
+	}
+	if len(written) != 2 || !bytes.Equal(written[0], packets[0]) || !bytes.Equal(written[1], packets[1]) {
+		t.Fatalf("device packets = %x, want %x", written, packets)
+	}
+	bos, err := readPeerStreamEvent(&events)
+	if err != nil {
+		t.Fatalf("read BOS: %v", err)
+	}
+	eos, err := readPeerStreamEvent(&events)
+	if err != nil {
+		t.Fatalf("read EOS: %v", err)
+	}
+	if bos.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_BOS || bos.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO ||
+		bos.StreamID() != "sfu/peer-b/1" || bos.Label() != "peer-b" || bos.GetBos().GetMimeType() != "" {
+		t.Fatalf("BOS event = %+v", bos)
+	}
+	if eos.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS || eos.StreamID() != "sfu/peer-b/1" || eos.StreamError() != nil {
+		t.Fatalf("EOS event = %+v", eos)
+	}
+	if _, err := readPeerStreamEvent(&events); err == nil {
+		t.Fatal("passthrough emitted more than BOS and EOS events")
+	}
+}
+
+func TestPeerAgentOutputPassthroughRequiresPacketWriter(t *testing.T) {
+	tracks := &peerStreamFakeTracks{}
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{
+		{Part: &genx.Blob{MIMEType: agenthost.OpusPassthroughMIME, Data: []byte{0x78, 0x01}}, Ctrl: &genx.StreamCtrl{StreamID: "sfu/peer-b/1", Label: "peer-b", BeginOfStream: true}},
+	}, doneErr: genx.ErrDone}
+	err := (peerAgentOutput{Events: newPeerStreamEventBroker(), Tracks: tracks}).ConsumeAgentOutput(t.Context(), output)
+	if err == nil || !strings.Contains(err.Error(), "passthrough") {
+		t.Fatalf("ConsumeAgentOutput() error = %v, want passthrough rejection", err)
+	}
+	if tracks.created != 0 {
+		t.Fatalf("rejected passthrough created %d mixer tracks", tracks.created)
+	}
 }

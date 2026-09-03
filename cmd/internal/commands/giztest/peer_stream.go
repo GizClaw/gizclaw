@@ -1,4 +1,4 @@
-package giztest
+package giztestcmd
 
 import (
 	"bytes"
@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -199,7 +200,7 @@ func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 	return func() (peerStream, error) { return client.OpenPeerStream(64) }
 }
 
-func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
+func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step giztest.Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	stream, err := open()
 	if err != nil {
 		return operationResult{}, err
@@ -219,10 +220,10 @@ const maxListenTextFragments = 1024
 // Opus blob counts as received audio regardless of its label, because SFU
 // downlink labels identify the remote participant rather than the assistant.
 // Receiving no audio is a valid outcome that the document asserts on.
-func listenPeerStream(ctx context.Context, stream peerStream, step Step, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
+func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	op := step.PeerStream
 	duration, err := time.ParseDuration(op.Duration)
-	if err != nil || duration <= 0 || duration > maxListenDuration {
+	if err != nil || duration <= 0 || duration > giztest.MaxListenDuration {
 		return operationResult{}, fmt.Errorf("invalid listen duration %q", op.Duration)
 	}
 	var observeAudio audioObserver
@@ -370,7 +371,7 @@ func opusPacketsDuration(packets [][]byte) time.Duration {
 	return total
 }
 
-func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, open peerStreamOpener, sessions *peerStreamSessions, step Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
+func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, open peerStreamOpener, sessions *peerStreamSessions, step giztest.Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	op := step.PeerStream
 	if op == nil || (!op.KeepOpen && op.AwaitRearm == "") {
 		return invokePeerStream(ctx, client, open, step, input, audioCaptureMaxBytes, observers...)
@@ -410,7 +411,7 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 	if err != nil {
 		return operationResult{evidence: rearmEvidence}, err
 	}
-	replacementID, err := generateValue("string")
+	replacementID, err := newStreamID()
 	if err != nil {
 		return operationResult{evidence: rearmEvidence}, err
 	}
@@ -435,7 +436,7 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 	return result, invokeErr
 }
 
-func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, stream peerStream, session *peerStreamSession, initialStreamID string, step Step, input any, audioCaptureMaxBytes int, onBOSSent func(), observers ...audioObserver) (operationResult, error) {
+func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, stream peerStream, session *peerStreamSession, initialStreamID string, step giztest.Step, input any, audioCaptureMaxBytes int, onBOSSent func(), observers ...audioObserver) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
@@ -472,7 +473,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	streamID := initialStreamID
 	if streamID == "" {
 		var err error
-		streamID, err = generateValue("string")
+		streamID, err = newStreamID()
 		if err != nil {
 			return operationResult{}, err
 		}
@@ -517,7 +518,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return operationResult{}, err
 		}
 		sendInterrupt = func() error {
-			replacementID, err := generateValue("string")
+			replacementID, err := newStreamID()
 			if err != nil {
 				return err
 			}
@@ -580,7 +581,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return operationResult{}, err
 		}
 		sendInterrupt = func() error {
-			replacementID, err := generateValue("string")
+			replacementID, err := newStreamID()
 			if err != nil {
 				return err
 			}
@@ -1188,9 +1189,9 @@ func waitForWorkspaceHistory(ctx context.Context, client *gizcli.Client, stepID 
 	defer timer.Stop()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-	historyStep := Step{
+	historyStep := giztest.Step{
 		ID: stepID + "-history",
-		RPC: &RPCOperation{
+		RPC: &giztest.RPCOperation{
 			Method:  "server.run.workspace.history",
 			Request: map[string]any{"limit": 20},
 		},

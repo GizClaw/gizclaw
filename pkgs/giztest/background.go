@@ -10,8 +10,8 @@ import (
 
 const (
 	// backgroundCancelGrace bounds how long a task waits for a cancelled
-	// background step to release its PeerStream. Every wait on a background
-	// goroutine is bounded by it, so a PeerStream that ignores cancellation
+	// background step to release its stream. Every wait on a background
+	// goroutine is bounded by it, so a stream that ignores cancellation
 	// cannot hold the step timeout or the task open.
 	backgroundCancelGrace = 30 * time.Second
 	// backgroundJoinGrace is the last chance a step that already outlived
@@ -20,30 +20,36 @@ const (
 	backgroundJoinGrace = 5 * time.Second
 )
 
-// backgroundStep is one running background peer_stream. The goroutine that
-// drives the stream is the only writer of result, err, and durationMS before
-// done is closed; readers wait on done first.
+// backgroundStep is one running background step. The goroutine that drives
+// it is the only writer of result, err, and durationMS before done is
+// closed; readers wait on done first.
 type backgroundStep struct {
 	step       Step
 	awaitID    string
 	cancel     context.CancelFunc
 	done       chan struct{}
-	result     operationResult
+	result     StepResult
 	err        error
 	durationMS int64
 }
 
-// backgroundSteps tracks the background steps of one task in declaration
-// order. Validation guarantees every background step has exactly one later
-// await step; awaiters maps a background step ID to that await step so the
-// stream can honor the await step's /audio capture bound from the start.
+/*
+backgroundSteps tracks the background steps of one task in declaration order.
+It is the driver-agnostic half of the background contract: the runner owns
+the goroutines and every bound on them, and a Session contributes only the
+prepare and run phases through BackgroundSession.
+
+Validation guarantees every background step has exactly one later await
+step; awaiters maps a background step ID to that await step so the run phase
+can honor the await step's capture bound from the start.
+*/
 type backgroundSteps struct {
 	awaiters map[string]Step
 	items    map[string]*backgroundStep
 	order    []string
 	// unfinished holds the steps whose goroutine ignored cancellation for a
-	// whole grace period and therefore still owns its PeerStream and the
-	// task's shared clients.
+	// whole grace period and therefore still owns its stream and the task's
+	// shared clients.
 	unfinished []*backgroundStep
 	// cancelGrace bounds each individual wait; runner tests shorten it.
 	cancelGrace time.Duration
@@ -70,9 +76,9 @@ func newBackgroundSteps(steps []Step, cancelGrace time.Duration) *backgroundStep
 }
 
 // stop cancels one background step and waits at most the cancel grace for its
-// goroutine to release the PeerStream. A step that ignores cancellation is
-// retained as unfinished instead of being waited on forever; the task joins it
-// before any finalizer touches the shared clients.
+// goroutine to release its stream. A step that ignores cancellation is
+// retained as unfinished instead of being waited on forever; the task joins
+// it before any finalizer touches the shared clients.
 func (b *backgroundSteps) stop(item *backgroundStep) bool {
 	item.cancel()
 	timer := time.NewTimer(b.cancelGrace)
@@ -88,8 +94,8 @@ func (b *backgroundSteps) stop(item *backgroundStep) bool {
 
 // join gives every unfinished background goroutine one last bounded chance to
 // exit and returns the IDs of those still running. A non-empty result means a
-// PeerStream is still owned by a background goroutine, so the task must not
-// run finalizers or close the shared clients underneath it.
+// stream is still owned by a background goroutine, so the task must not run
+// finalizers or close the session underneath it.
 func (b *backgroundSteps) join() []string {
 	if len(b.unfinished) == 0 {
 		return nil
@@ -109,43 +115,44 @@ func (b *backgroundSteps) join() []string {
 	return running
 }
 
-// start resolves the step on the task goroutine, then drives its PeerStream in
-// a goroutine bounded by the step timeout and the task context. The returned
+// start prepares the step on the task goroutine, then drives it in a
+// goroutine bounded by the step timeout and the task context. The returned
 // report records only that the step started; its outcome belongs to the await
 // step.
-func (b *backgroundSteps) start(ctx context.Context, step Step, clients *clientSet, vars *variables, opts runOptions) (StepReport, error) {
+func (b *backgroundSteps) start(ctx context.Context, documentPath string, step Step, session Session, vars *Variables, opts Options) (StepReport, error) {
 	started := time.Now()
-	report := StepReport{ID: step.ID, Operation: step.operation(), Client: step.Client, Status: "failed", Stage: step.operation()}
-	awaitStep, ok := b.awaiters[step.ID]
-	if !ok {
-		report.Error = fmt.Sprintf("background step %s has no await step", step.ID)
-		return report, errors.New(report.Error)
-	}
-	if _, exists := b.items[step.ID]; exists {
-		report.Error = fmt.Sprintf("background step %s is already running", step.ID)
-		return report, errors.New(report.Error)
-	}
-	if step.PeerStream == nil {
-		report.Error = fmt.Sprintf("background step %s requires peer_stream", step.ID)
-		return report, errors.New(report.Error)
-	}
-	if opts.audioObserver != nil {
-		report.Error = "background steps cannot play audio interactively"
-		return report, errors.New(report.Error)
-	}
-	invocation, err := preparePeerStream(step, awaitStep, clients, vars, opts)
-	if err != nil {
-		report.Error = safeError(err)
+	report := StepReport{ID: step.ID, Operation: step.Operation(), Client: step.Client, Status: "failed", Stage: step.Operation()}
+	fail := func(err error) (StepReport, error) {
+		report.Error = SafeError(err)
 		report.DurationMS = time.Since(started).Milliseconds()
 		return report, err
+	}
+	awaitStep, ok := b.awaiters[step.ID]
+	if !ok {
+		return fail(fmt.Errorf("background step %s has no await step", step.ID))
+	}
+	if _, exists := b.items[step.ID]; exists {
+		return fail(fmt.Errorf("background step %s is already running", step.ID))
+	}
+	if step.PeerStream == nil {
+		return fail(fmt.Errorf("background step %s requires peer_stream", step.ID))
+	}
+	background, ok := session.(BackgroundSession)
+	if !ok {
+		return fail(fmt.Errorf("background step %s: this runner cannot run %s steps in the background", step.ID, step.Operation()))
+	}
+	run, err := background.PrepareBackground(StepRequest{
+		DocumentPath: documentPath, Step: step, Vars: vars, Awaiter: &awaitStep,
+	})
+	if err != nil {
+		return fail(err)
 	}
 	stepCtx, cancel := context.WithCancel(ctx)
 	if step.Timeout != "" {
 		duration, parseErr := time.ParseDuration(step.Timeout)
 		if parseErr != nil {
 			cancel()
-			report.Error = safeError(parseErr)
-			return report, parseErr
+			return fail(parseErr)
 		}
 		stepCtx, cancel = context.WithTimeout(ctx, duration)
 	}
@@ -156,7 +163,7 @@ func (b *backgroundSteps) start(ctx context.Context, step Step, clients *clientS
 		defer close(item.done)
 		defer cancel()
 		runStarted := time.Now()
-		item.result, item.err = invocation.run(stepCtx, nil)
+		item.result, item.err = run.Run(stepCtx)
 		item.durationMS = time.Since(runStarted).Milliseconds()
 	}()
 	report.Status = "started"
@@ -168,13 +175,13 @@ func (b *backgroundSteps) start(ctx context.Context, step Step, clients *clientS
 // await blocks until the named background step finishes or the await step's
 // timeout expires, then applies the await step's save_as, capture, and expect
 // declarations to the background result.
-func (b *backgroundSteps) await(ctx context.Context, step Step, vars *variables, redactions []string) (StepReport, error) {
+func (b *backgroundSteps) await(ctx context.Context, step Step, vars *Variables, opts Options, redactions []string) (StepReport, error) {
 	started := time.Now()
 	report := StepReport{ID: step.ID, Operation: "await", Status: "failed", Stage: "await"}
 	item, ok := b.items[step.Await]
 	if !ok {
 		err := fmt.Errorf("await references background step %q that is not running", step.Await)
-		report.Error = safeError(err, redactions...)
+		report.Error = SafeError(err, redactions...)
 		return report, err
 	}
 	delete(b.items, step.Await)
@@ -185,7 +192,7 @@ func (b *backgroundSteps) await(ctx context.Context, step Step, vars *variables,
 		if parseErr != nil {
 			cancel()
 			b.stop(item)
-			report.Error = safeError(parseErr, redactions...)
+			report.Error = SafeError(parseErr, redactions...)
 			return report, parseErr
 		}
 		waitCtx, cancel = context.WithTimeout(ctx, duration)
@@ -208,15 +215,15 @@ func (b *backgroundSteps) await(ctx context.Context, step Step, vars *variables,
 		if !stopped {
 			report.Evidence["unfinished"] = true
 		}
-		report.Error = safeError(err, redactions...)
+		report.Error = SafeError(err, redactions...)
 		report.DurationMS = time.Since(started).Milliseconds()
 		return report, err
 	}
 	var value, saved any
 	if item.err == nil {
-		value, saved = item.result.assertion, item.result.saved
+		value, saved = item.result.Value, item.result.Saved
 	}
-	return completeStepReport(report, step, vars, value, saved, backgroundEvidence(item), item.err, started, redactions)
+	return completeStepReport(report, step, vars, value, saved, backgroundEvidence(item), item.err, started, opts, redactions)
 }
 
 // cancelRemaining stops every background step that no await step consumed,
@@ -230,12 +237,12 @@ func (b *backgroundSteps) cancelRemaining(redactions []string) []StepReport {
 			continue
 		}
 		delete(b.items, id)
-		report := StepReport{ID: id, Operation: item.step.operation(), Client: item.step.Client, Status: "cancelled", Stage: "background"}
+		report := StepReport{ID: id, Operation: item.step.Operation(), Client: item.step.Client, Status: "cancelled", Stage: "background"}
 		if b.stop(item) {
 			report.Evidence = backgroundEvidence(item)
 			report.Error = fmt.Sprintf("background step %s was cancelled before await step %s ran", id, item.awaitID)
 			if item.err != nil {
-				report.Error = safeError(fmt.Errorf("background step %s was cancelled before await step %s ran: %w", id, item.awaitID, item.err), redactions...)
+				report.Error = SafeError(fmt.Errorf("background step %s was cancelled before await step %s ran: %w", id, item.awaitID, item.err), redactions...)
 			}
 		} else {
 			report.Evidence = map[string]any{"step": id, "background": true, "unfinished": true}
@@ -246,14 +253,15 @@ func (b *backgroundSteps) cancelRemaining(redactions []string) []StepReport {
 	return reports
 }
 
-// backgroundEvidence is safe to call only after item.done is closed.
+// backgroundEvidence reads the result only after item.done is closed; before
+// that it reports just the step identity.
 func backgroundEvidence(item *backgroundStep) map[string]any {
 	select {
 	case <-item.done:
 	default:
 		return map[string]any{"step": item.step.ID, "background": true}
 	}
-	evidence := maps.Clone(item.result.evidence)
+	evidence := maps.Clone(item.result.Evidence)
 	if evidence == nil {
 		evidence = make(map[string]any)
 	}

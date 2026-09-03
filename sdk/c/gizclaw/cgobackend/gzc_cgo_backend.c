@@ -6,7 +6,7 @@
 uint64_t gzcGoBackendCreate(void);
 void gzcGoBackendDestroy(uint64_t handle);
 void gzcGoBackendSetCBackend(uint64_t handle, gzc_cgo_backend_t *backend);
-int gzcGoHTTPRequest(uint64_t handle, int method, const char *url, size_t url_len, const gzc_http_header_t *headers, size_t header_count, const uint8_t *data, size_t len, int *out_status, uint8_t **out_data, size_t *out_len);
+int gzcGoHTTPRequest(uint64_t handle, int method, const char *url, size_t url_len, const gzc_http_header_t *headers, size_t header_count, const uint8_t *data, size_t len, const gzc_http_request_t *request, int *out_status, uint8_t **out_data, size_t *out_len);
 int gzcGoKeyPairFromPrivate(const uint8_t *private_key, uint8_t *out_private_key, uint8_t *out_public_key);
 int gzcGoDH(const uint8_t *private_key, const uint8_t *remote_public_key, uint8_t *out_shared);
 int gzcGoHKDFSHA256(const uint8_t *secret, size_t secret_len, const uint8_t *salt, size_t salt_len, const char *info, size_t info_len, uint8_t *out, size_t out_len);
@@ -165,9 +165,6 @@ static int bridge_http_request(void *userdata, const gzc_http_request_t *request
   if (backend == NULL || request == NULL || out_response == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
-  if (request->method != GZC_HTTP_METHOD_GET && request->method != GZC_HTTP_METHOD_POST) {
-    return GZC_ERR_UNSUPPORTED;
-  }
   memset(out_response, 0, sizeof(*out_response));
   uint8_t *body = NULL;
   size_t body_len = 0;
@@ -181,6 +178,7 @@ static int bridge_http_request(void *userdata, const gzc_http_request_t *request
       request->header_count,
       request->body,
       request->body_len,
+      request,
       &status,
       &body,
       &body_len);

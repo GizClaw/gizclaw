@@ -49,9 +49,9 @@ func writeTestDocument(t *testing.T, content string) string {
 }
 
 func TestLoadDocumentCanonicalContract(t *testing.T) {
-	doc, err := loadDocument(writeTestDocument(t, validDocument))
+	doc, err := LoadDocument(writeTestDocument(t, validDocument), nil)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
 	if doc.Version != "gizclaw.test/v1alpha1" || doc.Steps[0].RPC.Method != "all.ping" {
 		t.Fatalf("document = %#v", doc)
@@ -60,14 +60,14 @@ func TestLoadDocumentCanonicalContract(t *testing.T) {
 
 func TestLoadDocumentRejectsReadBeforeAssignment(t *testing.T) {
 	content := strings.Replace(validDocument, "request: {}", "request:\n        value: ${server_time}", 1)
-	_, err := loadDocument(writeTestDocument(t, content))
+	_, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err == nil || !strings.Contains(err.Error(), "unavailable variable") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestLoadDocumentRejectsMissingUserStory(t *testing.T) {
-	_, err := loadDocument(writeTestDocument(t, strings.SplitN(validDocument, "version:", 2)[1]))
+	_, err := LoadDocument(writeTestDocument(t, strings.SplitN(validDocument, "version:", 2)[1]), nil)
 	if err == nil || !strings.Contains(err.Error(), "User Story") {
 		t.Fatalf("error = %v", err)
 	}
@@ -75,7 +75,7 @@ func TestLoadDocumentRejectsMissingUserStory(t *testing.T) {
 
 func TestLoadDocumentRejectsUnknownReportRedaction(t *testing.T) {
 	content := strings.Replace(validDocument, "steps:\n", "report:\n  redact: [missing]\nsteps:\n", 1)
-	_, err := loadDocument(writeTestDocument(t, content))
+	_, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err == nil || !strings.Contains(err.Error(), "report redact references unknown variable") {
 		t.Fatalf("error = %v", err)
 	}
@@ -83,7 +83,7 @@ func TestLoadDocumentRejectsUnknownReportRedaction(t *testing.T) {
 
 func TestLoadDocumentRejectsInvalidStepDurationOffline(t *testing.T) {
 	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    timeout: later\n", 1)
-	_, err := loadDocument(writeTestDocument(t, content))
+	_, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err == nil || !strings.Contains(err.Error(), "invalid timeout") {
 		t.Fatalf("error = %v", err)
 	}
@@ -93,7 +93,7 @@ func TestLoadDocumentValidatesPeerStreamIdleTimeoutOffline(t *testing.T) {
 	peerStreamStep := func(idleTimeout string) string {
 		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      input: hello\n      idle_timeout: " + idleTimeout + "\n"
 	}
-	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("15s")))
+	doc, err := LoadDocument(writeTestDocument(t, peerStreamStep("15s")), nil)
 	if err != nil {
 		t.Fatalf("idle_timeout 15s rejected: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestLoadDocumentValidatesPeerStreamIdleTimeoutOffline(t *testing.T) {
 		t.Fatalf("idle_timeout = %q", got)
 	}
 	for _, invalid := range []string{"0s", "soon"} {
-		_, err := loadDocument(writeTestDocument(t, peerStreamStep(invalid)))
+		_, err := LoadDocument(writeTestDocument(t, peerStreamStep(invalid)), nil)
 		if err == nil || !strings.Contains(err.Error(), "step turn has invalid idle_timeout") {
 			t.Fatalf("idle_timeout %q error = %v", invalid, err)
 		}
@@ -117,7 +117,7 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
       input: hello
 ` + extra
 	}
-	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n")))
+	doc, err := LoadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n")), nil)
 	if err != nil {
 		t.Fatalf("first_response completion rejected: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		"audio only": "      completion: first_response\n      first_audio_timeout: 3s\n      require_text: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err != nil {
+			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err != nil {
 				t.Fatalf("modality-selective first_response rejected: %v", err)
 			}
 		})
@@ -143,12 +143,12 @@ func TestLoadDocumentValidatesPeerStreamFirstResponseCompletion(t *testing.T) {
 		"disabled audio deadline": "      completion: first_response\n      first_text_timeout: 2s\n      first_audio_timeout: 3s\n      require_audio: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
+			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err == nil {
 				t.Fatal("invalid first_response completion accepted")
 			}
 		})
 	}
-	_, err = loadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      require_text: false\n      require_audio: false\n")))
+	_, err = LoadDocument(writeTestDocument(t, peerStreamStep("      completion: first_response\n      require_text: false\n      require_audio: false\n")), nil)
 	if err == nil || !strings.Contains(err.Error(), "first_response requires text or audio output") {
 		t.Fatalf("no-modality error = %v", err)
 	}
@@ -163,7 +163,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
       input: audio-fixture
 ` + extra
 	}
-	doc, err := loadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      keep_open: true\n")))
+	doc, err := LoadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      keep_open: true\n")), nil)
 	if err != nil {
 		t.Fatalf("persistent peer_stream rejected: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
 	if op.Session != "microphone" || !op.KeepOpen {
 		t.Fatalf("peer_stream operation = %#v", op)
 	}
-	if _, err := loadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      await_rearm: INPUT_ROUTE_RELOADED\n      keep_open: true\n"))); err != nil {
+	if _, err := LoadDocument(writeTestDocument(t, peerStreamStep("      session: microphone\n      await_rearm: INPUT_ROUTE_RELOADED\n      keep_open: true\n")), nil); err != nil {
 		t.Fatalf("await_rearm peer_stream rejected: %v", err)
 	}
 	for name, extra := range map[string]string{
@@ -184,7 +184,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
 		"non-realtime":     "      session: microphone\n      keep_open: true\n      mode: text\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := loadDocument(writeTestDocument(t, peerStreamStep(extra))); err == nil {
+			if _, err := LoadDocument(writeTestDocument(t, peerStreamStep(extra)), nil); err == nil {
 				t.Fatal("invalid persistent peer_stream accepted")
 			}
 		})
@@ -197,7 +197,7 @@ func TestLoadDocumentValidatesPersistentPeerStream(t *testing.T) {
       session: microphone
       keep_open: true
 `
-	if _, err := loadDocument(writeTestDocument(t, finalizer)); err == nil || !strings.Contains(err.Error(), "not allowed in finally") {
+	if _, err := LoadDocument(writeTestDocument(t, finalizer), nil); err == nil || !strings.Contains(err.Error(), "not allowed in finally") {
 		t.Fatalf("persistent finalizer error = %v", err)
 	}
 }
@@ -209,7 +209,7 @@ func TestLoadDocumentAssignsStableFinalizerID(t *testing.T) {
       method: server.run.stop
       request: {}
 `
-	doc, err := loadDocument(writeTestDocument(t, content))
+	doc, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,8 +244,8 @@ func TestDocumentRejectsSpeechCacheOutsideSavedSynthesis(t *testing.T) {
 
 func TestLoadDocumentAcceptsCombinedMatchers(t *testing.T) {
 	content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time:\n        pattern: \"^[0-9TZ:.-]+$\"\n        min_length: 4\n        max_length: 64\n        not_contains: [ERROR]\n", 1)
-	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+	if _, err := LoadDocument(writeTestDocument(t, content), nil); err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
 }
 
@@ -264,7 +264,7 @@ func TestLoadDocumentRejectsInvalidExpectationsOffline(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time: "+tc.expect+"\n", 1)
-			_, err := loadDocument(writeTestDocument(t, content))
+			_, err := LoadDocument(writeTestDocument(t, content), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
@@ -307,9 +307,9 @@ func TestExpectationValidateDoesNotEchoInvalidPattern(t *testing.T) {
 func TestLoadDocumentAcceptsNormalizationAndRetry(t *testing.T) {
 	content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry:\n      attempts: 3\n      on: [timeout, assertion]\n      delay: 5s\n", 1)
 	content = strings.Replace(content, "        present: true\n", "        equals: １２三\n        normalize: [digits, case]\n", 1)
-	doc, err := loadDocument(writeTestDocument(t, content))
+	doc, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
 	if doc.Steps[0].Retry.Attempts != 3 || len(doc.Steps[0].Expect["/server_time"].Normalize) != 2 {
 		t.Fatalf("document = %#v", doc)
@@ -328,8 +328,8 @@ func TestLoadDocumentRejectsInvalidNormalizationOffline(t *testing.T) {
 	for name, expectation := range cases {
 		t.Run(name, func(t *testing.T) {
 			content := strings.Replace(validDocument, "      /server_time:\n        present: true\n", "      /server_time: "+expectation+"\n", 1)
-			if _, err := loadDocument(writeTestDocument(t, content)); err == nil {
-				t.Fatal("loadDocument() accepted invalid normalization")
+			if _, err := LoadDocument(writeTestDocument(t, content), nil); err == nil {
+				t.Fatal("LoadDocument() accepted invalid normalization")
 			}
 		})
 	}
@@ -348,8 +348,8 @@ func TestLoadDocumentRejectsInvalidRetryOffline(t *testing.T) {
 	for name, retry := range cases {
 		t.Run(name, func(t *testing.T) {
 			content := strings.Replace(validDocument, "    client: peer\n", "    client: peer\n    retry: "+retry+"\n", 1)
-			if _, err := loadDocument(writeTestDocument(t, content)); err == nil {
-				t.Fatal("loadDocument() accepted invalid retry")
+			if _, err := LoadDocument(writeTestDocument(t, content), nil); err == nil {
+				t.Fatal("LoadDocument() accepted invalid retry")
 			}
 		})
 	}
@@ -426,18 +426,18 @@ steps:
 `
 
 func TestLoadDocumentAcceptsWorkspaceRelay(t *testing.T) {
-	doc, err := loadDocument(writeTestDocument(t, relayDocument))
+	doc, err := LoadDocument(writeTestDocument(t, relayDocument), nil)
 	if err != nil {
-		t.Fatalf("loadDocument() error = %v", err)
+		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if doc.Steps[2].WorkspaceRelay.MaxTurns != 15 || doc.Steps[2].operation() != "workspace_relay" {
+	if doc.Steps[2].WorkspaceRelay.MaxTurns != 15 || doc.Steps[2].Operation() != "workspace_relay" {
 		t.Fatalf("relay step = %#v", doc.Steps[2])
 	}
 }
 
 func TestLoadDocumentAcceptsMultimodalWorkspaceRelay(t *testing.T) {
 	content := strings.Replace(relayDocument, "      media: text\n", "      media: text\n      terminal_media: audio\n      idle_timeout: 45s\n", 1)
-	doc, err := loadDocument(writeTestDocument(t, content))
+	doc, err := LoadDocument(writeTestDocument(t, content), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,7 +449,7 @@ func TestLoadDocumentAcceptsMultimodalWorkspaceRelay(t *testing.T) {
 
 func TestLoadDocumentAllowsTerminalTextCaptureForAudioRelay(t *testing.T) {
 	content := strings.Replace(relayDocument, "      media: text\n", "      media: audio\n", 1)
-	if _, err := loadDocument(writeTestDocument(t, content)); err != nil {
+	if _, err := LoadDocument(writeTestDocument(t, content), nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -502,7 +502,7 @@ func TestLoadDocumentRejectsInvalidWorkspaceRelay(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := loadDocument(writeTestDocument(t, tc.mutate(relayDocument)))
+			_, err := LoadDocument(writeTestDocument(t, tc.mutate(relayDocument)), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
@@ -534,7 +534,7 @@ func TestLoadDocumentValidatesListenPeerStream(t *testing.T) {
 	listenStep := func(extra string) string {
 		return validDocument + "  - id: listen\n    client: peer\n    peer_stream:\n      mode: listen\n" + extra
 	}
-	doc, err := loadDocument(writeTestDocument(t, listenStep("      duration: 2s\n")))
+	doc, err := LoadDocument(writeTestDocument(t, listenStep("      duration: 2s\n")), nil)
 	if err != nil {
 		t.Fatalf("listen rejected: %v", err)
 	}
@@ -567,7 +567,7 @@ func TestLoadDocumentValidatesListenPeerStream(t *testing.T) {
 				body = validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      input: hello\n      duration: 2s\n"
 				tc.want = "only valid for listen"
 			}
-			_, err := loadDocument(writeTestDocument(t, body))
+			_, err := LoadDocument(writeTestDocument(t, body), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
@@ -580,7 +580,7 @@ func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
 		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: " + mode + "\n      input: ${endpoint}\n      completion: input_sent\n" + extra
 	}
 	for _, mode := range []string{"push-to-talk", "realtime"} {
-		doc, err := loadDocument(writeTestDocument(t, turn(mode, "")))
+		doc, err := LoadDocument(writeTestDocument(t, turn(mode, "")), nil)
 		if err != nil {
 			t.Fatalf("input_sent %s rejected: %v", mode, err)
 		}
@@ -588,7 +588,7 @@ func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
 			t.Fatalf("completion = %q", got)
 		}
 	}
-	if _, err := loadDocument(writeTestDocument(t, turn("push-to-talk", "      pacing: 20ms\n      idle_timeout: 5s\n"))); err != nil {
+	if _, err := LoadDocument(writeTestDocument(t, turn("push-to-talk", "      pacing: 20ms\n      idle_timeout: 5s\n")), nil); err != nil {
 		t.Fatalf("input_sent with pacing rejected: %v", err)
 	}
 	for name, tc := range map[string]struct {
@@ -606,10 +606,94 @@ func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
 		"terminal_label":      {mode: "push-to-talk", extra: "      terminal_label: transcript\n", want: "cannot wait for output"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := loadDocument(writeTestDocument(t, turn(tc.mode, tc.extra)))
+			_, err := LoadDocument(writeTestDocument(t, turn(tc.mode, tc.extra)), nil)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoadDocumentAcceptsBackgroundAwaitListen(t *testing.T) {
+	doc, err := LoadDocument(writeTestDocument(t, validDocument+`  - id: listen
+    client: peer
+    background: true
+    peer_stream:
+      mode: listen
+      duration: 3s
+  - id: wait
+    await: listen
+    timeout: 10s
+    expect:
+      /audio_bytes:
+        equals: 0
+`), nil)
+	if err != nil {
+		t.Fatalf("background listen document rejected: %v", err)
+	}
+	listen, wait := doc.Steps[1], doc.Steps[2]
+	if !listen.Background || listen.PeerStream.Mode != "listen" || listen.PeerStream.Duration != "3s" {
+		t.Fatalf("listen step = %#v", listen)
+	}
+	if wait.Await != "listen" || wait.Operation() != "await" || operationNeedsClient(wait.Operation()) {
+		t.Fatalf("await step = %#v", wait)
+	}
+}
+
+func TestLoadDocumentRejectsInvalidBackgroundAwait(t *testing.T) {
+	listen := func(extra string) string {
+		return "  - id: listen\n    client: peer\n    background: true\n    peer_stream:\n      mode: listen\n      duration: 3s\n" + extra
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"background never awaited":  {body: listen(""), want: "must be awaited exactly once"},
+		"await unknown step":        {body: listen("  - id: wait\n    await: other\n"), want: "not an earlier background step"},
+		"await before background":   {body: "  - id: wait\n    await: listen\n" + listen(""), want: "not an earlier background step"},
+		"await twice":               {body: listen("  - id: wait\n    await: listen\n  - id: again\n    await: listen\n"), want: "already awaited"},
+		"await with client":         {body: listen("  - id: wait\n    client: peer\n    await: listen\n"), want: "takes its client"},
+		"await with operation":      {body: listen("  - id: wait\n    await: listen\n    rpc:\n      method: all.ping\n      request: {}\n"), want: "schema validation"},
+		"await with retry":          {body: listen("  - id: wait\n    await: listen\n    retry:\n      attempts: 2\n"), want: "does not support retry"},
+		"background rpc":            {body: "  - id: bg\n    client: peer\n    background: true\n    rpc:\n      method: all.ping\n      request: {}\n  - id: wait\n    await: bg\n", want: "requires a peer_stream"},
+		"background expect":         {body: "  - id: listen\n    client: peer\n    background: true\n    peer_stream:\n      mode: listen\n      duration: 3s\n    expect:\n      /audio_bytes:\n        equals: 0\n  - id: wait\n    await: listen\n", want: "cannot capture, expect, or save_as"},
+		"background retry":          {body: "  - id: listen\n    client: peer\n    background: true\n    retry:\n      attempts: 2\n    peer_stream:\n      mode: listen\n      duration: 3s\n  - id: wait\n    await: listen\n", want: "cannot retry"},
+		"background session":        {body: "  - id: turn\n    client: peer\n    background: true\n    peer_stream:\n      mode: realtime\n      input: ${endpoint}\n      session: mic\n      keep_open: true\n  - id: wait\n    await: turn\n", want: "cannot use a session"},
+		"background in finally":     {body: listen("  - id: wait\n    await: listen\n") + "finally:\n  - id: late\n    client: peer\n    background: true\n    peer_stream:\n      mode: listen\n      duration: 1s\n", want: "schema validation"},
+		"background and await":      {body: listen("  - id: wait\n    await: listen\n    background: true\n"), want: "cannot be both background and await"},
+		"await in finally":          {body: listen("  - id: wait\n    await: listen\n") + "finally:\n  - id: late\n    await: listen\n", want: "schema validation"},
+		"await before finally only": {body: listen("") + "finally:\n  - id: cleanup\n    client: peer\n    rpc:\n      method: all.ping\n      request: {}\n", want: "must be awaited exactly once"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := LoadDocument(writeTestDocument(t, validDocument+tc.body), nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// A driver that cannot run steps in the background does not list "await", so
+// a document with background steps is rejected by validate and skipped by
+// LoadSupportedDocuments instead of failing once a task is running.
+func TestLoadDocumentGatesBackgroundStepsOnDriverAwaitSupport(t *testing.T) {
+	path := writeTestDocument(t, validDocument+`  - id: listen
+    client: peer
+    background: true
+    peer_stream:
+      mode: listen
+      duration: 3s
+  - id: wait
+    await: listen
+`)
+	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream"}}); err == nil || !strings.Contains(err.Error(), "operation await is not supported") {
+		t.Fatalf("driver without await accepted background steps: %v", err)
+	}
+	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream", "await"}}); err != nil {
+		t.Fatalf("driver with await rejected background steps: %v", err)
+	}
+	documents, skipped, err := LoadSupportedDocuments([]string{path}, &stubDriver{operations: []string{"rpc", "peer_stream"}})
+	if err != nil || len(documents) != 0 || len(skipped) != 1 || !strings.Contains(skipped[0].Reason, "await") {
+		t.Fatalf("documents = %#v skipped = %#v err = %v", documents, skipped, err)
 	}
 }
