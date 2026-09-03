@@ -508,6 +508,59 @@ func TestTransformSilenceFramesNeverOpenBurstAndIdleClosesIt(t *testing.T) {
 	}
 }
 
+// TestTransformShortVoicedPacketsOpenBurst pins the boundary between silence
+// and speech: a valid Opus frame can be two or three bytes at a low bitrate,
+// so only the identifiable silence encodings may be held back.
+func TestTransformShortVoicedPacketsOpenBurst(t *testing.T) {
+	h := newHarness(t, Config{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	output, _ := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+	reader := newFakeReader()
+	client.events.onTrackSubscribed(testRemote, "TR_b", reader)
+
+	reader.send(1, 0, 0x78, 0x01)
+	reader.send(2, 960, 0x78, 0x02, 0x03)
+	waitFor(t, func() bool { return h.queued(testPeer) == 3 }, "burst opened by short voiced packets")
+	cancel()
+	chunks, _ := collect(t, output)
+	if len(chunks) < 3 || !chunks[0].Ctrl.BeginOfStream {
+		t.Fatalf("short voiced packets did not open a burst: %d chunks", len(chunks))
+	}
+	if payload := chunks[1].Part.(*genx.Blob).Data; len(payload) != 2 {
+		t.Fatalf("first forwarded payload = %x, want the two-byte frame", payload)
+	}
+	if payload := chunks[2].Part.(*genx.Blob).Data; len(payload) != 3 {
+		t.Fatalf("second forwarded payload = %x, want the three-byte frame", payload)
+	}
+}
+
+func TestIsOpusSilenceFrame(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		payload []byte
+		silence bool
+	}{
+		"empty payload":             {payload: nil, silence: true},
+		"bare toc dtx":              {payload: []byte{0xf8}, silence: true},
+		"canonical silence":         {payload: []byte{0xf8, 0xff, 0xfe}, silence: true},
+		"padded silence":            {payload: append([]byte{0xf8, 0xff, 0xfe}, make([]byte, 77)...), silence: true},
+		"two byte speech":           {payload: []byte{0x78, 0x01}, silence: false},
+		"three byte speech":         {payload: []byte{0x78, 0x01, 0x02}, silence: false},
+		"silence toc with speech":   {payload: []byte{0xf8, 0xff, 0xfe, 0x00, 0x11}, silence: false},
+		"two byte silence prefix":   {payload: []byte{0xf8, 0xff}, silence: false},
+		"long frame on silence toc": {payload: []byte{0xf8, 0x01, 0x02, 0x03}, silence: false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got := isOpusSilenceFrame(tc.payload); got != tc.silence {
+				t.Fatalf("isOpusSilenceFrame(%x) = %v, want %v", tc.payload, got, tc.silence)
+			}
+		})
+	}
+}
+
 func TestTransformRevokesOnGenerationChange(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx, cancel := context.WithCancel(t.Context())

@@ -37,6 +37,9 @@ type runOptions struct {
 	openRelayStreams func() (relayStream, relayStream, error)
 	// connectClients substitutes already-connected clients in runner tests.
 	connectClients func(context.Context, map[string]ClientSpec, []Step, *variables) (*clientSet, error)
+	// backgroundCancelGrace shortens the wait for a cancelled background step
+	// in runner tests; zero uses backgroundCancelGrace.
+	backgroundCancelGrace time.Duration
 }
 type task struct {
 	doc     *Document
@@ -164,9 +167,16 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 		connect = opts.connectClients
 	}
 	clients, err := connect(ctx, item.doc.Clients, item.doc.Steps, vars)
+	// closeClients stays false while a background goroutine that ignored
+	// cancellation still owns a PeerStream on these clients.
+	closeClients := true
 	if clients != nil {
 		result.Clients = clients.fingerprints()
-		defer clients.Close()
+		defer func() {
+			if closeClients {
+				clients.Close()
+			}
+		}()
 	}
 	if err != nil {
 		item.barrier.Abort(err)
@@ -176,7 +186,7 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 		return result
 	}
 	peerSessions := newPeerStreamSessions()
-	background := newBackgroundSteps(item.doc.Steps)
+	background := newBackgroundSteps(item.doc.Steps, opts.backgroundCancelGrace)
 	failed := false
 	for _, step := range item.doc.Steps {
 		var stepResult StepReport
@@ -203,6 +213,20 @@ func runTask(parent context.Context, item task, opts runOptions) TaskReport {
 			result.Error = cancelled[0].Error
 		}
 		failed = true
+	}
+	// A background PeerStream that ignored cancellation still owns the task's
+	// shared clients. Session teardown, finalizers, and client close would all
+	// race it, so the task ends here and reports the leak instead.
+	if running := background.join(); len(running) != 0 {
+		closeClients = false
+		leak := safeError(fmt.Errorf("background steps %s still hold their PeerStream after cancellation; skipped finally steps and client teardown", strings.Join(running, ", ")), redactions...)
+		if result.Error == "" {
+			result.Error = leak
+		} else {
+			result.Error += "; " + leak
+		}
+		result.DurationMS = time.Since(started).Milliseconds()
+		return result
 	}
 	if err := peerSessions.Close(); err != nil {
 		if result.Error == "" {

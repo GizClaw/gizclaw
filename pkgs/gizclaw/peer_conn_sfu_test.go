@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -60,17 +61,60 @@ func (s *stubSFUBindings) ResolveSFUWorkspaceBindingByName(ctx context.Context, 
 }
 
 const (
-	testSFUWorkspaceName = "sfu-room"
-	testSFUWorkspaceID   = "id-sfu-room"
+	testSFUWorkspaceName      = "sfu-room"
+	testSFUWorkspaceID        = "id-sfu-room"
+	testWorkflowWorkspaceName = "chat-room"
+	testWorkflowWorkspaceID   = "id-chat-room"
 )
+
+// sfuTestWorkspaceCatalog is the Server-local Workspace catalog: the
+// materialized SFU Workspace copy plus one ordinary Workflow Workspace owned
+// by the Peer.
+type sfuTestWorkspaceCatalog struct {
+	items []apitypes.Workspace
+}
+
+func (c sfuTestWorkspaceCatalog) GetWorkspaceByName(_ context.Context, name string) (apitypes.Workspace, error) {
+	for _, item := range c.items {
+		if item.Name == name {
+			return item, nil
+		}
+	}
+	return apitypes.Workspace{}, kv.ErrNotFound
+}
+
+func (c sfuTestWorkspaceCatalog) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
+	return adminhttp.ListWorkspaces200JSONResponse{Items: c.items}, nil
+}
+
+func (c sfuTestWorkspaceCatalog) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (c sfuTestWorkspaceCatalog) GetWorkspace(_ context.Context, request adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	for _, item := range c.items {
+		if item.Id == string(request.Id) {
+			return adminhttp.GetWorkspace200JSONResponse(item), nil
+		}
+	}
+	return adminhttp.GetWorkspace404JSONResponse{}, nil
+}
+
+func (c sfuTestWorkspaceCatalog) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
+	return nil, errors.New("not implemented")
+}
+
+func sfuTestWorkspaces() sfuTestWorkspaceCatalog {
+	system := true
+	return sfuTestWorkspaceCatalog{items: []apitypes.Workspace{
+		{Id: testSFUWorkspaceID, Name: testSFUWorkspaceName, WorkflowId: socialutil.SFUWorkflowID, System: &system},
+		{Id: testWorkflowWorkspaceID, Name: testWorkflowWorkspaceName, WorkflowId: "workflow-a"},
+	}}
+}
 
 func newSFUTestManager(runs *peerrun.Server, bindings sfu.BindingResolver) *Manager {
 	return &Manager{
-		Workspaces: staticWorkspaceService{workspace: apitypes.Workspace{
-			Id:         testSFUWorkspaceID,
-			Name:       testSFUWorkspaceName,
-			WorkflowId: socialutil.SFUWorkflowID,
-		}},
+		Workspaces:         sfuTestWorkspaces(),
 		PeerRun:            runs,
 		sfuBindingResolver: bindings,
 	}
@@ -186,11 +230,19 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 		t.Fatalf("lookup failure denial = %+v", denial)
 	}
 
-	// A Workspace without any binding is a plain Workflow Workspace.
+	// An ordinary Workflow Workspace is unaffected: no Social binding answers
+	// for it and its local record is not bound to the built-in SFU Workflow.
 	if _, err := peer.authorizeInputEvent(ctx, audioEndEvent("turn-failed")); err != nil {
 		t.Fatalf("authorize failed EOS: %v", err)
 	}
-	bindings.set(sfu.ErrNotBound)
+	bindings.set(nil)
+	workflowSelection := apitypes.AgentSelection{WorkspaceName: testWorkflowWorkspaceName}
+	if _, err := runs.SetRunAgent(ctx, caller, workflowSelection); err != nil {
+		t.Fatalf("SetRunAgent(workflow): %v", err)
+	}
+	if _, err := runs.ActivateRunAgent(ctx, caller, workflowSelection); err != nil {
+		t.Fatalf("ActivateRunAgent(workflow): %v", err)
+	}
 	if authorized, err := peer.authorizeInputEvent(ctx, audioBOS("turn-workflow")); err != nil || !authorized {
 		t.Fatalf("authorize Workflow BOS = %v, %v; want admitted", authorized, err)
 	}
@@ -198,7 +250,68 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 	isSFU = peer.acceptedAudioSFU
 	peer.inputAccessMu.Unlock()
 	if isSFU {
-		t.Fatal("unbound Workspace input was marked as SFU input")
+		t.Fatal("unbound Workflow Workspace input was marked as SFU input")
+	}
+}
+
+// TestPeerConnRefusesSFUWorkspaceWithoutBinding covers a selected SFU
+// Workspace whose Social binding disappeared. Classifying it as a Workflow
+// Workspace would admit the turn through the ordinary path and bypass the
+// membership check entirely.
+func TestPeerConnRefusesSFUWorkspaceWithoutBinding(t *testing.T) {
+	ctx := t.Context()
+	caller := giznet.PublicKey{43}
+	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	bindings := &stubSFUBindings{}
+	for name, tc := range map[string]struct {
+		workspaceName string
+		wantCode      string
+	}{
+		"binding gone for a materialized SFU Workspace": {workspaceName: testSFUWorkspaceName, wantCode: sfuAccessRevokedCode},
+		"no local record either":                        {workspaceName: "ghost-room", wantCode: sfuAccessCheckFailedCode},
+	} {
+		t.Run(name, func(t *testing.T) {
+			selection := apitypes.AgentSelection{WorkspaceName: tc.workspaceName}
+			if _, err := runs.SetRunAgent(ctx, caller, selection); err != nil {
+				t.Fatalf("SetRunAgent: %v", err)
+			}
+			if _, err := runs.ActivateRunAgent(ctx, caller, selection); err != nil {
+				t.Fatalf("ActivateRunAgent: %v", err)
+			}
+			broker := newPeerStreamEventBroker()
+			var output peerStreamLockedBuffer
+			unsubscribe, err := broker.Subscribe(&output)
+			if err != nil {
+				t.Fatalf("Subscribe: %v", err)
+			}
+			defer unsubscribe()
+			input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+			peer := &PeerConn{
+				Conn:       &testGiznetConn{publicKey: caller},
+				Service:    &PeerService{manager: newSFUTestManager(runs, bindings)},
+				agentInput: input,
+				events:     broker,
+			}
+			// The binding resolver answers ErrNotBound for every name.
+			bindings.set(sfu.ErrNotBound)
+			authorized, err := peer.authorizeInputEvent(ctx, audioBOS("turn-unbound"))
+			if err != nil {
+				t.Fatalf("authorize unbound BOS: %v", err)
+			}
+			if authorized {
+				t.Fatal("SFU Workspace input was admitted without a Social binding")
+			}
+			waitForPeerStreamBytes(t, &output)
+			denial := readLockedPeerStreamEvent(t, &output)
+			if code := denial.GetEos().GetError().GetCode(); code != tc.wantCode {
+				t.Fatalf("denial code = %q, want %q", code, tc.wantCode)
+			}
+			select {
+			case chunk := <-input.pushed:
+				t.Fatalf("denied turn reached Agent input: %+v", chunk)
+			default:
+			}
+		})
 	}
 }
 

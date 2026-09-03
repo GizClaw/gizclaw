@@ -55,10 +55,10 @@ const (
 	// utterances instead of carrying encoded silence for as long as the
 	// remote participant stays subscribed.
 	routeBurstIdle = 300 * time.Millisecond
-	// opusSilenceFrameMaxBytes bounds the Opus frames that carry no speech: a
-	// bare TOC byte (DTX) or the canonical three-byte silence packet. Such
-	// frames never open a burst.
-	opusSilenceFrameMaxBytes = 3
+	// opusEmptyFrameMaxBytes is the largest Opus packet that carries no frame
+	// data at all: a bare TOC byte, whose single code-0 frame has zero
+	// compressed bytes. That is how DTX reaches the connector.
+	opusEmptyFrameMaxBytes = 1
 )
 
 // opusSilencePrefix is the CELT silence packet (TOC 0xf8 followed by the
@@ -253,6 +253,14 @@ func (s *session) drainDisconnects() {
 
 // recheck re-validates the binding on Config.RecheckInterval and fails
 // closed on any resolver error or generation change.
+//
+// This poll is the only mechanism that ends an established attachment.
+// Social commits a friend deletion, a group deletion or a member removal and
+// pushes nothing: there is no cancellation callback and no cross-Server event
+// delivery, so a Peer homed on any Server stops the same way and within the
+// same bound. Revocation is therefore eventually consistent, at most one
+// interval late. New turns do not wait for it — every inbound BOS and Opus
+// packet re-checks membership before it is admitted.
 func (s *session) recheck() {
 	ticker := time.NewTicker(s.config.RecheckInterval)
 	defer ticker.Stop()
@@ -549,10 +557,15 @@ func (r *remoteRoute) emitLocked(packets []*rtp.Packet) {
 	}
 }
 
-// isOpusSilenceFrame reports an Opus packet that carries no speech: a DTX or
-// canonical silence frame, or that silence frame zero-padded by the SFU.
+// isOpusSilenceFrame reports an Opus packet that carries no speech. Only the
+// two encodings LiveKit actually forwards for an idle publisher qualify: a
+// packet with no frame data (an empty payload or a bare TOC byte, which is how
+// DTX arrives) and the canonical CELT silence packet, which the SFU pads with
+// trailing zeros to a fixed size. Every other packet counts as speech, because
+// a valid low-bitrate frame can be two or three bytes and a length threshold
+// would drop real audio instead of opening the burst.
 func isOpusSilenceFrame(payload []byte) bool {
-	if len(payload) <= opusSilenceFrameMaxBytes {
+	if len(payload) <= opusEmptyFrameMaxBytes {
 		return true
 	}
 	if !bytes.HasPrefix(payload, opusSilencePrefix) {

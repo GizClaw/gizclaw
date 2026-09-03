@@ -457,9 +457,15 @@ conventions:
   report records the background step as `started` with its `await` step id,
   and the `await` step with the full result, `background_duration_ms`, and the
   client. When the document aborts early, the runner cancels every background
-  step that was not awaited, waits for it to release its PeerStream, and
-  records it as `cancelled` before RPC finalizers run. Play mode does not
-  support background steps.
+  step that was not awaited, waits up to 30s for it to release its PeerStream,
+  and records it as `cancelled` before RPC finalizers run. Every wait on a
+  background step is bounded by that grace, including the `await` timeout: a
+  PeerStream that ignores cancellation cannot hold the task open, and its step
+  is reported as unfinished instead. A background step still holding its
+  PeerStream after the grace also still owns the task's shared clients, so the
+  task ends there and reports it: `finally` steps and client teardown are
+  skipped rather than run against a stream that is still in use. Play mode does
+  not support background steps.
 - `peer_stream.completion: input_sent` is valid for `push-to-talk` and
   `realtime`: the step completes once the input is fully pushed (including the
   EOS for push-to-talk) without waiting for its own text or audio output and

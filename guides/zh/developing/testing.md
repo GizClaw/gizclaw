@@ -369,8 +369,11 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   必须是 `steps` 中更早声明的后台步骤，每个后台步骤必须在 `finally` 之前恰好被 `await`
   一次；`finally` 中不允许后台或 `await` 步骤。报告里后台步骤记录 `started` 与它的 `await`
   步骤 id，`await` 步骤记录完整 result、`background_duration_ms` 和 client。文档提前中止时，
-  runner 取消所有未被 `await` 的后台步骤，等待它们释放 PeerStream，并以 `cancelled` 状态记录在
-  RPC finalizer 之前。play 模式不支持后台步骤。
+  runner 取消所有未被 `await` 的后台步骤，最多等待 30s 让它们释放 PeerStream，并以 `cancelled`
+  状态记录在 RPC finalizer 之前。所有对后台步骤的等待都受这个 grace 限制，`await` 的 timeout
+  也一样：忽略取消的 PeerStream 不会拖住整个 task，对应步骤按 unfinished 记录。超过 grace 仍
+  未释放 PeerStream 的后台步骤同时还占用 task 的共享 client，因此 task 到此结束并报告该情况，
+  跳过 `finally` 步骤与 client 拆除，不在仍被占用的 stream 上执行清理。play 模式不支持后台步骤。
 - `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
   （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
   不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、

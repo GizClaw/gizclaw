@@ -718,14 +718,32 @@ func (s *Server) retireSystemWorkspace(ctx context.Context, store kv.Store, item
 		return apitypes.Workspace{}, err
 	}
 	// Social SFU Workspaces are never reward eligible, so there is no reward
-	// settlement to fence against. The marker is written directly: the reward
-	// fence opens a transaction on the gameplay SQL storage, and a Workspace
-	// KV store sharing that single-connection SQLite handle would deadlock
-	// behind it.
+	// settlement to fence against. Their marker is written directly: the
+	// reward fence opens a transaction on the gameplay SQL storage, and a
+	// Workspace KV store sharing that single-connection SQLite handle would
+	// deadlock behind it. Any other system Workspace reaching this path -- a
+	// stale or malformed Social retirement record naming it -- keeps the
+	// fence, because being a system Workspace alone does not prove that no
+	// reward settlement is in flight.
+	if !workspaceIsSocialSFU(item) {
+		if err := s.createPendingDeletion(ctx, store, record); err != nil {
+			return apitypes.Workspace{}, err
+		}
+		return item, nil
+	}
 	if _, _, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil {
 		return apitypes.Workspace{}, err
 	}
 	return item, nil
+}
+
+// workspaceIsSocialSFU reports the exact shape a Friend or Friend Group SFU
+// Workspace is materialized with: a system Workspace bound to the built-in SFU
+// Workflow and carrying no agent parameters.
+func workspaceIsSocialSFU(item apitypes.Workspace) bool {
+	return workspaceIsSystem(item) &&
+		strings.TrimSpace(item.WorkflowId) == socialutil.SFUWorkflowID &&
+		item.Parameters == nil
 }
 
 // GetRetiredSystemWorkspace returns an existing Social SFU Workspace

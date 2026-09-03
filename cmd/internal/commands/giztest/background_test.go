@@ -3,6 +3,7 @@ package giztest
 import (
 	"context"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -202,5 +203,76 @@ func TestLoadDocumentRejectsInvalidBackgroundAwait(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+// stuckPeerStreamOptions hands out an opener that blocks until release is
+// closed, modeling a PeerStream that ignores cancellation: invocation.run
+// never returns, so every wait on the background goroutine must be bounded.
+func stuckPeerStreamOptions(release <-chan struct{}, opened chan<- struct{}) runOptions {
+	var once sync.Once
+	return runOptions{
+		connectClients: func(context.Context, map[string]ClientSpec, []Step, *variables) (*clientSet, error) {
+			return &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}, nil
+		},
+		openPeerStream: func(*gizcli.Client) peerStreamOpener {
+			return func() (peerStream, error) {
+				once.Do(func() { close(opened) })
+				<-release
+				return nil, context.Canceled
+			}
+		},
+		backgroundCancelGrace: 100 * time.Millisecond,
+	}
+}
+
+func TestRunTaskAwaitTimeoutIsBoundedWhenStreamIgnoresCancellation(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+	opened := make(chan struct{})
+	doc := backgroundListenDocument([]Step{
+		{ID: "listen", Client: "peer", Background: true, PeerStream: &PeerStreamOperation{Mode: "listen", Duration: "1m"}},
+		{ID: "wait", Await: "listen", Timeout: "100ms"},
+	})
+	started := time.Now()
+	result := runTask(context.Background(), task{doc: doc}, stuckPeerStreamOptions(release, opened))
+	if elapsed := time.Since(started); elapsed > 10*time.Second {
+		t.Fatalf("await waited %s for a stream that ignores cancellation", elapsed)
+	}
+	<-opened
+	if result.Status != "failed" || len(result.Steps) != 2 {
+		t.Fatalf("result = %#v", result)
+	}
+	awaited := result.Steps[1]
+	if awaited.Status != "failed" || !strings.Contains(awaited.Error, "did not stop within") {
+		t.Fatalf("await step report = %#v", awaited)
+	}
+	if awaited.Evidence["unfinished"] != true || awaited.Evidence["deadline"] != "timeout" {
+		t.Fatalf("await evidence = %#v", awaited.Evidence)
+	}
+}
+
+// A background goroutine that still owns the PeerStream also owns the task's
+// shared clients, so finalizers must not run and the clients must not be torn
+// down underneath it.
+func TestRunTaskSkipsFinalizersWhileBackgroundStepStillOwnsStream(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+	opened := make(chan struct{})
+	doc := backgroundListenDocument([]Step{
+		{ID: "listen", Client: "peer", Background: true, PeerStream: &PeerStreamOperation{Mode: "listen", Duration: "1m"}},
+		{ID: "wait", Await: "listen", Timeout: "100ms"},
+	})
+	doc.Finally = []Step{{ID: "cleanup", Output: &OutputOperation{Variable: "received"}}}
+	result := runTask(context.Background(), task{doc: doc}, stuckPeerStreamOptions(release, opened))
+	<-opened
+	if result.Status != "failed" {
+		t.Fatalf("result = %#v", result)
+	}
+	if len(result.Cleanup) != 0 {
+		t.Fatalf("finally steps ran while the PeerStream was still owned: %#v", result.Cleanup)
+	}
+	if !strings.Contains(result.Error, "still hold their PeerStream") {
+		t.Fatalf("result error = %q, want the retained PeerStream report", result.Error)
 	}
 }

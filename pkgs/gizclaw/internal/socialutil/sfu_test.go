@@ -1,6 +1,7 @@
 package socialutil
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -30,5 +31,21 @@ func TestSFUBindingValidateRequiresIdentity(t *testing.T) {
 	}
 	if err := (SFUBinding{URL: "wss://sfu"}).Validate(); err == nil {
 		t.Fatal("Validate(missing room_token) error = nil")
+	}
+	if err := (SFUBinding{URL: "wss://sfu", RoomToken: "room-a"}).Validate(); err == nil {
+		t.Fatal("Validate(zero generation) error = nil")
+	}
+}
+
+// A record written before the generation field existed, or a truncated one,
+// decodes with Generation 0 and must fail closed instead of attaching.
+func TestSFUBindingValidateRejectsDecodedRecordWithoutGeneration(t *testing.T) {
+	t.Parallel()
+	var binding SFUBinding
+	if err := json.Unmarshal([]byte(`{"url":"wss://sfu","room_token":"room-a"}`), &binding); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if err := binding.Validate(); err == nil || !strings.Contains(err.Error(), "generation") {
+		t.Fatalf("Validate(short record) error = %v, want a generation failure", err)
 	}
 }

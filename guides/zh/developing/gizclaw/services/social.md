@@ -42,7 +42,8 @@ relationship 与 Workspace 都保持可用；第二阶段失败时保留 retirem
 重试同一删除请求只补做相同 Workspace 的 `PendingDeletion`，不会恢复或重复删除
 relationship。只有两个阶段都达到成功 contract 后才发送关系失效 Peer Event。
 
-删除好友、删除群组和移除成员都在提交后同步撤销受影响 Peer 的 SFU runtime，见
+删除好友、删除群组和移除成员都会撤销受影响 Peer 的 SFU runtime，但不推送任何取
+消信号：每个 runtime 自己重读 binding，在一个 recheck 周期内停止，见
 [撤权](#撤权)。Workspace listing、普通 Get 和新的显式选择继续按 relationship 与
 PendingDeletion 拒绝访问。
 

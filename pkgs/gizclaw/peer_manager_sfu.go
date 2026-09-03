@@ -7,6 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -110,16 +111,45 @@ func (m *Manager) sfuInputAccess(
 	if m == nil {
 		return false, sfuAccessCheckFailedError()
 	}
-	_, err := m.sfuBindings().ResolveSFUWorkspaceBindingByName(ctx, strings.TrimSpace(workspaceName), caller.String())
+	workspaceName = strings.TrimSpace(workspaceName)
+	_, err := m.sfuBindings().ResolveSFUWorkspaceBindingByName(ctx, workspaceName, caller.String())
 	switch {
 	case err == nil:
 		return true, nil
 	case errors.Is(err, sfu.ErrNotBound):
-		return false, nil
+		return m.unboundInputAccess(ctx, caller, workspaceName)
 	case errors.Is(err, sfu.ErrNotMember), errors.Is(err, sfu.ErrRevoked):
 		return true, sfuAccessRevokedError()
 	default:
 		return true, sfuAccessCheckFailedError()
+	}
+}
+
+// unboundInputAccess classifies a selected Workspace that no Social binding
+// answers for. An ordinary Workflow Workspace admits input through the usual
+// path. A Workspace bound to the built-in SFU Workflow whose Social binding
+// has disappeared must not: the membership check is the only thing between a
+// revoked Peer and the Room, so its input is refused instead of falling
+// through to the Workflow path. The Workspace catalog is Server-local and
+// materialized on demand, so a record this Server cannot resolve is refused
+// the same way rather than admitted.
+func (m *Manager) unboundInputAccess(
+	ctx context.Context,
+	caller giznet.PublicKey,
+	workspaceName string,
+) (bool, *inputAccessError) {
+	if m.Workspaces == nil {
+		return true, sfuAccessCheckFailedError()
+	}
+	resources := &peerresource.Server{Caller: caller, Workspaces: m.Workspaces}
+	item, err := resources.ResolveWorkspaceForAccessCheck(ctx, workspaceName)
+	switch {
+	case err != nil:
+		return true, sfuAccessCheckFailedError()
+	case strings.TrimSpace(item.WorkflowId) == socialutil.SFUWorkflowID:
+		return true, sfuAccessRevokedError()
+	default:
+		return false, nil
 	}
 }
 

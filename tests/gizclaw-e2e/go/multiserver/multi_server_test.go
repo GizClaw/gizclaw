@@ -410,6 +410,19 @@ func querySQLTableSnapshot(path, table string) (byteSnapshot, error) {
 	defer db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	var exists string
+	switch err := db.QueryRowContext(
+		ctx,
+		`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`,
+		table,
+	).Scan(&exists); {
+	case errors.Is(err, sql.ErrNoRows):
+		// A store that never wrote a row has no table. That is the same
+		// observable state as an empty one for these assertions.
+		return make(byteSnapshot), nil
+	case err != nil:
+		return nil, err
+	}
 	rows, err := db.QueryContext(ctx, `SELECT encoded_key, value FROM "`+table+`" ORDER BY encoded_key`)
 	if err != nil {
 		return nil, err

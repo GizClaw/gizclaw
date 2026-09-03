@@ -44,10 +44,12 @@ finishes `PendingDeletion` for the same Workspace and never restores or
 re-deletes the relationship. Relationship invalidation Peer Events are emitted
 only after both phases satisfy the success contract.
 
-Friend deletion, Group deletion, and member removal synchronously revoke the
-affected Peers' SFU runtimes after the commit; see [Revocation](#revocation).
-Workspace listing, ordinary get, and new explicit selection continue to deny
-access according to relationships and `PendingDeletion`.
+Friend deletion, Group deletion, and member removal revoke the affected Peers'
+SFU runtimes without pushing any cancellation signal: each runtime re-reads its
+own binding and stops within one recheck interval; see
+[Revocation](#revocation). Workspace listing, ordinary get, and new explicit
+selection continue to deny access according to relationships and
+`PendingDeletion`.
 
 ## Multi-Server boundary
 
@@ -144,7 +146,7 @@ Inbound Opus packets and BOS/EOS from the Peer enter GenX input only while the a
 
 ### Revocation
 
-The following changes cancel established SFU participants synchronously after the KV commit instead of waiting for a per-turn check:
+The following changes terminate established SFU participants:
 
 - Friend deletion (`friend.delete`).
 - Friend Group deletion (`friend_group.delete`).
