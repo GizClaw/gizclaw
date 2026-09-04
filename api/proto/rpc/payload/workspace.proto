@@ -365,3 +365,17 @@ message WorkspaceInputPutRequest {
 message WorkspaceInputPutResponse {
   Workspace value = 1;
 }
+
+message WorkspaceParametersPatch {
+  optional WorkspaceInputMode input = 1;
+  optional ConversationParameters conversation = 2;
+}
+
+message WorkspaceParametersSetRequest {
+  string name = 1;
+  WorkspaceParametersPatch parameters = 2;
+}
+
+message WorkspaceParametersSetResponse {
+  Workspace value = 1;
+}

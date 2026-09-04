@@ -1412,6 +1412,15 @@ export type WorkspaceListResponse = {
   "runtime_profile_revision": string;
 };
 export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | ChatRoomWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters | PetWorkspaceParameters;
+export type WorkspaceParametersPatch = {
+  "input"?: WorkspaceInputMode;
+  "conversation"?: ConversationParameters;
+};
+export type WorkspaceParametersSetRequest = {
+  "name": string;
+  "parameters": WorkspaceParametersPatch;
+};
+export type WorkspaceParametersSetResponse = Workspace;
 export type WorkspacePutBody = {
   "parameters"?: WorkspaceParameters;
   "toolkit"?: ToolkitPolicy;
@@ -1528,6 +1537,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.icon.download": "WorkspaceIconDownloadRequest",
   "server.workspace.input.put": "WorkspaceInputPutRequest",
   "server.workspace.list": "WorkspaceListRequest",
+  "server.workspace.parameters.set": "WorkspaceParametersSetRequest",
   "server.workspace.put": "WorkspacePutRequest"
 };
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
@@ -1636,6 +1646,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.icon.download": "WorkspaceIconDownloadResponse",
   "server.workspace.input.put": "WorkspaceInputPutResponse",
   "server.workspace.list": "WorkspaceListResponse",
+  "server.workspace.parameters.set": "WorkspaceParametersSetResponse",
   "server.workspace.put": "WorkspacePutResponse"
 };
 const MESSAGE_DESCS: Record<string, MessageDesc> = {
@@ -7925,6 +7936,45 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "oneof": true,
         "oneofGroup": "value",
         "type": "PetWorkspaceParameters"
+      }
+    ]
+  },
+  "WorkspaceParametersPatch": {
+    "fields": [
+      {
+        "name": "input",
+        "number": 1,
+        "optional": true,
+        "type": "WorkspaceInputMode"
+      },
+      {
+        "name": "conversation",
+        "number": 2,
+        "optional": true,
+        "type": "ConversationParameters"
+      }
+    ]
+  },
+  "WorkspaceParametersSetRequest": {
+    "fields": [
+      {
+        "name": "name",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "parameters",
+        "number": 2,
+        "type": "WorkspaceParametersPatch"
+      }
+    ]
+  },
+  "WorkspaceParametersSetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "Workspace"
       }
     ]
   },
