@@ -64,7 +64,9 @@ Coturn relay path。它仍只是本机 Docker transport 诊断，不是 producti
 的 transport 可以额外实现 `giznet.ContextDialer`。`gizwebrtc.Conn.DialContext` 在 context
 结束时只关闭尚未打开的 DataChannel，不关闭父 PeerConnection。DataChannel 在 open 前 close
 或 error 时返回 `gizwebrtc.ErrServiceOpen`，父连接关闭仍匹配 `giznet.ErrConnClosed`。原有
-`Dial` 保持为十秒 service-open 上限的兼容 wrapper。
+`Dial` 保持为十秒 native service-open 上限的兼容 wrapper。`giztunnel.Conn` 也实现
+`ContextDialer`：它最多等待 bridge drain 上限加一秒来获取 active-channel capacity，之后再应用
+十秒 native-open 上限。更短的 caller context 同时约束这两个阶段。
 
 每条已打开的 service DataChannel 都会登记在对应 logical service 下，直到相应的 `net.Conn`
 关闭。Stream 关闭时会立即解除登记；service 或父连接关闭时，则在 registry lock 外关闭已
@@ -157,12 +159,15 @@ Observation 记录首个 terminal 的 `service` 或 `packet` path、`left_to_rig
 `buffer_limit`、`context_canceled`、`deadline_exceeded` 或 `other` 封闭 error class。
 因此 EOF 与 closed error 对 `Bridge` caller 仍返回 nil，但诊断类别不会丢失。
 
-Destination service open 失败时仍只关闭已经 accept 的 source stream，service loop 继续运行。
-Observation 只聚合总次数以及 first/last direction 和封闭 error class，不为每条 stream 发 callback
-或日志。独立 drain 的 per-service copy goroutine 不参与 connection terminal 竞争。当 established
-destination session 精确达到 per-session channel limit，或所在 physical association 达到
-association limit 时，第一次此类 rejection 还会携带 Router lock 内捕获的责任 scope 与匹配的
-active/limit snapshot。Pending-session limit、close race、普通 buffer limit、packet buffer 与
+Destination service open 达到 established session 的 per-session 或 association active-channel
+capacity 时，会等待已有 lease 释放，而不是立即拒绝已经 accept 的 source stream。Lease
+释放会唤醒等待者重新准入。Caller context 和内部有界 timeout 限制等待时间；容量在
+边界内仍未释放时，error 同时保留 deadline 和精确 capacity snapshot。其他 destination
+service open 失败仍只关闭 source stream，service loop 继续运行。Observation 只聚合总次数以及
+first/last direction 和封闭 error class，不为每条 stream 发 callback 或日志。独立 drain 的
+per-service copy goroutine 不参与 connection terminal 竞争。有界 capacity wait 超时时，第一次
+此类 rejection 还会携带 Router lock 内捕获的责任 scope 与匹配的 active/limit snapshot。
+Pending-session limit、close race、普通 buffer limit、packet buffer 与
 remote queue 不携带精确 capacity 字段。
 
 ## 依赖关系
