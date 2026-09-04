@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -19,6 +20,10 @@ type PeerStatusStore interface {
 type StatusSync struct {
 	Store PeerStatusStore
 }
+
+// firmwareSha256Pattern mirrors the firmware_sha256 pattern of the PeerStatus
+// schema in api/http/shared/peer_status.json.
+var firmwareSha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 const (
 	telemetryStatusDetailsKey          = "telemetry_status"
@@ -98,7 +103,10 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 		status.Labels = &labels
 		changed = true
 	}
-	if reported.FirmwareSha256 != nil {
+	// The digest comes from the device, so it is untrusted: a value outside the
+	// PeerStatus contract is dropped instead of stored, and the previously
+	// stored digest is left in place rather than replaced with a bad one.
+	if reported.FirmwareSha256 != nil && firmwareSha256Pattern.MatchString(*reported.FirmwareSha256) {
 		value := *reported.FirmwareSha256
 		status.FirmwareSha256 = &value
 		changed = true
