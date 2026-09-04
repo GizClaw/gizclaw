@@ -36,8 +36,14 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 			return fmt.Errorf("step %s client_rpc response: %w", step.ID, err)
 		}
 		key := clientName + ":" + step.ClientRPC.Method
-		counter := &inboundCounter{}
-		counts[key] = counter
+		// A reconnect reinstalls the providers on a new connection. Keep the
+		// counter the first connection registered so expect_calls still sees
+		// the total across both.
+		counter := counts[key]
+		if counter == nil {
+			counter = &inboundCounter{}
+			counts[key] = counter
+		}
 		switch step.ClientRPC.Method {
 		case "client.info.get":
 			var device apitypes.DeviceInfo
@@ -74,7 +80,7 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 				return err
 			}
 		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.reboot",
-			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget":
+			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":
 			if err := installDeviceControl(&device, step.ClientRPC.Method, response); err != nil {
 				return fmt.Errorf("step %s response: %w", step.ID, err)
 			}
@@ -180,6 +186,10 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 			handlers.SavedWifi = func(ctx context.Context) ([]rpcapi.WifiSavedNetwork, error) { return nil, fail(ctx) }
 		case "client.wifi.saved.forget":
 			handlers.ForgetWifi = func(ctx context.Context, _ string) error { return fail(ctx) }
+		case "client.wifi.scan":
+			handlers.ScanWifi = func(ctx context.Context, _ *int64) ([]rpcapi.WifiScanResult, error) { return nil, fail(ctx) }
+		case "client.wifi.connect":
+			handlers.ConnectWifi = func(ctx context.Context, _ string, _ *string) error { return fail(ctx) }
 		}
 		return nil
 	}
@@ -230,8 +240,55 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 		handlers.SavedWifi = func(context.Context) ([]rpcapi.WifiSavedNetwork, error) { return list.Networks, nil }
 	case "client.wifi.saved.forget":
 		handlers.ForgetWifi = func(context.Context, string) error { return nil }
+	case "client.wifi.scan":
+		var result rpcapi.ClientWifiScanResponse
+		delay, err := scriptedDeviceDelay(response)
+		if err != nil {
+			return err
+		}
+		if response != nil {
+			if err := decodeRequest(response, &result); err != nil {
+				return err
+			}
+		}
+		handlers.ScanWifi = func(ctx context.Context, _ *int64) ([]rpcapi.WifiScanResult, error) {
+			if delay > 0 {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
+			}
+			return result.Networks, nil
+		}
+	case "client.wifi.connect":
+		handlers.ConnectWifi = func(context.Context, string, *string) error { return nil }
 	}
 	return nil
+}
+
+// maxScriptedDelayMs bounds a scripted device delay across every runner. It is
+// the largest value Node accepts for setTimeout; a larger one is clamped to a
+// single millisecond there, which would turn a scenario written to exercise a
+// timeout into one that passes on an immediate answer. The Go and Dart runners
+// reject the same values so a document behaves identically everywhere.
+const maxScriptedDelayMs = 2147483647
+
+func scriptedDeviceDelay(response any) (time.Duration, error) {
+	object, ok := response.(map[string]any)
+	if !ok || object["delay_ms"] == nil {
+		return 0, nil
+	}
+	value, err := scriptedErrorCode(object["delay_ms"])
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("delay_ms must be a non-negative integer")
+	}
+	if value > maxScriptedDelayMs {
+		return 0, fmt.Errorf("delay_ms must be at most %d", maxScriptedDelayMs)
+	}
+	return time.Duration(value) * time.Millisecond, nil
 }
 
 // awaitInboundCalls blocks until the installed provider has been called at

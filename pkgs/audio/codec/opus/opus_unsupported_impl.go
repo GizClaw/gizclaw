@@ -11,6 +11,11 @@ func unsupportedErr() error {
 	return unsupportedRuntimeError(runtime.GOOS, runtime.GOARCH, nativeCGOEnabled)
 }
 
+// Supported reports whether this build links the native libopus runtime.
+func Supported() bool {
+	return false
+}
+
 // Version returns a static marker on unsupported platforms.
 func Version() string {
 	return "unsupported"
@@ -65,6 +70,17 @@ func (e *Encoder) SetComplexity(complexity int) error {
 		return err
 	}
 	return unsupportedErr()
+}
+
+// Complexity returns unsupported error.
+func (e *Encoder) Complexity() (int, error) {
+	if e == nil {
+		return 0, fmt.Errorf("opus: encoder is nil")
+	}
+	if e.closed {
+		return 0, fmt.Errorf("opus: encoder is nil")
+	}
+	return 0, unsupportedErr()
 }
 
 // Encode validates input then returns unsupported error.

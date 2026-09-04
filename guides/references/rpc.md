@@ -54,7 +54,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_name` 创建当前 Peer 的 Workspace。 |
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
 | 107 | `server.workspace.input.put` | 只更新指定 Workspace 的 input mode，保留其余 parameters 与 toolkit；Workspace 继承 Workflow parameters 时由 Server 解析继承配置。 |
-| 108 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
+| 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
 | 30 | `server.workspace.history.get` | 读取指定 Workspace 的一条 history。 |
@@ -170,6 +170,8 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 104 | `client.wifi.status.get` | 读取设备当前 Wi‑Fi 连接状态（`connected`、`ssid`、`rssi_dbm`、`ip`、`bssid`）。 |
 | 105 | `client.wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
 | 106 | `client.wifi.saved.forget` | 按 `ssid` 删除设备已保存的 Wi‑Fi 网络。 |
+| 108 | `client.wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
+| 109 | `client.wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
 
 ## 独立流式语音
 

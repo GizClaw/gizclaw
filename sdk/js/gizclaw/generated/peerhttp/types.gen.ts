@@ -92,6 +92,30 @@ export type DeviceWifiSavedList = {
     networks: Array<DeviceWifiSavedNetwork>;
 };
 
+export type DeviceWifiScanRequest = {
+    /**
+     * How long the device may scan. Values outside 1000-15000 are clamped to that range rather than rejected, so a client may send any positive duration and receive the nearest supported one.
+     */
+    timeout_ms?: number;
+};
+
+export type DeviceWifiScanResult = {
+    ssid: string;
+    bssid?: string;
+    rssi_dbm?: number;
+    frequency_mhz?: number;
+    security?: string;
+};
+
+export type DeviceWifiScanResponse = {
+    networks: Array<DeviceWifiScanResult>;
+};
+
+export type DeviceWifiConnectRequest = {
+    ssid: string;
+    passphrase?: string;
+};
+
 export type Contact = {
     /**
      * Owner-scoped immutable contact name.
@@ -1128,6 +1152,110 @@ export type GetDeviceWifiResponses = {
 };
 
 export type GetDeviceWifiResponse = GetDeviceWifiResponses[keyof GetDeviceWifiResponses];
+
+export type ConnectDeviceWifiData = {
+    body: DeviceWifiConnectRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/wifi';
+};
+
+export type ConnectDeviceWifiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ConnectDeviceWifiError = ConnectDeviceWifiErrors[keyof ConnectDeviceWifiErrors];
+
+export type ConnectDeviceWifiResponses = {
+    /**
+     * The device accepted the credentials and started switching networks.
+     */
+    202: unknown;
+};
+
+export type ScanDeviceWifiData = {
+    body?: DeviceWifiScanRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/wifi/scan';
+};
+
+export type ScanDeviceWifiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type ScanDeviceWifiError = ScanDeviceWifiErrors[keyof ScanDeviceWifiErrors];
+
+export type ScanDeviceWifiResponses = {
+    /**
+     * Nearby Wi-Fi networks reported by the device.
+     */
+    200: DeviceWifiScanResponse;
+};
+
+export type ScanDeviceWifiResponse = ScanDeviceWifiResponses[keyof ScanDeviceWifiResponses];
 
 export type ListDeviceSavedWifiData = {
     body?: never;

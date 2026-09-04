@@ -1095,6 +1095,319 @@ class ClientWifiSavedForgetResponse extends $pb.GeneratedMessage {
   static ClientWifiSavedForgetResponse? _defaultInstance;
 }
 
+class WifiScanResult extends $pb.GeneratedMessage {
+  factory WifiScanResult({
+    $core.String? ssid,
+    $core.String? bssid,
+    $fixnum.Int64? rssiDbm,
+    $fixnum.Int64? frequencyMhz,
+    $core.String? security,
+  }) {
+    final result = create();
+    if (ssid != null) result.ssid = ssid;
+    if (bssid != null) result.bssid = bssid;
+    if (rssiDbm != null) result.rssiDbm = rssiDbm;
+    if (frequencyMhz != null) result.frequencyMhz = frequencyMhz;
+    if (security != null) result.security = security;
+    return result;
+  }
+
+  WifiScanResult._();
+
+  factory WifiScanResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory WifiScanResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WifiScanResult',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'ssid')
+    ..aOS(2, _omitFieldNames ? '' : 'bssid')
+    ..aInt64(3, _omitFieldNames ? '' : 'rssiDbm')
+    ..aInt64(4, _omitFieldNames ? '' : 'frequencyMhz')
+    ..aOS(5, _omitFieldNames ? '' : 'security')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WifiScanResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WifiScanResult copyWith(void Function(WifiScanResult) updates) =>
+      super.copyWith((message) => updates(message as WifiScanResult))
+          as WifiScanResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static WifiScanResult create() => WifiScanResult._();
+  @$core.override
+  WifiScanResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static WifiScanResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WifiScanResult>(create);
+  static WifiScanResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ssid => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ssid($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSsid() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSsid() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get bssid => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set bssid($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasBssid() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearBssid() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get rssiDbm => $_getI64(2);
+  @$pb.TagNumber(3)
+  set rssiDbm($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRssiDbm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRssiDbm() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get frequencyMhz => $_getI64(3);
+  @$pb.TagNumber(4)
+  set frequencyMhz($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasFrequencyMhz() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearFrequencyMhz() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get security => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set security($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSecurity() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSecurity() => $_clearField(5);
+}
+
+class ClientWifiScanRequest extends $pb.GeneratedMessage {
+  factory ClientWifiScanRequest({
+    $fixnum.Int64? timeoutMs,
+  }) {
+    final result = create();
+    if (timeoutMs != null) result.timeoutMs = timeoutMs;
+    return result;
+  }
+
+  ClientWifiScanRequest._();
+
+  factory ClientWifiScanRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiScanRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiScanRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'timeoutMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiScanRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiScanRequest copyWith(
+          void Function(ClientWifiScanRequest) updates) =>
+      super.copyWith((message) => updates(message as ClientWifiScanRequest))
+          as ClientWifiScanRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiScanRequest create() => ClientWifiScanRequest._();
+  @$core.override
+  ClientWifiScanRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiScanRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiScanRequest>(create);
+  static ClientWifiScanRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get timeoutMs => $_getI64(0);
+  @$pb.TagNumber(1)
+  set timeoutMs($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTimeoutMs() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTimeoutMs() => $_clearField(1);
+}
+
+class ClientWifiScanResponse extends $pb.GeneratedMessage {
+  factory ClientWifiScanResponse({
+    $core.Iterable<WifiScanResult>? networks,
+  }) {
+    final result = create();
+    if (networks != null) result.networks.addAll(networks);
+    return result;
+  }
+
+  ClientWifiScanResponse._();
+
+  factory ClientWifiScanResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiScanResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiScanResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPM<WifiScanResult>(1, _omitFieldNames ? '' : 'networks',
+        subBuilder: WifiScanResult.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiScanResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiScanResponse copyWith(
+          void Function(ClientWifiScanResponse) updates) =>
+      super.copyWith((message) => updates(message as ClientWifiScanResponse))
+          as ClientWifiScanResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiScanResponse create() => ClientWifiScanResponse._();
+  @$core.override
+  ClientWifiScanResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiScanResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiScanResponse>(create);
+  static ClientWifiScanResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<WifiScanResult> get networks => $_getList(0);
+}
+
+class ClientWifiConnectRequest extends $pb.GeneratedMessage {
+  factory ClientWifiConnectRequest({
+    $core.String? ssid,
+    $core.String? passphrase,
+  }) {
+    final result = create();
+    if (ssid != null) result.ssid = ssid;
+    if (passphrase != null) result.passphrase = passphrase;
+    return result;
+  }
+
+  ClientWifiConnectRequest._();
+
+  factory ClientWifiConnectRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiConnectRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiConnectRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'ssid')
+    ..aOS(2, _omitFieldNames ? '' : 'passphrase')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiConnectRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiConnectRequest copyWith(
+          void Function(ClientWifiConnectRequest) updates) =>
+      super.copyWith((message) => updates(message as ClientWifiConnectRequest))
+          as ClientWifiConnectRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiConnectRequest create() => ClientWifiConnectRequest._();
+  @$core.override
+  ClientWifiConnectRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiConnectRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiConnectRequest>(create);
+  static ClientWifiConnectRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ssid => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ssid($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSsid() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSsid() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get passphrase => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set passphrase($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPassphrase() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPassphrase() => $_clearField(2);
+}
+
+class ClientWifiConnectResponse extends $pb.GeneratedMessage {
+  factory ClientWifiConnectResponse() => create();
+
+  ClientWifiConnectResponse._();
+
+  factory ClientWifiConnectResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientWifiConnectResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientWifiConnectResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiConnectResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientWifiConnectResponse copyWith(
+          void Function(ClientWifiConnectResponse) updates) =>
+      super.copyWith((message) => updates(message as ClientWifiConnectResponse))
+          as ClientWifiConnectResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiConnectResponse create() => ClientWifiConnectResponse._();
+  @$core.override
+  ClientWifiConnectResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientWifiConnectResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientWifiConnectResponse>(create);
+  static ClientWifiConnectResponse? _defaultInstance;
+}
+
 class DeviceInfo extends $pb.GeneratedMessage {
   factory DeviceInfo({
     HardwareInfo? hardware,

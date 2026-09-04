@@ -72,3 +72,9 @@ gizclaw.rpc.v1.WifiStatus.bssid max_size:18
 gizclaw.rpc.v1.WifiSavedNetwork.ssid max_size:33
 gizclaw.rpc.v1.ClientWifiSavedListResponse.networks max_count:16
 gizclaw.rpc.v1.ClientWifiSavedForgetRequest.ssid max_size:33
+gizclaw.rpc.v1.WifiScanResult.ssid max_size:33
+gizclaw.rpc.v1.WifiScanResult.bssid max_size:18
+gizclaw.rpc.v1.WifiScanResult.security max_size:6
+gizclaw.rpc.v1.ClientWifiScanResponse.networks max_count:32
+gizclaw.rpc.v1.ClientWifiConnectRequest.ssid max_size:33
+gizclaw.rpc.v1.ClientWifiConnectRequest.passphrase max_size:64

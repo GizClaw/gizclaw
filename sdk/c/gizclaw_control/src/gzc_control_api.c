@@ -708,6 +708,77 @@ int gzc_control_get_device_wifi(
   return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
 }
 
+int gzc_control_scan_device_wifi(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_wifi_scan_request_t *request,
+    gzc_control_wifi_scan_result_t *out_networks,
+    size_t cap,
+    size_t *out_count) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_count == NULL || (out_networks == NULL && cap != 0)) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  *out_count = 0;
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/wifi/scan");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK && request != NULL && request->has_timeout_ms) {
+    builder.rc = gzc_json_field_i32(&writer, "timeout_ms", request->timeout_ms);
+  }
+  gzc_str_t body = builder_body(&builder, &writer);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_str_t object;
+  rc = decoded_object(call, &object);
+  if (rc != GZC_OK) {
+    return rc;
+  }
+  gzc_str_t networks = gzc_str_from_parts(NULL, 0);
+  rc = gzc_control_opt_raw(object, "networks", &networks);
+  if (rc == GZC_OK) {
+    rc = gzc_control_decode_array(
+        networks,
+        out_networks,
+        sizeof(*out_networks),
+        cap,
+        out_count,
+        gzc_control_decode_wifi_scan_result_item);
+  }
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_connect_device_wifi(
+    gzc_control_client_t *client,
+    gzc_control_call_t *call,
+    const gzc_control_wifi_connect_request_t *request) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || request == NULL) {
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  }
+  rc = check_required(request->ssid);
+  if (rc != GZC_OK) {
+    return gzc_control_fail(call, GZC_CONTROL_ERROR_INVALID_REQUEST, rc);
+  }
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/wifi");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK) {
+    builder.rc = gzc_json_field_str(&writer, "ssid", request->ssid);
+  }
+  if (builder.rc == GZC_OK && !gzc_control_str_empty(request->passphrase)) {
+    builder.rc = gzc_json_field_str(&writer, "passphrase", request->passphrase);
+  }
+  gzc_str_t body = builder_body(&builder, &writer);
+  return builder_send(&builder, client, call, GZC_HTTP_METHOD_PUT, url, body);
+}
+
 int gzc_control_list_device_saved_wifi(
     gzc_control_client_t *client,
     gzc_control_call_t *call,

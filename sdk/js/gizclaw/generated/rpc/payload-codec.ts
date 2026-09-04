@@ -185,6 +185,11 @@ export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientWifiConnectRequest = {
+  "ssid": string;
+  "passphrase"?: string;
+};
+export type ClientWifiConnectResponse = Record<string, never>;
 export type ClientWifiSavedForgetRequest = {
   "ssid": string;
 };
@@ -192,6 +197,12 @@ export type ClientWifiSavedForgetResponse = Record<string, never>;
 export type ClientWifiSavedListRequest = Record<string, never>;
 export type ClientWifiSavedListResponse = {
   "networks": WifiSavedNetwork[];
+};
+export type ClientWifiScanRequest = {
+  "timeout_ms"?: number;
+};
+export type ClientWifiScanResponse = {
+  "networks": WifiScanResult[];
 };
 export type ClientWifiStatusGetRequest = Record<string, never>;
 export type ClientWifiStatusGetResponse = WifiStatus;
@@ -1295,6 +1306,13 @@ export type VolcTenantModelProviderData = {
 export type WifiSavedNetwork = {
   "ssid": string;
 };
+export type WifiScanResult = {
+  "ssid": string;
+  "bssid"?: string;
+  "rssi_dbm"?: number;
+  "frequency_mhz"?: number;
+  "security"?: string;
+};
 export type WifiStatus = {
   "connected": boolean;
   "ssid"?: string;
@@ -1441,8 +1459,10 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
+  "client.wifi.connect": "ClientWifiConnectRequest",
   "client.wifi.saved.forget": "ClientWifiSavedForgetRequest",
   "client.wifi.saved.list": "ClientWifiSavedListRequest",
+  "client.wifi.scan": "ClientWifiScanRequest",
   "client.wifi.status.get": "ClientWifiStatusGetRequest",
   "runtime.adopt": "RuntimeAdoptRequest",
   "server.api_key.create": "APIKeyCreateRequest",
@@ -1550,8 +1570,10 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
+  "client.wifi.connect": "ClientWifiConnectResponse",
   "client.wifi.saved.forget": "ClientWifiSavedForgetResponse",
   "client.wifi.saved.list": "ClientWifiSavedListResponse",
+  "client.wifi.scan": "ClientWifiScanResponse",
   "client.wifi.status.get": "ClientWifiStatusGetResponse",
   "runtime.adopt": "RuntimeAdoptResponse",
   "server.api_key.create": "APIKeyCreateResponse",
@@ -2205,6 +2227,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientWifiConnectRequest": {
+    "fields": [
+      {
+        "name": "ssid",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "passphrase",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientWifiConnectResponse": {
+    "fields": []
+  },
   "ClientWifiSavedForgetRequest": {
     "fields": [
       {
@@ -2227,6 +2267,26 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 1,
         "repeated": true,
         "type": "WifiSavedNetwork"
+      }
+    ]
+  },
+  "ClientWifiScanRequest": {
+    "fields": [
+      {
+        "name": "timeout_ms",
+        "number": 1,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "ClientWifiScanResponse": {
+    "fields": [
+      {
+        "name": "networks",
+        "number": 1,
+        "repeated": true,
+        "type": "WifiScanResult"
       }
     ]
   },
@@ -7368,6 +7428,39 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ssid",
         "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "WifiScanResult": {
+    "fields": [
+      {
+        "name": "ssid",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "bssid",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "rssi_dbm",
+        "number": 3,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "frequency_mhz",
+        "number": 4,
+        "optional": true,
+        "type": "int64"
+      },
+      {
+        "name": "security",
+        "number": 5,
+        "optional": true,
         "type": "string"
       }
     ]

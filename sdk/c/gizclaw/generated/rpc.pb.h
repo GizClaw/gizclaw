@@ -52,7 +52,7 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE = 26,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT = 27,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT = 107,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET = 108,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET = 110,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE = 28,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = 29,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET = 30,
@@ -131,7 +131,9 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT = 103,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN = 108,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT = 109
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */

@@ -13,6 +13,8 @@ func TestDeviceControlMethodRegistry(t *testing.T) {
 		RPCMethodClientDeviceStatusGet: 100, RPCMethodClientDeviceVolumeSet: 101, RPCMethodClientDeviceSoundPlay: 102,
 		RPCMethodClientDeviceReboot: 103, RPCMethodClientWifiStatusGet: 104, RPCMethodClientWifiSavedList: 105,
 		RPCMethodClientWifiSavedForget: 106,
+		RPCMethodClientWifiScan:        108,
+		RPCMethodClientWifiConnect:     109,
 	}
 	for method, id := range want {
 		if !method.Valid() {
@@ -107,6 +109,31 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 		t.Fatalf("forget request round trip = %+v, %v", forget, err)
 	}
 
+	if err := payload.FromClientWifiScanRequest(ClientWifiScanRequest{TimeoutMs: new(int64(8000))}); err != nil {
+		t.Fatal(err)
+	}
+	scanRequest, err := payload.AsClientWifiScanRequest()
+	if err != nil || scanRequest.TimeoutMs == nil || *scanRequest.TimeoutMs != 8000 {
+		t.Fatalf("scan request round trip = %+v, %v", scanRequest, err)
+	}
+	scanResult := WifiScanResult{Ssid: "home", Bssid: new("aa:bb:cc:dd:ee:ff"), RssiDbm: new(int64(-48)), FrequencyMhz: new(int64(5180)), Security: new("wpa3")}
+	if err := payload.FromClientWifiScanResponse(ClientWifiScanResponse{Networks: []WifiScanResult{scanResult}}); err != nil {
+		t.Fatal(err)
+	}
+	scanResponse, err := payload.AsClientWifiScanResponse()
+	if err != nil || len(scanResponse.Networks) != 1 || scanResponse.Networks[0].Ssid != "home" || *scanResponse.Networks[0].FrequencyMhz != 5180 {
+		t.Fatalf("scan response round trip = %+v, %v", scanResponse, err)
+	}
+
+	passphrase := "correct-horse"
+	if err := payload.FromClientWifiConnectRequest(ClientWifiConnectRequest{Ssid: "home", Passphrase: &passphrase}); err != nil {
+		t.Fatal(err)
+	}
+	connect, err := payload.AsClientWifiConnectRequest()
+	if err != nil || connect.Ssid != "home" || connect.Passphrase == nil || *connect.Passphrase != passphrase {
+		t.Fatalf("connect request round trip = %+v, %v", connect, err)
+	}
+
 	empty := []struct {
 		name   string
 		encode func() error
@@ -118,6 +145,7 @@ func TestDeviceControlPayloadRoundTrip(t *testing.T) {
 		{"wifi request", func() error { return payload.FromClientWifiStatusGetRequest(ClientWifiStatusGetRequest{}) }, func() error { _, err := payload.AsClientWifiStatusGetRequest(); return err }},
 		{"saved request", func() error { return payload.FromClientWifiSavedListRequest(ClientWifiSavedListRequest{}) }, func() error { _, err := payload.AsClientWifiSavedListRequest(); return err }},
 		{"forget response", func() error { return payload.FromClientWifiSavedForgetResponse(ClientWifiSavedForgetResponse{}) }, func() error { _, err := payload.AsClientWifiSavedForgetResponse(); return err }},
+		{"connect response", func() error { return payload.FromClientWifiConnectResponse(ClientWifiConnectResponse{}) }, func() error { _, err := payload.AsClientWifiConnectResponse(); return err }},
 	}
 	for _, tc := range empty {
 		if err := tc.encode(); err != nil {
@@ -138,6 +166,8 @@ func TestDeviceControlMethodPayloadNames(t *testing.T) {
 		RPCMethodClientWifiStatusGet:   {"ClientWifiStatusGetRequest", "ClientWifiStatusGetResponse"},
 		RPCMethodClientWifiSavedList:   {"ClientWifiSavedListRequest", "ClientWifiSavedListResponse"},
 		RPCMethodClientWifiSavedForget: {"ClientWifiSavedForgetRequest", "ClientWifiSavedForgetResponse"},
+		RPCMethodClientWifiScan:        {"ClientWifiScanRequest", "ClientWifiScanResponse"},
+		RPCMethodClientWifiConnect:     {"ClientWifiConnectRequest", "ClientWifiConnectResponse"},
 	}
 	for method, names := range want {
 		if got := rpcRequestPayloadMessages[method]; got != names[0] {

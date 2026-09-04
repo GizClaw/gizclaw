@@ -21,13 +21,15 @@ var (
 // client.wifi.* methods for this Client. A nil handler answers
 // METHOD_NOT_FOUND, which the Server maps to 501 DEVICE_UNSUPPORTED.
 type DeviceControlHandlers struct {
-	Status     func(context.Context) (rpcapi.PeerStatus, error)
-	SetVolume  func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
-	PlaySound  func(ctx context.Context, sound string, durationMs *int64) error
-	Reboot     func(ctx context.Context, delayMs *int64) error
-	WifiStatus func(context.Context) (rpcapi.WifiStatus, error)
-	SavedWifi  func(context.Context) ([]rpcapi.WifiSavedNetwork, error)
-	ForgetWifi func(ctx context.Context, ssid string) error
+	Status      func(context.Context) (rpcapi.PeerStatus, error)
+	SetVolume   func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
+	PlaySound   func(ctx context.Context, sound string, durationMs *int64) error
+	Reboot      func(ctx context.Context, delayMs *int64) error
+	WifiStatus  func(context.Context) (rpcapi.WifiStatus, error)
+	SavedWifi   func(context.Context) ([]rpcapi.WifiSavedNetwork, error)
+	ForgetWifi  func(ctx context.Context, ssid string) error
+	ScanWifi    func(ctx context.Context, timeoutMs *int64) ([]rpcapi.WifiScanResult, error)
+	ConnectWifi func(ctx context.Context, ssid string, passphrase *string) error
 }
 
 // HandleDeviceControl installs the device control providers for this Client.
@@ -185,6 +187,47 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedForgetResponse{}, (*rpcapi.RPCPayload).FromClientWifiSavedForgetResponse)
+	case rpcapi.RPCMethodClientWifiScan:
+		params := rpcapi.ClientWifiScanRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientWifiScanRequest()
+			if err != nil {
+				return rpcInvalidParams(req.Id), nil
+			}
+			params = decoded
+		}
+		if params.TimeoutMs != nil && (*params.TimeoutMs < 1000 || *params.TimeoutMs > 15000) {
+			return rpcInvalidParams(req.Id), nil
+		}
+		if handlers.ScanWifi == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		networks, err := handlers.ScanWifi(ctx, params.TimeoutMs)
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		if networks == nil {
+			networks = []rpcapi.WifiScanResult{}
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
+	case rpcapi.RPCMethodClientWifiConnect:
+		if req.Params == nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		params, err := req.Params.AsClientWifiConnectRequest()
+		if err != nil || params.Ssid == "" || len(params.Ssid) > 32 ||
+			(params.Passphrase != nil && (len(*params.Passphrase) < 8 || len(*params.Passphrase) > 63)) {
+			return rpcInvalidParams(req.Id), nil
+		}
+		if handlers.ConnectWifi == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		if err := handlers.ConnectWifi(ctx, params.Ssid, params.Passphrase); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientWifiConnectResponse{}, (*rpcapi.RPCPayload).FromClientWifiConnectResponse)
 	default:
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}

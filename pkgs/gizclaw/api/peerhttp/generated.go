@@ -121,6 +121,12 @@ type DeviceVolumeSetRequest struct {
 	Muted bool `json:"muted"`
 }
 
+// DeviceWifiConnectRequest defines model for DeviceWifiConnectRequest.
+type DeviceWifiConnectRequest struct {
+	Passphrase *string `json:"passphrase,omitempty"`
+	Ssid       string  `json:"ssid"`
+}
+
 // DeviceWifiSavedList defines model for DeviceWifiSavedList.
 type DeviceWifiSavedList struct {
 	Networks []DeviceWifiSavedNetwork `json:"networks"`
@@ -129,6 +135,26 @@ type DeviceWifiSavedList struct {
 // DeviceWifiSavedNetwork defines model for DeviceWifiSavedNetwork.
 type DeviceWifiSavedNetwork struct {
 	Ssid string `json:"ssid"`
+}
+
+// DeviceWifiScanRequest defines model for DeviceWifiScanRequest.
+type DeviceWifiScanRequest struct {
+	// TimeoutMs How long the device may scan. Values outside 1000-15000 are clamped to that range rather than rejected, so a client may send any positive duration and receive the nearest supported one.
+	TimeoutMs *int64 `json:"timeout_ms,omitempty"`
+}
+
+// DeviceWifiScanResponse defines model for DeviceWifiScanResponse.
+type DeviceWifiScanResponse struct {
+	Networks []DeviceWifiScanResult `json:"networks"`
+}
+
+// DeviceWifiScanResult defines model for DeviceWifiScanResult.
+type DeviceWifiScanResult struct {
+	Bssid        *string `json:"bssid,omitempty"`
+	FrequencyMhz *int64  `json:"frequency_mhz,omitempty"`
+	RssiDbm      *int64  `json:"rssi_dbm,omitempty"`
+	Security     *string `json:"security,omitempty"`
+	Ssid         string  `json:"ssid"`
 }
 
 // DeviceWifiStatus defines model for DeviceWifiStatus.
@@ -265,6 +291,12 @@ type RebootDeviceJSONRequestBody = DeviceRebootRequest
 
 // SetDeviceVolumeJSONRequestBody defines body for SetDeviceVolume for application/json ContentType.
 type SetDeviceVolumeJSONRequestBody = DeviceVolumeSetRequest
+
+// ConnectDeviceWifiJSONRequestBody defines body for ConnectDeviceWifi for application/json ContentType.
+type ConnectDeviceWifiJSONRequestBody = DeviceWifiConnectRequest
+
+// ScanDeviceWifiJSONRequestBody defines body for ScanDeviceWifi for application/json ContentType.
+type ScanDeviceWifiJSONRequestBody = DeviceWifiScanRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -417,11 +449,24 @@ type ClientInterface interface {
 	// GetDeviceWifi request
 	GetDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ConnectDeviceWifiWithBody request with any body
+	ConnectDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ConnectDeviceWifi(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDeviceSavedWifi request
 	ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ForgetDeviceSavedWifi request
 	ForgetDeviceSavedWifi(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ScanDeviceWifi request without the optional body
+	ScanDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ScanDeviceWifiWithBody request with any body
+	ScanDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetServerInfo request
 	GetServerInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -766,6 +811,30 @@ func (c *Client) GetDeviceWifi(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
+func (c *Client) ConnectDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConnectDeviceWifiRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ConnectDeviceWifi(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConnectDeviceWifiRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDeviceSavedWifiRequest(c.Server)
 	if err != nil {
@@ -780,6 +849,42 @@ func (c *Client) ListDeviceSavedWifi(ctx context.Context, reqEditors ...RequestE
 
 func (c *Client) ForgetDeviceSavedWifi(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewForgetDeviceSavedWifiRequest(c.Server, ssid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ScanDeviceWifi(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewScanDeviceWifiRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ScanDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewScanDeviceWifiRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewScanDeviceWifiRequestWithJSONBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1739,6 +1844,46 @@ func NewGetDeviceWifiRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewConnectDeviceWifiRequest calls the generic ConnectDeviceWifi builder with application/json body
+func NewConnectDeviceWifiRequest(server string, body ConnectDeviceWifiJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewConnectDeviceWifiRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewConnectDeviceWifiRequestWithBody generates requests for ConnectDeviceWifi with any type of body
+func NewConnectDeviceWifiRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListDeviceSavedWifiRequest generates requests for ListDeviceSavedWifi
 func NewListDeviceSavedWifiRequest(server string) (*http.Request, error) {
 	var err error
@@ -1796,6 +1941,56 @@ func NewForgetDeviceSavedWifiRequest(server string, ssid string) (*http.Request,
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewScanDeviceWifiRequest generates a request without the optional body.
+func NewScanDeviceWifiRequest(server string) (*http.Request, error) {
+	req, err := NewScanDeviceWifiRequestWithBody(server, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Del("Content-Type")
+	return req, nil
+}
+
+// NewScanDeviceWifiRequestWithJSONBody calls the generic ScanDeviceWifi builder with application/json body
+func NewScanDeviceWifiRequestWithJSONBody(server string, body ScanDeviceWifiJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewScanDeviceWifiRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewScanDeviceWifiRequestWithBody generates requests for ScanDeviceWifi with any type of body
+func NewScanDeviceWifiRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/wifi/scan")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2008,11 +2203,24 @@ type ClientWithResponsesInterface interface {
 	// GetDeviceWifiWithResponse request
 	GetDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceWifiResponse, error)
 
+	// ConnectDeviceWifiWithBodyWithResponse request with any body
+	ConnectDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error)
+
+	ConnectDeviceWifiWithResponse(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error)
+
 	// ListDeviceSavedWifiWithResponse request
 	ListDeviceSavedWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceSavedWifiResponse, error)
 
 	// ForgetDeviceSavedWifiWithResponse request
 	ForgetDeviceSavedWifiWithResponse(ctx context.Context, ssid string, reqEditors ...RequestEditorFn) (*ForgetDeviceSavedWifiResponse, error)
+
+	// ScanDeviceWifiWithResponse request without the optional body
+	ScanDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
+
+	// ScanDeviceWifiWithBodyWithResponse request with any body
+	ScanDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
+
+	ScanDeviceWifiWithJSONBodyWithResponse(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
 
 	// GetServerInfoWithResponse request
 	GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error)
@@ -2758,6 +2966,43 @@ func (r GetDeviceWifiResponse) ContentType() string {
 	return ""
 }
 
+type ConnectDeviceWifiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r ConnectDeviceWifiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConnectDeviceWifiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ConnectDeviceWifiResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListDeviceSavedWifiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2827,6 +3072,44 @@ func (r ForgetDeviceSavedWifiResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ForgetDeviceSavedWifiResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ScanDeviceWifiResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeviceWifiScanResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r ScanDeviceWifiResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ScanDeviceWifiResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ScanDeviceWifiResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -3147,6 +3430,23 @@ func (c *ClientWithResponses) GetDeviceWifiWithResponse(ctx context.Context, req
 	return ParseGetDeviceWifiResponse(rsp)
 }
 
+// ConnectDeviceWifiWithBodyWithResponse request with arbitrary body returning *ConnectDeviceWifiResponse
+func (c *ClientWithResponses) ConnectDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error) {
+	rsp, err := c.ConnectDeviceWifiWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConnectDeviceWifiResponse(rsp)
+}
+
+func (c *ClientWithResponses) ConnectDeviceWifiWithResponse(ctx context.Context, body ConnectDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ConnectDeviceWifiResponse, error) {
+	rsp, err := c.ConnectDeviceWifi(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConnectDeviceWifiResponse(rsp)
+}
+
 // ListDeviceSavedWifiWithResponse request returning *ListDeviceSavedWifiResponse
 func (c *ClientWithResponses) ListDeviceSavedWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceSavedWifiResponse, error) {
 	rsp, err := c.ListDeviceSavedWifi(ctx, reqEditors...)
@@ -3163,6 +3463,32 @@ func (c *ClientWithResponses) ForgetDeviceSavedWifiWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseForgetDeviceSavedWifiResponse(rsp)
+}
+
+// ScanDeviceWifiWithResponse request without the optional body returning *ScanDeviceWifiResponse
+func (c *ClientWithResponses) ScanDeviceWifiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error) {
+	rsp, err := c.ScanDeviceWifi(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseScanDeviceWifiResponse(rsp)
+}
+
+// ScanDeviceWifiWithBodyWithResponse request with arbitrary body returning *ScanDeviceWifiResponse
+func (c *ClientWithResponses) ScanDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error) {
+	rsp, err := c.ScanDeviceWifiWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseScanDeviceWifiResponse(rsp)
+}
+
+func (c *ClientWithResponses) ScanDeviceWifiWithJSONBodyWithResponse(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error) {
+	rsp, err := c.ScanDeviceWifiWithJSONBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseScanDeviceWifiResponse(rsp)
 }
 
 // GetServerInfoWithResponse request returning *GetServerInfoResponse
@@ -4478,6 +4804,81 @@ func ParseGetDeviceWifiResponse(rsp *http.Response) (*GetDeviceWifiResponse, err
 	return response, nil
 }
 
+// ParseConnectDeviceWifiResponse parses an HTTP response from a ConnectDeviceWifiWithResponse call
+func ParseConnectDeviceWifiResponse(rsp *http.Response) (*ConnectDeviceWifiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConnectDeviceWifiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDeviceSavedWifiResponse parses an HTTP response from a ListDeviceSavedWifiWithResponse call
 func ParseListDeviceSavedWifiResponse(rsp *http.Response) (*ListDeviceSavedWifiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -4594,6 +4995,88 @@ func ParseForgetDeviceSavedWifiResponse(rsp *http.Response) (*ForgetDeviceSavedW
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseScanDeviceWifiResponse parses an HTTP response from a ScanDeviceWifiWithResponse call
+func ParseScanDeviceWifiResponse(rsp *http.Response) (*ScanDeviceWifiResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ScanDeviceWifiResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceWifiScanResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest DeviceOffline
@@ -4808,12 +5291,18 @@ type ServerInterface interface {
 	// Get the current Wi-Fi status of the bound device
 	// (GET /gizclaw/v1/device/wifi)
 	GetDeviceWifi(c *fiber.Ctx) error
+	// Connect the bound device to a Wi-Fi network
+	// (PUT /gizclaw/v1/device/wifi)
+	ConnectDeviceWifi(c *fiber.Ctx) error
 	// List Wi-Fi networks saved on the bound device
 	// (GET /gizclaw/v1/device/wifi/saved)
 	ListDeviceSavedWifi(c *fiber.Ctx) error
 	// Forget a Wi-Fi network saved on the bound device
 	// (DELETE /gizclaw/v1/device/wifi/saved/{ssid})
 	ForgetDeviceSavedWifi(c *fiber.Ctx, ssid string) error
+	// Scan for Wi-Fi networks near the bound device
+	// (POST /gizclaw/v1/device/wifi/scan)
+	ScanDeviceWifi(c *fiber.Ctx) error
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(c *fiber.Ctx) error
@@ -5478,6 +5967,26 @@ func (siw *ServerInterfaceWrapper) GetDeviceWifi(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// ConnectDeviceWifi operation middleware
+func (siw *ServerInterfaceWrapper) ConnectDeviceWifi(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ConnectDeviceWifi(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // ListDeviceSavedWifi operation middleware
 func (siw *ServerInterfaceWrapper) ListDeviceSavedWifi(c *fiber.Ctx) error {
 
@@ -5516,6 +6025,26 @@ func (siw *ServerInterfaceWrapper) ForgetDeviceSavedWifi(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.ForgetDeviceSavedWifi(c, ssid)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ScanDeviceWifi operation middleware
+func (siw *ServerInterfaceWrapper) ScanDeviceWifi(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ScanDeviceWifi(c)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -5698,9 +6227,13 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/wifi", wrapper.GetDeviceWifi)
 
+	router.Put(options.BaseURL+"/gizclaw/v1/device/wifi", wrapper.ConnectDeviceWifi)
+
 	router.Get(options.BaseURL+"/gizclaw/v1/device/wifi/saved", wrapper.ListDeviceSavedWifi)
 
 	router.Delete(options.BaseURL+"/gizclaw/v1/device/wifi/saved/:ssid", wrapper.ForgetDeviceSavedWifi)
+
+	router.Post(options.BaseURL+"/gizclaw/v1/device/wifi/scan", wrapper.ScanDeviceWifi)
 
 	router.Get(options.BaseURL+"/server-info", wrapper.GetServerInfo)
 
@@ -7083,6 +7616,94 @@ func (response GetDeviceWifi504JSONResponse) VisitGetDeviceWifiResponse(ctx *fib
 	return ctx.JSON(&response)
 }
 
+type ConnectDeviceWifiRequestObject struct {
+	Body *ConnectDeviceWifiJSONRequestBody
+}
+
+type ConnectDeviceWifiResponseObject interface {
+	VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error
+}
+
+type ConnectDeviceWifi202Response struct {
+}
+
+func (response ConnectDeviceWifi202Response) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Status(202)
+	return nil
+}
+
+type ConnectDeviceWifi400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ConnectDeviceWifi400JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConnectDeviceWifi401JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ConnectDeviceWifi403JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response ConnectDeviceWifi409JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ConnectDeviceWifi500JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response ConnectDeviceWifi501JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response ConnectDeviceWifi502JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type ConnectDeviceWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response ConnectDeviceWifi504JSONResponse) VisitConnectDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
 type ListDeviceSavedWifiRequestObject struct {
 }
 
@@ -7253,6 +7874,95 @@ func (response ForgetDeviceSavedWifi502JSONResponse) VisitForgetDeviceSavedWifiR
 type ForgetDeviceSavedWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
 
 func (response ForgetDeviceSavedWifi504JSONResponse) VisitForgetDeviceSavedWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifiRequestObject struct {
+	Body *ScanDeviceWifiJSONRequestBody
+}
+
+type ScanDeviceWifiResponseObject interface {
+	VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error
+}
+
+type ScanDeviceWifi200JSONResponse DeviceWifiScanResponse
+
+func (response ScanDeviceWifi200JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ScanDeviceWifi400JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ScanDeviceWifi401JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ScanDeviceWifi403JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response ScanDeviceWifi409JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ScanDeviceWifi500JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response ScanDeviceWifi501JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response ScanDeviceWifi502JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type ScanDeviceWifi504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response ScanDeviceWifi504JSONResponse) VisitScanDeviceWifiResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(504)
 
@@ -7449,12 +8159,18 @@ type StrictServerInterface interface {
 	// Get the current Wi-Fi status of the bound device
 	// (GET /gizclaw/v1/device/wifi)
 	GetDeviceWifi(ctx context.Context, request GetDeviceWifiRequestObject) (GetDeviceWifiResponseObject, error)
+	// Connect the bound device to a Wi-Fi network
+	// (PUT /gizclaw/v1/device/wifi)
+	ConnectDeviceWifi(ctx context.Context, request ConnectDeviceWifiRequestObject) (ConnectDeviceWifiResponseObject, error)
 	// List Wi-Fi networks saved on the bound device
 	// (GET /gizclaw/v1/device/wifi/saved)
 	ListDeviceSavedWifi(ctx context.Context, request ListDeviceSavedWifiRequestObject) (ListDeviceSavedWifiResponseObject, error)
 	// Forget a Wi-Fi network saved on the bound device
 	// (DELETE /gizclaw/v1/device/wifi/saved/{ssid})
 	ForgetDeviceSavedWifi(ctx context.Context, request ForgetDeviceSavedWifiRequestObject) (ForgetDeviceSavedWifiResponseObject, error)
+	// Scan for Wi-Fi networks near the bound device
+	// (POST /gizclaw/v1/device/wifi/scan)
+	ScanDeviceWifi(ctx context.Context, request ScanDeviceWifiRequestObject) (ScanDeviceWifiResponseObject, error)
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(ctx context.Context, request GetServerInfoRequestObject) (GetServerInfoResponseObject, error)
@@ -8059,6 +8775,37 @@ func (sh *strictHandler) GetDeviceWifi(ctx *fiber.Ctx) error {
 	return nil
 }
 
+// ConnectDeviceWifi operation middleware
+func (sh *strictHandler) ConnectDeviceWifi(ctx *fiber.Ctx) error {
+	var request ConnectDeviceWifiRequestObject
+
+	var body ConnectDeviceWifiJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	request.Body = &body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ConnectDeviceWifi(ctx.UserContext(), request.(ConnectDeviceWifiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConnectDeviceWifi")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ConnectDeviceWifiResponseObject); ok {
+		if err := validResponse.VisitConnectDeviceWifiResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // ListDeviceSavedWifi operation middleware
 func (sh *strictHandler) ListDeviceSavedWifi(ctx *fiber.Ctx) error {
 	var request ListDeviceSavedWifiRequestObject
@@ -8103,6 +8850,40 @@ func (sh *strictHandler) ForgetDeviceSavedWifi(ctx *fiber.Ctx, ssid string) erro
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ForgetDeviceSavedWifiResponseObject); ok {
 		if err := validResponse.VisitForgetDeviceSavedWifiResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ScanDeviceWifi operation middleware
+func (sh *strictHandler) ScanDeviceWifi(ctx *fiber.Ctx) error {
+	var request ScanDeviceWifiRequestObject
+
+	var body ScanDeviceWifiJSONRequestBody
+	if err := ctx.BodyParser(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ScanDeviceWifi(ctx.UserContext(), request.(ScanDeviceWifiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ScanDeviceWifi")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ScanDeviceWifiResponseObject); ok {
+		if err := validResponse.VisitScanDeviceWifiResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

@@ -18,9 +18,21 @@ curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \
   -H "Authorization: Bearer $GIZCLAW_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"level":35,"muted":false}'
+
+curl -sS -X POST "$GIZCLAW_URL/gizclaw/v1/device/wifi/scan" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"timeout_ms":8000}'
+
+curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/wifi" \
+  -H "Authorization: Bearer $GIZCLAW_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"ssid":"Office","passphrase":"correct-horse"}'
 ```
 
-A successful `PUT /device/volume` answers `200 { "status": PeerStatus }` whose `volume` and `muted` match the next `GET /device/status`; `play-sound`, `reboot`, and `DELETE /wifi/saved/{ssid}` answer `204`. When the device is offline, control routes answer `409 DEVICE_OFFLINE`; when it does not answer within 5 seconds they answer `504 DEVICE_TIMEOUT`; neither changes the stored status. After a `reboot` is acknowledged, control requests answer `409` until the device reconnects. A device that rejects the parameters answers `400 DEVICE_REJECTED`, and firmware without the capability answers `501 DEVICE_UNSUPPORTED`. Once the key is revoked or the device Peer is deleted, every device and contact request fails immediately.
+A successful `PUT /device/volume` answers `200 { "status": PeerStatus }` whose `volume` and `muted` match the next `GET /device/status`; `play-sound`, `reboot`, and `DELETE /wifi/saved/{ssid}` answer `204`. A Wi-Fi scan synchronously returns nearby networks; `timeout_ms` defaults to 8000 and is clamped to 1000–15000. Connecting answers `202`, which only means the device accepted the credentials and started switching. The device then goes offline and control routes answer `409 DEVICE_OFFLINE`. After reconnect, poll `GET /device/wifi`: the target `ssid` means success, while the old one means the device failed and fell back. The Server never stores, logs, or echoes the passphrase.
+
+When the device is offline, control routes answer `409 DEVICE_OFFLINE`; normal controls that do not answer within 5 seconds and scans that exceed their requested bound answer `504 DEVICE_TIMEOUT`; neither changes the stored status. After a `reboot` is acknowledged, control requests answer `409` until the device reconnects. A device that rejects the parameters answers `400 DEVICE_REJECTED`, and firmware without the capability answers `501 DEVICE_UNSUPPORTED`. Once the key is revoked or the device Peer is deleted, every device and contact request fails immediately.
 
 ## SDKs
 
@@ -35,6 +47,10 @@ final client = GizClawControlClient(
 );
 final status = await client.getDeviceStatus();
 final applied = await client.setDeviceVolume(level: 35, muted: false);
+final nearby = await client.scanDeviceWifi();
+await client.connectDeviceWifi(
+  const DeviceWifiConnectRequest(ssid: 'Office', passphrase: 'correct-horse'),
+);
 ```
 
 ```ts
@@ -46,6 +62,8 @@ const control = createGizClawControlClient({
 });
 const status = await control.device.getStatus();
 const applied = await control.device.setVolume({ level: 35, muted: false });
+const nearby = await control.device.scanWifi();
+await control.device.connectWifi({ ssid: "Office", passphrase: "correct-horse" });
 ```
 
 Failures throw `GizClawControlException` and `GizClawControlError` respectively, whose `kind` classifies the status and `DEVICE_*` codes above, such as `deviceOffline`, `deviceTimeout`, and `unauthorized`.

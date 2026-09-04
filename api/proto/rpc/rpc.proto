@@ -89,7 +89,7 @@ enum RpcMethod {
   RPC_METHOD_SERVER_WORKSPACE_CREATE = 26 [(rpc_method) = { name: "server.workspace.create" request: "WorkspaceCreateRequest" response: "WorkspaceCreateResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_PUT = 27 [(rpc_method) = { name: "server.workspace.put" request: "WorkspacePutRequest" response: "WorkspacePutResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT = 107 [(rpc_method) = { name: "server.workspace.input.put" request: "WorkspaceInputPutRequest" response: "WorkspaceInputPutResponse" }];
-  RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET = 108 [(rpc_method) = { name: "server.workspace.parameters.set" request: "WorkspaceParametersSetRequest" response: "WorkspaceParametersSetResponse" }];
+  RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET = 110 [(rpc_method) = { name: "server.workspace.parameters.set" request: "WorkspaceParametersSetRequest" response: "WorkspaceParametersSetResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_DELETE = 28 [(rpc_method) = { name: "server.workspace.delete" request: "WorkspaceDeleteRequest" response: "WorkspaceDeleteResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = 29 [(rpc_method) = { name: "server.workspace.history.list" request: "WorkspaceHistoryListRequest" response: "WorkspaceHistoryListResponse" }];
   RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET = 30 [(rpc_method) = { name: "server.workspace.history.get" request: "WorkspaceHistoryGetRequest" response: "WorkspaceHistoryGetResponse" }];
@@ -169,4 +169,6 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_WIFI_STATUS_GET = 104 [(rpc_method) = { name: "client.wifi.status.get" request: "ClientWifiStatusGetRequest" response: "ClientWifiStatusGetResponse" }];
   RPC_METHOD_CLIENT_WIFI_SAVED_LIST = 105 [(rpc_method) = { name: "client.wifi.saved.list" request: "ClientWifiSavedListRequest" response: "ClientWifiSavedListResponse" }];
   RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106 [(rpc_method) = { name: "client.wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
+  RPC_METHOD_CLIENT_WIFI_SCAN = 108 [(rpc_method) = { name: "client.wifi.scan" request: "ClientWifiScanRequest" response: "ClientWifiScanResponse" }];
+  RPC_METHOD_CLIENT_WIFI_CONNECT = 109 [(rpc_method) = { name: "client.wifi.connect" request: "ClientWifiConnectRequest" response: "ClientWifiConnectResponse" }];
 }

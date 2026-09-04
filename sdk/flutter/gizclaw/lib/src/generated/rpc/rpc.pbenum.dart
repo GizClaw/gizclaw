@@ -115,6 +115,9 @@ class RpcMethod extends $pb.ProtobufEnum {
       RpcMethod._(27, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PUT');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT = RpcMethod._(
       107, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT');
+  static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET =
+      RpcMethod._(110,
+          _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_DELETE = RpcMethod._(
       28, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_DELETE');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = RpcMethod._(
@@ -305,6 +308,10 @@ class RpcMethod extends $pb.ProtobufEnum {
       105, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SAVED_LIST');
   static const RpcMethod RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = RpcMethod._(
       106, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SAVED_FORGET');
+  static const RpcMethod RPC_METHOD_CLIENT_WIFI_SCAN =
+      RpcMethod._(108, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_SCAN');
+  static const RpcMethod RPC_METHOD_CLIENT_WIFI_CONNECT =
+      RpcMethod._(109, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_WIFI_CONNECT');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -335,6 +342,7 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_CREATE,
     RPC_METHOD_SERVER_WORKSPACE_PUT,
     RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT,
+    RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET,
     RPC_METHOD_SERVER_WORKSPACE_DELETE,
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST,
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET,
@@ -414,10 +422,12 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_WIFI_STATUS_GET,
     RPC_METHOD_CLIENT_WIFI_SAVED_LIST,
     RPC_METHOD_CLIENT_WIFI_SAVED_FORGET,
+    RPC_METHOD_CLIENT_WIFI_SCAN,
+    RPC_METHOD_CLIENT_WIFI_CONNECT,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 107);
+      $pb.ProtobufEnum.$_initByValueList(values, 110);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

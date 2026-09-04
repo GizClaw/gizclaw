@@ -46,6 +46,8 @@ class GizClawDeviceControlHandlers {
     this.wifiStatus,
     this.savedWifi,
     this.forgetWifi,
+    this.scanWifi,
+    this.connectWifi,
   });
 
   final FutureOr<payload.PeerStatus> Function()? status;
@@ -55,6 +57,9 @@ class GizClawDeviceControlHandlers {
   final FutureOr<payload.WifiStatus> Function()? wifiStatus;
   final FutureOr<List<payload.WifiSavedNetwork>> Function()? savedWifi;
   final FutureOr<void> Function(String ssid)? forgetWifi;
+  final FutureOr<List<payload.WifiScanResult>> Function(int? timeoutMs)?
+  scanWifi;
+  final FutureOr<void> Function(String ssid, String? passphrase)? connectWifi;
 }
 
 class GizClawPeerRpcHandlers {
@@ -83,6 +88,8 @@ const _deviceControlMethods = {
   'client.wifi.status.get',
   'client.wifi.saved.list',
   'client.wifi.saved.forget',
+  'client.wifi.scan',
+  'client.wifi.connect',
 };
 const _deviceControlMaxBytes = 32;
 
@@ -260,6 +267,8 @@ class _InboundPeerRpcChannel {
       case 'client.wifi.status.get':
       case 'client.wifi.saved.list':
       case 'client.wifi.saved.forget':
+      case 'client.wifi.scan':
+      case 'client.wifi.connect':
         return;
       default:
         _ignoreBody = true;
@@ -526,6 +535,40 @@ class _InboundPeerRpcChannel {
           request.id,
           methodName,
           payload.ClientWifiSavedForgetResponse(),
+        );
+      case 'client.wifi.scan':
+        final handler = handlers?.scanWifi;
+        if (handler == null) return unsupported();
+        final scan = params as payload.ClientWifiScanRequest;
+        final timeoutMs = scan.hasTimeoutMs() ? scan.timeoutMs.toInt() : null;
+        if (timeoutMs != null && (timeoutMs < 1000 || timeoutMs > 15000)) {
+          return invalid();
+        }
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientWifiScanResponse(networks: await handler(timeoutMs)),
+        );
+      case 'client.wifi.connect':
+        final handler = handlers?.connectWifi;
+        if (handler == null) return unsupported();
+        final connect = params as payload.ClientWifiConnectRequest;
+        final ssidBytes = utf8.encode(connect.ssid).length;
+        final passphrase = connect.hasPassphrase() ? connect.passphrase : null;
+        final passphraseBytes = passphrase == null
+            ? null
+            : utf8.encode(passphrase).length;
+        if (ssidBytes == 0 ||
+            ssidBytes > _deviceControlMaxBytes ||
+            (passphraseBytes != null &&
+                (passphraseBytes < 8 || passphraseBytes > 63))) {
+          return invalid();
+        }
+        await handler(connect.ssid, passphrase);
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientWifiConnectResponse(),
         );
       default:
         return unsupported();

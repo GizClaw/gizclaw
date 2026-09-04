@@ -177,6 +177,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'WorkspaceInputPutRequest',
     responseType: 'WorkspaceInputPutResponse',
   ),
+  'server.workspace.parameters.set': RpcMethodDescriptor(
+    id: 110,
+    name: 'server.workspace.parameters.set',
+    requestType: 'WorkspaceParametersSetRequest',
+    responseType: 'WorkspaceParametersSetResponse',
+  ),
   'server.workspace.delete': RpcMethodDescriptor(
     id: 28,
     name: 'server.workspace.delete',
@@ -651,6 +657,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientWifiSavedForgetRequest',
     responseType: 'ClientWifiSavedForgetResponse',
   ),
+  'client.wifi.scan': RpcMethodDescriptor(
+    id: 108,
+    name: 'client.wifi.scan',
+    requestType: 'ClientWifiScanRequest',
+    responseType: 'ClientWifiScanResponse',
+  ),
+  'client.wifi.connect': RpcMethodDescriptor(
+    id: 109,
+    name: 'client.wifi.connect',
+    requestType: 'ClientWifiConnectRequest',
+    responseType: 'ClientWifiConnectResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -681,6 +699,7 @@ const rpcMethodNamesById = <int, String>{
   26: 'server.workspace.create',
   27: 'server.workspace.put',
   107: 'server.workspace.input.put',
+  110: 'server.workspace.parameters.set',
   28: 'server.workspace.delete',
   29: 'server.workspace.history.list',
   30: 'server.workspace.history.get',
@@ -760,6 +779,8 @@ const rpcMethodNamesById = <int, String>{
   104: 'client.wifi.status.get',
   105: 'client.wifi.saved.list',
   106: 'client.wifi.saved.forget',
+  108: 'client.wifi.scan',
+  109: 'client.wifi.connect',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {
