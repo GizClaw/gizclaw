@@ -22,6 +22,7 @@ const (
 	defaultServiceQueueSize      = 16
 	defaultHandshakeTimeout      = 10 * time.Second
 	serviceOpenTimeout           = 10 * time.Second
+	channelCapacityWaitTimeout   = bridgeStreamDrainTimeout + time.Second
 	packetReadBufferSize         = 64 * 1024
 )
 
@@ -93,6 +94,7 @@ type Router struct {
 	closed            bool
 	acceptCh          chan acceptedSession
 	closeCh           chan struct{}
+	channelAvailable  chan struct{}
 	closeOnce         sync.Once
 	unregister        func()
 	packetWriteMu     sync.Mutex
@@ -175,14 +177,15 @@ func NewRouter(transport *gizwebrtc.Conn, cfg Config) (*Router, error) {
 		return nil, err
 	}
 	router := &Router{
-		transport:   transport,
-		cfg:         cfg,
-		sessions:    make(map[SessionID]*Conn),
-		pending:     make(map[SessionID]*pendingSession),
-		retired:     make(map[SessionID]*time.Timer),
-		acceptCh:    make(chan acceptedSession, cfg.MaxPendingSessions),
-		closeCh:     make(chan struct{}),
-		writeBudget: gizwebrtc.NewWriteBudget(gizwebrtc.GatewaySCTPWriteBudgetSize),
+		transport:        transport,
+		cfg:              cfg,
+		sessions:         make(map[SessionID]*Conn),
+		pending:          make(map[SessionID]*pendingSession),
+		retired:          make(map[SessionID]*time.Timer),
+		acceptCh:         make(chan acceptedSession, cfg.MaxPendingSessions),
+		closeCh:          make(chan struct{}),
+		channelAvailable: make(chan struct{}),
+		writeBudget:      gizwebrtc.NewWriteBudget(gizwebrtc.GatewaySCTPWriteBudgetSize),
 	}
 	unregister, err := transport.RegisterNativeChannelHandler(LabelPrefix, router.handleNativeChannel)
 	if err != nil {
@@ -558,6 +561,46 @@ func (r *Router) reserveChannelLocked(session SessionID) (*channelLease, error) 
 	return &channelLease{router: r, session: session}, nil
 }
 
+func (r *Router) reserveChannelContext(ctx context.Context, session SessionID) (*channelLease, error) {
+	if ctx == nil {
+		return nil, errors.New("giztunnel: nil channel capacity context")
+	}
+	var capacityErr error
+	for {
+		if err := ctx.Err(); err != nil {
+			if capacityErr != nil {
+				return nil, errors.Join(err, capacityErr)
+			}
+			return nil, err
+		}
+		r.mu.Lock()
+		if r.closed {
+			r.mu.Unlock()
+			return nil, giznet.ErrConnClosed
+		}
+		if r.channelAvailable == nil {
+			r.channelAvailable = make(chan struct{})
+		}
+		lease, err := r.reserveChannelLocked(session)
+		available := r.channelAvailable
+		r.mu.Unlock()
+		if err == nil {
+			return lease, nil
+		}
+		if _, ok := channelCapacityFromError(err); !ok {
+			return nil, err
+		}
+		capacityErr = err
+		select {
+		case <-available:
+		case <-ctx.Done():
+			return nil, errors.Join(ctx.Err(), err)
+		case <-r.closeCh:
+			return nil, giznet.ErrConnClosed
+		}
+	}
+}
+
 func (r *Router) releaseChannel(session SessionID) {
 	r.mu.Lock()
 	if r.activeChannels > 0 {
@@ -568,6 +611,11 @@ func (r *Router) releaseChannel(session SessionID) {
 		conn.decrementActiveChannels()
 	} else if pending := r.pending[session]; pending != nil && pending.active > 0 {
 		pending.active--
+	}
+	if r.channelAvailable != nil {
+		available := r.channelAvailable
+		r.channelAvailable = make(chan struct{})
+		close(available)
 	}
 	r.mu.Unlock()
 	if r.cfg.OnActiveChannels != nil {
@@ -912,12 +960,16 @@ func (c *Conn) LastActivity() time.Time {
 }
 
 func (c *Conn) Dial(service uint64) (net.Conn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), serviceOpenTimeout)
-	defer cancel()
-	return c.dialContext(ctx, service)
+	return c.DialContext(context.Background(), service)
 }
 
-func (c *Conn) dialContext(ctx context.Context, service uint64) (net.Conn, error) {
+// DialContext waits for bounded channel capacity, then opens one service
+// channel. The caller context bounds the complete operation; internal bounds
+// keep Dial finite when no caller context is available.
+func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error) {
+	if ctx == nil {
+		return nil, errors.New("giztunnel: nil service-open context")
+	}
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
@@ -938,13 +990,15 @@ func (c *Conn) dialContext(ctx context.Context, service uint64) (net.Conn, error
 	if err != nil {
 		return nil, err
 	}
-	c.router.mu.Lock()
-	lease, err := c.router.reserveChannelLocked(c.declaration.SessionID)
-	c.router.mu.Unlock()
+	capacityCtx, cancelCapacity := context.WithTimeout(ctx, channelCapacityWaitTimeout)
+	lease, err := c.router.reserveChannelContext(capacityCtx, c.declaration.SessionID)
+	cancelCapacity()
 	if err != nil {
 		return nil, err
 	}
-	native, err := c.router.transport.OpenNativeChannel(ctx, label, gizwebrtc.NativeChannelOptions{Ordered: true})
+	openCtx, cancelOpen := context.WithTimeout(ctx, serviceOpenTimeout)
+	native, err := c.router.transport.OpenNativeChannel(openCtx, label, gizwebrtc.NativeChannelOptions{Ordered: true})
+	cancelOpen()
 	if err != nil {
 		lease.release()
 		return nil, err
