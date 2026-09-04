@@ -30,9 +30,6 @@
             "$ref": "#/components/schemas/ASTTranslateWorkspaceParameters"
           },
           {
-            "$ref": "#/components/schemas/ChatRoomWorkspaceParameters"
-          },
-          {
             "$ref": "#/components/schemas/PetWorkspaceParameters"
           }
         ],
@@ -45,7 +42,6 @@
             "doubao-realtime-duplex": "#/components/schemas/DoubaoRealtimeDuplexWorkspaceParameters",
             "eino": "#/components/schemas/EinoWorkspaceParameters",
             "ast-translate": "#/components/schemas/ASTTranslateWorkspaceParameters",
-            "chatroom": "#/components/schemas/ChatRoomWorkspaceParameters",
             "pet": "#/components/schemas/PetWorkspaceParameters"
           }
         }
@@ -346,69 +342,6 @@
             "type": "string",
             "description": "RuntimeProfile Voice alias used by the external TTS path."
           }
-        }
-      },
-      "ChatRoomMode": {
-        "type": "string",
-        "enum": [
-          "direct",
-          "group"
-        ]
-      },
-      "ChatRoomWorkspaceHistoryParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "ttl": {
-            "type": "string",
-            "description": "Workspace-level retention override for chat history entries and their assets."
-          }
-        }
-      },
-      "ChatRoomWorkspaceTranscriptParameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Whether gear audio should be transcribed and written as text in workspace history."
-          },
-          "asr_model": {
-            "type": "string",
-            "description": "Workspace-level ASR model override for gear audio transcription."
-          }
-        }
-      },
-      "ChatRoomWorkspaceParameters": {
-        "type": "object",
-        "required": [
-          "agent_type"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "agent_type": {
-            "type": "string",
-            "enum": [
-              "chatroom"
-            ]
-          },
-          "input": {
-            "$ref": "#/components/schemas/WorkspaceInputMode"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/ChatRoomMode"
-          },
-          "history": {
-            "$ref": "#/components/schemas/ChatRoomWorkspaceHistoryParameters"
-          },
-          "transcript": {
-            "$ref": "#/components/schemas/ChatRoomWorkspaceTranscriptParameters"
-          }
-        },
-        "example": {
-          "agent_type": "chatroom",
-          "input": "push-to-talk",
-          "mode": "group"
         }
       }
     }

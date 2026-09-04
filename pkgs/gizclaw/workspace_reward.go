@@ -12,12 +12,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
+
+// errWorkspaceRewardNotEligible reports a Workspace whose kind has no reward
+// definition, such as a Social SFU Workspace without History.
+var errWorkspaceRewardNotEligible = errors.New("gizclaw: Workspace is not eligible for Workspace rewards")
 
 type workspaceRewardEnvironment struct {
 	manager    *Manager
@@ -80,6 +85,9 @@ func (environment *workspaceRewardEnvironment) ResolveWorkspaceRewardPolicy(
 	}
 	item := apitypes.Workspace(value)
 	kind, err := workspaceRewardKind(item)
+	if errors.Is(err, errWorkspaceRewardNotEligible) {
+		return "", nil, nil
+	}
 	if err != nil {
 		return "", nil, err
 	}
@@ -91,26 +99,14 @@ func (environment *workspaceRewardEnvironment) ResolveWorkspaceRewardPolicy(
 	return kind, policy, err
 }
 
+// workspaceRewardKind classifies a Workspace for reward evaluation. Social
+// SFU Workspaces are bound to the built-in SFU Workflow, have no History, and
+// therefore report errWorkspaceRewardNotEligible.
 func workspaceRewardKind(item apitypes.Workspace) (gameplay.WorkspaceRewardKind, error) {
-	if item.Parameters == nil {
-		return gameplay.WorkspaceRewardKindWorkflow, nil
+	if item.WorkflowId == socialutil.SFUWorkflowID {
+		return "", fmt.Errorf("%w: Workspace %q uses the SFU Workflow", errWorkspaceRewardNotEligible, item.Name)
 	}
-	discriminator, err := item.Parameters.Discriminator()
-	if err != nil || discriminator != string(apitypes.ChatRoomWorkspaceParametersAgentTypeChatroom) {
-		return gameplay.WorkspaceRewardKindWorkflow, nil
-	}
-	parameters, err := item.Parameters.AsChatRoomWorkspaceParameters()
-	if err != nil || parameters.Mode == nil {
-		return gameplay.WorkspaceRewardKindWorkflow, nil
-	}
-	switch *parameters.Mode {
-	case apitypes.ChatRoomModeDirect:
-		return gameplay.WorkspaceRewardKindDirectChatroom, nil
-	case apitypes.ChatRoomModeGroup:
-		return gameplay.WorkspaceRewardKindGroupChatroom, nil
-	default:
-		return "", fmt.Errorf("gizclaw: Workspace %q has unsupported Chatroom mode %q", item.Name, *parameters.Mode)
-	}
+	return gameplay.WorkspaceRewardKindWorkflow, nil
 }
 
 func (environment *workspaceRewardEnvironment) WorkspaceRewardGenerator(
@@ -218,19 +214,19 @@ func (m *Manager) handleWorkspaceHistoryUpdated(
 	m.broadcastWorkspaceHistoryUpdated(ctx, workspaceID, entry.CreatedAt)
 }
 
-func (m *Manager) handleWorkspaceActivated(ctx context.Context, workspaceName string) {
+// handleWorkspaceActivated registers a freshly activated Workspace as a
+// reward source. The caller resolves the canonical record through the
+// activating Peer's own access path; Social SFU Workspaces are not reward
+// eligible and return nil without touching Gameplay.
+func (m *Manager) handleWorkspaceActivated(ctx context.Context, item apitypes.Workspace) error {
 	if m == nil || m.Gameplay == nil {
-		return
+		return nil
 	}
-	item, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
-	if err == nil {
-		err = m.Gameplay.EnqueueWorkspaceRewardActivation(ctx, item.Id)
+	if _, err := workspaceRewardKind(item); err != nil {
+		if errors.Is(err, errWorkspaceRewardNotEligible) {
+			return nil
+		}
+		return err
 	}
-	if err != nil {
-		slog.Error("activate Workspace reward",
-			"workspace", workspaceName,
-			"error_class", "activation",
-			"error", err,
-		)
-	}
+	return m.Gameplay.EnqueueWorkspaceRewardActivation(ctx, item.Id)
 }

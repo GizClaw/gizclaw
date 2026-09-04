@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
+	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -40,9 +42,46 @@ func deferOutputObservation(stream genx.Stream) OutputObservationStream {
 	return observer
 }
 
+// OpusPassthroughMIME marks a raw Opus packet that must reach the Peer's
+// Opus track unchanged. MixerOutput never decodes or mixes chunks carrying
+// it; the peer-side consumer claims them through MixerOutput.Passthrough and
+// writes each payload straight to the device. The SFU driver uses it so the
+// downlink costs no decode: the Opus RTP clock is always 48 kHz while the
+// payload keeps the sending device's internal bandwidth, so the packet the
+// remote device encoded is exactly the packet this device can decode.
+const OpusPassthroughMIME = "audio/opus; passthrough=1"
+
+// IsOpusPassthroughMIME reports whether mimeType carries the passthrough
+// marker: base type audio/opus with the passthrough=1 parameter.
+func IsOpusPassthroughMIME(mimeType string) bool {
+	base, params, err := mime.ParseMediaType(mimeType)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(base, "audio/opus") && params["passthrough"] == "1"
+}
+
+// IsOpusPassthroughChunk reports whether chunk is a passthrough audio chunk:
+// a Blob part whose MIME carries the passthrough marker. BOS and EOS chunks
+// of a passthrough route qualify as well as its packet chunks.
+func IsOpusPassthroughChunk(chunk *genx.MessageChunk) bool {
+	if chunk == nil {
+		return false
+	}
+	blob, ok := chunk.Part.(*genx.Blob)
+	return ok && blob != nil && IsOpusPassthroughMIME(blob.MIMEType)
+}
+
 type MixerOutput struct {
 	Tracks  AudioTrackCreator
 	Observe func(*genx.MessageChunk) error
+	// Passthrough claims chunks that bypass decoding and the mixer entirely.
+	// A claimed chunk is never handed to the audio tracks, so no decoder or
+	// mixer track is created for it, but it is still observed in order so
+	// BOS/EOS route bookkeeping and Peer Events fire for it. The consumer
+	// that owns the device transport installs it; without it passthrough
+	// chunks are rejected rather than decoded.
+	Passthrough func(*genx.MessageChunk) error
 	// OnAudioCutover runs after the superseded audio track drains and before
 	// the replacement BOS is observed.
 	OnAudioCutover    func(*genx.MessageChunk) error
@@ -137,7 +176,14 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 		if chunk == nil {
 			continue
 		}
-		if err := tracks.consume(chunk); err != nil {
+		if IsOpusPassthroughChunk(chunk) {
+			if o.Passthrough == nil {
+				return fmt.Errorf("agenthost: passthrough audio stream_id=%q has no packet writer", chunkStreamID(chunk))
+			}
+			if err := o.Passthrough(chunk); err != nil {
+				return err
+			}
+		} else if err := tracks.consume(chunk); err != nil {
 			return err
 		}
 		interruptedDrained := false
@@ -181,6 +227,13 @@ func (o MixerOutput) ConsumeAgentOutput(ctx context.Context, output genx.Stream)
 			}
 		}
 	}
+}
+
+func chunkStreamID(chunk *genx.MessageChunk) string {
+	if chunk == nil || chunk.Ctrl == nil {
+		return ""
+	}
+	return chunk.Ctrl.StreamID
 }
 
 func shouldWaitForAudioDrain(chunk *genx.MessageChunk) bool {

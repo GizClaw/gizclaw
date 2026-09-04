@@ -37,8 +37,8 @@ workspace-backed agents through the CLI and APIs.
 - [x] Out-of-the-box server and CLI for local or deployed GizClaw nodes.
 - [x] Workspace-based agent runtime where each workspace is an instantiated agent
   environment backed by a workflow configuration.
-- [x] Workflow drivers for runtime behavior such as Flowcraft agents, chatroom
-  workflows, Doubao AST translation, and Doubao realtime flows.
+- [x] Workflow drivers for runtime behavior such as Flowcraft agents, SFU
+  voice rooms, Doubao AST translation, and Doubao realtime flows.
 - [x] WebRTC transport, signaling, and service streams for GizClaw node and
   client connectivity.
 - [x] Edge-node ingress and optional TURN relay with authoritative-server
@@ -48,8 +48,8 @@ workspace-backed agents through the CLI and APIs.
 - [x] Admin and peer RPC APIs generated from shared OpenAPI/RPC schemas.
 - [x] Firmware catalog and channel-based OTA configuration with external HTTPS
   `.tar.zlib` package URLs and integrity metadata.
-- [x] Social workspace resources for contact, friend, and chatroom-style
-  interactions.
+- [x] Social workspace resources for contacts, friends, and friend groups,
+  each bound to an SFU Workspace for real-time multi-party voice.
 - [x] Gameplay rulesets, point accounts, reward grants, pet adoption, drive
   actions, pet workspaces, game results, badge progression, and pixa asset
   delivery.

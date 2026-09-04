@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"iter"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -28,51 +30,164 @@ type groupNotification struct {
 	event     *eventpb.PeerEvent
 }
 
-type groupAssignmentStub map[giznet.PublicKey]apitypes.PeerAssignment
-
-func (s groupAssignmentStub) Lookup(_ context.Context, key giznet.PublicKey) (apitypes.PeerAssignment, error) {
-	assignment, ok := s[key]
-	if !ok {
-		return apitypes.PeerAssignment{}, kv.ErrNotFound
-	}
-	return assignment, nil
-}
-
-func TestCrossServerFriendGroupJoinStopsBeforeMutation(t *testing.T) {
+func TestCrossServerFriendGroupJoinSucceedsThroughSharedKV(t *testing.T) {
 	ownerKey := giznet.PublicKey{1}
 	foreignKey := giznet.PublicKey{2}
-	serverKey := giznet.PublicKey{8}
+	home := newTestServer(t)
+	other := &Server{
+		Groups: home.Groups, InviteTokens: home.InviteTokens, Members: home.Members, Belongs: home.Belongs,
+		RelationshipStore: home.RelationshipStore, Workspaces: &recordingWorkspaceService{},
+		SFUURL: home.SFUURL, Now: home.Now, NewID: home.NewID,
+	}
+	group, err := home.CreateFriendGroup(t.Context(), ownerKey.String(), rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := home.CreateFriendGroupInviteToken(t.Context(), ownerKey.String(), rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined, err := other.JoinFriendGroup(t.Context(), foreignKey.String(), rpcapi.FriendGroupJoinRequest{Name: "foreign-room", InviteToken: token.InviteToken})
+	if err != nil {
+		t.Fatalf("JoinFriendGroup() across Servers error = %v", err)
+	}
+	groupID := mustGroupID(t, home, ownerKey.String(), group.Name)
+	if _, err := home.groupMember(t.Context(), groupID, foreignKey.String()); err != nil {
+		t.Fatalf("foreign member on home Server error = %v", err)
+	}
+	binding, err := home.ResolveSFUWorkspaceBindingByName(t.Context(), socialutil.StringValue(joined.Group.WorkspaceName), foreignKey.String())
+	if err != nil {
+		t.Fatalf("ResolveSFUWorkspaceBindingByName() error = %v", err)
+	}
+	if binding.Owner != ownerKey.String() || len(binding.Members) != 2 {
+		t.Fatalf("shared binding = %#v", binding)
+	}
+}
+
+func TestFriendGroupMemberLimitRejectsEleventhMember(t *testing.T) {
+	ctx := t.Context()
 	s := newTestServer(t)
-	s.ServerPublicKey = serverKey
-	s.PeerAssignments = groupAssignmentStub{
-		ownerKey:   {PeerPublicKey: ownerKey.String(), ServerPublicKey: serverKey.String()},
-		foreignKey: {PeerPublicKey: foreignKey.String(), ServerPublicKey: giznet.PublicKey{9}.String()},
-	}
-	group, err := s.CreateFriendGroup(t.Context(), ownerKey.String(), rpcapi.FriendGroupCreateRequest{Name: "room"})
+	group, err := s.CreateFriendGroup(ctx, "owner", rpcapi.FriendGroupCreateRequest{Name: "room"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := s.CreateFriendGroupInviteToken(t.Context(), ownerKey.String(), rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
+	groupID := mustGroupID(t, s, "owner", group.Name)
+	for index := 1; index < socialutil.FriendGroupMemberLimit; index++ {
+		peer := fmt.Sprintf("member-%02d", index)
+		if _, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{
+			FriendGroupName: group.Name, PeerPublicKey: peer, MemberName: "room", Role: rpcapi.FriendGroupMemberMutableRole("member"),
+		}); err != nil {
+			t.Fatalf("AddFriendGroupMember(%s): %v", peer, err)
+		}
+	}
+	members, err := s.listAllMembers(ctx, groupID)
+	if err != nil || len(members) != socialutil.FriendGroupMemberLimit {
+		t.Fatalf("members = %d, %v, want %d", len(members), err, socialutil.FriendGroupMemberLimit)
+	}
+	if _, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupName: group.Name, PeerPublicKey: "member-11", MemberName: "room", Role: rpcapi.FriendGroupMemberMutableRole("member"),
+	}); !errors.Is(err, ErrFriendGroupFull) {
+		t.Fatalf("AddFriendGroupMember(11th) error = %v, want %v", err, ErrFriendGroupFull)
+	}
+	token, err := s.CreateFriendGroupInviteToken(ctx, "owner", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
 	if err != nil {
 		t.Fatal(err)
 	}
-	workspaceCount := len(s.Workspaces.(*recordingWorkspaceService).created)
-	if _, err := s.JoinFriendGroup(t.Context(), foreignKey.String(), rpcapi.FriendGroupJoinRequest{Name: "foreign-room", InviteToken: token.InviteToken}); !errors.Is(err, ErrCrossServerFriendGroupMembership) {
-		t.Fatalf("JoinFriendGroup() error = %v, want cross-server conflict", err)
+	if _, err := s.JoinFriendGroup(ctx, "member-11", rpcapi.FriendGroupJoinRequest{Name: "room", InviteToken: token.InviteToken}); !errors.Is(err, ErrFriendGroupFull) {
+		t.Fatalf("JoinFriendGroup(11th) error = %v, want %v", err, ErrFriendGroupFull)
 	}
-	groupID := mustGroupID(t, s, ownerKey.String(), group.Name)
-	if _, err := s.groupMember(t.Context(), groupID, foreignKey.String()); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("foreign member after rejection error = %v, want not found", err)
+	if active, ok, err := s.activeGroupInviteToken(ctx, s.InviteTokens, groupID); err != nil || !ok || active.InviteToken != token.InviteToken {
+		t.Fatalf("invite token after rejected join = %+v, %v, %v, want unchanged", active, ok, err)
 	}
-	if len(s.Workspaces.(*recordingWorkspaceService).created) != workspaceCount {
-		t.Fatal("cross-server join mutated Workspaces")
+	if _, err := s.AdminCreateFriendGroupMember(ctx, groupID, "member-11", "room", rpcapi.FriendGroupMemberRoleMember); !errors.Is(err, ErrFriendGroupFull) {
+		t.Fatalf("AdminCreateFriendGroupMember(11th) error = %v, want %v", err, ErrFriendGroupFull)
 	}
-	active, ok, err := s.activeGroupInviteToken(t.Context(), s.InviteTokens, groupID)
-	if err != nil || !ok || active.InviteToken != token.InviteToken {
-		t.Fatalf("invite after rejection = %+v, %v, %v", active, ok, err)
+	if _, err := s.AdminPutFriendGroupMember(ctx, groupID, "member-11", "room", rpcapi.FriendGroupMemberRoleMember); !errors.Is(err, ErrFriendGroupFull) {
+		t.Fatalf("AdminPutFriendGroupMember(11th) error = %v, want %v", err, ErrFriendGroupFull)
 	}
-	if _, err := s.AdminCreateFriendGroupMember(t.Context(), groupID, foreignKey.String(), "foreign-room", rpcapi.FriendGroupMemberRoleMember); !errors.Is(err, ErrCrossServerFriendGroupMembership) {
-		t.Fatalf("AdminCreateFriendGroupMember() error = %v, want cross-server conflict", err)
+	if _, err := s.AdminPutFriendGroupMember(ctx, groupID, "member-01", "room", rpcapi.FriendGroupMemberRoleAdmin); err != nil {
+		t.Fatalf("AdminPutFriendGroupMember(existing at limit) error = %v", err)
+	}
+	if _, err := s.groupMember(ctx, groupID, "member-11"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("rejected member error = %v, want not found", err)
+	}
+}
+
+func TestFriendGroupSFUBindingLifecycle(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer(t)
+	workspaces := s.Workspaces.(*recordingWorkspaceService)
+	group, err := s.CreateFriendGroup(ctx, "owner", rpcapi.FriendGroupCreateRequest{Name: "room"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != socialutil.SFUWorkflowID || workspaces.created[0].Parameters != nil {
+		t.Fatalf("created Workspaces = %#v, want SFU Workflow without parameters", workspaces.created)
+	}
+	groupID := mustGroupID(t, s, "owner", group.Name)
+	stored, err := s.readWorkspaceBinding(ctx, groupID)
+	if err != nil {
+		t.Fatalf("readWorkspaceBinding: %v", err)
+	}
+	if !strings.HasPrefix(stored.SFU.RoomToken, "room-") || strings.Contains(stored.SFU.RoomToken, groupID) ||
+		stored.SFU.URL != s.SFUURL || stored.SFU.Generation != 1 || stored.Owner != "owner" {
+		t.Fatalf("group binding = %#v", stored)
+	}
+	if _, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{
+		FriendGroupName: group.Name, PeerPublicKey: "member", MemberName: "room", Role: rpcapi.FriendGroupMemberMutableRole("member"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	binding, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "member")
+	if err != nil {
+		t.Fatalf("ResolveSFUWorkspaceBinding(member) error = %v", err)
+	}
+	if binding.Kind != socialutil.SFUWorkspaceKindFriendGroup || binding.SocialID != groupID || binding.Owner != "owner" ||
+		binding.SFU != stored.SFU || !slices.Equal(binding.Members, []string{"member", "owner"}) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(member) = %#v", binding)
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "stranger"); !errors.Is(err, sfu.ErrNotMember) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(stranger) error = %v, want %v", err, sfu.ErrNotMember)
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, "unknown-workspace", "owner"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(unbound) error = %v, want not found", err)
+	}
+	if listed, err := s.ListSFUWorkspaceBindingsForPeer(ctx, "member"); err != nil || len(listed) != 1 || listed[0].WorkspaceID != stored.WorkspaceID {
+		t.Fatalf("ListSFUWorkspaceBindingsForPeer(member) = %#v, %v", listed, err)
+	}
+	if _, err := s.DeleteFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: group.Name, Name: "member"}); err != nil {
+		t.Fatalf("DeleteFriendGroupMember: %v", err)
+	}
+	retained, err := s.readWorkspaceBinding(ctx, groupID)
+	if err != nil || retained.SFU.Generation != stored.SFU.Generation || retained.SFU.RoomToken != stored.SFU.RoomToken {
+		t.Fatalf("binding after member removal = %#v, %v, want the unchanged Room and generation", retained, err)
+	}
+	if remaining, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "owner"); err != nil ||
+		remaining.SFU.Generation != stored.SFU.Generation {
+		t.Fatalf("remaining member binding after removal = %#v, %v, want an unchanged generation", remaining, err)
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "member"); !errors.Is(err, sfu.ErrNotMember) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(removed member) error = %v, want %v", err, sfu.ErrNotMember)
+	}
+	if _, err := s.groupMember(ctx, groupID, "member"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("removed member error = %v, want not found", err)
+	}
+	if _, err := s.DeleteFriendGroup(ctx, "owner", rpcapi.FriendGroupDeleteRequest{Name: group.Name}); err != nil {
+		t.Fatalf("DeleteFriendGroup: %v", err)
+	}
+	if _, err := s.ResolveSFUWorkspaceBinding(ctx, stored.WorkspaceID, "owner"); !errors.Is(err, sfu.ErrRevoked) {
+		t.Fatalf("ResolveSFUWorkspaceBinding(retired) error = %v, want %v", err, sfu.ErrRevoked)
+	}
+}
+
+func TestCreateFriendGroupRequiresSFUConfiguration(t *testing.T) {
+	s := newTestServer(t)
+	s.SFUURL = ""
+	if _, err := s.CreateFriendGroup(t.Context(), "owner", rpcapi.FriendGroupCreateRequest{Name: "room"}); !errors.Is(err, ErrSFUNotConfigured) {
+		t.Fatalf("CreateFriendGroup() error = %v, want %v", err, ErrSFUNotConfigured)
+	}
+	if len(s.Workspaces.(*recordingWorkspaceService).created) != 0 {
+		t.Fatal("CreateFriendGroup() without SFU created a Workspace")
 	}
 }
 
@@ -179,11 +294,10 @@ func TestGroupWorkspaceBelongsToCreator(t *testing.T) {
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	if _, err := s.CreateFriendGroup(t.Context(), "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != "group-chatroom" {
+	if len(workspaces.created) != 1 || workspaces.created[0].WorkflowId != socialutil.SFUWorkflowID {
 		t.Fatalf("created Workspaces = %#v", workspaces.created)
 	}
 	if len(workspaces.owners) != 1 || workspaces.owners[0] != "peer-a" {
@@ -196,7 +310,6 @@ func TestAdminCreateFriendGroupStopsBeforeWorkspaceOnGroupReservationFailure(t *
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
 
 	if _, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil); err == nil {
@@ -271,7 +384,6 @@ func TestAdminCreateFriendGroupRejectsDuplicateCallerID(t *testing.T) {
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	created, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
 	if err != nil {
 		t.Fatalf("AdminCreateFriendGroup: %v", err)
@@ -294,6 +406,47 @@ func TestAdminCreateFriendGroupRejectsDuplicateCallerID(t *testing.T) {
 	}
 }
 
+// TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores pins that a
+// membership is deleted from the very keys createMember wrote. The member and
+// belong stores are mounted under prefixes the Server's own prefix fields do
+// not name, so a delete that trusted those fields would silently remove
+// nothing and leave the removed Peer able to keep talking in the Room.
+func TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores(t *testing.T) {
+	ctx := t.Context()
+	root := kv.NewMemory(nil)
+	s := newTestServer(t)
+	s.Groups = kv.Prefixed(root, kv.Key{"groups"})
+	s.InviteTokens = kv.Prefixed(root, kv.Key{"invite-tokens"})
+	s.Members = kv.Prefixed(root, kv.Key{"members"})
+	s.Belongs = kv.Prefixed(root, kv.Key{"belongs"})
+	s.RelationshipStore = root
+	s.GroupRelationshipPrefix = kv.Key{"groups"}
+	s.InviteRelationshipPrefix = kv.Key{"invite-tokens"}
+	// Deliberately wrong: nothing was ever written under these.
+	s.MemberRelationshipPrefix = kv.Key{"unused-members"}
+	s.BelongRelationshipPrefix = kv.Key{"unused-belongs"}
+
+	group, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
+	if err != nil {
+		t.Fatalf("AdminCreateFriendGroup: %v", err)
+	}
+	if _, err := s.AdminPutFriendGroupMember(ctx, group.Id, "peer-b", "family-b", rpcapi.FriendGroupMemberRoleMember); err != nil {
+		t.Fatalf("AdminPutFriendGroupMember: %v", err)
+	}
+	if _, err := s.AdminDeleteFriendGroupMember(ctx, group.Id, "peer-b"); err != nil {
+		t.Fatalf("AdminDeleteFriendGroupMember: %v", err)
+	}
+	if _, err := s.groupMember(ctx, group.Id, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("groupMember after delete error = %v, want not found", err)
+	}
+	if _, err := s.Belongs.Get(ctx, socialutil.GroupBelongKey("peer-b", group.Id)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("belongs after delete error = %v, want not found", err)
+	}
+	if _, err := s.Belongs.Get(ctx, socialutil.GroupNameKey("peer-b", "family-b")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("name projection after delete error = %v, want not found", err)
+	}
+}
+
 func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing.T) {
 	ctx := t.Context()
 	groups := kv.NewMemory(nil)
@@ -302,7 +455,6 @@ func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing
 	s.Groups = groups
 	s.Members = failingSetStore{Store: kv.NewMemory(nil)}
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 
 	if _, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil); err == nil {
 		t.Fatal("AdminCreateFriendGroup with failing member store error = nil")
@@ -315,7 +467,7 @@ func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing
 	}
 }
 
-func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.T) {
+func TestAdminDeleteFriendGroupMemberIsAtomicAndKeepsTheRoom(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer(t)
 	group, err := s.AdminCreateFriendGroup(ctx, "id-a", "peer-a", "family", nil, nil)
@@ -326,12 +478,35 @@ func TestAdminDeleteFriendGroupMemberRollsBackWhenBelongsDeleteFails(t *testing.
 	if _, err := s.AdminPutFriendGroupMember(ctx, friendGroupID, "peer-b", "family-b", rpcapi.FriendGroupMemberRoleMember); err != nil {
 		t.Fatalf("AdminPutFriendGroupMember: %v", err)
 	}
-	s.Belongs = failingDeleteStore{Store: s.Belongs}
+	// removeMember resolves its transaction boundary from the member and
+	// belong stores, so the failure has to be injected there.
+	healthy := s.RelationshipStore
+	failing := failingBatchMutateStore{Store: healthy}
+	s.RelationshipStore, s.Members, s.Belongs = failing, failing, failing
 	if _, err := s.AdminDeleteFriendGroupMember(ctx, friendGroupID, "peer-b"); err == nil {
-		t.Fatal("AdminDeleteFriendGroupMember with failing belongs delete error = nil")
+		t.Fatal("AdminDeleteFriendGroupMember with failing relationship store error = nil")
 	}
 	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); err != nil {
-		t.Fatalf("groupMember after failed admin delete = %v, want restored", err)
+		t.Fatalf("groupMember after failed admin delete = %v, want retained", err)
+	}
+	s.RelationshipStore, s.Members, s.Belongs = healthy, healthy, healthy
+	if binding, err := s.readWorkspaceBinding(ctx, friendGroupID); err != nil || binding.SFU.Generation != 1 {
+		t.Fatalf("binding after failed delete = %#v, %v, want generation 1", binding, err)
+	}
+	if _, err := s.AdminDeleteFriendGroupMember(ctx, friendGroupID, "peer-b"); err != nil {
+		t.Fatalf("AdminDeleteFriendGroupMember: %v", err)
+	}
+	if _, err := s.groupMember(ctx, friendGroupID, "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("groupMember after delete error = %v, want not found", err)
+	}
+	if _, err := s.Belongs.Get(ctx, socialutil.GroupBelongKey("peer-b", friendGroupID)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("belongs after delete error = %v, want not found", err)
+	}
+	if _, err := s.Belongs.Get(ctx, socialutil.GroupNameKey("peer-b", "family-b")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("name projection after delete error = %v, want not found", err)
+	}
+	if binding, err := s.readWorkspaceBinding(ctx, friendGroupID); err != nil || binding.SFU.Generation != 1 {
+		t.Fatalf("binding after delete = %#v, %v, want an unchanged generation", binding, err)
 	}
 }
 
@@ -955,11 +1130,11 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	}
 	defaultStore := kv.NewMemory(nil)
 	defaultClock := &Server{
-		Groups:                 defaultStore,
-		Members:                defaultStore,
-		RelationshipStore:      defaultStore,
-		Workspaces:             &recordingWorkspaceService{},
-		RuntimeProfileForOwner: testRuntimeProfileForOwner,
+		Groups:            defaultStore,
+		Members:           defaultStore,
+		RelationshipStore: defaultStore,
+		Workspaces:        &recordingWorkspaceService{},
+		SFUURL:            "wss://sfu.test",
 	}
 	if _, err := defaultClock.CreateFriendGroup(ctx, "peer-z", rpcapi.FriendGroupCreateRequest{Name: "room"}); err != nil {
 		t.Fatalf("CreateFriendGroup with default clock: %v", err)
@@ -1010,7 +1185,6 @@ func TestCreateRollsBackPartialWrites(t *testing.T) {
 	s = newTestServer(t)
 	s.Groups = failingSetStore{Store: kv.NewMemory(nil)}
 	s.Workspaces = workspaces
-	s.RuntimeProfileForOwner = testRuntimeProfileForOwner
 	if _, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err == nil {
 		t.Fatal("CreateFriendGroup with failing group store error = nil")
 	}
@@ -1046,14 +1220,14 @@ func TestCreateMemberAtomicallyClaimsIdentityAcrossServers(t *testing.T) {
 	primary := newTestServer(t)
 	friendGroupID := "group-atomic"
 	secondary := &Server{
-		Groups:                 primary.Groups,
-		InviteTokens:           primary.InviteTokens,
-		Members:                primary.Members,
-		Belongs:                primary.Belongs,
-		RelationshipStore:      primary.RelationshipStore,
-		Workspaces:             primary.Workspaces,
-		RuntimeProfileForOwner: primary.RuntimeProfileForOwner,
-		Now:                    primary.Now,
+		Groups:            primary.Groups,
+		InviteTokens:      primary.InviteTokens,
+		Members:           primary.Members,
+		Belongs:           primary.Belongs,
+		RelationshipStore: primary.RelationshipStore,
+		Workspaces:        primary.Workspaces,
+		SFUURL:            primary.SFUURL,
+		Now:               primary.Now,
 	}
 	servers := []*Server{primary, secondary}
 	roles := []rpcapi.FriendGroupMemberRole{
@@ -1116,14 +1290,14 @@ func newTestServer(t *testing.T) *Server {
 	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
 	nextID := 0
 	return &Server{
-		Groups:                 store,
-		InviteTokens:           store,
-		Members:                store,
-		Belongs:                store,
-		RelationshipStore:      store,
-		Workspaces:             &recordingWorkspaceService{},
-		RuntimeProfileForOwner: testRuntimeProfileForOwner,
-		Now:                    func() time.Time { return now },
+		Groups:            store,
+		InviteTokens:      store,
+		Members:           store,
+		Belongs:           store,
+		RelationshipStore: store,
+		Workspaces:        &recordingWorkspaceService{},
+		SFUURL:            "wss://sfu.test",
+		Now:               func() time.Time { return now },
 		NewID: func() string {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
@@ -1205,14 +1379,6 @@ func (s failingSetStore) Set(context.Context, kv.Key, []byte) error {
 
 func (s failingSetStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
 	return nil, false, errors.New("forced set failure")
-}
-
-type failingDeleteStore struct {
-	kv.Store
-}
-
-func (s failingDeleteStore) Delete(context.Context, kv.Key) error {
-	return errors.New("forced delete failure")
 }
 
 type failAfterGetStore struct {
@@ -1314,7 +1480,7 @@ func (s *recordingWorkspaceService) DeleteSystemWorkspace(_ context.Context, nam
 	return apitypes.Workspace{Name: name}, nil
 }
 
-func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, name string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	s.retired = append(s.retired, name)
 	owner := s.retiredOwner
 	var ownerPointer *string
@@ -1324,7 +1490,7 @@ func (s *recordingWorkspaceService) RetireSystemWorkspace(_ context.Context, nam
 	return apitypes.Workspace{Name: name, OwnerPublicKey: ownerPointer}, s.retireErr
 }
 
-func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context, id string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	s.retired = append(s.retired, id)
 	owner := s.retiredOwner
 	var ownerPointer *string
@@ -1334,7 +1500,7 @@ func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context,
 	return apitypes.Workspace{Id: id, OwnerPublicKey: ownerPointer}, s.retireErr
 }
 
-func (s *recordingWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, name string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) GetRetiredSystemWorkspace(_ context.Context, name string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	if len(s.retired) == 0 {
 		return apitypes.Workspace{}, kv.ErrNotFound
 	}
@@ -1346,7 +1512,7 @@ func (s *recordingWorkspaceService) GetRetiredSystemWorkspace(_ context.Context,
 	return apitypes.Workspace{Name: name, OwnerPublicKey: ownerPointer}, nil
 }
 
-func (s *recordingWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, id string, _ apitypes.ChatRoomMode, _ string) (apitypes.Workspace, error) {
+func (s *recordingWorkspaceService) GetRetiredSystemWorkspaceByID(_ context.Context, id string, _ socialutil.SFUWorkspaceKind, _ string) (apitypes.Workspace, error) {
 	if len(s.retired) == 0 {
 		return apitypes.Workspace{}, kv.ErrNotFound
 	}
@@ -1383,11 +1549,11 @@ func (s failingWorkspaceService) GetWorkspaceByName(context.Context, string) (ap
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
-func (s failingWorkspaceService) RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+func (s failingWorkspaceService) RetireSystemWorkspaceByID(context.Context, string, socialutil.SFUWorkspaceKind, string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
-func (s failingWorkspaceService) GetRetiredSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+func (s failingWorkspaceService) GetRetiredSystemWorkspaceByID(context.Context, string, socialutil.SFUWorkspaceKind, string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
 }
 
@@ -1398,16 +1564,4 @@ func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminhttp.Dele
 //go:fix inline
 func strPtr(v string) *string {
 	return new(v)
-}
-
-func testRuntimeProfileForOwner(context.Context, string) (apitypes.RuntimeProfile, error) {
-	return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{
-			System: apitypes.RuntimeProfileSystemWorkflows{
-				FriendChatroom: "friend-chatroom",
-				GroupChatroom:  "group-chatroom",
-				Pet:            "pet-care",
-			},
-		},
-	}}, nil
 }

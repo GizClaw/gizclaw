@@ -60,10 +60,10 @@ func TestWorkspaceListSkipsWorkspacePendingDeletion(t *testing.T) {
 	}
 }
 
-// A shared Chatroom Workspace reaches the listing through the Friend
-// relationship instead of the owner index, and its retirement marks the record
-// pending deletion. That Workspace must drop out of the listing rather than
-// fail the caller's own Collection.
+// A shared SFU Workspace reaches the listing through the Friend relationship
+// instead of the owner index, and its retirement marks the record pending
+// deletion. That Workspace must drop out of the listing rather than fail the
+// caller's own Collection.
 func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
@@ -71,13 +71,10 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	workspaceStore := kv.Prefixed(store, kv.Key{"workspaces"})
 	workflows := &workflow.Server{Store: kv.Prefixed(store, kv.Key{"workflows"})}
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
-	if _, err := workflows.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{
-		Body: &adminhttp.WorkflowUpsert{Id: "chatroom-workflow", Spec: apitypes.WorkflowSpec{
-			Driver:   apitypes.WorkflowDriverChatroom,
-			Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
-		}},
-	}); err != nil {
-		t.Fatalf("create Chatroom Workflow: %v", err)
+	// The shared Workspace binds the built-in system-sfu Workflow, which every
+	// Server materializes at startup.
+	if err := workflows.EnsureBuiltinWorkflows(ctx); err != nil {
+		t.Fatalf("materialize built-in Workflows: %v", err)
 	}
 	workspaces := &workspace.Server{Store: workspaceStore, Workflows: workflows}
 	friendStore := kv.NewMemory(nil)
@@ -85,11 +82,7 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	friends := &friend.Server{
 		Friends:    friendStore,
 		Workspaces: workspaces,
-		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: "chatroom-workflow"},
-			}}}, nil
-		},
+		SFUURL:     "wss://sfu.test",
 	}
 	caller := giznet.PublicKey{1}
 	peer := giznet.PublicKey{2}
@@ -104,7 +97,6 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	}
 
 	profile := runtimeProfileWithWorkspaceAlias("r1")
-	profile.Spec.Workflows.System.FriendChatroom = "chatroom-workflow"
 	server := &Server{
 		Caller:     caller,
 		Workspaces: workspaces,
@@ -122,7 +114,7 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	}
 
 	if _, err := workspaces.RetireSystemWorkspaceByID(
-		ctx, shared.Id, apitypes.ChatRoomModeDirect, socialutil.RelationID(caller.String(), peer.String()),
+		ctx, shared.Id, socialutil.SFUWorkspaceKindFriend, socialutil.RelationID(caller.String(), peer.String()),
 	); err != nil {
 		t.Fatalf("retire shared Workspace: %v", err)
 	}

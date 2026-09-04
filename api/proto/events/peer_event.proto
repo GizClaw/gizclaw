@@ -27,8 +27,6 @@ enum StreamKind {
 enum WorkspaceKind {
   WORKSPACE_KIND_UNSPECIFIED = 0;
   WORKSPACE_KIND_WORKFLOW = 1;
-  WORKSPACE_KIND_DIRECT_CHATROOM = 2;
-  WORKSPACE_KIND_GROUP_CHATROOM = 3;
 }
 
 enum FriendRelationshipChange {

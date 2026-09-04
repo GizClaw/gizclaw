@@ -27,13 +27,12 @@ Client / Device Peer connection 生命周期内必须恰好保持一条。实时
 `kind` 的含义由选中的 payload 决定：
 
 - `bos` / `eos` 使用 `StreamKind`：`TEXT`、`AUDIO`、`VIDEO` 或 `MIXED`。
-- `workspace_history_updated.workspace_kind` 使用 `WorkspaceKind`：
-  `WORKFLOW`、`DIRECT_CHATROOM` 或 `GROUP_CHATROOM`。
+- `workspace_history_updated.workspace_kind` 使用 `WorkspaceKind`，当前只有 `WORKFLOW`。
 - 好友与群组事件分别使用自己的 `change` enum，不复用媒体 `kind`。
 
-Direct Chatroom 与 Group Chatroom 共用 Chatroom Workflow driver，但它们的成员
-拓扑和授权不同，因此通过 Workspace parameters 和 `WorkspaceKind` 明确区分，
-不拆成两个 Agent driver。
+`workspace_history_updated` 只发送给 Workflow Workspace 的 owner。Friend 与 Friend
+Group 的 SFU Workspace 没有 History，不会产生该 Event；它们的成员关系变化通过
+`friend_relationship_updated` 与 `friend_group_updated` 通知。
 
 ## Connection ownership and delivery
 
@@ -117,15 +116,16 @@ Workspace runtime 替换会使已准入的 user audio route 失效。Server 先�
 BOS-before-RTP gate 丢弃；Event 写入失败则表示必需 transport 已不健康，reload 不得
 报告成功。
 
-Chatroom 在每轮输入前检查权威访问权。已撤权的 active Chatroom 不自动切换
-Workspace，也不生成拒绝文本或音频，而是返回同一 `stream_id` 的 EOS error：
+Friend 与 Friend Group 的 SFU Workspace 只在当前 active runtime 是已 attach 的 SFU
+runtime、且该连接上的 Workspace 未被撤权时准入输入 BOS 与 Opus packet。被拒绝的输入
+不自动切换 Workspace，也不生成拒绝文本或音频，而是返回同一 `stream_id` 的 EOS error；
+撤权后 Server 还会主动用同一错误结束当前已准入的 audio route，并丢弃后续 packet：
 
 | `code` | 含义 | `retryable` |
 | --- | --- | ---: |
-| `CHATROOM_FRIEND_REMOVED` | Direct Chat 好友关系已不存在。 | false |
-| `CHATROOM_MEMBER_REMOVED` | Peer 已不是现有群组成员。 | false |
-| `CHATROOM_GROUP_DELETED` | 群组已删除或正在删除。 | false |
-| `CHATROOM_ACCESS_CHECK_FAILED` | 权威访问查询失败或状态不一致。 | true |
+| `SFU_ACCESS_REVOKED` | Peer 已不是该 Workspace 绑定的 Friend 关系或 Friend Group 成员。 | false |
+| `SFU_ACCESS_CHECK_FAILED` | 权威 membership 查询失败；Server fail closed。 | true |
+| `SFU_RUNTIME_NOT_ATTACHED` | 所选 Workspace 的 SFU runtime 尚未 attach，媒体没有可进入的 Room。 | true |
 
 Client 应按 `code` 本地化显示，并结束对应的 loading/recording 状态；不能导航到
 其他页面或自动选择默认 Workspace。未知 code 使用安全 fallback 或通用错误。

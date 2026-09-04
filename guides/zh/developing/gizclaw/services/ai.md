@@ -52,7 +52,7 @@ Server 配置只为 ProviderTenants 指定一个根 Store；generic、MiniMax、
 
 ### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
 
-拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 Flowcraft、Chatroom、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
+拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 Flowcraft、SFU、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
@@ -82,9 +82,21 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 #### Pet 组合边界
 
-`pet` driver 只作为 GizClaw 的领域 wrapper 保留。它在每个 turn 解析 Workspace 对应的 Pet、PetDef 与当前 Gameplay，并把瞬态 `tmp_*` Board input 提供给嵌套 Workflow。`spec.pet` 与普通非 Pet Workflow 使用相同的 reusable driver 加对应 payload 结构，也包含三个新增 driver，但不能递归选择 `pet`。
+`pet` driver 只作为 GizClaw 的领域 wrapper 保留。它在每个 turn 解析 Workspace 对应的 Pet、PetDef 与当前 Gameplay，并把瞬态 `tmp_*` Board input 提供给嵌套 Workflow。`spec.pet` 与普通非 Pet Workflow 使用相同的 reusable driver 加对应 payload 结构，但不能递归选择 `pet`，也不能选择 `sfu`。
 
 内层 driver 拥有 Graph、conversation、model、voice 与 toolkit 配置，并通过普通注册 factory 构造。Pet Workspace 的 typed `input` 可以选择 `push-to-talk` 或 `realtime`；wrapper 只把该字段转换给支持输入模式的内层 driver，省略时保持兼容并默认使用 `push-to-talk`。Memory 只允许在外层 Workflow 配置一份；Pet 内层禁止 `memory` 或第二份 driver 选择，并接收外层已经解析的同一个 Store binding。所有符号引用都从 system Workspace owner RuntimeProfile snapshot 解析。
+
+#### SFU 组合边界
+
+`sfu` 是 provider-neutral 的 SFU Workspace driver，LiveKit 是它的第一种 connector 实现（`workflow/agents/sfu`）。它只服务 Friend 与 Friend Group 的内置 `system-sfu` Workflow：payload 为空对象，Workspace `parameters` 固定为 null，不解析 RuntimeProfile alias，也不接入 History、Memory、Tool 或 ASR。资源模型、binding、激活与撤权流程由 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace) 拥有。
+
+Factory 持有 Server 级 `services.sfu` credential 与 `BindingResolver`。每个 Workspace 在一台 Server 上只构造一个共享 Agent；每次 Transform 把调用 Peer 作为一个 LiveKit participant attach 到 Room，participant identity 就是 Peer public key，attach 的生命周期由 Transform context 拥有。attach 前先通过 `BindingResolver` 校验权威 membership，`ErrNotMember`、`ErrRevoked`、`ErrNotBound` 都 fail closed；连接失败作为 reload failure 返回。
+
+上行：GenX `audio/opus` chunk 携带裸 Opus frame，session 按帧写入本地 48 kHz Opus track，不解码也不重新编码。session 把上行切成 talk utterance（第一个有声帧打开，Device EOS 或 `talk_hangover` 关闭），并在 Room 的 reliable data channel 上以 topic `gizclaw.sfu.talk` 发布 BOS/EOS；Device 的 BOS/EOS 不创建或销毁 Room，也不断开 participant。
+
+下行：session 按 data channel 上的远端 utterance 维护 floor，同一时刻只转发一位持有者的 Opus packet（经 RTP 重排缓冲），其他 participant 的 packet 丢弃并计数；本 Peer 发言期间不转发任何下行（半双工）。转发的 packet 以 `agenthost.OpusPassthroughMIME`（`audio/opus; passthrough=1`）标记，每次 floor 持有使用新的 `stream_id`，`label` 为 participant identity；`MixerOutput` 不解码它们，`PeerConn` 直接把 payload 写入 Device 的 Opus Track。floor 在持有者 EOS、`floor_idle` 无有声 packet、Track mute/unsubscribe、participant 离开或本 Peer 开始发言时释放，由最早仍打开的远端 utterance 接手；这些事件只关闭对应 route，不结束整个 Workspace output。规则细节见 [services/social](/zh/developing/gizclaw/services/social#媒体与下行)。
+
+生命周期：网络错误或 SFU 重启触发指数退避重连，超过 `reconnect_timeout` 则以错误终止；重连期间丢弃上行帧、释放 floor 并忘记远端 utterance（重连后由下一次 BOS 重新学习）。LiveKit 因同一 identity 从其他 Server 加入而断开（`DuplicateIdentity`）视为正常终止，不重连。session 按 `recheck_interval` 周期重读 binding，generation 变化、成员失效或 resolver 出错时以 `ErrRevoked` 立即停止转发。Transform context 取消（Workspace 切换、Peer 断开、撤权、Server shutdown）走同一条 teardown：停止消费 GenX input、停止写入 Track、关闭远端 reader、断开 participant、关闭输出 Stream。
 
 ### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
 
@@ -92,13 +104,13 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 Workspace 配置显式指定一个 resource Store、一个 mutable History LogStore、一个 History asset ObjectStore 与一个通用 asset ObjectStore；Workflow lookup 由 Workflow Service 组合提供，不再通过 `services.workspace` 重复配置 Workflow Store。History 的文本和结构化 metadata 写入 `services.workspace.history_store`，音频等二进制 replay asset 只写入 `services.workspace.history_assets_store`，History record 按 name 保存引用。两个 History Store 各自独立声明相同的正数 `ttl`（随仓配置使用 `720h`），启动时会拒绝缺失或不相等的值。过期行为由各自 driver 在 Store 初始化与写入时应用，Workspace 不再计算逐 record 或逐 object deadline。
 
-Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Chatroom 或 Pet system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels、toolkit 或其他 driver 参数的变化都会被拒绝。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record；Peer owner 索引列举则跳过该记录，一条未完成的异步删除不会让整次列举失败。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
+Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 Pet system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels、toolkit 或其他 driver 参数的变化都会被拒绝。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record；Peer owner 索引列举则跳过该记录，一条未完成的异步删除不会让整次列举失败。Production handler quiesce runtime，删除 exact Gameplay/History/runtime/icon/object/filesystem artifact，验证 absent 后原子删除 Workspace、index 与 mutable task state。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social 或 Gameplay service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
 
 后台 consumer 通过 `GetAvailableWorkspaceByID` 解析 retained Workspace；该入口会保留准确的 Workspace 或 owner `PendingDeletion` typed error，不会把 Admin projection 当作可运行状态。物理清理删除规范 Workspace record 后，同一入口返回 Workspace domain 拥有的 deleted 终态，不泄漏原始 Store not-found。Runtime 与后台 Memory resolution 都经过这个 availability gate；Admin get/list 则有意继续作为 retained row 的诊断视图。
 
 普通 Workspace 创建由 Peer 拥有。Admin `PUT` 只更新已有 Workspace；Admin apply 在修改任何 item 前拒绝 Workspace resource，包括嵌套在 `ResourceList` 中的情况。Peer RPC 与 OpenAI Conversation 创建共享 typed domain operation：从 RuntimeProfile 解析 Workflow alias，绑定 authenticated owner，准备 runtime，执行可选的发布前 initializer，并在失败时回滚。
 
-一个 OpenAI Conversation 一对一映射一个用户 Workspace。History 仍是唯一 transcript store；OpenAI item record 只保存稳定 ID、role/status/order 与准确 History correlation。Conversation metadata、item index、不可变 Response input snapshot 与 Response lifecycle record 共用 Workspace runtime prefix，因此会被普通 Workspace cleanup 一并移除。
+一个 OpenAI Conversation 一对一映射一个用户 Workspace；绑定 `sfu` driver Workspace 的文本执行会被明确拒绝，因为该 Workspace 没有可执行文本输入的 Agent。History 仍是唯一 transcript store；OpenAI item record 只保存稳定 ID、role/status/order 与准确 History correlation。Conversation metadata、item index、不可变 Response input snapshot 与 Response lifecycle record 共用 Workspace runtime prefix，因此会被普通 Workspace cleanup 一并移除。
 
 ## 依赖与边界
 

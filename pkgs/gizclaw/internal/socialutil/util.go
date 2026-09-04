@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -221,16 +220,6 @@ func DirectWorkspaceIncarnationName(relationID, incarnationID string) string {
 
 func GroupWorkspaceName(friendGroupID string) string {
 	return "social-group-" + shortHash(strings.TrimSpace(friendGroupID))
-}
-
-func ChatRoomWorkspaceParameters(mode apitypes.ChatRoomMode) *apitypes.WorkspaceParameters {
-	input := apitypes.WorkspaceInputModePushToTalk
-	var params apitypes.WorkspaceParameters
-	_ = params.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{
-		Input: &input,
-		Mode:  &mode,
-	})
-	return &params
 }
 
 func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRole {

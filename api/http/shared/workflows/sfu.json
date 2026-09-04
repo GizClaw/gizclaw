@@ -1,0 +1,19 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SFU Workflow Type",
+    "description": "SFUWorkflowSpec schema.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "SFUWorkflowSpec": {
+        "type": "object",
+        "description": "Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    }
+  }
+}

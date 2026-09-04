@@ -17,7 +17,7 @@
           "doubao-realtime-duplex",
           "eino",
           "ast-translate",
-          "chatroom",
+          "sfu",
           "pet"
         ]
       },
@@ -29,8 +29,7 @@
           "dashscope-realtime",
           "doubao-realtime-duplex",
           "eino",
-          "ast-translate",
-          "chatroom"
+          "ast-translate"
         ]
       },
       "WorkflowMemoryAlias": {
@@ -70,9 +69,6 @@
           },
           "ast_translate": {
             "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
-          },
-          "chatroom": {
-            "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
           }
         },
         "additionalProperties": false
@@ -185,31 +181,6 @@
         },
         "additionalProperties": false
       },
-      "ReusableChatroomWorkflowVariant": {
-        "type": "object",
-        "required": [
-          "driver",
-          "chatroom"
-        ],
-        "properties": {
-          "driver": {
-            "type": "string",
-            "enum": [
-              "chatroom"
-            ]
-          },
-          "toolkit": {
-            "$ref": "./toolkit_policy.json#/components/schemas/ToolkitPolicy"
-          },
-          "memory": {
-            "$ref": "#/components/schemas/WorkflowMemoryAlias"
-          },
-          "chatroom": {
-            "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
-          }
-        },
-        "additionalProperties": false
-      },
       "ReusableWorkflowSpec": {
         "description": "Reusable non-Pet Workflow union used directly and below the Pet domain wrapper.",
         "x-go-type": "ReusableWorkflowSpecObject",
@@ -231,9 +202,6 @@
           },
           {
             "$ref": "#/components/schemas/ReusableASTTranslateWorkflowVariant"
-          },
-          {
-            "$ref": "#/components/schemas/ReusableChatroomWorkflowVariant"
           }
         ],
         "discriminator": {
@@ -244,8 +212,7 @@
             "dashscope-realtime": "#/components/schemas/ReusableDashScopeRealtimeWorkflowVariant",
             "doubao-realtime-duplex": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant",
             "eino": "#/components/schemas/ReusableEinoWorkflowVariant",
-            "ast-translate": "#/components/schemas/ReusableASTTranslateWorkflowVariant",
-            "chatroom": "#/components/schemas/ReusableChatroomWorkflowVariant"
+            "ast-translate": "#/components/schemas/ReusableASTTranslateWorkflowVariant"
           }
         }
       },
@@ -282,11 +249,30 @@
           "ast_translate": {
             "$ref": "./workflows/ast_translate.json#/components/schemas/ASTTranslateWorkflowSpec"
           },
-          "chatroom": {
-            "$ref": "./workflows/chatroom.json#/components/schemas/ChatRoomWorkflowSpec"
+          "sfu": {
+            "$ref": "./workflows/sfu.json#/components/schemas/SFUWorkflowSpec"
           },
           "pet": {
             "$ref": "./workflows/pet.json#/components/schemas/PetWorkflowSpec"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SFUWorkflowVariant": {
+        "type": "object",
+        "required": [
+          "driver",
+          "sfu"
+        ],
+        "properties": {
+          "driver": {
+            "type": "string",
+            "enum": [
+              "sfu"
+            ]
+          },
+          "sfu": {
+            "$ref": "./workflows/sfu.json#/components/schemas/SFUWorkflowSpec"
           }
         },
         "additionalProperties": false
@@ -339,7 +325,7 @@
             "$ref": "#/components/schemas/ReusableASTTranslateWorkflowVariant"
           },
           {
-            "$ref": "#/components/schemas/ReusableChatroomWorkflowVariant"
+            "$ref": "#/components/schemas/SFUWorkflowVariant"
           },
           {
             "$ref": "#/components/schemas/PetWorkflowVariant"
@@ -354,7 +340,7 @@
             "doubao-realtime-duplex": "#/components/schemas/ReusableDoubaoRealtimeDuplexWorkflowVariant",
             "eino": "#/components/schemas/ReusableEinoWorkflowVariant",
             "ast-translate": "#/components/schemas/ReusableASTTranslateWorkflowVariant",
-            "chatroom": "#/components/schemas/ReusableChatroomWorkflowVariant",
+            "sfu": "#/components/schemas/SFUWorkflowVariant",
             "pet": "#/components/schemas/PetWorkflowVariant"
           }
         }

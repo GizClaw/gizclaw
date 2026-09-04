@@ -25,13 +25,6 @@ func TestWorkspaceRewardKindUsesAuthoritativeAgentType(t *testing.T) {
 		}
 		return &parameters
 	}
-	chatroomParametersWithoutMode := func() *apitypes.WorkspaceParameters {
-		var parameters apitypes.WorkspaceParameters
-		if err := parameters.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{}); err != nil {
-			t.Fatalf("FromChatRoomWorkspaceParameters() error = %v", err)
-		}
-		return &parameters
-	}
 	for name, item := range map[string]struct {
 		workspace apitypes.Workspace
 		want      gameplay.WorkspaceRewardKind
@@ -57,30 +50,9 @@ func TestWorkspaceRewardKindUsesAuthoritativeAgentType(t *testing.T) {
 			workspace: apitypes.Workspace{Name: "ast-s2s-a", Parameters: astTranslateParameters(apitypes.ASTTranslateModeS2s)},
 			want:      gameplay.WorkspaceRewardKindWorkflow,
 		},
-		"chatroom without mode": {
-			workspace: apitypes.Workspace{Name: "chatroom-a", Parameters: chatroomParametersWithoutMode()},
-			want:      gameplay.WorkspaceRewardKindWorkflow,
-		},
-		"direct chatroom": {
-			workspace: apitypes.Workspace{
-				Name:       "direct-a",
-				Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect),
-			},
-			want: gameplay.WorkspaceRewardKindDirectChatroom,
-		},
-		"group chatroom": {
-			workspace: apitypes.Workspace{
-				Name:       "group-a",
-				Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomModeGroup),
-			},
-			want: gameplay.WorkspaceRewardKindGroupChatroom,
-		},
-		"unsupported chatroom": {
-			workspace: apitypes.Workspace{
-				Name:       "unsupported-a",
-				Parameters: socialutil.ChatRoomWorkspaceParameters(apitypes.ChatRoomMode("unsupported")),
-			},
-			wantErr: `gizclaw: Workspace "unsupported-a" has unsupported Chatroom mode "unsupported"`,
+		"sfu workflow": {
+			workspace: apitypes.Workspace{Name: "social-a", WorkflowId: socialutil.SFUWorkflowID, System: new(true)},
+			wantErr:   `gizclaw: Workspace is not eligible for Workspace rewards: Workspace "social-a" uses the SFU Workflow`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

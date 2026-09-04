@@ -21,6 +21,26 @@ func TestVariablesPreserveTypedReferencesAndSingleAssignment(t *testing.T) {
 		t.Fatal("second assignment succeeded")
 	}
 }
+
+func TestEnvironmentAudioVariablesDecodeBase64(t *testing.T) {
+	t.Setenv("GIZTEST_TEST_AUDIO", "T2dnUw==")
+	v, err := NewVariables(map[string]VariableSpec{"tone": {Direction: "input", Type: "audio", Env: "GIZTEST_TEST_AUDIO", MaxBytes: 16}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := v.Resolve("${tone}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got.([]byte)) != "OggS" {
+		t.Fatalf("resolve = %#v, want decoded Ogg prefix", got)
+	}
+	t.Setenv("GIZTEST_TEST_AUDIO", "not base64!")
+	if _, err := NewVariables(map[string]VariableSpec{"tone": {Direction: "input", Type: "audio", Env: "GIZTEST_TEST_AUDIO"}}); err == nil {
+		t.Fatal("invalid base64 audio environment was accepted")
+	}
+}
+
 func TestGeneratedValuesAreIsolated(t *testing.T) {
 	spec := map[string]VariableSpec{"id": {Direction: "input", Type: "string", Generate: "uuid"}}
 	a, _ := NewVariables(spec)

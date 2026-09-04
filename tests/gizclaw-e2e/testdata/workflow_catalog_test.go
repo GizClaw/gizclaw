@@ -59,7 +59,6 @@ var workflowFixtureFiles = []string{
 	"00-ast-translate-tts.yaml",
 	"01-ast-translate-zh-jp.yaml",
 	"02-ast-translate.yaml",
-	"03-chatroom.yaml",
 	"04-doubao-realtime.yaml",
 	"05-flowcraft-basic.yaml",
 	"06-flowcraft-chat.yaml",
@@ -75,9 +74,7 @@ var workflowFixtureFiles = []string{
 	"17-eino-memory.yaml",
 	"18-flowcraft-configured-memory.yaml",
 	"19-flowcraft-realtime-chat.yaml",
-	"22-chatroom-direct.yaml",
 	"23-pet-care.yaml",
-	"30-family-circle-chatroom.yaml",
 }
 
 type workflowFixture struct {

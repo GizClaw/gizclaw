@@ -17,7 +17,7 @@ import (
 
 func TestSpeechTranscribeRejectsUntypedInputBeforeRPC(t *testing.T) {
 	step := giztest.Step{ID: "transcribe", Speech: &giztest.SpeechOperation{Method: "server.speech.transcribe"}}
-	_, err := invokeSpeech(context.Background(), nil, step, map[string]any{}, "not audio", giztest.VariableSpec{}, giztest.VariableSpec{})
+	_, err := invokeSpeech(context.Background(), nil, step, map[string]any{}, "not audio", giztest.VariableSpec{}, giztest.VariableSpec{}, false)
 	if err == nil || !strings.Contains(err.Error(), "audio bytes") {
 		t.Fatalf("error = %v", err)
 	}

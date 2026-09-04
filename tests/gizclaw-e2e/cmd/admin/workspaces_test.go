@@ -31,7 +31,7 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create admin API client: %v", err)
 	}
-	workflowName := "chatroom-direct"
+	workflowName := "flowcraft-chat-assistant"
 	profileID := fmt.Sprintf("e2e-cli-workspaces-%x", time.Now().UnixNano())
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id: profileID,
@@ -39,9 +39,7 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 			Resources: apitypes.RuntimeProfileResources{},
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: "chatroom-direct",
-					GroupChatroom:  "chatroom-direct",
-					Pet:            "pet-chatroom",
+					Pet: "pet-care",
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{
 					"assistants": {

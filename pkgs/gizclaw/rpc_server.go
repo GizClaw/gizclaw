@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -55,6 +56,12 @@ type rpcServerResourceService interface {
 
 type rpcRunWorkspaceSelectionValidator interface {
 	ValidateRunWorkspaceSelection(context.Context, string) (string, *rpcapi.RPCStatus)
+}
+
+// rpcRunWorkspaceSelectionResolver returns the canonical record behind a run
+// selection so the Server can tell whether the selection activates eagerly.
+type rpcRunWorkspaceSelectionResolver interface {
+	ResolveRunWorkspaceSelection(context.Context, string) (apitypes.Workspace, *rpcapi.RPCStatus)
 }
 
 type rpcServerGenXService interface {
@@ -117,8 +124,6 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		return true, s.handleWorkspaceIconDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerWorkspaceHistoryAudioDownload:
 		return true, s.handleWorkspaceHistoryAudioDownload(ctx, stream, req)
-	case rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload:
-		return true, s.handleFriendGroupMessageAudioDownload(ctx, stream, req)
 	case rpcapi.RPCMethodServerPeerDelete:
 		return true, s.handlePeerDelete(ctx, stream, req)
 	default:
@@ -286,9 +291,6 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersAdd,
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
-		rpcapi.RPCMethodServerFriendGroupMessagesList,
-		rpcapi.RPCMethodServerFriendGroupMessagesGet,
-		rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload,
 		rpcapi.RPCMethodServerBadgeDefPixaDownload:
 		return true
 	default:
@@ -414,13 +416,21 @@ func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 	if s.peerRun == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
-	selection, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
+	selection, workspace, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
 	if validationResp != nil {
 		return validationResp, nil
 	}
 	resp, err := s.setRunAgent(ctx, selection)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
+	}
+	if status, err := s.activateRunWorkspaceSelection(ctx, workspace); err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
+	} else if status != nil {
+		resp, err = s.peerRun.GetRunAgent(ctx, s.callerPublicKey)
+		if err != nil {
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
+		}
 	}
 	result, err := convertRPCType[rpcapi.ServerSetRunAgentResponse](resp)
 	if err != nil {
@@ -459,7 +469,7 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if s.peerRun == nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
-	selection, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
+	selection, workspace, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
 	if validationResp != nil {
 		return validationResp, nil
 	}
@@ -467,7 +477,19 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
-	state, resp := s.runWorkspaceState(ctx, req.Id, &agent, nil)
+	status, err := s.activateRunWorkspaceSelection(ctx, workspace)
+	if err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
+	}
+	var state apitypes.PeerRunWorkspaceState
+	var resp *rpcapi.RPCResponse
+	if status != nil {
+		// The selection is active now; re-read the run agent instead of
+		// reporting the pending state captured before activation.
+		state, resp = s.runWorkspaceState(ctx, req.Id, nil, status)
+	} else {
+		state, resp = s.runWorkspaceState(ctx, req.Id, &agent, nil)
+	}
 	if resp != nil {
 		return resp, nil
 	}
@@ -485,24 +507,64 @@ func (s *rpcServer) setRunAgent(ctx context.Context, selection apitypes.AgentSel
 	return s.peerRun.SetRunAgent(ctx, s.callerPublicKey, selection)
 }
 
-func (s *rpcServer) validateRunWorkspaceSelection(ctx context.Context, requestID string, selection apitypes.AgentSelection) (apitypes.AgentSelection, *rpcapi.RPCResponse) {
+// validateRunWorkspaceSelection canonicalizes the selected Workspace name.
+// When the resource service can resolve the record, it is returned as well so
+// the caller can decide on eager activation; otherwise the record is empty.
+func (s *rpcServer) validateRunWorkspaceSelection(ctx context.Context, requestID string, selection apitypes.AgentSelection) (apitypes.AgentSelection, apitypes.Workspace, *rpcapi.RPCResponse) {
 	workspaceName := strings.TrimSpace(selection.WorkspaceName)
 	if workspaceName == "" {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: "peerrun: workspace_name is required"}.RPCResponse()
+		return apitypes.AgentSelection{}, apitypes.Workspace{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: "peerrun: workspace_name is required"}.RPCResponse()
 	}
 	if workspaceName != selection.WorkspaceName {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: "peerrun: workspace_name must not have surrounding whitespace"}.RPCResponse()
+		return apitypes.AgentSelection{}, apitypes.Workspace{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: "peerrun: workspace_name must not have surrounding whitespace"}.RPCResponse()
+	}
+	if resolver, ok := s.serverResources.(rpcRunWorkspaceSelectionResolver); ok {
+		workspace, rpcErr := resolver.ResolveRunWorkspaceSelection(ctx, selection.WorkspaceName)
+		if rpcErr != nil {
+			return apitypes.AgentSelection{}, apitypes.Workspace{}, rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
+		}
+		selection.WorkspaceName = workspace.Name
+		return selection, workspace, nil
 	}
 	validator, ok := s.serverResources.(rpcRunWorkspaceSelectionValidator)
 	if !ok {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "run workspace selection validator not configured"}.RPCResponse()
+		return apitypes.AgentSelection{}, apitypes.Workspace{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "run workspace selection validator not configured"}.RPCResponse()
 	}
 	canonicalName, rpcErr := validator.ValidateRunWorkspaceSelection(ctx, selection.WorkspaceName)
 	if rpcErr != nil {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
+		return apitypes.AgentSelection{}, apitypes.Workspace{}, rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	}
 	selection.WorkspaceName = canonicalName
-	return selection, nil
+	return selection, apitypes.Workspace{}, nil
+}
+
+// activateRunWorkspaceSelection joins the SFU Room right after an SFU
+// Workspace is selected, so a Peer that only listens hears the Room without
+// pushing input or reloading. Workflow Workspaces keep their lazy activation.
+// Selecting the Workspace the runtime already runs is idempotent: the
+// participant is neither reconnected nor duplicated. The returned status is
+// nil when nothing was activated.
+func (s *rpcServer) activateRunWorkspaceSelection(ctx context.Context, workspace apitypes.Workspace) (*apitypes.PeerRunStatus, error) {
+	if s.peerRunRuntime == nil || strings.TrimSpace(workspace.WorkflowId) != socialutil.SFUWorkflowID {
+		return nil, nil
+	}
+	status, err := s.peerRunRuntime.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	current := ""
+	if status.WorkspaceName != nil {
+		current = strings.TrimSpace(*status.WorkspaceName)
+	}
+	if current == workspace.Name &&
+		(status.State == apitypes.PeerRunStatusStateRunning || status.State == apitypes.PeerRunStatusStateStarting) {
+		return nil, nil
+	}
+	status, err = s.peerRunRuntime.Reload(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &status, nil
 }
 
 func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

@@ -42,24 +42,6 @@ PB_BIND(gizclaw_rpc_v1_ASTTranslateWorkflowSpec, gizclaw_rpc_v1_ASTTranslateWork
 PB_BIND(gizclaw_rpc_v1_ASTTranslateWorkspaceParameters, gizclaw_rpc_v1_ASTTranslateWorkspaceParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec, gizclaw_rpc_v1_ChatRoomWorkflowHistorySpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ChatRoomWorkflowSpec, gizclaw_rpc_v1_ChatRoomWorkflowSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec, gizclaw_rpc_v1_ChatRoomWorkflowTranscriptSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters, gizclaw_rpc_v1_ChatRoomWorkspaceHistoryParameters, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceParameters, gizclaw_rpc_v1_ChatRoomWorkspaceParameters, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, gizclaw_rpc_v1_ChatRoomWorkspaceTranscriptParameters, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, gizclaw_rpc_v1_DashScopeRealtimeWorkflowSpec, AUTO)
 
 

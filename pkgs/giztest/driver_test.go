@@ -17,6 +17,9 @@ type stubDriver struct {
 	execute func(ctx context.Context, req StepRequest) (StepResult, error)
 	// closeStreamsErr fails the between-steps stream close.
 	closeStreamsErr error
+	// prepareParallel, when set, makes the session a ParallelSession whose
+	// prepare phase is this function.
+	prepareParallel func(req StepRequest) (ParallelChild, error)
 
 	// operations overrides the driver's supported set; nil means all of them.
 	operations []string
@@ -30,7 +33,7 @@ func (d *stubDriver) Operations() []string {
 	if d.operations != nil {
 		return d.operations
 	}
-	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "workspace_relay"}
+	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "workspace_relay", "parallel"}
 }
 
 func (d *stubDriver) ValidateStep(*Document, Step) error { return nil }
@@ -38,6 +41,9 @@ func (d *stubDriver) ValidateStep(*Document, Step) error { return nil }
 func (d *stubDriver) Open(context.Context, *Document, *Variables) (Session, error) {
 	if d.openErr != nil {
 		return nil, d.openErr
+	}
+	if d.prepareParallel != nil {
+		return &stubParallelSession{stubSession{driver: d}}, nil
 	}
 	return &stubSession{driver: d}, nil
 }
@@ -82,3 +88,15 @@ func (s *stubSession) Close() {
 	defer s.driver.mu.Unlock()
 	s.driver.closed++
 }
+
+// stubParallelSession is a stubSession that can also run steps concurrently.
+type stubParallelSession struct{ stubSession }
+
+func (s *stubParallelSession) PrepareParallel(req StepRequest) (ParallelChild, error) {
+	return s.driver.prepareParallel(req)
+}
+
+// parallelRun is the run phase a stub prepare returns.
+type parallelRun func(ctx context.Context) (StepResult, error)
+
+func (r parallelRun) Run(ctx context.Context) (StepResult, error) { return r(ctx) }

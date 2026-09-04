@@ -51,6 +51,12 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 
 	nested := *spec.Workflow.Spec.Pet
 	driver := strings.TrimSpace(string(nested.Driver))
+	// Only the reusable driver whitelist may run under a Pet. Drivers that are
+	// registered with AgentHost but excluded from the enum (for example the
+	// membership-scoped SFU driver) must not be reachable through nesting.
+	if !apitypes.ReusableWorkflowDriver(driver).Valid() {
+		return nil, fmt.Errorf("pet: nested workflow driver %q is not allowed", driver)
+	}
 	factory, ok := f.Factories.Get(driver)
 	if !ok {
 		return nil, fmt.Errorf("pet: nested workflow factory not found for %q", driver)
@@ -64,7 +70,6 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		DoubaoRealtimeDuplex: nested.DoubaoRealtimeDuplex,
 		Eino:                 nested.Eino,
 		AstTranslate:         nested.AstTranslate,
-		Chatroom:             nested.Chatroom,
 	}
 	spec.AgentType = driver
 	nestedParameters, err := nestedWorkspaceParameters(spec.Workspace.Parameters, nested.Driver)
@@ -121,8 +126,6 @@ func nestedWorkspaceParameters(parameters *apitypes.WorkspaceParameters, driver 
 		err = nested.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{Input: &input})
 	case apitypes.ReusableWorkflowDriverAstTranslate:
 		err = nested.FromASTTranslateWorkspaceParameters(apitypes.ASTTranslateWorkspaceParameters{Input: &input})
-	case apitypes.ReusableWorkflowDriverChatroom:
-		err = nested.FromChatRoomWorkspaceParameters(apitypes.ChatRoomWorkspaceParameters{Input: &input})
 	default:
 		return nil, fmt.Errorf("pet: nested workflow driver %q does not support workspace input switching", driver)
 	}

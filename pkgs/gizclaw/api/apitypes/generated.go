@@ -85,39 +85,6 @@ func (e BadgeDefResourceKind) Valid() bool {
 	}
 }
 
-// Defines values for ChatRoomMode.
-const (
-	ChatRoomModeDirect ChatRoomMode = "direct"
-	ChatRoomModeGroup  ChatRoomMode = "group"
-)
-
-// Valid indicates whether the value is a known member of the ChatRoomMode enum.
-func (e ChatRoomMode) Valid() bool {
-	switch e {
-	case ChatRoomModeDirect:
-		return true
-	case ChatRoomModeGroup:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ChatRoomWorkspaceParametersAgentType.
-const (
-	ChatRoomWorkspaceParametersAgentTypeChatroom ChatRoomWorkspaceParametersAgentType = "chatroom"
-)
-
-// Valid indicates whether the value is a known member of the ChatRoomWorkspaceParametersAgentType enum.
-func (e ChatRoomWorkspaceParametersAgentType) Valid() bool {
-	switch e {
-	case ChatRoomWorkspaceParametersAgentTypeChatroom:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ClientRPCToolSpecType.
 const (
 	ClientRPCToolSpecTypeClientRpc ClientRPCToolSpecType = "client_rpc"
@@ -2323,21 +2290,6 @@ func (e ReusableASTTranslateWorkflowVariantDriver) Valid() bool {
 	}
 }
 
-// Defines values for ReusableChatroomWorkflowVariantDriver.
-const (
-	ReusableChatroomWorkflowVariantDriverChatroom ReusableChatroomWorkflowVariantDriver = "chatroom"
-)
-
-// Valid indicates whether the value is a known member of the ReusableChatroomWorkflowVariantDriver enum.
-func (e ReusableChatroomWorkflowVariantDriver) Valid() bool {
-	switch e {
-	case ReusableChatroomWorkflowVariantDriverChatroom:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ReusableDashScopeRealtimeWorkflowVariantDriver.
 const (
 	ReusableDashScopeRealtimeWorkflowVariantDriverDashscopeRealtime ReusableDashScopeRealtimeWorkflowVariantDriver = "dashscope-realtime"
@@ -2416,7 +2368,6 @@ func (e ReusableFlowcraftWorkflowVariantDriver) Valid() bool {
 // Defines values for ReusableWorkflowDriver.
 const (
 	ReusableWorkflowDriverAstTranslate         ReusableWorkflowDriver = "ast-translate"
-	ReusableWorkflowDriverChatroom             ReusableWorkflowDriver = "chatroom"
 	ReusableWorkflowDriverDashscopeRealtime    ReusableWorkflowDriver = "dashscope-realtime"
 	ReusableWorkflowDriverDoubaoRealtime       ReusableWorkflowDriver = "doubao-realtime"
 	ReusableWorkflowDriverDoubaoRealtimeDuplex ReusableWorkflowDriver = "doubao-realtime-duplex"
@@ -2428,8 +2379,6 @@ const (
 func (e ReusableWorkflowDriver) Valid() bool {
 	switch e {
 	case ReusableWorkflowDriverAstTranslate:
-		return true
-	case ReusableWorkflowDriverChatroom:
 		return true
 	case ReusableWorkflowDriverDashscopeRealtime:
 		return true
@@ -2574,19 +2523,28 @@ func (e RuntimeProfileVolcMem0ConnectionType) Valid() bool {
 
 // Defines values for RuntimeProfileWorkspaceRewardSpecWorkspaceKinds.
 const (
-	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "direct_chatroom"
-	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsGroupChatroom  RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "group_chatroom"
-	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow       RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "workflow"
+	RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow RuntimeProfileWorkspaceRewardSpecWorkspaceKinds = "workflow"
 )
 
 // Valid indicates whether the value is a known member of the RuntimeProfileWorkspaceRewardSpecWorkspaceKinds enum.
 func (e RuntimeProfileWorkspaceRewardSpecWorkspaceKinds) Valid() bool {
 	switch e {
-	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom:
-		return true
-	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsGroupChatroom:
-		return true
 	case RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SFUWorkflowVariantDriver.
+const (
+	SFUWorkflowVariantDriverSfu SFUWorkflowVariantDriver = "sfu"
+)
+
+// Valid indicates whether the value is a known member of the SFUWorkflowVariantDriver enum.
+func (e SFUWorkflowVariantDriver) Valid() bool {
+	switch e {
+	case SFUWorkflowVariantDriverSfu:
 		return true
 	default:
 		return false
@@ -2911,21 +2869,19 @@ func (e VolcTenantResourceKind) Valid() bool {
 // Defines values for WorkflowDriver.
 const (
 	WorkflowDriverAstTranslate         WorkflowDriver = "ast-translate"
-	WorkflowDriverChatroom             WorkflowDriver = "chatroom"
 	WorkflowDriverDashscopeRealtime    WorkflowDriver = "dashscope-realtime"
 	WorkflowDriverDoubaoRealtime       WorkflowDriver = "doubao-realtime"
 	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
 	WorkflowDriverEino                 WorkflowDriver = "eino"
 	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
 	WorkflowDriverPet                  WorkflowDriver = "pet"
+	WorkflowDriverSfu                  WorkflowDriver = "sfu"
 )
 
 // Valid indicates whether the value is a known member of the WorkflowDriver enum.
 func (e WorkflowDriver) Valid() bool {
 	switch e {
 	case WorkflowDriverAstTranslate:
-		return true
-	case WorkflowDriverChatroom:
 		return true
 	case WorkflowDriverDashscopeRealtime:
 		return true
@@ -2938,6 +2894,8 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverFlowcraft:
 		return true
 	case WorkflowDriverPet:
+		return true
+	case WorkflowDriverSfu:
 		return true
 	default:
 		return false
@@ -3137,57 +3095,6 @@ type BadgeListResponse struct {
 	HasNext    bool    `json:"has_next"`
 	Items      []Badge `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
-}
-
-// ChatRoomMode defines model for ChatRoomMode.
-type ChatRoomMode string
-
-// ChatRoomWorkflowHistorySpec defines model for ChatRoomWorkflowHistorySpec.
-type ChatRoomWorkflowHistorySpec struct {
-	// Ttl Unified retention duration for chat history entries and their assets.
-	Ttl *string `json:"ttl,omitempty"`
-}
-
-// ChatRoomWorkflowSpec defines model for ChatRoomWorkflowSpec.
-type ChatRoomWorkflowSpec struct {
-	History    ChatRoomWorkflowHistorySpec     `json:"history"`
-	Transcript *ChatRoomWorkflowTranscriptSpec `json:"transcript,omitempty"`
-}
-
-// ChatRoomWorkflowTranscriptSpec defines model for ChatRoomWorkflowTranscriptSpec.
-type ChatRoomWorkflowTranscriptSpec struct {
-	// AsrModel RuntimeProfile ASR Model alias resolved when the Workspace reloads.
-	AsrModel *string `json:"asr_model,omitempty"`
-
-	// Enabled Whether gear audio should be transcribed and written as text in workspace history.
-	Enabled *bool `json:"enabled,omitempty"`
-}
-
-// ChatRoomWorkspaceHistoryParameters defines model for ChatRoomWorkspaceHistoryParameters.
-type ChatRoomWorkspaceHistoryParameters struct {
-	// Ttl Workspace-level retention override for chat history entries and their assets.
-	Ttl *string `json:"ttl,omitempty"`
-}
-
-// ChatRoomWorkspaceParameters defines model for ChatRoomWorkspaceParameters.
-type ChatRoomWorkspaceParameters struct {
-	AgentType  ChatRoomWorkspaceParametersAgentType   `json:"agent_type"`
-	History    *ChatRoomWorkspaceHistoryParameters    `json:"history,omitempty"`
-	Input      *WorkspaceInputMode                    `json:"input,omitempty"`
-	Mode       *ChatRoomMode                          `json:"mode,omitempty"`
-	Transcript *ChatRoomWorkspaceTranscriptParameters `json:"transcript,omitempty"`
-}
-
-// ChatRoomWorkspaceParametersAgentType defines model for ChatRoomWorkspaceParameters.AgentType.
-type ChatRoomWorkspaceParametersAgentType string
-
-// ChatRoomWorkspaceTranscriptParameters defines model for ChatRoomWorkspaceTranscriptParameters.
-type ChatRoomWorkspaceTranscriptParameters struct {
-	// AsrModel Workspace-level ASR model override for gear audio transcription.
-	AsrModel *string `json:"asr_model,omitempty"`
-
-	// Enabled Whether gear audio should be transcribed and written as text in workspace history.
-	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // ClientRPCToolSpec defines model for ClientRPCToolSpec.
@@ -5646,21 +5553,6 @@ type ReusableASTTranslateWorkflowVariant struct {
 // ReusableASTTranslateWorkflowVariantDriver defines model for ReusableASTTranslateWorkflowVariant.Driver.
 type ReusableASTTranslateWorkflowVariantDriver string
 
-// ReusableChatroomWorkflowVariant defines model for ReusableChatroomWorkflowVariant.
-type ReusableChatroomWorkflowVariant struct {
-	Chatroom ChatRoomWorkflowSpec                  `json:"chatroom"`
-	Driver   ReusableChatroomWorkflowVariantDriver `json:"driver"`
-
-	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
-	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
-
-	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
-	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
-}
-
-// ReusableChatroomWorkflowVariantDriver defines model for ReusableChatroomWorkflowVariant.Driver.
-type ReusableChatroomWorkflowVariantDriver string
-
 // ReusableDashScopeRealtimeWorkflowVariant defines model for ReusableDashScopeRealtimeWorkflowVariant.
 type ReusableDashScopeRealtimeWorkflowVariant struct {
 	DashscopeRealtime DashScopeRealtimeWorkflowSpec                  `json:"dashscope_realtime"`
@@ -5745,7 +5637,6 @@ type ReusableWorkflowSpec = ReusableWorkflowSpecObject
 // ReusableWorkflowSpecObject defines model for ReusableWorkflowSpecObject.
 type ReusableWorkflowSpecObject struct {
 	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
-	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
 	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
 	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
@@ -6017,12 +5908,6 @@ type RuntimeProfileSpec struct {
 
 // RuntimeProfileSystemWorkflows defines model for RuntimeProfileSystemWorkflows.
 type RuntimeProfileSystemWorkflows struct {
-	// FriendChatroom Persisted Workflow resource ID for direct friend chat Workspaces.
-	FriendChatroom string `json:"friend_chatroom"`
-
-	// GroupChatroom Persisted Workflow resource ID for friend-group chat Workspaces.
-	GroupChatroom string `json:"group_chatroom"`
-
 	// Pet Persisted Workflow resource ID for adopted Pet Workspaces.
 	Pet string `json:"pet"`
 }
@@ -6108,6 +5993,20 @@ type RuntimeProfileWorkspaceRewardTranscriptSpec struct {
 	MaxEntries   int64 `json:"max_entries"`
 	MaxTextBytes int64 `json:"max_text_bytes"`
 }
+
+// SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+type SFUWorkflowSpec = map[string]interface{}
+
+// SFUWorkflowVariant defines model for SFUWorkflowVariant.
+type SFUWorkflowVariant struct {
+	Driver SFUWorkflowVariantDriver `json:"driver"`
+
+	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+	Sfu SFUWorkflowSpec `json:"sfu"`
+}
+
+// SFUWorkflowVariantDriver defines model for SFUWorkflowVariant.Driver.
+type SFUWorkflowVariantDriver string
 
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {
@@ -6554,7 +6453,6 @@ type WorkflowSpec = WorkflowSpecObject
 // WorkflowSpecObject defines model for WorkflowSpecObject.
 type WorkflowSpecObject struct {
 	AstTranslate         *ASTTranslateWorkflowSpec         `json:"ast_translate,omitempty"`
-	Chatroom             *ChatRoomWorkflowSpec             `json:"chatroom,omitempty"`
 	DashscopeRealtime    *DashScopeRealtimeWorkflowSpec    `json:"dashscope_realtime,omitempty"`
 	DoubaoRealtime       *DoubaoRealtimeWorkflowSpec       `json:"doubao_realtime,omitempty"`
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
@@ -6565,6 +6463,9 @@ type WorkflowSpecObject struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 	Pet    *PetWorkflowSpec     `json:"pet,omitempty"`
+
+	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
+	Sfu *SFUWorkflowSpec `json:"sfu,omitempty"`
 
 	// Toolkit Policy that controls which Toolkit tools are exposed to an agent runtime. Omit tool_ids to inherit the broader policy; set an empty list to expose no tools.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
@@ -10580,34 +10481,6 @@ func (t *WorkspaceParameters) MergeASTTranslateWorkspaceParameters(v ASTTranslat
 	return err
 }
 
-// AsChatRoomWorkspaceParameters returns the union data inside the WorkspaceParameters as a ChatRoomWorkspaceParameters
-func (t WorkspaceParameters) AsChatRoomWorkspaceParameters() (ChatRoomWorkspaceParameters, error) {
-	var body ChatRoomWorkspaceParameters
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromChatRoomWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided ChatRoomWorkspaceParameters
-func (t *WorkspaceParameters) FromChatRoomWorkspaceParameters(v ChatRoomWorkspaceParameters) error {
-	v.AgentType = "chatroom"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeChatRoomWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided ChatRoomWorkspaceParameters
-func (t *WorkspaceParameters) MergeChatRoomWorkspaceParameters(v ChatRoomWorkspaceParameters) error {
-	v.AgentType = "chatroom"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsPetWorkspaceParameters returns the union data inside the WorkspaceParameters as a PetWorkspaceParameters
 func (t WorkspaceParameters) AsPetWorkspaceParameters() (PetWorkspaceParameters, error) {
 	var body PetWorkspaceParameters
@@ -10652,8 +10525,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "ast-translate":
 		return t.AsASTTranslateWorkspaceParameters()
-	case "chatroom":
-		return t.AsChatRoomWorkspaceParameters()
 	case "dashscope-realtime":
 		return t.AsDashScopeRealtimeWorkspaceParameters()
 	case "doubao-realtime":

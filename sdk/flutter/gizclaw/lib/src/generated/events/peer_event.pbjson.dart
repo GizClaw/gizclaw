@@ -65,16 +65,13 @@ const WorkspaceKind$json = {
   '2': [
     {'1': 'WORKSPACE_KIND_UNSPECIFIED', '2': 0},
     {'1': 'WORKSPACE_KIND_WORKFLOW', '2': 1},
-    {'1': 'WORKSPACE_KIND_DIRECT_CHATROOM', '2': 2},
-    {'1': 'WORKSPACE_KIND_GROUP_CHATROOM', '2': 3},
   ],
 };
 
 /// Descriptor for `WorkspaceKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List workspaceKindDescriptor = $convert.base64Decode(
     'Cg1Xb3Jrc3BhY2VLaW5kEh4KGldPUktTUEFDRV9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXV09SS1'
-    'NQQUNFX0tJTkRfV09SS0ZMT1cQARIiCh5XT1JLU1BBQ0VfS0lORF9ESVJFQ1RfQ0hBVFJPT00Q'
-    'AhIhCh1XT1JLU1BBQ0VfS0lORF9HUk9VUF9DSEFUUk9PTRAD');
+    'NQQUNFX0tJTkRfV09SS0ZMT1cQAQ==');
 
 @$core.Deprecated('Use friendRelationshipChangeDescriptor instead')
 const FriendRelationshipChange$json = {

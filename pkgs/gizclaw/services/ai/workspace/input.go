@@ -128,13 +128,6 @@ func workspaceParametersWithInput(
 		}
 		value.Input = &input
 		return updated, updated.FromASTTranslateWorkspaceParameters(value)
-	case string(apitypes.WorkflowDriverChatroom):
-		value := apitypes.ChatRoomWorkspaceParameters{AgentType: apitypes.ChatRoomWorkspaceParametersAgentTypeChatroom}
-		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsChatRoomWorkspaceParameters); err != nil {
-			return nil, err
-		}
-		value.Input = &input
-		return updated, updated.FromChatRoomWorkspaceParameters(value)
 	case string(apitypes.WorkflowDriverDoubaoRealtime):
 		value := apitypes.DoubaoRealtimeWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime}
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDoubaoRealtimeWorkspaceParameters); err != nil {

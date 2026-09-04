@@ -11,6 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -25,6 +26,55 @@ const (
 
 type Server struct {
 	Store kv.Store
+}
+
+// BuiltinWorkflowError is returned by the Admin surface when a request targets
+// a built-in system Workflow that only the Server itself may materialize.
+const BuiltinWorkflowCode = "WORKFLOW_BUILTIN"
+
+// IsBuiltinWorkflowID reports whether id names a Server-materialized system
+// Workflow. Built-in Workflows never appear in Workflow lists and reject
+// Admin create, update, and delete.
+func IsBuiltinWorkflowID(id string) bool {
+	return strings.TrimSpace(id) == socialutil.SFUWorkflowID
+}
+
+// BuiltinSFUWorkflow returns the canonical Workflow document for the
+// Server-materialized SFU system Workflow used by Friend and Friend Group
+// Workspaces. The payload is intentionally empty.
+func BuiltinSFUWorkflow() apitypes.Workflow {
+	sfu := apitypes.SFUWorkflowSpec{}
+	return apitypes.Workflow{
+		Id:   socialutil.SFUWorkflowID,
+		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverSfu, Sfu: &sfu},
+	}
+}
+
+// EnsureBuiltinWorkflows idempotently materializes every built-in system
+// Workflow in the local catalog. Each Server calls it at startup so the same
+// Workflow identity exists on every Server that may activate a Social
+// Workspace.
+func (s *Server) EnsureBuiltinWorkflows(ctx context.Context) error {
+	if s == nil || s.Store == nil {
+		return errors.New("workflow: store not configured")
+	}
+	doc, raw, err := validateWorkflow(BuiltinSFUWorkflow(), "")
+	if err != nil {
+		return fmt.Errorf("workflow: built-in %q: %w", socialutil.SFUWorkflowID, err)
+	}
+	if existing, err := s.Store.Get(ctx, workflowKey(doc.Id)); err == nil && bytes.Equal(existing, raw) {
+		return nil
+	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return fmt.Errorf("workflow: read built-in %q: %w", doc.Id, err)
+	}
+	if err := s.Store.Set(ctx, workflowKey(doc.Id), raw); err != nil {
+		return fmt.Errorf("workflow: write built-in %q: %w", doc.Id, err)
+	}
+	return nil
+}
+
+func builtinWorkflowMessage(id string) string {
+	return fmt.Sprintf("workflow %q is a built-in system Workflow", strings.TrimSpace(id))
 }
 
 type WorkflowAdminService interface {
@@ -46,7 +96,7 @@ func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkfl
 		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	entries, err := kv.ListAfter(ctx, s.Store, workflowsRoot, cursorAfterKey(workflowsRoot, cursor), limit+1)
+	entries, err := listVisibleWorkflows(ctx, s.Store, cursor, limit+1)
 	if err != nil {
 		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -74,6 +124,9 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
 	body := *request.Body
+	if IsBuiltinWorkflowID(body.Id) {
+		return adminhttp.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(body.Id))), nil
+	}
 	doc, raw, err := validateWorkflow(apitypes.Workflow{Id: body.Id, Spec: body.Spec}, "")
 	if err != nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
@@ -93,6 +146,9 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
 	}
 	id := string(request.Id)
+	if IsBuiltinWorkflowID(id) {
+		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(id))), nil
+	}
 	key := workflowKey(id)
 	data, err := s.Store.Get(ctx, key)
 	if err != nil {
@@ -138,6 +194,9 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
 	}
 	id := string(request.Id)
+	if IsBuiltinWorkflowID(id) || (request.Body != nil && IsBuiltinWorkflowID(request.Body.Id)) {
+		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(id))), nil
+	}
 	previousData, getErr := s.Store.Get(ctx, workflowKey(id))
 	if getErr == nil {
 		if _, err := decodeWorkflow(previousData); err != nil {
@@ -215,7 +274,7 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 		spec.DoubaoRealtimeDuplex != nil,
 		spec.Eino != nil,
 		spec.AstTranslate != nil,
-		spec.Chatroom != nil,
+		spec.Sfu != nil,
 		spec.Pet != nil,
 	); err != nil {
 		return err
@@ -226,7 +285,10 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 			return fmt.Errorf("spec.flowcraft: %w", err)
 		}
 		return nil
-	case apitypes.WorkflowDriverChatroom:
+	case apitypes.WorkflowDriverSfu:
+		if len(*spec.Sfu) != 0 {
+			return errors.New("spec.sfu must be an empty object")
+		}
 		return nil
 	case apitypes.WorkflowDriverPet:
 		return validateNestedPetWorkflow(*spec.Pet)
@@ -261,6 +323,9 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 }
 
 func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
+	if apitypes.WorkflowDriver(spec.Driver) == apitypes.WorkflowDriverSfu {
+		return errors.New("spec.pet.driver \"sfu\" cannot be nested in a Pet Workflow")
+	}
 	if !spec.Driver.Valid() {
 		return fmt.Errorf("spec.pet.driver %q is not a reusable Workflow driver", spec.Driver)
 	}
@@ -273,7 +338,6 @@ func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
 		DoubaoRealtimeDuplex: spec.DoubaoRealtimeDuplex,
 		Eino:                 spec.Eino,
 		AstTranslate:         spec.AstTranslate,
-		Chatroom:             spec.Chatroom,
 	}
 	if err := validateDriverSpec(nested); err != nil {
 		return fmt.Errorf("spec.pet: %w", err)
@@ -281,7 +345,7 @@ func validateNestedPetWorkflow(spec apitypes.PetWorkflowSpec) error {
 	return nil
 }
 
-func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, chatroom, pet bool) error {
+func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu, pet bool) error {
 	payloads := []struct {
 		driver  apitypes.WorkflowDriver
 		field   string
@@ -293,7 +357,7 @@ func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRea
 		{apitypes.WorkflowDriverDoubaoRealtimeDuplex, "doubao_realtime_duplex", doubaoRealtimeDuplex},
 		{apitypes.WorkflowDriverEino, "eino", eino},
 		{apitypes.WorkflowDriverAstTranslate, "ast_translate", astTranslate},
-		{apitypes.WorkflowDriverChatroom, "chatroom", chatroom},
+		{apitypes.WorkflowDriverSfu, "sfu", sfu},
 		{apitypes.WorkflowDriverPet, "pet", pet},
 	}
 	for _, payload := range payloads {
@@ -322,8 +386,39 @@ func decodeWorkflow(data []byte) (apitypes.Workflow, error) {
 	return validated, nil
 }
 
+// listVisibleWorkflows reads up to limit Admin-visible Workflows after cursor.
+// Built-in system Workflows are skipped, so the scan continues until limit
+// visible entries are collected or the catalog ends.
+func listVisibleWorkflows(ctx context.Context, store kv.Store, cursor string, limit int) ([]kv.Entry, error) {
+	out := make([]kv.Entry, 0, limit)
+	after := cursorAfterKey(workflowsRoot, cursor)
+	for len(out) < limit {
+		want := limit - len(out)
+		entries, err := kv.ListAfter(ctx, store, workflowsRoot, after, want)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if len(entry.Key) > 0 && IsBuiltinWorkflowID(unescapeStoreSegment(entry.Key[len(entry.Key)-1])) {
+				continue
+			}
+			out = append(out, entry)
+		}
+		if len(entries) < want {
+			break
+		}
+		after = entries[len(entries)-1].Key
+	}
+	return out, nil
+}
+
 func workflowKey(id string) kv.Key {
 	return append(append(kv.Key{}, workflowsRoot...), escapeStoreSegment(id))
+}
+
+func unescapeStoreSegment(value string) string {
+	value = strings.ReplaceAll(value, "%3A", ":")
+	return strings.ReplaceAll(value, "%25", "%")
 }
 
 func escapeStoreSegment(value string) string {

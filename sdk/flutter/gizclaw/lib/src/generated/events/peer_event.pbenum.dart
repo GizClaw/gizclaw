@@ -91,20 +91,14 @@ class WorkspaceKind extends $pb.ProtobufEnum {
       WorkspaceKind._(0, _omitEnumNames ? '' : 'WORKSPACE_KIND_UNSPECIFIED');
   static const WorkspaceKind WORKSPACE_KIND_WORKFLOW =
       WorkspaceKind._(1, _omitEnumNames ? '' : 'WORKSPACE_KIND_WORKFLOW');
-  static const WorkspaceKind WORKSPACE_KIND_DIRECT_CHATROOM = WorkspaceKind._(
-      2, _omitEnumNames ? '' : 'WORKSPACE_KIND_DIRECT_CHATROOM');
-  static const WorkspaceKind WORKSPACE_KIND_GROUP_CHATROOM =
-      WorkspaceKind._(3, _omitEnumNames ? '' : 'WORKSPACE_KIND_GROUP_CHATROOM');
 
   static const $core.List<WorkspaceKind> values = <WorkspaceKind>[
     WORKSPACE_KIND_UNSPECIFIED,
     WORKSPACE_KIND_WORKFLOW,
-    WORKSPACE_KIND_DIRECT_CHATROOM,
-    WORKSPACE_KIND_GROUP_CHATROOM,
   ];
 
   static final $core.List<WorkspaceKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 3);
+      $pb.ProtobufEnum.$_initByValueList(values, 1);
   static WorkspaceKind? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -726,33 +727,22 @@ func newSocialResourceManager(t *testing.T) *Manager {
 			NewID: func() string { return "alice001" },
 		},
 		Friends: &friend.Server{
-			InviteTokens:           kv.NewMemory(nil),
-			Friends:                kv.NewMemory(nil),
-			Workspaces:             workspaces,
-			RuntimeProfileForOwner: socialRuntimeProfile,
+			InviteTokens: kv.NewMemory(nil),
+			Friends:      kv.NewMemory(nil),
+			Workspaces:   workspaces,
+			SFUURL:       "wss://sfu.test",
 		},
 		FriendGroups: &friendgroup.Server{
-			Groups:                 friendGroupRelationships,
-			InviteTokens:           friendGroupRelationships,
-			Members:                friendGroupRelationships,
-			Belongs:                friendGroupRelationships,
-			RelationshipStore:      friendGroupRelationships,
-			Workspaces:             workspaces,
-			RuntimeProfileForOwner: socialRuntimeProfile,
-			NewID:                  func() string { return "family01" },
+			Groups:            friendGroupRelationships,
+			InviteTokens:      friendGroupRelationships,
+			Members:           friendGroupRelationships,
+			Belongs:           friendGroupRelationships,
+			RelationshipStore: friendGroupRelationships,
+			Workspaces:        workspaces,
+			SFUURL:            "wss://sfu.test",
+			NewID:             func() string { return "family01" },
 		},
 	})
-}
-
-func socialRuntimeProfile(context.Context, string) (apitypes.RuntimeProfile, error) {
-	return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{
-			System: apitypes.RuntimeProfileSystemWorkflows{
-				FriendChatroom: "friend-chatroom",
-				GroupChatroom:  "group-chatroom",
-			},
-		},
-	}}, nil
 }
 
 type socialWorkspaceService struct{}
@@ -779,7 +769,7 @@ func (socialWorkspaceService) DeleteSystemWorkspace(
 func (socialWorkspaceService) RetireSystemWorkspace(
 	_ context.Context,
 	name string,
-	_ apitypes.ChatRoomMode,
+	_ socialutil.SFUWorkspaceKind,
 	_ string,
 ) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Name: name}, nil
@@ -788,7 +778,7 @@ func (socialWorkspaceService) RetireSystemWorkspace(
 func (socialWorkspaceService) RetireSystemWorkspaceByID(
 	_ context.Context,
 	id string,
-	_ apitypes.ChatRoomMode,
+	_ socialutil.SFUWorkspaceKind,
 	_ string,
 ) (apitypes.Workspace, error) {
 	return apitypes.Workspace{Id: id}, nil
@@ -797,7 +787,7 @@ func (socialWorkspaceService) RetireSystemWorkspaceByID(
 func (socialWorkspaceService) GetRetiredSystemWorkspace(
 	_ context.Context,
 	_ string,
-	_ apitypes.ChatRoomMode,
+	_ socialutil.SFUWorkspaceKind,
 	_ string,
 ) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound
@@ -806,7 +796,7 @@ func (socialWorkspaceService) GetRetiredSystemWorkspace(
 func (socialWorkspaceService) GetRetiredSystemWorkspaceByID(
 	_ context.Context,
 	_ string,
-	_ apitypes.ChatRoomMode,
+	_ socialutil.SFUWorkspaceKind,
 	_ string,
 ) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, kv.ErrNotFound

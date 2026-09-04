@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -105,14 +104,6 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	}
 	if got := GroupWorkspaceName("group-a"); got == "" || !strings.HasPrefix(got, "social-group-") {
 		t.Fatalf("GroupWorkspaceName = %q", got)
-	}
-	params := ChatRoomWorkspaceParameters(apitypes.ChatRoomModeDirect)
-	typed, err := params.AsChatRoomWorkspaceParameters()
-	if err != nil {
-		t.Fatalf("AsChatRoomWorkspaceParameters() error = %v", err)
-	}
-	if typed.AgentType != apitypes.ChatRoomWorkspaceParametersAgentTypeChatroom || typed.Mode == nil || *typed.Mode != apitypes.ChatRoomModeDirect {
-		t.Fatalf("ChatRoomWorkspaceParameters = %#v", typed)
 	}
 	if got := NormalizePhone("+1 (555) 0100"); got != "15550100" {
 		t.Fatalf("NormalizePhone = %q, want digits only", got)

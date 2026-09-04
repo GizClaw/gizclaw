@@ -529,7 +529,7 @@ test("RPC payload codec round-trips system workspace classification", () => {
       name: "friend-chat",
       system: true,
       updated_at: "2026-07-16T00:00:00Z",
-      workflow_name: "chatroom",
+      workflow_name: "assistant",
     },
   });
 
@@ -538,7 +538,7 @@ test("RPC payload codec round-trips system workspace classification", () => {
     value?: { system?: boolean; workflow_name?: string };
   };
   assert.equal(decoded.value?.system, true);
-  assert.equal(decoded.value?.workflow_name, "chatroom");
+  assert.equal(decoded.value?.workflow_name, "assistant");
   assert.equal(decoded.runtime_profile_name, "default");
 });
 
@@ -1815,8 +1815,8 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
   await rpc.call("server.firmware.get", {
     channel: "stable",
   });
-  await rpc.call("server.friend_group.messages.list", {
-    friend_group_name: "group-a",
+  await rpc.call("server.workspace.history.list", {
+    workspace_name: "main",
   });
 
   assert.deepEqual(calls, [
@@ -1830,8 +1830,8 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
       params: { channel: "stable" },
     },
     {
-      method: "server.friend_group.messages.list",
-      params: { friend_group_name: "group-a" },
+      method: "server.workspace.history.list",
+      params: { workspace_name: "main" },
     },
   ]);
 });

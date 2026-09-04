@@ -529,3 +529,181 @@ func TestValidateSemanticsRejectsRelayInFinally(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestLoadDocumentValidatesListenPeerStream(t *testing.T) {
+	listenStep := func(extra string) string {
+		return validDocument + "  - id: listen\n    client: peer\n    peer_stream:\n      mode: listen\n" + extra
+	}
+	doc, err := LoadDocument(writeTestDocument(t, listenStep("      duration: 2s\n")), nil)
+	if err != nil {
+		t.Fatalf("listen rejected: %v", err)
+	}
+	if got := doc.Steps[len(doc.Steps)-1].PeerStream; got.Mode != "listen" || got.Duration != "2s" || got.Input != nil {
+		t.Fatalf("listen operation = %#v", got)
+	}
+	for name, tc := range map[string]struct {
+		extra string
+		want  string
+	}{
+		"missing duration":        {extra: "", want: "schema validation"},
+		"zero duration":           {extra: "      duration: 0s\n", want: "listen requires a duration"},
+		"unparsable duration":     {extra: "      duration: soon\n", want: "listen requires a duration"},
+		"duration above bound":    {extra: "      duration: 6m\n", want: "listen requires a duration"},
+		"input":                   {extra: "      duration: 2s\n      input: hello\n", want: "schema validation"},
+		"pacing":                  {extra: "      duration: 2s\n      pacing: 20ms\n", want: "cannot set pacing"},
+		"interrupt_after":         {extra: "      duration: 2s\n      interrupt_after: 1s\n", want: "cannot set interrupt_after"},
+		"idle_timeout":            {extra: "      duration: 2s\n      idle_timeout: 1s\n", want: "cannot set idle_timeout"},
+		"completion":              {extra: "      duration: 2s\n      completion: terminal\n", want: "cannot set completion"},
+		"terminal_label":          {extra: "      duration: 2s\n      terminal_label: transcript\n", want: "cannot set terminal_label"},
+		"require_text":            {extra: "      duration: 2s\n      require_text: false\n", want: "cannot set require_text"},
+		"wait_for_history":        {extra: "      duration: 2s\n      wait_for_history: true\n", want: "cannot set wait_for_history"},
+		"session":                 {extra: "      duration: 2s\n      session: mic\n      keep_open: true\n", want: "cannot set session"},
+		"await_rearm":             {extra: "      duration: 2s\n      await_rearm: INPUT_ROUTE_RELOADED\n", want: "cannot set"},
+		"duration outside listen": {extra: "", want: ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body := listenStep(tc.extra)
+			if name == "duration outside listen" {
+				body = validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: text\n      input: hello\n      duration: 2s\n"
+				tc.want = "only valid for listen"
+			}
+			_, err := LoadDocument(writeTestDocument(t, body), nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadDocumentValidatesInputSentCompletion(t *testing.T) {
+	turn := func(mode, extra string) string {
+		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: " + mode + "\n      input: ${endpoint}\n      completion: input_sent\n" + extra
+	}
+	for _, mode := range []string{"push-to-talk", "realtime"} {
+		doc, err := LoadDocument(writeTestDocument(t, turn(mode, "")), nil)
+		if err != nil {
+			t.Fatalf("input_sent %s rejected: %v", mode, err)
+		}
+		if got := doc.Steps[len(doc.Steps)-1].PeerStream.Completion; got != "input_sent" {
+			t.Fatalf("completion = %q", got)
+		}
+	}
+	if _, err := LoadDocument(writeTestDocument(t, turn("push-to-talk", "      pacing: 20ms\n      idle_timeout: 5s\n")), nil); err != nil {
+		t.Fatalf("input_sent with pacing rejected: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		mode  string
+		extra string
+		want  string
+	}{
+		"text mode":           {mode: "text", want: "requires push-to-talk or realtime"},
+		"first_text_timeout":  {mode: "push-to-talk", extra: "      first_text_timeout: 1s\n", want: "cannot wait for output"},
+		"first_audio_timeout": {mode: "realtime", extra: "      first_audio_timeout: 1s\n", want: "cannot wait for output"},
+		"wait_for_history":    {mode: "push-to-talk", extra: "      wait_for_history: true\n", want: "cannot wait for output"},
+		"require_text":        {mode: "push-to-talk", extra: "      require_text: false\n", want: "cannot wait for output"},
+		"require_audio":       {mode: "push-to-talk", extra: "      require_audio: true\n", want: "cannot wait for output"},
+		"interrupt_after":     {mode: "push-to-talk", extra: "      interrupt_after: 1s\n", want: "cannot wait for output"},
+		"terminal_label":      {mode: "push-to-talk", extra: "      terminal_label: transcript\n", want: "cannot wait for output"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := LoadDocument(writeTestDocument(t, turn(tc.mode, tc.extra)), nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadDocumentAcceptsParallelListenAndSpeak(t *testing.T) {
+	doc, err := LoadDocument(writeTestDocument(t, validDocument+`  - id: talk
+    timeout: 30s
+    parallel:
+      - id: listen
+        client: peer
+        peer_stream:
+          mode: listen
+          duration: 3s
+      - id: speak
+        client: peer
+        peer_stream:
+          mode: push-to-talk
+          input: ${endpoint}
+          completion: input_sent
+    expect:
+      /listen/audio_bytes:
+        equals: 0
+`), nil)
+	if err != nil {
+		t.Fatalf("parallel document rejected: %v", err)
+	}
+	talk := doc.Steps[1]
+	if talk.Operation() != "parallel" || operationNeedsClient(talk.Operation()) || len(talk.Parallel) != 2 {
+		t.Fatalf("parallel step = %#v", talk)
+	}
+	if talk.Parallel[0].PeerStream.Mode != "listen" || talk.Parallel[0].PeerStream.Duration != "3s" || talk.Parallel[1].Client != "peer" {
+		t.Fatalf("parallel children = %#v", talk.Parallel)
+	}
+}
+
+func TestLoadDocumentRejectsInvalidParallel(t *testing.T) {
+	group := func(children string, extra string) string {
+		return "  - id: talk\n" + extra + "    parallel:\n" + children
+	}
+	listen := func(id string) string {
+		return "      - id: " + id + "\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"
+	}
+	for name, tc := range map[string]struct {
+		body string
+		want string
+	}{
+		"one child":            {body: group(listen("a"), ""), want: "schema validation"},
+		"client on parent":     {body: group(listen("a")+listen("b"), "    client: peer\n"), want: "takes its clients from its children"},
+		"duplicate child id":   {body: group(listen("a")+listen("a"), ""), want: `duplicate step id "a"`},
+		"child id collides":    {body: group(listen("ping")+listen("b"), ""), want: `duplicate step id "ping"`},
+		"child without id":     {body: group("      - client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n"+listen("b"), ""), want: "schema validation"},
+		"child rpc":            {body: group("      - id: a\n        client: peer\n        rpc:\n          method: all.ping\n          request: {}\n"+listen("b"), ""), want: "schema validation"},
+		"child expect":         {body: group(listen("a")+"      - id: b\n        client: peer\n        expect:\n          /audio_bytes:\n            equals: 0\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: "schema validation"},
+		"child unknown client": {body: group(listen("a")+"      - id: b\n        client: ghost\n        peer_stream:\n          mode: listen\n          duration: 3s\n", ""), want: `unknown client "ghost"`},
+		"child session":        {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: realtime\n          input: ${endpoint}\n          session: mic\n          keep_open: true\n", ""), want: "persistent peer_stream session"},
+		"child listen input":   {body: group(listen("a")+"      - id: b\n        client: peer\n        peer_stream:\n          mode: listen\n          duration: 3s\n          input: ${endpoint}\n", ""), want: "schema validation"},
+		"capture pointer":      {body: group(listen("a")+listen("b"), "") + "    capture:\n      server_time: /audio\n", want: "must address a parallel child by id"},
+		"expect pointer":       {body: group(listen("a")+listen("b"), "") + "    expect:\n      /ghost/audio_bytes:\n        equals: 0\n", want: "must address a parallel child by id"},
+		"in finally":           {body: "finally:\n  - id: late\n    parallel:\n" + listen("a") + listen("b"), want: "schema validation"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := LoadDocument(writeTestDocument(t, validDocument+tc.body), nil)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// A driver that cannot run steps concurrently does not list "parallel", so a
+// document with parallel steps is rejected by validate and skipped by
+// LoadSupportedDocuments instead of failing once a task is running.
+func TestLoadDocumentGatesParallelStepsOnDriverSupport(t *testing.T) {
+	path := writeTestDocument(t, validDocument+`  - id: talk
+    parallel:
+      - id: listen
+        client: peer
+        peer_stream:
+          mode: listen
+          duration: 3s
+      - id: listen_too
+        client: peer
+        peer_stream:
+          mode: listen
+          duration: 3s
+`)
+	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream"}}); err == nil || !strings.Contains(err.Error(), "operation parallel is not supported") {
+		t.Fatalf("driver without parallel accepted parallel steps: %v", err)
+	}
+	if _, err := LoadDocument(path, &stubDriver{operations: []string{"rpc", "peer_stream", "parallel"}}); err != nil {
+		t.Fatalf("driver with parallel rejected parallel steps: %v", err)
+	}
+	documents, skipped, err := LoadSupportedDocuments([]string{path}, &stubDriver{operations: []string{"rpc", "peer_stream"}})
+	if err != nil || len(documents) != 0 || len(skipped) != 1 || !strings.Contains(skipped[0].Reason, "parallel") {
+		t.Fatalf("documents = %#v skipped = %#v err = %v", documents, skipped, err)
+	}
+}

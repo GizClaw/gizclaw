@@ -19,12 +19,11 @@ func TestBusinessErrorMapsMissingPeerProfileToNotFound(t *testing.T) {
 	}
 }
 
-func TestBusinessErrorMapsCrossServerSocialConflicts(t *testing.T) {
-	for _, err := range []error{friend.ErrCrossServerFriendCreation, friendgroup.ErrCrossServerFriendGroupMembership} {
-		response := businessError("social", fmt.Errorf("wrapped: %w", err))
-		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeFailedPrecondition || response.Error.Message != err.Error() {
-			t.Fatalf("businessError(%v) = %#v", err, response)
-		}
+func TestBusinessErrorMapsFriendGroupFullToResourceExhausted(t *testing.T) {
+	response := businessError("social", fmt.Errorf("wrapped: %w", friendgroup.ErrFriendGroupFull))
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted ||
+		response.Error.Reason != "FRIEND_GROUP_FULL" || response.Error.Message != "friend group is full" {
+		t.Fatalf("businessError(full) = %#v", response)
 	}
 }
 

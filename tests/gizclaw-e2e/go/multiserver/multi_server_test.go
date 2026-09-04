@@ -17,9 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -160,7 +158,7 @@ func TestAPIKeyHTTPRoutesAcrossEdgeToOwnerServer(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	registerSocialPeer(t, ctx, clientB, serverB)
+	registerSocialPeer(t, ctx, clientB, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
 	created, err := clientB.CreateAPIKey(ctx, "multi-server-api-key", rpcapi.APIKeyCreateRequest{
 		DisplayName: "multi-server-edge-route",
 	})
@@ -196,7 +194,11 @@ func TestAPIKeyHTTPRoutesAcrossEdgeToOwnerServer(t *testing.T) {
 	}
 }
 
-func TestCrossServerSocialRejectsWithoutConsumingInvites(t *testing.T) {
+// TestCrossServerSocialSharesWorkspaceIdentity creates a Friend and a Friend
+// Group across the two Servers. Both sides must resolve the same Workspace
+// identity from the shared Social KV, invites are consumed, and PeerRun
+// ownership stays local to the Server that admitted each Peer.
+func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	serverA := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_A"))
 	serverB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B"))
 	stateA := requiredEnv(t, "GIZCLAW_E2E_SERVER_A_STATE")
@@ -215,110 +217,132 @@ func TestCrossServerSocialRejectsWithoutConsumingInvites(t *testing.T) {
 	clientB := connectAndServe(t, peerB, serverB, serverB.PublicKey, "social-peer-b")
 	defer clientB.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	registerSocialPeer(t, ctx, clientB, serverB)
-	if got := len(sqlTableSnapshot(t, stateA, "runtime-profiles")); got != 0 {
-		t.Fatalf("Server A RuntimeProfile rows = %d, want 0", got)
+	registerSocialPeer(t, ctx, clientA, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
+	registerSocialPeer(t, ctx, clientB, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
+	if err := clientA.SendBatteryTelemetry(71, false); err != nil {
+		t.Fatalf("send Peer A telemetry: %v", err)
 	}
-	if got := len(sqlTableSnapshot(t, stateB, "runtime-profiles")); got == 0 {
-		t.Fatal("Server B RuntimeProfile store is empty after local provisioning")
+	if err := clientB.SendBatteryTelemetry(72, false); err != nil {
+		t.Fatalf("send Peer B telemetry: %v", err)
 	}
-	if got := len(sqlTableSnapshot(t, stateA, "workflows")); got != 0 {
-		t.Fatalf("Server A Workflow rows = %d, want 0", got)
-	}
-	if got := len(sqlTableSnapshot(t, stateB, "workflows")); got == 0 {
-		t.Fatal("Server B Workflow store is empty after local provisioning")
-	}
+	waitPeerRunStatus(t, stateA, peerA.Public, 71)
+	waitPeerRunStatus(t, stateB, peerB.Public, 72)
+	assertPeerRunAbsent(t, stateB, peerA.Public)
+	assertPeerRunAbsent(t, stateA, peerB.Public)
 
+	// Friend: invite minted on Server B, accepted from Server A.
 	friendInvite, err := clientB.CreateFriendInviteToken(ctx, "friend-invite-create", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
 		t.Fatalf("create Friend invite: %v", err)
 	}
-	friendSharedBefore := redisSnapshot(t, shared)
-	friendWorkspaceABefore := sqlTableSnapshot(t, stateA, "workspaces")
-	friendWorkspaceBBefore := sqlTableSnapshot(t, stateB, "workspaces")
-	assertNoPeerEvents(t, []*gizcli.Client{clientA, clientB}, func() {
-		for attempt := 1; attempt <= 2; attempt++ {
-			_, err = clientA.AddFriend(ctx, "friend-add", rpcapi.FriendAddRequest{InviteToken: friendInvite.InviteToken})
-			assertRPCFailedPrecondition(t, err, "cross-server friend creation is not supported")
-		}
-	})
-	assertSnapshotEqual(t, "shared Redis after Friend rejection", friendSharedBefore, redisSnapshot(t, shared))
-	assertSnapshotEqual(t, "Server A Workspaces after Friend rejection", friendWorkspaceABefore, sqlTableSnapshot(t, stateA, "workspaces"))
-	assertSnapshotEqual(t, "Server B Workspaces after Friend rejection", friendWorkspaceBBefore, sqlTableSnapshot(t, stateB, "workspaces"))
-	friendInviteAfter, err := clientB.GetFriendInviteToken(ctx, "friend-invite-get", rpcapi.FriendInviteTokenGetRequest{})
+	sharedBeforeFriend := redisSnapshot(t, shared)
+	friend, err := clientA.AddFriend(ctx, "friend-add", rpcapi.FriendAddRequest{InviteToken: friendInvite.InviteToken})
 	if err != nil {
-		t.Fatalf("get Friend invite after rejection: %v", err)
+		t.Fatalf("cross-server Friend creation: %v", err)
 	}
-	if friendInviteAfter.InviteToken == nil || *friendInviteAfter.InviteToken != friendInvite.InviteToken {
-		t.Fatalf("Friend invite changed after rejection: got %v, want %q", friendInviteAfter.InviteToken, friendInvite.InviteToken)
+	defer func() {
+		_, _ = clientA.DeleteFriend(context.Background(), "friend-delete", rpcapi.FriendDeleteRequest{Name: friend.Name})
+	}()
+	if friend.WorkspaceName == nil || *friend.WorkspaceName == "" {
+		t.Fatalf("cross-server Friend has no Workspace: %+v", friend)
 	}
-	friends, err := clientA.ListFriends(ctx, "friend-list", rpcapi.FriendListRequest{})
-	if err != nil {
-		t.Fatalf("list Friends after rejection: %v", err)
-	}
-	if len(friends.Items) != 0 {
-		t.Fatalf("cross-server Friend rejection created %d relationship(s)", len(friends.Items))
+	if snapshotsEqual(sharedBeforeFriend, redisSnapshot(t, shared)) {
+		t.Fatal("shared Redis did not record the cross-server Friend")
 	}
 	ownerFriends, err := clientB.ListFriends(ctx, "friend-owner-list", rpcapi.FriendListRequest{})
 	if err != nil {
-		t.Fatalf("list invite owner Friends after rejection: %v", err)
+		t.Fatalf("list invite owner Friends: %v", err)
 	}
-	if len(ownerFriends.Items) != 0 {
-		t.Fatalf("cross-server Friend rejection created %d reciprocal relationship(s)", len(ownerFriends.Items))
+	if len(ownerFriends.Items) != 1 || ownerFriends.Items[0].WorkspaceName == nil {
+		t.Fatalf("invite owner Friends = %+v, want one relationship with a Workspace", ownerFriends.Items)
+	}
+	if *ownerFriends.Items[0].WorkspaceName != *friend.WorkspaceName {
+		t.Fatalf("Friend Workspace differs across Servers: A=%q B=%q", *friend.WorkspaceName, *ownerFriends.Items[0].WorkspaceName)
+	}
+	if ownerFriends.Items[0].PeerPublicKey == nil || *ownerFriends.Items[0].PeerPublicKey != peerA.Public.String() {
+		t.Fatalf("invite owner Friend peer = %v, want %s", ownerFriends.Items[0].PeerPublicKey, peerA.Public)
+	}
+	// Friend invites are long-lived until cleared or expired; acceptance must
+	// neither rotate the token nor let a replay create a second relationship.
+	friendInviteAfter, err := clientB.GetFriendInviteToken(ctx, "friend-invite-get", rpcapi.FriendInviteTokenGetRequest{})
+	if err != nil {
+		t.Fatalf("get Friend invite after acceptance: %v", err)
+	}
+	if friendInviteAfter.InviteToken == nil || *friendInviteAfter.InviteToken != friendInvite.InviteToken {
+		t.Fatalf("Friend invite changed after cross-server acceptance: got %v, want %q", friendInviteAfter.InviteToken, friendInvite.InviteToken)
+	}
+	_, _ = clientA.AddFriend(ctx, "friend-add-replay", rpcapi.FriendAddRequest{InviteToken: friendInvite.InviteToken})
+	friends, err := clientA.ListFriends(ctx, "friend-list", rpcapi.FriendListRequest{})
+	if err != nil {
+		t.Fatalf("list Friends after replay: %v", err)
+	}
+	if len(friends.Items) != 1 || friends.Items[0].WorkspaceName == nil || *friends.Items[0].WorkspaceName != *friend.WorkspaceName {
+		t.Fatalf("Friends after replay = %+v, want exactly the original relationship", friends.Items)
 	}
 
+	// Friend Group: created on Server B, joined from Server A.
 	group, err := clientB.CreateFriendGroup(ctx, "friend-group-create", rpcapi.FriendGroupCreateRequest{Name: "server-b-room"})
 	if err != nil {
 		t.Fatalf("create FriendGroup: %v", err)
 	}
-	if got := len(sqlTableSnapshot(t, stateA, "workspaces")); got != 0 {
-		t.Fatalf("Server A Workspace rows after Server B group creation = %d, want 0", got)
-	}
-	if got := len(sqlTableSnapshot(t, stateB, "workspaces")); got == 0 {
-		t.Fatal("Server B Workspace store is empty after local FriendGroup creation")
+	defer func() {
+		_, _ = clientB.DeleteFriendGroup(context.Background(), "friend-group-delete", rpcapi.FriendGroupDeleteRequest{Name: group.Name})
+	}()
+	if group.WorkspaceName == nil || *group.WorkspaceName == "" {
+		t.Fatalf("FriendGroup has no Workspace: %+v", group)
 	}
 	groupInvite, err := clientB.CreateFriendGroupInviteToken(ctx, "friend-group-invite-create", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: group.Name})
 	if err != nil {
 		t.Fatalf("create FriendGroup invite: %v", err)
 	}
-	groupSharedBefore := redisSnapshot(t, shared)
-	groupWorkspaceABefore := sqlTableSnapshot(t, stateA, "workspaces")
-	groupWorkspaceBBefore := sqlTableSnapshot(t, stateB, "workspaces")
-	assertNoPeerEvents(t, []*gizcli.Client{clientA, clientB}, func() {
-		for attempt := 1; attempt <= 2; attempt++ {
-			_, err = clientA.JoinFriendGroup(ctx, "friend-group-join", rpcapi.FriendGroupJoinRequest{
-				InviteToken: groupInvite.InviteToken,
-				Name:        "server-b-room",
-			})
-			assertRPCFailedPrecondition(t, err, "cross-server friend group membership is not supported")
-		}
+	sharedBeforeJoin := redisSnapshot(t, shared)
+	joined, err := clientA.JoinFriendGroup(ctx, "friend-group-join", rpcapi.FriendGroupJoinRequest{
+		InviteToken: groupInvite.InviteToken,
+		Name:        "server-b-room",
 	})
-	assertSnapshotEqual(t, "shared Redis after FriendGroup rejection", groupSharedBefore, redisSnapshot(t, shared))
-	assertSnapshotEqual(t, "Server A Workspaces after FriendGroup rejection", groupWorkspaceABefore, sqlTableSnapshot(t, stateA, "workspaces"))
-	assertSnapshotEqual(t, "Server B Workspaces after FriendGroup rejection", groupWorkspaceBBefore, sqlTableSnapshot(t, stateB, "workspaces"))
-	groupInviteAfter, err := clientB.GetFriendGroupInviteToken(ctx, "friend-group-invite-get", rpcapi.FriendGroupInviteTokenGetRequest{FriendGroupName: group.Name})
 	if err != nil {
-		t.Fatalf("get FriendGroup invite after rejection: %v", err)
+		t.Fatalf("cross-server FriendGroup join: %v", err)
 	}
-	if groupInviteAfter.InviteToken == nil || *groupInviteAfter.InviteToken != groupInvite.InviteToken {
-		t.Fatalf("FriendGroup invite changed after rejection: got %v, want %q", groupInviteAfter.InviteToken, groupInvite.InviteToken)
+	if joined.Group.WorkspaceName == nil || *joined.Group.WorkspaceName != *group.WorkspaceName {
+		t.Fatalf("FriendGroup Workspace differs across Servers: owner=%q member=%v", *group.WorkspaceName, joined.Group.WorkspaceName)
 	}
-	groups, err := clientA.ListFriendGroups(ctx, "friend-group-list", rpcapi.FriendGroupListRequest{})
-	if err != nil {
-		t.Fatalf("list FriendGroups after rejection: %v", err)
-	}
-	if len(groups.Items) != 0 {
-		t.Fatalf("cross-server FriendGroup rejection created %d membership(s)", len(groups.Items))
+	if snapshotsEqual(sharedBeforeJoin, redisSnapshot(t, shared)) {
+		t.Fatal("shared Redis did not record the cross-server FriendGroup membership")
 	}
 	groupName := group.Name
 	members, err := clientB.ListFriendGroupMembers(ctx, "friend-group-owner-members", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &groupName})
 	if err != nil {
-		t.Fatalf("list FriendGroup owner members after rejection: %v", err)
+		t.Fatalf("list FriendGroup members: %v", err)
 	}
-	if len(members.Items) != 1 || members.Items[0].PeerPublicKey == nil || *members.Items[0].PeerPublicKey != peerB.Public.String() {
-		t.Fatalf("FriendGroup members after rejection = %+v, want only owner %s", members.Items, peerB.Public)
+	memberKeys := make([]string, 0, len(members.Items))
+	for _, member := range members.Items {
+		if member.PeerPublicKey != nil {
+			memberKeys = append(memberKeys, *member.PeerPublicKey)
+		}
+	}
+	sort.Strings(memberKeys)
+	wantKeys := []string{peerA.Public.String(), peerB.Public.String()}
+	sort.Strings(wantKeys)
+	if strings.Join(memberKeys, ",") != strings.Join(wantKeys, ",") {
+		t.Fatalf("FriendGroup members = %v, want %v", memberKeys, wantKeys)
+	}
+	groups, err := clientA.ListFriendGroups(ctx, "friend-group-list", rpcapi.FriendGroupListRequest{})
+	if err != nil {
+		t.Fatalf("list member FriendGroups: %v", err)
+	}
+	if len(groups.Items) != 1 || groups.Items[0].WorkspaceName == nil || *groups.Items[0].WorkspaceName != *group.WorkspaceName {
+		t.Fatalf("member FriendGroups = %+v, want one Group with Workspace %q", groups.Items, *group.WorkspaceName)
+	}
+
+	// Social mutations never move PeerRun ownership or leak it into Redis.
+	assertPeerRunAbsent(t, stateB, peerA.Public)
+	assertPeerRunAbsent(t, stateA, peerB.Public)
+	for key := range redisSnapshot(t, shared) {
+		if strings.Contains(key, "runs") {
+			t.Fatalf("shared Redis holds PeerRun key %q", key)
+		}
 	}
 }
 
@@ -375,7 +399,7 @@ func sqlTableSnapshot(t *testing.T, path, table string) byteSnapshot {
 
 func querySQLTableSnapshot(path, table string) (byteSnapshot, error) {
 	switch table {
-	case "peer_runs", "runtime-profiles", "workflows", "workspaces":
+	case "kv", "peer_runs", "runtime-profiles", "workflows", "workspaces":
 	default:
 		return nil, fmt.Errorf("unsupported E2E table %q", table)
 	}
@@ -386,6 +410,19 @@ func querySQLTableSnapshot(path, table string) (byteSnapshot, error) {
 	defer db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	var exists string
+	switch err := db.QueryRowContext(
+		ctx,
+		`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`,
+		table,
+	).Scan(&exists); {
+	case errors.Is(err, sql.ErrNoRows):
+		// A store that never wrote a row has no table. That is the same
+		// observable state as an empty one for these assertions.
+		return make(byteSnapshot), nil
+	case err != nil:
+		return nil, err
+	}
 	rows, err := db.QueryContext(ctx, `SELECT encoded_key, value FROM "`+table+`" ORDER BY encoded_key`)
 	if err != nil {
 		return nil, err
@@ -467,146 +504,25 @@ func assertPeerRunAbsent(t *testing.T, path string, publicKey giznet.PublicKey) 
 	}
 }
 
+// registerSocialPeer registers the Peer on its home Server with the token
+// seeded by run_multi_server_tests.sh. Both Servers seed the same
+// RuntimeProfile ID, which cross-server Workspace activation relies on to
+// resolve the Workspace owner's profile locally.
 func registerSocialPeer(
 	t *testing.T,
 	ctx context.Context,
 	peer *gizcli.Client,
 	server gizcli.ServerInfoMetadata,
+	tokenEnv string,
 ) {
 	t.Helper()
-	var private giznet.Key
-	if err := private.UnmarshalText([]byte(requiredEnv(t, "GIZCLAW_E2E_ADMIN_PRIVATE_KEY"))); err != nil {
-		t.Fatalf("parse multi-server admin private key: %v", err)
-	}
-	adminKey, err := giznet.NewKeyPair(private)
-	if err != nil {
-		t.Fatalf("derive multi-server admin key: %v", err)
-	}
-	admin := connectAndServe(t, adminKey, server, server.PublicKey, "multi-server-admin")
-	defer admin.Close()
-	api, err := admin.ServerAdminClient()
-	if err != nil {
-		t.Fatalf("create multi-server Admin client: %v", err)
-	}
-	prefix := fmt.Sprintf("multi-server-social-%d", time.Now().UnixNano())
-	workflowIDs := make([]string, 0, 3)
-	for index := range 3 {
-		id := fmt.Sprintf("%s-workflow-%d", prefix, index)
-		response, err := api.CreateWorkflowWithResponse(ctx, socialWorkflow(id, index))
-		if err != nil {
-			t.Fatalf("create Social Workflow %d: %v", index, err)
-		}
-		if response.JSON200 == nil {
-			t.Fatalf("create Social Workflow %d status=%d body=%s", index, response.StatusCode(), response.Body)
-		}
-		workflowIDs = append(workflowIDs, response.JSON200.Id)
-	}
-	profileID := prefix + "-profile"
-	profile, err := api.CreateRuntimeProfileWithResponse(ctx, adminhttp.RuntimeProfileUpsert{
-		Id: profileID,
-		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: workflowIDs[0],
-					GroupChatroom:  workflowIDs[1],
-					Pet:            workflowIDs[2],
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("create Social RuntimeProfile: %v", err)
-	}
-	if profile.JSON200 == nil {
-		t.Fatalf("create Social RuntimeProfile status=%d body=%s", profile.StatusCode(), profile.Body)
-	}
-	tokenID := prefix + "-token"
-	token, err := api.CreateRegistrationTokenWithResponse(ctx, adminhttp.RegistrationTokenUpsert{
-		Id:               tokenID,
-		Token:            tokenID,
-		RuntimeProfileId: profile.JSON200.Id,
-	})
-	if err != nil {
-		t.Fatalf("create Social RegistrationToken: %v", err)
-	}
-	if token.JSON200 == nil {
-		t.Fatalf("create Social RegistrationToken status=%d body=%s", token.StatusCode(), token.Body)
-	}
-	if _, err := peer.Register(ctx, "multi-server-social-register", token.JSON200.Token); err != nil {
-		t.Fatalf("register Social Peer on Server B: %v", err)
+	if _, err := peer.Register(ctx, "multi-server-social-register", requiredEnv(t, tokenEnv)); err != nil {
+		t.Fatalf("register Social Peer on %s: %v", server.PublicKey, err)
 	}
 }
 
-func socialWorkflow(id string, index int) adminhttp.WorkflowUpsert {
-	spec := apitypes.WorkflowSpec{
-		Driver:   apitypes.WorkflowDriverChatroom,
-		Chatroom: &apitypes.ChatRoomWorkflowSpec{},
-	}
-	if index == 2 {
-		spec = apitypes.WorkflowSpec{
-			Driver: apitypes.WorkflowDriverPet,
-			Pet: &apitypes.PetWorkflowSpec{
-				Driver:   apitypes.ReusableWorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
-			},
-		}
-	}
-	return adminhttp.WorkflowUpsert{Id: id, Spec: spec}
-}
-
-type eventReadResult struct {
-	client int
-	event  *eventpb.PeerEvent
-	err    error
-}
-
-func assertNoPeerEvents(t *testing.T, clients []*gizcli.Client, operation func()) {
-	t.Helper()
-	streams := make([]io.Closer, 0, len(clients))
-	results := make(chan eventReadResult, len(clients))
-	for index, client := range clients {
-		stream, err := client.DialPeerEventStream()
-		if err != nil {
-			t.Fatalf("open Peer Event probe %d: %v", index, err)
-		}
-		streams = append(streams, stream)
-		go func() {
-			for {
-				event, err := gizcli.ReadPeerStreamEvent(stream)
-				results <- eventReadResult{client: index, event: event, err: err}
-				if err != nil {
-					return
-				}
-			}
-		}()
-	}
-	defer func() {
-		for _, stream := range streams {
-			_ = stream.Close()
-		}
-	}()
-	armingTimer := time.NewTimer(250 * time.Millisecond)
-	arming := true
-	for arming {
-		select {
-		case result := <-results:
-			if result.err != nil {
-				t.Fatalf("Peer Event probe %d failed while arming: %v", result.client, result.err)
-			}
-		case <-armingTimer.C:
-			arming = false
-		}
-	}
-	operation()
-	timer := time.NewTimer(750 * time.Millisecond)
-	defer timer.Stop()
-	select {
-	case result := <-results:
-		t.Fatalf("Peer Event probe %d completed after rejected Social mutation: event=%+v err=%v", result.client, result.event, result.err)
-	case <-timer.C:
-	}
+func snapshotsEqual(before, after byteSnapshot) bool {
+	return maps.EqualFunc(before, after, func(a, b []byte) bool { return string(a) == string(b) })
 }
 
 func fetchServer(t *testing.T, endpoint string) gizcli.ServerInfoMetadata {
@@ -652,17 +568,6 @@ func connectAndServe(
 		t.Fatalf("%s ping: %v", id, err)
 	}
 	return client
-}
-
-func assertRPCFailedPrecondition(t *testing.T, err error, message string) {
-	t.Helper()
-	var rpcErr rpcapi.Error
-	if !errors.As(err, &rpcErr) {
-		t.Fatalf("error = %v, want RPC failed-precondition %q", err, message)
-	}
-	if rpcErr.Code != rpcapi.StatusCodeFailedPrecondition || rpcErr.Message != message {
-		t.Fatalf("RPC error = (%d, %q), want (%d, %q)", rpcErr.Code, rpcErr.Message, rpcapi.StatusCodeFailedPrecondition, message)
-	}
 }
 
 func connectMustFail(

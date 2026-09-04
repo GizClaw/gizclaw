@@ -261,14 +261,10 @@ func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
 	if !ok {
 		t.Fatalf("Workflows = %T", server.Workflows)
 	}
-	chatroomWorkflow := "friend-chatroom"
-	if _, err := workflows.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{
-		Body: &adminhttp.WorkflowUpsert{Id: chatroomWorkflow, Spec: apitypes.WorkflowSpec{
-			Driver:   apitypes.WorkflowDriverChatroom,
-			Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
-		}},
-	}); err != nil {
-		t.Fatalf("CreateWorkflow error: %v", err)
+	// Friend Workspaces run the built-in SFU Workflow, so the Server only has
+	// to materialize it; nothing is read from the owner's RuntimeProfile.
+	if err := workflows.EnsureBuiltinWorkflows(ctx); err != nil {
+		t.Fatalf("EnsureBuiltinWorkflows error: %v", err)
 	}
 
 	// A Friend relationship gives the caller a Workspace it can resolve but
@@ -278,11 +274,7 @@ func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
 	friends := &friend.Server{
 		Friends:    friendStore,
 		Workspaces: domain,
-		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: chatroomWorkflow},
-			}}}, nil
-		},
+		SFUURL:     "ws://sfu.invalid",
 	}
 	other := giznet.PublicKey{9}
 	relation, err := friends.AdminCreateFriend(ctx, other.String(), server.Caller.String())

@@ -93,7 +93,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 48 | `server.friend.delete` | 删除一条好友关系及其关联资源。 |
 | 89 | `server.friend.info.get` | 读取指定好友对当前 Peer 可见的 name 和 emoji。 |
 
-## Friend Group 与消息
+## Friend Group
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
@@ -110,9 +110,6 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 59 | `server.friend_group.members.add` | 向 Friend Group 添加成员并设置 member/admin role。 |
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
-| 62 | `server.friend_group.messages.list` | 按 Friend Group 解析其 Workspace，并分页投影 Workspace History。 |
-| 63 | `server.friend_group.messages.get` | 按 `history_name` 读取 Friend Group Workspace History 投影。 |
-| 95 | `server.friend_group.messages.audio.download` | 按当前成员的 Friend Group name 返回 Workspace History 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 
 ## Gameplay
 

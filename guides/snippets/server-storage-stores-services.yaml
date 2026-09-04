@@ -201,6 +201,18 @@ services:
     store: friends
   friend_group:
     store: friend-groups
+  # Optional. Binds every SFU Workspace on this Server to one LiveKit
+  # signaling endpoint. API credentials are loaded from files at startup and
+  # never appear in Stores, Peer APIs, events, or logs. Omit the block to
+  # disable SFU Workspaces.
+  sfu:
+    url: wss://sfu.internal
+    api_key_file: /etc/gizclaw/sfu/api_key
+    api_secret_file: /etc/gizclaw/sfu/api_secret
+    recheck_interval: 5s
+    reconnect_timeout: 30s
+    talk_hangover: 500ms
+    floor_idle: 300ms
   gameplay:
     store: gameplay
     assets_store: gameplay-assets

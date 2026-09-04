@@ -652,7 +652,7 @@ It is not a complete server mesh:
 - The Edge does not maintain mesh membership or a global peer/resource route
   registry.
 - This package does not replicate data or events between Servers.
-- It does not route Workspaces, Chatrooms, History, or Social execution between Servers.
+- It does not route Workspaces, History, or Social execution between Servers. Cross-Server Friend and Friend Group voice is handled by GizClaw Servers through the shared Social KV and the SFU Room; the Edge is not involved.
 
 Therefore, when adding a capability, you must first determine whether it is the responsibility of the current Edge ingress or the future work of the server mesh control plane; you cannot directly write `pkgs/gizedge` just because the capability is related to the public network entry point.
 

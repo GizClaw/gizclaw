@@ -553,6 +553,6 @@ Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 
 - Edge control-plane RPC 与 certificate distribution 尚未完整实现。
 - Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
 - Server 之间不存在由这个 package 提供的数据复制和事件同步。
-- 该 package 不在 Server 之间路由 Workspace、Chatroom、History 或 Social execution。
+- 该 package 不在 Server 之间路由 Workspace、History 或 Social execution。Friend 与 Friend Group 的跨 Server 语音由 GizClaw Server 通过共享 Social KV 与 SFU Room 完成，Edge 不参与。
 
 因此，新增能力时要先判断它是当前 Edge ingress 的职责，还是 server mesh control plane 的未来工作；不能因为能力与公网入口有关就直接写进 `pkgs/gizedge`。

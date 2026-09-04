@@ -347,9 +347,7 @@ func seedGameplayCatalog(t *testing.T, ctx context.Context, catalog *Catalog) ap
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: "chatroom",
-					GroupChatroom:  "chatroom",
-					Pet:            "pet-care",
+					Pet: "pet-care",
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
 			},

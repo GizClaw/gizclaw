@@ -20,7 +20,7 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 	caller := giznet.PublicKey{1}
 	workspaceOwner := giznet.PublicKey{2}
 	unrelated := giznet.PublicKey{3}
-	workflowID := "workflow-direct"
+	workflowID := socialutil.SFUWorkflowID
 	workspaces := &sharedWorkspaceNameService{owner: workspaceOwner.String()}
 
 	friendStore := kv.NewMemory(nil)
@@ -28,11 +28,7 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 	friends := &friend.Server{
 		Friends:    friendStore,
 		Workspaces: workspaces,
-		RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) {
-			return apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: workflowID},
-			}}}, nil
-		},
+		SFUURL:     "wss://sfu.test",
 	}
 	relation, err := friends.AdminCreateFriend(ctx, workspaceOwner.String(), caller.String())
 	if err != nil {
@@ -45,9 +41,7 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 		System: workspaces.item.System, WorkflowId: workflowID, Parameters: workspaces.item.Parameters,
 	}
 
-	profile := apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-		System: apitypes.RuntimeProfileSystemWorkflows{FriendChatroom: workflowID},
-	}}}
+	profile := apitypes.RuntimeProfile{}
 	server := &Server{
 		Caller:         caller,
 		Workspaces:     workspaces,
@@ -68,10 +62,62 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 	}
 }
 
+func TestResolveRunWorkspaceSelectionMaterializesSharedSocialWorkspace(t *testing.T) {
+	ctx := t.Context()
+	caller := giznet.PublicKey{1}
+	workspaceOwner := giznet.PublicKey{2}
+	stranger := giznet.PublicKey{3}
+	friendStore := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = friendStore.Close() })
+	homeWorkspaces := &sharedWorkspaceNameService{owner: workspaceOwner.String()}
+	friends := &friend.Server{Friends: friendStore, Workspaces: homeWorkspaces, SFUURL: "wss://sfu.test"}
+	relation, err := friends.AdminCreateFriend(ctx, workspaceOwner.String(), caller.String())
+	if err != nil {
+		t.Fatalf("create Friend relationship: %v", err)
+	}
+	workspaceName := socialutil.StringValue(relation.WorkspaceName)
+
+	// The caller's Server shares the Social KV but has an empty local catalog.
+	localWorkspaces := &sharedWorkspaceNameService{owner: workspaceOwner.String()}
+	profile := apitypes.RuntimeProfile{}
+	server := &Server{
+		Caller:         caller,
+		Workspaces:     localWorkspaces,
+		Friends:        &friend.Server{Friends: friendStore, Workspaces: localWorkspaces, SFUURL: "wss://sfu.test"},
+		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
+	}
+	resolved, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName)
+	if rpcErr != nil {
+		t.Fatalf("ResolveRunWorkspaceSelection() error = %#v", rpcErr)
+	}
+	if resolved.Id != homeWorkspaces.item.Id || resolved.Name != workspaceName || resolved.WorkflowId != socialutil.SFUWorkflowID ||
+		resolved.OwnerPublicKey == nil || *resolved.OwnerPublicKey != workspaceOwner.String() || localWorkspaces.created != 1 {
+		t.Fatalf("materialized Workspace = %#v (created %d), want copy of %#v", resolved, localWorkspaces.created, homeWorkspaces.item)
+	}
+	if again, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName); rpcErr != nil || again.Id != resolved.Id || localWorkspaces.created != 1 {
+		t.Fatalf("second ResolveRunWorkspaceSelection() = %#v, %#v (created %d), want reuse", again, rpcErr, localWorkspaces.created)
+	}
+	items, err := server.effectiveWorkspaces(ctx)
+	if err != nil || len(items) != 1 || items[0].Name != workspaceName {
+		t.Fatalf("effectiveWorkspaces() = %#v, %v, want the shared Social Workspace", items, err)
+	}
+
+	server.Caller = stranger
+	strangerWorkspaces := &sharedWorkspaceNameService{owner: workspaceOwner.String()}
+	server.Workspaces = strangerWorkspaces
+	if _, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound {
+		t.Fatalf("stranger ResolveRunWorkspaceSelection() error = %#v, want NOT_FOUND", rpcErr)
+	}
+	if strangerWorkspaces.created != 0 {
+		t.Fatal("stranger materialized a Social Workspace")
+	}
+}
+
 type sharedWorkspaceNameService struct {
-	owner string
-	item  apitypes.Workspace
-	decoy apitypes.Workspace
+	owner   string
+	item    apitypes.Workspace
+	decoy   apitypes.Workspace
+	created int
 }
 
 func (s *sharedWorkspaceNameService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
@@ -93,8 +139,16 @@ func (*sharedWorkspaceNameService) PutWorkspace(context.Context, adminhttp.PutWo
 func (s *sharedWorkspaceNameService) CreateSystemWorkspace(ctx context.Context, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, bool, error) {
 	system := true
 	owner, _ := ownership.FromContext(ctx)
+	if s.item.Name == body.Name {
+		return s.item, false, nil
+	}
+	s.created++
+	id := body.Id
+	if id == "" {
+		id = "workspace-id"
+	}
 	s.item = apitypes.Workspace{
-		Id: "workspace-id", Name: body.Name, OwnerPublicKey: &owner,
+		Id: id, Name: body.Name, OwnerPublicKey: &owner,
 		System: &system, WorkflowId: body.WorkflowId, Parameters: body.Parameters,
 	}
 	return s.item, true, nil
@@ -104,7 +158,7 @@ func (s *sharedWorkspaceNameService) DeleteSystemWorkspace(context.Context, stri
 	return s.item, nil
 }
 
-func (s *sharedWorkspaceNameService) RetireSystemWorkspaceByID(context.Context, string, apitypes.ChatRoomMode, string) (apitypes.Workspace, error) {
+func (s *sharedWorkspaceNameService) RetireSystemWorkspaceByID(context.Context, string, socialutil.SFUWorkspaceKind, string) (apitypes.Workspace, error) {
 	return s.item, nil
 }
 

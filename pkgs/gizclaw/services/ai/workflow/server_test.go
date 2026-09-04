@@ -10,6 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/gofiber/fiber/v2"
 )
@@ -164,17 +165,17 @@ func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
 		t.Fatalf("validateDriverSpec() error = %v", err)
 	}
 	petSpec := apitypes.PetWorkflowSpec{
-		Driver:   apitypes.ReusableWorkflowDriverChatroom,
-		Chatroom: &apitypes.ChatRoomWorkflowSpec{},
+		Driver:       apitypes.ReusableWorkflowDriverAstTranslate,
+		AstTranslate: &apitypes.ASTTranslateWorkflowSpec{},
 	}
 	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err != nil {
 		t.Fatalf("validateDriverSpec(valid pet) error = %v", err)
 	}
-	petSpec.Chatroom = nil
-	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "spec.chatroom is required") {
+	petSpec.AstTranslate = nil
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "spec.ast_translate is required") {
 		t.Fatalf("validateDriverSpec(missing nested payload) error = %v", err)
 	}
-	petSpec.Chatroom = &apitypes.ChatRoomWorkflowSpec{}
+	petSpec.AstTranslate = &apitypes.ASTTranslateWorkflowSpec{}
 	petSpec.Flowcraft = &apitypes.FlowcraftWorkflowSpec{}
 	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("validateDriverSpec(mismatched nested config) error = %v", err)
@@ -183,6 +184,10 @@ func TestValidateDriverSpecRequiresPetConfig(t *testing.T) {
 	petSpec.Driver = apitypes.ReusableWorkflowDriver("pet")
 	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "not a reusable") {
 		t.Fatalf("validateDriverSpec(recursive pet) error = %v", err)
+	}
+	petSpec.Driver = apitypes.ReusableWorkflowDriver(apitypes.WorkflowDriverSfu)
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverPet, Pet: &petSpec}); err == nil || !strings.Contains(err.Error(), "cannot be nested") {
+		t.Fatalf("validateDriverSpec(nested sfu) error = %v", err)
 	}
 }
 
@@ -279,63 +284,79 @@ func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
 	}
 }
 
-func TestServerAcceptsChatRoomWorkflowSpec(t *testing.T) {
+func TestServerRejectsUserSFUWorkflowSpecs(t *testing.T) {
 	t.Parallel()
 
-	srv := newTestServer(t)
-	ctx := context.Background()
-	doc := mustDocument(t, `{
-		"id": "chatroom",
-		"spec": {
-			"driver": "chatroom",
-			"chatroom": {
-				"history": {
-					"ttl": "168h"
-				},
-				"transcript": {
-					"enabled": true,
-					"asr_model": "e2e-asr"
-				}
-			}
-		}
-	}`)
-
-	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
-	if err != nil {
-		t.Fatalf("CreateWorkflow(chatroom) error = %v", err)
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverSfu, Sfu: &apitypes.SFUWorkflowSpec{}}); err != nil {
+		t.Fatalf("validateDriverSpec(empty sfu) error = %v", err)
 	}
-	created, ok := resp.(adminhttp.CreateWorkflow200JSONResponse)
-	if !ok {
-		t.Fatalf("CreateWorkflow(chatroom) response = %#v", resp)
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverSfu}); err == nil || !strings.Contains(err.Error(), "spec.sfu is required") {
+		t.Fatalf("validateDriverSpec(missing sfu) error = %v", err)
 	}
-	got := apitypes.Workflow(created)
-	if got.Spec.Driver != apitypes.WorkflowDriverChatroom || got.Spec.Chatroom == nil {
-		t.Fatalf("CreateWorkflow(chatroom) spec = %#v", got.Spec)
+	nonEmpty := apitypes.SFUWorkflowSpec{"url": "wss://sfu"}
+	if err := validateDriverSpec(apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverSfu, Sfu: &nonEmpty}); err == nil || !strings.Contains(err.Error(), "empty object") {
+		t.Fatalf("validateDriverSpec(non-empty sfu) error = %v", err)
 	}
-	if got.Spec.Chatroom.History.Ttl == nil || *got.Spec.Chatroom.History.Ttl != "168h" {
-		t.Fatalf("CreateWorkflow(chatroom) history = %#v", got.Spec.Chatroom.History)
+	var decoded adminhttp.WorkflowUpsert
+	if err := json.Unmarshal([]byte(`{"id": "user-sfu", "spec": {"driver": "sfu", "sfu": {"room": "x"}}}`), &decoded); err == nil || !strings.Contains(err.Error(), "empty object") {
+		t.Fatalf("decode non-empty sfu spec error = %v", err)
 	}
 }
 
-func TestServerRejectsInvalidChatRoomWorkflowSpec(t *testing.T) {
+func TestServerMaterializesProtectedBuiltinSFUWorkflow(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	cases := map[string]adminhttp.WorkflowUpsert{
-		"missing chatroom": {
-			Id:   "missing-chatroom",
-			Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverChatroom},
-		},
+	for range 2 {
+		if err := srv.EnsureBuiltinWorkflows(ctx); err != nil {
+			t.Fatalf("EnsureBuiltinWorkflows() error = %v", err)
+		}
 	}
-	for name, doc := range cases {
-		resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
-		if err != nil {
-			t.Fatalf("CreateWorkflow(%s) error = %v", name, err)
-		}
-		if _, ok := resp.(adminhttp.CreateWorkflow400JSONResponse); !ok {
-			t.Fatalf("CreateWorkflow(%s) response = %#v", name, resp)
-		}
+	getResp, err := srv.GetWorkflow(ctx, adminhttp.GetWorkflowRequestObject{Id: socialutil.SFUWorkflowID})
+	if err != nil {
+		t.Fatalf("GetWorkflow(builtin) error = %v", err)
+	}
+	got, ok := getResp.(adminhttp.GetWorkflow200JSONResponse)
+	if !ok || got.Id != socialutil.SFUWorkflowID || got.Spec.Driver != apitypes.WorkflowDriverSfu || got.Spec.Sfu == nil || len(*got.Spec.Sfu) != 0 {
+		t.Fatalf("GetWorkflow(builtin) = %#v", getResp)
+	}
+	userDoc := adminhttp.WorkflowUpsert{Id: "user-flow", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverAstTranslate, AstTranslate: &apitypes.ASTTranslateWorkflowSpec{}}}
+	if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &userDoc}); err != nil {
+		t.Fatalf("CreateWorkflow(user) error = %v", err)
+	}
+	listResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{})
+	if err != nil {
+		t.Fatalf("ListWorkflows() error = %v", err)
+	}
+	list, ok := listResp.(adminhttp.ListWorkflows200JSONResponse)
+	if !ok || len(list.Items) != 1 || list.Items[0].Id != "user-flow" || list.HasNext {
+		t.Fatalf("ListWorkflows() = %#v, want only user Workflows", listResp)
+	}
+	builtin := adminhttp.WorkflowUpsert{Id: socialutil.SFUWorkflowID, Spec: BuiltinSFUWorkflow().Spec}
+	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &builtin})
+	if err != nil {
+		t.Fatalf("CreateWorkflow(builtin) error = %v", err)
+	}
+	if conflict, ok := createResp.(adminhttp.CreateWorkflow409JSONResponse); !ok || conflict.Error.Code != BuiltinWorkflowCode {
+		t.Fatalf("CreateWorkflow(builtin) response = %#v", createResp)
+	}
+	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{Id: socialutil.SFUWorkflowID, Body: &builtin})
+	if err != nil {
+		t.Fatalf("PutWorkflow(builtin) error = %v", err)
+	}
+	if rejected, ok := putResp.(adminhttp.PutWorkflow400JSONResponse); !ok || rejected.Error.Code != BuiltinWorkflowCode {
+		t.Fatalf("PutWorkflow(builtin) response = %#v", putResp)
+	}
+	deleteResp, err := srv.DeleteWorkflow(ctx, adminhttp.DeleteWorkflowRequestObject{Id: socialutil.SFUWorkflowID})
+	if err != nil {
+		t.Fatalf("DeleteWorkflow(builtin) error = %v", err)
+	}
+	if rejected, ok := deleteResp.(adminhttp.DeleteWorkflow404JSONResponse); !ok || rejected.Error.Code != BuiltinWorkflowCode {
+		t.Fatalf("DeleteWorkflow(builtin) response = %#v", deleteResp)
+	}
+	if _, err := srv.Store.Get(ctx, workflowKey(socialutil.SFUWorkflowID)); err != nil {
+		t.Fatalf("builtin Workflow after rejected delete: %v", err)
 	}
 }
 
@@ -381,9 +402,9 @@ func TestServerCanonicalizesNestedPetToolkitPolicy(t *testing.T) {
 		Spec: apitypes.WorkflowSpec{
 			Driver: apitypes.WorkflowDriverPet,
 			Pet: &apitypes.PetWorkflowSpec{
-				Driver:   apitypes.ReusableWorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
-				Toolkit:  &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
+				Driver:       apitypes.ReusableWorkflowDriverAstTranslate,
+				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{},
+				Toolkit:      &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
 			},
 		},
 	}
@@ -633,8 +654,8 @@ func TestServerRejectsMissingWorkflowRequiredFields(t *testing.T) {
 	for name, doc := range map[string]adminhttp.WorkflowUpsert{
 		"name": {
 			Spec: apitypes.WorkflowSpec{
-				Driver:   apitypes.WorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{},
+				Driver:       apitypes.WorkflowDriverAstTranslate,
+				AstTranslate: &apitypes.ASTTranslateWorkflowSpec{},
 			},
 		},
 		"driver": {Id: "bad"},

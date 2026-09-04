@@ -1,0 +1,406 @@
+# User Story:
+# As a device that belongs to both a Friend Workspace and a Friend Group Workspace,
+# I want only the currently selected Workspace to receive my speech, even after re-selecting it,
+# So that switching SFU Workspaces cancels the old Room and activates the new one exactly once.
+version: gizclaw.test/v1alpha1
+name: sfu.workspace.switch
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+  carol:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  group_name:
+    direction: input
+    type: string
+    generate: token
+  bob_invite:
+    direction: output
+    type: string
+    secret: true
+  group_invite:
+    direction: output
+    type: string
+    secret: true
+  friend_name:
+    direction: output
+    type: string
+  friend_workspace:
+    direction: output
+    type: string
+  bob_friend_workspace:
+    direction: output
+    type: string
+  group_workspace:
+    direction: output
+    type: string
+  carol_group_workspace:
+    direction: output
+    type: string
+  alice_audio_x:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  alice_audio_y:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_received_again:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  # Friend X: alice <-> bob.
+  - id: bob_create_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite: /invite_token
+  - id: alice_add_bob
+    client: alice
+    rpc:
+      method: server.friend.add
+      request:
+        invite_token: ${bob_invite}
+    capture:
+      friend_name: /name
+      friend_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: bob_sees_alice
+    client: bob
+    rpc:
+      method: server.friend.list
+      request: {}
+    capture:
+      bob_friend_workspace: /items/0/workspace_name
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: "${friend_workspace}"}
+  # Group Y: alice owns, carol joins from Server B.
+  - id: alice_create_group
+    client: alice
+    rpc:
+      method: server.friend_group.create
+      request:
+        name: ${group_name}
+    capture:
+      group_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: alice_create_group_invite
+    client: alice
+    rpc:
+      method: server.friend_group.invite_token.create
+      request:
+        friend_group_name: ${group_name}
+    capture:
+      group_invite: /invite_token
+  - id: carol_join
+    client: carol
+    rpc:
+      method: server.friend_group.join
+      request:
+        invite_token: ${group_invite}
+        name: ${group_name}
+    capture:
+      carol_group_workspace: /group/workspace_name
+    expect:
+      /group/workspace_name: {equals: "${group_workspace}"}
+  - id: bob_select_x
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${friend_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${friend_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: bob_select_x_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: carol_select_y
+    client: carol
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${group_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${group_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: carol_select_y_running
+    client: carol
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: alice_synthesize_x
+    client: alice
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们正在讨论今天的晚饭
+        accepted_content_types: [audio/ogg]
+    save_as: alice_audio_x
+  - id: alice_synthesize_y
+    client: alice
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 他们正在准备明天的会议
+        accepted_content_types: [audio/ogg]
+    save_as: alice_audio_y
+  # Alice selects X: only bob hears her.
+  - id: alice_select_x
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${bob_friend_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${bob_friend_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: alice_select_x_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: alice_speaks_x
+    timeout: 30s
+    parallel:
+      - id: bob_listen_x
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_x
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak_x
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio_x}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      bob_received: /bob_listen_x/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcript below can only assert the phrase
+      # when the whole utterance was captured.
+      /bob_listen_x/audio_bytes: {minimum: 2000}
+      /bob_listen_x/packets: {minimum: 50}
+      /carol_listen_x/audio_bytes: {maximum: 0}
+  - id: bob_transcript_x
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${bob_received}
+    expect:
+      /transcript: {contains: 我们正在讨论今天的晚饭, normalize: [case, punctuation, whitespace]}
+  # Alice switches to Y: only carol hears her.
+  - id: alice_select_y
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${carol_group_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${carol_group_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: alice_select_y_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: alice_speaks_y
+    timeout: 30s
+    parallel:
+      - id: bob_listen_y
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_y
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak_y
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio_y}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      carol_received: /carol_listen_y/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcript below can only assert the phrase
+      # when the whole utterance was captured.
+      /carol_listen_y/audio_bytes: {minimum: 2000}
+      /carol_listen_y/packets: {minimum: 50}
+      /bob_listen_y/audio_bytes: {maximum: 0}
+  - id: carol_transcript_y
+    client: carol
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${carol_received}
+    expect:
+      /transcript: {contains: 他们正在准备明天的会议, normalize: [case, punctuation, whitespace]}
+  # Re-selecting Y is idempotent: still only carol hears alice.
+  - id: alice_reselect_y
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${group_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${group_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: alice_reselect_y_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: alice_speaks_y_again
+    timeout: 30s
+    parallel:
+      - id: bob_listen_y_again
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_y_again
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak_y_again
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio_y}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      carol_received_again: /carol_listen_y_again/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcript below can only assert the phrase
+      # when the whole utterance was captured.
+      /carol_listen_y_again/audio_bytes: {minimum: 2000}
+      /carol_listen_y_again/packets: {minimum: 50}
+      /bob_listen_y_again/audio_bytes: {maximum: 0}
+  - id: carol_transcript_y_again
+    client: carol
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${carol_received_again}
+    expect:
+      /transcript: {contains: 他们正在准备明天的会议, normalize: [case, punctuation, whitespace]}
+finally:
+  - client: alice
+    rpc: {method: server.run.stop, request: {}}
+  - client: bob
+    rpc: {method: server.run.stop, request: {}}
+  - client: carol
+    rpc: {method: server.run.stop, request: {}}
+  - client: alice
+    rpc:
+      method: server.friend_group.delete
+      request:
+        name: ${group_name}
+  - client: alice
+    rpc:
+      method: server.friend.delete
+      request:
+        name: ${friend_name}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: bob
+    rpc: {method: server.peer.delete, request: {}}
+  - client: carol
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [token_a, token_b, bob_invite, group_invite]

@@ -12,8 +12,6 @@ metadata:
 spec:
   workflows:
     system:
-      friend_chatroom: chatroom
-      group_chatroom: chatroom
       pet: pet-care
     collections:
       assistants:
@@ -94,7 +92,7 @@ spec:
       games: {}
 ```
 
-`workflows.system` 的三个值是管理员创建的真实 Workflow ID，不是 Collection alias。私聊与群聊分别使用 `friend_chatroom`、`group_chatroom`，Pet 领养使用 `pet`。RuntimeProfile 创建或更新时会验证这些 ID、预期的外层 driver，以及 Workflow 内部使用的 Model、Voice、Tool alias。
+`workflows.system` 只有一个必填值 `pet`，它是管理员创建的真实 Workflow ID，不是 Collection alias，供 Pet 领养使用。RuntimeProfile 创建或更新时会验证该 ID、预期的外层 driver，以及 Workflow 内部使用的 Model、Voice、Tool alias。Friend 与 Friend Group 的 Workspace 固定绑定内置 `system-sfu` Workflow，不经 RuntimeProfile 选择，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
 可选 Workflow alias 位于 `workflows.collections.<collection>.<alias>`。Alias ID 在所有 Collection 之间全局唯一；客户端拥有固定的 Collection 菜单、顺序、图标与 Collection 翻译。RuntimeProfile 只提供动态 Workflow 成员，以及 alias 自己的 `en`、`zh-CN` 显示文本，不包含顶层 locale 或 Collection 展示配置。
 
@@ -131,7 +129,7 @@ gameplay:
     initial_balance: 100
   workspace_reward:
     enabled: true
-    workspace_kinds: [workflow, direct_chatroom, group_chatroom]
+    workspace_kinds: [workflow]
     debounce: {quiet_period: 2m, max_window_age: 15m}
     transcript: {max_entries: 100, max_text_bytes: 65536}
     evaluation:

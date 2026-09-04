@@ -1,0 +1,202 @@
+# User Story:
+# As a device registered on one GizClaw Server whose friend lives on the other Server,
+# I want each side to hear the other's push-to-talk audio through the shared SFU Room,
+# So that the cross-server media path is verified without any speech provider.
+#
+# Provider-free variant of sfu.friend.cross-server: the input is a committed
+# Ogg/Opus tone delivered through GIZCLAW_TEST_SFU_TONE_OGG_BASE64 and the
+# assertions only look at audio_bytes: the receiver hears the tone and the
+# sender's concurrent self-listen hears nothing (mix-minus-self).
+version: gizclaw.test/v1alpha1
+name: sfu.friend.cross-server.audio-bytes
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  tone:
+    direction: input
+    type: audio
+    env: GIZCLAW_TEST_SFU_TONE_OGG_BASE64
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+  bob_invite:
+    direction: output
+    type: string
+    secret: true
+  friend_name:
+    direction: output
+    type: string
+  alice_workspace:
+    direction: output
+    type: string
+  bob_workspace:
+    direction: output
+    type: string
+steps:
+  - id: bob_create_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite: /invite_token
+  - id: alice_add_bob
+    client: alice
+    rpc:
+      method: server.friend.add
+      request:
+        invite_token: ${bob_invite}
+    capture:
+      friend_name: /name
+      alice_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: bob_sees_alice
+    client: bob
+    rpc:
+      method: server.friend.list
+      request: {}
+    capture:
+      bob_workspace: /items/0/workspace_name
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: "${alice_workspace}"}
+  # Both sides see one shared Workspace identity; each client selects it
+  # under the name captured by the other side, which joins the Room at once.
+  - id: alice_select_shared_workspace
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${bob_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${bob_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: alice_select_shared_workspace_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: bob_select_shared_workspace
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${alice_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: bob_select_shared_workspace_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  # One step starts the speaker and both listen windows at the same moment, so
+  # the windows cover the whole utterance.
+  - id: alice_speaks
+    timeout: 30s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_listen_self
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /alice_speak/input_sent: {equals: true}
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_listen_self/audio_bytes: {maximum: 0}
+  - id: bob_speaks
+    timeout: 30s
+    parallel:
+      - id: alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: bob_listen_self
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: bob_speak
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /bob_speak/input_sent: {equals: true}
+      /alice_listen/audio_bytes: {minimum: 2000}
+      /alice_listen/packets: {minimum: 50}
+      /bob_listen_self/audio_bytes: {maximum: 0}
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend.delete
+      request:
+        name: ${friend_name}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact: [token_a, token_b, bob_invite]

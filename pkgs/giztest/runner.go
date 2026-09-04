@@ -35,6 +35,12 @@ type Options struct {
 	In io.Reader
 	// Out is where an output step writes and where progress is reported.
 	Out io.Writer
+	// parallelCancelGrace shortens the wait for the cancelled children of a
+	// parallel step in runner tests; zero uses the package default.
+	parallelCancelGrace time.Duration
+	// parallel tracks the parallel children of one task that ignored
+	// cancellation. runTask sets it on its own copy of Options.
+	parallel *parallelTracker
 }
 
 type task struct {
@@ -159,9 +165,16 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 	defer vars.release()
 	redactions := vars.redactions(item.doc.Report.Redact)
 	session, err := opts.Driver.Open(ctx, item.doc, vars)
+	// closeSession stays false while a background goroutine that ignored
+	// cancellation still owns a stream on the session's clients.
+	closeSession := true
 	if session != nil {
 		result.Clients = session.Fingerprints()
-		defer session.Close()
+		defer func() {
+			if closeSession {
+				session.Close()
+			}
+		}()
 	}
 	if err != nil {
 		item.barrier.Abort(err)
@@ -170,6 +183,7 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
+	opts.parallel = newParallelTracker(opts.parallelCancelGrace)
 	failed := false
 	for _, step := range item.doc.Steps {
 		stepResult, err := RunStep(ctx, item.doc.Path, step, session, vars, item.barrier, opts, redactions)
@@ -180,6 +194,20 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 			failed = true
 			break
 		}
+	}
+	// A parallel child that ignored cancellation still owns a stream on the
+	// task's shared clients. Session teardown, finalizers, and client close
+	// would all race it, so the task ends here and reports the leak instead.
+	if running := opts.parallel.join(); len(running) != 0 {
+		closeSession = false
+		leak := SafeError(fmt.Errorf("parallel children %s still hold their PeerStream after cancellation; skipped finally steps and client teardown", strings.Join(running, ", ")), redactions...)
+		if result.Error == "" {
+			result.Error = leak
+		} else {
+			result.Error += "; " + leak
+		}
+		result.DurationMS = time.Since(started).Milliseconds()
+		return result
 	}
 	// Streams the document held open across steps close before the
 	// finalizers so cleanup observes a settled session.
@@ -455,6 +483,14 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 		evidence, err = emitOutput(opts.Out, vars, step.Output.Variable)
 	case "review":
 		err = runReview(opts.In, opts.Out, step.ReviewOp.Message)
+	case "parallel":
+		var children []StepReport
+		var childValues map[string]any
+		childValues, children, evidence, err = runParallel(stepCtx, documentPath, step, session, vars, opts.parallel, redactions)
+		report.Children = children
+		if childValues != nil {
+			value = childValues
+		}
 	default:
 		if session == nil {
 			err = fmt.Errorf("operation %s requires a connected session", op)
@@ -466,6 +502,12 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 		})
 		value, saved, evidence = result.Value, result.Saved, result.Evidence
 	}
+	return completeStepReport(report, step, vars, value, saved, evidence, err, started, opts, redactions)
+}
+
+// completeStepReport applies the step's expect_error, save_as, capture, and
+// expect declarations to an operation outcome and fills in the report.
+func completeStepReport(report StepReport, step Step, vars *Variables, value, saved any, evidence map[string]any, err error, started time.Time, opts Options, redactions []string) (StepReport, error) {
 	if step.ExpectError != nil {
 		code, message, matched := opts.Driver.FailureCode(err)
 		if !matched {

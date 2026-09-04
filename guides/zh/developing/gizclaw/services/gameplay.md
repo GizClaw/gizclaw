@@ -8,7 +8,7 @@ Gameplay 拥有 PetDef、BadgeDef、GameDef、Pet、points account、transaction
 
 领养 Pet 时，服务先验证当前 connection 的 RuntimeProfile 和 `workflows.system.pet` 中的 canonical Workflow ID，再创建归该 Peer 所有的 system Workspace，并把精确的 RuntimeProfile ID 写入 Pet 和相关状态。Pet Workspace 不保存 persona、conversation、model、voice 或其他 driver 配置；通用 Workspace put 只允许在 `push-to-talk` 与 `realtime` 之间修改输入模式，其他执行配置保持不可变。PetDef 不保存 Voice ID/alias 或本地 i18n；它保留角色/说话风格、PIXA 和行为到动画的绑定，展示文本来自 RuntimeProfile 的 `pet_defs` binding。
 
-`driver: pet` 是领域 wrapper，不内置执行图。它的 `pet` 字段嵌套一个相同形状、但禁止再次选择 `pet` 的 Workflow spec，例如 `flowcraft`、`chatroom`、`doubao-realtime` 或 `ast-translate`。Pet wrapper 向内层 Workflow 注入当前 Pet 上下文，并把 Pet Workspace 的输入模式转换为内层 driver 对应的 typed 参数；省略时默认使用 `push-to-talk`。内层 driver 拥有 graph、voice、model 和 toolkit 配置。Memory 只由外层 Workflow 选择一次并传给内层 driver；可复用的内层 spec 不能再声明 Memory alias。所有 alias 都从 system Workspace owner 的 RuntimeProfile 解析，因此替换嵌套 driver 不需要修改 Pet 或 Workspace 数据。
+`driver: pet` 是领域 wrapper，不内置执行图。它的 `pet` 字段嵌套一个相同形状的 reusable Workflow spec，例如 `flowcraft`、`eino`、`doubao-realtime` 或 `ast-translate`，但不能再次选择 `pet`，也不能选择 `sfu`。Pet wrapper 向内层 Workflow 注入当前 Pet 上下文，并把 Pet Workspace 的输入模式转换为内层 driver 对应的 typed 参数；省略时默认使用 `push-to-talk`。内层 driver 拥有 graph、voice、model 和 toolkit 配置。Memory 只由外层 Workflow 选择一次并传给内层 driver；可复用的内层 spec 不能再声明 Memory alias。所有 alias 都从 system Workspace owner 的 RuntimeProfile 解析，因此替换嵌套 driver 不需要修改 Pet 或 Workspace 数据。
 
 没有有效 PetDef 的 profile 不能领养 Pet；未在当前 profile 中允许的 GameDef 不能提交 game result。非法 alias 和 reward reference 会使 RuntimeProfile validation 失败。删除定义或 RuntimeProfile 不级联删除已有 Gameplay 历史。
 

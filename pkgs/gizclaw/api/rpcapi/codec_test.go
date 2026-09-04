@@ -200,7 +200,6 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 		{(&rpcpb.RewardGrant{}).ProtoReflect().Descriptor(), []protoreflect.Name{"badge_exp_delta", "created_at", "game_result_name", "name", "owner_public_key", "pet_exp_delta", "pet_name", "points_delta", "reason", "runtime_profile_name", "source_name", "source_type"}},
 		{(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "peer_public_key", "updated_at", "workspace_name"}},
 		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at"}},
-		{(&rpcpb.FriendGroupMessageObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "expires_at", "friend_group_name", "sender_peer_public_key", "name", "actor_name", "text", "type", "audio_available"}},
 		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type"}},
 		{(&rpcpb.PeerRunRecallHit{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "metadata", "score", "snippet", "source_name", "source_type"}},
 		{(&rpcpb.ServerRegisterResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"runtime_profile_name"}},
@@ -269,19 +268,8 @@ func TestRPCMethodsIntentionallyReuseRetiredValuesWithoutCompatibilityReservatio
 	if descriptor.ReservedRanges().Len() != 0 || descriptor.ReservedNames().Len() != 0 {
 		t.Fatalf("RPC method compatibility reservations = ranges:%v names:%v", descriptor.ReservedRanges(), descriptor.ReservedNames())
 	}
-	audio := descriptor.Values().ByName("RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD")
-	if audio == nil || audio.Number() != 95 || RPCMethodServerFriendGroupMessagesAudioDownload != "server.friend_group.messages.audio.download" || !RPCMethodServerFriendGroupMessagesAudioDownload.Valid() {
-		t.Fatalf("Friend Group message audio registry = descriptor:%v wrapper:%q", audio, RPCMethodServerFriendGroupMessagesAudioDownload)
-	}
-
-	request := FriendGroupMessageAudioDownloadRequest{FriendGroupName: "group-a", HistoryName: "history-a"}
-	var payload RPCPayload
-	if err := payload.FromFriendGroupMessageAudioDownloadRequest(request); err != nil {
-		t.Fatalf("encode Friend Group audio request: %v", err)
-	}
-	decoded, err := payload.AsFriendGroupMessageAudioDownloadRequest()
-	if err != nil || decoded != request {
-		t.Fatalf("Friend Group audio request round trip = %#v, error=%v", decoded, err)
+	if retired := descriptor.Values().ByNumber(95); retired != nil {
+		t.Fatalf("retired method 95 is still registered as %s", retired.Name())
 	}
 }
 
@@ -589,18 +577,6 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 	if recallProto.GetValue().GetFilters().GetFields()["score"].GetNumberValue() != 1 {
 		t.Fatalf("recall filters = %+v", recallProto.GetValue().GetFilters())
-	}
-
-	var chatParams RPCPayload
-	if err := chatParams.encode("ChatRoomWorkspaceParameters", ChatRoomWorkspaceParameters{Input: new(WorkspaceInputModePushToTalk)}); err != nil {
-		t.Fatalf("encode ChatRoomWorkspaceParameters error = %v", err)
-	}
-	var chatProto rpcpb.ChatRoomWorkspaceParameters
-	if err := proto.Unmarshal(chatParams.payload, &chatProto); err != nil {
-		t.Fatalf("unmarshal chatroom payload error = %v", err)
-	}
-	if chatProto.GetInput() != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
-		t.Fatalf("chatroom input = %s", chatProto.GetInput())
 	}
 
 	var workspaceCreate RPCPayload

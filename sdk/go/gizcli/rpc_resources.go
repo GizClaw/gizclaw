@@ -272,14 +272,6 @@ func (c *rpcClient) GetRewardGrant(ctx context.Context, conn net.Conn, id string
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerRewardGrantGet, request, (*rpcapi.RPCPayload).FromServerRewardGrantGetRequest, rpcapi.RPCPayload.AsServerRewardGrantGetResponse, "reward grant get")
 }
 
-func (c *rpcClient) ListFriendGroupMessages(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageListRequest) (*rpcapi.FriendGroupMessageListResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesList, request, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest, rpcapi.RPCPayload.AsFriendGroupMessageListResponse, "friend group message list")
-}
-
-func (c *rpcClient) GetFriendGroupMessage(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageGetRequest) (*rpcapi.FriendGroupMessageGetResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesGet, request, (*rpcapi.RPCPayload).FromFriendGroupMessageGetRequest, rpcapi.RPCPayload.AsFriendGroupMessageGetResponse, "friend group message get")
-}
-
 func (c *rpcClient) ListTools(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolListRequest) (*rpcapi.ToolListResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolList, request, (*rpcapi.RPCPayload).FromToolListRequest, rpcapi.RPCPayload.AsToolListResponse, "tool list")
 }

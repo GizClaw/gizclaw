@@ -427,3 +427,35 @@ func TestLoadSupportedDocumentsSeparatesUnsupportedFromBroken(t *testing.T) {
 		t.Fatal("a malformed document must not be reported as skipped")
 	}
 }
+
+func TestResolveExpectationsReadsAssignedOutputVariables(t *testing.T) {
+	vars, err := NewVariables(map[string]VariableSpec{
+		"bob_workspace": {Direction: "output", Type: "string"},
+		"fragment":      {Direction: "input", Type: "string", Value: "calling"},
+		"count":         {Direction: "input", Type: "integer", Value: 3},
+	})
+	if err != nil {
+		t.Fatalf("NewVariables() error = %v", err)
+	}
+	if err := vars.assign("bob_workspace", "social-direct-1"); err != nil {
+		t.Fatalf("assign() error = %v", err)
+	}
+	value := map[string]any{"workspace_name": "social-direct-1", "transcript": "alice calling bob", "packets": 3}
+	resolved, err := resolveExpectations(vars, map[string]Expectation{
+		"/workspace_name": {Equals: "${bob_workspace}"},
+		"/transcript":     {Contains: "alice ${fragment}"},
+		"/packets":        {Equals: "${count}"},
+	})
+	if err != nil {
+		t.Fatalf("resolveExpectations() error = %v", err)
+	}
+	if resolved["/workspace_name"].Equals != "social-direct-1" || resolved["/transcript"].Contains != "alice calling" || resolved["/packets"].Equals != 3 {
+		t.Fatalf("resolved expectations = %#v", resolved)
+	}
+	if err := assertValue(resolved, value); err != nil {
+		t.Fatalf("assertValue() error = %v", err)
+	}
+	if _, err := resolveExpectations(vars, map[string]Expectation{"/workspace_name": {Equals: "${missing}"}}); err == nil {
+		t.Fatal("resolveExpectations() accepted an unknown variable")
+	}
+}

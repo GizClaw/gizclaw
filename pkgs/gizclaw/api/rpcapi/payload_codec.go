@@ -249,7 +249,6 @@ var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
 	"EinoWorkspaceParameters":                 reflect.TypeFor[EinoWorkspaceParameters](),
 	"PetWorkspaceParameters":                  reflect.TypeFor[PetWorkspaceParameters](),
 	"ASTTranslateWorkspaceParameters":         reflect.TypeFor[ASTTranslateWorkspaceParameters](),
-	"ChatRoomWorkspaceParameters":             reflect.TypeFor[ChatRoomWorkspaceParameters](),
 }
 
 func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, parent reflect.Value) error {
@@ -1240,8 +1239,6 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 			return "eino_workspace_parameters"
 		case "ast-translate":
 			return "asttranslate_workspace_parameters"
-		case "chatroom":
-			return "chat_room_workspace_parameters"
 		case "pet":
 			return "pet_workspace_parameters"
 		}

@@ -10,13 +10,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/asttranslate"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/dashscoperealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -33,6 +33,7 @@ func newPeerAgentHost(
 	state kv.Store,
 	memoryRoot string,
 	memoryStores *memorystore.Registry,
+	sfuFactory sfu.Factory,
 ) *agenthost.Host {
 	if base == nil {
 		return nil
@@ -63,7 +64,6 @@ func newPeerAgentHost(
 		return service.Transformer(), nil
 	}
 	_ = host.Register(asttranslate.Type, asttranslate.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
-	_ = host.Register(chatroom.Type, chatroom.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
 	_ = host.Register(dashscoperealtime.Type, dashscoperealtime.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
 	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
 	_ = host.Register(doubaorealtimeduplex.Type, doubaorealtimeduplex.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
@@ -83,6 +83,7 @@ func newPeerAgentHost(
 		MemoryStores: memoryStores,
 	})
 	_ = host.Register(petagent.Type, petagent.Factory{Pets: pets, Factories: host.Registry})
+	_ = host.Register(sfu.Type, sfuFactory)
 	return host
 }
 

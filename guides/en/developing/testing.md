@@ -37,7 +37,9 @@ The credential-free multi-Server Docker gate is:
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-It runs Redis, two Servers with distinct local runtime state, and two Edges whose configured Server order is reversed. It verifies fixed Peer homes through both Edges, API Key routing through an Edge to the owner Server, foreign-Server rejection, local-only PeerRun writes, and side-effect-free cross-Server Social conflicts. It does not test Workspace routing.
+It runs Redis 7.0, two Servers with distinct local runtime state, two Edges whose configured Server order is reversed, and one single-node LiveKit; both Servers point `services.sfu` at the same signaling URL with test credentials generated for that Compose project's lifetime. The Go cases verify fixed Peer homes through both Edges, API Key routing through an Edge to the owner Server, foreign-Server rejection, local-only PeerRun writes, shared-KV versus local-state isolation, lazy SFU Room creation, and bounded reconnection after a LiveKit restart. giztest then runs the `sfu.*.giztest.yaml` scenarios serially: clients register on different Servers through different Edges and verify cross-Server friend creation, group join, the member cap, revocation after member removal, and that a `listen`-mode broadcast reaches only the other members of the room. The real LiveKit is the only acceptance environment; no in-memory fake replaces it. It does not test Workflow Workspace routing.
+
+`sfu.friend.cross-server.audio-bytes` needs no credentials and always runs; the other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
 
 ### Cloud ObjectStore conformance
 
@@ -338,6 +340,9 @@ to make this gate pass.
 
 Audio and binary values remain in bounded memory with declared `media_type`,
 `codec`, and `max_bytes`. `save_as` assigns a variable and never writes a file.
+An `audio` or `binary` input variable that declares `env` reads standard base64
+bytes from that environment variable; the runner decodes them and applies
+`max_bytes`, so provider-free scenarios can push a committed fixture.
 `speech.cache: run` is limited to saved synthesis steps. It caches one successful
 immutable input fixture per document, step, and resolved request for the current
 CLI invocation, then gives every repeated task its own byte copy. This preserves
@@ -351,7 +356,7 @@ type. Other audio formats fail before the RPC opens. The document does not own
 this wire metadata.
 
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
-observed text and audio EOS boundaries. Chatroom turns that complete on the
+observed text and audio EOS boundaries. Turns that complete on the
 persisted user transcript declare `transcript` explicitly.
 `peer_stream.completion: first_response` is the bounded deployment-probe
 alternative. `require_text` and `require_audio` select its required modalities
@@ -459,7 +464,8 @@ active-side progress, and records deadline, client, turn, last-event, and
 observed-media evidence when it fires. Audio relays retain bounded assistant
 text for assertion and terminal capture without forwarding duplicate text.
 Reports remain content-free by default; local `--evidence full --output <path>`
-adds bounded relay text and produces a sensitive artifact without adding inputs,
+adds bounded relay text plus the transcript a `server.speech.transcribe` step
+recognized, and produces a sensitive artifact without adding inputs,
 credentials, IDs, or audio payloads.
 `workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
 pair inside the standard gate;
@@ -469,6 +475,113 @@ forwarding with audio EOS completion against a multimodal candidate; and
 gates and the repeat-20 relay gate
 (`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
 `--parallel 20`), and always cleans the stack up.
+
+### Broadcast scenarios: listen, parallel, and input_sent
+
+In SFU Workspace broadcast scenarios the response appears on the other clients
+in the room rather than on the sender. The runner provides three extensions for
+that, each following the existing schema, validation, evidence, and timeout
+conventions:
+
+- `peer_stream.mode: listen` is a receive-only operation. It requires a Go
+  duration `duration` (positive, at most 5m), pushes no input, and records every
+  chunk the PeerStream delivers within that window. An Opus blob with any label
+  counts as received audio, because SFU downlink labels identify the remote
+  participant. The result exposes `audio_bytes`, `packets`, `events`,
+  `streams`, `first_audio_ms`, `last_event_ms`, `duration_ms`, `listened_ms`,
+  bounded `text`, `audio_pacing`, and `/audio` in the same encoding as the
+  existing `peer_stream` result (Ogg/Opus, present only when a `/audio` capture
+  is declared and audio arrived, bounded by the output variable's
+  `max_bytes`), so it feeds `server.speech.transcribe` directly. Receiving no
+  audio is not an error; the document asserts `audio_bytes` with `expect`.
+  A listen may sit in the same `parallel` step as the speaking client's own
+  turn: both children share that connection's single Peer Event Stream
+  subscription, and the speaker's own audio never comes back
+  (mix-minus-self), so the sender asserts `audio_bytes` equal to 0. Listen
+  cannot set `input`, `pacing`, `interrupt_after`, `idle_timeout`,
+  `completion`, `terminal_label`, `require_text`, `require_audio`,
+  `wait_for_history`, `session`, `keep_open`, or `await_rearm`. The step fails
+  when the PeerStream closes before the window ends, when the step or document
+  timeout expires, or when a terminal error arrives.
+- Step-level `parallel`. A `parallel` step owns a list of child steps, starts
+  every one of them at the same moment, waits for all of them, and reports
+  them together, so "one client speaks while another listens" needs no
+  separate synchronization step. A child is a plain step body: `client` plus
+  exactly one `peer_stream` operation in any mode, between 2 and 16 of them,
+  each with an `id` that is required and unique across the whole document. A
+  child cannot declare `parallel`, `barrier`, `retry`, `timeout`, `save_as`,
+  `capture`, `expect`, or `expect_error`, and cannot use a persistent
+  peer_stream session: the assertions belong to the parallel step. A child may
+  declare `delay`, a positive duration up to one minute, and then starts that
+  long after the group is released instead of with it. That is the one way to
+  place a child's window inside another child's activity, which a contention
+  scenario needs: a speaker's own utterance opens on its first voiced frame,
+  so a window that starts with the group measures the leading silence, when
+  the speaker was still an ordinary listener. `delay` is rejected on any step
+  that is not a parallel child, because a plain step already runs in order and
+  a delay there would only be a sleep hiding a missing wait. The
+  parallel step itself keeps `id`, `timeout`, `capture`, `expect`,
+  `expect_error`, `retry`, and `save_as`, takes no `client`, and is not
+  allowed in `finally`.
+  The step's result is an object keyed by child `id`, so `capture` and
+  `expect` address one child's result with a `/<child_id>/...` JSON pointer; a
+  pointer that names no declared child is rejected by validation. The runner
+  resolves every child's inputs on the task goroutine first, because
+  `Variables` is not safe for concurrent use, and releases the children only
+  once all of them are prepared; when one child fails to prepare, the step
+  fails and no child starts.
+  The step's `timeout` bounds the whole group: on expiry the runner cancels
+  every child, waits up to 30s more for them to release their PeerStream, and
+  reports each child's own outcome. A child that ignores cancellation is
+  recorded as unfinished and still owns the task's shared clients, so the task
+  ends there and reports it: `finally` steps and client teardown are skipped
+  rather than run against a stream that is still in use.
+  One failing child fails the parallel step, and the report's `children` array
+  keeps every child's `status`, `duration_ms`, `error`, and evidence. Play
+  mode does not support parallel steps, and a driver that cannot run steps
+  concurrently does not list the `parallel` operation, so such a document is
+  rejected or skipped by `validate` instead of failing at run time.
+- `peer_stream.completion: input_sent` is valid for `push-to-talk` and
+  `realtime`: the step completes once the input is fully pushed (including the
+  EOS for push-to-talk) without waiting for its own text or audio output and
+  without a terminal label. It cannot be combined with `first_text_timeout`,
+  `first_audio_timeout`, `wait_for_history`, `require_text`, `require_audio`,
+  `interrupt_after`, or `terminal_label`. The result adds `input_sent`,
+  `input_packets`, `input_ms` (the Opus duration of the declared input),
+  `pushed_packets` (realtime includes the tail silence), and `input_sent_ms`,
+  and keeps counts of any output that happened to arrive while pushing.
+
+```yaml
+steps:
+  - id: alice_speaks
+    timeout: 20s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          completion: input_sent
+    capture:
+      bob_received: /bob_listen/audio
+    expect:
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_speak/input_sent: {equals: true}
+  - id: bob_transcript
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh-CN}
+      input: ${bob_received}
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
+```
 
 ### Ten- and twenty-lane Workflow concurrency and interruption
 

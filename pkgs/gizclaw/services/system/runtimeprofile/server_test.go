@@ -450,9 +450,7 @@ func TestNormalizeProfileRequiresExactSystemWorkflowIDs(t *testing.T) {
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
-					FriendChatroom: "chatroom",
-					GroupChatroom:  "chatroom",
-					Pet:            "pet-care",
+					Pet: "pet-care",
 				},
 				Collections: apitypes.RuntimeProfileWorkflowCollections{},
 			},
@@ -462,27 +460,18 @@ func TestNormalizeProfileRequiresExactSystemWorkflowIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("normalizeProfile() error = %v", err)
 	}
-	if got := normalized.Spec.Workflows.System; got.FriendChatroom != "chatroom" || got.GroupChatroom != "chatroom" || got.Pet != "pet-care" {
+	if got := normalized.Spec.Workflows.System; got.Pet != "pet-care" {
 		t.Fatalf("normalized system Workflows = %#v", got)
 	}
 	withWhitespace := base
-	withWhitespace.Spec.Workflows.System.FriendChatroom = " chatroom "
+	withWhitespace.Spec.Workflows.System.Pet = " pet-care "
 	if _, err := normalizeProfile(withWhitespace, ""); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
 		t.Fatalf("normalizeProfile(whitespace ID) error = %v", err)
 	}
-	for _, field := range []string{"friend_chatroom", "group_chatroom", "pet"} {
-		invalid := base
-		switch field {
-		case "friend_chatroom":
-			invalid.Spec.Workflows.System.FriendChatroom = " "
-		case "group_chatroom":
-			invalid.Spec.Workflows.System.GroupChatroom = " "
-		case "pet":
-			invalid.Spec.Workflows.System.Pet = " "
-		}
-		if _, err := normalizeProfile(invalid, ""); err == nil || !strings.Contains(err.Error(), "workflows.system."+field) {
-			t.Fatalf("normalizeProfile(empty %s) error = %v", field, err)
-		}
+	invalid := base
+	invalid.Spec.Workflows.System.Pet = " "
+	if _, err := normalizeProfile(invalid, ""); err == nil || !strings.Contains(err.Error(), "workflows.system.pet") {
+		t.Fatalf("normalizeProfile(empty pet) error = %v", err)
 	}
 }
 
@@ -572,31 +561,6 @@ func TestValidateDottedMemoryLayoutAndFlowcraftRuntimeAliases(t *testing.T) {
 	if err := validateWorkflowRuntimeAliases("workflows.collections.pets.pet-care", workflow, models, voices); err == nil ||
 		!strings.Contains(err.Error(), `voice alias "pet-care.pet" is not declared`) {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing dotted alias) error = %v", err)
-	}
-}
-
-func TestValidateChatroomRuntimeAliasesRequiresASRWhenTranscriptionIsEnabled(t *testing.T) {
-	t.Parallel()
-	enabled := true
-	workflow := apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverChatroom,
-		Chatroom: &apitypes.ChatRoomWorkflowSpec{
-			History:    apitypes.ChatRoomWorkflowHistorySpec{},
-			Transcript: &apitypes.ChatRoomWorkflowTranscriptSpec{Enabled: &enabled},
-		},
-	}
-	if err := validateWorkflowRuntimeAliases("workflows.system.friend_chatroom", workflow, nil, nil); err == nil || !strings.Contains(err.Error(), "asr_model is required") {
-		t.Fatalf("validateWorkflowRuntimeAliases(missing ASR alias) error = %v", err)
-	}
-	asr := "asr"
-	workflow.Chatroom.Transcript.AsrModel = &asr
-	models := map[string]apitypes.ModelResource{"asr": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}}
-	if err := validateWorkflowRuntimeAliases("workflows.system.friend_chatroom", workflow, models, nil); err == nil || !strings.Contains(err.Error(), `want "asr"`) {
-		t.Fatalf("validateWorkflowRuntimeAliases(wrong ASR kind) error = %v", err)
-	}
-	models["asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
-	if err := validateWorkflowRuntimeAliases("workflows.system.friend_chatroom", workflow, models, nil); err != nil {
-		t.Fatalf("validateWorkflowRuntimeAliases(valid ASR alias) error = %v", err)
 	}
 }
 
@@ -1118,9 +1082,8 @@ func TestRuntimeProfileNormalizesWorkspaceRewardPolicy(t *testing.T) {
 		reward.RollingBudget.Period != "24h0m0s" {
 		t.Fatalf("normalized durations = %#v, %#v", reward.Debounce, reward.RollingBudget)
 	}
-	if got := *reward.WorkspaceKinds; len(got) != 2 ||
-		got[0] != apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom ||
-		got[1] != apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow {
+	if got := *reward.WorkspaceKinds; len(got) != 1 ||
+		got[0] != apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow {
 		t.Fatalf("normalized workspace kinds = %#v", got)
 	}
 	pointsOnly := validWorkspaceRewardProfileForTest()
@@ -1242,17 +1205,15 @@ func workspaceRewardResourceResolverForTest(
 		switch kind {
 		case apitypes.ResourceKindWorkflow:
 			spec := apitypes.WorkflowSpec{
-				Driver:   apitypes.WorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+				Driver: apitypes.WorkflowDriverEino,
+				Eino:   &apitypes.EinoWorkflowSpec{},
 			}
 			if name == "pet-care" {
 				spec = apitypes.WorkflowSpec{
 					Driver: apitypes.WorkflowDriverPet,
 					Pet: &apitypes.PetWorkflowSpec{
-						Driver: apitypes.ReusableWorkflowDriverChatroom,
-						Chatroom: &apitypes.ChatRoomWorkflowSpec{
-							History: apitypes.ChatRoomWorkflowHistorySpec{},
-						},
+						Driver: apitypes.ReusableWorkflowDriverEino,
+						Eino:   &apitypes.EinoWorkflowSpec{},
 					},
 				}
 			}
@@ -1296,7 +1257,6 @@ func validWorkspaceRewardProfileForTest() adminhttp.RuntimeProfileUpsert {
 	}
 	kinds := []apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKinds{
 		apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsWorkflow,
-		apitypes.RuntimeProfileWorkspaceRewardSpecWorkspaceKindsDirectChatroom,
 	}
 	badges := map[string]apitypes.RuntimeProfileWorkspaceRewardBadgeSpec{
 		"science": {MaxExpPerWindow: 5},
@@ -1574,8 +1534,8 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 				Spec: apitypes.WorkflowSpec{
 					Driver: apitypes.WorkflowDriverPet,
 					Pet: &apitypes.PetWorkflowSpec{
-						Driver:   apitypes.ReusableWorkflowDriverChatroom,
-						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+						Driver: apitypes.ReusableWorkflowDriverEino,
+						Eino:   &apitypes.EinoWorkflowSpec{},
 					},
 				},
 			})
@@ -1708,15 +1668,15 @@ func createProfile(t testing.TB, s *Server, name string, models map[string]strin
 	previousResolver := s.ResolveResource
 	s.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, resourceName string) (apitypes.Resource, error) {
 		if kind == apitypes.ResourceKindWorkflow {
-			driver := apitypes.WorkflowDriverChatroom
-			spec := apitypes.WorkflowSpec{Driver: driver, Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}}}
+			driver := apitypes.WorkflowDriverEino
+			spec := apitypes.WorkflowSpec{Driver: driver, Eino: &apitypes.EinoWorkflowSpec{}}
 			if resourceName == "pet-care" {
 				driver = apitypes.WorkflowDriverPet
 				spec = apitypes.WorkflowSpec{
 					Driver: driver,
 					Pet: &apitypes.PetWorkflowSpec{
-						Driver:   apitypes.ReusableWorkflowDriverChatroom,
-						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+						Driver: apitypes.ReusableWorkflowDriverEino,
+						Eino:   &apitypes.EinoWorkflowSpec{},
 					},
 				}
 			}
@@ -1904,15 +1864,15 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 				return apitypes.Resource{}, kv.ErrNotFound
 			}
 			spec := apitypes.WorkflowSpec{
-				Driver:   apitypes.WorkflowDriverChatroom,
-				Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+				Driver: apitypes.WorkflowDriverEino,
+				Eino:   &apitypes.EinoWorkflowSpec{},
 			}
 			if name == "pet-care" {
 				spec = apitypes.WorkflowSpec{
 					Driver: apitypes.WorkflowDriverPet,
 					Pet: &apitypes.PetWorkflowSpec{
-						Driver:   apitypes.ReusableWorkflowDriverChatroom,
-						Chatroom: &apitypes.ChatRoomWorkflowSpec{History: apitypes.ChatRoomWorkflowHistorySpec{}},
+						Driver: apitypes.ReusableWorkflowDriverEino,
+						Eino:   &apitypes.EinoWorkflowSpec{},
 					},
 				}
 			}
@@ -1971,9 +1931,7 @@ func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding
 
 func runtimeProfileTestSystemWorkflows() apitypes.RuntimeProfileSystemWorkflows {
 	return apitypes.RuntimeProfileSystemWorkflows{
-		FriendChatroom: "chatroom",
-		GroupChatroom:  "chatroom",
-		Pet:            "pet-care",
+		Pet: "pet-care",
 	}
 }
 

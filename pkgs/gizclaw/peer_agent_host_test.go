@@ -7,13 +7,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/asttranslate"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/dashscoperealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
@@ -69,28 +69,28 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
 	history := &peerAgentHostHistoryStore{}
 	state := kv.NewMemory(nil)
-	got := newPeerAgentHost(base, nil, nil, nil, nil, history, state, t.TempDir(), nil)
+	got := newPeerAgentHost(base, nil, nil, nil, nil, history, state, t.TempDir(), nil, sfu.Factory{})
 	if got == nil {
-		t.Fatal("newPeerAgentHost() = nil")
+		t.Fatal("newPeerAgentHost() = nil", sfu.Factory{})
 	}
 	if got.Resolver != base.Resolver {
-		t.Fatal("newPeerAgentHost() did not preserve resolver")
+		t.Fatal("newPeerAgentHost() did not preserve resolver", sfu.Factory{})
 	}
 	if got.Coordinator != base.Coordinator {
-		t.Fatal("newPeerAgentHost() did not preserve coordinator")
+		t.Fatal("newPeerAgentHost() did not preserve coordinator", sfu.Factory{})
 	}
 	if got.WorkspaceRuntimes() != base.WorkspaceRuntimes() {
-		t.Fatal("newPeerAgentHost() did not preserve workspace runtime registry")
+		t.Fatal("newPeerAgentHost() did not preserve workspace runtime registry", sfu.Factory{})
 	}
 	for _, agentType := range []string{
 		asttranslate.Type,
-		chatroom.Type,
 		dashscoperealtime.Type,
 		doubaorealtime.Type,
 		doubaorealtimeduplex.Type,
 		eino.Type,
 		flowcraft.Type,
 		petagent.Type,
+		sfu.Type,
 	} {
 		t.Run(agentType, func(t *testing.T) {
 			if _, ok := got.Registry.Get(agentType); !ok {
@@ -137,7 +137,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, nil, "", nil); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, nil, "", nil, sfu.Factory{}); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
 	}
 }

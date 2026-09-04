@@ -40,7 +40,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	}
 	device := connectAndServe(t, peer, serverA, serverA.PublicKey, "device-routes-home")
 	defer device.Close()
-	registerSocialPeer(t, ctx, device, serverA)
+	registerSocialPeer(t, ctx, device, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
 	var volume int64 = 50
 	var muted bool
 	if err := device.HandleDeviceControl(gizcli.DeviceControlHandlers{
@@ -61,10 +61,22 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	}
 	apiKey := created.APIKey
 
-	homeBases := map[string]string{
+	// Public client APIs are Edge-only: the Servers' own listeners refuse
+	// them before any key or device lookup.
+	for name, base := range map[string]string{
 		"server-a": deviceRouteBase(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_A")),
-		"edge-a":   deviceRouteBase(t, edgeAEndpoint),
-		"edge-b":   deviceRouteBase(t, edgeBEndpoint),
+		"server-b": deviceRouteBase(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B")),
+	} {
+		var denied apitypes.ErrorResponse
+		deviceRouteJSON(t, base, apiKey, http.MethodGet, "/gizclaw/v1/device/runtime", "", http.StatusForbidden, &denied)
+		if denied.Error.Code != "PRIVATE_INGRESS_DENIED" {
+			t.Fatalf("direct %s ingress = %+v", name, denied)
+		}
+	}
+
+	homeBases := map[string]string{
+		"edge-a": deviceRouteBase(t, edgeAEndpoint),
+		"edge-b": deviceRouteBase(t, edgeBEndpoint),
 	}
 	for name, base := range homeBases {
 		t.Run(name, func(t *testing.T) {
@@ -103,20 +115,10 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	// device or state lookup, and Server B keeps no PeerRun state even though
 	// Edge B routed the same key to Server A above.
 	beforeB := sqlTableSnapshot(t, stateB, "kv")
-	for name, base := range map[string]string{
-		"server-b": deviceRouteBase(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B")),
-	} {
-		var rejected apitypes.ErrorResponse
-		deviceRouteJSON(t, base, apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusUnauthorized, &rejected)
-		if rejected.Error.Code != "INVALID_API_KEY" {
-			t.Fatalf("foreign %s = %+v", name, rejected)
-		}
-		deviceRouteJSON(t, base, apiKey, http.MethodPut, "/gizclaw/v1/device/volume", `{"level":10,"muted":false}`, http.StatusUnauthorized, &rejected)
-	}
 	assertPeerRunAbsent(t, stateB, peer.Public)
-	assertSnapshotEqual(t, "Server B state after foreign device requests", beforeB, sqlTableSnapshot(t, stateB, "kv"))
+	assertSnapshotEqual(t, "Server B state after Edge-routed device requests", beforeB, sqlTableSnapshot(t, stateB, "kv"))
 	if volume != 35 || !muted {
-		t.Fatalf("foreign Server requests reached the device: volume = %d muted = %v", volume, muted)
+		t.Fatalf("Edge-routed requests left the device inconsistent: volume = %d muted = %v", volume, muted)
 	}
 	if serverB.PublicKey.Equal(serverA.PublicKey) {
 		t.Fatal("the two Servers use the same identity")
@@ -146,7 +148,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 		t.Fatalf("control after disconnect = %+v", offline)
 	}
 	var status apitypes.PeerStatus
-	deviceRouteJSON(t, homeBases["server-a"], apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusOK, &status)
+	deviceRouteJSON(t, homeBases["edge-a"], apiKey, http.MethodGet, "/gizclaw/v1/device/status", "", http.StatusOK, &status)
 	if status.Volume == nil || *status.Volume != 35 {
 		t.Fatalf("status after disconnect = %+v", status)
 	}

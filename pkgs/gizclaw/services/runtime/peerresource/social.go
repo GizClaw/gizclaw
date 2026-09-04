@@ -2,11 +2,8 @@ package peerresource
 
 import (
 	"context"
-	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 )
 
 func (s *Server) handleContactList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -382,99 +379,4 @@ func (s *Server) handleFriendGroupMembersDelete(ctx context.Context, req *rpcapi
 		return businessError(req.Id, err)
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromFriendGroupMemberDeleteResponse)
-}
-
-func (s *Server) handleFriendGroupMessagesList(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.FriendGroups == nil {
-		return internalError(req.Id, "friend group service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageListRequest)
-	if !ok || strings.TrimSpace(params.FriendGroupName) == "" || params.Order != nil && !params.Order.Valid() {
-		return invalidParams(req.Id)
-	}
-	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
-	if err != nil {
-		return businessError(req.Id, err)
-	}
-	history, resp := s.workspaceHistoryService(req.Id)
-	if resp != nil {
-		return resp
-	}
-	var order *apitypes.PeerRunHistoryListRequestOrder
-	if params.Order != nil {
-		converted := apitypes.PeerRunHistoryListRequestOrder(*params.Order)
-		order = &converted
-	}
-	page, err := history.ListWorkspaceHistoryPageByID(ctx, workspaceID, apitypes.PeerRunHistoryListRequest{
-		Cursor: params.Cursor,
-		Limit:  params.Limit,
-		Order:  order,
-	})
-	if err != nil {
-		return friendGroupHistoryRPCResponse(req.Id, err)
-	}
-	items := make([]rpcapi.FriendGroupMessageObject, 0, len(page.Entries))
-	for _, entry := range page.Entries {
-		items = append(items, friendGroupMessageProjection(params.FriendGroupName, entry))
-	}
-	var nextCursor *string
-	if page.NextCursor != "" {
-		nextCursor = &page.NextCursor
-	}
-	return resultResponse(req.Id, rpcapi.FriendGroupMessageListResponse{
-		Items: items, HasNext: page.HasNext, NextCursor: nextCursor,
-	}, (*rpcapi.RPCPayload).FromFriendGroupMessageListResponse)
-}
-
-func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
-	if s.FriendGroups == nil {
-		return internalError(req.Id, "friend group service not configured")
-	}
-	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsFriendGroupMessageGetRequest)
-	if !ok {
-		return invalidParams(req.Id)
-	}
-	if strings.TrimSpace(params.FriendGroupName) == "" || strings.TrimSpace(params.HistoryName) == "" {
-		return invalidParams(req.Id)
-	}
-	workspaceID, err := s.FriendGroups.ResolveFriendGroupWorkspaceIDByName(ctx, s.Caller.String(), params.FriendGroupName)
-	if err != nil {
-		return businessError(req.Id, err)
-	}
-	history, resp := s.workspaceHistoryService(req.Id)
-	if resp != nil {
-		return resp
-	}
-	entry, err := history.GetWorkspaceHistoryByID(ctx, workspaceID, params.HistoryName)
-	if err != nil {
-		return friendGroupHistoryRPCResponse(req.Id, err)
-	}
-	return resultResponse(req.Id, friendGroupMessageProjection(params.FriendGroupName, entry), (*rpcapi.RPCPayload).FromFriendGroupMessageGetResponse)
-}
-
-func friendGroupHistoryRPCResponse(requestID string, err error) *rpcapi.RPCResponse {
-	rpcErr := historyRPCError(err)
-	if rpcErr.Code == rpcapi.StatusCodeNotFound {
-		rpcErr.Message = "not found"
-	}
-	return rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
-}
-
-func friendGroupMessageProjection(friendGroupName string, entry workspace.HistoryEntry) rpcapi.FriendGroupMessageObject {
-	item := rpcapi.FriendGroupMessageObject{
-		CreatedAt: entry.CreatedAt, ExpiresAt: entry.ExpiresAt,
-		FriendGroupName: strings.TrimSpace(friendGroupName), Name: entry.ID,
-		ActorName: entry.Name, Text: entry.Text, Type: rpcapi.PeerRunHistoryEntryType(entry.Type),
-	}
-	if item.Type == rpcapi.PeerRunHistoryEntryTypeGear && strings.TrimSpace(entry.GearID) != "" {
-		gearID := strings.TrimSpace(entry.GearID)
-		item.SenderPeerPublicKey = &gearID
-	}
-	for _, asset := range entry.Assets {
-		if strings.HasPrefix(strings.ToLower(workspaceHistoryAssetMIMEType(asset.Name, asset.MIMEType)), "audio/") {
-			item.AudioAvailable = true
-			break
-		}
-	}
-	return item
 }

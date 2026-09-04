@@ -727,9 +727,7 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 	allAliases := make(map[string]string)
 	workflowAliases := make(map[string]string)
 	for path, workflowID := range map[string]string{
-		"workflows.system.friend_chatroom": spec.Workflows.System.FriendChatroom,
-		"workflows.system.group_chatroom":  spec.Workflows.System.GroupChatroom,
-		"workflows.system.pet":             spec.Workflows.System.Pet,
+		"workflows.system.pet": spec.Workflows.System.Pet,
 	} {
 		if err := customid.ValidateResourceID(workflowID); err != nil {
 			return apitypes.RuntimeProfile{}, fmt.Errorf("%s: %w", path, err)
@@ -1033,7 +1031,7 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		path     string
 		resource apitypes.WorkflowResource
 	}
-	workflows := make([]resolvedWorkflow, 0, 3)
+	workflows := make([]resolvedWorkflow, 0, 1)
 	resolveSystemWorkflow := func(path, resourceID string, wantDriver apitypes.WorkflowDriver) error {
 		resource, err := resolve(path, apitypes.ResourceKindWorkflow, apitypes.RuntimeProfileBinding{ResourceId: resourceID})
 		if err != nil {
@@ -1048,12 +1046,6 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		}
 		workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
 		return nil
-	}
-	if err := resolveSystemWorkflow("workflows.system.friend_chatroom", spec.Workflows.System.FriendChatroom, apitypes.WorkflowDriverChatroom); err != nil {
-		return err
-	}
-	if err := resolveSystemWorkflow("workflows.system.group_chatroom", spec.Workflows.System.GroupChatroom, apitypes.WorkflowDriverChatroom); err != nil {
-		return err
 	}
 	if err := resolveSystemWorkflow("workflows.system.pet", spec.Workflows.System.Pet, apitypes.WorkflowDriverPet); err != nil {
 		return err
@@ -1343,17 +1335,6 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			return fmt.Errorf("%s.voice must use voice.tts_voice as a RuntimeProfile Voice alias for s2s", path)
 		}
 		return requireVoice("voice.tts_voice", external.TtsVoice)
-	case apitypes.WorkflowDriverChatroom:
-		if workflow.Chatroom == nil || workflow.Chatroom.Transcript == nil {
-			break
-		}
-		transcript := workflow.Chatroom.Transcript
-		if transcript.Enabled != nil && *transcript.Enabled && (transcript.AsrModel == nil || strings.TrimSpace(*transcript.AsrModel) == "") {
-			return fmt.Errorf("%s.transcript.asr_model is required when transcription is enabled", path)
-		}
-		if transcript.AsrModel != nil && strings.TrimSpace(*transcript.AsrModel) != "" {
-			return requireModel("transcript.asr_model", *transcript.AsrModel, apitypes.ModelKindAsr)
-		}
 	case apitypes.WorkflowDriverPet:
 		if workflow.Pet == nil {
 			return fmt.Errorf("%s has no pet spec", path)
@@ -1367,7 +1348,6 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			DoubaoRealtimeDuplex: workflow.Pet.DoubaoRealtimeDuplex,
 			Eino:                 workflow.Pet.Eino,
 			AstTranslate:         workflow.Pet.AstTranslate,
-			Chatroom:             workflow.Pet.Chatroom,
 		}
 		return validateWorkflowRuntimeAliases(path+".pet", nested, models, voices, memories)
 	case apitypes.WorkflowDriverDoubaoRealtime:

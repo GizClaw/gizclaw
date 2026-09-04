@@ -48,7 +48,7 @@ while (($# > 0)); do
       shift
       ;;
     --firmware-only)
-      export GIZCLAW_E2E_RESOURCE_PATHS="04-workflows/22-chatroom-direct.yaml 04-workflows/24-pet-chatroom.yaml 06-firmwares/00-devkit-main.yaml"
+      export GIZCLAW_E2E_RESOURCE_PATHS="04-workflows/23-pet-care.yaml 06-firmwares/00-devkit-main.yaml"
       export GIZCLAW_E2E_SYNC_VOLC_TENANT_ID=""
       shift
       ;;
@@ -450,7 +450,6 @@ GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:
 GIZCLAW_E2E_DOCKER_IMAGES_BUILT=${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-}
 GIZCLAW_TEST_ENDPOINT=$GIZCLAW_E2E_EDGE_ENDPOINT
 GIZCLAW_TEST_REGISTRATION_TOKEN=$GIZCLAW_TEST_REGISTRATION_TOKEN
-GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN=$GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN
 EOF
   cp "$state_dir/docker.env" "${GIZCLAW_E2E_DOCKER_ENV:-$state_root/current.env}"
 }
@@ -637,9 +636,6 @@ GIZCLAW_E2E_SINGLE_EDGE=""
 if [[ -z "${GIZCLAW_TEST_REGISTRATION_TOKEN:-}" ]]; then
   GIZCLAW_TEST_REGISTRATION_TOKEN="giztest-$(random_gateway_relay_value)"
 fi
-if [[ -z "${GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN:-}" ]]; then
-  GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN="giztest-pet-chatroom-$(random_gateway_relay_value)"
-fi
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   GIZCLAW_E2E_GATEWAY_RELAY_SUBNET="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET:-$(pick_gateway_relay_subnet "$GIZCLAW_E2E_DOCKER_PROJECT")}"
   gateway_relay_prefix="${GIZCLAW_E2E_GATEWAY_RELAY_SUBNET%.0/24}"
@@ -710,7 +706,6 @@ export GIZCLAW_E2E_GATEWAY_MAX_SESSIONS GIZCLAW_E2E_GATEWAY_MAX_UPSTREAMS
 export GIZCLAW_E2E_GATEWAY_SESSIONS_PER_UPSTREAM GIZCLAW_E2E_GATEWAY_CHANNELS_PER_SESSION GIZCLAW_E2E_GATEWAY_CHANNELS_PER_UPSTREAM
 export GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES
 export GIZCLAW_TEST_REGISTRATION_TOKEN
-export GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN
 export GIZCLAW_E2E_DOCKER_ADMIN_BIND="${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}"
 export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0}"
 

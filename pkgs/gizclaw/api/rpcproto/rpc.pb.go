@@ -117,116 +117,113 @@ func (StatusCode) EnumDescriptor() ([]byte, []int) {
 type RpcMethod int32
 
 const (
-	RpcMethod_RPC_METHOD_UNSPECIFIED                                 RpcMethod = 0
-	RpcMethod_RPC_METHOD_ALL_PING                                    RpcMethod = 1
-	RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN                          RpcMethod = 2
-	RpcMethod_RPC_METHOD_CLIENT_INFO_GET                             RpcMethod = 3
-	RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET                      RpcMethod = 4
-	RpcMethod_RPC_METHOD_SERVER_INFO_GET                             RpcMethod = 5
-	RpcMethod_RPC_METHOD_SERVER_INFO_PUT                             RpcMethod = 6
-	RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET                          RpcMethod = 7
-	RpcMethod_RPC_METHOD_SERVER_STATUS_GET                           RpcMethod = 8
-	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_GET                        RpcMethod = 9
-	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_SET                        RpcMethod = 10
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET                    RpcMethod = 11
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET                    RpcMethod = 12
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD                 RpcMethod = 13
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY                RpcMethod = 14
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY           RpcMethod = 15
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS           RpcMethod = 16
-	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL                 RpcMethod = 17
-	RpcMethod_RPC_METHOD_SERVER_RUN_RELOAD                           RpcMethod = 18
-	RpcMethod_RPC_METHOD_SERVER_RUN_STATUS                           RpcMethod = 19
-	RpcMethod_RPC_METHOD_SERVER_RUN_STOP                             RpcMethod = 20
-	RpcMethod_RPC_METHOD_SERVER_RUN_SAY                              RpcMethod = 21
-	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET                         RpcMethod = 22
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST                       RpcMethod = 24
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET                        RpcMethod = 25
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE                     RpcMethod = 26
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT                        RpcMethod = 27
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT                  RpcMethod = 107
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET             RpcMethod = 110
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE                     RpcMethod = 28
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST               RpcMethod = 29
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET                RpcMethod = 30
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_DOWNLOAD     RpcMethod = 31
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST                        RpcMethod = 32
-	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET                         RpcMethod = 33
-	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST                           RpcMethod = 34
-	RpcMethod_RPC_METHOD_SERVER_MODEL_GET                            RpcMethod = 35
-	RpcMethod_RPC_METHOD_SERVER_VOICE_LIST                           RpcMethod = 36
-	RpcMethod_RPC_METHOD_SERVER_VOICE_GET                            RpcMethod = 37
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST                         RpcMethod = 38
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_GET                          RpcMethod = 39
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE                       RpcMethod = 40
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_PUT                          RpcMethod = 41
-	RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE                       RpcMethod = 42
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET              RpcMethod = 43
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE           RpcMethod = 44
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR            RpcMethod = 45
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD                           RpcMethod = 46
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST                          RpcMethod = 47
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE                        RpcMethod = 48
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_LIST                    RpcMethod = 49
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET                     RpcMethod = 50
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE                  RpcMethod = 51
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT                     RpcMethod = 52
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE                  RpcMethod = 53
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET        RpcMethod = 54
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE     RpcMethod = 55
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR      RpcMethod = 56
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN                    RpcMethod = 57
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST            RpcMethod = 58
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD             RpcMethod = 59
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT             RpcMethod = 60
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE          RpcMethod = 61
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST           RpcMethod = 62
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET            RpcMethod = 63
-	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD              RpcMethod = 64
-	RpcMethod_RPC_METHOD_SERVER_PET_LIST                             RpcMethod = 65
-	RpcMethod_RPC_METHOD_SERVER_PET_GET                              RpcMethod = 66
-	RpcMethod_RPC_METHOD_RUNTIME_ADOPT                               RpcMethod = 67
-	RpcMethod_RPC_METHOD_SERVER_PET_PUT                              RpcMethod = 68
-	RpcMethod_RPC_METHOD_SERVER_PET_DELETE                           RpcMethod = 69
-	RpcMethod_RPC_METHOD_SERVER_PET_DRIVE                            RpcMethod = 70
-	RpcMethod_RPC_METHOD_SERVER_POINTS_GET                           RpcMethod = 71
-	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST             RpcMethod = 72
-	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET              RpcMethod = 73
-	RpcMethod_RPC_METHOD_SERVER_BADGE_LIST                           RpcMethod = 74
-	RpcMethod_RPC_METHOD_SERVER_BADGE_GET                            RpcMethod = 75
-	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST                     RpcMethod = 76
-	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET                      RpcMethod = 77
-	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST                    RpcMethod = 78
-	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET                     RpcMethod = 79
-	RpcMethod_RPC_METHOD_SERVER_TOOL_LIST                            RpcMethod = 80
-	RpcMethod_RPC_METHOD_SERVER_TOOL_GET                             RpcMethod = 81
-	RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE                          RpcMethod = 82
-	RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP                          RpcMethod = 83
-	RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN                          RpcMethod = 84
-	RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE                        RpcMethod = 85
-	RpcMethod_RPC_METHOD_SERVER_PET_ACTIONS_GET                      RpcMethod = 86
-	RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD                    RpcMethod = 87
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD              RpcMethod = 88
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                      RpcMethod = 89
-	RpcMethod_RPC_METHOD_SERVER_REGISTER                             RpcMethod = 90
-	RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE                    RpcMethod = 91
-	RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE                    RpcMethod = 92
-	RpcMethod_RPC_METHOD_SERVER_PEER_DELETE                          RpcMethod = 93
-	RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT                       RpcMethod = 94
-	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD RpcMethod = 95
-	RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE                       RpcMethod = 96
-	RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST                         RpcMethod = 97
-	RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE                       RpcMethod = 98
-	RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE                      RpcMethod = 99
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET                    RpcMethod = 100
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET                    RpcMethod = 101
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY                    RpcMethod = 102
-	RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT                        RpcMethod = 103
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET                      RpcMethod = 104
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST                      RpcMethod = 105
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET                    RpcMethod = 106
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN                            RpcMethod = 108
-	RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT                         RpcMethod = 109
+	RpcMethod_RPC_METHOD_UNSPECIFIED                             RpcMethod = 0
+	RpcMethod_RPC_METHOD_ALL_PING                                RpcMethod = 1
+	RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN                      RpcMethod = 2
+	RpcMethod_RPC_METHOD_CLIENT_INFO_GET                         RpcMethod = 3
+	RpcMethod_RPC_METHOD_CLIENT_IDENTIFIERS_GET                  RpcMethod = 4
+	RpcMethod_RPC_METHOD_SERVER_INFO_GET                         RpcMethod = 5
+	RpcMethod_RPC_METHOD_SERVER_INFO_PUT                         RpcMethod = 6
+	RpcMethod_RPC_METHOD_SERVER_RUNTIME_GET                      RpcMethod = 7
+	RpcMethod_RPC_METHOD_SERVER_STATUS_GET                       RpcMethod = 8
+	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_GET                    RpcMethod = 9
+	RpcMethod_RPC_METHOD_SERVER_RUN_AGENT_SET                    RpcMethod = 10
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET                RpcMethod = 11
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET                RpcMethod = 12
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD             RpcMethod = 13
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY            RpcMethod = 14
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY       RpcMethod = 15
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS       RpcMethod = 16
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL             RpcMethod = 17
+	RpcMethod_RPC_METHOD_SERVER_RUN_RELOAD                       RpcMethod = 18
+	RpcMethod_RPC_METHOD_SERVER_RUN_STATUS                       RpcMethod = 19
+	RpcMethod_RPC_METHOD_SERVER_RUN_STOP                         RpcMethod = 20
+	RpcMethod_RPC_METHOD_SERVER_RUN_SAY                          RpcMethod = 21
+	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET                     RpcMethod = 22
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST                   RpcMethod = 24
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET                    RpcMethod = 25
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE                 RpcMethod = 26
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT                    RpcMethod = 27
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT              RpcMethod = 107
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET         RpcMethod = 110
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE                 RpcMethod = 28
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST           RpcMethod = 29
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET            RpcMethod = 30
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_DOWNLOAD RpcMethod = 31
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_LIST                    RpcMethod = 32
+	RpcMethod_RPC_METHOD_SERVER_WORKFLOW_GET                     RpcMethod = 33
+	RpcMethod_RPC_METHOD_SERVER_MODEL_LIST                       RpcMethod = 34
+	RpcMethod_RPC_METHOD_SERVER_MODEL_GET                        RpcMethod = 35
+	RpcMethod_RPC_METHOD_SERVER_VOICE_LIST                       RpcMethod = 36
+	RpcMethod_RPC_METHOD_SERVER_VOICE_GET                        RpcMethod = 37
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_LIST                     RpcMethod = 38
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_GET                      RpcMethod = 39
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_CREATE                   RpcMethod = 40
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_PUT                      RpcMethod = 41
+	RpcMethod_RPC_METHOD_SERVER_CONTACT_DELETE                   RpcMethod = 42
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET          RpcMethod = 43
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE       RpcMethod = 44
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR        RpcMethod = 45
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_ADD                       RpcMethod = 46
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_LIST                      RpcMethod = 47
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_DELETE                    RpcMethod = 48
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_LIST                RpcMethod = 49
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_GET                 RpcMethod = 50
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_CREATE              RpcMethod = 51
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PUT                 RpcMethod = 52
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_DELETE              RpcMethod = 53
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET    RpcMethod = 54
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE RpcMethod = 55
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR  RpcMethod = 56
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_JOIN                RpcMethod = 57
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST        RpcMethod = 58
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD         RpcMethod = 59
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT         RpcMethod = 60
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE      RpcMethod = 61
+	RpcMethod_RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD          RpcMethod = 64
+	RpcMethod_RPC_METHOD_SERVER_PET_LIST                         RpcMethod = 65
+	RpcMethod_RPC_METHOD_SERVER_PET_GET                          RpcMethod = 66
+	RpcMethod_RPC_METHOD_RUNTIME_ADOPT                           RpcMethod = 67
+	RpcMethod_RPC_METHOD_SERVER_PET_PUT                          RpcMethod = 68
+	RpcMethod_RPC_METHOD_SERVER_PET_DELETE                       RpcMethod = 69
+	RpcMethod_RPC_METHOD_SERVER_PET_DRIVE                        RpcMethod = 70
+	RpcMethod_RPC_METHOD_SERVER_POINTS_GET                       RpcMethod = 71
+	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST         RpcMethod = 72
+	RpcMethod_RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET          RpcMethod = 73
+	RpcMethod_RPC_METHOD_SERVER_BADGE_LIST                       RpcMethod = 74
+	RpcMethod_RPC_METHOD_SERVER_BADGE_GET                        RpcMethod = 75
+	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_LIST                 RpcMethod = 76
+	RpcMethod_RPC_METHOD_SERVER_GAME_RESULT_GET                  RpcMethod = 77
+	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_LIST                RpcMethod = 78
+	RpcMethod_RPC_METHOD_SERVER_REWARD_GRANT_GET                 RpcMethod = 79
+	RpcMethod_RPC_METHOD_SERVER_TOOL_LIST                        RpcMethod = 80
+	RpcMethod_RPC_METHOD_SERVER_TOOL_GET                         RpcMethod = 81
+	RpcMethod_RPC_METHOD_CLIENT_TOOL_INVOKE                      RpcMethod = 82
+	RpcMethod_RPC_METHOD_SERVER_PEER_LOOKUP                      RpcMethod = 83
+	RpcMethod_RPC_METHOD_SERVER_PEER_ASSIGN                      RpcMethod = 84
+	RpcMethod_RPC_METHOD_SERVER_ROUTE_RESOLVE                    RpcMethod = 85
+	RpcMethod_RPC_METHOD_SERVER_PET_ACTIONS_GET                  RpcMethod = 86
+	RpcMethod_RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD                RpcMethod = 87
+	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD          RpcMethod = 88
+	RpcMethod_RPC_METHOD_SERVER_FRIEND_INFO_GET                  RpcMethod = 89
+	RpcMethod_RPC_METHOD_SERVER_REGISTER                         RpcMethod = 90
+	RpcMethod_RPC_METHOD_SERVER_SPEECH_TRANSCRIBE                RpcMethod = 91
+	RpcMethod_RPC_METHOD_SERVER_SPEECH_SYNTHESIZE                RpcMethod = 92
+	RpcMethod_RPC_METHOD_SERVER_PEER_DELETE                      RpcMethod = 93
+	RpcMethod_RPC_METHOD_SERVER_SPEECH_EXTRACT                   RpcMethod = 94
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE                   RpcMethod = 96
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_LIST                     RpcMethod = 97
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_REVOKE                   RpcMethod = 98
+	RpcMethod_RPC_METHOD_SERVER_API_KEY_RESOLVE                  RpcMethod = 99
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_STATUS_GET                RpcMethod = 100
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_VOLUME_SET                RpcMethod = 101
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY                RpcMethod = 102
+	RpcMethod_RPC_METHOD_CLIENT_DEVICE_REBOOT                    RpcMethod = 103
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_STATUS_GET                  RpcMethod = 104
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_LIST                  RpcMethod = 105
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET                RpcMethod = 106
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN                        RpcMethod = 108
+	RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT                     RpcMethod = 109
 )
 
 // Enum value maps for RpcMethod.
@@ -295,8 +292,6 @@ var (
 		59:  "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD",
 		60:  "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT",
 		61:  "RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE",
-		62:  "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST",
-		63:  "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET",
 		64:  "RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD",
 		65:  "RPC_METHOD_SERVER_PET_LIST",
 		66:  "RPC_METHOD_SERVER_PET_GET",
@@ -328,7 +323,6 @@ var (
 		92:  "RPC_METHOD_SERVER_SPEECH_SYNTHESIZE",
 		93:  "RPC_METHOD_SERVER_PEER_DELETE",
 		94:  "RPC_METHOD_SERVER_SPEECH_EXTRACT",
-		95:  "RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD",
 		96:  "RPC_METHOD_SERVER_API_KEY_CREATE",
 		97:  "RPC_METHOD_SERVER_API_KEY_LIST",
 		98:  "RPC_METHOD_SERVER_API_KEY_REVOKE",
@@ -344,116 +338,113 @@ var (
 		109: "RPC_METHOD_CLIENT_WIFI_CONNECT",
 	}
 	RpcMethod_value = map[string]int32{
-		"RPC_METHOD_UNSPECIFIED":                                 0,
-		"RPC_METHOD_ALL_PING":                                    1,
-		"RPC_METHOD_ALL_SPEED_TEST_RUN":                          2,
-		"RPC_METHOD_CLIENT_INFO_GET":                             3,
-		"RPC_METHOD_CLIENT_IDENTIFIERS_GET":                      4,
-		"RPC_METHOD_SERVER_INFO_GET":                             5,
-		"RPC_METHOD_SERVER_INFO_PUT":                             6,
-		"RPC_METHOD_SERVER_RUNTIME_GET":                          7,
-		"RPC_METHOD_SERVER_STATUS_GET":                           8,
-		"RPC_METHOD_SERVER_RUN_AGENT_GET":                        9,
-		"RPC_METHOD_SERVER_RUN_AGENT_SET":                        10,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_GET":                    11,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_SET":                    12,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD":                 13,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY":                14,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY":           15,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS":           16,
-		"RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL":                 17,
-		"RPC_METHOD_SERVER_RUN_RELOAD":                           18,
-		"RPC_METHOD_SERVER_RUN_STATUS":                           19,
-		"RPC_METHOD_SERVER_RUN_STOP":                             20,
-		"RPC_METHOD_SERVER_RUN_SAY":                              21,
-		"RPC_METHOD_SERVER_FIRMWARE_GET":                         22,
-		"RPC_METHOD_SERVER_WORKSPACE_LIST":                       24,
-		"RPC_METHOD_SERVER_WORKSPACE_GET":                        25,
-		"RPC_METHOD_SERVER_WORKSPACE_CREATE":                     26,
-		"RPC_METHOD_SERVER_WORKSPACE_PUT":                        27,
-		"RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT":                  107,
-		"RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET":             110,
-		"RPC_METHOD_SERVER_WORKSPACE_DELETE":                     28,
-		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST":               29,
-		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET":                30,
-		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_DOWNLOAD":     31,
-		"RPC_METHOD_SERVER_WORKFLOW_LIST":                        32,
-		"RPC_METHOD_SERVER_WORKFLOW_GET":                         33,
-		"RPC_METHOD_SERVER_MODEL_LIST":                           34,
-		"RPC_METHOD_SERVER_MODEL_GET":                            35,
-		"RPC_METHOD_SERVER_VOICE_LIST":                           36,
-		"RPC_METHOD_SERVER_VOICE_GET":                            37,
-		"RPC_METHOD_SERVER_CONTACT_LIST":                         38,
-		"RPC_METHOD_SERVER_CONTACT_GET":                          39,
-		"RPC_METHOD_SERVER_CONTACT_CREATE":                       40,
-		"RPC_METHOD_SERVER_CONTACT_PUT":                          41,
-		"RPC_METHOD_SERVER_CONTACT_DELETE":                       42,
-		"RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET":              43,
-		"RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE":           44,
-		"RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR":            45,
-		"RPC_METHOD_SERVER_FRIEND_ADD":                           46,
-		"RPC_METHOD_SERVER_FRIEND_LIST":                          47,
-		"RPC_METHOD_SERVER_FRIEND_DELETE":                        48,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_LIST":                    49,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_GET":                     50,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_CREATE":                  51,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_PUT":                     52,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_DELETE":                  53,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET":        54,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE":     55,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR":      56,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_JOIN":                    57,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST":            58,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD":             59,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT":             60,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE":          61,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST":           62,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET":            63,
-		"RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD":              64,
-		"RPC_METHOD_SERVER_PET_LIST":                             65,
-		"RPC_METHOD_SERVER_PET_GET":                              66,
-		"RPC_METHOD_RUNTIME_ADOPT":                               67,
-		"RPC_METHOD_SERVER_PET_PUT":                              68,
-		"RPC_METHOD_SERVER_PET_DELETE":                           69,
-		"RPC_METHOD_SERVER_PET_DRIVE":                            70,
-		"RPC_METHOD_SERVER_POINTS_GET":                           71,
-		"RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST":             72,
-		"RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET":              73,
-		"RPC_METHOD_SERVER_BADGE_LIST":                           74,
-		"RPC_METHOD_SERVER_BADGE_GET":                            75,
-		"RPC_METHOD_SERVER_GAME_RESULT_LIST":                     76,
-		"RPC_METHOD_SERVER_GAME_RESULT_GET":                      77,
-		"RPC_METHOD_SERVER_REWARD_GRANT_LIST":                    78,
-		"RPC_METHOD_SERVER_REWARD_GRANT_GET":                     79,
-		"RPC_METHOD_SERVER_TOOL_LIST":                            80,
-		"RPC_METHOD_SERVER_TOOL_GET":                             81,
-		"RPC_METHOD_CLIENT_TOOL_INVOKE":                          82,
-		"RPC_METHOD_SERVER_PEER_LOOKUP":                          83,
-		"RPC_METHOD_SERVER_PEER_ASSIGN":                          84,
-		"RPC_METHOD_SERVER_ROUTE_RESOLVE":                        85,
-		"RPC_METHOD_SERVER_PET_ACTIONS_GET":                      86,
-		"RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD":                    87,
-		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":              88,
-		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                      89,
-		"RPC_METHOD_SERVER_REGISTER":                             90,
-		"RPC_METHOD_SERVER_SPEECH_TRANSCRIBE":                    91,
-		"RPC_METHOD_SERVER_SPEECH_SYNTHESIZE":                    92,
-		"RPC_METHOD_SERVER_PEER_DELETE":                          93,
-		"RPC_METHOD_SERVER_SPEECH_EXTRACT":                       94,
-		"RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD": 95,
-		"RPC_METHOD_SERVER_API_KEY_CREATE":                       96,
-		"RPC_METHOD_SERVER_API_KEY_LIST":                         97,
-		"RPC_METHOD_SERVER_API_KEY_REVOKE":                       98,
-		"RPC_METHOD_SERVER_API_KEY_RESOLVE":                      99,
-		"RPC_METHOD_CLIENT_DEVICE_STATUS_GET":                    100,
-		"RPC_METHOD_CLIENT_DEVICE_VOLUME_SET":                    101,
-		"RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY":                    102,
-		"RPC_METHOD_CLIENT_DEVICE_REBOOT":                        103,
-		"RPC_METHOD_CLIENT_WIFI_STATUS_GET":                      104,
-		"RPC_METHOD_CLIENT_WIFI_SAVED_LIST":                      105,
-		"RPC_METHOD_CLIENT_WIFI_SAVED_FORGET":                    106,
-		"RPC_METHOD_CLIENT_WIFI_SCAN":                            108,
-		"RPC_METHOD_CLIENT_WIFI_CONNECT":                         109,
+		"RPC_METHOD_UNSPECIFIED":                             0,
+		"RPC_METHOD_ALL_PING":                                1,
+		"RPC_METHOD_ALL_SPEED_TEST_RUN":                      2,
+		"RPC_METHOD_CLIENT_INFO_GET":                         3,
+		"RPC_METHOD_CLIENT_IDENTIFIERS_GET":                  4,
+		"RPC_METHOD_SERVER_INFO_GET":                         5,
+		"RPC_METHOD_SERVER_INFO_PUT":                         6,
+		"RPC_METHOD_SERVER_RUNTIME_GET":                      7,
+		"RPC_METHOD_SERVER_STATUS_GET":                       8,
+		"RPC_METHOD_SERVER_RUN_AGENT_GET":                    9,
+		"RPC_METHOD_SERVER_RUN_AGENT_SET":                    10,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_GET":                11,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_SET":                12,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD":             13,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY":            14,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY":       15,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS":       16,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_RECALL":             17,
+		"RPC_METHOD_SERVER_RUN_RELOAD":                       18,
+		"RPC_METHOD_SERVER_RUN_STATUS":                       19,
+		"RPC_METHOD_SERVER_RUN_STOP":                         20,
+		"RPC_METHOD_SERVER_RUN_SAY":                          21,
+		"RPC_METHOD_SERVER_FIRMWARE_GET":                     22,
+		"RPC_METHOD_SERVER_WORKSPACE_LIST":                   24,
+		"RPC_METHOD_SERVER_WORKSPACE_GET":                    25,
+		"RPC_METHOD_SERVER_WORKSPACE_CREATE":                 26,
+		"RPC_METHOD_SERVER_WORKSPACE_PUT":                    27,
+		"RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT":              107,
+		"RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET":         110,
+		"RPC_METHOD_SERVER_WORKSPACE_DELETE":                 28,
+		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST":           29,
+		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_GET":            30,
+		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_AUDIO_DOWNLOAD": 31,
+		"RPC_METHOD_SERVER_WORKFLOW_LIST":                    32,
+		"RPC_METHOD_SERVER_WORKFLOW_GET":                     33,
+		"RPC_METHOD_SERVER_MODEL_LIST":                       34,
+		"RPC_METHOD_SERVER_MODEL_GET":                        35,
+		"RPC_METHOD_SERVER_VOICE_LIST":                       36,
+		"RPC_METHOD_SERVER_VOICE_GET":                        37,
+		"RPC_METHOD_SERVER_CONTACT_LIST":                     38,
+		"RPC_METHOD_SERVER_CONTACT_GET":                      39,
+		"RPC_METHOD_SERVER_CONTACT_CREATE":                   40,
+		"RPC_METHOD_SERVER_CONTACT_PUT":                      41,
+		"RPC_METHOD_SERVER_CONTACT_DELETE":                   42,
+		"RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_GET":          43,
+		"RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CREATE":       44,
+		"RPC_METHOD_SERVER_FRIEND_INVITE_TOKEN_CLEAR":        45,
+		"RPC_METHOD_SERVER_FRIEND_ADD":                       46,
+		"RPC_METHOD_SERVER_FRIEND_LIST":                      47,
+		"RPC_METHOD_SERVER_FRIEND_DELETE":                    48,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_LIST":                49,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_GET":                 50,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_CREATE":              51,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_PUT":                 52,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_DELETE":              53,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_GET":    54,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CREATE": 55,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_INVITE_TOKEN_CLEAR":  56,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_JOIN":                57,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_LIST":        58,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_ADD":         59,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT":         60,
+		"RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE":      61,
+		"RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD":          64,
+		"RPC_METHOD_SERVER_PET_LIST":                         65,
+		"RPC_METHOD_SERVER_PET_GET":                          66,
+		"RPC_METHOD_RUNTIME_ADOPT":                           67,
+		"RPC_METHOD_SERVER_PET_PUT":                          68,
+		"RPC_METHOD_SERVER_PET_DELETE":                       69,
+		"RPC_METHOD_SERVER_PET_DRIVE":                        70,
+		"RPC_METHOD_SERVER_POINTS_GET":                       71,
+		"RPC_METHOD_SERVER_POINTS_TRANSACTIONS_LIST":         72,
+		"RPC_METHOD_SERVER_POINTS_TRANSACTIONS_GET":          73,
+		"RPC_METHOD_SERVER_BADGE_LIST":                       74,
+		"RPC_METHOD_SERVER_BADGE_GET":                        75,
+		"RPC_METHOD_SERVER_GAME_RESULT_LIST":                 76,
+		"RPC_METHOD_SERVER_GAME_RESULT_GET":                  77,
+		"RPC_METHOD_SERVER_REWARD_GRANT_LIST":                78,
+		"RPC_METHOD_SERVER_REWARD_GRANT_GET":                 79,
+		"RPC_METHOD_SERVER_TOOL_LIST":                        80,
+		"RPC_METHOD_SERVER_TOOL_GET":                         81,
+		"RPC_METHOD_CLIENT_TOOL_INVOKE":                      82,
+		"RPC_METHOD_SERVER_PEER_LOOKUP":                      83,
+		"RPC_METHOD_SERVER_PEER_ASSIGN":                      84,
+		"RPC_METHOD_SERVER_ROUTE_RESOLVE":                    85,
+		"RPC_METHOD_SERVER_PET_ACTIONS_GET":                  86,
+		"RPC_METHOD_SERVER_PET_PIXA_DOWNLOAD":                87,
+		"RPC_METHOD_SERVER_WORKSPACE_ICON_DOWNLOAD":          88,
+		"RPC_METHOD_SERVER_FRIEND_INFO_GET":                  89,
+		"RPC_METHOD_SERVER_REGISTER":                         90,
+		"RPC_METHOD_SERVER_SPEECH_TRANSCRIBE":                91,
+		"RPC_METHOD_SERVER_SPEECH_SYNTHESIZE":                92,
+		"RPC_METHOD_SERVER_PEER_DELETE":                      93,
+		"RPC_METHOD_SERVER_SPEECH_EXTRACT":                   94,
+		"RPC_METHOD_SERVER_API_KEY_CREATE":                   96,
+		"RPC_METHOD_SERVER_API_KEY_LIST":                     97,
+		"RPC_METHOD_SERVER_API_KEY_REVOKE":                   98,
+		"RPC_METHOD_SERVER_API_KEY_RESOLVE":                  99,
+		"RPC_METHOD_CLIENT_DEVICE_STATUS_GET":                100,
+		"RPC_METHOD_CLIENT_DEVICE_VOLUME_SET":                101,
+		"RPC_METHOD_CLIENT_DEVICE_SOUND_PLAY":                102,
+		"RPC_METHOD_CLIENT_DEVICE_REBOOT":                    103,
+		"RPC_METHOD_CLIENT_WIFI_STATUS_GET":                  104,
+		"RPC_METHOD_CLIENT_WIFI_SAVED_LIST":                  105,
+		"RPC_METHOD_CLIENT_WIFI_SAVED_FORGET":                106,
+		"RPC_METHOD_CLIENT_WIFI_SCAN":                        108,
+		"RPC_METHOD_CLIENT_WIFI_CONNECT":                     109,
 	}
 )
 
@@ -1027,7 +1018,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xfdh\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x89e\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1154,11 +1145,7 @@ const file_rpc_proto_rawDesc = "" +
 	"*RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_PUT\x10<\x1a`\xc2\xf3\x18\\\n" +
 	"\x1fserver.friend_group.members.put\x12\x1bFriendGroupMemberPutRequest\x1a\x1cFriendGroupMemberPutResponse\x12\x9c\x01\n" +
 	"-RPC_METHOD_SERVER_FRIEND_GROUP_MEMBERS_DELETE\x10=\x1ai\xc2\xf3\x18e\n" +
-	"\"server.friend_group.members.delete\x12\x1eFriendGroupMemberDeleteRequest\x1a\x1fFriendGroupMemberDeleteResponse\x12\x98\x01\n" +
-	",RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_LIST\x10>\x1af\xc2\xf3\x18b\n" +
-	"!server.friend_group.messages.list\x12\x1dFriendGroupMessageListRequest\x1a\x1eFriendGroupMessageListResponse\x12\x94\x01\n" +
-	"+RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_GET\x10?\x1ac\xc2\xf3\x18_\n" +
-	" server.friend_group.messages.get\x12\x1cFriendGroupMessageGetRequest\x1a\x1dFriendGroupMessageGetResponse\x12\x8e\x01\n" +
+	"\"server.friend_group.members.delete\x12\x1eFriendGroupMemberDeleteRequest\x1a\x1fFriendGroupMemberDeleteResponse\x12\x8e\x01\n" +
 	")RPC_METHOD_SERVER_BADGE_DEF_PIXA_DOWNLOAD\x10@\x1a_\xc2\xf3\x18[\n" +
 	"\x1eserver.badge_def.pixa.download\x12\x1bBadgeDefPixaDownloadRequest\x1a\x1cBadgeDefPixaDownloadResponse\x12b\n" +
 	"\x1aRPC_METHOD_SERVER_PET_LIST\x10A\x1aB\xc2\xf3\x18>\n" +
@@ -1220,9 +1207,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1dRPC_METHOD_SERVER_PEER_DELETE\x10]\x1aK\xc2\xf3\x18G\n" +
 	"\x12server.peer.delete\x12\x17ServerPeerDeleteRequest\x1a\x18ServerPeerDeleteResponse\x12n\n" +
 	" RPC_METHOD_SERVER_SPEECH_EXTRACT\x10^\x1aH\xc2\xf3\x18D\n" +
-	"\x15server.speech.extract\x12\x14SpeechExtractRequest\x1a\x15SpeechExtractResponse\x12\xbf\x01\n" +
-	"6RPC_METHOD_SERVER_FRIEND_GROUP_MESSAGES_AUDIO_DOWNLOAD\x10_\x1a\x82\x01\xc2\xf3\x18~\n" +
-	"+server.friend_group.messages.audio.download\x12&FriendGroupMessageAudioDownloadRequest\x1a'FriendGroupMessageAudioDownloadResponse\x12l\n" +
+	"\x15server.speech.extract\x12\x14SpeechExtractRequest\x1a\x15SpeechExtractResponse\x12l\n" +
 	" RPC_METHOD_SERVER_API_KEY_CREATE\x10`\x1aF\xc2\xf3\x18B\n" +
 	"\x15server.api_key.create\x12\x13APIKeyCreateRequest\x1a\x14APIKeyCreateResponse\x12d\n" +
 	"\x1eRPC_METHOD_SERVER_API_KEY_LIST\x10a\x1a@\xc2\xf3\x18<\n" +

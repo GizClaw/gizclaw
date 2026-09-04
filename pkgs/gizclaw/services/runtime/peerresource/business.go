@@ -13,10 +13,18 @@ import (
 
 func businessError(id string, err error) *rpcapi.RPCResponse {
 	switch {
-	case errors.Is(err, friend.ErrCrossServerFriendCreation):
-		return statusError(id, rpcapi.StatusCodeFailedPrecondition, friend.ErrCrossServerFriendCreation.Error())
-	case errors.Is(err, friendgroup.ErrCrossServerFriendGroupMembership):
-		return statusError(id, rpcapi.StatusCodeFailedPrecondition, friendgroup.ErrCrossServerFriendGroupMembership.Error())
+	case errors.Is(err, friendgroup.ErrFriendGroupFull):
+		// A ten-member cap is a quota, which is what RESOURCE_EXHAUSTED names.
+		// The 409 this used to send maps to ABORTED in StatusCodeFromHTTP, but
+		// ABORTED is for concurrency aborts and says nothing true here. The
+		// reason carries the specific failure, and matches the code the Admin
+		// HTTP surface already returns for the same condition.
+		return rpcapi.Error{
+			RequestID: id,
+			Code:      rpcapi.StatusCodeResourceExhausted,
+			Reason:    "FRIEND_GROUP_FULL",
+			Message:   "friend group is full",
+		}.RPCResponse()
 	case errors.Is(err, friend.ErrInviteTokenRequired):
 		return statusError(id, rpcapi.StatusCodeInvalidArgument, "friend invite token is required")
 	case errors.Is(err, friend.ErrInviteTokenUnavailable):

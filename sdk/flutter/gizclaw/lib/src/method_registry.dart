@@ -387,18 +387,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FriendGroupMemberDeleteRequest',
     responseType: 'FriendGroupMemberDeleteResponse',
   ),
-  'server.friend_group.messages.list': RpcMethodDescriptor(
-    id: 62,
-    name: 'server.friend_group.messages.list',
-    requestType: 'FriendGroupMessageListRequest',
-    responseType: 'FriendGroupMessageListResponse',
-  ),
-  'server.friend_group.messages.get': RpcMethodDescriptor(
-    id: 63,
-    name: 'server.friend_group.messages.get',
-    requestType: 'FriendGroupMessageGetRequest',
-    responseType: 'FriendGroupMessageGetResponse',
-  ),
   'server.badge_def.pixa.download': RpcMethodDescriptor(
     id: 64,
     name: 'server.badge_def.pixa.download',
@@ -585,12 +573,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'SpeechExtractRequest',
     responseType: 'SpeechExtractResponse',
   ),
-  'server.friend_group.messages.audio.download': RpcMethodDescriptor(
-    id: 95,
-    name: 'server.friend_group.messages.audio.download',
-    requestType: 'FriendGroupMessageAudioDownloadRequest',
-    responseType: 'FriendGroupMessageAudioDownloadResponse',
-  ),
   'server.api_key.create': RpcMethodDescriptor(
     id: 96,
     name: 'server.api_key.create',
@@ -734,8 +716,6 @@ const rpcMethodNamesById = <int, String>{
   59: 'server.friend_group.members.add',
   60: 'server.friend_group.members.put',
   61: 'server.friend_group.members.delete',
-  62: 'server.friend_group.messages.list',
-  63: 'server.friend_group.messages.get',
   64: 'server.badge_def.pixa.download',
   65: 'server.pet.list',
   66: 'server.pet.get',
@@ -767,7 +747,6 @@ const rpcMethodNamesById = <int, String>{
   92: 'server.speech.synthesize',
   93: 'server.peer.delete',
   94: 'server.speech.extract',
-  95: 'server.friend_group.messages.audio.download',
   96: 'server.api_key.create',
   97: 'server.api_key.list',
   98: 'server.api_key.revoke',

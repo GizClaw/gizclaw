@@ -34,7 +34,9 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
-它运行 Redis、两台使用不同本地 runtime state 的 Server，以及配置 Server 顺序相反的两台 Edge，验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入和跨 Server Social 零副作用冲突。它不验证 Workspace routing。
+它运行 Redis、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
+
+`sfu.friend.cross-server.audio-bytes` 不需要凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
 
 ### Cloud ObjectStore conformance
 
@@ -295,7 +297,8 @@ credential value。Dirty 状态下的探索性运行必须显式设置 `GIZCLAW_
 receipt 失效。GizClaw 不通过添加重试或自动 Provider fallback 让该 gate 通过。
 
 音频和 binary 只作为带 `media_type`、`codec`、`max_bytes` 的内存变量传递；`save_as`
-只赋值变量，不写文件。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
+只赋值变量，不写文件。`audio`/`binary` 输入变量声明 `env` 时，环境变量必须是标准 base64
+编码的字节，runner 解码后按 `max_bytes` 校验，供无 Provider 依赖的场景推送已提交的 fixture。`speech.cache: run` 仅允许用于带 `save_as` 的语音合成步骤：同一次
 CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输入 fixture，再为每个 repeat task
 复制独立字节，避免把输入准备阶段的 TTS 容量误当成 Workflow 并发目标。
 
@@ -304,7 +307,7 @@ CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输�
 wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不拥有这项 wire metadata。
 
 `peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
-Chatroom 中以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
+以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须
 声明对应的正数 Go duration `first_text_timeout` 或 `first_audio_timeout`，禁用的模态不声明
@@ -379,12 +382,91 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 把 text 转发与 Opus audio EOS 轮次边界分开；`idle_timeout` 按 active 轮次限制不活动时间，
 由 active 侧进展重置，触发时记录 deadline、client、turn、最后事件和已观察媒体。audio relay
 保留有界 assistant 文本用于断言和终轮 capture，但不重复转发文本。默认 report 不含内容；
-本地 `--evidence full --output <path>` 才写入有界 relay 文本，产物属于敏感文件，但仍不包含
+本地 `--evidence full --output <path>` 才写入有界 relay 文本以及
+`server.speech.transcribe` 步骤识别出的 transcript，产物属于敏感文件，但仍不包含
 输入、凭据、ID 或音频 payload。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
 运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
 验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
 `benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
+
+### 广播场景：listen、parallel 与 input_sent
+
+SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而不是发送方自己。runner 为此提供
+三个扩展，都遵循现有的 schema、校验、evidence 与 timeout 约定：
+
+- `peer_stream.mode: listen` 是只收不发的操作：必须声明 Go duration `duration`
+  （正数且不超过 5m），不推送任何输入，在该时长内记录 PeerStream 下发的全部 chunk。任何
+  label 的 Opus blob 都算收到的音频（SFU 下行以远端 participant 作为 label）。result 暴露
+  `audio_bytes`、`packets`、`events`、`streams`、`first_audio_ms`、`last_event_ms`、
+  `duration_ms`、`listened_ms`、有界的 `text`、`audio_pacing`，以及与现有 `peer_stream`
+  相同编码的 `/audio`（Ogg/Opus，只在声明了 `/audio` capture 且收到音频时提供，受 output
+  variable 的 `max_bytes` 约束），可以直接交给 `server.speech.transcribe`。收到零音频不是
+  错误，文档用 `expect` 断言 `audio_bytes`。listen 可以与同一 client 的发言 step 放在同一个 `parallel` step 中：两个
+  child 共享该 connection 唯一的 Peer Event Stream 订阅，发言方听不到自己的音频
+  （mix-minus-self），因此发送方断言 `audio_bytes` 等于 0。listen 不能设置 `input`、`pacing`、
+  `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
+  `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
+  在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
+- step 级 `parallel`：一个 `parallel` step 拥有一组 child step，把它们**同时**启动、
+  等全部结束后一起报告，因此“一个 client 说、另一个 client 同时听”不需要任何额外的
+  同步 step。child 只能是 `client` 加恰好一个 `peer_stream`（任意 mode），数量 2 到 16，
+  `id` 必填且在整个文档内唯一。child 不能声明 `parallel`、`barrier`、`retry`、`timeout`、
+  `save_as`、`capture`、`expect`、`expect_error`，也不能使用持久 peer_stream session：
+  child 可以声明 `delay`（正的 duration，最长一分钟），它会在整组释放后再等这么久才开始，而不是与兄弟 child 同时开始。这是把一个 child 的窗口放进另一个 child 活动区间内的唯一方式，抢麦场景需要它：发言方自己的话段是在第一个**有声帧**时才打开的，与整组同时开始的窗口会量到前导静音，而那段时间发言方还是普通听众。非 parallel child 的 step 声明 `delay` 会被拒绝，因为普通 step 本来就是顺序执行的，在那里加延迟只是用 sleep 掩盖缺失的等待。
+  断言属于 `parallel` step 自己。`parallel` step 保留 `id`、`timeout`、`capture`、
+  `expect`、`expect_error`、`retry`、`save_as`，不能声明 `client`，且不允许出现在
+  `finally` 中。
+  step 的 result 是一个以 child `id` 为键的对象，所以 `capture` 与 `expect` 用
+  `/<child_id>/...` 这样的 JSON pointer 定位某个 child 的结果；指向未声明 child 的 pointer
+  会被校验拒绝。runner 在 task goroutine 上先解析所有 child 的输入（`Variables` 不支持并发
+  访问），全部解析成功后才同时放行；任何一个 child 解析失败，整个 step 失败且没有 child 被
+  启动。
+  step 的 `timeout` 限制整组：超时后 runner 取消全部 child，最多再等 30s 让它们释放
+  PeerStream，并按 child 记录各自的结果。忽略取消的 child 会被记为 unfinished，此时它仍占用
+  task 的共享 client，task 到此结束并报告该情况，跳过 `finally` 步骤与 client 拆除。
+  任何一个 child 失败都会让 `parallel` step 失败，同时报告里的 `children` 数组保留每个
+  child 的 `status`、`duration_ms`、`error` 与 evidence。play 模式不支持 `parallel` step；
+  无法并发执行步骤的 driver 不声明 `parallel` 操作，这类文档在 `validate` 阶段就被拒绝或跳过，
+  而不是运行时失败。
+- `peer_stream.completion: input_sent` 只对 `push-to-talk` 与 `realtime` 有效：输入推送完成
+  （push-to-talk 还包括 EOS）即完成，不等待自己的文本或音频下发，也没有 terminal label。它
+  不能与 `first_text_timeout`、`first_audio_timeout`、`wait_for_history`、`require_text`、
+  `require_audio`、`interrupt_after` 或 `terminal_label` 组合。result 额外提供 `input_sent`、
+  `input_packets`、`input_ms`（声明输入的 Opus 时长）、`pushed_packets`（realtime 包含尾部
+  静音）和 `input_sent_ms`，并保留推送期间恰好到达的输出计数。
+
+```yaml
+steps:
+  - id: alice_speaks
+    timeout: 20s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          completion: input_sent
+    capture:
+      bob_received: /bob_listen/audio
+    expect:
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_speak/input_sent: {equals: true}
+  - id: bob_transcript
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh-CN}
+      input: ${bob_received}
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
+```
 
 ### OpenAI Conversations 与 Responses E2E
 

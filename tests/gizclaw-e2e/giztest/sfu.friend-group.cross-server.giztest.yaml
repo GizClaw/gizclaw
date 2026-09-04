@@ -1,0 +1,670 @@
+# User Story:
+# As a device on Server A that owns a Friend Group joined from Server B,
+# I want every member to hear each other's speech one speaker at a time, the 10-member cap to hold, and removed members to fall silent,
+# So that the cross-server Friend Group SFU Workspace enforces the floor and membership end to end.
+version: gizclaw.test/v1alpha1
+name: sfu.friend-group.cross-server
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+  carol:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+  m1: {identity: ephemeral, connection: webrtc, access_point: "${edge_a}", registration_token: "${token_a}"}
+  m2: {identity: ephemeral, connection: webrtc, access_point: "${edge_b}", registration_token: "${token_b}"}
+  m3: {identity: ephemeral, connection: webrtc, access_point: "${edge_a}", registration_token: "${token_a}"}
+  m4: {identity: ephemeral, connection: webrtc, access_point: "${edge_b}", registration_token: "${token_b}"}
+  m5: {identity: ephemeral, connection: webrtc, access_point: "${edge_a}", registration_token: "${token_a}"}
+  m6: {identity: ephemeral, connection: webrtc, access_point: "${edge_b}", registration_token: "${token_b}"}
+  m7: {identity: ephemeral, connection: webrtc, access_point: "${edge_a}", registration_token: "${token_a}"}
+  m8: {identity: ephemeral, connection: webrtc, access_point: "${edge_b}", registration_token: "${token_b}"}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  group_name:
+    direction: input
+    type: string
+    generate: token
+  group_invite:
+    direction: output
+    type: string
+    secret: true
+  alice_workspace:
+    direction: output
+    type: string
+  bob_workspace:
+    direction: output
+    type: string
+  carol_workspace:
+    direction: output
+    type: string
+  carol_member:
+    direction: output
+    type: string
+  alice_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  alice_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_received_again:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  m1_heard_three:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  m1_heard_modes:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  m1_heard_two:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  carol_heard_two:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: alice_create_group
+    client: alice
+    rpc:
+      method: server.friend_group.create
+      request:
+        name: ${group_name}
+    capture:
+      alice_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: alice_create_invite
+    client: alice
+    rpc:
+      method: server.friend_group.invite_token.create
+      request:
+        friend_group_name: ${group_name}
+    capture:
+      group_invite: /invite_token
+  - id: bob_join
+    client: bob
+    rpc:
+      method: server.friend_group.join
+      request:
+        invite_token: ${group_invite}
+        name: ${group_name}
+    capture:
+      bob_workspace: /group/workspace_name
+    expect:
+      /group/workspace_name: {equals: "${alice_workspace}"}
+  - id: carol_join
+    client: carol
+    rpc:
+      method: server.friend_group.join
+      request:
+        invite_token: ${group_invite}
+        name: ${group_name}
+    capture:
+      carol_workspace: /group/workspace_name
+      carol_member: /member/name
+    expect:
+      /group/workspace_name: {equals: "${alice_workspace}"}
+  # Three-way Workspace identity: every member selects the Workspace under a
+  # name captured by another member; selection joins the Room at once.
+  - id: alice_select
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${bob_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${bob_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: alice_select_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: bob_select
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${carol_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${carol_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: bob_select_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: carol_select
+    client: carol
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${alice_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: carol_select_running
+    client: carol
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  # A fourth member joins here so it can listen while three others speak at
+  # once below; it still counts toward the 10-member cap checked further down.
+  - id: m1_join
+    client: m1
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m1_select
+    client: m1
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${alice_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: m1_select_running
+    client: m1
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: alice_synthesize
+    client: alice
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 欢迎大家参加这次活动
+        accepted_content_types: [audio/ogg]
+    save_as: alice_audio
+  - id: bob_synthesize
+    client: bob
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 谢谢你们的热情帮助
+        accepted_content_types: [audio/ogg]
+    save_as: bob_audio
+  - id: carol_synthesize
+    client: carol
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们一起去公园散步
+        accepted_content_types: [audio/ogg]
+    save_as: carol_audio
+  # One step starts the speaker and every listen window at the same moment, so
+  # the windows cover the whole utterance.
+  - id: alice_speaks
+    timeout: 30s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      bob_received: /bob_listen/audio
+      carol_received: /carol_listen/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcripts below can only assert the phrase
+      # when the whole utterance was captured.
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /carol_listen/audio_bytes: {minimum: 2000}
+      /carol_listen/packets: {minimum: 50}
+  - id: bob_transcript
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${bob_received}
+    expect:
+      /transcript: {contains: 欢迎大家参加这次活动, normalize: [case, punctuation, whitespace]}
+  - id: carol_transcript
+    client: carol
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${carol_received}
+    expect:
+      /transcript: {contains: 欢迎大家参加这次活动, normalize: [case, punctuation, whitespace]}
+  - id: bob_speaks
+    timeout: 30s
+    parallel:
+      - id: alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: carol_listen_bob
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: bob_listen_self
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: bob_speak
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${bob_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      alice_received: /alice_listen/audio
+      carol_received_again: /carol_listen_bob/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcripts below can only assert the phrase
+      # when the whole utterance was captured.
+      /alice_listen/audio_bytes: {minimum: 2000}
+      /alice_listen/packets: {minimum: 50}
+      /carol_listen_bob/audio_bytes: {minimum: 2000}
+      /carol_listen_bob/packets: {minimum: 50}
+      # Half-duplex: the speaker never hears the Room while its own utterance
+      # is open.
+      /bob_listen_self/audio_bytes: {maximum: 0}
+  - id: alice_transcript
+    client: alice
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${alice_received}
+    expect:
+      /transcript: {contains: 谢谢你们的热情帮助, normalize: [case, punctuation, whitespace]}
+  - id: carol_transcript_bob
+    client: carol
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${carol_received_again}
+    expect:
+      /transcript: {contains: 谢谢你们的热情帮助, normalize: [case, punctuation, whitespace]}
+  # Continuity of the forwarded audio under contention. Three members press at
+  # the same moment while a fourth listens. Which speaker wins the floor is
+  # deliberately not fixed and may differ per listener, so nothing here asserts
+  # a winner; what must hold is that the winner arrives whole. Each phrase is
+  # about two seconds and lexically distinct, and the anchored pattern admits
+  # exactly one speaker's distinctive fragment (活动, 热情 or 公园), so a lost
+  # head, a splice of two speakers, reordering or a mid-sentence cut all fail:
+  # the full phrase would no longer be present, or a second fragment would be.
+  - id: three_speak_at_once
+    timeout: 60s
+    parallel:
+      - id: alice_speak_contention
+        client: alice
+        peer_stream: {mode: push-to-talk, input: "${alice_audio}", pacing: 20ms, completion: input_sent}
+      - id: bob_speak_contention
+        client: bob
+        peer_stream: {mode: push-to-talk, input: "${bob_audio}", pacing: 20ms, completion: input_sent}
+      - id: carol_speak_contention
+        client: carol
+        peer_stream: {mode: push-to-talk, input: "${carol_audio}", pacing: 20ms, completion: input_sent}
+      - id: m1_listen_contention
+        client: m1
+        peer_stream: {mode: listen, duration: 12s}
+      # The speakers listen only while their own utterance is certainly still
+      # open, which is where half-duplex must hold. The delay matters: an
+      # utterance opens on its first voiced frame, not when the client starts
+      # sending, so the leading silence of a synthesized clip is time when the
+      # speaker is still an ordinary listener and legitimately receives the
+      # others. Starting these windows with the group would measure that
+      # lead-in and fail on it. 800ms is past any lead-in and well inside the
+      # roughly two-second phrase.
+      - id: alice_listen_contention
+        client: alice
+        delay: 800ms
+        peer_stream: {mode: listen, duration: 1s}
+      - id: bob_listen_contention
+        client: bob
+        delay: 800ms
+        peer_stream: {mode: listen, duration: 1s}
+      - id: carol_listen_contention
+        client: carol
+        delay: 800ms
+        peer_stream: {mode: listen, duration: 1s}
+    capture:
+      m1_heard_three: /m1_listen_contention/audio
+    expect:
+      /alice_speak_contention/input_sent: {equals: true}
+      /bob_speak_contention/input_sent: {equals: true}
+      /carol_speak_contention/input_sent: {equals: true}
+      /m1_listen_contention/audio_bytes: {minimum: 2000}
+      /m1_listen_contention/packets: {minimum: 50}
+      /alice_listen_contention/audio_bytes: {maximum: 0}
+      /bob_listen_contention/audio_bytes: {maximum: 0}
+      /carol_listen_contention/audio_bytes: {maximum: 0}
+  - id: m1_transcript_contention
+    client: m1
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${m1_heard_three}
+    expect:
+      /transcript:
+        contains_any: [欢迎大家参加这次活动, 谢谢你们的热情帮助, 我们一起去公园散步]
+        pattern: "^[^活动公园热情]*(活动|公园|热情)[^活动公园热情]*$"
+        normalize: [case, punctuation, whitespace]
+  # The two input modes contend for the same floor: bob streams continuously
+  # while carol presses, both starting at the same moment. The listener still
+  # receives exactly one utterance, whole.
+  - id: realtime_versus_push_to_talk
+    timeout: 60s
+    parallel:
+      - id: bob_speak_realtime
+        client: bob
+        peer_stream: {mode: realtime, input: "${bob_audio}", pacing: 20ms, completion: input_sent}
+      - id: carol_speak_press
+        client: carol
+        peer_stream: {mode: push-to-talk, input: "${carol_audio}", pacing: 20ms, completion: input_sent}
+      - id: m1_listen_modes
+        client: m1
+        peer_stream: {mode: listen, duration: 12s}
+    capture:
+      m1_heard_modes: /m1_listen_modes/audio
+    expect:
+      /bob_speak_realtime/input_sent: {equals: true}
+      /carol_speak_press/input_sent: {equals: true}
+      /m1_listen_modes/audio_bytes: {minimum: 2000}
+      /m1_listen_modes/packets: {minimum: 50}
+  - id: m1_transcript_modes
+    client: m1
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${m1_heard_modes}
+    expect:
+      /transcript:
+        contains_any: [谢谢你们的热情帮助, 我们一起去公园散步]
+        pattern: "^[^公园热情]*(公园|热情)[^公园热情]*$"
+        normalize: [case, punctuation, whitespace]
+  # Two listeners observe the same two simultaneous speakers. Each listener
+  # grants its own floor, so the two transcripts are allowed to name different
+  # speakers by design; both must carry one phrase whole and only one.
+  - id: two_listeners_one_pair_of_speakers
+    timeout: 60s
+    parallel:
+      - id: alice_speak_two
+        client: alice
+        peer_stream: {mode: push-to-talk, input: "${alice_audio}", pacing: 20ms, completion: input_sent}
+      - id: bob_speak_two
+        client: bob
+        peer_stream: {mode: push-to-talk, input: "${bob_audio}", pacing: 20ms, completion: input_sent}
+      - id: m1_listen_two
+        client: m1
+        peer_stream: {mode: listen, duration: 12s}
+      - id: carol_listen_two
+        client: carol
+        peer_stream: {mode: listen, duration: 12s}
+    capture:
+      m1_heard_two: /m1_listen_two/audio
+      carol_heard_two: /carol_listen_two/audio
+    expect:
+      /alice_speak_two/input_sent: {equals: true}
+      /bob_speak_two/input_sent: {equals: true}
+      /m1_listen_two/audio_bytes: {minimum: 2000}
+      /m1_listen_two/packets: {minimum: 50}
+      /carol_listen_two/audio_bytes: {minimum: 2000}
+      /carol_listen_two/packets: {minimum: 50}
+  - id: m1_transcript_two
+    client: m1
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${m1_heard_two}
+    expect:
+      /transcript:
+        contains_any: [欢迎大家参加这次活动, 谢谢你们的热情帮助]
+        pattern: "^[^活动热情]*(活动|热情)[^活动热情]*$"
+        normalize: [case, punctuation, whitespace]
+  - id: carol_transcript_two
+    client: carol
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${carol_heard_two}
+    expect:
+      /transcript:
+        contains_any: [欢迎大家参加这次活动, 谢谢你们的热情帮助]
+        pattern: "^[^活动热情]*(活动|热情)[^活动热情]*$"
+        normalize: [case, punctuation, whitespace]
+  # Fill the Group to the fixed cap of 10 members (owner included), then the
+  # 11th join must be rejected without consuming the invite token.
+  - id: m2_join
+    client: m2
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m3_join
+    client: m3
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m4_join
+    client: m4
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m5_join
+    client: m5
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m6_join
+    client: m6
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: m7_join
+    client: m7
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+  - id: group_is_full
+    client: alice
+    rpc:
+      method: server.friend_group.members.list
+      request:
+        friend_group_name: ${group_name}
+    expect:
+      /items: {count: 10}
+  - id: m8_join_rejected
+    client: m8
+    rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
+    expect_error:
+      code: 409
+      message_contains: friend group is full
+  - id: invite_still_resolvable
+    client: alice
+    rpc:
+      method: server.friend_group.invite_token.get
+      request:
+        friend_group_name: ${group_name}
+    expect:
+      /invite_token: {non_empty: true}
+  # Removing carol must stop her downstream audio while her connection stays up.
+  - id: alice_remove_carol
+    client: alice
+    rpc:
+      method: server.friend_group.members.delete
+      request:
+        friend_group_name: ${group_name}
+        name: ${carol_member}
+  # carol is homed on the other Server, so her SFU runtime is cancelled by the
+  # bounded binding recheck rather than by the removal call itself. Wait for
+  # that cancellation before listening: otherwise the revocation lands in the
+  # middle of the listen and ends the stream with the revoked error instead of
+  # leaving it silent.
+  - id: carol_runtime_revoked
+    client: carol
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$"}
+  - id: alice_speaks_after_removal
+    timeout: 30s
+    parallel:
+      - id: carol_listen_after_removal
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 8s
+      - id: alice_speak_after_removal
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /alice_speak_after_removal/input_sent: {equals: true}
+      /carol_listen_after_removal/audio_bytes: {maximum: 0}
+  - id: carol_still_connected
+    client: carol
+    rpc:
+      method: all.ping
+      request:
+        client_send_time: 0
+finally:
+  - client: alice
+    rpc: {method: server.run.stop, request: {}}
+  - client: bob
+    rpc: {method: server.run.stop, request: {}}
+  - client: carol
+    rpc: {method: server.run.stop, request: {}}
+  - client: alice
+    rpc:
+      method: server.friend_group.delete
+      request:
+        name: ${group_name}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+  - client: bob
+    rpc: {method: server.peer.delete, request: {}}
+  - client: carol
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m1
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m2
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m3
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m4
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m5
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m6
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m7
+    rpc: {method: server.peer.delete, request: {}}
+  - client: m8
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [token_a, token_b, group_invite]

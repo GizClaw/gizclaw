@@ -1694,15 +1694,6 @@ const WorkspaceParameters$json = {
       '10': 'asttranslateWorkspaceParameters'
     },
     {
-      '1': 'chat_room_workspace_parameters',
-      '3': 4,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkspaceParameters',
-      '9': 0,
-      '10': 'chatRoomWorkspaceParameters'
-    },
-    {
       '1': 'dash_scope_realtime_workspace_parameters',
       '3': 5,
       '4': 1,
@@ -1753,18 +1744,16 @@ final $typed_data.Uint8List workspaceParametersDescriptor = $convert.base64Decod
     'c3BhY2VQYXJhbWV0ZXJzSABSIWRvdWJhb1JlYWx0aW1lV29ya3NwYWNlUGFyYW1ldGVycxJ9Ci'
     'Fhc3R0cmFuc2xhdGVfd29ya3NwYWNlX3BhcmFtZXRlcnMYAyABKAsyLy5naXpjbGF3LnJwYy52'
     'MS5BU1RUcmFuc2xhdGVXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSH2FzdHRyYW5zbGF0ZVdvcmtzcG'
-    'FjZVBhcmFtZXRlcnMScgoeY2hhdF9yb29tX3dvcmtzcGFjZV9wYXJhbWV0ZXJzGAQgASgLMisu'
-    'Z2l6Y2xhdy5ycGMudjEuQ2hhdFJvb21Xb3Jrc3BhY2VQYXJhbWV0ZXJzSABSG2NoYXRSb29tV2'
-    '9ya3NwYWNlUGFyYW1ldGVycxKOAQooZGFzaF9zY29wZV9yZWFsdGltZV93b3Jrc3BhY2VfcGFy'
-    'YW1ldGVycxgFIAEoCzI0LmdpemNsYXcucnBjLnYxLkRhc2hTY29wZVJlYWx0aW1lV29ya3NwYW'
-    'NlUGFyYW1ldGVyc0gAUiRkYXNoU2NvcGVSZWFsdGltZVdvcmtzcGFjZVBhcmFtZXRlcnMSlwEK'
-    'K2RvdWJhb19yZWFsdGltZV9kdXBsZXhfd29ya3NwYWNlX3BhcmFtZXRlcnMYBiABKAsyNy5naX'
-    'pjbGF3LnJwYy52MS5Eb3ViYW9SZWFsdGltZUR1cGxleFdvcmtzcGFjZVBhcmFtZXRlcnNIAFIn'
-    'ZG91YmFvUmVhbHRpbWVEdXBsZXhXb3Jrc3BhY2VQYXJhbWV0ZXJzEmUKGWVpbm9fd29ya3NwYW'
-    'NlX3BhcmFtZXRlcnMYByABKAsyJy5naXpjbGF3LnJwYy52MS5FaW5vV29ya3NwYWNlUGFyYW1l'
-    'dGVyc0gAUhdlaW5vV29ya3NwYWNlUGFyYW1ldGVycxJiChhwZXRfd29ya3NwYWNlX3BhcmFtZX'
-    'RlcnMYCCABKAsyJi5naXpjbGF3LnJwYy52MS5QZXRXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSFnBl'
-    'dFdvcmtzcGFjZVBhcmFtZXRlcnNCBwoFdmFsdWU=');
+    'FjZVBhcmFtZXRlcnMSjgEKKGRhc2hfc2NvcGVfcmVhbHRpbWVfd29ya3NwYWNlX3BhcmFtZXRl'
+    'cnMYBSABKAsyNC5naXpjbGF3LnJwYy52MS5EYXNoU2NvcGVSZWFsdGltZVdvcmtzcGFjZVBhcm'
+    'FtZXRlcnNIAFIkZGFzaFNjb3BlUmVhbHRpbWVXb3Jrc3BhY2VQYXJhbWV0ZXJzEpcBCitkb3Vi'
+    'YW9fcmVhbHRpbWVfZHVwbGV4X3dvcmtzcGFjZV9wYXJhbWV0ZXJzGAYgASgLMjcuZ2l6Y2xhdy'
+    '5ycGMudjEuRG91YmFvUmVhbHRpbWVEdXBsZXhXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSJ2RvdWJh'
+    'b1JlYWx0aW1lRHVwbGV4V29ya3NwYWNlUGFyYW1ldGVycxJlChllaW5vX3dvcmtzcGFjZV9wYX'
+    'JhbWV0ZXJzGAcgASgLMicuZ2l6Y2xhdy5ycGMudjEuRWlub1dvcmtzcGFjZVBhcmFtZXRlcnNI'
+    'AFIXZWlub1dvcmtzcGFjZVBhcmFtZXRlcnMSYgoYcGV0X3dvcmtzcGFjZV9wYXJhbWV0ZXJzGA'
+    'ggASgLMiYuZ2l6Y2xhdy5ycGMudjEuUGV0V29ya3NwYWNlUGFyYW1ldGVyc0gAUhZwZXRXb3Jr'
+    'c3BhY2VQYXJhbWV0ZXJzQgcKBXZhbHVl');
 
 @$core.Deprecated('Use workspacePutRequestDescriptor instead')
 const WorkspacePutRequest$json = {

@@ -1,9 +1,0 @@
----
-apiVersion: gizclaw.admin/v1alpha1
-kind: RegistrationToken
-metadata:
-  id: e2e-giztest-pet-chatroom
-spec:
-  token: ${GIZCLAW_TEST_PET_CHATROOM_REGISTRATION_TOKEN}
-  runtime_profile_id: e2e-giztest-pet-chatroom
-  firmware_id: devkit-firmware-main

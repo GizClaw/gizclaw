@@ -20,7 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/chatroom"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -55,7 +55,6 @@ type activePeer struct {
 	activating     giznet.Conn
 	registration   *runtimeprofile.Registration
 	events         *peerStreamEventBroker
-	observeEvent   func(*eventpb.PeerEvent)
 	deleting       bool
 	retire         func()
 }
@@ -146,6 +145,12 @@ type Manager struct {
 	SpeechLimits     SpeechLimits
 	Tools            *toolkit.Server
 	ToolBuilder      *toolkit.Builder
+	// SFU is the Server-level SFU connector configuration handed to the sfu
+	// Workflow driver. Credentials never leave the Server process.
+	SFU sfu.Config
+	// sfuBindingResolver overrides the Friend and Friend Group composite
+	// resolver; tests inject authoritative bindings without Social servers.
+	sfuBindingResolver sfu.BindingResolver
 
 	ProviderTenants providertenants.ProviderTenantsAdminService
 	Metrics         metrics.Store
@@ -301,7 +306,6 @@ func (m *Manager) setPeerUpLocked(publicKey giznet.PublicKey, conn giznet.Conn) 
 	if oldConn != conn {
 		state.registration = nil
 		state.events = nil
-		state.observeEvent = nil
 	}
 	state.conn = conn
 	state.activating = nil
@@ -364,7 +368,6 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	if oldConn != conn {
 		current.registration = nil
 		current.events = nil
-		current.observeEvent = nil
 	}
 	current.conn = conn
 	return oldConn, nil
@@ -376,7 +379,6 @@ func (m *Manager) SetPeerEventBroker(
 	publicKey giznet.PublicKey,
 	conn giznet.Conn,
 	broker *peerStreamEventBroker,
-	observe func(*eventpb.PeerEvent),
 ) error {
 	if m == nil || conn == nil || broker == nil {
 		return ErrPeerConnNotActive
@@ -388,7 +390,6 @@ func (m *Manager) SetPeerEventBroker(
 		return ErrPeerConnNotActive
 	}
 	state.events = broker
-	state.observeEvent = observe
 	return nil
 }
 
@@ -405,11 +406,7 @@ func (m *Manager) BroadcastPeerEvent(publicKey giznet.PublicKey, event *eventpb.
 		return nil
 	}
 	broker := state.events
-	observe := state.observeEvent
 	m.mu.RUnlock()
-	if observe != nil {
-		observe(event)
-	}
 	return broker.Notify(event)
 }
 
@@ -429,35 +426,15 @@ func (m *Manager) broadcastWorkspaceHistoryUpdated(ctx context.Context, workspac
 	if workspaceName == "" {
 		return
 	}
-	var recipients []string
-	kind := eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW
-	if workspace.Parameters != nil {
-		if parameters, decodeErr := workspace.Parameters.AsChatRoomWorkspaceParameters(); decodeErr == nil && parameters.Mode != nil {
-			switch *parameters.Mode {
-			case apitypes.ChatRoomModeDirect:
-				kind = eventpb.WorkspaceKind_WORKSPACE_KIND_DIRECT_CHATROOM
-				if m.Friends == nil {
-					return
-				}
-				recipients, err = m.Friends.WorkspaceRecipientsByID(ctx, workspace.Id)
-			case apitypes.ChatRoomModeGroup:
-				kind = eventpb.WorkspaceKind_WORKSPACE_KIND_GROUP_CHATROOM
-				if m.FriendGroups == nil {
-					return
-				}
-				recipients, err = m.FriendGroups.WorkspaceRecipientsByID(ctx, workspace.Id)
-			}
-		}
-	}
-	if kind == eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW {
-		owner := strings.TrimSpace(socialStringValue(workspace.OwnerPublicKey))
-		if owner != "" {
-			recipients = []string{owner}
-		}
-	}
-	if err != nil || len(recipients) == 0 {
+	// Workspace History belongs to Workflow Workspaces only: SFU Workspaces
+	// record nothing, so the Event carries WORKSPACE_KIND_WORKFLOW and reaches
+	// the Workspace owner alone.
+	owner := strings.TrimSpace(socialStringValue(workspace.OwnerPublicKey))
+	if owner == "" {
 		return
 	}
+	recipients := []string{owner}
+	kind := eventpb.WorkspaceKind_WORKSPACE_KIND_WORKFLOW
 	event := &eventpb.PeerEvent{
 		Version: eventpb.Version,
 		Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
@@ -489,87 +466,6 @@ func socialStringValue(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func (m *Manager) chatroomAccessError(ctx context.Context, caller giznet.PublicKey, workspaceName string) *chatroom.AccessError {
-	_, denial := m.chatroomAccessState(ctx, caller, workspaceName)
-	return denial
-}
-
-func (m *Manager) chatroomAccessState(
-	ctx context.Context,
-	caller giznet.PublicKey,
-	workspaceName string,
-) (bool, *chatroom.AccessError) {
-	if m == nil || m.Workspaces == nil {
-		return true, chatroom.AccessCheckFailedError()
-	}
-	workspace, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
-	if err != nil {
-		return true, chatroom.AccessCheckFailedError()
-	}
-	return m.chatroomAccessStateForWorkspace(ctx, caller, workspace)
-}
-
-func (m *Manager) chatroomAccessStateForWorkspace(
-	ctx context.Context,
-	caller giznet.PublicKey,
-	workspace apitypes.Workspace,
-) (bool, *chatroom.AccessError) {
-	if workspace.Parameters == nil {
-		return false, nil
-	}
-	parameters, err := workspace.Parameters.AsChatRoomWorkspaceParameters()
-	if err != nil || parameters.Mode == nil {
-		return false, nil
-	}
-	callerText := caller.String()
-	switch *parameters.Mode {
-	case apitypes.ChatRoomModeDirect:
-		if m.Friends == nil {
-			return true, chatroom.AccessCheckFailedError()
-		}
-		recipients, err := m.Friends.WorkspaceRecipientsByID(ctx, workspace.Id)
-		if err != nil {
-			return true, chatroom.AccessCheckFailedError()
-		}
-		if containsPublicKey(recipients, callerText) {
-			return true, nil
-		}
-		return true, chatroom.FriendRemovedError()
-	case apitypes.ChatRoomModeGroup:
-		if m.FriendGroups == nil {
-			return true, chatroom.AccessCheckFailedError()
-		}
-		recipients, err := m.FriendGroups.WorkspaceRecipientsByID(ctx, workspace.Id)
-		if errors.Is(err, kv.ErrNotFound) {
-			return true, chatroom.GroupDeletedError()
-		}
-		if err != nil {
-			return true, chatroom.AccessCheckFailedError()
-		}
-		if containsPublicKey(recipients, callerText) {
-			return true, nil
-		}
-		return true, chatroom.MemberRemovedError()
-	default:
-		return false, nil
-	}
-}
-
-func (m *Manager) isChatroomWorkspace(ctx context.Context, workspaceName string) bool {
-	if m == nil || m.Workspaces == nil {
-		return false
-	}
-	workspace, err := resolveWorkspaceByName(ctx, m.Workspaces, workspaceName)
-	if err != nil {
-		return false
-	}
-	if workspace.Parameters == nil {
-		return false
-	}
-	parameters, err := workspace.Parameters.AsChatRoomWorkspaceParameters()
-	return err == nil && parameters.Mode != nil && parameters.Mode.Valid()
 }
 
 func resolveWorkspaceByName(
@@ -605,16 +501,6 @@ func resolveWorkspaceByID(
 	default:
 		return apitypes.Workspace{}, fmt.Errorf("gizclaw: unexpected GetWorkspace response %T", response)
 	}
-}
-
-func containsPublicKey(values []string, target string) bool {
-	target = strings.TrimSpace(target)
-	for _, value := range values {
-		if strings.TrimSpace(value) == target {
-			return true
-		}
-	}
-	return false
 }
 
 func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) error {

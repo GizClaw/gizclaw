@@ -128,7 +128,14 @@ func (h *Host) newWorkspaceAgent(ctx context.Context, spec Spec) (Agent, func(),
 	if candidate, ok := agent.(io.Closer); ok {
 		closer = candidate
 	}
-	agent = wrapHistoryAgent(agent, spec.Runtime.History)
+	// Workspace History is a Workflow Workspace capability. An SFU Workspace
+	// bridges media to a Room and never records history, so its Agent runs
+	// without the history wrapper and never emits workspace_history_updated.
+	if isSFUSpec(spec) {
+		agent = wrapNoHistoryAgent(agent)
+	} else {
+		agent = wrapHistoryAgent(agent, spec.Runtime.History)
+	}
 	var once sync.Once
 	release := func() {
 		once.Do(func() {

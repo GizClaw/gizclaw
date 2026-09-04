@@ -16,11 +16,6 @@ type WorkspaceHistoryAudioDownloadResult struct {
 	Bytes    int64
 }
 
-type FriendGroupMessageAudioDownloadResult struct {
-	Metadata rpcapi.FriendGroupMessageAudioDownloadResponse
-	Bytes    int64
-}
-
 func (c *rpcClient) DownloadWorkspaceHistoryAudio(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceHistoryAudioDownloadRequest, out io.Writer) (WorkspaceHistoryAudioDownloadResult, error) {
 	metadata, n, err := downloadHistoryAudio(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceHistoryAudioDownload, request, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioDownloadRequest, rpcapi.RPCPayload.AsWorkspaceHistoryAudioDownloadResponse, out, func(metadata rpcapi.WorkspaceHistoryAudioDownloadResponse) error {
 		if metadata.WorkspaceName != request.WorkspaceName || metadata.HistoryName != request.HistoryName {
@@ -32,19 +27,6 @@ func (c *rpcClient) DownloadWorkspaceHistoryAudio(ctx context.Context, conn net.
 		return WorkspaceHistoryAudioDownloadResult{}, err
 	}
 	return WorkspaceHistoryAudioDownloadResult{Metadata: metadata, Bytes: n}, nil
-}
-
-func (c *rpcClient) DownloadFriendGroupMessageAudio(ctx context.Context, conn net.Conn, id string, request rpcapi.FriendGroupMessageAudioDownloadRequest, out io.Writer) (FriendGroupMessageAudioDownloadResult, error) {
-	metadata, n, err := downloadHistoryAudio(ctx, conn, id, rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload, request, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioDownloadRequest, rpcapi.RPCPayload.AsFriendGroupMessageAudioDownloadResponse, out, func(metadata rpcapi.FriendGroupMessageAudioDownloadResponse) error {
-		if metadata.FriendGroupName != request.FriendGroupName || metadata.HistoryName != request.HistoryName {
-			return fmt.Errorf("friend group message audio metadata identity mismatch")
-		}
-		return validateHistoryAudioMetadata(metadata.MimeType, metadata.SizeBytes)
-	})
-	if err != nil {
-		return FriendGroupMessageAudioDownloadResult{}, err
-	}
-	return FriendGroupMessageAudioDownloadResult{Metadata: metadata, Bytes: n}, nil
 }
 
 func downloadHistoryAudio[Request, Metadata any](ctx context.Context, conn net.Conn, id string, method rpcapi.RPCMethod, request Request, encode func(*rpcapi.RPCPayload, Request) error, decode func(rpcapi.RPCPayload) (Metadata, error), out io.Writer, validate func(Metadata) error) (Metadata, int64, error) {
@@ -112,8 +94,6 @@ func validateHistoryAudioMetadata(mimeType string, sizeBytes int64) error {
 func historyAudioSize(metadata any) int64 {
 	switch value := metadata.(type) {
 	case rpcapi.WorkspaceHistoryAudioDownloadResponse:
-		return value.SizeBytes
-	case rpcapi.FriendGroupMessageAudioDownloadResponse:
 		return value.SizeBytes
 	default:
 		panic("unsupported history audio metadata")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -16,6 +17,9 @@ import (
 const (
 	defaultTaskTimeout = 5 * time.Minute
 	maxDocumentBytes   = 4 << 20
+	// MaxListenDuration bounds a receive-only peer_stream listen window. The
+	// document validates it and the driver that runs the window enforces it.
+	MaxListenDuration = 5 * time.Minute
 )
 
 var (
@@ -74,12 +78,22 @@ type Step struct {
 	Barrier        *BarrierOperation        `json:"barrier,omitempty" yaml:"barrier,omitempty"`
 	Reconnect      *ReconnectOperation      `json:"reconnect,omitempty" yaml:"reconnect,omitempty"`
 	WorkspaceRelay *WorkspaceRelayOperation `json:"workspace_relay,omitempty" yaml:"workspace_relay,omitempty"`
-	SaveAs         string                   `json:"save_as,omitempty" yaml:"save_as,omitempty"`
-	Capture        map[string]string        `json:"capture,omitempty" yaml:"capture,omitempty"`
-	Expect         map[string]Expectation   `json:"expect,omitempty" yaml:"expect,omitempty"`
-	ExpectError    *ErrorExpectation        `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
-	Timeout        string                   `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Retry          *RetrySpec               `json:"retry,omitempty" yaml:"retry,omitempty"`
+	// Parallel owns the child steps this step starts at the same moment and
+	// waits for together. It is exclusive with every operation field, and the
+	// step's result is an object keyed by child id.
+	Parallel []Step `json:"parallel,omitempty" yaml:"parallel,omitempty"`
+	// Delay staggers one parallel child: the child waits this long after the
+	// group is released before it runs. It is only meaningful on a parallel
+	// child, where it is the one way to place a child's window inside another
+	// child's activity rather than at the same instant. Omitted or empty means
+	// the child starts with the group.
+	Delay       string                 `json:"delay,omitempty" yaml:"delay,omitempty"`
+	SaveAs      string                 `json:"save_as,omitempty" yaml:"save_as,omitempty"`
+	Capture     map[string]string      `json:"capture,omitempty" yaml:"capture,omitempty"`
+	Expect      map[string]Expectation `json:"expect,omitempty" yaml:"expect,omitempty"`
+	ExpectError *ErrorExpectation      `json:"expect_error,omitempty" yaml:"expect_error,omitempty"`
+	Timeout     string                 `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Retry       *RetrySpec             `json:"retry,omitempty" yaml:"retry,omitempty"`
 }
 
 type RetrySpec struct {
@@ -126,6 +140,7 @@ type SpeechOperation struct {
 type PeerStreamOperation struct {
 	Mode              string `json:"mode" yaml:"mode"`
 	Input             any    `json:"input,omitempty" yaml:"input,omitempty"`
+	Duration          string `json:"duration,omitempty" yaml:"duration,omitempty"`
 	Pacing            string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
 	IdleTimeout       string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
@@ -204,6 +219,15 @@ const (
 	maxNormalizeKinds = 4
 	maxRetryAttempts  = 10
 	maxRetryDelay     = 5 * time.Minute
+	// maxParallelChildDelay bounds a parallel child's stagger so a typo
+	// cannot park a child past its parent step's timeout.
+	maxParallelChildDelay = time.Minute
+
+	// minParallelChildren and maxParallelChildren bound one parallel step.
+	// A group of one is a plain step, and the upper bound keeps the number of
+	// simultaneously driven streams reviewable.
+	minParallelChildren = 2
+	maxParallelChildren = 16
 
 	// maxReconnectAwaitMs bounds how long a reconnect step may wait for the
 	// replacement connection, matching the schema's own upper bound.
@@ -485,6 +509,14 @@ func (d *Document) validateSemantics() error {
 			return fmt.Errorf("duplicate step id %q", step.ID)
 		}
 		ids[step.ID] = true
+		if step.Delay != "" {
+			return fmt.Errorf("step %s cannot declare delay; it only staggers a parallel child", step.ID)
+		}
+		if step.Parallel != nil {
+			if err := d.validateParallel(step, i >= len(d.Steps), ids); err != nil {
+				return err
+			}
+		}
 		if step.Client != "" {
 			if _, ok := d.Clients[step.Client]; !ok {
 				return fmt.Errorf("step %s references unknown client %q", step.ID, step.Client)
@@ -539,87 +571,8 @@ func (d *Document) validateSemantics() error {
 			}
 		}
 		if step.PeerStream != nil {
-			persistent := step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != ""
-			if step.PeerStream.Session != "" && !namePattern.MatchString(step.PeerStream.Session) {
-				return fmt.Errorf("step %s has invalid peer_stream session %q", step.ID, step.PeerStream.Session)
-			}
-			if step.PeerStream.Session != "" && !persistent {
-				return fmt.Errorf("step %s peer_stream session requires keep_open or await_rearm", step.ID)
-			}
-			if persistent && step.PeerStream.Session == "" {
-				return fmt.Errorf("step %s persistent peer_stream requires session", step.ID)
-			}
-			if step.PeerStream.AwaitRearm != "" && step.PeerStream.AwaitRearm != "INPUT_ROUTE_RELOADED" {
-				return fmt.Errorf("step %s has unsupported peer_stream await_rearm %q", step.ID, step.PeerStream.AwaitRearm)
-			}
-			if persistent && step.PeerStream.Mode != "realtime" {
-				return fmt.Errorf("step %s persistent peer_stream requires realtime mode", step.ID)
-			}
-			if persistent && step.PeerStream.InterruptAfter != "" {
-				return fmt.Errorf("step %s persistent peer_stream cannot use interrupt_after", step.ID)
-			}
-			if persistent && step.Retry != nil {
-				return fmt.Errorf("step %s persistent peer_stream cannot retry", step.ID)
-			}
-			if persistent && i >= len(d.Steps) {
-				return fmt.Errorf("step %s persistent peer_stream is not allowed in finally", step.ID)
-			}
-			if step.PeerStream.Input == nil {
-				return fmt.Errorf("step %s peer_stream requires input", step.ID)
-			}
-			if step.PeerStream.Pacing != "" {
-				if duration, err := time.ParseDuration(step.PeerStream.Pacing); err != nil || duration < 0 {
-					return fmt.Errorf("step %s has invalid pacing %q", step.ID, step.PeerStream.Pacing)
-				}
-			}
-			if step.PeerStream.InterruptAfter != "" {
-				if duration, err := time.ParseDuration(step.PeerStream.InterruptAfter); err != nil || duration <= 0 {
-					return fmt.Errorf("step %s has invalid interrupt_after %q", step.ID, step.PeerStream.InterruptAfter)
-				}
-			}
-			if step.PeerStream.IdleTimeout != "" {
-				if duration, err := time.ParseDuration(step.PeerStream.IdleTimeout); err != nil || duration <= 0 {
-					return fmt.Errorf("step %s has invalid idle_timeout %q", step.ID, step.PeerStream.IdleTimeout)
-				}
-			}
-			switch step.PeerStream.Completion {
-			case "", "terminal":
-				if step.PeerStream.FirstTextTimeout != "" || step.PeerStream.FirstAudioTimeout != "" {
-					return fmt.Errorf("step %s first-response timeouts require completion first_response", step.ID)
-				}
-			case "first_response":
-				requireText := step.PeerStream.RequireText == nil || *step.PeerStream.RequireText
-				requireAudio := step.PeerStream.RequireAudio == nil || *step.PeerStream.RequireAudio
-				if !requireText && !requireAudio {
-					return fmt.Errorf("step %s first_response requires text or audio output", step.ID)
-				}
-				for _, modality := range []struct {
-					name     string
-					required bool
-					deadline string
-				}{
-					{name: "text", required: requireText, deadline: step.PeerStream.FirstTextTimeout},
-					{name: "audio", required: requireAudio, deadline: step.PeerStream.FirstAudioTimeout},
-				} {
-					field := "first_" + modality.name + "_timeout"
-					if !modality.required {
-						if modality.deadline != "" {
-							return fmt.Errorf("step %s %s requires %s output", step.ID, field, modality.name)
-						}
-						continue
-					}
-					if duration, err := time.ParseDuration(modality.deadline); err != nil || duration <= 0 {
-						return fmt.Errorf("step %s has invalid %s %q", step.ID, field, modality.deadline)
-					}
-				}
-				if step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" || step.PeerStream.WaitForHistory {
-					return fmt.Errorf("step %s first_response completion cannot interrupt or wait for terminal output/history", step.ID)
-				}
-			default:
-				return fmt.Errorf("step %s has unsupported peer_stream completion %q", step.ID, step.PeerStream.Completion)
-			}
-			if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio {
-				return fmt.Errorf("step %s peer_stream must require text, audio, or both", step.ID)
+			if err := validatePeerStreamStep(step, i >= len(d.Steps)); err != nil {
+				return err
 			}
 		}
 		if step.Speech != nil && step.Speech.Method != "server.speech.synthesize" && step.Speech.Input == nil {
@@ -649,6 +602,41 @@ func (d *Document) validateDriver(driver Driver) error {
 		}
 		if err := driver.ValidateStep(d, step); err != nil {
 			return fmt.Errorf("step %s: %w", step.ID, err)
+		}
+	}
+	return nil
+}
+
+// validateListenPeerStream checks the receive-only listen mode, which owns a
+// bounded duration and none of the input or completion controls.
+func validateListenPeerStream(step Step) error {
+	op := step.PeerStream
+	duration, err := time.ParseDuration(op.Duration)
+	if err != nil || duration <= 0 || duration > MaxListenDuration {
+		return fmt.Errorf("step %s listen requires a duration between 0 and %s, got %q", step.ID, MaxListenDuration, op.Duration)
+	}
+	forbidden := []struct {
+		name string
+		set  bool
+	}{
+		{"input", op.Input != nil},
+		{"pacing", op.Pacing != ""},
+		{"interrupt_after", op.InterruptAfter != ""},
+		{"idle_timeout", op.IdleTimeout != ""},
+		{"completion", op.Completion != ""},
+		{"first_text_timeout", op.FirstTextTimeout != ""},
+		{"first_audio_timeout", op.FirstAudioTimeout != ""},
+		{"terminal_label", op.TerminalLabel != ""},
+		{"require_text", op.RequireText != nil},
+		{"require_audio", op.RequireAudio != nil},
+		{"wait_for_history", op.WaitForHistory},
+		{"session", op.Session != ""},
+		{"keep_open", op.KeepOpen},
+		{"await_rearm", op.AwaitRearm != ""},
+	}
+	for _, field := range forbidden {
+		if field.set {
+			return fmt.Errorf("step %s listen peer_stream cannot set %s", step.ID, field.name)
 		}
 	}
 	return nil
@@ -691,11 +679,118 @@ func validateRetry(step Step, finalizer bool) error {
 
 func retryableOperation(op string) bool {
 	switch op {
-	case "rpc", "rpc_stream", "speech", "peer_stream", "workspace_relay":
+	case "rpc", "rpc_stream", "speech", "peer_stream", "workspace_relay", "parallel":
 		return true
 	default:
 		return false
 	}
+}
+
+// ParallelChildOperations are the operations a parallel child may declare. A
+// child is driven concurrently from a run phase the driver prepared ahead of
+// time, and peer_stream is the only operation that has one.
+var ParallelChildOperations = []string{"peer_stream"}
+
+/*
+validateParallel checks one parallel step and its children.
+
+The children are the whole point of the step: each is a plain step body, a
+client plus exactly one operation, that the runner starts at the same moment
+as its siblings. Everything that interprets the group's outcome — capture,
+expect, expect_error, save_as, retry, timeout — belongs to the parallel step
+itself, because the step's result is one object keyed by child id and the
+step's timeout bounds the whole group. ids carries the document's step ids so
+a child id can never collide with another step or child.
+*/
+func (d *Document) validateParallel(step Step, finalizer bool, ids map[string]bool) error {
+	if finalizer {
+		return fmt.Errorf("step %s parallel is not allowed in finally", step.ID)
+	}
+	if step.Client != "" {
+		return fmt.Errorf("step %s parallel takes its clients from its children", step.ID)
+	}
+	if len(step.Parallel) < minParallelChildren || len(step.Parallel) > maxParallelChildren {
+		return fmt.Errorf("step %s parallel requires between %d and %d children, got %d", step.ID, minParallelChildren, maxParallelChildren, len(step.Parallel))
+	}
+	children := make(map[string]bool, len(step.Parallel))
+	for _, child := range step.Parallel {
+		if child.ID == "" {
+			return fmt.Errorf("step %s parallel requires an id on every child", step.ID)
+		}
+		if children[child.ID] || ids[child.ID] {
+			return fmt.Errorf("duplicate step id %q", child.ID)
+		}
+		children[child.ID] = true
+		ids[child.ID] = true
+		if err := d.validateParallelChild(step, child); err != nil {
+			return err
+		}
+	}
+	for name, pointer := range step.Capture {
+		if err := validateParallelPointer(step.ID, "capture "+name, pointer, children); err != nil {
+			return err
+		}
+	}
+	for pointer := range step.Expect {
+		if err := validateParallelPointer(step.ID, "expect", pointer, children); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *Document) validateParallelChild(step, child Step) error {
+	op := child.Operation()
+	if !slices.Contains(ParallelChildOperations, op) {
+		return fmt.Errorf("step %s parallel child %s operation %q is not allowed; parallel children support %s", step.ID, child.ID, op, strings.Join(ParallelChildOperations, ", "))
+	}
+	if child.Client == "" {
+		return fmt.Errorf("step %s parallel child %s requires client", step.ID, child.ID)
+	}
+	if _, ok := d.Clients[child.Client]; !ok {
+		return fmt.Errorf("step %s parallel child %s references unknown client %q", step.ID, child.ID, child.Client)
+	}
+	for _, field := range []struct {
+		name     string
+		declared bool
+	}{
+		{"parallel", child.Parallel != nil},
+		{"barrier", child.Barrier != nil},
+		{"retry", child.Retry != nil},
+		{"timeout", child.Timeout != ""},
+		{"save_as", child.SaveAs != ""},
+		{"capture", len(child.Capture) != 0},
+		{"expect", len(child.Expect) != 0},
+		{"expect_error", child.ExpectError != nil},
+	} {
+		if field.declared {
+			return fmt.Errorf("step %s parallel child %s cannot declare %s; it belongs to the parallel step", step.ID, child.ID, field.name)
+		}
+	}
+	if child.Delay != "" {
+		delay, err := time.ParseDuration(child.Delay)
+		if err != nil || delay <= 0 || delay > maxParallelChildDelay {
+			return fmt.Errorf("step %s parallel child %s has invalid delay %q; want a positive duration up to %s", step.ID, child.ID, child.Delay, maxParallelChildDelay)
+		}
+	}
+	if err := validatePeerStreamStep(child, false); err != nil {
+		return err
+	}
+	if child.PeerStream.KeepOpen || child.PeerStream.AwaitRearm != "" || child.PeerStream.Session != "" {
+		return fmt.Errorf("step %s parallel child %s cannot use a persistent peer_stream session", step.ID, child.ID)
+	}
+	return nil
+}
+
+// validateParallelPointer requires a parallel step's capture and expect
+// pointers to address one of its children, because the step's result is an
+// object keyed by child id.
+func validateParallelPointer(stepID, what, pointer string, children map[string]bool) error {
+	id, _, _ := strings.Cut(strings.TrimPrefix(pointer, "/"), "/")
+	if !strings.HasPrefix(pointer, "/") || !children[id] {
+		return fmt.Errorf("step %s %s must address a parallel child by id, got %q", stepID, what, pointer)
+	}
+	return nil
 }
 
 func (d *Document) validateWorkspaceRelay(step Step, selected map[string]bool) error {
@@ -781,13 +876,15 @@ func (d *Document) taskTimeout() (time.Duration, error) {
 }
 
 func operationNeedsClient(op string) bool {
-	return op != "barrier" && op != "output" && op != "review" && op != "workspace_relay"
+	return op != "barrier" && op != "output" && op != "review" && op != "workspace_relay" && op != "parallel"
 }
 
 // Operation names the step's single operation, or an empty string when the
 // document declared none.
 func (s Step) Operation() string {
 	switch {
+	case len(s.Parallel) > 0:
+		return "parallel"
 	case s.RPC != nil:
 		return "rpc"
 	case s.RPCStream != nil:
@@ -829,4 +926,109 @@ func collectReferences(v any) []string {
 		out = append(out, m[1])
 	}
 	return out
+}
+
+// validatePeerStreamStep checks the peer_stream operation of one step or of
+// one parallel child. finalizer reports whether the step came from the
+// document's finally block.
+func validatePeerStreamStep(step Step, finalizer bool) error {
+	persistent := step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != ""
+	if step.PeerStream.Mode == "listen" {
+		if err := validateListenPeerStream(step); err != nil {
+			return err
+		}
+	} else if step.PeerStream.Duration != "" {
+		return fmt.Errorf("step %s peer_stream duration is only valid for listen mode", step.ID)
+	}
+	if step.PeerStream.Session != "" && !namePattern.MatchString(step.PeerStream.Session) {
+		return fmt.Errorf("step %s has invalid peer_stream session %q", step.ID, step.PeerStream.Session)
+	}
+	if step.PeerStream.Session != "" && !persistent {
+		return fmt.Errorf("step %s peer_stream session requires keep_open or await_rearm", step.ID)
+	}
+	if persistent && step.PeerStream.Session == "" {
+		return fmt.Errorf("step %s persistent peer_stream requires session", step.ID)
+	}
+	if step.PeerStream.AwaitRearm != "" && step.PeerStream.AwaitRearm != "INPUT_ROUTE_RELOADED" {
+		return fmt.Errorf("step %s has unsupported peer_stream await_rearm %q", step.ID, step.PeerStream.AwaitRearm)
+	}
+	if persistent && step.PeerStream.Mode != "realtime" {
+		return fmt.Errorf("step %s persistent peer_stream requires realtime mode", step.ID)
+	}
+	if persistent && step.PeerStream.InterruptAfter != "" {
+		return fmt.Errorf("step %s persistent peer_stream cannot use interrupt_after", step.ID)
+	}
+	if persistent && step.Retry != nil {
+		return fmt.Errorf("step %s persistent peer_stream cannot retry", step.ID)
+	}
+	if persistent && finalizer {
+		return fmt.Errorf("step %s persistent peer_stream is not allowed in finally", step.ID)
+	}
+	if step.PeerStream.Input == nil && step.PeerStream.Mode != "listen" {
+		return fmt.Errorf("step %s peer_stream requires input", step.ID)
+	}
+	if step.PeerStream.Pacing != "" {
+		if duration, err := time.ParseDuration(step.PeerStream.Pacing); err != nil || duration < 0 {
+			return fmt.Errorf("step %s has invalid pacing %q", step.ID, step.PeerStream.Pacing)
+		}
+	}
+	if step.PeerStream.InterruptAfter != "" {
+		if duration, err := time.ParseDuration(step.PeerStream.InterruptAfter); err != nil || duration <= 0 {
+			return fmt.Errorf("step %s has invalid interrupt_after %q", step.ID, step.PeerStream.InterruptAfter)
+		}
+	}
+	if step.PeerStream.IdleTimeout != "" {
+		if duration, err := time.ParseDuration(step.PeerStream.IdleTimeout); err != nil || duration <= 0 {
+			return fmt.Errorf("step %s has invalid idle_timeout %q", step.ID, step.PeerStream.IdleTimeout)
+		}
+	}
+	switch step.PeerStream.Completion {
+	case "", "terminal":
+		if step.PeerStream.FirstTextTimeout != "" || step.PeerStream.FirstAudioTimeout != "" {
+			return fmt.Errorf("step %s first-response timeouts require completion first_response", step.ID)
+		}
+	case "first_response":
+		requireText := step.PeerStream.RequireText == nil || *step.PeerStream.RequireText
+		requireAudio := step.PeerStream.RequireAudio == nil || *step.PeerStream.RequireAudio
+		if !requireText && !requireAudio {
+			return fmt.Errorf("step %s first_response requires text or audio output", step.ID)
+		}
+		for _, modality := range []struct {
+			name     string
+			required bool
+			deadline string
+		}{
+			{name: "text", required: requireText, deadline: step.PeerStream.FirstTextTimeout},
+			{name: "audio", required: requireAudio, deadline: step.PeerStream.FirstAudioTimeout},
+		} {
+			field := "first_" + modality.name + "_timeout"
+			if !modality.required {
+				if modality.deadline != "" {
+					return fmt.Errorf("step %s %s requires %s output", step.ID, field, modality.name)
+				}
+				continue
+			}
+			if duration, err := time.ParseDuration(modality.deadline); err != nil || duration <= 0 {
+				return fmt.Errorf("step %s has invalid %s %q", step.ID, field, modality.deadline)
+			}
+		}
+		if step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" || step.PeerStream.WaitForHistory {
+			return fmt.Errorf("step %s first_response completion cannot interrupt or wait for terminal output/history", step.ID)
+		}
+	case "input_sent":
+		if step.PeerStream.Mode != "push-to-talk" && step.PeerStream.Mode != "realtime" {
+			return fmt.Errorf("step %s input_sent completion requires push-to-talk or realtime mode", step.ID)
+		}
+		if step.PeerStream.FirstTextTimeout != "" || step.PeerStream.FirstAudioTimeout != "" || step.PeerStream.WaitForHistory ||
+			step.PeerStream.RequireText != nil || step.PeerStream.RequireAudio != nil ||
+			step.PeerStream.InterruptAfter != "" || step.PeerStream.TerminalLabel != "" {
+			return fmt.Errorf("step %s input_sent completion cannot wait for output: remove first-response timeouts, require_text, require_audio, wait_for_history, interrupt_after, and terminal_label", step.ID)
+		}
+	default:
+		return fmt.Errorf("step %s has unsupported peer_stream completion %q", step.ID, step.PeerStream.Completion)
+	}
+	if step.PeerStream.RequireText != nil && step.PeerStream.RequireAudio != nil && !*step.PeerStream.RequireText && !*step.PeerStream.RequireAudio {
+		return fmt.Errorf("step %s peer_stream must require text, audio, or both", step.ID)
+	}
+	return nil
 }

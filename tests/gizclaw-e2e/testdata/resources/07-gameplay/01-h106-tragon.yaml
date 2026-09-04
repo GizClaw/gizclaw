@@ -56,8 +56,6 @@ spec:
     spec:
       workflows:
         system:
-          friend_chatroom: chatroom
-          group_chatroom: chatroom
           pet: pet-care
         collections: {}
       resources:

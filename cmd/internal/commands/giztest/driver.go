@@ -31,8 +31,10 @@ func newDriver(fullEvidence bool, observer audioObserver) *driver {
 	return &driver{fullEvidence: fullEvidence, audioObserver: observer, speechCache: newSpeechFixtureCache()}
 }
 
+// Operations lists "parallel" because session implements
+// giztest.ParallelSession for peer_stream steps.
 func (d *driver) Operations() []string {
-	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay"}
+	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "parallel"}
 }
 
 func (d *driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
@@ -162,7 +164,7 @@ func (s *session) executeSpeech(ctx context.Context, req giztest.StepRequest) (g
 	}
 	inputSpec, _ := vars.ReferencedSpec(step.Speech.Input)
 	invoke := func() (operationResult, error) {
-		return invokeSpeech(ctx, client, step, request, input, inputSpec, outputSpec)
+		return invokeSpeech(ctx, client, step, request, input, inputSpec, outputSpec, s.driver.fullEvidence)
 	}
 	if step.Speech.Cache != "run" {
 		result, err := invoke()
@@ -186,31 +188,90 @@ func (s *session) executeSpeech(ctx context.Context, req giztest.StepRequest) (g
 }
 
 func (s *session) executePeerStream(ctx context.Context, req giztest.StepRequest) (giztest.StepResult, error) {
-	step := req.Step
-	vars := req.Vars
-	client, err := s.clients.get(step.Client)
+	invocation, err := s.preparePeerStream(req.Step, req.Step, req.Vars)
 	if err != nil {
 		return giztest.StepResult{}, err
 	}
-	input, err := vars.Resolve(step.PeerStream.Input)
-	if err != nil && step.PeerStream.Input != nil {
-		return giztest.StepResult{}, err
+	result, err := invocation.run(ctx, s.streams)
+	return result.stepResult(), err
+}
+
+// PrepareParallel implements giztest.ParallelSession for peer_stream steps.
+// Every variable read and the client lookup happen here, on the task
+// goroutine; the returned run phase only drives the PeerStream. The parallel
+// step owns the capture map, so the bound it declared for this child, such as
+// the /audio limit, applies from the start.
+func (s *session) PrepareParallel(req giztest.StepRequest) (giztest.ParallelChild, error) {
+	step := req.Step
+	if step.PeerStream == nil {
+		return nil, fmt.Errorf("parallel child %s requires peer_stream", step.ID)
+	}
+	if s.driver.audioObserver != nil {
+		return nil, fmt.Errorf("parallel children cannot play audio interactively")
+	}
+	captureStep := step
+	if req.Parent != nil {
+		captureStep = giztest.Step{ID: step.ID, Capture: giztest.ParallelChildCaptures(*req.Parent, step.ID)}
+	}
+	invocation, err := s.preparePeerStream(step, captureStep, req.Vars)
+	if err != nil {
+		return nil, err
+	}
+	return invocation, nil
+}
+
+// peerStreamInvocation is a peer_stream step whose variable reads and client
+// lookup are complete, so the stream can be driven on the task goroutine or
+// from a parallel child goroutine without touching task variables.
+type peerStreamInvocation struct {
+	client               *gizcli.Client
+	open                 peerStreamOpener
+	step                 giztest.Step
+	input                any
+	audioCaptureMaxBytes int
+	observer             audioObserver
+}
+
+// preparePeerStream resolves the step input and the /audio capture bound.
+// captureStep owns the capture map: the step itself, or the child-scoped view
+// of the capture map of the parallel step that owns it.
+func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztest.Variables) (peerStreamInvocation, error) {
+	client, err := s.clients.get(step.Client)
+	if err != nil {
+		return peerStreamInvocation{}, err
+	}
+	var input any
+	if step.PeerStream.Input != nil {
+		input, err = vars.Resolve(step.PeerStream.Input)
+		if err != nil {
+			return peerStreamInvocation{}, err
+		}
 	}
 	if spec, ok := vars.ReferencedSpec(step.PeerStream.Input); ok && step.PeerStream.Mode != "text" {
 		if spec.Type != "audio" || spec.Codec != "opus" || (spec.MediaType != "audio/ogg" && spec.MediaType != "audio/opus") {
-			return giztest.StepResult{}, fmt.Errorf("peer_stream audio input must declare audio/ogg or audio/opus with opus codec")
+			return peerStreamInvocation{}, fmt.Errorf("peer_stream audio input must declare audio/ogg or audio/opus with opus codec")
 		}
 	}
-	audioCaptureMaxBytes, err := peerStreamAudioCaptureMaxBytes(step, vars)
+	audioCaptureMaxBytes, err := peerStreamAudioCaptureMaxBytes(captureStep, vars)
 	if err != nil {
-		return giztest.StepResult{}, err
+		return peerStreamInvocation{}, err
 	}
 	open := openClientPeerStream(client)
 	if s.driver.openPeerStream != nil {
 		open = s.driver.openPeerStream(client)
 	}
-	result, err := invokePeerStreamWithSessions(
-		ctx, client, open, s.streams, step, input, audioCaptureMaxBytes, s.driver.audioObserver)
+	return peerStreamInvocation{client: client, open: open, step: step, input: input, audioCaptureMaxBytes: audioCaptureMaxBytes, observer: s.driver.audioObserver}, nil
+}
+
+// run drives the stream. sessions is the task's held-open stream set, or nil
+// for a parallel child, which validation keeps out of sessions.
+func (p peerStreamInvocation) run(ctx context.Context, sessions *peerStreamSessions) (operationResult, error) {
+	return invokePeerStreamWithSessions(ctx, p.client, p.open, sessions, p.step, p.input, p.audioCaptureMaxBytes, p.observer)
+}
+
+// Run implements giztest.ParallelChild.
+func (p peerStreamInvocation) Run(ctx context.Context) (giztest.StepResult, error) {
+	result, err := p.run(ctx, nil)
 	return result.stepResult(), err
 }
 

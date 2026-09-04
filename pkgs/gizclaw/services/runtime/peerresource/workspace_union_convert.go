@@ -51,13 +51,6 @@ func rpcWorkspaceParametersToAPI(in rpcapi.WorkspaceParameters) (apitypes.Worksp
 		}
 		return out, out.FromASTTranslateWorkspaceParameters(converted)
 	}
-	if typed, err := in.AsChatRoomWorkspaceParameters(); err == nil {
-		converted, err := convertType[apitypes.ChatRoomWorkspaceParameters](typed)
-		if err != nil {
-			return out, err
-		}
-		return out, out.FromChatRoomWorkspaceParameters(converted)
-	}
 	if typed, err := in.AsPetWorkspaceParameters(); err == nil {
 		converted, err := convertType[apitypes.PetWorkspaceParameters](typed)
 		if err != nil {
@@ -111,12 +104,6 @@ func apiWorkspaceParametersToRPC(in apitypes.WorkspaceParameters) (rpcapi.Worksp
 			return out, err
 		}
 		return out, out.FromASTTranslateWorkspaceParameters(converted)
-	case apitypes.ChatRoomWorkspaceParameters:
-		converted, err := convertType[rpcapi.ChatRoomWorkspaceParameters](typed)
-		if err != nil {
-			return out, err
-		}
-		return out, out.FromChatRoomWorkspaceParameters(converted)
 	case apitypes.PetWorkspaceParameters:
 		converted, err := convertType[rpcapi.PetWorkspaceParameters](typed)
 		if err != nil {

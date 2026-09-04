@@ -63,37 +63,6 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersAgentTypeDescriptor =
         'VFJBTlNMQVRFX1dPUktTUEFDRV9QQVJBTUVURVJTX0FHRU5UX1RZUEVfQVNUX1RSQU5TTEFURR'
         'AB');
 
-@$core.Deprecated('Use chatRoomModeDescriptor instead')
-const ChatRoomMode$json = {
-  '1': 'ChatRoomMode',
-  '2': [
-    {'1': 'CHAT_ROOM_MODE_UNSPECIFIED', '2': 0},
-    {'1': 'CHAT_ROOM_MODE_DIRECT', '2': 1},
-    {'1': 'CHAT_ROOM_MODE_GROUP', '2': 2},
-  ],
-};
-
-/// Descriptor for `ChatRoomMode`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List chatRoomModeDescriptor = $convert.base64Decode(
-    'CgxDaGF0Um9vbU1vZGUSHgoaQ0hBVF9ST09NX01PREVfVU5TUEVDSUZJRUQQABIZChVDSEFUX1'
-    'JPT01fTU9ERV9ESVJFQ1QQARIYChRDSEFUX1JPT01fTU9ERV9HUk9VUBAC');
-
-@$core.Deprecated('Use chatRoomWorkspaceParametersAgentTypeDescriptor instead')
-const ChatRoomWorkspaceParametersAgentType$json = {
-  '1': 'ChatRoomWorkspaceParametersAgentType',
-  '2': [
-    {'1': 'CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED', '2': 0},
-    {'1': 'CHAT_ROOM_WORKSPACE_PARAMETERS_AGENT_TYPE_CHATROOM', '2': 1},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkspaceParametersAgentType`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkspaceParametersAgentTypeDescriptor =
-    $convert.base64Decode(
-        'CiRDaGF0Um9vbVdvcmtzcGFjZVBhcmFtZXRlcnNBZ2VudFR5cGUSOQo1Q0hBVF9ST09NX1dPUk'
-        'tTUEFDRV9QQVJBTUVURVJTX0FHRU5UX1RZUEVfVU5TUEVDSUZJRUQQABI2CjJDSEFUX1JPT01f'
-        'V09SS1NQQUNFX1BBUkFNRVRFUlNfQUdFTlRfVFlQRV9DSEFUUk9PTRAB');
-
 @$core
     .Deprecated('Use dashScopeTenantModelProviderDataApiModeDescriptor instead')
 const DashScopeTenantModelProviderDataApiMode$json = {
@@ -534,11 +503,11 @@ const WorkflowDriver$json = {
     {'1': 'WORKFLOW_DRIVER_FLOWCRAFT', '2': 1},
     {'1': 'WORKFLOW_DRIVER_DOUBAO_REALTIME', '2': 2},
     {'1': 'WORKFLOW_DRIVER_AST_TRANSLATE', '2': 3},
-    {'1': 'WORKFLOW_DRIVER_CHATROOM', '2': 4},
     {'1': 'WORKFLOW_DRIVER_PET', '2': 5},
     {'1': 'WORKFLOW_DRIVER_DASH_SCOPE_REALTIME', '2': 6},
     {'1': 'WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX', '2': 7},
     {'1': 'WORKFLOW_DRIVER_EINO', '2': 8},
+    {'1': 'WORKFLOW_DRIVER_SFU', '2': 9},
   ],
 };
 
@@ -546,10 +515,10 @@ const WorkflowDriver$json = {
 final $typed_data.Uint8List workflowDriverDescriptor = $convert.base64Decode(
     'Cg5Xb3JrZmxvd0RyaXZlchIfChtXT1JLRkxPV19EUklWRVJfVU5TUEVDSUZJRUQQABIdChlXT1'
     'JLRkxPV19EUklWRVJfRkxPV0NSQUZUEAESIwofV09SS0ZMT1dfRFJJVkVSX0RPVUJBT19SRUFM'
-    'VElNRRACEiEKHVdPUktGTE9XX0RSSVZFUl9BU1RfVFJBTlNMQVRFEAMSHAoYV09SS0ZMT1dfRF'
-    'JJVkVSX0NIQVRST09NEAQSFwoTV09SS0ZMT1dfRFJJVkVSX1BFVBAFEicKI1dPUktGTE9XX0RS'
-    'SVZFUl9EQVNIX1NDT1BFX1JFQUxUSU1FEAYSKgomV09SS0ZMT1dfRFJJVkVSX0RPVUJBT19SRU'
-    'FMVElNRV9EVVBMRVgQBxIYChRXT1JLRkxPV19EUklWRVJfRUlOTxAI');
+    'VElNRRACEiEKHVdPUktGTE9XX0RSSVZFUl9BU1RfVFJBTlNMQVRFEAMSFwoTV09SS0ZMT1dfRF'
+    'JJVkVSX1BFVBAFEicKI1dPUktGTE9XX0RSSVZFUl9EQVNIX1NDT1BFX1JFQUxUSU1FEAYSKgom'
+    'V09SS0ZMT1dfRFJJVkVSX0RPVUJBT19SRUFMVElNRV9EVVBMRVgQBxIYChRXT1JLRkxPV19EUk'
+    'lWRVJfRUlOTxAIEhcKE1dPUktGTE9XX0RSSVZFUl9TRlUQCQ==');
 
 @$core.Deprecated('Use reusableWorkflowDriverDescriptor instead')
 const ReusableWorkflowDriver$json = {
@@ -559,7 +528,6 @@ const ReusableWorkflowDriver$json = {
     {'1': 'REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT', '2': 1},
     {'1': 'REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME', '2': 2},
     {'1': 'REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE', '2': 3},
-    {'1': 'REUSABLE_WORKFLOW_DRIVER_CHATROOM', '2': 4},
     {'1': 'REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME', '2': 5},
     {'1': 'REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME_DUPLEX', '2': 6},
     {'1': 'REUSABLE_WORKFLOW_DRIVER_EINO', '2': 7},
@@ -571,10 +539,10 @@ final $typed_data.Uint8List reusableWorkflowDriverDescriptor = $convert.base64De
     'ChZSZXVzYWJsZVdvcmtmbG93RHJpdmVyEigKJFJFVVNBQkxFX1dPUktGTE9XX0RSSVZFUl9VTl'
     'NQRUNJRklFRBAAEiYKIlJFVVNBQkxFX1dPUktGTE9XX0RSSVZFUl9GTE9XQ1JBRlQQARIsCihS'
     'RVVTQUJMRV9XT1JLRkxPV19EUklWRVJfRE9VQkFPX1JFQUxUSU1FEAISKgomUkVVU0FCTEVfV0'
-    '9SS0ZMT1dfRFJJVkVSX0FTVF9UUkFOU0xBVEUQAxIlCiFSRVVTQUJMRV9XT1JLRkxPV19EUklW'
-    'RVJfQ0hBVFJPT00QBBIwCixSRVVTQUJMRV9XT1JLRkxPV19EUklWRVJfREFTSF9TQ09QRV9SRU'
-    'FMVElNRRAFEjMKL1JFVVNBQkxFX1dPUktGTE9XX0RSSVZFUl9ET1VCQU9fUkVBTFRJTUVfRFVQ'
-    'TEVYEAYSIQodUkVVU0FCTEVfV09SS0ZMT1dfRFJJVkVSX0VJTk8QBw==');
+    '9SS0ZMT1dfRFJJVkVSX0FTVF9UUkFOU0xBVEUQAxIwCixSRVVTQUJMRV9XT1JLRkxPV19EUklW'
+    'RVJfREFTSF9TQ09QRV9SRUFMVElNRRAFEjMKL1JFVVNBQkxFX1dPUktGTE9XX0RSSVZFUl9ET1'
+    'VCQU9fUkVBTFRJTUVfRFVQTEVYEAYSIQodUkVVU0FCTEVfV09SS0ZMT1dfRFJJVkVSX0VJTk8Q'
+    'Bw==');
 
 @$core.Deprecated('Use workspaceHistoryListRequestOrderDescriptor instead')
 const WorkspaceHistoryListRequestOrder$json = {

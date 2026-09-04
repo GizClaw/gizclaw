@@ -38,6 +38,9 @@ type StepReport struct {
 	Error      string          `json:"error,omitempty"`
 	Evidence   map[string]any  `json:"evidence,omitempty"`
 	Attempts   []AttemptReport `json:"attempts,omitempty"`
+	// Children reports the outcome of every child of a parallel step, so one
+	// child's failure stays visible next to the siblings that succeeded.
+	Children []StepReport `json:"children,omitempty"`
 }
 type AttemptReport struct {
 	Attempt     int            `json:"attempt"`

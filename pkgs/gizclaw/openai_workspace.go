@@ -3,12 +3,16 @@ package gizclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
@@ -47,7 +51,36 @@ func (a openAIWorkspaceAdapter) GetConversationWorkspace(ctx context.Context, na
 	if rpcErr != nil {
 		return apitypes.Workspace{}, errors.New(rpcErr.Message)
 	}
+	if err := a.rejectSFUWorkspace(ctx, item); err != nil {
+		return apitypes.Workspace{}, err
+	}
 	return item, nil
+}
+
+// errOpenAISFUWorkspace reports that an SFU Workspace was offered to the
+// OpenAI Conversations/Responses surface. Such a Workspace bridges media to an
+// SFU Room and has no Agent that can execute text input.
+var errOpenAISFUWorkspace = errors.New("OpenAI Conversations cannot bind an SFU Workspace: no Agent executes text input")
+
+func (a openAIWorkspaceAdapter) rejectSFUWorkspace(ctx context.Context, item apitypes.Workspace) error {
+	if strings.TrimSpace(item.WorkflowId) == socialutil.SFUWorkflowID {
+		return errOpenAISFUWorkspace
+	}
+	if a.manager == nil || a.manager.Workflows == nil || strings.TrimSpace(item.WorkflowId) == "" {
+		return nil
+	}
+	response, err := a.manager.Workflows.GetWorkflow(a.ownerContext(ctx), adminhttp.GetWorkflowRequestObject{Id: strings.TrimSpace(item.WorkflowId)})
+	if err != nil {
+		return err
+	}
+	workflow, ok := response.(adminhttp.GetWorkflow200JSONResponse)
+	if !ok {
+		return fmt.Errorf("OpenAI Workspace %q Workflow %q is unavailable", item.Name, item.WorkflowId)
+	}
+	if workflow.Spec.Driver == apitypes.WorkflowDriverSfu {
+		return errOpenAISFUWorkspace
+	}
+	return nil
 }
 
 func (a openAIWorkspaceAdapter) store() (openAIWorkspaceStore, error) {
@@ -81,9 +114,13 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	if a.manager == nil || a.manager.AgentHost == nil {
 		return nil, errors.New("OpenAI Workspace Agent is unavailable")
 	}
+	if err := a.rejectSFUWorkspace(ctx, item); err != nil {
+		return nil, err
+	}
 	host := newPeerAgentHost(
 		a.manager.AgentHost, nil, nil, a.manager.ownerGenX, a.manager.Gameplay,
 		a.manager.FlowcraftHistory, a.manager.FlowcraftState, a.manager.MemoryRoot, a.manager.MemoryStores,
+		sfu.Factory{Config: a.manager.SFU, Bindings: a.manager.sfuBindings()},
 	)
 	resolver, ok := host.Resolver.(canonicalAgentResolver)
 	if !ok {

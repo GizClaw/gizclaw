@@ -27,23 +27,17 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	firmware.MustSucceed(t)
 	firmwareID := adminCreatedResourceID(t, firmware.Stdout)
 
-	chatroomPath := filepath.Join(h.SandboxDir, "chatroom-workflow.json")
-	writeAdminFixture(t, chatroomPath, `{
-		"apiVersion":"gizclaw.admin/v1alpha1",
-		"kind":"Workflow",
-		"metadata":{"id":"system-chatroom"},
-		"spec":{"driver":"chatroom","chatroom":{"history":{"ttl":"168h"}}}
-	}`)
-	chatroom := h.RunCLI("admin", "apply", "-f", chatroomPath, "--context", "admin-a")
-	chatroom.MustSucceed(t)
-	chatroomID := adminAppliedResourceID(t, chatroom.Stdout)
-
 	petPath := filepath.Join(h.SandboxDir, "pet-workflow.json")
 	writeAdminFixture(t, petPath, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
 		"kind":"Workflow",
-		"metadata":{"id":"system-pet-chatroom"},
-		"spec":{"driver":"pet","pet":{"driver":"chatroom","chatroom":{"history":{"ttl":"168h"}}}}
+		"metadata":{"id":"system-pet"},
+		"spec":{"driver":"pet","pet":{"driver":"flowcraft","flowcraft":{"graph":{
+			"name":"system-pet-passthrough",
+			"entry":"passthrough",
+			"nodes":[{"id":"passthrough","type":"passthrough","publish":true}],
+			"edges":[{"from":"passthrough","to":"__end__"}]
+		}}}}
 	}`)
 	pet := h.RunCLI("admin", "apply", "-f", petPath, "--context", "admin-a")
 	pet.MustSucceed(t)
@@ -54,13 +48,13 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
   "id":"device-default",
   "spec":{
     "resources":{},
-    "workflows":{"system":{"friend_chatroom":%q,"group_chatroom":%q,"pet":%q},"collections":{}}
+    "workflows":{"system":{"pet":%q},"collections":{}}
   }
-}`, chatroomID, chatroomID, petID))
+}`, petID))
 	profile := h.RunCLI("admin", "runtime-profiles", "create", "-f", profilePath, "--context", "admin-a")
 	profile.MustSucceed(t)
 	profileID := adminCreatedResourceID(t, profile.Stdout)
-	assertContains(t, profile.Stdout, `"friend_chatroom":"`+chatroomID+`"`, `"pet":"`+petID+`"`)
+	assertContains(t, profile.Stdout, `"pet":"`+petID+`"`)
 
 	tokenPath := filepath.Join(h.SandboxDir, "registration-token.json")
 	writeAdminFixture(t, tokenPath, fmt.Sprintf(`{

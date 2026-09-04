@@ -1,0 +1,307 @@
+# User Story:
+# As a device registered on one GizClaw Server whose friend lives on the other Server,
+# I want spoken push-to-talk and realtime audio from one side to be heard and transcribed on the other,
+# So that the cross-server Friend SFU Workspace forwards real speech in both directions and in both input modes.
+version: gizclaw.test/v1alpha1
+name: sfu.friend.cross-server
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  bob_invite:
+    direction: output
+    type: string
+    secret: true
+  friend_name:
+    direction: output
+    type: string
+  alice_workspace:
+    direction: output
+    type: string
+  bob_workspace:
+    direction: output
+    type: string
+  alice_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  alice_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_received_realtime:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: bob_create_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite: /invite_token
+  - id: alice_add_bob
+    client: alice
+    rpc:
+      method: server.friend.add
+      request:
+        invite_token: ${bob_invite}
+    capture:
+      friend_name: /name
+      alice_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: bob_sees_alice
+    client: bob
+    rpc:
+      method: server.friend.list
+      request: {}
+    capture:
+      bob_workspace: /items/0/workspace_name
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: "${alice_workspace}"}
+  # Both sides see one shared Workspace identity; each client selects it
+  # under the name captured by the other side, which joins the Room at once.
+  - id: alice_select_shared_workspace
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${bob_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${bob_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: alice_select_shared_workspace_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: bob_select_shared_workspace
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+    expect:
+      /selected_workspace_name: {equals: "${alice_workspace}"}
+      /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$"}
+  - id: bob_select_shared_workspace_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: alice_synthesize
+    client: alice
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 今天的天气非常好
+        accepted_content_types: [audio/ogg]
+    save_as: alice_audio
+  - id: bob_synthesize
+    client: bob
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们一起去公园散步
+        accepted_content_types: [audio/ogg]
+    save_as: bob_audio
+  # One step starts the speaker and both listen windows at the same moment, so
+  # the windows cover the whole utterance.
+  - id: alice_speaks
+    timeout: 30s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_listen_self
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      bob_received: /bob_listen/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcript below can only assert the phrase
+      # when the whole utterance was captured.
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_listen_self/audio_bytes: {maximum: 0}
+  - id: bob_transcript
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${bob_received}
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
+  - id: bob_speaks
+    timeout: 30s
+    parallel:
+      - id: alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: bob_listen_self
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 10s
+      - id: bob_speak
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${bob_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      alice_received: /alice_listen/audio
+    expect:
+      # A real spoken clip, not the short Opus silence frames LiveKit forwards
+      # for an idle publisher: the transcript below can only assert the phrase
+      # when the whole utterance was captured.
+      /alice_listen/audio_bytes: {minimum: 2000}
+      /alice_listen/packets: {minimum: 50}
+      /bob_listen_self/audio_bytes: {maximum: 0}
+  - id: alice_transcript
+    client: alice
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${alice_received}
+    expect:
+      /transcript: {contains: 我们一起去公园散步, normalize: [case, punctuation, whitespace]}
+  # Realtime input: one BOS, a continuous stream (the same clip alice pushed
+  # with push-to-talk above, followed by the runner's encoded silence tail)
+  # and no per-press EOS. The Server splits it into talk utterances by
+  # itself, so bob still hears and transcribes the phrase while alice's own
+  # listen stays silent.
+  - id: alice_speaks_realtime
+    timeout: 30s
+    parallel:
+      - id: bob_listen_realtime
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 12s
+      - id: alice_listen_self_realtime
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 12s
+      - id: alice_speak_realtime
+        client: alice
+        peer_stream:
+          mode: realtime
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      bob_received_realtime: /bob_listen_realtime/audio
+    expect:
+      /bob_listen_realtime/audio_bytes: {minimum: 2000}
+      /bob_listen_realtime/packets: {minimum: 50}
+      /alice_listen_self_realtime/audio_bytes: {maximum: 0}
+  - id: bob_transcript_realtime
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request:
+        model_name: asr
+        language: zh-CN
+      input: ${bob_received_realtime}
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend.delete
+      request:
+        name: ${friend_name}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact: [token_a, token_b, bob_invite]

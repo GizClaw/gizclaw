@@ -96,91 +96,6 @@ func TestRPCServerWorkspaceHistoryAudioDownloadStreamsBinary(t *testing.T) {
 	}
 }
 
-func TestRPCServerFriendGroupMessageAudioDownloadStreamsBinary(t *testing.T) {
-	serverSide, clientSide := net.Pipe()
-	defer serverSide.Close()
-	defer clientSide.Close()
-
-	payload := []byte("group-opus-payload")
-	service := &fakeFriendGroupMessageAudioService{
-		metadata: rpcapi.FriendGroupMessageAudioDownloadResponse{
-			FriendGroupName: "group-a",
-			HistoryName:     "history-1",
-			MimeType:        "audio/opus",
-			SizeBytes:       int64(len(payload)),
-		},
-		payload: payload,
-	}
-	serverErrCh := make(chan error, 1)
-	go func() {
-		serverErrCh <- (&rpcServer{serverResources: service}).Handle(serverSide)
-	}()
-
-	stream, err := newRPCStream(context.Background(), clientSide)
-	if err != nil {
-		t.Fatalf("newRPCStream() error = %v", err)
-	}
-	defer stream.Close()
-
-	params, err := newRPCRequestParams(rpcapi.FriendGroupMessageAudioDownloadRequest{
-		FriendGroupName: "group-a",
-		HistoryName:     "history-1",
-	}, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioDownloadRequest)
-	if err != nil {
-		t.Fatalf("newRPCRequestParams() error = %v", err)
-	}
-	if err := stream.WriteRequest(newRPCRequest("friend-group-message-audio-download", rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload, params)); err != nil {
-		t.Fatalf("WriteRequest() error = %v", err)
-	}
-	if err := stream.WriteEOS(); err != nil {
-		t.Fatalf("WriteEOS() error = %v", err)
-	}
-
-	resp, err := stream.ReadResponseForMethod(rpcapi.RPCMethodServerFriendGroupMessagesAudioDownload)
-	if err != nil {
-		t.Fatalf("ReadResponse() error = %v", err)
-	}
-	if resp.Error != nil {
-		t.Fatalf("friend group message audio response error = %+v", resp.Error)
-	}
-	gotMetadata, err := resp.Result.AsFriendGroupMessageAudioDownloadResponse()
-	if err != nil {
-		t.Fatalf("AsFriendGroupMessageAudioDownloadResponse() error = %v", err)
-	}
-	if gotMetadata != service.metadata {
-		t.Fatalf("metadata = %+v, want %+v", gotMetadata, service.metadata)
-	}
-
-	frame, err := stream.ReadFrame()
-	if err != nil {
-		t.Fatalf("ReadFrame(binary) error = %v", err)
-	}
-	if frame.Type != rpcapi.FrameTypeBinary || !bytes.Equal(frame.Payload, payload) {
-		t.Fatalf("binary frame = %+v", frame)
-	}
-	frame, err = stream.ReadFrame()
-	if err != nil {
-		t.Fatalf("ReadFrame(EOS) error = %v", err)
-	}
-	if frame.Type != rpcapi.FrameTypeEOS {
-		t.Fatalf("last frame type = %d, want EOS", frame.Type)
-	}
-	if err := clientSide.Close(); err != nil {
-		t.Fatalf("client close error = %v", err)
-	}
-	select {
-	case err := <-serverErrCh:
-		if err != nil {
-			t.Fatalf("server error = %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("server did not finish")
-	}
-	if service.request.FriendGroupName != "group-a" || service.request.HistoryName != "history-1" {
-		t.Fatalf("request = %+v", service.request)
-	}
-}
-
 type fakeWorkspaceHistoryAudioService struct {
 	metadata rpcapi.WorkspaceHistoryAudioDownloadResponse
 	payload  []byte
@@ -193,20 +108,5 @@ func (f *fakeWorkspaceHistoryAudioService) PrepareWorkspaceHistoryAudioDownload(
 }
 
 func (f *fakeWorkspaceHistoryAudioService) Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
-	return nil, false, nil
-}
-
-type fakeFriendGroupMessageAudioService struct {
-	metadata rpcapi.FriendGroupMessageAudioDownloadResponse
-	payload  []byte
-	request  rpcapi.FriendGroupMessageAudioDownloadRequest
-}
-
-func (f *fakeFriendGroupMessageAudioService) PrepareFriendGroupMessageAudioDownload(_ context.Context, request rpcapi.FriendGroupMessageAudioDownloadRequest) (rpcapi.FriendGroupMessageAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
-	f.request = request
-	return f.metadata, io.NopCloser(bytes.NewReader(f.payload)), nil, nil
-}
-
-func (f *fakeFriendGroupMessageAudioService) Dispatch(context.Context, *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
 	return nil, false, nil
 }

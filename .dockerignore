@@ -23,6 +23,8 @@ tests/gizclaw-e2e/testdata/bin
 tests/gizclaw-e2e/testdata/bin/*
 !tests/gizclaw-e2e/testdata/bin/gizclaw-linux
 !tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux
+!tests/gizclaw-e2e/testdata/bin/multiserver-seed-linux
+tests/gizclaw-e2e/testdata/multi-server
 tests/gizclaw-e2e/testdata/docker
 tests/gizclaw-e2e/testdata/gateway-capacity-extended
 tests/gizclaw-e2e/testdata/server-workspace/data

@@ -521,220 +521,6 @@ final $typed_data.Uint8List aSTTranslateWorkspaceParametersDescriptor = $convert
     'bGVfc291cmNlX2xhbmd1YWdlX2RldGVjdEIICgZfaW5wdXRCDAoKX2xhbmdfcGFpckIHCgVfbW'
     '9kZUIUChJfdHJhbnNsYXRpb25fbW9kZWxCCAoGX3ZvaWNl');
 
-@$core.Deprecated('Use chatRoomWorkflowHistorySpecDescriptor instead')
-const ChatRoomWorkflowHistorySpec$json = {
-  '1': 'ChatRoomWorkflowHistorySpec',
-  '2': [
-    {'1': 'ttl', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'ttl', '17': true},
-  ],
-  '8': [
-    {'1': '_ttl'},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkflowHistorySpec`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkflowHistorySpecDescriptor =
-    $convert.base64Decode(
-        'ChtDaGF0Um9vbVdvcmtmbG93SGlzdG9yeVNwZWMSFQoDdHRsGAEgASgJSABSA3R0bIgBAUIGCg'
-        'RfdHRs');
-
-@$core.Deprecated('Use chatRoomWorkflowSpecDescriptor instead')
-const ChatRoomWorkflowSpec$json = {
-  '1': 'ChatRoomWorkflowSpec',
-  '2': [
-    {
-      '1': 'history',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkflowHistorySpec',
-      '10': 'history'
-    },
-    {
-      '1': 'transcript',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkflowTranscriptSpec',
-      '9': 0,
-      '10': 'transcript',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_transcript'},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkflowSpec`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkflowSpecDescriptor = $convert.base64Decode(
-    'ChRDaGF0Um9vbVdvcmtmbG93U3BlYxJFCgdoaXN0b3J5GAEgASgLMisuZ2l6Y2xhdy5ycGMudj'
-    'EuQ2hhdFJvb21Xb3JrZmxvd0hpc3RvcnlTcGVjUgdoaXN0b3J5ElMKCnRyYW5zY3JpcHQYAiAB'
-    'KAsyLi5naXpjbGF3LnJwYy52MS5DaGF0Um9vbVdvcmtmbG93VHJhbnNjcmlwdFNwZWNIAFIKdH'
-    'JhbnNjcmlwdIgBAUINCgtfdHJhbnNjcmlwdA==');
-
-@$core.Deprecated('Use chatRoomWorkflowTranscriptSpecDescriptor instead')
-const ChatRoomWorkflowTranscriptSpec$json = {
-  '1': 'ChatRoomWorkflowTranscriptSpec',
-  '2': [
-    {
-      '1': 'asr_model',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'asrModel',
-      '17': true
-    },
-    {
-      '1': 'enabled',
-      '3': 2,
-      '4': 1,
-      '5': 8,
-      '9': 1,
-      '10': 'enabled',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_asr_model'},
-    {'1': '_enabled'},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkflowTranscriptSpec`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkflowTranscriptSpecDescriptor =
-    $convert.base64Decode(
-        'Ch5DaGF0Um9vbVdvcmtmbG93VHJhbnNjcmlwdFNwZWMSIAoJYXNyX21vZGVsGAEgASgJSABSCG'
-        'Fzck1vZGVsiAEBEh0KB2VuYWJsZWQYAiABKAhIAVIHZW5hYmxlZIgBAUIMCgpfYXNyX21vZGVs'
-        'QgoKCF9lbmFibGVk');
-
-@$core.Deprecated('Use chatRoomWorkspaceHistoryParametersDescriptor instead')
-const ChatRoomWorkspaceHistoryParameters$json = {
-  '1': 'ChatRoomWorkspaceHistoryParameters',
-  '2': [
-    {'1': 'ttl', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'ttl', '17': true},
-  ],
-  '8': [
-    {'1': '_ttl'},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkspaceHistoryParameters`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkspaceHistoryParametersDescriptor =
-    $convert.base64Decode(
-        'CiJDaGF0Um9vbVdvcmtzcGFjZUhpc3RvcnlQYXJhbWV0ZXJzEhUKA3R0bBgBIAEoCUgAUgN0dG'
-        'yIAQFCBgoEX3R0bA==');
-
-@$core.Deprecated('Use chatRoomWorkspaceParametersDescriptor instead')
-const ChatRoomWorkspaceParameters$json = {
-  '1': 'ChatRoomWorkspaceParameters',
-  '2': [
-    {
-      '1': 'agent_type',
-      '3': 1,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkspaceParametersAgentType',
-      '10': 'agentType'
-    },
-    {
-      '1': 'history',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkspaceHistoryParameters',
-      '9': 0,
-      '10': 'history',
-      '17': true
-    },
-    {
-      '1': 'input',
-      '3': 3,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
-      '9': 1,
-      '10': 'input',
-      '17': true
-    },
-    {
-      '1': 'mode',
-      '3': 4,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.ChatRoomMode',
-      '9': 2,
-      '10': 'mode',
-      '17': true
-    },
-    {
-      '1': 'transcript',
-      '3': 5,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkspaceTranscriptParameters',
-      '9': 3,
-      '10': 'transcript',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_history'},
-    {'1': '_input'},
-    {'1': '_mode'},
-    {'1': '_transcript'},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkspaceParametersDescriptor = $convert.base64Decode(
-    'ChtDaGF0Um9vbVdvcmtzcGFjZVBhcmFtZXRlcnMSUwoKYWdlbnRfdHlwZRgBIAEoDjI0Lmdpem'
-    'NsYXcucnBjLnYxLkNoYXRSb29tV29ya3NwYWNlUGFyYW1ldGVyc0FnZW50VHlwZVIJYWdlbnRU'
-    'eXBlElEKB2hpc3RvcnkYAiABKAsyMi5naXpjbGF3LnJwYy52MS5DaGF0Um9vbVdvcmtzcGFjZU'
-    'hpc3RvcnlQYXJhbWV0ZXJzSABSB2hpc3RvcnmIAQESPQoFaW5wdXQYAyABKA4yIi5naXpjbGF3'
-    'LnJwYy52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIAVIFaW5wdXSIAQESNQoEbW9kZRgEIAEoDjIcLm'
-    'dpemNsYXcucnBjLnYxLkNoYXRSb29tTW9kZUgCUgRtb2RliAEBEloKCnRyYW5zY3JpcHQYBSAB'
-    'KAsyNS5naXpjbGF3LnJwYy52MS5DaGF0Um9vbVdvcmtzcGFjZVRyYW5zY3JpcHRQYXJhbWV0ZX'
-    'JzSANSCnRyYW5zY3JpcHSIAQFCCgoIX2hpc3RvcnlCCAoGX2lucHV0QgcKBV9tb2RlQg0KC190'
-    'cmFuc2NyaXB0');
-
-@$core.Deprecated('Use chatRoomWorkspaceTranscriptParametersDescriptor instead')
-const ChatRoomWorkspaceTranscriptParameters$json = {
-  '1': 'ChatRoomWorkspaceTranscriptParameters',
-  '2': [
-    {
-      '1': 'asr_model',
-      '3': 1,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'asrModel',
-      '17': true
-    },
-    {
-      '1': 'enabled',
-      '3': 2,
-      '4': 1,
-      '5': 8,
-      '9': 1,
-      '10': 'enabled',
-      '17': true
-    },
-  ],
-  '8': [
-    {'1': '_asr_model'},
-    {'1': '_enabled'},
-  ],
-};
-
-/// Descriptor for `ChatRoomWorkspaceTranscriptParameters`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List chatRoomWorkspaceTranscriptParametersDescriptor =
-    $convert.base64Decode(
-        'CiVDaGF0Um9vbVdvcmtzcGFjZVRyYW5zY3JpcHRQYXJhbWV0ZXJzEiAKCWFzcl9tb2RlbBgBIA'
-        'EoCUgAUghhc3JNb2RlbIgBARIdCgdlbmFibGVkGAIgASgISAFSB2VuYWJsZWSIAQFCDAoKX2Fz'
-        'cl9tb2RlbEIKCghfZW5hYmxlZA==');
-
 @$core.Deprecated('Use dashScopeRealtimeWorkflowSpecDescriptor instead')
 const DashScopeRealtimeWorkflowSpec$json = {
   '1': 'DashScopeRealtimeWorkflowSpec',
@@ -2463,22 +2249,12 @@ const PetWorkflowSpec$json = {
       '17': true
     },
     {
-      '1': 'chatroom',
-      '3': 6,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.ChatRoomWorkflowSpec',
-      '9': 4,
-      '10': 'chatroom',
-      '17': true
-    },
-    {
       '1': 'dashscope_realtime',
       '3': 7,
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec',
-      '9': 5,
+      '9': 4,
       '10': 'dashscopeRealtime',
       '17': true
     },
@@ -2488,7 +2264,7 @@ const PetWorkflowSpec$json = {
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkflowSpec',
-      '9': 6,
+      '9': 5,
       '10': 'doubaoRealtimeDuplex',
       '17': true
     },
@@ -2498,7 +2274,7 @@ const PetWorkflowSpec$json = {
       '4': 1,
       '5': 11,
       '6': '.gizclaw.rpc.v1.EinoWorkflowSpec',
-      '9': 7,
+      '9': 6,
       '10': 'eino',
       '17': true
     },
@@ -2508,7 +2284,6 @@ const PetWorkflowSpec$json = {
     {'1': '_flowcraft'},
     {'1': '_doubao_realtime'},
     {'1': '_ast_translate'},
-    {'1': '_chatroom'},
     {'1': '_dashscope_realtime'},
     {'1': '_doubao_realtime_duplex'},
     {'1': '_eino'},
@@ -2524,15 +2299,14 @@ final $typed_data.Uint8List petWorkflowSpecDescriptor = $convert.base64Decode(
     'b3ViYW9fcmVhbHRpbWUYBCABKAsyKi5naXpjbGF3LnJwYy52MS5Eb3ViYW9SZWFsdGltZVdvcm'
     'tmbG93U3BlY0gCUg5kb3ViYW9SZWFsdGltZYgBARJSCg1hc3RfdHJhbnNsYXRlGAUgASgLMigu'
     'Z2l6Y2xhdy5ycGMudjEuQVNUVHJhbnNsYXRlV29ya2Zsb3dTcGVjSANSDGFzdFRyYW5zbGF0ZY'
-    'gBARJFCghjaGF0cm9vbRgGIAEoCzIkLmdpemNsYXcucnBjLnYxLkNoYXRSb29tV29ya2Zsb3dT'
-    'cGVjSARSCGNoYXRyb29tiAEBEmEKEmRhc2hzY29wZV9yZWFsdGltZRgHIAEoCzItLmdpemNsYX'
-    'cucnBjLnYxLkRhc2hTY29wZVJlYWx0aW1lV29ya2Zsb3dTcGVjSAVSEWRhc2hzY29wZVJlYWx0'
-    'aW1liAEBEmsKFmRvdWJhb19yZWFsdGltZV9kdXBsZXgYCCABKAsyMC5naXpjbGF3LnJwYy52MS'
-    '5Eb3ViYW9SZWFsdGltZUR1cGxleFdvcmtmbG93U3BlY0gGUhRkb3ViYW9SZWFsdGltZUR1cGxl'
-    'eIgBARI5CgRlaW5vGAkgASgLMiAuZ2l6Y2xhdy5ycGMudjEuRWlub1dvcmtmbG93U3BlY0gHUg'
-    'RlaW5viAEBQgoKCF90b29sa2l0QgwKCl9mbG93Y3JhZnRCEgoQX2RvdWJhb19yZWFsdGltZUIQ'
-    'Cg5fYXN0X3RyYW5zbGF0ZUILCglfY2hhdHJvb21CFQoTX2Rhc2hzY29wZV9yZWFsdGltZUIZCh'
-    'dfZG91YmFvX3JlYWx0aW1lX2R1cGxleEIHCgVfZWlubw==');
+    'gBARJhChJkYXNoc2NvcGVfcmVhbHRpbWUYByABKAsyLS5naXpjbGF3LnJwYy52MS5EYXNoU2Nv'
+    'cGVSZWFsdGltZVdvcmtmbG93U3BlY0gEUhFkYXNoc2NvcGVSZWFsdGltZYgBARJrChZkb3ViYW'
+    '9fcmVhbHRpbWVfZHVwbGV4GAggASgLMjAuZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbWVE'
+    'dXBsZXhXb3JrZmxvd1NwZWNIBVIUZG91YmFvUmVhbHRpbWVEdXBsZXiIAQESOQoEZWlubxgJIA'
+    'EoCzIgLmdpemNsYXcucnBjLnYxLkVpbm9Xb3JrZmxvd1NwZWNIBlIEZWlub4gBAUIKCghfdG9v'
+    'bGtpdEIMCgpfZmxvd2NyYWZ0QhIKEF9kb3ViYW9fcmVhbHRpbWVCEAoOX2FzdF90cmFuc2xhdG'
+    'VCFQoTX2Rhc2hzY29wZV9yZWFsdGltZUIZChdfZG91YmFvX3JlYWx0aW1lX2R1cGxleEIHCgVf'
+    'ZWlubw==');
 
 @$core.Deprecated('Use modelDescriptor instead')
 const Model$json = {

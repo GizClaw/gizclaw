@@ -94,7 +94,7 @@ void main() {
       type: PeerEventType.PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED,
       workspaceHistoryUpdated: WorkspaceHistoryUpdated(
         workspaceName: 'room-a',
-        workspaceKind: WorkspaceKind.WORKSPACE_KIND_GROUP_CHATROOM,
+        workspaceKind: WorkspaceKind.WORKSPACE_KIND_WORKFLOW,
       ),
     );
     factory.channels.single.addMessage(

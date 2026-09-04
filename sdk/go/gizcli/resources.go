@@ -269,18 +269,6 @@ func (c *Client) DeleteFriendGroupMember(ctx context.Context, id string, request
 	})
 }
 
-func (c *Client) ListFriendGroupMessages(ctx context.Context, id string, request rpcapi.FriendGroupMessageListRequest) (*rpcapi.FriendGroupMessageListResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageListResponse, error) {
-		return client.ListFriendGroupMessages(ctx, conn, id, request)
-	})
-}
-
-func (c *Client) GetFriendGroupMessage(ctx context.Context, id string, request rpcapi.FriendGroupMessageGetRequest) (*rpcapi.FriendGroupMessageGetResponse, error) {
-	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.FriendGroupMessageGetResponse, error) {
-		return client.GetFriendGroupMessage(ctx, conn, id, request)
-	})
-}
-
 func (c *Client) ListPets(ctx context.Context, id string, request rpcapi.ServerPetListRequest) (*rpcapi.ServerPetListResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPetListResponse, error) {
 		return client.ListPets(ctx, conn, id, request)

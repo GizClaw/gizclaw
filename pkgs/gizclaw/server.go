@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
@@ -85,6 +86,11 @@ type Server struct {
 	ServerLogQuery         ServerLogQueryService
 	FlowcraftHistory       logstore.MutableStore
 	FlowcraftState         kv.Store
+	// SFU is the Server-held SFU connector configuration; a zero value
+	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
+	// writers so credentials never leave this struct.
+	SFU                    sfu.Config
+	SFUURL                 string
 	MemoryRoot             string
 	SpeechLimits           SpeechLimits
 	ClientToolTimeout      time.Duration
@@ -527,12 +533,11 @@ func (s *Server) init() error {
 		},
 	}
 	friendServer := &friend.Server{
-		InviteTokens:           friendInviteTokenStore,
-		Friends:                friendStore,
-		Workspaces:             workspaceServer,
-		Profiles:               peersServer,
-		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
-		NotifyPeer:             notifyPeer,
+		InviteTokens: friendInviteTokenStore,
+		Friends:      friendStore,
+		Workspaces:   workspaceServer,
+		Profiles:     peersServer,
+		NotifyPeer:   notifyPeer,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {
@@ -540,8 +545,7 @@ func (s *Server) init() error {
 			}
 			return peersServer.EnsureAvailable(ctx, key)
 		},
-		PeerAssignments: manager.PeerRoutes,
-		ServerPublicKey: s.LocalStatic.Public,
+		SFUURL: s.SFUURL,
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:                   friendGroupStore,
@@ -554,7 +558,6 @@ func (s *Server) init() error {
 		MemberRelationshipPrefix: friendGroupMemberPrefix,
 		BelongRelationshipPrefix: friendGroupBelongPrefix,
 		Workspaces:               workspaceServer,
-		RuntimeProfileForOwner:   manager.runtimeProfileForOwner,
 		NotifyPeer:               notifyPeer,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
@@ -563,8 +566,7 @@ func (s *Server) init() error {
 			}
 			return peersServer.EnsureAvailable(ctx, key)
 		},
-		PeerAssignments: manager.PeerRoutes,
-		ServerPublicKey: s.LocalStatic.Public,
+		SFUURL: s.SFUURL,
 	}
 	providerTenantsServer := &providertenants.Server{
 		Store:       s.ProviderTenantStore,
@@ -686,6 +688,10 @@ func (s *Server) init() error {
 	manager.Contacts = contactServer
 	manager.Friends = friendServer
 	manager.FriendGroups = friendGroupServer
+	manager.SFU = s.SFU
+	if err := workflowServer.EnsureBuiltinWorkflows(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: materialize built-in Workflows: %w", err)
+	}
 	if err := friendServer.ReconcileCreationIntents(context.Background()); err != nil {
 		return fmt.Errorf("gizclaw: reconcile Friend creation intents: %w", err)
 	}
