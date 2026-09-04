@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 106 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 107 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -54,11 +54,14 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_name` 创建当前 Peer 的 Workspace。 |
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
 | 107 | `server.workspace.input.put` | 只更新指定 Workspace 的 input mode，保留其余 parameters 与 toolkit；Workspace 继承 Workflow parameters 时由 Server 解析继承配置。 |
+| 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
 | 30 | `server.workspace.history.get` | 读取指定 Workspace 的一条 history。 |
 | 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 | 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
+
+`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input` 以及 `conversation.initiative`、`conversation.agent_initiative_policy`，未提供的字段保持不变。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。字段不受该 driver 支持、枚举值无效或 patch 为空时返回 `BAD_REQUEST`。
 
 ## Workflow、Model 与 Voice catalog
 

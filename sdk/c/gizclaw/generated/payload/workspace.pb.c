@@ -204,6 +204,15 @@ PB_BIND(gizclaw_rpc_v1_WorkspaceInputPutRequest, gizclaw_rpc_v1_WorkspaceInputPu
 PB_BIND(gizclaw_rpc_v1_WorkspaceInputPutResponse, gizclaw_rpc_v1_WorkspaceInputPutResponse, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_WorkspaceParametersPatch, gizclaw_rpc_v1_WorkspaceParametersPatch, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkspaceParametersSetRequest, gizclaw_rpc_v1_WorkspaceParametersSetRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_WorkspaceParametersSetResponse, gizclaw_rpc_v1_WorkspaceParametersSetResponse, 2)
+
+
 
 #ifndef PB_CONVERT_DOUBLE_FLOAT
 /* On some platforms (such as AVR), double is really float.

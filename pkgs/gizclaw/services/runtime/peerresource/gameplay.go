@@ -604,11 +604,11 @@ func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 
 func (s *Server) gameplayProfileContext(ctx context.Context, requestID string) (context.Context, *rpcapi.RPCResponse) {
 	if s == nil || s.RuntimeProfile == nil {
-		return ctx, statusError(requestID, 403, "device has no active RuntimeProfile")
+		return ctx, statusError(requestID, rpcapi.StatusCodePermissionDenied, "device has no active RuntimeProfile")
 	}
 	profile := s.RuntimeProfile()
 	if profile == nil {
-		return ctx, statusError(requestID, 403, "device has no active RuntimeProfile")
+		return ctx, statusError(requestID, rpcapi.StatusCodePermissionDenied, "device has no active RuntimeProfile")
 	}
 	return gameplay.WithRuntimeProfile(ctx, *profile), nil
 }
