@@ -2426,8 +2426,7 @@ async function answerClientRequest(
           return unsupported();
         }
         const params = request.params as
-          | ClientFirmwareUpdateRequest
-          | undefined;
+          ClientFirmwareUpdateRequest | undefined;
         const channel = params?.channel;
         const sha256 = params?.sha256;
         if (

@@ -3614,10 +3614,7 @@ test("inbound client.firmware.update forwards the channel and digest", async () 
     { deviceControl: control },
   );
   assert.equal(withParams.error, undefined);
-  assert.deepEqual(calls, [
-    "undefined:undefined",
-    `beta:${digest}`,
-  ]);
+  assert.deepEqual(calls, ["undefined:undefined", `beta:${digest}`]);
 
   // "unspecified" encodes on the wire but names no channel.
   const badChannel = await serveInboundClientRPC(
