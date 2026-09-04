@@ -133,16 +133,30 @@ func runParallel(ctx context.Context, documentPath string, step Step, session Se
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// start releases every child goroutine at the same moment, so the children
-	// speak and listen simultaneously rather than in declaration order.
+	// speak and listen simultaneously rather than in declaration order. A child
+	// that declares a delay waits that long after the release, which is how a
+	// scenario places one child's window inside another child's activity
+	// instead of at the same instant.
 	start := make(chan struct{})
 	children := make([]*parallelChild, len(runs))
 	finished := make(chan struct{})
 	for i, run := range runs {
 		child := &parallelChild{step: step.Parallel[i], done: make(chan struct{})}
 		children[i] = child
+		delay := childDelay(child.step)
 		go func() {
 			defer close(child.done)
 			<-start
+			if delay > 0 {
+				timer := time.NewTimer(delay)
+				select {
+				case <-timer.C:
+				case <-childCtx.Done():
+					timer.Stop()
+					child.err = context.Cause(childCtx)
+					return
+				}
+			}
 			started := time.Now()
 			child.result, child.err = run.Run(childCtx)
 			child.durationMS = time.Since(started).Milliseconds()
@@ -241,4 +255,18 @@ func ParallelChildCaptures(parent Step, childID string) map[string]string {
 		}
 	}
 	return captures
+}
+
+// childDelay is the stagger a parallel child declared. The document validated
+// it, so an unparsable value here can only mean the step was built in code and
+// is treated as no delay rather than failing the group.
+func childDelay(step Step) time.Duration {
+	if step.Delay == "" {
+		return 0
+	}
+	delay, err := time.ParseDuration(step.Delay)
+	if err != nil || delay <= 0 {
+		return 0
+	}
+	return delay
 }

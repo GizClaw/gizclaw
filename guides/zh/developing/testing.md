@@ -413,6 +413,7 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   同步 step。child 只能是 `client` 加恰好一个 `peer_stream`（任意 mode），数量 2 到 16，
   `id` 必填且在整个文档内唯一。child 不能声明 `parallel`、`barrier`、`retry`、`timeout`、
   `save_as`、`capture`、`expect`、`expect_error`，也不能使用持久 peer_stream session：
+  child 可以声明 `delay`（正的 duration，最长一分钟），它会在整组释放后再等这么久才开始，而不是与兄弟 child 同时开始。这是把一个 child 的窗口放进另一个 child 活动区间内的唯一方式，抢麦场景需要它：发言方自己的话段是在第一个**有声帧**时才打开的，与整组同时开始的窗口会量到前导静音，而那段时间发言方还是普通听众。非 parallel child 的 step 声明 `delay` 会被拒绝，因为普通 step 本来就是顺序执行的，在那里加延迟只是用 sleep 掩盖缺失的等待。
   断言属于 `parallel` step 自己。`parallel` step 保留 `id`、`timeout`、`capture`、
   `expect`、`expect_error`、`retry`、`save_as`，不能声明 `client`，且不允许出现在
   `finally` 中。

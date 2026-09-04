@@ -511,7 +511,15 @@ conventions:
   each with an `id` that is required and unique across the whole document. A
   child cannot declare `parallel`, `barrier`, `retry`, `timeout`, `save_as`,
   `capture`, `expect`, or `expect_error`, and cannot use a persistent
-  peer_stream session: the assertions belong to the parallel step. The
+  peer_stream session: the assertions belong to the parallel step. A child may
+  declare `delay`, a positive duration up to one minute, and then starts that
+  long after the group is released instead of with it. That is the one way to
+  place a child's window inside another child's activity, which a contention
+  scenario needs: a speaker's own utterance opens on its first voiced frame,
+  so a window that starts with the group measures the leading silence, when
+  the speaker was still an ordinary listener. `delay` is rejected on any step
+  that is not a parallel child, because a plain step already runs in order and
+  a delay there would only be a sleep hiding a missing wait. The
   parallel step itself keeps `id`, `timeout`, `capture`, `expect`,
   `expect_error`, `retry`, and `save_as`, takes no `client`, and is not
   allowed in `finally`.

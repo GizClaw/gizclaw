@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -276,5 +277,79 @@ func TestParallelChildCaptures(t *testing.T) {
 	got := ParallelChildCaptures(parent, "carol_hear")
 	if len(got) != 2 || got["carol_audio"] != "/audio" || got["whole"] != "" {
 		t.Fatalf("ParallelChildCaptures() = %#v", got)
+	}
+}
+
+// TestRunTaskParallelDelaysOneChild covers the stagger a contention scenario
+// needs: a child that declares a delay starts after its siblings rather than
+// with them, so its window falls inside their activity. Without it a listener
+// that is also a speaker opens its window before its own audio starts and
+// records the moments when it was still a plain listener.
+func TestRunTaskParallelDelaysOneChild(t *testing.T) {
+	var mu sync.Mutex
+	starts := map[string]time.Time{}
+	driver := &stubDriver{}
+	driver.prepareParallel = func(req StepRequest) (ParallelChild, error) {
+		id := req.Step.ID
+		return parallelRun(func(ctx context.Context) (StepResult, error) {
+			mu.Lock()
+			starts[id] = time.Now()
+			mu.Unlock()
+			return StepResult{Value: map[string]any{"id": id}}, nil
+		}), nil
+	}
+	late := listenChild("late", "50ms")
+	late.Delay = "150ms"
+	doc := parallelDocument([]Step{{
+		ID: "talk", Timeout: "5s",
+		Parallel: []Step{listenChild("prompt", "50ms"), late},
+	}})
+	result := runTask(context.Background(), task{doc: doc}, Options{Driver: driver, Out: io.Discard})
+	if result.Status != "passed" {
+		t.Fatalf("task status = %q (%s), want passed", result.Status, result.Error)
+	}
+	mu.Lock()
+	first, second := starts["prompt"], starts["late"]
+	mu.Unlock()
+	if first.IsZero() || second.IsZero() {
+		t.Fatalf("children did not both run: %v", starts)
+	}
+	if gap := second.Sub(first); gap < 100*time.Millisecond {
+		t.Fatalf("delayed child started %s after its sibling, want at least 100ms", gap)
+	}
+}
+
+// TestParallelChildDelayIsValidated pins that a delay is rejected where it
+// would be meaningless or unbounded, so a typo fails validation rather than
+// parking a child past the step timeout.
+func TestParallelChildDelayIsValidated(t *testing.T) {
+	for name, delay := range map[string]string{
+		"not a duration": "soon",
+		"zero":           "0s",
+		"negative":       "-1s",
+		"too long":       "61m",
+	} {
+		t.Run(name, func(t *testing.T) {
+			late := listenChild("late", "50ms")
+			late.Delay = delay
+			doc := parallelDocument([]Step{{
+				ID: "talk", Timeout: "5s",
+				Parallel: []Step{listenChild("prompt", "50ms"), late},
+			}})
+			if err := doc.validateSemantics(); err == nil {
+				t.Fatalf("validateSemantics with delay %q error = nil, want rejection", delay)
+			}
+		})
+	}
+}
+
+// TestStepDelayOutsideParallelIsRejected pins that delay stays a parallel-child
+// concept: a plain step already runs in order, so a delay there would only be a
+// sleep hiding a missing wait.
+func TestStepDelayOutsideParallelIsRejected(t *testing.T) {
+	solo := listenChild("solo", "50ms")
+	solo.Delay = "100ms"
+	if err := parallelDocument([]Step{solo}).validateSemantics(); err == nil {
+		t.Fatal("validateSemantics with a top-level delay error = nil, want rejection")
 	}
 }

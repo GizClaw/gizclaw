@@ -413,15 +413,24 @@ steps:
         client: m1
         peer_stream: {mode: listen, duration: 12s}
       # The speakers listen only while their own utterance is certainly still
-      # open, which is where half-duplex must hold.
+      # open, which is where half-duplex must hold. The delay matters: an
+      # utterance opens on its first voiced frame, not when the client starts
+      # sending, so the leading silence of a synthesized clip is time when the
+      # speaker is still an ordinary listener and legitimately receives the
+      # others. Starting these windows with the group would measure that
+      # lead-in and fail on it. 800ms is past any lead-in and well inside the
+      # roughly two-second phrase.
       - id: alice_listen_contention
         client: alice
+        delay: 800ms
         peer_stream: {mode: listen, duration: 1s}
       - id: bob_listen_contention
         client: bob
+        delay: 800ms
         peer_stream: {mode: listen, duration: 1s}
       - id: carol_listen_contention
         client: carol
+        delay: 800ms
         peer_stream: {mode: listen, duration: 1s}
     capture:
       m1_heard_three: /m1_listen_contention/audio

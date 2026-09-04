@@ -81,7 +81,13 @@ type Step struct {
 	// Parallel owns the child steps this step starts at the same moment and
 	// waits for together. It is exclusive with every operation field, and the
 	// step's result is an object keyed by child id.
-	Parallel    []Step                 `json:"parallel,omitempty" yaml:"parallel,omitempty"`
+	Parallel []Step `json:"parallel,omitempty" yaml:"parallel,omitempty"`
+	// Delay staggers one parallel child: the child waits this long after the
+	// group is released before it runs. It is only meaningful on a parallel
+	// child, where it is the one way to place a child's window inside another
+	// child's activity rather than at the same instant. Omitted or empty means
+	// the child starts with the group.
+	Delay       string                 `json:"delay,omitempty" yaml:"delay,omitempty"`
 	SaveAs      string                 `json:"save_as,omitempty" yaml:"save_as,omitempty"`
 	Capture     map[string]string      `json:"capture,omitempty" yaml:"capture,omitempty"`
 	Expect      map[string]Expectation `json:"expect,omitempty" yaml:"expect,omitempty"`
@@ -213,6 +219,9 @@ const (
 	maxNormalizeKinds = 4
 	maxRetryAttempts  = 10
 	maxRetryDelay     = 5 * time.Minute
+	// maxParallelChildDelay bounds a parallel child's stagger so a typo
+	// cannot park a child past its parent step's timeout.
+	maxParallelChildDelay = time.Minute
 
 	// minParallelChildren and maxParallelChildren bound one parallel step.
 	// A group of one is a plain step, and the upper bound keeps the number of
@@ -500,6 +509,9 @@ func (d *Document) validateSemantics() error {
 			return fmt.Errorf("duplicate step id %q", step.ID)
 		}
 		ids[step.ID] = true
+		if step.Delay != "" {
+			return fmt.Errorf("step %s cannot declare delay; it only staggers a parallel child", step.ID)
+		}
 		if step.Parallel != nil {
 			if err := d.validateParallel(step, i >= len(d.Steps), ids); err != nil {
 				return err
@@ -753,6 +765,12 @@ func (d *Document) validateParallelChild(step, child Step) error {
 	} {
 		if field.declared {
 			return fmt.Errorf("step %s parallel child %s cannot declare %s; it belongs to the parallel step", step.ID, child.ID, field.name)
+		}
+	}
+	if child.Delay != "" {
+		delay, err := time.ParseDuration(child.Delay)
+		if err != nil || delay <= 0 || delay > maxParallelChildDelay {
+			return fmt.Errorf("step %s parallel child %s has invalid delay %q; want a positive duration up to %s", step.ID, child.ID, child.Delay, maxParallelChildDelay)
 		}
 	}
 	if err := validatePeerStreamStep(child, false); err != nil {
