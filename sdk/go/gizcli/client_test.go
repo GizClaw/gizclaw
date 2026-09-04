@@ -471,7 +471,7 @@ func TestClientRPCHandle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("dispatch() error = %v", err)
 		}
-		if resp == nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+		if resp == nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 			t.Fatalf("dispatch() response = %+v", resp)
 		}
 	})

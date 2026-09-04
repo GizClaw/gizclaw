@@ -20,18 +20,18 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'rpc.pbenum.dart';
 
-enum RpcResponse_Body { payload, error, notSet }
+enum RpcResponse_Body { payload, status, notSet }
 
 class RpcResponse extends $pb.GeneratedMessage {
   factory RpcResponse({
     $core.String? id,
     $core.List<$core.int>? payload,
-    RpcError? error,
+    RpcStatus? status,
   }) {
     final result = create();
     if (id != null) result.id = id;
     if (payload != null) result.payload = payload;
-    if (error != null) result.error = error;
+    if (status != null) result.status = status;
     return result;
   }
 
@@ -46,7 +46,7 @@ class RpcResponse extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, RpcResponse_Body> _RpcResponse_BodyByTag = {
     2: RpcResponse_Body.payload,
-    3: RpcResponse_Body.error,
+    3: RpcResponse_Body.status,
     0: RpcResponse_Body.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -57,8 +57,8 @@ class RpcResponse extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
-    ..aOM<RpcError>(3, _omitFieldNames ? '' : 'error',
-        subBuilder: RpcError.create)
+    ..aOM<RpcStatus>(3, _omitFieldNames ? '' : 'status',
+        subBuilder: RpcStatus.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -106,30 +106,30 @@ class RpcResponse extends $pb.GeneratedMessage {
   void clearPayload() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  RpcError get error => $_getN(2);
+  RpcStatus get status => $_getN(2);
   @$pb.TagNumber(3)
-  set error(RpcError value) => $_setField(3, value);
+  set status(RpcStatus value) => $_setField(3, value);
   @$pb.TagNumber(3)
-  $core.bool hasError() => $_has(2);
+  $core.bool hasStatus() => $_has(2);
   @$pb.TagNumber(3)
-  void clearError() => $_clearField(3);
+  void clearStatus() => $_clearField(3);
   @$pb.TagNumber(3)
-  RpcError ensureError() => $_ensure(2);
+  RpcStatus ensureStatus() => $_ensure(2);
 }
 
-enum RpcStreamFrame_Body { payload, error, end, notSet }
+enum RpcStreamFrame_Body { payload, status, end, notSet }
 
 class RpcStreamFrame extends $pb.GeneratedMessage {
   factory RpcStreamFrame({
     $core.String? id,
     $core.List<$core.int>? payload,
-    RpcError? error,
+    RpcStatus? status,
     RpcStreamEnd? end,
   }) {
     final result = create();
     if (id != null) result.id = id;
     if (payload != null) result.payload = payload;
-    if (error != null) result.error = error;
+    if (status != null) result.status = status;
     if (end != null) result.end = end;
     return result;
   }
@@ -146,7 +146,7 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   static const $core.Map<$core.int, RpcStreamFrame_Body>
       _RpcStreamFrame_BodyByTag = {
     2: RpcStreamFrame_Body.payload,
-    3: RpcStreamFrame_Body.error,
+    3: RpcStreamFrame_Body.status,
     4: RpcStreamFrame_Body.end,
     0: RpcStreamFrame_Body.notSet
   };
@@ -158,8 +158,8 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..a<$core.List<$core.int>>(
         2, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
-    ..aOM<RpcError>(3, _omitFieldNames ? '' : 'error',
-        subBuilder: RpcError.create)
+    ..aOM<RpcStatus>(3, _omitFieldNames ? '' : 'status',
+        subBuilder: RpcStatus.create)
     ..aOM<RpcStreamEnd>(4, _omitFieldNames ? '' : 'end',
         subBuilder: RpcStreamEnd.create)
     ..hasRequiredFields = false;
@@ -212,15 +212,15 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   void clearPayload() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  RpcError get error => $_getN(2);
+  RpcStatus get status => $_getN(2);
   @$pb.TagNumber(3)
-  set error(RpcError value) => $_setField(3, value);
+  set status(RpcStatus value) => $_setField(3, value);
   @$pb.TagNumber(3)
-  $core.bool hasError() => $_has(2);
+  $core.bool hasStatus() => $_has(2);
   @$pb.TagNumber(3)
-  void clearError() => $_clearField(3);
+  void clearStatus() => $_clearField(3);
   @$pb.TagNumber(3)
-  RpcError ensureError() => $_ensure(2);
+  RpcStatus ensureStatus() => $_ensure(2);
 
   @$pb.TagNumber(4)
   RpcStreamEnd get end => $_getN(3);
@@ -234,57 +234,65 @@ class RpcStreamFrame extends $pb.GeneratedMessage {
   RpcStreamEnd ensureEnd() => $_ensure(3);
 }
 
-class RpcError extends $pb.GeneratedMessage {
-  factory RpcError({
-    RpcErrorCode? code,
+/// RpcStatus is the terminal status of one RPC. It follows google.rpc.Status
+/// with one deviation: details is a typed ErrorInfo rather than
+/// repeated google.protobuf.Any, because nanopb cannot resolve type URLs at
+/// runtime and the C SDK allocates nothing.
+class RpcStatus extends $pb.GeneratedMessage {
+  factory RpcStatus({
+    StatusCode? code,
     $core.String? message,
+    ErrorInfo? info,
   }) {
     final result = create();
     if (code != null) result.code = code;
     if (message != null) result.message = message;
+    if (info != null) result.info = info;
     return result;
   }
 
-  RpcError._();
+  RpcStatus._();
 
-  factory RpcError.fromBuffer($core.List<$core.int> data,
+  factory RpcStatus.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory RpcError.fromJson($core.String json,
+  factory RpcStatus.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'RpcError',
+      _omitMessageNames ? '' : 'RpcStatus',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..aE<RpcErrorCode>(1, _omitFieldNames ? '' : 'code',
-        enumValues: RpcErrorCode.values)
+    ..aE<StatusCode>(1, _omitFieldNames ? '' : 'code',
+        enumValues: StatusCode.values)
     ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOM<ErrorInfo>(3, _omitFieldNames ? '' : 'info',
+        subBuilder: ErrorInfo.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RpcError clone() => deepCopy();
+  RpcStatus clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RpcError copyWith(void Function(RpcError) updates) =>
-      super.copyWith((message) => updates(message as RpcError)) as RpcError;
+  RpcStatus copyWith(void Function(RpcStatus) updates) =>
+      super.copyWith((message) => updates(message as RpcStatus)) as RpcStatus;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static RpcError create() => RpcError._();
+  static RpcStatus create() => RpcStatus._();
   @$core.override
-  RpcError createEmptyInstance() => create();
+  RpcStatus createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static RpcError getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcError>(create);
-  static RpcError? _defaultInstance;
+  static RpcStatus getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RpcStatus>(create);
+  static RpcStatus? _defaultInstance;
 
   @$pb.TagNumber(1)
-  RpcErrorCode get code => $_getN(0);
+  StatusCode get code => $_getN(0);
   @$pb.TagNumber(1)
-  set code(RpcErrorCode value) => $_setField(1, value);
+  set code(StatusCode value) => $_setField(1, value);
   @$pb.TagNumber(1)
   $core.bool hasCode() => $_has(0);
   @$pb.TagNumber(1)
@@ -298,6 +306,86 @@ class RpcError extends $pb.GeneratedMessage {
   $core.bool hasMessage() => $_has(1);
   @$pb.TagNumber(2)
   void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  ErrorInfo get info => $_getN(2);
+  @$pb.TagNumber(3)
+  set info(ErrorInfo value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasInfo() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearInfo() => $_clearField(3);
+  @$pb.TagNumber(3)
+  ErrorInfo ensureInfo() => $_ensure(2);
+}
+
+/// ErrorInfo names the specific failure behind a StatusCode. code is the class
+/// a client branches on; reason is the reason a human or a UI reads. It follows
+/// google.rpc.ErrorInfo without the metadata map, which no caller needs and
+/// which nanopb can only express as a bounded repeated entry message.
+class ErrorInfo extends $pb.GeneratedMessage {
+  factory ErrorInfo({
+    $core.String? reason,
+    $core.String? domain,
+  }) {
+    final result = create();
+    if (reason != null) result.reason = reason;
+    if (domain != null) result.domain = domain;
+    return result;
+  }
+
+  ErrorInfo._();
+
+  factory ErrorInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ErrorInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ErrorInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'reason')
+    ..aOS(2, _omitFieldNames ? '' : 'domain')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ErrorInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ErrorInfo copyWith(void Function(ErrorInfo) updates) =>
+      super.copyWith((message) => updates(message as ErrorInfo)) as ErrorInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ErrorInfo create() => ErrorInfo._();
+  @$core.override
+  ErrorInfo createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ErrorInfo getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ErrorInfo>(create);
+  static ErrorInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get reason => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set reason($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasReason() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearReason() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get domain => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set domain($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDomain() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDomain() => $_clearField(2);
 }
 
 class RpcStreamEnd extends $pb.GeneratedMessage {

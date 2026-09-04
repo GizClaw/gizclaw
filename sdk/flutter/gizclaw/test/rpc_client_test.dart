@@ -150,9 +150,13 @@ void main() {
         ...encodeEnvelopeFrames(
           rpc.RpcResponse(
             id: 'rpc-err',
-            error: rpc.RpcError(
-              code: rpc.RpcErrorCode.RPC_ERROR_CODE_NOT_FOUND,
+            status: rpc.RpcStatus(
+              code: rpc.StatusCode.STATUS_CODE_NOT_FOUND,
               message: 'not found',
+              info: rpc.ErrorInfo(
+                reason: 'WORKSPACE_PENDING_DELETION',
+                domain: 'gizclaw.rpc.v1',
+              ),
             ),
           ).writeToBuffer(),
         ),
@@ -163,9 +167,14 @@ void main() {
     expect(
       future,
       throwsA(
-        isA<RpcError>()
-            .having((error) => error.code, 'code', 404)
+        isA<RpcStatus>()
+            .having((error) => error.code, 'code', 5)
             .having((error) => error.message, 'message', 'not found')
+            .having(
+              (error) => error.reason,
+              'reason',
+              'WORKSPACE_PENDING_DELETION',
+            )
             .having((error) => error.requestId, 'requestId', 'rpc-err'),
       ),
     );
@@ -365,8 +374,8 @@ void main() {
 
     final response = rpc.RpcResponse(
       id: 'rpc-binary-continuation-error',
-      error: rpc.RpcError(
-        code: rpc.RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+      status: rpc.RpcStatus(
+        code: rpc.StatusCode.STATUS_CODE_INTERNAL,
         message: 'x' * 70000,
       ),
     );
@@ -380,8 +389,8 @@ void main() {
     await expectLater(
       future,
       throwsA(
-        isA<RpcError>()
-            .having((error) => error.code, 'code', -32603)
+        isA<RpcStatus>()
+            .having((error) => error.code, 'code', 13)
             .having((error) => error.message.length, 'message length', 70000),
       ),
     );

@@ -69,7 +69,7 @@ func TestDeviceControlVolumeRoundTripWritesStatus(t *testing.T) {
 			level := int(params.Level)
 			return deviceStatusResult(req.Id, rpcapi.PeerStatus{Volume: &level, Muted: &params.Muted, BatteryPercent: new(58), ReportedAt: &reportedAt})
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, device)
@@ -153,7 +153,7 @@ func TestDeviceControlOfflineAndTimeout(t *testing.T) {
 		case <-ctx.Done():
 		case <-released:
 		}
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "late"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "late"}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
 	started := time.Now()
@@ -193,7 +193,7 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 			connectRequest = params
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiConnectResponse{}, (*rpcapi.RPCPayload).FromClientWifiConnectResponse)
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, device)
@@ -232,7 +232,7 @@ func TestDeviceWifiScanAndConnect(t *testing.T) {
 		case rpcapi.RPCMethodClientWifiSavedList:
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedListResponse{Networks: []rpcapi.WifiSavedNetwork{{Ssid: "office"}}}, (*rpcapi.RPCPayload).FromClientWifiSavedListResponse)
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, replacement)
@@ -275,7 +275,7 @@ func TestDeviceWifiScanClampsExtremeTimeouts(t *testing.T) {
 			var scanRequest rpcapi.ClientWifiScanRequest
 			device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 				if req.Method != rpcapi.RPCMethodClientWifiScan {
-					return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+					return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 				}
 				params, err := req.Params.AsClientWifiScanRequest()
 				if err != nil {
@@ -318,7 +318,7 @@ func TestDeviceWifiScanRejectsInvalidDeviceResults(t *testing.T) {
 			networks := test.networks
 			device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 				if req.Method != rpcapi.RPCMethodClientWifiScan {
-					return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+					return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 				}
 				return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
 			})
@@ -348,7 +348,7 @@ func TestDeviceWifiScanAcceptsResultsAtTheBounds(t *testing.T) {
 	}
 	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		if req.Method != rpcapi.RPCMethodClientWifiScan {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientWifiScanResponse{Networks: networks}, (*rpcapi.RPCPayload).FromClientWifiScanResponse)
 	})
@@ -368,7 +368,7 @@ func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	const secret = "never-log-this-password"
 	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: secret}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: secret}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
@@ -402,21 +402,21 @@ func TestDeviceWifiConnectValidationAndRedaction(t *testing.T) {
 
 func TestDeviceControlMapsDeviceErrors(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
-	var code rpcapi.RPCErrorCode
+	var code rpcapi.StatusCode
 	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		return rpcapi.Error{RequestID: req.Id, Code: code, Message: "device says no"}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
 
 	for _, tc := range []struct {
-		code   rpcapi.RPCErrorCode
+		code   rpcapi.StatusCode
 		status int
 		public string
 	}{
-		{rpcapi.RPCErrorCodeInvalidParams, http.StatusBadRequest, deviceRejectedCode},
-		{rpcapi.RPCErrorCodeMethodNotFound, http.StatusNotImplemented, deviceUnsupportedCode},
-		{rpcapi.RPCErrorCodeInternalError, http.StatusBadGateway, deviceErrorCode},
-		{rpcapi.RPCErrorCodeForbidden, http.StatusBadGateway, deviceErrorCode},
+		{rpcapi.StatusCodeInvalidArgument, http.StatusBadRequest, deviceRejectedCode},
+		{rpcapi.StatusCodeUnimplemented, http.StatusNotImplemented, deviceUnsupportedCode},
+		{rpcapi.StatusCodeInternal, http.StatusBadGateway, deviceErrorCode},
+		{rpcapi.StatusCodePermissionDenied, http.StatusBadGateway, deviceErrorCode},
 	} {
 		code = tc.code
 		response := f.do(t, http.MethodPost, "/gizclaw/v1/device/actions/play-sound", `{"sound":"chime","duration_ms":500}`)
@@ -429,7 +429,7 @@ func TestDeviceControlMapsDeviceErrors(t *testing.T) {
 		}
 	}
 
-	code = rpcapi.RPCErrorCodeNotFound
+	code = rpcapi.StatusCodeNotFound
 	response := f.do(t, http.MethodDelete, "/gizclaw/v1/device/wifi/saved/unknown", "")
 	if response.Code != http.StatusNotFound || errorCode(t, response) != wifiNetworkNotFoundKey {
 		t.Fatalf("forget unknown status = %d body=%s", response.Code, response.Body.String())
@@ -445,19 +445,19 @@ func TestDeviceWifiRoutesMapDeviceErrors(t *testing.T) {
 	} {
 		t.Run(route.name, func(t *testing.T) {
 			f := newDeviceHTTPFixture(t)
-			var code rpcapi.RPCErrorCode
+			var code rpcapi.StatusCode
 			device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 				return rpcapi.Error{RequestID: req.Id, Code: code, Message: "secret123 device detail"}.RPCResponse(), nil
 			})
 			f.manager.SetPeerUp(f.owner, device)
 			for _, tc := range []struct {
-				code   rpcapi.RPCErrorCode
+				code   rpcapi.StatusCode
 				status int
 				public string
 			}{
-				{rpcapi.RPCErrorCodeInvalidParams, http.StatusBadRequest, deviceRejectedCode},
-				{rpcapi.RPCErrorCodeMethodNotFound, http.StatusNotImplemented, deviceUnsupportedCode},
-				{rpcapi.RPCErrorCodeInternalError, http.StatusBadGateway, deviceErrorCode},
+				{rpcapi.StatusCodeInvalidArgument, http.StatusBadRequest, deviceRejectedCode},
+				{rpcapi.StatusCodeUnimplemented, http.StatusNotImplemented, deviceUnsupportedCode},
+				{rpcapi.StatusCodeInternal, http.StatusBadGateway, deviceErrorCode},
 			} {
 				code = tc.code
 				response := f.do(t, route.method, route.path, route.body)
@@ -507,7 +507,7 @@ func TestDeviceControlSoundWifiAndRebootFlow(t *testing.T) {
 			forgetRequest = params
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedForgetResponse{}, (*rpcapi.RPCPayload).FromClientWifiSavedForgetResponse)
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	}
 	device := newFakeDeviceConn(dispatch)
@@ -632,7 +632,7 @@ func rebootingDevice(release <-chan struct{}, entered chan<- struct{}) *fakeDevi
 		case rpcapi.RPCMethodClientWifiStatusGet:
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{Value: rpcapi.WifiStatus{Connected: true}}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "unsupported"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: "unsupported"}.RPCResponse(), nil
 		}
 	})
 }
@@ -740,4 +740,48 @@ func closedChannel() chan struct{} {
 	ch := make(chan struct{})
 	close(ch)
 	return ch
+}
+
+// The projection used to name three codes, so a device could not report a
+// timeout or an offline state through the Public HTTP contract at all. Codes
+// that describe the device's own internals stay a redacted bad gateway.
+func TestMapDeviceControlErrorProjectsCanonicalStatuses(t *testing.T) {
+	tests := []struct {
+		code       rpcapi.StatusCode
+		wantStatus int
+		wantCode   string
+	}{
+		{rpcapi.StatusCodeInvalidArgument, http.StatusBadRequest, deviceRejectedCode},
+		{rpcapi.StatusCodeOutOfRange, http.StatusBadRequest, deviceRejectedCode},
+		{rpcapi.StatusCodeUnimplemented, http.StatusNotImplemented, deviceUnsupportedCode},
+		{rpcapi.StatusCodeNotFound, http.StatusNotFound, deviceResourceNotFoundKey},
+		{rpcapi.StatusCodeDeadlineExceeded, http.StatusGatewayTimeout, deviceTimeoutCode},
+		{rpcapi.StatusCodeUnavailable, http.StatusConflict, deviceOfflineCode},
+		{rpcapi.StatusCodeInternal, http.StatusBadGateway, deviceErrorCode},
+		{rpcapi.StatusCodePermissionDenied, http.StatusBadGateway, deviceErrorCode},
+		{rpcapi.StatusCodeAlreadyExists, http.StatusBadGateway, deviceErrorCode},
+		{rpcapi.StatusCodeAborted, http.StatusBadGateway, deviceErrorCode},
+		{rpcapi.StatusCodeFailedPrecondition, http.StatusBadGateway, deviceErrorCode},
+	}
+	for _, test := range tests {
+		t.Run(test.code.String(), func(t *testing.T) {
+			got := mapDeviceControlError(rpcapi.Error{Code: test.code, Message: "device said no"}, t.Context(), "")
+			if got.Status != test.wantStatus || got.Code != test.wantCode {
+				t.Fatalf("%s = (%d, %q), want (%d, %q)", test.code, got.Status, got.Code, test.wantStatus, test.wantCode)
+			}
+		})
+	}
+}
+
+// A NOT_FOUND used to be labelled WIFI_NETWORK_NOT_FOUND on every route, even
+// the ones that have nothing to do with Wi-Fi.
+func TestMapDeviceControlErrorUsesTheCallingRouteNotFoundCode(t *testing.T) {
+	generic := mapDeviceControlError(rpcapi.Error{Code: rpcapi.StatusCodeNotFound}, t.Context(), "")
+	if generic.Code != deviceResourceNotFoundKey {
+		t.Fatalf("generic not-found code = %q, want %q", generic.Code, deviceResourceNotFoundKey)
+	}
+	wifi := mapDeviceControlError(rpcapi.Error{Code: rpcapi.StatusCodeNotFound}, t.Context(), wifiNetworkNotFoundKey)
+	if wifi.Code != wifiNetworkNotFoundKey {
+		t.Fatalf("wifi not-found code = %q, want %q", wifi.Code, wifiNetworkNotFoundKey)
+	}
 }

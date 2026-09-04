@@ -744,7 +744,7 @@ func TestDownloadFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing
 		}
 		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, rpcapi.Error{
 			RequestID: req.Id,
-			Code:      rpcapi.RPCErrorCodeNotFound,
+			Code:      rpcapi.StatusCodeNotFound,
 			Message:   "not found",
 		}.RPCResponse())
 	}()
@@ -760,7 +760,7 @@ func TestDownloadFriendGroupMessageAudioReturnsTypedMissingAudioError(t *testing
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("DownloadFriendGroupMessageAudio() error = %T, want rpcapi.Error", err)
 	}
-	if rpcErr.RequestID != "friend-group-audio-missing" || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
+	if rpcErr.RequestID != "friend-group-audio-missing" || rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.Message != "not found" {
 		t.Fatalf("DownloadFriendGroupMessageAudio() rpc error = %+v", rpcErr)
 	}
 	if result != (FriendGroupMessageAudioDownloadResult{}) {

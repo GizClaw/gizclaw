@@ -54,7 +54,7 @@ type rpcServerResourceService interface {
 }
 
 type rpcRunWorkspaceSelectionValidator interface {
-	ValidateRunWorkspaceSelection(context.Context, string) (string, *rpcapi.RPCError)
+	ValidateRunWorkspaceSelection(context.Context, string) (string, *rpcapi.RPCStatus)
 }
 
 type rpcServerGenXService interface {
@@ -98,7 +98,7 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 		if err := stream.drainRequest(); err != nil {
 			return true, err
 		}
-		return true, writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeConflict, ErrPeerConnRetiring.Error())
+		return true, writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeUnavailable, ErrPeerConnRetiring.Error())
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodAllSpeedTestRun:
@@ -128,10 +128,10 @@ func (s *rpcServer) dispatchStream(ctx context.Context, stream *rpcStream, req *
 
 func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req == nil {
-		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
+		return rpcapi.Error{Code: rpcapi.StatusCodeInvalidArgument, Message: "nil request"}.RPCResponse(), nil
 	}
 	if s.isPeerRetiring != nil && s.isPeerRetiring() {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeConflict, Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Reason: "PEER_CONN_RETIRING", Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodAllPing:
@@ -188,7 +188,7 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		if isPlannedServerMethod(req.Method) {
 			return rpcNotImplemented(req.Id, req.Method), nil
 		}
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
 }
 
@@ -201,18 +201,18 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.registrations == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration service not configured"}.RPCResponse(), nil
 	}
 	registration, err := s.registrations.ResolveRegistration(ctx, params.Token)
 	if err != nil {
 		slog.WarnContext(ctx, "device registration rejected", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
 		if errors.Is(err, kv.ErrNotFound) {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeForbidden, Message: "invalid registration token"}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodePermissionDenied, Message: "invalid registration token"}.RPCResponse(), nil
 		}
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil
 	}
 	if registration.FirmwareID != nil && s.peer == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	var firmwareBindingErr error
 	err = s.registrations.BindOwnerProfileAndCommit(ctx, s.callerPublicKey.String(), registration.RuntimeProfile.Id, func() error {
@@ -233,7 +233,7 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 			message = "device firmware binding failed"
 		}
 		slog.WarnContext(ctx, message, "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "registration failed"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil
 	}
 	slog.InfoContext(ctx, "device registration accepted", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "registration_token", registration.TokenID, "runtime_profile", registration.RuntimeProfile.Id)
 	response := rpcapi.ServerRegisterResponse{RuntimeProfileName: registration.RuntimeProfile.Id}
@@ -243,7 +243,7 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 func rpcNotImplemented(id string, method rpcapi.RPCMethod) *rpcapi.RPCResponse {
 	return rpcapi.Error{
 		RequestID: id,
-		Code:      rpcapi.RPCErrorCodeMethodNotFound,
+		Code:      rpcapi.StatusCodeUnimplemented,
 		Message:   fmt.Sprintf("method not implemented: %s", method),
 	}.RPCResponse()
 }
@@ -301,14 +301,14 @@ func (s *rpcServer) handleGetInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peer == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peer.GetSelfInfo(ctx, s.callerPublicKey)
 	if err != nil {
 		if errors.Is(err, peer.ErrPeerNotFound) {
 			return rpcAPIError(req.Id, http.StatusNotFound, apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 		}
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerGetInfoResponse](resp)
 	if err != nil {
@@ -319,7 +319,7 @@ func (s *rpcServer) handleGetInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 
 func (s *rpcServer) handlePutInfo(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	params, err := req.Params.AsServerPutInfoRequest()
 	if err != nil {
@@ -330,7 +330,7 @@ func (s *rpcServer) handlePutInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 		return nil, err
 	}
 	if s.peer == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peer.PutSelfInfo(ctx, s.callerPublicKey, body)
 	if err != nil {
@@ -338,9 +338,9 @@ func (s *rpcServer) handlePutInfo(ctx context.Context, req *rpcapi.RPCRequest) (
 			return rpcAPIError(req.Id, http.StatusNotFound, apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 		}
 		if errors.Is(err, peer.ErrInvalidInfo) {
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 		}
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerPutInfoResponse](resp)
 	if err != nil {
@@ -354,7 +354,7 @@ func (s *rpcServer) handleGetRuntime(ctx context.Context, req *rpcapi.RPCRequest
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peer == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerGetRuntimeResponse](s.peer.GetSelfRuntime(ctx, s.callerPublicKey))
 	if err != nil {
@@ -368,11 +368,11 @@ func (s *rpcServer) handleGetStatus(ctx context.Context, req *rpcapi.RPCRequest)
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRun == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peerRun.GetStatus(ctx, s.callerPublicKey)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerGetStatusResponse](resp)
 	if err != nil {
@@ -386,11 +386,11 @@ func (s *rpcServer) handleGetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRun == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peerRun.GetRunAgent(ctx, s.callerPublicKey)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerGetRunAgentResponse](resp)
 	if err != nil {
@@ -401,7 +401,7 @@ func (s *rpcServer) handleGetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 
 func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	params, err := req.Params.AsServerSetRunAgentRequest()
 	if err != nil {
@@ -412,7 +412,7 @@ func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 		return nil, err
 	}
 	if s.peerRun == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
 	selection, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
 	if validationResp != nil {
@@ -420,7 +420,7 @@ func (s *rpcServer) handleSetRunAgent(ctx context.Context, req *rpcapi.RPCReques
 	}
 	resp, err := s.setRunAgent(ctx, selection)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerSetRunAgentResponse](resp)
 	if err != nil {
@@ -446,7 +446,7 @@ func (s *rpcServer) handleGetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 
 func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	params, err := req.Params.AsServerSetRunWorkspaceRequest()
 	if err != nil {
@@ -457,7 +457,7 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 		return nil, err
 	}
 	if s.peerRun == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
 	}
 	selection, validationResp := s.validateRunWorkspaceSelection(ctx, req.Id, selection)
 	if validationResp != nil {
@@ -465,7 +465,7 @@ func (s *rpcServer) handleSetRunWorkspace(ctx context.Context, req *rpcapi.RPCRe
 	}
 	agent, err := s.setRunAgent(ctx, selection)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	state, resp := s.runWorkspaceState(ctx, req.Id, &agent, nil)
 	if resp != nil {
@@ -488,14 +488,14 @@ func (s *rpcServer) setRunAgent(ctx context.Context, selection apitypes.AgentSel
 func (s *rpcServer) validateRunWorkspaceSelection(ctx context.Context, requestID string, selection apitypes.AgentSelection) (apitypes.AgentSelection, *rpcapi.RPCResponse) {
 	workspaceName := strings.TrimSpace(selection.WorkspaceName)
 	if workspaceName == "" {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeBadRequest, Message: "peerrun: workspace_name is required"}.RPCResponse()
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: "peerrun: workspace_name is required"}.RPCResponse()
 	}
 	if workspaceName != selection.WorkspaceName {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeBadRequest, Message: "peerrun: workspace_name must not have surrounding whitespace"}.RPCResponse()
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: "peerrun: workspace_name must not have surrounding whitespace"}.RPCResponse()
 	}
 	validator, ok := s.serverResources.(rpcRunWorkspaceSelectionValidator)
 	if !ok {
-		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeInternalError, Message: "run workspace selection validator not configured"}.RPCResponse()
+		return apitypes.AgentSelection{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "run workspace selection validator not configured"}.RPCResponse()
 	}
 	canonicalName, rpcErr := validator.ValidateRunWorkspaceSelection(ctx, selection.WorkspaceName)
 	if rpcErr != nil {
@@ -510,11 +510,11 @@ func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RP
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	status, err := s.peerRunRuntime.Reload(ctx)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	state, resp := s.runWorkspaceState(ctx, req.Id, nil, &status)
 	if resp != nil {
@@ -536,7 +536,7 @@ func (s *rpcServer) handleListRunWorkspaceHistory(ctx context.Context, req *rpca
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	request, err := convertRPCType[apitypes.PeerRunHistoryListRequest](params)
 	if err != nil {
@@ -544,7 +544,7 @@ func (s *rpcServer) handleListRunWorkspaceHistory(ctx context.Context, req *rpca
 	}
 	resp, err := s.peerRunRuntime.ListWorkspaceHistory(ctx, request)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerListRunWorkspaceHistoryResponse](resp)
 	if err != nil {
@@ -555,14 +555,14 @@ func (s *rpcServer) handleListRunWorkspaceHistory(ctx context.Context, req *rpca
 
 func (s *rpcServer) handlePlayRunWorkspaceHistory(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	params, err := req.Params.AsServerPlayRunWorkspaceHistoryRequest()
 	if err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	request, err := convertRPCType[apitypes.PeerRunHistoryPlayRequest](params)
 	if err != nil {
@@ -570,7 +570,7 @@ func (s *rpcServer) handlePlayRunWorkspaceHistory(ctx context.Context, req *rpca
 	}
 	resp, err := s.peerRunRuntime.PlayWorkspaceHistory(ctx, request)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerPlayRunWorkspaceHistoryResponse](resp)
 	if err != nil {
@@ -588,7 +588,7 @@ func (s *rpcServer) handleGetRunWorkspaceMemoryStats(ctx context.Context, req *r
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	request, err := convertRPCType[apitypes.PeerRunMemoryStatsRequest](params)
 	if err != nil {
@@ -596,7 +596,7 @@ func (s *rpcServer) handleGetRunWorkspaceMemoryStats(ctx context.Context, req *r
 	}
 	resp, err := s.peerRunRuntime.WorkspaceMemoryStats(ctx, request)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerGetRunWorkspaceMemoryStatsResponse](resp)
 	if err != nil {
@@ -607,14 +607,14 @@ func (s *rpcServer) handleGetRunWorkspaceMemoryStats(ctx context.Context, req *r
 
 func (s *rpcServer) handleRunWorkspaceRecall(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	params, err := req.Params.AsServerRunWorkspaceRecallRequest()
 	if err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	request, err := convertRPCType[apitypes.PeerRunRecallRequest](params)
 	if err != nil {
@@ -622,7 +622,7 @@ func (s *rpcServer) handleRunWorkspaceRecall(ctx context.Context, req *rpcapi.RP
 	}
 	resp, err := s.peerRunRuntime.WorkspaceRecall(ctx, request)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerRunWorkspaceRecallResponse](resp)
 	if err != nil {
@@ -633,12 +633,12 @@ func (s *rpcServer) handleRunWorkspaceRecall(ctx context.Context, req *rpcapi.RP
 
 func (s *rpcServer) runWorkspaceState(ctx context.Context, requestID string, agent *apitypes.PeerRunAgent, status *apitypes.PeerRunStatus) (apitypes.PeerRunWorkspaceState, *rpcapi.RPCResponse) {
 	if s.peerRun == nil {
-		return apitypes.PeerRunWorkspaceState{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run service not configured"}.RPCResponse()
+		return apitypes.PeerRunWorkspaceState{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse()
 	}
 	if agent == nil {
 		got, err := s.peerRun.GetRunAgent(ctx, s.callerPublicKey)
 		if err != nil {
-			return apitypes.PeerRunWorkspaceState{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse()
+			return apitypes.PeerRunWorkspaceState{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 		}
 		agent = &got
 	}
@@ -649,7 +649,7 @@ func (s *rpcServer) runWorkspaceState(ctx context.Context, requestID string, age
 			if errors.Is(err, peerrun.ErrRunAgentNotConfigured) {
 				state = apitypes.PeerRunWorkspaceState{RuntimeState: apitypes.PeerRunStatusStateStopped}
 			} else {
-				return apitypes.PeerRunWorkspaceState{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse()
+				return apitypes.PeerRunWorkspaceState{}, rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 			}
 		} else {
 			state = runtimeState
@@ -721,11 +721,11 @@ func (s *rpcServer) handleReloadRun(ctx context.Context, req *rpcapi.RPCRequest)
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peerRunRuntime.Reload(ctx)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerReloadRunResponse](resp)
 	if err != nil {
@@ -742,11 +742,11 @@ func (s *rpcServer) handleGetRunStatus(ctx context.Context, req *rpcapi.RPCReque
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peerRunRuntime.Status(ctx)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerGetRunStatusResponse](resp)
 	if err != nil {
@@ -760,11 +760,11 @@ func (s *rpcServer) handleStopRun(ctx context.Context, req *rpcapi.RPCRequest) (
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.peerRunRuntime == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peer run runtime not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.peerRunRuntime.Stop(ctx)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 	}
 	result, err := convertRPCType[rpcapi.ServerStopRunResponse](resp)
 	if err != nil {
@@ -775,14 +775,14 @@ func (s *rpcServer) handleStopRun(ctx context.Context, req *rpcapi.RPCRequest) (
 
 func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req.Params == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: "missing params"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "missing params"}.RPCResponse(), nil
 	}
 	params, err := req.Params.AsServerRunSayRequest()
 	if err != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
 	if s.serverGenX == nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: "peergenx service not configured"}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peergenx service not configured"}.RPCResponse(), nil
 	}
 	resp, err := s.serverGenX.Say(ctx, peergenx.SayRequest{
 		Text:       params.Text,
@@ -791,13 +791,13 @@ func (s *rpcServer) handleServerRunSay(ctx context.Context, req *rpcapi.RPCReque
 	if err != nil {
 		switch {
 		case errors.Is(err, peergenx.ErrDenied):
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeForbidden, Message: err.Error()}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodePermissionDenied, Message: err.Error()}.RPCResponse(), nil
 		case errors.Is(err, peergenx.ErrInvalid):
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 		case errors.Is(err, peergenx.ErrNotConfigured):
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse(), nil
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeBadRequest, Message: err.Error()}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
 		}
 	}
 	result := rpcapi.ServerRunSayResponse{Accepted: resp.Accepted}

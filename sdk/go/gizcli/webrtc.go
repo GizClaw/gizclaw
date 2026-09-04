@@ -289,7 +289,7 @@ func readWebRTCPeerStreamEvent(r io.Reader) (*eventpb.PeerEvent, error) {
 func (r *ClientWebRTCRegistration) handleRPCDataChannelMessage(dc *webrtc.DataChannel, msg webrtc.DataChannelMessage) {
 	req, err := readWebRTCRPCDataChannelRequest(msg.Data)
 	if err != nil {
-		r.sendRPCDataChannelResponse(dc, "", rpcapi.Error{Code: rpcapi.RPCErrorCode(-32700), Message: fmt.Sprintf("invalid rpc protobuf: %v", err)}.RPCResponse())
+		r.sendRPCDataChannelResponse(dc, "", rpcapi.Error{Code: rpcapi.StatusCodeInvalidArgument, Message: fmt.Sprintf("invalid rpc protobuf: %v", err)}.RPCResponse())
 		return
 	}
 
@@ -298,7 +298,7 @@ func (r *ClientWebRTCRegistration) handleRPCDataChannelMessage(dc *webrtc.DataCh
 
 	resp, err := r.client.callRPCRequest(ctx, req)
 	if err != nil {
-		resp = rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCode(-32000), Message: err.Error()}.RPCResponse()
+		resp = rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse()
 	}
 	r.sendRPCDataChannelResponse(dc, req.Method, resp)
 }

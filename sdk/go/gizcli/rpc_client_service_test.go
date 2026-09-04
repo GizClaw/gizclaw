@@ -129,7 +129,7 @@ func TestRPCClientHandleToolInvoke(t *testing.T) {
 	}
 
 	resp, err = (&rpcClient{peer: &Client{}}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "invoke", Method: rpcapi.RPCMethodClientToolInvoke, Params: &params})
-	if err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound {
+	if err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("dispatch(no handler) = %#v, %v", resp, err)
 	}
 }
@@ -179,7 +179,7 @@ func TestRPCClientToolHandlerErrorsAreBounded(t *testing.T) {
 				t.Fatal(err)
 			}
 			response := dispatchClientTool(t, client, "volume_set", map[string]any{"level": 3})
-			if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError ||
+			if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal ||
 				strings.Contains(response.Error.Message, "secret") {
 				t.Fatalf("dispatch() response = %#v", response)
 			}

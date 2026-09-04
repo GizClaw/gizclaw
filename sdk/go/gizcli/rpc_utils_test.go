@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
@@ -254,5 +256,34 @@ func assertRPCPingRequestHasTimestamp(t *testing.T, req *rpcapi.RPCRequest) {
 	}
 	if params.ClientSendTime <= 0 {
 		t.Fatalf("ping request client_send_time = %d", params.ClientSendTime)
+	}
+}
+
+// rpcAPIError starts from an HTTP status and used to cast it straight into the
+// code field, which put a value outside the canonical set on the wire.
+func TestRPCAPIErrorMapsHTTPStatusToCanonicalCode(t *testing.T) {
+	for _, test := range []struct {
+		status int
+		want   rpcapi.StatusCode
+	}{
+		{http.StatusNotFound, rpcapi.StatusCodeNotFound},
+		{http.StatusForbidden, rpcapi.StatusCodePermissionDenied},
+		{http.StatusBadRequest, rpcapi.StatusCodeInvalidArgument},
+		{http.StatusUnauthorized, rpcapi.StatusCodeUnauthenticated},
+		{http.StatusConflict, rpcapi.StatusCodeAborted},
+		{http.StatusInternalServerError, rpcapi.StatusCodeInternal},
+	} {
+		t.Run(http.StatusText(test.status), func(t *testing.T) {
+			response := rpcAPIError("req-1", test.status, apitypes.ErrorResponse{})
+			if response.Error == nil {
+				t.Fatalf("rpcAPIError(%d) = %#v, want a status", test.status, response)
+			}
+			if response.Error.Code != test.want {
+				t.Fatalf("rpcAPIError(%d) code = %s, want %s", test.status, response.Error.Code, test.want)
+			}
+			if !response.Error.Code.Valid() {
+				t.Fatalf("rpcAPIError(%d) produced a code outside the canonical set", test.status)
+			}
+		})
 	}
 }

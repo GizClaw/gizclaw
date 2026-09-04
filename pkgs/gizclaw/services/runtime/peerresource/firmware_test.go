@@ -87,7 +87,7 @@ func TestFirmwareGetRejectsInvalidChannel(t *testing.T) {
 		"retired 4":   firmwareRawChannelRPCRequest(t, "firmware-get", rpcpb.FirmwareChannelName(4)),
 	} {
 		response := server.handleFirmwareGet(context.Background(), request)
-		if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 			t.Fatalf("%s response = %#v, want invalid params", name, response)
 		}
 	}
@@ -102,7 +102,7 @@ func TestFirmwareGetRejectsUnboundCaller(t *testing.T) {
 	}
 	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameStable})
 	response := server.handleFirmwareGet(context.Background(), request)
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != errFirmwareNotBound.Error() {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Error.Message != errFirmwareNotBound.Error() {
 		t.Fatalf("response = %#v, want unbound not found", response)
 	}
 }
@@ -120,7 +120,7 @@ func TestFirmwareGetRejectsEmptyChannelPackage(t *testing.T) {
 	}
 	request := firmwareRPCRequest(t, "firmware-get", rpcapi.FirmwareGetRequest{Channel: rpcapi.FirmwareChannelNameDevelop})
 	response := server.handleFirmwareGet(context.Background(), request)
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != errFirmwarePackageNotFound.Error() {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Error.Message != errFirmwarePackageNotFound.Error() {
 		t.Fatalf("response = %#v, want package not found", response)
 	}
 }
@@ -130,7 +130,7 @@ func TestFirmwareGetMapsLookupFailuresToStableErrors(t *testing.T) {
 	tests := []struct {
 		name        string
 		lookup      firmwarePeerServiceFunc
-		wantCode    rpcapi.RPCErrorCode
+		wantCode    rpcapi.StatusCode
 		wantMessage string
 	}{
 		{
@@ -138,7 +138,7 @@ func TestFirmwareGetMapsLookupFailuresToStableErrors(t *testing.T) {
 			lookup: func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
 				return adminhttp.GetFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", "internal id")), nil
 			},
-			wantCode:    rpcapi.RPCErrorCodeNotFound,
+			wantCode:    rpcapi.StatusCodeNotFound,
 			wantMessage: "firmware not found",
 		},
 		{
@@ -146,7 +146,7 @@ func TestFirmwareGetMapsLookupFailuresToStableErrors(t *testing.T) {
 			lookup: func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
 				return adminhttp.GetFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "secret storage error")), nil
 			},
-			wantCode:    rpcapi.RPCErrorCodeInternalError,
+			wantCode:    rpcapi.StatusCodeInternal,
 			wantMessage: "firmware lookup unavailable",
 		},
 		{
@@ -154,7 +154,7 @@ func TestFirmwareGetMapsLookupFailuresToStableErrors(t *testing.T) {
 			lookup: func(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
 				return nil, errors.New("secret transport error")
 			},
-			wantCode:    rpcapi.RPCErrorCodeInternalError,
+			wantCode:    rpcapi.StatusCodeInternal,
 			wantMessage: "firmware lookup unavailable",
 		},
 	}

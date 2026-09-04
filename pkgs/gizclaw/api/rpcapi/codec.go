@@ -423,10 +423,7 @@ func EncodeRPCResponse(resp *RPCResponse) (*rpcpb.RpcResponse, error) {
 	msg := &rpcpb.RpcResponse{Id: resp.Id}
 	switch {
 	case resp.Error != nil:
-		msg.Body = &rpcpb.RpcResponse_Error{Error: &rpcpb.RpcError{
-			Code:    rpcpb.RpcErrorCode(resp.Error.Code),
-			Message: resp.Error.Message,
-		}}
+		msg.Body = &rpcpb.RpcResponse_Status{Status: encodeRPCStatus(resp.Error)}
 	case resp.Result != nil:
 		return nil, fmt.Errorf("rpc: response result requires method-specific encoding")
 	}
@@ -442,10 +439,7 @@ func EncodeRPCResponseForMethod(method RPCMethod, resp *RPCResponse) (*rpcpb.Rpc
 	msg := &rpcpb.RpcResponse{Id: resp.Id}
 	switch {
 	case resp.Error != nil:
-		msg.Body = &rpcpb.RpcResponse_Error{Error: &rpcpb.RpcError{
-			Code:    rpcpb.RpcErrorCode(resp.Error.Code),
-			Message: resp.Error.Message,
-		}}
+		msg.Body = &rpcpb.RpcResponse_Status{Status: encodeRPCStatus(resp.Error)}
 	case resp.Result != nil:
 		payload, err := encodeRPCResponsePayload(method, resp.Result)
 		if err != nil {
@@ -465,11 +459,8 @@ func DecodeRPCResponse(msg *rpcpb.RpcResponse) (*RPCResponse, error) {
 		V:  RPCVersionV1,
 		Id: msg.GetId(),
 	}
-	if rpcErr := msg.GetError(); rpcErr != nil {
-		resp.Error = &RPCError{
-			Code:    RPCErrorCode(rpcErr.GetCode()),
-			Message: rpcErr.GetMessage(),
-		}
+	if status := msg.GetStatus(); status != nil {
+		resp.Error = decodeRPCStatus(status)
 		return resp, nil
 	}
 	if _, ok := msg.GetBody().(*rpcpb.RpcResponse_Payload); ok {
@@ -496,11 +487,8 @@ func DecodeRPCResponseForMethod(method RPCMethod, msg *rpcpb.RpcResponse) (*RPCR
 		V:  RPCVersionV1,
 		Id: msg.GetId(),
 	}
-	if rpcErr := msg.GetError(); rpcErr != nil {
-		resp.Error = &RPCError{
-			Code:    RPCErrorCode(rpcErr.GetCode()),
-			Message: rpcErr.GetMessage(),
-		}
+	if status := msg.GetStatus(); status != nil {
+		resp.Error = decodeRPCStatus(status)
 		return resp, nil
 	}
 	if _, ok := msg.GetBody().(*rpcpb.RpcResponse_Payload); ok {
@@ -527,18 +515,55 @@ func writeFull(w io.Writer, data []byte) error {
 	return nil
 }
 
+// ErrorDomain namespaces the Reason values GizClaw itself produces, following
+// the google.rpc.ErrorInfo convention.
+const ErrorDomain = "gizclaw.rpc.v1"
+
+// encodeRPCStatus converts the public status into its protobuf envelope. Info
+// is only sent when a reason is set, so an unclassified failure stays a bare
+// code and message.
+func encodeRPCStatus(status *RPCStatus) *rpcpb.RpcStatus {
+	if status == nil {
+		return nil
+	}
+	msg := &rpcpb.RpcStatus{
+		Code:    rpcpb.StatusCode(status.Code),
+		Message: status.Message,
+	}
+	if status.Reason != "" {
+		msg.Info = &rpcpb.ErrorInfo{Reason: status.Reason, Domain: ErrorDomain}
+	}
+	return msg
+}
+
+// decodeRPCStatus converts a protobuf status envelope into the public status.
+func decodeRPCStatus(msg *rpcpb.RpcStatus) *RPCStatus {
+	if msg == nil {
+		return nil
+	}
+	return &RPCStatus{
+		Code:    StatusCode(msg.GetCode()),
+		Message: msg.GetMessage(),
+		Reason:  msg.GetInfo().GetReason(),
+	}
+}
+
 // Error is a structured RPC error that can be returned as a Go error or encoded
 // into an RPC response envelope.
 type Error struct {
 	RequestID string
-	Code      RPCErrorCode
+	Code      StatusCode
 	Message   string
+	Reason    string
 }
 
 // Error returns the RPC error message.
 func (e Error) Error() string {
 	if e.Message == "" {
-		return fmt.Sprintf("rpc error %d", e.Code)
+		if e.Code.Valid() {
+			return fmt.Sprintf("rpc error %s", e.Code)
+		}
+		return fmt.Sprintf("rpc error %d", int(e.Code))
 	}
 	return e.Message
 }
@@ -552,9 +577,10 @@ func (e Error) RPCResponse() *RPCResponse {
 	return &RPCResponse{
 		V:  RPCVersionV1,
 		Id: e.RequestID,
-		Error: &RPCError{
+		Error: &RPCStatus{
 			Code:    e.Code,
 			Message: message,
+			Reason:  e.Reason,
 		},
 	}
 }

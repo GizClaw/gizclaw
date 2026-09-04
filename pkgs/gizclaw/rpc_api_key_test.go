@@ -33,7 +33,7 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.
 	))
 
 	response, err := server.dispatch(context.Background(), request)
-	if err != nil || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeForbidden {
+	if err != nil || response.Error == nil || response.Error.Code != rpcapi.StatusCodePermissionDenied {
 		t.Fatalf("unregistered dispatch = %#v, %v", response, err)
 	}
 	if err := profiles.BindOwnerProfile(t.Context(), keyPair.Public.String(), "profile-api-key"); err != nil {
@@ -42,10 +42,10 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.
 	for _, tc := range []struct {
 		name string
 		err  error
-		code rpcapi.RPCErrorCode
+		code rpcapi.StatusCode
 	}{
-		{name: "non-client", err: errAPIKeyOwnerUnavailable, code: rpcapi.RPCErrorCodeForbidden},
-		{name: "pending deletion", err: peer.ErrPeerPendingDeletion, code: rpcapi.RPCErrorCodeConflict},
+		{name: "non-client", err: errAPIKeyOwnerUnavailable, code: rpcapi.StatusCodePermissionDenied},
+		{name: "pending deletion", err: peer.ErrPeerPendingDeletion, code: rpcapi.StatusCodeFailedPrecondition},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server.validateAPIKeyOwner = func(context.Context, giznet.PublicKey) error { return tc.err }
@@ -58,7 +58,7 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.
 	server.validateAPIKeyOwner = func(context.Context, giznet.PublicKey) error { return nil }
 	server.apiKeys = apikey.NewServer(&failingGetStore{Store: kv.NewMemory(nil), err: errors.New("sensitive store detail")})
 	response, err = server.dispatch(context.Background(), request)
-	if err != nil || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError || strings.Contains(response.Error.Message, "sensitive") {
+	if err != nil || response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || strings.Contains(response.Error.Message, "sensitive") {
 		t.Fatalf("store failure dispatch = %#v, %v", response, err)
 	}
 	server.apiKeys = apikey.NewServer(kv.NewMemory(nil))
@@ -111,7 +111,7 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.
 		rpcapi.APIKeyListRequest{Cursor: "not-a-key"}, (*rpcapi.RPCPayload).FromAPIKeyListRequest,
 	))
 	invalidResponse, err := server.dispatch(t.Context(), invalidList)
-	if err != nil || invalidResponse.Error == nil || invalidResponse.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if err != nil || invalidResponse.Error == nil || invalidResponse.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("invalid list dispatch = %#v, %v", invalidResponse, err)
 	}
 	foreignPair, err := giznet.GenerateKeyPair()
@@ -126,7 +126,7 @@ func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.
 		rpcapi.APIKeyRevokeRequest{Name: foreign.Key.Name}, (*rpcapi.RPCPayload).FromAPIKeyRevokeRequest,
 	))
 	foreignResponse, err := server.dispatch(t.Context(), foreignRevoke)
-	if err != nil || foreignResponse.Error == nil || foreignResponse.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if err != nil || foreignResponse.Error == nil || foreignResponse.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("foreign revoke dispatch = %#v, %v", foreignResponse, err)
 	}
 

@@ -120,7 +120,7 @@ func TestFriendGroupMessageAudioRejectsMissingHistoryAudio(t *testing.T) {
 	history.entry.Assets = nil
 
 	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioDownload(t.Context(), rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: groupID, HistoryName: "history-1"})
-	if err != nil || reader != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
+	if err != nil || reader != nil || rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.Message != "not found" {
 		t.Fatalf("PrepareFriendGroupMessageAudioDownload(missing audio) = metadata=%#v reader=%v rpcErr=%#v error=%v", metadata, reader, rpcErr, err)
 	}
 }
@@ -144,7 +144,7 @@ func TestFriendGroupMessagesRejectNonMemberBeforeHistoryRead(t *testing.T) {
 	server.Caller = other.Public
 	request := friendGroupHistoryRPCRequest(t, "denied", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	response, handled, err := server.Dispatch(t.Context(), request)
-	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("Dispatch(non-member) = response=%#v handled=%v error=%v", response, handled, err)
 	}
 	if history.listPageCalls != 0 || history.getCalls != 0 {
@@ -161,18 +161,18 @@ func TestFriendGroupMessagesRejectRemovedMemberAcrossReadMethods(t *testing.T) {
 
 	listRequest := friendGroupHistoryRPCRequest(t, "removed-list", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	listResponse, handled, err := server.Dispatch(t.Context(), listRequest)
-	if err != nil || !handled || listResponse.Error == nil || listResponse.Error.Code != rpcapi.RPCErrorCodeNotFound || listResponse.Error.Message != "not found" {
+	if err != nil || !handled || listResponse.Error == nil || listResponse.Error.Code != rpcapi.StatusCodeNotFound || listResponse.Error.Message != "not found" {
 		t.Fatalf("Dispatch(removed list) = response=%#v handled=%v error=%v", listResponse, handled, err)
 	}
 
 	getRequest := friendGroupHistoryRPCRequest(t, "removed-get", rpcapi.RPCMethodServerFriendGroupMessagesGet, rpcapi.FriendGroupMessageGetRequest{FriendGroupName: groupID, HistoryName: "history-1"}, (*rpcapi.RPCPayload).FromFriendGroupMessageGetRequest)
 	getResponse, handled, err := server.Dispatch(t.Context(), getRequest)
-	if err != nil || !handled || getResponse.Error == nil || getResponse.Error.Code != rpcapi.RPCErrorCodeNotFound || getResponse.Error.Message != "not found" {
+	if err != nil || !handled || getResponse.Error == nil || getResponse.Error.Code != rpcapi.StatusCodeNotFound || getResponse.Error.Message != "not found" {
 		t.Fatalf("Dispatch(removed get) = response=%#v handled=%v error=%v", getResponse, handled, err)
 	}
 
 	metadata, reader, rpcErr, err := server.PrepareFriendGroupMessageAudioDownload(t.Context(), rpcapi.FriendGroupMessageAudioDownloadRequest{FriendGroupName: groupID, HistoryName: "history-1"})
-	if err != nil || reader != nil || rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
+	if err != nil || reader != nil || rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.Message != "not found" {
 		t.Fatalf("PrepareFriendGroupMessageAudioDownload(removed) = metadata=%#v reader=%v rpcErr=%#v error=%v", metadata, reader, rpcErr, err)
 	}
 	if history.listPageCalls != 0 || history.getCalls != 0 {
@@ -188,7 +188,7 @@ func TestFriendGroupMessagesRejectDeletedGroupBeforeHistoryRead(t *testing.T) {
 
 	request := friendGroupHistoryRPCRequest(t, "deleted", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	response, handled, err := server.Dispatch(t.Context(), request)
-	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != "not found" {
+	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Error.Message != "not found" {
 		t.Fatalf("Dispatch(deleted) = response=%#v handled=%v error=%v", response, handled, err)
 	}
 	if history.listPageCalls != 0 || history.getCalls != 0 {
@@ -215,7 +215,7 @@ func TestFriendGroupMessagesRejectPendingDeletionBeforeHistoryRead(t *testing.T)
 
 	request := friendGroupHistoryRPCRequest(t, "retiring", rpcapi.RPCMethodServerFriendGroupMessagesList, rpcapi.FriendGroupMessageListRequest{FriendGroupName: groupID}, (*rpcapi.RPCPayload).FromFriendGroupMessageListRequest)
 	response, handled, err := server.Dispatch(t.Context(), request)
-	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Error.Message != "not found" {
+	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Error.Message != "not found" {
 		t.Fatalf("Dispatch(retiring) = response=%#v handled=%v error=%v", response, handled, err)
 	}
 	if history.listPageCalls != 0 || history.getCalls != 0 {

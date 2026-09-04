@@ -14,46 +14,69 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-class RpcErrorCode extends $pb.ProtobufEnum {
-  static const RpcErrorCode RPC_ERROR_CODE_UNSPECIFIED =
-      RpcErrorCode._(0, _omitEnumNames ? '' : 'RPC_ERROR_CODE_UNSPECIFIED');
-  static const RpcErrorCode RPC_ERROR_CODE_PARSE_ERROR = RpcErrorCode._(
-      -32700, _omitEnumNames ? '' : 'RPC_ERROR_CODE_PARSE_ERROR');
-  static const RpcErrorCode RPC_ERROR_CODE_INVALID_REQUEST = RpcErrorCode._(
-      -32600, _omitEnumNames ? '' : 'RPC_ERROR_CODE_INVALID_REQUEST');
-  static const RpcErrorCode RPC_ERROR_CODE_METHOD_NOT_FOUND = RpcErrorCode._(
-      -32601, _omitEnumNames ? '' : 'RPC_ERROR_CODE_METHOD_NOT_FOUND');
-  static const RpcErrorCode RPC_ERROR_CODE_INVALID_PARAMS = RpcErrorCode._(
-      -32602, _omitEnumNames ? '' : 'RPC_ERROR_CODE_INVALID_PARAMS');
-  static const RpcErrorCode RPC_ERROR_CODE_INTERNAL_ERROR = RpcErrorCode._(
-      -32603, _omitEnumNames ? '' : 'RPC_ERROR_CODE_INTERNAL_ERROR');
-  static const RpcErrorCode RPC_ERROR_CODE_BAD_REQUEST =
-      RpcErrorCode._(400, _omitEnumNames ? '' : 'RPC_ERROR_CODE_BAD_REQUEST');
-  static const RpcErrorCode RPC_ERROR_CODE_FORBIDDEN =
-      RpcErrorCode._(403, _omitEnumNames ? '' : 'RPC_ERROR_CODE_FORBIDDEN');
-  static const RpcErrorCode RPC_ERROR_CODE_NOT_FOUND =
-      RpcErrorCode._(404, _omitEnumNames ? '' : 'RPC_ERROR_CODE_NOT_FOUND');
-  static const RpcErrorCode RPC_ERROR_CODE_CONFLICT =
-      RpcErrorCode._(409, _omitEnumNames ? '' : 'RPC_ERROR_CODE_CONFLICT');
+/// StatusCode is the canonical gRPC status code set (google.rpc.Code).
+class StatusCode extends $pb.ProtobufEnum {
+  static const StatusCode STATUS_CODE_OK =
+      StatusCode._(0, _omitEnumNames ? '' : 'STATUS_CODE_OK');
+  static const StatusCode STATUS_CODE_CANCELLED =
+      StatusCode._(1, _omitEnumNames ? '' : 'STATUS_CODE_CANCELLED');
+  static const StatusCode STATUS_CODE_UNKNOWN =
+      StatusCode._(2, _omitEnumNames ? '' : 'STATUS_CODE_UNKNOWN');
+  static const StatusCode STATUS_CODE_INVALID_ARGUMENT =
+      StatusCode._(3, _omitEnumNames ? '' : 'STATUS_CODE_INVALID_ARGUMENT');
+  static const StatusCode STATUS_CODE_DEADLINE_EXCEEDED =
+      StatusCode._(4, _omitEnumNames ? '' : 'STATUS_CODE_DEADLINE_EXCEEDED');
+  static const StatusCode STATUS_CODE_NOT_FOUND =
+      StatusCode._(5, _omitEnumNames ? '' : 'STATUS_CODE_NOT_FOUND');
+  static const StatusCode STATUS_CODE_ALREADY_EXISTS =
+      StatusCode._(6, _omitEnumNames ? '' : 'STATUS_CODE_ALREADY_EXISTS');
+  static const StatusCode STATUS_CODE_PERMISSION_DENIED =
+      StatusCode._(7, _omitEnumNames ? '' : 'STATUS_CODE_PERMISSION_DENIED');
+  static const StatusCode STATUS_CODE_RESOURCE_EXHAUSTED =
+      StatusCode._(8, _omitEnumNames ? '' : 'STATUS_CODE_RESOURCE_EXHAUSTED');
+  static const StatusCode STATUS_CODE_FAILED_PRECONDITION =
+      StatusCode._(9, _omitEnumNames ? '' : 'STATUS_CODE_FAILED_PRECONDITION');
+  static const StatusCode STATUS_CODE_ABORTED =
+      StatusCode._(10, _omitEnumNames ? '' : 'STATUS_CODE_ABORTED');
+  static const StatusCode STATUS_CODE_OUT_OF_RANGE =
+      StatusCode._(11, _omitEnumNames ? '' : 'STATUS_CODE_OUT_OF_RANGE');
+  static const StatusCode STATUS_CODE_UNIMPLEMENTED =
+      StatusCode._(12, _omitEnumNames ? '' : 'STATUS_CODE_UNIMPLEMENTED');
+  static const StatusCode STATUS_CODE_INTERNAL =
+      StatusCode._(13, _omitEnumNames ? '' : 'STATUS_CODE_INTERNAL');
+  static const StatusCode STATUS_CODE_UNAVAILABLE =
+      StatusCode._(14, _omitEnumNames ? '' : 'STATUS_CODE_UNAVAILABLE');
+  static const StatusCode STATUS_CODE_DATA_LOSS =
+      StatusCode._(15, _omitEnumNames ? '' : 'STATUS_CODE_DATA_LOSS');
+  static const StatusCode STATUS_CODE_UNAUTHENTICATED =
+      StatusCode._(16, _omitEnumNames ? '' : 'STATUS_CODE_UNAUTHENTICATED');
 
-  static const $core.List<RpcErrorCode> values = <RpcErrorCode>[
-    RPC_ERROR_CODE_UNSPECIFIED,
-    RPC_ERROR_CODE_PARSE_ERROR,
-    RPC_ERROR_CODE_INVALID_REQUEST,
-    RPC_ERROR_CODE_METHOD_NOT_FOUND,
-    RPC_ERROR_CODE_INVALID_PARAMS,
-    RPC_ERROR_CODE_INTERNAL_ERROR,
-    RPC_ERROR_CODE_BAD_REQUEST,
-    RPC_ERROR_CODE_FORBIDDEN,
-    RPC_ERROR_CODE_NOT_FOUND,
-    RPC_ERROR_CODE_CONFLICT,
+  static const $core.List<StatusCode> values = <StatusCode>[
+    STATUS_CODE_OK,
+    STATUS_CODE_CANCELLED,
+    STATUS_CODE_UNKNOWN,
+    STATUS_CODE_INVALID_ARGUMENT,
+    STATUS_CODE_DEADLINE_EXCEEDED,
+    STATUS_CODE_NOT_FOUND,
+    STATUS_CODE_ALREADY_EXISTS,
+    STATUS_CODE_PERMISSION_DENIED,
+    STATUS_CODE_RESOURCE_EXHAUSTED,
+    STATUS_CODE_FAILED_PRECONDITION,
+    STATUS_CODE_ABORTED,
+    STATUS_CODE_OUT_OF_RANGE,
+    STATUS_CODE_UNIMPLEMENTED,
+    STATUS_CODE_INTERNAL,
+    STATUS_CODE_UNAVAILABLE,
+    STATUS_CODE_DATA_LOSS,
+    STATUS_CODE_UNAUTHENTICATED,
   ];
 
-  static final $core.Map<$core.int, RpcErrorCode> _byValue =
-      $pb.ProtobufEnum.initByValue(values);
-  static RpcErrorCode? valueOf($core.int value) => _byValue[value];
+  static final $core.List<StatusCode?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 16);
+  static StatusCode? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
 
-  const RpcErrorCode._(super.value, super.name);
+  const StatusCode._(super.value, super.name);
 }
 
 class RpcMethod extends $pb.ProtobufEnum {

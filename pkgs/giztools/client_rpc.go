@@ -117,7 +117,7 @@ func (ClientRPCExecutor) Invoke(
 		return nil, errors.New("giztools: client Tool response ID mismatch")
 	}
 	if response.Error != nil {
-		if response.Error.Code == rpcapi.RPCErrorCodeMethodNotFound {
+		if response.Error.Code == rpcapi.StatusCodeUnimplemented {
 			return nil, ErrClientToolUnavailable
 		}
 		return nil, fmt.Errorf("giztools: client Tool RPC failed with code %d", response.Error.Code)

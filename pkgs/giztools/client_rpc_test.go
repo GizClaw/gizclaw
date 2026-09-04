@@ -48,8 +48,8 @@ func TestClientRPCExecutorUnavailableIsStableAndNotRetried(t *testing.T) {
 			dialer: newClientRPCDialer(t, func(request *rpcapi.RPCRequest) *rpcapi.RPCResponse {
 				return &rpcapi.RPCResponse{
 					V: rpcapi.RPCVersionV1, Id: request.Id,
-					Error: &rpcapi.RPCError{
-						Code: rpcapi.RPCErrorCodeMethodNotFound, Message: "private detail",
+					Error: &rpcapi.RPCStatus{
+						Code: rpcapi.StatusCodeUnimplemented, Message: "private detail",
 					},
 				}
 			}),

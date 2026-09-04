@@ -125,7 +125,7 @@ func invokeUnary(ctx context.Context, client *gizcli.Client, step giztest.Step, 
 	if err := rpcapi.ReadEOS(stream); err != nil {
 		return nil, err
 	}
-	if rpcErr := response.GetError(); rpcErr != nil {
+	if rpcErr := response.GetStatus(); rpcErr != nil {
 		return nil, &rpcFailure{method: method, code: int32(rpcErr.GetCode()), message: rpcErr.GetMessage()}
 	}
 	respMsg, err := dynamicMessage(info.response)

@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 type captureHandler struct {
@@ -36,7 +38,7 @@ func TestOutcomeLogsBoundedScalarContract(t *testing.T) {
 	Annotate(ctx, AnnotationWorkflowName, "workflow-1")
 	Annotate(ctx, AnnotationKey("authorization"), "secret")
 	SetErrorCode(ctx, "INVALID_WORKSPACE")
-	outcome.SetRPC(400, ResultClientError)
+	outcome.SetRPC(int(rpcapi.StatusCodeInvalidArgument), ResultClientError)
 	Log(ctx, outcome)
 
 	if len(handler.records) != 1 {
@@ -49,7 +51,7 @@ func TestOutcomeLogsBoundedScalarContract(t *testing.T) {
 	attrs := recordAttrs(record)
 	for key, want := range map[string]any{
 		"transport": "rpc", "surface": "peer-rpc", "operation": "server.workspace.create",
-		"result": "client_error", "rpc_code": int64(400), "request_id": "request-1",
+		"result": "client_error", "rpc_code": int64(rpcapi.StatusCodeInvalidArgument), "request_id": "request-1",
 		"peer_public_key": "peer-key", "peer_role": "client", "error_code": "INVALID_WORKSPACE",
 		"workspace_name": "workspace-1", "workflow_name": "workflow-1",
 	} {
@@ -98,7 +100,7 @@ func TestOutcomeRejectsUnsafeValuesAndMapsLevels(t *testing.T) {
 	}
 }
 
-func TestOutcomeOmitsAbsentRPCCodeAndMapsHTTPStyleCodeClass(t *testing.T) {
+func TestOutcomeOmitsAbsentRPCCodeAndClassesCanonicalStatus(t *testing.T) {
 	outcome := NewOutcome(TransportRPC, SurfacePeerRPC, "server.workspace.get")
 	outcome.SetRPC(0, ResultSuccess)
 	_, attrs := outcome.logRecord()
@@ -108,14 +110,28 @@ func TestOutcomeOmitsAbsentRPCCodeAndMapsHTTPStyleCodeClass(t *testing.T) {
 		}
 	}
 
-	outcome.SetRPC(404, ResultClientError)
-	_, attrs = outcome.logRecord()
-	got := make(map[string]any)
-	for _, attr := range attrs {
-		got[attr.Key] = attr.Value.Any()
-	}
-	if got["rpc_code"] != int64(404) || got["status_class"] != "4xx" {
-		t.Fatalf("attrs = %#v", got)
+	// Canonical status codes are small integers, so the class has to come from
+	// the HTTP status each one projects onto. Reading the code as a status
+	// would put every RPC outcome in "unknown".
+	for _, test := range []struct {
+		code  int
+		class string
+	}{
+		{int(rpcapi.StatusCodeNotFound), "4xx"},
+		{int(rpcapi.StatusCodeInvalidArgument), "4xx"},
+		{int(rpcapi.StatusCodePermissionDenied), "4xx"},
+		{int(rpcapi.StatusCodeInternal), "5xx"},
+		{int(rpcapi.StatusCodeUnavailable), "5xx"},
+	} {
+		outcome.SetRPC(test.code, ResultClientError)
+		_, attrs = outcome.logRecord()
+		got := make(map[string]any)
+		for _, attr := range attrs {
+			got[attr.Key] = attr.Value.Any()
+		}
+		if got["rpc_code"] != int64(test.code) || got["status_class"] != test.class {
+			t.Fatalf("code %d attrs = %#v, want class %s", test.code, got, test.class)
+		}
 	}
 }
 

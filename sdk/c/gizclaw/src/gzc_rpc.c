@@ -537,24 +537,27 @@ int gzc_rpc_decode_response_envelope(gzc_str_t response_payload, gzc_rpc_respons
       if (!decode_pb_string_view(&stream, wire_type, &out_response->result_payload)) {
         return GZC_ERR_RPC;
       }
-    } else if (tag == gizclaw_rpc_v1_RpcResponse_error_tag) {
+    } else if (tag == gizclaw_rpc_v1_RpcResponse_status_tag) {
       if (wire_type != PB_WT_STRING) {
         return GZC_ERR_RPC;
       }
-      pb_istream_t error_stream;
-      if (!pb_make_string_substream(&stream, &error_stream)) {
+      pb_istream_t status_stream;
+      if (!pb_make_string_substream(&stream, &status_stream)) {
         return GZC_ERR_RPC;
       }
       gzc_pb_view_arg_t message_arg = {&out_response->error.message};
-      gizclaw_rpc_v1_RpcError error = gizclaw_rpc_v1_RpcError_init_zero;
-      error.message.funcs.decode = decode_pb_view;
-      error.message.arg = &message_arg;
-      if (!pb_decode(&error_stream, gizclaw_rpc_v1_RpcError_fields, &error) ||
-          !pb_close_string_substream(&stream, &error_stream)) {
+      gzc_pb_view_arg_t reason_arg = {&out_response->error.reason};
+      gizclaw_rpc_v1_RpcStatus status = gizclaw_rpc_v1_RpcStatus_init_zero;
+      status.message.funcs.decode = decode_pb_view;
+      status.message.arg = &message_arg;
+      status.info.reason.funcs.decode = decode_pb_view;
+      status.info.reason.arg = &reason_arg;
+      if (!pb_decode(&status_stream, gizclaw_rpc_v1_RpcStatus_fields, &status) ||
+          !pb_close_string_substream(&stream, &status_stream)) {
         return GZC_ERR_RPC;
       }
       out_response->has_error = true;
-      out_response->error.code = (int)error.code;
+      out_response->error.code = (int)status.code;
     } else if (!pb_skip_field(&stream, wire_type)) {
       return GZC_ERR_RPC;
     }
@@ -851,7 +854,7 @@ static int inbound_encode_response(
     const uint8_t *payload,
     size_t payload_len,
     bool has_error,
-    gizclaw_rpc_v1_RpcErrorCode error_code,
+    gizclaw_rpc_v1_StatusCode error_code,
     const char *error_message,
     gzc_buf_t *out) {
   gzc_pb_bytes_arg_t id_arg = {inbound->id.data, inbound->id.len};
@@ -863,10 +866,10 @@ static int inbound_encode_response(
   response.id.funcs.encode = encode_pb_bytes;
   response.id.arg = &id_arg;
   if (has_error) {
-    response.has_error = true;
-    response.error.code = error_code;
-    response.error.message.funcs.encode = encode_pb_bytes;
-    response.error.message.arg = &message_arg;
+    response.has_status = true;
+    response.status.code = error_code;
+    response.status.message.funcs.encode = encode_pb_bytes;
+    response.status.message.arg = &message_arg;
   } else {
     response.payload.funcs.encode = encode_pb_bytes;
     response.payload.arg = &payload_arg;
@@ -915,7 +918,7 @@ static int inbound_send_response_payload(
   int rc = encode_pb_message(inbound->platform, fields, message, &payload);
   if (rc == GZC_OK) {
     rc = inbound_encode_response(inbound, payload.data, payload.len, false,
-                                 gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_UNSPECIFIED,
+                                 gizclaw_rpc_v1_StatusCode_STATUS_CODE_OK,
                                  NULL, &response);
   }
   if (rc == GZC_OK) {
@@ -944,7 +947,7 @@ static int inbound_close_transport(struct gzc_rpc_inbound *inbound, int rc) {
 
 static int inbound_error(
     struct gzc_rpc_inbound *inbound,
-    gizclaw_rpc_v1_RpcErrorCode code,
+    gizclaw_rpc_v1_StatusCode code,
     const char *message) {
   if ((!inbound->decoded_envelope && inbound->id.len == 0) || inbound->response_envelope_sent) {
     return inbound_close_transport(inbound, GZC_OK);
@@ -1004,14 +1007,14 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
       return inbound_close_transport(inbound, copy_rc);
     }
     return inbound_error(inbound,
-                         gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR,
+                         gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
                          "malformed protobuf request");
   }
   inbound->decoded_envelope = true;
   inbound->method = request.method;
   if (inbound->id.len == 0 || request.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED) {
     return inbound_error(inbound,
-                         gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST,
+                         gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                          "request id and method are required");
   }
 
@@ -1019,13 +1022,13 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
   if (request.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING) {
     if (!payload_arg.seen) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "missing ping payload");
     }
     gizclaw_rpc_v1_PingRequest ping = gizclaw_rpc_v1_PingRequest_init_zero;
     if (!pb_decode(&payload_stream, gizclaw_rpc_v1_PingRequest_fields, &ping)) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "invalid ping payload");
     }
     inbound->phase = GZC_INBOUND_WAIT_EOS;
@@ -1034,7 +1037,7 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
   if (request.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN) {
     if (!payload_arg.seen) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "missing speed-test payload");
     }
     gizclaw_rpc_v1_SpeedTestRequest speed = gizclaw_rpc_v1_SpeedTestRequest_init_zero;
@@ -1043,7 +1046,7 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
         speed.up_content_length > ((int64_t)1 << 30) ||
         speed.down_content_length > ((int64_t)1 << 30)) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "invalid speed-test lengths");
     }
     inbound->upload_expected = (uint64_t)speed.up_content_length;
@@ -1062,14 +1065,14 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
   if (inbound_is_client_method(request.method)) {
     if (!payload_arg.seen) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "missing client RPC payload");
     }
     inbound->phase = GZC_INBOUND_WAIT_EOS;
     return GZC_OK;
   }
   return inbound_error(inbound,
-                       gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
+                       gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED,
                        "method not found");
 }
 
@@ -1077,7 +1080,7 @@ static int inbound_finish_ping(struct gzc_rpc_inbound *inbound) {
   const gzc_platform_t *platform = inbound->platform;
   if (platform->time_unix_ms == NULL) {
     return inbound_error(inbound,
-                         gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR,
+                         gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
                          "clock unavailable");
   }
   gizclaw_rpc_v1_PingResponse response = gizclaw_rpc_v1_PingResponse_init_zero;
@@ -1138,7 +1141,7 @@ static int inbound_provider_respond(
       response->payload,
       response->payload_len,
       false,
-      gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_UNSPECIFIED,
+      gizclaw_rpc_v1_StatusCode_STATUS_CODE_OK,
       NULL,
       &context->encoded_response);
   return context->response_rc;
@@ -1161,7 +1164,7 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
     return inbound_error(
         inbound,
-        gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
+        gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED,
         "client RPC provider not configured");
   }
   if (rc != GZC_OK || !provider_response.responded ||
@@ -1169,28 +1172,21 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
     return inbound_error(
         inbound,
-        gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR,
+        gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
         "client RPC provider failed");
   }
   if (provider_response.has_error) {
-    gizclaw_rpc_v1_RpcErrorCode error_code;
-    switch (provider_response.error_code) {
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_BAD_REQUEST:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND:
-    case gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_CONFLICT:
-      error_code =
-          (gizclaw_rpc_v1_RpcErrorCode)provider_response.error_code;
-      break;
-    default:
-      error_code =
-          gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR;
-      break;
+    /*
+     * Every canonical status code is forwarded as the provider sent it. Only a
+     * value outside the enum is rewritten, because it has no meaning the peer
+     * could act on. The previous whitelist collapsed anything it did not
+     * recognize into INTERNAL, which destroyed the provider's own semantics.
+     */
+    gizclaw_rpc_v1_StatusCode error_code =
+        gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL;
+    if (provider_response.error_code >= _gizclaw_rpc_v1_StatusCode_MIN &&
+        provider_response.error_code <= _gizclaw_rpc_v1_StatusCode_MAX) {
+      error_code = (gizclaw_rpc_v1_StatusCode)provider_response.error_code;
     }
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
     return inbound_error(
@@ -1227,7 +1223,7 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
       int rc = append_envelope_continuation(&inbound->envelope, inbound->platform, frame);
       if (rc != GZC_OK) {
         return inbound_error(inbound,
-                             gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_PARSE_ERROR,
+                             gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
                              "request envelope too large");
       }
       return GZC_OK;
@@ -1249,13 +1245,13 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
       return GZC_OK;
     }
     return inbound_error(inbound,
-                         gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST,
+                         gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                          "invalid request envelope frame");
   }
   if (inbound->phase == GZC_INBOUND_WAIT_EOS) {
     if (frame->type != GZC_RPC_FRAME_EOS) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "unexpected request body");
     }
     if (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING) {
@@ -1266,14 +1262,14 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
   if (inbound->phase == GZC_INBOUND_SPEED_BODY) {
     if (inbound->request_done) {
       return inbound_error(inbound,
-                           gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                            "duplicate speed-test request terminator");
     }
     if (frame->type == GZC_RPC_FRAME_BINARY) {
       uint64_t remaining = inbound->upload_expected - inbound->upload_received;
       if (remaining == 0 || (uint64_t)frame->len > remaining) {
         return inbound_error(inbound,
-                             gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                             gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                              "speed-test upload exceeds declared length");
       }
       inbound->upload_received += (uint64_t)frame->len;
@@ -1282,14 +1278,14 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
     if (frame->type == GZC_RPC_FRAME_EOS) {
       if (inbound->upload_received != inbound->upload_expected) {
         return inbound_error(inbound,
-                             gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                             gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                              "speed-test upload is truncated");
       }
       inbound->request_done = true;
       return GZC_OK;
     }
     return inbound_error(inbound,
-                         gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                         gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                          "invalid speed-test body frame");
   }
   return GZC_OK;

@@ -130,7 +130,7 @@ func TestDeviceControlUTF8Bounds(t *testing.T) {
 			lastSSID = params.Ssid
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiSavedForgetResponse{}, (*rpcapi.RPCPayload).FromClientWifiSavedForgetResponse)
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, device)
@@ -266,7 +266,7 @@ func TestDeviceControlHalfDeadDeviceTimesOut(t *testing.T) {
 	// The device accepts the stream but never answers and ignores ctx.
 	device := newFakeDeviceConn(func(_ context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 		<-release
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInternalError}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal}.RPCResponse(), nil
 	})
 	f.manager.SetPeerUp(f.owner, device)
 	started := time.Now()
@@ -292,7 +292,7 @@ func TestDeviceControlEmptySavedListAndRebootBody(t *testing.T) {
 		case rpcapi.RPCMethodClientWifiStatusGet:
 			return newRPCResultResponse(req.Id, rpcapi.ClientWifiStatusGetResponse{}, (*rpcapi.RPCPayload).FromClientWifiStatusGetResponse)
 		default:
-			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound}.RPCResponse(), nil
+			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented}.RPCResponse(), nil
 		}
 	})
 	f.manager.SetPeerUp(f.owner, device)

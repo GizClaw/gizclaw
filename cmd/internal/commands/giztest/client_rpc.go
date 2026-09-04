@@ -96,7 +96,8 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 }
 
 // deviceControlErrorResponse lets a script make a device provider answer a
-// fixed RPC error: {error_code: -32602} or {error_code: 404}.
+// fixed RPC status: {error_code: 3} for INVALID_ARGUMENT or {error_code: 5}
+// for NOT_FOUND.
 // It returns the scripted error, or a nil error when the response scripts a
 // value rather than a failure. A malformed error_code is returned separately so
 // the document fails instead of installing a provider that answers with the
@@ -114,16 +115,20 @@ func deviceControlErrorResponse(response any) (error, error) {
 	if err != nil {
 		return nil, err
 	}
+	status := rpcapi.StatusCode(code)
+	if !status.Valid() || status == rpcapi.StatusCodeOK {
+		return nil, fmt.Errorf("error_code must be a canonical status code other than OK, got %d", code)
+	}
 	message, _ := object["error_message"].(string)
-	return rpcapi.Error{Code: rpcapi.RPCErrorCode(code), Message: message}, nil
+	return rpcapi.Error{Code: status, Message: message}, nil
 }
 
-// scriptedErrorCode reads one RPC error code from a decoded scenario value. A
+// scriptedErrorCode reads one RPC status code from a decoded scenario value. A
 // YAML document decodes a negative code as int and a non-negative one as
 // uint64, and a JSON round trip decodes either as float64, so every integral
 // form is accepted. A value that is not integral, or that does not fit the
 // int32 wire field, is rejected rather than silently converted to a different
-// code.
+// code. The caller checks the decoded value against the canonical status set.
 func scriptedErrorCode(raw any) (int32, error) {
 	var value int64
 	switch v := raw.(type) {

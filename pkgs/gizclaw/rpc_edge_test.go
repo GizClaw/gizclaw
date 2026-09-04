@@ -55,7 +55,7 @@ func TestEdgeRPCRejectsMismatchedPayload(t *testing.T) {
 	peerKey := giznet.PublicKey{1}
 	server := &edgeRPCServer{routes: &peerroute.Server{Store: kv.NewMemory(nil)}}
 	resp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("mismatched payload response = %+v", resp)
 	}
 }
@@ -64,7 +64,7 @@ func TestEdgeRPCMapsMissingAssignmentToNotFound(t *testing.T) {
 	peerKey := giznet.PublicKey{1}
 	server := &edgeRPCServer{routes: &peerroute.Server{Store: kv.NewMemory(nil)}}
 	resp := edgeDispatch(t, server, "lookup", rpcapi.RPCMethodServerPeerLookup, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerLookupRequest, rpcpb.ServerPeerLookupRequest{PeerPublicKey: peerKey.String()}))
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("missing assignment response = %+v", resp)
 	}
 }
@@ -78,7 +78,7 @@ func TestEdgeRPCMapsMissingPeerToNotFound(t *testing.T) {
 		ServerEndpoint:  "server:9820",
 	}}
 	resp := edgeDispatch(t, server, "assign", rpcapi.RPCMethodServerPeerAssign, edgeParams(t, (*rpcapi.RPCPayload).FromServerPeerAssignRequest, rpcpb.ServerPeerAssignRequest{PeerPublicKey: peerKey.String()}))
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("missing peer response = %+v", resp)
 	}
 }
@@ -124,7 +124,7 @@ func TestEdgeRPCRejectsInvalidAPIKeyWithoutEchoingCredential(t *testing.T) {
 		apiKeys: apikey.NewServer(kv.NewMemory(nil)),
 	}
 	resp := edgeDispatch(t, server, "resolve-api-key", rpcapi.RPCMethodServerAPIKeyResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerAPIKeyResolveRequest, rpcpb.ServerAPIKeyResolveRequest{ApiKey: secret}))
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeForbidden {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodePermissionDenied {
 		t.Fatalf("invalid API key response = %+v", resp)
 	}
 	if strings.Contains(resp.Error.Message, secret) {
@@ -139,7 +139,7 @@ func TestEdgeRPCSanitizesAPIKeyStoreErrors(t *testing.T) {
 		apiKeys: apikey.NewServer(edgeAPIKeyErrorStore{Store: kv.NewMemory(nil), err: errors.New("backend failed for " + secret)}),
 	}
 	resp := edgeDispatch(t, server, "resolve-api-key", rpcapi.RPCMethodServerAPIKeyResolve, edgeParams(t, (*rpcapi.RPCPayload).FromServerAPIKeyResolveRequest, rpcpb.ServerAPIKeyResolveRequest{ApiKey: secret}))
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("store error response = %+v", resp)
 	}
 	if strings.Contains(resp.Error.Message, secret) {

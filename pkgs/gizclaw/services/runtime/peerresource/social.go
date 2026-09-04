@@ -454,7 +454,7 @@ func (s *Server) handleFriendGroupMessagesGet(ctx context.Context, req *rpcapi.R
 
 func friendGroupHistoryRPCResponse(requestID string, err error) *rpcapi.RPCResponse {
 	rpcErr := historyRPCError(err)
-	if rpcErr.Code == rpcapi.RPCErrorCodeNotFound {
+	if rpcErr.Code == rpcapi.StatusCodeNotFound {
 		rpcErr.Message = "not found"
 	}
 	return rpcapi.Error{RequestID: requestID, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()

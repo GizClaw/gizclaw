@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"sort"
 	"strings"
@@ -455,7 +454,7 @@ func (s *Server) requireOwner(requestID string, owner *string) *rpcapi.RPCRespon
 	if s.owns(owner) {
 		return nil
 	}
-	return statusError(requestID, http.StatusForbidden, "resource is not owned by the authenticated peer")
+	return statusError(requestID, rpcapi.StatusCodePermissionDenied, "resource is not owned by the authenticated peer")
 }
 
 func (s *Server) canAccessWorkspace(ctx context.Context, item apitypes.Workspace) (bool, error) {
@@ -526,14 +525,14 @@ func isSocialWorkspace(item apitypes.Workspace) bool {
 func (s *Server) requireWorkspaceAccess(ctx context.Context, requestID, name string) *rpcapi.RPCResponse {
 	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
 	if err != nil {
-		return statusError(requestID, http.StatusNotFound, "workspace not found")
+		return statusError(requestID, rpcapi.StatusCodeNotFound, "workspace not found")
 	}
 	allowed, err := s.canAccessWorkspace(ctx, item)
 	if err != nil {
 		return internalError(requestID, err.Error())
 	}
 	if !allowed {
-		return statusError(requestID, http.StatusForbidden, "workspace is not accessible to the authenticated peer")
+		return statusError(requestID, rpcapi.StatusCodePermissionDenied, "workspace is not accessible to the authenticated peer")
 	}
 	return nil
 }
@@ -570,7 +569,7 @@ func (s *Server) getModelValue(ctx context.Context, id string) (apitypes.Model, 
 }
 
 func isNotFoundResponse(response *rpcapi.RPCResponse) bool {
-	return response != nil && response.Error != nil && response.Error.Code == rpcapi.RPCErrorCodeNotFound
+	return response != nil && response.Error != nil && response.Error.Code == rpcapi.StatusCodeNotFound
 }
 
 func pageModels(items []apitypes.Model, cursor *string, requested *int) ([]apitypes.Model, bool, *string) {

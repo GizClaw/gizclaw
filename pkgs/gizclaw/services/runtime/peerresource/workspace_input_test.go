@@ -125,8 +125,8 @@ func TestWorkspaceParametersSetRejectsEmptyPatch(t *testing.T) {
 	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
 		Name: "journey-parameters-empty",
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
-		t.Fatalf("workspace parameters set response = %#v, want BAD_REQUEST", response)
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("workspace parameters set response = %#v, want INVALID_ARGUMENT", response)
 	}
 }
 
@@ -240,13 +240,13 @@ func TestWorkspaceInputPutRejectsUnknownWorkspaceAndInput(t *testing.T) {
 	missing := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
 		Name: "missing", Input: rpcapi.WorkspaceInputModeRealtime,
 	})
-	if missing.Error == nil || missing.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if missing.Error == nil || missing.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("workspace input put (missing) error = %#v, want NOT_FOUND", missing.Error)
 	}
 
 	invalid := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{Name: "journey-1"})
-	if invalid.Error == nil || invalid.Error.Code != rpcapi.RPCErrorCodeBadRequest {
-		t.Fatalf("workspace input put (invalid mode) response = %#v, want BAD_REQUEST", invalid)
+	if invalid.Error == nil || invalid.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("workspace input put (invalid mode) response = %#v, want INVALID_ARGUMENT", invalid)
 	}
 }
 
@@ -295,8 +295,8 @@ func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
 	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
 		Name: sharedName, Input: rpcapi.WorkspaceInputModeRealtime,
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeForbidden {
-		t.Fatalf("workspace input put (shared foreign Workspace) response = %#v, want FORBIDDEN", response)
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodePermissionDenied {
+		t.Fatalf("workspace input put (shared foreign Workspace) response = %#v, want PERMISSION_DENIED", response)
 	}
 }
 
@@ -317,7 +317,7 @@ func TestWorkspaceInputPutHidesUnsharedForeignWorkspace(t *testing.T) {
 	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
 		Name: "journey-1", Input: rpcapi.WorkspaceInputModeRealtime,
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("workspace input put (unshared foreign Workspace) response = %#v, want NOT_FOUND", response)
 	}
 }
@@ -339,7 +339,7 @@ func TestWorkspaceInputPutRejectsForbiddenSystemWorkspaceUpdate(t *testing.T) {
 	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
 		Name: "system-1", Input: rpcapi.WorkspaceInputModeRealtime,
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
-		t.Fatalf("workspace input put (system workspace) response = %#v, want CONFLICT", response)
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeFailedPrecondition {
+		t.Fatalf("workspace input put (system workspace) response = %#v, want FAILED_PRECONDITION", response)
 	}
 }

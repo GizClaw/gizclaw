@@ -78,14 +78,14 @@ type Registration struct {
 	RuntimeProfileName string
 }
 
-// RPCError preserves a server RPC error returned through the C test bridge.
-type RPCError struct {
+// RPCStatus preserves a server RPC error returned through the C test bridge.
+type RPCStatus struct {
 	Method  rpcpb.RpcMethod
-	Code    rpcpb.RpcErrorCode
+	Code    rpcpb.StatusCode
 	Message string
 }
 
-func (e *RPCError) Error() string {
+func (e *RPCStatus) Error() string {
 	return fmt.Sprintf("%s: RPC error %d: %s", e.Method, e.Code, e.Message)
 }
 
@@ -170,9 +170,9 @@ func (c *Client) CallRPC(method rpcpb.RpcMethod, request proto.Message, response
 		C.ulong(len(errbuf)),
 	)
 	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
-		return &RPCError{
+		return &RPCStatus{
 			Method:  method,
-			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Code:    rpcpb.StatusCode(rpcErrorCode),
 			Message: cString(errbuf),
 		}
 	}
@@ -249,9 +249,9 @@ func (r *RPCRequest) Result(response proto.Message) (bool, error) {
 		return false, nil
 	}
 	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
-		return true, &RPCError{
+		return true, &RPCStatus{
 			Method:  r.method,
-			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Code:    rpcpb.StatusCode(rpcErrorCode),
 			Message: cString(errbuf),
 		}
 	}
@@ -365,9 +365,9 @@ func (c *Client) Register(token string) (Registration, error) {
 		C.ulong(len(errbuf)),
 	)
 	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
-		return Registration{}, &RPCError{
+		return Registration{}, &RPCStatus{
 			Method:  rpcpb.RpcMethod_RPC_METHOD_SERVER_REGISTER,
-			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Code:    rpcpb.StatusCode(rpcErrorCode),
 			Message: cString(errbuf),
 		}
 	}
@@ -417,9 +417,9 @@ func (c *Client) GetFirmware(channel rpcpb.FirmwareChannelName) (FirmwareConfig,
 		C.ulong(len(errbuf)),
 	)
 	if rc == C.GZC_ERR_RPC && rpcErrorCode != 0 {
-		return FirmwareConfig{}, &RPCError{
+		return FirmwareConfig{}, &RPCStatus{
 			Method:  rpcpb.RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET,
-			Code:    rpcpb.RpcErrorCode(rpcErrorCode),
+			Code:    rpcpb.StatusCode(rpcErrorCode),
 			Message: cString(errbuf),
 		}
 	}
@@ -444,11 +444,11 @@ func streamRPCError(method rpcpb.RpcMethod, frames []StreamFrame) error {
 	if err := proto.Unmarshal(frames[0].Data, &envelope); err != nil {
 		return nil
 	}
-	rpcErr := envelope.GetError()
+	rpcErr := envelope.GetStatus()
 	if rpcErr == nil {
 		return nil
 	}
-	return &RPCError{Method: method, Code: rpcErr.GetCode(), Message: rpcErr.GetMessage()}
+	return &RPCStatus{Method: method, Code: rpcErr.GetCode(), Message: rpcErr.GetMessage()}
 }
 
 func (c *Client) OpenServiceChannel(service uint64, timeout time.Duration) (*ServiceChannel, error) {
@@ -1707,7 +1707,7 @@ func decodeStreamResponse(t *testing.T, method rpcpb.RpcMethod, frame []byte, re
 	if err := proto.Unmarshal(frame, &envelope); err != nil {
 		t.Fatalf("decode %s protobuf stream envelope: %v", method, err)
 	}
-	if rpcErr := envelope.GetError(); rpcErr != nil {
+	if rpcErr := envelope.GetStatus(); rpcErr != nil {
 		t.Fatalf("%s stream error: %d %s", method, rpcErr.GetCode(), rpcErr.GetMessage())
 	}
 	resultPayload := envelope.GetPayload()

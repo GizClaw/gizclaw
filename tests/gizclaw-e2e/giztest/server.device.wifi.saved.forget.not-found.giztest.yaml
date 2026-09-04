@@ -58,7 +58,7 @@ steps:
   client_rpc:
     method: client.wifi.saved.forget
     response:
-      error_code: 404
+      error_code: 5
     expect_calls: 1
 finally:
 - id: cleanup_peer

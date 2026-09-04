@@ -382,7 +382,7 @@ void main() {
       expect(frames, hasLength(2));
       final response = rpc.RpcResponse.fromBuffer(frames.first.payload);
       expect(response.id, 'srv-ping');
-      expect(response.hasError(), isFalse);
+      expect(response.hasStatus(), isFalse);
     },
   );
 

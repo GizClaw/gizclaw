@@ -15,33 +15,42 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
-@$core.Deprecated('Use rpcErrorCodeDescriptor instead')
-const RpcErrorCode$json = {
-  '1': 'RpcErrorCode',
+@$core.Deprecated('Use statusCodeDescriptor instead')
+const StatusCode$json = {
+  '1': 'StatusCode',
   '2': [
-    {'1': 'RPC_ERROR_CODE_UNSPECIFIED', '2': 0},
-    {'1': 'RPC_ERROR_CODE_PARSE_ERROR', '2': -32700},
-    {'1': 'RPC_ERROR_CODE_INVALID_REQUEST', '2': -32600},
-    {'1': 'RPC_ERROR_CODE_METHOD_NOT_FOUND', '2': -32601},
-    {'1': 'RPC_ERROR_CODE_INVALID_PARAMS', '2': -32602},
-    {'1': 'RPC_ERROR_CODE_INTERNAL_ERROR', '2': -32603},
-    {'1': 'RPC_ERROR_CODE_BAD_REQUEST', '2': 400},
-    {'1': 'RPC_ERROR_CODE_FORBIDDEN', '2': 403},
-    {'1': 'RPC_ERROR_CODE_NOT_FOUND', '2': 404},
-    {'1': 'RPC_ERROR_CODE_CONFLICT', '2': 409},
+    {'1': 'STATUS_CODE_OK', '2': 0},
+    {'1': 'STATUS_CODE_CANCELLED', '2': 1},
+    {'1': 'STATUS_CODE_UNKNOWN', '2': 2},
+    {'1': 'STATUS_CODE_INVALID_ARGUMENT', '2': 3},
+    {'1': 'STATUS_CODE_DEADLINE_EXCEEDED', '2': 4},
+    {'1': 'STATUS_CODE_NOT_FOUND', '2': 5},
+    {'1': 'STATUS_CODE_ALREADY_EXISTS', '2': 6},
+    {'1': 'STATUS_CODE_PERMISSION_DENIED', '2': 7},
+    {'1': 'STATUS_CODE_RESOURCE_EXHAUSTED', '2': 8},
+    {'1': 'STATUS_CODE_FAILED_PRECONDITION', '2': 9},
+    {'1': 'STATUS_CODE_ABORTED', '2': 10},
+    {'1': 'STATUS_CODE_OUT_OF_RANGE', '2': 11},
+    {'1': 'STATUS_CODE_UNIMPLEMENTED', '2': 12},
+    {'1': 'STATUS_CODE_INTERNAL', '2': 13},
+    {'1': 'STATUS_CODE_UNAVAILABLE', '2': 14},
+    {'1': 'STATUS_CODE_DATA_LOSS', '2': 15},
+    {'1': 'STATUS_CODE_UNAUTHENTICATED', '2': 16},
   ],
 };
 
-/// Descriptor for `RpcErrorCode`. Decode as a `google.protobuf.EnumDescriptorProto`.
-final $typed_data.Uint8List rpcErrorCodeDescriptor = $convert.base64Decode(
-    'CgxScGNFcnJvckNvZGUSHgoaUlBDX0VSUk9SX0NPREVfVU5TUEVDSUZJRUQQABInChpSUENfRV'
-    'JST1JfQ09ERV9QQVJTRV9FUlJPUhDEgP7///////8BEisKHlJQQ19FUlJPUl9DT0RFX0lOVkFM'
-    'SURfUkVRVUVTVBCogf7///////8BEiwKH1JQQ19FUlJPUl9DT0RFX01FVEhPRF9OT1RfRk9VTk'
-    'QQp4H+////////ARIqCh1SUENfRVJST1JfQ09ERV9JTlZBTElEX1BBUkFNUxCmgf7///////8B'
-    'EioKHVJQQ19FUlJPUl9DT0RFX0lOVEVSTkFMX0VSUk9SEKWB/v///////wESHwoaUlBDX0VSUk'
-    '9SX0NPREVfQkFEX1JFUVVFU1QQkAMSHQoYUlBDX0VSUk9SX0NPREVfRk9SQklEREVOEJMDEh0K'
-    'GFJQQ19FUlJPUl9DT0RFX05PVF9GT1VORBCUAxIcChdSUENfRVJST1JfQ09ERV9DT05GTElDVB'
-    'CZAw==');
+/// Descriptor for `StatusCode`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List statusCodeDescriptor = $convert.base64Decode(
+    'CgpTdGF0dXNDb2RlEhIKDlNUQVRVU19DT0RFX09LEAASGQoVU1RBVFVTX0NPREVfQ0FOQ0VMTE'
+    'VEEAESFwoTU1RBVFVTX0NPREVfVU5LTk9XThACEiAKHFNUQVRVU19DT0RFX0lOVkFMSURfQVJH'
+    'VU1FTlQQAxIhCh1TVEFUVVNfQ09ERV9ERUFETElORV9FWENFRURFRBAEEhkKFVNUQVRVU19DT0'
+    'RFX05PVF9GT1VORBAFEh4KGlNUQVRVU19DT0RFX0FMUkVBRFlfRVhJU1RTEAYSIQodU1RBVFVT'
+    'X0NPREVfUEVSTUlTU0lPTl9ERU5JRUQQBxIiCh5TVEFUVVNfQ09ERV9SRVNPVVJDRV9FWEhBVV'
+    'NURUQQCBIjCh9TVEFUVVNfQ09ERV9GQUlMRURfUFJFQ09ORElUSU9OEAkSFwoTU1RBVFVTX0NP'
+    'REVfQUJPUlRFRBAKEhwKGFNUQVRVU19DT0RFX09VVF9PRl9SQU5HRRALEh0KGVNUQVRVU19DT0'
+    'RFX1VOSU1QTEVNRU5URUQQDBIYChRTVEFUVVNfQ09ERV9JTlRFUk5BTBANEhsKF1NUQVRVU19D'
+    'T0RFX1VOQVZBSUxBQkxFEA4SGQoVU1RBVFVTX0NPREVfREFUQV9MT1NTEA8SHwobU1RBVFVTX0'
+    'NPREVfVU5BVVRIRU5USUNBVEVEEBA=');
 
 @$core.Deprecated('Use rpcMethodDescriptor instead')
 const RpcMethod$json = {
@@ -429,13 +438,13 @@ const RpcResponse$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'payload', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'payload'},
     {
-      '1': 'error',
+      '1': 'status',
       '3': 3,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.RpcError',
+      '6': '.gizclaw.rpc.v1.RpcStatus',
       '9': 0,
-      '10': 'error'
+      '10': 'status'
     },
   ],
   '8': [
@@ -446,8 +455,8 @@ const RpcResponse$json = {
 /// Descriptor for `RpcResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List rpcResponseDescriptor = $convert.base64Decode(
     'CgtScGNSZXNwb25zZRIOCgJpZBgBIAEoCVICaWQSGgoHcGF5bG9hZBgCIAEoDEgAUgdwYXlsb2'
-    'FkEjAKBWVycm9yGAMgASgLMhguZ2l6Y2xhdy5ycGMudjEuUnBjRXJyb3JIAFIFZXJyb3JCBgoE'
-    'Ym9keQ==');
+    'FkEjMKBnN0YXR1cxgDIAEoCzIZLmdpemNsYXcucnBjLnYxLlJwY1N0YXR1c0gAUgZzdGF0dXNC'
+    'BgoEYm9keQ==');
 
 @$core.Deprecated('Use rpcStreamFrameDescriptor instead')
 const RpcStreamFrame$json = {
@@ -456,13 +465,13 @@ const RpcStreamFrame$json = {
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'payload', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'payload'},
     {
-      '1': 'error',
+      '1': 'status',
       '3': 3,
       '4': 1,
       '5': 11,
-      '6': '.gizclaw.rpc.v1.RpcError',
+      '6': '.gizclaw.rpc.v1.RpcStatus',
       '9': 0,
-      '10': 'error'
+      '10': 'status'
     },
     {
       '1': 'end',
@@ -482,30 +491,53 @@ const RpcStreamFrame$json = {
 /// Descriptor for `RpcStreamFrame`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List rpcStreamFrameDescriptor = $convert.base64Decode(
     'Cg5ScGNTdHJlYW1GcmFtZRIOCgJpZBgBIAEoCVICaWQSGgoHcGF5bG9hZBgCIAEoDEgAUgdwYX'
-    'lsb2FkEjAKBWVycm9yGAMgASgLMhguZ2l6Y2xhdy5ycGMudjEuUnBjRXJyb3JIAFIFZXJyb3IS'
-    'MAoDZW5kGAQgASgLMhwuZ2l6Y2xhdy5ycGMudjEuUnBjU3RyZWFtRW5kSABSA2VuZEIGCgRib2'
-    'R5');
+    'lsb2FkEjMKBnN0YXR1cxgDIAEoCzIZLmdpemNsYXcucnBjLnYxLlJwY1N0YXR1c0gAUgZzdGF0'
+    'dXMSMAoDZW5kGAQgASgLMhwuZ2l6Y2xhdy5ycGMudjEuUnBjU3RyZWFtRW5kSABSA2VuZEIGCg'
+    'Rib2R5');
 
-@$core.Deprecated('Use rpcErrorDescriptor instead')
-const RpcError$json = {
-  '1': 'RpcError',
+@$core.Deprecated('Use rpcStatusDescriptor instead')
+const RpcStatus$json = {
+  '1': 'RpcStatus',
   '2': [
     {
       '1': 'code',
       '3': 1,
       '4': 1,
       '5': 14,
-      '6': '.gizclaw.rpc.v1.RpcErrorCode',
+      '6': '.gizclaw.rpc.v1.StatusCode',
       '10': 'code'
     },
     {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {
+      '1': 'info',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ErrorInfo',
+      '10': 'info'
+    },
   ],
 };
 
-/// Descriptor for `RpcError`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List rpcErrorDescriptor = $convert.base64Decode(
-    'CghScGNFcnJvchIwCgRjb2RlGAEgASgOMhwuZ2l6Y2xhdy5ycGMudjEuUnBjRXJyb3JDb2RlUg'
-    'Rjb2RlEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2U=');
+/// Descriptor for `RpcStatus`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List rpcStatusDescriptor = $convert.base64Decode(
+    'CglScGNTdGF0dXMSLgoEY29kZRgBIAEoDjIaLmdpemNsYXcucnBjLnYxLlN0YXR1c0NvZGVSBG'
+    'NvZGUSGAoHbWVzc2FnZRgCIAEoCVIHbWVzc2FnZRItCgRpbmZvGAMgASgLMhkuZ2l6Y2xhdy5y'
+    'cGMudjEuRXJyb3JJbmZvUgRpbmZv');
+
+@$core.Deprecated('Use errorInfoDescriptor instead')
+const ErrorInfo$json = {
+  '1': 'ErrorInfo',
+  '2': [
+    {'1': 'reason', '3': 1, '4': 1, '5': 9, '10': 'reason'},
+    {'1': 'domain', '3': 2, '4': 1, '5': 9, '10': 'domain'},
+  ],
+};
+
+/// Descriptor for `ErrorInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List errorInfoDescriptor = $convert.base64Decode(
+    'CglFcnJvckluZm8SFgoGcmVhc29uGAEgASgJUgZyZWFzb24SFgoGZG9tYWluGAIgASgJUgZkb2'
+    '1haW4=');
 
 @$core.Deprecated('Use rpcStreamEndDescriptor instead')
 const RpcStreamEnd$json = {
