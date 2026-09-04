@@ -218,6 +218,13 @@ func parallelReports(children []*parallelChild, cancelGrace time.Duration, redac
 
 // parallelError reports the step outcome: an expired step timeout, children
 // that ignored cancellation, or the individual child failures.
+// parallelError reports the group's outcome. The order of these cases is load
+// bearing for retry safety: an unfinished child still owns its PeerStream and
+// the task's shared clients, so that case must win over the deadline it was
+// detected under. It returns a plain error, whose failure kind is "operation"
+// and which no retry policy may name, while the deadline case wraps
+// context.DeadlineExceeded and is retryable. A retry therefore only ever
+// starts once every child goroutine has returned and released its stream.
 func parallelError(step Step, deadline error, unfinished, failures []string) error {
 	switch {
 	case len(unfinished) != 0:

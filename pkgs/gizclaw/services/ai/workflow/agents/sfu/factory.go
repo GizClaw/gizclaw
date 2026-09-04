@@ -120,24 +120,38 @@ func (a *Agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, 
 	if err := binding.SFU.Validate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrNotBound, err)
 	}
-	if err := a.retire(ctx, peer); err != nil {
-		return nil, err
-	}
 	s := newSession(ctx, a, peer, binding)
+	// Claim the peer's slot before connecting. connect joins the Room, so
+	// leaving the slot empty across it would let a second Transform for the
+	// same peer join under the same identity: LiveKit would then disconnect
+	// one of the two, and the loser would still be the one recorded here.
+	// Retiring and claiming cannot be one critical section because retire
+	// waits on a channel, so this retries until it observes an empty slot it
+	// just retired.
+	for {
+		if err := a.retire(ctx, peer); err != nil {
+			return nil, err
+		}
+		a.mu.Lock()
+		if a.sessions[peer] != nil {
+			// Another Transform claimed the slot while this one was retiring;
+			// retire that attachment too rather than joining beside it.
+			a.mu.Unlock()
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("sfu: claim peer %s attachment: %w", peer, err)
+			}
+			continue
+		}
+		a.sessions[peer] = s
+		a.mu.Unlock()
+		break
+	}
 	if err := s.connect(ctx); err != nil {
-		s.cancel(context.Canceled)
+		// finish releases the claim and closes done, so a Transform already
+		// waiting in retire is not left blocked on a session that never ran.
+		s.finish(err)
 		return nil, err
 	}
-	a.mu.Lock()
-	if previous := a.sessions[peer]; previous != nil {
-		// A concurrent Transform for the same peer won the race; keep the
-		// newest participant and drop this one.
-		a.mu.Unlock()
-		s.finish(nil)
-		return nil, fmt.Errorf("sfu: peer %s attached concurrently", peer)
-	}
-	a.sessions[peer] = s
-	a.mu.Unlock()
 	s.start(input)
 	return s.out, nil
 }

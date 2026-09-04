@@ -353,3 +353,42 @@ func TestStepDelayOutsideParallelIsRejected(t *testing.T) {
 		t.Fatal("validateSemantics with a top-level delay error = nil, want rejection")
 	}
 }
+
+// TestParallelUnfinishedChildIsNotRetryable pins the property that makes
+// `parallel` safe to list as a retryable operation: a child that ignored
+// cancellation still owns its PeerStream and the task's shared clients, so a
+// retry must not start beside it. parallelError reports that case ahead of the
+// deadline it was detected under, and reports it as a plain error whose
+// failure kind no retry policy is allowed to name.
+func TestParallelUnfinishedChildIsNotRetryable(t *testing.T) {
+	step := Step{ID: "talk"}
+	err := parallelError(step, context.DeadlineExceeded, []string{"listen"}, nil)
+	if err == nil {
+		t.Fatal("parallelError with an unfinished child = nil, want an error")
+	}
+	if kind := failureKind(err); kind != "operation" {
+		t.Fatalf("failure kind = %q, want operation so no retry policy can name it", kind)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("unfinished-child error wraps DeadlineExceeded, which would make it retryable as a timeout")
+	}
+	// With every child stopped, the same deadline is a retryable timeout.
+	settled := parallelError(step, context.DeadlineExceeded, nil, nil)
+	if kind := failureKind(settled); kind != "timeout" {
+		t.Fatalf("failure kind with no unfinished child = %q, want timeout", kind)
+	}
+}
+
+// TestRetryableOperationsAreNamedByTheSchema pins that only the failure kinds
+// a document may declare stay retryable, so the guarantee above cannot be
+// widened by adding a kind without revisiting it.
+func TestRetryableOperationsAreNamedByTheSchema(t *testing.T) {
+	if !retryableOperation("parallel") {
+		t.Fatal("parallel is not retryable; the guarantee this file pins is moot")
+	}
+	for _, kind := range []string{"operation", "cancelled"} {
+		if slices.Contains([]string{"timeout", "assertion"}, kind) {
+			t.Fatalf("failure kind %q became retryable", kind)
+		}
+	}
+}

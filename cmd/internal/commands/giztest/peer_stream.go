@@ -278,6 +278,18 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 			if err := codecconv.OpusPacketsToOgg(&audio, int(opus.SampleRate16K), 1, captured); err != nil {
 				return operationResult{}, fmt.Errorf("encode received audio evidence: %w", err)
 			}
+			// The streaming guard above bounds the raw Opus payloads, which
+			// keeps memory bounded, but the stored value is the Ogg stream and
+			// its container adds pages and two header packets. Enforce the
+			// bound on what is actually stored, so a capture that overruns
+			// fails here with the capture message instead of later inside
+			// variable storage.
+			if audioCaptureMaxBytes > 0 && audio.Len() > audioCaptureMaxBytes {
+				return operationResult{evidence: evidence()}, fmt.Errorf(
+					"captured audio encodes to %d bytes, over output variable max_bytes %d",
+					audio.Len(), audioCaptureMaxBytes,
+				)
+			}
 			object["audio"] = append([]byte(nil), audio.Bytes()...)
 		}
 		return operationResult{assertion: object, saved: object, evidence: result}, nil

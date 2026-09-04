@@ -743,6 +743,11 @@ func (s *session) onDataPacket(identity, topic string, payload []byte) {
 		if current := s.utterances[identity]; current != nil && current.id == message.Utterance {
 			return
 		}
+		if current := s.utterances[identity]; current != nil {
+			// A new utterance replaces one this session never saw closed, so
+			// anything buffered for the old one must not reach the new route.
+			s.clearPrerollLocked(identity)
+		}
 		if s.holdsFloorLocked(identity) {
 			// The holder opened a new utterance without closing the previous
 			// one (its EOS was lost); hand the floor over cleanly.
@@ -758,9 +763,23 @@ func (s *session) onDataPacket(identity, topic string, payload []byte) {
 			return
 		}
 		delete(s.utterances, identity)
+		// Preroll is scoped to the utterance that raced its own BOS. Left in
+		// place it would be replayed into the participant's next utterance if
+		// that one takes the floor within FloorIdle, splicing audio from a
+		// finished utterance into a new stream.
+		s.clearPrerollLocked(identity)
 		if s.holdsFloorLocked(identity) {
 			s.releaseFloorLocked(false)
 			s.acquireFloorLocked()
+		}
+	}
+}
+
+// clearPrerollLocked drops every buffered packet held for identity's tracks.
+func (s *session) clearPrerollLocked(identity string) {
+	for _, track := range s.tracks {
+		if track.identity == identity {
+			track.preroll = nil
 		}
 	}
 }

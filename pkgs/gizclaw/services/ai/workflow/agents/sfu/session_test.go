@@ -902,6 +902,54 @@ func TestFloorPrerollDeliversPacketsThatRacedTheBOS(t *testing.T) {
 	}
 }
 
+// TestPrerollDoesNotCrossUtterances pins that preroll stays scoped to the
+// utterance it was buffered under. C speaks while B holds the floor, so C's
+// packets are held as preroll; C then closes that utterance and opens another.
+// When the second utterance finally wins the floor it must carry only its own
+// audio, never the packets buffered under the first.
+func TestPrerollDoesNotCrossUtterances(t *testing.T) {
+	h := newHarness(t, Config{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	output, _ := h.attach(ctx, testPeer)
+	client := h.connector.client(0)
+	readerB := subscribeRemote(t, h, client, testRemote, "TR_b", "u-b", 1)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemote }, "floor to B")
+	readerC := subscribeRemote(t, h, client, testRemoteC, "TR_c", "u-c1", 7)
+
+	// C holds no floor, so these are buffered rather than forwarded.
+	readerC.voiced(0xC1)
+	readerC.voiced(0xC2)
+	readerB.voiced(0xB1)
+	waitFor(t, func() bool { return h.queued(testPeer) >= 2 }, "B forwarded while holding the floor")
+
+	// C's utterance ends while it is still buffered, then C opens another.
+	client.remoteTalk(testRemoteC, talkTypeEOS, "u-c1", 8)
+	client.remoteTalk(testRemoteC, talkTypeBOS, "u-c2", 9)
+	client.remoteTalk(testRemote, talkTypeEOS, "u-b", 2)
+	waitFor(t, func() bool { return h.floorHolder(testPeer) == testRemoteC }, "floor to C")
+	before := h.queued(testPeer)
+	readerC.voiced(0xC3)
+	waitFor(t, func() bool { return h.queued(testPeer) > before }, "C forwarded while holding the floor")
+	client.remoteTalk(testRemoteC, talkTypeEOS, "u-c2", 10)
+	cancel()
+
+	chunks, _ := collect(t, output)
+	streams := groupStreams(t, chunks)
+	if len(streams) != 2 {
+		t.Fatalf("streams = %+v, want one per floor hold", streams)
+	}
+	got := markers(streams[1].payload)
+	for _, stale := range []byte{0xC1, 0xC2} {
+		if slices.Contains(got, stale) {
+			t.Fatalf("second hold payload = %#v, carries %#x buffered under the finished utterance", got, stale)
+		}
+	}
+	if !slices.Equal(got, []byte{0xC3}) {
+		t.Fatalf("second hold payload = %#v, want only its own packet", got)
+	}
+}
+
 func TestMalformedTalkDataIsCountedAndIgnored(t *testing.T) {
 	h := newHarness(t, Config{})
 	ctx, cancel := context.WithCancel(t.Context())
@@ -1199,6 +1247,68 @@ func TestTransformReconnectGivesUpAfterTimeout(t *testing.T) {
 	}
 	if h.connector.count() != 1 {
 		t.Fatalf("joins = %d, want 1", h.connector.count())
+	}
+}
+
+// TestTransformClaimsThePeerBeforeConnecting pins that two concurrent
+// Transform calls for one Peer never join the Room side by side. connect is
+// what joins, so the attachment has to be claimed before it: otherwise both
+// calls would join under the same identity, the SFU would disconnect one of
+// them, and the survivor recorded here could be the one it killed. Exactly one
+// join must happen while the first is still connecting.
+func TestTransformClaimsThePeerBeforeConnecting(t *testing.T) {
+	h := newHarness(t, Config{})
+	release := make(chan struct{})
+	entered := make(chan struct{}, 4)
+	h.connector.fail = func(int) error {
+		entered <- struct{}{}
+		<-release
+		return nil
+	}
+
+	ctx1, cancel1 := context.WithCancel(t.Context())
+	defer cancel1()
+	ctx2, cancel2 := context.WithCancel(t.Context())
+	defer cancel2()
+
+	type attachResult struct{ err error }
+	results := make(chan attachResult, 2)
+	go func() {
+		_, err := h.agent.Transform(gizlog.WithPeerPublicKey(ctx1, testPeer), newOutputStream())
+		results <- attachResult{err}
+	}()
+	// Wait until the first call is inside connect, then start the second.
+	select {
+	case <-entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first Transform never reached connect")
+	}
+	go func() {
+		_, err := h.agent.Transform(gizlog.WithPeerPublicKey(ctx2, testPeer), newOutputStream())
+		results <- attachResult{err}
+	}()
+
+	// The second call must be blocked retiring the claim the first made, not
+	// joining beside it: no second connect may start yet.
+	select {
+	case <-entered:
+		t.Fatal("a second join started while the first was still connecting")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(release)
+	for range 2 {
+		select {
+		case <-results:
+		case <-time.After(5 * time.Second):
+			t.Fatal("Transform did not return")
+		}
+	}
+	if joins := h.connector.count(); joins > 1 {
+		waitFor(t, func() bool { return h.connector.count() <= 2 }, "joins bounded")
+	}
+	if _, attached := h.agent.SessionStatus(testPeer); !attached {
+		t.Fatal("no attachment survived the race")
 	}
 }
 
