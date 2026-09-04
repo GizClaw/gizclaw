@@ -35,7 +35,7 @@ func (s *rpcServer) handleWorkspaceHistoryAudioDownload(ctx context.Context, str
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, err.Error())
 	}
 	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
+		return writeRPCStatusResponse(stream, req.Id, rpcErr)
 	}
 	return writeHistoryAudioResponse(stream, req, metadata, reader, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioDownloadResponse)
 }
@@ -60,7 +60,7 @@ func (s *rpcServer) handleFriendGroupMessageAudioDownload(ctx context.Context, s
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, err.Error())
 	}
 	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
+		return writeRPCStatusResponse(stream, req.Id, rpcErr)
 	}
 	return writeHistoryAudioResponse(stream, req, metadata, reader, (*rpcapi.RPCPayload).FromFriendGroupMessageAudioDownloadResponse)
 }

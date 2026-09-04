@@ -31,7 +31,7 @@ func (s *rpcServer) handleWorkspaceIconDownload(ctx context.Context, stream *rpc
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "failed to prepare workspace icon download")
 	}
 	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
+		return writeRPCStatusResponse(stream, req.Id, rpcErr)
 	}
 	defer reader.Close()
 	return writeRPCDownload(ctx, stream, req, metadata, (*rpcapi.RPCPayload).FromWorkspaceIconDownloadResponse, reader)

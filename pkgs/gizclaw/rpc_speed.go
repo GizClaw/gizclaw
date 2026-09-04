@@ -221,7 +221,20 @@ func validateSpeedTestRequest(request rpcapi.SpeedTestRequest) error {
 }
 
 func writeRPCErrorResponse(stream *rpcStream, id string, code rpcapi.StatusCode, message string) error {
-	if _, err := stream.WriteResponseEnvelope(rpcapi.Error{RequestID: id, Code: code, Message: message}.RPCResponse()); err != nil {
+	return writeRPCStatusResponse(stream, id, &rpcapi.RPCStatus{Code: code, Message: message})
+}
+
+// writeRPCStatusResponse forwards a whole status, so a reason set by the
+// resolver survives the stream. Reducing the status to a code and a message
+// silently dropped it.
+func writeRPCStatusResponse(stream *rpcStream, id string, status *rpcapi.RPCStatus) error {
+	if status == nil {
+		return writeRPCErrorResponse(stream, id, rpcapi.StatusCodeInternal, "missing RPC status")
+	}
+	response := rpcapi.Error{
+		RequestID: id, Code: status.Code, Message: status.Message, Reason: status.Reason,
+	}.RPCResponse()
+	if _, err := stream.WriteResponseEnvelope(response); err != nil {
 		return err
 	}
 	return stream.WriteEOS()

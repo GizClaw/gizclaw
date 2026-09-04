@@ -427,7 +427,7 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 			if closeErr := callStream.Close(); closeErr != nil {
 				return closeErr
 			}
-			return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech request timed out")
+			return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeDeadlineExceeded, "speech request timed out")
 		}
 		return err
 	}
@@ -668,7 +668,7 @@ func speechRPCError(err error) (rpcapi.StatusCode, string) {
 	case errors.Is(err, peergenx.ErrInvalid), errors.Is(err, peergenx.ErrUnsupported):
 		return rpcapi.StatusCodeInvalidArgument, "speech request is not supported"
 	case errors.Is(err, context.DeadlineExceeded):
-		return rpcapi.StatusCodeInternal, "speech request timed out"
+		return rpcapi.StatusCodeDeadlineExceeded, "speech request timed out"
 	default:
 		return rpcapi.StatusCodeInternal, "speech provider failed"
 	}
@@ -685,7 +685,7 @@ func speechExtractRPCError(err error) (rpcapi.StatusCode, string) {
 	case errors.Is(err, peergenx.ErrInvalid), errors.Is(err, peergenx.ErrUnsupported):
 		return rpcapi.StatusCodeInvalidArgument, "speech extraction request is not supported"
 	case errors.Is(err, context.DeadlineExceeded):
-		return rpcapi.StatusCodeInternal, "speech extraction timed out"
+		return rpcapi.StatusCodeDeadlineExceeded, "speech extraction timed out"
 	default:
 		return rpcapi.StatusCodeInternal, "speech extraction provider failed"
 	}

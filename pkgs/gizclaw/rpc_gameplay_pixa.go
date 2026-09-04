@@ -32,7 +32,7 @@ func (s *rpcServer) handlePetPixaDownload(ctx context.Context, stream *rpcStream
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, err.Error())
 	}
 	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
+		return writeRPCStatusResponse(stream, req.Id, rpcErr)
 	}
 	defer reader.Close()
 
@@ -59,7 +59,7 @@ func (s *rpcServer) handleBadgeDefPixaDownload(ctx context.Context, stream *rpcS
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, err.Error())
 	}
 	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
+		return writeRPCStatusResponse(stream, req.Id, rpcErr)
 	}
 	defer reader.Close()
 

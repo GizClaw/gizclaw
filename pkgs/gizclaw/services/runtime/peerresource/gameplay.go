@@ -33,7 +33,7 @@ func (s *Server) handlePetPixaDownload(ctx context.Context, req *rpcapi.RPCReque
 		_ = reader.Close()
 	}
 	if rpcErr != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Reason: rpcErr.Reason, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerPetPixaDownloadResponse)
 }
@@ -84,7 +84,7 @@ func (s *Server) handleBadgeDefPixaDownload(ctx context.Context, req *rpcapi.RPC
 		_ = reader.Close()
 	}
 	if rpcErr != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Reason: rpcErr.Reason, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
 }

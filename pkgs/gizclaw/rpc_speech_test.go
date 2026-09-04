@@ -316,7 +316,7 @@ func TestRPCSpeechExtractTimeoutCancelsUploadAndInvocation(t *testing.T) {
 				t.Fatalf("ReadResponse() error = %v", err)
 			}
 			if response.Error == nil ||
-				response.Error.Code != rpcapi.StatusCodeInternal ||
+				response.Error.Code != rpcapi.StatusCodeDeadlineExceeded ||
 				response.Error.Message != "speech extraction timed out" {
 				t.Fatalf("response = %+v", response)
 			}
@@ -708,7 +708,7 @@ func TestRPCSpeechTranscribeTimeoutInterruptsStalledUpload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "speech request timed out" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeDeadlineExceeded || response.Error.Message != "speech request timed out" {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)
@@ -899,7 +899,7 @@ func TestRPCSpeechSynthesizeTimeoutInterruptsMissingEOS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadResponse() error = %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "speech request timed out" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeDeadlineExceeded || response.Error.Message != "speech request timed out" {
 		t.Fatalf("response = %+v", response)
 	}
 	readSpeechEOS(t, stream)

@@ -783,3 +783,40 @@ func assertRPCPingRequestHasTimestamp(t *testing.T, req *rpcapi.RPCRequest) {
 		t.Fatalf("ping request client_send_time = %d", params.ClientSendTime)
 	}
 }
+
+// A streaming handler used to reduce a resolved status to its code and
+// message, so a reason set by the resolver never reached the peer. The
+// pending-deletion reason travels this path on every streaming Workspace
+// method.
+func TestWriteRPCStatusResponsePreservesReason(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer serverSide.Close()
+	writeErr := make(chan error, 1)
+	go func() {
+		stream := &rpcStream{conn: serverSide}
+		writeErr <- writeRPCStatusResponse(stream, "status-1", &rpcapi.RPCStatus{
+			Code:    rpcapi.StatusCodeFailedPrecondition,
+			Reason:  "WORKSPACE_PENDING_DELETION",
+			Message: "workspace deletion is pending",
+		})
+	}()
+	response, err := rpcapi.ReadResponse(clientSide)
+	if err != nil {
+		t.Fatalf("ReadResponse() error = %v", err)
+	}
+	if err := rpcapi.ReadEOS(clientSide); err != nil {
+		t.Fatalf("ReadEOS() error = %v", err)
+	}
+	if err := <-writeErr; err != nil {
+		t.Fatalf("writeRPCStatusResponse() error = %v", err)
+	}
+	if response.Error == nil {
+		t.Fatalf("response = %#v, want a status", response)
+	}
+	if response.Error.Code != rpcapi.StatusCodeFailedPrecondition {
+		t.Fatalf("code = %s, want FAILED_PRECONDITION", response.Error.Code)
+	}
+	if response.Error.Reason != "WORKSPACE_PENDING_DELETION" {
+		t.Fatalf("reason = %q, want WORKSPACE_PENDING_DELETION", response.Error.Reason)
+	}
+}
