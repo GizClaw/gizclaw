@@ -613,6 +613,7 @@ const (
 	RPCMethodServerWorkspaceIconDownload         RPCMethod = "server.workspace.icon.download"
 	RPCMethodServerWorkspaceInputPut             RPCMethod = "server.workspace.input.put"
 	RPCMethodServerWorkspaceList                 RPCMethod = "server.workspace.list"
+	RPCMethodServerWorkspaceParametersSet        RPCMethod = "server.workspace.parameters.set"
 	RPCMethodServerWorkspacePut                  RPCMethod = "server.workspace.put"
 )
 
@@ -826,6 +827,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerWorkspaceInputPut:
 		return true
 	case RPCMethodServerWorkspaceList:
+		return true
+	case RPCMethodServerWorkspaceParametersSet:
 		return true
 	case RPCMethodServerWorkspacePut:
 		return true
@@ -3065,6 +3068,21 @@ type WorkspaceInputPutRequest struct {
 // WorkspaceInputPutResponse defines model for WorkspaceInputPutResponse.
 type WorkspaceInputPutResponse = Workspace
 
+// WorkspaceParametersPatch contains driver-neutral Workspace parameter updates.
+type WorkspaceParametersPatch struct {
+	Conversation *ConversationParameters `json:"conversation,omitempty"`
+	Input        *WorkspaceInputMode     `json:"input,omitempty"`
+}
+
+// WorkspaceParametersSetRequest updates supported parameters without exposing agent_type.
+type WorkspaceParametersSetRequest struct {
+	Name       string                   `json:"name"`
+	Parameters WorkspaceParametersPatch `json:"parameters"`
+}
+
+// WorkspaceParametersSetResponse defines model for WorkspaceParametersSetResponse.
+type WorkspaceParametersSetResponse = Workspace
+
 // WorkspaceListRequest defines model for WorkspaceListRequest.
 type WorkspaceListRequest struct {
 	Cursor     *string `json:"cursor,omitempty"`
@@ -3785,6 +3803,23 @@ func (t *RPCPayload) FromWorkspaceInputPutRequest(v WorkspaceInputPutRequest) er
 // MergeWorkspaceInputPutRequest performs a merge with any protobuf payload, using the provided WorkspaceInputPutRequest
 func (t *RPCPayload) MergeWorkspaceInputPutRequest(v WorkspaceInputPutRequest) error {
 	return t.merge("WorkspaceInputPutRequest", v)
+}
+
+// AsWorkspaceParametersSetRequest decodes the RPCPayload as a WorkspaceParametersSetRequest.
+func (t RPCPayload) AsWorkspaceParametersSetRequest() (WorkspaceParametersSetRequest, error) {
+	var body WorkspaceParametersSetRequest
+	err := t.decode("WorkspaceParametersSetRequest", &body)
+	return body, err
+}
+
+// FromWorkspaceParametersSetRequest overwrites any protobuf payload as the provided WorkspaceParametersSetRequest.
+func (t *RPCPayload) FromWorkspaceParametersSetRequest(v WorkspaceParametersSetRequest) error {
+	return t.encode("WorkspaceParametersSetRequest", v)
+}
+
+// MergeWorkspaceParametersSetRequest merges the provided WorkspaceParametersSetRequest into the protobuf payload.
+func (t *RPCPayload) MergeWorkspaceParametersSetRequest(v WorkspaceParametersSetRequest) error {
+	return t.merge("WorkspaceParametersSetRequest", v)
 }
 
 // AsWorkspacePutRequest decodes the RPCPayload as a WorkspacePutRequest
@@ -5094,6 +5129,23 @@ func (t *RPCPayload) FromWorkspaceInputPutResponse(v WorkspaceInputPutResponse) 
 // MergeWorkspaceInputPutResponse performs a merge with any protobuf payload, using the provided WorkspaceInputPutResponse
 func (t *RPCPayload) MergeWorkspaceInputPutResponse(v WorkspaceInputPutResponse) error {
 	return t.merge("WorkspaceInputPutResponse", v)
+}
+
+// AsWorkspaceParametersSetResponse decodes the RPCPayload as a WorkspaceParametersSetResponse.
+func (t RPCPayload) AsWorkspaceParametersSetResponse() (WorkspaceParametersSetResponse, error) {
+	var body WorkspaceParametersSetResponse
+	err := t.decode("WorkspaceParametersSetResponse", &body)
+	return body, err
+}
+
+// FromWorkspaceParametersSetResponse overwrites any protobuf payload as the provided WorkspaceParametersSetResponse.
+func (t *RPCPayload) FromWorkspaceParametersSetResponse(v WorkspaceParametersSetResponse) error {
+	return t.encode("WorkspaceParametersSetResponse", v)
+}
+
+// MergeWorkspaceParametersSetResponse merges the provided WorkspaceParametersSetResponse into the protobuf payload.
+func (t *RPCPayload) MergeWorkspaceParametersSetResponse(v WorkspaceParametersSetResponse) error {
+	return t.merge("WorkspaceParametersSetResponse", v)
 }
 
 // AsWorkspacePutResponse decodes the RPCPayload as a WorkspacePutResponse

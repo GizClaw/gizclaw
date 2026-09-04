@@ -54,6 +54,82 @@ func callWorkspaceInputPut(
 	return response
 }
 
+func callWorkspaceParametersSet(
+	t *testing.T,
+	ctx context.Context,
+	server *Server,
+	request rpcapi.WorkspaceParametersSetRequest,
+) *rpcapi.RPCResponse {
+	t.Helper()
+	var payload rpcapi.RPCPayload
+	if err := payload.FromWorkspaceParametersSetRequest(request); err != nil {
+		t.Fatal(err)
+	}
+	response, handled, err := server.Dispatch(ctx, &rpcapi.RPCRequest{
+		Id: "parameters-set", Method: rpcapi.RPCMethodServerWorkspaceParametersSet, Params: &payload,
+	})
+	if err != nil || !handled {
+		t.Fatalf("workspace parameters set handled=%v error=%v", handled, err)
+	}
+	return response
+}
+
+func TestWorkspaceParametersSetDerivesAgentTypeAndMergesFields(t *testing.T) {
+	ctx := context.Background()
+	server := newWorkspaceInputTestServer(t, ctx)
+	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
+		Name: "journey-parameters", Collection: "story-teller", WorkflowName: "journey",
+	})
+	if created.Parameters != nil {
+		t.Fatalf("created parameters = %#v, want inherited", created.Parameters)
+	}
+	realtime := rpcapi.WorkspaceInputModeRealtime
+	agent := rpcapi.ConversationParametersInitiativeAgent
+	policy := rpcapi.ConversationParametersAgentInitiativePolicyOnReload
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-parameters",
+		Parameters: rpcapi.WorkspaceParametersPatch{
+			Input: &realtime,
+			Conversation: &rpcapi.ConversationParameters{
+				Initiative: &agent, AgentInitiativePolicy: &policy,
+			},
+		},
+	})
+	if response.Error != nil || response.Result == nil {
+		t.Fatalf("workspace parameters set response = %#v", response)
+	}
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	parameters, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parameters.AgentType != rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft || parameters.Input == nil || *parameters.Input != realtime {
+		t.Fatalf("parameters = %+v", parameters)
+	}
+	if parameters.Conversation == nil || parameters.Conversation.Initiative == nil || *parameters.Conversation.Initiative != agent ||
+		parameters.Conversation.AgentInitiativePolicy == nil || *parameters.Conversation.AgentInitiativePolicy != policy {
+		t.Fatalf("conversation = %+v", parameters.Conversation)
+	}
+}
+
+func TestWorkspaceParametersSetRejectsEmptyPatch(t *testing.T) {
+	ctx := context.Background()
+	server := newWorkspaceInputTestServer(t, ctx)
+	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
+		Name: "journey-parameters-empty", Collection: "story-teller", WorkflowName: "journey",
+	})
+
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-parameters-empty",
+	})
+	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest {
+		t.Fatalf("workspace parameters set response = %#v, want BAD_REQUEST", response)
+	}
+}
+
 func TestWorkspaceInputPutKeepsParametersAndToolkit(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)

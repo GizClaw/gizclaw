@@ -1838,3 +1838,85 @@ final $typed_data.Uint8List workspaceInputPutResponseDescriptor =
     $convert.base64Decode(
         'ChlXb3Jrc3BhY2VJbnB1dFB1dFJlc3BvbnNlEi8KBXZhbHVlGAEgASgLMhkuZ2l6Y2xhdy5ycG'
         'MudjEuV29ya3NwYWNlUgV2YWx1ZQ==');
+
+@$core.Deprecated('Use workspaceParametersPatchDescriptor instead')
+const WorkspaceParametersPatch$json = {
+  '1': 'WorkspaceParametersPatch',
+  '2': [
+    {
+      '1': 'input',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
+      '9': 0,
+      '10': 'input',
+      '17': true
+    },
+    {
+      '1': 'conversation',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ConversationParameters',
+      '9': 1,
+      '10': 'conversation',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_input'},
+    {'1': '_conversation'},
+  ],
+};
+
+/// Descriptor for `WorkspaceParametersPatch`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceParametersPatchDescriptor = $convert.base64Decode(
+    'ChhXb3Jrc3BhY2VQYXJhbWV0ZXJzUGF0Y2gSPQoFaW5wdXQYASABKA4yIi5naXpjbGF3LnJwYy'
+    '52MS5Xb3Jrc3BhY2VJbnB1dE1vZGVIAFIFaW5wdXSIAQESTwoMY29udmVyc2F0aW9uGAIgASgL'
+    'MiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0gBUgxjb252ZXJzYXRpb2'
+    '6IAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb24=');
+
+@$core.Deprecated('Use workspaceParametersSetRequestDescriptor instead')
+const WorkspaceParametersSetRequest$json = {
+  '1': 'WorkspaceParametersSetRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'parameters',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkspaceParametersPatch',
+      '10': 'parameters'
+    },
+  ],
+};
+
+/// Descriptor for `WorkspaceParametersSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceParametersSetRequestDescriptor =
+    $convert.base64Decode(
+        'Ch1Xb3Jrc3BhY2VQYXJhbWV0ZXJzU2V0UmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1lEkgKCn'
+        'BhcmFtZXRlcnMYAiABKAsyKC5naXpjbGF3LnJwYy52MS5Xb3Jrc3BhY2VQYXJhbWV0ZXJzUGF0'
+        'Y2hSCnBhcmFtZXRlcnM=');
+
+@$core.Deprecated('Use workspaceParametersSetResponseDescriptor instead')
+const WorkspaceParametersSetResponse$json = {
+  '1': 'WorkspaceParametersSetResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Workspace',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `WorkspaceParametersSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List workspaceParametersSetResponseDescriptor =
+    $convert.base64Decode(
+        'Ch5Xb3Jrc3BhY2VQYXJhbWV0ZXJzU2V0UmVzcG9uc2USLwoFdmFsdWUYASABKAsyGS5naXpjbG'
+        'F3LnJwYy52MS5Xb3Jrc3BhY2VSBXZhbHVl');

@@ -137,6 +137,7 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceCreate,
 		rpcapi.RPCMethodServerWorkspacePut,
 		rpcapi.RPCMethodServerWorkspaceInputPut,
+		rpcapi.RPCMethodServerWorkspaceParametersSet,
 		rpcapi.RPCMethodServerWorkspaceDelete,
 		rpcapi.RPCMethodServerWorkspaceHistoryList,
 		rpcapi.RPCMethodServerWorkspaceHistoryGet,
@@ -215,6 +216,8 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleWorkspacePut(ctx, req)
 	case rpcapi.RPCMethodServerWorkspaceInputPut:
 		return s.handleWorkspaceInputPut(ctx, req)
+	case rpcapi.RPCMethodServerWorkspaceParametersSet:
+		return s.handleWorkspaceParametersSet(ctx, req)
 	case rpcapi.RPCMethodServerWorkspaceDelete:
 		return s.handleWorkspaceDelete(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkspaceHistoryList:
@@ -832,6 +835,71 @@ func (s *Server) handleWorkspaceInputPut(ctx context.Context, req *rpcapi.RPCReq
 		return internalError(req.Id, err.Error()), true, nil
 	}
 	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkspaceInputPutResponse), true, nil
+}
+
+func (s *Server) handleWorkspaceParametersSet(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, bool, error) {
+	if s.Workspaces == nil {
+		return internalError(req.Id, "workspace service not configured"), true, nil
+	}
+	params, ok := decodeRequiredParams(req, rpcapi.RPCPayload.AsWorkspaceParametersSetRequest)
+	if !ok {
+		return invalidParams(req.Id), true, nil
+	}
+	observability.Annotate(ctx, observability.AnnotationWorkspaceName, params.Name)
+	parameters, ok := s.Workspaces.(workspace.PeerWorkspaceParametersService)
+	if !ok {
+		return internalError(req.Id, "workspace service does not support Peer parameter updates"), true, nil
+	}
+	ownerCtx := s.ownerContext(ctx)
+	current, err := s.getWorkspaceByName(ownerCtx, params.Name)
+	if errors.Is(err, kv.ErrNotFound) {
+		return statusError(req.Id, http.StatusNotFound, "workspace not found"), true, nil
+	}
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	if response := s.requireOwner(req.Id, current.OwnerPublicKey); response != nil {
+		return response, true, nil
+	}
+	profile := s.currentRuntimeProfile()
+	if profile == nil {
+		return internalError(req.Id, "runtime profile not configured"), true, nil
+	}
+	patch := workspace.PeerWorkspaceParametersSetRequest{ID: current.Id}
+	if params.Parameters.Input != nil {
+		value, err := convertType[apitypes.WorkspaceInputMode](*params.Parameters.Input)
+		if err != nil {
+			return nil, true, err
+		}
+		patch.Input = &value
+	}
+	if params.Parameters.Conversation != nil {
+		value, err := convertType[apitypes.ConversationParameters](*params.Parameters.Conversation)
+		if err != nil {
+			return nil, true, err
+		}
+		patch.Conversation = &value
+	}
+	updated, err := parameters.SetPeerWorkspaceParameters(ownerCtx, patch)
+	if err != nil {
+		if parametersErr, ok := errors.AsType[*workspace.PeerWorkspaceParametersSetError](err); ok {
+			switch parametersErr.Kind {
+			case workspace.PeerWorkspaceParametersSetInvalid:
+				observability.SetErrorCode(ctx, "INVALID_WORKSPACE")
+				return statusError(req.Id, http.StatusBadRequest, parametersErr.Error()), true, nil
+			case workspace.PeerWorkspaceParametersSetNotFound:
+				return statusError(req.Id, http.StatusNotFound, parametersErr.Error()), true, nil
+			case workspace.PeerWorkspaceParametersSetConflict:
+				return statusError(req.Id, http.StatusConflict, parametersErr.Error()), true, nil
+			}
+		}
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	projected, err := workspaceRPCProjection(updated, profile)
+	if err != nil {
+		return internalError(req.Id, err.Error()), true, nil
+	}
+	return resultResponse(req.Id, projected, (*rpcapi.RPCPayload).FromWorkspaceParametersSetResponse), true, nil
 }
 
 func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
