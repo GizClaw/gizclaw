@@ -248,6 +248,8 @@ final _messageFactories = <String, MessageFactory>{
   'WorkspaceInputPutResponse': payload.WorkspaceInputPutResponse.new,
   'WorkspaceListRequest': payload.WorkspaceListRequest.new,
   'WorkspaceListResponse': payload.WorkspaceListResponse.new,
+  'WorkspaceParametersSetRequest': payload.WorkspaceParametersSetRequest.new,
+  'WorkspaceParametersSetResponse': payload.WorkspaceParametersSetResponse.new,
   'WorkspacePutRequest': payload.WorkspacePutRequest.new,
   'WorkspacePutResponse': payload.WorkspacePutResponse.new,
 };
@@ -486,6 +488,8 @@ final _messageTypes = <String, Type>{
   'WorkspaceInputPutResponse': payload.WorkspaceInputPutResponse,
   'WorkspaceListRequest': payload.WorkspaceListRequest,
   'WorkspaceListResponse': payload.WorkspaceListResponse,
+  'WorkspaceParametersSetRequest': payload.WorkspaceParametersSetRequest,
+  'WorkspaceParametersSetResponse': payload.WorkspaceParametersSetResponse,
   'WorkspacePutRequest': payload.WorkspacePutRequest,
   'WorkspacePutResponse': payload.WorkspacePutResponse,
 };

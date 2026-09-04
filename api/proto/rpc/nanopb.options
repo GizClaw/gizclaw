@@ -5,6 +5,7 @@ gizclaw.rpc.v1.Icon.png max_size:512
 gizclaw.rpc.v1.WorkspaceIconDownloadRequest.name max_size:256
 gizclaw.rpc.v1.WorkspaceIconDownloadResponse.name max_size:256
 gizclaw.rpc.v1.WorkspaceInputPutRequest.name max_size:256
+gizclaw.rpc.v1.WorkspaceParametersSetRequest.name max_size:256
 gizclaw.rpc.v1.DeviceInfo.emoji max_size:65
 gizclaw.rpc.v1.DeviceProfile.name max_size:257
 gizclaw.rpc.v1.DeviceProfile.emoji max_size:65

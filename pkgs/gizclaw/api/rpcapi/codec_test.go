@@ -87,6 +87,32 @@ func TestFrameRequestResponseRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWorkspaceParametersSetRoundTrip(t *testing.T) {
+	input := WorkspaceInputModeRealtime
+	initiative := ConversationParametersInitiativeAgent
+	policy := ConversationParametersAgentInitiativePolicyOnReload
+	want := WorkspaceParametersSetRequest{
+		Name: "story",
+		Parameters: WorkspaceParametersPatch{
+			Input: &input,
+			Conversation: &ConversationParameters{
+				Initiative: &initiative, AgentInitiativePolicy: &policy,
+			},
+		},
+	}
+	var payload RPCPayload
+	if err := payload.FromWorkspaceParametersSetRequest(want); err != nil {
+		t.Fatalf("FromWorkspaceParametersSetRequest() error = %v", err)
+	}
+	got, err := payload.AsWorkspaceParametersSetRequest()
+	if err != nil {
+		t.Fatalf("AsWorkspaceParametersSetRequest() error = %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("round trip = %#v, want %#v", got, want)
+	}
+}
+
 func TestModelProviderDataOneofRoundTripAndRejectsMultipleValues(t *testing.T) {
 	deepSeek := &DeepSeekTenantModelProviderData{
 		ApiMode:       DeepSeekTenantModelProviderDataApiModeChatCompletions,
