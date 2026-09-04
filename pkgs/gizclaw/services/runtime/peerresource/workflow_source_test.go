@@ -56,7 +56,7 @@ func TestWorkflowListRequiresCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	response := server.handleWorkflowList(context.Background(), &rpcapi.RPCRequest{Id: "request", Params: &params})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("response = %#v", response)
 	}
 }
@@ -321,7 +321,7 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 
 func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, canonicalID string) {
 	t.Helper()
-	if response == nil || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if response == nil || response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("response = %#v, want NOT_FOUND", response)
 	}
 	if response.Error.Message != message {

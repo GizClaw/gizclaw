@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -121,6 +122,47 @@ func newTunnelPair(t *testing.T, edgeConfig, serverConfig Config) tunnelPair {
 		edgePhysical: edgePhysical, serverPhysical: serverPhysical,
 		declaration: declaration,
 	}
+}
+
+func dialAdditionalTunnelSession(t *testing.T, pair tunnelPair) *Conn {
+	t.Helper()
+	clientKey, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := NewSessionID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	declaration := SessionDeclaration{
+		SessionID:       id,
+		ClientPublicKey: clientKey.Public,
+		RemoteAddr:      "198.51.100.9:4242",
+	}
+	type acceptResult struct {
+		conn *Conn
+		decl SessionDeclaration
+		err  error
+	}
+	acceptCh := make(chan acceptResult, 1)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	go func() {
+		conn, decl, acceptErr := pair.serverRouter.Accept(ctx)
+		acceptCh <- acceptResult{conn: conn, decl: decl, err: acceptErr}
+	}()
+	edgeConn, err := pair.edgeRouter.Dial(ctx, declaration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := <-acceptCh
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	if result.decl != declaration {
+		t.Fatalf("declaration = %+v, want %+v", result.decl, declaration)
+	}
+	return edgeConn
 }
 
 func TestNativeChannelsAggregateLogicalConnection(t *testing.T) {
@@ -530,9 +572,14 @@ func TestChannelCapacityIsPerSessionAndAssociation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stream.Close()
-	_, err = pair.edge.Dial(2)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err = pair.edge.DialContext(ctx, 2)
 	if !errors.Is(err, ErrBufferLimit) {
 		t.Fatalf("Dial beyond session channel limit error = %v", err)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Dial beyond session channel limit did not wait for capacity: %v", err)
 	}
 	capacity, ok := channelCapacityFromError(err)
 	if !ok || capacity.scope != "session" || capacity.active != 3 || capacity.limit != 3 {
@@ -550,13 +597,247 @@ func TestAssociationCapacityCarriesExactEstablishedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer stream.Close()
-	_, err = pair.edge.Dial(2)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	_, err = pair.edge.DialContext(ctx, 2)
 	if !errors.Is(err, ErrBufferLimit) {
 		t.Fatalf("Dial beyond association channel limit error = %v", err)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Dial beyond association channel limit did not wait for capacity: %v", err)
 	}
 	capacity, ok := channelCapacityFromError(err)
 	if !ok || capacity.scope != "association" || capacity.active != 3 || capacity.limit != 3 {
 		t.Fatalf("association capacity error = %#v, %v", capacity, err)
+	}
+}
+
+func TestDialContextWaitsForReleasedSessionChannelCapacity(t *testing.T) {
+	pair := newTunnelPair(t,
+		Config{MaxChannelsPerSession: 3, MaxChannels: 6},
+		Config{MaxChannelsPerSession: 32, MaxChannels: 32},
+	)
+	first, err := pair.edge.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	type dialResult struct {
+		stream net.Conn
+		err    error
+	}
+	result := make(chan dialResult, 1)
+	go func() {
+		stream, dialErr := pair.edge.DialContext(ctx, 2)
+		result <- dialResult{stream: stream, err: dialErr}
+	}()
+
+	select {
+	case got := <-result:
+		if got.stream != nil {
+			_ = got.stream.Close()
+		}
+		t.Fatalf("capacity-constrained DialContext returned before release: %v", got.err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first stream: %v", err)
+	}
+	select {
+	case got := <-result:
+		if got.err != nil {
+			t.Fatalf("DialContext after capacity release: %v", got.err)
+		}
+		if got.stream == nil {
+			t.Fatal("DialContext returned a nil stream after capacity release")
+		}
+		_ = got.stream.Close()
+	case <-ctx.Done():
+		t.Fatalf("DialContext did not resume after capacity release: %v", ctx.Err())
+	}
+}
+
+func TestDialContextWaitsForReleasedAssociationChannelCapacity(t *testing.T) {
+	pair := newTunnelPair(t,
+		Config{MaxChannelsPerSession: 32, MaxChannels: 5},
+		Config{MaxChannelsPerSession: 32, MaxChannels: 32},
+	)
+	secondSession := dialAdditionalTunnelSession(t, pair)
+	first, err := pair.edge.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := pair.edgeRouter.ActiveChannels(); got != 5 {
+		t.Fatalf("active channels before association wait = %d, want 5", got)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	type dialResult struct {
+		stream net.Conn
+		err    error
+	}
+	result := make(chan dialResult, 1)
+	go func() {
+		stream, dialErr := secondSession.DialContext(ctx, 2)
+		result <- dialResult{stream: stream, err: dialErr}
+	}()
+
+	select {
+	case got := <-result:
+		if got.stream != nil {
+			_ = got.stream.Close()
+		}
+		t.Fatalf("association-constrained DialContext returned before release: %v", got.err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	if err := first.Close(); err != nil {
+		t.Fatalf("close first-session stream: %v", err)
+	}
+	var got dialResult
+	select {
+	case got = <-result:
+	case <-ctx.Done():
+		t.Fatalf("DialContext did not resume after cross-session capacity release: %v", ctx.Err())
+	}
+	if got.err != nil {
+		t.Fatalf("DialContext after cross-session capacity release: %v", got.err)
+	}
+	if got.stream == nil {
+		t.Fatal("DialContext returned a nil stream after cross-session capacity release")
+	}
+	if err := got.stream.Close(); err != nil {
+		t.Fatalf("close second-session stream: %v", err)
+	}
+	if active := pair.edgeRouter.ActiveChannels(); active != 4 {
+		t.Fatalf("active channels after association wait = %d, want 4", active)
+	}
+	if _, err := pair.edgePhysical.Write(0x55, []byte("physical-alive")); err != nil {
+		t.Fatalf("physical connection closed after association wait: %v", err)
+	}
+}
+
+func TestDialContextCapacityWaitReturnsWhenRouterCloses(t *testing.T) {
+	pair := newTunnelPair(t,
+		Config{MaxChannelsPerSession: 3, MaxChannels: 6},
+		Config{MaxChannelsPerSession: 32, MaxChannels: 32},
+	)
+	first, err := pair.edge.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	type dialResult struct {
+		stream net.Conn
+		err    error
+	}
+	result := make(chan dialResult, 1)
+	go func() {
+		stream, dialErr := pair.edge.DialContext(ctx, 2)
+		result <- dialResult{stream: stream, err: dialErr}
+	}()
+
+	select {
+	case got := <-result:
+		if got.stream != nil {
+			_ = got.stream.Close()
+		}
+		t.Fatalf("capacity-constrained DialContext returned before Router close: %v", got.err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	if err := pair.edgeRouter.Close(); err != nil {
+		t.Fatalf("close Edge Router: %v", err)
+	}
+	var got dialResult
+	select {
+	case got = <-result:
+	case <-ctx.Done():
+		t.Fatalf("DialContext did not return after Router close: %v", ctx.Err())
+	}
+	if got.stream != nil {
+		_ = got.stream.Close()
+		t.Fatal("DialContext returned a stream after Router close")
+	}
+	if !errors.Is(got.err, giznet.ErrConnClosed) {
+		t.Fatalf("DialContext after Router close error = %v", got.err)
+	}
+	if active := pair.edgeRouter.ActiveChannels(); active != 0 {
+		t.Fatalf("active channels after Router close = %d, want 0", active)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close already-released stream: %v", err)
+	}
+	if _, err := pair.edgePhysical.Write(0x55, []byte("physical-alive")); err != nil {
+		t.Fatalf("physical connection closed with Router: %v", err)
+	}
+}
+
+func TestDialContextCapacityWaitReturnsWhenCallerCancels(t *testing.T) {
+	pair := newTunnelPair(t,
+		Config{MaxChannelsPerSession: 3, MaxChannels: 6},
+		Config{MaxChannelsPerSession: 32, MaxChannels: 32},
+	)
+	first, err := pair.edge.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	type dialResult struct {
+		stream net.Conn
+		err    error
+	}
+	result := make(chan dialResult, 1)
+	go func() {
+		stream, dialErr := pair.edge.DialContext(ctx, 2)
+		result <- dialResult{stream: stream, err: dialErr}
+	}()
+
+	select {
+	case got := <-result:
+		if got.stream != nil {
+			_ = got.stream.Close()
+		}
+		t.Fatalf("capacity-constrained DialContext returned before caller cancellation: %v", got.err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	cancel()
+	var got dialResult
+	select {
+	case got = <-result:
+	case <-time.After(time.Second):
+		t.Fatal("DialContext did not return after caller cancellation")
+	}
+	if got.stream != nil {
+		_ = got.stream.Close()
+		t.Fatal("DialContext returned a stream after caller cancellation")
+	}
+	if !errors.Is(got.err, context.Canceled) {
+		t.Fatalf("DialContext after caller cancellation error = %v", got.err)
+	}
+	if active := pair.edgeRouter.ActiveChannels(); active != 3 {
+		t.Fatalf("active channels after caller cancellation = %d, want 3", active)
+	}
+	if _, err := pair.edge.Write(0x55, []byte("logical-alive")); err != nil {
+		t.Fatalf("logical connection closed after caller cancellation: %v", err)
+	}
+	if _, err := pair.edgePhysical.Write(0x55, []byte("physical-alive")); err != nil {
+		t.Fatalf("physical connection closed after caller cancellation: %v", err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close held stream: %v", err)
+	}
+	if active := pair.edgeRouter.ActiveChannels(); active != 2 {
+		t.Fatalf("active channels after held stream close = %d, want 2", active)
 	}
 }
 

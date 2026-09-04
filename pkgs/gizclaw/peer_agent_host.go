@@ -88,7 +88,7 @@ func newPeerAgentHost(
 }
 
 type peerAgentWorkspaceResolver interface {
-	ResolveRunWorkspaceSelection(context.Context, string) (apitypes.Workspace, *rpcapi.RPCError)
+	ResolveRunWorkspaceSelection(context.Context, string) (apitypes.Workspace, *rpcapi.RPCStatus)
 }
 
 type canonicalAgentResolver interface {

@@ -46,7 +46,7 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	if got.Value.Available {
 		t.Fatalf("get after alias removal = %#v, want unavailable", got)
 	}
-	if _, rpcErr := server.ValidateRunWorkspaceSelection(ctx, "journey-1"); rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound {
+	if _, rpcErr := server.ValidateRunWorkspaceSelection(ctx, "journey-1"); rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("ValidateRunWorkspaceSelection() error = %#v, want NOT_FOUND", rpcErr)
 	}
 
@@ -79,7 +79,7 @@ func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	response := server.handleWorkspaceList(ctx, &rpcapi.RPCRequest{Id: "list", Params: &payload})
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Result != nil {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Result != nil {
 		t.Fatalf("workspace list response = %#v, want NOT_FOUND", response)
 	}
 }
@@ -105,7 +105,7 @@ func TestWorkspaceCreatePreservesNotFoundForUnknownWorkflowAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	response, handled, err := server.Dispatch(ctx, &rpcapi.RPCRequest{Id: "create", Method: rpcapi.RPCMethodServerWorkspaceCreate, Params: &payload})
-	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound || response.Result != nil {
+	if err != nil || !handled || response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound || response.Result != nil {
 		t.Fatalf("workspace create response = %#v, handled=%v error=%v, want NOT_FOUND", response, handled, err)
 	}
 }

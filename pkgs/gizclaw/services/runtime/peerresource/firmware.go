@@ -109,15 +109,15 @@ func firmwareRPCError(id string, err error) *rpcapi.RPCResponse {
 	return rpcapi.Error{RequestID: id, Code: body.Code, Message: body.Message}.RPCResponse()
 }
 
-func firmwareRPCErrorBody(err error) *rpcapi.RPCError {
+func firmwareRPCErrorBody(err error) *rpcapi.RPCStatus {
 	switch {
 	case errors.Is(err, errFirmwareNotBound):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
+		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: err.Error()}
 	case errors.Is(err, kv.ErrNotFound):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "firmware not found"}
+		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "firmware not found"}
 	case errors.Is(err, errFirmwarePackageNotFound):
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}
+		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: err.Error()}
 	default:
-		return &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "firmware lookup unavailable"}
+		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "firmware lookup unavailable"}
 	}
 }

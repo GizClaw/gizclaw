@@ -58,16 +58,16 @@ func deviceControlError(id string, err error) *rpcapi.RPCResponse {
 	case errors.As(err, &rpcErr):
 		return rpcapi.Error{RequestID: id, Code: rpcErr.Code, Message: rpcErr.Message}.RPCResponse()
 	case errors.Is(err, ErrDeviceRejected):
-		return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 	case errors.Is(err, ErrDeviceResourceNotFound):
-		return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeNotFound, Message: err.Error()}.RPCResponse()
 	default:
-		return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeInternalError, Message: "device handler failed"}.RPCResponse()
+		return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeInternal, Message: "device handler failed"}.RPCResponse()
 	}
 }
 
 func deviceControlUnsupported(id string, method rpcapi.RPCMethod) *rpcapi.RPCResponse {
-	return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unsupported method: %s", method)}.RPCResponse()
+	return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeUnimplemented, Message: fmt.Sprintf("unsupported method: %s", method)}.RPCResponse()
 }
 
 func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

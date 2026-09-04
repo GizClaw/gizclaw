@@ -15,6 +15,9 @@ import {
   RPC_FRAME_TYPE_EOS,
   RPC_FRAME_TYPE_BINARY,
   RPC_FRAME_TYPE_TEXT,
+  STATUS_CODE_INTERNAL,
+  STATUS_CODE_INVALID_ARGUMENT,
+  STATUS_CODE_UNIMPLEMENTED,
   SPEECH_EXTRACTION_REQUEST_TIMEOUT_MS,
   SPEECH_SYNTHESIS_REQUEST_TIMEOUT_MS,
   SPEECH_TRANSCRIPTION_REQUEST_TIMEOUT_MS,
@@ -1385,7 +1388,10 @@ test("WebRTCRPCClient stops a live transcription upload on an early response", a
   channel.receive(
     encodeRPCResponse(
       {
-        error: { code: -32602, message: "model alias is invalid" },
+        error: {
+          code: STATUS_CODE_INVALID_ARGUMENT,
+          message: "model alias is invalid",
+        },
         id: "speech-early-error",
         v: 1,
       },
@@ -1690,7 +1696,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
   channel.receive(
     encodeRPCResponse(
       {
-        error: { code: -32000, message: "x".repeat(70000) },
+        error: { code: STATUS_CODE_INTERNAL, message: "x".repeat(70000) },
         id: "req-binary-error",
         v: 1,
       },
@@ -1700,7 +1706,7 @@ test("WebRTCRPCClient rejects continuation binary RPC errors without body frames
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
-    assert.equal((err as WebRTCRPCError).code, -32000);
+    assert.equal((err as WebRTCRPCError).code, STATUS_CODE_INTERNAL);
     assert.equal((err as WebRTCRPCError).message, "x".repeat(70000));
     return true;
   });
@@ -1715,14 +1721,18 @@ test("WebRTCRPCClient rejects RPC error responses", async () => {
   channel.open();
   channel.receive(
     encodeRPCResponse(
-      { error: { code: -32000, message: "boom" }, id: "req-2", v: 1 },
+      {
+        error: { code: STATUS_CODE_INTERNAL, message: "boom" },
+        id: "req-2",
+        v: 1,
+      },
       "server.run.workspace.reload",
     ),
   );
 
   await assert.rejects(promise, (err) => {
     assert.equal(err instanceof WebRTCRPCError, true);
-    assert.equal((err as WebRTCRPCError).code, -32000);
+    assert.equal((err as WebRTCRPCError).code, STATUS_CODE_INTERNAL);
     assert.equal((err as WebRTCRPCError).message, "boom");
     return true;
   });
@@ -3522,7 +3532,7 @@ test("inbound client.* without a handler answers METHOD_NOT_FOUND", async () => 
     { level: 1, muted: false },
     { deviceControl: {} },
   );
-  assert.equal(response.error?.code, -32601);
+  assert.equal(response.error?.code, STATUS_CODE_UNIMPLEMENTED);
   assert.match(response.error?.message ?? "", /unsupported method/u);
 });
 
@@ -3532,35 +3542,35 @@ test("inbound device control rejects out-of-range and oversized params", async (
     { level: 101, muted: false },
     { deviceControl: { setVolume: () => ({ volume: 1 }) } },
   );
-  assert.equal(volume.error?.code, -32602);
+  assert.equal(volume.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const sound = await serveInboundClientRPC(
     "client.device.sound.play",
     { sound: "s".repeat(33) },
     { deviceControl: { playSound: () => {} } },
   );
-  assert.equal(sound.error?.code, -32602);
+  assert.equal(sound.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const forget = await serveInboundClientRPC(
     "client.wifi.saved.forget",
     { ssid: "" },
     { deviceControl: { forgetWifi: () => {} } },
   );
-  assert.equal(forget.error?.code, -32602);
+  assert.equal(forget.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const scan = await serveInboundClientRPC(
     "client.wifi.scan",
     { timeout_ms: 999 },
     { deviceControl: { scanWifi: () => [] } },
   );
-  assert.equal(scan.error?.code, -32602);
+  assert.equal(scan.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const connect = await serveInboundClientRPC(
     "client.wifi.connect",
     { passphrase: "short", ssid: "home" },
     { deviceControl: { connectWifi: () => {} } },
   );
-  assert.equal(connect.error?.code, -32602);
+  assert.equal(connect.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 });
 
 // A proto3 bool always decodes to a value, so `muted` cannot arrive malformed,
@@ -3572,14 +3582,14 @@ test("inbound device control rejects out-of-range durations", async () => {
     { duration_ms: -1, sound: "chime" },
     { deviceControl: { playSound: () => {} } },
   );
-  assert.equal(badDuration.error?.code, -32602);
+  assert.equal(badDuration.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 
   const badDelay = await serveInboundClientRPC(
     "client.device.reboot",
     { delay_ms: -5 },
     { deviceControl: { reboot: () => {} } },
   );
-  assert.equal(badDelay.error?.code, -32602);
+  assert.equal(badDelay.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 });
 
 test("inbound device control surfaces a scripted error code", async () => {
@@ -3589,12 +3599,15 @@ test("inbound device control surfaces a scripted error code", async () => {
     {
       deviceControl: {
         playSound: () => {
-          throw new GizClawDeviceControlError(-32602, "unknown sound");
+          throw new GizClawDeviceControlError(
+            STATUS_CODE_INVALID_ARGUMENT,
+            "unknown sound",
+          );
         },
       },
     },
   );
-  assert.equal(response.error?.code, -32602);
+  assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
   assert.equal(response.error?.message, "unknown sound");
 });
 

@@ -222,11 +222,11 @@ type fakeRPCRunWorkspaceSelectionResolver struct {
 	workspaces map[string]apitypes.Workspace
 }
 
-func (f *fakeRPCRunWorkspaceSelectionResolver) ResolveRunWorkspaceSelection(_ context.Context, name string) (apitypes.Workspace, *rpcapi.RPCError) {
+func (f *fakeRPCRunWorkspaceSelectionResolver) ResolveRunWorkspaceSelection(_ context.Context, name string) (apitypes.Workspace, *rpcapi.RPCStatus) {
 	f.names = append(f.names, name)
 	workspace, ok := f.workspaces[name]
 	if !ok {
-		return apitypes.Workspace{}, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "workspace not found"}
+		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "workspace not found"}
 	}
 	return workspace, nil
 }
@@ -406,16 +406,16 @@ func TestRPCServerSetRunSelectionValidationFailureDoesNotMutate(t *testing.T) {
 	failures := []struct {
 		name          string
 		workspaceName string
-		rpcErr        *rpcapi.RPCError
+		rpcErr        *rpcapi.RPCStatus
 		validator     bool
-		wantCode      rpcapi.RPCErrorCode
+		wantCode      rpcapi.StatusCode
 		wantCalls     int
 	}{
-		{name: "missing workspace", workspaceName: "new", rpcErr: &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "not found"}, validator: true, wantCode: rpcapi.RPCErrorCodeNotFound, wantCalls: 1},
-		{name: "permission denied", workspaceName: "new", rpcErr: &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeForbidden, Message: "denied"}, validator: true, wantCode: rpcapi.RPCErrorCodeForbidden, wantCalls: 1},
-		{name: "validator failure", workspaceName: "new", rpcErr: &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "failed"}, validator: true, wantCode: rpcapi.RPCErrorCodeInternalError, wantCalls: 1},
-		{name: "validator missing", workspaceName: "new", wantCode: rpcapi.RPCErrorCodeInternalError},
-		{name: "invalid selection", workspaceName: " new ", validator: true, wantCode: rpcapi.RPCErrorCodeBadRequest},
+		{name: "missing workspace", workspaceName: "new", rpcErr: &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "not found"}, validator: true, wantCode: rpcapi.StatusCodeNotFound, wantCalls: 1},
+		{name: "permission denied", workspaceName: "new", rpcErr: &rpcapi.RPCStatus{Code: rpcapi.StatusCodePermissionDenied, Message: "denied"}, validator: true, wantCode: rpcapi.StatusCodePermissionDenied, wantCalls: 1},
+		{name: "validator failure", workspaceName: "new", rpcErr: &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "failed"}, validator: true, wantCode: rpcapi.StatusCodeInternal, wantCalls: 1},
+		{name: "validator missing", workspaceName: "new", wantCode: rpcapi.StatusCodeInternal},
+		{name: "invalid selection", workspaceName: " new ", validator: true, wantCode: rpcapi.StatusCodeInvalidArgument},
 	}
 	for _, method := range methods {
 		for _, failure := range failures {
@@ -478,7 +478,7 @@ func TestRPCServerPeerErrorResponse(t *testing.T) {
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("GetInfo(error) err = %T, want rpcapi.Error", err)
 	}
-	if rpcErr.Code != 404 || rpcErr.RequestID != "info-error" {
+	if rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.RequestID != "info-error" {
 		t.Fatalf("GetInfo(error) rpc error = %+v", rpcErr)
 	}
 }
@@ -520,7 +520,7 @@ func TestRPCServerRetiringDrainClosesRequestChannel(t *testing.T) {
 			t.Fatalf("ReadEOS: %v", err)
 		}
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeUnavailable {
 		t.Fatalf("response = %#v, want conflict", response)
 	}
 	if err := clientStream.WriteRequestEnvelope(
@@ -563,7 +563,7 @@ func TestRPCServerContextCancelsWhenConnCloses(t *testing.T) {
 	if record.Level.String() != "WARN" || attrs["result"] != "canceled" || attrs["operation"] != string(rpcapi.RPCMethodServerInfoPut) || attrs["request_id"] != "put-info-cancel" {
 		t.Fatalf("record = (%s, %#v)", record.Level, attrs)
 	}
-	if attrs["rpc_code"] != int64(rpcapi.RPCErrorCodeInternalError) {
+	if attrs["rpc_code"] != int64(rpcapi.StatusCodeInternal) {
 		t.Fatalf("rpc_code = %#v, want existing internal error response code", attrs["rpc_code"])
 	}
 	if _, ok := attrs["peer_public_key"]; ok {
@@ -579,13 +579,13 @@ func TestRPCAPIErrorUsesStatusText(t *testing.T) {
 }
 
 func TestRPCServerDispatchErrorPaths(t *testing.T) {
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), nil); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidRequest {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), nil); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("dispatch(nil) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "unknown", Method: rpcapi.RPCMethod("bad")}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "unknown", Method: rpcapi.RPCMethod("bad")}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("dispatch(unknown) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "ping-missing", Method: rpcapi.RPCMethodAllPing}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "ping-missing", Method: rpcapi.RPCMethodAllPing}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("dispatch(ping missing params) = %+v, %v", resp, err)
 	}
 
@@ -593,37 +593,37 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 		name    string
 		server  *rpcServer
 		request *rpcapi.RPCRequest
-		code    rpcapi.RPCErrorCode
+		code    rpcapi.StatusCode
 	}{
 		{
 			name:    "put info internal error",
 			server:  &rpcServer{peer: &fakeRPCPeerService{putInfoError: errors.New("boom")}},
 			request: newRPCRequest("put-400", rpcapi.RPCMethodServerInfoPut, mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCPayload).FromServerPutInfoRequest)),
-			code:    rpcapi.RPCErrorCodeInternalError,
+			code:    rpcapi.StatusCodeInternal,
 		},
 		{
 			name:    "put info not found",
 			server:  &rpcServer{peer: &fakeRPCPeerService{putInfoError: peer.ErrPeerNotFound}},
 			request: newRPCRequest("put-404", rpcapi.RPCMethodServerInfoPut, mustRPCParams(rpcapi.ServerPutInfoRequest{}, (*rpcapi.RPCPayload).FromServerPutInfoRequest)),
-			code:    404,
+			code:    rpcapi.StatusCodeNotFound,
 		},
 		{
 			name:    "runtime missing service",
 			server:  &rpcServer{},
 			request: newRPCRequest("runtime", rpcapi.RPCMethodServerRuntimeGet, mustRPCParams(rpcapi.ServerGetRuntimeRequest{}, (*rpcapi.RPCPayload).FromServerGetRuntimeRequest)),
-			code:    rpcapi.RPCErrorCodeInternalError,
+			code:    rpcapi.StatusCodeInternal,
 		},
 		{
 			name:    "run status missing runtime",
 			server:  &rpcServer{},
 			request: newRPCRequest("run-status", rpcapi.RPCMethodServerRunStatus, mustRPCParams(rpcapi.ServerGetRunStatusRequest{}, (*rpcapi.RPCPayload).FromServerGetRunStatusRequest)),
-			code:    rpcapi.RPCErrorCodeInternalError,
+			code:    rpcapi.StatusCodeInternal,
 		},
 		{
 			name:    "run reload runtime error",
 			server:  &rpcServer{peerRunRuntime: &fakeRPCPeerRunRuntime{err: errors.New("boom")}},
 			request: newRPCRequest("run-reload", rpcapi.RPCMethodServerRunReload, mustRPCParams(rpcapi.ServerReloadRunRequest{}, (*rpcapi.RPCPayload).FromServerReloadRunRequest)),
-			code:    rpcapi.RPCErrorCodeBadRequest,
+			code:    rpcapi.StatusCodeInvalidArgument,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -641,13 +641,13 @@ func TestRPCServerDispatchErrorPaths(t *testing.T) {
 		t.Fatalf("dispatch(put missing params) = %+v, %v", resp, err)
 	}
 	invalidParamsReq := newRPCRequest("invalid", rpcapi.RPCMethodServerInfoGet, &rpcapi.RPCPayload{})
-	if resp, err := (&rpcServer{peer: &fakeRPCPeerService{}}).dispatch(context.Background(), invalidParamsReq); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp, err := (&rpcServer{peer: &fakeRPCPeerService{}}).dispatch(context.Background(), invalidParamsReq); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("dispatch(invalid params) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, nil)); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, nil)); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("dispatch(audio missing params) = %+v, %v", resp, err)
 	}
-	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceName: "voice"}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if resp, err := (&rpcServer{}).dispatch(context.Background(), newRPCRequest("audio", rpcapi.RPCMethodServerRunSay, mustRPCParams(rpcapi.ServerRunSayRequest{Text: "hello", VoiceName: "voice"}, (*rpcapi.RPCPayload).FromServerRunSayRequest))); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("dispatch(audio missing service) = %+v, %v", resp, err)
 	}
 }
@@ -707,7 +707,7 @@ func (s *fakeRPCPeerService) BindFirmware(context.Context, giznet.PublicKey, str
 
 type fakeRPCRunWorkspaceResources struct {
 	canonicalName string
-	rpcErr        *rpcapi.RPCError
+	rpcErr        *rpcapi.RPCStatus
 	names         []string
 }
 
@@ -715,7 +715,7 @@ func (f *fakeRPCRunWorkspaceResources) Dispatch(context.Context, *rpcapi.RPCRequ
 	return nil, false, nil
 }
 
-func (f *fakeRPCRunWorkspaceResources) ValidateRunWorkspaceSelection(_ context.Context, name string) (string, *rpcapi.RPCError) {
+func (f *fakeRPCRunWorkspaceResources) ValidateRunWorkspaceSelection(_ context.Context, name string) (string, *rpcapi.RPCStatus) {
 	f.names = append(f.names, name)
 	if f.rpcErr != nil {
 		return "", f.rpcErr

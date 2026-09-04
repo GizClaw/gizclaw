@@ -255,7 +255,7 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
 `client.device.reboot`、`client.wifi.status.get`、`client.wifi.saved.list`、`client.wifi.saved.forget`、
 `client.wifi.scan` 与 `client.wifi.connect`：
 runner 在连接时把脚本给定的 `response` 安装为该 client 的设备 provider（`volume.set` 会把请求的
-`level`/`muted` 回填进响应），`response: {error_code: -32602}` 让 provider 返回固定 RPC error；
+`level`/`muted` 回填进响应），`response: {error_code: 3}` 让 provider 返回固定的 canonical status code；
 未声明的方法保持 `METHOD_NOT_FOUND`，用于验证 `501 DEVICE_UNSUPPORTED`。随后的 `http` step 触发
 Server→设备 RPC，`client_rpc` step 的 `expect_calls` 断言 provider 被调用。
 

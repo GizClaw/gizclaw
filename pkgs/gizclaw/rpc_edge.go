@@ -26,10 +26,10 @@ func (s *edgeRPCServer) Handle(conn net.Conn) error {
 
 func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
 	if req == nil {
-		return rpcapi.Error{Code: rpcapi.RPCErrorCodeInvalidRequest, Message: "nil request"}.RPCResponse(), nil
+		return rpcapi.Error{Code: rpcapi.StatusCodeInvalidArgument, Message: "nil request"}.RPCResponse(), nil
 	}
 	if s.isPeerRetiring != nil && s.isPeerRetiring() {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeConflict, Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Reason: "PEER_CONN_RETIRING", Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
 	}
 	switch req.Method {
 	case rpcapi.RPCMethodServerPeerLookup:
@@ -41,7 +41,7 @@ func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*
 	case rpcapi.RPCMethodServerAPIKeyResolve:
 		return s.handleAPIKeyResolve(ctx, req), nil
 	default:
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeMethodNotFound, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
 }
 
@@ -54,7 +54,7 @@ func (s *edgeRPCServer) handleAPIKeyResolve(ctx context.Context, req *rpcapi.RPC
 	}
 	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerAPIKeyResolveRequest)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 	}
 	principal, err := s.apiKeys.Authenticate(ctx, params.ApiKey)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *edgeRPCServer) handleLookup(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerPeerLookupRequest)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 	}
 	publicKey, err := peerroute.ParsePublicKey(params.PeerPublicKey)
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *edgeRPCServer) handleAssign(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerPeerAssignRequest)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 	}
 	publicKey, err := peerroute.ParsePublicKey(params.PeerPublicKey)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCReques
 	}
 	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerRouteResolveRequest)
 	if err != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.RPCErrorCodeInvalidParams, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
 	}
 	publicKey, err := peerroute.ParsePublicKey(params.TargetPeerPublicKey)
 	if err != nil {
@@ -142,26 +142,26 @@ func edgeRequiredParams[T any](req *rpcapi.RPCRequest, decode func(rpcapi.RPCPay
 func edgeRPCResult[T any](id string, value T, encode func(*rpcapi.RPCPayload, T) error) *rpcapi.RPCResponse {
 	var body rpcapi.RPCPayload
 	if err := encode(&body, value); err != nil {
-		return rpcapi.Error{RequestID: id, Code: rpcapi.RPCErrorCodeInternalError, Message: err.Error()}.RPCResponse()
+		return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeInternal, Message: err.Error()}.RPCResponse()
 	}
 	return &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: id, Result: &body}
 }
 
 func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
-	code := rpcapi.RPCErrorCodeInternalError
+	code := rpcapi.StatusCodeInternal
 	switch {
 	case errors.Is(err, apikey.ErrInvalidAPIKey):
-		code = rpcapi.RPCErrorCodeForbidden
+		code = rpcapi.StatusCodePermissionDenied
 	case errors.Is(err, peerroute.ErrInvalidPublicKey), errors.Is(err, peerroute.ErrPeerNotAssignable):
-		code = rpcapi.RPCErrorCodeInvalidParams
+		code = rpcapi.StatusCodeInvalidArgument
 	case errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, peerroute.ErrPeerInactive), errors.Is(err, peer.ErrPeerNotFound), errors.Is(err, kv.ErrNotFound):
-		code = rpcapi.RPCErrorCodeNotFound
+		code = rpcapi.StatusCodeNotFound
 	case errors.Is(err, peerroute.ErrVersionConflict):
-		code = rpcapi.RPCErrorCodeConflict
+		code = rpcapi.StatusCodeAborted
 	case errors.Is(err, peerroute.ErrMissingRoute), errors.Is(err, peerroute.ErrPeerStoreNil), errors.Is(err, peerroute.ErrStoreNil):
-		code = rpcapi.RPCErrorCodeInternalError
+		code = rpcapi.StatusCodeInternal
 	default:
-		code = rpcapi.RPCErrorCodeInternalError
+		code = rpcapi.StatusCodeInternal
 	}
 	return rpcapi.Error{RequestID: id, Code: code, Message: err.Error()}.RPCResponse()
 }

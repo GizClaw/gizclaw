@@ -102,7 +102,7 @@ type fakeWorkspaceHistoryAudioService struct {
 	request  rpcapi.WorkspaceHistoryAudioDownloadRequest
 }
 
-func (f *fakeWorkspaceHistoryAudioService) PrepareWorkspaceHistoryAudioDownload(_ context.Context, request rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (f *fakeWorkspaceHistoryAudioService) PrepareWorkspaceHistoryAudioDownload(_ context.Context, request rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	f.request = request
 	return f.metadata, io.NopCloser(bytes.NewReader(f.payload)), nil, nil
 }

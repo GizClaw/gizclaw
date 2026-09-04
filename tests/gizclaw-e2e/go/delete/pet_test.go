@@ -122,7 +122,7 @@ func TestPetDeletionDuringContinuousRPCUse(t *testing.T) {
 		t.Fatal("deleted Pet is still readable")
 	} else {
 		var rpcErr rpcapi.Error
-		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.RPCErrorCodeNotFound {
+		if !errors.As(err, &rpcErr) || rpcErr.Code != rpcapi.StatusCodeNotFound {
 			t.Fatalf("deleted Pet error = %v, want typed not found", err)
 		}
 	}

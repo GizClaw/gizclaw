@@ -18,10 +18,15 @@
 extern "C" {
 #endif
 
+/*
+ * code is a gizclaw_rpc_v1_StatusCode: the canonical gRPC status class the
+ * caller branches on. reason names the specific failure behind that class and
+ * is empty when the responder did not classify it.
+ */
 typedef struct {
   int code;
   gzc_str_t message;
-  gzc_str_t data_payload;
+  gzc_str_t reason;
 } gzc_rpc_error_t;
 
 /*

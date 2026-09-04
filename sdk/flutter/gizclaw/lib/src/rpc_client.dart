@@ -18,15 +18,22 @@ class RpcCallResult {
   final GeneratedMessage response;
 }
 
-class RpcError implements Exception {
-  RpcError(this.code, this.message, {this.requestId});
+class RpcStatus implements Exception {
+  RpcStatus(this.code, this.message, {this.requestId, this.reason = ''});
 
+  /// Canonical gRPC status code (google.rpc.Code).
   final int code;
   final String message;
   final String? requestId;
 
+  /// Names the specific failure behind [code]. Empty when the responder did
+  /// not classify it.
+  final String reason;
+
   @override
-  String toString() => 'RpcError($code, $message)';
+  String toString() => reason.isEmpty
+      ? 'RpcStatus($code, $message)'
+      : 'RpcStatus($code, $reason, $message)';
 }
 
 class PeerRpcClient {
@@ -297,11 +304,12 @@ RpcCallResult decodeRpcResponse(
         body: Uint8List.fromList(body),
         response: decodeRpcResponsePayload(methodName, envelope.payload),
       );
-    case rpc.RpcResponse_Body.error:
-      throw RpcError(
-        envelope.error.code.value,
-        envelope.error.message,
+    case rpc.RpcResponse_Body.status:
+      throw RpcStatus(
+        envelope.status.code.value,
+        envelope.status.message,
         requestId: envelope.id,
+        reason: envelope.status.info.reason,
       );
     case rpc.RpcResponse_Body.notSet:
       throw FormatException(
@@ -424,7 +432,7 @@ class _ResponseReader {
 }
 
 bool _responseEnvelopeHasError(List<int> envelopeBytes) {
-  return rpc.RpcResponse.fromBuffer(envelopeBytes).hasError();
+  return rpc.RpcResponse.fromBuffer(envelopeBytes).hasStatus();
 }
 
 void _unawaited(Future<void> future) {}

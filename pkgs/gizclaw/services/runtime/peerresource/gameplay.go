@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -34,19 +33,19 @@ func (s *Server) handlePetPixaDownload(ctx context.Context, req *rpcapi.RPCReque
 		_ = reader.Close()
 	}
 	if rpcErr != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Reason: rpcErr.Reason, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerPetPixaDownloadResponse)
 }
 
-func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPixaDownloadRequest) (rpcapi.PetPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	runtime := s.Gameplay
 	if runtime == nil || runtime.Catalog == nil {
-		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "gameplay service not configured"}, nil
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "gameplay service not configured"}, nil
 	}
 	petName := strings.TrimSpace(params.PetName)
 	if petName == "" {
-		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "pet name is required"}, nil
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInvalidArgument, Message: "pet name is required"}, nil
 	}
 	profileCtx, failure := s.gameplayProfileContext(ctx, "")
 	if failure != nil {
@@ -63,11 +62,11 @@ func (s *Server) PreparePetPixaDownload(ctx context.Context, params rpcapi.PetPi
 	path := valueOrZero(item.PixaPath)
 	reader, size, err := runtime.Catalog.OpenAsset(path)
 	if err != nil {
-		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}, nil
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: err.Error()}, nil
 	}
 	petDefName, ok := s.profileResourceName(profilePetDefs, item.Id)
 	if !ok {
-		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "pet definition is not available"}, nil
+		return rpcapi.PetPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "pet definition is not available"}, nil
 	}
 	return rpcapi.PetPixaDownloadResponse{PetName: pet.Name, PetDefName: petDefName, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
 }
@@ -85,23 +84,23 @@ func (s *Server) handleBadgeDefPixaDownload(ctx context.Context, req *rpcapi.RPC
 		_ = reader.Close()
 	}
 	if rpcErr != nil {
-		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
+		return rpcapi.Error{RequestID: req.Id, Code: rpcErr.Code, Reason: rpcErr.Reason, Message: strings.TrimSpace(rpcErr.Message)}.RPCResponse()
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromBadgeDefPixaDownloadResponse)
 }
 
-func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.BadgeDefPixaDownloadRequest) (rpcapi.BadgeDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error) {
+func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.BadgeDefPixaDownloadRequest) (rpcapi.BadgeDefPixaDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error) {
 	runtime := s.Gameplay
 	if runtime == nil || runtime.Catalog == nil {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInternalError, Message: "gameplay service not configured"}, nil
+		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "gameplay service not configured"}, nil
 	}
 	name := strings.TrimSpace(params.Name)
 	if name == "" {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeInvalidParams, Message: "badge definition name is required"}, nil
+		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInvalidArgument, Message: "badge definition name is required"}, nil
 	}
 	id, ok := s.resolveProfileResourceName(profileBadgeDefs, name)
 	if !ok {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: "badge definition is not available"}, nil
+		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "badge definition is not available"}, nil
 	}
 	item, err := runtime.Catalog.GetBadgeDefByID(ctx, id)
 	if err != nil {
@@ -110,7 +109,7 @@ func (s *Server) PrepareBadgeDefPixaDownload(ctx context.Context, params rpcapi.
 	path := valueOrZero(item.PixaPath)
 	reader, size, err := runtime.Catalog.OpenAsset(path)
 	if err != nil {
-		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCError{Code: rpcapi.RPCErrorCodeNotFound, Message: err.Error()}, nil
+		return rpcapi.BadgeDefPixaDownloadResponse{}, nil, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: err.Error()}, nil
 	}
 	return rpcapi.BadgeDefPixaDownloadResponse{Name: name, PixaPath: item.PixaPath, SizeBytes: size}, reader, nil, nil
 }
@@ -147,12 +146,12 @@ func (s *Server) handlePetList(ctx context.Context, req *rpcapi.RPCRequest) *rpc
 	return resultResponse(req.Id, rpcapi.PetListResponse{Items: items, HasNext: resp.HasNext, NextCursor: resp.NextCursor}, (*rpcapi.RPCPayload).FromServerPetListResponse)
 }
 
-func gameplayRPCError(err error) *rpcapi.RPCError {
+func gameplayRPCError(err error) *rpcapi.RPCStatus {
 	resp := businessError("", err)
 	if resp == nil || resp.Error == nil {
 		return nil
 	}
-	return &rpcapi.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}
+	return &rpcapi.RPCStatus{Code: resp.Error.Code, Message: resp.Error.Message}
 }
 
 func (s *Server) handlePetGet(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
@@ -205,7 +204,7 @@ func (s *Server) handlePetActionsGet(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	petDefName, ok := s.profileResourceName(profilePetDefs, petDef.Id)
 	if !ok {
-		return statusError(req.Id, http.StatusNotFound, "pet definition is not available")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "pet definition is not available")
 	}
 	return resultResponse(req.Id, petActions(pet, petDefName, petDef), (*rpcapi.RPCPayload).FromServerPetActionsGetResponse)
 }
@@ -543,7 +542,7 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	if params.GameResult != nil {
 		gameDefID, ok := s.resolveProfileResourceName(profileGameDefs, params.GameResult.GameName)
 		if !ok {
-			return statusError(req.Id, http.StatusNotFound, "game definition is not available")
+			return statusError(req.Id, rpcapi.StatusCodeNotFound, "game definition is not available")
 		}
 		metadata, err := convertType[*apitypes.GameplayMetadata](params.GameResult.Payload)
 		if err != nil {
@@ -570,11 +569,11 @@ func (s *Server) handlePetDrive(ctx context.Context, req *rpcapi.RPCRequest) *rp
 func gameplayBusinessError(id string, err error) *rpcapi.RPCResponse {
 	switch {
 	case errors.Is(err, gameplay.ErrPetDead):
-		return statusError(id, http.StatusConflict, "pet is dead")
+		return statusError(id, rpcapi.StatusCodeFailedPrecondition, "pet is dead")
 	case errors.Is(err, gameplay.ErrPetIDConflict):
-		return statusError(id, http.StatusConflict, "pet id is already reserved")
+		return statusError(id, rpcapi.StatusCodeAlreadyExists, "pet id is already reserved")
 	case errors.Is(err, gameplay.ErrInvalidPetID):
-		return statusError(id, http.StatusBadRequest, "invalid pet id")
+		return statusError(id, rpcapi.StatusCodeInvalidArgument, "invalid pet id")
 	}
 	return businessError(id, err)
 }
@@ -605,11 +604,11 @@ func (s *Server) handlePointsGet(ctx context.Context, req *rpcapi.RPCRequest) *r
 
 func (s *Server) gameplayProfileContext(ctx context.Context, requestID string) (context.Context, *rpcapi.RPCResponse) {
 	if s == nil || s.RuntimeProfile == nil {
-		return ctx, statusError(requestID, 403, "device has no active RuntimeProfile")
+		return ctx, statusError(requestID, rpcapi.StatusCodePermissionDenied, "device has no active RuntimeProfile")
 	}
 	profile := s.RuntimeProfile()
 	if profile == nil {
-		return ctx, statusError(requestID, 403, "device has no active RuntimeProfile")
+		return ctx, statusError(requestID, rpcapi.StatusCodePermissionDenied, "device has no active RuntimeProfile")
 	}
 	return gameplay.WithRuntimeProfile(ctx, *profile), nil
 }
@@ -713,7 +712,7 @@ func (s *Server) handleBadgeGet(ctx context.Context, req *rpcapi.RPCRequest) *rp
 	}
 	badgeDefID, ok := s.resolveProfileResourceName(profileBadgeDefs, params.Name)
 	if !ok {
-		return statusError(req.Id, http.StatusNotFound, "badge is not available")
+		return statusError(req.Id, rpcapi.StatusCodeNotFound, "badge is not available")
 	}
 	resp, err := runtime.GetBadge(ctx, s.Caller.String(), badgeDefID)
 	if err != nil {

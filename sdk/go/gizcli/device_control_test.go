@@ -91,7 +91,7 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceVolumeSet, func(p *rpcapi.RPCPayload) error {
 		return p.FromClientDeviceVolumeSetRequest(rpcapi.ClientDeviceVolumeSetRequest{Level: 101})
 	})
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("out-of-range volume = %#v", resp)
 	}
 
@@ -104,7 +104,7 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceSoundPlay, func(p *rpcapi.RPCPayload) error {
 		return p.FromClientDeviceSoundPlayRequest(rpcapi.ClientDeviceSoundPlayRequest{Sound: "unknown"})
 	})
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("rejected sound = %#v", resp)
 	}
 
@@ -135,7 +135,7 @@ func TestRPCClientDeviceControlHandlers(t *testing.T) {
 	}
 	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiSavedForget, func(p *rpcapi.RPCPayload) error {
 		return p.FromClientWifiSavedForgetRequest(rpcapi.ClientWifiSavedForgetRequest{Ssid: "missing"})
-	}); resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	}); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("forget missing = %#v", resp)
 	}
 	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiScan, func(p *rpcapi.RPCPayload) error {
@@ -164,7 +164,7 @@ func TestRPCClientDeviceControlUnsupportedAndFailures(t *testing.T) {
 		rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect,
 	} {
 		resp := deviceControlDispatch(t, &Client{}, method, nil)
-		if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound {
+		if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 			t.Fatalf("%s without handlers = %#v", method, resp)
 		}
 	}
@@ -173,36 +173,36 @@ func TestRPCClientDeviceControlUnsupportedAndFailures(t *testing.T) {
 	if err := device.HandleDeviceControl(DeviceControlHandlers{
 		WifiStatus: func(context.Context) (rpcapi.WifiStatus, error) { return rpcapi.WifiStatus{}, errors.New("radio off") },
 		ForgetWifi: func(context.Context, string) error {
-			return rpcapi.Error{Code: rpcapi.RPCErrorCodeConflict, Message: "busy"}
+			return rpcapi.Error{Code: rpcapi.StatusCodeUnavailable, Message: "busy"}
 		},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceReboot, nil); resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeMethodNotFound {
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientDeviceReboot, nil); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("reboot without handler = %#v", resp)
 	}
 	resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiStatusGet, nil)
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError || resp.Error.Message == "radio off" {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal || resp.Error.Message == "radio off" {
 		t.Fatalf("handler failure must be redacted INTERNAL_ERROR: %#v", resp)
 	}
 	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiSavedForget, func(p *rpcapi.RPCPayload) error {
 		return p.FromClientWifiSavedForgetRequest(rpcapi.ClientWifiSavedForgetRequest{Ssid: "home"})
 	})
-	if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeConflict || resp.Error.Message != "busy" {
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnavailable || resp.Error.Message != "busy" {
 		t.Fatalf("typed rpc error must pass through: %#v", resp)
 	}
 	for _, ssid := range []string{"", "123456789012345678901234567890123"} {
 		resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiSavedForget, func(p *rpcapi.RPCPayload) error {
 			return p.FromClientWifiSavedForgetRequest(rpcapi.ClientWifiSavedForgetRequest{Ssid: ssid})
 		})
-		if resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+		if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 			t.Fatalf("ssid %q = %#v", ssid, resp)
 		}
 	}
-	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiSavedForget, nil); resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientWifiSavedForget, nil); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
 		t.Fatalf("forget without params = %#v", resp)
 	}
-	if resp, err := (&rpcClient{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "x", Method: rpcapi.RPCMethodClientDeviceStatusGet}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.RPCErrorCodeInternalError {
+	if resp, err := (&rpcClient{}).dispatch(context.Background(), &rpcapi.RPCRequest{Id: "x", Method: rpcapi.RPCMethodClientDeviceStatusGet}); err != nil || resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInternal {
 		t.Fatalf("dispatch without peer = %#v, %v", resp, err)
 	}
 }

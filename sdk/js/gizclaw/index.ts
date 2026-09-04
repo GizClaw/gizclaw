@@ -39,6 +39,32 @@ export const GIZNET_WEBRTC_PACKET_DATA_CHANNEL_LABEL = "giznet/v1/packet";
 export const GIZNET_WEBRTC_SERVICE_DATA_CHANNEL_PREFIX = "giznet/v1/service/";
 export const GIZNET_WEBRTC_SIGNALING_PATH = "/webrtc/v1/offer";
 export const RPC_VERSION = 1;
+
+/**
+ * Canonical gRPC status codes (google.rpc.Code), matching
+ * gizclaw.rpc.v1.StatusCode on the wire. They replaced a mixed enum that held
+ * JSON-RPC 2.0 reserved codes alongside HTTP status numbers.
+ */
+export const STATUS_CODE_OK = 0;
+export const STATUS_CODE_CANCELLED = 1;
+export const STATUS_CODE_UNKNOWN = 2;
+export const STATUS_CODE_INVALID_ARGUMENT = 3;
+export const STATUS_CODE_DEADLINE_EXCEEDED = 4;
+export const STATUS_CODE_NOT_FOUND = 5;
+export const STATUS_CODE_ALREADY_EXISTS = 6;
+export const STATUS_CODE_PERMISSION_DENIED = 7;
+export const STATUS_CODE_RESOURCE_EXHAUSTED = 8;
+export const STATUS_CODE_FAILED_PRECONDITION = 9;
+export const STATUS_CODE_ABORTED = 10;
+export const STATUS_CODE_OUT_OF_RANGE = 11;
+export const STATUS_CODE_UNIMPLEMENTED = 12;
+export const STATUS_CODE_INTERNAL = 13;
+export const STATUS_CODE_UNAVAILABLE = 14;
+export const STATUS_CODE_DATA_LOSS = 15;
+export const STATUS_CODE_UNAUTHENTICATED = 16;
+
+/** Namespaces the reason values GizClaw itself produces. */
+export const RPC_ERROR_DOMAIN = "gizclaw.rpc.v1";
 export const GIZCLAW_SERVICE_PEER_RPC = 0x00;
 export const GIZCLAW_SERVICE_PEER_HTTP = 0x01;
 export const GIZCLAW_SERVICE_PEER_OPENAI = 0x02;
@@ -83,10 +109,14 @@ export type RPCRequest<TParams = unknown> = {
   v: typeof RPC_VERSION;
 };
 
+/**
+ * The terminal status of one RPC. `code` is a canonical gRPC status code
+ * (google.rpc.Code); `reason` names the specific failure behind that class.
+ */
 export type RPCErrorBody = {
   code: number;
-  data?: unknown;
   message: string;
+  reason?: string;
 };
 
 export type RPCResponse<TResult = unknown> = {
@@ -279,14 +309,14 @@ export type RPCCallOptions = {
 
 export class WebRTCRPCError extends Error {
   readonly code: number;
-  readonly data?: unknown;
+  readonly reason?: string;
   readonly requestID?: string;
 
   constructor(error: RPCErrorBody, requestID?: string) {
     super(error.message);
     this.name = "WebRTCRPCError";
     this.code = error.code;
-    this.data = error.data;
+    this.reason = error.reason;
     this.requestID = requestID;
   }
 }
@@ -1964,10 +1994,16 @@ function encodeRPCResponseEnvelope(
     writer.string(1, response.id);
   }
   if (response.error != null) {
-    const error = new ProtoWriter();
-    error.int32(1, response.error.code);
-    error.string(2, response.error.message);
-    writer.bytes(3, error.finish());
+    const status = new ProtoWriter();
+    status.int32(1, response.error.code);
+    status.string(2, response.error.message);
+    if (response.error.reason != null && response.error.reason !== "") {
+      const info = new ProtoWriter();
+      info.string(1, response.error.reason);
+      info.string(2, RPC_ERROR_DOMAIN);
+      status.bytes(3, info.finish());
+    }
+    writer.bytes(3, status.finish());
   } else {
     writer.bytes(2, encodeRPCResponsePayload(method, response.result ?? {}));
   }
@@ -2012,7 +2048,7 @@ function decodeRPCResponseEnvelope<TResult>(
         break;
       }
       case 3:
-        response.error = decodeRPCError(reader.bytes(field));
+        response.error = decodeRPCStatus(reader.bytes(field));
         break;
       default:
         reader.skip(field);
@@ -2103,7 +2139,11 @@ function handleInboundRPCDataChannel(
     const params = pingRequest.params as PingRequest | undefined;
     const response =
       params == null
-        ? rpcErrorResponse(pingRequest.id, -32602, "missing params")
+        ? rpcErrorResponse(
+            pingRequest.id,
+            STATUS_CODE_INVALID_ARGUMENT,
+            "missing params",
+          )
         : ({
             id: pingRequest.id,
             result: { server_time: Date.now() },
@@ -2123,7 +2163,11 @@ function handleInboundRPCDataChannel(
         if (params == null) {
           ignoreBody = true;
           void sendResponse(
-            rpcErrorResponse(next.id, -32602, "invalid params"),
+            rpcErrorResponse(
+              next.id,
+              STATUS_CODE_INVALID_ARGUMENT,
+              "invalid params",
+            ),
             next.method,
           ).catch(fail);
           return;
@@ -2251,9 +2295,9 @@ function validSpeedTestParams(value: unknown): SpeedTestRequest | null {
   return params as SpeedTestRequest;
 }
 
-const RPC_ERROR_METHOD_NOT_FOUND = -32601;
-const RPC_ERROR_INVALID_PARAMS = -32602;
-const RPC_ERROR_INTERNAL = -32603;
+const RPC_ERROR_METHOD_NOT_FOUND = STATUS_CODE_UNIMPLEMENTED;
+const RPC_ERROR_INVALID_PARAMS = STATUS_CODE_INVALID_ARGUMENT;
+const RPC_ERROR_INTERNAL = STATUS_CODE_INTERNAL;
 const DEVICE_CONTROL_MAX_BYTES = 32;
 
 function deviceControlTextTooLong(value: string): boolean {
@@ -2494,7 +2538,7 @@ function sendInboundRPCFrames(
   return serviceDataChannelWriter(channel).write(frames, options);
 }
 
-function decodeRPCError(payload: Uint8Array): RPCErrorBody {
+function decodeRPCStatus(payload: Uint8Array): RPCErrorBody {
   const reader = new ProtoReader(payload);
   const error: RPCErrorBody = { code: 0, message: "" };
   while (!reader.done()) {
@@ -2506,12 +2550,29 @@ function decodeRPCError(payload: Uint8Array): RPCErrorBody {
       case 2:
         error.message = reader.string(field);
         break;
+      case 3:
+        error.reason = decodeErrorInfoReason(reader.bytes(field));
+        break;
       default:
         reader.skip(field);
         break;
     }
   }
   return error;
+}
+
+function decodeErrorInfoReason(payload: Uint8Array): string {
+  const reader = new ProtoReader(payload);
+  let reason = "";
+  while (!reader.done()) {
+    const field = reader.field();
+    if (field.number === 1) {
+      reason = reader.string(field);
+      continue;
+    }
+    reader.skip(field);
+  }
+  return reason;
 }
 
 export function encodeFrame(

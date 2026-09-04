@@ -71,7 +71,10 @@ DataChannel when its context completes; it does not close the parent
 PeerConnection. A pre-open DataChannel close or error returns
 `gizwebrtc.ErrServiceOpen`, while a parent close continues to match
 `giznet.ErrConnClosed`. The existing `Dial` method remains a compatibility
-wrapper with a ten-second service-open bound.
+wrapper with a ten-second native service-open bound. `giztunnel.Conn` also
+implements `ContextDialer`: it waits up to the bridge drain bound plus one
+second for active-channel capacity, then applies the ten-second native-open
+bound. A shorter caller context bounds both stages.
 
 Every open service DataChannel is registered against its logical service until
 the corresponding `net.Conn` closes. Closing the stream removes it immediately,
@@ -187,14 +190,19 @@ class: `clean`, `eof`, `closed`, `connection_closed`, `service_mux_closed`,
 closed errors therefore remain nil to `Bridge` callers without
 losing their diagnostic class.
 
-A destination service-open failure still closes only the accepted source stream
-and the service loop continues. The observation aggregates all such failures into
-one count plus first/last direction and closed error class; it emits no callback
-or record per stream. The independently draining per-service copy goroutines do
-not compete for the connection terminal. When an established destination session
-is exactly at its per-session channel limit, or its physical association is at
-the association limit, the first such rejection also carries the responsible
-scope and matching active/limit snapshot captured under the Router lock.
+A destination service open that reaches an established session's per-session or
+association active-channel capacity waits for a released lease instead of
+immediately rejecting the accepted source stream. A release wakes waiters to
+retry admission. The caller context and an internal bounded timeout limit the
+wait; when capacity remains exhausted, the error preserves both the deadline and
+the exact capacity snapshot. Other destination service-open failures still close
+only the accepted source stream and the service loop continues. The observation
+aggregates all such failures into one count plus first/last direction and closed
+error class; it emits no callback or record per stream. The independently
+draining per-service copy goroutines do not compete for the connection terminal.
+When a bounded capacity wait expires, the first such rejection also carries the
+responsible scope and matching active/limit snapshot captured under the Router
+lock.
 Pending-session limits, close races, generic buffer limits, packet buffers, and
 remote queues carry no exact capacity fields.
 

@@ -137,7 +137,7 @@ func TestCSDKFirmwareRequiresBinding(t *testing.T) {
 	}
 
 	_, err = client.GetFirmware(rpcpb.FirmwareChannelName_FIRMWARE_CHANNEL_NAME_STABLE)
-	requireRPCError(t, err, rpcpb.RpcErrorCode_RPC_ERROR_CODE_NOT_FOUND, "firmware is not bound to peer")
+	requireRPCError(t, err, rpcpb.StatusCode_STATUS_CODE_NOT_FOUND, "firmware is not bound to peer")
 }
 
 func runCSDKRPC(t *testing.T, scenario string, run func(t *testing.T, identityDir string)) {
@@ -210,9 +210,9 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	return tokenResp.JSON200.Token
 }
 
-func requireRPCError(t *testing.T, err error, code rpcpb.RpcErrorCode, message string) {
+func requireRPCError(t *testing.T, err error, code rpcpb.StatusCode, message string) {
 	t.Helper()
-	var rpcErr *cgointernal.RPCError
+	var rpcErr *cgointernal.RPCStatus
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("error = %v, want C SDK RPC error", err)
 	}

@@ -154,7 +154,7 @@ func TestRPCPeerDeleteInvalidParamsDrainRequestBeforeNextRPC(t *testing.T) {
 					t.Fatalf("read invalid response EOS: %v", err)
 				}
 			}
-			if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInvalidParams {
+			if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument {
 				t.Fatalf("invalid response = %#v, want invalid params", response)
 			}
 			if err := <-handlerErr; err != nil {
@@ -337,7 +337,7 @@ func TestRPCPeerDeleteRejectsNewWorkWhileAcknowledgementIsPending(t *testing.T) 
 	if err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeUnavailable {
 		t.Fatalf("retiring response = %#v, want conflict", response)
 	}
 	close(conn.release)
@@ -398,7 +398,7 @@ func TestRPCPeerDeleteRejectsNewWorkBeforeDurableDeleteCommits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dispatch: %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeUnavailable {
 		t.Fatalf("retiring response = %#v, want conflict", response)
 	}
 	if _, ok := manager.Peer(publicKey); ok {
@@ -502,7 +502,7 @@ func TestRPCPeerDeleteRejectsSupersededConnection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callRPC: %v", err)
 	}
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeFailedPrecondition {
 		t.Fatalf("response = %#v, want conflict", response)
 	}
 	if _, err := peers.LoadPeer(context.Background(), publicKey); err != nil {

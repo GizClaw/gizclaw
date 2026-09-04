@@ -8,7 +8,7 @@ import (
 )
 
 type rpcWorkspaceHistoryAudioService interface {
-	PrepareWorkspaceHistoryAudioDownload(context.Context, rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCError, error)
+	PrepareWorkspaceHistoryAudioDownload(context.Context, rpcapi.WorkspaceHistoryAudioDownloadRequest) (rpcapi.WorkspaceHistoryAudioDownloadResponse, io.ReadCloser, *rpcapi.RPCStatus, error)
 }
 
 func (s *rpcServer) handleWorkspaceHistoryAudioDownload(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) error {
@@ -16,29 +16,29 @@ func (s *rpcServer) handleWorkspaceHistoryAudioDownload(ctx context.Context, str
 		return err
 	}
 	if req.Params == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "missing params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "missing params")
 	}
 	params, err := req.Params.AsWorkspaceHistoryAudioDownloadRequest()
 	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInvalidParams, "invalid params")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, "invalid params")
 	}
 	service, ok := s.serverResources.(rpcWorkspaceHistoryAudioService)
 	if !ok || service == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "workspace history audio service not configured")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "workspace history audio service not configured")
 	}
 	metadata, reader, rpcErr, err := service.PrepareWorkspaceHistoryAudioDownload(ctx, params)
 	if err != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, err.Error())
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, err.Error())
 	}
 	if rpcErr != nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcErr.Code, rpcErr.Message)
+		return writeRPCStatusResponse(stream, req.Id, rpcErr)
 	}
 	return writeHistoryAudioResponse(stream, req, metadata, reader, (*rpcapi.RPCPayload).FromWorkspaceHistoryAudioDownloadResponse)
 }
 
 func writeHistoryAudioResponse[T any](stream *rpcStream, req *rpcapi.RPCRequest, metadata T, reader io.ReadCloser, encode func(*rpcapi.RPCPayload, T) error) error {
 	if reader == nil {
-		return writeRPCErrorResponse(stream, req.Id, rpcapi.RPCErrorCodeInternalError, "history audio reader not configured")
+		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "history audio reader not configured")
 	}
 	defer reader.Close()
 	resp, err := newRPCResultResponse(req.Id, metadata, encode)

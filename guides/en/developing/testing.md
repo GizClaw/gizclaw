@@ -287,7 +287,7 @@ an assertion failure. The API key comes from a `server.api_key.create` step with
 `client.device.sound.play`, `client.device.reboot`, `client.wifi.status.get`, `client.wifi.saved.list`,
 `client.wifi.saved.forget`, `client.wifi.scan`, and `client.wifi.connect`: the runner installs the scripted `response` as that client's device
 provider at connect time (`volume.set` echoes the requested `level`/`muted` into its response), and
-`response: {error_code: -32602}` makes the provider answer a fixed RPC error; undeclared methods stay
+`response: {error_code: 3}` makes the provider answer a fixed canonical status code; undeclared methods stay
 `METHOD_NOT_FOUND`, which verifies `501 DEVICE_UNSUPPORTED`. A later `http` step triggers the
 Server-to-device RPC and the `client_rpc` step's `expect_calls` asserts the provider was invoked.
 

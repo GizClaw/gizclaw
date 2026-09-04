@@ -471,42 +471,72 @@ func (e PeerRunStatusState) Valid() bool {
 	}
 }
 
-// Defines values for RPCErrorCode.
+// Defines values for StatusCode. The values are the canonical gRPC status
+// codes (google.rpc.Code) and match gizclaw.rpc.v1.StatusCode on the wire.
 const (
-	RPCErrorCodeBadRequest     RPCErrorCode = 400
-	RPCErrorCodeConflict       RPCErrorCode = 409
-	RPCErrorCodeForbidden      RPCErrorCode = 403
-	RPCErrorCodeInternalError  RPCErrorCode = -32603
-	RPCErrorCodeInvalidParams  RPCErrorCode = -32602
-	RPCErrorCodeInvalidRequest RPCErrorCode = -32600
-	RPCErrorCodeMethodNotFound RPCErrorCode = -32601
-	RPCErrorCodeNotFound       RPCErrorCode = 404
-	RPCErrorCodeParseError     RPCErrorCode = -32700
+	StatusCodeOK                 StatusCode = 0
+	StatusCodeCancelled          StatusCode = 1
+	StatusCodeUnknown            StatusCode = 2
+	StatusCodeInvalidArgument    StatusCode = 3
+	StatusCodeDeadlineExceeded   StatusCode = 4
+	StatusCodeNotFound           StatusCode = 5
+	StatusCodeAlreadyExists      StatusCode = 6
+	StatusCodePermissionDenied   StatusCode = 7
+	StatusCodeResourceExhausted  StatusCode = 8
+	StatusCodeFailedPrecondition StatusCode = 9
+	StatusCodeAborted            StatusCode = 10
+	StatusCodeOutOfRange         StatusCode = 11
+	StatusCodeUnimplemented      StatusCode = 12
+	StatusCodeInternal           StatusCode = 13
+	StatusCodeUnavailable        StatusCode = 14
+	StatusCodeDataLoss           StatusCode = 15
+	StatusCodeUnauthenticated    StatusCode = 16
 )
 
-// Valid indicates whether the value is a known member of the RPCErrorCode enum.
-func (e RPCErrorCode) Valid() bool {
+// Valid indicates whether the value is a known member of the StatusCode enum.
+func (e StatusCode) Valid() bool {
+	return e >= StatusCodeOK && e <= StatusCodeUnauthenticated
+}
+
+// String returns the canonical name of the status code.
+func (e StatusCode) String() string {
 	switch e {
-	case RPCErrorCodeBadRequest:
-		return true
-	case RPCErrorCodeConflict:
-		return true
-	case RPCErrorCodeForbidden:
-		return true
-	case RPCErrorCodeInternalError:
-		return true
-	case RPCErrorCodeInvalidParams:
-		return true
-	case RPCErrorCodeInvalidRequest:
-		return true
-	case RPCErrorCodeMethodNotFound:
-		return true
-	case RPCErrorCodeNotFound:
-		return true
-	case RPCErrorCodeParseError:
-		return true
+	case StatusCodeOK:
+		return "OK"
+	case StatusCodeCancelled:
+		return "CANCELLED"
+	case StatusCodeUnknown:
+		return "UNKNOWN"
+	case StatusCodeInvalidArgument:
+		return "INVALID_ARGUMENT"
+	case StatusCodeDeadlineExceeded:
+		return "DEADLINE_EXCEEDED"
+	case StatusCodeNotFound:
+		return "NOT_FOUND"
+	case StatusCodeAlreadyExists:
+		return "ALREADY_EXISTS"
+	case StatusCodePermissionDenied:
+		return "PERMISSION_DENIED"
+	case StatusCodeResourceExhausted:
+		return "RESOURCE_EXHAUSTED"
+	case StatusCodeFailedPrecondition:
+		return "FAILED_PRECONDITION"
+	case StatusCodeAborted:
+		return "ABORTED"
+	case StatusCodeOutOfRange:
+		return "OUT_OF_RANGE"
+	case StatusCodeUnimplemented:
+		return "UNIMPLEMENTED"
+	case StatusCodeInternal:
+		return "INTERNAL"
+	case StatusCodeUnavailable:
+		return "UNAVAILABLE"
+	case StatusCodeDataLoss:
+		return "DATA_LOSS"
+	case StatusCodeUnauthenticated:
+		return "UNAUTHENTICATED"
 	default:
-		return false
+		return "UNKNOWN"
 	}
 }
 
@@ -2466,14 +2496,16 @@ type PointsTransactionListResponse struct {
 	NextCursor *string             `json:"next_cursor,omitempty"`
 }
 
-// RPCError defines model for RPCError.
-type RPCError struct {
-	Code    RPCErrorCode `json:"code"`
-	Message string       `json:"message"`
+// RPCStatus is the terminal status of one RPC. Code is the class a caller
+// branches on; Reason names the specific failure behind it.
+type RPCStatus struct {
+	Code    StatusCode `json:"code"`
+	Message string     `json:"message"`
+	Reason  string     `json:"reason,omitempty"`
 }
 
-// RPCErrorCode defines model for RPCErrorCode.
-type RPCErrorCode int
+// StatusCode is a canonical gRPC status code (google.rpc.Code).
+type StatusCode int
 
 // RPCMethod defines model for RPCMethod.
 type RPCMethod string
@@ -2495,7 +2527,7 @@ type RPCPayload struct {
 
 // RPCResponse defines model for RPCResponse.
 type RPCResponse struct {
-	Error  *RPCError   `json:"error,omitempty"`
+	Error  *RPCStatus  `json:"error,omitempty"`
 	Id     string      `json:"id"`
 	Result *RPCPayload `json:"result,omitempty"`
 	V      RPCVersion  `json:"v"`

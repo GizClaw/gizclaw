@@ -17,6 +17,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
 
@@ -98,6 +99,9 @@ func errorResponse(response any) (int32, string, error) {
 	if err != nil {
 		return 0, "", err
 	}
+	if status := rpcapi.StatusCode(code); !status.Valid() || status == rpcapi.StatusCodeOK {
+		return 0, "", fmt.Errorf("error_code must be a canonical status code other than OK, got %d", code)
+	}
 	message, _ := object["error_message"].(string)
 	if message == "" {
 		message = "scripted client RPC error"
@@ -159,7 +163,7 @@ func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, requestPayload []byte) ([
 	if !ok {
 		// An unscripted method must look unimplemented, so the Server maps it
 		// to 501 DEVICE_UNSUPPORTED exactly as it does for real firmware.
-		return nil, int32(rpcpb.RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND), "method not found", nil
+		return nil, int32(rpcpb.StatusCode_STATUS_CODE_UNIMPLEMENTED), "method not found", nil
 	}
 	switch code, message, scriptErr := errorResponse(response); {
 	case scriptErr == nil:
@@ -258,7 +262,7 @@ func gztGoProvider(
 	}
 	payload, code, message, err := provider.answer(rpcpb.RpcMethod(method), request)
 	if err != nil {
-		code = int32(rpcpb.RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR)
+		code = int32(rpcpb.StatusCode_STATUS_CODE_INTERNAL)
 		message = fmt.Sprintf("provider failed: %v", err)
 		payload = nil
 	}

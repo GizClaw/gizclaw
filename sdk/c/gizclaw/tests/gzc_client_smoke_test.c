@@ -230,7 +230,7 @@ static int test_rpc_provider(
     const gzc_rpc_provider_response_t response = {
         .has_error = true,
         .error_code =
-            gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN,
+            gizclaw_rpc_v1_StatusCode_STATUS_CODE_PERMISSION_DENIED,
         .error_message = {
             .data = message,
             .len = sizeof(message) - 1u,
@@ -4685,7 +4685,7 @@ int main(void) {
   }
   if (expect(rc == GZC_OK && inbound_response.has_error &&
                  inbound_response.error.code ==
-                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND &&
+                     gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED &&
                  tool_handler.call_count == 1,
              "missing client Tool handler is unavailable") != 0) {
     return 1;
@@ -4733,7 +4733,7 @@ int main(void) {
   }
   if (expect(rc == GZC_OK && inbound_response.has_error &&
                  inbound_response.error.code ==
-                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_FORBIDDEN &&
+                     gizclaw_rpc_v1_StatusCode_STATUS_CODE_PERMISSION_DENIED &&
                  str_eq_cstr(inbound_response.error.message, "provider denied"),
              "provider error response copies borrowed message") != 0) {
     return 1;
@@ -4762,7 +4762,7 @@ int main(void) {
   }
   if (expect(rc == GZC_OK && inbound_response.has_error &&
                  inbound_response.error.code ==
-                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INTERNAL_ERROR,
+                     gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
              "provider must respond exactly once") != 0) {
     return 1;
   }
@@ -4975,7 +4975,7 @@ int main(void) {
   }
   if (expect(rc == GZC_OK && inbound_response.has_error &&
                  inbound_response.error.code ==
-                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_METHOD_NOT_FOUND,
+                     gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED,
              "unknown inbound method returns method-not-found") != 0) {
     return 1;
   }
@@ -5026,7 +5026,7 @@ int main(void) {
     }
     if (expect(rc == GZC_OK && inbound_response.has_error &&
                    inbound_response.error.code ==
-                       gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_PARAMS,
+                       gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                "missing inbound payload returns invalid-params") != 0) {
       return 1;
     }
@@ -5069,7 +5069,7 @@ int main(void) {
   }
   if (expect(rc == GZC_OK && inbound_response.has_error &&
                  inbound_response.error.code ==
-                     gizclaw_rpc_v1_RpcErrorCode_RPC_ERROR_CODE_INVALID_REQUEST,
+                     gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
              "empty inbound request id returns invalid-request") != 0) {
     return 1;
   }

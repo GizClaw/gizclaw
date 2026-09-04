@@ -14,14 +14,15 @@ import (
 
 func TestBusinessErrorMapsMissingPeerProfileToNotFound(t *testing.T) {
 	response := businessError("friend-info", peer.ErrPeerNotFound)
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeNotFound {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("businessError() = %#v, want not found", response)
 	}
 }
 
-func TestBusinessErrorMapsFriendGroupFullToConflict(t *testing.T) {
+func TestBusinessErrorMapsFriendGroupFullToResourceExhausted(t *testing.T) {
 	response := businessError("social", fmt.Errorf("wrapped: %w", friendgroup.ErrFriendGroupFull))
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict || response.Error.Message != "friend group is full" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted ||
+		response.Error.Reason != "FRIEND_GROUP_FULL" || response.Error.Message != "friend group is full" {
 		t.Fatalf("businessError(full) = %#v", response)
 	}
 }
@@ -30,13 +31,13 @@ func TestBusinessErrorMapsFriendInviteTokenErrors(t *testing.T) {
 	tests := []struct {
 		name    string
 		err     error
-		want    rpcapi.RPCErrorCode
+		want    rpcapi.StatusCode
 		message string
 	}{
-		{name: "required", err: fmt.Errorf("domain: %w", friend.ErrInviteTokenRequired), want: rpcapi.RPCErrorCodeBadRequest, message: "friend invite token is required"},
-		{name: "unavailable", err: fmt.Errorf("domain: %w", friend.ErrInviteTokenUnavailable), want: rpcapi.RPCErrorCodeNotFound, message: "friend invite token not found"},
-		{name: "self owned", err: fmt.Errorf("domain: %w", friend.ErrInviteTokenSelfOwned), want: rpcapi.RPCErrorCodeConflict, message: "cannot add self as friend"},
-		{name: "lookup failed", err: fmt.Errorf("lookup: %w: %w", friend.ErrInviteTokenLookupFailed, errors.New("secret backend detail")), want: rpcapi.RPCErrorCodeInternalError, message: "friend invite lookup failed"},
+		{name: "required", err: fmt.Errorf("domain: %w", friend.ErrInviteTokenRequired), want: rpcapi.StatusCodeInvalidArgument, message: "friend invite token is required"},
+		{name: "unavailable", err: fmt.Errorf("domain: %w", friend.ErrInviteTokenUnavailable), want: rpcapi.StatusCodeNotFound, message: "friend invite token not found"},
+		{name: "self owned", err: fmt.Errorf("domain: %w", friend.ErrInviteTokenSelfOwned), want: rpcapi.StatusCodeInvalidArgument, message: "cannot add self as friend"},
+		{name: "lookup failed", err: fmt.Errorf("lookup: %w: %w", friend.ErrInviteTokenLookupFailed, errors.New("secret backend detail")), want: rpcapi.StatusCodeInternal, message: "friend invite lookup failed"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -50,28 +51,28 @@ func TestBusinessErrorMapsFriendInviteTokenErrors(t *testing.T) {
 
 func TestBusinessErrorRetainsGenericInternalFallback(t *testing.T) {
 	response := businessError("generic", errors.New("generic failure"))
-	if response.Id != "generic" || response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeInternalError || response.Error.Message != "generic failure" {
+	if response.Id != "generic" || response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "generic failure" {
 		t.Fatalf("businessError() = %#v, want unchanged generic internal error", response)
 	}
 }
 
-func TestPetDeadMapsToStableConflict(t *testing.T) {
+func TestPetDeadMapsToStableFailedPrecondition(t *testing.T) {
 	response := gameplayBusinessError("pet-drive", gameplay.ErrPetDead)
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict || response.Error.Message != "pet is dead" {
-		t.Fatalf("pet dead response = %#v, want stable conflict", response)
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeFailedPrecondition || response.Error.Message != "pet is dead" {
+		t.Fatalf("pet dead response = %#v, want stable failed precondition", response)
 	}
 }
 
-func TestPetIDConflictMapsToStableConflict(t *testing.T) {
+func TestPetIDConflictMapsToStableAlreadyExists(t *testing.T) {
 	response := gameplayBusinessError("pet-adopt", fmt.Errorf("adopt: %w", gameplay.ErrPetIDConflict))
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeConflict || response.Error.Message != "pet id is already reserved" {
-		t.Fatalf("pet id conflict response = %#v, want stable conflict", response)
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeAlreadyExists || response.Error.Message != "pet id is already reserved" {
+		t.Fatalf("pet id conflict response = %#v, want stable already-exists", response)
 	}
 }
 
 func TestInvalidPetIDMapsToStableBadRequest(t *testing.T) {
 	response := gameplayBusinessError("pet-adopt", fmt.Errorf("adopt: %w", gameplay.ErrInvalidPetID))
-	if response.Error == nil || response.Error.Code != rpcapi.RPCErrorCodeBadRequest || response.Error.Message != "invalid pet id" {
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument || response.Error.Message != "invalid pet id" {
 		t.Fatalf("invalid pet id response = %#v, want stable bad request", response)
 	}
 }

@@ -119,7 +119,7 @@ GizClawDeviceControlException? _scriptedFailure(Object? response) {
   }
   final message = response['error_message'];
   return GizClawDeviceControlException(
-    RpcErrorCode.valueOf(code) ?? RpcErrorCode.RPC_ERROR_CODE_INTERNAL_ERROR,
+    StatusCode.valueOf(code) ?? StatusCode.STATUS_CODE_INTERNAL,
     message is String ? message : '',
   );
 }
@@ -317,7 +317,7 @@ class ScenarioClient {
         request,
       );
       return camelToSnakeKeys(unwrapValueMessage(response));
-    } on RpcError catch (error) {
+    } on RpcStatus catch (error) {
       throw ScenarioRpcError(error.code, error.message);
     }
   }

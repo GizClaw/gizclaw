@@ -57,6 +57,14 @@ func TestServeEdgeTunnelCarriesAcceptedSessionCorrelation(t *testing.T) {
 
 	capture := captureSlog(t)
 	host := &PeerConn{Conn: serverConn, Service: &PeerService{manager: &Manager{}}}
+	// The accepting Router has to exist before the edge dials, otherwise the
+	// session declaration arrives with nothing listening for it and the dial
+	// reads to its deadline. serveEdgeTunnel builds the Router itself, so
+	// building it here first and letting serveEdgeTunnel reuse the cached one
+	// is what orders the two.
+	if _, err := host.initEdgeTunnelRouter(); err != nil {
+		t.Fatalf("initEdgeTunnelRouter() error = %v", err)
+	}
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- host.serveEdgeTunnel() }()
 

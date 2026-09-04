@@ -57,7 +57,7 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 	}
 
 	server.Caller = unrelated
-	if _, rpcErr := server.ValidateRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound {
+	if _, rpcErr := server.ValidateRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("unrelated ValidateRunWorkspaceSelection() error = %#v, want NOT_FOUND", rpcErr)
 	}
 }
@@ -105,7 +105,7 @@ func TestResolveRunWorkspaceSelectionMaterializesSharedSocialWorkspace(t *testin
 	server.Caller = stranger
 	strangerWorkspaces := &sharedWorkspaceNameService{owner: workspaceOwner.String()}
 	server.Workspaces = strangerWorkspaces
-	if _, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil || rpcErr.Code != rpcapi.RPCErrorCodeNotFound {
+	if _, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound {
 		t.Fatalf("stranger ResolveRunWorkspaceSelection() error = %#v, want NOT_FOUND", rpcErr)
 	}
 	if strangerWorkspaces.created != 0 {

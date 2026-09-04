@@ -21,7 +21,7 @@ api/proto/rpc/
     └── workspace.proto
 ```
 
-`rpc.proto` 统一拥有核心 RPC protocol：`RpcRequest`、`RpcResponse`、`RpcStreamFrame`、`RpcError`、`RpcErrorCode`、`RpcMethodOptions` 和完整 `RpcMethod` registry。Request 与 Response 属于同一 envelope contract，不拆成 `peer.proto` 与 `common.proto`。
+`rpc.proto` 统一拥有核心 RPC protocol：`RpcRequest`、`RpcResponse`、`RpcStreamFrame`、`RpcStatus`、`ErrorInfo`、`StatusCode`、`RpcMethodOptions` 和完整 `RpcMethod` registry。Request 与 Response 属于同一 envelope contract，不拆成 `peer.proto` 与 `common.proto`。
 
 `nanopb.options` 只控制 C/nanopb 的生成行为，不定义 wire message。`payload/` 按领域拥有 method-specific messages，避免核心 `rpc.proto` 吸收业务 DTO。
 

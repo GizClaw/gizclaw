@@ -621,7 +621,7 @@ func TestDownloadWorkspaceHistoryAudioReturnsTypedMissingAudioError(t *testing.T
 		}
 		serverErrCh <- writeRPCResponseWithEOS(serverSide, req.Method, rpcapi.Error{
 			RequestID: req.Id,
-			Code:      rpcapi.RPCErrorCodeNotFound,
+			Code:      rpcapi.StatusCodeNotFound,
 			Message:   "not found",
 		}.RPCResponse())
 	}()
@@ -637,7 +637,7 @@ func TestDownloadWorkspaceHistoryAudioReturnsTypedMissingAudioError(t *testing.T
 	if !errors.As(err, &rpcErr) {
 		t.Fatalf("DownloadWorkspaceHistoryAudio() error = %T, want rpcapi.Error", err)
 	}
-	if rpcErr.RequestID != "workspace-history-audio-missing" || rpcErr.Code != rpcapi.RPCErrorCodeNotFound || rpcErr.Message != "not found" {
+	if rpcErr.RequestID != "workspace-history-audio-missing" || rpcErr.Code != rpcapi.StatusCodeNotFound || rpcErr.Message != "not found" {
 		t.Fatalf("DownloadWorkspaceHistoryAudio() rpc error = %+v", rpcErr)
 	}
 	if result != (WorkspaceHistoryAudioDownloadResult{}) {

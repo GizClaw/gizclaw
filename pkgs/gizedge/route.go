@@ -118,7 +118,7 @@ func resolvePeerAssignment(ctx context.Context, conn giznet.Conn, peerKey giznet
 		return nil, fmt.Errorf("edge: finish route response: %w", err)
 	}
 	if response.Error != nil {
-		if response.Error.Code == rpcapi.RPCErrorCodeNotFound {
+		if response.Error.Code == rpcapi.StatusCodeNotFound {
 			return nil, errRouteAssignmentNotFound
 		}
 		return nil, fmt.Errorf("edge: route rpc failed with code %d", response.Error.Code)
@@ -169,9 +169,9 @@ func resolveAPIKeyAssignment(ctx context.Context, conn giznet.Conn, apiKey strin
 	}
 	if response.Error != nil {
 		switch response.Error.Code {
-		case rpcapi.RPCErrorCodeForbidden:
+		case rpcapi.StatusCodePermissionDenied:
 			return nil, errAPIKeyUnauthorized
-		case rpcapi.RPCErrorCodeNotFound:
+		case rpcapi.StatusCodeNotFound:
 			return nil, errAPIKeyOwnerUnavailable
 		default:
 			return nil, fmt.Errorf("edge: API route RPC failed with code %d", response.Error.Code)

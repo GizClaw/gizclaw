@@ -2,8 +2,10 @@ package peerresource
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -123,5 +125,74 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	listed := callWorkspaceList(t, ctx, server, "story-teller")
 	if len(listed.Items) != 1 || listed.Items[0].Name != "journey-1" {
 		t.Fatalf("workspace list while shared deletion is pending = %#v, want only journey-1", listed)
+	}
+}
+
+// pendingDeletionWorkspaceService answers every name lookup with the
+// pending-deletion sentinel, so the single-Workspace fences can be exercised
+// without standing up a store and a background deletion.
+type pendingDeletionWorkspaceService struct{}
+
+func (pendingDeletionWorkspaceService) GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error) {
+	return apitypes.Workspace{}, workspace.ErrWorkspacePendingDeletion
+}
+
+func (pendingDeletionWorkspaceService) ListWorkspaces(context.Context, adminhttp.ListWorkspacesRequestObject) (adminhttp.ListWorkspacesResponseObject, error) {
+	return nil, errors.New("unexpected ListWorkspaces")
+}
+
+func (pendingDeletionWorkspaceService) DeleteWorkspace(context.Context, adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
+	return nil, errors.New("unexpected DeleteWorkspace")
+}
+
+func (pendingDeletionWorkspaceService) GetWorkspace(context.Context, adminhttp.GetWorkspaceRequestObject) (adminhttp.GetWorkspaceResponseObject, error) {
+	return nil, errors.New("unexpected GetWorkspace")
+}
+
+func (pendingDeletionWorkspaceService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
+	return nil, errors.New("unexpected PutWorkspace")
+}
+
+// Addressing one Workspace by name is a fence, not an enumeration: the caller
+// asked for that Workspace specifically, so a pending deletion is reported
+// rather than skipped. It used to fall through to INTERNAL, which left the
+// caller unable to tell "being deleted" from "the server broke" and made
+// polling for the deletion to finish impossible.
+func TestResolveAccessibleWorkspaceReportsPendingDeletion(t *testing.T) {
+	server := &Server{
+		Workspaces: pendingDeletionWorkspaceService{},
+		Caller:     giznet.PublicKey{1},
+	}
+	_, status := server.ResolveAccessibleWorkspace(t.Context(), "going-away")
+	if status == nil {
+		t.Fatal("ResolveAccessibleWorkspace accepted a Workspace pending deletion")
+	}
+	if status.Code != rpcapi.StatusCodeFailedPrecondition {
+		t.Fatalf("code = %s, want %s", status.Code, rpcapi.StatusCodeFailedPrecondition)
+	}
+	if status.Reason != "WORKSPACE_PENDING_DELETION" {
+		t.Fatalf("reason = %q, want WORKSPACE_PENDING_DELETION", status.Reason)
+	}
+}
+
+// server.workspace.get resolves the Workspace on its own path, so it needs the
+// same classification. It reported an internal error until this was shared.
+func TestWorkspaceGetReportsPendingDeletion(t *testing.T) {
+	server := &Server{
+		Workspaces: pendingDeletionWorkspaceService{},
+		Caller:     giznet.PublicKey{1},
+	}
+	request := &rpcapi.RPCRequest{V: rpcapi.RPCVersionV1, Id: "get-1", Method: rpcapi.RPCMethodServerWorkspaceGet}
+	params := &rpcapi.RPCPayload{}
+	if err := params.FromWorkspaceGetRequest(rpcapi.WorkspaceGetRequest{Name: "going-away"}); err != nil {
+		t.Fatalf("encode params: %v", err)
+	}
+	request.Params = params
+	response := server.handleWorkspaceGet(t.Context(), request)
+	if response.Error == nil {
+		t.Fatalf("workspace get response = %#v, want a failure", response)
+	}
+	if response.Error.Code != rpcapi.StatusCodeFailedPrecondition || response.Error.Reason != "WORKSPACE_PENDING_DELETION" {
+		t.Fatalf("workspace get error = %#v", response.Error)
 	}
 }

@@ -339,7 +339,7 @@ func TestTranscribeSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
 		if err == nil {
 			_, err = stream.WriteResponseEnvelopeForMethod(request.Method, rpcapi.Error{
 				RequestID: request.Id,
-				Code:      rpcapi.RPCErrorCodeInvalidParams,
+				Code:      rpcapi.StatusCodeInvalidArgument,
 				Message:   "model alias is invalid",
 			}.RPCResponse())
 		}
@@ -385,7 +385,7 @@ func TestExtractSpeechReturnsEarlyServerErrorBeforeAudioEOF(t *testing.T) {
 		if err == nil {
 			_, err = stream.WriteResponseEnvelopeForMethod(request.Method, rpcapi.Error{
 				RequestID: request.Id,
-				Code:      rpcapi.RPCErrorCodeNotFound,
+				Code:      rpcapi.StatusCodeNotFound,
 				Message:   "speech alias not found",
 			}.RPCResponse())
 		}

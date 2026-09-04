@@ -891,13 +891,13 @@ func TestRPCMethodValid(t *testing.T) {
 	if RPCVersion(2).Valid() {
 		t.Fatal("unknown RPC version should be invalid")
 	}
-	for _, code := range []RPCErrorCode{RPCErrorCodeParseError, RPCErrorCodeInvalidRequest, RPCErrorCodeMethodNotFound, RPCErrorCodeInvalidParams, RPCErrorCodeInternalError, RPCErrorCodeBadRequest, RPCErrorCodeForbidden, RPCErrorCodeNotFound, RPCErrorCodeConflict} {
+	for code := StatusCodeOK; code <= StatusCodeUnauthenticated; code++ {
 		if !code.Valid() {
 			t.Fatalf("%d should be valid", code)
 		}
 	}
-	if RPCErrorCode(418).Valid() {
-		t.Fatal("unknown RPC error code should be invalid")
+	if StatusCode(17).Valid() || StatusCode(-1).Valid() {
+		t.Fatal("a value outside the canonical range should be invalid")
 	}
 }
 
@@ -1430,7 +1430,7 @@ func (shortWriter) Write(_ []byte) (int, error) {
 }
 
 func TestErrorImplementsErrorAndBuildsRPCResponse(t *testing.T) {
-	rpcErr := Error{RequestID: "req-1", Code: RPCErrorCodeInvalidParams, Message: "missing params"}
+	rpcErr := Error{RequestID: "req-1", Code: StatusCodeInvalidArgument, Message: "missing params"}
 	var err error = rpcErr
 	if err.Error() != "missing params" {
 		t.Fatalf("Error() = %q", err.Error())
@@ -1440,13 +1440,13 @@ func TestErrorImplementsErrorAndBuildsRPCResponse(t *testing.T) {
 	if errResp.V != RPCVersionV1 || errResp.Id != "req-1" || errResp.Error == nil {
 		t.Fatalf("RPCResponse() = %+v", errResp)
 	}
-	if errResp.Error.Code != RPCErrorCodeInvalidParams || errResp.Error.Message != "missing params" {
+	if errResp.Error.Code != StatusCodeInvalidArgument || errResp.Error.Message != "missing params" {
 		t.Fatalf("RPCResponse().Error = %+v", errResp.Error)
 	}
 }
 
 func TestErrorUsesFallbackMessage(t *testing.T) {
-	rpcErr := Error{Code: RPCErrorCode(-1)}
+	rpcErr := Error{Code: StatusCode(-1)}
 	if rpcErr.Error() != "rpc error -1" {
 		t.Fatalf("Error() = %q", rpcErr.Error())
 	}
