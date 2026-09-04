@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -344,6 +345,11 @@ func (s *Server) effectiveWorkspacesByLabels(ctx context.Context, selector map[s
 	return items, nil
 }
 
+// effectiveWorkspaces merges the caller's own Workspaces with the shared
+// Workspaces reachable through Friend, FriendGroup, and Pet relationships. A
+// Workspace whose deletion is already pending is treated as absent, like a
+// Workspace that no longer resolves, so an unfinished asynchronous deletion
+// leaves the remaining Workspaces listable.
 func (s *Server) effectiveWorkspaces(ctx context.Context) ([]apitypes.Workspace, error) {
 	ownedItems, err := s.ownedWorkspaces(ctx)
 	if err != nil {
@@ -364,6 +370,9 @@ func (s *Server) effectiveWorkspaces(ctx context.Context) ([]apitypes.Workspace,
 			continue
 		}
 		item, response, err := s.getWorkspaceForList(ctx, "", name)
+		if errors.Is(err, workspace.ErrWorkspacePendingDeletion) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}

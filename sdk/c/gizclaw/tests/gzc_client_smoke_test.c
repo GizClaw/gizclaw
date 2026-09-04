@@ -2,6 +2,8 @@
 #include "pb_decode.h"
 #include "pb_encode.h"
 
+/* <ctype.h> is host-test only: the SDK sources must stay free of it. */
+#include <ctype.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -2367,6 +2369,8 @@ int main(void) {
       "[12345::1]",
       "[::1%eth0]",
       "[::ffff:999.1.1.1]",
+      "[::g]",
+      "example.invalid:98\xb2",
   };
   for (size_t i = 0; i < sizeof(rejected_server_endpoints) / sizeof(rejected_server_endpoints[0]); i++) {
     invalid_config = config;
@@ -2384,6 +2388,7 @@ int main(void) {
       "[::]",
       "[1:2:3:4:5:6:7:8]",
       "[::ffff:192.168.1.10]:9820",
+      "[2001:DB8::AB]:9820",
       "http://example.invalid:9820",
       "https://ap.gizclaw.com",
       "https://ap.gizclaw.com/",
@@ -2399,6 +2404,36 @@ int main(void) {
       return 1;
     }
     gzc_client_destroy(url_client);
+  }
+  /*
+   * The authority validator classifies digits and hex digits without
+   * <ctype.h>. Drive every byte value through the port and hextet paths and
+   * compare acceptance against the C locale classifiers.
+   */
+  for (unsigned byte = 0; byte < 256u; byte++) {
+    const char value = (char)byte;
+    char port_endpoint[] = {'h', ':', value};
+    char hextet_endpoint[] = {'[', ':', ':', value, ']'};
+    gzc_client_t *byte_client = NULL;
+    invalid_config = config;
+    invalid_config.server_endpoint =
+        gzc_str_from_parts(port_endpoint, sizeof(port_endpoint));
+    rc = gzc_client_create(&invalid_config, &byte_client);
+    if (expect((rc == GZC_OK) == (isdigit((unsigned char)value) != 0),
+               "port digits match the C locale classification") != 0) {
+      return 1;
+    }
+    gzc_client_destroy(byte_client);
+    byte_client = NULL;
+    invalid_config = config;
+    invalid_config.server_endpoint =
+        gzc_str_from_parts(hextet_endpoint, sizeof(hextet_endpoint));
+    rc = gzc_client_create(&invalid_config, &byte_client);
+    if (expect((rc == GZC_OK) == (isxdigit((unsigned char)value) != 0),
+               "IPv6 hextet digits match the C locale classification") != 0) {
+      return 1;
+    }
+    gzc_client_destroy(byte_client);
   }
   invalid_config = config;
   invalid_config.tool_handler_count = 0u;

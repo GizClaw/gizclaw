@@ -274,7 +274,10 @@ func (s *Server) ListWorkspacesByOwner(ctx context.Context, owner string) ([]api
 }
 
 // ListWorkspacesByOwnerAndLabels returns owner Workspaces whose stored labels
-// contain every exact key/value pair in selector.
+// contain every exact key/value pair in selector. A Workspace whose deletion is
+// already pending is omitted instead of failing the enumeration, so one
+// unfinished asynchronous deletion cannot hide the owner's remaining
+// Workspaces.
 func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner string, selector map[string]string) ([]apitypes.Workspace, error) {
 	store, err := s.store()
 	if err != nil {
@@ -301,6 +304,9 @@ func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner strin
 			return nil, err
 		}
 		if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
+			if errors.Is(err, ErrWorkspacePendingDeletion) {
+				continue
+			}
 			return nil, err
 		}
 		if !workspaceMatchesLabels(item, selector) {

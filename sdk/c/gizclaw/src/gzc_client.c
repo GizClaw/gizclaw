@@ -8,7 +8,6 @@
 
 #include <pb_decode.h>
 
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -464,6 +463,20 @@ static bool valid_packet_protocol(uint8_t protocol) {
   return protocol == GZC_PROTOCOL_OPUS_PACKET || protocol >= gzc_protocol_custom_start;
 }
 
+/*
+ * Locale-independent ASCII classifiers. The <ctype.h> macros pull in a libc
+ * lookup table (picolibc's `_ctype_`) that some embedded toolchains do not
+ * link, and only ASCII matters for the URL grammars below.
+ */
+static bool ascii_is_digit(char value) {
+  return value >= '0' && value <= '9';
+}
+
+static bool ascii_is_hex_digit(char value) {
+  return ascii_is_digit(value) || (value >= 'a' && value <= 'f') ||
+         (value >= 'A' && value <= 'F');
+}
+
 /* Four decimal octets, used for the IPv4 tail of an IPv6 literal. */
 static bool valid_ipv4_literal(gzc_str_t text) {
   size_t octets = 0;
@@ -471,7 +484,7 @@ static bool valid_ipv4_literal(gzc_str_t text) {
   while (i < text.len) {
     size_t digits = 0;
     unsigned value = 0;
-    while (i < text.len && isdigit((unsigned char)text.data[i])) {
+    while (i < text.len && ascii_is_digit(text.data[i])) {
       value = value * 10u + (unsigned)(text.data[i] - '0');
       digits++;
       i++;
@@ -519,7 +532,7 @@ static bool valid_ipv6_literal(gzc_str_t text) {
   while (i < text.len) {
     size_t start = i;
     size_t digits = 0;
-    while (i < text.len && isxdigit((unsigned char)text.data[i])) {
+    while (i < text.len && ascii_is_hex_digit(text.data[i])) {
       digits++;
       i++;
     }
@@ -610,7 +623,7 @@ static bool valid_authority(gzc_str_t authority) {
     return false;
   }
   for (size_t i = host_len + 1u; i < authority.len; i++) {
-    if (!isdigit((unsigned char)authority.data[i])) {
+    if (!ascii_is_digit(authority.data[i])) {
       return false;
     }
   }
