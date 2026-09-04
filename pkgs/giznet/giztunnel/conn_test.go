@@ -779,6 +779,68 @@ func TestDialContextCapacityWaitReturnsWhenRouterCloses(t *testing.T) {
 	}
 }
 
+func TestDialContextCapacityWaitReturnsWhenCallerCancels(t *testing.T) {
+	pair := newTunnelPair(t,
+		Config{MaxChannelsPerSession: 3, MaxChannels: 6},
+		Config{MaxChannelsPerSession: 32, MaxChannels: 32},
+	)
+	first, err := pair.edge.Dial(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	type dialResult struct {
+		stream net.Conn
+		err    error
+	}
+	result := make(chan dialResult, 1)
+	go func() {
+		stream, dialErr := pair.edge.DialContext(ctx, 2)
+		result <- dialResult{stream: stream, err: dialErr}
+	}()
+
+	select {
+	case got := <-result:
+		if got.stream != nil {
+			_ = got.stream.Close()
+		}
+		t.Fatalf("capacity-constrained DialContext returned before caller cancellation: %v", got.err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	cancel()
+	var got dialResult
+	select {
+	case got = <-result:
+	case <-time.After(time.Second):
+		t.Fatal("DialContext did not return after caller cancellation")
+	}
+	if got.stream != nil {
+		_ = got.stream.Close()
+		t.Fatal("DialContext returned a stream after caller cancellation")
+	}
+	if !errors.Is(got.err, context.Canceled) {
+		t.Fatalf("DialContext after caller cancellation error = %v", got.err)
+	}
+	if active := pair.edgeRouter.ActiveChannels(); active != 3 {
+		t.Fatalf("active channels after caller cancellation = %d, want 3", active)
+	}
+	if _, err := pair.edge.Write(0x55, []byte("logical-alive")); err != nil {
+		t.Fatalf("logical connection closed after caller cancellation: %v", err)
+	}
+	if _, err := pair.edgePhysical.Write(0x55, []byte("physical-alive")); err != nil {
+		t.Fatalf("physical connection closed after caller cancellation: %v", err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("close held stream: %v", err)
+	}
+	if active := pair.edgeRouter.ActiveChannels(); active != 2 {
+		t.Fatalf("active channels after held stream close = %d, want 2", active)
+	}
+}
+
 func TestPendingAndClosedCapacityErrorsHaveNoEstablishedSnapshot(t *testing.T) {
 	router := &Router{
 		cfg:      Config{MaxChannelsPerSession: 3, MaxChannels: 3},
