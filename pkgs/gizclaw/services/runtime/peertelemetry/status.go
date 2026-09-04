@@ -51,10 +51,10 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 // ApplyDeviceStatus merges a PeerStatus that the device reported in response
 // to a Server-initiated control command into the stored owner-scoped status.
 //
-// Volume, muted, and labels come from the control response verbatim because
-// no telemetry frame carries them. Battery and GNSS fields use the same
-// per-field observation ordering as telemetry reports, so an older control
-// response never overwrites a newer telemetry observation. The reported time
+// Volume, muted, labels, and the running firmware digest come from the control
+// response verbatim because no telemetry frame carries them. Battery and GNSS
+// fields use the same per-field observation ordering as telemetry reports, so
+// an older control response never overwrites a newer telemetry observation. The reported time
 // defaults to now when the device omits it; the stored reported_at never moves
 // backwards.
 func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey, reported apitypes.PeerStatus, now time.Time) (apitypes.PeerStatus, error) {
@@ -96,6 +96,11 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 	if reported.Labels != nil {
 		labels := maps.Clone(*reported.Labels)
 		status.Labels = &labels
+		changed = true
+	}
+	if reported.FirmwareSha256 != nil {
+		value := *reported.FirmwareSha256
+		status.FirmwareSha256 = &value
 		changed = true
 	}
 	if !changed {

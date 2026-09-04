@@ -23,6 +23,7 @@ const (
 	publicHTTPInternalErrorCode  = "INTERNAL_ERROR"
 	publicHTTPContactNotFound    = "CONTACT_NOT_FOUND"
 	publicHTTPContactExists      = "CONTACT_ALREADY_EXISTS"
+	publicHTTPFirmwareNotFound   = "FIRMWARE_NOT_FOUND"
 
 	maxPublicContactPageSize = 200
 )
@@ -100,6 +101,25 @@ func (s *peerHTTP) GetDeviceStatus(ctx context.Context, _ peerhttp.GetDeviceStat
 		return peerhttp.GetDeviceStatus500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
 	return peerhttp.GetDeviceStatus200JSONResponse(status), nil
+}
+
+func (s *peerHTTP) GetDeviceFirmware(ctx context.Context, _ peerhttp.GetDeviceFirmwareRequestObject) (peerhttp.GetDeviceFirmwareResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
+	if err != nil {
+		return peerhttp.GetDeviceFirmware401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+	}
+	reads, ok := s.deviceReads(owner)
+	if !ok {
+		return peerhttp.GetDeviceFirmware500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+	}
+	item, err := reads.DeviceFirmware(ctx)
+	if err != nil {
+		if errors.Is(err, peerresource.ErrDeviceFirmwareNotBound) || errors.Is(err, kv.ErrNotFound) {
+			return peerhttp.GetDeviceFirmware404JSONResponse{FirmwareNotFoundJSONResponse: peerhttp.FirmwareNotFoundJSONResponse(apiError(publicHTTPFirmwareNotFound, "the device has no firmware configuration bound"))}, nil
+		}
+		return peerhttp.GetDeviceFirmware500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
+	}
+	return peerhttp.GetDeviceFirmware200JSONResponse{Description: item.Description, Slots: item.Slots}, nil
 }
 
 func (s *peerHTTP) GetDeviceTelemetryLatest(ctx context.Context, request peerhttp.GetDeviceTelemetryLatestRequestObject) (peerhttp.GetDeviceTelemetryLatestResponseObject, error) {

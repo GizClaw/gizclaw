@@ -47,8 +47,8 @@ client.close();
 `GizClawControlClient` 覆盖 `/gizclaw/v1/*` 的全部 route：
 
 - API Key：`createApiKey`、`listApiKeys`、`getSelfApiKey`、`revokeSelfApiKey`、`getApiKey`、`revokeApiKey`。
-- 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
-- 设备控制：`setDeviceVolume`、`playDeviceSound`、`rebootDevice`、`getDeviceWifi`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`。
+- 设备读取：`getDevice`、`getDeviceRuntime`、`getDeviceStatus`、`getDeviceFirmware`、`getDeviceTelemetryLatest`、`queryDeviceTelemetry`、`aggregateDeviceTelemetry`。
+- 设备控制：`setDeviceVolume`、`playDeviceSound`、`rebootDevice`、`updateDeviceFirmware`、`getDeviceWifi`、`scanDeviceWifi`、`connectDeviceWifi`、`listDeviceSavedWifi`、`forgetDeviceSavedWifi`。
 - Contact：`listContacts`、`createContact`、`getContact`、`putContact`、`deleteContact`。
 
 每个方法发送 `Authorization: Bearer <apiKey>`，返回 contract 对应的不可变 model；`204` route 返回 `Future<void>`。model 忽略未知 JSON 字段；开放式 schema（`PeerStatus`、`DeviceInfo`）额外提供 `raw` 保存完整解码对象。路径参数（`ssid`、`contactName`）由 SDK 做 URL 编码。可选参数 `httpClient` 用于注入或复用 `http.Client`，`timeout` 默认 30 秒。

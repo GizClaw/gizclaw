@@ -71,3 +71,41 @@ final $typed_data.Uint8List firmwareGetResponseDescriptor = $convert.base64Decod
     '5GaXJtd2FyZUNoYW5uZWxOYW1lUgdjaGFubmVsEiUKC2Rlc2NyaXB0aW9uGAIgASgJSABSC2Rl'
     'c2NyaXB0aW9uiAEBEhAKA3VybBgDIAEoCVIDdXJsEhYKBnNoYTI1NhgEIAEoCVIGc2hhMjU2Eh'
     'IKBHNpemUYBSABKANSBHNpemVCDgoMX2Rlc2NyaXB0aW9u');
+
+@$core.Deprecated('Use clientFirmwareUpdateRequestDescriptor instead')
+const ClientFirmwareUpdateRequest$json = {
+  '1': 'ClientFirmwareUpdateRequest',
+  '2': [
+    {
+      '1': 'channel',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.FirmwareChannelName',
+      '9': 0,
+      '10': 'channel',
+      '17': true
+    },
+    {'1': 'sha256', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'sha256', '17': true},
+  ],
+  '8': [
+    {'1': '_channel'},
+    {'1': '_sha256'},
+  ],
+};
+
+/// Descriptor for `ClientFirmwareUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientFirmwareUpdateRequestDescriptor =
+    $convert.base64Decode(
+        'ChtDbGllbnRGaXJtd2FyZVVwZGF0ZVJlcXVlc3QSQgoHY2hhbm5lbBgBIAEoDjIjLmdpemNsYX'
+        'cucnBjLnYxLkZpcm13YXJlQ2hhbm5lbE5hbWVIAFIHY2hhbm5lbIgBARIbCgZzaGEyNTYYAiAB'
+        'KAlIAVIGc2hhMjU2iAEBQgoKCF9jaGFubmVsQgkKB19zaGEyNTY=');
+
+@$core.Deprecated('Use clientFirmwareUpdateResponseDescriptor instead')
+const ClientFirmwareUpdateResponse$json = {
+  '1': 'ClientFirmwareUpdateResponse',
+};
+
+/// Descriptor for `ClientFirmwareUpdateResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientFirmwareUpdateResponseDescriptor =
+    $convert.base64Decode('ChxDbGllbnRGaXJtd2FyZVVwZGF0ZVJlc3BvbnNl');

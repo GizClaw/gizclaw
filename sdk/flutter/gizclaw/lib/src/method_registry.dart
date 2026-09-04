@@ -651,6 +651,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientWifiConnectRequest',
     responseType: 'ClientWifiConnectResponse',
   ),
+  'client.firmware.update': RpcMethodDescriptor(
+    id: 111,
+    name: 'client.firmware.update',
+    requestType: 'ClientFirmwareUpdateRequest',
+    responseType: 'ClientFirmwareUpdateResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -760,6 +766,7 @@ const rpcMethodNamesById = <int, String>{
   106: 'client.wifi.saved.forget',
   108: 'client.wifi.scan',
   109: 'client.wifi.connect',
+  111: 'client.firmware.update',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

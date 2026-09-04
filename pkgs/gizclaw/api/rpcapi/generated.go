@@ -545,6 +545,7 @@ const (
 	RPCMethodAllPing                             RPCMethod = "all.ping"
 	RPCMethodAllSpeedTestRun                     RPCMethod = "all.speed_test.run"
 	RPCMethodClientDeviceReboot                  RPCMethod = "client.device.reboot"
+	RPCMethodClientFirmwareUpdate                RPCMethod = "client.firmware.update"
 	RPCMethodClientDeviceSoundPlay               RPCMethod = "client.device.sound.play"
 	RPCMethodClientDeviceStatusGet               RPCMethod = "client.device.status.get"
 	RPCMethodClientDeviceVolumeSet               RPCMethod = "client.device.volume.set"
@@ -675,6 +676,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodClientWifiScan:
 		return true
 	case RPCMethodClientWifiConnect:
+		return true
+	case RPCMethodClientFirmwareUpdate:
 		return true
 	case RPCMethodClientToolInvoke:
 		return true
@@ -2269,6 +2272,7 @@ type PeerStatus struct {
 	BatteryPercent *int               `json:"battery_percent,omitempty"`
 	Charging       *bool              `json:"charging,omitempty"`
 	Details        *map[string]any    `json:"details,omitempty"`
+	FirmwareSha256 *string            `json:"firmware_sha256,omitempty"`
 	GnssAccuracyM  *float32           `json:"gnss_accuracy_m,omitempty"`
 	GnssAltitudeM  *float32           `json:"gnss_altitude_m,omitempty"`
 	GnssLatitude   *float32           `json:"gnss_latitude,omitempty"`

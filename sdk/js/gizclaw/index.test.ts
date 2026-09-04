@@ -3592,6 +3592,58 @@ test("inbound device control rejects out-of-range durations", async () => {
   assert.equal(badDelay.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 });
 
+test("inbound client.firmware.update forwards the channel and digest", async () => {
+  const calls: string[] = [];
+  const control = {
+    updateFirmware: (channel?: string, sha256?: string) => {
+      calls.push(`${channel}:${sha256}`);
+    },
+  };
+
+  const withoutParams = await serveInboundClientRPC(
+    "client.firmware.update",
+    {},
+    { deviceControl: control },
+  );
+  assert.equal(withoutParams.error, undefined);
+
+  const digest = "a".repeat(64);
+  const withParams = await serveInboundClientRPC(
+    "client.firmware.update",
+    { channel: "beta", sha256: digest },
+    { deviceControl: control },
+  );
+  assert.equal(withParams.error, undefined);
+  assert.deepEqual(calls, [
+    "undefined:undefined",
+    `beta:${digest}`,
+  ]);
+
+  // "unspecified" encodes on the wire but names no channel.
+  const badChannel = await serveInboundClientRPC(
+    "client.firmware.update",
+    { channel: "unspecified" },
+    { deviceControl: control },
+  );
+  assert.equal(badChannel.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+
+  const badDigest = await serveInboundClientRPC(
+    "client.firmware.update",
+    { sha256: "A".repeat(64) },
+    { deviceControl: control },
+  );
+  assert.equal(badDigest.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+
+  // Firmware without the provider answers METHOD_NOT_FOUND, which the server
+  // maps to 501 DEVICE_UNSUPPORTED rather than to a failed update.
+  const unsupported = await serveInboundClientRPC(
+    "client.firmware.update",
+    {},
+    { deviceControl: {} },
+  );
+  assert.equal(unsupported.error?.code, STATUS_CODE_UNIMPLEMENTED);
+});
+
 test("inbound device control surfaces a scripted error code", async () => {
   const response = await serveInboundClientRPC(
     "client.device.sound.play",

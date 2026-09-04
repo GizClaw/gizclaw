@@ -313,6 +313,22 @@
         }
       }
     },
+    "/gizclaw/v1/device/firmware": {
+      "get": {
+        "operationId": "getDeviceFirmware",
+        "summary": "Get the firmware channels configured for the bound device",
+        "tags": ["Device"],
+        "security": [{"BearerAuth": []}],
+        "description": "Returns every channel of the Firmware configuration bound to the caller device, read from Server configuration. Reading never contacts the device, so it answers while the device is offline. Channel selection stays with the caller: pick a channel from this response and name it when triggering an update.",
+        "responses": {
+          "200": {"description": "Firmware channels configured for the bound device.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceFirmware"}}}},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "404": {"$ref": "#/components/responses/FirmwareNotFound"},
+          "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      }
+    },
     "/gizclaw/v1/device/volume": {
       "put": {
         "operationId": "setDeviceVolume",
@@ -368,6 +384,27 @@
         "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRebootRequest"}}}},
         "responses": {
           "204": {"description": "The device accepted the reboot request."},
+          "400": {"$ref": "#/components/responses/BadRequest"},
+          "401": {"$ref": "#/components/responses/Unauthorized"},
+          "403": {"$ref": "#/components/responses/Forbidden"},
+          "409": {"$ref": "#/components/responses/DeviceOffline"},
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "501": {"$ref": "#/components/responses/DeviceUnsupported"},
+          "502": {"$ref": "#/components/responses/DeviceError"},
+          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+        }
+      }
+    },
+    "/gizclaw/v1/device/actions/firmware-update": {
+      "post": {
+        "operationId": "updateDeviceFirmware",
+        "summary": "Notify the bound device to run a firmware update",
+        "tags": ["DeviceControl"],
+        "security": [{"BearerAuth": []}],
+        "description": "Forwards client.firmware.update to the online device. The device acknowledges before it downloads, verifies, and writes the package itself; later control commands answer DEVICE_OFFLINE once it restarts. channel names the channel from GET /gizclaw/v1/device/firmware to install, and defaults to the channel the device already uses. sha256 declares the package the caller saw, and the device rejects the request when it does not match the package it resolves.",
+        "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceFirmwareUpdateRequest"}}}},
+        "responses": {
+          "204": {"description": "The device accepted the firmware update request."},
           "400": {"$ref": "#/components/responses/BadRequest"},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
@@ -585,6 +622,7 @@
       "Unauthorized": {"description": "Missing, invalid, or revoked API key.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "Forbidden": {"description": "The API key does not authorize this operation.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "NotFound": {"description": "The API key was not found for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
+      "FirmwareNotFound": {"description": "The caller device has no Firmware configuration bound, or the bound configuration no longer exists.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "Conflict": {"description": "The API key owner is pending deletion.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "InternalError": {"description": "The API key operation failed.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
       "DeviceOffline": {
@@ -673,6 +711,23 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {"delay_ms": {"type": "integer", "format": "int64", "minimum": 0, "description": "Optional delay before the device reboots, in milliseconds."}}
+      },
+      "DeviceFirmware": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slots"],
+        "properties": {
+          "description": {"type": "string", "description": "Description of the Firmware configuration bound to the device."},
+          "slots": {"$ref": "./shared.json#/components/schemas/FirmwareSlots", "description": "Every configured channel. A channel with no configured package carries no package field."}
+        }
+      },
+      "DeviceFirmwareUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "channel": {"$ref": "./shared/server.json#/components/schemas/FirmwareChannelName", "description": "Channel to install. Defaults to the channel the device already uses."},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Package digest the caller saw. The device rejects the request when it does not match the package it resolves."}
+        }
       },
       "DeviceWifiStatus": {
         "type": "object",

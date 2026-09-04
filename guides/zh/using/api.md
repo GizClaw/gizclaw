@@ -149,10 +149,14 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
 | `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
 | `POST /gizclaw/v1/device/actions/reboot` | 重启设备 |
+| `GET /gizclaw/v1/device/firmware` | 设备绑定的 Firmware 配置的全部 channel 与各自的包 |
+| `POST /gizclaw/v1/device/actions/firmware-update` | 通知设备执行一次 OTA |
 | `GET /gizclaw/v1/device/wifi`、`/wifi/saved`，`DELETE /wifi/saved/{ssid}` | 查询 Wi‑Fi 状态、列出与清理已保存网络 |
 | `/gizclaw/v1/contacts`、`/contacts/{contactName}` | 设备联系人的 list/create/get/put/delete |
 
 读取 route 只投影 Server 已有数据，不会唤醒设备；控制 route 经 Server→设备 RPC 实时执行，设备离线返回 `409 DEVICE_OFFLINE`，5 秒无响应返回 `504 DEVICE_TIMEOUT`，设备未实现返回 `501 DEVICE_UNSUPPORTED`。状态变化通过轮询 `GET /device/status` 获取。Wi‑Fi 配网仍由设备本地 BLE 完成。
+
+`GET /device/firmware` 一次返回 `stable`、`beta`、`develop` 三个 channel 及各自的 `package`（`url`、`sha256`、`size`）；Server 不保存设备当前使用的 channel，选哪个由调用方决定，`POST /device/actions/firmware-update` 用 `channel` 指定，省略时设备沿用自身的 channel。要判断是否需要升级，把 `GET /device/status` 的 `firmware_sha256`（设备上报的当前运行包）与目标 channel 的 `package.sha256` 比较；请求里带上同一个 `sha256`，设备解析出不同的包时会拒绝，避免升到与界面显示不同的版本。设备固件太旧、未实现该 RPC 时返回 `501 DEVICE_UNSUPPORTED`，应据此隐藏升级入口，而不是提示升级失败。
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \

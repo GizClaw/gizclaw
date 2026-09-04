@@ -19,3 +19,11 @@ message FirmwareGetResponse {
   string sha256 = 4;
   int64 size = 5;
 }
+
+message ClientFirmwareUpdateRequest {
+  optional FirmwareChannelName channel = 1;
+  optional string sha256 = 2;
+}
+
+message ClientFirmwareUpdateResponse {
+}
