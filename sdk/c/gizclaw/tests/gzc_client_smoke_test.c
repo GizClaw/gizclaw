@@ -2990,7 +2990,7 @@ int main(void) {
   outbound_event.type = gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY;
   outbound_event.which_payload = gizclaw_events_v1_PeerEvent_audio_input_ready_tag;
   (void)snprintf(outbound_event.payload.audio_input_ready.stream_id,
-                sizeof(outbound_event.payload.audio_input_ready.stream_id), "%s", "audio-c");
+                 sizeof(outbound_event.payload.audio_input_ready.stream_id), "%s", "audio-c");
   gzc_buf_t event_payload;
   gzc_buf_t encoded_event_frame;
   gzc_buf_init(&event_payload);
