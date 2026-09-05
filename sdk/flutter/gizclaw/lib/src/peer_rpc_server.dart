@@ -593,8 +593,9 @@ class _InboundPeerRpcChannel {
         final handler = handlers?.audioplayer?.modeSet;
         if (handler == null) return unsupported();
         final player = params as payload.ClientDeviceAudioPlayerModeSetRequest;
-        if (!const {'off', 'one', 'all'}.contains(player.repeat))
+        if (!const {'off', 'one', 'all'}.contains(player.repeat)) {
           return invalid();
+        }
         return _rpcPayloadResponse(
           request.id,
           methodName,
@@ -901,8 +902,9 @@ bool _validAudioPlayerItems(List<payload.AudioPlayerItem> items, bool append) {
         uri.scheme != 'https' ||
         uri.host.isEmpty ||
         uri.userInfo.isNotEmpty ||
-        uri.hasFragment)
+        uri.hasFragment) {
       return false;
+    }
     return utf8.encode(item.title).length <= 128 &&
         utf8.encode(item.sourceRef).length <= 128;
   });
