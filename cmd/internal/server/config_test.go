@@ -1680,3 +1680,29 @@ func TestSFUConfigConnectorConfigLoadsCredentialFiles(t *testing.T) {
 		t.Fatalf("connectorConfig(missing key) error = %v", err)
 	}
 }
+
+func TestPrepareConfigExpandsMonitorToken(t *testing.T) {
+	token := "gizclaw_mk_01234567890123456789012345678901"
+	t.Setenv("TEST_MONITOR_TOKEN", token)
+	cfg := DefaultConfig()
+	cfg.Services = validServicesConfig()
+	cfg.Monitor.Token = "${TEST_MONITOR_TOKEN}"
+	prepared, err := prepareConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared.Monitor.Token != token {
+		t.Fatal("monitor token environment expansion was not retained")
+	}
+}
+
+func TestParseConfigPreservesMonitorToken(t *testing.T) {
+	token := "gizclaw_mk_01234567890123456789012345678901"
+	cfg, err := parseConfigData([]byte("monitor:\n  token: " + token + "\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Monitor.Token != token {
+		t.Fatalf("monitor token = %q, want %q", cfg.Monitor.Token, token)
+	}
+}

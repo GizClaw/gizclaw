@@ -755,6 +755,8 @@ func (s *Server) init() error {
 			PendingDeletions:            pendingDeletionAdmin,
 		},
 		public: &peerHTTP{
+			Workspaces:       workspaceServer,
+			ServerLogs:       s.ServerLogQuery,
 			PeerHTTPService:  peersServer,
 			APIKeys:          apiKeyServer,
 			PeerAvailability: peersServer.EnsureAvailable,

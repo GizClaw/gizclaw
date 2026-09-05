@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
+import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceLogsData, GetDeviceLogsErrors, GetDeviceLogsResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,50 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List Workspaces owned by the authenticated device
+ *
+ * Return an unpaginated array of DeviceWorkspace (id, name, workflow_id, last_active_at date-time) explicitly owned by the authenticated Peer, including system Workspaces. Shared and ownerless Workspaces are excluded. An empty owned set returns []. Uses existing Bearer owner/runtime authorization: 400 INVALID_REQUEST for a malformed public-key bearer, 401 INVALID_API_KEY, 403 DEBUG_ACCESS_FORBIDDEN or API_KEY_OWNER_UNAVAILABLE, 409 for conflicting routing, and 500 INTERNAL_ERROR for unavailable services or storage failures. Errors use ErrorResponse with error.code and error.message.
+ */
+export const listDeviceWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceWorkspacesData, ThrowOnError>): RequestResult<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces',
+    ...options
+});
+
+/**
+ * Read history from a Workspace owned by the authenticated device
+ *
+ * Query only the named owned Workspace. Optional limit is 1..200 (default 50); query is literal text with a 512 UTF-8 byte limit. History is returned newest first as PeerRunHistoryListResponse (available, items, has_next, optional next_cursor). Each item has name (entry ID), type, actor_name, text, created_at, replay_available, and optional gear_id. Cursor is the previous next_cursor, an entry-ID timestamp boundary formatted YYYYMMDDTHHMMSS.nnnnnnnnnZ-suffix; it is not an authorization token. A well-formed boundary from another stream still queries only this owned Workspace. Malformed cursors return 400 INVALID_HISTORY_CURSOR; invalid query/limit returns 400 INVALID_REQUEST. Foreign or absent Workspace IDs return 404 WORKSPACE_NOT_FOUND. Shared Bearer/runtime errors apply. Missing service/history storage or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.
+ */
+export const listDeviceWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListDeviceWorkspaceHistoryData, ThrowOnError>): RequestResult<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history',
+    ...options
+});
+
+/**
+ * Search persistent system logs scoped to the authenticated device
+ *
+ * Query the configured persistent system Log Store with required positive start_time_ms and end_time_ms Unix milliseconds, start before end. Optional query is literal text, limited to 512 UTF-8 bytes; level must be exactly DEBUG, INFO, WARN, or ERROR; limit is 1..500 (default 100). Results are newest first: DeviceLogPage contains items (ServerLogEntry: time_ms, level, message, source, path, fields) and end (count, has_next, optional next_cursor). Cursor is an opaque encrypted continuation bound to the same Peer, text, level, time interval and descending order; limit may change. Return 400 INVALID_REQUEST for invalid level/limit/text, INVALID_LOG_QUERY for invalid bounds/filter, INVALID_LOG_CURSOR for malformed cursors or process-local cursors invalidated by a restart, or LOG_CURSOR_MISMATCH for changed query or cross-Peer continuation. Return 500 LOG_QUERY_NOT_CONFIGURED when query_store is absent, or INTERNAL_ERROR for backend failures. Shared Bearer/runtime errors apply. Errors use ErrorResponse with error.code and error.message.
+ */
+export const searchDeviceLogs = <ThrowOnError extends boolean = false>(options: Options<SearchDeviceLogsData, ThrowOnError>): RequestResult<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError> => (options.client ?? client).get<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/logs/search',
+    ...options
+});
+
+/**
+ * Download stored Ogg audio from a Workspace owned by the authenticated device
+ *
+ * Read the retained Ogg asset for an entry in an owned Workspace without starting an Agent. A successful 200 response is binary audio/ogg with Content-Length when known; it is not JSON or an unauthenticated URL. Foreign or absent Workspace IDs, missing history entries, or entries without a stored Ogg asset return 404 HISTORY_NOT_FOUND. replay_available alone does not guarantee that Ogg audio exists. Shared Bearer/runtime errors apply; unavailable services or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.
+ */
+export const downloadDeviceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<DownloadDeviceHistoryAudioData, ThrowOnError>): RequestResult<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError> => (options.client ?? client).get<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg',
+    ...options
+});
 
 /**
  * Get server information
@@ -322,3 +366,14 @@ export const findPublicKeysBySn = <ThrowOnError extends boolean = false>(options
  * Find all matching device public keys
  */
 export const findPublicKeysByImei = <ThrowOnError extends boolean = false>(options: Options<FindPublicKeysByImeiData, ThrowOnError>): RequestResult<FindPublicKeysByImeiResponses, FindPublicKeysByImeiErrors, ThrowOnError> => (options.client ?? client).get<FindPublicKeysByImeiResponses, FindPublicKeysByImeiErrors, ThrowOnError>({ url: '/gizclaw/v1/peers/@findByImei/{tac}/{serial}', ...options });
+
+/**
+ * Read recent server-side logs scoped to the authenticated device
+ *
+ * Returns at most 500 recent process records with an exact peer_public_key match. These are server-side device-related logs, not firmware logs; records are held in a bounded in-memory ring and do not survive restart.
+ */
+export const getDeviceLogs = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceLogsData, ThrowOnError>): RequestResult<GetDeviceLogsResponses, GetDeviceLogsErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceLogsResponses, GetDeviceLogsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/logs',
+    ...options
+});

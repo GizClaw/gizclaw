@@ -1062,3 +1062,21 @@ Ordinary Memory tests remain credential-free and run under `go test ./...`.
 The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tests/gizclaw-e2e/go/openai`. It uses the pinned official OpenAI Go SDK over authenticated `ServicePeerOpenAI`, creates an isolated Peer-owned Conversation Workspace, completes three text turns, composes transcription to Response to speech, exercises background cancel and streamed-client abort followed by same-Conversation recovery, and registers Workspace cleanup before mutation.
 
 Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.
+
+## Monitor API giztest
+
+```sh
+bash tests/gizclaw-e2e/run_monitor_tests.sh
+```
+
+Requires Docker, Node/npm and Python 3. The runner uses `gizclaw-go:linux-<arch>-cn-base` for the Docker architecture, building it from `build/Dockerfile.cn.base` if absent. Override it with `GIZCLAW_E2E_DOCKER_BASE_IMAGE`. Go modules and build outputs use dedicated Docker cache volumes; `GIZCLAW_MONITOR_MODCACHE` and `GIZCLAW_MONITOR_BUILDCACHE` accept volume names or absolute paths.
+
+The runner generates identities, starts isolated Server/Edge processes, seeds a Workflow and runs `tests/gizclaw-e2e/giztest/server.monitor.*.giztest.yaml`:
+
+- authorization: runtime debug access, revocation and invalid input.
+- history: real WebRTC text conversations persisted before workspace lookup, search, pagination and cross-peer isolation.
+- logs: persisted HTTP completion records, pagination and cursor binding.
+- audio: authenticated retained Ogg download, missing credentials and missing assets.
+- node: independent Monitor Token authentication, rejection of device public keys and local node metrics.
+
+SQLite, filesystem assets and a script Workflow avoid external model dependencies. The audio fixture writes an Ogg asset into the real History/Asset Store; this is not a TTS synthesis test. Containers and temporary runtime data are removed on exit; reports remain under `.testbench/monitor-*/reports/`. This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.

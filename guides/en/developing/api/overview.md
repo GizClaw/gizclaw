@@ -42,3 +42,5 @@ api/
 - [HTTP API](./http/): OpenAPI surfaces, Shared, Resources and type ownership.
 - [Proto API](./proto/): Peer RPC and Telemetry Protobuf contract.
 - [Generation and Change](./generation): Go, JavaScript and C generation links and validation requirements.
+
+Node Monitor API: Server and Edge provide the process-local HTTP contract in `api/http/monitor.json`; see [Monitor](../monitor) for authentication and generation ownership.

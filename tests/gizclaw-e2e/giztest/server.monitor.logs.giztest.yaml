@@ -1,0 +1,102 @@
+# User Story:
+# As a device owner using Monitor,
+# I want the owning Server to enforce my runtime access setting on every monitor API,
+# So that a public key never bypasses disabled access or Workspace ownership.
+version: gizclaw.test/v1alpha1
+name: server.monitor.logs
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  other: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  api_key: {direction: output, type: string, secret: true}
+  public_key: {direction: output, type: string}
+  cursor: {direction: output, type: string}
+  other_key: {direction: output, type: string, secret: true}
+steps:
+  - id: register
+    client: peer
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create_key
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: monitor-test}}
+    capture: {api_key: /api_key}
+  - id: capture_identity
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/telemetry/latest
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 200
+    capture: {public_key: /peer_public_key}
+  - id: enable_readonly
+    client: peer
+    rpc: {method: server.runtime.put, request: {debug_mode: readonly}}
+  - id: seed_logged_request_one
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/runtime
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+  - id: seed_logged_request_two
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/runtime
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+  - id: search_persisted_logs
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/logs/search?start_time_ms=1000&end_time_ms=4102444800000&limit=1&query=request%20completed
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    capture: {cursor: /end/next_cursor}
+    expect:
+      /items: {count: 1}
+      /items/0/fields/peer_public_key: {equals: "${public_key}"}
+      /items/0/message: {contains: request completed}
+      /end/has_next: {equals: true}
+  - id: next_log_page
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/logs/search?start_time_ms=1000&end_time_ms=4102444800000&limit=1&query=request%20completed&cursor=${cursor}
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 1}
+      /items/0/fields/peer_public_key: {equals: "${public_key}"}
+  - id: changed_cursor_filter
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/logs/search?start_time_ms=1000&end_time_ms=4102444800000&query=changed&cursor=${cursor}
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 400
+    expect:
+      /error/code: {equals: LOG_CURSOR_MISMATCH}
+  - id: register_other
+    client: other
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: other_key
+    client: other
+    rpc: {method: server.api_key.create, request: {display_name: monitor-other}}
+    capture: {other_key: /api_key}
+  - id: foreign_cursor
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/logs/search?start_time_ms=1000&end_time_ms=4102444800000&limit=1&query=request%20completed&cursor=${cursor}
+      headers: {Authorization: "Bearer ${other_key}"}
+      status: 400
+    expect:
+      /error/code: {equals: LOG_CURSOR_MISMATCH}
+finally:
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}
+  - client: other
+    rpc: {method: server.peer.delete, request: {}}

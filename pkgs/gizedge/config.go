@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
@@ -22,6 +23,7 @@ import (
 const workspaceConfigFile = "config.yaml"
 
 type Config struct {
+	Monitor          monitor.Config
 	KeyPair          *giznet.KeyPair
 	WebRTC           WebRTCConfig
 	Upstreams        []UpstreamConfig
@@ -158,6 +160,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 }
 
 type ConfigFile struct {
+	Monitor   monitor.Config               `yaml:"monitor"`
 	Identity  IdentityConfig               `yaml:"identity"`
 	WebRTC    *WebRTCConfig                `yaml:"webrtc"`
 	Upstreams *[]UpstreamConfig            `yaml:"upstreams"`
@@ -270,6 +273,12 @@ func prepareConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
 	systemLogConfigured := !cfg.SystemLog.IsZero() || fileCfg.SystemLog != nil
 	if cfg.WebRTC == (WebRTCConfig{}) && fileCfg.WebRTC != nil {
 		cfg.WebRTC = *fileCfg.WebRTC
+	}
+	if cfg.Monitor.Token == "" {
+		cfg.Monitor = fileCfg.Monitor
+	}
+	if err := cfg.Monitor.Validate(); err != nil {
+		return Config{}, err
 	}
 	if fileCfg.HTTP != nil && len(fileCfg.HTTP.Listeners) == 0 {
 		return Config{}, fmt.Errorf("edge: http.listeners must not be empty")

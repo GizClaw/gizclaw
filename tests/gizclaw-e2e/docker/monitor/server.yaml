@@ -1,0 +1,185 @@
+identity:
+  private-key: ${MONITOR_SERVER_PRIVATE_KEY}
+webrtc:
+  listen: 0.0.0.0:9820
+  endpoint: server:9820
+http:
+  listeners:
+    - listen: 0.0.0.0:9820
+edge-nodes:
+  - ${MONITOR_EDGE_PUBLIC_KEY}
+admin-public-key: ${MONITOR_ADMIN_PUBLIC_KEY}
+storage:
+  memory:
+    kind: memory
+  metrics-memory:
+    kind: memory
+  local-files:
+    kind: filesystem.dir
+    dir: data/objects
+  agenthost-files:
+    kind: filesystem.dir
+    dir: data/agenthost
+  gameplay-db:
+    kind: sqlite
+    dir: data/gameplay.sqlite
+stores:
+  monitor-logs:
+    kind: log.immutable
+    storage: gameplay-db
+    table: monitor_logs
+  peers:
+    kind: keyvalue
+    storage: memory
+    prefix: peers
+  peer-runs:
+    kind: keyvalue
+    storage: gameplay-db
+    prefix: peer_runs
+  api-keys:
+    kind: keyvalue
+    storage: memory
+    prefix: api-keys
+  flowcraft-state:
+    kind: keyvalue
+    storage: memory
+    prefix: flowcraft-state
+  credentials:
+    kind: keyvalue
+    storage: memory
+    prefix: credentials
+  firmwares:
+    kind: keyvalue
+    storage: memory
+    prefix: firmwares
+  runtime-profiles:
+    kind: keyvalue
+    storage: memory
+    prefix: runtime-profiles
+  memory-layouts:
+    kind: keyvalue
+    storage: memory
+    prefix: memory-layouts
+  agenthost:
+    kind: objectstore
+    storage: agenthost-files
+  provider-tenants:
+    kind: keyvalue
+    storage: memory
+    prefix: provider-tenants
+  models:
+    kind: keyvalue
+    storage: memory
+    prefix: models
+  voices:
+    kind: keyvalue
+    storage: memory
+    prefix: voices
+  workspaces:
+    kind: keyvalue
+    storage: memory
+    prefix: workspaces
+  workspace-history:
+    kind: log.mutable
+    storage: gameplay-db
+    table: workspace_history
+    ttl: 720h
+  workspace-history-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: workspace-history
+    ttl: 720h
+  workflows:
+    kind: keyvalue
+    storage: memory
+    prefix: workflows
+  tools:
+    kind: keyvalue
+    storage: memory
+    prefix: tools
+  gameplay:
+    kind: keyvalue
+    storage: memory
+    prefix: gameplay
+  gameplay-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: gameplay
+  workspace-assets:
+    kind: objectstore
+    storage: local-files
+    prefix: workspaces
+  gameplay-db:
+    kind: sql
+    storage: gameplay-db
+  contacts:
+    kind: keyvalue
+    storage: memory
+    prefix: contacts
+  friends:
+    kind: keyvalue
+    storage: memory
+    prefix: friends
+  friend-groups:
+    kind: keyvalue
+    storage: memory
+    prefix: friend-groups
+  metrics:
+    kind: metrics
+    storage: metrics-memory
+services:
+  peer:
+    store: peers
+  peer_run:
+    store: peer-runs
+  api_key:
+    store: api-keys
+  credential:
+    store: credentials
+  firmware:
+    store: firmwares
+  runtime_profile:
+    store: runtime-profiles
+  model:
+    store: models
+  voice:
+    store: voices
+  memory_layout:
+    store: memory-layouts
+  provider_tenants:
+    store: provider-tenants
+  workflow:
+    store: workflows
+  workspace:
+    store: workspaces
+    history_store: workspace-history
+    history_assets_store: workspace-history-assets
+    assets_store: workspace-assets
+  toolkit:
+    store: tools
+  contact:
+    store: contacts
+  friend:
+    store: friends
+  friend_group:
+    store: friend-groups
+  gameplay:
+    store: gameplay
+    assets_store: gameplay-assets
+    database_store: gameplay-db
+  agent_host:
+    runtime_store: agenthost
+    flowcraft:
+      state_store: flowcraft-state
+  metrics:
+    store: metrics
+  system_log:
+    query_store: monitor-logs
+    level: info
+    sinks:
+      - kind: stderr
+      - kind: store
+        store: monitor-logs
+
+monitor:
+  token: ${GIZCLAW_MONITOR_TOKEN}

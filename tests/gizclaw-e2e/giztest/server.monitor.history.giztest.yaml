@@ -1,0 +1,160 @@
+# User Story:
+# As a device owner using Monitor,
+# I want the owning Server to enforce my runtime access setting on every monitor API,
+# So that a public key never bypasses disabled access or Workspace ownership.
+version: gizclaw.test/v1alpha1
+name: server.monitor.history
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+  other: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  api_key: {direction: output, type: string, secret: true}
+  public_key: {direction: output, type: string}
+  workspace_name: {direction: input, type: string, generate: token}
+  workflow_name: {direction: input, type: string, env: GIZCLAW_MONITOR_WORKFLOW}
+  workspace_id: {direction: output, type: string}
+  other_key: {direction: output, type: string, secret: true}
+  first_entry: {direction: output, type: string}
+  history_cursor: {direction: output, type: string}
+steps:
+  - id: register
+    client: peer
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create_key
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: monitor-history}}
+    capture: {api_key: /api_key}
+  - id: capture_identity
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/telemetry/latest
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 200
+    capture: {public_key: /peer_public_key}
+  - id: enable_readonly
+    client: peer
+    rpc: {method: server.runtime.put, request: {debug_mode: readonly}}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: "${workspace_name}"
+        collection: assistants
+        workflow_name: "${workflow_name}"
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_name}"}}
+  - id: first_conversation
+    client: peer
+    peer_stream: {mode: text, input: "Monitor needle first", wait_for_history: true, require_text: true, require_audio: false, idle_timeout: 10s}
+    expect:
+      /events: {non_empty: true}
+  - id: second_conversation
+    client: peer
+    peer_stream: {mode: text, input: "Monitor needle second", wait_for_history: true, require_text: true, require_audio: false, idle_timeout: 10s}
+    expect:
+      /events: {non_empty: true}
+  - id: list_owned_workspace
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    capture: {workspace_id: /0/id}
+    expect:
+      /0/name: {equals: "${workspace_name}"}
+      /0/workflow_id: {equals: "${workflow_name}"}
+  - id: first_history_page
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&limit=1
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    capture: {history_cursor: /next_cursor, first_entry: /items/0/name}
+    expect:
+      /items: {count: 1}
+      /items/0/text: {contains: Monitor}
+      /has_next: {equals: true}
+  - id: next_history_page
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Monitor&limit=1&cursor=${history_cursor}
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 1}
+      /items/0/text: {contains: Monitor}
+      /items/0/name: {not_contains: "${first_entry}"}
+  - id: search_missing
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=NEVER_MATCH_MONITOR
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 0}
+      /has_next: {equals: false}
+  - id: register_other
+    client: other
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: other_key
+    client: other
+    rpc: {method: server.api_key.create, request: {display_name: monitor-foreign}}
+    capture: {other_key: /api_key}
+  - id: foreign_list_empty
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces
+      headers: {Authorization: "Bearer ${other_key}"}
+      status: 200
+    expect:
+      "": {count: 0}
+  - id: foreign_history
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?cursor=${history_cursor}
+      headers: {Authorization: "Bearer ${other_key}"}
+      status: 404
+    expect:
+      /error/code: {equals: WORKSPACE_NOT_FOUND}
+  - id: foreign_audio
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/${first_entry}/audio.ogg
+      headers: {Authorization: "Bearer ${other_key}"}
+      status: 404
+    expect:
+      /error/code: {equals: HISTORY_NOT_FOUND}
+  - id: text_entry_without_audio
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/${first_entry}/audio.ogg
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 404
+    expect:
+      /error/code: {equals: HISTORY_NOT_FOUND}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_name}"}}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}
+  - client: other
+    rpc: {method: server.peer.delete, request: {}}

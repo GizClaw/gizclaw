@@ -24,6 +24,30 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
+// Defines values for SearchDeviceLogsParamsLevel.
+const (
+	DEBUG SearchDeviceLogsParamsLevel = "DEBUG"
+	ERROR SearchDeviceLogsParamsLevel = "ERROR"
+	INFO  SearchDeviceLogsParamsLevel = "INFO"
+	WARN  SearchDeviceLogsParamsLevel = "WARN"
+)
+
+// Valid indicates whether the value is a known member of the SearchDeviceLogsParamsLevel enum.
+func (e SearchDeviceLogsParamsLevel) Valid() bool {
+	switch e {
+	case DEBUG:
+		return true
+	case ERROR:
+		return true
+	case INFO:
+		return true
+	case WARN:
+		return true
+	default:
+		return false
+	}
+}
+
 // APIKey defines model for APIKey.
 type APIKey struct {
 	// ApiKey Complete recoverable API key stored by the server.
@@ -99,6 +123,22 @@ type DeviceControlStatus struct {
 	Status externalRef0.PeerStatus `json:"status"`
 }
 
+// DeviceLogPage defines model for DeviceLogPage.
+type DeviceLogPage struct {
+	End   externalRef0.ServerLogStreamEnd `json:"end"`
+	Items []externalRef0.ServerLogEntry   `json:"items"`
+}
+
+// DeviceMonitorLog defines model for DeviceMonitorLog.
+type DeviceMonitorLog struct {
+	Error         *string   `json:"error,omitempty"`
+	Id            uint64    `json:"id"`
+	Level         string    `json:"level"`
+	Message       string    `json:"message"`
+	PeerPublicKey *string   `json:"peer_public_key,omitempty"`
+	Time          time.Time `json:"time"`
+}
+
 // DevicePlaySoundRequest defines model for DevicePlaySoundRequest.
 type DevicePlaySoundRequest struct {
 	// DurationMs Optional playback duration in milliseconds.
@@ -166,6 +206,14 @@ type DeviceWifiStatus struct {
 	Ssid      *string `json:"ssid,omitempty"`
 }
 
+// DeviceWorkspace defines model for DeviceWorkspace.
+type DeviceWorkspace struct {
+	Id           string    `json:"id"`
+	LastActiveAt time.Time `json:"last_active_at"`
+	Name         string    `json:"name"`
+	WorkflowId   string    `json:"workflow_id"`
+}
+
 // GiznetWebRTCSignalingError defines model for GiznetWebRTCSignalingError.
 type GiznetWebRTCSignalingError struct {
 	Error string `json:"error"`
@@ -222,6 +270,19 @@ type ListContactsParams struct {
 	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// SearchDeviceLogsParams defines parameters for SearchDeviceLogs.
+type SearchDeviceLogsParams struct {
+	StartTimeMs int64                        `form:"start_time_ms" json:"start_time_ms"`
+	EndTimeMs   int64                        `form:"end_time_ms" json:"end_time_ms"`
+	Cursor      *string                      `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Query       *string                      `form:"query,omitempty" json:"query,omitempty"`
+	Level       *SearchDeviceLogsParamsLevel `form:"level,omitempty" json:"level,omitempty"`
+	Limit       *int                         `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SearchDeviceLogsParamsLevel defines parameters for SearchDeviceLogs.
+type SearchDeviceLogsParamsLevel string
+
 // QueryDeviceTelemetryParams defines parameters for QueryDeviceTelemetry.
 type QueryDeviceTelemetryParams struct {
 	// Field Telemetry field name
@@ -265,6 +326,13 @@ type AggregateDeviceTelemetryParams struct {
 type GetDeviceTelemetryLatestParams struct {
 	// Fields Comma-separated telemetry field names. Omitted means all supported fields.
 	Fields *string `form:"fields,omitempty" json:"fields,omitempty"`
+}
+
+// ListDeviceWorkspaceHistoryParams defines parameters for ListDeviceWorkspaceHistory.
+type ListDeviceWorkspaceHistoryParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Query  *string `form:"query,omitempty" json:"query,omitempty"`
 }
 
 // CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
@@ -431,6 +499,12 @@ type ClientInterface interface {
 
 	RebootDeviceWithJSONBody(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetDeviceLogs request
+	GetDeviceLogs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchDeviceLogs request
+	SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDeviceRuntime request
 	GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -472,6 +546,15 @@ type ClientInterface interface {
 	ScanDeviceWifiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeviceWorkspaces request
+	ListDeviceWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeviceWorkspaceHistory request
+	ListDeviceWorkspaceHistory(ctx context.Context, workspaceId string, params *ListDeviceWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadDeviceHistoryAudio request
+	DownloadDeviceHistoryAudio(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FindPublicKeysByIMEI request
 	FindPublicKeysByIMEI(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -726,6 +809,30 @@ func (c *Client) RebootDeviceWithJSONBody(ctx context.Context, body RebootDevice
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetDeviceLogs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeviceLogsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchDeviceLogsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetDeviceRuntime(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDeviceRuntimeRequest(c.Server)
 	if err != nil {
@@ -896,6 +1003,42 @@ func (c *Client) ScanDeviceWifiWithBody(ctx context.Context, contentType string,
 
 func (c *Client) ScanDeviceWifiWithJSONBody(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewScanDeviceWifiRequestWithJSONBody(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeviceWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeviceWorkspacesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeviceWorkspaceHistory(ctx context.Context, workspaceId string, params *ListDeviceWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeviceWorkspaceHistoryRequest(c.Server, workspaceId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadDeviceHistoryAudio(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadDeviceHistoryAudioRequest(c.Server, workspaceId, historyId)
 	if err != nil {
 		return nil, err
 	}
@@ -1520,6 +1663,139 @@ func NewRebootDeviceRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
+// NewGetDeviceLogsRequest generates requests for GetDeviceLogs
+func NewGetDeviceLogsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/logs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSearchDeviceLogsRequest generates requests for SearchDeviceLogs
+func NewSearchDeviceLogsRequest(server string, params *SearchDeviceLogsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/logs/search")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start_time_ms", params.StartTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end_time_ms", params.EndTimeMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Query != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "query", *params.Query, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Level != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "level", *params.Level, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetDeviceRuntimeRequest generates requests for GetDeviceRuntime
 func NewGetDeviceRuntimeRequest(server string) (*http.Request, error) {
 	var err error
@@ -2030,6 +2306,159 @@ func NewScanDeviceWifiRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewListDeviceWorkspacesRequest generates requests for ListDeviceWorkspaces
+func NewListDeviceWorkspacesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/workspaces")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDeviceWorkspaceHistoryRequest generates requests for ListDeviceWorkspaceHistory
+func NewListDeviceWorkspaceHistoryRequest(server string, workspaceId string, params *ListDeviceWorkspaceHistoryParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspaceId", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/workspaces/%s/history", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Query != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "query", *params.Query, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDownloadDeviceHistoryAudioRequest generates requests for DownloadDeviceHistoryAudio
+func NewDownloadDeviceHistoryAudioRequest(server string, workspaceId string, historyId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "workspaceId", workspaceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "historyId", historyId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/workspaces/%s/history/%s/audio.ogg", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewFindPublicKeysByIMEIRequest generates requests for FindPublicKeysByIMEI
 func NewFindPublicKeysByIMEIRequest(server string, tac string, serial string) (*http.Request, error) {
 	var err error
@@ -2290,6 +2719,12 @@ type ClientWithResponsesInterface interface {
 
 	RebootDeviceWithJSONBodyWithResponse(ctx context.Context, body RebootDeviceJSONRequestBody, reqEditors ...RequestEditorFn) (*RebootDeviceResponse, error)
 
+	// GetDeviceLogsWithResponse request
+	GetDeviceLogsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceLogsResponse, error)
+
+	// SearchDeviceLogsWithResponse request
+	SearchDeviceLogsWithResponse(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*SearchDeviceLogsResponse, error)
+
 	// GetDeviceRuntimeWithResponse request
 	GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error)
 
@@ -2331,6 +2766,15 @@ type ClientWithResponsesInterface interface {
 	ScanDeviceWifiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
 
 	ScanDeviceWifiWithJSONBodyWithResponse(ctx context.Context, body ScanDeviceWifiJSONRequestBody, reqEditors ...RequestEditorFn) (*ScanDeviceWifiResponse, error)
+
+	// ListDeviceWorkspacesWithResponse request
+	ListDeviceWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error)
+
+	// ListDeviceWorkspaceHistoryWithResponse request
+	ListDeviceWorkspaceHistoryWithResponse(ctx context.Context, workspaceId string, params *ListDeviceWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListDeviceWorkspaceHistoryResponse, error)
+
+	// DownloadDeviceHistoryAudioWithResponse request
+	DownloadDeviceHistoryAudioWithResponse(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*DownloadDeviceHistoryAudioResponse, error)
 
 	// FindPublicKeysByIMEIWithResponse request
 	FindPublicKeysByIMEIWithResponse(ctx context.Context, tac string, serial string, reqEditors ...RequestEditorFn) (*FindPublicKeysByIMEIResponse, error)
@@ -2837,6 +3281,77 @@ func (r RebootDeviceResponse) ContentType() string {
 	return ""
 }
 
+type GetDeviceLogsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]DeviceMonitorLog
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeviceLogsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeviceLogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeviceLogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SearchDeviceLogsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeviceLogPage
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchDeviceLogsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchDeviceLogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SearchDeviceLogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetDeviceRuntimeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3239,6 +3754,113 @@ func (r ScanDeviceWifiResponse) ContentType() string {
 	return ""
 }
 
+type ListDeviceWorkspacesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]DeviceWorkspace
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeviceWorkspacesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeviceWorkspacesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDeviceWorkspacesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListDeviceWorkspaceHistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.PeerRunHistoryListResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeviceWorkspaceHistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeviceWorkspaceHistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListDeviceWorkspaceHistoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadDeviceHistoryAudioResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadDeviceHistoryAudioResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadDeviceHistoryAudioResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadDeviceHistoryAudioResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type FindPublicKeysByIMEIResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3546,6 +4168,24 @@ func (c *ClientWithResponses) RebootDeviceWithJSONBodyWithResponse(ctx context.C
 	return ParseRebootDeviceResponse(rsp)
 }
 
+// GetDeviceLogsWithResponse request returning *GetDeviceLogsResponse
+func (c *ClientWithResponses) GetDeviceLogsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceLogsResponse, error) {
+	rsp, err := c.GetDeviceLogs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeviceLogsResponse(rsp)
+}
+
+// SearchDeviceLogsWithResponse request returning *SearchDeviceLogsResponse
+func (c *ClientWithResponses) SearchDeviceLogsWithResponse(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*SearchDeviceLogsResponse, error) {
+	rsp, err := c.SearchDeviceLogs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchDeviceLogsResponse(rsp)
+}
+
 // GetDeviceRuntimeWithResponse request returning *GetDeviceRuntimeResponse
 func (c *ClientWithResponses) GetDeviceRuntimeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeviceRuntimeResponse, error) {
 	rsp, err := c.GetDeviceRuntime(ctx, reqEditors...)
@@ -3676,6 +4316,33 @@ func (c *ClientWithResponses) ScanDeviceWifiWithJSONBodyWithResponse(ctx context
 		return nil, err
 	}
 	return ParseScanDeviceWifiResponse(rsp)
+}
+
+// ListDeviceWorkspacesWithResponse request returning *ListDeviceWorkspacesResponse
+func (c *ClientWithResponses) ListDeviceWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListDeviceWorkspacesResponse, error) {
+	rsp, err := c.ListDeviceWorkspaces(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeviceWorkspacesResponse(rsp)
+}
+
+// ListDeviceWorkspaceHistoryWithResponse request returning *ListDeviceWorkspaceHistoryResponse
+func (c *ClientWithResponses) ListDeviceWorkspaceHistoryWithResponse(ctx context.Context, workspaceId string, params *ListDeviceWorkspaceHistoryParams, reqEditors ...RequestEditorFn) (*ListDeviceWorkspaceHistoryResponse, error) {
+	rsp, err := c.ListDeviceWorkspaceHistory(ctx, workspaceId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeviceWorkspaceHistoryResponse(rsp)
+}
+
+// DownloadDeviceHistoryAudioWithResponse request returning *DownloadDeviceHistoryAudioResponse
+func (c *ClientWithResponses) DownloadDeviceHistoryAudioWithResponse(ctx context.Context, workspaceId string, historyId string, reqEditors ...RequestEditorFn) (*DownloadDeviceHistoryAudioResponse, error) {
+	rsp, err := c.DownloadDeviceHistoryAudio(ctx, workspaceId, historyId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadDeviceHistoryAudioResponse(rsp)
 }
 
 // FindPublicKeysByIMEIWithResponse request returning *FindPublicKeysByIMEIResponse
@@ -4582,6 +5249,135 @@ func ParseRebootDeviceResponse(rsp *http.Response) (*RebootDeviceResponse, error
 	return response, nil
 }
 
+// ParseGetDeviceLogsResponse parses an HTTP response from a GetDeviceLogsWithResponse call
+func ParseGetDeviceLogsResponse(rsp *http.Response) (*GetDeviceLogsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeviceLogsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DeviceMonitorLog
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchDeviceLogsResponse parses an HTTP response from a SearchDeviceLogsWithResponse call
+func ParseSearchDeviceLogsResponse(rsp *http.Response) (*SearchDeviceLogsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchDeviceLogsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeviceLogPage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetDeviceRuntimeResponse parses an HTTP response from a GetDeviceRuntimeWithResponse call
 func ParseGetDeviceRuntimeResponse(rsp *http.Response) (*GetDeviceRuntimeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5372,6 +6168,203 @@ func ParseScanDeviceWifiResponse(rsp *http.Response) (*ScanDeviceWifiResponse, e
 	return response, nil
 }
 
+// ParseListDeviceWorkspacesResponse parses an HTTP response from a ListDeviceWorkspacesWithResponse call
+func ParseListDeviceWorkspacesResponse(rsp *http.Response) (*ListDeviceWorkspacesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeviceWorkspacesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []DeviceWorkspace
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDeviceWorkspaceHistoryResponse parses an HTTP response from a ListDeviceWorkspaceHistoryWithResponse call
+func ParseListDeviceWorkspaceHistoryResponse(rsp *http.Response) (*ListDeviceWorkspaceHistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeviceWorkspaceHistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.PeerRunHistoryListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadDeviceHistoryAudioResponse parses an HTTP response from a DownloadDeviceHistoryAudioWithResponse call
+func ParseDownloadDeviceHistoryAudioResponse(rsp *http.Response) (*DownloadDeviceHistoryAudioResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadDeviceHistoryAudioResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseFindPublicKeysByIMEIResponse parses an HTTP response from a FindPublicKeysByIMEIWithResponse call
 func ParseFindPublicKeysByIMEIResponse(rsp *http.Response) (*FindPublicKeysByIMEIResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5604,6 +6597,12 @@ type ServerInterface interface {
 	// Reboot the bound device
 	// (POST /gizclaw/v1/device/actions/reboot)
 	RebootDevice(c *fiber.Ctx) error
+	// Read recent server-side logs scoped to the authenticated device
+	// (GET /gizclaw/v1/device/logs)
+	GetDeviceLogs(c *fiber.Ctx) error
+	// Search persistent system logs scoped to the authenticated device
+	// (GET /gizclaw/v1/device/logs/search)
+	SearchDeviceLogs(c *fiber.Ctx, params SearchDeviceLogsParams) error
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(c *fiber.Ctx) error
@@ -5637,6 +6636,15 @@ type ServerInterface interface {
 	// Scan for Wi-Fi networks near the bound device
 	// (POST /gizclaw/v1/device/wifi/scan)
 	ScanDeviceWifi(c *fiber.Ctx) error
+	// List Workspaces owned by the authenticated device
+	// (GET /gizclaw/v1/device/workspaces)
+	ListDeviceWorkspaces(c *fiber.Ctx) error
+	// Read history from a Workspace owned by the authenticated device
+	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history)
+	ListDeviceWorkspaceHistory(c *fiber.Ctx, workspaceId string, params ListDeviceWorkspaceHistoryParams) error
+	// Download stored Ogg audio from a Workspace owned by the authenticated device
+	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg)
+	DownloadDeviceHistoryAudio(c *fiber.Ctx, workspaceId string, historyId string) error
 	// Find all matching device public keys
 	// (GET /gizclaw/v1/peers/@findByImei/{tac}/{serial})
 	FindPublicKeysByIMEI(c *fiber.Ctx, tac string, serial string) error
@@ -6047,6 +7055,100 @@ func (siw *ServerInterfaceWrapper) RebootDevice(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// GetDeviceLogs operation middleware
+func (siw *ServerInterfaceWrapper) GetDeviceLogs(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.GetDeviceLogs(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// SearchDeviceLogs operation middleware
+func (siw *ServerInterfaceWrapper) SearchDeviceLogs(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchDeviceLogsParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "start_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "start_time_ms", query, &params.StartTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter start_time_ms: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "end_time_ms" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "end_time_ms", query, &params.EndTimeMs, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter end_time_ms: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "query" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "query", query, &params.Query, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter query: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "level" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "level", query, &params.Level, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter level: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.SearchDeviceLogs(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // GetDeviceRuntime operation middleware
 func (siw *ServerInterfaceWrapper) GetDeviceRuntime(c *fiber.Ctx) error {
 
@@ -6398,6 +7500,126 @@ func (siw *ServerInterfaceWrapper) ScanDeviceWifi(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// ListDeviceWorkspaces operation middleware
+func (siw *ServerInterfaceWrapper) ListDeviceWorkspaces(c *fiber.Ctx) error {
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListDeviceWorkspaces(c)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// ListDeviceWorkspaceHistory operation middleware
+func (siw *ServerInterfaceWrapper) ListDeviceWorkspaceHistory(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", c.Params("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter workspaceId: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDeviceWorkspaceHistoryParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", query, &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter cursor: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", query, &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter limit: %w", err).Error())
+	}
+
+	// ------------- Optional query parameter "query" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "query", query, &params.Query, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter query: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.ListDeviceWorkspaceHistory(c, workspaceId, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// DownloadDeviceHistoryAudio operation middleware
+func (siw *ServerInterfaceWrapper) DownloadDeviceHistoryAudio(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", c.Params("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter workspaceId: %w", err).Error())
+	}
+
+	// ------------- Path parameter "historyId" -------------
+	var historyId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "historyId", c.Params("historyId"), &historyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter historyId: %w", err).Error())
+	}
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.DownloadDeviceHistoryAudio(c, workspaceId, historyId)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // FindPublicKeysByIMEI operation middleware
 func (siw *ServerInterfaceWrapper) FindPublicKeysByIMEI(c *fiber.Ctx) error {
 
@@ -6619,6 +7841,10 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Post(options.BaseURL+"/gizclaw/v1/device/actions/reboot", wrapper.RebootDevice)
 
+	router.Get(options.BaseURL+"/gizclaw/v1/device/logs", wrapper.GetDeviceLogs)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/logs/search", wrapper.SearchDeviceLogs)
+
 	router.Get(options.BaseURL+"/gizclaw/v1/device/runtime", wrapper.GetDeviceRuntime)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/status", wrapper.GetDeviceStatus)
@@ -6640,6 +7866,12 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Delete(options.BaseURL+"/gizclaw/v1/device/wifi/saved/:ssid", wrapper.ForgetDeviceSavedWifi)
 
 	router.Post(options.BaseURL+"/gizclaw/v1/device/wifi/scan", wrapper.ScanDeviceWifi)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces", wrapper.ListDeviceWorkspaces)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces/:workspaceId/history", wrapper.ListDeviceWorkspaceHistory)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/device/workspaces/:workspaceId/history/:historyId/audio.ogg", wrapper.DownloadDeviceHistoryAudio)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/peers/@findByImei/:tac/:serial", wrapper.FindPublicKeysByIMEI)
 
@@ -7595,6 +8827,138 @@ func (response RebootDevice504JSONResponse) VisitRebootDeviceResponse(ctx *fiber
 	return ctx.JSON(&response)
 }
 
+type GetDeviceLogsRequestObject struct {
+}
+
+type GetDeviceLogsResponseObject interface {
+	VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error
+}
+
+type GetDeviceLogs200JSONResponse []DeviceMonitorLog
+
+func (response GetDeviceLogs200JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceLogs400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetDeviceLogs400JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceLogs401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetDeviceLogs401JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceLogs403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetDeviceLogs403JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceLogs409JSONResponse struct{ ConflictJSONResponse }
+
+func (response GetDeviceLogs409JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type GetDeviceLogs500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetDeviceLogs500JSONResponse) VisitGetDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogsRequestObject struct {
+	Params SearchDeviceLogsParams
+}
+
+type SearchDeviceLogsResponseObject interface {
+	VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error
+}
+
+type SearchDeviceLogs200JSONResponse DeviceLogPage
+
+func (response SearchDeviceLogs200JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogs400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SearchDeviceLogs400JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogs401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SearchDeviceLogs401JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogs403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SearchDeviceLogs403JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogs404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SearchDeviceLogs404JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogs409JSONResponse struct{ ConflictJSONResponse }
+
+func (response SearchDeviceLogs409JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type SearchDeviceLogs500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response SearchDeviceLogs500JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetDeviceRuntimeRequestObject struct {
 }
 
@@ -8442,6 +9806,230 @@ func (response ScanDeviceWifi504JSONResponse) VisitScanDeviceWifiResponse(ctx *f
 	return ctx.JSON(&response)
 }
 
+type ListDeviceWorkspacesRequestObject struct {
+}
+
+type ListDeviceWorkspacesResponseObject interface {
+	VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error
+}
+
+type ListDeviceWorkspaces200JSONResponse []DeviceWorkspace
+
+func (response ListDeviceWorkspaces200JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaces400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListDeviceWorkspaces400JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaces401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListDeviceWorkspaces401JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaces403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListDeviceWorkspaces403JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaces404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListDeviceWorkspaces404JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaces409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListDeviceWorkspaces409JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaces500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListDeviceWorkspaces500JSONResponse) VisitListDeviceWorkspacesResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistoryRequestObject struct {
+	WorkspaceId string `json:"workspaceId"`
+	Params      ListDeviceWorkspaceHistoryParams
+}
+
+type ListDeviceWorkspaceHistoryResponseObject interface {
+	VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error
+}
+
+type ListDeviceWorkspaceHistory200JSONResponse externalRef0.PeerRunHistoryListResponse
+
+func (response ListDeviceWorkspaceHistory200JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistory400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListDeviceWorkspaceHistory400JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistory401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListDeviceWorkspaceHistory401JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistory403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListDeviceWorkspaceHistory403JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistory404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListDeviceWorkspaceHistory404JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistory409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ListDeviceWorkspaceHistory409JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type ListDeviceWorkspaceHistory500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListDeviceWorkspaceHistory500JSONResponse) VisitListDeviceWorkspaceHistoryResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadDeviceHistoryAudioRequestObject struct {
+	WorkspaceId string `json:"workspaceId"`
+	HistoryId   string `json:"historyId"`
+}
+
+type DownloadDeviceHistoryAudioResponseObject interface {
+	VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error
+}
+
+type DownloadDeviceHistoryAudio200AudiooggResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadDeviceHistoryAudio200AudiooggResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "audio/ogg")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(ctx.Response().BodyWriter(), response.Body)
+	return err
+}
+
+type DownloadDeviceHistoryAudio400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DownloadDeviceHistoryAudio400JSONResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadDeviceHistoryAudio401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DownloadDeviceHistoryAudio401JSONResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadDeviceHistoryAudio403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DownloadDeviceHistoryAudio403JSONResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadDeviceHistoryAudio404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DownloadDeviceHistoryAudio404JSONResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadDeviceHistoryAudio409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DownloadDeviceHistoryAudio409JSONResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type DownloadDeviceHistoryAudio500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DownloadDeviceHistoryAudio500JSONResponse) VisitDownloadDeviceHistoryAudioResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type FindPublicKeysByIMEIRequestObject struct {
 	Tac    string `json:"tac"`
 	Serial string `json:"serial"`
@@ -8682,6 +10270,12 @@ type StrictServerInterface interface {
 	// Reboot the bound device
 	// (POST /gizclaw/v1/device/actions/reboot)
 	RebootDevice(ctx context.Context, request RebootDeviceRequestObject) (RebootDeviceResponseObject, error)
+	// Read recent server-side logs scoped to the authenticated device
+	// (GET /gizclaw/v1/device/logs)
+	GetDeviceLogs(ctx context.Context, request GetDeviceLogsRequestObject) (GetDeviceLogsResponseObject, error)
+	// Search persistent system logs scoped to the authenticated device
+	// (GET /gizclaw/v1/device/logs/search)
+	SearchDeviceLogs(ctx context.Context, request SearchDeviceLogsRequestObject) (SearchDeviceLogsResponseObject, error)
 	// Get the online runtime of the bound device
 	// (GET /gizclaw/v1/device/runtime)
 	GetDeviceRuntime(ctx context.Context, request GetDeviceRuntimeRequestObject) (GetDeviceRuntimeResponseObject, error)
@@ -8715,6 +10309,15 @@ type StrictServerInterface interface {
 	// Scan for Wi-Fi networks near the bound device
 	// (POST /gizclaw/v1/device/wifi/scan)
 	ScanDeviceWifi(ctx context.Context, request ScanDeviceWifiRequestObject) (ScanDeviceWifiResponseObject, error)
+	// List Workspaces owned by the authenticated device
+	// (GET /gizclaw/v1/device/workspaces)
+	ListDeviceWorkspaces(ctx context.Context, request ListDeviceWorkspacesRequestObject) (ListDeviceWorkspacesResponseObject, error)
+	// Read history from a Workspace owned by the authenticated device
+	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history)
+	ListDeviceWorkspaceHistory(ctx context.Context, request ListDeviceWorkspaceHistoryRequestObject) (ListDeviceWorkspaceHistoryResponseObject, error)
+	// Download stored Ogg audio from a Workspace owned by the authenticated device
+	// (GET /gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg)
+	DownloadDeviceHistoryAudio(ctx context.Context, request DownloadDeviceHistoryAudioRequestObject) (DownloadDeviceHistoryAudioResponseObject, error)
 	// Find all matching device public keys
 	// (GET /gizclaw/v1/peers/@findByImei/{tac}/{serial})
 	FindPublicKeysByIMEI(ctx context.Context, request FindPublicKeysByIMEIRequestObject) (FindPublicKeysByIMEIResponseObject, error)
@@ -9138,6 +10741,58 @@ func (sh *strictHandler) RebootDevice(ctx *fiber.Ctx) error {
 	return nil
 }
 
+// GetDeviceLogs operation middleware
+func (sh *strictHandler) GetDeviceLogs(ctx *fiber.Ctx) error {
+	var request GetDeviceLogsRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeviceLogs(ctx.UserContext(), request.(GetDeviceLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeviceLogs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(GetDeviceLogsResponseObject); ok {
+		if err := validResponse.VisitGetDeviceLogsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SearchDeviceLogs operation middleware
+func (sh *strictHandler) SearchDeviceLogs(ctx *fiber.Ctx, params SearchDeviceLogsParams) error {
+	var request SearchDeviceLogsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchDeviceLogs(ctx.UserContext(), request.(SearchDeviceLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchDeviceLogs")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(SearchDeviceLogsResponseObject); ok {
+		if err := validResponse.VisitSearchDeviceLogsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
 // GetDeviceRuntime operation middleware
 func (sh *strictHandler) GetDeviceRuntime(ctx *fiber.Ctx) error {
 	var request GetDeviceRuntimeRequestObject
@@ -9434,6 +11089,87 @@ func (sh *strictHandler) ScanDeviceWifi(ctx *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(ScanDeviceWifiResponseObject); ok {
 		if err := validResponse.VisitScanDeviceWifiResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListDeviceWorkspaces operation middleware
+func (sh *strictHandler) ListDeviceWorkspaces(ctx *fiber.Ctx) error {
+	var request ListDeviceWorkspacesRequestObject
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeviceWorkspaces(ctx.UserContext(), request.(ListDeviceWorkspacesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeviceWorkspaces")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListDeviceWorkspacesResponseObject); ok {
+		if err := validResponse.VisitListDeviceWorkspacesResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListDeviceWorkspaceHistory operation middleware
+func (sh *strictHandler) ListDeviceWorkspaceHistory(ctx *fiber.Ctx, workspaceId string, params ListDeviceWorkspaceHistoryParams) error {
+	var request ListDeviceWorkspaceHistoryRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDeviceWorkspaceHistory(ctx.UserContext(), request.(ListDeviceWorkspaceHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDeviceWorkspaceHistory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(ListDeviceWorkspaceHistoryResponseObject); ok {
+		if err := validResponse.VisitListDeviceWorkspaceHistoryResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DownloadDeviceHistoryAudio operation middleware
+func (sh *strictHandler) DownloadDeviceHistoryAudio(ctx *fiber.Ctx, workspaceId string, historyId string) error {
+	var request DownloadDeviceHistoryAudioRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.HistoryId = historyId
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadDeviceHistoryAudio(ctx.UserContext(), request.(DownloadDeviceHistoryAudioRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadDeviceHistoryAudio")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(DownloadDeviceHistoryAudioResponseObject); ok {
+		if err := validResponse.VisitDownloadDeviceHistoryAudioResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

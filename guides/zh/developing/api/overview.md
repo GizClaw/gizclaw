@@ -42,3 +42,5 @@ api/
 - [HTTP API](./http/)：OpenAPI surfaces、Shared、Resources 与类型所有权。
 - [Proto API](./proto/)：Peer RPC 与 Telemetry Protobuf contract。
 - [生成与变更](./generation)：Go、JavaScript 与 C 生成链路及验证要求。
+
+Node Monitor API：Server 和 Edge 提供 `api/http/monitor.json` 定义的本进程 HTTP 契约；认证与生成 ownership 见 [Monitor](../monitor)。

@@ -1,0 +1,57 @@
+services:
+  server:
+    image: ${GIZCLAW_MONITOR_IMAGE:?}
+    env_file: ["${GIZCLAW_MONITOR_STATE:?}/runtime.env"]
+    entrypoint: [gizclaw, serve, --force, /workspace]
+    volumes: ["${GIZCLAW_MONITOR_STATE}/server:/workspace"]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9820/server-info"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  edge:
+    image: ${GIZCLAW_MONITOR_IMAGE}
+    env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env"]
+    entrypoint: [gizclaw, edge, serve, /workspace]
+    volumes: ["${GIZCLAW_MONITOR_STATE}/edge:/workspace"]
+    depends_on:
+      server: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9821/server-info"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  seed:
+    image: ${GIZCLAW_MONITOR_IMAGE}
+    env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env"]
+    entrypoint: [monitor-seed]
+    command: [-server, "server:9820", -profile-id, monitor-test, -token-id, monitor-test, -token, monitor-test, -monitor-workflow-id, monitor-echo]
+    depends_on:
+      server: {condition: service_healthy}
+  fixture:
+    image: ${GIZCLAW_MONITOR_IMAGE}
+    environment: {GIZCLAW_TEST_REGISTRATION_TOKEN: monitor-test}
+    entrypoint: [monitor-fixture]
+    command: [-endpoint, "edge:9821", -data, /data, -audio, /src/tests/gizclaw-e2e/testdata/audio/sfu-tone.ogg]
+    volumes: ["${GIZCLAW_MONITOR_STATE}/server/data:/data"]
+    depends_on:
+      edge: {condition: service_healthy}
+  test:
+    image: ${GIZCLAW_MONITOR_IMAGE}
+    env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env", "${GIZCLAW_MONITOR_STATE}/fixture.env"]
+    environment:
+      GIZCLAW_TEST_ENDPOINT: edge:9821
+      GIZCLAW_TEST_REGISTRATION_TOKEN: monitor-test
+      GIZCLAW_MONITOR_WORKFLOW: monitor-echo
+    entrypoint: [gizclaw, test, run]
+    command:
+      - /src/tests/gizclaw-e2e/giztest/server.monitor.authorization.giztest.yaml
+      - /src/tests/gizclaw-e2e/giztest/server.monitor.history.giztest.yaml
+      - /src/tests/gizclaw-e2e/giztest/server.monitor.logs.giztest.yaml
+      - /src/tests/gizclaw-e2e/giztest/server.monitor.audio.giztest.yaml
+      - /src/tests/gizclaw-e2e/giztest/server.monitor.node.giztest.yaml
+      - --output
+      - /reports/giztest.json
+    volumes: ["${GIZCLAW_MONITOR_REPORTS:?}:/reports"]
+    depends_on:
+      edge: {condition: service_healthy}

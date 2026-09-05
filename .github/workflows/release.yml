@@ -180,7 +180,7 @@ jobs:
           cache: true
 
       - name: Install UI dependencies
-        run: npm ci
+        run: npm ci && npm run build:monitor
 
       - name: Build native macOS executable
         env:

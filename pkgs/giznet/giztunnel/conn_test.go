@@ -206,6 +206,22 @@ func TestNativeChannelsAggregateLogicalConnection(t *testing.T) {
 	if err != nil || protocol != 0x40 || string(buf[:n]) != "event" {
 		t.Fatalf("packet read protocol=%x payload=%q err=%v", protocol, buf[:n], err)
 	}
+
+	if got := pair.server.PeerInfo().RxBytes; got != uint64(len("native service")+len("event")) {
+		t.Fatalf("logical RX = %d", got)
+	}
+	if got := pair.edge.PeerInfo().TxBytes; got != uint64(len("native service")+len("event")) {
+		t.Fatalf("logical TX = %d", got)
+	}
+	if _, err := serverStream.Write([]byte("reply")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(edgeStream, buf[:5]); err != nil {
+		t.Fatal(err)
+	}
+	if pair.server.PeerInfo().TxBytes != 5 || pair.edge.PeerInfo().RxBytes != 5 {
+		t.Fatal("downlink payload counters missing")
+	}
 	if got := pair.edgeRouter.ActiveChannels(); got != 3 {
 		t.Fatalf("active channels after stream close scheduling = %d, want at least session channels", got)
 	}
