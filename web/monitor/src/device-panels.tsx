@@ -189,15 +189,26 @@ export function TelemetryPanel({ peer }: { peer: PeerSnapshot | undefined }) {
   );
 }
 export function LocationPanel({ peer }: { peer: PeerSnapshot | undefined }) {
+  const [online, setOnline] = useState(navigator.onLine !== false);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   const p = telemetryValues.safeParse(peer?.telemetry);
   const values = p.success ? p.data.values : [];
   const lat = values.find((x) => x.field === "gnss.latitude"),
     lon = values.find((x) => x.field === "gnss.longitude");
   const valid =
     lat && lon && Math.abs(lat.value) <= 90 && Math.abs(lon.value) <= 180;
-  const url = valid
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${Math.max(-180, lon.value - 0.01)},${Math.max(-90, lat.value - 0.01)},${Math.min(180, lon.value + 0.01)},${Math.min(90, lat.value + 0.01)}&layer=mapnik&marker=${lat.value},${lon.value}`
-    : undefined;
+  const url =
+    valid && online
+      ? `https://www.openstreetmap.org/export/embed.html?bbox=${Math.max(-180, lon.value - 0.01)},${Math.max(-90, lat.value - 0.01)},${Math.min(180, lon.value + 0.01)},${Math.min(90, lat.value + 0.01)}&layer=mapnik&marker=${lat.value},${lon.value}`
+      : undefined;
   return (
     <section className="panel">
       <div className="panel-title">
@@ -211,10 +222,13 @@ export function LocationPanel({ peer }: { peer: PeerSnapshot | undefined }) {
           src={url}
           loading="lazy"
           referrerPolicy="no-referrer"
+          sandbox="allow-scripts allow-same-origin allow-popups"
         />
       ) : (
         <div className="empty-detail">
-          尚未收到有效经纬度，无法显示设备位置。
+          {valid && !online
+            ? "当前浏览器离线，地图不可用；下方保留最后上报的坐标。"
+            : "尚未收到有效经纬度，无法显示设备位置。"}
         </div>
       )}
       <div className="telemetry-grid">
@@ -242,7 +256,7 @@ export function LocationPanel({ peer }: { peer: PeerSnapshot | undefined }) {
       </div>
       <p className="source-note">
         地图使用
-        OpenStreetMap；坐标为最后上报值，请核对采样时间，并不代表设备当前位置。
+        OpenStreetMap；打开定位页时自动向该服务加载已上报坐标。坐标为最后上报值，请核对采样时间，并不代表设备当前位置。地图需要联网，加载失败时仍可查看坐标数值。
       </p>
     </section>
   );

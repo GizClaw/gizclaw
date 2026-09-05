@@ -56,9 +56,9 @@ go build ./cmd/gizclaw
 ## 设备调试工作台
 
 - Telemetry 按电源、网络、系统、定位分组，显示数值、单位、采样时间和当前页面采集的趋势；未知字段仍可见。未上报不同于零，原始数据可折叠查看。
-- 定位使用最后上报的 GNSS 经纬度，不使用浏览器定位。非法或缺失坐标不加载地图；显示海拔、精度和采样时间。地图服务会收到视窗与坐标，需要外部网络。
+- 定位使用最后上报的 GNSS 经纬度，不使用浏览器定位。非法或缺失坐标不加载地图；显示海拔、精度和采样时间。打开定位页且收到有效坐标时自动加载地图，不额外要求确认。iframe 仅允许 `https://www.openstreetmap.org`，CSP 的 `frame-src` 明确限定该来源，`frame-ancestors 'none'` 保持禁止其他页面嵌入控制台。地图服务会收到视窗与坐标。浏览器离线时不创建 iframe，仍显示最后上报数值；地图服务被阻断时，页面保留“加载失败时查看数值”的提示。
 - `GET /gizclaw/v1/device/workspaces` 只列出该 Peer 明确拥有的 Workspace，包括系统 Workspace，按 Workflow 分组。共享和无 owner 的空间不返回。
-- `GET /gizclaw/v1/device/workspaces/{workspaceId}/history` 从持久化 History 查询文本和游标分页；每页最多 200 条，页面使用 100 条。浏览历史不启动 Agent。音频通过同路径下 `/{historyId}/audio.ogg` 认证读取，支持已保存的 Ogg 资产。
-- `GET /gizclaw/v1/device/logs/search` 查询配置的 `services.system_log.query_store`，支持时间区间、文本、级别和游标；每页最多 500 条，页面使用 200 条。Server 强制绑定授权 Peer，续页不能改用其他 Peer 的游标。未配置查询 Store 时明确报错。单行日志显示时间、级别、模块、消息和错误，支持横向滚动。
+- `GET /gizclaw/v1/device/workspaces/{workspaceId}/history` 从持久化 History 查询文本和游标分页；每页最多 200 条，页面使用 100 条。游标为返回的历史 entry ID 时间边界，格式非法返回 400 `INVALID_HISTORY_CURSOR`；边界本身不授予访问其他 Workspace 的权限。浏览历史不启动 Agent。音频通过同路径下 `/{historyId}/audio.ogg` 认证读取，支持已保存的 Ogg 资产。
+- `GET /gizclaw/v1/device/logs/search` 查询配置的 `services.system_log.query_store`，支持正数 Unix 毫秒时间区间、最长 512 UTF-8 字节的文本、严格 `DEBUG|INFO|WARN|ERROR` 级别和游标；每页最多 500 条，页面使用 200 条。Server 强制绑定授权 Peer，续页不能改用其他 Peer 的游标。非法级别返回 400 `INVALID_REQUEST`，非法/跨设备日志游标分别返回 400 `INVALID_LOG_CURSOR` / `LOG_CURSOR_MISMATCH`，未配置查询 Store 返回 500 `LOG_QUERY_NOT_CONFIGURED`。单行日志显示时间、级别、模块、消息和错误，支持横向滚动。
 
 上述接口走现有 Edge 路由与 Server runtime 权限校验，readonly 可读取；不把工作流 spec 或 provider credentials 暴露给浏览器。API 定义位于 `api/http/peer.json`，Go 和 JavaScript client 随 Schema 生成。

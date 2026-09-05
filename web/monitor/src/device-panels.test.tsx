@@ -123,3 +123,22 @@ test("workflows select owned workspace history and search on the server", async 
     undefined,
   ]);
 });
+
+test("offline location keeps measured coordinates without loading a map", () => {
+  const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  try {
+    render(
+      <LocationPanel
+        peer={peer([
+          { field: "gnss.latitude", value: 31.2304, observed_at_unix_ms: 1 },
+          { field: "gnss.longitude", value: 121.4737, observed_at_unix_ms: 1 },
+        ])}
+      />,
+    );
+    expect(screen.queryByTitle("设备位置地图")).toBeNull();
+    expect(screen.getByText(/当前浏览器离线/)).toBeTruthy();
+    expect(screen.getByText(/31.2304/)).toBeTruthy();
+  } finally {
+    online.mockRestore();
+  }
+});

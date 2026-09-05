@@ -3,6 +3,7 @@ package monitorweb
 import (
 	"io/fs"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -19,8 +20,9 @@ func TestMonitorRoutes(t *testing.T) {
 		if response.Code != want {
 			t.Fatalf("%s: status %d, want %d", path, response.Code, want)
 		}
-		if response.Header().Get("Content-Security-Policy") == "" {
-			t.Fatal("missing CSP")
+		policy := response.Header().Get("Content-Security-Policy")
+		if !strings.Contains(policy, "frame-src https://www.openstreetmap.org;") || !strings.Contains(policy, "frame-ancestors 'none'") || !strings.Contains(policy, "default-src 'self'") {
+			t.Fatalf("unexpected map/frame policy: %s", policy)
 		}
 	}
 	for _, path := range []string{"/monitor/README.md", "/monitor/assets/", "/monitor/unknown"} {

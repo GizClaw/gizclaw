@@ -19,6 +19,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
+// ErrInvalidHistoryCursor identifies a malformed history entry boundary.
+var ErrInvalidHistoryCursor = errors.New("workspace history: invalid cursor")
+
 const (
 	defaultHistoryListLimit = 50
 	maxHistoryListLimit     = 200
@@ -566,7 +569,7 @@ func historyQueryBounds(cursor string, order logstore.Order) (time.Time, time.Ti
 	}
 	boundary, err := historyIDTime(cursor)
 	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("workspace history: invalid cursor: %w", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("%w: %v", ErrInvalidHistoryCursor, err)
 	}
 	if order == logstore.OrderDesc {
 		end = boundary.Truncate(time.Millisecond).Add(time.Millisecond)

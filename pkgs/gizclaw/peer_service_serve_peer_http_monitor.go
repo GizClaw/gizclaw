@@ -9,6 +9,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
@@ -63,6 +64,9 @@ func (s *peerHTTP) ListDeviceWorkspaceHistory(ctx context.Context, req peerhttp.
 	order := apitypes.PeerRunHistoryListRequestOrderDesc
 	result, err := s.Workspaces.SearchWorkspaceHistoryByID(ctx, req.WorkspaceId, apitypes.PeerRunHistoryListRequest{Cursor: req.Params.Cursor, Limit: req.Params.Limit, Order: &order}, query)
 	if err != nil {
+		if errors.Is(err, workspace.ErrInvalidHistoryCursor) {
+			return peerhttp.ListDeviceWorkspaceHistory400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError("INVALID_HISTORY_CURSOR", "invalid history cursor"))}, nil
+		}
 		return peerhttp.ListDeviceWorkspaceHistory500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
 	return peerhttp.ListDeviceWorkspaceHistory200JSONResponse(result), nil
@@ -80,7 +84,7 @@ func (s *peerHTTP) SearchDeviceLogs(ctx context.Context, req peerhttp.SearchDevi
 	if req.Params.Limit != nil {
 		limit = *req.Params.Limit
 	}
-	if limit < 1 || limit > 500 || (req.Params.Query != nil && len(*req.Params.Query) > 512) {
+	if limit < 1 || limit > 500 || (req.Params.Query != nil && len(*req.Params.Query) > 512) || (req.Params.Level != nil && !req.Params.Level.Valid()) {
 		return peerhttp.SearchDeviceLogs400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError("INVALID_REQUEST", "invalid log query"))}, nil
 	}
 	// Always bind the filter, including continuation requests: an opaque cursor

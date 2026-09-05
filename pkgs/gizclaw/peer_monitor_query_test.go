@@ -113,3 +113,25 @@ func TestMonitorLogCursorCannotCrossPeer(t *testing.T) {
 		t.Fatal("foreign continuation reached store")
 	}
 }
+
+func TestMonitorLogsRejectUnsupportedLevel(t *testing.T) {
+	key, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{"TRACE", "info", "", "WARN,ERROR"} {
+		q := &monitorLogQuery{}
+		s := &peerHTTP{ServerLogs: q}
+		level := peerhttp.SearchDeviceLogsParamsLevel(value)
+		response, err := s.SearchDeviceLogs(peerhttp.WithCallerPublicKey(t.Context(), key.Public), peerhttp.SearchDeviceLogsRequestObject{Params: peerhttp.SearchDeviceLogsParams{Level: &level, StartTimeMs: 1000, EndTimeMs: 2000}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := response.(peerhttp.SearchDeviceLogs400JSONResponse); !ok {
+			t.Fatalf("level %q returned %T", value, response)
+		}
+		if q.request.FilterSet {
+			t.Fatal("invalid level reached Log Store")
+		}
+	}
+}

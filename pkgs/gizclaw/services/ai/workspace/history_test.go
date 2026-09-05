@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -275,5 +276,13 @@ func TestHistorySearchPaginatesMatchingRecords(t *testing.T) {
 	}
 	if len(second.Items) != 1 || second.Items[0].Text != "orange two" || second.HasNext {
 		t.Fatalf("second page=%+v", second)
+	}
+}
+
+func TestHistorySearchRejectsMalformedCursor(t *testing.T) {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
+	_, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Cursor: new("not-a-history-id")}, "")
+	if !errors.Is(err, ErrInvalidHistoryCursor) {
+		t.Fatalf("malformed cursor error = %v", err)
 	}
 }
