@@ -19,6 +19,42 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
+ * List Workspaces owned by the authenticated device
+ */
+export const listDeviceWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceWorkspacesData, ThrowOnError>): RequestResult<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces',
+    ...options
+});
+
+/**
+ * Read history from a Workspace owned by the authenticated device
+ */
+export const listDeviceWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListDeviceWorkspaceHistoryData, ThrowOnError>): RequestResult<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history',
+    ...options
+});
+
+/**
+ * Search persistent system logs scoped to the authenticated device
+ */
+export const searchDeviceLogs = <ThrowOnError extends boolean = false>(options: Options<SearchDeviceLogsData, ThrowOnError>): RequestResult<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError> => (options.client ?? client).get<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/logs/search',
+    ...options
+});
+
+/**
+ * Download stored Ogg audio from a Workspace owned by the authenticated device
+ */
+export const downloadDeviceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<DownloadDeviceHistoryAudioData, ThrowOnError>): RequestResult<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError> => (options.client ?? client).get<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg',
+    ...options
+});
+
+/**
  * Get server information
  */
 export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Options<GetServerInfoData, ThrowOnError>): RequestResult<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError> => (options?.client ?? client).get<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError>({ url: '/server-info', ...options });
@@ -331,41 +367,5 @@ export const findPublicKeysByImei = <ThrowOnError extends boolean = false>(optio
 export const getDeviceLogs = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceLogsData, ThrowOnError>): RequestResult<GetDeviceLogsResponses, GetDeviceLogsErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceLogsResponses, GetDeviceLogsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/gizclaw/v1/device/logs',
-    ...options
-});
-
-/**
- * List Workspaces owned by the authenticated device
- */
-export const listDeviceWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceWorkspacesData, ThrowOnError>): RequestResult<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/gizclaw/v1/device/workspaces',
-    ...options
-});
-
-/**
- * Read history from a Workspace owned by the authenticated device
- */
-export const listDeviceWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListDeviceWorkspaceHistoryData, ThrowOnError>): RequestResult<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history',
-    ...options
-});
-
-/**
- * Search persistent system logs scoped to the authenticated device
- */
-export const searchDeviceLogs = <ThrowOnError extends boolean = false>(options: Options<SearchDeviceLogsData, ThrowOnError>): RequestResult<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError> => (options.client ?? client).get<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/gizclaw/v1/device/logs/search',
-    ...options
-});
-
-/**
- * Download stored Ogg audio from a Workspace owned by the authenticated device
- */
-export const downloadDeviceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<DownloadDeviceHistoryAudioData, ThrowOnError>): RequestResult<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError> => (options.client ?? client).get<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg',
     ...options
 });

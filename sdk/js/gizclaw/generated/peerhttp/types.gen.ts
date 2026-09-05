@@ -4,6 +4,18 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type DeviceWorkspace = {
+    id: string;
+    name: string;
+    workflow_id: string;
+    last_active_at: string;
+};
+
+export type DeviceLogPage = {
+    items: Array<ServerLogEntry>;
+    end: ServerLogStreamEnd;
+};
+
 export type ApiKey = {
     /**
      * Opaque API key identity.
@@ -162,18 +174,6 @@ export type DeviceMonitorLog = {
     message: string;
     peer_public_key?: string;
     error?: string;
-};
-
-export type DeviceWorkspace = {
-    id: string;
-    name: string;
-    workflow_id: string;
-    last_active_at: string;
-};
-
-export type DeviceLogPage = {
-    items: Array<ServerLogEntry>;
-    end: ServerLogStreamEnd;
 };
 
 export type DeviceIdentifiers = {
@@ -420,6 +420,202 @@ export type ServerLogStreamEnd = {
      */
     next_cursor?: string;
 };
+
+export type ListDeviceWorkspacesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/workspaces';
+};
+
+export type ListDeviceWorkspacesErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListDeviceWorkspacesError = ListDeviceWorkspacesErrors[keyof ListDeviceWorkspacesErrors];
+
+export type ListDeviceWorkspacesResponses = {
+    /**
+     * Successful owner-scoped response
+     */
+    200: Array<DeviceWorkspace>;
+};
+
+export type ListDeviceWorkspacesResponse = ListDeviceWorkspacesResponses[keyof ListDeviceWorkspacesResponses];
+
+export type ListDeviceWorkspaceHistoryData = {
+    body?: never;
+    path: {
+        workspaceId: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+        query?: string;
+    };
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history';
+};
+
+export type ListDeviceWorkspaceHistoryErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListDeviceWorkspaceHistoryError = ListDeviceWorkspaceHistoryErrors[keyof ListDeviceWorkspaceHistoryErrors];
+
+export type ListDeviceWorkspaceHistoryResponses = {
+    /**
+     * Successful owner-scoped response
+     */
+    200: PeerRunHistoryListResponse;
+};
+
+export type ListDeviceWorkspaceHistoryResponse = ListDeviceWorkspaceHistoryResponses[keyof ListDeviceWorkspaceHistoryResponses];
+
+export type SearchDeviceLogsData = {
+    body?: never;
+    path?: never;
+    query: {
+        start_time_ms: number;
+        end_time_ms: number;
+        cursor?: string;
+        query?: string;
+        level?: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+        limit?: number;
+    };
+    url: '/gizclaw/v1/device/logs/search';
+};
+
+export type SearchDeviceLogsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type SearchDeviceLogsError = SearchDeviceLogsErrors[keyof SearchDeviceLogsErrors];
+
+export type SearchDeviceLogsResponses = {
+    /**
+     * Successful owner-scoped response
+     */
+    200: DeviceLogPage;
+};
+
+export type SearchDeviceLogsResponse = SearchDeviceLogsResponses[keyof SearchDeviceLogsResponses];
+
+export type DownloadDeviceHistoryAudioData = {
+    body?: never;
+    path: {
+        workspaceId: string;
+        historyId: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg';
+};
+
+export type DownloadDeviceHistoryAudioErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadDeviceHistoryAudioError = DownloadDeviceHistoryAudioErrors[keyof DownloadDeviceHistoryAudioErrors];
+
+export type DownloadDeviceHistoryAudioResponses = {
+    /**
+     * Stored Ogg audio
+     */
+    200: Blob | File;
+};
+
+export type DownloadDeviceHistoryAudioResponse = DownloadDeviceHistoryAudioResponses[keyof DownloadDeviceHistoryAudioResponses];
 
 export type GetServerInfoData = {
     body?: never;
@@ -1827,199 +2023,3 @@ export type GetDeviceLogsResponses = {
 };
 
 export type GetDeviceLogsResponse = GetDeviceLogsResponses[keyof GetDeviceLogsResponses];
-
-export type ListDeviceWorkspacesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/gizclaw/v1/device/workspaces';
-};
-
-export type ListDeviceWorkspacesErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The API key was not found for this owner.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-};
-
-export type ListDeviceWorkspacesError = ListDeviceWorkspacesErrors[keyof ListDeviceWorkspacesErrors];
-
-export type ListDeviceWorkspacesResponses = {
-    /**
-     * Successful owner-scoped response
-     */
-    200: Array<DeviceWorkspace>;
-};
-
-export type ListDeviceWorkspacesResponse = ListDeviceWorkspacesResponses[keyof ListDeviceWorkspacesResponses];
-
-export type ListDeviceWorkspaceHistoryData = {
-    body?: never;
-    path: {
-        workspaceId: string;
-    };
-    query?: {
-        cursor?: string;
-        limit?: number;
-        query?: string;
-    };
-    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history';
-};
-
-export type ListDeviceWorkspaceHistoryErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The API key was not found for this owner.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-};
-
-export type ListDeviceWorkspaceHistoryError = ListDeviceWorkspaceHistoryErrors[keyof ListDeviceWorkspaceHistoryErrors];
-
-export type ListDeviceWorkspaceHistoryResponses = {
-    /**
-     * Successful owner-scoped response
-     */
-    200: PeerRunHistoryListResponse;
-};
-
-export type ListDeviceWorkspaceHistoryResponse = ListDeviceWorkspaceHistoryResponses[keyof ListDeviceWorkspaceHistoryResponses];
-
-export type SearchDeviceLogsData = {
-    body?: never;
-    path?: never;
-    query: {
-        start_time_ms: number;
-        end_time_ms: number;
-        cursor?: string;
-        query?: string;
-        level?: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
-        limit?: number;
-    };
-    url: '/gizclaw/v1/device/logs/search';
-};
-
-export type SearchDeviceLogsErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The API key was not found for this owner.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-};
-
-export type SearchDeviceLogsError = SearchDeviceLogsErrors[keyof SearchDeviceLogsErrors];
-
-export type SearchDeviceLogsResponses = {
-    /**
-     * Successful owner-scoped response
-     */
-    200: DeviceLogPage;
-};
-
-export type SearchDeviceLogsResponse = SearchDeviceLogsResponses[keyof SearchDeviceLogsResponses];
-
-export type DownloadDeviceHistoryAudioData = {
-    body?: never;
-    path: {
-        workspaceId: string;
-        historyId: string;
-    };
-    query?: never;
-    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg';
-};
-
-export type DownloadDeviceHistoryAudioErrors = {
-    /**
-     * Invalid request.
-     */
-    400: ErrorResponse;
-    /**
-     * Missing, invalid, or revoked API key.
-     */
-    401: ErrorResponse;
-    /**
-     * The API key does not authorize this operation.
-     */
-    403: ErrorResponse;
-    /**
-     * The API key was not found for this owner.
-     */
-    404: ErrorResponse;
-    /**
-     * The API key owner is pending deletion.
-     */
-    409: ErrorResponse;
-    /**
-     * The API key operation failed.
-     */
-    500: ErrorResponse;
-};
-
-export type DownloadDeviceHistoryAudioError = DownloadDeviceHistoryAudioErrors[keyof DownloadDeviceHistoryAudioErrors];
-
-export type DownloadDeviceHistoryAudioResponses = {
-    /**
-     * Stored Ogg audio
-     */
-    200: Blob | File;
-};
-
-export type DownloadDeviceHistoryAudioResponse = DownloadDeviceHistoryAudioResponses[keyof DownloadDeviceHistoryAudioResponses];
