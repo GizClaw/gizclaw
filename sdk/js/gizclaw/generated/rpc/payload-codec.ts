@@ -285,8 +285,10 @@ export type DeviceInfo = {
   "name"?: string;
   "emoji"?: string;
   "identifiers"?: DeviceIdentifiers;
+  "debug_mode"?: string;
 };
 export type DeviceProfile = {
+  "debug_mode"?: string;
   "name"?: string;
   "emoji"?: string;
 };
@@ -2662,11 +2664,23 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "DeviceIdentifiers"
+      },
+      {
+        "name": "debug_mode",
+        "number": 6,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
   "DeviceProfile": {
     "fields": [
+      {
+        "name": "debug_mode",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
       {
         "name": "name",
         "number": 1,

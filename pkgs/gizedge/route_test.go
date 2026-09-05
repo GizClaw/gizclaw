@@ -353,3 +353,36 @@ func (c *routeRPCGiznetConn) Dial(service uint64) (net.Conn, error) {
 	}()
 	return client, nil
 }
+
+func TestOrderedTransportRoutesDebugRequestToAssignedServer(t *testing.T) {
+	serverA := testKeyPair(t, 0xa3).Public
+	serverB := testKeyPair(t, 0xa4).Public
+	peer := testKeyPair(t, 0xa5).Public
+	resolver := &routeRPCGiznetConn{
+		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
+		assignment:        &rpcpb.PeerAssignment{PeerPublicKey: peer.String(), ServerPublicKey: serverB.String()},
+	}
+	target := &routeRPCGiznetConn{
+		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
+		httpServerID:      "server-b",
+	}
+	transport := &orderedUpstreamTransport{entries: []*upstreamTransport{
+		{cfg: Config{selectedUpstream: UpstreamConfig{PublicKey: serverA}}, conn: resolver, connEpoch: 1},
+		{cfg: Config{selectedUpstream: UpstreamConfig{PublicKey: serverB}}, conn: target, connEpoch: 1},
+	}}
+	request, err := http.NewRequest(http.MethodGet, "http://gizclaw/gizclaw/v1/device?public_key="+peer.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := transport.RoundTrip(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.Header.Get("X-Test-Server") != "server-b" || target.httpCalls.Load() != 1 {
+		t.Fatalf("response Server = %q, target calls = %d", response.Header.Get("X-Test-Server"), target.httpCalls.Load())
+	}
+	if resolver.httpCalls.Load() != 0 {
+		t.Fatal("API request was forwarded to the route resolver instead of the assigned Server")
+	}
+}

@@ -492,12 +492,22 @@ const DeviceInfo$json = {
       '10': 'identifiers',
       '17': true
     },
+    {
+      '1': 'debug_mode',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 4,
+      '10': 'debugMode',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_hardware'},
     {'1': '_name'},
     {'1': '_emoji'},
     {'1': '_identifiers'},
+    {'1': '_debug_mode'},
   ],
 };
 
@@ -506,17 +516,28 @@ final $typed_data.Uint8List deviceInfoDescriptor = $convert.base64Decode(
     'CgpEZXZpY2VJbmZvEj0KCGhhcmR3YXJlGAEgASgLMhwuZ2l6Y2xhdy5ycGMudjEuSGFyZHdhcm'
     'VJbmZvSABSCGhhcmR3YXJliAEBEhcKBG5hbWUYAiABKAlIAVIEbmFtZYgBARIZCgVlbW9qaRgE'
     'IAEoCUgCUgVlbW9qaYgBARJICgtpZGVudGlmaWVycxgFIAEoCzIhLmdpemNsYXcucnBjLnYxLk'
-    'RldmljZUlkZW50aWZpZXJzSANSC2lkZW50aWZpZXJziAEBQgsKCV9oYXJkd2FyZUIHCgVfbmFt'
-    'ZUIICgZfZW1vamlCDgoMX2lkZW50aWZpZXJz');
+    'RldmljZUlkZW50aWZpZXJzSANSC2lkZW50aWZpZXJziAEBEiIKCmRlYnVnX21vZGUYBiABKAlI'
+    'BFIJZGVidWdNb2RliAEBQgsKCV9oYXJkd2FyZUIHCgVfbmFtZUIICgZfZW1vamlCDgoMX2lkZW'
+    '50aWZpZXJzQg0KC19kZWJ1Z19tb2Rl');
 
 @$core.Deprecated('Use deviceProfileDescriptor instead')
 const DeviceProfile$json = {
   '1': 'DeviceProfile',
   '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
-    {'1': 'emoji', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'emoji', '17': true},
+    {
+      '1': 'debug_mode',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'debugMode',
+      '17': true
+    },
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 1, '10': 'name', '17': true},
+    {'1': 'emoji', '3': 2, '4': 1, '5': 9, '9': 2, '10': 'emoji', '17': true},
   ],
   '8': [
+    {'1': '_debug_mode'},
     {'1': '_name'},
     {'1': '_emoji'},
   ],
@@ -524,8 +545,9 @@ const DeviceProfile$json = {
 
 /// Descriptor for `DeviceProfile`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List deviceProfileDescriptor = $convert.base64Decode(
-    'Cg1EZXZpY2VQcm9maWxlEhcKBG5hbWUYASABKAlIAFIEbmFtZYgBARIZCgVlbW9qaRgCIAEoCU'
-    'gBUgVlbW9qaYgBAUIHCgVfbmFtZUIICgZfZW1vamk=');
+    'Cg1EZXZpY2VQcm9maWxlEiIKCmRlYnVnX21vZGUYAyABKAlIAFIJZGVidWdNb2RliAEBEhcKBG'
+    '5hbWUYASABKAlIAVIEbmFtZYgBARIZCgVlbW9qaRgCIAEoCUgCUgVlbW9qaYgBAUINCgtfZGVi'
+    'dWdfbW9kZUIHCgVfbmFtZUIICgZfZW1vamk=');
 
 @$core.Deprecated('Use deviceIdentifiersDescriptor instead')
 const DeviceIdentifiers$json = {

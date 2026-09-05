@@ -79,7 +79,7 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	if err != nil || matchedPeer.PublicKey != devicePublicKey {
 		t.Fatalf("FindPeersBySN peer = %+v, %v", matchedPeer, err)
 	}
-	if publicKey, err := findPubKeyByIMEI(context.Background(), admin, "12345678", "0000001"); err != nil || publicKey != devicePublicKey {
+	if publicKey, err := findPubKeysByIMEI(context.Background(), admin, "12345678", "0000001"); err != nil || len(publicKey) != 1 || publicKey[0] != devicePublicKey {
 		t.Fatalf("ResolvePeerByIMEI = %q, %v", publicKey, err)
 	}
 	if _, err := getPeerInfo(context.Background(), admin, devicePublicKey); err != nil {
@@ -208,4 +208,29 @@ func mustWritableAdminResource(t *testing.T, resource apitypes.Resource) adminht
 		t.Fatalf("json.Unmarshal(writable) error = %v", err)
 	}
 	return writable
+}
+
+func TestIntegrationDeviceSetsOwnDebugMode(t *testing.T) {
+	ts := startTestServer(t)
+	first := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
+	second := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
+	for _, mode := range []string{"readonly", "fullcontrol", "off"} {
+		got, err := putInfo(context.Background(), first, apitypes.DeviceInfo{DebugMode: &mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.DebugMode == nil || *got.DebugMode != mode {
+			t.Fatalf("RPC mode = %v", got.DebugMode)
+		}
+		other, err := getInfo(context.Background(), second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if other.DebugMode != nil && *other.DebugMode != "off" {
+			t.Fatalf("other device mode = %s", *other.DebugMode)
+		}
+	}
+	if _, err := putInfo(context.Background(), first, apitypes.DeviceInfo{DebugMode: new("invalid")}); err == nil {
+		t.Fatal("invalid RPC mode accepted")
+	}
 }

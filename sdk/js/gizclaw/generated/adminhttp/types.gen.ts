@@ -434,6 +434,10 @@ export type RegistrationTokenUpsert = {
     firmware_id?: string;
 };
 
+export type PublicKeyList = {
+    public_keys: Array<string>;
+};
+
 export type BadgeDefResource = {
     apiVersion: ResourceApiVersion;
     kind: 'BadgeDef';
@@ -927,6 +931,10 @@ export type DeviceInfo = {
     emoji?: string;
     hardware?: HardwareInfo;
     identifiers?: DeviceIdentifiers;
+    /**
+     * Device-owned anonymous access mode: off (default), readonly, or fullcontrol. Set only through authenticated server.info.put.
+     */
+    debug_mode?: string;
 };
 
 export type ErrorPayload = {
@@ -7430,34 +7438,6 @@ export type FindPeersBySnResponses = {
 
 export type FindPeersBySnResponse = FindPeersBySnResponses[keyof FindPeersBySnResponses];
 
-export type FindPubKeyByImeiData = {
-    body?: never;
-    path: {
-        tac: string;
-        serial: string;
-    };
-    query?: never;
-    url: '/peers/@findPubKeyByImei/{tac}/{serial}';
-};
-
-export type FindPubKeyByImeiErrors = {
-    /**
-     * Peer not found
-     */
-    404: ErrorResponse;
-};
-
-export type FindPubKeyByImeiError = FindPubKeyByImeiErrors[keyof FindPubKeyByImeiErrors];
-
-export type FindPubKeyByImeiResponses = {
-    /**
-     * Resolved public key
-     */
-    200: PublicKeyResponse;
-};
-
-export type FindPubKeyByImeiResponse = FindPubKeyByImeiResponses[keyof FindPubKeyByImeiResponses];
-
 export type DeletePeerData = {
     body?: never;
     path: {
@@ -9739,3 +9719,31 @@ export type PutRegistrationTokenResponses = {
 };
 
 export type PutRegistrationTokenResponse = PutRegistrationTokenResponses[keyof PutRegistrationTokenResponses];
+
+export type FindPubKeysByImeiData = {
+    body?: never;
+    path: {
+        tac: string;
+        serial: string;
+    };
+    query?: never;
+    url: '/peers/@findPubKeysByImei/{tac}/{serial}';
+};
+
+export type FindPubKeysByImeiErrors = {
+    /**
+     * Storage failure
+     */
+    500: ErrorResponse;
+};
+
+export type FindPubKeysByImeiError = FindPubKeysByImeiErrors[keyof FindPubKeysByImeiErrors];
+
+export type FindPubKeysByImeiResponses = {
+    /**
+     * All matching public keys
+     */
+    200: PublicKeyList;
+};
+
+export type FindPubKeysByImeiResponse = FindPubKeysByImeiResponses[keyof FindPubKeysByImeiResponses];

@@ -62,7 +62,7 @@ type Server struct {
 
 type PeerAdminService interface {
 	ListPeers(context.Context, adminhttp.ListPeersRequestObject) (adminhttp.ListPeersResponseObject, error)
-	FindPubKeyByIMEI(context.Context, adminhttp.FindPubKeyByIMEIRequestObject) (adminhttp.FindPubKeyByIMEIResponseObject, error)
+	FindPubKeysByIMEI(context.Context, adminhttp.FindPubKeysByIMEIRequestObject) (adminhttp.FindPubKeysByIMEIResponseObject, error)
 	FindPeersBySN(context.Context, adminhttp.FindPeersBySNRequestObject) (adminhttp.FindPeersBySNResponseObject, error)
 	DeletePeer(context.Context, adminhttp.DeletePeerRequestObject) (adminhttp.DeletePeerResponseObject, error)
 	GetPeer(context.Context, adminhttp.GetPeerRequestObject) (adminhttp.GetPeerResponseObject, error)
@@ -75,6 +75,8 @@ type PeerAdminService interface {
 }
 
 type PeerHTTPService interface {
+	FindPublicKeysBySN(context.Context, peerhttp.FindPublicKeysBySNRequestObject) (peerhttp.FindPublicKeysBySNResponseObject, error)
+	FindPublicKeysByIMEI(context.Context, peerhttp.FindPublicKeysByIMEIRequestObject) (peerhttp.FindPublicKeysByIMEIResponseObject, error)
 	GetServerInfo(context.Context, peerhttp.GetServerInfoRequestObject) (peerhttp.GetServerInfoResponseObject, error)
 }
 
@@ -91,15 +93,13 @@ func (s *Server) ListPeers(ctx context.Context, request adminhttp.ListPeersReque
 	return adminhttp.ListPeers200JSONResponse{Items: items, HasNext: hasNext, NextCursor: nextCursor}, nil
 }
 
-// FindPubKeyByIMEI implements `adminhttp.StrictServerInterface.FindPubKeyByIMEI`.
-func (s *Server) FindPubKeyByIMEI(ctx context.Context, request adminhttp.FindPubKeyByIMEIRequestObject) (adminhttp.FindPubKeyByIMEIResponseObject, error) {
-	tac := request.Tac
-	serial := request.Serial
-	publicKey, err := s.resolveByIMEI(ctx, tac, serial)
+// FindPubKeysByIMEI implements `adminhttp.StrictServerInterface.FindPubKeysByIMEI`.
+func (s *Server) FindPubKeysByIMEI(ctx context.Context, request adminhttp.FindPubKeysByIMEIRequestObject) (adminhttp.FindPubKeysByIMEIResponseObject, error) {
+	keys, err := s.ListPublicKeysByIMEI(ctx, request.Tac, request.Serial)
 	if err != nil {
-		return adminhttp.FindPubKeyByIMEI404JSONResponse(apitypes.NewErrorResponse("PEER_IMEI_NOT_FOUND", err.Error())), nil
+		return adminhttp.FindPubKeysByIMEI500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "cannot query device identifiers")), nil
 	}
-	return adminhttp.FindPubKeyByIMEI200JSONResponse(adminhttp.PublicKeyResponse{PublicKey: publicKey.String()}), nil
+	return adminhttp.FindPubKeysByIMEI200JSONResponse{PublicKeys: keys}, nil
 }
 
 // FindPeersBySN implements `adminhttp.StrictServerInterface.FindPeersBySN`.

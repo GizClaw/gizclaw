@@ -1414,12 +1414,14 @@ class DeviceInfo extends $pb.GeneratedMessage {
     $core.String? name,
     $core.String? emoji,
     DeviceIdentifiers? identifiers,
+    $core.String? debugMode,
   }) {
     final result = create();
     if (hardware != null) result.hardware = hardware;
     if (name != null) result.name = name;
     if (emoji != null) result.emoji = emoji;
     if (identifiers != null) result.identifiers = identifiers;
+    if (debugMode != null) result.debugMode = debugMode;
     return result;
   }
 
@@ -1442,6 +1444,7 @@ class DeviceInfo extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'emoji')
     ..aOM<DeviceIdentifiers>(5, _omitFieldNames ? '' : 'identifiers',
         subBuilder: DeviceIdentifiers.create)
+    ..aOS(6, _omitFieldNames ? '' : 'debugMode')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1501,16 +1504,27 @@ class DeviceInfo extends $pb.GeneratedMessage {
   void clearIdentifiers() => $_clearField(5);
   @$pb.TagNumber(5)
   DeviceIdentifiers ensureIdentifiers() => $_ensure(3);
+
+  @$pb.TagNumber(6)
+  $core.String get debugMode => $_getSZ(4);
+  @$pb.TagNumber(6)
+  set debugMode($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDebugMode() => $_has(4);
+  @$pb.TagNumber(6)
+  void clearDebugMode() => $_clearField(6);
 }
 
 class DeviceProfile extends $pb.GeneratedMessage {
   factory DeviceProfile({
     $core.String? name,
     $core.String? emoji,
+    $core.String? debugMode,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (emoji != null) result.emoji = emoji;
+    if (debugMode != null) result.debugMode = debugMode;
     return result;
   }
 
@@ -1529,6 +1543,7 @@ class DeviceProfile extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOS(2, _omitFieldNames ? '' : 'emoji')
+    ..aOS(3, _omitFieldNames ? '' : 'debugMode')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1567,6 +1582,15 @@ class DeviceProfile extends $pb.GeneratedMessage {
   $core.bool hasEmoji() => $_has(1);
   @$pb.TagNumber(2)
   void clearEmoji() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get debugMode => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set debugMode($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDebugMode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDebugMode() => $_clearField(3);
 }
 
 class DeviceIdentifiers extends $pb.GeneratedMessage {

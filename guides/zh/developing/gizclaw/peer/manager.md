@@ -33,3 +33,5 @@ Connection activation 会先在 Manager 锁内为 public key 建立 reservation�
 Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失败不会中断连接，Admin 仍可主动调用 refresh 重试。`client.info.get` 只反向刷新 `HardwareInfo`（`hardware_revision`、`manufacturer`、`model`）。`client.identifiers.get` 只反向刷新 `DeviceIdentifiers`（`sn`、`imeis`、`labels`）。SN 是 Client 声明的可选弱标识，必须是有效 UTF-8 且不超过 256 bytes；Client 应让它对同一台物理设备保持稳定并尽量唯一，但 Server 不把它当作唯一身份。同一 SN 可以关联多个 Peer，Admin SN 查询返回全部匹配记录。由 Server 持有的个人资料字段 `name` 与 `emoji` 通过 `server.info.put` 修改，不会被反向刷新覆盖。`name` 必须是有效 UTF-8 且不超过 256 bytes，`emoji` 必须是有效 UTF-8 且不超过 64 bytes。
 
 好友通过 `server.friend.info.get` 读取这些文本资料。该方法要求调用者作用域内已存在好友关系，并且不返回二进制头像数据。
+
+设备自设调试权限与 SN/IMEI 多值查询见 [Public API](../../api/http/public)。

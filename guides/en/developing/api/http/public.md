@@ -15,7 +15,7 @@ See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authent
 
 ## Device and contact surface
 
-`/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` accept only `Authorization: Bearer <api-key>`. The Server takes the immutable owner Peer from the key record; path, query, headers, and body never accept a Peer selector, and manager keys and ordinary keys have the same owner-scoped capability on these routes. An invalid or revoked key answers `401 INVALID_API_KEY`, an owner that is not an active Client with a RuntimeProfile binding answers `403 API_KEY_OWNER_UNAVAILABLE`, an owner pending deletion answers `409 PEER_PENDING_DELETION`, validation and pagination failures answer `400 INVALID_REQUEST`, and store or service failures collapse into a redacted `500 INTERNAL_ERROR`.
+`/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` accept `Authorization: Bearer <api-key>` or device debug access as described below. The Server takes the immutable owner Peer from the key record; the `public_key` debug query does not override the API key owner, and manager keys and ordinary keys have the same owner-scoped capability on these routes. An invalid or revoked key answers `401 INVALID_API_KEY`, an owner that is not an active Client with a RuntimeProfile binding answers `403 API_KEY_OWNER_UNAVAILABLE`, an owner pending deletion answers `409 PEER_PENDING_DELETION`, validation and pagination failures answer `400 INVALID_REQUEST`, and store or service failures collapse into a redacted `500 INTERNAL_ERROR`.
 
 Read routes project the authoritative services and never send an RPC to the device:
 
@@ -54,3 +54,29 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 A device `INVALID_PARAMS` maps to `400 DEVICE_REJECTED`, `METHOD_NOT_FOUND` (no provider implemented) maps to `501 DEVICE_UNSUPPORTED`, and every other RPC error maps to a redacted `502 DEVICE_ERROR`; bodies carry only a stable `code` and a redacted `message`. Concurrent control commands for one owner are forwarded serially in arrival order and are never merged or replayed. After a device acknowledges `reboot` or `wifi.connect`, later control commands on that same connection answer `409 DEVICE_OFFLINE` until the device reconnects. Control commands never change PeerRun, Workspace, or Agent state.
 
 Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Server identity remains the cryptographic `public_key`. Through an Edge, the build fields remain those of the authoritative Server, while the `transport` object alone selects the Edge route.
+
+## Device debug access and anonymous lookup
+
+An authenticated device sets its own `debug_mode` through `server.info.put`:
+`off` (default), `readonly`, or `fullcontrol`. Omission preserves the stored mode;
+invalid values are rejected. The mode lives in the device record in PeerStore and
+is not overwritten by reverse identifier refresh.
+
+Without Authorization, device and contact HTTP routes accept `?public_key=<pubkey>`.
+`readonly` permits GET; `fullcontrol` permits reads, writes, and device controls on
+these routes. The Server reads the mode on every request; disabling it rejects new
+anonymous requests, without canceling requests already in progress. Active Client
+status and RuntimeProfile binding remain required. API key management, Admin, and
+OpenAI routes do not accept debug authorization. An invalid Authorization header
+never falls back to debug access; valid API keys retain their own immutable owner.
+Debug responses carry `Cache-Control: no-store`. Edge uses the existing Peer
+assignment to forward to the configured owning Server, which enforces access.
+
+Anonymous GET `/gizclaw/v1/peers/@findBySn/{sn}` and
+`/gizclaw/v1/peers/@findByImei/{tac}/{serial}` return
+`{"public_keys": [...]}` for every match, including devices with debug disabled.
+No match returns an empty array; no device metadata is included. Both identifiers
+are non-unique device declarations. IMEI indexes use
+`by-imei:<tac>:<serial>:<pubkey>` and validate prefix matches against current records.
+Admin lookup is `/peers/@findPubKeysByImei/{tac}/{serial}`; it and CLI
+`admin peers resolve-imei` return all matching public keys.

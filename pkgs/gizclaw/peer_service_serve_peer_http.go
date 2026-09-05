@@ -138,6 +138,10 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 			}
 			return ctx.Next()
 		}
+		if peerhttp.IsIdentifierLookup(ctx.Method(), ctx.Path()) {
+			ctx.Set("Cache-Control", "no-store")
+			return ctx.Next()
+		}
 		if isUnauthenticatedPeerHTTPRoute(ctx.Method(), ctx.Path()) {
 			return ctx.Next()
 		}
@@ -145,6 +149,34 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 			return ctx.Next()
 		}
 		normalizeOptionalJSONBody(ctx)
+		if ctx.Get(fiber.HeaderAuthorization) == "" && ctx.Query("public_key") != "" && peerhttp.IsDebugDataPath(ctx.Path()) {
+			publicKey, err := parsePeerPublicKey(ctx.Query("public_key"))
+			if err != nil {
+				ctx.Status(http.StatusBadRequest)
+				return ctx.JSON(apitypes.NewErrorResponse("INVALID_REQUEST", "invalid public key"))
+			}
+			if err := s.validateAPIKeyOwner(ctx.UserContext(), publicKey); err != nil {
+				writeFiberAPIKeyOwnerError(ctx, err)
+				return nil
+			}
+			item, err := s.manager.Peers.LoadPeer(ctx.UserContext(), publicKey)
+			if err != nil {
+				writeFiberAPIKeyOwnerError(ctx, err)
+				return nil
+			}
+			mode := "off"
+			if item.Device.DebugMode != nil {
+				mode = *item.Device.DebugMode
+			}
+			if mode != "fullcontrol" && !(mode == "readonly" && ctx.Method() == http.MethodGet) {
+				ctx.Status(http.StatusForbidden)
+				return ctx.JSON(apitypes.NewErrorResponse("DEBUG_ACCESS_FORBIDDEN", "device debug mode does not permit this operation"))
+			}
+			ctx.Set("Cache-Control", "no-store")
+			ctx.SetUserContext(peerhttp.WithCallerPublicKey(base, publicKey))
+			observability.SetPeer(ctx.UserContext(), publicKey.String(), "")
+			return ctx.Next()
+		}
 		principal, ok := authenticateFiberAPIKey(ctx, apiKeys)
 		if !ok {
 			return nil

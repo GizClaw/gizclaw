@@ -807,27 +807,27 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	status, err := client.GetDeviceStatusWithResponse(ctx)
+	status, err := client.GetDeviceStatusWithResponse(ctx, nil)
 	if err != nil || status.JSON200 == nil || status.JSON200.Volume == nil || *status.JSON200.Volume != 35 || !*status.JSON200.Muted {
 		t.Fatalf("GetDeviceStatus = %+v, %v", status, err)
 	}
-	volume, err := client.SetDeviceVolumeWithResponse(ctx, peerhttp.SetDeviceVolumeJSONRequestBody{Level: 35, Muted: true})
+	volume, err := client.SetDeviceVolumeWithResponse(ctx, nil, peerhttp.SetDeviceVolumeJSONRequestBody{Level: 35, Muted: true})
 	if err != nil || volume.JSON200 == nil || *volume.JSON200.Status.Volume != 35 {
 		t.Fatalf("SetDeviceVolume = %+v, %v", volume, err)
 	}
-	sound, err := client.PlayDeviceSoundWithResponse(ctx, peerhttp.PlayDeviceSoundJSONRequestBody{Sound: "chime"})
+	sound, err := client.PlayDeviceSoundWithResponse(ctx, nil, peerhttp.PlayDeviceSoundJSONRequestBody{Sound: "chime"})
 	if err != nil || sound.StatusCode() != http.StatusNoContent {
 		t.Fatalf("PlayDeviceSound = %+v, %v", sound, err)
 	}
-	saved, err := client.ListDeviceSavedWifiWithResponse(ctx)
+	saved, err := client.ListDeviceSavedWifiWithResponse(ctx, nil)
 	if err != nil || saved.JSON200 == nil || len(saved.JSON200.Networks) != 1 || saved.JSON200.Networks[0].Ssid != "home" {
 		t.Fatalf("ListDeviceSavedWifi = %+v, %v", saved, err)
 	}
-	forget, err := client.ForgetDeviceSavedWifiWithResponse(ctx, "home")
+	forget, err := client.ForgetDeviceSavedWifiWithResponse(ctx, "home", nil)
 	if err != nil || forget.StatusCode() != http.StatusNoContent {
 		t.Fatalf("ForgetDeviceSavedWifi = %+v, %v", forget, err)
 	}
-	created, err := client.CreateContactWithResponse(ctx, peerhttp.CreateContactJSONRequestBody{Name: "mom", DisplayName: new("Mom")})
+	created, err := client.CreateContactWithResponse(ctx, nil, peerhttp.CreateContactJSONRequestBody{Name: "mom", DisplayName: new("Mom")})
 	if err != nil || created.JSON201 == nil || created.JSON201.Name != "mom" {
 		t.Fatalf("CreateContact = %+v, %v", created, err)
 	}
@@ -836,7 +836,7 @@ func TestPeerHTTPClientDeviceAndContactOperations(t *testing.T) {
 	if err != nil || listed.JSON200 == nil || len(listed.JSON200.Items) != 1 {
 		t.Fatalf("ListContacts = %+v, %v", listed, err)
 	}
-	deleted, err := client.DeleteContactWithResponse(ctx, "mom")
+	deleted, err := client.DeleteContactWithResponse(ctx, "mom", nil)
 	if err != nil || deleted.StatusCode() != http.StatusNoContent {
 		t.Fatalf("DeleteContact = %+v, %v", deleted, err)
 	}

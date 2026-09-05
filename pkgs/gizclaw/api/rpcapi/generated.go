@@ -1287,6 +1287,7 @@ type DashScopeTenantVoiceProviderData struct {
 
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
+	DebugMode   *string            `json:"debug_mode,omitempty"`
 	Emoji       *string            `json:"emoji,omitempty"`
 	Hardware    *HardwareInfo      `json:"hardware,omitempty"`
 	Identifiers *DeviceIdentifiers `json:"identifiers,omitempty"`
@@ -1295,8 +1296,9 @@ type DeviceInfo struct {
 
 // DeviceProfile defines model for DeviceProfile.
 type DeviceProfile struct {
-	Emoji *string `json:"emoji,omitempty"`
-	Name  *string `json:"name,omitempty"`
+	DebugMode *string `json:"debug_mode,omitempty"`
+	Emoji     *string `json:"emoji,omitempty"`
+	Name      *string `json:"name,omitempty"`
 }
 
 // DeviceIdentifiers defines model for DeviceIdentifiers.

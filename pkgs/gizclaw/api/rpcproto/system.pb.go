@@ -1146,6 +1146,7 @@ type DeviceInfo struct {
 	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Emoji         *string                `protobuf:"bytes,4,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
 	Identifiers   *DeviceIdentifiers     `protobuf:"bytes,5,opt,name=identifiers,proto3,oneof" json:"identifiers,omitempty"`
+	DebugMode     *string                `protobuf:"bytes,6,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1208,8 +1209,16 @@ func (x *DeviceInfo) GetIdentifiers() *DeviceIdentifiers {
 	return nil
 }
 
+func (x *DeviceInfo) GetDebugMode() string {
+	if x != nil && x.DebugMode != nil {
+		return *x.DebugMode
+	}
+	return ""
+}
+
 type DeviceProfile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	DebugMode     *string                `protobuf:"bytes,3,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
 	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Emoji         *string                `protobuf:"bytes,2,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1244,6 +1253,13 @@ func (x *DeviceProfile) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeviceProfile.ProtoReflect.Descriptor instead.
 func (*DeviceProfile) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *DeviceProfile) GetDebugMode() string {
+	if x != nil && x.DebugMode != nil {
+		return *x.DebugMode
+	}
+	return ""
 }
 
 func (x *DeviceProfile) GetName() string {
@@ -2737,20 +2753,26 @@ const file_payload_system_proto_rawDesc = "" +
 	"passphrase\x18\x02 \x01(\tH\x00R\n" +
 	"passphrase\x88\x01\x01B\r\n" +
 	"\v_passphrase\"\x1b\n" +
-	"\x19ClientWifiConnectResponse\"\xf9\x01\n" +
+	"\x19ClientWifiConnectResponse\"\xac\x02\n" +
 	"\n" +
 	"DeviceInfo\x12=\n" +
 	"\bhardware\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.HardwareInfoH\x00R\bhardware\x88\x01\x01\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x19\n" +
 	"\x05emoji\x18\x04 \x01(\tH\x02R\x05emoji\x88\x01\x01\x12H\n" +
-	"\videntifiers\x18\x05 \x01(\v2!.gizclaw.rpc.v1.DeviceIdentifiersH\x03R\videntifiers\x88\x01\x01B\v\n" +
+	"\videntifiers\x18\x05 \x01(\v2!.gizclaw.rpc.v1.DeviceIdentifiersH\x03R\videntifiers\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"debug_mode\x18\x06 \x01(\tH\x04R\tdebugMode\x88\x01\x01B\v\n" +
 	"\t_hardwareB\a\n" +
 	"\x05_nameB\b\n" +
 	"\x06_emojiB\x0e\n" +
-	"\f_identifiers\"V\n" +
-	"\rDeviceProfile\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x19\n" +
-	"\x05emoji\x18\x02 \x01(\tH\x01R\x05emoji\x88\x01\x01B\a\n" +
+	"\f_identifiersB\r\n" +
+	"\v_debug_mode\"\x89\x01\n" +
+	"\rDeviceProfile\x12\"\n" +
+	"\n" +
+	"debug_mode\x18\x03 \x01(\tH\x00R\tdebugMode\x88\x01\x01\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x19\n" +
+	"\x05emoji\x18\x02 \x01(\tH\x02R\x05emoji\x88\x01\x01B\r\n" +
+	"\v_debug_modeB\a\n" +
 	"\x05_nameB\b\n" +
 	"\x06_emoji\"\x92\x01\n" +
 	"\x11DeviceIdentifiers\x12\x13\n" +

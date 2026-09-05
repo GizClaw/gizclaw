@@ -115,9 +115,11 @@ message DeviceInfo {
   optional string name = 2;
   optional string emoji = 4;
   optional DeviceIdentifiers identifiers = 5;
+  optional string debug_mode = 6;
 }
 
 message DeviceProfile {
+  optional string debug_mode = 3;
   optional string name = 1;
   optional string emoji = 2;
 }

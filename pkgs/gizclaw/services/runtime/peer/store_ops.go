@@ -106,6 +106,9 @@ func isAutoConnectedPeer(peer apitypes.Peer) bool {
 // putInfo applies a partial device profile update. Only the fields present in
 // info are written; absent fields keep their stored value.
 func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info apitypes.DeviceInfo) (apitypes.Peer, error) {
+	if info.DebugMode != nil && *info.DebugMode != "off" && *info.DebugMode != "readonly" && *info.DebugMode != "fullcontrol" {
+		return apitypes.Peer{}, fmt.Errorf("%w: invalid debug mode", ErrInvalidInfo)
+	}
 	if info.Hardware != nil || info.Identifiers != nil {
 		return apitypes.Peer{}, fmt.Errorf("%w: hardware and identifiers are read-only", ErrInvalidInfo)
 	}
@@ -126,6 +129,9 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	}
 	if info.Emoji != nil {
 		peer.Device.Emoji = info.Emoji
+	}
+	if info.DebugMode != nil {
+		peer.Device.DebugMode = info.DebugMode
 	}
 	return s.putRecord(ctx, peer)
 }
@@ -663,8 +669,54 @@ func (s *Server) listBySN(ctx context.Context, sn string) ([]adminhttp.PeerRegis
 	return items, nil
 }
 
-func (s *Server) resolveByIMEI(ctx context.Context, tac, serial string) (giznet.PublicKey, error) {
-	return s.resolveSingle(ctx, imeiKey(tac, serial), ErrPeerNotFound)
+// ListPublicKeysByIMEI returns all current peers declaring the TAC and serial.
+func (s *Server) ListPublicKeysByIMEI(ctx context.Context, tac, serial string) ([]string, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	keys := make(map[string]struct{})
+	prefix := imeiPrefix(tac, serial)
+	// A legacy single-value entry may have hidden collisions; recover from records.
+	if _, err := store.Get(ctx, prefix); err == nil {
+		for entry, err := range store.List(ctx, peersPrefix()) {
+			if err != nil {
+				return nil, err
+			}
+			if !isPeerTombstone(entry.Value) {
+				keys[entry.Key[len(entry.Key)-1]] = struct{}{}
+			}
+		}
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return nil, err
+	}
+	for entry, err := range store.List(ctx, prefix) {
+		if err != nil {
+			return nil, err
+		}
+		if len(entry.Key) != 4 {
+			return nil, errors.New("peer: malformed IMEI index")
+		}
+		keys[entry.Key[3]] = struct{}{}
+	}
+	result := make([]string, 0, len(keys))
+	for key := range keys {
+		peer, err := s.getByPublicKeyText(ctx, store, key)
+		if errors.Is(err, ErrPeerNotFound) || errors.Is(err, ErrPeerDeleted) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range peerIMEIs(peer) {
+			if item.Tac == tac && item.Serial == serial {
+				result = append(result, key)
+				break
+			}
+		}
+	}
+	sort.Strings(result)
+	return result, nil
 }
 
 func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previous *apitypes.Peer) error {
@@ -697,25 +749,6 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 		return fmt.Errorf("peer: write %s: %w", peer.PublicKey, err)
 	}
 	return nil
-}
-
-func (s *Server) resolveSingle(ctx context.Context, key kv.Key, notFound error) (giznet.PublicKey, error) {
-	store, err := s.store()
-	if err != nil {
-		return giznet.PublicKey{}, err
-	}
-	data, err := store.Get(ctx, key)
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return giznet.PublicKey{}, notFound
-		}
-		return giznet.PublicKey{}, err
-	}
-	publicKey, err := publicKeyFromText(string(data))
-	if err != nil {
-		return giznet.PublicKey{}, err
-	}
-	return publicKey, nil
 }
 
 func (s *Server) store() (kv.Store, error) {

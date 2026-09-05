@@ -73,7 +73,7 @@ func stubPeerCommandClients(t *testing.T) func() {
 	originalList := listPeers
 	originalGet := getPeer
 	originalFindSN := findPeersBySN
-	originalResolveIMEI := findPubKeyByIMEI
+	originalResolveIMEI := findPubKeysByIMEI
 	originalApprove := approvePeer
 	originalBlock := blockPeer
 	originalInfo := getPeerInfo
@@ -101,8 +101,8 @@ func stubPeerCommandClients(t *testing.T) func() {
 	findPeersBySN = func(context.Context, *gizcli.Client, string) ([]adminhttp.PeerRegistrationResult, error) {
 		return []adminhttp.PeerRegistrationResult{registrationResult}, nil
 	}
-	findPubKeyByIMEI = func(context.Context, *gizcli.Client, string, string) (string, error) {
-		return "device-pk", nil
+	findPubKeysByIMEI = func(context.Context, *gizcli.Client, string, string) ([]string, error) {
+		return []string{"device-pk"}, nil
 	}
 	approvePeer = func(context.Context, *gizcli.Client, string, apitypes.PeerRole) (apitypes.Registration, error) {
 		return registration, nil
@@ -129,7 +129,7 @@ func stubPeerCommandClients(t *testing.T) func() {
 		listPeers = originalList
 		getPeer = originalGet
 		findPeersBySN = originalFindSN
-		findPubKeyByIMEI = originalResolveIMEI
+		findPubKeysByIMEI = originalResolveIMEI
 		approvePeer = originalApprove
 		blockPeer = originalBlock
 		getPeerInfo = originalInfo

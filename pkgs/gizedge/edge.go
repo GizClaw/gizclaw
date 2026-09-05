@@ -430,6 +430,9 @@ func writeEdgeProxyError(w http.ResponseWriter, _ *http.Request, err error) {
 	status := http.StatusBadGateway
 	code := "UPSTREAM_ERROR"
 	switch {
+	case errors.Is(err, errInvalidDebugPublicKey):
+		status = http.StatusBadRequest
+		code = "INVALID_REQUEST"
 	case errors.Is(err, errAPIKeyUnauthorized):
 		status = http.StatusUnauthorized
 		code = "INVALID_API_KEY"
