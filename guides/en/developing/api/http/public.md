@@ -22,7 +22,7 @@ Read routes project the authoritative services and never send an RPC to the devi
 - `GET /device` returns `DeviceInfo` (name, emoji, `HardwareInfo`, `DeviceIdentifiers`), the same source as `server.info.get`.
 - `GET /device/runtime` returns `Runtime` (online, last seen, address, RX/TX) without refreshing online state.
 - `GET /device/status` returns the latest authoritative `PeerStatus` snapshot. There is no `fresh` parameter; `client.device.status.get` exists only for control-response write-back.
-- `GET /device/telemetry/latest`, `/device/telemetry`, and `/device/telemetry/aggregate` keep the Admin telemetry field enum, observation times, query limits, ordering, and aggregate semantics and pin the Peer to the owner.
+- `GET /device/telemetry/{field}/latest`, `/device/telemetry`, and `/device/telemetry/aggregate` keep the Admin telemetry field enum, observation times, query limits, ordering, and aggregate semantics and pin the Peer to the owner.
 - `GET /device/firmware` returns every channel (`stable`, `beta`, `develop`) of the Firmware configuration bound to the owner, each with an optional `description` and `package` (`url`, `sha256`, `size`), the same source as `server.firmware.get`. Channel selection belongs to the caller: the Server does not store the channel the device uses, so this route returns every channel at once and the caller picks one. An unbound `firmware_id`, or a binding whose configuration is gone, answers `404 FIRMWARE_NOT_FOUND`; a channel with no configured package simply omits `package` instead of failing.
 - `/contacts` list/create/get/put/delete use the same owner-scoped data as `services/social/contact`; `{contactName}` is the owner-scoped immutable `name`, cross-owner and missing names both answer `404 CONTACT_NOT_FOUND`, and name or phone conflicts answer `409 CONTACT_ALREADY_EXISTS`.
 
@@ -87,3 +87,17 @@ an empty array, without device metadata. SN and IMEI are non-unique declarations
 IMEI indexes use `by-imei:<tac>:<serial>:<pubkey>` and verify prefix candidates against
 current records. Updates and deletes affect only that public key. Admin lookup is
 `/peers/@findPubKeysByImei/{tac}/{serial}`; CLI `admin peers resolve-imei` also returns a list.
+
+## Music playback
+
+These paths use the `/gizclaw/v1` prefix and existing device authorization. Set/append accept `{ "items": [...] }`, play accepts `{ "index": 0 }`, and mode accepts `{ "repeat": "all" }`. Success returns HTTP 200 with `{ "status": ... }`, except playlist.get returns `{ "items": [...], "playlist_revision": 1 }`. Existing device control errors apply; append is never retried automatically. To play one URL, set a one-item list and play index 0. See [player providers](../proto/rpc/client-provided-to-server#music-player) for the contract.
+
+| HTTP | RPC |
+| --- | --- |
+| `GET /device/audioplayer` | `client.device.audioplayer.get` |
+| `GET /device/audioplayer/playlist` | `client.device.audioplayer.playlist.get` |
+| `PUT /device/audioplayer/playlist` | `client.device.audioplayer.playlist.set` |
+| `POST /device/audioplayer/playlist/append` | `client.device.audioplayer.playlist.append` |
+| `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
+| `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
+| `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |

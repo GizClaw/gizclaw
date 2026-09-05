@@ -327,6 +327,38 @@ class RpcMethod extends $pb.ProtobufEnum {
       111, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_FIRMWARE_UPDATE');
   static const RpcMethod RPC_METHOD_SERVER_RUNTIME_PUT =
       RpcMethod._(112, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUNTIME_PUT');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET = RpcMethod._(
+      113, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET =
+      RpcMethod._(
+          114,
+          _omitEnumNames
+              ? ''
+              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET =
+      RpcMethod._(
+          115,
+          _omitEnumNames
+              ? ''
+              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND =
+      RpcMethod._(
+          116,
+          _omitEnumNames
+              ? ''
+              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY =
+      RpcMethod._(117,
+          _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP =
+      RpcMethod._(118,
+          _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET =
+      RpcMethod._(
+          119,
+          _omitEnumNames
+              ? ''
+              : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -438,10 +470,17 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_WIFI_CONNECT,
     RPC_METHOD_CLIENT_FIRMWARE_UPDATE,
     RPC_METHOD_SERVER_RUNTIME_PUT,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP,
+    RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 112);
+      $pb.ProtobufEnum.$_initByValueList(values, 119);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

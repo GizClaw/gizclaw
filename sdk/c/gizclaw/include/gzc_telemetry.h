@@ -15,7 +15,8 @@ typedef enum {
   GZC_TELEMETRY_OBSERVATION_BATTERY = 1,
   GZC_TELEMETRY_OBSERVATION_GNSS = 2,
   GZC_TELEMETRY_OBSERVATION_NETWORK = 3,
-  GZC_TELEMETRY_OBSERVATION_SYSTEM = 4
+  GZC_TELEMETRY_OBSERVATION_SYSTEM = 4,
+  GZC_TELEMETRY_OBSERVATION_AUDIOPLAYER = 5
 } gzc_telemetry_observation_kind_t;
 
 typedef struct {
@@ -65,12 +66,29 @@ typedef struct {
 } gzc_telemetry_system_t;
 
 typedef struct {
+  gzc_str_t state;
+  bool has_current_index;
+  uint32_t current_index;
+  uint64_t position_ms;
+  bool has_duration_ms;
+  uint64_t duration_ms;
+  gzc_str_t repeat;
+  uint32_t playlist_length;
+  uint32_t playlist_revision;
+  bool has_error_code;
+  gzc_str_t error_code;
+  bool has_error_message;
+  gzc_str_t error_message;
+} gzc_telemetry_audioplayer_t;
+
+typedef struct {
   int32_t observed_at_delta_ms;
   gzc_telemetry_observation_kind_t kind;
   gzc_telemetry_battery_t battery;
   gzc_telemetry_gnss_t gnss;
   gzc_telemetry_network_t network;
   gzc_telemetry_system_t system;
+  gzc_telemetry_audioplayer_t audioplayer;
 } gzc_telemetry_observation_t;
 
 typedef struct {

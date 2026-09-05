@@ -1,0 +1,78 @@
+// Device-owned single audio player control and playlist contract.
+syntax = "proto3";
+package gizclaw.rpc.v1;
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+// One playable item. URL is HTTPS, without embedded credentials (1..1024
+// UTF-8 bytes). Display title and opaque catalog ref are optional (128 bytes).
+message AudioPlayerItem {
+  string url = 1;
+  optional string title = 2;
+  optional string source_ref = 3;
+}
+
+// One complete device snapshot. State is stopped/buffering/playing/ended/error;
+// repeat is off/one/all. Index is zero-based and absent when no track is selected.
+// Unknown duration is absent, not zero. Progress is actual playout time.
+message AudioPlayerStatus {
+  string state = 1;
+  optional uint32 current_index = 2;
+  uint64 position_ms = 3;
+  optional uint64 duration_ms = 4;
+  string repeat = 5;
+  uint32 playlist_length = 6;
+  uint32 playlist_revision = 7;
+  optional string error_code = 8;
+  optional string error_message = 9;
+  int64 observed_at_unix_ms = 10;
+}
+
+message ClientDeviceAudioPlayerGetRequest {
+}
+message ClientDeviceAudioPlayerGetResponse {
+  AudioPlayerStatus value = 1;
+}
+message ClientDeviceAudioPlayerPlaylistGetRequest {
+}
+message ClientDeviceAudioPlayerPlaylistGetResponse {
+  repeated AudioPlayerItem items = 1; // At most 32 items, duplicates allowed.
+  uint32 playlist_revision = 2;
+}
+// Validate and reserve capacity before stopping/replacing. Failure preserves
+// both the previous playlist and playback. Empty items clears the playlist.
+message ClientDeviceAudioPlayerPlaylistSetRequest {
+  repeated AudioPlayerItem items = 1;
+}
+message ClientDeviceAudioPlayerPlaylistSetResponse {
+  AudioPlayerStatus value = 1;
+}
+// Atomically append 1..32 items, respecting the total 32-item capacity. Does not
+// interrupt playback or start a stopped/ended player. Never automatically retry.
+message ClientDeviceAudioPlayerPlaylistAppendRequest {
+  repeated AudioPlayerItem items = 1;
+}
+message ClientDeviceAudioPlayerPlaylistAppendResponse {
+  AudioPlayerStatus value = 1;
+}
+// Accept playback from the beginning of the selected track, replacing current
+// playback. Response acknowledges acceptance; telemetry reports actual start.
+message ClientDeviceAudioPlayerPlayRequest {
+  optional uint32 index = 1;
+}
+message ClientDeviceAudioPlayerPlayResponse {
+  AudioPlayerStatus value = 1;
+}
+// Idempotently stop, retaining the playlist and repeat mode.
+message ClientDeviceAudioPlayerStopRequest {
+}
+message ClientDeviceAudioPlayerStopResponse {
+  AudioPlayerStatus value = 1;
+}
+// off: stop after the list; one: repeat current track; all: repeat the list.
+// Changing the mode does not interrupt the current track.
+message ClientDeviceAudioPlayerModeSetRequest {
+  string repeat = 1;
+}
+message ClientDeviceAudioPlayerModeSetResponse {
+  AudioPlayerStatus value = 1;
+}

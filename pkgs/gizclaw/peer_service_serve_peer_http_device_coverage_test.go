@@ -23,7 +23,7 @@ var deviceExtensionRoutes = []struct{ method, path, body string }{
 	{http.MethodGet, "/gizclaw/v1/device", ""},
 	{http.MethodGet, "/gizclaw/v1/device/runtime", ""},
 	{http.MethodGet, "/gizclaw/v1/device/status", ""},
-	{http.MethodGet, "/gizclaw/v1/device/telemetry/latest", ""},
+	{http.MethodGet, "/gizclaw/v1/device/telemetry/battery.percent/latest", ""},
 	{http.MethodGet, "/gizclaw/v1/device/telemetry?field=battery.percent&start_time_ms=1&end_time_ms=2", ""},
 	{http.MethodGet, "/gizclaw/v1/device/telemetry/aggregate?field=battery.percent&start_time_ms=1&end_time_ms=2&bucket_ms=1&aggregate=avg", ""},
 	{http.MethodGet, "/gizclaw/v1/device/firmware", ""},
@@ -368,7 +368,7 @@ func TestDeviceHTTPTelemetryIgnoresPeerSelectors(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{
-		"/gizclaw/v1/device/telemetry/latest?public_key=" + other.String(),
+		"/gizclaw/v1/device/telemetry/battery.percent/latest?public_key=" + other.String(),
 		"/gizclaw/v1/device/telemetry?field=battery.percent&start_time_ms=" + itoa(at.Add(-time.Hour).UnixMilli()) + "&end_time_ms=" + itoa(at.Add(time.Hour).UnixMilli()) + "&peer=" + other.String(),
 		"/gizclaw/v1/device/telemetry/aggregate?field=battery.percent&start_time_ms=" + itoa(at.Add(-time.Hour).UnixMilli()) + "&end_time_ms=" + itoa(at.Add(time.Hour).UnixMilli()) + "&bucket_ms=3600000&aggregate=max&peer_public_key=" + other.String(),
 	} {

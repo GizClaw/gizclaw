@@ -285,6 +285,7 @@ class DeviceRuntime {
 /// empty maps; [raw] holds the complete decoded object.
 class PeerStatus {
   const PeerStatus({
+    this.audioplayer,
     this.reportedAt,
     this.volume,
     this.muted,
@@ -303,6 +304,9 @@ class PeerStatus {
   factory PeerStatus.fromJson(Object? json) {
     final object = asJsonObject(json, 'PeerStatus');
     return PeerStatus(
+      audioplayer: object['audioplayer'] == null
+          ? null
+          : AudioPlayerStatus.fromJson(object['audioplayer']),
       reportedAt: readOptionalDateTime(object, 'reported_at'),
       volume: readOptionalInt(object, 'volume'),
       muted: readOptionalBool(object, 'muted'),
@@ -319,6 +323,7 @@ class PeerStatus {
     );
   }
 
+  final AudioPlayerStatus? audioplayer;
   final DateTime? reportedAt;
   final int? volume;
   final bool? muted;
@@ -343,6 +348,7 @@ class PeerStatus {
 
   JsonObject toJson() => withoutNulls({
     ...raw,
+    'audioplayer': audioplayer?.toJson(),
     'reported_at': reportedAt == null ? null : encodeDateTime(reportedAt!),
     'volume': volume,
     'muted': muted,
@@ -497,7 +503,7 @@ class PeerTelemetryAggregatePoint {
   };
 }
 
-/// Result of `GET /gizclaw/v1/device/telemetry/latest`.
+/// Result of `GET /gizclaw/v1/device/telemetry/{field}/latest`.
 class PeerTelemetryLatestResponse {
   const PeerTelemetryLatestResponse({
     required this.peerPublicKey,
@@ -1048,4 +1054,105 @@ class ErrorResponse {
   final ErrorPayload error;
 
   JsonObject toJson() => {'error': error.toJson()};
+}
+
+/// Device audio player item.
+class AudioPlayerItem {
+  const AudioPlayerItem({required this.url, this.title, this.sourceRef});
+  factory AudioPlayerItem.fromJson(Object? json) {
+    final object = asJsonObject(json, 'AudioPlayerItem');
+    return AudioPlayerItem(
+      url: readString(object, 'url'),
+      title: readOptionalString(object, 'title'),
+      sourceRef: readOptionalString(object, 'source_ref'),
+    );
+  }
+  final String url;
+  final String? title;
+  final String? sourceRef;
+  JsonObject toJson() =>
+      withoutNulls({'url': url, 'title': title, 'source_ref': sourceRef});
+}
+
+/// Device audio player snapshot.
+class AudioPlayerStatus {
+  const AudioPlayerStatus({
+    required this.state,
+    this.currentIndex,
+    required this.positionMs,
+    this.durationMs,
+    required this.repeat,
+    required this.playlistLength,
+    required this.playlistRevision,
+    this.errorCode,
+    this.errorMessage,
+    required this.observedAtUnixMs,
+  });
+  factory AudioPlayerStatus.fromJson(Object? json) {
+    final object = asJsonObject(json, 'AudioPlayerStatus');
+    return AudioPlayerStatus(
+      state: readString(object, 'state'),
+      currentIndex: readOptionalInt(object, 'current_index'),
+      positionMs: readInt(object, 'position_ms'),
+      durationMs: readOptionalInt(object, 'duration_ms'),
+      repeat: readString(object, 'repeat'),
+      playlistLength: readInt(object, 'playlist_length'),
+      playlistRevision: readInt(object, 'playlist_revision'),
+      errorCode: readOptionalString(object, 'error_code'),
+      errorMessage: readOptionalString(object, 'error_message'),
+      observedAtUnixMs: readInt(object, 'observed_at_unix_ms'),
+    );
+  }
+  final String state;
+  final int? currentIndex;
+  final int positionMs;
+  final int? durationMs;
+  final String repeat;
+  final int playlistLength;
+  final int playlistRevision;
+  final String? errorCode;
+  final String? errorMessage;
+  final int observedAtUnixMs;
+  JsonObject toJson() => withoutNulls({
+    'state': state,
+    'current_index': currentIndex,
+    'position_ms': positionMs,
+    'duration_ms': durationMs,
+    'repeat': repeat,
+    'playlist_length': playlistLength,
+    'playlist_revision': playlistRevision,
+    'error_code': errorCode,
+    'error_message': errorMessage,
+    'observed_at_unix_ms': observedAtUnixMs,
+  });
+}
+
+/// Acknowledged player status. Playback begins asynchronously.
+class AudioPlayerResponse {
+  const AudioPlayerResponse({required this.status});
+  final AudioPlayerStatus status;
+  factory AudioPlayerResponse.fromJson(Object? json) => AudioPlayerResponse(
+    status: AudioPlayerStatus.fromJson(
+      asJsonObject(json, 'AudioPlayerResponse')['status'],
+    ),
+  );
+}
+
+/// The device's current playlist, in playback order.
+class AudioPlayerPlaylist {
+  const AudioPlayerPlaylist({
+    required this.items,
+    required this.playlistRevision,
+  });
+  final List<AudioPlayerItem> items;
+  final int playlistRevision;
+  factory AudioPlayerPlaylist.fromJson(Object? json) {
+    final object = asJsonObject(json, 'AudioPlayerPlaylist');
+    return AudioPlayerPlaylist(
+      items: List.unmodifiable(
+        asJsonList(object['items'], 'items').map(AudioPlayerItem.fromJson),
+      ),
+      playlistRevision: readInt(object, 'playlist_revision'),
+    );
+  }
 }

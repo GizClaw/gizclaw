@@ -337,13 +337,12 @@ static bool route_is(const gzt_route_t *route, const char *prefix, bool with_tai
 static void split_route(gzc_str_t path, gzt_route_t *out) {
   /*
    * Routes the controller SDK addresses as a whole, longest first: a prefix
-   * check alone would split `/device/telemetry/latest` into
-   * `/device/telemetry` plus a `latest` segment.
+   * check alone would split `/device/telemetry/aggregate` into
+   * `/device/telemetry` plus an `aggregate` segment.
    */
   static const char *whole[] = {
       "/device/telemetry/aggregate",
       "/device/actions/play-sound",
-      "/device/telemetry/latest",
       "/device/actions/reboot",
       "/device/wifi/saved",
       "/device/telemetry",
@@ -526,11 +525,12 @@ int gzt_control_request(
     rc = gzc_control_get_device_runtime(&control, &call, &runtime);
   } else if (get && route_is(&route, "/device/status", false)) {
     rc = gzc_control_get_device_status(&control, &call, &status);
-  } else if (get && route_is(&route, "/device/telemetry/latest", false)) {
-    gzc_str_t fields = gzc_str_from_parts(NULL, 0);
-    (void)query_param(query, "fields", &fields);
+  } else if (get && route_is(&route, "/device/telemetry", true) &&
+             route.tail.len > 7 &&
+             memcmp(route.tail.data + route.tail.len - 7, "/latest", 7) == 0) {
+    gzc_str_t field = gzc_str_from_parts(route.tail.data, route.tail.len - 7);
     rc = gzc_control_get_device_telemetry_latest(
-        &control, &call, fields, telemetry_values,
+        &control, &call, field, telemetry_values,
         sizeof(telemetry_values) / sizeof(telemetry_values[0]), &count, &text);
   } else if (get && route_is(&route, "/device/telemetry", false)) {
     gzc_control_telemetry_query_t query_spec;

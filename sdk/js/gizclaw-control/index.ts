@@ -8,6 +8,13 @@
  * additionally support device public keys, node tokens and public discovery.
  */
 import {
+  getDeviceAudioPlayer,
+  getDeviceAudioPlayerPlaylist,
+  setDeviceAudioPlayerPlaylist,
+  appendDeviceAudioPlayerPlaylist,
+  playDeviceAudioPlayer,
+  stopDeviceAudioPlayer,
+  setDeviceAudioPlayerMode,
   listDeviceWorkspaces,
   listDeviceWorkspaceHistory,
   searchDeviceLogs,
@@ -40,6 +47,12 @@ import {
   setDeviceVolume,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
+  AudioPlayerResponse,
+  AudioPlayerPlaylist,
+  AudioPlayerPlaylistSetRequest,
+  AudioPlayerPlaylistAppendRequest,
+  AudioPlayerPlayRequest,
+  AudioPlayerModeSetRequest,
   DeviceWorkspace,
   DeviceLogPage,
   PeerRunHistoryListResponse,
@@ -76,6 +89,14 @@ import type {
 } from "@gizclaw/gizclaw/peerhttp";
 
 export type {
+  AudioPlayerItem,
+  AudioPlayerStatus,
+  AudioPlayerResponse,
+  AudioPlayerPlaylist,
+  AudioPlayerPlaylistSetRequest,
+  AudioPlayerPlaylistAppendRequest,
+  AudioPlayerPlayRequest,
+  AudioPlayerModeSetRequest,
   DeviceWorkspace,
   DeviceLogPage,
   PeerRunHistoryListResponse,
@@ -305,6 +326,20 @@ export interface GizClawControlApiKeys {
 }
 
 export interface GizClawControlDevice {
+  getAudioPlayer(): Promise<AudioPlayerResponse>;
+  getAudioPlayerPlaylist(): Promise<AudioPlayerPlaylist>;
+  setAudioPlayerPlaylist(
+    body: AudioPlayerPlaylistSetRequest,
+  ): Promise<AudioPlayerResponse>;
+  appendAudioPlayerPlaylist(
+    body: AudioPlayerPlaylistAppendRequest,
+  ): Promise<AudioPlayerResponse>;
+  playAudioPlayer(body: AudioPlayerPlayRequest): Promise<AudioPlayerResponse>;
+  stopAudioPlayer(): Promise<AudioPlayerResponse>;
+  setAudioPlayerMode(
+    body: AudioPlayerModeSetRequest,
+  ): Promise<AudioPlayerResponse>;
+
   /** Owned Workspaces, including system Workspaces. */
   listWorkspaces(): Promise<DeviceWorkspace[]>;
   /** Search persisted chat within an owned Workspace. */
@@ -322,9 +357,9 @@ export interface GizClawControlDevice {
   getRuntime(): Promise<Runtime>;
   /** `GET /gizclaw/v1/device/status`: the stored snapshot, never contacts the device. */
   getStatus(): Promise<PeerStatus>;
-  /** `GET /gizclaw/v1/device/telemetry/latest`; omitted `fields` means every field. */
+  /** `GET /gizclaw/v1/device/telemetry/{field}/latest`. */
   getTelemetryLatest(
-    fields?: readonly PeerTelemetryField[],
+    field: PeerTelemetryField,
   ): Promise<PeerTelemetryLatestResponse>;
   /** `GET /gizclaw/v1/device/telemetry`. */
   queryTelemetry(query: {
@@ -514,16 +549,42 @@ export function createGizClawControlClient(
       },
       get: () => unwrap("getDevice", getDevice(common)),
       getRuntime: () => unwrap("getDeviceRuntime", getDeviceRuntime(common)),
+      getAudioPlayer: () =>
+        unwrap("getDeviceAudioPlayer", getDeviceAudioPlayer(common)),
+      getAudioPlayerPlaylist: () =>
+        unwrap(
+          "getDeviceAudioPlayerPlaylist",
+          getDeviceAudioPlayerPlaylist(common),
+        ),
+      setAudioPlayerPlaylist: (body) =>
+        unwrap(
+          "setDeviceAudioPlayerPlaylist",
+          setDeviceAudioPlayerPlaylist({ ...common, body }),
+        ),
+      appendAudioPlayerPlaylist: (body) =>
+        unwrap(
+          "appendDeviceAudioPlayerPlaylist",
+          appendDeviceAudioPlayerPlaylist({ ...common, body }),
+        ),
+      playAudioPlayer: (body) =>
+        unwrap(
+          "playDeviceAudioPlayer",
+          playDeviceAudioPlayer({ ...common, body }),
+        ),
+      stopAudioPlayer: () =>
+        unwrap("stopDeviceAudioPlayer", stopDeviceAudioPlayer(common)),
+      setAudioPlayerMode: (body) =>
+        unwrap(
+          "setDeviceAudioPlayerMode",
+          setDeviceAudioPlayerMode({ ...common, body }),
+        ),
       getStatus: () => unwrap("getDeviceStatus", getDeviceStatus(common)),
-      getTelemetryLatest: (fields) =>
+      getTelemetryLatest: (field) =>
         unwrap(
           "getDeviceTelemetryLatest",
           getDeviceTelemetryLatest({
             ...common,
-            query:
-              fields === undefined || fields.length === 0
-                ? undefined
-                : { fields: fields.join(",") },
+            path: { field },
           }),
         ),
       queryTelemetry: (query) =>

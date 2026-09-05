@@ -192,4 +192,11 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_WIFI_CONNECT = 109 [(rpc_method) = { name: "client.wifi.connect" request: "ClientWifiConnectRequest" response: "ClientWifiConnectResponse" }];
   RPC_METHOD_CLIENT_FIRMWARE_UPDATE = 111 [(rpc_method) = { name: "client.firmware.update" request: "ClientFirmwareUpdateRequest" response: "ClientFirmwareUpdateResponse" }];
   RPC_METHOD_SERVER_RUNTIME_PUT = 112 [(rpc_method) = { name: "server.runtime.put" request: "ServerPutRuntimeRequest" response: "ServerPutRuntimeResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET = 113 [(rpc_method) = { name: "client.device.audioplayer.get" request: "ClientDeviceAudioPlayerGetRequest" response: "ClientDeviceAudioPlayerGetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET = 114 [(rpc_method) = { name: "client.device.audioplayer.playlist.get" request: "ClientDeviceAudioPlayerPlaylistGetRequest" response: "ClientDeviceAudioPlayerPlaylistGetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET = 115 [(rpc_method) = { name: "client.device.audioplayer.playlist.set" request: "ClientDeviceAudioPlayerPlaylistSetRequest" response: "ClientDeviceAudioPlayerPlaylistSetResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND = 116 [(rpc_method) = { name: "client.device.audioplayer.playlist.append" request: "ClientDeviceAudioPlayerPlaylistAppendRequest" response: "ClientDeviceAudioPlayerPlaylistAppendResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117 [(rpc_method) = { name: "client.device.audioplayer.play" request: "ClientDeviceAudioPlayerPlayRequest" response: "ClientDeviceAudioPlayerPlayResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118 [(rpc_method) = { name: "client.device.audioplayer.stop" request: "ClientDeviceAudioPlayerStopRequest" response: "ClientDeviceAudioPlayerStopResponse" }];
+  RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119 [(rpc_method) = { name: "client.device.audioplayer.mode.set" request: "ClientDeviceAudioPlayerModeSetRequest" response: "ClientDeviceAudioPlayerModeSetResponse" }];
 }

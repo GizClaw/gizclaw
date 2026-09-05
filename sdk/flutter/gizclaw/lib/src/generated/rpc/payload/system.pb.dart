@@ -16,6 +16,8 @@ import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
+import 'audioplayer.pb.dart' as $1;
+
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 class ClientGetIdentifiersRequest extends $pb.GeneratedMessage {
@@ -1999,6 +2001,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     $fixnum.Int64? volume,
     $core.String? firmwareSha256,
     PeerOtaStatus? ota,
+    $1.AudioPlayerStatus? audioplayer,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -2014,6 +2017,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (volume != null) result.volume = volume;
     if (firmwareSha256 != null) result.firmwareSha256 = firmwareSha256;
     if (ota != null) result.ota = ota;
+    if (audioplayer != null) result.audioplayer = audioplayer;
     return result;
   }
 
@@ -2049,6 +2053,8 @@ class PeerStatus extends $pb.GeneratedMessage {
     ..aOS(12, _omitFieldNames ? '' : 'firmwareSha256')
     ..aOM<PeerOtaStatus>(13, _omitFieldNames ? '' : 'ota',
         subBuilder: PeerOtaStatus.create)
+    ..aOM<$1.AudioPlayerStatus>(14, _omitFieldNames ? '' : 'audioplayer',
+        subBuilder: $1.AudioPlayerStatus.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2183,6 +2189,17 @@ class PeerStatus extends $pb.GeneratedMessage {
   void clearOta() => $_clearField(13);
   @$pb.TagNumber(13)
   PeerOtaStatus ensureOta() => $_ensure(12);
+
+  @$pb.TagNumber(14)
+  $1.AudioPlayerStatus get audioplayer => $_getN(13);
+  @$pb.TagNumber(14)
+  set audioplayer($1.AudioPlayerStatus value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasAudioplayer() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearAudioplayer() => $_clearField(14);
+  @$pb.TagNumber(14)
+  $1.AudioPlayerStatus ensureAudioplayer() => $_ensure(13);
 }
 
 class PingRequest extends $pb.GeneratedMessage {

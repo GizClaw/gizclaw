@@ -23,7 +23,7 @@ steps:
     client: peer
     http:
       method: GET
-      path: /gizclaw/v1/device/telemetry/latest
+      path: /gizclaw/v1/device/telemetry/battery.percent/latest
       headers: {Authorization: "Bearer ${api_key}"}
       status: 200
     capture: {public_key: /peer_public_key}

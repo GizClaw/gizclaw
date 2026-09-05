@@ -293,6 +293,28 @@ typedef struct {
   int64_t tx_bytes;
 } gzc_control_device_runtime_t;
 
+/* Strings borrow from the response buffer until the next call. */
+typedef struct {
+  gzc_str_t url;
+  gzc_str_t title;
+  gzc_str_t source_ref;
+} gzc_control_audioplayer_item_t;
+
+typedef struct {
+  gzc_str_t state;
+  bool has_current_index;
+  int32_t current_index;
+  int64_t position_ms;
+  bool has_duration_ms;
+  int64_t duration_ms;
+  gzc_str_t repeat;
+  int64_t playlist_length;
+  int64_t playlist_revision;
+  gzc_str_t error_code;
+  gzc_str_t error_message;
+  int64_t observed_at_unix_ms;
+} gzc_control_audioplayer_status_t;
+
 /*
  * Latest status reported by the device (shared `PeerStatus`).
  *
@@ -301,6 +323,8 @@ typedef struct {
  */
 typedef struct {
   gzc_str_t reported_at;
+  bool has_audioplayer;
+  gzc_control_audioplayer_status_t audioplayer;
   bool has_volume;
   int32_t volume;
   bool has_muted;
@@ -535,15 +559,14 @@ int gzc_control_get_device_status(
     gzc_control_peer_status_t *out_status);
 
 /*
- * `GET /gizclaw/v1/device/telemetry/latest`.
+ * `GET /gizclaw/v1/device/telemetry/{field}/latest`.
  *
- * `fields` is a comma-separated list of telemetry field names; an empty value
- * requests every supported field.
+ * `field` is one required telemetry field name.
  */
 int gzc_control_get_device_telemetry_latest(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
-    gzc_str_t fields,
+    gzc_str_t field,
     gzc_control_telemetry_value_t *out_values,
     size_t cap,
     size_t *out_count,
@@ -700,6 +723,16 @@ int gzc_control_delete_contact(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
     gzc_str_t contact_name);
+
+/* Player controls never retry implicitly. Playlist set replaces and stops;
+ * append preserves playback. Play acknowledges acceptance, not audible output. */
+int gzc_control_get_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status);
+int gzc_control_get_device_audioplayer_playlist(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_item_t *out_items, size_t cap, size_t *out_count, int64_t *out_revision);
+int gzc_control_set_device_audioplayer_playlist(gzc_control_client_t *client, gzc_control_call_t *call, const gzc_control_audioplayer_item_t *items, size_t count, gzc_control_audioplayer_status_t *out_status);
+int gzc_control_append_device_audioplayer_playlist(gzc_control_client_t *client, gzc_control_call_t *call, const gzc_control_audioplayer_item_t *items, size_t count, gzc_control_audioplayer_status_t *out_status);
+int gzc_control_play_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, uint32_t index, gzc_control_audioplayer_status_t *out_status);
+int gzc_control_stop_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status);
+int gzc_control_set_device_audioplayer_mode(gzc_control_client_t *client, gzc_control_call_t *call, gzc_str_t repeat, gzc_control_audioplayer_status_t *out_status);
 
 #ifdef __cplusplus
 }

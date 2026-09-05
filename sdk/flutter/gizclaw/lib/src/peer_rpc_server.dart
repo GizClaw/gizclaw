@@ -34,11 +34,52 @@ class GizClawDeviceControlException implements Exception {
   String toString() => 'GizClawDeviceControlException($code, $message)';
 }
 
+/// Device single-player providers. Playlist mutations must be atomic.
+class GizClawAudioPlayerHandlers {
+  const GizClawAudioPlayerHandlers({
+    this.get,
+    this.playlistGet,
+    this.playlistSet,
+    this.playlistAppend,
+    this.play,
+    this.stop,
+    this.modeSet,
+  });
+  final FutureOr<payload.ClientDeviceAudioPlayerGetResponse> Function(
+    payload.ClientDeviceAudioPlayerGetRequest request,
+  )?
+  get;
+  final FutureOr<payload.ClientDeviceAudioPlayerPlaylistGetResponse> Function(
+    payload.ClientDeviceAudioPlayerPlaylistGetRequest request,
+  )?
+  playlistGet;
+  final FutureOr<payload.ClientDeviceAudioPlayerPlaylistSetResponse> Function(
+    payload.ClientDeviceAudioPlayerPlaylistSetRequest request,
+  )?
+  playlistSet;
+  final FutureOr<payload.ClientDeviceAudioPlayerPlaylistAppendResponse>
+  Function(payload.ClientDeviceAudioPlayerPlaylistAppendRequest request)?
+  playlistAppend;
+  final FutureOr<payload.ClientDeviceAudioPlayerPlayResponse> Function(
+    payload.ClientDeviceAudioPlayerPlayRequest request,
+  )?
+  play;
+  final FutureOr<payload.ClientDeviceAudioPlayerStopResponse> Function(
+    payload.ClientDeviceAudioPlayerStopRequest request,
+  )?
+  stop;
+  final FutureOr<payload.ClientDeviceAudioPlayerModeSetResponse> Function(
+    payload.ClientDeviceAudioPlayerModeSetRequest request,
+  )?
+  modeSet;
+}
+
 /// Implements the Server-initiated `client.device.*` and `client.wifi.*`
 /// methods. A null handler answers `METHOD_NOT_FOUND`, which the Server maps
 /// to `501 DEVICE_UNSUPPORTED`.
 class GizClawDeviceControlHandlers {
   const GizClawDeviceControlHandlers({
+    this.audioplayer,
     this.status,
     this.setVolume,
     this.playSound,
@@ -51,6 +92,7 @@ class GizClawDeviceControlHandlers {
     this.updateFirmware,
   });
 
+  final GizClawAudioPlayerHandlers? audioplayer;
   final FutureOr<payload.PeerStatus> Function()? status;
   final FutureOr<payload.PeerStatus> Function(int level, bool muted)? setVolume;
   final FutureOr<void> Function(String sound, int? durationMs)? playSound;
@@ -93,6 +135,14 @@ class GizClawPeerRpcHandlers {
 }
 
 const _deviceControlMethods = {
+  'client.device.audioplayer.get',
+  'client.device.audioplayer.playlist.get',
+  'client.device.audioplayer.playlist.set',
+  'client.device.audioplayer.playlist.append',
+  'client.device.audioplayer.play',
+  'client.device.audioplayer.stop',
+  'client.device.audioplayer.mode.set',
+
   'client.device.status.get',
   'client.device.volume.set',
   'client.device.sound.play',
@@ -273,6 +323,13 @@ class _InboundPeerRpcChannel {
       case 'client.info.get':
       case 'client.identifiers.get':
       case 'client.tool.invoke':
+      case 'client.device.audioplayer.get':
+      case 'client.device.audioplayer.playlist.get':
+      case 'client.device.audioplayer.playlist.set':
+      case 'client.device.audioplayer.playlist.append':
+      case 'client.device.audioplayer.play':
+      case 'client.device.audioplayer.stop':
+      case 'client.device.audioplayer.mode.set':
       case 'client.device.status.get':
       case 'client.device.volume.set':
       case 'client.device.sound.play':
@@ -472,6 +529,77 @@ class _InboundPeerRpcChannel {
       return invalid();
     }
     switch (methodName) {
+      case 'client.device.audioplayer.get':
+        final handler = handlers?.audioplayer?.get;
+        if (handler == null) return unsupported();
+        final player = params as payload.ClientDeviceAudioPlayerGetRequest;
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
+      case 'client.device.audioplayer.playlist.get':
+        final handler = handlers?.audioplayer?.playlistGet;
+        if (handler == null) return unsupported();
+        final player =
+            params as payload.ClientDeviceAudioPlayerPlaylistGetRequest;
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
+      case 'client.device.audioplayer.playlist.set':
+        final handler = handlers?.audioplayer?.playlistSet;
+        if (handler == null) return unsupported();
+        final player =
+            params as payload.ClientDeviceAudioPlayerPlaylistSetRequest;
+        if (!_validAudioPlayerItems(player.items, false)) return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
+      case 'client.device.audioplayer.playlist.append':
+        final handler = handlers?.audioplayer?.playlistAppend;
+        if (handler == null) return unsupported();
+        final player =
+            params as payload.ClientDeviceAudioPlayerPlaylistAppendRequest;
+        if (!_validAudioPlayerItems(player.items, true)) return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
+      case 'client.device.audioplayer.play':
+        final handler = handlers?.audioplayer?.play;
+        if (handler == null) return unsupported();
+        final player = params as payload.ClientDeviceAudioPlayerPlayRequest;
+        if (!player.hasIndex() || player.index >= 32) return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
+      case 'client.device.audioplayer.stop':
+        final handler = handlers?.audioplayer?.stop;
+        if (handler == null) return unsupported();
+        final player = params as payload.ClientDeviceAudioPlayerStopRequest;
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
+      case 'client.device.audioplayer.mode.set':
+        final handler = handlers?.audioplayer?.modeSet;
+        if (handler == null) return unsupported();
+        final player = params as payload.ClientDeviceAudioPlayerModeSetRequest;
+        if (!const {'off', 'one', 'all'}.contains(player.repeat))
+          return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(player),
+        );
       case 'client.device.status.get':
         final handler = handlers?.status;
         if (handler == null) return unsupported();
@@ -763,3 +891,19 @@ class _InboundPeerRpcChannel {
 }
 
 void _unawaited(Future<void> future) {}
+
+bool _validAudioPlayerItems(List<payload.AudioPlayerItem> items, bool append) {
+  if (items.length > 32 || (append && items.isEmpty)) return false;
+  return items.every((item) {
+    final uri = Uri.tryParse(item.url);
+    if (utf8.encode(item.url).length > 1024 ||
+        uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment)
+      return false;
+    return utf8.encode(item.title).length <= 128 &&
+        utf8.encode(item.sourceRef).length <= 128;
+  });
+}

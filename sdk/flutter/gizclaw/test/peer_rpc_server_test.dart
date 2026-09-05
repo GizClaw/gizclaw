@@ -11,6 +11,61 @@ import 'fake_transport.dart';
 
 void main() {
   deviceControlTests();
+  test(
+    'audioplayer preserves explicit zero index and rejects missing index',
+    () async {
+      var calls = 0;
+      final handlers = GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'player'),
+        deviceControl: GizClawDeviceControlHandlers(
+          audioplayer: GizClawAudioPlayerHandlers(
+            play: (request) {
+              calls++;
+              expect(request.index, 0);
+              return ClientDeviceAudioPlayerPlayResponse(
+                value: AudioPlayerStatus(
+                  state: 'buffering',
+                  currentIndex: 0,
+                  repeat: 'off',
+                  playlistLength: 1,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      for (final index in <int?>[0, null]) {
+        final channel = FakeDataChannel('giznet/v1/service/0');
+        addTearDown(channel.close);
+        serveGizClawPeerRpcChannel(channel, handlers: handlers);
+        final response = await _callInbound(
+          channel,
+          id: 'player',
+          method: rpc.RpcMethod.RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
+          methodName: 'client.device.audioplayer.play',
+          request: ClientDeviceAudioPlayerPlayRequest(index: index),
+        );
+        if (index == null) {
+          expect(
+            response.status.code,
+            rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+          );
+        } else {
+          expect(response.hasStatus(), isFalse);
+          final result =
+              decodeRpcResponsePayload(
+                    'client.device.audioplayer.play',
+                    response.payload,
+                  )
+                  as ClientDeviceAudioPlayerPlayResponse;
+          expect(result.value.hasCurrentIndex(), isTrue);
+          expect(result.value.currentIndex, 0);
+        }
+      }
+      expect(calls, 1);
+    },
+  );
+
   test('serves server-initiated all.ping requests', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     serveGizClawPeerRpcChannel(channel);

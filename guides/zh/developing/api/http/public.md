@@ -22,7 +22,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 - `GET /device` 返回 `DeviceInfo`（name、emoji、`HardwareInfo`、`DeviceIdentifiers`），与 `server.info.get` 同源。
 - `GET /device/runtime` 返回 `Runtime`（online、last seen、address、RX/TX），读取不刷新在线状态。
 - `GET /device/status` 返回最近一次 authoritative `PeerStatus` snapshot；不提供 `fresh` 参数，`client.device.status.get` 只用于控制响应回写。
-- `GET /device/telemetry/latest`、`/device/telemetry`、`/device/telemetry/aggregate` 保留 Admin telemetry 的字段枚举、采样时间、查询边界、排序与 aggregate 语义，只把 Peer 固定为 owner。
+- `GET /device/telemetry/{field}/latest`、`/device/telemetry`、`/device/telemetry/aggregate` 保留 Admin telemetry 的字段枚举、采样时间、查询边界、排序与 aggregate 语义，只把 Peer 固定为 owner。
 - `GET /device/firmware` 返回 owner 绑定的 Firmware 配置的全部 channel（`stable`、`beta`、`develop`），每个 channel 携带可选的 `description` 与 `package`（`url`、`sha256`、`size`），与 `server.firmware.get` 同源。Channel 选择归调用方：Server 不保存设备当前使用的 channel，本 route 一次返回全部 channel，由调用方自行选择。未绑定 `firmware_id` 或绑定的配置已不存在返回 `404 FIRMWARE_NOT_FOUND`；某个 channel 未配置包时该 slot 省略 `package`，不报错。
 - `/contacts` 的 list/create/get/put/delete 使用 `services/social/contact` 的同一 owner-scoped 数据；`{contactName}` 是 owner 作用域内不可变的 `name`，跨 owner 与不存在统一返回 `404 CONTACT_NOT_FOUND`，name 或 phone 冲突返回 `409 CONTACT_ALREADY_EXISTS`。
 
@@ -85,3 +85,17 @@ API key 管理、Admin 和 OpenAI 接口不接受公钥调试授权。
 无匹配返回空数组，只公开公钥。SN 和 IMEI 均为设备声明的非唯一标识。
 IMEI 索引为 `by-imei:<tac>:<serial>:<pubkey>`，按前缀列举并回读设备记录核对，更新和删除只影响对应公钥。
 Admin IMEI 查询为 `/peers/@findPubKeysByImei/{tac}/{serial}`，CLI `admin peers resolve-imei` 同样返回公钥列表。
+
+## 音乐点播
+
+以下路径均使用 `/gizclaw/v1` 前缀和现有设备访问授权。set/append 接收 `{ "items": [...] }`，play 接收 `{ "index": 0 }`，mode 接收 `{ "repeat": "all" }`。除 playlist.get 返回 `{ "items": [...], "playlist_revision": 1 }` 外，成功返回 `{ "status": ... }`，HTTP 200。错误沿用设备控制错误映射；append 不自动重试。点播单个 URL 时先设置单项列表，再播放索引 0。完整语义见 [播放器 provider](../proto/rpc/client-provided-to-server#音乐播放器)。
+
+| HTTP | RPC |
+| --- | --- |
+| `GET /device/audioplayer` | `client.device.audioplayer.get` |
+| `GET /device/audioplayer/playlist` | `client.device.audioplayer.playlist.get` |
+| `PUT /device/audioplayer/playlist` | `client.device.audioplayer.playlist.set` |
+| `POST /device/audioplayer/playlist/append` | `client.device.audioplayer.playlist.append` |
+| `POST /device/audioplayer/actions/play` | `client.device.audioplayer.play` |
+| `POST /device/audioplayer/actions/stop` | `client.device.audioplayer.stop` |
+| `PUT /device/audioplayer/mode` | `client.device.audioplayer.mode.set` |

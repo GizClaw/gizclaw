@@ -444,7 +444,7 @@ int gzc_control_get_device_status(
 int gzc_control_get_device_telemetry_latest(
     gzc_control_client_t *client,
     gzc_control_call_t *call,
-    gzc_str_t fields,
+    gzc_str_t field,
     gzc_control_telemetry_value_t *out_values,
     size_t cap,
     size_t *out_count,
@@ -457,8 +457,9 @@ int gzc_control_get_device_telemetry_latest(
   *out_count = 0;
   *out_peer_public_key = gzc_str_from_parts(NULL, 0);
   gzc_control_builder_t builder;
-  builder_begin(&builder, client, call, "/device/telemetry/latest");
-  builder_query_str(&builder, "fields", fields);
+  builder_begin(&builder, client, call, "/device/telemetry");
+  builder_segment(&builder, field);
+  builder_segment(&builder, gzc_str_from_cstr("latest"));
   gzc_str_t url = builder_url(&builder);
   rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
   if (rc != GZC_OK) {
@@ -987,4 +988,122 @@ int gzc_control_delete_contact(
     return GZC_ERR_INVALID_ARGUMENT;
   }
   return delete_route(client, call, "/contacts", contact_name);
+}
+
+static int audioplayer_decode_response(gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
+  gzc_str_t object, status;
+  int rc = decoded_object(call, &object);
+  bool present = false;
+  if (rc == GZC_OK)
+    rc = gzc_control_field(object, "status", &status, &present);
+  if (rc == GZC_OK && !present)
+    rc = GZC_ERR_JSON;
+  if (rc == GZC_OK)
+    rc = gzc_control_decode_audioplayer_status(status, out_status);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
+static int audioplayer_status_route(gzc_control_client_t *client, gzc_control_call_t *call, const char *route, gzc_http_method_t method, const uint32_t *index, const gzc_str_t *repeat, gzc_control_audioplayer_status_t *out_status) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_status == NULL)
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, route);
+  gzc_str_t url = builder_url(&builder);
+  gzc_str_t body = gzc_str_from_parts(NULL, 0);
+  if (index != NULL || repeat != NULL) {
+    gzc_json_writer_t writer;
+    builder_body_begin(&builder, &writer);
+    if (builder.rc == GZC_OK && index != NULL)
+      builder.rc = gzc_json_field_i64(&writer, "index", *index);
+    if (builder.rc == GZC_OK && repeat != NULL)
+      builder.rc = gzc_json_field_str(&writer, "repeat", *repeat);
+    body = builder_body(&builder, &writer);
+  }
+  rc = builder_send(&builder, client, call, method, url, body);
+  return rc == GZC_OK ? audioplayer_decode_response(call, out_status) : rc;
+}
+
+int gzc_control_get_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
+  return audioplayer_status_route(client, call, "/device/audioplayer", GZC_HTTP_METHOD_GET, NULL, NULL, out_status);
+}
+
+int gzc_control_stop_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status) {
+  return audioplayer_status_route(client, call, "/device/audioplayer/actions/stop", GZC_HTTP_METHOD_POST, NULL, NULL, out_status);
+}
+
+int gzc_control_play_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, uint32_t index, gzc_control_audioplayer_status_t *out_status) {
+  return audioplayer_status_route(client, call, "/device/audioplayer/actions/play", GZC_HTTP_METHOD_POST, &index, NULL, out_status);
+}
+
+int gzc_control_set_device_audioplayer_mode(gzc_control_client_t *client, gzc_control_call_t *call, gzc_str_t repeat, gzc_control_audioplayer_status_t *out_status) {
+  return audioplayer_status_route(client, call, "/device/audioplayer/mode", GZC_HTTP_METHOD_PUT, NULL, &repeat, out_status);
+}
+
+static int audioplayer_playlist_write(gzc_control_client_t *client, gzc_control_call_t *call, const gzc_control_audioplayer_item_t *items, size_t count, bool append, gzc_control_audioplayer_status_t *out_status) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_status == NULL || (items == NULL && count != 0))
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, append ? "/device/audioplayer/playlist/append" : "/device/audioplayer/playlist");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, "\"items\":[");
+  for (size_t i = 0; i < count && builder.rc == GZC_OK; i++) {
+    if (i != 0)
+      builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, ",");
+    gzc_json_writer_t item;
+    gzc_json_writer_init(&item, builder.platform, &builder.buf);
+    if (builder.rc == GZC_OK)
+      builder.rc = gzc_json_object_begin(&item);
+    if (builder.rc == GZC_OK)
+      builder.rc = gzc_json_field_str(&item, "url", items[i].url);
+    if (builder.rc == GZC_OK && items[i].title.data != NULL)
+      builder.rc = gzc_json_field_str(&item, "title", items[i].title);
+    if (builder.rc == GZC_OK && items[i].source_ref.data != NULL)
+      builder.rc = gzc_json_field_str(&item, "source_ref", items[i].source_ref);
+    if (builder.rc == GZC_OK)
+      builder.rc = gzc_json_object_end(&item);
+  }
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_buf_append_cstr(&builder.buf, builder.platform, "]");
+  gzc_str_t body = builder_body(&builder, &writer);
+  rc = builder_send(&builder, client, call, append ? GZC_HTTP_METHOD_POST : GZC_HTTP_METHOD_PUT, url, body);
+  return rc == GZC_OK ? audioplayer_decode_response(call, out_status) : rc;
+}
+
+int gzc_control_set_device_audioplayer_playlist(gzc_control_client_t *client, gzc_control_call_t *call, const gzc_control_audioplayer_item_t *items, size_t count, gzc_control_audioplayer_status_t *out_status) {
+  return audioplayer_playlist_write(client, call, items, count, false, out_status);
+}
+
+int gzc_control_append_device_audioplayer_playlist(gzc_control_client_t *client, gzc_control_call_t *call, const gzc_control_audioplayer_item_t *items, size_t count, gzc_control_audioplayer_status_t *out_status) {
+  return audioplayer_playlist_write(client, call, items, count, true, out_status);
+}
+
+int gzc_control_get_device_audioplayer_playlist(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_item_t *out_items, size_t cap, size_t *out_count, int64_t *out_revision) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_count == NULL || out_revision == NULL || (out_items == NULL && cap != 0))
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  *out_count = 0;
+  *out_revision = 0;
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/audioplayer/playlist");
+  gzc_str_t url = builder_url(&builder);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
+  if (rc != GZC_OK)
+    return rc;
+  gzc_str_t object, items;
+  rc = decoded_object(call, &object);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_i64(object, "playlist_revision", out_revision);
+  bool present = false;
+  if (rc == GZC_OK)
+    rc = gzc_control_field(object, "items", &items, &present);
+  if (rc == GZC_OK && !present)
+    rc = GZC_ERR_JSON;
+  if (rc == GZC_OK)
+    rc = gzc_control_decode_array(items, out_items, sizeof(*out_items), cap, out_count, gzc_control_decode_audioplayer_item);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
 }

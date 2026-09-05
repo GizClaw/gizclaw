@@ -278,6 +278,19 @@ static void test_query_parameters_and_encoding(void) {
       "telemetry url");
   check(count == 1 && points[0].observed_at_unix_ms == 1, "telemetry points");
 
+  stub.response_body = "{\"peer_public_key\":\"pk\",\"values\":[{\"field\":\"battery.percent\",\"value\":88,\"observed_at_unix_ms\":1}]}";
+  gzc_control_telemetry_value_t latest[1];
+  gzc_str_t peer;
+  check(gzc_control_get_device_telemetry_latest(&client, &call,
+                                                gzc_str_from_cstr(GZC_CONTROL_TELEMETRY_BATTERY_PERCENT), latest, 1, &count, &peer) == GZC_OK,
+        "latest telemetry");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/telemetry/battery.percent/latest") == 0,
+        "latest field path");
+  check(count == 1 && latest[0].value == 88, "latest telemetry value");
+  check(gzc_control_get_device_telemetry_latest(&client, &call,
+                                                gzc_str_from_parts(NULL, 0), latest, 1, &count, &peer) == GZC_ERR_INVALID_ARGUMENT,
+        "latest requires a field");
+
   /* A path segment with reserved characters is percent-encoded. */
   stub.status_code = 204;
   stub.response_body = "";
@@ -672,7 +685,39 @@ static void test_device_info_raw_and_identifiers(void) {
   check_str(labels[0].key, "line", "device label key");
 }
 
+static void test_audioplayer(void) {
+  stub_t stub = {0};
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  stub.status_code = 200;
+  stub.response_body = "{\"status\":{\"state\":\"buffering\",\"current_index\":0,\"position_ms\":0,\"repeat\":\"all\",\"playlist_length\":1,\"playlist_revision\":2,\"observed_at_unix_ms\":1700000000000}}";
+  init_client(&client, &stub, &http);
+  uint8_t scratch[2048], response[2048];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "audio call init");
+  gzc_control_audioplayer_status_t status;
+  check(gzc_control_play_device_audioplayer(&client, &call, 0, &status) == GZC_OK, "audio play");
+  check(strcmp(stub.body, "{\"index\":0}") == 0, "explicit zero index");
+  check(status.has_current_index && status.current_index == 0 && status.position_ms == 0, "zero status fields");
+  check_str(status.state, "buffering", "audio state");
+  gzc_control_audioplayer_item_t item = {gzc_str_from_cstr("https://media.example/music.mp3"), gzc_str_from_cstr("a\"b"), {0}};
+  check(gzc_control_set_device_audioplayer_playlist(&client, &call, &item, 1, &status) == GZC_OK, "audio set list");
+  check(strcmp(stub.body, "{\"items\":[{\"url\":\"https://media.example/music.mp3\",\"title\":\"a\\\"b\"}]}") == 0, "playlist JSON escaping");
+  check(gzc_control_append_device_audioplayer_playlist(&client, &call, &item, 1, &status) == GZC_OK, "audio append");
+  check(stub.method == GZC_HTTP_METHOD_POST, "append POST");
+  check(gzc_control_set_device_audioplayer_mode(&client, &call, gzc_str_from_cstr("all"), &status) == GZC_OK, "audio mode");
+  check(gzc_control_stop_device_audioplayer(&client, &call, &status) == GZC_OK, "audio stop");
+  stub.response_body = "{\"items\":[{\"url\":\"https://media.example/music.mp3\"}],\"playlist_revision\":2}";
+  size_t count;
+  int64_t revision;
+  check(gzc_control_get_device_audioplayer_playlist(&client, &call, &item, 1, &count, &revision) == GZC_OK, "audio get list");
+  check(count == 1 && revision == 2, "audio list metadata");
+  stub.response_body = "{\"status\":{}}";
+  check(gzc_control_get_device_audioplayer(&client, &call, &status) == GZC_ERR_JSON, "reject malformed audio status");
+}
+
 int main(void) {
+  test_audioplayer();
   test_client_init_rejects_bad_config();
   test_get_device_status();
   test_peer_status_labels_span_escapes();

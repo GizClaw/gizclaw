@@ -115,6 +115,23 @@ export type ASTTranslateWorkspaceParameters = {
 export type AgentSelection = {
   "workspace_name": string;
 };
+export type AudioPlayerItem = {
+  "url": string;
+  "title"?: string;
+  "source_ref"?: string;
+};
+export type AudioPlayerStatus = {
+  "state": string;
+  "current_index"?: number;
+  "position_ms": number;
+  "duration_ms"?: number;
+  "repeat": string;
+  "playlist_length": number;
+  "playlist_revision": number;
+  "error_code"?: string;
+  "error_message"?: string;
+  "observed_at_unix_ms": number;
+};
 export type Badge = {
   "active": boolean;
   "badge_def_name": string;
@@ -138,6 +155,31 @@ export type BadgeListResponse = {
   "items": Badge[];
   "next_cursor"?: string;
 };
+export type ClientDeviceAudioPlayerGetRequest = Record<string, never>;
+export type ClientDeviceAudioPlayerGetResponse = AudioPlayerStatus;
+export type ClientDeviceAudioPlayerModeSetRequest = {
+  "repeat": string;
+};
+export type ClientDeviceAudioPlayerModeSetResponse = AudioPlayerStatus;
+export type ClientDeviceAudioPlayerPlayRequest = {
+  "index"?: number;
+};
+export type ClientDeviceAudioPlayerPlayResponse = AudioPlayerStatus;
+export type ClientDeviceAudioPlayerPlaylistAppendRequest = {
+  "items": AudioPlayerItem[];
+};
+export type ClientDeviceAudioPlayerPlaylistAppendResponse = AudioPlayerStatus;
+export type ClientDeviceAudioPlayerPlaylistGetRequest = Record<string, never>;
+export type ClientDeviceAudioPlayerPlaylistGetResponse = {
+  "items": AudioPlayerItem[];
+  "playlist_revision": number;
+};
+export type ClientDeviceAudioPlayerPlaylistSetRequest = {
+  "items": AudioPlayerItem[];
+};
+export type ClientDeviceAudioPlayerPlaylistSetResponse = AudioPlayerStatus;
+export type ClientDeviceAudioPlayerStopRequest = Record<string, never>;
+export type ClientDeviceAudioPlayerStopResponse = AudioPlayerStatus;
 export type ClientDeviceRebootRequest = {
   "delay_ms"?: number;
 };
@@ -849,6 +891,7 @@ export type PeerStatus = {
   "charging"?: boolean;
   "details": Record<string, unknown>;
   "firmware_sha256"?: string;
+  "audioplayer"?: AudioPlayerStatus;
   "gnss_accuracy_m"?: number;
   "gnss_altitude_m"?: number;
   "gnss_latitude"?: number;
@@ -1410,6 +1453,13 @@ export type WorkspacePutResponse = Workspace;
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
   "all.speed_test.run": "SpeedTestRequest",
+  "client.device.audioplayer.get": "ClientDeviceAudioPlayerGetRequest",
+  "client.device.audioplayer.mode.set": "ClientDeviceAudioPlayerModeSetRequest",
+  "client.device.audioplayer.play": "ClientDeviceAudioPlayerPlayRequest",
+  "client.device.audioplayer.playlist.append": "ClientDeviceAudioPlayerPlaylistAppendRequest",
+  "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetRequest",
+  "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetRequest",
+  "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopRequest",
   "client.device.reboot": "ClientDeviceRebootRequest",
   "client.device.sound.play": "ClientDeviceSoundPlayRequest",
   "client.device.status.get": "ClientDeviceStatusGetRequest",
@@ -1520,6 +1570,13 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingResponse",
   "all.speed_test.run": "SpeedTestResponse",
+  "client.device.audioplayer.get": "ClientDeviceAudioPlayerGetResponse",
+  "client.device.audioplayer.mode.set": "ClientDeviceAudioPlayerModeSetResponse",
+  "client.device.audioplayer.play": "ClientDeviceAudioPlayerPlayResponse",
+  "client.device.audioplayer.playlist.append": "ClientDeviceAudioPlayerPlaylistAppendResponse",
+  "client.device.audioplayer.playlist.get": "ClientDeviceAudioPlayerPlaylistGetResponse",
+  "client.device.audioplayer.playlist.set": "ClientDeviceAudioPlayerPlaylistSetResponse",
+  "client.device.audioplayer.stop": "ClientDeviceAudioPlayerStopResponse",
   "client.device.reboot": "ClientDeviceRebootResponse",
   "client.device.sound.play": "ClientDeviceSoundPlayResponse",
   "client.device.status.get": "ClientDeviceStatusGetResponse",
@@ -1899,6 +1956,85 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "AudioPlayerItem": {
+    "fields": [
+      {
+        "name": "url",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "title",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "source_ref",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "AudioPlayerStatus": {
+    "fields": [
+      {
+        "name": "state",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "current_index",
+        "number": 2,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "position_ms",
+        "number": 3,
+        "type": "uint64"
+      },
+      {
+        "name": "duration_ms",
+        "number": 4,
+        "optional": true,
+        "type": "uint64"
+      },
+      {
+        "name": "repeat",
+        "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "playlist_length",
+        "number": 6,
+        "type": "uint32"
+      },
+      {
+        "name": "playlist_revision",
+        "number": 7,
+        "type": "uint32"
+      },
+      {
+        "name": "error_code",
+        "number": 8,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "error_message",
+        "number": 9,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "observed_at_unix_ms",
+        "number": 10,
+        "type": "int64"
+      }
+    ]
+  },
   "Badge": {
     "fields": [
       {
@@ -1990,6 +2126,123 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerGetRequest": {
+    "fields": []
+  },
+  "ClientDeviceAudioPlayerGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "AudioPlayerStatus"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerModeSetRequest": {
+    "fields": [
+      {
+        "name": "repeat",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerModeSetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "AudioPlayerStatus"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlaylistAppendRequest": {
+    "fields": [
+      {
+        "name": "items",
+        "number": 1,
+        "repeated": true,
+        "type": "AudioPlayerItem"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlaylistAppendResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "AudioPlayerStatus"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlaylistGetRequest": {
+    "fields": []
+  },
+  "ClientDeviceAudioPlayerPlaylistGetResponse": {
+    "fields": [
+      {
+        "name": "items",
+        "number": 1,
+        "repeated": true,
+        "type": "AudioPlayerItem"
+      },
+      {
+        "name": "playlist_revision",
+        "number": 2,
+        "type": "uint32"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlaylistSetRequest": {
+    "fields": [
+      {
+        "name": "items",
+        "number": 1,
+        "repeated": true,
+        "type": "AudioPlayerItem"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlaylistSetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "AudioPlayerStatus"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlayRequest": {
+    "fields": [
+      {
+        "name": "index",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerPlayResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "AudioPlayerStatus"
+      }
+    ]
+  },
+  "ClientDeviceAudioPlayerStopRequest": {
+    "fields": []
+  },
+  "ClientDeviceAudioPlayerStopResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "AudioPlayerStatus"
       }
     ]
   },
@@ -5242,6 +5495,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 12,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "audioplayer",
+        "number": 14,
+        "optional": true,
+        "type": "AudioPlayerStatus"
       },
       {
         "name": "gnss_accuracy_m",

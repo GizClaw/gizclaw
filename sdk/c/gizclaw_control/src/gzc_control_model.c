@@ -364,6 +364,15 @@ int gzc_control_decode_peer_status(gzc_str_t object_json, gzc_control_peer_statu
     return rc;
   }
   out->raw = object_json;
+  gzc_str_t player;
+  rc = gzc_control_field(object_json, "audioplayer", &player, &out->has_audioplayer);
+  if (rc != GZC_OK)
+    return rc;
+  if (out->has_audioplayer) {
+    rc = gzc_control_decode_audioplayer_status(player, &out->audioplayer);
+    if (rc != GZC_OK)
+      return rc;
+  }
   rc = gzc_control_opt_str(object_json, "reported_at", &out->reported_at);
   if (rc == GZC_OK) {
     rc = gzc_control_opt_i32(object_json, "volume", &out->volume, &out->has_volume);
@@ -653,4 +662,45 @@ int gzc_control_decode_saved_wifi_item(gzc_str_t object_json, void *out) {
     return rc;
   }
   return gzc_control_req_str(object_json, "ssid", ssid);
+}
+
+int gzc_control_decode_audioplayer_item(gzc_str_t object_json, void *result) {
+  gzc_control_audioplayer_item_t *out = result;
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_str(object_json, "url", &out->url);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_str(object_json, "title", &out->title);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_str(object_json, "source_ref", &out->source_ref);
+  return rc;
+}
+
+int gzc_control_decode_audioplayer_status(gzc_str_t object_json, gzc_control_audioplayer_status_t *out) {
+  if (out == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  memset(out, 0, sizeof(*out));
+  int rc = gzc_json_validate_object(object_json);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_str(object_json, "state", &out->state);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_i32(object_json, "current_index", &out->current_index, &out->has_current_index);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_i64(object_json, "position_ms", &out->position_ms);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_i64(object_json, "duration_ms", &out->duration_ms, &out->has_duration_ms);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_str(object_json, "repeat", &out->repeat);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_i64(object_json, "playlist_length", &out->playlist_length);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_i64(object_json, "playlist_revision", &out->playlist_revision);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_str(object_json, "error_code", &out->error_code);
+  if (rc == GZC_OK)
+    rc = gzc_control_opt_str(object_json, "error_message", &out->error_message);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_i64(object_json, "observed_at_unix_ms", &out->observed_at_unix_ms);
+  return rc;
 }

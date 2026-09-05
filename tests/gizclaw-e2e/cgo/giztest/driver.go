@@ -48,7 +48,7 @@ func (driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 
 /*
 controlRoutes are the routes bridge.c dispatches to a typed controller call,
-keyed by method. A trailing "/*" marks a route that takes one path segment.
+keyed by method. A "*" marks exactly one nonempty path segment.
 
 The table mirrors the bridge's own dispatch so `validate` rejects a document
 the runner could not execute, instead of discovering it only once a live stack
@@ -57,7 +57,7 @@ is up.
 var controlRoutes = map[string][]string{
 	http.MethodGet: {
 		"/device", "/device/runtime", "/device/status",
-		"/device/telemetry", "/device/telemetry/latest", "/device/telemetry/aggregate",
+		"/device/telemetry", "/device/telemetry/*/latest", "/device/telemetry/aggregate",
 		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
 		"/contacts", "/contacts/*",
@@ -95,14 +95,24 @@ func validateControlRoute(step giztest.Step) error {
 }
 
 // matchesRoute reports whether route matches candidate, where a candidate
-// ending in "/*" accepts exactly one further path segment.
+// containing "*" accepts exactly one path segment at that position.
 func matchesRoute(route, candidate string) bool {
-	prefix, wildcard := strings.CutSuffix(candidate, "/*")
-	if !wildcard {
-		return route == candidate
+	parts, pattern := strings.Split(route, "/"), strings.Split(candidate, "/")
+	if len(parts) != len(pattern) {
+		return false
 	}
-	tail, ok := strings.CutPrefix(route, prefix+"/")
-	return ok && tail != "" && !strings.Contains(tail, "/")
+	for i, segment := range pattern {
+		if segment == "*" {
+			if parts[i] == "" {
+				return false
+			}
+			continue
+		}
+		if parts[i] != segment {
+			return false
+		}
+	}
+	return true
 }
 
 // FailureCode reports the structured RPC error an rpc step observed.

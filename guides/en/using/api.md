@@ -146,7 +146,7 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `GET /gizclaw/v1/device` | Device name, emoji, hardware info, and identifiers |
 | `GET /gizclaw/v1/device/runtime` | Online state, last seen time, and traffic |
 | `GET /gizclaw/v1/device/status` | Latest reported battery, charging, volume, mute, and GNSS |
-| `GET /gizclaw/v1/device/telemetry/latest`, `/telemetry`, `/telemetry/aggregate` | Sampled telemetry queries with Admin telemetry semantics |
+| `GET /gizclaw/v1/device/telemetry/{field}/latest`, `/telemetry`, `/telemetry/aggregate` | Sampled telemetry queries with Admin telemetry semantics |
 | `PUT /gizclaw/v1/device/volume` | Set volume and mute; returns the status the device reports |
 | `POST /gizclaw/v1/device/actions/play-sound` | Play a device-defined sound |
 | `POST /gizclaw/v1/device/actions/reboot` | Reboot the device |

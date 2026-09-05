@@ -198,7 +198,7 @@ func TestDeviceHTTPTelemetryUsesOwnerAndValidatesQuery(t *testing.T) {
 		}
 	}
 
-	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/telemetry/latest?fields=battery.percent", "")
+	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/telemetry/battery.percent/latest", "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("latest status = %d body=%s", response.Code, response.Body.String())
 	}
@@ -207,9 +207,14 @@ func TestDeviceHTTPTelemetryUsesOwnerAndValidatesQuery(t *testing.T) {
 		t.Fatalf("latest = %+v", latest)
 	}
 
-	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/telemetry/latest?fields=battery.unknown", "")
+	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/telemetry/battery.unknown/latest", "")
 	if response.Code != http.StatusBadRequest || errorCode(t, response) != publicHTTPInvalidRequestCode {
 		t.Fatalf("invalid field status = %d body=%s", response.Code, response.Body.String())
+	}
+
+	response = f.do(t, http.MethodGet, "/gizclaw/v1/device/telemetry/latest", "")
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("removed latest route status=%d", response.Code)
 	}
 
 	start := at.Add(-time.Minute).UnixMilli()

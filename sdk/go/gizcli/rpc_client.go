@@ -33,6 +33,10 @@ func (c *rpcClient) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return c.handleGetClientIdentifiers(ctx, req)
 	case rpcapi.RPCMethodClientToolInvoke:
 		return c.handleInvokeTool(ctx, req)
+	case rpcapi.RPCMethodClientDeviceAudioPlayerGet, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistGet,
+		rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistSet, rpcapi.RPCMethodClientDeviceAudioPlayerPlaylistAppend,
+		rpcapi.RPCMethodClientDeviceAudioPlayerPlay, rpcapi.RPCMethodClientDeviceAudioPlayerStop, rpcapi.RPCMethodClientDeviceAudioPlayerModeSet:
+		return c.handleAudioPlayer(ctx, req)
 	case rpcapi.RPCMethodClientDeviceStatusGet, rpcapi.RPCMethodClientDeviceVolumeSet, rpcapi.RPCMethodClientDeviceSoundPlay,
 		rpcapi.RPCMethodClientDeviceReboot, rpcapi.RPCMethodClientWifiStatusGet, rpcapi.RPCMethodClientWifiSavedList,
 		rpcapi.RPCMethodClientWifiSavedForget, rpcapi.RPCMethodClientWifiScan, rpcapi.RPCMethodClientWifiConnect,

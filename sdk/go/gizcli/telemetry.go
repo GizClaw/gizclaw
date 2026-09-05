@@ -70,3 +70,13 @@ func (c *Client) SendOTATelemetry(observation *telemetrypb.OtaObservation) error
 		Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Ota{Ota: observation}}},
 	})
 }
+
+// SendAudioPlayerTelemetry reports the device's single player state and progress.
+func (c *Client) SendAudioPlayerTelemetry(observation *telemetrypb.AudioPlayerObservation) error {
+	if observation == nil {
+		return fmt.Errorf("gizclaw: nil audioplayer observation")
+	}
+	return c.SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Audioplayer{Audioplayer: observation}}},
+	})
+}

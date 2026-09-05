@@ -1,6 +1,7 @@
 import type { WebRTCRPCDataChannel } from "./index.ts";
 import {
   encodeTelemetryFrame,
+  type AudioPlayerObservation,
   type BatteryObservation,
   type GnssObservation,
   type NetworkObservation,
@@ -11,6 +12,7 @@ import {
 } from "./generated/telemetry/peer_telemetry.ts";
 
 export type {
+  AudioPlayerObservation,
   BatteryObservation,
   GnssObservation,
   NetworkObservation,
@@ -25,6 +27,7 @@ export { OtaState } from "./generated/telemetry/peer_telemetry.ts";
 export const GIZCLAW_EVENT_STREAM_TELEMETRY = 0x40;
 export const GIZCLAW_MAX_PACKET_MESSAGE_SIZE = 64 * 1024;
 const TELEMETRY_OBSERVATION_BODY_KEYS = [
+  "audioplayer",
   "battery",
   "gnss",
   "network",
@@ -95,4 +98,11 @@ export function validateTelemetryFrame(frame: TelemetryFrame): void {
       );
     }
   }
+}
+
+/** Reports the device's single player state and progress. */
+export function audioPlayerTelemetry(
+  input: AudioPlayerObservation,
+): Observation {
+  return { audioplayer: input };
 }

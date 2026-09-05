@@ -21,6 +21,7 @@ var (
 // client.wifi.* methods for this Client. A nil handler answers
 // METHOD_NOT_FOUND, which the Server maps to 501 DEVICE_UNSUPPORTED.
 type DeviceControlHandlers struct {
+	AudioPlayer AudioPlayerHandlers
 	Status      func(context.Context) (rpcapi.PeerStatus, error)
 	SetVolume   func(ctx context.Context, level int64, muted bool) (rpcapi.PeerStatus, error)
 	PlaySound   func(ctx context.Context, sound string, durationMs *int64) error

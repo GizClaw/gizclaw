@@ -8,6 +8,14 @@
   "paths": {},
   "components": {
     "schemas": {
+      "AudioPlayerItem": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerItem"},
+      "AudioPlayerStatus": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerStatus"},
+      "AudioPlayerResponse": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerResponse"},
+      "AudioPlayerPlaylist": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylist"},
+      "AudioPlayerPlaylistSetRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylistSetRequest"},
+      "AudioPlayerPlaylistAppendRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylistAppendRequest"},
+      "AudioPlayerPlayRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlayRequest"},
+      "AudioPlayerModeSetRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerModeSetRequest"},
       "DeviceInfo": {
         "$ref": "./shared/device_info.json#/components/schemas/DeviceInfo"
       },

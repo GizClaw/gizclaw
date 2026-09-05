@@ -14,6 +14,422 @@
     {"name": "Contacts", "description": "Contacts owned by the device bound to the API key"}
   ],
   "paths": {
+    "/gizclaw/v1/device/audioplayer": {
+      "get": {
+        "operationId": "getDeviceAudioPlayer",
+        "summary": "Read the online device audio player snapshot",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/audioplayer/playlist": {
+      "get": {
+        "operationId": "getDeviceAudioPlayerPlaylist",
+        "summary": "Read the online device playlist",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerPlaylist"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        }
+      },
+      "put": {
+        "operationId": "setDeviceAudioPlayerPlaylist",
+        "summary": "Stop and atomically replace the playlist",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/AudioPlayerPlaylistSetRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/audioplayer/playlist/append": {
+      "post": {
+        "operationId": "appendDeviceAudioPlayerPlaylist",
+        "summary": "Atomically append without starting or interrupting playback",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/AudioPlayerPlaylistAppendRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/audioplayer/actions/play": {
+      "post": {
+        "operationId": "playDeviceAudioPlayer",
+        "summary": "Accept playback from the beginning of the selected track",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/AudioPlayerPlayRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/audioplayer/actions/stop": {
+      "post": {
+        "operationId": "stopDeviceAudioPlayer",
+        "summary": "Stop playback and retain the playlist",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/audioplayer/mode": {
+      "put": {
+        "operationId": "setDeviceAudioPlayerMode",
+        "summary": "Set repeat mode without interrupting playback",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device-reported result. Playback acceptance does not imply audio has started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/AudioPlayerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "The device has no matching player resource.",
+            "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./shared.json#/components/schemas/AudioPlayerModeSetRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/gizclaw/v1/device/workspaces": {
       "get": {
         "operationId": "listDeviceWorkspaces",
@@ -541,30 +957,55 @@
         }
       }
     },
-    "/gizclaw/v1/device/telemetry/latest": {
+    "/gizclaw/v1/device/telemetry/{field}/latest": {
       "get": {
         "operationId": "getDeviceTelemetryLatest",
-        "summary": "Get latest sampled telemetry values for the bound device",
-        "tags": ["Device"],
+        "summary": "Get the latest sample of one telemetry field for the bound device",
+        "tags": [
+          "Device"
+        ],
         "security": [
-          {"BearerAuth": []}
+          {
+            "BearerAuth": []
+          }
         ],
         "parameters": [
           {
-            "name": "fields",
-            "in": "query",
-            "required": false,
-            "description": "Comma-separated telemetry field names. Omitted means all supported fields.",
-            "schema": {"type": "string"}
+            "name": "field",
+            "in": "path",
+            "required": true,
+            "description": "The single telemetry field to read.",
+            "schema": {
+              "$ref": "./shared.json#/components/schemas/PeerTelemetryField"
+            }
           }
         ],
         "responses": {
-          "200": {"description": "Latest telemetry values.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryLatestResponse"}}}},
-          "400": {"$ref": "#/components/responses/BadRequest"},
-          "401": {"$ref": "#/components/responses/Unauthorized"},
-          "403": {"$ref": "#/components/responses/Forbidden"},
-          "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "200": {
+            "description": "Latest telemetry values.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PeerTelemetryLatestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
