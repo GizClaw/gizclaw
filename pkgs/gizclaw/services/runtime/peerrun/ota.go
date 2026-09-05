@@ -116,7 +116,7 @@ func newerOTA(current, next apitypes.PeerOtaStatus) bool {
 	if current.State == "downloading" && next.State == "started" {
 		return false
 	}
-	if next.State == "downloading" && current.DownloadPercent != nil && next.DownloadPercent != nil && *next.DownloadPercent < *current.DownloadPercent {
+	if current.DownloadPercent != nil && next.DownloadPercent != nil && *next.DownloadPercent < *current.DownloadPercent {
 		return false
 	}
 	return true

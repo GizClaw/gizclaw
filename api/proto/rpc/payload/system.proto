@@ -157,7 +157,7 @@ message PeerOtaStatus {
 }
 
 message PeerStatus {
-  PeerOtaStatus ota = 13;
+  optional PeerOtaStatus ota = 13;
   optional int64 battery_percent = 1;
   optional bool charging = 2;
   google.protobuf.Struct details = 3;

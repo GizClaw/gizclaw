@@ -1587,7 +1587,7 @@ func (x *PeerOtaStatus) GetErrorMessage() string {
 
 type PeerStatus struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Ota            *PeerOtaStatus         `protobuf:"bytes,13,opt,name=ota,proto3" json:"ota,omitempty"`
+	Ota            *PeerOtaStatus         `protobuf:"bytes,13,opt,name=ota,proto3,oneof" json:"ota,omitempty"`
 	BatteryPercent *int64                 `protobuf:"varint,1,opt,name=battery_percent,json=batteryPercent,proto3,oneof" json:"battery_percent,omitempty"`
 	Charging       *bool                  `protobuf:"varint,2,opt,name=charging,proto3,oneof" json:"charging,omitempty"`
 	Details        *structpb.Struct       `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
@@ -2895,27 +2895,29 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_download_percentB\x11\n" +
 	"\x0f_target_versionB\r\n" +
 	"\v_error_codeB\x10\n" +
-	"\x0e_error_message\"\x9d\x06\n" +
+	"\x0e_error_message\"\xaa\x06\n" +
 	"\n" +
-	"PeerStatus\x12/\n" +
-	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusR\x03ota\x12,\n" +
-	"\x0fbattery_percent\x18\x01 \x01(\x03H\x00R\x0ebatteryPercent\x88\x01\x01\x12\x1f\n" +
-	"\bcharging\x18\x02 \x01(\bH\x01R\bcharging\x88\x01\x01\x121\n" +
+	"PeerStatus\x124\n" +
+	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusH\x00R\x03ota\x88\x01\x01\x12,\n" +
+	"\x0fbattery_percent\x18\x01 \x01(\x03H\x01R\x0ebatteryPercent\x88\x01\x01\x12\x1f\n" +
+	"\bcharging\x18\x02 \x01(\bH\x02R\bcharging\x88\x01\x01\x121\n" +
 	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\x12,\n" +
-	"\x0ffirmware_sha256\x18\f \x01(\tH\x02R\x0efirmwareSha256\x88\x01\x01\x12+\n" +
-	"\x0fgnss_accuracy_m\x18\x04 \x01(\x01H\x03R\rgnssAccuracyM\x88\x01\x01\x12+\n" +
-	"\x0fgnss_altitude_m\x18\x05 \x01(\x01H\x04R\rgnssAltitudeM\x88\x01\x01\x12(\n" +
-	"\rgnss_latitude\x18\x06 \x01(\x01H\x05R\fgnssLatitude\x88\x01\x01\x12*\n" +
-	"\x0egnss_longitude\x18\a \x01(\x01H\x06R\rgnssLongitude\x88\x01\x01\x12>\n" +
+	"\x0ffirmware_sha256\x18\f \x01(\tH\x03R\x0efirmwareSha256\x88\x01\x01\x12+\n" +
+	"\x0fgnss_accuracy_m\x18\x04 \x01(\x01H\x04R\rgnssAccuracyM\x88\x01\x01\x12+\n" +
+	"\x0fgnss_altitude_m\x18\x05 \x01(\x01H\x05R\rgnssAltitudeM\x88\x01\x01\x12(\n" +
+	"\rgnss_latitude\x18\x06 \x01(\x01H\x06R\fgnssLatitude\x88\x01\x01\x12*\n" +
+	"\x0egnss_longitude\x18\a \x01(\x01H\aR\rgnssLongitude\x88\x01\x01\x12>\n" +
 	"\x06labels\x18\b \x03(\v2&.gizclaw.rpc.v1.PeerStatus.LabelsEntryR\x06labels\x12\x19\n" +
-	"\x05muted\x18\t \x01(\bH\aR\x05muted\x88\x01\x01\x12$\n" +
+	"\x05muted\x18\t \x01(\bH\bR\x05muted\x88\x01\x01\x12$\n" +
 	"\vreported_at\x18\n" +
-	" \x01(\tH\bR\n" +
+	" \x01(\tH\tR\n" +
 	"reportedAt\x88\x01\x01\x12\x1b\n" +
-	"\x06volume\x18\v \x01(\x03H\tR\x06volume\x88\x01\x01\x1a9\n" +
+	"\x06volume\x18\v \x01(\x03H\n" +
+	"R\x06volume\x88\x01\x01\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x12\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x06\n" +
+	"\x04_otaB\x12\n" +
 	"\x10_battery_percentB\v\n" +
 	"\t_chargingB\x12\n" +
 	"\x10_firmware_sha256B\x12\n" +

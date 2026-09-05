@@ -30,6 +30,13 @@ func TestOTARuntimeSnapshotOrdering(t *testing.T) {
 	if err != nil || got.Ota == nil || got.Ota.DownloadPercent == nil || *got.Ota.DownloadPercent != 50 {
 		t.Fatalf("progress: %+v, %v", got, err)
 	}
+	for _, terminal := range []string{"succeeded", "failed"} {
+		put(terminal, "one", 3, new(0.0))
+		got, err = s.GetStatus(ctx, peer)
+		if err != nil || got.Ota == nil || got.Ota.State != "downloading" || got.Ota.DownloadPercent == nil || *got.Ota.DownloadPercent != 50 {
+			t.Fatalf("regressing %s report: %+v, %v", terminal, got, err)
+		}
+	}
 	put("succeeded", "one", 3, nil)
 	put("downloading", "one", 4, new(90.0))
 	put("failed", "one", 5, nil)

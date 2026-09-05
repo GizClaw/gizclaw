@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  type PeerStatus,
   encodeRPCResponsePayload,
   decodeRPCResponsePayload,
 } from "./generated/rpc/payload-codec.ts";
@@ -71,4 +72,16 @@ test("RPC OTA status preserves zero progress and future state values", () => {
       response,
     );
   }
+});
+
+test("RPC status without an OTA snapshot omits ota", () => {
+  const otaFields: Pick<PeerStatus, "ota"> = {};
+  const response = { labels: {}, ...otaFields };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.status.get",
+      encodeRPCResponsePayload("server.status.get", response),
+    ),
+    response,
+  );
 });

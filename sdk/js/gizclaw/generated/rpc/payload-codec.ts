@@ -844,7 +844,7 @@ export type PeerRunWorkspaceState = {
   "workspace_name": string;
 };
 export type PeerStatus = {
-  "ota": PeerOtaStatus;
+  "ota"?: PeerOtaStatus;
   "battery_percent"?: number;
   "charging"?: boolean;
   "details": Record<string, unknown>;
@@ -5208,6 +5208,7 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "ota",
         "number": 13,
+        "optional": true,
         "type": "PeerOtaStatus"
       },
       {
