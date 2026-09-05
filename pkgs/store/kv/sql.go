@@ -473,7 +473,7 @@ func (store *SQL) beginWrite(ctx context.Context, keys [][]byte) (*sqlx.Tx, erro
 }
 
 func (store *SQL) mutationKeys(entries []Entry, keys []Key) [][]byte {
-	encoded := make([][]byte, 0, len(entries)+len(keys))
+	encoded := make([][]byte, 0, len(entries))
 	for _, entry := range entries {
 		encoded = append(encoded, store.opts.encode(entry.Key))
 	}
