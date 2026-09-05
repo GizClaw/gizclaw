@@ -88,6 +88,9 @@ Go `PeerStream.Push` 的音频 BOS、Flutter `WorkspaceEventSession.beginAudio` 
 直接结束等待，不增加定时等待、超时重试或静默成功。使用 C SDK 或原始 Event API 的
 调用方须读取并匹配 `audio_input_ready.stream_id` 后再发送媒体。Server 和发起音频的
 Client 必须共同支持此握手；旧 Server 不会产生就绪确认。此事件不属于助手输出。
+混用新 Client 与旧 Server 不属于受支持的音频链路；连接仍打开但未确认时，开始输入
+保持等待且不发送音频，直到调用方取消或关闭。该协议不提供版本协商或自动判定旧 Server。
+Go 音频 chunk 必须携带当前已确认的 `StreamID`；旧轮或缺失 ID 的 chunk 会直接报错。
 
 Server 下行只有一条固定 Opus media channel。多个 Agent source 同时输出时，Server
 把它们解码并混音成这一条 channel，同时把 source lifecycle 聚合为一组 boundary：

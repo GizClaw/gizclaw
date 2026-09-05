@@ -163,6 +163,9 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	if ready == nil {
 		return fmt.Errorf("gizclaw: audio input requires an acknowledged BOS")
 	}
+	if chunk.Ctrl == nil || chunk.Ctrl.StreamID != ready.streamID {
+		return fmt.Errorf("gizclaw: audio chunk does not belong to input stream %q", ready.streamID)
+	}
 	if err := s.waitAudioInput(ctx, ready); err != nil {
 		return err
 	}
