@@ -1,0 +1,93 @@
+# User Story:
+# As a device API caller,
+# I want to clear the device playlist atomically,
+# So that the real server and device SDK contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.audioplayer.clear
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: clear
+    client: peer
+    http:
+      method: PUT
+      path: /gizclaw/v1/device/audioplayer/playlist
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        items: []
+      status: 200
+    expect:
+      /status/playlist_length:
+        equals: 0
+  - id: read_empty
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/audioplayer/playlist
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /items:
+        equals: []
+  - id: provider_playlist_set
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.playlist.set
+      response:
+        state: stopped
+        repeat: off
+        playlist_length: 0
+        playlist_revision: 1
+        position_ms: 0
+      expect_calls: 1
+  - id: provider_playlist_get
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.playlist.get
+      response:
+        items: []
+        playlist_revision: 1
+      expect_calls: 1
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

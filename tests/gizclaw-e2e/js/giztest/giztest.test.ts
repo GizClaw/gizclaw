@@ -267,8 +267,13 @@ test("loadDocuments loads every device, contact and API key scenario", async () 
   );
   assert.ok(selected.length >= 20, `selected ${selected.length} scenarios`);
   const { documents, skipped } = await loadDocuments(selected);
-  assert.equal(skipped.length, 0, JSON.stringify(skipped));
-  assert.equal(documents.length, selected.length);
+  assert.equal(skipped.length, 1, JSON.stringify(skipped));
+  assert.equal(
+    path.basename(skipped[0]!.path),
+    "server.device.audioplayer.telemetry.giztest.yaml",
+  );
+  assert.match(skipped[0]!.reason, /telemetry/u);
+  assert.equal(documents.length, selected.length - 1);
 });
 
 test("loadDocuments skips scenarios that use unsupported step kinds", async () => {

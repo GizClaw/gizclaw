@@ -302,6 +302,31 @@ static bool body_str(gzc_str_t body, const char *name, gzc_str_t *out) {
   return gzc_json_parse_string(raw, out) == GZC_OK;
 }
 
+static int player_items(gzc_str_t body, gzc_control_audioplayer_item_t *items, size_t capacity, size_t *count) {
+  gzc_str_t raw;
+  int rc = gzc_json_find_field(body, "items", &raw);
+  if (rc != GZC_OK)
+    return rc;
+  gzc_json_array_iter_t iter;
+  rc = gzc_json_array_iter_init(raw, &iter);
+  *count = 0;
+  while (rc == GZC_OK) {
+    bool present = false;
+    rc = gzc_json_array_iter_next(&iter, &raw, &present);
+    if (rc != GZC_OK || !present)
+      return rc;
+    if (*count == capacity)
+      return GZC_ERR_INVALID_ARGUMENT;
+    gzc_control_audioplayer_item_t *item = &items[(*count)++];
+    memset(item, 0, sizeof(*item));
+    if (!body_str(raw, "url", &item->url))
+      return GZC_ERR_INVALID_ARGUMENT;
+    (void)body_str(raw, "title", &item->title);
+    (void)body_str(raw, "source_ref", &item->source_ref);
+  }
+  return rc;
+}
+
 static bool body_i64(gzc_str_t body, const char *name, int64_t *out) {
   gzc_str_t raw;
   if (body.len == 0 || gzc_json_find_field(body, name, &raw) != GZC_OK) {
@@ -341,6 +366,12 @@ static void split_route(gzc_str_t path, gzt_route_t *out) {
    * `/device/telemetry` plus an `aggregate` segment.
    */
   static const char *whole[] = {
+      "/device/audioplayer/playlist/append",
+      "/device/audioplayer/actions/play",
+      "/device/audioplayer/actions/stop",
+      "/device/audioplayer/playlist",
+      "/device/audioplayer/mode",
+      "/device/audioplayer",
       "/device/telemetry/aggregate",
       "/device/actions/play-sound",
       "/device/actions/reboot",
@@ -508,6 +539,9 @@ int gzt_control_request(
   gzc_control_telemetry_value_t telemetry_values[32];
   gzc_control_telemetry_point_t telemetry_points[512];
   gzc_control_telemetry_bucket_t telemetry_buckets[512];
+  gzc_control_audioplayer_status_t player;
+  gzc_control_audioplayer_item_t player_list[64];
+  int64_t player_revision = 0;
   gzc_str_t ssids[32];
   gzc_control_peer_status_t status;
   gzc_control_device_info_t device;
@@ -519,7 +553,30 @@ int gzt_control_request(
   size_t count = 0;
   bool has_next = false;
 
-  if (get && route_is(&route, "/device", false)) {
+  if (get && route_is(&route, "/device/audioplayer", false)) {
+    rc = gzc_control_get_device_audioplayer(&control, &call, &player);
+  } else if (get && route_is(&route, "/device/audioplayer/playlist", false)) {
+    rc = gzc_control_get_device_audioplayer_playlist(&control, &call, player_list, 64, &count, &player_revision);
+  } else if ((put && route_is(&route, "/device/audioplayer/playlist", false)) ||
+             (post && route_is(&route, "/device/audioplayer/playlist/append", false))) {
+    rc = player_items(body, player_list, 64, &count);
+    if (rc == GZC_OK) {
+      rc = put ? gzc_control_set_device_audioplayer_playlist(&control, &call, player_list, count, &player)
+               : gzc_control_append_device_audioplayer_playlist(&control, &call, player_list, count, &player);
+    }
+  } else if (post && route_is(&route, "/device/audioplayer/actions/play", false)) {
+    int64_t index = 0;
+    if (!body_i64(body, "index", &index) || index < 0 || index > UINT32_MAX) {
+      rc = GZC_ERR_INVALID_ARGUMENT;
+    } else {
+      rc = gzc_control_play_device_audioplayer(&control, &call, (uint32_t)index, &player);
+    }
+  } else if (post && route_is(&route, "/device/audioplayer/actions/stop", false)) {
+    rc = gzc_control_stop_device_audioplayer(&control, &call, &player);
+  } else if (put && route_is(&route, "/device/audioplayer/mode", false)) {
+    gzc_str_t repeat = {0};
+    rc = body_str(body, "repeat", &repeat) ? gzc_control_set_device_audioplayer_mode(&control, &call, repeat, &player) : GZC_ERR_INVALID_ARGUMENT;
+  } else if (get && route_is(&route, "/device", false)) {
     rc = gzc_control_get_device(&control, &call, &device);
   } else if (get && route_is(&route, "/device/runtime", false)) {
     rc = gzc_control_get_device_runtime(&control, &call, &runtime);

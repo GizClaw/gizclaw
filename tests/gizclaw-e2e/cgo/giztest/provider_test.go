@@ -2,8 +2,12 @@ package main
 
 import (
 	"maps"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 // delay_ms is a runner instruction, not a payload field: it must be removed
@@ -55,6 +59,45 @@ func TestScriptedDelay(t *testing.T) {
 			}
 			if !slices.Equal(slices.Sorted(maps.Keys(got)), slices.Sorted(maps.Keys(want))) {
 				t.Fatalf("value keys = %#v, want %#v", got, want)
+			}
+		})
+	}
+}
+
+// Every shared playback fixture must reach the C controller route table and
+// encode its scripted device response with the registered protobuf descriptor.
+func TestAudioPlayerDocuments(t *testing.T) {
+	paths, err := filepath.Glob("../../giztest/server.device.audioplayer.*.giztest.yaml")
+	if err != nil || len(paths) != 6 {
+		t.Fatalf("paths=%v err=%v", paths, err)
+	}
+	for _, path := range paths {
+		if strings.HasSuffix(path, ".telemetry.giztest.yaml") {
+			continue
+		}
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			doc, err := giztest.LoadDocument(path, driver{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, step := range doc.Steps {
+				if step.ClientRPC == nil {
+					continue
+				}
+				code, _, err := errorResponse(step.ClientRPC.Response)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if code != 0 {
+					continue
+				}
+				info, err := lookupMethod(step.ClientRPC.Method)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := encodePayload(info.response, step.ClientRPC.Response); err != nil {
+					t.Fatal(err)
+				}
 			}
 		})
 	}

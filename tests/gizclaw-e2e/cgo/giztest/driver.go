@@ -56,16 +56,17 @@ is up.
 */
 var controlRoutes = map[string][]string{
 	http.MethodGet: {
-		"/device", "/device/runtime", "/device/status",
+		"/device", "/device/runtime", "/device/status", "/device/audioplayer", "/device/audioplayer/playlist",
 		"/device/telemetry", "/device/telemetry/*/latest", "/device/telemetry/aggregate",
 		"/device/wifi", "/device/wifi/saved",
 		"/api-keys", "/api-keys/self", "/api-keys/*",
 		"/contacts", "/contacts/*",
 	},
 	http.MethodPost: {
+		"/device/audioplayer/actions/play", "/device/audioplayer/actions/stop", "/device/audioplayer/playlist/append",
 		"/device/actions/play-sound", "/device/actions/reboot", "/api-keys", "/contacts",
 	},
-	http.MethodPut: {"/device/volume", "/contacts/*"},
+	http.MethodPut: {"/device/audioplayer/playlist", "/device/audioplayer/mode", "/device/volume", "/contacts/*"},
 	http.MethodDelete: {
 		"/device/wifi/saved/*", "/api-keys/self", "/api-keys/*", "/contacts/*",
 	},

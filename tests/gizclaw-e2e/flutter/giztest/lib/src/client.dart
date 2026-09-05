@@ -408,6 +408,132 @@ _Handlers _buildHandlers(
         deviceInfo = object;
       case 'client.identifiers.get':
         identifiers = object;
+      case 'client.device.audioplayer.get':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            playlistGet: control.audioplayer?.playlistGet,
+            playlistSet: control.audioplayer?.playlistSet,
+            playlistAppend: control.audioplayer?.playlistAppend,
+            play: control.audioplayer?.play,
+            stop: control.audioplayer?.stop,
+            modeSet: control.audioplayer?.modeSet,
+            get: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerGetResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
+            },
+          ),
+        );
+      case 'client.device.audioplayer.playlist.get':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            get: control.audioplayer?.get,
+            playlistSet: control.audioplayer?.playlistSet,
+            playlistAppend: control.audioplayer?.playlistAppend,
+            play: control.audioplayer?.play,
+            stop: control.audioplayer?.stop,
+            modeSet: control.audioplayer?.modeSet,
+            playlistGet: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerPlaylistGetResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys(object));
+            },
+          ),
+        );
+      case 'client.device.audioplayer.playlist.set':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            get: control.audioplayer?.get,
+            playlistGet: control.audioplayer?.playlistGet,
+            playlistAppend: control.audioplayer?.playlistAppend,
+            play: control.audioplayer?.play,
+            stop: control.audioplayer?.stop,
+            modeSet: control.audioplayer?.modeSet,
+            playlistSet: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerPlaylistSetResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
+            },
+          ),
+        );
+      case 'client.device.audioplayer.playlist.append':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            get: control.audioplayer?.get,
+            playlistGet: control.audioplayer?.playlistGet,
+            playlistSet: control.audioplayer?.playlistSet,
+            play: control.audioplayer?.play,
+            stop: control.audioplayer?.stop,
+            modeSet: control.audioplayer?.modeSet,
+            playlistAppend: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerPlaylistAppendResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
+            },
+          ),
+        );
+      case 'client.device.audioplayer.play':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            get: control.audioplayer?.get,
+            playlistGet: control.audioplayer?.playlistGet,
+            playlistSet: control.audioplayer?.playlistSet,
+            playlistAppend: control.audioplayer?.playlistAppend,
+            stop: control.audioplayer?.stop,
+            modeSet: control.audioplayer?.modeSet,
+            play: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerPlayResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
+            },
+          ),
+        );
+      case 'client.device.audioplayer.stop':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            get: control.audioplayer?.get,
+            playlistGet: control.audioplayer?.playlistGet,
+            playlistSet: control.audioplayer?.playlistSet,
+            playlistAppend: control.audioplayer?.playlistAppend,
+            play: control.audioplayer?.play,
+            modeSet: control.audioplayer?.modeSet,
+            stop: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerStopResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
+            },
+          ),
+        );
+      case 'client.device.audioplayer.mode.set':
+        control = _copyControl(
+          control,
+          audioplayer: GizClawAudioPlayerHandlers(
+            get: control.audioplayer?.get,
+            playlistGet: control.audioplayer?.playlistGet,
+            playlistSet: control.audioplayer?.playlistSet,
+            playlistAppend: control.audioplayer?.playlistAppend,
+            play: control.audioplayer?.play,
+            stop: control.audioplayer?.stop,
+            modeSet: (_) {
+              count(method);
+              if (failure != null) throw failure;
+              return ClientDeviceAudioPlayerModeSetResponse()
+                ..mergeFromProto3Json(snakeToCamelKeys({'value': object}));
+            },
+          ),
+        );
       case 'client.device.status.get':
         control = _copyControl(
           control,
@@ -571,6 +697,7 @@ PeerStatus _peerStatus(Map<String, Object?> json) =>
 
 GizClawDeviceControlHandlers _copyControl(
   GizClawDeviceControlHandlers base, {
+  GizClawAudioPlayerHandlers? audioplayer,
   PeerStatus Function()? status,
   PeerStatus Function(int level, bool muted)? setVolume,
   void Function(String sound, int? durationMs)? playSound,
@@ -582,6 +709,7 @@ GizClawDeviceControlHandlers _copyControl(
   void Function(String ssid, String? passphrase)? connectWifi,
 }) {
   return GizClawDeviceControlHandlers(
+    audioplayer: audioplayer ?? base.audioplayer,
     connectWifi: connectWifi ?? base.connectWifi,
     forgetWifi: forgetWifi ?? base.forgetWifi,
     playSound: playSound ?? base.playSound,

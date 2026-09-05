@@ -1,0 +1,232 @@
+# User Story:
+# As a device API caller,
+# I want to read actual playback packets from runtime status with progress, errors and OTA coexistence,
+# So that the real server and device SDK contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.audioplayer.telemetry
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: report_start
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1700000000000"
+        observations:
+          - audioplayer:
+              state: buffering
+              repeat: all
+              playlist_length: 1
+              playlist_revision: 1
+              current_index: 0
+              position_ms: "0"
+  - id: await_start
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 200ms
+    expect:
+      /audioplayer/state:
+        equals: buffering
+  - id: report_progress_and_ota
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1700000001000"
+        observations:
+          - audioplayer:
+              state: playing
+              repeat: all
+              playlist_length: 1
+              playlist_revision: 1
+              current_index: 0
+              position_ms: "12000"
+          - ota:
+              state: OTA_STATE_DOWNLOADING
+              update_id: attempt-1
+              download_percent: 50
+  - id: await_progress
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 200ms
+    expect:
+      /audioplayer/state:
+        equals: playing
+      /audioplayer/position_ms:
+        minimum: 12000
+        maximum: 12000
+      /ota/state:
+        equals: downloading
+      /ota/download_percent:
+        equals: 50
+  - id: report_stale_with_marker
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1700000002000"
+        observations:
+          - audioplayer:
+              state: buffering
+              repeat: all
+              playlist_length: 1
+              playlist_revision: 1
+              current_index: 0
+              position_ms: "0"
+            observed_at_delta_ms: -2000
+          - battery:
+              percent: 61
+  - id: await_marker
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 200ms
+    expect:
+      /battery_percent:
+        minimum: 61
+        maximum: 61
+      /audioplayer/state:
+        equals: playing
+      /audioplayer/position_ms:
+        minimum: 12000
+        maximum: 12000
+  - id: report_error
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1700000003000"
+        observations:
+          - audioplayer:
+              state: error
+              repeat: all
+              playlist_length: 1
+              playlist_revision: 1
+              current_index: 0
+              position_ms: "12000"
+              error_code: FETCH_FAILED
+              error_message: audio unavailable
+  - id: await_error
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 200ms
+    expect:
+      /audioplayer/state:
+        equals: error
+      /audioplayer/error_code:
+        equals: FETCH_FAILED
+  - id: snapshot
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /audioplayer/state:
+        equals: error
+      /audioplayer/position_ms:
+        equals: 12000
+      /ota/download_percent:
+        equals: 50
+      /battery_percent:
+        equals: 61
+  - id: set_volume
+    client: peer
+    http:
+      method: PUT
+      path: /gizclaw/v1/device/volume
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        level: 35
+        muted: false
+      status: 200
+    expect:
+      /status/audioplayer/error_code:
+        equals: FETCH_FAILED
+      /status/ota/state:
+        equals: downloading
+  - id: preserved_snapshot
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /volume:
+        equals: 35
+      /audioplayer/error_code:
+        equals: FETCH_FAILED
+      /ota/download_percent:
+        equals: 50
+  - id: provider_volume
+    client: peer
+    client_rpc:
+      method: client.device.volume.set
+      response: {}
+      expect_calls: 1
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

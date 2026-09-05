@@ -22,6 +22,7 @@ export const SUPPORTED_OPERATIONS = [
 
 export const ALL_OPERATIONS = [
   "rpc",
+  "telemetry",
   "rpc_stream",
   "client_rpc",
   "http",
@@ -42,6 +43,13 @@ export const CLIENT_RPC_METHODS = [
   "client.device.volume.set",
   "client.device.sound.play",
   "client.device.reboot",
+  "client.device.audioplayer.get",
+  "client.device.audioplayer.playlist.get",
+  "client.device.audioplayer.playlist.set",
+  "client.device.audioplayer.playlist.append",
+  "client.device.audioplayer.play",
+  "client.device.audioplayer.stop",
+  "client.device.audioplayer.mode.set",
   "client.wifi.status.get",
   "client.wifi.saved.list",
   "client.wifi.saved.forget",
@@ -58,6 +66,13 @@ export const SUPPORTED_CLIENT_RPC_METHODS = new Set<string>([
   "client.device.volume.set",
   "client.device.sound.play",
   "client.device.reboot",
+  "client.device.audioplayer.get",
+  "client.device.audioplayer.playlist.get",
+  "client.device.audioplayer.playlist.set",
+  "client.device.audioplayer.playlist.append",
+  "client.device.audioplayer.play",
+  "client.device.audioplayer.stop",
+  "client.device.audioplayer.mode.set",
   "client.wifi.status.get",
   "client.wifi.saved.list",
   "client.wifi.saved.forget",
@@ -100,6 +115,7 @@ export type Expectation = {
 };
 
 export type Step = {
+  telemetry?: { frame: Record<string, unknown> };
   id: string;
   client?: string;
   timeout?: string;

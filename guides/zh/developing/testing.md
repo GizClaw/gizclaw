@@ -884,3 +884,9 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 - node：独立 Monitor Token 认证、拒绝设备公钥，以及当前节点指标。
 
 测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。音频素材由测试工具写入真实 History/Asset Store，不代表完成了外部 TTS 合成测试。结束后删除临时运行数据和容器，报告留在 `.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。
+
+### Audioplayer Giztest
+
+`bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。独立 CI job 运行相同入口。
+
+脚本化设备 provider 验证 HTTP 授权、校验、反向 RPC、列表 contract 和快照投影，不下载或播放音乐。五个控制场景由 Go、JavaScript、Flutter、C runner 支持。独立 `telemetry` step 的 `frame` 使用 protobuf JSON，由 Go SDK 经真实 packet channel 发送；其他 runner 明确跳过此 operation。发送成功不表示落库：telemetry 场景轮询 `server.status.get`，再通过 HTTP status 验证进度、错误、旧报告保护和 OTA 共存。此处不新增 Dart telemetry transport，也不代表真机播放验收。

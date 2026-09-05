@@ -314,8 +314,13 @@ void main() {
           .toList();
       expect(selected.length, greaterThanOrEqualTo(20));
       final result = await loadDocuments(selected);
-      expect(result.skipped, isEmpty);
-      expect(result.documents.length, selected.length);
+      expect(result.skipped.length, 1);
+      expect(
+        result.skipped.keys.single,
+        endsWith('server.device.audioplayer.telemetry.giztest.yaml'),
+      );
+      expect(result.skipped.values.single, contains('telemetry'));
+      expect(result.documents.length, selected.length - 1);
     });
 
     test('skip scenarios that use unsupported step kinds', () async {

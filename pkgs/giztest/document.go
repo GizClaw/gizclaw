@@ -64,7 +64,13 @@ type VariableSpec struct {
 	Codec     string `json:"codec,omitempty" yaml:"codec,omitempty"`
 }
 
+// TelemetryOperation sends a protobuf-JSON TelemetryFrame through the device packet channel.
+type TelemetryOperation struct {
+	Frame map[string]any `json:"frame" yaml:"frame"`
+}
+
 type Step struct {
+	Telemetry      *TelemetryOperation      `json:"telemetry,omitempty" yaml:"telemetry,omitempty"`
 	ID             string                   `json:"id,omitempty" yaml:"id,omitempty"`
 	Client         string                   `json:"client,omitempty" yaml:"client,omitempty"`
 	RPC            *RPCOperation            `json:"rpc,omitempty" yaml:"rpc,omitempty"`
@@ -885,6 +891,8 @@ func (s Step) Operation() string {
 	switch {
 	case len(s.Parallel) > 0:
 		return "parallel"
+	case s.Telemetry != nil:
+		return "telemetry"
 	case s.RPC != nil:
 		return "rpc"
 	case s.RPCStream != nil:
