@@ -12,7 +12,16 @@ export GIZCLAW_MONITOR_REPORTS="$run_dir/reports"
 mkdir -p "$GIZCLAW_MONITOR_STATE" "$GIZCLAW_MONITOR_REPORTS"
 project="gizclaw-audioplayer-test-$$"
 export GIZCLAW_MONITOR_IMAGE="$project"
-compose=(docker compose -p "$project" -f "$script_dir/docker/compose.monitor.yaml")
+# Match bind-mount ownership on Linux as well as Docker Desktop.
+run_user="$(id -u):$(id -g)"
+cat > "$run_dir/compose.user.yaml" <<EOF
+services:
+  server: {user: "$run_user"}
+  edge: {user: "$run_user"}
+  seed: {user: "$run_user"}
+  test: {user: "$run_user"}
+EOF
+compose=(docker compose -p "$project" -f "$script_dir/docker/compose.monitor.yaml" -f "$run_dir/compose.user.yaml")
 cleanup() {
   "${compose[@]}" logs --no-color > "$GIZCLAW_MONITOR_REPORTS/containers.log" 2>&1 || true
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
@@ -47,7 +56,7 @@ fi
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/server.device.audioplayer.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
 docker build -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+docker run --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" up -d --wait server edge
 "${compose[@]}" run --rm seed
