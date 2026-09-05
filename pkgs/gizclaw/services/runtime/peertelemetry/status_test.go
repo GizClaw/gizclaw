@@ -160,3 +160,50 @@ func TestApplyDeviceStatusPreservesTelemetryDetailsAndReplacesLabels(t *testing.
 		t.Fatalf("labels replaced / volume kept = %+v", got)
 	}
 }
+
+func TestApplyDeviceStatusRejectsMalformedFirmwareDigest(t *testing.T) {
+	valid := "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{2}
+	now := time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)
+
+	got, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{FirmwareSha256: &valid}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FirmwareSha256 == nil || *got.FirmwareSha256 != valid {
+		t.Fatalf("firmware_sha256 = %v, want the reported digest", got.FirmwareSha256)
+	}
+
+	// The digest is device-reported, so anything outside the PeerStatus
+	// contract is dropped and the stored digest is left in place.
+	for name, reported := range map[string]string{
+		"empty":      "",
+		"too short":  valid[:63],
+		"too long":   valid + "0",
+		"uppercase":  "A1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4E5F60718293A4B5C6D7E8F90",
+		"not hex":    "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+		"free text":  "1.0.3",
+		"whitespace": valid[:63] + " ",
+	} {
+		got, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{FirmwareSha256: &reported}, now)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got.FirmwareSha256 == nil || *got.FirmwareSha256 != valid {
+			t.Fatalf("%s: firmware_sha256 = %v, want the last valid digest", name, got.FirmwareSha256)
+		}
+	}
+
+	// A malformed digest reported before any valid one leaves the field unset.
+	fresh := &memoryStatusStore{}
+	bad := "1.0.3"
+	got, err = (StatusSync{Store: fresh}).ApplyDeviceStatus(context.Background(), giznet.PublicKey{3}, apitypes.PeerStatus{FirmwareSha256: &bad}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FirmwareSha256 != nil {
+		t.Fatalf("firmware_sha256 = %v, want none", got.FirmwareSha256)
+	}
+}

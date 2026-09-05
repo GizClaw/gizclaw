@@ -143,6 +143,94 @@ func (x *FirmwareGetResponse) GetSize() int64 {
 	return 0
 }
 
+type ClientFirmwareUpdateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channel       *FirmwareChannelName   `protobuf:"varint,1,opt,name=channel,proto3,enum=gizclaw.rpc.v1.FirmwareChannelName,oneof" json:"channel,omitempty"`
+	Sha256        *string                `protobuf:"bytes,2,opt,name=sha256,proto3,oneof" json:"sha256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientFirmwareUpdateRequest) Reset() {
+	*x = ClientFirmwareUpdateRequest{}
+	mi := &file_payload_firmware_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientFirmwareUpdateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientFirmwareUpdateRequest) ProtoMessage() {}
+
+func (x *ClientFirmwareUpdateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_firmware_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientFirmwareUpdateRequest.ProtoReflect.Descriptor instead.
+func (*ClientFirmwareUpdateRequest) Descriptor() ([]byte, []int) {
+	return file_payload_firmware_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ClientFirmwareUpdateRequest) GetChannel() FirmwareChannelName {
+	if x != nil && x.Channel != nil {
+		return *x.Channel
+	}
+	return FirmwareChannelName_FIRMWARE_CHANNEL_NAME_UNSPECIFIED
+}
+
+func (x *ClientFirmwareUpdateRequest) GetSha256() string {
+	if x != nil && x.Sha256 != nil {
+		return *x.Sha256
+	}
+	return ""
+}
+
+type ClientFirmwareUpdateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientFirmwareUpdateResponse) Reset() {
+	*x = ClientFirmwareUpdateResponse{}
+	mi := &file_payload_firmware_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientFirmwareUpdateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientFirmwareUpdateResponse) ProtoMessage() {}
+
+func (x *ClientFirmwareUpdateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_firmware_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientFirmwareUpdateResponse.ProtoReflect.Descriptor instead.
+func (*ClientFirmwareUpdateResponse) Descriptor() ([]byte, []int) {
+	return file_payload_firmware_proto_rawDescGZIP(), []int{3}
+}
+
 var File_payload_firmware_proto protoreflect.FileDescriptor
 
 const file_payload_firmware_proto_rawDesc = "" +
@@ -156,7 +244,14 @@ const file_payload_firmware_proto_rawDesc = "" +
 	"\x03url\x18\x03 \x01(\tR\x03url\x12\x16\n" +
 	"\x06sha256\x18\x04 \x01(\tR\x06sha256\x12\x12\n" +
 	"\x04size\x18\x05 \x01(\x03R\x04sizeB\x0e\n" +
-	"\f_descriptionB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\f_description\"\x95\x01\n" +
+	"\x1bClientFirmwareUpdateRequest\x12B\n" +
+	"\achannel\x18\x01 \x01(\x0e2#.gizclaw.rpc.v1.FirmwareChannelNameH\x00R\achannel\x88\x01\x01\x12\x1b\n" +
+	"\x06sha256\x18\x02 \x01(\tH\x01R\x06sha256\x88\x01\x01B\n" +
+	"\n" +
+	"\b_channelB\t\n" +
+	"\a_sha256\"\x1e\n" +
+	"\x1cClientFirmwareUpdateResponseB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_firmware_proto_rawDescOnce sync.Once
@@ -170,20 +265,23 @@ func file_payload_firmware_proto_rawDescGZIP() []byte {
 	return file_payload_firmware_proto_rawDescData
 }
 
-var file_payload_firmware_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_payload_firmware_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_payload_firmware_proto_goTypes = []any{
-	(*FirmwareGetRequest)(nil),  // 0: gizclaw.rpc.v1.FirmwareGetRequest
-	(*FirmwareGetResponse)(nil), // 1: gizclaw.rpc.v1.FirmwareGetResponse
-	(FirmwareChannelName)(0),    // 2: gizclaw.rpc.v1.FirmwareChannelName
+	(*FirmwareGetRequest)(nil),           // 0: gizclaw.rpc.v1.FirmwareGetRequest
+	(*FirmwareGetResponse)(nil),          // 1: gizclaw.rpc.v1.FirmwareGetResponse
+	(*ClientFirmwareUpdateRequest)(nil),  // 2: gizclaw.rpc.v1.ClientFirmwareUpdateRequest
+	(*ClientFirmwareUpdateResponse)(nil), // 3: gizclaw.rpc.v1.ClientFirmwareUpdateResponse
+	(FirmwareChannelName)(0),             // 4: gizclaw.rpc.v1.FirmwareChannelName
 }
 var file_payload_firmware_proto_depIdxs = []int32{
-	2, // 0: gizclaw.rpc.v1.FirmwareGetRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
-	2, // 1: gizclaw.rpc.v1.FirmwareGetResponse.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	4, // 0: gizclaw.rpc.v1.FirmwareGetRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	4, // 1: gizclaw.rpc.v1.FirmwareGetResponse.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	4, // 2: gizclaw.rpc.v1.ClientFirmwareUpdateRequest.channel:type_name -> gizclaw.rpc.v1.FirmwareChannelName
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_payload_firmware_proto_init() }
@@ -193,13 +291,14 @@ func file_payload_firmware_proto_init() {
 	}
 	file_payload_enums_proto_init()
 	file_payload_firmware_proto_msgTypes[1].OneofWrappers = []any{}
+	file_payload_firmware_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_firmware_proto_rawDesc), len(file_payload_firmware_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

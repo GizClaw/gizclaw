@@ -48,8 +48,8 @@ server, which sends the credential in the clear.
 `GizClawControlClient` covers every `/gizclaw/v1/*` route:
 
 - API keys: `createApiKey`, `listApiKeys`, `getSelfApiKey`, `revokeSelfApiKey`, `getApiKey`, `revokeApiKey`.
-- Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
-- Device control: `setDeviceVolume`, `playDeviceSound`, `rebootDevice`, `getDeviceWifi`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`.
+- Device reads: `getDevice`, `getDeviceRuntime`, `getDeviceStatus`, `getDeviceFirmware`, `getDeviceTelemetryLatest`, `queryDeviceTelemetry`, `aggregateDeviceTelemetry`.
+- Device control: `setDeviceVolume`, `playDeviceSound`, `rebootDevice`, `updateDeviceFirmware`, `getDeviceWifi`, `scanDeviceWifi`, `connectDeviceWifi`, `listDeviceSavedWifi`, `forgetDeviceSavedWifi`.
 - Contacts: `listContacts`, `createContact`, `getContact`, `putContact`, `deleteContact`.
 
 Every method sends `Authorization: Bearer <apiKey>` and returns the immutable model for the contract type; `204` routes return `Future<void>`. Models ignore unknown JSON keys, and the open-ended schemas (`PeerStatus`, `DeviceInfo`) also expose `raw` with the complete decoded object. Path parameters (`ssid`, `contactName`) are URL-encoded by the SDK. The optional `httpClient` injects or shares an `http.Client`; `timeout` defaults to 30 seconds.

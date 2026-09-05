@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -251,6 +252,10 @@ func (c *deviceController) applyReportedStatus(ctx context.Context, owner giznet
 	return peertelemetry.StatusSync{Store: c.status}.ApplyDeviceStatus(ctx, owner, status, c.clock())
 }
 
+// firmwareSha256Pattern mirrors the sha256 pattern of the Public HTTP schema so
+// a malformed digest fails before it reaches the device.
+var firmwareSha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
 func validateDeviceString(field, value string, maxBytes int) *deviceControlError {
 	if value == "" || len(value) > maxBytes || !utf8.ValidString(value) {
 		return &deviceControlError{Status: http.StatusBadRequest, Code: publicHTTPInvalidRequestCode, Message: field + " must be non-empty valid UTF-8 of at most 32 bytes"}
@@ -380,6 +385,55 @@ func rebootDeviceError(e *deviceControlError) peerhttp.RebootDeviceResponseObjec
 		return peerhttp.RebootDevice500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
 	default:
 		return peerhttp.RebootDevice502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
+	}
+}
+
+func (s *peerHTTP) UpdateDeviceFirmware(ctx context.Context, request peerhttp.UpdateDeviceFirmwareRequestObject) (peerhttp.UpdateDeviceFirmwareResponseObject, error) {
+	owner, err := publicHTTPOwner(ctx)
+	if err != nil {
+		return peerhttp.UpdateDeviceFirmware401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
+	}
+	params := rpcapi.ClientFirmwareUpdateRequest{}
+	if request.Body != nil {
+		if request.Body.Channel != nil {
+			if !request.Body.Channel.Valid() {
+				return peerhttp.UpdateDeviceFirmware400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "channel must be stable, beta, or develop"))}, nil
+			}
+			params.Channel = request.Body.Channel
+		}
+		if request.Body.Sha256 != nil {
+			if !firmwareSha256Pattern.MatchString(*request.Body.Sha256) {
+				return peerhttp.UpdateDeviceFirmware400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, "sha256 must be a lowercase 64-character hex digest"))}, nil
+			}
+			params.Sha256 = request.Body.Sha256
+		}
+	}
+	// The device restarts into the new image after it accepts, so the command
+	// marks the answering connection as transitioning exactly like reboot.
+	_, controlErr := callDeviceControl(ctx, s.DeviceControl, owner, deviceControlOptions{markTransition: true}, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcapi.ClientFirmwareUpdateResponse, error) {
+		return client.UpdateDeviceFirmware(ctx, conn, "client.firmware.update", params)
+	}, nil)
+	if controlErr != nil {
+		return updateDeviceFirmwareError(controlErr), nil
+	}
+	return peerhttp.UpdateDeviceFirmware204Response{}, nil
+}
+
+func updateDeviceFirmwareError(e *deviceControlError) peerhttp.UpdateDeviceFirmwareResponseObject {
+	body := e.response()
+	switch e.Status {
+	case http.StatusBadRequest:
+		return peerhttp.UpdateDeviceFirmware400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(body)}
+	case http.StatusConflict:
+		return peerhttp.UpdateDeviceFirmware409JSONResponse{DeviceOfflineJSONResponse: peerhttp.DeviceOfflineJSONResponse(body)}
+	case http.StatusNotImplemented:
+		return peerhttp.UpdateDeviceFirmware501JSONResponse{DeviceUnsupportedJSONResponse: peerhttp.DeviceUnsupportedJSONResponse(body)}
+	case http.StatusGatewayTimeout:
+		return peerhttp.UpdateDeviceFirmware504JSONResponse{DeviceTimeoutJSONResponse: peerhttp.DeviceTimeoutJSONResponse(body)}
+	case http.StatusInternalServerError:
+		return peerhttp.UpdateDeviceFirmware500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(body)}
+	default:
+		return peerhttp.UpdateDeviceFirmware502JSONResponse{DeviceErrorJSONResponse: peerhttp.DeviceErrorJSONResponse(body)}
 	}
 }
 

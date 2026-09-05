@@ -177,6 +177,117 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
   void clearSize() => $_clearField(5);
 }
 
+class ClientFirmwareUpdateRequest extends $pb.GeneratedMessage {
+  factory ClientFirmwareUpdateRequest({
+    $0.FirmwareChannelName? channel,
+    $core.String? sha256,
+  }) {
+    final result = create();
+    if (channel != null) result.channel = channel;
+    if (sha256 != null) result.sha256 = sha256;
+    return result;
+  }
+
+  ClientFirmwareUpdateRequest._();
+
+  factory ClientFirmwareUpdateRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientFirmwareUpdateRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientFirmwareUpdateRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aE<$0.FirmwareChannelName>(1, _omitFieldNames ? '' : 'channel',
+        enumValues: $0.FirmwareChannelName.values)
+    ..aOS(2, _omitFieldNames ? '' : 'sha256')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientFirmwareUpdateRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientFirmwareUpdateRequest copyWith(
+          void Function(ClientFirmwareUpdateRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientFirmwareUpdateRequest))
+          as ClientFirmwareUpdateRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientFirmwareUpdateRequest create() =>
+      ClientFirmwareUpdateRequest._();
+  @$core.override
+  ClientFirmwareUpdateRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientFirmwareUpdateRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientFirmwareUpdateRequest>(create);
+  static ClientFirmwareUpdateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $0.FirmwareChannelName get channel => $_getN(0);
+  @$pb.TagNumber(1)
+  set channel($0.FirmwareChannelName value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannel() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get sha256 => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set sha256($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSha256() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSha256() => $_clearField(2);
+}
+
+class ClientFirmwareUpdateResponse extends $pb.GeneratedMessage {
+  factory ClientFirmwareUpdateResponse() => create();
+
+  ClientFirmwareUpdateResponse._();
+
+  factory ClientFirmwareUpdateResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientFirmwareUpdateResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientFirmwareUpdateResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientFirmwareUpdateResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientFirmwareUpdateResponse copyWith(
+          void Function(ClientFirmwareUpdateResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientFirmwareUpdateResponse))
+          as ClientFirmwareUpdateResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientFirmwareUpdateResponse create() =>
+      ClientFirmwareUpdateResponse._();
+  @$core.override
+  ClientFirmwareUpdateResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientFirmwareUpdateResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientFirmwareUpdateResponse>(create);
+  static ClientFirmwareUpdateResponse? _defaultInstance;
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

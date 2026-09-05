@@ -243,6 +243,21 @@ class GizClawControlClient {
     );
   }
 
+  /// `GET /gizclaw/v1/device/firmware`.
+  ///
+  /// Returns every firmware channel configured for the bound device. The read
+  /// never contacts the device, so it works while the device is offline.
+  /// Throws [GizClawControlErrorKind.notFound] when the device has no Firmware
+  /// configuration bound.
+  Future<DeviceFirmware> getDeviceFirmware() {
+    return _json(
+      'GET',
+      '/device/firmware',
+      DeviceFirmware.fromJson,
+      operation: 'getDeviceFirmware',
+    );
+  }
+
   // Device control.
 
   /// `PUT /gizclaw/v1/device/volume`.
@@ -284,6 +299,34 @@ class GizClawControlClient {
       '/device/actions/reboot',
       body: DeviceRebootRequest(delayMs: delayMs).toJson(),
       operation: 'rebootDevice',
+    );
+  }
+
+  /// `POST /gizclaw/v1/device/actions/firmware-update`.
+  ///
+  /// Notifies the device to run one OTA. [channel] names a channel from
+  /// [getDeviceFirmware] and defaults to the channel the device already uses;
+  /// [sha256] declares the package the caller saw, and the device rejects the
+  /// call with [GizClawControlErrorKind.deviceRejected] when it resolves a
+  /// different package.
+  ///
+  /// The device acknowledges before it downloads and writes the package, so
+  /// later control calls fail with [GizClawControlErrorKind.deviceOffline]
+  /// until it reconnects. Firmware that predates this method answers
+  /// [GizClawControlErrorKind.deviceUnsupported]; treat that as "no OTA entry
+  /// point" rather than as a failed update.
+  Future<void> updateDeviceFirmware({
+    FirmwareChannelName? channel,
+    String? sha256,
+  }) {
+    return _noContent(
+      'POST',
+      '/device/actions/firmware-update',
+      body: DeviceFirmwareUpdateRequest(
+        channel: channel,
+        sha256: sha256,
+      ).toJson(),
+      operation: 'updateDeviceFirmware',
     );
   }
 

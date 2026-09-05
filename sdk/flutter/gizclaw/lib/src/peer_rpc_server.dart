@@ -48,6 +48,7 @@ class GizClawDeviceControlHandlers {
     this.forgetWifi,
     this.scanWifi,
     this.connectWifi,
+    this.updateFirmware,
   });
 
   final FutureOr<payload.PeerStatus> Function()? status;
@@ -60,6 +61,17 @@ class GizClawDeviceControlHandlers {
   final FutureOr<List<payload.WifiScanResult>> Function(int? timeoutMs)?
   scanWifi;
   final FutureOr<void> Function(String ssid, String? passphrase)? connectWifi;
+
+  /// Runs one OTA for `client.firmware.update`. `channel` is null when the
+  /// caller leaves the choice to the device; `sha256` is the package digest the
+  /// caller resolved, and the handler throws
+  /// [GizClawDeviceControlException] with `STATUS_CODE_INVALID_ARGUMENT` when it
+  /// does not match the package the device resolves.
+  final FutureOr<void> Function(
+    payload.FirmwareChannelName? channel,
+    String? sha256,
+  )?
+  updateFirmware;
 }
 
 class GizClawPeerRpcHandlers {
@@ -90,6 +102,7 @@ const _deviceControlMethods = {
   'client.wifi.saved.forget',
   'client.wifi.scan',
   'client.wifi.connect',
+  'client.firmware.update',
 };
 const _deviceControlMaxBytes = 32;
 
@@ -269,6 +282,7 @@ class _InboundPeerRpcChannel {
       case 'client.wifi.saved.forget':
       case 'client.wifi.scan':
       case 'client.wifi.connect':
+      case 'client.firmware.update':
         return;
       default:
         _ignoreBody = true;
@@ -505,6 +519,19 @@ class _InboundPeerRpcChannel {
           request.id,
           methodName,
           payload.ClientDeviceRebootResponse(),
+        );
+      case 'client.firmware.update':
+        final handler = handlers?.updateFirmware;
+        if (handler == null) return unsupported();
+        final update = params as payload.ClientFirmwareUpdateRequest;
+        await handler(
+          update.hasChannel() ? update.channel : null,
+          update.hasSha256() ? update.sha256 : null,
+        );
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          payload.ClientFirmwareUpdateResponse(),
         );
       case 'client.wifi.status.get':
         final handler = handlers?.wifiStatus;

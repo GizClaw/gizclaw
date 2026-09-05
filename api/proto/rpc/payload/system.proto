@@ -149,6 +149,7 @@ message PeerStatus {
   optional int64 battery_percent = 1;
   optional bool charging = 2;
   google.protobuf.Struct details = 3;
+  optional string firmware_sha256 = 12;
   optional double gnss_accuracy_m = 4;
   optional double gnss_altitude_m = 5;
   optional double gnss_latitude = 6;

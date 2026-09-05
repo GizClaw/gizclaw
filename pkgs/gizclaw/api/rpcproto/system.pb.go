@@ -1497,6 +1497,7 @@ type PeerStatus struct {
 	BatteryPercent *int64                 `protobuf:"varint,1,opt,name=battery_percent,json=batteryPercent,proto3,oneof" json:"battery_percent,omitempty"`
 	Charging       *bool                  `protobuf:"varint,2,opt,name=charging,proto3,oneof" json:"charging,omitempty"`
 	Details        *structpb.Struct       `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
+	FirmwareSha256 *string                `protobuf:"bytes,12,opt,name=firmware_sha256,json=firmwareSha256,proto3,oneof" json:"firmware_sha256,omitempty"`
 	GnssAccuracyM  *float64               `protobuf:"fixed64,4,opt,name=gnss_accuracy_m,json=gnssAccuracyM,proto3,oneof" json:"gnss_accuracy_m,omitempty"`
 	GnssAltitudeM  *float64               `protobuf:"fixed64,5,opt,name=gnss_altitude_m,json=gnssAltitudeM,proto3,oneof" json:"gnss_altitude_m,omitempty"`
 	GnssLatitude   *float64               `protobuf:"fixed64,6,opt,name=gnss_latitude,json=gnssLatitude,proto3,oneof" json:"gnss_latitude,omitempty"`
@@ -1558,6 +1559,13 @@ func (x *PeerStatus) GetDetails() *structpb.Struct {
 		return x.Details
 	}
 	return nil
+}
+
+func (x *PeerStatus) GetFirmwareSha256() string {
+	if x != nil && x.FirmwareSha256 != nil {
+		return *x.FirmwareSha256
+	}
+	return ""
 }
 
 func (x *PeerStatus) GetGnssAccuracyM() float64 {
@@ -2772,27 +2780,29 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x05_name\"3\n" +
 	"\tPeerLabel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\"\xaa\x05\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"\xec\x05\n" +
 	"\n" +
 	"PeerStatus\x12,\n" +
 	"\x0fbattery_percent\x18\x01 \x01(\x03H\x00R\x0ebatteryPercent\x88\x01\x01\x12\x1f\n" +
 	"\bcharging\x18\x02 \x01(\bH\x01R\bcharging\x88\x01\x01\x121\n" +
-	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\x12+\n" +
-	"\x0fgnss_accuracy_m\x18\x04 \x01(\x01H\x02R\rgnssAccuracyM\x88\x01\x01\x12+\n" +
-	"\x0fgnss_altitude_m\x18\x05 \x01(\x01H\x03R\rgnssAltitudeM\x88\x01\x01\x12(\n" +
-	"\rgnss_latitude\x18\x06 \x01(\x01H\x04R\fgnssLatitude\x88\x01\x01\x12*\n" +
-	"\x0egnss_longitude\x18\a \x01(\x01H\x05R\rgnssLongitude\x88\x01\x01\x12>\n" +
+	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\x12,\n" +
+	"\x0ffirmware_sha256\x18\f \x01(\tH\x02R\x0efirmwareSha256\x88\x01\x01\x12+\n" +
+	"\x0fgnss_accuracy_m\x18\x04 \x01(\x01H\x03R\rgnssAccuracyM\x88\x01\x01\x12+\n" +
+	"\x0fgnss_altitude_m\x18\x05 \x01(\x01H\x04R\rgnssAltitudeM\x88\x01\x01\x12(\n" +
+	"\rgnss_latitude\x18\x06 \x01(\x01H\x05R\fgnssLatitude\x88\x01\x01\x12*\n" +
+	"\x0egnss_longitude\x18\a \x01(\x01H\x06R\rgnssLongitude\x88\x01\x01\x12>\n" +
 	"\x06labels\x18\b \x03(\v2&.gizclaw.rpc.v1.PeerStatus.LabelsEntryR\x06labels\x12\x19\n" +
-	"\x05muted\x18\t \x01(\bH\x06R\x05muted\x88\x01\x01\x12$\n" +
+	"\x05muted\x18\t \x01(\bH\aR\x05muted\x88\x01\x01\x12$\n" +
 	"\vreported_at\x18\n" +
-	" \x01(\tH\aR\n" +
+	" \x01(\tH\bR\n" +
 	"reportedAt\x88\x01\x01\x12\x1b\n" +
-	"\x06volume\x18\v \x01(\x03H\bR\x06volume\x88\x01\x01\x1a9\n" +
+	"\x06volume\x18\v \x01(\x03H\tR\x06volume\x88\x01\x01\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x12\n" +
 	"\x10_battery_percentB\v\n" +
 	"\t_chargingB\x12\n" +
+	"\x10_firmware_sha256B\x12\n" +
 	"\x10_gnss_accuracy_mB\x12\n" +
 	"\x10_gnss_altitude_mB\x10\n" +
 	"\x0e_gnss_latitudeB\x11\n" +

@@ -1688,6 +1688,24 @@
       },
       "ServerRewardGrantGetResponse": {
         "$ref": "../shared/gameplay.json#/components/schemas/RewardGrant"
+      },
+      "ClientFirmwareUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/FirmwareChannelName"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "ClientFirmwareUpdateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
       }
     }
   }
