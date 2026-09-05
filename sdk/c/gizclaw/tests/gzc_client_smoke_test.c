@@ -4216,6 +4216,35 @@ int main(void) {
   if (expect(rc == GZC_ERR_RPC, "reject oversized telemetry packet") != 0) {
     return 1;
   }
+  gzc_telemetry_ota_frame_t ota_frame = {0};
+  ota_frame.sequence = 7;
+  ota_frame.observed_at_unix_ms = 1234;
+  ota_frame.observed_at_delta_ms = -2;
+  ota_frame.ota.state = GZC_OTA_STATE_FAILED;
+  ota_frame.ota.update_id = (gzc_str_t){.data = "ota-1", .len = 5};
+  ota_frame.ota.has_target_version = true;
+  ota_frame.ota.target_version = (gzc_str_t){.data = "2.0", .len = 3};
+  ota_frame.ota.has_download_percent = true;
+  ota_frame.ota.download_percent = 0;
+  ota_frame.ota.has_error_code = true;
+  ota_frame.ota.error_code = (gzc_str_t){.data = "E_DOWNLOAD", .len = 10};
+  ota_frame.ota.has_error_message = true;
+  ota_frame.ota.error_message = (gzc_str_t){.data = "timeout", .len = 7};
+  const uint8_t expected_ota[] = {0x40, 0x08, 0x07, 0x10, 0xd2, 0x09, 0x1a, 0x39, 0x08, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01, 0x72, 0x2c, 0x08, 0x04, 0x12, 0x05, 0x6f, 0x74, 0x61, 0x2d, 0x31, 0x1a, 0x03, 0x32, 0x2e, 0x30, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a, 0x0a, 0x45, 0x5f, 0x44, 0x4f, 0x57, 0x4e, 0x4c, 0x4f, 0x41, 0x44, 0x32, 0x07, 0x74, 0x69, 0x6d, 0x65, 0x6f, 0x75, 0x74};
+  rc = gzc_client_send_ota_telemetry(client, &ota_frame);
+  if (expect(rc == GZC_OK && fake_webrtc.sent.len == sizeof(expected_ota) &&
+                 memcmp(fake_webrtc.sent.data, expected_ota, sizeof(expected_ota)) == 0,
+             "OTA packet matches protoc including zero progress and negative delta") != 0)
+    return 1;
+  ota_frame.observed_at_unix_ms = 0;
+  rc = gzc_client_send_ota_telemetry(client, &ota_frame);
+  if (expect(rc == GZC_OK && ota_frame.observed_at_unix_ms == 0,
+             "OTA send stamps a copy") != 0)
+    return 1;
+  ota_frame.ota.update_id.data = NULL;
+  rc = gzc_client_send_ota_telemetry(client, &ota_frame);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "OTA rejects nonempty null string") != 0)
+    return 1;
   gzc_telemetry_frame_t empty_telemetry_frame;
   memset(&empty_telemetry_frame, 0, sizeof(empty_telemetry_frame));
   rc = gzc_client_send_telemetry(client, &empty_telemetry_frame);

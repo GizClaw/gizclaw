@@ -35,15 +35,21 @@ func (s *Server) GetStatus(ctx context.Context, publicKey giznet.PublicKey) (api
 		return apitypes.PeerStatus{}, err
 	}
 	data, err := store.Get(ctx, key)
-	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.PeerStatus{}, nil
-	}
-	if err != nil {
+	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return apitypes.PeerStatus{}, fmt.Errorf("peerrun: get status: %w", err)
 	}
 	var status apitypes.PeerStatus
-	if err := json.Unmarshal(data, &status); err != nil {
-		return apitypes.PeerStatus{}, fmt.Errorf("peerrun: decode status: %w", err)
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &status); err != nil {
+			return apitypes.PeerStatus{}, fmt.Errorf("peerrun: decode status: %w", err)
+		}
+	}
+	status.Ota, err = s.getOTAStatus(ctx, publicKey)
+	if err != nil {
+		return apitypes.PeerStatus{}, err
+	}
+	if status.Ota != nil && (status.ReportedAt == nil || status.Ota.ObservedAt.After(*status.ReportedAt)) {
+		status.ReportedAt = new(status.Ota.ObservedAt)
 	}
 	return status, nil
 }
@@ -60,6 +66,9 @@ func (s *Server) PutStatus(ctx context.Context, publicKey giznet.PublicKey, stat
 	if err != nil {
 		return apitypes.PeerStatus{}, err
 	}
+	// OTA has its own atomic runtime record. Control/status writes must not
+	// overwrite telemetry progress with a stale copy of the snapshot.
+	status.Ota = nil
 	data, err := json.Marshal(status)
 	if err != nil {
 		return apitypes.PeerStatus{}, fmt.Errorf("peerrun: encode status: %w", err)
@@ -67,7 +76,8 @@ func (s *Server) PutStatus(ctx context.Context, publicKey giznet.PublicKey, stat
 	if err := store.Set(ctx, key, data); err != nil {
 		return apitypes.PeerStatus{}, fmt.Errorf("peerrun: put status: %w", err)
 	}
-	return status, nil
+	status.Ota, err = s.getOTAStatus(ctx, publicKey)
+	return status, err
 }
 
 func (s *Server) GetRunAgent(ctx context.Context, publicKey giznet.PublicKey) (apitypes.PeerRunAgent, error) {

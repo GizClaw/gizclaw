@@ -192,3 +192,15 @@ func TestDeviceControlMethodPayloadNames(t *testing.T) {
 		t.Fatal("decoding a volume request as a forget request must fail")
 	}
 }
+
+func TestOTAStatusRPCRoundTrip(t *testing.T) {
+	want := &rpcpb.PeerOtaStatus{State: "downloading", UpdateId: "one", ObservedAt: "2026-09-06T00:00:00Z", DownloadPercent: new(0.0), TargetVersion: new("2.0")}
+	var payload RPCPayload
+	if err := payload.FromServerGetStatusResponse(PeerStatus{Ota: want}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := payload.AsServerGetStatusResponse()
+	if err != nil || !proto.Equal(got.Ota, want) {
+		t.Fatalf("OTA status RPC: %+v, %v", got, err)
+	}
+}

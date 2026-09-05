@@ -18,6 +18,7 @@ message Observation {
     GnssObservation gnss = 11;
     NetworkObservation network = 12;
     SystemObservation system = 13;
+    OtaObservation ota = 14;
   }
 }
 
@@ -49,4 +50,28 @@ message SystemObservation {
   optional string firmware_version = 4;
   optional string software_version = 5;
   optional string hardware_version = 6;
+}
+
+// Device-reported state of one OTA attempt. Download completion is not success.
+enum OtaState {
+  OTA_STATE_UNSPECIFIED = 0;
+  OTA_STATE_STARTED = 1;
+  OTA_STATE_DOWNLOADING = 2;
+  OTA_STATE_SUCCEEDED = 3;
+  OTA_STATE_FAILED = 4;
+}
+
+message OtaObservation {
+  // Required, nonzero state. Success means the device confirmed the update.
+  OtaState state = 1;
+  // Required opaque identifier, reused across one attempt (1..128 UTF-8 bytes).
+  string update_id = 2;
+  // Optional target firmware version (at most 128 UTF-8 bytes).
+  optional string target_version = 3;
+  // Download percentage in [0, 100]; required while downloading. Zero is present.
+  optional double download_percent = 4;
+  // Optional diagnostic code and safe message, only for FAILED (128/512 bytes).
+  // Never include credentials, signed URLs, or other secrets.
+  optional string error_code = 5;
+  optional string error_message = 6;
 }

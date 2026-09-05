@@ -307,3 +307,54 @@ int gzc_client_send_telemetry(gzc_client_t *client, const gzc_telemetry_frame_t 
   gzc_buf_free(&payload, platform);
   return rc;
 }
+
+int gzc_telemetry_encode_ota_frame(const gzc_telemetry_ota_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload) {
+  if (frame == NULL || out_payload == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  const gzc_platform_t *alloc = platform == NULL ? gzc_default_platform() : platform;
+  gzc_buf_t body, observation;
+  gzc_buf_init(&body);
+  gzc_buf_init(&observation);
+  gzc_buf_reset(out_payload);
+  int rc = telemetry_append_int32(&body, alloc, 1, (int32_t)frame->ota.state);
+  if (rc == GZC_OK)
+    rc = telemetry_append_string(&body, alloc, 2, frame->ota.update_id);
+  if (rc == GZC_OK && frame->ota.has_target_version)
+    rc = telemetry_append_string(&body, alloc, 3, frame->ota.target_version);
+  if (rc == GZC_OK && frame->ota.has_download_percent)
+    rc = telemetry_append_double(&body, alloc, 4, frame->ota.download_percent);
+  if (rc == GZC_OK && frame->ota.has_error_code)
+    rc = telemetry_append_string(&body, alloc, 5, frame->ota.error_code);
+  if (rc == GZC_OK && frame->ota.has_error_message)
+    rc = telemetry_append_string(&body, alloc, 6, frame->ota.error_message);
+  if (rc == GZC_OK && frame->observed_at_delta_ms != 0)
+    rc = telemetry_append_int32(&observation, alloc, 1, frame->observed_at_delta_ms);
+  if (rc == GZC_OK)
+    rc = telemetry_append_message(&observation, alloc, 14, &body);
+  if (rc == GZC_OK && frame->sequence != 0)
+    rc = telemetry_append_uint32(out_payload, alloc, 1, frame->sequence);
+  if (rc == GZC_OK && frame->observed_at_unix_ms != 0)
+    rc = telemetry_append_int64(out_payload, alloc, 2, frame->observed_at_unix_ms);
+  if (rc == GZC_OK)
+    rc = telemetry_append_message(out_payload, alloc, 3, &observation);
+  gzc_buf_free(&body, alloc);
+  gzc_buf_free(&observation, alloc);
+  return rc;
+}
+
+int gzc_client_send_ota_telemetry(gzc_client_t *client, const gzc_telemetry_ota_frame_t *frame) {
+  if (client == NULL || frame == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  const gzc_platform_t *platform = gzc_client_platform(client);
+  gzc_telemetry_ota_frame_t stamped = *frame;
+  if (stamped.observed_at_unix_ms == 0 && platform != NULL && platform->time_unix_ms != NULL) {
+    stamped.observed_at_unix_ms = platform->time_unix_ms(platform->userdata);
+  }
+  gzc_buf_t payload;
+  gzc_buf_init(&payload);
+  int rc = gzc_telemetry_encode_ota_frame(&stamped, platform, &payload);
+  if (rc == GZC_OK)
+    rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, payload.data, payload.len);
+  gzc_buf_free(&payload, platform);
+  return rc;
+}

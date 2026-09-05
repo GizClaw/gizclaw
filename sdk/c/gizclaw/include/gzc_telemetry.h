@@ -80,6 +80,40 @@ typedef struct {
   size_t observation_count;
 } gzc_telemetry_frame_t;
 
+// OTA uses an additive frame API so existing observation/frame layouts stay stable.
+typedef enum {
+  GZC_OTA_STATE_UNSPECIFIED = 0,
+  GZC_OTA_STATE_STARTED = 1,
+  GZC_OTA_STATE_DOWNLOADING = 2,
+  GZC_OTA_STATE_SUCCEEDED = 3,
+  GZC_OTA_STATE_FAILED = 4
+} gzc_ota_state_t;
+
+typedef struct {
+  gzc_ota_state_t state;
+  gzc_str_t update_id;
+  bool has_target_version;
+  gzc_str_t target_version;
+  bool has_download_percent;
+  double download_percent;
+  bool has_error_code;
+  gzc_str_t error_code;
+  bool has_error_message;
+  gzc_str_t error_message;
+} gzc_telemetry_ota_t;
+
+typedef struct {
+  uint32_t sequence;
+  int64_t observed_at_unix_ms;
+  int32_t observed_at_delta_ms;
+  gzc_telemetry_ota_t ota;
+} gzc_telemetry_ota_frame_t;
+
+// Strings are borrowed for the duration of each call. Zero timestamp is stamped
+// by send using the platform clock. Encoding returns a protobuf frame payload.
+int gzc_telemetry_encode_ota_frame(const gzc_telemetry_ota_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload);
+int gzc_client_send_ota_telemetry(gzc_client_t *client, const gzc_telemetry_ota_frame_t *frame);
+
 int gzc_telemetry_encode_frame(const gzc_telemetry_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload);
 int gzc_client_send_telemetry(gzc_client_t *client, const gzc_telemetry_frame_t *frame);
 

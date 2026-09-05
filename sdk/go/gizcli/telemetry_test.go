@@ -99,3 +99,24 @@ func (c *recordingGiznetConn) PeerInfo() *giznet.PeerInfo  { return nil }
 func (c *recordingGiznetConn) Close() error                { return nil }
 
 var _ giznet.Conn = (*recordingGiznetConn)(nil)
+
+func TestClientSendOTATelemetry(t *testing.T) {
+	conn := &recordingGiznetConn{}
+	client := &Client{conn: conn}
+	for _, state := range []telemetrypb.OtaState{1, 2, 3, 4} {
+		obs := &telemetrypb.OtaObservation{State: state, UpdateId: "attempt", DownloadPercent: new(0.0)}
+		if err := client.SendOTATelemetry(obs); err != nil {
+			t.Fatal(err)
+		}
+		var frame telemetrypb.TelemetryFrame
+		if err := proto.Unmarshal(conn.payload, &frame); err != nil {
+			t.Fatal(err)
+		}
+		if conn.protocol != EventStreamTelemetry || frame.ObservedAtUnixMs <= 0 || len(frame.Observations) != 1 || !proto.Equal(frame.Observations[0].GetOta(), obs) {
+			t.Fatalf("OTA packet: %v", &frame)
+		}
+	}
+	if err := client.SendOTATelemetry(nil); err == nil {
+		t.Fatal("nil OTA accepted")
+	}
+}

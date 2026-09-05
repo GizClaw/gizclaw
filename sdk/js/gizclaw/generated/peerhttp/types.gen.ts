@@ -284,6 +284,22 @@ export type PeerRunHistoryListResponse = {
     message?: string;
 };
 
+/**
+ * Latest device-reported OTA attempt snapshot, retained across disconnects.
+ */
+export type PeerOtaStatus = {
+    /**
+     * Device-reported OTA state: started, downloading, succeeded, or failed. Readers must preserve unknown future values.
+     */
+    state: string;
+    update_id: string;
+    observed_at: string;
+    download_percent?: number;
+    target_version?: string;
+    error_code?: string;
+    error_message?: string;
+};
+
 export type PeerStatus = {
     reported_at?: string;
     volume?: number;
@@ -304,6 +320,7 @@ export type PeerStatus = {
      * Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
      */
     firmware_sha256?: string;
+    ota?: PeerOtaStatus;
 };
 
 /**

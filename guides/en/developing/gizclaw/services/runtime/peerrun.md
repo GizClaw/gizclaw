@@ -18,3 +18,7 @@
 
 `GetDebugMode` / `SetDebugMode` persist device-owned debug permissions, defaulting to `off`.
 The setting survives reconnects. HTTP authorization reads it on every request and fails closed on storage errors.
+
+## OTA status
+
+`Server.PutOTAStatus` persists device telemetry in a dedicated per-peer OTA KV record using atomic compare-and-mutate, protecting terminal states from concurrent or out-of-order progress. `GetStatus` projects it as `PeerStatus.ota`; ordinary `PutStatus` does not write the OTA record, so control responses cannot overwrite update progress. Stores must support atomic create-if-absent and compare-and-mutate; unsupported stores return an error. See [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for fields and ordering.

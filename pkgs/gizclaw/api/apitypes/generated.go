@@ -4932,6 +4932,19 @@ type PeerLabel struct {
 	Value string `json:"value"`
 }
 
+// PeerOtaStatus Latest device-reported OTA attempt snapshot, retained across disconnects.
+type PeerOtaStatus struct {
+	DownloadPercent *float64  `json:"download_percent,omitempty"`
+	ErrorCode       *string   `json:"error_code,omitempty"`
+	ErrorMessage    *string   `json:"error_message,omitempty"`
+	ObservedAt      time.Time `json:"observed_at"`
+
+	// State Device-reported OTA state: started, downloading, succeeded, or failed. Readers must preserve unknown future values.
+	State         string  `json:"state"`
+	TargetVersion *string `json:"target_version,omitempty"`
+	UpdateId      string  `json:"update_id"`
+}
+
 // PeerRegistrationStatus defines model for PeerRegistrationStatus.
 type PeerRegistrationStatus string
 
@@ -5078,8 +5091,11 @@ type PeerStatus struct {
 	GnssLongitude  *float32           `json:"gnss_longitude,omitempty"`
 	Labels         *map[string]string `json:"labels,omitempty"`
 	Muted          *bool              `json:"muted,omitempty"`
-	ReportedAt     *time.Time         `json:"reported_at,omitempty"`
-	Volume         *int               `json:"volume,omitempty"`
+
+	// Ota Latest device-reported OTA attempt snapshot, retained across disconnects.
+	Ota        *PeerOtaStatus `json:"ota,omitempty"`
+	ReportedAt *time.Time     `json:"reported_at,omitempty"`
+	Volume     *int           `json:"volume,omitempty"`
 }
 
 // PeerTelemetryAggregate Bucket aggregate mode for peer telemetry range data.

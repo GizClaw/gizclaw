@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -22,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
+	"google.golang.org/protobuf/proto"
 )
 
 // deviceHTTPFixture is one API-key-bound owner served by the Public HTTP
@@ -329,5 +331,29 @@ func TestDeviceHTTPContactsCRUD(t *testing.T) {
 	items, err := f.contacts.ListContacts(ctx, otherKey.Public.String(), rpcapi.ContactListRequest{})
 	if err != nil || len(items.Items) != 1 {
 		t.Fatalf("other owner contacts after delete = %+v, %v", items, err)
+	}
+}
+
+func TestDeviceStatusExposesOTATelemetry(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	service := &peertelemetry.Service{Metrics: f.metrics, Status: peertelemetry.StatusSync{Store: f.manager.PeerRun}}
+	frame := &telemetrypb.TelemetryFrame{ObservedAtUnixMs: 1700000000000, Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Ota{Ota: &telemetrypb.OtaObservation{State: telemetrypb.OtaState_OTA_STATE_DOWNLOADING, UpdateId: "install-1", TargetVersion: new("2.0"), DownloadPercent: new(42.5)}}}}}
+	payload, err := proto.Marshal(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ReportPacket(context.Background(), f.owner, payload); err != nil {
+		t.Fatal(err)
+	}
+	response := f.doWithSecret(t, f.secret, http.MethodGet, "/gizclaw/v1/device/status", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d: %s", response.Code, response.Body.String())
+	}
+	var status apitypes.PeerStatus
+	if err := json.Unmarshal(response.Body.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.Ota == nil || status.Ota.State != "downloading" || status.Ota.UpdateId != "install-1" || status.Ota.DownloadPercent == nil || *status.Ota.DownloadPercent != 42.5 || (status.Ota.TargetVersion == nil || *status.Ota.TargetVersion != "2.0") {
+		t.Fatalf("OTA status: %+v", status.Ota)
 	}
 }

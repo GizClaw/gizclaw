@@ -27,3 +27,5 @@ flowchart LR
 | `PeerStatusStore` / `StatusService` | 隔离持久化 status 与更新接口。 |
 
 Telemetry schema 属于 `api/proto/telemetry`，metrics persistence 属于 `pkgs/store/metrics`。本 package 只拥有解码、映射和同步策略。
+
+OTA observation 校验后由 `StatusSync` 写入可查询的 runtime OTA 状态，不记录 payload 日志，也不映射为 metrics；字段和 SDK 用法见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。

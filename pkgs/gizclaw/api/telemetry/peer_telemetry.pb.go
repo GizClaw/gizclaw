@@ -21,6 +21,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Device-reported state of one OTA attempt. Download completion is not success.
+type OtaState int32
+
+const (
+	OtaState_OTA_STATE_UNSPECIFIED OtaState = 0
+	OtaState_OTA_STATE_STARTED     OtaState = 1
+	OtaState_OTA_STATE_DOWNLOADING OtaState = 2
+	OtaState_OTA_STATE_SUCCEEDED   OtaState = 3
+	OtaState_OTA_STATE_FAILED      OtaState = 4
+)
+
+// Enum value maps for OtaState.
+var (
+	OtaState_name = map[int32]string{
+		0: "OTA_STATE_UNSPECIFIED",
+		1: "OTA_STATE_STARTED",
+		2: "OTA_STATE_DOWNLOADING",
+		3: "OTA_STATE_SUCCEEDED",
+		4: "OTA_STATE_FAILED",
+	}
+	OtaState_value = map[string]int32{
+		"OTA_STATE_UNSPECIFIED": 0,
+		"OTA_STATE_STARTED":     1,
+		"OTA_STATE_DOWNLOADING": 2,
+		"OTA_STATE_SUCCEEDED":   3,
+		"OTA_STATE_FAILED":      4,
+	}
+)
+
+func (x OtaState) Enum() *OtaState {
+	p := new(OtaState)
+	*p = x
+	return p
+}
+
+func (x OtaState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OtaState) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_proto_telemetry_peer_telemetry_proto_enumTypes[0].Descriptor()
+}
+
+func (OtaState) Type() protoreflect.EnumType {
+	return &file_api_proto_telemetry_peer_telemetry_proto_enumTypes[0]
+}
+
+func (x OtaState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OtaState.Descriptor instead.
+func (OtaState) EnumDescriptor() ([]byte, []int) {
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{0}
+}
+
 type TelemetryFrame struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Sequence         uint32                 `protobuf:"varint,1,opt,name=sequence,proto3" json:"sequence,omitempty"`
@@ -90,6 +146,7 @@ type Observation struct {
 	//	*Observation_Gnss
 	//	*Observation_Network
 	//	*Observation_System
+	//	*Observation_Ota
 	Body          isObservation_Body `protobuf_oneof:"body"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -175,6 +232,15 @@ func (x *Observation) GetSystem() *SystemObservation {
 	return nil
 }
 
+func (x *Observation) GetOta() *OtaObservation {
+	if x != nil {
+		if x, ok := x.Body.(*Observation_Ota); ok {
+			return x.Ota
+		}
+	}
+	return nil
+}
+
 type isObservation_Body interface {
 	isObservation_Body()
 }
@@ -195,6 +261,10 @@ type Observation_System struct {
 	System *SystemObservation `protobuf:"bytes,13,opt,name=system,proto3,oneof"`
 }
 
+type Observation_Ota struct {
+	Ota *OtaObservation `protobuf:"bytes,14,opt,name=ota,proto3,oneof"`
+}
+
 func (*Observation_Battery) isObservation_Body() {}
 
 func (*Observation_Gnss) isObservation_Body() {}
@@ -202,6 +272,8 @@ func (*Observation_Gnss) isObservation_Body() {}
 func (*Observation_Network) isObservation_Body() {}
 
 func (*Observation_System) isObservation_Body() {}
+
+func (*Observation_Ota) isObservation_Body() {}
 
 type BatteryObservation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -491,6 +563,96 @@ func (x *SystemObservation) GetHardwareVersion() string {
 	return ""
 }
 
+type OtaObservation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Required, nonzero state. Success means the device confirmed the update.
+	State OtaState `protobuf:"varint,1,opt,name=state,proto3,enum=gizclaw.telemetry.v1.OtaState" json:"state,omitempty"`
+	// Required opaque identifier, reused across one attempt (1..128 UTF-8 bytes).
+	UpdateId string `protobuf:"bytes,2,opt,name=update_id,json=updateId,proto3" json:"update_id,omitempty"`
+	// Optional target firmware version (at most 128 UTF-8 bytes).
+	TargetVersion *string `protobuf:"bytes,3,opt,name=target_version,json=targetVersion,proto3,oneof" json:"target_version,omitempty"`
+	// Download percentage in [0, 100]; required while downloading. Zero is present.
+	DownloadPercent *float64 `protobuf:"fixed64,4,opt,name=download_percent,json=downloadPercent,proto3,oneof" json:"download_percent,omitempty"`
+	// Optional diagnostic code and safe message, only for FAILED (128/512 bytes).
+	// Never include credentials, signed URLs, or other secrets.
+	ErrorCode     *string `protobuf:"bytes,5,opt,name=error_code,json=errorCode,proto3,oneof" json:"error_code,omitempty"`
+	ErrorMessage  *string `protobuf:"bytes,6,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OtaObservation) Reset() {
+	*x = OtaObservation{}
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OtaObservation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OtaObservation) ProtoMessage() {}
+
+func (x *OtaObservation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OtaObservation.ProtoReflect.Descriptor instead.
+func (*OtaObservation) Descriptor() ([]byte, []int) {
+	return file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *OtaObservation) GetState() OtaState {
+	if x != nil {
+		return x.State
+	}
+	return OtaState_OTA_STATE_UNSPECIFIED
+}
+
+func (x *OtaObservation) GetUpdateId() string {
+	if x != nil {
+		return x.UpdateId
+	}
+	return ""
+}
+
+func (x *OtaObservation) GetTargetVersion() string {
+	if x != nil && x.TargetVersion != nil {
+		return *x.TargetVersion
+	}
+	return ""
+}
+
+func (x *OtaObservation) GetDownloadPercent() float64 {
+	if x != nil && x.DownloadPercent != nil {
+		return *x.DownloadPercent
+	}
+	return 0
+}
+
+func (x *OtaObservation) GetErrorCode() string {
+	if x != nil && x.ErrorCode != nil {
+		return *x.ErrorCode
+	}
+	return ""
+}
+
+func (x *OtaObservation) GetErrorMessage() string {
+	if x != nil && x.ErrorMessage != nil {
+		return *x.ErrorMessage
+	}
+	return ""
+}
+
 var File_api_proto_telemetry_peer_telemetry_proto protoreflect.FileDescriptor
 
 const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
@@ -499,14 +661,15 @@ const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\x0eTelemetryFrame\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\rR\bsequence\x12-\n" +
 	"\x13observed_at_unix_ms\x18\x02 \x01(\x03R\x10observedAtUnixMs\x12E\n" +
-	"\fobservations\x18\x03 \x03(\v2!.gizclaw.telemetry.v1.ObservationR\fobservations\"\xd2\x02\n" +
+	"\fobservations\x18\x03 \x03(\v2!.gizclaw.telemetry.v1.ObservationR\fobservations\"\x8c\x03\n" +
 	"\vObservation\x12/\n" +
 	"\x14observed_at_delta_ms\x18\x01 \x01(\x05R\x11observedAtDeltaMs\x12D\n" +
 	"\abattery\x18\n" +
 	" \x01(\v2(.gizclaw.telemetry.v1.BatteryObservationH\x00R\abattery\x12;\n" +
 	"\x04gnss\x18\v \x01(\v2%.gizclaw.telemetry.v1.GnssObservationH\x00R\x04gnss\x12D\n" +
 	"\anetwork\x18\f \x01(\v2(.gizclaw.telemetry.v1.NetworkObservationH\x00R\anetwork\x12A\n" +
-	"\x06system\x18\r \x01(\v2'.gizclaw.telemetry.v1.SystemObservationH\x00R\x06systemB\x06\n" +
+	"\x06system\x18\r \x01(\v2'.gizclaw.telemetry.v1.SystemObservationH\x00R\x06system\x128\n" +
+	"\x03ota\x18\x0e \x01(\v2$.gizclaw.telemetry.v1.OtaObservationH\x00R\x03otaB\x06\n" +
 	"\x04body\"\xa0\x01\n" +
 	"\x12BatteryObservation\x12\x1d\n" +
 	"\apercent\x18\x01 \x01(\x01H\x00R\apercent\x88\x01\x01\x12\x1f\n" +
@@ -550,7 +713,25 @@ const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\x0e_temperature_cB\x13\n" +
 	"\x11_firmware_versionB\x13\n" +
 	"\x11_software_versionB\x13\n" +
-	"\x11_hardware_versionBFZDgithub.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry;telemetrypbb\x06proto3"
+	"\x11_hardware_version\"\xd6\x02\n" +
+	"\x0eOtaObservation\x124\n" +
+	"\x05state\x18\x01 \x01(\x0e2\x1e.gizclaw.telemetry.v1.OtaStateR\x05state\x12\x1b\n" +
+	"\tupdate_id\x18\x02 \x01(\tR\bupdateId\x12*\n" +
+	"\x0etarget_version\x18\x03 \x01(\tH\x00R\rtargetVersion\x88\x01\x01\x12.\n" +
+	"\x10download_percent\x18\x04 \x01(\x01H\x01R\x0fdownloadPercent\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"error_code\x18\x05 \x01(\tH\x02R\terrorCode\x88\x01\x01\x12(\n" +
+	"\rerror_message\x18\x06 \x01(\tH\x03R\ferrorMessage\x88\x01\x01B\x11\n" +
+	"\x0f_target_versionB\x13\n" +
+	"\x11_download_percentB\r\n" +
+	"\v_error_codeB\x10\n" +
+	"\x0e_error_message*\x86\x01\n" +
+	"\bOtaState\x12\x19\n" +
+	"\x15OTA_STATE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11OTA_STATE_STARTED\x10\x01\x12\x19\n" +
+	"\x15OTA_STATE_DOWNLOADING\x10\x02\x12\x17\n" +
+	"\x13OTA_STATE_SUCCEEDED\x10\x03\x12\x14\n" +
+	"\x10OTA_STATE_FAILED\x10\x04BFZDgithub.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry;telemetrypbb\x06proto3"
 
 var (
 	file_api_proto_telemetry_peer_telemetry_proto_rawDescOnce sync.Once
@@ -564,26 +745,31 @@ func file_api_proto_telemetry_peer_telemetry_proto_rawDescGZIP() []byte {
 	return file_api_proto_telemetry_peer_telemetry_proto_rawDescData
 }
 
-var file_api_proto_telemetry_peer_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_api_proto_telemetry_peer_telemetry_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_api_proto_telemetry_peer_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_api_proto_telemetry_peer_telemetry_proto_goTypes = []any{
-	(*TelemetryFrame)(nil),     // 0: gizclaw.telemetry.v1.TelemetryFrame
-	(*Observation)(nil),        // 1: gizclaw.telemetry.v1.Observation
-	(*BatteryObservation)(nil), // 2: gizclaw.telemetry.v1.BatteryObservation
-	(*GnssObservation)(nil),    // 3: gizclaw.telemetry.v1.GnssObservation
-	(*NetworkObservation)(nil), // 4: gizclaw.telemetry.v1.NetworkObservation
-	(*SystemObservation)(nil),  // 5: gizclaw.telemetry.v1.SystemObservation
+	(OtaState)(0),              // 0: gizclaw.telemetry.v1.OtaState
+	(*TelemetryFrame)(nil),     // 1: gizclaw.telemetry.v1.TelemetryFrame
+	(*Observation)(nil),        // 2: gizclaw.telemetry.v1.Observation
+	(*BatteryObservation)(nil), // 3: gizclaw.telemetry.v1.BatteryObservation
+	(*GnssObservation)(nil),    // 4: gizclaw.telemetry.v1.GnssObservation
+	(*NetworkObservation)(nil), // 5: gizclaw.telemetry.v1.NetworkObservation
+	(*SystemObservation)(nil),  // 6: gizclaw.telemetry.v1.SystemObservation
+	(*OtaObservation)(nil),     // 7: gizclaw.telemetry.v1.OtaObservation
 }
 var file_api_proto_telemetry_peer_telemetry_proto_depIdxs = []int32{
-	1, // 0: gizclaw.telemetry.v1.TelemetryFrame.observations:type_name -> gizclaw.telemetry.v1.Observation
-	2, // 1: gizclaw.telemetry.v1.Observation.battery:type_name -> gizclaw.telemetry.v1.BatteryObservation
-	3, // 2: gizclaw.telemetry.v1.Observation.gnss:type_name -> gizclaw.telemetry.v1.GnssObservation
-	4, // 3: gizclaw.telemetry.v1.Observation.network:type_name -> gizclaw.telemetry.v1.NetworkObservation
-	5, // 4: gizclaw.telemetry.v1.Observation.system:type_name -> gizclaw.telemetry.v1.SystemObservation
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2, // 0: gizclaw.telemetry.v1.TelemetryFrame.observations:type_name -> gizclaw.telemetry.v1.Observation
+	3, // 1: gizclaw.telemetry.v1.Observation.battery:type_name -> gizclaw.telemetry.v1.BatteryObservation
+	4, // 2: gizclaw.telemetry.v1.Observation.gnss:type_name -> gizclaw.telemetry.v1.GnssObservation
+	5, // 3: gizclaw.telemetry.v1.Observation.network:type_name -> gizclaw.telemetry.v1.NetworkObservation
+	6, // 4: gizclaw.telemetry.v1.Observation.system:type_name -> gizclaw.telemetry.v1.SystemObservation
+	7, // 5: gizclaw.telemetry.v1.Observation.ota:type_name -> gizclaw.telemetry.v1.OtaObservation
+	0, // 6: gizclaw.telemetry.v1.OtaObservation.state:type_name -> gizclaw.telemetry.v1.OtaState
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_telemetry_peer_telemetry_proto_init() }
@@ -596,23 +782,26 @@ func file_api_proto_telemetry_peer_telemetry_proto_init() {
 		(*Observation_Gnss)(nil),
 		(*Observation_Network)(nil),
 		(*Observation_System)(nil),
+		(*Observation_Ota)(nil),
 	}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[2].OneofWrappers = []any{}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[3].OneofWrappers = []any{}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[4].OneofWrappers = []any{}
 	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[5].OneofWrappers = []any{}
+	file_api_proto_telemetry_peer_telemetry_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_telemetry_peer_telemetry_proto_rawDesc), len(file_api_proto_telemetry_peer_telemetry_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   6,
+			NumEnums:      1,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_api_proto_telemetry_peer_telemetry_proto_goTypes,
 		DependencyIndexes: file_api_proto_telemetry_peer_telemetry_proto_depIdxs,
+		EnumInfos:         file_api_proto_telemetry_peer_telemetry_proto_enumTypes,
 		MessageInfos:      file_api_proto_telemetry_peer_telemetry_proto_msgTypes,
 	}.Build()
 	File_api_proto_telemetry_peer_telemetry_proto = out.File

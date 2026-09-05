@@ -2272,18 +2272,19 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
-	BatteryPercent *int               `json:"battery_percent,omitempty"`
-	Charging       *bool              `json:"charging,omitempty"`
-	Details        *map[string]any    `json:"details,omitempty"`
-	FirmwareSha256 *string            `json:"firmware_sha256,omitempty"`
-	GnssAccuracyM  *float32           `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32           `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32           `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32           `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string `json:"labels,omitempty"`
-	Muted          *bool              `json:"muted,omitempty"`
-	ReportedAt     *time.Time         `json:"reported_at,omitempty"`
-	Volume         *int               `json:"volume,omitempty"`
+	Ota            *rpcpb.PeerOtaStatus `json:"ota,omitempty"`
+	BatteryPercent *int                 `json:"battery_percent,omitempty"`
+	Charging       *bool                `json:"charging,omitempty"`
+	Details        *map[string]any      `json:"details,omitempty"`
+	FirmwareSha256 *string              `json:"firmware_sha256,omitempty"`
+	GnssAccuracyM  *float32             `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM  *float32             `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude   *float32             `json:"gnss_latitude,omitempty"`
+	GnssLongitude  *float32             `json:"gnss_longitude,omitempty"`
+	Labels         *map[string]string   `json:"labels,omitempty"`
+	Muted          *bool                `json:"muted,omitempty"`
+	ReportedAt     *time.Time           `json:"reported_at,omitempty"`
+	Volume         *int                 `json:"volume,omitempty"`
 }
 
 // Pet defines model for Pet.

@@ -171,6 +171,18 @@ typedef struct _gizclaw_rpc_v1_PeerLabel {
     pb_callback_t value;
 } gizclaw_rpc_v1_PeerLabel;
 
+/* Latest OTA snapshot read from the device runtime status store. */
+typedef struct _gizclaw_rpc_v1_PeerOtaStatus {
+    pb_callback_t state;
+    pb_callback_t update_id;
+    pb_callback_t observed_at;
+    bool has_download_percent;
+    double download_percent;
+    pb_callback_t target_version;
+    pb_callback_t error_code;
+    pb_callback_t error_message;
+} gizclaw_rpc_v1_PeerOtaStatus;
+
 typedef struct _gizclaw_rpc_v1_PeerStatus {
     bool has_battery_percent;
     int64_t battery_percent;
@@ -194,6 +206,8 @@ typedef struct _gizclaw_rpc_v1_PeerStatus {
     int64_t volume;
     bool has_firmware_sha256;
     char firmware_sha256[65];
+    bool has_ota;
+    gizclaw_rpc_v1_PeerOtaStatus ota;
 } gizclaw_rpc_v1_PeerStatus;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
@@ -371,7 +385,8 @@ extern "C" {
 #define gizclaw_rpc_v1_HardwareInfo_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, ""}
+#define gizclaw_rpc_v1_PeerOtaStatus_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
@@ -428,7 +443,8 @@ extern "C" {
 #define gizclaw_rpc_v1_HardwareInfo_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, ""}
+#define gizclaw_rpc_v1_PeerOtaStatus_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
@@ -498,6 +514,13 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_tac_tag          3
 #define gizclaw_rpc_v1_PeerLabel_key_tag         1
 #define gizclaw_rpc_v1_PeerLabel_value_tag       2
+#define gizclaw_rpc_v1_PeerOtaStatus_state_tag   1
+#define gizclaw_rpc_v1_PeerOtaStatus_update_id_tag 2
+#define gizclaw_rpc_v1_PeerOtaStatus_observed_at_tag 3
+#define gizclaw_rpc_v1_PeerOtaStatus_download_percent_tag 4
+#define gizclaw_rpc_v1_PeerOtaStatus_target_version_tag 5
+#define gizclaw_rpc_v1_PeerOtaStatus_error_code_tag 6
+#define gizclaw_rpc_v1_PeerOtaStatus_error_message_tag 7
 #define gizclaw_rpc_v1_PeerStatus_battery_percent_tag 1
 #define gizclaw_rpc_v1_PeerStatus_charging_tag   2
 #define gizclaw_rpc_v1_PeerStatus_details_tag    3
@@ -510,6 +533,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_reported_at_tag 10
 #define gizclaw_rpc_v1_PeerStatus_volume_tag     11
 #define gizclaw_rpc_v1_PeerStatus_firmware_sha256_tag 12
+#define gizclaw_rpc_v1_PeerStatus_ota_tag        13
 #define gizclaw_rpc_v1_ClientDeviceStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_value_tag 1
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_key_tag 1
@@ -739,6 +763,17 @@ X(a, CALLBACK, SINGULAR, STRING,   value,             2)
 #define gizclaw_rpc_v1_PeerLabel_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerLabel_DEFAULT NULL
 
+#define gizclaw_rpc_v1_PeerOtaStatus_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   state,             1) \
+X(a, CALLBACK, SINGULAR, STRING,   update_id,         2) \
+X(a, CALLBACK, SINGULAR, STRING,   observed_at,       3) \
+X(a, STATIC,   OPTIONAL, DOUBLE,   download_percent,   4) \
+X(a, CALLBACK, OPTIONAL, STRING,   target_version,    5) \
+X(a, CALLBACK, OPTIONAL, STRING,   error_code,        6) \
+X(a, CALLBACK, OPTIONAL, STRING,   error_message,     7)
+#define gizclaw_rpc_v1_PeerOtaStatus_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_PeerOtaStatus_DEFAULT NULL
+
 #define gizclaw_rpc_v1_PeerStatus_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, INT64,    battery_percent,   1) \
 X(a, STATIC,   OPTIONAL, BOOL,     charging,          2) \
@@ -751,11 +786,13 @@ X(a, CALLBACK, REPEATED, MESSAGE,  labels,            8) \
 X(a, STATIC,   OPTIONAL, BOOL,     muted,             9) \
 X(a, CALLBACK, OPTIONAL, STRING,   reported_at,      10) \
 X(a, STATIC,   OPTIONAL, INT64,    volume,           11) \
-X(a, STATIC,   OPTIONAL, STRING,   firmware_sha256,  12)
+X(a, STATIC,   OPTIONAL, STRING,   firmware_sha256,  12) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  ota,              13)
 #define gizclaw_rpc_v1_PeerStatus_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_DEFAULT NULL
 #define gizclaw_rpc_v1_PeerStatus_details_MSGTYPE google_protobuf_Struct
 #define gizclaw_rpc_v1_PeerStatus_labels_MSGTYPE gizclaw_rpc_v1_PeerStatus_LabelsEntry
+#define gizclaw_rpc_v1_PeerStatus_ota_MSGTYPE gizclaw_rpc_v1_PeerOtaStatus
 
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
@@ -936,6 +973,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_DeviceIdentifiers_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_HardwareInfo_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerIMEI_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerLabel_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PeerOtaStatus_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_LabelsEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingRequest_msg;
@@ -995,6 +1033,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_HardwareInfo_fields &gizclaw_rpc_v1_HardwareInfo_msg
 #define gizclaw_rpc_v1_PeerIMEI_fields &gizclaw_rpc_v1_PeerIMEI_msg
 #define gizclaw_rpc_v1_PeerLabel_fields &gizclaw_rpc_v1_PeerLabel_msg
+#define gizclaw_rpc_v1_PeerOtaStatus_fields &gizclaw_rpc_v1_PeerOtaStatus_msg
 #define gizclaw_rpc_v1_PeerStatus_fields &gizclaw_rpc_v1_PeerStatus_msg
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_fields &gizclaw_rpc_v1_PeerStatus_LabelsEntry_msg
 #define gizclaw_rpc_v1_PingRequest_fields &gizclaw_rpc_v1_PingRequest_msg
@@ -1032,6 +1071,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 /* gizclaw_rpc_v1_HardwareInfo_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerIMEI_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerLabel_size depends on runtime parameters */
+/* gizclaw_rpc_v1_PeerOtaStatus_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerStatus_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerStatus_LabelsEntry_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Runtime_size depends on runtime parameters */
