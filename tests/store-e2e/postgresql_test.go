@@ -4,6 +4,8 @@ package store_e2e_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -702,5 +704,91 @@ func TestPostgreSQLKVCompareAndMutateConcurrentWinner(t *testing.T) {
 	}
 	if winners != 1 {
 		t.Fatalf("compare winners = %d, want 1", winners)
+	}
+}
+
+// A stale expired read must wait for its key owner, preserve a refresh, and
+// never serialize an independent device. Successful cleanup removes one key.
+func TestPostgreSQLKVExpiredReadCoordination(t *testing.T) {
+	db := openPostgreSQL(t)
+	table := uniqueTable("kv_expired_read")
+	cleanupPostgreSQLTables(t, db, table)
+	store, err := kv.NewSQLWithDB(db, table, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	key := kv.Key{"held"}
+	if err := store.Set(ctx, key, []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	var encoded []byte
+	if err := db.GetContext(ctx, &encoded, `SELECT encoded_key FROM "`+table+`"`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE "`+table+`" SET expires_at_unix_nano = 0`); err != nil {
+		t.Fatal(err)
+	}
+	blocker, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Rollback()
+	digest := sha256.Sum256(append([]byte(table+"\x00"), encoded...))
+	if _, err := blocker.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", int64(binary.BigEndian.Uint64(digest[:8]))); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := store.Get(ctx, key); done <- err }()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var waiting int
+		if err := db.GetContext(ctx, &waiting, `SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE 'SELECT pg_advisory_xact_lock%'`); err != nil {
+			t.Fatal(err)
+		}
+		if waiting > 0 {
+			break
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("expired read bypassed key lock: %v", err)
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("expired read did not wait for key lock")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	independent, independentCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer independentCancel()
+	if err := store.Set(independent, kv.Key{"other"}, []byte("ok")); err != nil {
+		t.Fatalf("unrelated key blocked: %v", err)
+	}
+	if _, err := blocker.ExecContext(ctx, `UPDATE "`+table+`" SET value = $1, expires_at_unix_nano = NULL WHERE encoded_key = $2`, []byte("fresh"), encoded); err != nil {
+		t.Fatal(err)
+	}
+	if err := blocker.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("expired read = %v", err)
+	}
+	if value, err := store.Get(ctx, key); err != nil || string(value) != "fresh" {
+		t.Fatalf("refresh lost: %q %v", value, err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE "`+table+`" SET expires_at_unix_nano = 0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Get(ctx, key); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.GetContext(ctx, &count, `SELECT count(*) FROM "`+table+`"`); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("cleanup affected unrelated expired key: remaining=%d", count)
 	}
 }

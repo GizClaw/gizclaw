@@ -119,11 +119,31 @@ func (store *SQL) getUnlocked(ctx context.Context, key Key) ([]byte, error) {
 		return nil, storage.ExternalSQLError("kv: get sql key", err)
 	}
 	if expires.Valid && expires.Int64 <= time.Now().UnixNano() {
-		deleteQuery := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
-		_, _ = store.db.ExecContext(ctx, deleteQuery, encoded, time.Now().UnixNano())
+		// Cleanup is best effort; the expired value remains logically absent
+		// even when cancellation or a database error prevents physical deletion.
+		_ = store.cleanupExpiredRead(ctx, encoded)
 		return nil, ErrNotFound
 	}
 	return append([]byte(nil), value...), nil
+}
+
+// cleanupExpiredRead rechecks expiry under the same key coordination as writes,
+// so a concurrent refresh cannot be removed by a stale read.
+func (store *SQL) cleanupExpiredRead(ctx context.Context, encoded []byte) error {
+	query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
+	if store.table.Dialect() != storage.SQLDialectPostgreSQL {
+		_, err := store.db.ExecContext(ctx, query, encoded, time.Now().UnixNano())
+		return err
+	}
+	tx, err := store.beginWrite(ctx, [][]byte{encoded})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, query, encoded, time.Now().UnixNano()); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // Set stores a non-expiring value.
