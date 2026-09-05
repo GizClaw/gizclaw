@@ -2252,7 +2252,7 @@ func TestPeerConnMixedAudioEgressIdlesWithoutTracks(t *testing.T) {
 	}
 }
 
-func TestNewPeerConnOpusEncoderUsesLowestComplexity(t *testing.T) {
+func TestNewPeerConnOpusEncoderUsesHighestComplexity(t *testing.T) {
 	if !opus.Supported() {
 		t.Skipf("requires native opus runtime, got %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
@@ -2267,7 +2267,7 @@ func TestNewPeerConnOpusEncoderUsesLowestComplexity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Complexity: %v", err)
 	}
-	if complexity != peerConnOpusComplexity {
-		t.Fatalf("complexity = %d, want %d", complexity, peerConnOpusComplexity)
+	if complexity != 10 {
+		t.Fatalf("complexity = %d, want 10", complexity)
 	}
 }

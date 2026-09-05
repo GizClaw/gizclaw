@@ -42,11 +42,8 @@ const (
 	inputRouteReloadedMessage = "input route reloaded"
 	peerConnMixerFormat       = pcm.L16Mono16K
 	peerConnOpusFrameDuration = 20 * time.Millisecond
-	// peerConnOpusComplexity keeps the downlink encoder at the cheapest libopus
-	// complexity. The Server encodes one stream per connected peer, so the
-	// libopus default of 9 spends CPU per peer for quality the 16 kHz mono
-	// mixed downlink does not carry.
-	peerConnOpusComplexity          = 0
+	// peerConnOpusComplexity sets the downlink encoder to maximum libopus complexity.
+	peerConnOpusComplexity          = 10
 	peerConnPacingBufferTarget      = 500 * time.Millisecond
 	peerConnPacingMaxRecoveryPerPkt = 5 * time.Millisecond
 	peerConnPacingMinimumPeriod     = peerConnOpusFrameDuration - peerConnPacingMaxRecoveryPerPkt
