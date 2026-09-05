@@ -588,3 +588,119 @@ func requiredEnvironment(t *testing.T, name string) string {
 func uniqueTable(prefix string) string {
 	return fmt.Sprintf("gzc_e2e_%s_%d", prefix, time.Now().UnixNano())
 }
+
+// An unrelated device must keep making progress while a writer is blocked on
+// one device. Observe the database wait before asserting independent progress.
+func TestPostgreSQLKVIndependentKeyProgress(t *testing.T) {
+	db := openPostgreSQL(t)
+	table := uniqueTable("kv_progress")
+	cleanupPostgreSQLTables(t, db, table)
+	first, err := kv.NewSQLWithDB(db, table, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	second, err := kv.NewSQLWithDB(db, table, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := first.Set(ctx, kv.Key{"held"}, []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	blocker, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Rollback()
+	if _, err := blocker.ExecContext(ctx, `UPDATE "`+table+`" SET value = value`); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- first.Set(ctx, kv.Key{"held"}, []byte("new")) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var waiting int
+		err := db.GetContext(ctx, &waiting, `SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND position($1 in query) > 0`, table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if waiting > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("writer did not reach a database lock wait")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	independent, independentCancel := context.WithTimeout(ctx, 2*time.Second)
+	defer independentCancel()
+	if err := second.Set(independent, kv.Key{"other"}, []byte("ok")); err != nil {
+		t.Fatalf("unrelated key blocked: %v", err)
+	}
+	// The ordinary writer holds the same-key coordination while waiting for the
+	// row, so a compare cannot read the old guard and commit a stale mutation.
+	compared := make(chan error, 1)
+	go func() {
+		matched, err := second.CompareAndMutate(ctx, kv.Key{"held"}, []byte("old"), []kv.Entry{{Key: kv.Key{"stale"}, Value: []byte("bad")}}, nil)
+		if err == nil && matched {
+			err = errors.New("compare committed against stale guard")
+		}
+		compared <- err
+	}()
+	if err := blocker.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-compared; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := second.Get(ctx, kv.Key{"stale"}); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("stale side effect: %v", err)
+	}
+}
+
+func TestPostgreSQLKVCompareAndMutateConcurrentWinner(t *testing.T) {
+	db := openPostgreSQL(t)
+	table := uniqueTable("kv_compare")
+	cleanupPostgreSQLTables(t, db, table)
+	store, err := kv.NewSQLWithDB(db, table, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	guard := kv.Key{"guard"}
+	if err := store.Set(ctx, guard, []byte("initial")); err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	results := make(chan bool, 16)
+	failures := make(chan error, 16)
+	for i := range 16 {
+		go func() {
+			<-start
+			matched, err := store.CompareAndMutate(ctx, guard, []byte("initial"), []kv.Entry{{Key: guard, Value: []byte(fmt.Sprint(i))}}, nil)
+			failures <- err
+			results <- matched
+		}()
+	}
+	close(start)
+	winners := 0
+	for range 16 {
+		if err := <-failures; err != nil {
+			t.Fatal(err)
+		}
+		if <-results {
+			winners++
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("compare winners = %d, want 1", winners)
+	}
+}

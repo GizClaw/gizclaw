@@ -46,3 +46,5 @@ SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；
 同一物理 connector 上的 Redis keyvalue Store 必须使用非空、规范且两两不重叠的 prefix。Adapter 会先排序 SCAN 结果再向上层返回，使用绝对 deadline，并在单个 Redis 节点上原子实现 batch、conditional create 与 compare-and-mutate；零 deadline 会移除已有 expiration。由于 Store contract 要求任意 key 原子性，不支持 Redis Cluster 或多 endpoint 分片。
 
 Peer record 与 route 共用 `services.peer.store` 指定的 Store。高频更新的 PeerRun 状态使用单独必填的 `services.peer_run.store`；该 binding 接受任意受支持的 `keyvalue` backend，并遵循对应 backend 的普通配置与运行语义。
+
+PostgreSQL mutation 按物理表与 encoded key 获取事务级 advisory lock，并按 lock ID 排序，覆盖不存在的 guard；普通写入、删除和条件 mutation 使用同一协议，不再获取表级写锁。不同 key 可以并发，同 key 与多 key 原子操作保持协调。哈希碰撞只增加串行等待，不改变正确性。PostgreSQL mutation 只清理本次涉及的过期 key，读取仍把过期值视为不存在；SQLite 保留原有事务与过期清理行为。

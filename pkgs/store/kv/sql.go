@@ -3,10 +3,13 @@ package kv
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"iter"
+	"slices"
 	"sync"
 	"time"
 
@@ -240,7 +243,8 @@ func (store *SQL) BatchMutate(ctx context.Context, entries []Entry, keys []Key) 
 		return err
 	}
 	defer unlock()
-	tx, err := store.beginWrite(ctx)
+	mutationKeys := store.mutationKeys(entries, keys)
+	tx, err := store.beginWrite(ctx, mutationKeys)
 	if err != nil {
 		return err
 	}
@@ -250,8 +254,12 @@ func (store *SQL) BatchMutate(ctx context.Context, entries []Entry, keys []Key) 
 	if err != nil {
 		return err
 	}
-	if err := store.cleanupExpired(ctx, tx, now.UnixNano()); err != nil {
-		return err
+	// Upsert and delete already replace/remove expired target rows. Avoid a
+	// separate expiry DELETE on the PostgreSQL ordinary-write hot path.
+	if store.table.Dialect() != storage.SQLDialectPostgreSQL {
+		if err := store.cleanupExpired(ctx, tx, now.UnixNano(), mutationKeys); err != nil {
+			return err
+		}
 	}
 	for _, entry := range prepared {
 		if err := store.upsert(ctx, tx, entry); err != nil {
@@ -286,13 +294,14 @@ func (store *SQL) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries
 		return nil, nil, false, err
 	}
 	defer unlock()
-	tx, err := store.beginWrite(ctx)
+	mutationKeys := store.mutationKeys(append(slices.Clone(guards), entries...), nil)
+	tx, err := store.beginWrite(ctx, mutationKeys)
 	if err != nil {
 		return nil, nil, false, err
 	}
 	defer tx.Rollback()
 	now := time.Now()
-	if err := store.cleanupExpired(ctx, tx, now.UnixNano()); err != nil {
+	if err := store.cleanupExpired(ctx, tx, now.UnixNano(), mutationKeys); err != nil {
 		return nil, nil, false, err
 	}
 	for _, guard := range guards {
@@ -357,13 +366,14 @@ func (store *SQL) CompareAndMutate(ctx context.Context, guard Key, expected []by
 		return false, err
 	}
 	defer unlock()
-	tx, err := store.beginWrite(ctx)
+	mutationKeys := store.mutationKeys(entries, append(slices.Clone(keys), guard))
+	tx, err := store.beginWrite(ctx, mutationKeys)
 	if err != nil {
 		return false, err
 	}
 	defer tx.Rollback()
 	now := time.Now()
-	if err := store.cleanupExpired(ctx, tx, now.UnixNano()); err != nil {
+	if err := store.cleanupExpired(ctx, tx, now.UnixNano(), mutationKeys); err != nil {
 		return false, err
 	}
 	value, exists, err := store.txGet(ctx, tx, guard)
@@ -434,7 +444,7 @@ func (store *SQL) prepare(entries []Entry, now time.Time) ([]sqlEntry, error) {
 	return prepared, nil
 }
 
-func (store *SQL) beginWrite(ctx context.Context) (*sqlx.Tx, error) {
+func (store *SQL) beginWrite(ctx context.Context, keys [][]byte) (*sqlx.Tx, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -443,15 +453,49 @@ func (store *SQL) beginWrite(ctx context.Context) (*sqlx.Tx, error) {
 		return nil, storage.ExternalSQLError("kv: begin sql transaction", err)
 	}
 	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
-		if _, err := tx.ExecContext(ctx, "LOCK TABLE "+store.quoted+" IN SHARE ROW EXCLUSIVE MODE"); err != nil {
-			_ = tx.Rollback()
-			return nil, storage.ExternalSQLError("kv: lock sql table", err)
+		// Transaction advisory locks also protect absent guards. Every mutation
+		// participates, including ordinary Set/Delete. Sort lock IDs (rather
+		// than keys) so even hash collisions cannot introduce lock-order cycles.
+		ids := make([]int64, 0, len(keys))
+		for _, key := range keys {
+			digest := sha256.Sum256(append([]byte(store.table.Name()+"\x00"), key...))
+			ids = append(ids, int64(binary.BigEndian.Uint64(digest[:8])))
+		}
+		slices.Sort(ids)
+		for _, id := range slices.Compact(ids) {
+			if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", id); err != nil {
+				_ = tx.Rollback()
+				return nil, storage.ExternalSQLError("kv: lock sql key", err)
+			}
 		}
 	}
 	return tx, nil
 }
 
-func (store *SQL) cleanupExpired(ctx context.Context, tx *sqlx.Tx, now int64) error {
+func (store *SQL) mutationKeys(entries []Entry, keys []Key) [][]byte {
+	encoded := make([][]byte, 0, len(entries)+len(keys))
+	for _, entry := range entries {
+		encoded = append(encoded, store.opts.encode(entry.Key))
+	}
+	for _, key := range keys {
+		encoded = append(encoded, store.opts.encode(key))
+	}
+	slices.SortFunc(encoded, bytes.Compare)
+	return slices.CompactFunc(encoded, bytes.Equal)
+}
+
+func (store *SQL) cleanupExpired(ctx context.Context, tx *sqlx.Tx, now int64, keys [][]byte) error {
+	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+		// Do not touch unrelated rows: that would reintroduce contention and
+		// acquire row locks outside the canonical mutation lock order.
+		query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
+		for _, key := range keys {
+			if _, err := tx.ExecContext(ctx, query, key, now); err != nil {
+				return storage.ExternalSQLError("kv: clean expired sql key", err)
+			}
+		}
+		return nil
+	}
 	query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE expires_at_unix_nano IS NOT NULL AND expires_at_unix_nano <= ?")
 	if _, err := tx.ExecContext(ctx, query, now); err != nil {
 		return storage.ExternalSQLError("kv: clean expired sql keys", err)
