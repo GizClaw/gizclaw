@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -37,6 +39,15 @@ type PrometheusConfig struct {
 // PrometheusStore writes samples through remote write and reads them through
 // the Prometheus HTTP query API.
 type PrometheusStore struct {
+	batchMu        sync.Mutex
+	pending        []*prometheusAppend
+	pendingSamples int
+	pendingBytes   int
+	changed        chan struct{}
+	workerDone     chan struct{}
+	closed         chan struct{}
+	closeOnce      sync.Once
+	closeErr       error
 	remoteWriteURL string
 	client         api.Client
 	connector      *PrometheusConnector
@@ -117,6 +128,8 @@ func (c *PrometheusConnector) Store() (*PrometheusStore, error) {
 		remoteWriteURL: c.remoteWriteURL,
 		client:         c.client,
 		connector:      c,
+		changed:        make(chan struct{}),
+		closed:         make(chan struct{}),
 	}, nil
 }
 
@@ -148,21 +161,29 @@ func NewPrometheusStore(cfg PrometheusConfig) (*PrometheusStore, error) {
 }
 
 // Append writes samples through the Prometheus remote write protocol.
-func (s *PrometheusStore) Append(ctx context.Context, samples []Sample) error {
+func (s *PrometheusStore) appendRemote(ctx context.Context, samples []Sample) error {
 	if len(samples) == 0 {
 		return nil
 	}
 	req := &prompb.WriteRequest{
 		Timeseries: make([]prompb.TimeSeries, 0, len(samples)),
 	}
+	series := make(map[string]int)
 	for _, sample := range samples {
 		if err := validateSample(sample); err != nil {
 			return err
 		}
-		req.Timeseries = append(req.Timeseries, prompb.TimeSeries{
-			Labels:  sampleLabels(sample),
-			Samples: []prompb.Sample{{Timestamp: sample.Timestamp.UnixMilli(), Value: sample.Value}},
-		})
+		key := memorySeriesKey(sample.Name, sample.Labels)
+		index, exists := series[key]
+		if !exists {
+			index = len(req.Timeseries)
+			series[key] = index
+			req.Timeseries = append(req.Timeseries, prompb.TimeSeries{Labels: sampleLabels(sample)})
+		}
+		req.Timeseries[index].Samples = append(req.Timeseries[index].Samples, prompb.Sample{Timestamp: sample.Timestamp.UnixMilli(), Value: sample.Value})
+	}
+	for i := range req.Timeseries {
+		slices.SortStableFunc(req.Timeseries[i].Samples, func(a, b prompb.Sample) int { return cmp.Compare(a.Timestamp, b.Timestamp) })
 	}
 	body, err := proto.Marshal(req)
 	if err != nil {
@@ -417,12 +438,28 @@ func samplesFromSeries(series SeriesSet) []Sample {
 	return out
 }
 
+// Close rejects new appends, cancels outstanding writes and waits for the
+// batching worker before releasing connector-owned resources.
 func (s *PrometheusStore) Close() error {
-	if s != nil && s.ownsConnector && s.connector != nil {
-		s.ownsConnector = false
-		return s.connector.Close()
+	if s == nil {
+		return nil
 	}
-	return nil
+	s.closeOnce.Do(func() {
+		s.batchMu.Lock()
+		if s.closed == nil {
+			s.closed = make(chan struct{})
+		}
+		close(s.closed)
+		done := s.workerDone
+		s.batchMu.Unlock()
+		if done != nil {
+			<-done
+		}
+		if s.ownsConnector && s.connector != nil {
+			s.closeErr = s.connector.Close()
+		}
+	})
+	return s.closeErr
 }
 
 func (s *PrometheusStore) query(ctx context.Context, path string, values url.Values) (SeriesSet, error) {

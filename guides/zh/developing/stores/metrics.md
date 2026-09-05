@@ -43,3 +43,5 @@ stores:
 本机测试可配置一个无属性的 `storage.kind: memory`，再让 `stores.kind: metrics` 引用它。每个逻辑 Store 会得到独立的 `MemoryStore`；memory marker 本身不缓存实例。旧 backend 字段和 `stores` 下的 provider connection 字段无效。
 
 SQLite/PostgreSQL table 以 signed nanoseconds 保存 UTC time，以 IEEE-754 bits 保存所有 `float64` 值，并用自增 sequence 明确相同 timestamp 的最后写入顺序。Label 使用 collision-safe series key 和 canonical flat JSON；nil/empty labels 属于同一 series。`Append` 是完整 batch transaction，Latest、Range 与 Aggregate 保持相同 selector、boundary、window 和 ordering contract；Regexp 与 aggregation 可以在 Go 内执行以保证两种方言一致。逻辑 Store 不拥有 pool。
+
+Prometheus driver 按逻辑 Store 合并并发 `Append`：最多等待 5ms，常规批次最多 4096 samples / 128 calls；待处理样本与估算内存有界，超限调用等待容量或取消。单次超大调用独占容量，不拆分其成功语义。每个调用只在 remote write 成功后返回成功，不自动重试；单个调用取消不会取消同批其他调用，所有调用取消或 Store 关闭时取消后端请求。worker 按需启动，清空队列后退出，`Close` 等待清理完成。
