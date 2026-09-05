@@ -91,6 +91,7 @@ test("workflows select owned workspace history and search on the server", async 
     },
   ]);
   vi.mocked(loadHistory).mockImplementation(async (_key, id, query) => ({
+    available: true,
     items: [
       {
         name: "entry",
@@ -113,7 +114,7 @@ test("workflows select owned workspace history and search on the server", async 
   fireEvent.change(screen.getByRole("textbox", { name: "搜索历史聊天" }), {
     target: { value: "orange" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "搜索", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "搜索" }));
   await waitFor(() => expect(screen.getByText("b:orange")).toBeTruthy());
   expect(vi.mocked(loadHistory).mock.calls.at(-1)?.slice(0, 4)).toEqual([
     "peer-a",
