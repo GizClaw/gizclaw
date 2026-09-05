@@ -3072,3 +3072,149 @@ func (s *fakeTransformerSession) isClosed() bool {
 	defer s.mu.Unlock()
 	return s.closed
 }
+
+func realtimeTestPCM(duration time.Duration, amplitude int16) []byte {
+	samples := make([]int16, int(duration*16000/time.Second))
+	for i := range samples {
+		if i%2 == 0 {
+			samples[i] = amplitude
+		} else {
+			samples[i] = -amplitude
+		}
+	}
+	return pcm16LE(samples)
+}
+
+func TestTransformerRealtimeProviderIdleReplacesSessionWhileAudibleAudioFlows(t *testing.T) {
+	dead := &fakeTransformerSession{blockAfterEvents: make(chan struct{})}
+	replacement := &fakeTransformerSession{
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "question"},
+			{Type: doubaospeech.EventASREnded},
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventTTSStarted, Text: "answer"},
+			{Type: doubaospeech.EventTTSFinished},
+			{Type: doubaospeech.EventChatEnded},
+		},
+		blockAfterEvents: make(chan struct{}),
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: dead}, {session: replacement}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+		withDialogID("dialog-1"),
+		withProviderIdleTimeout(30*time.Millisecond),
+	)
+	tfr.retryInitial = time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	input := newBufferStream(64)
+	defer input.Close()
+	if err := input.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	// Keep audible microphone audio flowing, the way a device with server VAD
+	// does, until the transformer gives up on the silent provider session.
+	loud := realtimeTestPCM(doubaoRealtimeProviderIdleMinSignal, 8000)
+	frame := realtimeTestPCM(20*time.Millisecond, 8000)
+	if err := input.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: loud}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}}); err != nil {
+		t.Fatalf("Push(audio) error = %v", err)
+	}
+	for !opener.waitForCalls(2, 5*time.Millisecond) {
+		if ctx.Err() != nil {
+			t.Fatalf("OpenSession calls = %d, want the idle provider session replaced", opener.callCount())
+		}
+		if err := input.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: frame}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}}); err != nil {
+			t.Fatalf("Push(audio) error = %v", err)
+		}
+	}
+	if !dead.isClosed() {
+		t.Fatal("idle provider session was not closed before replacement")
+	}
+	for i, dialogID := range opener.dialogIDs() {
+		if dialogID != "dialog-1" {
+			t.Fatalf("OpenSession call %d dialog ID = %q, want dialog-1", i+1, dialogID)
+		}
+	}
+
+	var chunks []*genx.MessageChunk
+	for !hasRealtimeTestText(chunks, genx.RoleModel, "answer") {
+		chunk, nextErr := output.Next()
+		if nextErr != nil {
+			t.Fatalf("Next() error = %v before replacement answer; chunks=%#v", nextErr, chunks)
+		}
+		if chunk != nil {
+			chunks = append(chunks, chunk)
+		}
+	}
+	if !hasRealtimeTestText(chunks, genx.RoleUser, "question") {
+		t.Fatalf("output = %#v, want replacement transcript", chunks)
+	}
+	for _, chunk := range chunks {
+		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+			t.Fatalf("output carried error %q; idle replacement must be transparent when no route is open", chunk.Ctrl.Error)
+		}
+	}
+	// Audio pushed after the handoff must reach the replacement session.
+	if err := input.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: frame}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}}); err != nil {
+		t.Fatalf("Push(audio) error = %v", err)
+	}
+	for replacement.audioCount() == 0 {
+		if ctx.Err() != nil {
+			t.Fatal("replacement session received no audio")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestTransformerRealtimeProviderIdleIgnoresSilentAudio(t *testing.T) {
+	session := &fakeTransformerSession{blockAfterEvents: make(chan struct{})}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeRealtime),
+		withInputFormat("pcm"),
+		withInputTranscode(false),
+		withFormat("pcm"),
+		withProviderIdleTimeout(10*time.Millisecond),
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(64)
+	defer input.Close()
+	if err := input.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn-1", BeginOfStream: true}}); err != nil {
+		t.Fatalf("Push(BOS) error = %v", err)
+	}
+	output, err := tfr.Transform(ctx, input)
+	if err != nil {
+		t.Fatalf("Transform() error = %v", err)
+	}
+	defer output.CloseWithError(context.Canceled)
+
+	silence := realtimeTestPCM(doubaoRealtimeProviderIdleMinSignal, 0)
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if err := input.Push(&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/pcm", Data: silence}, Ctrl: &genx.StreamCtrl{StreamID: "turn-1"}}); err != nil {
+			t.Fatalf("Push(audio) error = %v", err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if got := opener.callCount(); got != 1 {
+		t.Fatalf("OpenSession calls = %d, want silent input to keep the single provider session", got)
+	}
+	if session.isClosed() {
+		t.Fatal("provider session was closed while only silence was sent")
+	}
+	if session.audioCount() == 0 {
+		t.Fatal("silence was not forwarded to the provider")
+	}
+}

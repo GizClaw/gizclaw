@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
@@ -209,66 +211,130 @@ func (a *doubaoRealtimeAudioInput) prepare(blob *genx.Blob) ([]byte, error) {
 }
 
 func (a *doubaoRealtimeAudioInput) prepareFrames(blob *genx.Blob) ([][]byte, error) {
+	frames, _, err := a.prepareFramesWithSignal(blob)
+	return frames, err
+}
+
+// doubaoRealtimeSignalRMS is the RMS threshold (about -41 dBFS on 16-bit
+// samples) above which decoded input audio counts as signal rather than the
+// idle noise floor of an open microphone.
+const doubaoRealtimeSignalRMS = 300
+
+// prepareFramesWithSignal converts one input blob into provider frames and
+// reports how much of the blob carries audible signal. Formats that pass
+// through without decoding cannot be inspected and report the whole blob
+// duration so callers never treat unknown audio as silence.
+func (a *doubaoRealtimeAudioInput) prepareFramesWithSignal(blob *genx.Blob) ([][]byte, time.Duration, error) {
 	if blob == nil || len(blob.Data) == 0 {
-		return nil, nil
+		return nil, 0, nil
 	}
 	mimeType := doubaoRealtimeBaseMIME(blob.MIMEType)
 	switch a.format {
 	case "pcm", "pcm_s16le":
 		if isDoubaoRealtimeOpusMIME(mimeType) {
-			pcm, err := a.decodeOpus(blob.Data)
+			samples, err := a.decodeOpusSamples(blob.Data)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
-			return [][]byte{pcm}, nil
+			return [][]byte{pcm16LE(samples)}, a.signalDuration(samples), nil
 		}
 		if isDoubaoRealtimeMP3InputMIME(mimeType) {
 			pcm, err := a.decodeMP3ToPCM(blob.Data)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
-			return [][]byte{pcm}, nil
+			return [][]byte{pcm}, a.signalDurationPCM(pcm), nil
 		}
-		return [][]byte{blob.Data}, nil
+		return [][]byte{blob.Data}, a.signalDurationPCM(blob.Data), nil
 	case "speech_opus", "opus":
 		if mimeType == "audio/opus" {
 			if a.transcode {
-				frame, err := a.transcodeOpus(blob.Data)
+				samples, err := a.decodeOpusSamples(blob.Data)
 				if err != nil {
-					return nil, err
+					return nil, 0, err
 				}
-				return [][]byte{frame}, nil
+				frame, err := a.encodeOpusSamples(samples)
+				if err != nil {
+					return nil, 0, err
+				}
+				return [][]byte{frame}, a.signalDuration(samples), nil
 			}
-			return [][]byte{blob.Data}, nil
+			return [][]byte{blob.Data}, a.frameDuration(), nil
 		}
 		if strings.HasPrefix(mimeType, "audio/ogg") {
-			return nil, fmt.Errorf("doubao realtime input format %q requires raw Opus packets, got Ogg/Opus pages", a.format)
+			return nil, 0, fmt.Errorf("doubao realtime input format %q requires raw Opus packets, got Ogg/Opus pages", a.format)
 		}
 		if isDoubaoRealtimePCMInputMIME(mimeType) {
-			return a.encodeOpusFrames(blob.Data)
+			frames, err := a.encodeOpusFrames(blob.Data)
+			if err != nil {
+				return nil, 0, err
+			}
+			return frames, a.signalDurationPCM(blob.Data), nil
 		}
 		if isDoubaoRealtimeMP3InputMIME(mimeType) {
 			pcm, err := a.decodeMP3ToPCM(blob.Data)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
-			return a.encodeOpusFrames(pcm)
+			frames, err := a.encodeOpusFrames(pcm)
+			if err != nil {
+				return nil, 0, err
+			}
+			return frames, a.signalDurationPCM(pcm), nil
 		}
-		return nil, fmt.Errorf("doubao realtime input format %q requires audio/opus, PCM, or MP3 input, got %q", a.format, blob.MIMEType)
+		return nil, 0, fmt.Errorf("doubao realtime input format %q requires audio/opus, PCM, or MP3 input, got %q", a.format, blob.MIMEType)
 	case "ogg_opus":
-		if strings.HasPrefix(mimeType, "audio/ogg") {
-			return [][]byte{blob.Data}, nil
-		}
 		if mimeType == "audio/opus" {
-			return nil, fmt.Errorf("doubao realtime input format %q requires Ogg/Opus pages, got raw Opus packet", a.format)
+			return nil, 0, fmt.Errorf("doubao realtime input format %q requires Ogg/Opus pages, got raw Opus packet", a.format)
 		}
-		return [][]byte{blob.Data}, nil
+		return [][]byte{blob.Data}, a.frameDuration(), nil
 	default:
-		if isDoubaoRealtimeOpusMIME(mimeType) {
-			return [][]byte{blob.Data}, nil
-		}
-		return [][]byte{blob.Data}, nil
+		return [][]byte{blob.Data}, a.frameDuration(), nil
 	}
+}
+
+// frameDuration is the nominal duration of one provider frame; it stands in
+// for the measured duration of audio the transformer does not decode.
+func (a *doubaoRealtimeAudioInput) frameDuration() time.Duration {
+	if a.sampleRate <= 0 || a.frameSize <= 0 {
+		return 20 * time.Millisecond
+	}
+	return time.Duration(a.frameSize) * time.Second / time.Duration(a.sampleRate)
+}
+
+func (a *doubaoRealtimeAudioInput) signalDurationPCM(pcm []byte) time.Duration {
+	samples := make([]int16, len(pcm)/2)
+	for i := range samples {
+		samples[i] = int16(binary.LittleEndian.Uint16(pcm[i*2:]))
+	}
+	return a.signalDuration(samples)
+}
+
+// signalDuration returns the duration of samples when their RMS level clears
+// doubaoRealtimeSignalRMS and zero when they sit at the noise floor.
+func (a *doubaoRealtimeAudioInput) signalDuration(samples []int16) time.Duration {
+	if len(samples) == 0 || !realtimePCMHasSignal(samples, doubaoRealtimeSignalRMS) {
+		return 0
+	}
+	channels := max(a.channels, 1)
+	sampleRate := a.sampleRate
+	if sampleRate <= 0 {
+		sampleRate = doubaoRealtimeFixedInputSampleRate
+	}
+	return time.Duration(len(samples)/channels) * time.Second / time.Duration(sampleRate)
+}
+
+// realtimePCMHasSignal reports whether the RMS level of samples reaches rms.
+func realtimePCMHasSignal(samples []int16, rms float64) bool {
+	if len(samples) == 0 {
+		return false
+	}
+	var sum float64
+	for _, sample := range samples {
+		value := float64(sample)
+		sum += value * value
+	}
+	return math.Sqrt(sum/float64(len(samples))) >= rms
 }
 
 func (a *doubaoRealtimeAudioInput) silenceFrames(frameCount int) ([][]byte, error) {

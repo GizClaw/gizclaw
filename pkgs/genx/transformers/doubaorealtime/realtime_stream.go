@@ -11,6 +11,53 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
+// realtimeProviderIdleWatch detects a provider session that stopped emitting
+// events while signal-bearing audio keeps flowing into it. The provider does
+// not acknowledge audio frames, so a dialog that died server-side while the
+// websocket stayed open is only visible as prolonged silence from the
+// provider in the face of audible input.
+type realtimeProviderIdleWatch struct {
+	timeout   time.Duration
+	minSignal time.Duration
+
+	mu        sync.Mutex
+	lastEvent time.Time
+	signal    time.Duration
+}
+
+func newRealtimeProviderIdleWatch(timeout, minSignal time.Duration, now time.Time) *realtimeProviderIdleWatch {
+	if timeout <= 0 {
+		return nil
+	}
+	return &realtimeProviderIdleWatch{timeout: timeout, minSignal: minSignal, lastEvent: now}
+}
+
+// observeEvent records provider progress and clears the accumulated signal.
+func (w *realtimeProviderIdleWatch) observeEvent(now time.Time) {
+	if w == nil {
+		return
+	}
+	w.mu.Lock()
+	w.lastEvent = now
+	w.signal = 0
+	w.mu.Unlock()
+}
+
+// observeAudio records audio sent to the provider and reports the provider
+// idle duration together with whether the session should be treated as dead:
+// no event for at least timeout while at least minSignal of audible audio was
+// sent since the last event.
+func (w *realtimeProviderIdleWatch) observeAudio(now time.Time, signal time.Duration) (time.Duration, bool) {
+	if w == nil {
+		return 0, false
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.signal += signal
+	idle := now.Sub(w.lastEvent)
+	return idle, idle >= w.timeout && w.signal >= w.minSignal
+}
+
 type realtimeAssistantLifecycle struct {
 	epoch  atomic.Uint64
 	accept atomic.Bool

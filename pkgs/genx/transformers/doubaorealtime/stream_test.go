@@ -363,3 +363,34 @@ func TestBufferStreamDefersRealtimeCompletionUntilFinalObservation(t *testing.T)
 		t.Fatal("fully observed response remained interruptible")
 	}
 }
+
+func TestRealtimeProviderIdleWatchRequiresSignalAndTimeout(t *testing.T) {
+	start := time.Unix(0, 0)
+	var nilWatch *realtimeProviderIdleWatch
+	nilWatch.observeEvent(start)
+	if idle, stalled := nilWatch.observeAudio(start, time.Second); idle != 0 || stalled {
+		t.Fatalf("nil watch observeAudio() = (%s, %t), want inert", idle, stalled)
+	}
+	if newRealtimeProviderIdleWatch(0, time.Second, start) != nil {
+		t.Fatal("zero timeout must disable the watch")
+	}
+
+	watch := newRealtimeProviderIdleWatch(time.Minute, 2*time.Second, start)
+	if idle, stalled := watch.observeAudio(start.Add(2*time.Minute), 0); idle != 2*time.Minute || stalled {
+		t.Fatalf("silence observeAudio() = (%s, %t), want idle without stall", idle, stalled)
+	}
+	if _, stalled := watch.observeAudio(start.Add(30*time.Second), 3*time.Second); stalled {
+		t.Fatal("signal before the timeout must not stall")
+	}
+	if _, stalled := watch.observeAudio(start.Add(time.Minute), 0); !stalled {
+		t.Fatal("accumulated signal at the timeout must stall")
+	}
+
+	watch.observeEvent(start.Add(time.Minute))
+	if _, stalled := watch.observeAudio(start.Add(3*time.Minute), time.Second); stalled {
+		t.Fatal("provider event must reset accumulated signal")
+	}
+	if _, stalled := watch.observeAudio(start.Add(3*time.Minute), time.Second); !stalled {
+		t.Fatal("signal accumulated after the event must stall once it reaches the minimum")
+	}
+}

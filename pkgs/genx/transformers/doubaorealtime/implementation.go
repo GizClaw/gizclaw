@@ -59,6 +59,7 @@ type Transformer struct {
 	retryMax          time.Duration
 	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
 	responseDeadline  time.Duration
+	providerIdle      time.Duration
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -80,6 +81,16 @@ const (
 	doubaoRealtimeRetryInitial      = 100 * time.Millisecond
 	doubaoRealtimeRetryMax          = 5 * time.Second
 	doubaoRealtimeResponseDeadline  = time.Minute
+	// doubaoRealtimeProviderIdleTimeout bounds how long a Realtime session may
+	// receive audible audio without the provider emitting any event before the
+	// provider session is replaced. Server VAD reacts to speech within a
+	// second, so a silent provider across this window means the dialog died
+	// while the websocket stayed open.
+	doubaoRealtimeProviderIdleTimeout = 90 * time.Second
+	// doubaoRealtimeProviderIdleMinSignal is the amount of audible audio that
+	// must have been sent since the last provider event before idleness counts.
+	// It keeps an open microphone in a quiet room from cycling sessions.
+	doubaoRealtimeProviderIdleMinSignal = 2 * time.Second
 )
 
 var errDoubaoRealtimeInterruptHandoff = errors.New("replace provider session after realtime interruption")
@@ -301,6 +312,12 @@ func withResponseDeadline(timeout time.Duration) option {
 	}
 }
 
+func withProviderIdleTimeout(timeout time.Duration) option {
+	return func(t *Transformer) {
+		t.providerIdle = timeout
+	}
+}
+
 // newTransformer creates a Transformer.
 //
 // Parameters:
@@ -321,6 +338,7 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 		retryInitial:     doubaoRealtimeRetryInitial,
 		retryMax:         doubaoRealtimeRetryMax,
 		responseDeadline: doubaoRealtimeResponseDeadline,
+		providerIdle:     doubaoRealtimeProviderIdleTimeout,
 	}
 	for _, opt := range opts {
 		opt(t)
@@ -1024,6 +1042,15 @@ func (t *Transformer) processSession(
 		)
 	}
 
+	var providerIdle *realtimeProviderIdleWatch
+	if t.mode == ModeRealtime {
+		providerIdleTimeout := t.providerIdle
+		if providerIdleTimeout <= 0 {
+			providerIdleTimeout = doubaoRealtimeProviderIdleTimeout
+		}
+		providerIdle = newRealtimeProviderIdleWatch(providerIdleTimeout, doubaoRealtimeProviderIdleMinSignal, time.Now())
+	}
+
 	assistant := runtime.assistant
 	pushToTalk := runtime.pushToTalk
 	pttTurn := runtime.pttTurn
@@ -1267,7 +1294,17 @@ func (t *Transformer) processSession(
 					continue
 				}
 
+				providerIdle.observeEvent(time.Now())
 				slog.DebugContext(ctx, "doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
+				if event.Error != nil || event.Type == doubaospeech.EventDialogCommonError {
+					slog.WarnContext(ctx, "doubao: provider reported dialog error",
+						"type", event.Type,
+						"statusCode", event.StatusCode,
+						"message", event.Message,
+						"error", event.Error,
+						"payload", realtimeLogPayload(event.Payload),
+					)
+				}
 
 				streamID := streamIDs.response()
 				if t.mode == ModePushToTalk {
@@ -1752,7 +1789,7 @@ func (t *Transformer) processSession(
 						return err
 					}
 				}
-				frames, err := audioInput.prepareFrames(p)
+				frames, signal, err := audioInput.prepareFramesWithSignal(p)
 				if err != nil {
 					slog.ErrorContext(ctx, "doubao: prepare audio error", "error", err)
 					t.pushInputEOSError(output, streamID, err)
@@ -1771,6 +1808,17 @@ func (t *Transformer) processSession(
 						slog.ErrorContext(ctx, "doubao: send audio error", "error", err)
 						return doubaoRealtimeRecoverable("send audio", err)
 					}
+				}
+				if idle, stalled := providerIdle.observeAudio(time.Now(), signal); stalled {
+					slog.WarnContext(ctx, "doubao: no provider events while audible audio kept flowing; replacing provider session",
+						"streamID", streamID,
+						"idle", idle.Truncate(time.Second),
+						"audioSent", audioSent,
+					)
+					return doubaoRealtimeRecoverable(
+						"provider idle",
+						fmt.Errorf("no realtime events for %s while audible audio input kept flowing", idle.Truncate(time.Second)),
+					)
 				}
 			}
 		case genx.Text:
@@ -1837,6 +1885,16 @@ func (t *Transformer) processSession(
 			inputRouteID = ""
 		}
 	}
+}
+
+// realtimeLogPayload bounds a provider payload for log output.
+func realtimeLogPayload(payload []byte) string {
+	const limit = 512
+	text := strings.TrimSpace(string(payload))
+	if len(text) > limit {
+		return text[:limit] + "..."
+	}
+	return text
 }
 
 func isDoubaoRealtimeAssistantChunk(chunk *genx.MessageChunk, streamID string) bool {

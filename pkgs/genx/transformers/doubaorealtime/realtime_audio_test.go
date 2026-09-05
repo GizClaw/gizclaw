@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -213,5 +214,58 @@ func TestRealtimeAudioInputOpusKeepaliveAvoidsDTXPackets(t *testing.T) {
 		if len(frame) <= 3 {
 			t.Fatalf("keepalive frame %d length = %d, want non-DTX Opus packet", index+1, len(frame))
 		}
+	}
+}
+
+func TestRealtimeAudioInputPrepareFramesReportsSignal(t *testing.T) {
+	loud := make([]int16, 320)
+	for i := range loud {
+		if i%2 == 0 {
+			loud[i] = 4000
+		} else {
+			loud[i] = -4000
+		}
+	}
+	quiet := make([]int16, 320)
+	for i := range quiet {
+		quiet[i] = int16(i % 7)
+	}
+	if !realtimePCMHasSignal(loud, doubaoRealtimeSignalRMS) || realtimePCMHasSignal(quiet, doubaoRealtimeSignalRMS) || realtimePCMHasSignal(nil, 1) {
+		t.Fatal("realtimePCMHasSignal() did not separate speech-level audio from the noise floor")
+	}
+
+	pcmInput := newDoubaoRealtimeAudioInput("pcm", 16000, 1, false)
+	frames, signal, err := pcmInput.prepareFramesWithSignal(&genx.Blob{MIMEType: "audio/pcm", Data: pcm16LE(loud)})
+	if err != nil || len(frames) != 1 || signal != 20*time.Millisecond {
+		t.Fatalf("loud pcm prepareFramesWithSignal() = (%d frames, %s, %v), want one 20ms signal frame", len(frames), signal, err)
+	}
+	frames, signal, err = pcmInput.prepareFramesWithSignal(&genx.Blob{MIMEType: "audio/pcm", Data: pcm16LE(quiet)})
+	if err != nil || len(frames) != 1 || signal != 0 {
+		t.Fatalf("quiet pcm prepareFramesWithSignal() = (%d frames, %s, %v), want one silent frame", len(frames), signal, err)
+	}
+	if _, signal, err := pcmInput.prepareFramesWithSignal(nil); err != nil || signal != 0 {
+		t.Fatalf("nil blob prepareFramesWithSignal() = (%s, %v)", signal, err)
+	}
+
+	opusInput := newDoubaoRealtimeAudioInput("speech_opus", 16000, 1, true)
+	defer opusInput.close()
+	enc, err := opus.NewEncoder(16000, 1, opus.ApplicationAudio)
+	if err != nil {
+		t.Fatalf("NewEncoder() error = %v", err)
+	}
+	defer enc.Close()
+	packet, err := enc.Encode(loud, 320)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	frames, signal, err = opusInput.prepareFramesWithSignal(&genx.Blob{MIMEType: "audio/opus", Data: packet})
+	if err != nil || len(frames) != 1 || signal != 20*time.Millisecond {
+		t.Fatalf("transcoded opus prepareFramesWithSignal() = (%d frames, %s, %v), want one 20ms signal frame", len(frames), signal, err)
+	}
+
+	passthrough := newDoubaoRealtimeAudioInput("speech_opus", 16000, 1, false)
+	frames, signal, err = passthrough.prepareFramesWithSignal(&genx.Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}})
+	if err != nil || len(frames) != 1 || signal != 20*time.Millisecond {
+		t.Fatalf("passthrough opus prepareFramesWithSignal() = (%d frames, %s, %v), want undecoded audio counted as signal", len(frames), signal, err)
 	}
 }
