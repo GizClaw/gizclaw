@@ -30,5 +30,9 @@
   {
     "name": "gameplay_reward_updated",
     "hex": "080110088a01170a0a776f726b666c6f772d6112076772616e742d611807"
+  },
+  {
+    "name": "audio_input_ready",
+    "hex": "0801100992010a0a0873747265616d2d61"
   }
 ]

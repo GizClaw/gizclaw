@@ -19,7 +19,10 @@ typedef enum _gizclaw_events_v1_PeerEventType {
     gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED = 5,
     gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED = 6,
     gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED = 7,
-    gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED = 8
+    gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED = 8,
+    /* Server acknowledgement that an input audio BOS has been authorized and
+ installed. Clients must receive this before sending its Opus packets. */
+    gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY = 9
 } gizclaw_events_v1_PeerEventType;
 
 typedef enum _gizclaw_events_v1_StreamKind {
@@ -52,6 +55,10 @@ typedef enum _gizclaw_events_v1_FriendGroupChange {
 } gizclaw_events_v1_FriendGroupChange;
 
 /* Struct definitions */
+typedef struct _gizclaw_events_v1_AudioInputReady {
+    char stream_id[129];
+} gizclaw_events_v1_AudioInputReady;
+
 typedef struct _gizclaw_events_v1_StreamBegin {
     char stream_id[129];
     uint64_t sequence;
@@ -134,6 +141,7 @@ typedef struct _gizclaw_events_v1_PeerEvent {
         gizclaw_events_v1_FriendRelationshipUpdated friend_relationship_updated;
         gizclaw_events_v1_FriendGroupUpdated friend_group_updated;
         gizclaw_events_v1_GameplayRewardUpdated gameplay_reward_updated;
+        gizclaw_events_v1_AudioInputReady audio_input_ready;
     } payload;
 } gizclaw_events_v1_PeerEvent;
 
@@ -144,8 +152,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _gizclaw_events_v1_PeerEventType_MIN gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_UNSPECIFIED
-#define _gizclaw_events_v1_PeerEventType_MAX gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED
-#define _gizclaw_events_v1_PeerEventType_ARRAYSIZE ((gizclaw_events_v1_PeerEventType)(gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED+1))
+#define _gizclaw_events_v1_PeerEventType_MAX gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY
+#define _gizclaw_events_v1_PeerEventType_ARRAYSIZE ((gizclaw_events_v1_PeerEventType)(gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY+1))
 
 #define _gizclaw_events_v1_StreamKind_MIN gizclaw_events_v1_StreamKind_STREAM_KIND_UNSPECIFIED
 #define _gizclaw_events_v1_StreamKind_MAX gizclaw_events_v1_StreamKind_STREAM_KIND_MIXED
@@ -165,6 +173,7 @@ extern "C" {
 
 #define gizclaw_events_v1_PeerEvent_type_ENUMTYPE gizclaw_events_v1_PeerEventType
 
+
 #define gizclaw_events_v1_StreamBegin_kind_ENUMTYPE gizclaw_events_v1_StreamKind
 
 #define gizclaw_events_v1_StreamEnd_kind_ENUMTYPE gizclaw_events_v1_StreamKind
@@ -182,6 +191,7 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define gizclaw_events_v1_PeerEvent_init_default {0, _gizclaw_events_v1_PeerEventType_MIN, 0, {gizclaw_events_v1_StreamBegin_init_default}}
+#define gizclaw_events_v1_AudioInputReady_init_default {""}
 #define gizclaw_events_v1_StreamBegin_init_default {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", ""}
 #define gizclaw_events_v1_StreamEnd_init_default {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", "", false, gizclaw_events_v1_EventError_init_default}
 #define gizclaw_events_v1_EventError_init_default {"", "", 0}
@@ -192,6 +202,7 @@ extern "C" {
 #define gizclaw_events_v1_FriendGroupUpdated_init_default {"", "", _gizclaw_events_v1_FriendGroupChange_MIN, 0, ""}
 #define gizclaw_events_v1_GameplayRewardUpdated_init_default {"", "", 0}
 #define gizclaw_events_v1_PeerEvent_init_zero    {0, _gizclaw_events_v1_PeerEventType_MIN, 0, {gizclaw_events_v1_StreamBegin_init_zero}}
+#define gizclaw_events_v1_AudioInputReady_init_zero {""}
 #define gizclaw_events_v1_StreamBegin_init_zero  {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", ""}
 #define gizclaw_events_v1_StreamEnd_init_zero    {"", 0, 0, _gizclaw_events_v1_StreamKind_MIN, "", "", false, gizclaw_events_v1_EventError_init_zero}
 #define gizclaw_events_v1_EventError_init_zero   {"", "", 0}
@@ -203,6 +214,7 @@ extern "C" {
 #define gizclaw_events_v1_GameplayRewardUpdated_init_zero {"", "", 0}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define gizclaw_events_v1_AudioInputReady_stream_id_tag 1
 #define gizclaw_events_v1_StreamBegin_stream_id_tag 1
 #define gizclaw_events_v1_StreamBegin_sequence_tag 2
 #define gizclaw_events_v1_StreamBegin_timestamp_unix_ms_tag 3
@@ -254,6 +266,7 @@ extern "C" {
 #define gizclaw_events_v1_PeerEvent_friend_relationship_updated_tag 15
 #define gizclaw_events_v1_PeerEvent_friend_group_updated_tag 16
 #define gizclaw_events_v1_PeerEvent_gameplay_reward_updated_tag 17
+#define gizclaw_events_v1_PeerEvent_audio_input_ready_tag 18
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_events_v1_PeerEvent_FIELDLIST(X, a) \
@@ -266,7 +279,8 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,text_done,payload.text_done),  13) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,workspace_history_updated,payload.workspace_history_updated),  14) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,friend_relationship_updated,payload.friend_relationship_updated),  15) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (payload,friend_group_updated,payload.friend_group_updated),  16) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (payload,gameplay_reward_updated,payload.gameplay_reward_updated),  17)
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,gameplay_reward_updated,payload.gameplay_reward_updated),  17) \
+X(a, STATIC,   ONEOF,    MESSAGE,  (payload,audio_input_ready,payload.audio_input_ready),  18)
 #define gizclaw_events_v1_PeerEvent_CALLBACK NULL
 #define gizclaw_events_v1_PeerEvent_DEFAULT NULL
 #define gizclaw_events_v1_PeerEvent_payload_bos_MSGTYPE gizclaw_events_v1_StreamBegin
@@ -277,6 +291,12 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (payload,gameplay_reward_updated,payload.game
 #define gizclaw_events_v1_PeerEvent_payload_friend_relationship_updated_MSGTYPE gizclaw_events_v1_FriendRelationshipUpdated
 #define gizclaw_events_v1_PeerEvent_payload_friend_group_updated_MSGTYPE gizclaw_events_v1_FriendGroupUpdated
 #define gizclaw_events_v1_PeerEvent_payload_gameplay_reward_updated_MSGTYPE gizclaw_events_v1_GameplayRewardUpdated
+#define gizclaw_events_v1_PeerEvent_payload_audio_input_ready_MSGTYPE gizclaw_events_v1_AudioInputReady
+
+#define gizclaw_events_v1_AudioInputReady_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   stream_id,         1)
+#define gizclaw_events_v1_AudioInputReady_CALLBACK NULL
+#define gizclaw_events_v1_AudioInputReady_DEFAULT NULL
 
 #define gizclaw_events_v1_StreamBegin_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   stream_id,         1) \
@@ -357,6 +377,7 @@ X(a, STATIC,   SINGULAR, INT64,    revision_unix_ms,   3)
 #define gizclaw_events_v1_GameplayRewardUpdated_DEFAULT NULL
 
 extern const pb_msgdesc_t gizclaw_events_v1_PeerEvent_msg;
+extern const pb_msgdesc_t gizclaw_events_v1_AudioInputReady_msg;
 extern const pb_msgdesc_t gizclaw_events_v1_StreamBegin_msg;
 extern const pb_msgdesc_t gizclaw_events_v1_StreamEnd_msg;
 extern const pb_msgdesc_t gizclaw_events_v1_EventError_msg;
@@ -369,6 +390,7 @@ extern const pb_msgdesc_t gizclaw_events_v1_GameplayRewardUpdated_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_events_v1_PeerEvent_fields &gizclaw_events_v1_PeerEvent_msg
+#define gizclaw_events_v1_AudioInputReady_fields &gizclaw_events_v1_AudioInputReady_msg
 #define gizclaw_events_v1_StreamBegin_fields &gizclaw_events_v1_StreamBegin_msg
 #define gizclaw_events_v1_StreamEnd_fields &gizclaw_events_v1_StreamEnd_msg
 #define gizclaw_events_v1_EventError_fields &gizclaw_events_v1_EventError_msg
@@ -381,6 +403,7 @@ extern const pb_msgdesc_t gizclaw_events_v1_GameplayRewardUpdated_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define GIZCLAW_EVENTS_V1_PEER_EVENT_PB_H_MAX_SIZE gizclaw_events_v1_PeerEvent_size
+#define gizclaw_events_v1_AudioInputReady_size   131
 #define gizclaw_events_v1_EventError_size        327
 #define gizclaw_events_v1_FriendGroupUpdated_size 597
 #define gizclaw_events_v1_FriendRelationshipUpdated_size 338

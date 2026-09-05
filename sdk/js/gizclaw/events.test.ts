@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { create } from "@bufbuild/protobuf";
 import {
+  beginPeerAudioInput,
   createContinuousAudioRouteRearm,
   decodePeerEvent,
   encodePeerEvent,
@@ -142,7 +143,7 @@ test("matches every cross-language Peer Event golden vector", () => {
       "utf8",
     ),
   ) as { hex: string; name: string }[];
-  assert.equal(vectors.length, 8);
+  assert.equal(vectors.length, 9);
   for (const vector of vectors) {
     const bytes = Uint8Array.from(Buffer.from(vector.hex, "hex"));
     const event = decodePeerEvent(bytes);
@@ -155,7 +156,7 @@ test("matches every cross-language Peer Event golden vector", () => {
 
 test("keeps a future event type consumable", () => {
   // A future producer sends type=99 with a oneof arm unknown to this SDK.
-  const bytes = Uint8Array.from([0x08, 0x01, 0x10, 0x63, 0x92, 0x01, 0x00]);
+  const bytes = Uint8Array.from([0x08, 0x01, 0x10, 0x63, 0x9a, 0x01, 0x00]);
   const decoded = decodePeerEvent(bytes);
   assert.equal(decoded.type, 99);
   assert.equal(
@@ -300,6 +301,9 @@ test("continuous audio route owner subscribes and re-arms without client event w
   channel.receive(reloadEOSFrame());
   await flushPeerEvents();
 
+  assert.deepEqual(rearmed, []);
+  channel.receive(inputReadyFrame("audio-new"));
+  await flushPeerEvents();
   assert.deepEqual(rearmed, ["audio-new"]);
   assert.equal(channel.sent.length, 1);
   const [bos] = new PeerEventFrameDecoder().push(channel.sent[0]!);
@@ -413,9 +417,86 @@ test("continuous audio re-arm reports failures and retains the old route", async
   channel.sendError = undefined;
   channel.receive(reloadEOSFrame());
   await flushPeerEvents();
+  assert.deepEqual(rearmed, []);
+  channel.receive(inputReadyFrame("audio-new"));
+  await flushPeerEvents();
   assert.deepEqual(rearmed, ["audio-new"]);
   assert.equal(channel.sent.length, 1);
   owner.close();
+});
+
+test("pending audio re-arm reports channel closure once", async () => {
+  const channel = new FakePeerEventChannel();
+  channel.readyState = "open";
+  const errors: string[] = [];
+  const owner = createContinuousAudioRouteRearm(
+    channel as unknown as WebRTCRPCDataChannel,
+    () => "new",
+    { onError: (error) => errors.push(error.message) },
+  );
+  owner.activate({ streamId: "audio-old" });
+  channel.receive(reloadEOSFrame());
+  await flushPeerEvents();
+  channel.dispatch("close");
+  await flushPeerEvents();
+  assert.deepEqual(errors, ["Peer Event channel closed."]);
+  owner.close();
+});
+
+function inputReadyFrame(streamId: string): ArrayBuffer {
+  return encodePeerEventFrame(
+    peerEvent(PeerEventType.AUDIO_INPUT_READY, "audioInputReady", { streamId }),
+  );
+}
+
+test("audio input waits for its own ready event", async () => {
+  const channel = new FakePeerEventChannel();
+  channel.readyState = "open";
+  let ready = false;
+  const opening = beginPeerAudioInput(
+    channel as unknown as WebRTCRPCDataChannel,
+    { streamId: "turn" },
+  ).then(() => {
+    ready = true;
+  });
+  await flushPeerEvents();
+  assert.equal(channel.sent.length, 1);
+  assert.equal(ready, false);
+  channel.receive(inputReadyFrame("stale"));
+  await flushPeerEvents();
+  assert.equal(ready, false);
+  channel.receive(inputReadyFrame("turn"));
+  await opening;
+  assert.equal(ready, true);
+});
+
+test("audio input exposes cancellation, denial, close and channel errors", async () => {
+  for (const mode of ["abort", "denied", "close", "error"]) {
+    const channel = new FakePeerEventChannel();
+    channel.readyState = "open";
+    const controller = new AbortController();
+    const opening = beginPeerAudioInput(
+      channel as unknown as WebRTCRPCDataChannel,
+      { streamId: "turn" },
+      controller.signal,
+    );
+    const rejected = assert.rejects(
+      opening,
+      mode === "abort"
+        ? /cancelled/
+        : mode === "denied"
+          ? /MEMBER_REMOVED/
+          : /Peer Event channel/,
+    );
+    if (mode === "abort") controller.abort(new Error("cancelled"));
+    else if (mode === "denied")
+      channel.receive(
+        reloadEOSFrame({ streamId: "turn", errorCode: "MEMBER_REMOVED" }),
+      );
+    else channel.dispatch(mode);
+    await rejected;
+    assert.equal(channel.sent.length, 1);
+  }
 });
 
 function reloadEOSFrame(
@@ -453,12 +534,26 @@ class FakePeerEventChannel {
   sendError?: Error;
   sent: ArrayBuffer[] = [];
   private readonly messages = new Set<(event: MessageEvent) => void>();
+  private readonly other = new Map<
+    string,
+    Set<(event: MessageEvent) => void>
+  >();
+
+  dispatch(type: string): void {
+    for (const listener of this.other.get(type) ?? [])
+      listener({} as MessageEvent);
+  }
 
   addEventListener(
     type: string,
     listener: (event: MessageEvent) => void,
   ): void {
     if (type === "message") this.messages.add(listener);
+    else {
+      const listeners = this.other.get(type) ?? new Set();
+      listeners.add(listener);
+      this.other.set(type, listeners);
+    }
   }
 
   removeEventListener(
@@ -466,6 +561,7 @@ class FakePeerEventChannel {
     listener: (event: MessageEvent) => void,
   ): void {
     if (type === "message") this.messages.delete(listener);
+    else this.other.get(type)?.delete(listener);
   }
 
   send(data: ArrayBuffer | ArrayBufferView | Blob | string): void {

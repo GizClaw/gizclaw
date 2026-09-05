@@ -78,7 +78,7 @@ func TestPeerEventGoldenVectors(t *testing.T) {
 	if err := json.Unmarshal(data, &vectors); err != nil {
 		t.Fatalf("Unmarshal(golden vectors): %v", err)
 	}
-	if len(vectors) != 8 {
+	if len(vectors) != 9 {
 		t.Fatalf("golden vector count = %d, want every oneof arm", len(vectors))
 	}
 	for _, vector := range vectors {

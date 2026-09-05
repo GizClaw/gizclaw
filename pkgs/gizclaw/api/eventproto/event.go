@@ -23,12 +23,16 @@ func (e *PeerEvent) Validate() error {
 	}
 	if !payloadMatchesType(e) {
 		if e.Type == PeerEventType_PEER_EVENT_TYPE_UNSPECIFIED ||
-			e.Type > PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED {
+			e.Type > PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY {
 			return ErrUnknownType
 		}
 		return ErrPayloadMismatch
 	}
 	switch payload := e.Payload.(type) {
+	case *PeerEvent_AudioInputReady:
+		if strings.TrimSpace(payload.AudioInputReady.GetStreamId()) == "" {
+			return fmt.Errorf("%w: stream_id", ErrMissingIdentifier)
+		}
 	case *PeerEvent_Bos:
 		if strings.TrimSpace(payload.Bos.GetStreamId()) == "" {
 			return fmt.Errorf("%w: stream_id", ErrMissingIdentifier)
@@ -75,7 +79,7 @@ func (e *PeerEvent) ValidateReceived() error {
 	if e == nil || e.Version != Version {
 		return ErrInvalidVersion
 	}
-	if e.Type <= PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED {
+	if e.Type <= PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY {
 		return e.Validate()
 	}
 	if e.Payload != nil {
@@ -86,6 +90,9 @@ func (e *PeerEvent) ValidateReceived() error {
 
 func payloadMatchesType(e *PeerEvent) bool {
 	switch e.Type {
+	case PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY:
+		_, ok := e.Payload.(*PeerEvent_AudioInputReady)
+		return ok
 	case PeerEventType_PEER_EVENT_TYPE_BOS:
 		_, ok := e.Payload.(*PeerEvent_Bos)
 		return ok
@@ -118,6 +125,8 @@ func payloadMatchesType(e *PeerEvent) bool {
 // StreamID returns the logical stream identifier carried by stream events.
 func (e *PeerEvent) StreamID() string {
 	switch payload := e.GetPayload().(type) {
+	case *PeerEvent_AudioInputReady:
+		return payload.AudioInputReady.GetStreamId()
 	case *PeerEvent_Bos:
 		return payload.Bos.GetStreamId()
 	case *PeerEvent_Eos:

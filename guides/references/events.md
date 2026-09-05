@@ -16,6 +16,7 @@ Client / Device Peer connection 生命周期内必须恰好保持一条。实时
 | `type` | 方向 | payload | 作用 |
 | --- | --- | --- | --- |
 | `BOS` | 双向 | `bos` | 开始一个由 `stream_id` 标识的逻辑 stream。 |
+| `AUDIO_INPUT_READY` | Server → Client / Device | `audio_input_ready` | 同一 `stream_id` 的音频输入已授权并安装路由，可以发送音频。 |
 | `EOS` | 双向 | `eos` | 结束一个逻辑 stream；可携带 typed `error`。 |
 | `TEXT_DELTA` | 双向 | `text_delta` | 发送增量文本片段。 |
 | `TEXT_DONE` | 双向 | `text_done` | 发送最终文本片段并结束文本逻辑 stream。 |
@@ -71,13 +72,22 @@ Gameplay reward 事件只发给已提交 `RewardGrant` 的受益 Peer；群聊�
 额外发送 EOS。音频的实时 packet 不在 Protobuf event 中：
 
 ```text
-BOS(kind=AUDIO, stream_id=audio-42)
-  + WebRTC RTP Opus packets
+Client → Server: BOS(kind=AUDIO, stream_id=audio-42)
+Server → Client: AUDIO_INPUT_READY(stream_id=audio-42)
+Client → Server: WebRTC RTP Opus packets
 EOS(kind=AUDIO, stream_id=audio-42)
 ```
 
 Server 只在对应的 `BOS(kind=AUDIO)` 通过本轮授权后接收该轮 Opus packets；
-先到达或绕过 BOS 的 packets 会被丢弃。EOS 会关闭该轮输入 gate。
+先到达或绕过 BOS 的 packets 会被丢弃。Client 必须收到匹配 `stream_id` 的
+`AUDIO_INPUT_READY` 后才发送或启用该轮音频；仅完成 BOS 写入不能证明另一条
+transport 上的输入已就绪。每轮使用新的 `stream_id`，忽略旧轮的 ready。EOS 会关闭该轮输入 gate。
+
+Go `PeerStream.Push` 的音频 BOS、Flutter `WorkspaceEventSession.beginAudio` 与 JS
+`beginPeerAudioInput` 均等到这个确认才成功返回。授权错误、连接关闭与调用方取消
+直接结束等待，不增加定时等待、超时重试或静默成功。使用 C SDK 或原始 Event API 的
+调用方须读取并匹配 `audio_input_ready.stream_id` 后再发送媒体。Server 和发起音频的
+Client 必须共同支持此握手；旧 Server 不会产生就绪确认。此事件不属于助手输出。
 
 Server 下行只有一条固定 Opus media channel。多个 Agent source 同时输出时，Server
 把它们解码并混音成这一条 channel，同时把 source lifecycle 聚合为一组 boundary：
@@ -111,7 +121,7 @@ Workspace runtime 替换会使已准入的 user audio route 失效。Server 先�
 
 这是逻辑 route 的终止信号，不是 Peer transport failure。持续录音的 Client 可以选择
 为完全匹配当前 active route 的 EOS 分配不同且非空的新 `stream_id`，在同一 `0x20`
-上发送一次 `BOS(kind=AUDIO, label=user)`，再继续发送 RTP。stale、重复、非 audio、
+上发送一次 `BOS(kind=AUDIO, label=user)`，收到对应的 `AUDIO_INPUT_READY` 后再继续发送 RTP。stale、重复、非 audio、
 非 user、普通完成或 non-retryable EOS 不触发 re-arm。replacement BOS 前的 RTP 仍按
 BOS-before-RTP gate 丢弃；Event 写入失败则表示必需 transport 已不健康，reload 不得
 报告成功。

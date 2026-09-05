@@ -796,6 +796,18 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
 			return err
 		}
+		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS &&
+			event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_AUDIO {
+			// A successful event write does not order the independent Opus
+			// packet channel. Acknowledge only after authorization and routing.
+			if err := h.events.Broadcast(&eventpb.PeerEvent{
+				Version: eventpb.Version,
+				Type:    eventpb.PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY,
+				Payload: &eventpb.PeerEvent_AudioInputReady{AudioInputReady: &eventpb.AudioInputReady{StreamId: event.StreamID()}},
+			}); err != nil {
+				return err
+			}
+		}
 	}
 }
 
@@ -1266,6 +1278,9 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	host := h.agentHost
 	input := h.agentInput
 	if input == nil {
+		if chunk.IsBeginOfStream() {
+			return agenthost.ErrNoActiveInput
+		}
 		return nil
 	}
 	if host == nil {
@@ -1274,6 +1289,9 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	inputPusher := peerConnInputPusher{peer: h, input: input}
 	revision, pushed, err := host.PushInput(ctx, inputPusher, chunk)
 	if !pushed {
+		if err == nil && chunk.IsBeginOfStream() {
+			return agenthost.ErrNoActiveInput
+		}
 		return err
 	}
 	if !errors.Is(err, agenthost.ErrNoActiveInput) {
@@ -1281,9 +1299,12 @@ func (h *PeerConn) pushAgentInputChunk(ctx context.Context, chunk *genx.MessageC
 	}
 	reloaded, err := host.ReloadAndPushInputIfCurrentRevision(ctx, revision, inputPusher, chunk)
 	if !reloaded {
+		if err == nil && chunk.IsBeginOfStream() {
+			return agenthost.ErrNoActiveInput
+		}
 		return err
 	}
-	if errors.Is(err, agenthost.ErrNoActiveInput) {
+	if errors.Is(err, agenthost.ErrNoActiveInput) && !chunk.IsBeginOfStream() {
 		return nil
 	}
 	return err
