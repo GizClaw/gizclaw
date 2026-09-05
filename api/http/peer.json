@@ -14,6 +14,303 @@
     {"name": "Contacts", "description": "Contacts owned by the device bound to the API key"}
   ],
   "paths": {
+    "/gizclaw/v1/device/workspaces": {
+      "get": {
+        "operationId": "listDeviceWorkspaces",
+        "summary": "List Workspaces owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Successful owner-scoped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceWorkspace"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/workspaces/{workspaceId}/history": {
+      "get": {
+        "operationId": "listDeviceWorkspaceHistory",
+        "summary": "Read history from a Workspace owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Successful owner-scoped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PeerRunHistoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/logs/search": {
+      "get": {
+        "operationId": "searchDeviceLogs",
+        "summary": "Search persistent system logs scoped to the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEBUG",
+                "INFO",
+                "WARN",
+                "ERROR"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Successful owner-scoped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceLogPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg": {
+      "get": {
+        "operationId": "downloadDeviceHistoryAudio",
+        "summary": "Download stored Ogg audio from a Workspace owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "historyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Stored Ogg audio",
+            "content": {
+              "audio/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/server-info": {
       "get": {
         "operationId": "getServerInfo",
@@ -805,6 +1102,48 @@
       }
     },
     "schemas": {
+      "DeviceWorkspace": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "workflow_id",
+          "last_active_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          },
+          "last_active_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DeviceLogPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "end"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./shared.json#/components/schemas/ServerLogEntry"
+            }
+          },
+          "end": {
+            "$ref": "./shared.json#/components/schemas/ServerLogStreamEnd"
+          }
+        }
+      },
       "APIKey": {
         "type": "object",
         "additionalProperties": false,

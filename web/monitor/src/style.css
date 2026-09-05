@@ -479,7 +479,7 @@ p {
   color: #6c675f;
 }
 .log-line {
-  height: 32px;
+  height: 26px;
   display: flex;
   gap: 14px;
   align-items: center;
@@ -770,4 +770,263 @@ p {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #ae977f;
+}
+/* Device workbench */
+.section-heading {
+  margin: 20px 0;
+}
+.section-heading p,
+.muted {
+  color: #827e74;
+}
+.raw-data {
+  margin-top: 20px;
+  border-top: 1px solid #e6dfd8;
+  padding-top: 14px;
+}
+.raw-data summary {
+  cursor: pointer;
+  color: #827e74;
+}
+.detail-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin: 15px 0;
+}
+.detail-fields > div {
+  border-bottom: 1px solid #eee9df;
+  padding: 9px 0;
+}
+.detail-fields dt {
+  font-size: 12px;
+  color: #81796c;
+  margin-bottom: 8px;
+}
+.detail-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 15px 0;
+}
+.telemetry-group h3 {
+  margin: 22px 0 10px;
+}
+.telemetry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid #e6dfd8;
+  border-radius: 9px;
+  background: #fffefa;
+  color: #545049;
+}
+.telemetry-card strong {
+  font-size: 25px;
+  color: #292824;
+}
+.telemetry-card small {
+  font-size: 11px;
+  color: #827d73;
+}
+.telemetry-card code {
+  font-size: 11px;
+  color: #827d73;
+}
+.telemetry-card.selected {
+  border-color: #bd765b;
+}
+.telemetry-card .stale {
+  color: #a27235;
+}
+.empty-detail {
+  text-align: center;
+  color: #827d73;
+  padding: 35px 15px;
+}
+.device-map {
+  width: 100%;
+  height: 380px;
+  border: 1px solid #e6dfd8;
+  border-radius: 8px;
+}
+.workspace-browser {
+  display: grid;
+  grid-template-columns: 220px minmax(240px, 1fr) 230px;
+  margin-top: 16px;
+  border: 1px solid #e6dfd8;
+  border-radius: 10px;
+  background: #fffefa;
+  overflow: hidden;
+}
+.workspace-browser > section {
+  padding: 19px;
+  min-width: 0;
+}
+.workspace-browser > section + section {
+  border-left: 1px solid #e6dfd8;
+}
+.workspace-list {
+  background: #f3f0e8;
+}
+.workspace-list button {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  margin-top: 12px;
+  padding: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.workspace-list button.selected {
+  background: #fffefa;
+  border-color: #ded6c9;
+}
+.workspace-list small {
+  color: #827d73;
+}
+.history-search {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.history-search input {
+  flex: 1;
+  min-width: 140px;
+}
+.history-search button,
+.chat-history > button,
+.panel > button {
+  padding: 8px 13px;
+  border: 1px solid #e1dacd;
+  border-radius: 6px;
+  background: #f7f4ed;
+}
+.chat-message {
+  margin: 20px 0;
+}
+.chat-message header {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #81796c;
+}
+.chat-message p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f2efe7;
+  padding: 13px 15px;
+  border-radius: 8px;
+  line-height: 1.8;
+  margin-top: 8px;
+}
+.chat-message.user {
+  margin-left: 25px;
+}
+.chat-message.user p {
+  background: #f5e9df;
+}
+.chat-message small {
+  color: #827d73;
+}
+.dense-logs {
+  background: #201f1c;
+  color: #dbd8cf;
+  border-radius: 7px;
+  padding: 9px 0;
+  overflow: auto;
+  min-height: 250px;
+  max-height: 560px;
+  font:
+    12px/1.7 ui-monospace,
+    SFMono-Regular,
+    monospace;
+}
+.dense-log {
+  display: flex;
+  gap: 12px;
+  white-space: nowrap;
+  width: max-content;
+  min-width: 100%;
+  padding: 3px 12px;
+}
+.dense-log:hover {
+  background: #302d28;
+}
+.dense-log time {
+  color: #aaa397;
+}
+.dense-log b {
+  width: 5ch;
+}
+.dense-log .level-ERROR {
+  color: #e39b86;
+}
+.dense-log .level-WARN {
+  color: #d2b47a;
+}
+.error {
+  padding: 12px;
+  color: #ac5345;
+  background: #faeee7;
+  border-radius: 7px;
+  margin: 12px 0;
+}
+.tabs {
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.log-line {
+  font-size: 12px;
+}
+.log-line span {
+  overflow: visible;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+.log-body {
+  overflow: auto;
+}
+@media (max-width: 1150px) {
+  .workspace-browser {
+    grid-template-columns: 200px 1fr;
+  }
+  .workspace-context {
+    grid-column: 1/-1;
+    border-top: 1px solid #e6dfd8;
+  }
+}
+@media (max-width: 700px) {
+  .workspace-browser {
+    grid-template-columns: 1fr;
+  }
+  .workspace-browser > section + section {
+    border-left: 0;
+    border-top: 1px solid #e6dfd8;
+  }
+  .device-map {
+    height: 280px;
+  }
+}
+
+.identity-details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.identity-details .detail-fields {
+  padding: 0;
+  margin: 4px 0 0;
 }

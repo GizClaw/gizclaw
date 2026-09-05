@@ -41,6 +41,19 @@ import {
   type Sample,
 } from "./api";
 import "./style.css";
+import {
+  Fields,
+  RawData,
+  TelemetryPanel,
+  LocationPanel,
+  WorkflowsPanel,
+  PersistentLogsPanel,
+} from "./device-panels";
+import {
+  readConnection,
+  saveConnection,
+  clearConnection,
+} from "./connection-store";
 
 function Logs({ entries }: { entries: LogEntry[] }) {
   const [filter, setFilter] = useState("");
@@ -58,8 +71,8 @@ function Logs({ entries }: { entries: LogEntry[] }) {
   useEffect(() => {
     if (follow && box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [entries, follow]);
-  const start = Math.max(0, Math.floor(scroll / 32) - 4);
-  const shown = filtered.slice(start, start + 22);
+  const start = Math.max(0, Math.floor(scroll / 26) - 4);
+  const shown = filtered.slice(start, start + 28);
   return (
     <section className="logs">
       <div className="log-tools">
@@ -103,14 +116,14 @@ function Logs({ entries }: { entries: LogEntry[] }) {
             暂无匹配日志。只显示当前进程实际记录的数据。
           </div>
         ) : (
-          <div style={{ height: filtered.length * 32, position: "relative" }}>
+          <div style={{ height: filtered.length * 26, position: "relative" }}>
             {shown.map((e, i) => (
               <div
                 className="log-line"
                 key={e.id}
                 style={{
                   position: "absolute",
-                  top: (start + i) * 32,
+                  top: (start + i) * 26,
                   left: 0,
                   right: 0,
                 }}
@@ -131,17 +144,6 @@ function Logs({ entries }: { entries: LogEntry[] }) {
         )}
       </div>
       <footer>服务端进程日志 · 最多保留 500 条 · 重启后清空</footer>
-    </section>
-  );
-}
-function JsonPanel({ value, title }: { value: unknown; title: string }) {
-  return (
-    <section className="panel">
-      <div className="panel-title">
-        <h2>{title}</h2>
-        <span>实际读取值</span>
-      </div>
-      <pre className="json">{JSON.stringify(value, null, 2)}</pre>
     </section>
   );
 }
@@ -167,6 +169,33 @@ function Metric({
     </div>
   );
 }
+function savedTab(isNode: boolean): string {
+  try {
+    const t = localStorage.getItem(
+      isNode ? "monitor-node-tab" : "monitor-peer-tab",
+    );
+    if (
+      t &&
+      (isNode
+        ? ["logs", "config"]
+        : [
+            "overview",
+            "workflows",
+            "traffic",
+            "telemetry",
+            "location",
+            "logs",
+            "config",
+            "actions",
+          ]
+      ).includes(t)
+    )
+      return t;
+  } catch {
+    /* Display preference storage may be disabled. */
+  }
+  return isNode ? "logs" : "overview";
+}
 export function App() {
   const isNode = window.location.pathname !== "/monitor/peer";
   const [credential, setCredential] = useState("");
@@ -181,13 +210,51 @@ export function App() {
   const [peer, setPeer] = useState<PeerSnapshot>();
   const [samples, setSamples] = useState<Sample[]>([]);
   const [paused, setPaused] = useState(false);
-  const [tab, setTab] = useState("logs");
+  const [tab, setTab] = useState(() => savedTab(isNode));
+  const [windowSize, setWindowSize] = useState(120);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        isNode ? "monitor-node-tab" : "monitor-peer-tab",
+        tab,
+      );
+    } catch {
+      /* Display preferences are optional. */
+    }
+  }, [isNode, tab]);
+  const connectionName = isNode ? "node" : "peer";
+  const restoreVersion = useRef(0);
+  useEffect(() => {
+    let active = true;
+    const version = restoreVersion.current;
+    void readConnection(connectionName)
+      .then((value) => {
+        if (active && version === restoreVersion.current) setCredential(value);
+      })
+      .catch((e) => {
+        if (active) setNotice(String(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [connectionName]);
+  async function remember(value: string) {
+    const version = ++restoreVersion.current;
+    try {
+      await saveConnection(connectionName, value);
+    } catch (e) {
+      if (version === restoreVersion.current)
+        setNotice(`连接可用，但无法本地保存：${String(e)}`);
+    }
+    return version === restoreVersion.current;
+  }
   const [last, setLast] = useState<Date>();
   const [volume, setVolume] = useState(50);
   const formAbort = useRef<AbortController | undefined>(undefined);
   const controlsAbort = useRef<AbortController | undefined>(undefined);
   useEffect(
     () => () => {
+      restoreVersion.current++;
       formAbort.current?.abort();
       controlsAbort.current?.abort();
     },
@@ -220,7 +287,7 @@ export function App() {
           const current = { time: now, rx, tx };
           const sample = rates(previous, current);
           previous = current;
-          setSamples((old) => [...old.slice(-119), sample]);
+          setSamples((old) => [...old.slice(-1799), sample]);
         } else {
           previous = undefined;
           setSamples([]);
@@ -259,6 +326,8 @@ export function App() {
       if (isNode) {
         const data = await loadNode(input.trim(), controller.signal);
         setNode(data);
+        if (!(await remember(input.trim()))) return;
+        if (controller.signal.aborted) return;
         setCredential(input.trim());
         setInput("");
       } else {
@@ -269,7 +338,7 @@ export function App() {
           controller.signal,
         );
         setMatches(keys);
-        if (keys.length === 1) select(keys[0]);
+        if (keys.length === 1) await select(keys[0]);
       }
     } catch (e) {
       if (!controller.signal.aborted)
@@ -278,7 +347,8 @@ export function App() {
       if (!controller.signal.aborted) setBusy(false);
     }
   }
-  function select(key: string) {
+  async function select(key: string) {
+    if (!(await remember(key))) return;
     setCredential(key);
     setNode(undefined);
     setPeer(undefined);
@@ -286,7 +356,11 @@ export function App() {
     setError("");
     setPaused(false);
   }
-  function disconnect() {
+  async function disconnect() {
+    restoreVersion.current++;
+    formAbort.current?.abort();
+    setNotice("");
+    const clearing = clearConnection(connectionName);
     setBusy(false);
     setCredential("");
     setNode(undefined);
@@ -294,9 +368,13 @@ export function App() {
     setSamples([]);
     setLast(undefined);
     setError("");
-    setNotice("");
     setPaused(false);
     controlsAbort.current?.abort();
+    try {
+      await clearing;
+    } catch (e) {
+      setNotice(`已断开连接，但清除本地记录失败：${String(e)}`);
+    }
   }
   async function action(name: "reboot" | "volume") {
     if (
@@ -444,7 +522,7 @@ export function App() {
               <small>
                 <ShieldCheck size={13} />
                 {isNode
-                  ? "凭证只保存在本页内存，刷新即清除。"
+                  ? "连接信息加密保存在当前浏览器，刷新后恢复；退出可清除。"
                   : "无需 API Key；设备需自行开启 readonly 或 fullcontrol。"}
               </small>
               {matches && (
@@ -453,7 +531,7 @@ export function App() {
                     <p>没有匹配设备。</p>
                   ) : (
                     matches.map((key) => (
-                      <button key={key} onClick={() => select(key)}>
+                      <button key={key} onClick={() => void select(key)}>
                         <Box size={16} />
                         <code>{key}</code>
                         <ChevronRight size={14} />
@@ -479,6 +557,12 @@ export function App() {
                 <code>
                   {isNode ? (node?.public_key ?? "等待节点响应") : credential}
                 </code>
+                {!isNode && peer && (
+                  <div className="identity-details">
+                    <Fields value={peer.info.identifiers ?? {}} />
+                    <Fields value={peer.info.hardware ?? {}} />
+                  </div>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -497,12 +581,18 @@ export function App() {
               <span className="permission">
                 {isNode ? "只读" : (peer?.runtime.debug_mode ?? "等待权限检查")}
               </span>
-              <Button variant="outline" onClick={() => setPaused(!paused)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (paused) setSamples([]);
+                  setPaused(!paused);
+                }}
+              >
                 {paused ? <Play size={14} /> : <Pause size={14} />}{" "}
                 {paused ? "继续" : "暂停"}
               </Button>
-              <Button variant="ghost" onClick={disconnect}>
-                <LogOut size={15} /> 退出
+              <Button variant="ghost" onClick={() => void disconnect()}>
+                <LogOut size={15} /> 退出并清除
               </Button>
             </div>
           )}
@@ -520,6 +610,44 @@ export function App() {
               {notice}
             </div>
           )}
+          <div className="tabs" role="tablist" aria-label="监控详情">
+            {(isNode
+              ? ["logs", "config"]
+              : [
+                  "overview",
+                  "workflows",
+                  "traffic",
+                  "telemetry",
+                  "location",
+                  "logs",
+                  "config",
+                  "actions",
+                ]
+            ).map((t) => (
+              <button
+                role="tab"
+                aria-selected={tab === t}
+                key={t}
+                onClick={() => setTab(t)}
+              >
+                {
+                  {
+                    overview: "概览",
+                    workflows: "Workflows",
+                    traffic: "实时流量",
+                    location: "定位",
+                    logs: "运行日志",
+                    config: "配置与状态",
+                    telemetry: "Telemetry",
+                    actions: "设备操作",
+                  }[t]
+                }
+              </button>
+            ))}
+            <span>
+              {last ? `更新于 ${last.toLocaleTimeString()}` : "等待数据"}
+            </span>
+          </div>
           <div className="metrics">
             <Metric
               label={isNode ? "WebRTC 连接" : "设备状态"}
@@ -538,14 +666,22 @@ export function App() {
               icon={<Wifi size={16} />}
             />
             <Metric
-              label="接收速率"
-              value={connected && latest ? `${bytes(latest.rx)}/s` : "—"}
+              label={isNode ? "接收速率" : "设备上行"}
+              value={
+                connected && latest && samples.length > 1
+                  ? `${bytes(latest.rx)}/s`
+                  : "—"
+              }
               note={rx !== undefined ? `累计 ${bytes(rx)}` : "等待采样"}
               icon={<ArrowDownLeft size={17} />}
             />
             <Metric
-              label="发送速率"
-              value={connected && latest ? `${bytes(latest.tx)}/s` : "—"}
+              label={isNode ? "发送速率" : "设备下行"}
+              value={
+                connected && latest && samples.length > 1
+                  ? `${bytes(latest.tx)}/s`
+                  : "—"
+              }
               note={tx !== undefined ? `累计 ${bytes(tx)}` : "等待采样"}
               icon={<ArrowUpRight size={17} />}
             />
@@ -568,103 +704,94 @@ export function App() {
               icon={<Activity size={16} />}
             />
           </div>
-          <section className="panel traffic">
-            <div className="panel-title">
-              <div>
-                <h2>流量趋势</h2>
-                <p>最近 120 次采样 · 应用负载字节，不含传输协议开销</p>
-              </div>
-              <div className="legend">
-                <span className="rx-dot" /> 接收 <span className="tx-dot" />{" "}
-                发送 <span className="range">实时 / 1s</span>
-              </div>
-            </div>
-            {samples.length > 1 ? (
-              <div className="chart">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={samples}
-                    margin={{ top: 10, right: 12, left: 8, bottom: 0 }}
+          {(isNode || tab === "traffic" || tab === "overview") && (
+            <section className="panel traffic">
+              <div className="panel-title">
+                <div>
+                  <h2>流量趋势</h2>
+                  <p>应用负载字节，不含 ICE / DTLS 开销 · 本次连接采样</p>
+                  <select
+                    aria-label="流量时间窗口"
+                    value={windowSize}
+                    onChange={(e) => setWindowSize(Number(e.target.value))}
                   >
-                    <CartesianGrid
-                      stroke="#e6dfd8"
-                      strokeDasharray="3 4"
-                      vertical={false}
-                    />
-                    <XAxis
-                      dataKey="time"
-                      tick={{ fontSize: 11, fill: "#8e8b82" }}
-                      minTickGap={70}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tickFormatter={(value) => bytes(Number(value))}
-                      tick={{ fontSize: 11, fill: "#8e8b82" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      formatter={(value) => `${bytes(Number(value))}/s`}
-                    />
-                    <Area
-                      name="接收"
-                      type="monotone"
-                      dataKey="rx"
-                      stroke="#438e80"
-                      fill="#5db8a6"
-                      fillOpacity={0.1}
-                      isAnimationActive={false}
-                    />
-                    <Area
-                      name="发送"
-                      type="monotone"
-                      dataKey="tx"
-                      stroke="#cc785c"
-                      fill="#cc785c"
-                      fillOpacity={0.08}
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                    <option value={120}>最近 2 分钟</option>
+                    <option value={600}>最近 10 分钟</option>
+                    <option value={1800}>最近 30 分钟</option>
+                  </select>
+                </div>
+                <div className="legend">
+                  <span className="rx-dot" /> {isNode ? "接收" : "上行"}{" "}
+                  <span className="tx-dot" /> {isNode ? "发送" : "下行"}{" "}
+                  <span className="range">实时 / 1s</span>
+                </div>
               </div>
-            ) : (
-              <div className="chart-empty">
-                <Activity size={32} />
-                <strong>
-                  {credential ? "等待流量采样" : "连接后显示实时流量"}
-                </strong>
-                <span>这里仅展示实际测量的数据</span>
-              </div>
-            )}
-          </section>
-          <div className="tabs" role="tablist" aria-label="监控详情">
-            {[
-              "logs",
-              "config",
-              ...(!isNode ? ["telemetry", "actions"] : []),
-            ].map((t) => (
-              <button
-                role="tab"
-                aria-selected={tab === t}
-                key={t}
-                onClick={() => setTab(t)}
-              >
-                {
-                  {
-                    logs: "日志",
-                    config: "配置与状态",
-                    telemetry: "Telemetry",
-                    actions: "设备操作",
-                  }[t]
-                }
-              </button>
-            ))}
-            <span>
-              {last ? `更新于 ${last.toLocaleTimeString()}` : "等待数据"}
-            </span>
-          </div>
-          {tab === "logs" && (
+              {samples.length > 1 ? (
+                <div className="chart">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={samples.filter(
+                        (sample) =>
+                          sample.timestamp >=
+                          (samples.at(-1)?.timestamp ?? 0) - windowSize * 1000,
+                      )}
+                      margin={{ top: 10, right: 12, left: 8, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        stroke="#e6dfd8"
+                        strokeDasharray="3 4"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="time"
+                        tick={{ fontSize: 11, fill: "#8e8b82" }}
+                        minTickGap={70}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        width={85}
+                        tickFormatter={(value) => `${bytes(Number(value))}/s`}
+                        tick={{ fontSize: 11, fill: "#8e8b82" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        formatter={(value) => `${bytes(Number(value))}/s`}
+                      />
+                      <Area
+                        name={isNode ? "接收" : "设备上行"}
+                        type="monotone"
+                        dataKey="rx"
+                        stroke="#438e80"
+                        fill="#5db8a6"
+                        fillOpacity={0.1}
+                        isAnimationActive={false}
+                      />
+                      <Area
+                        name={isNode ? "发送" : "设备下行"}
+                        type="monotone"
+                        dataKey="tx"
+                        stroke="#cc785c"
+                        fill="#cc785c"
+                        fillOpacity={0.08}
+                        isAnimationActive={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="chart-empty">
+                  <Activity size={32} />
+                  <strong>
+                    {credential ? "等待流量采样" : "连接后显示实时流量"}
+                  </strong>
+                  <span>这里仅展示实际测量的数据</span>
+                </div>
+              )}
+            </section>
+          )}
+          {tab === "logs" && isNode && (
             <>
               <Logs entries={logs} />
               {!isNode && (
@@ -675,36 +802,38 @@ export function App() {
               )}
             </>
           )}
+          {!isNode && connected && credential && tab === "logs" && (
+            <PersistentLogsPanel key={credential} credential={credential} />
+          )}
+          {!isNode &&
+            connected &&
+            credential &&
+            (tab === "workflows" || tab === "overview") && (
+              <WorkflowsPanel key={credential} credential={credential} />
+            )}
           {tab === "config" && (
-            <JsonPanel
-              title={isNode ? "节点运行快照" : "设备上报信息与当前状态"}
-              value={
-                isNode
-                  ? node
-                    ? {
-                        public_key: node.public_key,
-                        role: node.role,
-                        transport: node.transport,
-                        goroutines: node.goroutines,
-                        heap_bytes: node.heap_bytes,
-                      }
-                    : {}
-                  : peer
-                    ? {
-                        info: peer.info,
-                        runtime: peer.runtime,
-                        status: peer.status,
-                      }
-                    : {}
-              }
-            />
+            <section className="panel">
+              <h2>{isNode ? "节点运行快照" : "设备信息与状态"}</h2>
+              <Fields
+                value={
+                  isNode
+                    ? node
+                    : peer
+                      ? {
+                          info: peer.info,
+                          runtime: peer.runtime,
+                          status: peer.status,
+                        }
+                      : {}
+                }
+              />
+              <RawData value={isNode ? node : peer} />
+            </section>
           )}
           {tab === "telemetry" && (
-            <JsonPanel
-              title="最新 Telemetry 采样"
-              value={peer?.telemetry ?? {}}
-            />
+            <TelemetryPanel key={credential} peer={peer} />
           )}
+          {tab === "location" && <LocationPanel peer={peer} />}
           {tab === "actions" && (
             <section className="panel actions">
               <h2>设备控制</h2>

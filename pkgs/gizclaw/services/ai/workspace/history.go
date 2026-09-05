@@ -163,7 +163,12 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 }
 
 func (s *HistoryStore) List(ctx context.Context, req apitypes.PeerRunHistoryListRequest) (apitypes.PeerRunHistoryListResponse, error) {
-	entries, hasNext, nextCursor, err := s.listInternal(ctx, req)
+	return s.Search(ctx, req, "")
+}
+
+// Search returns a page of persisted history matching text.
+func (s *HistoryStore) Search(ctx context.Context, req apitypes.PeerRunHistoryListRequest, text string) (apitypes.PeerRunHistoryListResponse, error) {
+	entries, hasNext, nextCursor, err := s.listMatching(ctx, req, text)
 	if err != nil {
 		return apitypes.PeerRunHistoryListResponse{}, err
 	}
@@ -392,6 +397,10 @@ func (e HistoryEntry) Public() apitypes.PeerRunHistoryEntry {
 }
 
 func (s *HistoryStore) listInternal(ctx context.Context, req apitypes.PeerRunHistoryListRequest) ([]HistoryEntry, bool, *string, error) {
+	return s.listMatching(ctx, req, "")
+}
+
+func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHistoryListRequest, text string) ([]HistoryEntry, bool, *string, error) {
 	if err := ctxErr(ctx); err != nil {
 		return nil, false, nil, err
 	}
@@ -433,6 +442,7 @@ func (s *HistoryStore) listInternal(ctx context.Context, req apitypes.PeerRunHis
 		page, err := s.Records.Query(ctx, logstore.Query{
 			Streams: []string{s.stream()},
 			Kinds:   []string{historyEntryTypeGear, historyEntryTypeAgent},
+			Text:    text,
 			Start:   start,
 			End:     end,
 			Limit:   logstore.MaxLimit,

@@ -11,6 +11,11 @@ import { afterEach, expect, test, vi } from "vitest";
 import { App } from "./main";
 import { loadNode, type NodeSnapshot } from "./api";
 
+vi.mock("./connection-store", () => ({
+  readConnection: vi.fn().mockResolvedValue(""),
+  saveConnection: vi.fn().mockResolvedValue(undefined),
+  clearConnection: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("./api", async (original) => ({
   ...(await original<typeof import("./api")>()),
   loadNode: vi.fn(),

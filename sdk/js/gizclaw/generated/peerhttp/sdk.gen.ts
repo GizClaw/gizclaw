@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceLogsData, GetDeviceLogsErrors, GetDeviceLogsResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
+import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceLogsData, GetDeviceLogsErrors, GetDeviceLogsResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -331,5 +331,41 @@ export const findPublicKeysByImei = <ThrowOnError extends boolean = false>(optio
 export const getDeviceLogs = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceLogsData, ThrowOnError>): RequestResult<GetDeviceLogsResponses, GetDeviceLogsErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceLogsResponses, GetDeviceLogsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/gizclaw/v1/device/logs',
+    ...options
+});
+
+/**
+ * List Workspaces owned by the authenticated device
+ */
+export const listDeviceWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListDeviceWorkspacesData, ThrowOnError>): RequestResult<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListDeviceWorkspacesResponses, ListDeviceWorkspacesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces',
+    ...options
+});
+
+/**
+ * Read history from a Workspace owned by the authenticated device
+ */
+export const listDeviceWorkspaceHistory = <ThrowOnError extends boolean = false>(options: Options<ListDeviceWorkspaceHistoryData, ThrowOnError>): RequestResult<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError> => (options.client ?? client).get<ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspaceHistoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history',
+    ...options
+});
+
+/**
+ * Search persistent system logs scoped to the authenticated device
+ */
+export const searchDeviceLogs = <ThrowOnError extends boolean = false>(options: Options<SearchDeviceLogsData, ThrowOnError>): RequestResult<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError> => (options.client ?? client).get<SearchDeviceLogsResponses, SearchDeviceLogsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/logs/search',
+    ...options
+});
+
+/**
+ * Download stored Ogg audio from a Workspace owned by the authenticated device
+ */
+export const downloadDeviceHistoryAudio = <ThrowOnError extends boolean = false>(options: Options<DownloadDeviceHistoryAudioData, ThrowOnError>): RequestResult<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError> => (options.client ?? client).get<DownloadDeviceHistoryAudioResponses, DownloadDeviceHistoryAudioErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg',
     ...options
 });
