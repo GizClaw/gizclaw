@@ -3,9 +3,13 @@
 package admin_test
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -52,7 +56,7 @@ func TestAdminResourcesUserStory(t *testing.T) {
 		t.Fatalf("admin show output unexpected:\n%s", show.Stdout)
 	}
 
-	if err := os.WriteFile(resourcePath, []byte(fmt.Sprintf(`{
+	if err := os.WriteFile(resourcePath, fmt.Appendf(nil, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Credential",
 		"metadata": {"id": %q},
@@ -61,7 +65,7 @@ func TestAdminResourcesUserStory(t *testing.T) {
 			"description": "updated credential",
 			"body": {"api_key": "secret"}
 		}
-	}`, credentialID)), 0o644); err != nil {
+	}`, credentialID), 0o644); err != nil {
 		t.Fatalf("write updated resource file: %v", err)
 	}
 	update := h.RunCLI("admin", "apply", "-f", resourcePath, "--context", "admin-a")
@@ -113,7 +117,7 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 	tenantID := adminAppliedResourceID(t, tenant.Stdout)
 
 	resourcePath := filepath.Join(h.SandboxDir, "model-voice-resources.json")
-	if err := os.WriteFile(resourcePath, []byte(fmt.Sprintf(`{
+	if err := os.WriteFile(resourcePath, fmt.Appendf(nil, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "ResourceList",
 		"spec": {
@@ -157,7 +161,7 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 				}
 			]
 		}
-	}`, tenantID, tenantID)), 0o644); err != nil {
+	}`, tenantID, tenantID), 0o644); err != nil {
 		t.Fatalf("write resource list file: %v", err)
 	}
 
@@ -207,6 +211,80 @@ func TestAdminResourceListAppliesModelAndVoice(t *testing.T) {
 			t.Fatalf("admin show Voice missing %s:\n%s", want, showVoice.Stdout)
 		}
 	}
+
+	t.Run("batch_show", func(t *testing.T) {
+		// More than eight entries exercise multiple worker iterations over the
+		// real CLI transport, with mixed kinds and duplicate positions.
+		type reference struct {
+			Kind string `json:"kind"`
+			ID   string `json:"id"`
+		}
+		refs := make([]reference, 11)
+		for i := range refs {
+			refs[i] = reference{Kind: "Model", ID: modelID}
+			if i%2 == 1 {
+				refs[i] = reference{Kind: "Voice", ID: voiceID}
+			}
+		}
+		path := filepath.Join(h.SandboxDir, "show-references.json")
+		for _, partial := range []bool{false, true} {
+			missingIndex := -1
+			if partial {
+				missingIndex = 4
+				refs[missingIndex] = reference{Kind: "Model", ID: "batch-show-missing"}
+			}
+			input, err := json.Marshal(refs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeAdminFixture(t, path, string(input))
+			result := h.RunCLI("admin", "show", "-f", path, "--context", "admin-a")
+			if partial {
+				var exitErr *exec.ExitError
+				if !errors.As(result.Err, &exitErr) || exitErr.ExitCode() != 1 {
+					t.Fatalf("partial batch exit = %v, want exit code 1", result.Err)
+				}
+				for _, want := range []string{"[4] Model/batch-show-missing", "RESOURCE_NOT_FOUND"} {
+					if !strings.Contains(result.Stderr, want) {
+						t.Fatalf("partial batch stderr missing %q: %s", want, result.Stderr)
+					}
+				}
+			} else {
+				result.MustSucceed(t)
+			}
+			var resources []json.RawMessage
+			if err := json.Unmarshal([]byte(result.Stdout), &resources); err != nil {
+				t.Fatalf("batch stdout must be exactly one JSON array: %v; output=%s", err, result.Stdout)
+			}
+			if len(resources) != len(refs) {
+				t.Fatalf("batch returned %d entries, want %d", len(resources), len(refs))
+			}
+			for i, resource := range resources {
+				if i == missingIndex {
+					if string(resource) != "null" {
+						t.Fatalf("missing resource [%d] = %s, want null", i, resource)
+					}
+					continue
+				}
+				// Compare the full resource with the existing single-show response,
+				// rather than accepting a reference-only object as a lookup result.
+				want := showModel.Stdout
+				if refs[i].Kind == "Voice" {
+					want = showVoice.Stdout
+				}
+				var gotValue, wantValue any
+				if err := json.Unmarshal(resource, &gotValue); err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal([]byte(want), &wantValue); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(gotValue, wantValue) {
+					t.Fatalf("resource [%d] does not match single show: got %s, want %s", i, resource, want)
+				}
+			}
+		}
+	})
 
 	deleteModel := h.RunCLI("admin", "delete", "Model", modelID, "--context", "admin-a")
 	deleteModel.MustSucceed(t)
