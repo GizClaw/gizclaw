@@ -132,32 +132,6 @@ func newApplyCmd(ctxName *string) *cobra.Command {
 	return cmd
 }
 
-func newShowCmd(ctxName *string) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "show <kind> <id>",
-		Short: "Show an admin resource by canonical ID",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			kind, id, err := parseResourceIDArgs(args)
-			if err != nil {
-				return err
-			}
-			c, err := openResourceClient(*ctxName)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			resource, err := c.GetResource(context.Background(), kind, id)
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(resource)
-		},
-	}
-	cmd.Flags().StringVar(ctxName, "context", "", "context name (default: current)")
-	return cmd
-}
-
 func newDeleteCmd(ctxName *string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <kind> <id>",

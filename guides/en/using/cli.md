@@ -1,5 +1,42 @@
 # CLI
 
+## Show one or multiple resources
+
+A single-resource lookup outputs one Resource JSON object:
+
+```sh
+gizclaw admin show Model model-a --context dev
+```
+
+Batch lookup accepts a JSON array whose entries contain only resource `kind` and `id`.
+Mixed kinds and duplicate references are supported:
+
+```json
+[
+  {"kind":"Model","id":"model-a"},
+  {"kind":"RuntimeProfile","id":"profile-a"}
+]
+```
+
+```sh
+gizclaw admin show -f resources.json --context dev
+cat resources.json | gizclaw admin show -f - --context dev
+```
+
+`-f` cannot be combined with positional arguments. Files and stdin must contain
+exactly one JSON array; YAML is not supported. All references are validated before
+connecting. An empty array outputs `[]` without opening a connection.
+A nonempty batch shares one connection with at most eight concurrent lookups;
+there is no concurrency flag. Output is an array of Resource JSON objects in input
+order, preserving duplicate positions.
+
+A failed lookup produces `null` at its position while other lookups continue.
+Stderr identifies the zero-based index, resource kind, ID, and error; the process
+exits nonzero. Input or connection failure produces no result array.
+Command cancellation propagates to lookups and prevents pending lookups from
+contacting Server. The connection closes after all lookups finish.
+
+
 ## Validate declarative Resources offline
 
 Use `admin validate` to check one declarative Resource or one `ResourceList` before applying it:
