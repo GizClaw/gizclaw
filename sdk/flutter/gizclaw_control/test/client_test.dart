@@ -354,10 +354,13 @@ void main() {
           ],
         }),
       ]);
-      final latest = await clientWith(recorder).getDeviceTelemetryLatest(
-        field: PeerTelemetryField.batteryPercent,
+      final latest = await clientWith(
+        recorder,
+      ).getDeviceTelemetryLatest(field: PeerTelemetryField.batteryPercent);
+      expect(
+        recorder.single.url.path,
+        '/gizclaw/v1/device/telemetry/battery.percent/latest',
       );
-      expect(recorder.single.url.path, '/gizclaw/v1/device/telemetry/battery.percent/latest');
       expect(recorder.single.url.hasQuery, isFalse);
       expect(latest.values.single.value, 80.0);
     });
@@ -366,7 +369,9 @@ void main() {
       final recorder = Recorder([
         json(200, {'peer_public_key': 'pk', 'values': []}),
       ]);
-      await clientWith(recorder).getDeviceTelemetryLatest(field: 'invalid/field');
+      await clientWith(
+        recorder,
+      ).getDeviceTelemetryLatest(field: 'invalid/field');
       expect(recorder.single.url.hasQuery, isFalse);
     });
 
