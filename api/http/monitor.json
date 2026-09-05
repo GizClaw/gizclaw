@@ -26,10 +26,27 @@
             }
           },
           "401": {
-            "description": "Invalid monitor token"
+            "description": "Invalid monitor token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorError"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Node monitoring disabled"
+            "description": "Node monitoring disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; empty body and Allow: GET"
           }
         }
       }
@@ -99,7 +116,8 @@
             "format": "date-time"
           },
           "uptime_seconds": {
-            "type": "number"
+            "type": "number",
+            "format": "double"
           },
           "goroutines": {
             "type": "integer"
@@ -127,11 +145,13 @@
               },
               "rx_bytes": {
                 "type": "integer",
-                "minimum": 0
+                "minimum": 0,
+                "format": "uint64"
               },
               "tx_bytes": {
                 "type": "integer",
-                "minimum": 0
+                "minimum": 0,
+                "format": "uint64"
               }
             }
           },
@@ -141,6 +161,21 @@
             "items": {
               "$ref": "#/components/schemas/MonitorLog"
             }
+          }
+        }
+      },
+      "MonitorError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "INVALID_MONITOR_TOKEN",
+              "MONITOR_DISABLED"
+            ]
           }
         }
       }

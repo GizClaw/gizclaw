@@ -167,7 +167,7 @@ function Metric({
     </div>
   );
 }
-function App() {
+export function App() {
   const isNode = window.location.pathname !== "/monitor/peer";
   const [credential, setCredential] = useState("");
   const [input, setInput] = useState("");

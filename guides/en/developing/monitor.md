@@ -37,3 +37,18 @@ go build ./cmd/gizclaw
 Generated `dist/` assets are ignored. A tracked `.keep` keeps pure Go builds compilable before frontend generation; such builds return 503 for the UI until assets are built and the binary is recompiled. Linux Docker and macOS release builds generate assets before Go compilation.
 
 For frontend development, run `npm run dev --workspace @gizclaw/monitor`; APIs proxy to the local Edge at port 9821. Peer calls use the generated HTTP client, JSON is validated at runtime, and credentials never enter URLs or persistent browser storage.
+
+## HTTP contract and validation
+
+`api/http/monitor.json` owns the independent Monitor OpenAPI surface. Server and Edge mount `pkgs/monitor.Handler` on their existing HTTP listeners. Its token middleware runs before the generated standard-library router; `nodeServer` implements the generated strict interface. The console calls its generated JavaScript client. This surface is local to each process and does not use Peer assignment or Admin authentication.
+
+| Status | Response |
+| --- | --- |
+| 200 | Generated `NodeSnapshot` with local counters and bounded logs |
+| 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
+| 503 | `{"error":"MONITOR_DISABLED"}` when no token is configured |
+| 405 | Empty body, `Allow: GET` for unsupported methods |
+
+Every node API response includes `Cache-Control: no-store`. The JSON success/error types and Go strict server/client are generated with `go generate ./pkgs/monitor/api`. JavaScript generation runs with `npm --prefix sdk/js run gen:sdk`; configuration and committed output paths are documented in [API generation](api/generation).
+
+`npm test --workspace @gizclaw/monitor -- polling.test.tsx` mounts the real React application with a deterministic API stub and verifies successful sampling, failure clearing the chart/timestamp, and recovery with fresh samples. `go test ./pkgs/monitor -run TestGeneratedMonitorClientContract` verifies the generated client's 200/401/503 response handling and the 405 method boundary against the actual HTTP handler.

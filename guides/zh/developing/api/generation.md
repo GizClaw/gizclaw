@@ -57,3 +57,5 @@ RPC/C surface 变化时增加 C generation/build tests；管理资源变化时�
 - `adminhttp`、`apitypes` 和 `peerhttp` 的 Go output 由第三方 `oapi-codegen` 生成；仓库内工具可以准备输入，但不因此拥有生成模板。OpenAI-compatible protocol 由 AI Server Shell 提供，不属于本仓库生成链。
 - 第三方生成器产生的 alias、helper signature 或 import qualifier 保持生成结果，不为本地风格规则手改、fork generator 或追加 AST normalizer。
 - 仓库手写代码和仓库自有 generator 直接使用类型所属 package，不新增仅用于重命名或 re-export 的跨 package alias。
+
+Monitor OpenAPI（`api/http/monitor.json`）通过 `go generate ./pkgs/monitor/api` 生成 `pkgs/monitor/api/generated.go` 中的 strict Go server/client/models，配置位于 `pkgs/monitor/api/codegen_config.yaml`。`npm --prefix sdk/js run gen:sdk` 依据 `sdk/js/openapi-ts.config.ts` 生成 `web/monitor/src/generated/monitor/` 中的控制台 client。这些已提交输出归 Monitor surface 所有，由 `pkgs/monitor/monitor.go` 和 `web/monitor/src/api.ts` 使用，不通过 Public/Admin SDK package 导出。

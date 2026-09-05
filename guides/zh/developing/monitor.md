@@ -37,3 +37,18 @@ go build ./cmd/gizclaw
 `dist/` 中的生成资源不提交，保留 `.keep` 以便纯 Go 测试在未构建 UI 时仍可编译。未构建 UI 的二进制访问页面返回明确的 503。Linux Docker 构建及 macOS release 流程会先构建 UI，然后编译 Go；本地修改 UI 后也需要重新编译使用 embed 的进程。
 
 开发可运行 `npm run dev --workspace @gizclaw/monitor`，默认将 API 转发至本地 9821 Edge。前端请求使用生成的 Peer HTTP client，外部 JSON 经过运行时校验；凭证不放入 URL 或浏览器持久存储。
+
+## HTTP 契约和验证
+
+`api/http/monitor.json` 拥有独立的 Monitor OpenAPI surface。Server 和 Edge 在已有 HTTP listener 上挂载 `pkgs/monitor.Handler`，Token middleware 先执行认证，然后进入生成的标准库 router；`nodeServer` 实现生成的 strict interface。控制台调用生成的 JavaScript client。该接口只读取本进程，不使用 Peer assignment 或 Admin 认证。
+
+| 状态码 | 响应 |
+| --- | --- |
+| 200 | 生成的 `NodeSnapshot`，包含本地计数和有界日志 |
+| 401 | `{"error":"INVALID_MONITOR_TOKEN"}` |
+| 503 | 未配置 Token 时返回 `{"error":"MONITOR_DISABLED"}` |
+| 405 | 不支持的方法返回空 body 和 `Allow: GET` |
+
+所有节点 API 响应都有 `Cache-Control: no-store`。执行 `go generate ./pkgs/monitor/api` 生成 JSON 成功/错误类型及 Go strict server/client；执行 `npm --prefix sdk/js run gen:sdk` 生成 JavaScript client。配置文件与已提交输出路径见 [API 生成](api/generation)。
+
+`npm test --workspace @gizclaw/monitor -- polling.test.tsx` 使用确定性的 API stub 挂载实际 React 应用，验证正常采样、失败时清空图表和时间，以及恢复后的新采样。`go test ./pkgs/monitor -run TestGeneratedMonitorClientContract` 使用生成的客户端验证实际 HTTP handler 的 200/401/503 响应和 405 方法边界。

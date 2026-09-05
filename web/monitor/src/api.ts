@@ -1,3 +1,5 @@
+import { getNodeMonitor } from "./generated/monitor";
+import { createClient, createConfig } from "./generated/monitor/client";
 import { z } from "zod";
 import {
   createPeerHTTPClient,
@@ -58,6 +60,9 @@ export type PeerSnapshot = {
 const client = createPeerHTTPClient(
   createPeerHTTPConfig({ baseUrl: window.location.origin }),
 );
+const monitorClient = createClient(
+  createConfig({ baseUrl: window.location.origin }),
+);
 function unwrap<T>(result: {
   data?: T;
   error?: unknown;
@@ -78,14 +83,13 @@ export async function loadNode(
   token: string,
   signal: AbortSignal,
 ): Promise<NodeSnapshot> {
-  const res = await fetch("/monitor/api/node", {
+  const response = await getNodeMonitor({
+    client: monitorClient,
     signal,
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  const body: unknown = await res.json();
-  if (!res.ok) throw new Error(`${res.status} · ${JSON.stringify(body)}`);
-  return nodeSchema.parse(body);
+  return nodeSchema.parse(unwrap(response));
 }
 export async function loadPeer(
   key: string,

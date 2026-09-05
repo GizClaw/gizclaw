@@ -1,7 +1,9 @@
 package monitor
 
 import (
+	"context"
 	"encoding/json"
+	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,7 +25,7 @@ func TestNodeAuthorizationAndIsolation(t *testing.T) {
 			t.Fatalf("status=%d headers=%v", out.Code, out.Header())
 		}
 		if out.Code == 200 {
-			var snapshot Snapshot
+			var snapshot monitorapi.NodeSnapshot
 			if err := json.Unmarshal(out.Body.Bytes(), &snapshot); err != nil {
 				t.Fatal(err)
 			}
@@ -58,5 +60,53 @@ func TestMonitorTokenConfig(t *testing.T) {
 	cfg := Config{Token: "${MONITOR_TEST_TOKEN}"}
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGeneratedMonitorClientContract(t *testing.T) {
+	token := "gizclaw_mk_" + strings.Repeat("t", 32)
+	server := httptest.NewServer(Handler(Config{Token: token}, "edge", "local-node", http.NotFoundHandler()))
+	defer server.Close()
+	client, err := monitorapi.NewClientWithResponses(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unauthorized, err := client.GetNodeMonitorWithResponse(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unauthorized.JSON401 == nil || unauthorized.JSON401.Error != monitorapi.INVALIDMONITORTOKEN {
+		t.Fatalf("unexpected unauthorized response: %+v", unauthorized)
+	}
+	authorized, err := client.GetNodeMonitorWithResponse(context.Background(), func(_ context.Context, r *http.Request) error {
+		r.Header.Set("Authorization", "Bearer "+token)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if authorized.JSON200 == nil || authorized.JSON200.PublicKey != "local-node" || authorized.JSON200.Logs == nil {
+		t.Fatalf("unexpected snapshot: %+v", authorized)
+	}
+	disabledServer := httptest.NewServer(Handler(Config{}, "edge", "local-node", http.NotFoundHandler()))
+	defer disabledServer.Close()
+	disabledClient, err := monitorapi.NewClientWithResponses(disabledServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled, err := disabledClient.GetNodeMonitorWithResponse(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disabled.JSON503 == nil || disabled.JSON503.Error != monitorapi.MONITORDISABLED {
+		t.Fatalf("unexpected disabled response: %+v", disabled)
+	}
+	response, err := http.Post(server.URL+"/monitor/api/node", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 405 || response.Header.Get("Allow") != "GET" {
+		t.Fatal("method contract mismatch")
 	}
 }

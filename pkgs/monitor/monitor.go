@@ -2,6 +2,7 @@
 package monitor
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
 	monitorweb "github.com/GizClaw/gizclaw-go/web/monitor"
 )
 
@@ -36,21 +38,36 @@ func (*configError) Error() string {
 	return "monitor.token must begin with gizclaw_mk_ and contain at least 32 additional characters"
 }
 
-// Snapshot contains process-local values, never another node's statistics.
-type Snapshot struct {
-	PublicKey     string                    `json:"public_key"`
-	Role          string                    `json:"role"`
-	Time          time.Time                 `json:"time"`
-	UptimeSeconds float64                   `json:"uptime_seconds"`
-	Goroutines    int                       `json:"goroutines"`
-	HeapBytes     uint64                    `json:"heap_bytes"`
-	Transport     gizwebrtc.MonitorSnapshot `json:"transport"`
-	Logs          []gizlog.MonitorEntry     `json:"logs"`
+type nodeServer struct {
+	role, publicKey string
+	started         time.Time
+}
+
+func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonitorRequestObject) (monitorapi.GetNodeMonitorResponseObject, error) {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	snapshot := monitorapi.NodeSnapshot{PublicKey: s.publicKey, Role: s.role, Time: time.Now().UTC(), UptimeSeconds: time.Since(s.started).Seconds(), Goroutines: runtime.NumGoroutine(), HeapBytes: mem.HeapAlloc, Logs: []monitorapi.MonitorLog{}}
+	transport := gizwebrtc.ReadMonitorSnapshot()
+	snapshot.Transport.Connections = transport.Connections
+	snapshot.Transport.Services = transport.Services
+	snapshot.Transport.RxBytes = transport.RXBytes
+	snapshot.Transport.TxBytes = transport.TXBytes
+	for _, entry := range gizlog.ReadMonitorLogs("") {
+		log := monitorapi.MonitorLog{Id: entry.ID, Time: entry.Time, Level: entry.Level, Message: entry.Message}
+		if entry.Error != "" {
+			log.Error = &entry.Error
+		}
+		if entry.PeerPublicKey != "" {
+			log.PeerPublicKey = &entry.PeerPublicKey
+		}
+		snapshot.Logs = append(snapshot.Logs, log)
+	}
+	return monitorapi.GetNodeMonitor200JSONResponse(snapshot), nil
 }
 
 // Handler shares the embedded UI with a token-protected node snapshot API.
 func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler {
-	started := time.Now()
+	endpoint := monitorapi.Handler(monitorapi.NewStrictHandler(&nodeServer{role: role, publicKey: publicKey, started: time.Now()}, nil))
 	tokenHash := sha256.Sum256([]byte(cfg.Token))
 	assets := monitorweb.Handler()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +81,7 @@ func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler
 			}
 			if cfg.Token == "" {
 				w.WriteHeader(503)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "MONITOR_DISABLED"})
+				_ = json.NewEncoder(w).Encode(monitorapi.MonitorError{Error: monitorapi.MONITORDISABLED})
 				return
 			}
 			scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
@@ -72,12 +89,10 @@ func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler
 			if !ok || !strings.EqualFold(scheme, "Bearer") || subtle.ConstantTimeCompare(tokenHash[:], candidate[:]) != 1 {
 				w.Header().Set("WWW-Authenticate", "Bearer")
 				w.WriteHeader(401)
-				_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_MONITOR_TOKEN"})
+				_ = json.NewEncoder(w).Encode(monitorapi.MonitorError{Error: monitorapi.INVALIDMONITORTOKEN})
 				return
 			}
-			var mem runtime.MemStats
-			runtime.ReadMemStats(&mem)
-			_ = json.NewEncoder(w).Encode(Snapshot{PublicKey: publicKey, Role: role, Time: time.Now().UTC(), UptimeSeconds: time.Since(started).Seconds(), Goroutines: runtime.NumGoroutine(), HeapBytes: mem.HeapAlloc, Transport: gizwebrtc.ReadMonitorSnapshot(), Logs: gizlog.ReadMonitorLogs("")})
+			endpoint.ServeHTTP(w, r)
 			return
 		}
 		if r.URL.Path == "/monitor" || strings.HasPrefix(r.URL.Path, "/monitor/") {
