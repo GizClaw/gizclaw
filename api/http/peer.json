@@ -14,6 +14,307 @@
     {"name": "Contacts", "description": "Contacts owned by the device bound to the API key"}
   ],
   "paths": {
+    "/gizclaw/v1/device/workspaces": {
+      "get": {
+        "operationId": "listDeviceWorkspaces",
+        "description": "Return an unpaginated array of DeviceWorkspace (id, name, workflow_id, last_active_at date-time) explicitly owned by the authenticated Peer, including system Workspaces. Shared and ownerless Workspaces are excluded. An empty owned set returns []. Uses existing Bearer owner/runtime authorization: 400 INVALID_REQUEST for a malformed public-key bearer, 401 INVALID_API_KEY, 403 DEBUG_ACCESS_FORBIDDEN or API_KEY_OWNER_UNAVAILABLE, 409 for conflicting routing, and 500 INTERNAL_ERROR for unavailable services or storage failures. Errors use ErrorResponse with error.code and error.message.",
+        "summary": "List Workspaces owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Successful owner-scoped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceWorkspace"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/workspaces/{workspaceId}/history": {
+      "get": {
+        "operationId": "listDeviceWorkspaceHistory",
+        "description": "Query only the named owned Workspace. Optional limit is 1..200 (default 50); query is literal text with a 512 UTF-8 byte limit. History is returned newest first as PeerRunHistoryListResponse (available, items, has_next, optional next_cursor). Each item has name (entry ID), type, actor_name, text, created_at, replay_available, and optional gear_id. Cursor is the previous next_cursor, an entry-ID timestamp boundary formatted YYYYMMDDTHHMMSS.nnnnnnnnnZ-suffix; it is not an authorization token. A well-formed boundary from another stream still queries only this owned Workspace. Malformed cursors return 400 INVALID_HISTORY_CURSOR; invalid query/limit returns 400 INVALID_REQUEST. Foreign or absent Workspace IDs return 404 WORKSPACE_NOT_FOUND. Shared Bearer/runtime errors apply. Missing service/history storage or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.",
+        "summary": "Read history from a Workspace owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Successful owner-scoped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/PeerRunHistoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/logs/search": {
+      "get": {
+        "operationId": "searchDeviceLogs",
+        "description": "Query the configured persistent system Log Store with required positive start_time_ms and end_time_ms Unix milliseconds, start before end. Optional query is literal text, limited to 512 UTF-8 bytes; level must be exactly DEBUG, INFO, WARN, or ERROR; limit is 1..500 (default 100). Results are newest first: DeviceLogPage contains items (ServerLogEntry: time_ms, level, message, source, path, fields) and end (count, has_next, optional next_cursor). Cursor is an opaque encrypted continuation bound to the same Peer, text, level, time interval and descending order; limit may change. Return 400 INVALID_REQUEST for invalid level/limit/text, INVALID_LOG_QUERY for invalid bounds/filter, INVALID_LOG_CURSOR for malformed cursors or process-local cursors invalidated by a restart, or LOG_CURSOR_MISMATCH for changed query or cross-Peer continuation. Return 500 LOG_QUERY_NOT_CONFIGURED when query_store is absent, or INTERNAL_ERROR for backend failures. Shared Bearer/runtime errors apply. Errors use ErrorResponse with error.code and error.message.",
+        "summary": "Search persistent system logs scoped to the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_time_ms",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end_time_ms",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEBUG",
+                "INFO",
+                "WARN",
+                "ERROR"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Successful owner-scoped response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceLogPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg": {
+      "get": {
+        "operationId": "downloadDeviceHistoryAudio",
+        "description": "Read the retained Ogg asset for an entry in an owned Workspace without starting an Agent. A successful 200 response is binary audio/ogg with Content-Length when known; it is not JSON or an unauthenticated URL. Foreign or absent Workspace IDs, missing history entries, or entries without a stored Ogg asset return 404 HISTORY_NOT_FOUND. replay_available alone does not guarantee that Ogg audio exists. Shared Bearer/runtime errors apply; unavailable services or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.",
+        "summary": "Download stored Ogg audio from a Workspace owned by the authenticated device",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "workspaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "historyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "200": {
+            "description": "Stored Ogg audio",
+            "content": {
+              "audio/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/server-info": {
       "get": {
         "operationId": "getServerInfo",
@@ -175,20 +476,24 @@
           "500": {"$ref": "#/components/responses/InternalError"}
         }
       }
-    }
-,
+    },
     "/gizclaw/v1/device": {
       "get": {
         "operationId": "getDevice",
         "summary": "Get the device bound to the API key",
         "tags": ["Device"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "responses": {
           "200": {"description": "Device identity, hardware, and identifiers.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -197,7 +502,9 @@
         "operationId": "getDeviceRuntime",
         "summary": "Get the online runtime of the bound device",
         "tags": ["Device"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "responses": {
           "200": {
             "description": "Online state, last seen time, last address, and traffic counters.",
@@ -206,7 +513,10 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -215,14 +525,19 @@
         "operationId": "getDeviceStatus",
         "summary": "Get the latest reported status of the bound device",
         "tags": ["Device"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Returns the most recent authoritative PeerStatus snapshot. Reading never contacts the device or changes runtime state.",
         "responses": {
           "200": {"description": "Latest PeerStatus snapshot.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerStatus"}}}},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -231,7 +546,9 @@
         "operationId": "getDeviceTelemetryLatest",
         "summary": "Get latest sampled telemetry values for the bound device",
         "tags": ["Device"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "parameters": [
           {
             "name": "fields",
@@ -256,7 +573,9 @@
         "operationId": "queryDeviceTelemetry",
         "summary": "Query sampled telemetry points for the bound device",
         "tags": ["Device"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "parameters": [
           {"name": "field", "in": "query", "required": true, "description": "Telemetry field name", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
           {"name": "start_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond start time", "schema": {"type": "integer", "format": "int64"}},
@@ -292,7 +611,9 @@
         "operationId": "aggregateDeviceTelemetry",
         "summary": "Query bucketed aggregate telemetry for the bound device",
         "tags": ["Device"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "parameters": [
           {"name": "field", "in": "query", "required": true, "description": "Telemetry field name", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
           {"name": "start_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond start time", "schema": {"type": "integer", "format": "int64"}},
@@ -334,7 +655,9 @@
         "operationId": "setDeviceVolume",
         "summary": "Set the absolute volume and mute state of the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceVolumeSetRequest"}}}},
         "responses": {
@@ -358,7 +681,9 @@
         "operationId": "playDeviceSound",
         "summary": "Play a device-defined sound on the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.device.sound.play to the online device. The sound identifier is device-defined; the device validates it and answers DEVICE_REJECTED for unknown sounds.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DevicePlaySoundRequest"}}}},
         "responses": {
@@ -379,7 +704,9 @@
         "operationId": "rebootDevice",
         "summary": "Reboot the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.device.reboot to the online device. The device acknowledges before rebooting; later control commands answer DEVICE_OFFLINE until the device reconnects.",
         "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRebootRequest"}}}},
         "responses": {
@@ -421,7 +748,9 @@
         "operationId": "getDeviceWifi",
         "summary": "Get the current Wi-Fi status of the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.wifi.status.get to the online device.",
         "responses": {
           "200": {"description": "Current device Wi-Fi status.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiStatus"}}}},
@@ -431,14 +760,19 @@
           "500": {"$ref": "#/components/responses/InternalError"},
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
-          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+          "504": {"$ref": "#/components/responses/DeviceTimeout"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       },
       "put": {
         "operationId": "connectDeviceWifi",
         "summary": "Connect the bound device to a Wi-Fi network",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.wifi.connect to the online device. A 202 response means the device accepted the credentials and will switch networks after replying; poll GET /device/wifi after it reconnects to observe the result.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiConnectRequest"}}}},
         "responses": {
@@ -459,7 +793,9 @@
         "operationId": "scanDeviceWifi",
         "summary": "Scan for Wi-Fi networks near the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.wifi.scan to the online device using a scan-specific timeout clamped to 1000-15000 milliseconds.",
         "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiScanRequest"}}}},
         "responses": {
@@ -480,7 +816,9 @@
         "operationId": "listDeviceSavedWifi",
         "summary": "List Wi-Fi networks saved on the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.wifi.saved.list to the online device.",
         "responses": {
           "200": {"description": "Saved Wi-Fi networks.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiSavedList"}}}},
@@ -490,7 +828,10 @@
           "500": {"$ref": "#/components/responses/InternalError"},
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
-          "504": {"$ref": "#/components/responses/DeviceTimeout"}
+          "504": {"$ref": "#/components/responses/DeviceTimeout"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     },
@@ -508,7 +849,9 @@
         "operationId": "forgetDeviceSavedWifi",
         "summary": "Forget a Wi-Fi network saved on the bound device",
         "tags": ["DeviceControl"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "description": "Forwards client.wifi.saved.forget to the online device. Unknown SSIDs answer 404.",
         "responses": {
           "204": {"description": "The device forgot the network."},
@@ -532,7 +875,9 @@
         "operationId": "listContacts",
         "summary": "List contacts owned by the bound device",
         "tags": ["Contacts"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "parameters": [
           {"name": "cursor", "in": "query", "required": false, "description": "Contact name returned as next_cursor by the previous page.", "schema": {"type": "string"}},
           {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}}
@@ -550,7 +895,9 @@
         "operationId": "createContact",
         "summary": "Create a contact owned by the bound device",
         "tags": ["Contacts"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactCreateRequest"}}}},
         "responses": {
           "201": {"description": "Created contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
@@ -571,21 +918,28 @@
         "operationId": "getContact",
         "summary": "Get a contact owned by the bound device",
         "tags": ["Contacts"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "responses": {
           "200": {"description": "Contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       },
       "put": {
         "operationId": "putContact",
         "summary": "Update a contact owned by the bound device",
         "tags": ["Contacts"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactPutRequest"}}}},
         "responses": {
           "200": {"description": "Updated contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
@@ -604,14 +958,154 @@
         "operationId": "deleteContact",
         "summary": "Delete a contact owned by the bound device",
         "tags": ["Contacts"],
-        "security": [{"BearerAuth": []}],
+        "security": [
+          {"BearerAuth": []}
+        ],
         "responses": {
           "204": {"description": "Contact deleted."},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/peers/@findBySn/{sn}": {
+      "get": {
+        "operationId": "findPublicKeysBySN",
+        "summary": "Find all matching device public keys",
+        "tags": [
+          "Public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "sn",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All matching public keys, including devices with debug mode off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKeyList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/peers/@findByImei/{tac}/{serial}": {
+      "get": {
+        "operationId": "findPublicKeysByIMEI",
+        "summary": "Find all matching device public keys",
+        "tags": [
+          "Public"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "tac",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "serial",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All matching public keys, including devices with debug mode off",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKeyList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/gizclaw/v1/device/logs": {
+      "get": {
+        "operationId": "getDeviceLogs",
+        "summary": "Read recent server-side logs scoped to the authenticated device",
+        "description": "Returns at most 500 recent process records with an exact peer_public_key match. These are server-side device-related logs, not firmware logs; records are held in a bounded in-memory ring and do not survive restart.",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent logs, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceMonitorLog"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
         }
       }
     }
@@ -643,9 +1137,55 @@
       }
     },
     "securitySchemes": {
-      "BearerAuth": {"type": "http", "scheme": "bearer"}
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key gizclaw_sk_v1_<secret>, or gizclaw_pk_<canonical Base58 public key> for device debug access. Public-key bearer access requires the authoritative Server runtime mode to permit the operation. Raw public keys and query selectors are not supported."
+      }
     },
     "schemas": {
+      "DeviceWorkspace": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "workflow_id",
+          "last_active_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          },
+          "last_active_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DeviceLogPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "end"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "./shared.json#/components/schemas/ServerLogEntry"
+            }
+          },
+          "end": {
+            "$ref": "./shared.json#/components/schemas/ServerLogStreamEnd"
+          }
+        }
+      },
       "APIKey": {
         "type": "object",
         "additionalProperties": false,
@@ -831,6 +1371,51 @@
         "type": "object",
         "required": ["error"],
         "properties": {"error": {"type": "string"}}
+      },
+      "PublicKeyList": {
+        "type": "object",
+        "required": [
+          "public_keys"
+        ],
+        "properties": {
+          "public_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeviceMonitorLog": {
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "level",
+          "message"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
       }
     }
   }

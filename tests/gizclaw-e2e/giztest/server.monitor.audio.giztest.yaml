@@ -1,0 +1,49 @@
+# User Story:
+# As a device owner inspecting retained chat audio,
+# I want to read an Ogg asset through the owning Server and Edge,
+# So that Monitor playback remains authenticated after the device disconnects.
+version: gizclaw.test/v1alpha1
+name: server.monitor.audio
+clients:
+  observer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  owner_key: {direction: input, type: string, env: GIZCLAW_MONITOR_AUDIO_KEY}
+  workspace_id: {direction: input, type: string, env: GIZCLAW_MONITOR_AUDIO_WORKSPACE}
+  history_id: {direction: input, type: string, env: GIZCLAW_MONITOR_AUDIO_HISTORY}
+steps:
+  - id: retained_history
+    client: observer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?query=Retained
+      headers: {Authorization: "Bearer gizclaw_pk_${owner_key}"}
+      status: 200
+    expect:
+      /items: {count: 1}
+      /items/0/name: {equals: "${history_id}"}
+      /items/0/replay_available: {equals: true}
+  - id: read_ogg
+    client: observer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/${history_id}/audio.ogg
+      headers: {Authorization: "Bearer gizclaw_pk_${owner_key}"}
+      status: 200
+    expect:
+      "": {pattern: "^OggS", min_length: 100}
+  - id: missing_auth
+    client: observer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/${history_id}/audio.ogg
+      status: 401
+  - id: missing_asset
+    client: observer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/nonexistent/audio.ogg
+      headers: {Authorization: "Bearer gizclaw_pk_${owner_key}"}
+      status: 404
+    expect:
+      /error/code: {equals: HISTORY_NOT_FOUND}

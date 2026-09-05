@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -352,4 +353,56 @@ func (c *routeRPCGiznetConn) Dial(service uint64) (net.Conn, error) {
 		_ = rpcapi.WriteEOS(server)
 	}()
 	return client, nil
+}
+
+func TestOrderedTransportRoutesDebugRequestToAssignedServer(t *testing.T) {
+	serverA := testKeyPair(t, 0xa3).Public
+	serverB := testKeyPair(t, 0xa4).Public
+	peer := testKeyPair(t, 0xa5).Public
+	resolver := &routeRPCGiznetConn{
+		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
+		assignment:        &rpcpb.PeerAssignment{PeerPublicKey: peer.String(), ServerPublicKey: serverB.String()},
+	}
+	target := &routeRPCGiznetConn{
+		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished},
+		httpServerID:      "server-b",
+	}
+	transport := &orderedUpstreamTransport{entries: []*upstreamTransport{
+		{cfg: Config{selectedUpstream: UpstreamConfig{PublicKey: serverA}}, conn: resolver, connEpoch: 1},
+		{cfg: Config{selectedUpstream: UpstreamConfig{PublicKey: serverB}}, conn: target, connEpoch: 1},
+	}}
+	request, err := http.NewRequest(http.MethodGet, "http://gizclaw/gizclaw/v1/device", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer gizclaw_pk_"+peer.String())
+	response, err := transport.RoundTrip(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.Header.Get("X-Test-Server") != "server-b" || target.httpCalls.Load() != 1 {
+		t.Fatalf("response Server = %q, target calls = %d", response.Header.Get("X-Test-Server"), target.httpCalls.Load())
+	}
+	if resolver.httpCalls.Load() != 0 {
+		t.Fatal("API request was forwarded to the route resolver instead of the assigned Server")
+	}
+}
+
+func TestDebugProxyErrorsAreNotCacheable(t *testing.T) {
+	for _, tc := range []struct {
+		err  error
+		want int
+	}{
+		{errInvalidDebugPublicKey, 400}, {errAPIKeyOwnerUnavailable, 403},
+		{errAPIKeyTargetUnavailable, 503}, {errors.New("transport failed"), 502},
+	} {
+		req := httptest.NewRequest("GET", "/gizclaw/v1/device", nil)
+		req.Header.Set("Authorization", "Bearer gizclaw_pk_invalid")
+		res := httptest.NewRecorder()
+		writeEdgeProxyError(res, req, tc.err)
+		if res.Code != tc.want || res.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("status=%d headers=%v", res.Code, res.Header())
+		}
+	}
 }

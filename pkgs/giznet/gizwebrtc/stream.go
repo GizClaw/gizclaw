@@ -230,6 +230,7 @@ func (c *dataChannelConn) Read(p []byte) (int, error) {
 	}
 	if c.rx != nil {
 		c.rx.Add(uint64(n))
+		monitorRX.Add(uint64(n))
 	}
 	c.streamRX.Add(uint64(n))
 	copied := copy(p, buf[:n])
@@ -256,6 +257,7 @@ func (c *dataChannelConn) Write(p []byte) (int, error) {
 		written += n
 		if c.tx != nil && n > 0 {
 			c.tx.Add(uint64(n))
+			monitorTX.Add(uint64(n))
 		}
 		if n > 0 {
 			c.streamTX.Add(uint64(n))
@@ -296,6 +298,7 @@ func (c *dataChannelConn) WriteBuffers(buffers net.Buffers) (int64, error) {
 		written += int64(n)
 		if c.tx != nil && n > 0 {
 			c.tx.Add(uint64(n))
+			monitorTX.Add(uint64(n))
 		}
 		if n > 0 {
 			c.streamTX.Add(uint64(n))

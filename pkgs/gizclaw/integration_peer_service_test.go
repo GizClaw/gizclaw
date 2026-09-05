@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 func TestIntegrationPeerConnectionCollectsDeviceSN(t *testing.T) {
@@ -79,7 +80,7 @@ func TestIntegrationPeerServiceLifecycle(t *testing.T) {
 	if err != nil || matchedPeer.PublicKey != devicePublicKey {
 		t.Fatalf("FindPeersBySN peer = %+v, %v", matchedPeer, err)
 	}
-	if publicKey, err := findPubKeyByIMEI(context.Background(), admin, "12345678", "0000001"); err != nil || publicKey != devicePublicKey {
+	if publicKey, err := findPubKeysByIMEI(context.Background(), admin, "12345678", "0000001"); err != nil || len(publicKey) != 1 || publicKey[0] != devicePublicKey {
 		t.Fatalf("ResolvePeerByIMEI = %q, %v", publicKey, err)
 	}
 	if _, err := getPeerInfo(context.Background(), admin, devicePublicKey); err != nil {
@@ -208,4 +209,36 @@ func mustWritableAdminResource(t *testing.T, resource apitypes.Resource) adminht
 		t.Fatalf("json.Unmarshal(writable) error = %v", err)
 	}
 	return writable
+}
+
+func TestIntegrationDeviceSetsOwnRuntimeDebugMode(t *testing.T) {
+	ts := startTestServer(t)
+	first := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
+	second := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
+	for _, mode := range []string{"readonly", "fullcontrol", "off"} {
+		got, err := first.PutServerRuntime(t.Context(), "runtime-put", rpcapi.ServerPutRuntimeRequest{DebugMode: mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.DebugMode != mode {
+			t.Fatalf("mode=%s", got.DebugMode)
+		}
+		runtime, err := getRuntime(t.Context(), first)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if runtime.DebugMode == nil || *runtime.DebugMode != mode {
+			t.Fatalf("runtime mode=%v", runtime.DebugMode)
+		}
+		other, err := getRuntime(t.Context(), second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if other.DebugMode != nil && *other.DebugMode != "off" {
+			t.Fatal("changed another device")
+		}
+	}
+	if _, err := first.PutServerRuntime(t.Context(), "invalid", rpcapi.ServerPutRuntimeRequest{DebugMode: "invalid"}); err == nil {
+		t.Fatal("invalid mode accepted")
+	}
 }

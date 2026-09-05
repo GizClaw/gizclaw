@@ -4,6 +4,18 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type DeviceWorkspace = {
+    id: string;
+    name: string;
+    workflow_id: string;
+    last_active_at: string;
+};
+
+export type DeviceLogPage = {
+    items: Array<ServerLogEntry>;
+    end: ServerLogStreamEnd;
+};
+
 export type ApiKey = {
     /**
      * Opaque API key identity.
@@ -167,6 +179,19 @@ export type GiznetWebRtcSignalingError = {
     error: string;
 };
 
+export type PublicKeyList = {
+    public_keys: Array<string>;
+};
+
+export type DeviceMonitorLog = {
+    id: number;
+    time: string;
+    level: string;
+    message: string;
+    peer_public_key?: string;
+    error?: string;
+};
+
 export type DeviceIdentifiers = {
     /**
      * Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.
@@ -236,6 +261,27 @@ export type PeerImei = {
 export type PeerLabel = {
     key: string;
     value: string;
+};
+
+export type PeerRunHistoryEntry = {
+    name: string;
+    type: 'gear' | 'agent';
+    /**
+     * Originating gear id. Required for gear entries and omitted for agent entries.
+     */
+    gear_id?: string;
+    actor_name: string;
+    text: string;
+    created_at: string;
+    replay_available: boolean;
+};
+
+export type PeerRunHistoryListResponse = {
+    available: boolean;
+    items: Array<PeerRunHistoryEntry>;
+    has_next: boolean;
+    next_cursor?: string;
+    message?: string;
 };
 
 export type PeerStatus = {
@@ -319,6 +365,10 @@ export type Runtime = {
     last_addr?: string;
     rx_bytes?: number;
     tx_bytes?: number;
+    /**
+     * Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
+     */
+    debug_mode?: string;
 };
 
 export type FirmwareChannelName = 'stable' | 'beta' | 'develop';
@@ -370,6 +420,250 @@ export type ServerInfoTransport = {
      */
     signaling_path: string;
 };
+
+export type ServerLogEntry = {
+    /**
+     * Unix millisecond timestamp for display and filtering.
+     */
+    time_ms: number;
+    /**
+     * Optional Unix nanosecond timestamp as a decimal string when sub-millisecond precision is available.
+     */
+    time_ns?: string;
+    /**
+     * Normalized log level.
+     */
+    level: string;
+    /**
+     * Log message.
+     */
+    message: string;
+    /**
+     * Structured source attribute, defaulting to gizclaw for process logs.
+     */
+    source: string;
+    /**
+     * Structured path attribute, defaulting to slog for process logs.
+     */
+    path: string;
+    /**
+     * Additional structured log fields.
+     */
+    fields: {
+        [key: string]: string;
+    };
+};
+
+export type ServerLogStreamEnd = {
+    /**
+     * Number of log events emitted before the stream ended.
+     */
+    count: number;
+    /**
+     * Whether another page is available.
+     */
+    has_next: boolean;
+    /**
+     * Opaque cursor for the next page.
+     */
+    next_cursor?: string;
+};
+
+export type ListDeviceWorkspacesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/workspaces';
+};
+
+export type ListDeviceWorkspacesErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListDeviceWorkspacesError = ListDeviceWorkspacesErrors[keyof ListDeviceWorkspacesErrors];
+
+export type ListDeviceWorkspacesResponses = {
+    /**
+     * Successful owner-scoped response
+     */
+    200: Array<DeviceWorkspace>;
+};
+
+export type ListDeviceWorkspacesResponse = ListDeviceWorkspacesResponses[keyof ListDeviceWorkspacesResponses];
+
+export type ListDeviceWorkspaceHistoryData = {
+    body?: never;
+    path: {
+        workspaceId: string;
+    };
+    query?: {
+        cursor?: string;
+        limit?: number;
+        query?: string;
+    };
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history';
+};
+
+export type ListDeviceWorkspaceHistoryErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type ListDeviceWorkspaceHistoryError = ListDeviceWorkspaceHistoryErrors[keyof ListDeviceWorkspaceHistoryErrors];
+
+export type ListDeviceWorkspaceHistoryResponses = {
+    /**
+     * Successful owner-scoped response
+     */
+    200: PeerRunHistoryListResponse;
+};
+
+export type ListDeviceWorkspaceHistoryResponse = ListDeviceWorkspaceHistoryResponses[keyof ListDeviceWorkspaceHistoryResponses];
+
+export type SearchDeviceLogsData = {
+    body?: never;
+    path?: never;
+    query: {
+        start_time_ms: number;
+        end_time_ms: number;
+        cursor?: string;
+        query?: string;
+        level?: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+        limit?: number;
+    };
+    url: '/gizclaw/v1/device/logs/search';
+};
+
+export type SearchDeviceLogsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type SearchDeviceLogsError = SearchDeviceLogsErrors[keyof SearchDeviceLogsErrors];
+
+export type SearchDeviceLogsResponses = {
+    /**
+     * Successful owner-scoped response
+     */
+    200: DeviceLogPage;
+};
+
+export type SearchDeviceLogsResponse = SearchDeviceLogsResponses[keyof SearchDeviceLogsResponses];
+
+export type DownloadDeviceHistoryAudioData = {
+    body?: never;
+    path: {
+        workspaceId: string;
+        historyId: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/device/workspaces/{workspaceId}/history/{historyId}/audio.ogg';
+};
+
+export type DownloadDeviceHistoryAudioErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key was not found for this owner.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type DownloadDeviceHistoryAudioError = DownloadDeviceHistoryAudioErrors[keyof DownloadDeviceHistoryAudioErrors];
+
+export type DownloadDeviceHistoryAudioResponses = {
+    /**
+     * Stored Ogg audio
+     */
+    200: Blob | File;
+};
+
+export type DownloadDeviceHistoryAudioResponse = DownloadDeviceHistoryAudioResponses[keyof DownloadDeviceHistoryAudioResponses];
 
 export type GetServerInfoData = {
     body?: never;
@@ -717,6 +1011,10 @@ export type GetDeviceData = {
 
 export type GetDeviceErrors = {
     /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
      * Missing, invalid, or revoked API key.
      */
     401: ErrorResponse;
@@ -754,6 +1052,10 @@ export type GetDeviceRuntimeData = {
 
 export type GetDeviceRuntimeErrors = {
     /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
      * Missing, invalid, or revoked API key.
      */
     401: ErrorResponse;
@@ -790,6 +1092,10 @@ export type GetDeviceStatusData = {
 };
 
 export type GetDeviceStatusErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1251,6 +1557,10 @@ export type GetDeviceWifiData = {
 
 export type GetDeviceWifiErrors = {
     /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
      * Missing, invalid, or revoked API key.
      */
     401: ErrorResponse;
@@ -1403,6 +1713,10 @@ export type ListDeviceSavedWifiData = {
 };
 
 export type ListDeviceSavedWifiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1608,6 +1922,10 @@ export type DeleteContactData = {
 
 export type DeleteContactErrors = {
     /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
      * Missing, invalid, or revoked API key.
      */
     401: ErrorResponse;
@@ -1653,6 +1971,10 @@ export type GetContactData = {
 };
 
 export type GetContactErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1735,3 +2057,107 @@ export type PutContactResponses = {
 };
 
 export type PutContactResponse = PutContactResponses[keyof PutContactResponses];
+
+export type FindPublicKeysBySnData = {
+    body?: never;
+    path: {
+        sn: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/peers/@findBySn/{sn}';
+};
+
+export type FindPublicKeysBySnErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type FindPublicKeysBySnError = FindPublicKeysBySnErrors[keyof FindPublicKeysBySnErrors];
+
+export type FindPublicKeysBySnResponses = {
+    /**
+     * All matching public keys, including devices with debug mode off
+     */
+    200: PublicKeyList;
+};
+
+export type FindPublicKeysBySnResponse = FindPublicKeysBySnResponses[keyof FindPublicKeysBySnResponses];
+
+export type FindPublicKeysByImeiData = {
+    body?: never;
+    path: {
+        tac: string;
+        serial: string;
+    };
+    query?: never;
+    url: '/gizclaw/v1/peers/@findByImei/{tac}/{serial}';
+};
+
+export type FindPublicKeysByImeiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type FindPublicKeysByImeiError = FindPublicKeysByImeiErrors[keyof FindPublicKeysByImeiErrors];
+
+export type FindPublicKeysByImeiResponses = {
+    /**
+     * All matching public keys, including devices with debug mode off
+     */
+    200: PublicKeyList;
+};
+
+export type FindPublicKeysByImeiResponse = FindPublicKeysByImeiResponses[keyof FindPublicKeysByImeiResponses];
+
+export type GetDeviceLogsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/logs';
+};
+
+export type GetDeviceLogsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceLogsError = GetDeviceLogsErrors[keyof GetDeviceLogsErrors];
+
+export type GetDeviceLogsResponses = {
+    /**
+     * Recent logs, oldest first.
+     */
+    200: Array<DeviceMonitorLog>;
+};
+
+export type GetDeviceLogsResponse = GetDeviceLogsResponses[keyof GetDeviceLogsResponses];

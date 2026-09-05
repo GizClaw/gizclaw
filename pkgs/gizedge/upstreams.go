@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -16,6 +17,7 @@ type orderedUpstreamTransport struct {
 }
 
 var (
+	errInvalidDebugPublicKey    = errors.New("edge: invalid debug public key")
 	errAPIKeyTargetUnconfigured = errors.New("edge: API key target Server is not configured")
 	errAPIKeyTargetUnavailable  = errors.New("edge: API key target Server is unavailable")
 )
@@ -50,7 +52,25 @@ func newOrderedUpstreamTransport(ctx context.Context, cfg Config) (*orderedUpstr
 }
 
 func (t *orderedUpstreamTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if isAPIKeyRoutedPath(request.URL.Path) {
+	key, debug, debugErr := peerhttp.DebugPublicKey(request.Header.Get("Authorization"))
+	if debug && peerhttp.IsDebugDataPath(request.URL.Path) {
+		if debugErr != nil {
+			return nil, errInvalidDebugPublicKey
+		}
+		assignment, err := t.resolvePeerAssignment(request.Context(), key)
+		if err != nil {
+			if errors.Is(err, errRouteAssignmentNotFound) {
+				return nil, errAPIKeyOwnerUnavailable
+			}
+			return nil, fmt.Errorf("%w: %w", errAPIKeyTargetUnavailable, err)
+		}
+		entry, err := t.entryForAssignment(assignment)
+		if err != nil {
+			return nil, err
+		}
+		return entry.RoundTrip(request)
+	}
+	if isAPIKeyRoutedPath(request.URL.Path) && !peerhttp.IsIdentifierLookup(request.Method, request.URL.Path) {
 		apiKey, ok := bearerAPIKey(request.Header.Get("Authorization"))
 		if !ok {
 			return nil, errAPIKeyUnauthorized

@@ -664,7 +664,17 @@ func (m *Manager) Peer(publicKey giznet.PublicKey) (giznet.Conn, bool) {
 	return state.conn, true
 }
 
-func (m *Manager) PeerRuntime(_ context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
+func (m *Manager) PeerRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
+	runtime := m.peerConnectionRuntime(publicKey)
+	if m.PeerRun != nil {
+		if mode, err := m.PeerRun.GetDebugMode(ctx, publicKey); err == nil {
+			runtime.DebugMode = &mode
+		}
+	}
+	return runtime
+}
+
+func (m *Manager) peerConnectionRuntime(publicKey giznet.PublicKey) apitypes.Runtime {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	state, ok := m.peers[publicKey]

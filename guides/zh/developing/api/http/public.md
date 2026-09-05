@@ -15,7 +15,7 @@ API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/se
 
 ## 设备与 Contact surface
 
-`/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*` 只接受 `Authorization: Bearer <api-key>`。Server 从 Key record 取得不可变的 owner Peer；path、query、header 与 body 都不接受 Peer selector，manager Key 与普通 Key 对这些 route 拥有相同的 owner-scoped 能力。Key 无效或已撤销返回 `401 INVALID_API_KEY`，owner 不是 active Client 或没有 RuntimeProfile binding 返回 `403 API_KEY_OWNER_UNAVAILABLE`，owner pending deletion 返回 `409 PEER_PENDING_DELETION`，validation 与分页错误返回 `400 INVALID_REQUEST`，store 或 service 故障统一返回脱敏的 `500 INTERNAL_ERROR`。
+`/gizclaw/v1/device*` 与 `/gizclaw/v1/contacts*` 支持 `Authorization: Bearer <api-key>`，也支持下述设备调试访问。Server 从 Key record 取得不可变的 owner Peer；Bearer API Key 的 owner 始终由 Key 决定，manager Key 与普通 Key 对这些 route 拥有相同的 owner-scoped 能力。Key 无效或已撤销返回 `401 INVALID_API_KEY`，owner 不是 active Client 或没有 RuntimeProfile binding 返回 `403 API_KEY_OWNER_UNAVAILABLE`，owner pending deletion 返回 `409 PEER_PENDING_DELETION`，validation 与分页错误返回 `400 INVALID_REQUEST`，store 或 service 故障统一返回脱敏的 `500 INTERNAL_ERROR`。
 
 读路径直接投影 authoritative service，不向设备发送 RPC：
 
@@ -58,3 +58,30 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 设备返回 `INVALID_PARAMS` 映射 `400 DEVICE_REJECTED`，`METHOD_NOT_FOUND`（设备未实现 provider）映射 `501 DEVICE_UNSUPPORTED`，其余 RPC 错误映射脱敏的 `502 DEVICE_ERROR`；响应体只携带稳定 `code` 与脱敏 `message`。同一 owner 的并发控制命令按到达顺序串行转发，不合并、不重放；`reboot`、`firmware.update` 或 `wifi.connect` 得到设备确认后，同一连接上的后续控制命令返回 `409 DEVICE_OFFLINE`，直到设备以新连接重连。控制命令不改变 PeerRun、Workspace 或 Agent 状态。
 
 `/server-info` 在连接前返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 与 transport 能力。Server identity 仍只由密码学 `public_key` 表达。经过 Edge 时这些构建字段保持 authoritative Server 的值，Edge transport 选择只由 `transport` 说明。
+
+## 设备调试访问与匿名标识查询
+
+设备通过自身已认证连接调用 `server.runtime.put`，设置 `{ "debug_mode": "readonly" }`。
+允许 `off`（默认）、`readonly`、`fullcontrol`，其他值或缺失字段被拒绝。
+该设置由设备所属 authoritative Server 持久化到 PeerRunStore 的 `runs` namespace 下的
+`by-peer:<pubkey>:debug-mode`，通过 Runtime 的 `debug_mode` 字段读取；不属于 DeviceInfo，
+也不通过 `server.info.put` 修改。断线重连保持设置，缺失记录按 off 处理。
+
+设备和联系人 HTTP 接口使用 `Authorization: Bearer gizclaw_pk_<Base58公钥>` 选择调试设备。
+公钥必须是 canonical Base58，裸公钥和 `public_key` query 不提供调试授权。
+`gizclaw_sk_v1_` API Key 继续走原有鉴权，不会回退为公钥。
+Edge 从公钥查询已有 Peer assignment 并代理到配置中的所属 Server；Edge 不读取 DeviceInfo 或调试模式。
+所属 Server 每次从 PeerRunStore 读取当前权限：readonly 只允许 GET，fullcontrol 允许设备/联系人接口的读写和控制。
+设备仍须为可用的 active Client 且具有 RuntimeProfile binding。
+API key 管理、Admin 和 OpenAI 接口不接受公钥调试授权。
+关闭模式后拒绝新请求，已开始的请求不被撤销；存储失败时拒绝访问，响应不暴露底层错误。
+调试响应使用 `Cache-Control: no-store`。
+
+以下 GET 接口无需任何 Authorization，返回 `{ "public_keys": [...] }`，包括调试关闭的全部匹配设备：
+
+- `/gizclaw/v1/peers/@findBySn/{sn}`
+- `/gizclaw/v1/peers/@findByImei/{tac}/{serial}`
+
+无匹配返回空数组，只公开公钥。SN 和 IMEI 均为设备声明的非唯一标识。
+IMEI 索引为 `by-imei:<tac>:<serial>:<pubkey>`，按前缀列举并回读设备记录核对，更新和删除只影响对应公钥。
+Admin IMEI 查询为 `/peers/@findPubKeysByImei/{tac}/{serial}`，CLI `admin peers resolve-imei` 同样返回公钥列表。

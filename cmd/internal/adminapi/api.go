@@ -95,19 +95,19 @@ func FindPeersBySN(ctx context.Context, c *gizcli.Client, sn string) ([]adminhtt
 	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
 }
 
-func FindPubKeyByIMEI(ctx context.Context, c *gizcli.Client, tac, serial string) (string, error) {
+func FindPubKeysByIMEI(ctx context.Context, c *gizcli.Client, tac, serial string) ([]string, error) {
 	api, err := c.ServerAdminClient()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	resp, err := api.FindPubKeyByIMEIWithResponse(ctx, tac, serial)
+	resp, err := api.FindPubKeysByIMEIWithResponse(ctx, tac, serial)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if resp.JSON200 != nil {
-		return resp.JSON200.PublicKey, nil
+		return resp.JSON200.PublicKeys, nil
 	}
-	return "", responseError(resp.StatusCode(), resp.Body, resp.JSON404)
+	return nil, responseError(resp.StatusCode(), resp.Body, resp.JSON500)
 }
 
 func ApprovePeer(ctx context.Context, c *gizcli.Client, publicKey string, role apitypes.PeerRole) (apitypes.Registration, error) {

@@ -88,6 +88,8 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 			handlers = append(handlers, newStoreFailureReportingHandler(handler, failureReporter, sink.Store))
 		}
 	}
+	monitorLevel, _ := ParseLevel(cfg.Level)
+	handlers = append(handlers, &monitorHandler{level: monitorLevel})
 	logger := slog.New(newContextHandler(NewFanoutHandler(handlers...), fixed))
 	return logger, func() error { return nil }, nil
 }

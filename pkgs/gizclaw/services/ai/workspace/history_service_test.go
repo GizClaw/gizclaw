@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -149,5 +150,42 @@ func seedWorkspace(t *testing.T, srv *Server, name string) {
 	}
 	if _, ok := resp.(createWorkspace200JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", resp)
+	}
+}
+
+func TestMonitorOwnedWorkspacesIncludeSystemAndExcludeForeign(t *testing.T) {
+	srv := newTestServer(t)
+	for _, item := range []apitypes.Workspace{
+		{Id: "pet-owned", Name: "pet", OwnerPublicKey: new("peer-a"), System: new(true)},
+		{Id: "user-owned", Name: "user", OwnerPublicKey: new("peer-a")},
+		{Id: "foreign", Name: "foreign", OwnerPublicKey: new("peer-b"), System: new(true)},
+		{Id: "ownerless", Name: "shared"},
+	} {
+		if item.System == nil {
+			item.System = new(false)
+		}
+		item.WorkflowId = "workflow-1"
+		item.CreatedAt = time.Now().UTC()
+		item.UpdatedAt = item.CreatedAt
+		item.LastActiveAt = item.CreatedAt
+		data, err := json.Marshal(item)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := srv.Store.Set(t.Context(), workspaceKey(item.Id), data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items, err := srv.ListOwnedHistoryWorkspaces(t.Context(), "peer-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("owned workspaces=%+v", items)
+	}
+	for _, item := range items {
+		if item.OwnerPublicKey == nil || *item.OwnerPublicKey != "peer-a" {
+			t.Fatalf("foreign workspace exposed: %+v", item)
+		}
 	}
 }

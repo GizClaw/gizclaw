@@ -1,0 +1,184 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Node Monitor",
+    "version": "1.0.0",
+    "description": "Local node monitoring, authenticated with an independent Monitor Token. No peer token grants node access."
+  },
+  "paths": {
+    "/monitor/api/node": {
+      "get": {
+        "operationId": "getNodeMonitor",
+        "security": [
+          {
+            "MonitorToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot; counters measure process WebRTC service payload bytes, not wire traffic. Logs are bounded recent process records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid monitor token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Node monitoring disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorError"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Unsupported method; empty body and Allow: GET"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "MonitorToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "gizclaw_mk_<random token>"
+      }
+    },
+    "schemas": {
+      "MonitorLog": {
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "level",
+          "message"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "NodeSnapshot": {
+        "type": "object",
+        "required": [
+          "public_key",
+          "role",
+          "time",
+          "uptime_seconds",
+          "goroutines",
+          "heap_bytes",
+          "transport",
+          "logs"
+        ],
+        "properties": {
+          "public_key": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "goroutines": {
+            "type": "integer"
+          },
+          "heap_bytes": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "transport": {
+            "type": "object",
+            "required": [
+              "connections",
+              "services",
+              "rx_bytes",
+              "tx_bytes"
+            ],
+            "properties": {
+              "connections": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "services": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rx_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "format": "uint64"
+              },
+              "tx_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "format": "uint64"
+              }
+            }
+          },
+          "logs": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/MonitorLog"
+            }
+          }
+        }
+      },
+      "MonitorError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "INVALID_MONITOR_TOKEN",
+              "MONITOR_DISABLED"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -10,6 +10,8 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 COPY sdk/js/package.json sdk/js/package.json
 COPY sdk/js/gizclaw/package.json sdk/js/gizclaw/package.json
+COPY sdk/js/gizclaw-control/package.json sdk/js/gizclaw-control/package.json
+COPY web/monitor/package.json web/monitor/package.json
 
 RUN npm ci
 
@@ -17,6 +19,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+RUN npm run build:monitor
 RUN find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +
 
 ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-server.sh"]

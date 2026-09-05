@@ -6797,55 +6797,6 @@
         }
       }
     },
-    "/peers/@findPubKeyByImei/{tac}/{serial}": {
-      "get": {
-        "operationId": "findPubKeyByIMEI",
-        "summary": "Find peer public key by IMEI",
-        "tags": [
-          "Query"
-        ],
-        "parameters": [
-          {
-            "name": "tac",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "serial",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Resolved public key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicKeyResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Peer not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/peers/{publicKey}": {
       "get": {
         "operationId": "getPeer",
@@ -10578,6 +10529,55 @@
           }
         }
       }
+    },
+    "/peers/@findPubKeysByImei/{tac}/{serial}": {
+      "get": {
+        "operationId": "findPubKeysByIMEI",
+        "summary": "Find all peer public keys by IMEI",
+        "tags": [
+          "Query"
+        ],
+        "parameters": [
+          {
+            "name": "tac",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serial",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All matching public keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKeyList"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12151,6 +12151,20 @@
           "firmware_id": {
             "type": "string",
             "description": "Optional caller-defined Firmware ID. The device selects its own channel."
+          }
+        }
+      },
+      "PublicKeyList": {
+        "type": "object",
+        "required": [
+          "public_keys"
+        ],
+        "properties": {
+          "public_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

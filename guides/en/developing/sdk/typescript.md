@@ -69,3 +69,23 @@ Both packages are published to GitHub Packages by `.github/workflows/js-sdk-rele
 - the workspace version in `package-lock.json` must match the manifest.
 
 Changing the public surface of `@gizclaw/gizclaw` (for example adding an export) requires bumping its version; a change limited to `gizclaw-control` does not trigger an `@gizclaw/gizclaw` release. `prepare-published-sdk.mjs <package>` runs after `tsc`, copies generated Protobuf JavaScript when the package has it, and rewrites `.ts` imports in `.d.ts` files to `.js`.
+
+## Monitor clients
+
+`@gizclaw/gizclaw-control` exports `createGizClawPeerMonitorClient`,
+`createGizClawNodeMonitorClient` and `createGizClawDiscoveryClient`.
+Peer monitoring uses `Authorization: Bearer gizclaw_pk_<public key>` and the
+owning Server enforces runtime readonly/fullcontrol/off permissions. Node
+monitoring uses its independent Monitor Token. Public SN/IMEI discovery sends
+no credential and returns all matches.
+
+The peer client exposes device snapshots, Telemetry, `listWorkspaces`,
+`listWorkspaceHistory`, `searchLogs` and `downloadHistoryAudio`. The same read
+methods are available on `createGizClawControlClient(...).device` for API-key
+users. Clients accept an AbortSignal; HTTP failures retain status and error
+code through `GizClawControlError`. Ogg downloads return a Blob.
+
+Node Monitor generated output belongs to `gizclaw-control/generated/monitor`.
+The peer wire contract remains generated once in `gizclaw/generated/peerhttp`;
+the browser console consumes the control SDK rather than importing generated
+clients directly.

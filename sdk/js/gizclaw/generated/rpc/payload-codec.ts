@@ -1020,6 +1020,7 @@ export type RewardGrantListResponse = {
   "next_cursor"?: string;
 };
 export type Runtime = {
+  "debug_mode"?: string;
   "last_addr"?: string;
   "last_seen_at": string;
   "online": boolean;
@@ -1097,6 +1098,12 @@ export type ServerPointsTransactionListRequest = GameplayListRequest;
 export type ServerPointsTransactionListResponse = PointsTransactionListResponse;
 export type ServerPutInfoRequest = DeviceProfile;
 export type ServerPutInfoResponse = DeviceInfo;
+export type ServerPutRuntimeRequest = {
+  "debug_mode": string;
+};
+export type ServerPutRuntimeResponse = {
+  "debug_mode": string;
+};
 export type ServerRegisterRequest = {
   "token": string;
 };
@@ -1477,6 +1484,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.reload": "ServerReloadRunWorkspaceRequest",
   "server.run.workspace.set": "ServerSetRunWorkspaceRequest",
   "server.runtime.get": "ServerGetRuntimeRequest",
+  "server.runtime.put": "ServerPutRuntimeRequest",
   "server.speech.extract": "SpeechExtractRequest",
   "server.speech.synthesize": "SpeechSynthesizeRequest",
   "server.speech.transcribe": "SpeechTranscribeRequest",
@@ -1586,6 +1594,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.reload": "ServerReloadRunWorkspaceResponse",
   "server.run.workspace.set": "ServerSetRunWorkspaceResponse",
   "server.runtime.get": "ServerGetRuntimeResponse",
+  "server.runtime.put": "ServerPutRuntimeResponse",
   "server.speech.extract": "SpeechExtractResponse",
   "server.speech.synthesize": "SpeechSynthesizeResponse",
   "server.speech.transcribe": "SpeechTranscribeResponse",
@@ -5968,6 +5977,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "Runtime": {
     "fields": [
       {
+        "name": "debug_mode",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
         "name": "last_addr",
         "number": 1,
         "optional": true,
@@ -6468,6 +6483,24 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "DeviceInfo"
+      }
+    ]
+  },
+  "ServerPutRuntimeRequest": {
+    "fields": [
+      {
+        "name": "debug_mode",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ServerPutRuntimeResponse": {
+    "fields": [
+      {
+        "name": "debug_mode",
+        "number": 1,
+        "type": "string"
       }
     ]
   },

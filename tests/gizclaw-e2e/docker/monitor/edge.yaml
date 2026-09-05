@@ -1,0 +1,15 @@
+identity:
+  private-key: ${MONITOR_EDGE_PRIVATE_KEY}
+webrtc:
+  listen: 0.0.0.0:9821
+  endpoint: edge:9821
+upstreams:
+  - endpoint: http://server:9820
+    public-key: ${MONITOR_SERVER_PUBLIC_KEY}
+http:
+  listeners:
+    - listen: 0.0.0.0:9821
+gateway:
+  enabled: true
+monitor:
+  token: ${GIZCLAW_MONITOR_TOKEN}

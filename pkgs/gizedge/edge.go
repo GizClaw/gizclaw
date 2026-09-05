@@ -21,10 +21,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
@@ -98,7 +100,7 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 		}
 	}
 	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
-	handler := edgeIngressHandler(proxy, gateway)
+	handler := monitor.Handler(cfg.Monitor, "edge", cfg.KeyPair.Public.String(), edgeIngressHandler(proxy, gateway))
 	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
 	if err != nil {
 		return err
@@ -426,10 +428,16 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 	return proxy
 }
 
-func writeEdgeProxyError(w http.ResponseWriter, _ *http.Request, err error) {
+func writeEdgeProxyError(w http.ResponseWriter, req *http.Request, err error) {
+	if _, debug, _ := peerhttp.DebugPublicKey(req.Header.Get("Authorization")); debug && peerhttp.IsDebugDataPath(req.URL.Path) {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	status := http.StatusBadGateway
 	code := "UPSTREAM_ERROR"
 	switch {
+	case errors.Is(err, errInvalidDebugPublicKey):
+		status = http.StatusBadRequest
+		code = "INVALID_REQUEST"
 	case errors.Is(err, errAPIKeyUnauthorized):
 		status = http.StatusUnauthorized
 		code = "INVALID_API_KEY"

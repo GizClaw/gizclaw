@@ -1,0 +1,37 @@
+# User Story:
+# As a node operator,
+# I want node monitoring to require its independent token,
+# So that public device keys cannot read process-wide state.
+version: gizclaw.test/v1alpha1
+name: server.monitor.node
+clients:
+  observer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  token: {direction: input, type: string, env: GIZCLAW_MONITOR_TOKEN, secret: true}
+  peer_key: {direction: input, type: string, env: GIZCLAW_MONITOR_AUDIO_KEY}
+steps:
+  - id: missing_token
+    client: observer
+    http: {method: GET, path: /monitor/api/node, status: 401}
+  - id: peer_key_rejected
+    client: observer
+    http:
+      method: GET
+      path: /monitor/api/node
+      headers: {Authorization: "Bearer gizclaw_pk_${peer_key}"}
+      status: 401
+  - id: node_snapshot
+    client: observer
+    http:
+      method: GET
+      path: /monitor/api/node
+      headers: {Authorization: "Bearer ${token}"}
+      status: 200
+    expect:
+      /public_key: {non_empty: true}
+      /role: {equals: edge}
+      /transport/connections: {minimum: 1}
+      /transport/rx_bytes: {minimum: 0}
+      /transport/tx_bytes: {minimum: 0}
+      /logs: {present: true}
