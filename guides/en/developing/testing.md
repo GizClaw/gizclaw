@@ -1095,3 +1095,9 @@ The runner generates identities, starts isolated Server/Edge processes, seeds a 
 - node: independent Monitor Token authentication, rejection of device public keys and local node metrics.
 
 SQLite, filesystem assets and a script Workflow avoid external model dependencies. The audio fixture writes an Ogg asset into the real History/Asset Store; this is not a TTS synthesis test. Containers and temporary runtime data are removed on exit; reports remain under `.testbench/monitor-*/reports/`. This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.
+
+### Audioplayer Giztest
+
+`bash tests/gizclaw-e2e/run_audioplayer_tests.sh` starts an isolated real Server and Edge with SQLite runtime storage and no model/provider credentials. It runs the six `server.device.audioplayer.*` scenarios and always cleans up its containers and ephemeral identities; reports remain under the ignored `.testbench` directory. The dedicated CI job runs this same entrypoint.
+
+Scripted device providers test HTTP authorization, validation, reverse RPC, playlist contracts and snapshot projection; they do not download or play music. The five control scenarios are supported by Go, JavaScript, Flutter and C runners. The separate `telemetry` step sends a protobuf-JSON `frame` with the Go device SDK over the actual packet channel; other runners explicitly skip this operation. Packet acceptance is not persistence: the telemetry scenario polls `server.status.get`, then checks HTTP status for progress, errors, stale-observation protection and OTA coexistence. It does not add a Dart telemetry transport or claim hardware playback acceptance.

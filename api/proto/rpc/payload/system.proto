@@ -2,6 +2,8 @@
 
 syntax = "proto3";
 
+import "payload/audioplayer.proto";
+
 package gizclaw.rpc.v1;
 
 import "google/protobuf/struct.proto";
@@ -162,6 +164,7 @@ message PeerStatus {
   optional bool charging = 2;
   google.protobuf.Struct details = 3;
   optional string firmware_sha256 = 12;
+  optional AudioPlayerStatus audioplayer = 14;
   optional double gnss_accuracy_m = 4;
   optional double gnss_altitude_m = 5;
   optional double gnss_latitude = 6;

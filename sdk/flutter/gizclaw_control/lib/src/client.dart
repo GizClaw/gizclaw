@@ -86,6 +86,70 @@ class GizClawControlClient {
     }
   }
 
+  /// `GET /gizclaw/v1/device/audioplayer`.
+  Future<AudioPlayerResponse> getAudioPlayer() => _json(
+    'GET',
+    '/device/audioplayer',
+    AudioPlayerResponse.fromJson,
+    operation: 'getAudioPlayer',
+  );
+
+  /// `GET /gizclaw/v1/device/audioplayer/playlist`.
+  Future<AudioPlayerPlaylist> getAudioPlayerPlaylist() => _json(
+    'GET',
+    '/device/audioplayer/playlist',
+    AudioPlayerPlaylist.fromJson,
+    operation: 'getAudioPlayerPlaylist',
+  );
+
+  /// `PUT /gizclaw/v1/device/audioplayer/playlist`.
+  Future<AudioPlayerResponse> setAudioPlayerPlaylist(
+    List<AudioPlayerItem> items,
+  ) => _json(
+    'PUT',
+    '/device/audioplayer/playlist',
+    AudioPlayerResponse.fromJson,
+    operation: 'setAudioPlayerPlaylist',
+    body: {'items': items.map((item) => item.toJson()).toList()},
+  );
+
+  /// `POST /gizclaw/v1/device/audioplayer/playlist/append`.
+  Future<AudioPlayerResponse> appendAudioPlayerPlaylist(
+    List<AudioPlayerItem> items,
+  ) => _json(
+    'POST',
+    '/device/audioplayer/playlist/append',
+    AudioPlayerResponse.fromJson,
+    operation: 'appendAudioPlayerPlaylist',
+    body: {'items': items.map((item) => item.toJson()).toList()},
+  );
+
+  /// `POST /gizclaw/v1/device/audioplayer/actions/play`.
+  Future<AudioPlayerResponse> playAudioPlayer(int index) => _json(
+    'POST',
+    '/device/audioplayer/actions/play',
+    AudioPlayerResponse.fromJson,
+    operation: 'playAudioPlayer',
+    body: {'index': index},
+  );
+
+  /// `POST /gizclaw/v1/device/audioplayer/actions/stop`.
+  Future<AudioPlayerResponse> stopAudioPlayer() => _json(
+    'POST',
+    '/device/audioplayer/actions/stop',
+    AudioPlayerResponse.fromJson,
+    operation: 'stopAudioPlayer',
+  );
+
+  /// `PUT /gizclaw/v1/device/audioplayer/mode`.
+  Future<AudioPlayerResponse> setAudioPlayerMode(String repeat) => _json(
+    'PUT',
+    '/device/audioplayer/mode',
+    AudioPlayerResponse.fromJson,
+    operation: 'setAudioPlayerMode',
+    body: {'repeat': repeat},
+  );
+
   // API keys.
 
   /// `POST /gizclaw/v1/api-keys`.
@@ -177,20 +241,17 @@ class GizClawControlClient {
     );
   }
 
-  /// `GET /gizclaw/v1/device/telemetry/latest`.
-  ///
-  /// [fields] are [PeerTelemetryField] names; omitted means every supported
-  /// field.
+  /// `GET /gizclaw/v1/device/telemetry/{field}/latest`.
   Future<PeerTelemetryLatestResponse> getDeviceTelemetryLatest({
-    List<String>? fields,
+    required String field,
   }) {
+    if (field.isEmpty) {
+      throw ArgumentError.value(field, 'field', 'must not be empty');
+    }
     return _json(
       'GET',
-      '/device/telemetry/latest',
+      '/device/telemetry/${Uri.encodeComponent(field)}/latest',
       PeerTelemetryLatestResponse.fromJson,
-      query: {
-        'fields': fields == null || fields.isEmpty ? null : fields.join(','),
-      },
       operation: 'getDeviceTelemetryLatest',
     );
   }

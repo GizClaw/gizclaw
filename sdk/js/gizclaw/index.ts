@@ -5,6 +5,20 @@ import {
   decodeRPCResponsePayload,
   encodeRPCRequestPayload,
   encodeRPCResponsePayload,
+  type ClientDeviceAudioPlayerGetRequest,
+  type ClientDeviceAudioPlayerGetResponse,
+  type ClientDeviceAudioPlayerPlaylistGetRequest,
+  type ClientDeviceAudioPlayerPlaylistGetResponse,
+  type ClientDeviceAudioPlayerPlaylistSetRequest,
+  type ClientDeviceAudioPlayerPlaylistSetResponse,
+  type ClientDeviceAudioPlayerPlaylistAppendRequest,
+  type ClientDeviceAudioPlayerPlaylistAppendResponse,
+  type ClientDeviceAudioPlayerPlayRequest,
+  type ClientDeviceAudioPlayerPlayResponse,
+  type ClientDeviceAudioPlayerStopRequest,
+  type ClientDeviceAudioPlayerStopResponse,
+  type ClientDeviceAudioPlayerModeSetRequest,
+  type ClientDeviceAudioPlayerModeSetResponse,
   type PingRequest,
   type SpeechExtractRequest,
   type SpeechExtractResponse,
@@ -194,11 +208,51 @@ export type PreparedGiznetWebRTCOffer = {
 export type GizClawDeviceStatus = Omit<PeerStatus, "details" | "labels"> &
   Partial<Pick<PeerStatus, "details" | "labels">>;
 
+/** Device-owned playlist and player. Append must be atomic and preserve playback. */
+export type GizClawAudioPlayerHandlers = {
+  get?: (
+    request: ClientDeviceAudioPlayerGetRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerGetResponse>
+    | ClientDeviceAudioPlayerGetResponse;
+  playlistGet?: (
+    request: ClientDeviceAudioPlayerPlaylistGetRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerPlaylistGetResponse>
+    | ClientDeviceAudioPlayerPlaylistGetResponse;
+  playlistSet?: (
+    request: ClientDeviceAudioPlayerPlaylistSetRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerPlaylistSetResponse>
+    | ClientDeviceAudioPlayerPlaylistSetResponse;
+  playlistAppend?: (
+    request: ClientDeviceAudioPlayerPlaylistAppendRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerPlaylistAppendResponse>
+    | ClientDeviceAudioPlayerPlaylistAppendResponse;
+  play?: (
+    request: ClientDeviceAudioPlayerPlayRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerPlayResponse>
+    | ClientDeviceAudioPlayerPlayResponse;
+  stop?: (
+    request: ClientDeviceAudioPlayerStopRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerStopResponse>
+    | ClientDeviceAudioPlayerStopResponse;
+  modeSet?: (
+    request: ClientDeviceAudioPlayerModeSetRequest,
+  ) =>
+    | Promise<ClientDeviceAudioPlayerModeSetResponse>
+    | ClientDeviceAudioPlayerModeSetResponse;
+};
+
 // GizClawDeviceControlHandlers answers the client.device.* and client.wifi.*
 // RPCs the GizClaw server forwards on behalf of an API key holder. An omitted
 // handler answers METHOD_NOT_FOUND, which the server maps to
 // 501 DEVICE_UNSUPPORTED.
 export type GizClawDeviceControlHandlers = {
+  audioplayer?: GizClawAudioPlayerHandlers;
   connectWifi?: (ssid: string, passphrase?: string) => Promise<void> | void;
   forgetWifi?: (ssid: string) => Promise<void> | void;
   playSound?: (sound: string, durationMs?: number) => Promise<void> | void;
@@ -2365,6 +2419,60 @@ async function answerClientRequest(
         const handler = handlers?.deviceIdentifiers;
         return handler == null ? unsupported() : ok(await handler());
       }
+      case "client.device.audioplayer.get": {
+        const handler = control?.audioplayer?.get;
+        if (handler == null) return unsupported();
+        const params = request.params as ClientDeviceAudioPlayerGetRequest;
+        return ok(await handler(params ?? {}));
+      }
+      case "client.device.audioplayer.playlist.get": {
+        const handler = control?.audioplayer?.playlistGet;
+        if (handler == null) return unsupported();
+        const params =
+          request.params as ClientDeviceAudioPlayerPlaylistGetRequest;
+        return ok(await handler(params ?? {}));
+      }
+      case "client.device.audioplayer.playlist.set": {
+        const handler = control?.audioplayer?.playlistSet;
+        if (handler == null) return unsupported();
+        const params =
+          request.params as ClientDeviceAudioPlayerPlaylistSetRequest;
+        if (!validAudioPlayerItems(params?.items, false)) return invalid();
+        return ok(await handler(params ?? {}));
+      }
+      case "client.device.audioplayer.playlist.append": {
+        const handler = control?.audioplayer?.playlistAppend;
+        if (handler == null) return unsupported();
+        const params =
+          request.params as ClientDeviceAudioPlayerPlaylistAppendRequest;
+        if (!validAudioPlayerItems(params?.items, true)) return invalid();
+        return ok(await handler(params ?? {}));
+      }
+      case "client.device.audioplayer.play": {
+        const handler = control?.audioplayer?.play;
+        if (handler == null) return unsupported();
+        const params = request.params as ClientDeviceAudioPlayerPlayRequest;
+        if (
+          !Number.isInteger(params?.index) ||
+          params.index! < 0 ||
+          params.index! >= 32
+        )
+          return invalid();
+        return ok(await handler(params ?? {}));
+      }
+      case "client.device.audioplayer.stop": {
+        const handler = control?.audioplayer?.stop;
+        if (handler == null) return unsupported();
+        const params = request.params as ClientDeviceAudioPlayerStopRequest;
+        return ok(await handler(params ?? {}));
+      }
+      case "client.device.audioplayer.mode.set": {
+        const handler = control?.audioplayer?.modeSet;
+        if (handler == null) return unsupported();
+        const params = request.params as ClientDeviceAudioPlayerModeSetRequest;
+        if (!["off", "one", "all"].includes(params?.repeat)) return invalid();
+        return ok(await handler(params ?? {}));
+      }
       case "client.device.status.get": {
         const handler = control?.status;
         return handler == null ? unsupported() : ok(await handler());
@@ -3745,4 +3853,40 @@ function canonicalHTTPHeaderName(name: string): string {
         : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`,
     )
     .join("-");
+}
+
+function validAudioPlayerItems(items: unknown, append: boolean): boolean {
+  if (
+    !Array.isArray(items) ||
+    items.length > 32 ||
+    (append && items.length === 0)
+  )
+    return false;
+  return items.every((item) => {
+    if (
+      item == null ||
+      typeof item.url !== "string" ||
+      new TextEncoder().encode(item.url).length > 1024
+    )
+      return false;
+    try {
+      const url = new URL(item.url);
+      if (
+        url.protocol !== "https:" ||
+        url.hostname === "" ||
+        url.username !== "" ||
+        url.password !== "" ||
+        url.hash !== ""
+      )
+        return false;
+    } catch {
+      return false;
+    }
+    return [item.title, item.source_ref].every(
+      (text) =>
+        text == null ||
+        (typeof text === "string" &&
+          new TextEncoder().encode(text).length <= 128),
+    );
+  });
 }

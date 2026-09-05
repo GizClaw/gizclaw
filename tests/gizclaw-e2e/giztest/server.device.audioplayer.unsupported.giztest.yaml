@@ -1,0 +1,63 @@
+# User Story:
+# As a device API caller,
+# I want to receive an explicit unsupported error from a device without a player provider,
+# So that the real server and device SDK contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.audioplayer.unsupported
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: unsupported
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/audioplayer/actions/play
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        index: 0
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

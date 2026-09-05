@@ -19,6 +19,7 @@ message Observation {
     NetworkObservation network = 12;
     SystemObservation system = 13;
     OtaObservation ota = 14;
+    AudioPlayerObservation audioplayer = 15;
   }
 }
 
@@ -74,4 +75,18 @@ message OtaObservation {
   // Never include credentials, signed URLs, or other secrets.
   optional string error_code = 5;
   optional string error_message = 6;
+}
+
+// Complete snapshot of the device's single player. Timestamp comes from the
+// enclosing observation. No URLs, playlist bodies or per-play identifiers.
+message AudioPlayerObservation {
+  string state = 1; // stopped/buffering/playing/ended/error; at most 16 bytes.
+  optional uint32 current_index = 2;
+  uint64 position_ms = 3;
+  optional uint64 duration_ms = 4;
+  string repeat = 5; // off/one/all.
+  uint32 playlist_length = 6; // 0..32.
+  uint32 playlist_revision = 7;
+  optional string error_code = 8; // Only for error; at most 128 UTF-8 bytes.
+  optional string error_message = 9; // Only for error; at most 512 UTF-8 bytes.
 }

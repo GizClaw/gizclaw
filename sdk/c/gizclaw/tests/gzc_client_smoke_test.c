@@ -4280,6 +4280,24 @@ int main(void) {
     return 1;
   }
 
+  memset(&observation, 0, sizeof(observation));
+  observation.kind = GZC_TELEMETRY_OBSERVATION_AUDIOPLAYER;
+  observation.audioplayer.state = gzc_str_from_cstr("playing");
+  observation.audioplayer.has_current_index = true;
+  observation.audioplayer.position_ms = UINT64_C(4294967296);
+  observation.audioplayer.repeat = gzc_str_from_cstr("all");
+  observation.audioplayer.playlist_length = 1;
+  observation.audioplayer.playlist_revision = 3;
+  telemetry_frame.sequence = 0;
+  gzc_buf_t player_wire;
+  gzc_buf_init(&player_wire);
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &player_wire);
+  const uint8_t player_golden[] = {0x1a, 0x1c, 0x7a, 0x1a, 0x0a, 0x07, 'p', 'l', 'a', 'y', 'i', 'n', 'g', 0x10, 0, 0x18, 0x80, 0x80, 0x80, 0x80, 0x10, 0x2a, 3, 'a', 'l', 'l', 0x30, 1, 0x38, 3};
+  bool player_matches = rc == GZC_OK && player_wire.len == sizeof(player_golden) && memcmp(player_wire.data, player_golden, sizeof(player_golden)) == 0;
+  gzc_buf_free(&player_wire, platform);
+  if (expect(player_matches, "audioplayer telemetry protobuf golden") != 0)
+    return 1;
+
   gzc_buf_t large_params;
   gzc_buf_init(&large_params);
   const char quote = '"';

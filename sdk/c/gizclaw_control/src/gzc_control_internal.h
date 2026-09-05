@@ -85,6 +85,9 @@ int gzc_control_req_bool(gzc_str_t object_json, const char *name, bool *out);
 int gzc_control_req_i64(gzc_str_t object_json, const char *name, int64_t *out);
 int gzc_control_req_f64(gzc_str_t object_json, const char *name, double *out);
 
+int gzc_control_decode_audioplayer_status(gzc_str_t object_json, gzc_control_audioplayer_status_t *out);
+int gzc_control_decode_audioplayer_item(gzc_str_t object_json, void *out);
+
 /* Model decoders over one already-validated JSON object. */
 int gzc_control_decode_api_key(gzc_str_t object_json, gzc_control_api_key_t *out);
 int gzc_control_decode_device_info(gzc_str_t object_json, gzc_control_device_info_t *out);

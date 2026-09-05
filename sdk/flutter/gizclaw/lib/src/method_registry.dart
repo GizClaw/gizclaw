@@ -663,6 +663,48 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerPutRuntimeRequest',
     responseType: 'ServerPutRuntimeResponse',
   ),
+  'client.device.audioplayer.get': RpcMethodDescriptor(
+    id: 113,
+    name: 'client.device.audioplayer.get',
+    requestType: 'ClientDeviceAudioPlayerGetRequest',
+    responseType: 'ClientDeviceAudioPlayerGetResponse',
+  ),
+  'client.device.audioplayer.playlist.get': RpcMethodDescriptor(
+    id: 114,
+    name: 'client.device.audioplayer.playlist.get',
+    requestType: 'ClientDeviceAudioPlayerPlaylistGetRequest',
+    responseType: 'ClientDeviceAudioPlayerPlaylistGetResponse',
+  ),
+  'client.device.audioplayer.playlist.set': RpcMethodDescriptor(
+    id: 115,
+    name: 'client.device.audioplayer.playlist.set',
+    requestType: 'ClientDeviceAudioPlayerPlaylistSetRequest',
+    responseType: 'ClientDeviceAudioPlayerPlaylistSetResponse',
+  ),
+  'client.device.audioplayer.playlist.append': RpcMethodDescriptor(
+    id: 116,
+    name: 'client.device.audioplayer.playlist.append',
+    requestType: 'ClientDeviceAudioPlayerPlaylistAppendRequest',
+    responseType: 'ClientDeviceAudioPlayerPlaylistAppendResponse',
+  ),
+  'client.device.audioplayer.play': RpcMethodDescriptor(
+    id: 117,
+    name: 'client.device.audioplayer.play',
+    requestType: 'ClientDeviceAudioPlayerPlayRequest',
+    responseType: 'ClientDeviceAudioPlayerPlayResponse',
+  ),
+  'client.device.audioplayer.stop': RpcMethodDescriptor(
+    id: 118,
+    name: 'client.device.audioplayer.stop',
+    requestType: 'ClientDeviceAudioPlayerStopRequest',
+    responseType: 'ClientDeviceAudioPlayerStopResponse',
+  ),
+  'client.device.audioplayer.mode.set': RpcMethodDescriptor(
+    id: 119,
+    name: 'client.device.audioplayer.mode.set',
+    requestType: 'ClientDeviceAudioPlayerModeSetRequest',
+    responseType: 'ClientDeviceAudioPlayerModeSetResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -774,6 +816,13 @@ const rpcMethodNamesById = <int, String>{
   109: 'client.wifi.connect',
   111: 'client.firmware.update',
   112: 'server.runtime.put',
+  113: 'client.device.audioplayer.get',
+  114: 'client.device.audioplayer.playlist.get',
+  115: 'client.device.audioplayer.playlist.set',
+  116: 'client.device.audioplayer.playlist.append',
+  117: 'client.device.audioplayer.play',
+  118: 'client.device.audioplayer.stop',
+  119: 'client.device.audioplayer.mode.set',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

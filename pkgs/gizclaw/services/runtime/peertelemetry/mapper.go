@@ -30,6 +30,7 @@ const (
 
 type StatusPatch struct {
 	OTA              []apitypes.PeerOtaStatus
+	AudioPlayer      *apitypes.AudioPlayerStatus
 	ReportedAt       time.Time
 	BatteryPercent   *int
 	BatteryPercentAt time.Time
@@ -46,7 +47,7 @@ type StatusPatch struct {
 }
 
 func (p StatusPatch) Empty() bool {
-	return len(p.OTA) == 0 && p.BatteryPercent == nil &&
+	return len(p.OTA) == 0 && p.AudioPlayer == nil && p.BatteryPercent == nil &&
 		p.Charging == nil &&
 		p.GNSSLatitude == nil &&
 		p.GNSSLongitude == nil &&
@@ -83,6 +84,12 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 				return nil, StatusPatch{}, err
 			}
 			samples = append(samples, next...)
+			mergeStatusPatch(&status, patch)
+		case *telemetrypb.Observation_Audioplayer:
+			patch, err := mapAudioPlayer(body.Audioplayer, ts)
+			if err != nil {
+				return nil, StatusPatch{}, err
+			}
 			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_Network:
 			next, err := mapNetwork(body.Network, labels, ts)
@@ -256,6 +263,10 @@ func boolValue(value bool) float64 {
 }
 
 func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
+	if src.AudioPlayer != nil && (dst.AudioPlayer == nil || src.AudioPlayer.ObservedAtUnixMs >= dst.AudioPlayer.ObservedAtUnixMs) {
+		dst.AudioPlayer = src.AudioPlayer
+	}
+
 	if src.ReportedAt.After(dst.ReportedAt) || dst.ReportedAt.IsZero() {
 		dst.ReportedAt = src.ReportedAt
 	}

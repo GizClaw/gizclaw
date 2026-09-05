@@ -127,10 +127,7 @@ func (s *peerHTTP) GetDeviceTelemetryLatest(ctx context.Context, request peerhtt
 	if err != nil {
 		return peerhttp.GetDeviceTelemetryLatest401JSONResponse{UnauthorizedJSONResponse: peerhttp.UnauthorizedJSONResponse(unauthorizedPublicHTTP())}, nil
 	}
-	fields, err := parsePeerTelemetryFields(request.Params.Fields)
-	if err != nil {
-		return peerhttp.GetDeviceTelemetryLatest400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError(publicHTTPInvalidRequestCode, err.Error()))}, nil
-	}
+	fields := []apitypes.PeerTelemetryField{request.Field}
 	reads, ok := s.deviceReads(owner)
 	if !ok {
 		return peerhttp.GetDeviceTelemetryLatest500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil

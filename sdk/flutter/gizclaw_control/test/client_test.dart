@@ -341,7 +341,7 @@ void main() {
       expect(status.raw['future_field'], 1);
     });
 
-    test('getDeviceTelemetryLatest joins fields with commas', () async {
+    test('getDeviceTelemetryLatest selects one path field', () async {
       final recorder = Recorder([
         json(200, {
           'peer_public_key': 'pk',
@@ -354,24 +354,24 @@ void main() {
           ],
         }),
       ]);
-      final latest = await clientWith(recorder).getDeviceTelemetryLatest(
-        fields: [
-          PeerTelemetryField.batteryPercent,
-          PeerTelemetryField.networkRssiDbm,
-        ],
+      final latest = await clientWith(
+        recorder,
+      ).getDeviceTelemetryLatest(field: PeerTelemetryField.batteryPercent);
+      expect(
+        recorder.single.url.path,
+        '/gizclaw/v1/device/telemetry/battery.percent/latest',
       );
-      expect(recorder.single.url.path, '/gizclaw/v1/device/telemetry/latest');
-      expect(recorder.single.url.queryParameters, {
-        'fields': 'battery.percent,network.rssi_dbm',
-      });
+      expect(recorder.single.url.hasQuery, isFalse);
       expect(latest.values.single.value, 80.0);
     });
 
-    test('getDeviceTelemetryLatest omits fields when not given', () async {
+    test('getDeviceTelemetryLatest encodes the field', () async {
       final recorder = Recorder([
         json(200, {'peer_public_key': 'pk', 'values': []}),
       ]);
-      await clientWith(recorder).getDeviceTelemetryLatest();
+      await clientWith(
+        recorder,
+      ).getDeviceTelemetryLatest(field: 'invalid/field');
       expect(recorder.single.url.hasQuery, isFalse);
     });
 

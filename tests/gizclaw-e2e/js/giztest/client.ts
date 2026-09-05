@@ -353,6 +353,62 @@ function buildHandlers(
           return scriptedObject as never;
         };
         break;
+      case "client.device.audioplayer.get":
+        control.audioplayer ??= {};
+        control.audioplayer.get = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
+      case "client.device.audioplayer.playlist.get":
+        control.audioplayer ??= {};
+        control.audioplayer.playlistGet = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
+      case "client.device.audioplayer.playlist.set":
+        control.audioplayer ??= {};
+        control.audioplayer.playlistSet = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
+      case "client.device.audioplayer.playlist.append":
+        control.audioplayer ??= {};
+        control.audioplayer.playlistAppend = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
+      case "client.device.audioplayer.play":
+        control.audioplayer ??= {};
+        control.audioplayer.play = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
+      case "client.device.audioplayer.stop":
+        control.audioplayer ??= {};
+        control.audioplayer.stop = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
+      case "client.device.audioplayer.mode.set":
+        control.audioplayer ??= {};
+        control.audioplayer.modeSet = () => {
+          count(method);
+          if (failure != null) throw failure;
+          return scriptedObject as never;
+        };
+        break;
       case "client.device.status.get":
         control.status = () => {
           count(method);

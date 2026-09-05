@@ -34,10 +34,18 @@ func newDriver(fullEvidence bool, observer audioObserver) *driver {
 // Operations lists "parallel" because session implements
 // giztest.ParallelSession for peer_stream steps.
 func (d *driver) Operations() []string {
-	return []string{"rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "parallel"}
+	return []string{"telemetry", "rpc", "rpc_stream", "client_rpc", "http", "speech", "peer_stream", "reconnect", "workspace_relay", "parallel"}
 }
 
 func (d *driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
+	if step.Telemetry != nil {
+		normalized, err := validationValue(step.Telemetry.Frame, doc.Variables)
+		if err != nil {
+			return err
+		}
+		_, err = decodeTelemetryFrame(normalized)
+		return err
+	}
 	if step.RPC != nil {
 		if err := validateRPCRequestShape(step.RPC.Method, step.RPC.Request, doc.Variables); err != nil {
 			return err
@@ -93,6 +101,8 @@ func (s *session) Execute(ctx context.Context, req giztest.StepRequest) (giztest
 	step := req.Step
 	vars := req.Vars
 	switch step.Operation() {
+	case "telemetry":
+		return s.executeTelemetry(req)
 	case "rpc":
 		client, err := s.clients.get(step.Client)
 		if err != nil {

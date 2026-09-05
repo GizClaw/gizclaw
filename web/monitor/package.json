@@ -33,6 +33,6 @@
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4",
-    "@gizclaw/gizclaw-control": "^0.3.0"
+    "@gizclaw/gizclaw-control": "^0.4.0"
   }
 }

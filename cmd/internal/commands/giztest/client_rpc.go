@@ -80,6 +80,7 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 				return err
 			}
 		case "client.device.status.get", "client.device.volume.set", "client.device.sound.play", "client.device.reboot",
+			"client.device.audioplayer.get", "client.device.audioplayer.playlist.get", "client.device.audioplayer.playlist.set", "client.device.audioplayer.playlist.append", "client.device.audioplayer.play", "client.device.audioplayer.stop", "client.device.audioplayer.mode.set",
 			"client.wifi.status.get", "client.wifi.saved.list", "client.wifi.saved.forget", "client.wifi.scan", "client.wifi.connect":
 			if err := installDeviceControl(&device, step.ClientRPC.Method, response); err != nil {
 				return fmt.Errorf("step %s response: %w", step.ID, err)
@@ -168,6 +169,9 @@ func scriptedErrorCode(raw any) (int32, error) {
 }
 
 func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string, response any) error {
+	if strings.HasPrefix(method, "client.device.audioplayer.") {
+		return installAudioPlayer(handlers, method, response)
+	}
 	scripted, scriptErr := deviceControlErrorResponse(response)
 	if scriptErr != nil {
 		return scriptErr

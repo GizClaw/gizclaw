@@ -741,11 +741,21 @@ const PeerStatus$json = {
       '17': true
     },
     {
+      '1': 'audioplayer',
+      '3': 14,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.AudioPlayerStatus',
+      '9': 4,
+      '10': 'audioplayer',
+      '17': true
+    },
+    {
       '1': 'gnss_accuracy_m',
       '3': 4,
       '4': 1,
       '5': 1,
-      '9': 4,
+      '9': 5,
       '10': 'gnssAccuracyM',
       '17': true
     },
@@ -754,7 +764,7 @@ const PeerStatus$json = {
       '3': 5,
       '4': 1,
       '5': 1,
-      '9': 5,
+      '9': 6,
       '10': 'gnssAltitudeM',
       '17': true
     },
@@ -763,7 +773,7 @@ const PeerStatus$json = {
       '3': 6,
       '4': 1,
       '5': 1,
-      '9': 6,
+      '9': 7,
       '10': 'gnssLatitude',
       '17': true
     },
@@ -772,7 +782,7 @@ const PeerStatus$json = {
       '3': 7,
       '4': 1,
       '5': 1,
-      '9': 7,
+      '9': 8,
       '10': 'gnssLongitude',
       '17': true
     },
@@ -784,13 +794,13 @@ const PeerStatus$json = {
       '6': '.gizclaw.rpc.v1.PeerStatus.LabelsEntry',
       '10': 'labels'
     },
-    {'1': 'muted', '3': 9, '4': 1, '5': 8, '9': 8, '10': 'muted', '17': true},
+    {'1': 'muted', '3': 9, '4': 1, '5': 8, '9': 9, '10': 'muted', '17': true},
     {
       '1': 'reported_at',
       '3': 10,
       '4': 1,
       '5': 9,
-      '9': 9,
+      '9': 10,
       '10': 'reportedAt',
       '17': true
     },
@@ -799,7 +809,7 @@ const PeerStatus$json = {
       '3': 11,
       '4': 1,
       '5': 3,
-      '9': 10,
+      '9': 11,
       '10': 'volume',
       '17': true
     },
@@ -810,6 +820,7 @@ const PeerStatus$json = {
     {'1': '_battery_percent'},
     {'1': '_charging'},
     {'1': '_firmware_sha256'},
+    {'1': '_audioplayer'},
     {'1': '_gnss_accuracy_m'},
     {'1': '_gnss_altitude_m'},
     {'1': '_gnss_latitude'},
@@ -836,17 +847,19 @@ final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'NIAFIDb3RhiAEBEiwKD2JhdHRlcnlfcGVyY2VudBgBIAEoA0gBUg5iYXR0ZXJ5UGVyY2VudIgB'
     'ARIfCghjaGFyZ2luZxgCIAEoCEgCUghjaGFyZ2luZ4gBARIxCgdkZXRhaWxzGAMgASgLMhcuZ2'
     '9vZ2xlLnByb3RvYnVmLlN0cnVjdFIHZGV0YWlscxIsCg9maXJtd2FyZV9zaGEyNTYYDCABKAlI'
-    'A1IOZmlybXdhcmVTaGEyNTaIAQESKwoPZ25zc19hY2N1cmFjeV9tGAQgASgBSARSDWduc3NBY2'
-    'N1cmFjeU2IAQESKwoPZ25zc19hbHRpdHVkZV9tGAUgASgBSAVSDWduc3NBbHRpdHVkZU2IAQES'
-    'KAoNZ25zc19sYXRpdHVkZRgGIAEoAUgGUgxnbnNzTGF0aXR1ZGWIAQESKgoOZ25zc19sb25naX'
-    'R1ZGUYByABKAFIB1INZ25zc0xvbmdpdHVkZYgBARI+CgZsYWJlbHMYCCADKAsyJi5naXpjbGF3'
-    'LnJwYy52MS5QZWVyU3RhdHVzLkxhYmVsc0VudHJ5UgZsYWJlbHMSGQoFbXV0ZWQYCSABKAhICF'
-    'IFbXV0ZWSIAQESJAoLcmVwb3J0ZWRfYXQYCiABKAlICVIKcmVwb3J0ZWRBdIgBARIbCgZ2b2x1'
-    'bWUYCyABKANIClIGdm9sdW1liAEBGjkKC0xhYmVsc0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5Eh'
-    'QKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAFCBgoEX290YUISChBfYmF0dGVyeV9wZXJjZW50QgsK'
-    'CV9jaGFyZ2luZ0ISChBfZmlybXdhcmVfc2hhMjU2QhIKEF9nbnNzX2FjY3VyYWN5X21CEgoQX2'
-    'duc3NfYWx0aXR1ZGVfbUIQCg5fZ25zc19sYXRpdHVkZUIRCg9fZ25zc19sb25naXR1ZGVCCAoG'
-    'X211dGVkQg4KDF9yZXBvcnRlZF9hdEIJCgdfdm9sdW1l');
+    'A1IOZmlybXdhcmVTaGEyNTaIAQESSAoLYXVkaW9wbGF5ZXIYDiABKAsyIS5naXpjbGF3LnJwYy'
+    '52MS5BdWRpb1BsYXllclN0YXR1c0gEUgthdWRpb3BsYXllcogBARIrCg9nbnNzX2FjY3VyYWN5'
+    'X20YBCABKAFIBVINZ25zc0FjY3VyYWN5TYgBARIrCg9nbnNzX2FsdGl0dWRlX20YBSABKAFIBl'
+    'INZ25zc0FsdGl0dWRlTYgBARIoCg1nbnNzX2xhdGl0dWRlGAYgASgBSAdSDGduc3NMYXRpdHVk'
+    'ZYgBARIqCg5nbnNzX2xvbmdpdHVkZRgHIAEoAUgIUg1nbnNzTG9uZ2l0dWRliAEBEj4KBmxhYm'
+    'VscxgIIAMoCzImLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuTGFiZWxzRW50cnlSBmxhYmVs'
+    'cxIZCgVtdXRlZBgJIAEoCEgJUgVtdXRlZIgBARIkCgtyZXBvcnRlZF9hdBgKIAEoCUgKUgpyZX'
+    'BvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQEaOQoLTGFiZWxzRW50cnkS'
+    'EAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUIGCgRfb3RhQhIKEF'
+    '9iYXR0ZXJ5X3BlcmNlbnRCCwoJX2NoYXJnaW5nQhIKEF9maXJtd2FyZV9zaGEyNTZCDgoMX2F1'
+    'ZGlvcGxheWVyQhIKEF9nbnNzX2FjY3VyYWN5X21CEgoQX2duc3NfYWx0aXR1ZGVfbUIQCg5fZ2'
+    '5zc19sYXRpdHVkZUIRCg9fZ25zc19sb25naXR1ZGVCCAoGX211dGVkQg4KDF9yZXBvcnRlZF9h'
+    'dEIJCgdfdm9sdW1l');
 
 @$core.Deprecated('Use pingRequestDescriptor instead')
 const PingRequest$json = {

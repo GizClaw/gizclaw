@@ -65,6 +65,14 @@ class ProtoWriter {
     this.varint(BigInt.asUintN(64, BigInt(Math.trunc(value))));
   }
 
+  uint64(field: number, value: number): void {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError("telemetry uint64 must be a nonnegative safe integer");
+    }
+    this.tag(field, 0);
+    this.varint(BigInt(value));
+  }
+
   bool(field: number, value: boolean): void {
     this.tag(field, 0);
     this.varint(value ? 1n : 0n);
@@ -330,6 +338,7 @@ function tsType(type) {
   switch (type) {
     case "uint32":
     case "int32":
+    case "uint64":
     case "int64":
     case "double":
       return "number";
@@ -347,6 +356,7 @@ function writerMethod(type, messages) {
   switch (type) {
     case "uint32":
     case "int32":
+    case "uint64":
     case "int64":
     case "bool":
     case "double":

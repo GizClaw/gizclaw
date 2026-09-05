@@ -1,6 +1,7 @@
 #include "../../../../sdk/c/gizclaw/generated/events/peer_event.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/google/protobuf/struct.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/ai.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/payload/audioplayer.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/edge.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/enums.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/firmware.pb.c"

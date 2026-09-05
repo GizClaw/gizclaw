@@ -140,7 +140,14 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN = 108,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT = 109,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_FIRMWARE_UPDATE = 111,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT = 112
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT = 112,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_GET = 113,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_GET = 114,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_SET = 115,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAYLIST_APPEND = 116,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */
@@ -210,8 +217,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET+1))
 
 
 

@@ -1592,6 +1592,7 @@ type PeerStatus struct {
 	Charging       *bool                  `protobuf:"varint,2,opt,name=charging,proto3,oneof" json:"charging,omitempty"`
 	Details        *structpb.Struct       `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
 	FirmwareSha256 *string                `protobuf:"bytes,12,opt,name=firmware_sha256,json=firmwareSha256,proto3,oneof" json:"firmware_sha256,omitempty"`
+	Audioplayer    *AudioPlayerStatus     `protobuf:"bytes,14,opt,name=audioplayer,proto3,oneof" json:"audioplayer,omitempty"`
 	GnssAccuracyM  *float64               `protobuf:"fixed64,4,opt,name=gnss_accuracy_m,json=gnssAccuracyM,proto3,oneof" json:"gnss_accuracy_m,omitempty"`
 	GnssAltitudeM  *float64               `protobuf:"fixed64,5,opt,name=gnss_altitude_m,json=gnssAltitudeM,proto3,oneof" json:"gnss_altitude_m,omitempty"`
 	GnssLatitude   *float64               `protobuf:"fixed64,6,opt,name=gnss_latitude,json=gnssLatitude,proto3,oneof" json:"gnss_latitude,omitempty"`
@@ -1667,6 +1668,13 @@ func (x *PeerStatus) GetFirmwareSha256() string {
 		return *x.FirmwareSha256
 	}
 	return ""
+}
+
+func (x *PeerStatus) GetAudioplayer() *AudioPlayerStatus {
+	if x != nil {
+		return x.Audioplayer
+	}
+	return nil
 }
 
 func (x *PeerStatus) GetGnssAccuracyM() float64 {
@@ -2873,7 +2881,7 @@ var File_payload_system_proto protoreflect.FileDescriptor
 
 const file_payload_system_proto_rawDesc = "" +
 	"\n" +
-	"\x14payload/system.proto\x12\x0egizclaw.rpc.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x1d\n" +
+	"\x14payload/system.proto\x12\x0egizclaw.rpc.v1\x1a\x19payload/audioplayer.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x1d\n" +
 	"\x1bClientGetIdentifiersRequest\"W\n" +
 	"\x1cClientGetIdentifiersResponse\x127\n" +
 	"\x05value\x18\x01 \x01(\v2!.gizclaw.rpc.v1.DeviceIdentifiersR\x05value\"\x16\n" +
@@ -2991,32 +2999,34 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_download_percentB\x11\n" +
 	"\x0f_target_versionB\r\n" +
 	"\v_error_codeB\x10\n" +
-	"\x0e_error_message\"\xaa\x06\n" +
+	"\x0e_error_message\"\x84\a\n" +
 	"\n" +
 	"PeerStatus\x124\n" +
 	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusH\x00R\x03ota\x88\x01\x01\x12,\n" +
 	"\x0fbattery_percent\x18\x01 \x01(\x03H\x01R\x0ebatteryPercent\x88\x01\x01\x12\x1f\n" +
 	"\bcharging\x18\x02 \x01(\bH\x02R\bcharging\x88\x01\x01\x121\n" +
 	"\adetails\x18\x03 \x01(\v2\x17.google.protobuf.StructR\adetails\x12,\n" +
-	"\x0ffirmware_sha256\x18\f \x01(\tH\x03R\x0efirmwareSha256\x88\x01\x01\x12+\n" +
-	"\x0fgnss_accuracy_m\x18\x04 \x01(\x01H\x04R\rgnssAccuracyM\x88\x01\x01\x12+\n" +
-	"\x0fgnss_altitude_m\x18\x05 \x01(\x01H\x05R\rgnssAltitudeM\x88\x01\x01\x12(\n" +
-	"\rgnss_latitude\x18\x06 \x01(\x01H\x06R\fgnssLatitude\x88\x01\x01\x12*\n" +
-	"\x0egnss_longitude\x18\a \x01(\x01H\aR\rgnssLongitude\x88\x01\x01\x12>\n" +
+	"\x0ffirmware_sha256\x18\f \x01(\tH\x03R\x0efirmwareSha256\x88\x01\x01\x12H\n" +
+	"\vaudioplayer\x18\x0e \x01(\v2!.gizclaw.rpc.v1.AudioPlayerStatusH\x04R\vaudioplayer\x88\x01\x01\x12+\n" +
+	"\x0fgnss_accuracy_m\x18\x04 \x01(\x01H\x05R\rgnssAccuracyM\x88\x01\x01\x12+\n" +
+	"\x0fgnss_altitude_m\x18\x05 \x01(\x01H\x06R\rgnssAltitudeM\x88\x01\x01\x12(\n" +
+	"\rgnss_latitude\x18\x06 \x01(\x01H\aR\fgnssLatitude\x88\x01\x01\x12*\n" +
+	"\x0egnss_longitude\x18\a \x01(\x01H\bR\rgnssLongitude\x88\x01\x01\x12>\n" +
 	"\x06labels\x18\b \x03(\v2&.gizclaw.rpc.v1.PeerStatus.LabelsEntryR\x06labels\x12\x19\n" +
-	"\x05muted\x18\t \x01(\bH\bR\x05muted\x88\x01\x01\x12$\n" +
+	"\x05muted\x18\t \x01(\bH\tR\x05muted\x88\x01\x01\x12$\n" +
 	"\vreported_at\x18\n" +
-	" \x01(\tH\tR\n" +
+	" \x01(\tH\n" +
+	"R\n" +
 	"reportedAt\x88\x01\x01\x12\x1b\n" +
-	"\x06volume\x18\v \x01(\x03H\n" +
-	"R\x06volume\x88\x01\x01\x1a9\n" +
+	"\x06volume\x18\v \x01(\x03H\vR\x06volume\x88\x01\x01\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x06\n" +
 	"\x04_otaB\x12\n" +
 	"\x10_battery_percentB\v\n" +
 	"\t_chargingB\x12\n" +
-	"\x10_firmware_sha256B\x12\n" +
+	"\x10_firmware_sha256B\x0e\n" +
+	"\f_audioplayerB\x12\n" +
 	"\x10_gnss_accuracy_mB\x12\n" +
 	"\x10_gnss_altitude_mB\x10\n" +
 	"\x0e_gnss_latitudeB\x11\n" +
@@ -3172,6 +3182,7 @@ var file_payload_system_proto_goTypes = []any{
 	(*ServerPutRuntimeResponse)(nil),      // 56: gizclaw.rpc.v1.ServerPutRuntimeResponse
 	nil,                                   // 57: gizclaw.rpc.v1.PeerStatus.LabelsEntry
 	(*structpb.Struct)(nil),               // 58: google.protobuf.Struct
+	(*AudioPlayerStatus)(nil),             // 59: gizclaw.rpc.v1.AudioPlayerStatus
 }
 var file_payload_system_proto_depIdxs = []int32{
 	27, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
@@ -3187,18 +3198,19 @@ var file_payload_system_proto_depIdxs = []int32{
 	30, // 10: gizclaw.rpc.v1.DeviceIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
 	31, // 11: gizclaw.rpc.v1.PeerStatus.ota:type_name -> gizclaw.rpc.v1.PeerOtaStatus
 	58, // 12: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
-	57, // 13: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	37, // 14: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
-	37, // 15: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
-	25, // 16: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	32, // 17: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	26, // 18: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceProfile
-	25, // 19: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	59, // 13: gizclaw.rpc.v1.PeerStatus.audioplayer:type_name -> gizclaw.rpc.v1.AudioPlayerStatus
+	57, // 14: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	37, // 15: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
+	37, // 16: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
+	25, // 17: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	32, // 18: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	26, // 19: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceProfile
+	25, // 20: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_payload_system_proto_init() }
@@ -3206,6 +3218,7 @@ func file_payload_system_proto_init() {
 	if File_payload_system_proto != nil {
 		return
 	}
+	file_payload_audioplayer_proto_init()
 	file_payload_system_proto_msgTypes[8].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[10].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[12].OneofWrappers = []any{}

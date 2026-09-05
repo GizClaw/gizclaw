@@ -1,0 +1,282 @@
+# User Story:
+# As a device API caller,
+# I want to replace, append and read a playlist, play index zero, set repeat and stop,
+# So that the real server and device SDK contract is verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.device.audioplayer.control
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: replace
+    client: peer
+    http:
+      method: PUT
+      path: /gizclaw/v1/device/audioplayer/playlist
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        items:
+          - &a1
+            url: https://audio.example.test/a.mp3
+            title: Track a
+            source_ref: catalog:a
+          - &a2
+            url: https://audio.example.test/b.mp3
+            title: Track b
+            source_ref: catalog:b
+      status: 200
+    expect:
+      /status/playlist_length:
+        equals: 2
+      /status/state:
+        equals: stopped
+  - id: append
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/audioplayer/playlist/append
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        items:
+          - &a3
+            url: https://audio.example.test/c.mp3
+            title: Track c
+            source_ref: catalog:c
+      status: 200
+    expect:
+      /status/playlist_length:
+        equals: 3
+      /status/playlist_revision:
+        equals: 2
+  - id: read_playlist
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/audioplayer/playlist
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /items/0/url:
+        equals: https://audio.example.test/a.mp3
+      /items/1/source_ref:
+        equals: catalog:b
+      /items/2/url:
+        equals: https://audio.example.test/c.mp3
+      /playlist_revision:
+        equals: 2
+  - id: play_zero
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/audioplayer/actions/play
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        index: 0
+      status: 200
+    expect:
+      /status/state:
+        equals: playing
+      /status/current_index:
+        equals: 0
+  - id: repeat_one
+    client: peer
+    http:
+      method: PUT
+      path: /gizclaw/v1/device/audioplayer/mode
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        repeat: one
+      status: 200
+    expect:
+      /status/repeat:
+        equals: one
+  - id: stop
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/audioplayer/actions/stop
+      headers:
+        Authorization: Bearer ${api_key}
+      body: {}
+      status: 200
+    expect:
+      /status/state:
+        equals: stopped
+  - id: stop_again
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/audioplayer/actions/stop
+      headers:
+        Authorization: Bearer ${api_key}
+      body: {}
+      status: 200
+    expect:
+      /status/state:
+        equals: stopped
+      /status/playlist_length:
+        equals: 3
+  - id: get_player
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/audioplayer
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /status/state:
+        equals: stopped
+      /status/repeat:
+        equals: one
+  - id: read_snapshot
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /audioplayer/state:
+        equals: stopped
+      /audioplayer/repeat:
+        equals: one
+      /audioplayer/playlist_revision:
+        equals: 2
+  - id: rpc_snapshot
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    expect:
+      /audioplayer/state:
+        equals: stopped
+      /audioplayer/playlist_length:
+        equals: 3
+  - id: provider_playlist_set
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.playlist.set
+      response:
+        state: stopped
+        repeat: off
+        playlist_length: 2
+        playlist_revision: 1
+        position_ms: 0
+      expect_calls: 1
+  - id: provider_playlist_append
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.playlist.append
+      response:
+        state: stopped
+        repeat: off
+        playlist_length: 3
+        playlist_revision: 2
+        position_ms: 0
+      expect_calls: 1
+  - id: provider_playlist_get
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.playlist.get
+      response:
+        items:
+          - *a1
+          - *a2
+          - *a3
+        playlist_revision: 2
+      expect_calls: 1
+  - id: provider_play
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.play
+      response:
+        state: playing
+        repeat: off
+        playlist_length: 3
+        playlist_revision: 2
+        position_ms: 0
+        current_index: 0
+      expect_calls: 1
+  - id: provider_mode_set
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.mode.set
+      response:
+        state: playing
+        repeat: one
+        playlist_length: 3
+        playlist_revision: 2
+        position_ms: 0
+        current_index: 0
+      expect_calls: 1
+  - id: provider_stop
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.stop
+      response:
+        state: stopped
+        repeat: one
+        playlist_length: 3
+        playlist_revision: 2
+        position_ms: 0
+        current_index: 0
+      expect_calls: 2
+  - id: provider_get
+    client: peer
+    client_rpc:
+      method: client.device.audioplayer.get
+      response:
+        state: stopped
+        repeat: one
+        playlist_length: 3
+        playlist_revision: 2
+        position_ms: 0
+        current_index: 0
+      expect_calls: 1
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

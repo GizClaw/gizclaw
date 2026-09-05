@@ -3688,3 +3688,74 @@ test("inbound client.device.reboot and sound.play answer empty results", async (
   assert.equal(play.error, undefined);
   assert.deepEqual(calls, ["reboot:3000", "play:chime:500"]);
 });
+
+test("inbound audioplayer forwards explicit zero index and rejects missing index", async () => {
+  let calls = 0;
+  const handlers = {
+    deviceControl: {
+      audioplayer: {
+        play: (request: { index?: number }) => {
+          calls++;
+          assert.equal(request.index, 0);
+          return {
+            state: "buffering",
+            current_index: 0,
+            position_ms: 0,
+            repeat: "off",
+            playlist_length: 1,
+            playlist_revision: 0,
+            observed_at_unix_ms: 0,
+          };
+        },
+      },
+    },
+  };
+  const result = await serveInboundClientRPC(
+    "client.device.audioplayer.play",
+    { index: 0 },
+    handlers,
+  );
+  assert.equal(result.error, undefined);
+  assert.equal((result.result as { current_index: number }).current_index, 0);
+  const invalid = await serveInboundClientRPC(
+    "client.device.audioplayer.play",
+    {},
+    handlers,
+  );
+  assert.equal(invalid.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  assert.equal(calls, 1);
+});
+
+test("audioplayer telemetry encodes safe uint64 progress and index zero", () => {
+  const packet = encodeTelemetryPacket({
+    observedAtUnixMs: 1700000000000,
+    observations: [
+      {
+        audioplayer: {
+          state: "playing",
+          currentIndex: 0,
+          positionMs: 2 ** 32,
+          repeat: "all",
+          playlistLength: 1,
+          playlistRevision: 3,
+        },
+      },
+    ],
+  });
+  assert.equal(packet[0], 0x40);
+  assert.deepEqual(
+    packet.slice(-30),
+    Uint8Array.from([
+      0x1a, 0x1c, 0x7a, 0x1a, 0x0a, 0x07, 112, 108, 97, 121, 105, 110, 103,
+      0x10, 0, 0x18, 0x80, 0x80, 0x80, 0x80, 0x10, 0x2a, 3, 97, 108, 108, 0x30,
+      1, 0x38, 3,
+    ]),
+  );
+  assert.throws(
+    () =>
+      encodeTelemetryPacket({
+        observations: [{ audioplayer: { positionMs: 2 ** 53 } }],
+      }),
+    /safe integer/,
+  );
+});

@@ -192,6 +192,59 @@ export type DeviceMonitorLog = {
     error?: string;
 };
 
+export type AudioPlayerItem = {
+    /**
+     * HTTPS audio URL without embedded credentials; at most 1024 UTF-8 bytes.
+     */
+    url: string;
+    title?: string;
+    source_ref?: string;
+};
+
+export type AudioPlayerModeSetRequest = {
+    repeat: 'off' | 'one' | 'all';
+};
+
+export type AudioPlayerPlayRequest = {
+    index: number;
+};
+
+export type AudioPlayerPlaylist = {
+    items: Array<AudioPlayerItem>;
+    playlist_revision: number;
+};
+
+export type AudioPlayerPlaylistAppendRequest = {
+    items: Array<AudioPlayerItem>;
+};
+
+export type AudioPlayerPlaylistSetRequest = {
+    items: Array<AudioPlayerItem>;
+};
+
+export type AudioPlayerResponse = {
+    status: AudioPlayerStatus;
+};
+
+export type AudioPlayerStatus = {
+    /**
+     * Device state: stopped, buffering, playing, ended or error.
+     */
+    state: string;
+    current_index?: number;
+    position_ms: number;
+    duration_ms?: number;
+    /**
+     * off, one or all.
+     */
+    repeat: string;
+    playlist_length: number;
+    playlist_revision: number;
+    error_code?: string;
+    error_message?: string;
+    observed_at_unix_ms: number;
+};
+
 export type DeviceIdentifiers = {
     /**
      * Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.
@@ -301,6 +354,7 @@ export type PeerOtaStatus = {
 };
 
 export type PeerStatus = {
+    audioplayer?: AudioPlayerStatus;
     reported_at?: string;
     volume?: number;
     muted?: boolean;
@@ -485,6 +539,405 @@ export type ServerLogStreamEnd = {
      */
     next_cursor?: string;
 };
+
+export type GetDeviceAudioPlayerData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer';
+};
+
+export type GetDeviceAudioPlayerErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type GetDeviceAudioPlayerError = GetDeviceAudioPlayerErrors[keyof GetDeviceAudioPlayerErrors];
+
+export type GetDeviceAudioPlayerResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerResponse;
+};
+
+export type GetDeviceAudioPlayerResponse = GetDeviceAudioPlayerResponses[keyof GetDeviceAudioPlayerResponses];
+
+export type GetDeviceAudioPlayerPlaylistData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer/playlist';
+};
+
+export type GetDeviceAudioPlayerPlaylistErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type GetDeviceAudioPlayerPlaylistError = GetDeviceAudioPlayerPlaylistErrors[keyof GetDeviceAudioPlayerPlaylistErrors];
+
+export type GetDeviceAudioPlayerPlaylistResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerPlaylist;
+};
+
+export type GetDeviceAudioPlayerPlaylistResponse = GetDeviceAudioPlayerPlaylistResponses[keyof GetDeviceAudioPlayerPlaylistResponses];
+
+export type SetDeviceAudioPlayerPlaylistData = {
+    body: AudioPlayerPlaylistSetRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer/playlist';
+};
+
+export type SetDeviceAudioPlayerPlaylistErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type SetDeviceAudioPlayerPlaylistError = SetDeviceAudioPlayerPlaylistErrors[keyof SetDeviceAudioPlayerPlaylistErrors];
+
+export type SetDeviceAudioPlayerPlaylistResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerResponse;
+};
+
+export type SetDeviceAudioPlayerPlaylistResponse = SetDeviceAudioPlayerPlaylistResponses[keyof SetDeviceAudioPlayerPlaylistResponses];
+
+export type AppendDeviceAudioPlayerPlaylistData = {
+    body: AudioPlayerPlaylistAppendRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer/playlist/append';
+};
+
+export type AppendDeviceAudioPlayerPlaylistErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type AppendDeviceAudioPlayerPlaylistError = AppendDeviceAudioPlayerPlaylistErrors[keyof AppendDeviceAudioPlayerPlaylistErrors];
+
+export type AppendDeviceAudioPlayerPlaylistResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerResponse;
+};
+
+export type AppendDeviceAudioPlayerPlaylistResponse = AppendDeviceAudioPlayerPlaylistResponses[keyof AppendDeviceAudioPlayerPlaylistResponses];
+
+export type PlayDeviceAudioPlayerData = {
+    body: AudioPlayerPlayRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer/actions/play';
+};
+
+export type PlayDeviceAudioPlayerErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type PlayDeviceAudioPlayerError = PlayDeviceAudioPlayerErrors[keyof PlayDeviceAudioPlayerErrors];
+
+export type PlayDeviceAudioPlayerResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerResponse;
+};
+
+export type PlayDeviceAudioPlayerResponse = PlayDeviceAudioPlayerResponses[keyof PlayDeviceAudioPlayerResponses];
+
+export type StopDeviceAudioPlayerData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer/actions/stop';
+};
+
+export type StopDeviceAudioPlayerErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type StopDeviceAudioPlayerError = StopDeviceAudioPlayerErrors[keyof StopDeviceAudioPlayerErrors];
+
+export type StopDeviceAudioPlayerResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerResponse;
+};
+
+export type StopDeviceAudioPlayerResponse = StopDeviceAudioPlayerResponses[keyof StopDeviceAudioPlayerResponses];
+
+export type SetDeviceAudioPlayerModeData = {
+    body: AudioPlayerModeSetRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/audioplayer/mode';
+};
+
+export type SetDeviceAudioPlayerModeErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no matching player resource.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type SetDeviceAudioPlayerModeError = SetDeviceAudioPlayerModeErrors[keyof SetDeviceAudioPlayerModeErrors];
+
+export type SetDeviceAudioPlayerModeResponses = {
+    /**
+     * Device-reported result. Playback acceptance does not imply audio has started.
+     */
+    200: AudioPlayerResponse;
+};
+
+export type SetDeviceAudioPlayerModeResponse = SetDeviceAudioPlayerModeResponses[keyof SetDeviceAudioPlayerModeResponses];
 
 export type ListDeviceWorkspacesData = {
     body?: never;
@@ -1144,14 +1597,14 @@ export type GetDeviceStatusResponse = GetDeviceStatusResponses[keyof GetDeviceSt
 
 export type GetDeviceTelemetryLatestData = {
     body?: never;
-    path?: never;
-    query?: {
+    path: {
         /**
-         * Comma-separated telemetry field names. Omitted means all supported fields.
+         * The single telemetry field to read.
          */
-        fields?: string;
+        field: PeerTelemetryField;
     };
-    url: '/gizclaw/v1/device/telemetry/latest';
+    query?: never;
+    url: '/gizclaw/v1/device/telemetry/{field}/latest';
 };
 
 export type GetDeviceTelemetryLatestErrors = {

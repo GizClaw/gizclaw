@@ -70,6 +70,27 @@ func (e ApplyAction) Valid() bool {
 	}
 }
 
+// Defines values for AudioPlayerModeSetRequestRepeat.
+const (
+	AudioPlayerModeSetRequestRepeatAll AudioPlayerModeSetRequestRepeat = "all"
+	AudioPlayerModeSetRequestRepeatOff AudioPlayerModeSetRequestRepeat = "off"
+	AudioPlayerModeSetRequestRepeatOne AudioPlayerModeSetRequestRepeat = "one"
+)
+
+// Valid indicates whether the value is a known member of the AudioPlayerModeSetRequestRepeat enum.
+func (e AudioPlayerModeSetRequestRepeat) Valid() bool {
+	switch e {
+	case AudioPlayerModeSetRequestRepeatAll:
+		return true
+	case AudioPlayerModeSetRequestRepeatOff:
+		return true
+	case AudioPlayerModeSetRequestRepeatOne:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BadgeDefResourceKind.
 const (
 	BadgeDefResourceKindBadgeDef BadgeDefResourceKind = "BadgeDef"
@@ -3047,6 +3068,67 @@ type ApplyResult struct {
 	Message *string      `json:"message,omitempty"`
 }
 
+// AudioPlayerItem defines model for AudioPlayerItem.
+type AudioPlayerItem struct {
+	SourceRef *string `json:"source_ref,omitempty"`
+	Title     *string `json:"title,omitempty"`
+
+	// Url HTTPS audio URL without embedded credentials; at most 1024 UTF-8 bytes.
+	Url string `json:"url"`
+}
+
+// AudioPlayerModeSetRequest defines model for AudioPlayerModeSetRequest.
+type AudioPlayerModeSetRequest struct {
+	Repeat AudioPlayerModeSetRequestRepeat `json:"repeat"`
+}
+
+// AudioPlayerModeSetRequestRepeat defines model for AudioPlayerModeSetRequest.Repeat.
+type AudioPlayerModeSetRequestRepeat string
+
+// AudioPlayerPlayRequest defines model for AudioPlayerPlayRequest.
+type AudioPlayerPlayRequest struct {
+	Index *int `json:"index"`
+}
+
+// AudioPlayerPlaylist defines model for AudioPlayerPlaylist.
+type AudioPlayerPlaylist struct {
+	Items            []AudioPlayerItem `json:"items"`
+	PlaylistRevision int64             `json:"playlist_revision"`
+}
+
+// AudioPlayerPlaylistAppendRequest defines model for AudioPlayerPlaylistAppendRequest.
+type AudioPlayerPlaylistAppendRequest struct {
+	Items []AudioPlayerItem `json:"items"`
+}
+
+// AudioPlayerPlaylistSetRequest defines model for AudioPlayerPlaylistSetRequest.
+type AudioPlayerPlaylistSetRequest struct {
+	Items []AudioPlayerItem `json:"items"`
+}
+
+// AudioPlayerResponse defines model for AudioPlayerResponse.
+type AudioPlayerResponse struct {
+	Status AudioPlayerStatus `json:"status"`
+}
+
+// AudioPlayerStatus defines model for AudioPlayerStatus.
+type AudioPlayerStatus struct {
+	CurrentIndex     *int    `json:"current_index,omitempty"`
+	DurationMs       *int64  `json:"duration_ms,omitempty"`
+	ErrorCode        *string `json:"error_code,omitempty"`
+	ErrorMessage     *string `json:"error_message,omitempty"`
+	ObservedAtUnixMs int64   `json:"observed_at_unix_ms"`
+	PlaylistLength   int     `json:"playlist_length"`
+	PlaylistRevision int64   `json:"playlist_revision"`
+	PositionMs       int64   `json:"position_ms"`
+
+	// Repeat off, one or all.
+	Repeat string `json:"repeat"`
+
+	// State Device state: stopped, buffering, playing, ended or error.
+	State string `json:"state"`
+}
+
 // Badge defines model for Badge.
 type Badge struct {
 	Active         bool      `json:"active"`
@@ -5079,6 +5161,7 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
+	Audioplayer    *AudioPlayerStatus      `json:"audioplayer,omitempty"`
 	BatteryPercent *int                    `json:"battery_percent,omitempty"`
 	Charging       *bool                   `json:"charging,omitempty"`
 	Details        *map[string]interface{} `json:"details,omitempty"`

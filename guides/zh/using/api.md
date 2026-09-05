@@ -145,7 +145,7 @@ Go SDK 把常用 RPC 暴露为 `gizcli.Client` 的 typed 方法。传入的 requ
 | `GET /gizclaw/v1/device` | 设备 name、emoji、硬件信息与标识 |
 | `GET /gizclaw/v1/device/runtime` | 在线状态、最后在线时间与流量 |
 | `GET /gizclaw/v1/device/status` | 最近一次上报的电量、充电、音量、静音与 GNSS |
-| `GET /gizclaw/v1/device/telemetry/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
+| `GET /gizclaw/v1/device/telemetry/{field}/latest`、`/telemetry`、`/telemetry/aggregate` | 与 Admin telemetry 相同语义的采样查询 |
 | `PUT /gizclaw/v1/device/volume` | 设置音量与静音，返回设备实时回报的 status |
 | `POST /gizclaw/v1/device/actions/play-sound` | 播放设备自定义提示音 |
 | `POST /gizclaw/v1/device/actions/reboot` | 重启设备 |

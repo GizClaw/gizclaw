@@ -215,6 +215,35 @@ static int telemetry_encode_system(const gzc_telemetry_system_t *system, const g
   return GZC_OK;
 }
 
+static int telemetry_encode_audioplayer(const gzc_telemetry_audioplayer_t *player, const gzc_platform_t *platform, gzc_buf_t *out) {
+  if (player->position_ms > UINT64_C(9007199254740991) ||
+      (player->has_duration_ms && (player->duration_ms > UINT64_C(9007199254740991) || player->position_ms > player->duration_ms)) ||
+      player->playlist_length > 32 || (player->has_current_index && player->current_index >= player->playlist_length) ||
+      player->state.len == 0 || player->repeat.len == 0 ||
+      (player->has_error_code && player->error_code.len > 128) ||
+      (player->has_error_message && player->error_message.len > 512)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  int rc = telemetry_append_string(out, platform, 1, player->state);
+  if (rc == GZC_OK && player->has_current_index)
+    rc = telemetry_append_uint32(out, platform, 2, player->current_index);
+  if (rc == GZC_OK)
+    rc = telemetry_append_int64(out, platform, 3, (int64_t)player->position_ms);
+  if (rc == GZC_OK && player->has_duration_ms)
+    rc = telemetry_append_int64(out, platform, 4, (int64_t)player->duration_ms);
+  if (rc == GZC_OK)
+    rc = telemetry_append_string(out, platform, 5, player->repeat);
+  if (rc == GZC_OK)
+    rc = telemetry_append_uint32(out, platform, 6, player->playlist_length);
+  if (rc == GZC_OK)
+    rc = telemetry_append_uint32(out, platform, 7, player->playlist_revision);
+  if (rc == GZC_OK && player->has_error_code)
+    rc = telemetry_append_string(out, platform, 8, player->error_code);
+  if (rc == GZC_OK && player->has_error_message)
+    rc = telemetry_append_string(out, platform, 9, player->error_message);
+  return rc;
+}
+
 static int telemetry_encode_observation(const gzc_telemetry_observation_t *observation, const gzc_platform_t *platform, gzc_buf_t *out) {
   if (observation->observed_at_delta_ms != 0) {
     int rc = telemetry_append_int32(out, platform, 1, observation->observed_at_delta_ms);
@@ -239,6 +268,10 @@ static int telemetry_encode_observation(const gzc_telemetry_observation_t *obser
   case GZC_TELEMETRY_OBSERVATION_NETWORK:
     body_field = 12;
     rc = telemetry_encode_network(&observation->network, platform, &body);
+    break;
+  case GZC_TELEMETRY_OBSERVATION_AUDIOPLAYER:
+    body_field = 15;
+    rc = telemetry_encode_audioplayer(&observation->audioplayer, platform, &body);
     break;
   case GZC_TELEMETRY_OBSERVATION_SYSTEM:
     body_field = 13;

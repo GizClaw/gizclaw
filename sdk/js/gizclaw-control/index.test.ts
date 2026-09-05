@@ -243,11 +243,8 @@ test("device reads: get, status, telemetry", async () => {
   ]);
   const device = await h.client.device.get();
   const status = await h.client.device.getStatus();
-  await h.client.device.getTelemetryLatest();
-  await h.client.device.getTelemetryLatest([
-    "battery.percent",
-    "network.rssi_dbm",
-  ]);
+  await h.client.device.getTelemetryLatest("battery.percent");
+  await h.client.device.getTelemetryLatest("network.rssi_dbm");
   const range = await h.client.device.queryTelemetry({
     field: "battery.percent",
     start_time_ms: 0,
@@ -271,11 +268,16 @@ test("device reads: get, status, telemetry", async () => {
   assert.equal(status.volume, 35);
   assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device");
   assert.equal(h.seen[1]!.url.pathname, "/gizclaw/v1/device/status");
-  assert.equal(h.seen[2]!.url.pathname, "/gizclaw/v1/device/telemetry/latest");
+  assert.equal(
+    h.seen[2]!.url.pathname,
+    "/gizclaw/v1/device/telemetry/battery.percent/latest",
+  );
   assert.equal(h.seen[2]!.url.search, "");
-  assert.deepEqual(Object.fromEntries(h.seen[3]!.url.searchParams), {
-    fields: "battery.percent,network.rssi_dbm",
-  });
+  assert.equal(
+    h.seen[3]!.url.pathname,
+    "/gizclaw/v1/device/telemetry/network.rssi_dbm/latest",
+  );
+  assert.equal(h.seen[3]!.url.search, "");
   assert.equal(h.seen[4]!.url.pathname, "/gizclaw/v1/device/telemetry");
   assert.deepEqual(Object.fromEntries(h.seen[4]!.url.searchParams), {
     field: "battery.percent",
@@ -507,4 +509,53 @@ test("classifyGizClawControlError: device codes win over status", () => {
   assert.equal(classifyGizClawControlError(409), "conflict");
   assert.equal(classifyGizClawControlError(504, "UPSTREAM"), "server");
   assert.equal(classifyGizClawControlError(302), "unexpectedStatus");
+});
+
+test("audioplayer routes preserve playlist order and explicit zero index", async () => {
+  const status = {
+    state: "buffering",
+    current_index: 0,
+    position_ms: 0,
+    repeat: "all",
+    playlist_length: 1,
+    playlist_revision: 3,
+    observed_at_unix_ms: 1700000000000,
+  };
+  const items = [
+    {
+      url: "https://media.example/music.mp3",
+      title: "music",
+      source_ref: "catalog/song",
+    },
+  ];
+  const h = harness([
+    json(200, { status }),
+    json(200, { items, playlist_revision: 3 }),
+    ...Array.from({ length: 5 }, () => json(200, { status })),
+  ]);
+  assert.deepEqual((await h.client.device.getAudioPlayer()).status, status);
+  assert.deepEqual(
+    (await h.client.device.getAudioPlayerPlaylist()).items,
+    items,
+  );
+  await h.client.device.setAudioPlayerPlaylist({ items });
+  await h.client.device.appendAudioPlayerPlaylist({ items });
+  await h.client.device.playAudioPlayer({ index: 0 });
+  await h.client.device.stopAudioPlayer();
+  await h.client.device.setAudioPlayerMode({ repeat: "all" });
+  assert.deepEqual(
+    h.seen.map((request) => [request.method, request.url.pathname]),
+    [
+      ["GET", "/gizclaw/v1/device/audioplayer"],
+      ["GET", "/gizclaw/v1/device/audioplayer/playlist"],
+      ["PUT", "/gizclaw/v1/device/audioplayer/playlist"],
+      ["POST", "/gizclaw/v1/device/audioplayer/playlist/append"],
+      ["POST", "/gizclaw/v1/device/audioplayer/actions/play"],
+      ["POST", "/gizclaw/v1/device/audioplayer/actions/stop"],
+      ["PUT", "/gizclaw/v1/device/audioplayer/mode"],
+    ],
+  );
+  assert.deepEqual(JSON.parse(h.seen[2]!.body), { items });
+  assert.deepEqual(JSON.parse(h.seen[3]!.body), { items });
+  assert.deepEqual(JSON.parse(h.seen[4]!.body), { index: 0 });
 });

@@ -1,5 +1,7 @@
 import {
   GizClawControlError,
+  type PeerTelemetryField,
+  type PeerTelemetryLatestResponse,
   createGizClawPeerMonitorClient,
   createGizClawNodeMonitorClient,
   createGizClawDiscoveryClient,
@@ -66,6 +68,41 @@ export async function loadNode(
     }).get(),
   );
 }
+// The monitor explicitly selects its displayed fields. The device endpoint
+// accepts one field per request; limit concurrent queries per polling cycle.
+export const monitorTelemetryFields = [
+  "battery.percent",
+  "battery.charging",
+  "battery.voltage_mv",
+  "network.rssi_dbm",
+  "network.signal_level",
+  "network.connected",
+  "system.uptime_seconds",
+  "system.free_memory_bytes",
+  "system.temperature_c",
+  "gnss.latitude",
+  "gnss.longitude",
+  "gnss.altitude_m",
+  "gnss.accuracy_m",
+] as const satisfies readonly PeerTelemetryField[];
+
+async function loadPeerTelemetry(
+  peer: ReturnType<typeof peerClient>,
+  signal: AbortSignal,
+) {
+  const values: PeerTelemetryLatestResponse["values"] = [];
+  for (let offset = 0; offset < monitorTelemetryFields.length; offset += 4) {
+    signal.throwIfAborted();
+    const results = await Promise.all(
+      monitorTelemetryFields
+        .slice(offset, offset + 4)
+        .map((field) => peer.getTelemetryLatest(field)),
+    );
+    for (const result of results) values.push(...result.values);
+  }
+  return { values };
+}
+
 export async function loadPeer(
   key: string,
   signal: AbortSignal,
@@ -75,7 +112,7 @@ export async function loadPeer(
     peer.get(),
     peer.getRuntime(),
     peer.getStatus(),
-    peer.getTelemetryLatest(),
+    loadPeerTelemetry(peer, signal),
   ]);
   return {
     info: record.parse(info),

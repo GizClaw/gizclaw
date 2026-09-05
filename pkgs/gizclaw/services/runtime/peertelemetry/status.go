@@ -102,6 +102,15 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 	if reported.GnssAccuracyM != nil {
 		patch.GNSSAccuracyM = new(float64(*reported.GnssAccuracyM))
 	}
+	if reported.Audioplayer != nil {
+		player := *reported.Audioplayer
+		if player.ObservedAtUnixMs == 0 {
+			player.ObservedAtUnixMs = reportedAt.UnixMilli()
+		}
+		if validAudioPlayerSnapshot(player) {
+			patch.AudioPlayer = &player
+		}
+	}
 	changed := applyTelemetryStatusPatch(&status, patch)
 	if reported.Volume != nil {
 		value := *reported.Volume
@@ -134,6 +143,12 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 
 func applyTelemetryStatusPatch(status *apitypes.PeerStatus, patch StatusPatch) bool {
 	changed := false
+	if patch.AudioPlayer != nil && (status.Audioplayer == nil || patch.AudioPlayer.ObservedAtUnixMs >= status.Audioplayer.ObservedAtUnixMs) {
+		value := *patch.AudioPlayer
+		status.Audioplayer = &value
+		changed = true
+	}
+
 	if !patch.ReportedAt.IsZero() {
 		reportedAt := patch.ReportedAt.UTC()
 		if status.ReportedAt == nil || reportedAt.After(status.ReportedAt.UTC()) {

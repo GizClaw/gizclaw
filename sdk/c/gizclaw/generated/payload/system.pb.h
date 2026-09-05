@@ -4,6 +4,7 @@
 #ifndef PB_GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_INCLUDED
 #define PB_GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_INCLUDED
 #include <pb.h>
+#include "payload/audioplayer.pb.h"
 #include "google/protobuf/struct.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
@@ -208,6 +209,8 @@ typedef struct _gizclaw_rpc_v1_PeerStatus {
     char firmware_sha256[65];
     bool has_ota;
     gizclaw_rpc_v1_PeerOtaStatus ota;
+    bool has_audioplayer;
+    gizclaw_rpc_v1_AudioPlayerStatus audioplayer;
 } gizclaw_rpc_v1_PeerStatus;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
@@ -386,7 +389,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default}
+#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
@@ -444,7 +447,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero}
+#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
@@ -534,6 +537,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_volume_tag     11
 #define gizclaw_rpc_v1_PeerStatus_firmware_sha256_tag 12
 #define gizclaw_rpc_v1_PeerStatus_ota_tag        13
+#define gizclaw_rpc_v1_PeerStatus_audioplayer_tag 14
 #define gizclaw_rpc_v1_ClientDeviceStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_value_tag 1
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_key_tag 1
@@ -787,12 +791,14 @@ X(a, STATIC,   OPTIONAL, BOOL,     muted,             9) \
 X(a, CALLBACK, OPTIONAL, STRING,   reported_at,      10) \
 X(a, STATIC,   OPTIONAL, INT64,    volume,           11) \
 X(a, STATIC,   OPTIONAL, STRING,   firmware_sha256,  12) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  ota,              13)
+X(a, STATIC,   OPTIONAL, MESSAGE,  ota,              13) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  audioplayer,      14)
 #define gizclaw_rpc_v1_PeerStatus_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_DEFAULT NULL
 #define gizclaw_rpc_v1_PeerStatus_details_MSGTYPE google_protobuf_Struct
 #define gizclaw_rpc_v1_PeerStatus_labels_MSGTYPE gizclaw_rpc_v1_PeerStatus_LabelsEntry
 #define gizclaw_rpc_v1_PeerStatus_ota_MSGTYPE gizclaw_rpc_v1_PeerOtaStatus
+#define gizclaw_rpc_v1_PeerStatus_audioplayer_MSGTYPE gizclaw_rpc_v1_AudioPlayerStatus
 
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \

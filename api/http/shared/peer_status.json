@@ -12,6 +12,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "audioplayer": {"$ref": "./audioplayer.json#/components/schemas/AudioPlayerStatus"},
           "reported_at": {
             "type": "string",
             "format": "date-time"

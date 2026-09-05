@@ -22,11 +22,12 @@ export type ObservationBase = {
 };
 
 export type Observation =
-  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never; ota?: never })
-  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never; ota?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never; ota?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation; ota?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota: OtaObservation });
+  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never })
+  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never; ota?: never; audioplayer?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never; ota?: never; audioplayer?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation; ota?: never; audioplayer?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota: OtaObservation; audioplayer?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer: AudioPlayerObservation });
 
 export type BatteryObservation = {
   percent?: number;
@@ -67,6 +68,18 @@ export type OtaObservation = {
   errorMessage?: string;
 };
 
+export type AudioPlayerObservation = {
+  state: string;
+  currentIndex?: number;
+  positionMs: number;
+  durationMs?: number;
+  repeat: string;
+  playlistLength: number;
+  playlistRevision: number;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
 export function encodeTelemetryFrame(message: TelemetryFrame): Uint8Array {
   const writer = new ProtoWriter();
   if (message.sequence != null) {
@@ -86,7 +99,7 @@ function encodeObservation(message: Observation): Uint8Array {
   if (message.observedAtDeltaMs != null) {
     writer.int32(1, message.observedAtDeltaMs);
   }
-  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null) + Number(message.ota != null);
+  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null) + Number(message.ota != null) + Number(message.audioplayer != null);
   if (bodyCount !== 1) {
     throw new Error(`telemetry observation must have exactly one body, got ${bodyCount}`);
   }
@@ -104,6 +117,9 @@ function encodeObservation(message: Observation): Uint8Array {
   }
   if (message.ota != null) {
     writer.message(14, encodeOtaObservation(message.ota));
+  }
+  if (message.audioplayer != null) {
+    writer.message(15, encodeAudioPlayerObservation(message.audioplayer));
   }
   return writer.finish();
 }
@@ -197,6 +213,28 @@ function encodeOtaObservation(message: OtaObservation): Uint8Array {
   return writer.finish();
 }
 
+function encodeAudioPlayerObservation(message: AudioPlayerObservation): Uint8Array {
+  const writer = new ProtoWriter();
+  writer.string(1, message.state);
+  if (message.currentIndex != null) {
+    writer.uint32(2, message.currentIndex);
+  }
+  writer.uint64(3, message.positionMs);
+  if (message.durationMs != null) {
+    writer.uint64(4, message.durationMs);
+  }
+  writer.string(5, message.repeat);
+  writer.uint32(6, message.playlistLength);
+  writer.uint32(7, message.playlistRevision);
+  if (message.errorCode != null) {
+    writer.string(8, message.errorCode);
+  }
+  if (message.errorMessage != null) {
+    writer.string(9, message.errorMessage);
+  }
+  return writer.finish();
+}
+
 class ProtoWriter {
   private readonly chunks: number[] = [];
 
@@ -213,6 +251,14 @@ class ProtoWriter {
   int64(field: number, value: number): void {
     this.tag(field, 0);
     this.varint(BigInt.asUintN(64, BigInt(Math.trunc(value))));
+  }
+
+  uint64(field: number, value: number): void {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError("telemetry uint64 must be a nonnegative safe integer");
+    }
+    this.tag(field, 0);
+    this.varint(BigInt(value));
   }
 
   bool(field: number, value: boolean): void {
