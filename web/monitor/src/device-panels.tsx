@@ -9,6 +9,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import {
+  monitorErrorMessage,
   loadHistoryAudio,
   loadWorkspaces,
   loadHistory,
@@ -289,7 +290,7 @@ export function WorkflowsPanel({ credential }: { credential: string }) {
         setWorkspace(data[0]?.id ?? "");
       })
       .catch((e) => {
-        if (!c.signal.aborted) setError(String(e));
+        if (!c.signal.aborted) setError(monitorErrorMessage(e));
       })
       .finally(() => {
         if (!c.signal.aborted) setLoadingWorkspaces(false);
@@ -307,7 +308,7 @@ export function WorkflowsPanel({ credential }: { credential: string }) {
         if (!c.signal.aborted) setPage(data);
       })
       .catch((e) => {
-        if (!c.signal.aborted) setError(String(e));
+        if (!c.signal.aborted) setError(monitorErrorMessage(e));
       })
       .finally(() => {
         if (!c.signal.aborted) setBusy(false);
@@ -469,7 +470,7 @@ export function PersistentLogsPanel({ credential }: { credential: string }) {
         if (!c.signal.aborted) setPage(data);
       })
       .catch((e) => {
-        if (!c.signal.aborted) setError(String(e));
+        if (!c.signal.aborted) setError(monitorErrorMessage(e));
       })
       .finally(() => {
         if (!c.signal.aborted) setBusy(false);
@@ -598,7 +599,7 @@ function HistoryAudio({
         setURL(objectURL);
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(String(e));
+        if (!controller.signal.aborted) setError(monitorErrorMessage(e));
       });
     return () => {
       controller.abort();

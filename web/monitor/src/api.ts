@@ -1,4 +1,5 @@
 import {
+  GizClawControlError,
   createGizClawPeerMonitorClient,
   createGizClawNodeMonitorClient,
   createGizClawDiscoveryClient,
@@ -226,4 +227,13 @@ export async function loadHistoryAudio(
   signal: AbortSignal,
 ): Promise<Blob> {
   return peerClient(key, signal).downloadHistoryAudio(workspaceId, historyId);
+}
+
+export function monitorErrorMessage(error: unknown): string {
+  if (error instanceof GizClawControlError) {
+    return [error.status, error.code, error.message]
+      .filter((value) => value !== undefined)
+      .join(" · ");
+  }
+  return error instanceof Error ? error.message : String(error);
 }

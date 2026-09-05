@@ -29,6 +29,7 @@ import {
 } from "recharts";
 import { Button } from "./components/ui/button";
 import {
+  monitorErrorMessage,
   bytes,
   controlPeer,
   findPeers,
@@ -296,7 +297,7 @@ export function App() {
         setLast(new Date());
       } catch (e) {
         if (!stopped) {
-          setError(e instanceof Error ? e.message : "连接失败");
+          setError(monitorErrorMessage(e));
           setNode(undefined);
           setPeer(undefined);
           setSamples([]);
@@ -341,8 +342,7 @@ export function App() {
         if (keys.length === 1) await select(keys[0]);
       }
     } catch (e) {
-      if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : "查询失败");
+      if (!controller.signal.aborted) setError(monitorErrorMessage(e));
     } finally {
       if (!controller.signal.aborted) setBusy(false);
     }
@@ -391,8 +391,7 @@ export function App() {
       await controlPeer(credential, name, volume, c.signal);
       setNotice("设备已确认操作。");
     } catch (e) {
-      if (!c.signal.aborted)
-        setError(e instanceof Error ? e.message : "操作失败");
+      if (!c.signal.aborted) setError(monitorErrorMessage(e));
     } finally {
       if (!c.signal.aborted) setBusy(false);
     }
