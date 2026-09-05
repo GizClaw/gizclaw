@@ -36,10 +36,15 @@ static int peer_event_validate(const gzc_peer_event_t *event, int allow_unknown)
   if (event->which_payload == 0 &&
       !(allow_unknown &&
         event->type >
-            gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED)) {
+            gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY)) {
     return GZC_ERR_RPC;
   }
   switch (event->type) {
+  case gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY:
+    return event->which_payload == gizclaw_events_v1_PeerEvent_audio_input_ready_tag &&
+                   has_non_space(event->payload.audio_input_ready.stream_id)
+               ? GZC_OK
+               : GZC_ERR_RPC;
   case gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_BOS:
     return event->which_payload == gizclaw_events_v1_PeerEvent_bos_tag &&
                    has_non_space(event->payload.bos.stream_id)

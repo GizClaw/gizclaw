@@ -28,6 +28,7 @@ const PeerEventType$json = {
     {'1': 'PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED', '2': 6},
     {'1': 'PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED', '2': 7},
     {'1': 'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED', '2': 8},
+    {'1': 'PEER_EVENT_TYPE_AUDIO_INPUT_READY', '2': 9},
   ],
 };
 
@@ -39,7 +40,7 @@ final $typed_data.Uint8List peerEventTypeDescriptor = $convert.base64Decode(
     'VFUl9FVkVOVF9UWVBFX1dPUktTUEFDRV9ISVNUT1JZX1VQREFURUQQBRIvCitQRUVSX0VWRU5U'
     'X1RZUEVfRlJJRU5EX1JFTEFUSU9OU0hJUF9VUERBVEVEEAYSKAokUEVFUl9FVkVOVF9UWVBFX0'
     'ZSSUVORF9HUk9VUF9VUERBVEVEEAcSKwonUEVFUl9FVkVOVF9UWVBFX0dBTUVQTEFZX1JFV0FS'
-    'RF9VUERBVEVEEAg=');
+    'RF9VUERBVEVEEAgSJQohUEVFUl9FVkVOVF9UWVBFX0FVRElPX0lOUFVUX1JFQURZEAk=');
 
 @$core.Deprecated('Use streamKindDescriptor instead')
 const StreamKind$json = {
@@ -197,6 +198,15 @@ const PeerEvent$json = {
       '9': 0,
       '10': 'gameplayRewardUpdated'
     },
+    {
+      '1': 'audio_input_ready',
+      '3': 18,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.events.v1.AudioInputReady',
+      '9': 0,
+      '10': 'audioInputReady'
+    },
   ],
   '8': [
     {'1': 'payload'},
@@ -218,7 +228,20 @@ final $typed_data.Uint8List peerEventDescriptor = $convert.base64Decode(
     'dGVkGBAgASgLMiUuZ2l6Y2xhdy5ldmVudHMudjEuRnJpZW5kR3JvdXBVcGRhdGVkSABSEmZyaW'
     'VuZEdyb3VwVXBkYXRlZBJiChdnYW1lcGxheV9yZXdhcmRfdXBkYXRlZBgRIAEoCzIoLmdpemNs'
     'YXcuZXZlbnRzLnYxLkdhbWVwbGF5UmV3YXJkVXBkYXRlZEgAUhVnYW1lcGxheVJld2FyZFVwZG'
-    'F0ZWRCCQoHcGF5bG9hZA==');
+    'F0ZWQSUAoRYXVkaW9faW5wdXRfcmVhZHkYEiABKAsyIi5naXpjbGF3LmV2ZW50cy52MS5BdWRp'
+    'b0lucHV0UmVhZHlIAFIPYXVkaW9JbnB1dFJlYWR5QgkKB3BheWxvYWQ=');
+
+@$core.Deprecated('Use audioInputReadyDescriptor instead')
+const AudioInputReady$json = {
+  '1': 'AudioInputReady',
+  '2': [
+    {'1': 'stream_id', '3': 1, '4': 1, '5': 9, '10': 'streamId'},
+  ],
+};
+
+/// Descriptor for `AudioInputReady`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List audioInputReadyDescriptor = $convert.base64Decode(
+    'Cg9BdWRpb0lucHV0UmVhZHkSGwoJc3RyZWFtX2lkGAEgASgJUghzdHJlYW1JZA==');
 
 @$core.Deprecated('Use streamBeginDescriptor instead')
 const StreamBegin$json = {

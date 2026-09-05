@@ -192,6 +192,8 @@ typedef struct _gizclaw_rpc_v1_PeerStatus {
     pb_callback_t reported_at;
     bool has_volume;
     int64_t volume;
+    bool has_firmware_sha256;
+    char firmware_sha256[65];
 } gizclaw_rpc_v1_PeerStatus;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
@@ -369,7 +371,7 @@ extern "C" {
 #define gizclaw_rpc_v1_HardwareInfo_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, ""}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
@@ -426,7 +428,7 @@ extern "C" {
 #define gizclaw_rpc_v1_HardwareInfo_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, ""}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
@@ -507,6 +509,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_muted_tag      9
 #define gizclaw_rpc_v1_PeerStatus_reported_at_tag 10
 #define gizclaw_rpc_v1_PeerStatus_volume_tag     11
+#define gizclaw_rpc_v1_PeerStatus_firmware_sha256_tag 12
 #define gizclaw_rpc_v1_ClientDeviceStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_value_tag 1
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_key_tag 1
@@ -747,7 +750,8 @@ X(a, STATIC,   OPTIONAL, DOUBLE,   gnss_longitude,    7) \
 X(a, CALLBACK, REPEATED, MESSAGE,  labels,            8) \
 X(a, STATIC,   OPTIONAL, BOOL,     muted,             9) \
 X(a, CALLBACK, OPTIONAL, STRING,   reported_at,      10) \
-X(a, STATIC,   OPTIONAL, INT64,    volume,           11)
+X(a, STATIC,   OPTIONAL, INT64,    volume,           11) \
+X(a, STATIC,   OPTIONAL, STRING,   firmware_sha256,  12)
 #define gizclaw_rpc_v1_PeerStatus_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_DEFAULT NULL
 #define gizclaw_rpc_v1_PeerStatus_details_MSGTYPE google_protobuf_Struct

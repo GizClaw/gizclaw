@@ -294,6 +294,7 @@ class PeerStatus {
     this.gnssLongitude,
     this.gnssAltitudeM,
     this.gnssAccuracyM,
+    this.firmwareSha256,
     this.labels = const {},
     this.details = const {},
     this.raw = const {},
@@ -311,6 +312,7 @@ class PeerStatus {
       gnssLongitude: readOptionalDouble(object, 'gnss_longitude'),
       gnssAltitudeM: readOptionalDouble(object, 'gnss_altitude_m'),
       gnssAccuracyM: readOptionalDouble(object, 'gnss_accuracy_m'),
+      firmwareSha256: readOptionalString(object, 'firmware_sha256'),
       labels: Map.unmodifiable(readStringMap(object, 'labels')),
       details: Map.unmodifiable(readOptionalObject(object, 'details') ?? {}),
       raw: Map.unmodifiable(object),
@@ -326,6 +328,13 @@ class PeerStatus {
   final double? gnssLongitude;
   final double? gnssAltitudeM;
   final double? gnssAccuracyM;
+
+  /// Lowercase SHA-256 digest of the package the device reported running.
+  ///
+  /// Compare it with `package.sha256` of the channel from [DeviceFirmware] to
+  /// tell whether the device already runs that package. The device reports it
+  /// on a control response, so it is absent until the device has answered one.
+  final String? firmwareSha256;
   final Map<String, String> labels;
   final Map<String, Object?> details;
 
@@ -343,6 +352,7 @@ class PeerStatus {
     'gnss_longitude': gnssLongitude,
     'gnss_altitude_m': gnssAltitudeM,
     'gnss_accuracy_m': gnssAccuracyM,
+    'firmware_sha256': firmwareSha256,
     'labels': labels.isEmpty ? null : labels,
     'details': details.isEmpty ? null : details,
   });
@@ -635,6 +645,131 @@ class DeviceRebootRequest {
   final int? delayMs;
 
   JsonObject toJson() => withoutNulls({'delay_ms': delayMs});
+}
+
+/// Firmware channel name (`FirmwareChannelName`).
+enum FirmwareChannelName {
+  stable('stable'),
+  beta('beta'),
+  develop('develop');
+
+  const FirmwareChannelName(this.wireValue);
+
+  /// Value sent on the wire.
+  final String wireValue;
+}
+
+/// External firmware package configuration (`FirmwarePackage`).
+class FirmwarePackage {
+  const FirmwarePackage({
+    required this.url,
+    required this.sha256,
+    required this.size,
+  });
+
+  factory FirmwarePackage.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FirmwarePackage');
+    return FirmwarePackage(
+      url: readString(object, 'url'),
+      sha256: readString(object, 'sha256'),
+      size: readInt(object, 'size'),
+    );
+  }
+
+  /// HTTPS URL of the exact `.tar.zlib` archive bytes.
+  final String url;
+
+  /// Lowercase SHA-256 digest of the complete archive bytes.
+  final String sha256;
+
+  /// Exact archive size in bytes.
+  final int size;
+
+  JsonObject toJson() => {'url': url, 'sha256': sha256, 'size': size};
+}
+
+/// One firmware channel of a Firmware configuration (`FirmwareSlot`).
+class FirmwareSlot {
+  const FirmwareSlot({this.description, this.package});
+
+  factory FirmwareSlot.fromJson(Object? json) {
+    final object = asJsonObject(json, 'FirmwareSlot');
+    final package = readOptionalObject(object, 'package');
+    return FirmwareSlot(
+      description: readOptionalString(object, 'description'),
+      package: package == null ? null : FirmwarePackage.fromJson(package),
+    );
+  }
+
+  final String? description;
+
+  /// Package configured for this channel, absent when the channel has none.
+  final FirmwarePackage? package;
+
+  JsonObject toJson() =>
+      withoutNulls({'description': description, 'package': package?.toJson()});
+}
+
+/// Firmware channels configured for the device (`DeviceFirmware`).
+///
+/// Read with [GizClawControlClient.getDeviceFirmware]. Channel selection
+/// belongs to the caller: pick a channel here and name it when calling
+/// [GizClawControlClient.updateDeviceFirmware].
+class DeviceFirmware {
+  const DeviceFirmware({
+    required this.stable,
+    required this.beta,
+    required this.develop,
+    this.description,
+  });
+
+  factory DeviceFirmware.fromJson(Object? json) {
+    final object = asJsonObject(json, 'DeviceFirmware');
+    final slots = asJsonObject(object['slots'], 'FirmwareSlots');
+    return DeviceFirmware(
+      description: readOptionalString(object, 'description'),
+      stable: FirmwareSlot.fromJson(slots['stable']),
+      beta: FirmwareSlot.fromJson(slots['beta']),
+      develop: FirmwareSlot.fromJson(slots['develop']),
+    );
+  }
+
+  /// Description of the Firmware configuration bound to the device.
+  final String? description;
+
+  final FirmwareSlot stable;
+  final FirmwareSlot beta;
+  final FirmwareSlot develop;
+
+  /// Slot configured for [channel].
+  FirmwareSlot slot(FirmwareChannelName channel) => switch (channel) {
+    FirmwareChannelName.stable => stable,
+    FirmwareChannelName.beta => beta,
+    FirmwareChannelName.develop => develop,
+  };
+
+  JsonObject toJson() => withoutNulls({
+    'description': description,
+    'slots': {
+      'stable': stable.toJson(),
+      'beta': beta.toJson(),
+      'develop': develop.toJson(),
+    },
+  });
+}
+
+/// Body of `POST /gizclaw/v1/device/actions/firmware-update`.
+class DeviceFirmwareUpdateRequest {
+  const DeviceFirmwareUpdateRequest({this.channel, this.sha256});
+
+  /// Channel to install, or null to let the device keep its own channel.
+  final FirmwareChannelName? channel;
+
+  /// Package digest the caller saw, or null to skip the device-side check.
+  final String? sha256;
+
+  JsonObject toJson() =>
+      withoutNulls({'channel': channel?.wireValue, 'sha256': sha256});
 }
 
 /// Current Wi-Fi status of the device (`DeviceWifiStatus`).

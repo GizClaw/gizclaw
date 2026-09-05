@@ -33,6 +33,9 @@ const (
 	PeerEventType_PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED PeerEventType = 6
 	PeerEventType_PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED        PeerEventType = 7
 	PeerEventType_PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED     PeerEventType = 8
+	// Server acknowledgement that an input audio BOS has been authorized and
+	// installed. Clients must receive this before sending its Opus packets.
+	PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY PeerEventType = 9
 )
 
 // Enum value maps for PeerEventType.
@@ -47,6 +50,7 @@ var (
 		6: "PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED",
 		7: "PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED",
 		8: "PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED",
+		9: "PEER_EVENT_TYPE_AUDIO_INPUT_READY",
 	}
 	PeerEventType_value = map[string]int32{
 		"PEER_EVENT_TYPE_UNSPECIFIED":                 0,
@@ -58,6 +62,7 @@ var (
 		"PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED": 6,
 		"PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED":        7,
 		"PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED":     8,
+		"PEER_EVENT_TYPE_AUDIO_INPUT_READY":           9,
 	}
 )
 
@@ -313,6 +318,7 @@ type PeerEvent struct {
 	//	*PeerEvent_FriendRelationshipUpdated
 	//	*PeerEvent_FriendGroupUpdated
 	//	*PeerEvent_GameplayRewardUpdated
+	//	*PeerEvent_AudioInputReady
 	Payload       isPeerEvent_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -441,6 +447,15 @@ func (x *PeerEvent) GetGameplayRewardUpdated() *GameplayRewardUpdated {
 	return nil
 }
 
+func (x *PeerEvent) GetAudioInputReady() *AudioInputReady {
+	if x != nil {
+		if x, ok := x.Payload.(*PeerEvent_AudioInputReady); ok {
+			return x.AudioInputReady
+		}
+	}
+	return nil
+}
+
 type isPeerEvent_Payload interface {
 	isPeerEvent_Payload()
 }
@@ -477,6 +492,10 @@ type PeerEvent_GameplayRewardUpdated struct {
 	GameplayRewardUpdated *GameplayRewardUpdated `protobuf:"bytes,17,opt,name=gameplay_reward_updated,json=gameplayRewardUpdated,proto3,oneof"`
 }
 
+type PeerEvent_AudioInputReady struct {
+	AudioInputReady *AudioInputReady `protobuf:"bytes,18,opt,name=audio_input_ready,json=audioInputReady,proto3,oneof"`
+}
+
 func (*PeerEvent_Bos) isPeerEvent_Payload() {}
 
 func (*PeerEvent_Eos) isPeerEvent_Payload() {}
@@ -493,6 +512,52 @@ func (*PeerEvent_FriendGroupUpdated) isPeerEvent_Payload() {}
 
 func (*PeerEvent_GameplayRewardUpdated) isPeerEvent_Payload() {}
 
+func (*PeerEvent_AudioInputReady) isPeerEvent_Payload() {}
+
+type AudioInputReady struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StreamId      string                 `protobuf:"bytes,1,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AudioInputReady) Reset() {
+	*x = AudioInputReady{}
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AudioInputReady) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AudioInputReady) ProtoMessage() {}
+
+func (x *AudioInputReady) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AudioInputReady.ProtoReflect.Descriptor instead.
+func (*AudioInputReady) Descriptor() ([]byte, []int) {
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AudioInputReady) GetStreamId() string {
+	if x != nil {
+		return x.StreamId
+	}
+	return ""
+}
+
 type StreamBegin struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	StreamId        string                 `protobuf:"bytes,1,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`
@@ -507,7 +572,7 @@ type StreamBegin struct {
 
 func (x *StreamBegin) Reset() {
 	*x = StreamBegin{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[1]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -519,7 +584,7 @@ func (x *StreamBegin) String() string {
 func (*StreamBegin) ProtoMessage() {}
 
 func (x *StreamBegin) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[1]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -532,7 +597,7 @@ func (x *StreamBegin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamBegin.ProtoReflect.Descriptor instead.
 func (*StreamBegin) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *StreamBegin) GetStreamId() string {
@@ -592,7 +657,7 @@ type StreamEnd struct {
 
 func (x *StreamEnd) Reset() {
 	*x = StreamEnd{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[2]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +669,7 @@ func (x *StreamEnd) String() string {
 func (*StreamEnd) ProtoMessage() {}
 
 func (x *StreamEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[2]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +682,7 @@ func (x *StreamEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamEnd.ProtoReflect.Descriptor instead.
 func (*StreamEnd) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *StreamEnd) GetStreamId() string {
@@ -680,7 +745,7 @@ type EventError struct {
 
 func (x *EventError) Reset() {
 	*x = EventError{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[3]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -692,7 +757,7 @@ func (x *EventError) String() string {
 func (*EventError) ProtoMessage() {}
 
 func (x *EventError) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[3]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -705,7 +770,7 @@ func (x *EventError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventError.ProtoReflect.Descriptor instead.
 func (*EventError) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *EventError) GetCode() string {
@@ -742,7 +807,7 @@ type TextDelta struct {
 
 func (x *TextDelta) Reset() {
 	*x = TextDelta{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[4]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -754,7 +819,7 @@ func (x *TextDelta) String() string {
 func (*TextDelta) ProtoMessage() {}
 
 func (x *TextDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[4]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -767,7 +832,7 @@ func (x *TextDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextDelta.ProtoReflect.Descriptor instead.
 func (*TextDelta) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TextDelta) GetStreamId() string {
@@ -818,7 +883,7 @@ type TextDone struct {
 
 func (x *TextDone) Reset() {
 	*x = TextDone{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[5]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +895,7 @@ func (x *TextDone) String() string {
 func (*TextDone) ProtoMessage() {}
 
 func (x *TextDone) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[5]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +908,7 @@ func (x *TextDone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextDone.ProtoReflect.Descriptor instead.
 func (*TextDone) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TextDone) GetStreamId() string {
@@ -892,7 +957,7 @@ type WorkspaceHistoryUpdated struct {
 
 func (x *WorkspaceHistoryUpdated) Reset() {
 	*x = WorkspaceHistoryUpdated{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[6]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -904,7 +969,7 @@ func (x *WorkspaceHistoryUpdated) String() string {
 func (*WorkspaceHistoryUpdated) ProtoMessage() {}
 
 func (x *WorkspaceHistoryUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[6]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +982,7 @@ func (x *WorkspaceHistoryUpdated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkspaceHistoryUpdated.ProtoReflect.Descriptor instead.
 func (*WorkspaceHistoryUpdated) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{6}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *WorkspaceHistoryUpdated) GetWorkspaceName() string {
@@ -953,7 +1018,7 @@ type FriendRelationshipUpdated struct {
 
 func (x *FriendRelationshipUpdated) Reset() {
 	*x = FriendRelationshipUpdated{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[7]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -965,7 +1030,7 @@ func (x *FriendRelationshipUpdated) String() string {
 func (*FriendRelationshipUpdated) ProtoMessage() {}
 
 func (x *FriendRelationshipUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[7]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -978,7 +1043,7 @@ func (x *FriendRelationshipUpdated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendRelationshipUpdated.ProtoReflect.Descriptor instead.
 func (*FriendRelationshipUpdated) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{7}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FriendRelationshipUpdated) GetPeerPublicKey() string {
@@ -1022,7 +1087,7 @@ type FriendGroupUpdated struct {
 
 func (x *FriendGroupUpdated) Reset() {
 	*x = FriendGroupUpdated{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[8]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1034,7 +1099,7 @@ func (x *FriendGroupUpdated) String() string {
 func (*FriendGroupUpdated) ProtoMessage() {}
 
 func (x *FriendGroupUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[8]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1047,7 +1112,7 @@ func (x *FriendGroupUpdated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FriendGroupUpdated.ProtoReflect.Descriptor instead.
 func (*FriendGroupUpdated) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{8}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FriendGroupUpdated) GetFriendGroupName() string {
@@ -1096,7 +1161,7 @@ type GameplayRewardUpdated struct {
 
 func (x *GameplayRewardUpdated) Reset() {
 	*x = GameplayRewardUpdated{}
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[9]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1108,7 +1173,7 @@ func (x *GameplayRewardUpdated) String() string {
 func (*GameplayRewardUpdated) ProtoMessage() {}
 
 func (x *GameplayRewardUpdated) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_events_peer_event_proto_msgTypes[9]
+	mi := &file_api_proto_events_peer_event_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1121,7 +1186,7 @@ func (x *GameplayRewardUpdated) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GameplayRewardUpdated.ProtoReflect.Descriptor instead.
 func (*GameplayRewardUpdated) Descriptor() ([]byte, []int) {
-	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{9}
+	return file_api_proto_events_peer_event_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GameplayRewardUpdated) GetWorkspaceName() string {
@@ -1149,7 +1214,7 @@ var File_api_proto_events_peer_event_proto protoreflect.FileDescriptor
 
 const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\n" +
-	"!api/proto/events/peer_event.proto\x12\x11gizclaw.events.v1\"\xe0\x05\n" +
+	"!api/proto/events/peer_event.proto\x12\x11gizclaw.events.v1\"\xb2\x06\n" +
 	"\tPeerEvent\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x124\n" +
 	"\x04type\x18\x02 \x01(\x0e2 .gizclaw.events.v1.PeerEventTypeR\x04type\x122\n" +
@@ -1162,8 +1227,11 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x19workspace_history_updated\x18\x0e \x01(\v2*.gizclaw.events.v1.WorkspaceHistoryUpdatedH\x00R\x17workspaceHistoryUpdated\x12n\n" +
 	"\x1bfriend_relationship_updated\x18\x0f \x01(\v2,.gizclaw.events.v1.FriendRelationshipUpdatedH\x00R\x19friendRelationshipUpdated\x12Y\n" +
 	"\x14friend_group_updated\x18\x10 \x01(\v2%.gizclaw.events.v1.FriendGroupUpdatedH\x00R\x12friendGroupUpdated\x12b\n" +
-	"\x17gameplay_reward_updated\x18\x11 \x01(\v2(.gizclaw.events.v1.GameplayRewardUpdatedH\x00R\x15gameplayRewardUpdatedB\t\n" +
-	"\apayload\"\xd8\x01\n" +
+	"\x17gameplay_reward_updated\x18\x11 \x01(\v2(.gizclaw.events.v1.GameplayRewardUpdatedH\x00R\x15gameplayRewardUpdated\x12P\n" +
+	"\x11audio_input_ready\x18\x12 \x01(\v2\".gizclaw.events.v1.AudioInputReadyH\x00R\x0faudioInputReadyB\t\n" +
+	"\apayload\".\n" +
+	"\x0fAudioInputReady\x12\x1b\n" +
+	"\tstream_id\x18\x01 \x01(\tR\bstreamId\"\xd8\x01\n" +
 	"\vStreamBegin\x12\x1b\n" +
 	"\tstream_id\x18\x01 \x01(\tR\bstreamId\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\x12*\n" +
@@ -1214,7 +1282,7 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	"\x15GameplayRewardUpdated\x12%\n" +
 	"\x0eworkspace_name\x18\x01 \x01(\tR\rworkspaceName\x12*\n" +
 	"\x11reward_grant_name\x18\x02 \x01(\tR\x0frewardGrantName\x12(\n" +
-	"\x10revision_unix_ms\x18\x03 \x01(\x03R\x0erevisionUnixMs*\xd8\x02\n" +
+	"\x10revision_unix_ms\x18\x03 \x01(\x03R\x0erevisionUnixMs*\xff\x02\n" +
 	"\rPeerEventType\x12\x1f\n" +
 	"\x1bPEER_EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13PEER_EVENT_TYPE_BOS\x10\x01\x12\x17\n" +
@@ -1224,7 +1292,8 @@ const file_api_proto_events_peer_event_proto_rawDesc = "" +
 	")PEER_EVENT_TYPE_WORKSPACE_HISTORY_UPDATED\x10\x05\x12/\n" +
 	"+PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED\x10\x06\x12(\n" +
 	"$PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED\x10\a\x12+\n" +
-	"'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED\x10\b*\x84\x01\n" +
+	"'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED\x10\b\x12%\n" +
+	"!PEER_EVENT_TYPE_AUDIO_INPUT_READY\x10\t*\x84\x01\n" +
 	"\n" +
 	"StreamKind\x12\x1b\n" +
 	"\x17STREAM_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -1261,7 +1330,7 @@ func file_api_proto_events_peer_event_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_events_peer_event_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_proto_events_peer_event_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_api_proto_events_peer_event_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_api_proto_events_peer_event_proto_goTypes = []any{
 	(PeerEventType)(0),                // 0: gizclaw.events.v1.PeerEventType
 	(StreamKind)(0),                   // 1: gizclaw.events.v1.StreamKind
@@ -1269,37 +1338,39 @@ var file_api_proto_events_peer_event_proto_goTypes = []any{
 	(FriendRelationshipChange)(0),     // 3: gizclaw.events.v1.FriendRelationshipChange
 	(FriendGroupChange)(0),            // 4: gizclaw.events.v1.FriendGroupChange
 	(*PeerEvent)(nil),                 // 5: gizclaw.events.v1.PeerEvent
-	(*StreamBegin)(nil),               // 6: gizclaw.events.v1.StreamBegin
-	(*StreamEnd)(nil),                 // 7: gizclaw.events.v1.StreamEnd
-	(*EventError)(nil),                // 8: gizclaw.events.v1.EventError
-	(*TextDelta)(nil),                 // 9: gizclaw.events.v1.TextDelta
-	(*TextDone)(nil),                  // 10: gizclaw.events.v1.TextDone
-	(*WorkspaceHistoryUpdated)(nil),   // 11: gizclaw.events.v1.WorkspaceHistoryUpdated
-	(*FriendRelationshipUpdated)(nil), // 12: gizclaw.events.v1.FriendRelationshipUpdated
-	(*FriendGroupUpdated)(nil),        // 13: gizclaw.events.v1.FriendGroupUpdated
-	(*GameplayRewardUpdated)(nil),     // 14: gizclaw.events.v1.GameplayRewardUpdated
+	(*AudioInputReady)(nil),           // 6: gizclaw.events.v1.AudioInputReady
+	(*StreamBegin)(nil),               // 7: gizclaw.events.v1.StreamBegin
+	(*StreamEnd)(nil),                 // 8: gizclaw.events.v1.StreamEnd
+	(*EventError)(nil),                // 9: gizclaw.events.v1.EventError
+	(*TextDelta)(nil),                 // 10: gizclaw.events.v1.TextDelta
+	(*TextDone)(nil),                  // 11: gizclaw.events.v1.TextDone
+	(*WorkspaceHistoryUpdated)(nil),   // 12: gizclaw.events.v1.WorkspaceHistoryUpdated
+	(*FriendRelationshipUpdated)(nil), // 13: gizclaw.events.v1.FriendRelationshipUpdated
+	(*FriendGroupUpdated)(nil),        // 14: gizclaw.events.v1.FriendGroupUpdated
+	(*GameplayRewardUpdated)(nil),     // 15: gizclaw.events.v1.GameplayRewardUpdated
 }
 var file_api_proto_events_peer_event_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.events.v1.PeerEvent.type:type_name -> gizclaw.events.v1.PeerEventType
-	6,  // 1: gizclaw.events.v1.PeerEvent.bos:type_name -> gizclaw.events.v1.StreamBegin
-	7,  // 2: gizclaw.events.v1.PeerEvent.eos:type_name -> gizclaw.events.v1.StreamEnd
-	9,  // 3: gizclaw.events.v1.PeerEvent.text_delta:type_name -> gizclaw.events.v1.TextDelta
-	10, // 4: gizclaw.events.v1.PeerEvent.text_done:type_name -> gizclaw.events.v1.TextDone
-	11, // 5: gizclaw.events.v1.PeerEvent.workspace_history_updated:type_name -> gizclaw.events.v1.WorkspaceHistoryUpdated
-	12, // 6: gizclaw.events.v1.PeerEvent.friend_relationship_updated:type_name -> gizclaw.events.v1.FriendRelationshipUpdated
-	13, // 7: gizclaw.events.v1.PeerEvent.friend_group_updated:type_name -> gizclaw.events.v1.FriendGroupUpdated
-	14, // 8: gizclaw.events.v1.PeerEvent.gameplay_reward_updated:type_name -> gizclaw.events.v1.GameplayRewardUpdated
-	1,  // 9: gizclaw.events.v1.StreamBegin.kind:type_name -> gizclaw.events.v1.StreamKind
-	1,  // 10: gizclaw.events.v1.StreamEnd.kind:type_name -> gizclaw.events.v1.StreamKind
-	8,  // 11: gizclaw.events.v1.StreamEnd.error:type_name -> gizclaw.events.v1.EventError
-	2,  // 12: gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_kind:type_name -> gizclaw.events.v1.WorkspaceKind
-	3,  // 13: gizclaw.events.v1.FriendRelationshipUpdated.change:type_name -> gizclaw.events.v1.FriendRelationshipChange
-	4,  // 14: gizclaw.events.v1.FriendGroupUpdated.change:type_name -> gizclaw.events.v1.FriendGroupChange
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	7,  // 1: gizclaw.events.v1.PeerEvent.bos:type_name -> gizclaw.events.v1.StreamBegin
+	8,  // 2: gizclaw.events.v1.PeerEvent.eos:type_name -> gizclaw.events.v1.StreamEnd
+	10, // 3: gizclaw.events.v1.PeerEvent.text_delta:type_name -> gizclaw.events.v1.TextDelta
+	11, // 4: gizclaw.events.v1.PeerEvent.text_done:type_name -> gizclaw.events.v1.TextDone
+	12, // 5: gizclaw.events.v1.PeerEvent.workspace_history_updated:type_name -> gizclaw.events.v1.WorkspaceHistoryUpdated
+	13, // 6: gizclaw.events.v1.PeerEvent.friend_relationship_updated:type_name -> gizclaw.events.v1.FriendRelationshipUpdated
+	14, // 7: gizclaw.events.v1.PeerEvent.friend_group_updated:type_name -> gizclaw.events.v1.FriendGroupUpdated
+	15, // 8: gizclaw.events.v1.PeerEvent.gameplay_reward_updated:type_name -> gizclaw.events.v1.GameplayRewardUpdated
+	6,  // 9: gizclaw.events.v1.PeerEvent.audio_input_ready:type_name -> gizclaw.events.v1.AudioInputReady
+	1,  // 10: gizclaw.events.v1.StreamBegin.kind:type_name -> gizclaw.events.v1.StreamKind
+	1,  // 11: gizclaw.events.v1.StreamEnd.kind:type_name -> gizclaw.events.v1.StreamKind
+	9,  // 12: gizclaw.events.v1.StreamEnd.error:type_name -> gizclaw.events.v1.EventError
+	2,  // 13: gizclaw.events.v1.WorkspaceHistoryUpdated.workspace_kind:type_name -> gizclaw.events.v1.WorkspaceKind
+	3,  // 14: gizclaw.events.v1.FriendRelationshipUpdated.change:type_name -> gizclaw.events.v1.FriendRelationshipChange
+	4,  // 15: gizclaw.events.v1.FriendGroupUpdated.change:type_name -> gizclaw.events.v1.FriendGroupChange
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_events_peer_event_proto_init() }
@@ -1316,6 +1387,7 @@ func file_api_proto_events_peer_event_proto_init() {
 		(*PeerEvent_FriendRelationshipUpdated)(nil),
 		(*PeerEvent_FriendGroupUpdated)(nil),
 		(*PeerEvent_GameplayRewardUpdated)(nil),
+		(*PeerEvent_AudioInputReady)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1323,7 +1395,7 @@ func file_api_proto_events_peer_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_events_peer_event_proto_rawDesc), len(file_api_proto_events_peer_event_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

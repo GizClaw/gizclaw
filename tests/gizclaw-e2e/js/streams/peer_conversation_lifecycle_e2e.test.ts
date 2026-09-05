@@ -9,7 +9,7 @@ import {
   PEER_EVENT_VERSION,
   PeerEventType,
   StreamKind,
-  beginPeerStream,
+  beginPeerAudioInput,
   createContinuousAudioRouteRearm,
   createPeerEvent,
   endPeerStream,
@@ -277,15 +277,11 @@ async function runTwoAudioTurns(
       const eventOffset = probe.events.length;
       const downlinkOffset = downlinkFrames;
       const streamID = `edge-audio-${process.pid}-${Date.now()}-${turn}`;
-      sendPeerEvent(
-        eventChannel,
-        beginPeerStream({
-          streamId: streamID,
-          kind: StreamKind.AUDIO,
-          label: "user",
-          mimeType: "audio/opus",
-        }),
-      );
+      await beginPeerAudioInput(eventChannel, {
+        streamId: streamID,
+        label: "user",
+        mimeType: "audio/opus",
+      });
       await sendPCM(source, pcm, sampleRate);
       sendPeerEvent(
         eventChannel,
@@ -375,15 +371,11 @@ async function runContinuousAudioAcrossReload(
   );
   try {
     const { pcm, sampleRate } = await loadInputPCM(rpc);
-    sendPeerEvent(
-      eventChannel,
-      beginPeerStream({
-        streamId: activeStreamID,
-        kind: StreamKind.AUDIO,
-        label: "user",
-        mimeType: "audio/opus",
-      }),
-    );
+    await beginPeerAudioInput(eventChannel, {
+      streamId: activeStreamID,
+      label: "user",
+      mimeType: "audio/opus",
+    });
     routeRearm.activate({
       streamId: activeStreamID,
       label: "user",

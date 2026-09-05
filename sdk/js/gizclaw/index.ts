@@ -16,6 +16,8 @@ import {
   type ClientDeviceRebootRequest,
   type ClientDeviceSoundPlayRequest,
   type ClientDeviceVolumeSetRequest,
+  type ClientFirmwareUpdateRequest,
+  type FirmwareChannelName,
   type ClientGetIdentifiersResponse,
   type ClientGetInfoResponse,
   type ClientWifiSavedForgetRequest,
@@ -201,6 +203,15 @@ export type GizClawDeviceControlHandlers = {
   forgetWifi?: (ssid: string) => Promise<void> | void;
   playSound?: (sound: string, durationMs?: number) => Promise<void> | void;
   reboot?: (delayMs?: number) => Promise<void> | void;
+  // updateFirmware runs one OTA. channel is undefined when the caller leaves
+  // the choice to the device; sha256 is the package digest the caller resolved,
+  // and the handler throws GizClawDeviceControlError with
+  // RPC_ERROR_INVALID_PARAMS when it does not match the package the device
+  // resolves.
+  updateFirmware?: (
+    channel?: FirmwareChannelName,
+    sha256?: string,
+  ) => Promise<void> | void;
   savedWifi?: () => Promise<WifiSavedNetwork[]> | WifiSavedNetwork[];
   scanWifi?: (
     timeoutMs?: number,
@@ -2300,6 +2311,12 @@ const RPC_ERROR_INVALID_PARAMS = STATUS_CODE_INVALID_ARGUMENT;
 const RPC_ERROR_INTERNAL = STATUS_CODE_INTERNAL;
 const DEVICE_CONTROL_MAX_BYTES = 32;
 
+// FIRMWARE_CHANNEL_NAMES mirrors the FirmwareChannelName enum of
+// api/http/shared/server.json.
+const FIRMWARE_CHANNEL_NAMES = ["stable", "beta", "develop"];
+
+const FIRMWARE_SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
 function deviceControlTextTooLong(value: string): boolean {
   return new TextEncoder().encode(value).length > DEVICE_CONTROL_MAX_BYTES;
 }
@@ -2401,6 +2418,25 @@ async function answerClientRequest(
           return invalid();
         }
         await handler(delayMs);
+        return ok({});
+      }
+      case "client.firmware.update": {
+        const handler = control?.updateFirmware;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as
+          ClientFirmwareUpdateRequest | undefined;
+        const channel = params?.channel;
+        const sha256 = params?.sha256;
+        if (
+          (channel != null &&
+            !FIRMWARE_CHANNEL_NAMES.includes(channel as string)) ||
+          (sha256 != null && !FIRMWARE_SHA256_PATTERN.test(sha256))
+        ) {
+          return invalid();
+        }
+        await handler(channel, sha256);
         return ok({});
       }
       case "client.wifi.status.get": {

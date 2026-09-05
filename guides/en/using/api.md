@@ -150,10 +150,14 @@ An API key bound to one device (see [API keys](./api-keys)) can reach `/gizclaw/
 | `PUT /gizclaw/v1/device/volume` | Set volume and mute; returns the status the device reports |
 | `POST /gizclaw/v1/device/actions/play-sound` | Play a device-defined sound |
 | `POST /gizclaw/v1/device/actions/reboot` | Reboot the device |
+| `GET /gizclaw/v1/device/firmware` | Every channel of the Firmware configuration bound to the device, with its package |
+| `POST /gizclaw/v1/device/actions/firmware-update` | Notify the device to run one OTA |
 | `GET /gizclaw/v1/device/wifi`, `/wifi/saved`, `DELETE /wifi/saved/{ssid}` | Query Wi‑Fi status, list and forget saved networks |
 | `/gizclaw/v1/contacts`, `/contacts/{contactName}` | List/create/get/put/delete the device's contacts |
 
 Read routes project data the Server already holds and never wake the device. Control routes execute live over a Server-to-device RPC: an offline device answers `409 DEVICE_OFFLINE`, no answer within 5 seconds gives `504 DEVICE_TIMEOUT`, and a device without the provider gives `501 DEVICE_UNSUPPORTED`. Poll `GET /device/status` for state changes. Wi‑Fi provisioning stays on the device-local BLE channel.
+
+`GET /device/firmware` returns the `stable`, `beta`, and `develop` channels at once, each with its `package` (`url`, `sha256`, `size`). The Server does not store the channel the device uses, so the caller picks one and names it in `POST /device/actions/firmware-update` via `channel`; omitting it leaves the choice to the device. To tell whether an update is needed, compare `firmware_sha256` from `GET /device/status` — the package the device reports running — with the target channel's `package.sha256`, and pass that same `sha256` in the request so the device refuses when it resolves a different package than the one shown. Firmware too old to implement the RPC answers `501 DEVICE_UNSUPPORTED`; hide the update entry point in that case instead of reporting a failed update.
 
 ```sh
 curl -sS -X PUT "$GIZCLAW_URL/gizclaw/v1/device/volume" \

@@ -44,6 +44,7 @@ export type DecodedPeerStreamEvent = {
   text?: string;
   type:
     | "unknown"
+    | "audio.input.ready"
     | "bos"
     | "eos"
     | "text.delta"
@@ -240,6 +241,61 @@ export function sendPeerEvent(
   channel.send(encodePeerEventFrame(event));
 }
 
+/** Authorize an input route before enabling or sending its audio. */
+export function beginPeerAudioInput(
+  channel: WebRTCRPCDataChannel,
+  input: ContinuousAudioRoute,
+  signal?: AbortSignal,
+): Promise<void> {
+  const route = normalizeContinuousAudioRoute(input);
+  return new Promise<void>((resolve, reject) => {
+    let unsubscribe = (): void => {};
+    let settled = false;
+    const finish = (error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      signal?.removeEventListener("abort", onAbort);
+      if (error != null) reject(error);
+      else resolve();
+    };
+    const onAbort = (): void =>
+      finish(
+        signal?.reason instanceof Error
+          ? signal.reason
+          : new Error("audio input cancelled"),
+      );
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    unsubscribe = subscribePeerEvents(
+      channel,
+      (event) => {
+        if (event.streamId !== route.streamId) return;
+        if (event.type === "audio.input.ready") finish();
+        else if (event.type === "eos" && event.errorCode != null) {
+          finish(
+            new Error(
+              `${event.errorCode}: ${event.errorMessage ?? "audio input rejected"}`,
+            ),
+          );
+        }
+      },
+      finish,
+    );
+    signal?.addEventListener("abort", onAbort, { once: true });
+    try {
+      sendPeerEvent(
+        channel,
+        beginPeerStream({ ...route, kind: StreamKind.AUDIO }),
+      );
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
 export type ContinuousAudioRoute = {
   label?: string;
   mimeType?: string;
@@ -264,8 +320,11 @@ export function createContinuousAudioRouteRearm(
 ): ContinuousAudioRouteRearm {
   let active: Required<ContinuousAudioRoute> | undefined;
   let closed = false;
+  let pending: AbortController | undefined;
   let unsubscribe = (): void => {};
-  const handle = (event: DecodedPeerStreamEvent): string | undefined => {
+  const handle = async (
+    event: DecodedPeerStreamEvent,
+  ): Promise<string | undefined> => {
     const current = active;
     if (
       current == null ||
@@ -289,48 +348,55 @@ export function createContinuousAudioRouteRearm(
     }
     const replacement = { ...current, streamId };
     active = replacement;
+    const opening = new AbortController();
+    pending = opening;
     try {
-      sendPeerEvent(
-        channel,
-        beginPeerStream({
-          streamId,
-          kind: StreamKind.AUDIO,
-          label: replacement.label,
-          mimeType: replacement.mimeType,
-        }),
-      );
+      await beginPeerAudioInput(channel, replacement, opening.signal);
     } catch (error) {
+      if (closed || active !== replacement) return undefined;
       active = current;
       throw error;
+    } finally {
+      if (pending === opening) pending = undefined;
     }
-    return streamId;
+    return active === replacement ? streamId : undefined;
   };
   const owner: ContinuousAudioRouteRearm = {
     activate(route): void {
       if (closed) {
         throw new Error("continuous audio route re-arm owner is closed");
       }
+      pending?.abort();
       active = normalizeContinuousAudioRoute(route);
     },
     close(): void {
       if (closed) return;
       closed = true;
       active = undefined;
+      pending?.abort();
       unsubscribe();
     },
     deactivate(): void {
       active = undefined;
+      pending?.abort();
     },
   };
   unsubscribe = subscribePeerEvents(
     channel,
     (event) => {
-      const replacement = handle(event);
-      if (replacement != null) {
-        options.onRearmed?.(replacement);
-      }
+      void handle(event)
+        .then((replacement) => {
+          if (replacement != null) options.onRearmed?.(replacement);
+        })
+        .catch((error: unknown) => {
+          options.onError?.(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+        });
     },
-    options.onError,
+    (error) => {
+      if (pending == null) options.onError?.(error);
+    },
   );
   return owner;
 }
@@ -390,6 +456,11 @@ export function validatePeerEvent(event: PeerEvent): void {
 export function peerStreamEventView(event: PeerEvent): DecodedPeerStreamEvent {
   validateReceivedPeerEvent(event);
   switch (event.payload.case) {
+    case "audioInputReady":
+      return {
+        type: "audio.input.ready",
+        streamId: event.payload.value.streamId,
+      };
     case "bos":
       return {
         type: "bos",
@@ -485,6 +556,7 @@ function validateReceivedPeerEvent(event: PeerEvent): void {
 
 function validateResourceIdentifiers(event: PeerEvent): void {
   switch (event.payload.case) {
+    case "audioInputReady":
     case "bos":
     case "eos":
     case "textDelta":
@@ -532,6 +604,8 @@ function validateResourceIdentifiers(event: PeerEvent): void {
 
 function eventCase(type: PeerEventType): PeerEvent["payload"]["case"] | null {
   switch (type) {
+    case PeerEventType.AUDIO_INPUT_READY:
+      return "audioInputReady";
     case PeerEventType.BOS:
       return "bos";
     case PeerEventType.EOS:

@@ -13,6 +13,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
@@ -35,6 +36,7 @@ type deviceHTTPFixture struct {
 	control  *deviceController
 	metrics  *metrics.MemoryStore
 	apiKeys  *apikey.Server
+	firmware *firmware.Server
 }
 
 func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
@@ -56,6 +58,8 @@ func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
 	manager.Metrics = metrics.NewMemoryStore()
 	contacts := &contact.Server{Store: kv.NewMemory(nil)}
 	manager.Contacts = contacts
+	firmwares := &firmware.Server{Store: kv.NewMemory(nil)}
+	manager.Firmwares = firmwares
 	if _, err := peers.SavePeer(ctx, apitypes.Peer{
 		PublicKey: ownerKey.Public.String(), Role: apitypes.PeerRoleClient,
 		Status: apitypes.PeerRegistrationStatusActive,
@@ -78,7 +82,7 @@ func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
 	return &deviceHTTPFixture{
 		handler: service.publicHTTPHandler(keys), owner: ownerKey.Public, secret: created.Secret,
 		manager: manager, peers: peers, contacts: contacts, control: control, metrics: manager.Metrics.(*metrics.MemoryStore),
-		apiKeys: keys,
+		apiKeys: keys, firmware: firmwares,
 	}
 }
 

@@ -87,6 +87,12 @@ jobs:
           BUILD_COMMIT: ${{ github.sha }}
         run: build/build-linux.sh
 
+      - name: Validate AST consecutive-turn Giztests
+        run: |
+          "${RUNNER_TEMP}/gizclaw-linux-amd64" test validate \
+            -f tests/gizclaw-e2e/giztest/volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml \
+            -f tests/gizclaw-e2e/giztest/volc-ast-translate.realtime-consecutive-turns.giztest.yaml
+
       - name: Build and exercise validation package
         env:
           BINARY: ${{ runner.temp }}/gizclaw-linux-amd64

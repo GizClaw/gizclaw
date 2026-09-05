@@ -494,6 +494,87 @@ void main() {
       expect(jsonDecode(recorder.requests[1].body), {'delay_ms': 3000});
     });
 
+    test('getDeviceFirmware decodes every channel', () async {
+      final recorder = Recorder([
+        json(200, {
+          'description': 'Devkit firmware channels',
+          'slots': {
+            'stable': {
+              'description': 'Devkit firmware 1.0.3',
+              'package': {
+                'url': 'https://firmware.example.com/devkit/1.0.3.tar.zlib',
+                'sha256':
+                    'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+                'size': 4096,
+              },
+            },
+            'beta': {
+              'package': {
+                'url': 'https://firmware.example.com/devkit/1.1.0.tar.zlib',
+                'sha256':
+                    'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
+                'size': 8192,
+              },
+            },
+            'develop': <String, Object?>{},
+          },
+        }),
+      ]);
+      final firmware = await clientWith(recorder).getDeviceFirmware();
+      expect(recorder.single.method, 'GET');
+      expect(recorder.single.url.path, '/gizclaw/v1/device/firmware');
+      expect(firmware.description, 'Devkit firmware channels');
+      expect(firmware.stable.description, 'Devkit firmware 1.0.3');
+      expect(firmware.stable.package?.size, 4096);
+      expect(
+        firmware.slot(FirmwareChannelName.beta).package?.url,
+        'https://firmware.example.com/devkit/1.1.0.tar.zlib',
+      );
+      // An unconfigured channel decodes as an empty slot, not as an error.
+      expect(firmware.develop.package, isNull);
+      expect(firmware.develop.description, isNull);
+    });
+
+    test('getDeviceFirmware maps an unbound device to notFound', () async {
+      final recorder = Recorder([error(404, 'FIRMWARE_NOT_FOUND')]);
+      final exception = await failure(clientWith(recorder).getDeviceFirmware());
+      expect(exception.kind, GizClawControlErrorKind.notFound);
+      expect(exception.code, 'FIRMWARE_NOT_FOUND');
+    });
+
+    test('updateDeviceFirmware posts an empty object by default', () async {
+      final recorder = Recorder([noContent(), noContent()]);
+      final client = clientWith(recorder);
+      await client.updateDeviceFirmware();
+      await client.updateDeviceFirmware(
+        channel: FirmwareChannelName.beta,
+        sha256:
+            'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
+      );
+      expect(recorder.requests[0].method, 'POST');
+      expect(
+        recorder.requests[0].url.path,
+        '/gizclaw/v1/device/actions/firmware-update',
+      );
+      expect(jsonDecode(recorder.requests[0].body), <String, Object?>{});
+      expect(jsonDecode(recorder.requests[1].body), {
+        'channel': 'beta',
+        'sha256':
+            'b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a',
+      });
+    });
+
+    test(
+      'updateDeviceFirmware maps old firmware to deviceUnsupported',
+      () async {
+        final recorder = Recorder([error(501, 'DEVICE_UNSUPPORTED')]);
+        final exception = await failure(
+          clientWith(recorder).updateDeviceFirmware(),
+        );
+        expect(exception.kind, GizClawControlErrorKind.deviceUnsupported);
+      },
+    );
+
     test('wifi reads', () async {
       final recorder = Recorder([
         json(200, {

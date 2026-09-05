@@ -5069,14 +5069,17 @@ type PeerStatus struct {
 	BatteryPercent *int                    `json:"battery_percent,omitempty"`
 	Charging       *bool                   `json:"charging,omitempty"`
 	Details        *map[string]interface{} `json:"details,omitempty"`
-	GnssAccuracyM  *float32                `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32                `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32                `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32                `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string      `json:"labels,omitempty"`
-	Muted          *bool                   `json:"muted,omitempty"`
-	ReportedAt     *time.Time              `json:"reported_at,omitempty"`
-	Volume         *int                    `json:"volume,omitempty"`
+
+	// FirmwareSha256 Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
+	FirmwareSha256 *string            `json:"firmware_sha256,omitempty"`
+	GnssAccuracyM  *float32           `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM  *float32           `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude   *float32           `json:"gnss_latitude,omitempty"`
+	GnssLongitude  *float32           `json:"gnss_longitude,omitempty"`
+	Labels         *map[string]string `json:"labels,omitempty"`
+	Muted          *bool              `json:"muted,omitempty"`
+	ReportedAt     *time.Time         `json:"reported_at,omitempty"`
+	Volume         *int               `json:"volume,omitempty"`
 }
 
 // PeerTelemetryAggregate Bucket aggregate mode for peer telemetry range data.

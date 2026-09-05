@@ -28,7 +28,35 @@ void main() {
     final factory = FakeDataChannelFactory();
     final session = await WorkspaceEventSession.open(factory);
 
-    await session.beginAudio('audio-1');
+    var ready = false;
+    final opening = session.beginAudio('audio-1').then((_) {
+      ready = true;
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(ready, isFalse);
+    factory.channels.single.addMessage(
+      encodeFrame(
+        rpcFrameTypeBinary,
+        PeerEvent(
+          version: 1,
+          type: PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY,
+          audioInputReady: AudioInputReady(streamId: 'stale-turn'),
+        ).writeToBuffer(),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(ready, isFalse);
+    factory.channels.single.addMessage(
+      encodeFrame(
+        rpcFrameTypeBinary,
+        PeerEvent(
+          version: 1,
+          type: PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY,
+          audioInputReady: AudioInputReady(streamId: 'audio-1'),
+        ).writeToBuffer(),
+      ),
+    );
+    await opening;
     await session.endAudio('audio-1');
 
     final channel = factory.channels.single;
@@ -47,6 +75,34 @@ void main() {
     expect(done.eos.streamId, 'audio-1');
 
     await session.close();
+  });
+
+  test('pending audio exposes denial and closure', () async {
+    for (final denied in [true, false]) {
+      final factory = FakeDataChannelFactory();
+      final session = await WorkspaceEventSession.open(factory);
+      final opening = session.beginAudio('pending');
+      final failed = expectLater(opening, throwsA(isA<StateError>()));
+      if (denied) {
+        factory.channels.single.addMessage(
+          encodeFrame(
+            rpcFrameTypeBinary,
+            PeerEvent(
+              version: 1,
+              type: PeerEventType.PEER_EVENT_TYPE_EOS,
+              eos: StreamEnd(
+                streamId: 'pending',
+                error: EventError(code: 'MEMBER_REMOVED', message: 'removed'),
+              ),
+            ).writeToBuffer(),
+          ),
+        );
+      } else {
+        await session.close();
+      }
+      await failed;
+      await session.close();
+    }
   });
 
   test('decodes streaming events and rejects malformed payloads', () async {
@@ -116,7 +172,7 @@ void main() {
     ).readAsStringSync();
     final vectors = (jsonDecode(source) as List<Object?>)
         .cast<Map<String, Object?>>();
-    expect(vectors, hasLength(8));
+    expect(vectors, hasLength(9));
     for (final vector in vectors) {
       final expected = _hexBytes(vector['hex']! as String);
       final event = PeerEvent.fromBuffer(expected);
@@ -131,7 +187,7 @@ void main() {
   });
 
   test('keeps a future event type consumable', () {
-    final decoded = PeerStreamEvent.decode(_hexBytes('08011063920100'));
+    final decoded = PeerStreamEvent.decode(_hexBytes('080110639a0100'));
     expect(decoded.type, 'unknown');
   });
 

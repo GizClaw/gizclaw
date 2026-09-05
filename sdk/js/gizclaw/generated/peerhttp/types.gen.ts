@@ -88,6 +88,22 @@ export type DeviceRebootRequest = {
     delay_ms?: number;
 };
 
+export type DeviceFirmware = {
+    /**
+     * Description of the Firmware configuration bound to the device.
+     */
+    description?: string;
+    slots: FirmwareSlots;
+};
+
+export type DeviceFirmwareUpdateRequest = {
+    channel?: FirmwareChannelName;
+    /**
+     * Package digest the caller saw. The device rejects the request when it does not match the package it resolves.
+     */
+    sha256?: string;
+};
+
 export type DeviceWifiStatus = {
     connected: boolean;
     ssid?: string;
@@ -204,6 +220,32 @@ export type ErrorResponse = {
     error: ErrorPayload;
 };
 
+export type FirmwarePackage = {
+    /**
+     * Operator-owned HTTPS URL for the exact .tar.zlib archive bytes.
+     */
+    url: string;
+    /**
+     * Lowercase SHA-256 digest of the complete .tar.zlib archive bytes.
+     */
+    sha256: string;
+    /**
+     * Exact .tar.zlib archive size in bytes.
+     */
+    size: number;
+};
+
+export type FirmwareSlot = {
+    description?: string;
+    package?: FirmwarePackage;
+};
+
+export type FirmwareSlots = {
+    stable: FirmwareSlot;
+    beta: FirmwareSlot;
+    develop: FirmwareSlot;
+};
+
 export type HardwareInfo = {
     manufacturer?: string;
     model?: string;
@@ -258,6 +300,10 @@ export type PeerStatus = {
     details?: {
         [key: string]: unknown;
     };
+    /**
+     * Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
+     */
+    firmware_sha256?: string;
 };
 
 /**
@@ -324,6 +370,8 @@ export type Runtime = {
      */
     debug_mode?: string;
 };
+
+export type FirmwareChannelName = 'stable' | 'beta' | 'develop';
 
 export type ServerInfo = {
     public_key: string;
@@ -1251,6 +1299,43 @@ export type AggregateDeviceTelemetryResponses = {
 
 export type AggregateDeviceTelemetryResponse = AggregateDeviceTelemetryResponses[keyof AggregateDeviceTelemetryResponses];
 
+export type GetDeviceFirmwareData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/firmware';
+};
+
+export type GetDeviceFirmwareErrors = {
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The caller device has no Firmware configuration bound, or the bound configuration no longer exists.
+     */
+    404: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceFirmwareError = GetDeviceFirmwareErrors[keyof GetDeviceFirmwareErrors];
+
+export type GetDeviceFirmwareResponses = {
+    /**
+     * Firmware channels configured for the bound device.
+     */
+    200: DeviceFirmware;
+};
+
+export type GetDeviceFirmwareResponse = GetDeviceFirmwareResponses[keyof GetDeviceFirmwareResponses];
+
 export type SetDeviceVolumeData = {
     body: DeviceVolumeSetRequest;
     path?: never;
@@ -1409,6 +1494,59 @@ export type RebootDeviceResponses = {
 };
 
 export type RebootDeviceResponse = RebootDeviceResponses[keyof RebootDeviceResponses];
+
+export type UpdateDeviceFirmwareData = {
+    body?: DeviceFirmwareUpdateRequest;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/actions/firmware-update';
+};
+
+export type UpdateDeviceFirmwareErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type UpdateDeviceFirmwareError = UpdateDeviceFirmwareErrors[keyof UpdateDeviceFirmwareErrors];
+
+export type UpdateDeviceFirmwareResponses = {
+    /**
+     * The device accepted the firmware update request.
+     */
+    204: void;
+};
+
+export type UpdateDeviceFirmwareResponse = UpdateDeviceFirmwareResponses[keyof UpdateDeviceFirmwareResponses];
 
 export type GetDeviceWifiData = {
     body?: never;

@@ -1,5 +1,37 @@
 # CLI
 
+## 查询单个或多个资源
+
+单资源查询输出一个 Resource JSON 对象：
+
+```sh
+gizclaw admin show Model model-a --context dev
+```
+
+批量查询接收 JSON 数组，数组元素只包含资源的 `kind` 和 `id`，支持混合类型和重复引用：
+
+```json
+[
+  {"kind":"Model","id":"model-a"},
+  {"kind":"RuntimeProfile","id":"profile-a"}
+]
+```
+
+```sh
+gizclaw admin show -f resources.json --context dev
+cat resources.json | gizclaw admin show -f - --context dev
+```
+
+`-f` 与位置参数互斥，文件或 stdin 必须包含一个 JSON 数组；不支持 YAML。
+全部引用在连接前完成校验。空数组输出 `[]`，不建立连接。
+非空批次复用一个连接，最多同时查询 8 个资源，没有并发配置参数。
+输出是按输入顺序排列的 Resource JSON 数组，重复引用保留各自的位置。
+
+某项查询失败时，对应位置为 `null`，其余查询继续；stderr 报告从 0 开始的索引、
+资源类型、ID 和错误，进程以非零状态退出。输入或连接失败时不输出结果数组。
+命令取消会传递给查询，尚未发起的查询不再请求服务器；所有查询结束后关闭连接。
+
+
 ## 离线校验声明式 Resource
 
 在 apply 之前，可以用 `admin validate` 校验一个声明式 Resource 或一个 `ResourceList`：

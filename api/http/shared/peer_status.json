@@ -58,6 +58,11 @@
           "details": {
             "type": "object",
             "additionalProperties": true
+          },
+          "firmware_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device."
           }
         }
       }

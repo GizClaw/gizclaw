@@ -29,8 +29,18 @@ type PeerStream struct {
 	resourceEvents chan *eventpb.PeerEvent
 	resourceOnce   sync.Once
 
+	inputReadyMu sync.Mutex
+	inputReady   *peerAudioInputReady
+
 	audioRouteMu sync.RWMutex
 	audioRoute   genx.StreamCtrl
+}
+
+type peerAudioInputReady struct {
+	streamID  string
+	done      chan struct{}
+	err       error
+	completed bool
 }
 
 type peerPacketWriter interface {
@@ -96,6 +106,9 @@ func (s *PeerStream) Next() (*genx.MessageChunk, error) {
 	}
 }
 
+// Push sends a logical input chunk. An audio BOS waits for the Server to
+// acknowledge its input route before any Opus packet is sent. The caller
+// must use a fresh stream ID and keep consuming output while pushing input.
 func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	if s == nil {
 		return io.ErrClosedPipe
@@ -116,8 +129,24 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 		return s.closeErr()
 	default:
 	}
+	var ready *peerAudioInputReady
+	if chunk.IsBeginOfStream() && peerStreamChunkIsOpusControl(chunk) {
+		var err error
+		ready, err = s.beginAudioInput(chunk.Ctrl.StreamID)
+		if err != nil {
+			return err
+		}
+	}
 	for _, event := range peerStreamEventsFromChunk(chunk) {
 		if err := WritePeerStreamEvent(s.events, event); err != nil {
+			if ready != nil {
+				s.completeAudioInput(ready.streamID, err)
+			}
+			return err
+		}
+	}
+	if ready != nil {
+		if err := s.waitAudioInput(ctx, ready); err != nil {
 			return err
 		}
 	}
@@ -127,6 +156,18 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	}
 	if s.conn == nil {
 		return fmt.Errorf("gizclaw: peer stream is not connected")
+	}
+	s.inputReadyMu.Lock()
+	ready = s.inputReady
+	s.inputReadyMu.Unlock()
+	if ready == nil {
+		return fmt.Errorf("gizclaw: audio input requires an acknowledged BOS")
+	}
+	if chunk.Ctrl == nil || chunk.Ctrl.StreamID != ready.streamID {
+		return fmt.Errorf("gizclaw: audio chunk does not belong to input stream %q", ready.streamID)
+	}
+	if err := s.waitAudioInput(ctx, ready); err != nil {
+		return err
 	}
 	_, err := s.conn.Write(giznet.ProtocolOpusPacket, blob.Data)
 	return err
@@ -163,8 +204,16 @@ func (s *PeerStream) readEvents() {
 	for {
 		event, err := ReadPeerStreamEvent(s.events)
 		if err != nil {
+			s.completeAudioInput("", err)
 			_ = s.pushEventResult(peerStreamEventResult{err: err})
 			return
+		}
+		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY {
+			s.completeAudioInput(event.GetAudioInputReady().GetStreamId(), nil)
+			continue
+		}
+		if terminal := event.GetEos(); terminal != nil && terminal.Error != nil {
+			s.completeAudioInput(terminal.StreamId, fmt.Errorf("gizclaw: audio input rejected: %s: %s", terminal.Error.Code, terminal.Error.Message))
 		}
 		if isPeerResourceInvalidation(event) {
 			s.publishResourceEvent(event)
@@ -177,6 +226,7 @@ func (s *PeerStream) readEvents() {
 		}
 		chunk, err := peerStreamEventToChunk(event)
 		if err != nil {
+			s.completeAudioInput("", err)
 			_ = s.pushEventResult(peerStreamEventResult{err: err})
 			return
 		}
@@ -587,4 +637,40 @@ func opusPacketChunk(payload []byte) (*genx.MessageChunk, bool) {
 		Part: &genx.Blob{MIMEType: "audio/opus", Data: append([]byte(nil), payload...)},
 		Ctrl: &genx.StreamCtrl{StreamID: "audio"},
 	}, true
+}
+
+func (s *PeerStream) beginAudioInput(streamID string) (*peerAudioInputReady, error) {
+	s.inputReadyMu.Lock()
+	defer s.inputReadyMu.Unlock()
+	if s.inputReady != nil && !s.inputReady.completed {
+		return nil, fmt.Errorf("gizclaw: audio input BOS is already awaiting acknowledgement")
+	}
+	ready := &peerAudioInputReady{streamID: streamID, done: make(chan struct{})}
+	s.inputReady = ready
+	return ready, nil
+}
+
+func (s *PeerStream) completeAudioInput(streamID string, err error) {
+	s.inputReadyMu.Lock()
+	defer s.inputReadyMu.Unlock()
+	ready := s.inputReady
+	if ready == nil || (streamID != "" && ready.streamID != streamID) || ready.completed {
+		return
+	}
+	ready.err = err
+	ready.completed = true
+	close(ready.done)
+}
+
+func (s *PeerStream) waitAudioInput(ctx context.Context, ready *peerAudioInputReady) error {
+	select {
+	case <-ready.done:
+		return ready.err
+	case <-ctx.Done():
+		err := context.Cause(ctx)
+		s.completeAudioInput(ready.streamID, err)
+		return err
+	case <-s.done:
+		return s.closeErr()
+	}
 }

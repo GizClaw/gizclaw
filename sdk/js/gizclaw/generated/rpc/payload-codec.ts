@@ -154,6 +154,11 @@ export type ClientDeviceVolumeSetRequest = {
   "muted": boolean;
 };
 export type ClientDeviceVolumeSetResponse = PeerStatus;
+export type ClientFirmwareUpdateRequest = {
+  "channel"?: FirmwareChannelName;
+  "sha256"?: string;
+};
+export type ClientFirmwareUpdateResponse = Record<string, never>;
 export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
@@ -833,6 +838,7 @@ export type PeerStatus = {
   "battery_percent"?: number;
   "charging"?: boolean;
   "details": Record<string, unknown>;
+  "firmware_sha256"?: string;
   "gnss_accuracy_m"?: number;
   "gnss_altitude_m"?: number;
   "gnss_latitude"?: number;
@@ -1398,6 +1404,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.device.sound.play": "ClientDeviceSoundPlayRequest",
   "client.device.status.get": "ClientDeviceStatusGetRequest",
   "client.device.volume.set": "ClientDeviceVolumeSetRequest",
+  "client.firmware.update": "ClientFirmwareUpdateRequest",
   "client.identifiers.get": "ClientGetIdentifiersRequest",
   "client.info.get": "ClientGetInfoRequest",
   "client.tool.invoke": "ToolInvokeRequest",
@@ -1507,6 +1514,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.device.sound.play": "ClientDeviceSoundPlayResponse",
   "client.device.status.get": "ClientDeviceStatusGetResponse",
   "client.device.volume.set": "ClientDeviceVolumeSetResponse",
+  "client.firmware.update": "ClientFirmwareUpdateResponse",
   "client.identifiers.get": "ClientGetIdentifiersResponse",
   "client.info.get": "ClientGetInfoResponse",
   "client.tool.invoke": "ToolInvokeResponse",
@@ -2040,6 +2048,25 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "PeerStatus"
       }
     ]
+  },
+  "ClientFirmwareUpdateRequest": {
+    "fields": [
+      {
+        "name": "channel",
+        "number": 1,
+        "optional": true,
+        "type": "FirmwareChannelName"
+      },
+      {
+        "name": "sha256",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientFirmwareUpdateResponse": {
+    "fields": []
   },
   "ClientGetIdentifiersRequest": {
     "fields": []
@@ -5150,6 +5177,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "details",
         "number": 3,
         "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "firmware_sha256",
+        "number": 12,
+        "optional": true,
+        "type": "string"
       },
       {
         "name": "gnss_accuracy_m",

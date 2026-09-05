@@ -190,5 +190,6 @@ enum RpcMethod {
   RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106 [(rpc_method) = { name: "client.wifi.saved.forget" request: "ClientWifiSavedForgetRequest" response: "ClientWifiSavedForgetResponse" }];
   RPC_METHOD_CLIENT_WIFI_SCAN = 108 [(rpc_method) = { name: "client.wifi.scan" request: "ClientWifiScanRequest" response: "ClientWifiScanResponse" }];
   RPC_METHOD_CLIENT_WIFI_CONNECT = 109 [(rpc_method) = { name: "client.wifi.connect" request: "ClientWifiConnectRequest" response: "ClientWifiConnectResponse" }];
-  RPC_METHOD_SERVER_RUNTIME_PUT = 111 [(rpc_method) = { name: "server.runtime.put" request: "ServerPutRuntimeRequest" response: "ServerPutRuntimeResponse" }];
+  RPC_METHOD_CLIENT_FIRMWARE_UPDATE = 111 [(rpc_method) = { name: "client.firmware.update" request: "ClientFirmwareUpdateRequest" response: "ClientFirmwareUpdateResponse" }];
+  RPC_METHOD_SERVER_RUNTIME_PUT = 112 [(rpc_method) = { name: "server.runtime.put" request: "ServerPutRuntimeRequest" response: "ServerPutRuntimeResponse" }];
 }

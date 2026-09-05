@@ -30,6 +30,7 @@ enum PeerEvent_Payload {
   friendRelationshipUpdated,
   friendGroupUpdated,
   gameplayRewardUpdated,
+  audioInputReady,
   notSet
 }
 
@@ -45,6 +46,7 @@ class PeerEvent extends $pb.GeneratedMessage {
     FriendRelationshipUpdated? friendRelationshipUpdated,
     FriendGroupUpdated? friendGroupUpdated,
     GameplayRewardUpdated? gameplayRewardUpdated,
+    AudioInputReady? audioInputReady,
   }) {
     final result = create();
     if (version != null) result.version = version;
@@ -61,6 +63,7 @@ class PeerEvent extends $pb.GeneratedMessage {
       result.friendGroupUpdated = friendGroupUpdated;
     if (gameplayRewardUpdated != null)
       result.gameplayRewardUpdated = gameplayRewardUpdated;
+    if (audioInputReady != null) result.audioInputReady = audioInputReady;
     return result;
   }
 
@@ -83,6 +86,7 @@ class PeerEvent extends $pb.GeneratedMessage {
     15: PeerEvent_Payload.friendRelationshipUpdated,
     16: PeerEvent_Payload.friendGroupUpdated,
     17: PeerEvent_Payload.gameplayRewardUpdated,
+    18: PeerEvent_Payload.audioInputReady,
     0: PeerEvent_Payload.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -90,7 +94,7 @@ class PeerEvent extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.events.v1'),
       createEmptyInstance: create)
-    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17])
+    ..oo(0, [10, 11, 12, 13, 14, 15, 16, 17, 18])
     ..aI(1, _omitFieldNames ? '' : 'version', fieldType: $pb.PbFieldType.OU3)
     ..aE<PeerEventType>(2, _omitFieldNames ? '' : 'type',
         enumValues: PeerEventType.values)
@@ -113,6 +117,8 @@ class PeerEvent extends $pb.GeneratedMessage {
     ..aOM<GameplayRewardUpdated>(
         17, _omitFieldNames ? '' : 'gameplayRewardUpdated',
         subBuilder: GameplayRewardUpdated.create)
+    ..aOM<AudioInputReady>(18, _omitFieldNames ? '' : 'audioInputReady',
+        subBuilder: AudioInputReady.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -141,6 +147,7 @@ class PeerEvent extends $pb.GeneratedMessage {
   @$pb.TagNumber(15)
   @$pb.TagNumber(16)
   @$pb.TagNumber(17)
+  @$pb.TagNumber(18)
   PeerEvent_Payload whichPayload() => _PeerEvent_PayloadByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
@@ -150,6 +157,7 @@ class PeerEvent extends $pb.GeneratedMessage {
   @$pb.TagNumber(15)
   @$pb.TagNumber(16)
   @$pb.TagNumber(17)
+  @$pb.TagNumber(18)
   void clearPayload() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -260,6 +268,72 @@ class PeerEvent extends $pb.GeneratedMessage {
   void clearGameplayRewardUpdated() => $_clearField(17);
   @$pb.TagNumber(17)
   GameplayRewardUpdated ensureGameplayRewardUpdated() => $_ensure(9);
+
+  @$pb.TagNumber(18)
+  AudioInputReady get audioInputReady => $_getN(10);
+  @$pb.TagNumber(18)
+  set audioInputReady(AudioInputReady value) => $_setField(18, value);
+  @$pb.TagNumber(18)
+  $core.bool hasAudioInputReady() => $_has(10);
+  @$pb.TagNumber(18)
+  void clearAudioInputReady() => $_clearField(18);
+  @$pb.TagNumber(18)
+  AudioInputReady ensureAudioInputReady() => $_ensure(10);
+}
+
+class AudioInputReady extends $pb.GeneratedMessage {
+  factory AudioInputReady({
+    $core.String? streamId,
+  }) {
+    final result = create();
+    if (streamId != null) result.streamId = streamId;
+    return result;
+  }
+
+  AudioInputReady._();
+
+  factory AudioInputReady.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AudioInputReady.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AudioInputReady',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.events.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'streamId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AudioInputReady clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AudioInputReady copyWith(void Function(AudioInputReady) updates) =>
+      super.copyWith((message) => updates(message as AudioInputReady))
+          as AudioInputReady;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AudioInputReady create() => AudioInputReady._();
+  @$core.override
+  AudioInputReady createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AudioInputReady getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AudioInputReady>(create);
+  static AudioInputReady? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get streamId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set streamId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStreamId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStreamId() => $_clearField(1);
 }
 
 class StreamBegin extends $pb.GeneratedMessage {

@@ -81,6 +81,18 @@ func (c *rpcClient) RebootDevice(ctx context.Context, conn net.Conn, id string, 
 	return result, nil
 }
 
+func (c *rpcClient) UpdateDeviceFirmware(ctx context.Context, conn net.Conn, id string, request rpcapi.ClientFirmwareUpdateRequest) (*rpcapi.ClientFirmwareUpdateResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromClientFirmwareUpdateRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodClientFirmwareUpdate, params), rpcapi.RPCPayload.AsClientFirmwareUpdateResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("device firmware update", err)
+	}
+	return result, nil
+}
+
 func (c *rpcClient) GetWifiStatus(ctx context.Context, conn net.Conn, id string) (*rpcapi.ClientWifiStatusGetResponse, error) {
 	params, err := newRPCRequestParams(rpcapi.ClientWifiStatusGetRequest{}, (*rpcapi.RPCPayload).FromClientWifiStatusGetRequest)
 	if err != nil {

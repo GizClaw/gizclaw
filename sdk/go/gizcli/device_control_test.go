@@ -206,3 +206,57 @@ func TestRPCClientDeviceControlUnsupportedAndFailures(t *testing.T) {
 		t.Fatalf("dispatch without peer = %#v, %v", resp, err)
 	}
 }
+
+func TestRPCClientFirmwareUpdateProvider(t *testing.T) {
+	digest := "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+	var gotChannel *rpcapi.FirmwareChannelName
+	var gotSha256 *string
+	device := &Client{}
+	if err := device.HandleDeviceControl(DeviceControlHandlers{
+		UpdateFirmware: func(_ context.Context, channel *rpcapi.FirmwareChannelName, sha256 *string) error {
+			gotChannel, gotSha256 = channel, sha256
+			if sha256 != nil && *sha256 != digest {
+				return ErrDeviceRejected
+			}
+			return nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	beta := rpcapi.FirmwareChannelNameBeta
+	resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientFirmwareUpdate, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientFirmwareUpdateRequest(rpcapi.ClientFirmwareUpdateRequest{Channel: &beta, Sha256: &digest})
+	})
+	if resp.Error != nil || gotChannel == nil || *gotChannel != beta || gotSha256 == nil || *gotSha256 != digest {
+		t.Fatalf("update = %#v channel=%v sha256=%v", resp, gotChannel, gotSha256)
+	}
+
+	// Omitted params leave both choices to the device.
+	if resp := deviceControlDispatch(t, device, rpcapi.RPCMethodClientFirmwareUpdate, nil); resp.Error != nil || gotChannel != nil || gotSha256 != nil {
+		t.Fatalf("update without params = %#v channel=%v sha256=%v", resp, gotChannel, gotSha256)
+	}
+
+	// An unspecified channel encodes on the wire but names no channel.
+	unspecified := rpcapi.FirmwareChannelName("unspecified")
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientFirmwareUpdate, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientFirmwareUpdateRequest(rpcapi.ClientFirmwareUpdateRequest{Channel: &unspecified})
+	})
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("unspecified channel = %#v", resp)
+	}
+
+	// A digest the device does not resolve is rejected, not failed.
+	other := "b1c2d3e4f5061728394a5b6c7d8e9f0ab1c2d3e4f5061728394a5b6c7d8e9f0a"
+	resp = deviceControlDispatch(t, device, rpcapi.RPCMethodClientFirmwareUpdate, func(p *rpcapi.RPCPayload) error {
+		return p.FromClientFirmwareUpdateRequest(rpcapi.ClientFirmwareUpdateRequest{Sha256: &other})
+	})
+	if resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeInvalidArgument {
+		t.Fatalf("mismatched digest = %#v", resp)
+	}
+
+	// Firmware without the provider answers METHOD_NOT_FOUND.
+	if resp := deviceControlDispatch(t, &Client{}, rpcapi.RPCMethodClientFirmwareUpdate, nil); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
+		t.Fatalf("update without handler = %#v", resp)
+	}
+}

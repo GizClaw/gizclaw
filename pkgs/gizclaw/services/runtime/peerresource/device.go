@@ -5,7 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -23,12 +26,18 @@ type deviceStatusService interface {
 	GetStatus(context.Context, giznet.PublicKey) (apitypes.PeerStatus, error)
 }
 
+// ErrDeviceFirmwareNotBound reports a firmware read for a caller whose Peer has
+// no Firmware configuration bound, or whose bound configuration is gone.
+var ErrDeviceFirmwareNotBound = errors.New("peerresource: device has no firmware configuration bound")
+
 // DeviceReads exposes the caller's own device projection to Public HTTP
 // adapters. Every read is pinned to Caller; adapters cannot select another Peer.
 type DeviceReads struct {
 	Caller    giznet.PublicKey
 	Info      deviceInfoService
 	Status    deviceStatusService
+	Peers     peerFirmwareBindingService
+	Firmwares firmwarePeerService
 	Telemetry *peertelemetry.AdminService
 }
 
@@ -55,6 +64,37 @@ func (r DeviceReads) DeviceStatus(ctx context.Context) (apitypes.PeerStatus, err
 		return apitypes.PeerStatus{}, ErrDeviceServiceNotConfigured
 	}
 	return r.Status.GetStatus(ctx, r.Caller)
+}
+
+// DeviceFirmware returns every channel of the Firmware configuration bound to
+// the caller. The projection reads Server configuration only, so it answers
+// while the device is offline. Channel selection stays with the caller.
+func (r DeviceReads) DeviceFirmware(ctx context.Context) (apitypes.Firmware, error) {
+	if r.Peers == nil || r.Firmwares == nil {
+		return apitypes.Firmware{}, ErrDeviceServiceNotConfigured
+	}
+	item, err := r.Peers.LoadPeer(ctx, r.Caller)
+	if err != nil {
+		if errors.Is(err, peer.ErrPeerNotFound) {
+			return apitypes.Firmware{}, ErrDeviceFirmwareNotBound
+		}
+		return apitypes.Firmware{}, err
+	}
+	if item.FirmwareId == nil || customid.ValidateResourceID(*item.FirmwareId) != nil {
+		return apitypes.Firmware{}, ErrDeviceFirmwareNotBound
+	}
+	response, err := r.Firmwares.GetFirmware(ctx, adminhttp.GetFirmwareRequestObject{Id: *item.FirmwareId})
+	if err != nil {
+		return apitypes.Firmware{}, err
+	}
+	switch response := response.(type) {
+	case adminhttp.GetFirmware200JSONResponse:
+		return apitypes.Firmware(response), nil
+	case adminhttp.GetFirmware404JSONResponse:
+		return apitypes.Firmware{}, ErrDeviceFirmwareNotBound
+	default:
+		return apitypes.Firmware{}, errors.New("peerresource: firmware lookup failed")
+	}
 }
 
 // DeviceTelemetryLatest returns the latest sampled telemetry values of the caller.

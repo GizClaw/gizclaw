@@ -139,7 +139,8 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET = 106,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN = 108,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT = 109,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT = 111
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_FIRMWARE_UPDATE = 111,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT = 112
 } gizclaw_rpc_v1_RpcMethod;
 
 /* Struct definitions */

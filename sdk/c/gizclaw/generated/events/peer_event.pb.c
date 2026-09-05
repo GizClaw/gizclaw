@@ -9,6 +9,9 @@
 PB_BIND(gizclaw_events_v1_PeerEvent, gizclaw_events_v1_PeerEvent, 4)
 
 
+PB_BIND(gizclaw_events_v1_AudioInputReady, gizclaw_events_v1_AudioInputReady, AUTO)
+
+
 PB_BIND(gizclaw_events_v1_StreamBegin, gizclaw_events_v1_StreamBegin, 2)
 
 

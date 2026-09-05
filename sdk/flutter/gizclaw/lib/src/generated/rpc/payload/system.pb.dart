@@ -1870,6 +1870,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     $core.bool? muted,
     $core.String? reportedAt,
     $fixnum.Int64? volume,
+    $core.String? firmwareSha256,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -1883,6 +1884,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (muted != null) result.muted = muted;
     if (reportedAt != null) result.reportedAt = reportedAt;
     if (volume != null) result.volume = volume;
+    if (firmwareSha256 != null) result.firmwareSha256 = firmwareSha256;
     return result;
   }
 
@@ -1915,6 +1917,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     ..aOB(9, _omitFieldNames ? '' : 'muted')
     ..aOS(10, _omitFieldNames ? '' : 'reportedAt')
     ..aInt64(11, _omitFieldNames ? '' : 'volume')
+    ..aOS(12, _omitFieldNames ? '' : 'firmwareSha256')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2029,6 +2032,15 @@ class PeerStatus extends $pb.GeneratedMessage {
   $core.bool hasVolume() => $_has(10);
   @$pb.TagNumber(11)
   void clearVolume() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get firmwareSha256 => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set firmwareSha256($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasFirmwareSha256() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearFirmwareSha256() => $_clearField(12);
 }
 
 class PingRequest extends $pb.GeneratedMessage {

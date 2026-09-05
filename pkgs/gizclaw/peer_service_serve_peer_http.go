@@ -262,13 +262,22 @@ func (s *PeerService) edgeSignalingPublicKey(ctx *fiber.Ctx) (giznet.PublicKey, 
 	return publicKey, true
 }
 
+// optionalJSONBodyPaths lists the POST routes whose request body is optional in
+// api/http/peer.json. Every entry must stay in step with that schema.
+var optionalJSONBodyPaths = map[string]struct{}{
+	"/gizclaw/v1/device/actions/reboot":          {},
+	"/gizclaw/v1/device/actions/firmware-update": {},
+	"/gizclaw/v1/device/wifi/scan":               {},
+}
+
 // normalizeOptionalJSONBody lets routes with an optional JSON request body
 // accept an empty POST: the generated strict handler only tolerates a JSON
 // body, so an absent body becomes the empty object.
 func normalizeOptionalJSONBody(ctx *fiber.Ctx) {
-	if ctx.Method() != http.MethodPost ||
-		(ctx.Path() != "/gizclaw/v1/device/actions/reboot" && ctx.Path() != "/gizclaw/v1/device/wifi/scan") ||
-		len(ctx.Body()) != 0 {
+	if ctx.Method() != http.MethodPost || len(ctx.Body()) != 0 {
+		return
+	}
+	if _, ok := optionalJSONBodyPaths[ctx.Path()]; !ok {
 		return
 	}
 	ctx.Request().Header.SetContentType(fiber.MIMEApplicationJSON)

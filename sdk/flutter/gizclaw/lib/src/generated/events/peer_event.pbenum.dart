@@ -38,6 +38,12 @@ class PeerEventType extends $pb.ProtobufEnum {
       PeerEventType._(
           8, _omitEnumNames ? '' : 'PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED');
 
+  /// Server acknowledgement that an input audio BOS has been authorized and
+  /// installed. Clients must receive this before sending its Opus packets.
+  static const PeerEventType PEER_EVENT_TYPE_AUDIO_INPUT_READY =
+      PeerEventType._(
+          9, _omitEnumNames ? '' : 'PEER_EVENT_TYPE_AUDIO_INPUT_READY');
+
   static const $core.List<PeerEventType> values = <PeerEventType>[
     PEER_EVENT_TYPE_UNSPECIFIED,
     PEER_EVENT_TYPE_BOS,
@@ -48,10 +54,11 @@ class PeerEventType extends $pb.ProtobufEnum {
     PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED,
     PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED,
     PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED,
+    PEER_EVENT_TYPE_AUDIO_INPUT_READY,
   ];
 
   static final $core.List<PeerEventType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 8);
+      $pb.ProtobufEnum.$_initByValueList(values, 9);
   static PeerEventType? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

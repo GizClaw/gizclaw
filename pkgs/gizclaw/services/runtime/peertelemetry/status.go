@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -19,6 +20,10 @@ type PeerStatusStore interface {
 type StatusSync struct {
 	Store PeerStatusStore
 }
+
+// firmwareSha256Pattern mirrors the firmware_sha256 pattern of the PeerStatus
+// schema in api/http/shared/peer_status.json.
+var firmwareSha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 const (
 	telemetryStatusDetailsKey          = "telemetry_status"
@@ -51,10 +56,10 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 // ApplyDeviceStatus merges a PeerStatus that the device reported in response
 // to a Server-initiated control command into the stored owner-scoped status.
 //
-// Volume, muted, and labels come from the control response verbatim because
-// no telemetry frame carries them. Battery and GNSS fields use the same
-// per-field observation ordering as telemetry reports, so an older control
-// response never overwrites a newer telemetry observation. The reported time
+// Volume, muted, labels, and the running firmware digest come from the control
+// response verbatim because no telemetry frame carries them. Battery and GNSS
+// fields use the same per-field observation ordering as telemetry reports, so
+// an older control response never overwrites a newer telemetry observation. The reported time
 // defaults to now when the device omits it; the stored reported_at never moves
 // backwards.
 func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey, reported apitypes.PeerStatus, now time.Time) (apitypes.PeerStatus, error) {
@@ -96,6 +101,14 @@ func (s StatusSync) ApplyDeviceStatus(ctx context.Context, peer giznet.PublicKey
 	if reported.Labels != nil {
 		labels := maps.Clone(*reported.Labels)
 		status.Labels = &labels
+		changed = true
+	}
+	// The digest comes from the device, so it is untrusted: a value outside the
+	// PeerStatus contract is dropped instead of stored, and the previously
+	// stored digest is left in place rather than replaced with a bad one.
+	if reported.FirmwareSha256 != nil && firmwareSha256Pattern.MatchString(*reported.FirmwareSha256) {
+		value := *reported.FirmwareSha256
+		status.FirmwareSha256 = &value
 		changed = true
 	}
 	if !changed {

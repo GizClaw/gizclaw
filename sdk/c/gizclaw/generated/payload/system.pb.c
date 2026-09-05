@@ -21,13 +21,13 @@ PB_BIND(gizclaw_rpc_v1_ClientGetInfoResponse, gizclaw_rpc_v1_ClientGetInfoRespon
 PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetRequest, gizclaw_rpc_v1_ClientDeviceStatusGetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetResponse, gizclaw_rpc_v1_ClientDeviceStatusGetResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ClientDeviceStatusGetResponse, gizclaw_rpc_v1_ClientDeviceStatusGetResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetRequest, gizclaw_rpc_v1_ClientDeviceVolumeSetRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, gizclaw_rpc_v1_ClientDeviceVolumeSetResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, gizclaw_rpc_v1_ClientDeviceSoundPlayRequest, AUTO)
@@ -99,7 +99,7 @@ PB_BIND(gizclaw_rpc_v1_PeerIMEI, gizclaw_rpc_v1_PeerIMEI, AUTO)
 PB_BIND(gizclaw_rpc_v1_PeerLabel, gizclaw_rpc_v1_PeerLabel, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_PeerStatus, gizclaw_rpc_v1_PeerStatus, AUTO)
+PB_BIND(gizclaw_rpc_v1_PeerStatus, gizclaw_rpc_v1_PeerStatus, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_PeerStatus_LabelsEntry, gizclaw_rpc_v1_PeerStatus_LabelsEntry, AUTO)
@@ -156,7 +156,7 @@ PB_BIND(gizclaw_rpc_v1_ServerGetInfoResponse, gizclaw_rpc_v1_ServerGetInfoRespon
 PB_BIND(gizclaw_rpc_v1_ServerGetStatusRequest, gizclaw_rpc_v1_ServerGetStatusRequest, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ServerGetStatusResponse, gizclaw_rpc_v1_ServerGetStatusResponse, AUTO)
+PB_BIND(gizclaw_rpc_v1_ServerGetStatusResponse, gizclaw_rpc_v1_ServerGetStatusResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPutInfoRequest, gizclaw_rpc_v1_ServerPutInfoRequest, 2)

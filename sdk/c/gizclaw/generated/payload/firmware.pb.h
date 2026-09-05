@@ -24,6 +24,17 @@ typedef struct _gizclaw_rpc_v1_FirmwareGetResponse {
     int64_t size;
 } gizclaw_rpc_v1_FirmwareGetResponse;
 
+typedef struct _gizclaw_rpc_v1_ClientFirmwareUpdateRequest {
+    bool has_channel;
+    gizclaw_rpc_v1_FirmwareChannelName channel;
+    bool has_sha256;
+    char sha256[65];
+} gizclaw_rpc_v1_ClientFirmwareUpdateRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientFirmwareUpdateResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_ClientFirmwareUpdateResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,8 +43,12 @@ extern "C" {
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_FirmwareGetRequest_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN}
 #define gizclaw_rpc_v1_FirmwareGetResponse_init_default {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0}
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_init_default {false, _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, ""}
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_init_default {0}
 #define gizclaw_rpc_v1_FirmwareGetRequest_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN}
 #define gizclaw_rpc_v1_FirmwareGetResponse_init_zero {_gizclaw_rpc_v1_FirmwareChannelName_MIN, false, "", "", "", 0}
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_init_zero {false, _gizclaw_rpc_v1_FirmwareChannelName_MIN, false, ""}
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_init_zero {0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_FirmwareGetRequest_channel_tag 1
@@ -42,6 +57,8 @@ extern "C" {
 #define gizclaw_rpc_v1_FirmwareGetResponse_url_tag 3
 #define gizclaw_rpc_v1_FirmwareGetResponse_sha256_tag 4
 #define gizclaw_rpc_v1_FirmwareGetResponse_size_tag 5
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_channel_tag 1
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_sha256_tag 2
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_FirmwareGetRequest_FIELDLIST(X, a) \
@@ -58,15 +75,32 @@ X(a, STATIC,   SINGULAR, INT64,    size,              5)
 #define gizclaw_rpc_v1_FirmwareGetResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_FirmwareGetResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, UENUM,    channel,           1) \
+X(a, STATIC,   OPTIONAL, STRING,   sha256,            2)
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_DEFAULT NULL
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareGetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_FirmwareGetResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientFirmwareUpdateRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientFirmwareUpdateResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_FirmwareGetRequest_fields &gizclaw_rpc_v1_FirmwareGetRequest_msg
 #define gizclaw_rpc_v1_FirmwareGetResponse_fields &gizclaw_rpc_v1_FirmwareGetResponse_msg
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_fields &gizclaw_rpc_v1_ClientFirmwareUpdateRequest_msg
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_fields &gizclaw_rpc_v1_ClientFirmwareUpdateResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 #define GIZCLAW_RPC_V1_PAYLOAD_FIRMWARE_PB_H_MAX_SIZE gizclaw_rpc_v1_FirmwareGetResponse_size
+#define gizclaw_rpc_v1_ClientFirmwareUpdateRequest_size 68
+#define gizclaw_rpc_v1_ClientFirmwareUpdateResponse_size 0
 #define gizclaw_rpc_v1_FirmwareGetRequest_size   2
 #define gizclaw_rpc_v1_FirmwareGetResponse_size  3157
 

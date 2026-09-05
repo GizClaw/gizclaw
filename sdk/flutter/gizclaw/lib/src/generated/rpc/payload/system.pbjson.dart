@@ -660,11 +660,20 @@ const PeerStatus$json = {
       '10': 'details'
     },
     {
+      '1': 'firmware_sha256',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'firmwareSha256',
+      '17': true
+    },
+    {
       '1': 'gnss_accuracy_m',
       '3': 4,
       '4': 1,
       '5': 1,
-      '9': 2,
+      '9': 3,
       '10': 'gnssAccuracyM',
       '17': true
     },
@@ -673,7 +682,7 @@ const PeerStatus$json = {
       '3': 5,
       '4': 1,
       '5': 1,
-      '9': 3,
+      '9': 4,
       '10': 'gnssAltitudeM',
       '17': true
     },
@@ -682,7 +691,7 @@ const PeerStatus$json = {
       '3': 6,
       '4': 1,
       '5': 1,
-      '9': 4,
+      '9': 5,
       '10': 'gnssLatitude',
       '17': true
     },
@@ -691,7 +700,7 @@ const PeerStatus$json = {
       '3': 7,
       '4': 1,
       '5': 1,
-      '9': 5,
+      '9': 6,
       '10': 'gnssLongitude',
       '17': true
     },
@@ -703,13 +712,13 @@ const PeerStatus$json = {
       '6': '.gizclaw.rpc.v1.PeerStatus.LabelsEntry',
       '10': 'labels'
     },
-    {'1': 'muted', '3': 9, '4': 1, '5': 8, '9': 6, '10': 'muted', '17': true},
+    {'1': 'muted', '3': 9, '4': 1, '5': 8, '9': 7, '10': 'muted', '17': true},
     {
       '1': 'reported_at',
       '3': 10,
       '4': 1,
       '5': 9,
-      '9': 7,
+      '9': 8,
       '10': 'reportedAt',
       '17': true
     },
@@ -718,7 +727,7 @@ const PeerStatus$json = {
       '3': 11,
       '4': 1,
       '5': 3,
-      '9': 8,
+      '9': 9,
       '10': 'volume',
       '17': true
     },
@@ -727,6 +736,7 @@ const PeerStatus$json = {
   '8': [
     {'1': '_battery_percent'},
     {'1': '_charging'},
+    {'1': '_firmware_sha256'},
     {'1': '_gnss_accuracy_m'},
     {'1': '_gnss_altitude_m'},
     {'1': '_gnss_latitude'},
@@ -751,17 +761,18 @@ const PeerStatus_LabelsEntry$json = {
 final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'CgpQZWVyU3RhdHVzEiwKD2JhdHRlcnlfcGVyY2VudBgBIAEoA0gAUg5iYXR0ZXJ5UGVyY2VudI'
     'gBARIfCghjaGFyZ2luZxgCIAEoCEgBUghjaGFyZ2luZ4gBARIxCgdkZXRhaWxzGAMgASgLMhcu'
-    'Z29vZ2xlLnByb3RvYnVmLlN0cnVjdFIHZGV0YWlscxIrCg9nbnNzX2FjY3VyYWN5X20YBCABKA'
-    'FIAlINZ25zc0FjY3VyYWN5TYgBARIrCg9nbnNzX2FsdGl0dWRlX20YBSABKAFIA1INZ25zc0Fs'
-    'dGl0dWRlTYgBARIoCg1nbnNzX2xhdGl0dWRlGAYgASgBSARSDGduc3NMYXRpdHVkZYgBARIqCg'
-    '5nbnNzX2xvbmdpdHVkZRgHIAEoAUgFUg1nbnNzTG9uZ2l0dWRliAEBEj4KBmxhYmVscxgIIAMo'
-    'CzImLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuTGFiZWxzRW50cnlSBmxhYmVscxIZCgVtdX'
-    'RlZBgJIAEoCEgGUgVtdXRlZIgBARIkCgtyZXBvcnRlZF9hdBgKIAEoCUgHUgpyZXBvcnRlZEF0'
-    'iAEBEhsKBnZvbHVtZRgLIAEoA0gIUgZ2b2x1bWWIAQEaOQoLTGFiZWxzRW50cnkSEAoDa2V5GA'
-    'EgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUISChBfYmF0dGVyeV9wZXJjZW50'
-    'QgsKCV9jaGFyZ2luZ0ISChBfZ25zc19hY2N1cmFjeV9tQhIKEF9nbnNzX2FsdGl0dWRlX21CEA'
-    'oOX2duc3NfbGF0aXR1ZGVCEQoPX2duc3NfbG9uZ2l0dWRlQggKBl9tdXRlZEIOCgxfcmVwb3J0'
-    'ZWRfYXRCCQoHX3ZvbHVtZQ==');
+    'Z29vZ2xlLnByb3RvYnVmLlN0cnVjdFIHZGV0YWlscxIsCg9maXJtd2FyZV9zaGEyNTYYDCABKA'
+    'lIAlIOZmlybXdhcmVTaGEyNTaIAQESKwoPZ25zc19hY2N1cmFjeV9tGAQgASgBSANSDWduc3NB'
+    'Y2N1cmFjeU2IAQESKwoPZ25zc19hbHRpdHVkZV9tGAUgASgBSARSDWduc3NBbHRpdHVkZU2IAQ'
+    'ESKAoNZ25zc19sYXRpdHVkZRgGIAEoAUgFUgxnbnNzTGF0aXR1ZGWIAQESKgoOZ25zc19sb25n'
+    'aXR1ZGUYByABKAFIBlINZ25zc0xvbmdpdHVkZYgBARI+CgZsYWJlbHMYCCADKAsyJi5naXpjbG'
+    'F3LnJwYy52MS5QZWVyU3RhdHVzLkxhYmVsc0VudHJ5UgZsYWJlbHMSGQoFbXV0ZWQYCSABKAhI'
+    'B1IFbXV0ZWSIAQESJAoLcmVwb3J0ZWRfYXQYCiABKAlICFIKcmVwb3J0ZWRBdIgBARIbCgZ2b2'
+    'x1bWUYCyABKANICVIGdm9sdW1liAEBGjkKC0xhYmVsc0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5'
+    'EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAFCEgoQX2JhdHRlcnlfcGVyY2VudEILCglfY2hhcm'
+    'dpbmdCEgoQX2Zpcm13YXJlX3NoYTI1NkISChBfZ25zc19hY2N1cmFjeV9tQhIKEF9nbnNzX2Fs'
+    'dGl0dWRlX21CEAoOX2duc3NfbGF0aXR1ZGVCEQoPX2duc3NfbG9uZ2l0dWRlQggKBl9tdXRlZE'
+    'IOCgxfcmVwb3J0ZWRfYXRCCQoHX3ZvbHVtZQ==');
 
 @$core.Deprecated('Use pingRequestDescriptor instead')
 const PingRequest$json = {

@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceLogsData, GetDeviceLogsErrors, GetDeviceLogsResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses } from './types.gen.ts';
+import type { AggregateDeviceTelemetryData, AggregateDeviceTelemetryErrors, AggregateDeviceTelemetryResponses, ConnectDeviceWifiData, ConnectDeviceWifiErrors, ConnectDeviceWifiResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateGiznetWebRtcOfferData, CreateGiznetWebRtcOfferErrors, CreateGiznetWebRtcOfferResponses, DeleteContactData, DeleteContactErrors, DeleteContactResponses, DownloadDeviceHistoryAudioData, DownloadDeviceHistoryAudioErrors, DownloadDeviceHistoryAudioResponses, FindPublicKeysByImeiData, FindPublicKeysByImeiErrors, FindPublicKeysByImeiResponses, FindPublicKeysBySnData, FindPublicKeysBySnErrors, FindPublicKeysBySnResponses, ForgetDeviceSavedWifiData, ForgetDeviceSavedWifiErrors, ForgetDeviceSavedWifiResponses, GetApiKeyData, GetApiKeyErrors, GetApiKeyResponses, GetContactData, GetContactErrors, GetContactResponses, GetDeviceData, GetDeviceErrors, GetDeviceFirmwareData, GetDeviceFirmwareErrors, GetDeviceFirmwareResponses, GetDeviceLogsData, GetDeviceLogsErrors, GetDeviceLogsResponses, GetDeviceResponses, GetDeviceRuntimeData, GetDeviceRuntimeErrors, GetDeviceRuntimeResponses, GetDeviceStatusData, GetDeviceStatusErrors, GetDeviceStatusResponses, GetDeviceTelemetryLatestData, GetDeviceTelemetryLatestErrors, GetDeviceTelemetryLatestResponses, GetDeviceWifiData, GetDeviceWifiErrors, GetDeviceWifiResponses, GetSelfApiKeyData, GetSelfApiKeyErrors, GetSelfApiKeyResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListContactsData, ListContactsErrors, ListContactsResponses, ListDeviceSavedWifiData, ListDeviceSavedWifiErrors, ListDeviceSavedWifiResponses, ListDeviceWorkspaceHistoryData, ListDeviceWorkspaceHistoryErrors, ListDeviceWorkspaceHistoryResponses, ListDeviceWorkspacesData, ListDeviceWorkspacesErrors, ListDeviceWorkspacesResponses, PlayDeviceSoundData, PlayDeviceSoundErrors, PlayDeviceSoundResponses, PutContactData, PutContactErrors, PutContactResponses, QueryDeviceTelemetryData, QueryDeviceTelemetryErrors, QueryDeviceTelemetryResponses, RebootDeviceData, RebootDeviceErrors, RebootDeviceResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeSelfApiKeyData, RevokeSelfApiKeyErrors, RevokeSelfApiKeyResponses, ScanDeviceWifiData, ScanDeviceWifiErrors, ScanDeviceWifiResponses, SearchDeviceLogsData, SearchDeviceLogsErrors, SearchDeviceLogsResponses, SetDeviceVolumeData, SetDeviceVolumeErrors, SetDeviceVolumeResponses, UpdateDeviceFirmwareData, UpdateDeviceFirmwareErrors, UpdateDeviceFirmwareResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -197,6 +197,17 @@ export const aggregateDeviceTelemetry = <ThrowOnError extends boolean = false>(o
 });
 
 /**
+ * Get the firmware channels configured for the bound device
+ *
+ * Returns every channel of the Firmware configuration bound to the caller device, read from Server configuration. Reading never contacts the device, so it answers while the device is offline. Channel selection stays with the caller: pick a channel from this response and name it when triggering an update.
+ */
+export const getDeviceFirmware = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceFirmwareData, ThrowOnError>): RequestResult<GetDeviceFirmwareResponses, GetDeviceFirmwareErrors, ThrowOnError> => (options?.client ?? client).get<GetDeviceFirmwareResponses, GetDeviceFirmwareErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/firmware',
+    ...options
+});
+
+/**
  * Set the absolute volume and mute state of the bound device
  *
  * Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.
@@ -234,6 +245,21 @@ export const playDeviceSound = <ThrowOnError extends boolean = false>(options: O
 export const rebootDevice = <ThrowOnError extends boolean = false>(options?: Options<RebootDeviceData, ThrowOnError>): RequestResult<RebootDeviceResponses, RebootDeviceErrors, ThrowOnError> => (options?.client ?? client).post<RebootDeviceResponses, RebootDeviceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/gizclaw/v1/device/actions/reboot',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
+ * Notify the bound device to run a firmware update
+ *
+ * Forwards client.firmware.update to the online device. The device acknowledges before it downloads, verifies, and writes the package itself; later control commands answer DEVICE_OFFLINE once it restarts. channel names the channel from GET /gizclaw/v1/device/firmware to install, and defaults to the channel the device already uses. sha256 declares the package the caller saw, and the device rejects the request when it does not match the package it resolves.
+ */
+export const updateDeviceFirmware = <ThrowOnError extends boolean = false>(options?: Options<UpdateDeviceFirmwareData, ThrowOnError>): RequestResult<UpdateDeviceFirmwareResponses, UpdateDeviceFirmwareErrors, ThrowOnError> => (options?.client ?? client).post<UpdateDeviceFirmwareResponses, UpdateDeviceFirmwareErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/gizclaw/v1/device/actions/firmware-update',
     ...options,
     headers: {
         'Content-Type': 'application/json',

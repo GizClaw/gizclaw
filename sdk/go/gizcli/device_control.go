@@ -30,6 +30,11 @@ type DeviceControlHandlers struct {
 	ForgetWifi  func(ctx context.Context, ssid string) error
 	ScanWifi    func(ctx context.Context, timeoutMs *int64) ([]rpcapi.WifiScanResult, error)
 	ConnectWifi func(ctx context.Context, ssid string, passphrase *string) error
+	// UpdateFirmware runs one OTA. channel names the channel to install and is
+	// nil when the caller leaves the choice to the device; sha256 is the
+	// package digest the caller resolved, and the handler answers
+	// ErrDeviceRejected when it does not match the package the device resolves.
+	UpdateFirmware func(ctx context.Context, channel *rpcapi.FirmwareChannelName, sha256 *string) error
 }
 
 // HandleDeviceControl installs the device control providers for this Client.
@@ -142,6 +147,26 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 			return deviceControlError(req.Id, err), nil
 		}
 		return newRPCResultResponse(req.Id, rpcapi.ClientDeviceRebootResponse{}, (*rpcapi.RPCPayload).FromClientDeviceRebootResponse)
+	case rpcapi.RPCMethodClientFirmwareUpdate:
+		params := rpcapi.ClientFirmwareUpdateRequest{}
+		if req.Params != nil {
+			decoded, err := req.Params.AsClientFirmwareUpdateRequest()
+			if err != nil {
+				return rpcInvalidParams(req.Id), nil
+			}
+			params = decoded
+		}
+		if params.Channel != nil && !params.Channel.Valid() {
+			return rpcInvalidParams(req.Id), nil
+		}
+		if handlers.UpdateFirmware == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		if err := handlers.UpdateFirmware(ctx, params.Channel, params.Sha256); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, rpcapi.ClientFirmwareUpdateResponse{}, (*rpcapi.RPCPayload).FromClientFirmwareUpdateResponse)
 	case rpcapi.RPCMethodClientWifiStatusGet:
 		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientWifiStatusGetRequest); err != nil {
 			return rpcInvalidParams(req.Id), nil
