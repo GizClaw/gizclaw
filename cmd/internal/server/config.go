@@ -497,6 +497,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
 	}
 	var raw struct {
+		Monitor         monitor.Config               `yaml:"monitor"`
 		Identity        *IdentityConfig              `yaml:"identity"`
 		WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 		HTTP            *HTTPConfig                  `yaml:"http"`
@@ -547,6 +548,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	cfg := ConfigFile{
+		Monitor:         raw.Monitor,
 		Identity:        identity,
 		WebRTC:          raw.WebRTC,
 		HTTP:            raw.HTTP,
