@@ -123,7 +123,7 @@ func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 		t.Fatalf("logger handler = %#v", logger.Handler())
 	}
 	fanout, ok := contextual.root.(*FanoutHandler)
-	if !ok || len(fanout.handlers) != 1 {
+	if !ok || len(fanout.handlers) != 2 {
 		t.Fatalf("logger handler = %#v", logger.Handler())
 	}
 	if _, ok := fanout.handlers[0].(*storeFailureReportingHandler); !ok {

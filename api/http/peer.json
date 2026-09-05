@@ -725,6 +725,51 @@
           }
         }
       }
+    },
+    "/gizclaw/v1/device/logs": {
+      "get": {
+        "operationId": "getDeviceLogs",
+        "summary": "Read recent server-side logs scoped to the authenticated device",
+        "description": "Returns at most 500 recent process records with an exact peer_public_key match. These are server-side device-related logs, not firmware logs; records are held in a bounded in-memory ring and do not survive restart.",
+        "tags": [
+          "Device"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent logs, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviceMonitorLog"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -940,6 +985,37 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "DeviceMonitorLog": {
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "level",
+          "message"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "peer_public_key": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
           }
         }
       }

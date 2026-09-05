@@ -155,6 +155,15 @@ export type PublicKeyList = {
     public_keys: Array<string>;
 };
 
+export type DeviceMonitorLog = {
+    id: number;
+    time: string;
+    level: string;
+    message: string;
+    peer_public_key?: string;
+    error?: string;
+};
+
 export type DeviceIdentifiers = {
     /**
      * Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.
@@ -1696,3 +1705,44 @@ export type FindPublicKeysByImeiResponses = {
 };
 
 export type FindPublicKeysByImeiResponse = FindPublicKeysByImeiResponses[keyof FindPublicKeysByImeiResponses];
+
+export type GetDeviceLogsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/device/logs';
+};
+
+export type GetDeviceLogsErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type GetDeviceLogsError = GetDeviceLogsErrors[keyof GetDeviceLogsErrors];
+
+export type GetDeviceLogsResponses = {
+    /**
+     * Recent logs, oldest first.
+     */
+    200: Array<DeviceMonitorLog>;
+};
+
+export type GetDeviceLogsResponse = GetDeviceLogsResponses[keyof GetDeviceLogsResponses];

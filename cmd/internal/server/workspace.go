@@ -18,6 +18,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
@@ -263,8 +264,9 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 		return err
 	}
 	defer srv.Close()
+	monitorHandler := monitor.Handler(cfg.Monitor, "server", cfg.KeyPair.Public.String(), srv)
 	for index := range preparedHTTP {
-		preparedHTTP[index].server.Handler = srv
+		preparedHTTP[index].server.Handler = monitorHandler
 	}
 	if err := srv.Listen(); err != nil {
 		return err

@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
@@ -99,7 +100,7 @@ func ServeContext(ctx context.Context, root string) (serveErr error) {
 		}
 	}
 	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
-	handler := edgeIngressHandler(proxy, gateway)
+	handler := monitor.Handler(cfg.Monitor, "edge", cfg.KeyPair.Public.String(), edgeIngressHandler(proxy, gateway))
 	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
 	if err != nil {
 		return err

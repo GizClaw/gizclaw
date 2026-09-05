@@ -175,3 +175,5 @@ Further entry point:
 - [Coding Standards](/en/coding-styles/)
 - [Usage Guide](/en/using/)
 - [Reference](/references/)
+
+See [Monitor](monitor) for console builds, authentication, and available data.

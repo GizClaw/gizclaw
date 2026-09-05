@@ -47,3 +47,7 @@ openteam/
 
 # Build output from tests/gizclaw-e2e/cmd
 /multiserver-seed
+
+# Embedded monitor assets are built before release compilation.
+/web/monitor/dist/*
+!/web/monitor/dist/README.md
