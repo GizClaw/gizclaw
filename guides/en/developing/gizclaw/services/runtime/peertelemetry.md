@@ -27,3 +27,5 @@ flowchart LR
 | `PeerStatusStore` / `StatusService` | Isolate persistence status and update interface. |
 
 Telemetry schema belongs to `api/proto/telemetry`, metrics persistence belongs to `pkgs/store/metrics`. This package only has decoding, mapping and synchronization strategies.
+
+Validated OTA observations produce structured logs instead of metrics or fixed status; see [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for fields and SDK usage.

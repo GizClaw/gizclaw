@@ -94,6 +94,10 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 				return nil, StatusPatch{}, err
 			}
 			samples = append(samples, next...)
+		case *telemetrypb.Observation_Ota:
+			if err := validateOTA(body.Ota); err != nil {
+				return nil, StatusPatch{}, err
+			}
 		default:
 			return nil, StatusPatch{}, fmt.Errorf("%w: unsupported observation body %T", ErrInvalidFrame, body)
 		}

@@ -5,6 +5,7 @@ import {
   type GnssObservation,
   type NetworkObservation,
   type Observation,
+  type OtaObservation,
   type SystemObservation,
   type TelemetryFrame,
 } from "./generated/telemetry/peer_telemetry.ts";
@@ -14,9 +15,12 @@ export type {
   GnssObservation,
   NetworkObservation,
   Observation,
+  OtaObservation,
   SystemObservation,
   TelemetryFrame,
 } from "./generated/telemetry/peer_telemetry.ts";
+
+export { OtaState } from "./generated/telemetry/peer_telemetry.ts";
 
 export const GIZCLAW_EVENT_STREAM_TELEMETRY = 0x40;
 export const GIZCLAW_MAX_PACKET_MESSAGE_SIZE = 64 * 1024;
@@ -25,6 +29,7 @@ const TELEMETRY_OBSERVATION_BODY_KEYS = [
   "gnss",
   "network",
   "system",
+  "ota",
 ] as const;
 
 export function batteryTelemetry(input: BatteryObservation): Observation {
@@ -41,6 +46,10 @@ export function networkTelemetry(input: NetworkObservation): Observation {
 
 export function systemTelemetry(input: SystemObservation): Observation {
   return { system: input };
+}
+
+export function otaTelemetry(input: OtaObservation): Observation {
+  return { ota: input };
 }
 
 export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {

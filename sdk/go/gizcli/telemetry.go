@@ -60,3 +60,13 @@ func (c *Client) SendBatteryTelemetry(percent int, charging bool) error {
 		}},
 	})
 }
+
+// SendOTATelemetry reports one OTA attempt state over the direct packet channel.
+func (c *Client) SendOTATelemetry(observation *telemetrypb.OtaObservation) error {
+	if observation == nil {
+		return fmt.Errorf("gizclaw: nil ota observation")
+	}
+	return c.SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Ota{Ota: observation}}},
+	})
+}
