@@ -260,6 +260,18 @@ response:
 
 ### Giztest scenarios
 
+AST consecutive-turn regressions live in
+`volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml` and
+`volc-ast-translate.realtime-consecutive-turns.giztest.yaml`. Each synthesizes
+Chinese audio once and replays it for three Chinese-to-French turns in one
+Workspace, retaining a 30-second `idle_timeout` and requiring nonempty text,
+audio, and matching response EOS boundaries. The standard discovery rules in
+`run_tests.sh` execute both files; CI's Release Contract job validates their
+documents. Live Volc calls require the standard Docker fixtures and credentials.
+Authorization blocking, abnormal AST closure, and CLI completion regressions run
+under ordinary `go test` without credentials. Set `GIZCLAW_TEST_ENDPOINT` to test
+the direct Server or Edge entrypoint separately; a direct pass does not verify Edge.
+
 Each Giztest file is an independent user story. It creates its own mutable
 Peers, Workspaces, invites, groups, and related resources and removes them in
 `finally`. Device identities are generated per task; files do not share fixed
@@ -356,7 +368,10 @@ type. Other audio formats fail before the RPC opens. The document does not own
 this wire metadata.
 
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
-observed text and audio EOS boundaries. Turns that complete on the
+text and audio EOS boundaries from the same response, with nonempty content
+for each required modality. Late EOS events without an observed BOS or content
+do not complete a turn, and EOS events from different StreamIDs cannot be combined.
+Turns that complete on the
 persisted user transcript declare `transcript` explicitly.
 `peer_stream.completion: first_response` is the bounded deployment-probe
 alternative. `require_text` and `require_audio` select its required modalities

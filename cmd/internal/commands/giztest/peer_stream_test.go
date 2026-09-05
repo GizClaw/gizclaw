@@ -1084,3 +1084,61 @@ func TestInvokePeerStreamInputSentRecordsAlreadyArrivedOutput(t *testing.T) {
 		t.Fatalf("already arrived output = %#v", object["text"])
 	}
 }
+
+func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		chunks    []*genx.MessageChunk
+		wantError bool
+	}{
+		{name: "late previous response", chunks: []*genx.MessageChunk{
+			assistantText("old", "", true), assistantBlob("old", nil, true),
+			assistantText("current", "translated", false), assistantBlob("current", []byte{1}, false),
+			assistantText("current", "", true), assistantBlob("current", nil, true),
+		}},
+		{name: "different response endings", wantError: true, chunks: []*genx.MessageChunk{
+			assistantText("a", "translated", false), assistantBlob("a", []byte{1}, false), assistantText("a", "", true),
+			assistantText("b", "next", false), assistantBlob("b", []byte{2}, false), assistantBlob("b", nil, true),
+		}},
+		{name: "empty response", wantError: true, chunks: []*genx.MessageChunk{
+			{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "empty", Label: "assistant", BeginOfStream: true}},
+			assistantText("empty", "", true), assistantBlob("empty", nil, true),
+		}},
+		{name: "interrupted incomplete response", chunks: []*genx.MessageChunk{
+			assistantText("old", "partial", true),
+			{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "old", Label: "assistant", EndOfStream: true, Error: "interrupted"}},
+			assistantText("current", "translated", false), assistantBlob("current", []byte{1}, false),
+			assistantText("current", "", true), assistantBlob("current", nil, true),
+		}},
+		{name: "interrupted audio before normal text ending", chunks: []*genx.MessageChunk{
+			assistantText("old", "partial", false), assistantBlob("old", []byte{1}, false),
+			{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "old", Label: "assistant", EndOfStream: true, Error: "interrupted"}},
+			assistantText("old", "", true),
+			assistantText("current", "translated", false), assistantBlob("current", []byte{1}, false),
+			assistantText("current", "", true), assistantBlob("current", nil, true),
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			for _, chunk := range tc.chunks {
+				stream.in <- chunk
+			}
+			close(stream.in)
+			result, err := invokePeerStream(t.Context(), nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+				ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "text"},
+			}, "hello", 0)
+			if tc.wantError {
+				if err == nil {
+					t.Fatal("incomplete response passed")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := result.assertion.(map[string]any)["events"]; got != len(tc.chunks) {
+				t.Fatalf("completed after %v events, want %d", got, len(tc.chunks))
+			}
+		})
+	}
+}

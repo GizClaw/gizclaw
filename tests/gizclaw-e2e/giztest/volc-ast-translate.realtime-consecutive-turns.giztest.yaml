@@ -1,0 +1,144 @@
+# User Story:
+# As a device translating speech in one Workspace,
+# I want three consecutive realtime turns to replay the same synthesized audio,
+# So that input readiness and complete responses remain correct after the first turn.
+version: gizclaw.test/v1alpha1
+name: volc-ast-translate.realtime-consecutive-turns
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: volc-ast-translate
+        parameters:
+          asttranslate_workspace_parameters:
+            agent_type: ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE
+            input: WORKSPACE_INPUT_MODE_REALTIME
+            lang_pair: zh/fr
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_input
+    client: peer
+    timeout: 30s
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们明天上午九点在学校门口见面，然后一起去图书馆。
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: turn_1
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: realtime
+      input: ${input_audio}
+      pacing: 20ms
+      idle_timeout: 30s
+    expect:
+      /events:
+        minimum: 1
+      /first_text_ms:
+        minimum: 1
+      /first_audio_ms:
+        minimum: 1
+      /audio_bytes:
+        minimum: 1
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+  - id: turn_2
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: realtime
+      input: ${input_audio}
+      pacing: 20ms
+      idle_timeout: 30s
+    expect:
+      /events:
+        minimum: 1
+      /first_text_ms:
+        minimum: 1
+      /first_audio_ms:
+        minimum: 1
+      /audio_bytes:
+        minimum: 1
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+  - id: turn_3
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: realtime
+      input: ${input_audio}
+      pacing: 20ms
+      idle_timeout: 30s
+    expect:
+      /events:
+        minimum: 1
+      /first_text_ms:
+        minimum: 1
+      /first_audio_ms:
+        minimum: 1
+      /audio_bytes:
+        minimum: 1
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
