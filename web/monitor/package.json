@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prebuild": "npm run build --prefix ../../sdk/js/gizclaw-control",
+    "pretest": "npm run build --prefix ../../sdk/js/gizclaw-control"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -30,6 +32,7 @@
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "@gizclaw/gizclaw-control": "^0.3.0"
   }
 }

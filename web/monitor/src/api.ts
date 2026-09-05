@@ -1,22 +1,9 @@
-import { getNodeMonitor } from "./generated/monitor";
-import { createClient, createConfig } from "./generated/monitor/client";
-import { z } from "zod";
 import {
-  downloadDeviceHistoryAudio,
-  listDeviceWorkspaces,
-  listDeviceWorkspaceHistory,
-  searchDeviceLogs,
-  createPeerHTTPClient,
-  createPeerHTTPConfig,
-  getDevice,
-  getDeviceRuntime,
-  getDeviceStatus,
-  getDeviceTelemetryLatest,
-  findPublicKeysBySn,
-  findPublicKeysByImei,
-  rebootDevice,
-  setDeviceVolume,
-} from "../../../sdk/js/gizclaw/peerhttp";
+  createGizClawPeerMonitorClient,
+  createGizClawNodeMonitorClient,
+  createGizClawDiscoveryClient,
+} from "@gizclaw/gizclaw-control";
+import { z } from "zod";
 const record = z.record(z.string(), z.unknown());
 export const logSchema = z.object({
   id: z.number(),
@@ -60,56 +47,40 @@ export type PeerSnapshot = {
   telemetry: Record<string, unknown>;
   logs: LogEntry[];
 };
-const client = createPeerHTTPClient(
-  createPeerHTTPConfig({ baseUrl: window.location.origin }),
-);
-const monitorClient = createClient(
-  createConfig({ baseUrl: window.location.origin }),
-);
-function unwrap<T>(result: {
-  data?: T;
-  error?: unknown;
-  response?: Response;
-}): T {
-  if (!result.response?.ok || result.data === undefined)
-    throw new Error(
-      `${result.response?.status ?? "NETWORK_ERROR"} · ${JSON.stringify(result.error ?? "Empty response")}`,
-    );
-  return result.data;
-}
-const options = (token: string, signal: AbortSignal) => ({
-  client,
+const connectionOptions = (signal: AbortSignal) => ({
+  baseUrl: window.location.origin,
+  allowInsecureTransport: window.location.protocol === "http:",
   signal,
-  headers: { Authorization: `Bearer ${token}` },
 });
+const peerClient = (publicKey: string, signal: AbortSignal) =>
+  createGizClawPeerMonitorClient({ ...connectionOptions(signal), publicKey });
 export async function loadNode(
   token: string,
   signal: AbortSignal,
 ): Promise<NodeSnapshot> {
-  const response = await getNodeMonitor({
-    client: monitorClient,
-    signal,
-    headers: { Authorization: `Bearer ${token}` },
-    cache: "no-store",
-  });
-  return nodeSchema.parse(unwrap(response));
+  return nodeSchema.parse(
+    await createGizClawNodeMonitorClient({
+      ...connectionOptions(signal),
+      token,
+    }).get(),
+  );
 }
 export async function loadPeer(
   key: string,
   signal: AbortSignal,
 ): Promise<PeerSnapshot> {
-  const opts = options(`gizclaw_pk_${key}`, signal);
+  const peer = peerClient(key, signal);
   const [info, runtime, status, telemetry] = await Promise.all([
-    getDevice(opts),
-    getDeviceRuntime(opts),
-    getDeviceStatus(opts),
-    getDeviceTelemetryLatest(opts),
+    peer.get(),
+    peer.getRuntime(),
+    peer.getStatus(),
+    peer.getTelemetryLatest(),
   ]);
   return {
-    info: record.parse(unwrap(info)),
-    runtime: runtimeSchema.parse(unwrap(runtime)),
-    status: record.parse(unwrap(status)),
-    telemetry: record.parse(unwrap(telemetry)),
+    info: record.parse(info),
+    runtime: runtimeSchema.parse(runtime),
+    status: record.parse(status),
+    telemetry: record.parse(telemetry),
     logs: [],
   };
 }
@@ -120,16 +91,10 @@ export async function findPeers(
   signal: AbortSignal,
 ): Promise<string[]> {
   if (kind === "key") return [value.replace(/^gizclaw_pk_/, "")];
-  const response =
-    kind === "sn"
-      ? await findPublicKeysBySn({ client, signal, path: { sn: value } })
-      : await findPublicKeysByImei({
-          client,
-          signal,
-          path: { tac: value, serial },
-        });
-  return z.object({ public_keys: z.array(z.string()) }).parse(unwrap(response))
-    .public_keys;
+  const discovery = createGizClawDiscoveryClient(connectionOptions(signal));
+  return kind === "sn"
+    ? discovery.findBySn(value)
+    : discovery.findByImei(value, serial);
 }
 export async function controlPeer(
   key: string,
@@ -137,18 +102,9 @@ export async function controlPeer(
   volume: number,
   signal: AbortSignal,
 ) {
-  const opts = options(`gizclaw_pk_${key}`, signal);
-  const result =
-    action === "reboot"
-      ? await rebootDevice(opts)
-      : await setDeviceVolume({
-          ...opts,
-          body: { level: volume, muted: false },
-        });
-  if (!result.response?.ok)
-    throw new Error(
-      `${result.response?.status ?? "NETWORK_ERROR"} · ${JSON.stringify(result.error)}`,
-    );
+  const peer = peerClient(key, signal);
+  if (action === "reboot") await peer.reboot();
+  else await peer.setVolume({ level: volume, muted: false });
 }
 export type Sample = {
   timestamp: number;
@@ -226,9 +182,7 @@ export const persistentLogs = z.object({
   end: z.object({ has_next: z.boolean(), next_cursor: z.string().optional() }),
 });
 export async function loadWorkspaces(key: string, signal: AbortSignal) {
-  return workspaceList.parse(
-    unwrap(await listDeviceWorkspaces(options(`gizclaw_pk_${key}`, signal))),
-  );
+  return workspaceList.parse(await peerClient(key, signal).listWorkspaces());
 }
 export async function loadHistory(
   key: string,
@@ -238,13 +192,11 @@ export async function loadHistory(
   signal: AbortSignal,
 ) {
   return historyPage.parse(
-    unwrap(
-      await listDeviceWorkspaceHistory({
-        ...options(`gizclaw_pk_${key}`, signal),
-        path: { workspaceId: id },
-        query: { query, cursor, limit: 100 },
-      }),
-    ),
+    await peerClient(key, signal).listWorkspaceHistory(id, {
+      query,
+      cursor,
+      limit: 100,
+    }),
   );
 }
 export async function loadLogs(
@@ -257,34 +209,21 @@ export async function loadLogs(
   signal: AbortSignal,
 ) {
   return persistentLogs.parse(
-    unwrap(
-      await searchDeviceLogs({
-        ...options(`gizclaw_pk_${key}`, signal),
-        query: {
-          query,
-          level,
-          start_time_ms: start,
-          end_time_ms: end,
-          cursor,
-          limit: 200,
-        },
-      }),
-    ),
+    await peerClient(key, signal).searchLogs({
+      query,
+      level,
+      start_time_ms: start,
+      end_time_ms: end,
+      cursor,
+      limit: 200,
+    }),
   );
 }
-
 export async function loadHistoryAudio(
   key: string,
   workspaceId: string,
   historyId: string,
   signal: AbortSignal,
 ): Promise<Blob> {
-  const response = await downloadDeviceHistoryAudio({
-    ...options(`gizclaw_pk_${key}`, signal),
-    path: { workspaceId, historyId },
-    parseAs: "blob",
-  });
-  const value = unwrap(response);
-  if (!(value instanceof Blob)) throw new Error("音频响应格式无效");
-  return value;
+  return peerClient(key, signal).downloadHistoryAudio(workspaceId, historyId);
 }

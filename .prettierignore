@@ -3,4 +3,4 @@ third_party/
 sdk/c/gizclaw/generated/
 sdk/flutter/gizclaw/lib/src/generated/
 sdk/js/gizclaw/generated/
-web/monitor/src/generated/
+sdk/js/gizclaw-control/generated/
