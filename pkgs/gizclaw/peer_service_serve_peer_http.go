@@ -160,6 +160,10 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 				writeFiberAPIKeyOwnerError(ctx, err)
 				return nil
 			}
+			if s.manager.PeerRun == nil {
+				ctx.Status(http.StatusInternalServerError)
+				return ctx.JSON(apitypes.NewErrorResponse("INTERNAL_ERROR", "runtime unavailable"))
+			}
 			mode, err := s.manager.PeerRun.GetDebugMode(ctx.UserContext(), publicKey)
 			if err != nil {
 				ctx.Status(http.StatusInternalServerError)
