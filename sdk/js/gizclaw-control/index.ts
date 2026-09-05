@@ -1,12 +1,17 @@
 /**
- * Controller-side client for the GizClaw API-key HTTP API.
+ * Controller-side clients for GizClaw HTTP APIs and monitoring.
  *
  * The package talks to `/gizclaw/v1/*` over HTTPS with
  * `Authorization: Bearer gizclaw_sk_v1_...` and reuses the generated Peer HTTP
  * client owned by `@gizclaw/gizclaw/peerhttp`. The device side of GizClaw
- * (WebRTC, RPC, telemetry) stays in `@gizclaw/gizclaw`.
+ * (WebRTC, RPC, telemetry) stays in `@gizclaw/gizclaw`. Monitor constructors
+ * additionally support device public keys, node tokens and public discovery.
  */
 import {
+  listDeviceWorkspaces,
+  listDeviceWorkspaceHistory,
+  searchDeviceLogs,
+  downloadDeviceHistoryAudio,
   aggregateDeviceTelemetry,
   connectDeviceWifi,
   createApiKey,
@@ -35,6 +40,11 @@ import {
   setDeviceVolume,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
+  DeviceWorkspace,
+  DeviceLogPage,
+  PeerRunHistoryListResponse,
+  ListDeviceWorkspaceHistoryData,
+  SearchDeviceLogsData,
   ApiKey,
   ApiKeyCreateRequest,
   ApiKeyCreateResult,
@@ -66,6 +76,11 @@ import type {
 } from "@gizclaw/gizclaw/peerhttp";
 
 export type {
+  DeviceWorkspace,
+  DeviceLogPage,
+  PeerRunHistoryListResponse,
+  ListDeviceWorkspaceHistoryData,
+  SearchDeviceLogsData,
   ApiKey,
   ApiKeyCreateRequest,
   ApiKeyCreateResult,
@@ -262,6 +277,8 @@ export interface GizClawControlClientOptions {
   baseUrl: string;
   /** Complete `gizclaw_sk_v1_...` credential. */
   apiKey: string;
+  /** Abort all requests from this client, for example when a view unmounts. */
+  signal?: AbortSignal;
   /** Fetch implementation; defaults to `globalThis.fetch`. */
   fetch?: typeof fetch;
   /**
@@ -288,6 +305,17 @@ export interface GizClawControlApiKeys {
 }
 
 export interface GizClawControlDevice {
+  /** Owned Workspaces, including system Workspaces. */
+  listWorkspaces(): Promise<DeviceWorkspace[]>;
+  /** Search persisted chat within an owned Workspace. */
+  listWorkspaceHistory(
+    workspaceId: string,
+    query?: ListDeviceWorkspaceHistoryData["query"],
+  ): Promise<PeerRunHistoryListResponse>;
+  /** Query persistent logs restricted to this device. */
+  searchLogs(query: SearchDeviceLogsData["query"]): Promise<DeviceLogPage>;
+  /** Download retained Ogg audio; unavailable assets reject with notFound. */
+  downloadHistoryAudio(workspaceId: string, historyId: string): Promise<Blob>;
   /** `GET /gizclaw/v1/device`. */
   get(): Promise<DeviceInfo>;
   /** `GET /gizclaw/v1/device/runtime`. */
@@ -422,7 +450,11 @@ export function createGizClawControlClient(
     fetch: options.fetch,
     throwOnError: false,
   });
-  const common = { client, throwOnError: false as const };
+  const common = {
+    signal: options.signal,
+    client,
+    throwOnError: false as const,
+  };
 
   return {
     client,
@@ -451,6 +483,35 @@ export function createGizClawControlClient(
         ),
     },
     device: {
+      listWorkspaces: () =>
+        unwrap("listDeviceWorkspaces", listDeviceWorkspaces(common)),
+      listWorkspaceHistory: (workspaceId, query) =>
+        unwrap(
+          "listDeviceWorkspaceHistory",
+          listDeviceWorkspaceHistory({
+            ...common,
+            path: { workspaceId: requireSegment("workspaceId", workspaceId) },
+            query,
+          }),
+        ),
+      searchLogs: (query) =>
+        unwrap("searchDeviceLogs", searchDeviceLogs({ ...common, query })),
+      downloadHistoryAudio: async (workspaceId, historyId) => {
+        const blob = await unwrap(
+          "downloadDeviceHistoryAudio",
+          downloadDeviceHistoryAudio({
+            ...common,
+            path: {
+              workspaceId: requireSegment("workspaceId", workspaceId),
+              historyId: requireSegment("historyId", historyId),
+            },
+            parseAs: "blob",
+          }),
+        );
+        if (!(blob instanceof Blob))
+          throw new TypeError("history audio response must be a Blob");
+        return blob;
+      },
       get: () => unwrap("getDevice", getDevice(common)),
       getRuntime: () => unwrap("getDeviceRuntime", getDeviceRuntime(common)),
       getStatus: () => unwrap("getDeviceStatus", getDeviceStatus(common)),
@@ -533,3 +594,10 @@ export function createGizClawControlClient(
     },
   };
 }
+
+export {
+  createGizClawDiscoveryClient,
+  createGizClawPeerMonitorClient,
+  createGizClawNodeMonitorClient,
+} from "./monitor.ts";
+export type { NodeSnapshot, MonitorLog } from "./monitor.ts";

@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -251,5 +252,37 @@ func TestHistoryStoreHelpersCoverAssetExtensionsAndValidation(t *testing.T) {
 		if err := validateHistoryEntry(entry); err == nil || !strings.Contains(err.Error(), "created_at") {
 			t.Fatalf("validateHistoryEntry(%+v) error = %v", entry, err)
 		}
+	}
+}
+
+func TestHistorySearchPaginatesMatchingRecords(t *testing.T) {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "search")
+	for _, text := range []string{"orange one", "unrelated", "orange two"} {
+		if _, err := store.Append(t.Context(), AppendHistoryRequest{Type: "agent", Name: "assistant", Text: text}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	limit := 1
+	first, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit}, "orange")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Items) != 1 || first.Items[0].Text != "orange one" || !first.HasNext {
+		t.Fatalf("first page=%+v", first)
+	}
+	second, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Limit: &limit, Cursor: first.NextCursor}, "orange")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(second.Items) != 1 || second.Items[0].Text != "orange two" || second.HasNext {
+		t.Fatalf("second page=%+v", second)
+	}
+}
+
+func TestHistorySearchRejectsMalformedCursor(t *testing.T) {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
+	_, err := store.Search(t.Context(), apitypes.PeerRunHistoryListRequest{Cursor: new("not-a-history-id")}, "")
+	if !errors.Is(err, ErrInvalidHistoryCursor) {
+		t.Fatalf("malformed cursor error = %v", err)
 	}
 }

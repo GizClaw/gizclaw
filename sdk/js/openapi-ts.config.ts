@@ -1,5 +1,9 @@
 export default [
   {
+    input: "../../api/http/monitor.json",
+    output: "gizclaw-control/generated/monitor",
+  },
+  {
     input: "../../api/http/admin.json",
     output: "gizclaw/generated/adminhttp",
   },

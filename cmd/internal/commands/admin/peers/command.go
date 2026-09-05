@@ -16,7 +16,7 @@ var (
 	listPeers          = adminapi.ListPeers
 	getPeer            = adminapi.GetPeer
 	findPeersBySN      = adminapi.FindPeersBySN
-	findPubKeyByIMEI   = adminapi.FindPubKeyByIMEI
+	findPubKeysByIMEI  = adminapi.FindPubKeysByIMEI
 	approvePeer        = adminapi.ApprovePeer
 	blockPeer          = adminapi.BlockPeer
 	getPeerInfo        = adminapi.GetPeerInfo
@@ -89,7 +89,7 @@ func newCmd(use, short string) *cobra.Command {
 		},
 		&cobra.Command{
 			Use:   "resolve-imei <tac> <serial>",
-			Short: "Resolve public key by IMEI",
+			Short: "Find all public keys by IMEI",
 			Args:  cobra.ExactArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				c, err := connectFromContext(ctxName)
@@ -97,12 +97,11 @@ func newCmd(use, short string) *cobra.Command {
 					return err
 				}
 				defer c.Close()
-				publicKey, err := findPubKeyByIMEI(context.Background(), c, args[0], args[1])
+				publicKey, err := findPubKeysByIMEI(context.Background(), c, args[0], args[1])
 				if err != nil {
 					return err
 				}
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), publicKey)
-				return nil
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(publicKey)
 			},
 		},
 		&cobra.Command{

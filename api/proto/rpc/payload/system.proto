@@ -230,6 +230,7 @@ message ServerPeerDeleteRequest {
 message ServerPeerDeleteResponse {
 }
 message Runtime {
+  optional string debug_mode = 6;
   optional string last_addr = 1;
   string last_seen_at = 2;
   bool online = 3;
@@ -267,4 +268,12 @@ message SpeedTestRequest {
 message SpeedTestResponse {
   int64 down_content_length = 1;
   int64 up_content_length = 2;
+}
+
+message ServerPutRuntimeRequest {
+  string debug_mode = 1;
+}
+
+message ServerPutRuntimeResponse {
+  string debug_mode = 1;
 }

@@ -50,3 +50,25 @@ func TestOrderedUpstreamTransportDoesNotReplayUnsafeRequest(t *testing.T) {
 		t.Fatalf("RoundTrip error = %v, unsafe request reached second upstream", err)
 	}
 }
+
+func TestOrderedTransportAnonymousDirectory(t *testing.T) {
+	conn := &routeRPCGiznetConn{failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished}, httpServerID: "directory"}
+	transport := &orderedUpstreamTransport{entries: []*upstreamTransport{{conn: conn, connEpoch: 1}}}
+	for _, path := range []string{"/gizclaw/v1/peers/@findBySn/test", "/gizclaw/v1/peers/@findByImei/123/456"} {
+		request, err := http.NewRequest(http.MethodGet, "http://gizclaw"+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := transport.RoundTrip(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.Header.Get("X-Test-Server") != "directory" {
+			t.Fatal("wrong directory")
+		}
+	}
+	if conn.calls.Load() != 0 {
+		t.Fatal("directory required authenticated route resolution")
+	}
+}

@@ -357,6 +357,7 @@ func (c *Conn) Read(buf []byte) (byte, int, error) {
 		}
 		copy(buf, pkt.payload)
 		c.rxBytes.Add(uint64(len(pkt.payload)))
+		monitorRX.Add(uint64(len(pkt.payload)))
 		return pkt.protocol, len(pkt.payload), nil
 	case <-c.closeCh:
 		if err := c.closeError(); err != nil {
@@ -374,6 +375,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 		n, err := c.writeOpus(payload)
 		if n > 0 {
 			c.txBytes.Add(uint64(n))
+			monitorTX.Add(uint64(n))
 		}
 		return n, err
 	}
@@ -383,6 +385,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	n, err := writePacket(raw, protocol, payload)
 	if n > 0 {
 		c.txBytes.Add(uint64(n))
+		monitorTX.Add(uint64(n))
 	}
 	return n, err
 }

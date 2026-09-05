@@ -174,6 +174,12 @@ PB_BIND(gizclaw_rpc_v1_SpeedTestRequest, gizclaw_rpc_v1_SpeedTestRequest, AUTO)
 PB_BIND(gizclaw_rpc_v1_SpeedTestResponse, gizclaw_rpc_v1_SpeedTestResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ServerPutRuntimeRequest, gizclaw_rpc_v1_ServerPutRuntimeRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerPutRuntimeResponse, gizclaw_rpc_v1_ServerPutRuntimeResponse, AUTO)
+
+
 
 #ifndef PB_CONVERT_DOUBLE_FLOAT
 /* On some platforms (such as AVR), double is really float.

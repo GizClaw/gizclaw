@@ -14,7 +14,7 @@
 | 4 | `client.identifiers.get` | Server 从 Client 读取 SN、IMEI 和设备 labels。 |
 | 5 | `server.info.get` | 读取当前 Peer 在 Server 上的设备资料与标识信息。 |
 | 6 | `server.info.put` | 更新当前 Peer 的 name、emoji 等可编辑设备资料，并返回完整资料。 |
-| 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间和传输字节统计。 |
+| 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间、传输字节统计和调试模式。 |
 | 8 | `server.status.get` | 读取当前 Peer 最近上报的电量、充电、GNSS、音量、静音等状态。 |
 | 90 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回 RuntimeProfile name；可选 Firmware binding 仅保存在服务端。 |
 | 93 | `server.peer.delete` | 原子创建或复用当前 Peer 的 pending-deletion handoff，同时保留 Peer；立即拒绝当前连接的新工作，尝试返回空 acknowledgement 与 EOS，随后无条件关闭完整连接。 |
@@ -55,6 +55,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
 | 107 | `server.workspace.input.put` | 只更新指定 Workspace 的 input mode，保留其余 parameters 与 toolkit；Workspace 继承 Workflow parameters 时由 Server 解析继承配置。 |
 | 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
+| 112 | `server.runtime.put` | 设备设置自身 Runtime 的 `debug_mode`（`off`、`readonly` 或 `fullcontrol`），由所属 Server 存储并执行访问权限检查。 |
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
 | 30 | `server.workspace.history.get` | 读取指定 Workspace 的一条 history。 |

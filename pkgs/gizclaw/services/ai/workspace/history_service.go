@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -224,6 +225,28 @@ func (s *Server) AdminReadWorkspaceHistoryAudio(ctx context.Context, workspaceNa
 	return nil, 0, fs.ErrNotExist
 }
 
+// ReadWorkspaceHistoryAudioByID reads audio with workspace deletion fences.
+func (s *Server) ReadWorkspaceHistoryAudioByID(ctx context.Context, workspaceName, historyID string) (io.ReadCloser, int64, error) {
+	store, err := s.historyStoreByID(ctx, workspaceName)
+	if err != nil {
+		return nil, 0, err
+	}
+	entry, err := store.Get(ctx, historyID)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, asset := range entry.Assets {
+		if strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg") || strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg; codecs=opus") {
+			r, err := store.ReadAsset(ctx, asset.Name)
+			if err != nil {
+				return nil, 0, err
+			}
+			return r, asset.Bytes, nil
+		}
+	}
+	return nil, 0, fs.ErrNotExist
+}
+
 func (s *Server) historyStore(ctx context.Context, workspaceName string) (*HistoryStore, error) {
 	_, history, err := s.historyStoreWithMetadata(ctx, workspaceName)
 	return history, err
@@ -322,4 +345,53 @@ func bumpWorkspaceLastActive(ctx context.Context, store kv.Store, workspaceName 
 	}
 	workspace.LastActiveAt = lastActiveAt
 	return writeWorkspace(ctx, store, workspace)
+}
+
+// SearchWorkspaceHistoryByID queries persisted history without selecting a runtime.
+// Callers must enforce access to the Workspace before invoking this method.
+func (s *Server) SearchWorkspaceHistoryByID(ctx context.Context, id string, req apitypes.PeerRunHistoryListRequest, text string) (apitypes.PeerRunHistoryListResponse, error) {
+	store, err := s.historyStoreByID(ctx, id)
+	if err != nil {
+		return apitypes.PeerRunHistoryListResponse{}, err
+	}
+	return store.Search(ctx, req, text)
+}
+
+// ListOwnedHistoryWorkspaces includes domain-owned Workspaces (such as Pets)
+// with an explicit immutable Peer owner. Shared or ownerless spaces are omitted.
+func (s *Server) ListOwnedHistoryWorkspaces(ctx context.Context, owner string) ([]apitypes.Workspace, error) {
+	store, err := s.store()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]apitypes.Workspace, 0)
+	cursor := ""
+	for {
+		items, more, next, err := listWorkspacePage(ctx, store, workspacesRoot, cursor, 200, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range items {
+			if item.OwnerPublicKey == nil || *item.OwnerPublicKey != owner {
+				continue
+			}
+			if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
+				if errors.Is(err, ErrWorkspacePendingDeletion) {
+					continue
+				}
+				return nil, err
+			}
+			if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
+				return nil, err
+			}
+			result = append(result, item)
+		}
+		if !more {
+			return result, nil
+		}
+		if next == nil || *next == cursor {
+			return nil, fmt.Errorf("workspace: invalid list continuation")
+		}
+		cursor = *next
+	}
 }

@@ -14,12 +14,14 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
 )
 
 type Config struct {
+	Monitor         monitor.Config
 	WorkspaceRoot   string `yaml:"-"`
 	KeyPair         *giznet.KeyPair
 	WebRTC          WebRTCConfig
@@ -439,6 +441,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 }
 
 type ConfigFile struct {
+	Monitor         monitor.Config               `yaml:"monitor"`
 	Identity        IdentityConfig               `yaml:"identity"`
 	WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 	HTTP            *HTTPConfig                  `yaml:"http"`
@@ -494,6 +497,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, fmt.Errorf("server: system_tasks is not supported; configure Pet model aliases in the RuntimeProfile")
 	}
 	var raw struct {
+		Monitor         monitor.Config               `yaml:"monitor"`
 		Identity        *IdentityConfig              `yaml:"identity"`
 		WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 		HTTP            *HTTPConfig                  `yaml:"http"`
@@ -544,6 +548,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 		return ConfigFile{}, err
 	}
 	cfg := ConfigFile{
+		Monitor:         raw.Monitor,
 		Identity:        identity,
 		WebRTC:          raw.WebRTC,
 		HTTP:            raw.HTTP,
@@ -721,6 +726,9 @@ func DefaultConfig() Config {
 }
 
 func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	if cfg.Monitor.Token == "" {
+		cfg.Monitor = fileCfg.Monitor
+	}
 	if cfg.WebRTC == (WebRTCConfig{}) && fileCfg.WebRTC != nil {
 		cfg.WebRTC = *fileCfg.WebRTC
 	}
@@ -904,6 +912,9 @@ func prepareConfig(cfg Config) (Config, error) {
 		}
 		cfg.Services.SystemLog = &logCfg
 	}
+	if err := cfg.Monitor.Validate(); err != nil {
+		return Config{}, err
+	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
 	}
@@ -922,6 +933,9 @@ func (cfg Config) validate() error {
 		return err
 	}
 	if err := validateHostPort("webrtc.endpoint", cfg.WebRTC.Endpoint); err != nil {
+		return err
+	}
+	if err := cfg.Monitor.Validate(); err != nil {
 		return err
 	}
 	httpListeners := cfg.HTTP.Listeners

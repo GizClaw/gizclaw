@@ -55,13 +55,14 @@ func main() {
 
 func run() error {
 	var (
-		server     = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
-		profileID  = flag.String("profile-id", "", "RuntimeProfile ID to upsert")
-		workflowID = flag.String("workflow-id", "", "Pet Workflow ID to upsert (default <profile-id>-pet)")
-		tokenID    = flag.String("token-id", "", "RegistrationToken ID to upsert (default <profile-id>-token)")
-		token      = flag.String("token", "", "RegistrationToken value (default the token ID)")
-		adminEnv   = flag.String("admin-key-env", "GIZCLAW_E2E_ADMIN_PRIVATE_KEY", "environment variable holding the Server's admin private key")
-		timeout    = flag.Duration("timeout", 60*time.Second, "overall deadline")
+		server            = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
+		profileID         = flag.String("profile-id", "", "RuntimeProfile ID to upsert")
+		workflowID        = flag.String("workflow-id", "", "Pet Workflow ID to upsert (default <profile-id>-pet)")
+		monitorWorkflowID = flag.String("monitor-workflow-id", "", "Optional model-free Flowcraft Workflow for Monitor history tests")
+		tokenID           = flag.String("token-id", "", "RegistrationToken ID to upsert (default <profile-id>-token)")
+		token             = flag.String("token", "", "RegistrationToken value (default the token ID)")
+		adminEnv          = flag.String("admin-key-env", "GIZCLAW_E2E_ADMIN_PRIVATE_KEY", "environment variable holding the Server's admin private key")
+		timeout           = flag.Duration("timeout", 60*time.Second, "overall deadline")
 	)
 	flag.Parse()
 	if *server == "" || *profileID == "" {
@@ -125,9 +126,20 @@ func run() error {
 	if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: *workflowID, Spec: petWorkflowSpec()}); err != nil {
 		return err
 	}
+	if *monitorWorkflowID != "" {
+		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: *monitorWorkflowID, Spec: monitorWorkflowSpec()}); err != nil {
+			return err
+		}
+	}
+	profileSpec := runtimeProfileSpec(*workflowID, providerErr == nil)
+	if *monitorWorkflowID != "" {
+		profileSpec.Workflows.Collections["assistants"] = map[string]apitypes.RuntimeProfileBinding{
+			*monitorWorkflowID: binding(*monitorWorkflowID, "Monitor Echo", "监控回声测试"),
+		}
+	}
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id:   *profileID,
-		Spec: runtimeProfileSpec(*workflowID, providerErr == nil),
+		Spec: profileSpec,
 	}); err != nil {
 		return err
 	}
@@ -141,6 +153,36 @@ func run() error {
 	}
 	fmt.Println(registration.Token)
 	return nil
+}
+
+// monitorWorkflowSpec publishes deterministic text through the real Flowcraft
+// stream so history tests exercise capture and persistence without a model API.
+func monitorWorkflowSpec() apitypes.WorkflowSpec {
+	var node apitypes.FlowcraftNode
+	err := node.FromFlowcraftScriptNode(apitypes.FlowcraftScriptNode{
+		Id: "echo", Type: apitypes.FlowcraftScriptNodeTypeScript, Publish: new(true),
+		Config: apitypes.FlowcraftScriptNodeConfig{Source: `
+const messages = board.channel(board.MAIN_CHANNEL) || [];
+let text = "Monitor audio reply";
+for (let i = messages.length - 1; i >= 0; i--) {
+  const message = messages[i] || {};
+  if (message.role !== "user") continue;
+  if (typeof message.content === "string" && message.content) text = message.content;
+  else if (Array.isArray(message.parts)) {
+    const input = message.parts.filter(p => p.type === "text").map(p => p.text || "").join("");
+    if (input) text = input;
+  }
+  break;
+}
+host.emit("token", {content: text});
+`},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &apitypes.FlowcraftWorkflowSpec{
+		Graph: apitypes.FlowcraftGraph{Name: "Monitor Echo", Entry: "echo", Nodes: []apitypes.FlowcraftNode{node}, Edges: &[]apitypes.FlowcraftEdge{{From: "echo", To: "__end__"}}},
+	}}
 }
 
 type volcCredentials struct {

@@ -866,3 +866,21 @@ bash tests/memory/run_tests.sh
 ```
 
 普通 Memory 测试保持 credential-free，并由 `go test ./...` 执行。
+
+## Monitor API giztest
+
+```sh
+bash tests/gizclaw-e2e/run_monitor_tests.sh
+```
+
+需要 Docker、Node/npm 和 Python 3；默认使用当前 Docker 架构的 `gizclaw-go:linux-<arch>-cn-base`，缺失时从 `build/Dockerfile.cn.base` 构建。可用 `GIZCLAW_E2E_DOCKER_BASE_IMAGE` 指定基础镜像。Go module 和编译缓存使用独立 Docker volume，可用 `GIZCLAW_MONITOR_MODCACHE` 和 `GIZCLAW_MONITOR_BUILDCACHE` 指定 volume 名或绝对路径。
+
+入口自动生成身份，启动独立 Server/Edge，准备 Workflow，然后运行 `tests/gizclaw-e2e/giztest/server.monitor.*.giztest.yaml`：
+
+- authorization：runtime 调试权限与撤销、错误输入。
+- history：真实 WebRTC 文本会话入库，Workspace 查询、搜索、分页及跨 Peer 隔离。
+- logs：真实 HTTP completion 日志持久化查询、分页及游标绑定。
+- audio：预置 Ogg 历史资产的认证下载，以及未授权和缺失资产。
+- node：独立 Monitor Token 认证、拒绝设备公钥，以及当前节点指标。
+
+测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。音频素材由测试工具写入真实 History/Asset Store，不代表完成了外部 TTS 合成测试。结束后删除临时运行数据和容器，报告留在 `.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。

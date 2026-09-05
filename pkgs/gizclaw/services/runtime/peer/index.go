@@ -92,8 +92,12 @@ func snKey(sn, publicKey string) kv.Key {
 	return append(snPrefix(sn), publicKey)
 }
 
-func imeiKey(tac, serial string) kv.Key {
+func imeiPrefix(tac, serial string) kv.Key {
 	return kv.Key{"by-imei", escapeIndexSegment(tac), escapeIndexSegment(serial)}
+}
+
+func imeiKey(tac, serial, publicKey string) kv.Key {
+	return append(imeiPrefix(tac, serial), publicKey)
 }
 
 func labelPrefix(key, value string) kv.Key {
@@ -127,7 +131,7 @@ func indexEntries(peer apitypes.Peer) []kv.Entry {
 		entries = append(entries, kv.Entry{Key: snKey(sn, publicKey), Value: []byte{1}})
 	}
 	for _, item := range dedupeIMEIs(peerIMEIs(peer)) {
-		entries = append(entries, kv.Entry{Key: imeiKey(item.Tac, item.Serial), Value: []byte(publicKey)})
+		entries = append(entries, kv.Entry{Key: imeiKey(item.Tac, item.Serial, publicKey), Value: []byte{1}})
 	}
 	for _, item := range dedupeLabels(peerLabels(peer)) {
 		entries = append(entries, kv.Entry{Key: labelKey(item, publicKey), Value: []byte{1}})
@@ -148,7 +152,7 @@ func indexKeys(peer apitypes.Peer) []kv.Key {
 		keys = append(keys, snKey(sn, publicKey))
 	}
 	for _, item := range dedupeIMEIs(peerIMEIs(peer)) {
-		keys = append(keys, imeiKey(item.Tac, item.Serial))
+		keys = append(keys, imeiKey(item.Tac, item.Serial, publicKey))
 	}
 	for _, item := range dedupeLabels(peerLabels(peer)) {
 		keys = append(keys, labelKey(item, publicKey))

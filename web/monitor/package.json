@@ -1,0 +1,38 @@
+{
+  "name": "@gizclaw/monitor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "prebuild": "npm run build --prefix ../../sdk/js/gizclaw-control",
+    "pretest": "npm run build --prefix ../../sdk/js/gizclaw-control"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.3.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.41.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.5.4",
+    "@gizclaw/gizclaw-control": "^0.3.0"
+  }
+}

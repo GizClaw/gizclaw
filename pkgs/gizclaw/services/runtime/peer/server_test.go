@@ -236,19 +236,19 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatalf("FindPeersBySN = %+v", resolvedSN)
 	}
 
-	resolveIMEIResp, err := server.FindPubKeyByIMEI(ctx, adminhttp.FindPubKeyByIMEIRequestObject{
+	resolveIMEIResp, err := server.FindPubKeysByIMEI(ctx, adminhttp.FindPubKeysByIMEIRequestObject{
 		Tac:    tac,
 		Serial: serial,
 	})
 	if err != nil {
-		t.Fatalf("FindPubKeyByIMEI error: %v", err)
+		t.Fatalf("FindPubKeysByIMEI error: %v", err)
 	}
-	resolvedIMEI, ok := resolveIMEIResp.(adminhttp.FindPubKeyByIMEI200JSONResponse)
+	resolvedIMEI, ok := resolveIMEIResp.(adminhttp.FindPubKeysByIMEI200JSONResponse)
 	if !ok {
-		t.Fatalf("FindPubKeyByIMEI response type = %T", resolveIMEIResp)
+		t.Fatalf("FindPubKeysByIMEI response type = %T", resolveIMEIResp)
 	}
-	if resolvedIMEI.PublicKey != peerPublicKey {
-		t.Fatalf("FindPubKeyByIMEI = %+v", resolvedIMEI)
+	if len(resolvedIMEI.PublicKeys) != 1 || resolvedIMEI.PublicKeys[0] != peerPublicKey {
+		t.Fatalf("FindPubKeysByIMEI = %+v", resolvedIMEI)
 	}
 
 	approveResp, err := server.ApprovePeer(ctx, adminhttp.ApprovePeerRequestObject{
@@ -317,10 +317,10 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	} else if _, ok := response.(adminhttp.FindPeersBySN200JSONResponse); !ok {
 		t.Fatalf("FindPeersBySN after delete response = %T", response)
 	}
-	if response, err := server.FindPubKeyByIMEI(ctx, adminhttp.FindPubKeyByIMEIRequestObject{Tac: tac, Serial: serial}); err != nil {
-		t.Fatalf("FindPubKeyByIMEI after delete error: %v", err)
-	} else if _, ok := response.(adminhttp.FindPubKeyByIMEI200JSONResponse); !ok {
-		t.Fatalf("FindPubKeyByIMEI after delete response = %T", response)
+	if response, err := server.FindPubKeysByIMEI(ctx, adminhttp.FindPubKeysByIMEIRequestObject{Tac: tac, Serial: serial}); err != nil {
+		t.Fatalf("FindPubKeysByIMEI after delete error: %v", err)
+	} else if _, ok := response.(adminhttp.FindPubKeysByIMEI200JSONResponse); !ok {
+		t.Fatalf("FindPubKeysByIMEI after delete response = %T", response)
 	}
 	var pendingRecord pendingdeletion.Record
 	for entry, err := range server.Store.List(ctx, kv.Key{"pending-deletion", "by-id"}) {

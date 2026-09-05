@@ -764,6 +764,8 @@ func (r *Router) Close() error {
 
 // Conn is one logical Giznet connection aggregated from native channels.
 type Conn struct {
+	rxBytes     atomic.Uint64
+	txBytes     atomic.Uint64
 	router      *Router
 	declaration SessionDeclaration
 	control     *trackedChannel
@@ -1075,6 +1077,7 @@ func (c *Conn) Read(buf []byte) (byte, int, error) {
 			return 0, 0, giznet.ErrPacketBuffer
 		}
 		copy(buf, packet.payload)
+		c.rxBytes.Add(uint64(len(packet.payload)))
 		return packet.protocol, len(packet.payload), nil
 	case <-c.closeCh:
 		return 0, 0, c.err()
@@ -1087,6 +1090,9 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	}
 	if protocol == giznet.ProtocolOpusPacket {
 		n, err := c.router.writeOpus(c.declaration.SessionID, payload)
+		if n > 0 {
+			c.txBytes.Add(uint64(n))
+		}
 		if err == nil {
 			c.touch()
 		}
@@ -1104,6 +1110,9 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	n, err := c.packet.WriteMessage(message)
 	if err != nil {
 		return 0, err
+	}
+	if n > 0 {
+		c.txBytes.Add(uint64(max(0, n-1)))
 	}
 	if n != len(message) {
 		return max(0, n-1), io.ErrShortWrite
@@ -1131,6 +1140,8 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 	}
 	return &giznet.PeerInfo{
 		PublicKey: c.declaration.ClientPublicKey,
+		RxBytes:   c.rxBytes.Load(),
+		TxBytes:   c.txBytes.Load(),
 		Endpoint:  tunnelAddr(c.declaration.RemoteAddr),
 		State:     state,
 		LastSeen:  c.LastActivity(),
@@ -1320,6 +1331,7 @@ func newServiceStream(conn *Conn, id, service uint64, channel *trackedChannel) *
 func (s *serviceStream) Read(buf []byte) (int, error) {
 	n, err := s.channel.Read(buf)
 	if n > 0 {
+		s.conn.rxBytes.Add(uint64(n))
 		s.conn.touch()
 	}
 	return n, err
@@ -1328,6 +1340,7 @@ func (s *serviceStream) Read(buf []byte) (int, error) {
 func (s *serviceStream) Write(buf []byte) (int, error) {
 	n, err := s.channel.Write(buf)
 	if n > 0 {
+		s.conn.txBytes.Add(uint64(n))
 		s.conn.touch()
 	}
 	return n, err

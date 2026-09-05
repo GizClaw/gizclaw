@@ -657,6 +657,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientFirmwareUpdateRequest',
     responseType: 'ClientFirmwareUpdateResponse',
   ),
+  'server.runtime.put': RpcMethodDescriptor(
+    id: 112,
+    name: 'server.runtime.put',
+    requestType: 'ServerPutRuntimeRequest',
+    responseType: 'ServerPutRuntimeResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -767,6 +773,7 @@ const rpcMethodNamesById = <int, String>{
   108: 'client.wifi.scan',
   109: 'client.wifi.connect',
   111: 'client.firmware.update',
+  112: 'server.runtime.put',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

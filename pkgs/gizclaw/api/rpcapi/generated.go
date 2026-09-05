@@ -627,6 +627,7 @@ const (
 	RPCMethodServerRunWorkspaceReload            RPCMethod = "server.run.workspace.reload"
 	RPCMethodServerRunWorkspaceSet               RPCMethod = "server.run.workspace.set"
 	RPCMethodServerRuntimeGet                    RPCMethod = "server.runtime.get"
+	RPCMethodServerRuntimePut                    RPCMethod = "server.runtime.put"
 	RPCMethodServerStatusGet                     RPCMethod = "server.status.get"
 	RPCMethodServerSpeechExtract                 RPCMethod = "server.speech.extract"
 	RPCMethodServerSpeechSynthesize              RPCMethod = "server.speech.synthesize"
@@ -820,6 +821,8 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerRunWorkspaceReload:
 		return true
 	case RPCMethodServerRunWorkspaceSet:
+		return true
+	case RPCMethodServerRuntimePut:
 		return true
 	case RPCMethodServerRuntimeGet:
 		return true
@@ -2566,6 +2569,7 @@ type RewardGrantListResponse struct {
 
 // Runtime defines model for Runtime.
 type Runtime struct {
+	DebugMode  *string   `json:"debug_mode,omitempty"`
 	LastAddr   *string   `json:"last_addr,omitempty"`
 	LastSeenAt time.Time `json:"last_seen_at"`
 	Online     bool      `json:"online"`
@@ -6440,4 +6444,48 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
+}
+
+// ServerPutRuntimeRequest carries device-owned runtime settings.
+type ServerPutRuntimeRequest struct {
+	DebugMode string `json:"debug_mode"`
+}
+
+// AsServerPutRuntimeRequest decodes runtime settings.
+func (t RPCPayload) AsServerPutRuntimeRequest() (ServerPutRuntimeRequest, error) {
+	var body ServerPutRuntimeRequest
+	err := t.decode("ServerPutRuntimeRequest", &body)
+	return body, err
+}
+
+// FromServerPutRuntimeRequest encodes runtime settings.
+func (t *RPCPayload) FromServerPutRuntimeRequest(v ServerPutRuntimeRequest) error {
+	return t.encode("ServerPutRuntimeRequest", v)
+}
+
+// MergeServerPutRuntimeRequest merges runtime settings.
+func (t *RPCPayload) MergeServerPutRuntimeRequest(v ServerPutRuntimeRequest) error {
+	return t.merge("ServerPutRuntimeRequest", v)
+}
+
+// ServerPutRuntimeResponse carries device-owned runtime settings.
+type ServerPutRuntimeResponse struct {
+	DebugMode string `json:"debug_mode"`
+}
+
+// AsServerPutRuntimeResponse decodes runtime settings.
+func (t RPCPayload) AsServerPutRuntimeResponse() (ServerPutRuntimeResponse, error) {
+	var body ServerPutRuntimeResponse
+	err := t.decode("ServerPutRuntimeResponse", &body)
+	return body, err
+}
+
+// FromServerPutRuntimeResponse encodes runtime settings.
+func (t *RPCPayload) FromServerPutRuntimeResponse(v ServerPutRuntimeResponse) error {
+	return t.encode("ServerPutRuntimeResponse", v)
+}
+
+// MergeServerPutRuntimeResponse merges runtime settings.
+func (t *RPCPayload) MergeServerPutRuntimeResponse(v ServerPutRuntimeResponse) error {
+	return t.merge("ServerPutRuntimeResponse", v)
 }

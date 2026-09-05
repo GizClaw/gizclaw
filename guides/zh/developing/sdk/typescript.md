@@ -65,3 +65,21 @@ npm run quality:format
 - `package-lock.json` 中的 workspace 版本必须与 manifest 一致。
 
 修改 `@gizclaw/gizclaw` 的公开 surface（例如新增 export）需要提升它的版本；只改 `gizclaw-control` 不会触发 `@gizclaw/gizclaw` 发布。`prepare-published-sdk.mjs <package>` 在 `tsc` 之后复制生成的 Protobuf JavaScript（如存在）并把 `.d.ts` 里的 `.ts` import 改写为 `.js`。
+
+## Monitor 客户端
+
+`@gizclaw/gizclaw-control` 导出 `createGizClawPeerMonitorClient`、
+`createGizClawNodeMonitorClient` 和 `createGizClawDiscoveryClient`。
+Peer 监控使用 `Authorization: Bearer gizclaw_pk_<public key>`，由所属 Server
+执行 runtime 的 readonly/fullcontrol/off 权限。Node 监控使用独立 Monitor Token。
+公开 SN/IMEI 查询不发送凭证，并返回全部匹配设备。
+
+Peer client 提供设备快照、Telemetry、`listWorkspaces`、
+`listWorkspaceHistory`、`searchLogs` 和 `downloadHistoryAudio`。
+API Key 用户可以通过 `createGizClawControlClient(...).device` 使用同样的读取方法。
+客户端接受 AbortSignal；HTTP 错误由 `GizClawControlError` 保留状态码和错误代码。
+Ogg 下载返回 Blob。
+
+Node Monitor 生成代码归 `gizclaw-control/generated/monitor` 所有。
+Peer wire contract 仍只在 `gizclaw/generated/peerhttp` 生成一次；
+网页通过 control SDK 调用，不直接导入生成 client。

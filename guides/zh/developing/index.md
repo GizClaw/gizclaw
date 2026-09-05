@@ -175,3 +175,5 @@ sequenceDiagram
 - [编码规范](/zh/coding-styles/)
 - [使用说明](/zh/using/)
 - [Reference](/references/)
+
+监控控制台的构建、认证和数据范围见 [Monitor](monitor)。
