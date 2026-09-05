@@ -1,4 +1,5 @@
 gizclaw.events.v1.StreamBegin.stream_id max_size:129
+gizclaw.events.v1.AudioInputReady.stream_id max_size:129
 gizclaw.events.v1.StreamBegin.label max_size:65
 gizclaw.events.v1.StreamBegin.mime_type max_size:129
 gizclaw.events.v1.StreamEnd.stream_id max_size:129

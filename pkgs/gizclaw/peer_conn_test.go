@@ -1577,8 +1577,8 @@ func TestPeerConnDropsInactiveInputAfterWorkspaceSelectionChanges(t *testing.T) 
 	}
 	peer := &PeerConn{agentHost: runtime, agentInput: source}
 	chunk := &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "audio", BeginOfStream: true}}
-	if err := peer.pushAgentInputChunk(ctx, chunk); err != nil {
-		t.Fatalf("pushAgentInputChunk() error = %v", err)
+	if err := peer.pushAgentInputChunk(ctx, chunk); !errors.Is(err, agenthost.ErrNoActiveInput) {
+		t.Fatalf("pushAgentInputChunk() error = %v, want missing input instead of acknowledging a dropped BOS", err)
 	}
 	source.mu.RLock()
 	input := source.current

@@ -36,6 +36,13 @@ type peerStream interface {
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
 type peerStreamOpener func() (peerStream, error)
 
+type peerStreamResponseProgress struct {
+	textObserved, audioObserved bool
+	textEOS, audioEOS           bool
+	textEOSMS, audioEOSMS       int64
+	interrupted                 bool
+}
+
 type peerStreamSession struct {
 	client   string
 	stream   peerStream
@@ -675,6 +682,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	var firstTextElapsed, firstAudioElapsed time.Duration
 	firstTranscriptObserved, firstTextObserved, firstAudioObserved := false, false, false
 	textEOS, audioEOS := false, false
+	responses := make(map[string]*peerStreamResponseProgress)
 	counters := func() string {
 		return fmt.Sprintf("events=%d assistant_text=%d assistant_audio=%d assistant_eos=%d transcript_text=%d transcript_eos=%d other_eos=%d interrupt_sent=%t interrupt_observed=%t", events, assistantTextEvents, assistantAudioEvents, assistantEOS, transcriptTextEvents, transcriptEOS, otherEOS, interrupted, observedInterrupted)
 	}
@@ -871,7 +879,26 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					label = "assistant"
 				}
 			}
-			if label == "assistant" && actualStreamID != "" {
+			var response *peerStreamResponseProgress
+			if label == "assistant" {
+				response = responses[actualStreamID]
+				responseInterrupted := result.chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted")
+				hasContent := false
+				switch part := result.chunk.Part.(type) {
+				case genx.Text:
+					hasContent = strings.TrimSpace(string(part)) != ""
+				case *genx.Blob:
+					hasContent = len(part.Data) > 0
+				}
+				if response == nil && (result.chunk.IsBeginOfStream() || hasContent || responseInterrupted) {
+					response = &peerStreamResponseProgress{}
+					responses[actualStreamID] = response
+				}
+				if responseInterrupted {
+					response.interrupted = true
+				}
+			}
+			if response != nil && actualStreamID != "" {
 				switch {
 				case !interrupted && firstAssistantStreamID == "":
 					firstAssistantStreamID = actualStreamID
@@ -886,6 +913,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			case genx.Text:
 				if label == "assistant" && strings.TrimSpace(string(part)) != "" {
 					assistantTextEvents++
+					if response != nil {
+						response.textObserved = true
+					}
 				} else if label == "transcript" && strings.TrimSpace(string(part)) != "" {
 					transcriptTextEvents++
 				}
@@ -910,6 +940,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			case *genx.Blob:
 				if label == "assistant" && len(part.Data) > 0 {
 					assistantAudioEvents++
+					if response != nil {
+						response.audioObserved = true
+					}
 					if relayOpusMIME(part.MIMEType) {
 						packets, err := decodeOpusPackets(part.Data)
 						if err != nil {
@@ -994,17 +1027,28 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				}
 				nowMS := eventElapsed.Milliseconds()
 				if label == "assistant" {
-					switch {
-					case mimeType == "text/plain":
-						textEOS = true
-						textEOSMS = nowMS
-					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
-						audioEOS = true
-						audioEOSMS = nowMS
-					}
-					if (requireText && !textEOS) || (requireAudio && !audioEOS) {
+					// An EOS without an observed response may belong to the
+					// previous turn on this connection. Modalities must finish
+					// on the same response, with actual required content.
+					if response == nil || response.interrupted {
 						continue
 					}
+					switch {
+					case mimeType == "text/plain":
+						response.textEOS = true
+						response.textEOSMS = nowMS
+					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
+						response.audioEOS = true
+						response.audioEOSMS = nowMS
+					}
+					if (requireText && !response.textEOS) || (requireAudio && !response.audioEOS) {
+						continue
+					}
+					if (requireText && !response.textObserved) || (requireAudio && !response.audioObserved) {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream response %q completed without required assistant content (%s)", actualStreamID, counters())
+					}
+					textEOS, audioEOS = response.textEOS, response.audioEOS
+					textEOSMS, audioEOSMS = response.textEOSMS, response.audioEOSMS
 				}
 				return finish()
 			}

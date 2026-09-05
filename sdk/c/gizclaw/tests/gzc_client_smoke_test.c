@@ -2985,6 +2985,12 @@ int main(void) {
           "reopen Peer Event access reuses the physical channel") != 0) {
     return 1;
   }
+  outbound_event = (gzc_peer_event_t)gizclaw_events_v1_PeerEvent_init_zero;
+  outbound_event.version = GZC_PEER_EVENT_VERSION;
+  outbound_event.type = gizclaw_events_v1_PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY;
+  outbound_event.which_payload = gizclaw_events_v1_PeerEvent_audio_input_ready_tag;
+  (void)snprintf(outbound_event.payload.audio_input_ready.stream_id,
+                 sizeof(outbound_event.payload.audio_input_ready.stream_id), "%s", "audio-c");
   gzc_buf_t event_payload;
   gzc_buf_t encoded_event_frame;
   gzc_buf_init(&event_payload);
@@ -3025,9 +3031,9 @@ int main(void) {
   if (expect(
           rc == GZC_OK &&
               inbound_event.which_payload ==
-                  gizclaw_events_v1_PeerEvent_bos_tag &&
-              strcmp(inbound_event.payload.bos.stream_id, "audio-c") == 0,
-          "read framed Nanopb Peer Event") != 0) {
+                  gizclaw_events_v1_PeerEvent_audio_input_ready_tag &&
+              strcmp(inbound_event.payload.audio_input_ready.stream_id, "audio-c") == 0,
+          "read input-ready acknowledgement with Nanopb") != 0) {
     return 1;
   }
   gzc_buf_reset(&encoded_event_frame);

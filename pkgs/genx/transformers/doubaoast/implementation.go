@@ -188,8 +188,18 @@ func (t *Transformer) transform(ctx context.Context, input genx.Stream) (genx.St
 
 func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, output *bufferStream) {
 	defer output.Close()
-	ctx, cancel := context.WithCancel(parent)
-	defer cancel()
+	ctx, cancel := context.WithCancelCause(parent)
+	defer cancel(context.Canceled)
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-output.Done():
+			cancel(context.Canceled)
+		}
+		cause := context.Cause(ctx)
+		_ = output.CloseWithError(cause)
+		_ = input.CloseWithError(cause)
+	}()
 
 	var session doubaoASTTranslateSession
 	var sessionGate *astTranslatePTTOutputGate
@@ -209,6 +219,16 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 	var terminalSessionSeq atomic.Uint64
 	historyAudio := newASTTranslateHistoryAudioBuffer()
 	defer func() {
+		_ = output.Close()
+		cancel(context.Canceled)
+		activeSessionSeq.Store(0)
+		if session != nil {
+			_ = session.Close()
+		}
+		if recvFinished != nil {
+			<-recvFinished
+		}
+
 		if rawOpusDecoder != nil {
 			_ = rawOpusDecoder.Close()
 		}
@@ -258,6 +278,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		done := make(chan error, 1)
 		finished := make(chan struct{})
 		completionState := &atomic.Uint32{}
+		// Closing the provider releases Recv even when no more events arrive.
+		stopClose := context.AfterFunc(ctx, func() { _ = next.Close() })
 		markTerminal := func() {
 			terminalSessionSeq.Store(seq)
 		}
@@ -268,6 +290,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		recvFinished = finished
 		recvCompletionState = completionState
 		go func(activeStreamID string, start <-chan struct{}, eventOutput astTranslateOutput, pttGate *astTranslatePTTOutputGate) {
+			defer stopClose()
 			select {
 			case <-ctx.Done():
 				markTerminal()
@@ -279,10 +302,19 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			case <-start:
 			}
 			err := t.forwardEvents(eventOutput, next, activeStreamID, historyAudio, markTerminal)
+			if cause := context.Cause(ctx); cause != nil {
+				err = cause
+			}
 			if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
 				_ = next.Close()
 			} else if err != nil {
 				pttGate.Discard()
+				// A receive failure must not wait for the next input chunk or EOS.
+				// An interrupted session no longer owns this invocation's output.
+				if activeSessionSeq.CompareAndSwap(seq, 0) {
+					_ = output.Fail(err)
+					cancel(err)
+				}
 			}
 			completionState.CompareAndSwap(0, 1)
 			done <- err
@@ -368,7 +400,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 						timeoutErr := fmt.Errorf("%w after %s for stream %q", errDoubaoASTTranslateRealtimeCompletionTimeout, timeout, activeStreamID)
 						_ = output.CloseWithError(timeoutErr)
 						_ = input.CloseWithError(timeoutErr)
-						cancel()
+						cancel(timeoutErr)
 						_ = active.Close()
 					}
 				}()
@@ -1209,7 +1241,7 @@ func (t *Transformer) forwardEvents(
 			return failPTTGate(fmt.Errorf("doubao ast translate terminal event %d", event.Type))
 		}
 	}
-	return nil
+	return fmt.Errorf("doubao ast translate session closed before SessionFinished: %w", io.ErrUnexpectedEOF)
 }
 
 func astTranslateSegmentStreamID(base string, segment int) string {

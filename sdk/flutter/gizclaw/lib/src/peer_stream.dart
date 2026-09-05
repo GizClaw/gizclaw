@@ -8,6 +8,7 @@ import 'rpc_frame.dart';
 import 'transport.dart';
 
 final _bosEventType = events.PeerEventType.PEER_EVENT_TYPE_BOS;
+final _readyEventType = events.PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY;
 final _eosEventType = events.PeerEventType.PEER_EVENT_TYPE_EOS;
 final _audioStreamKind = events.StreamKind.STREAM_KIND_AUDIO;
 
@@ -75,7 +76,9 @@ class PeerStreamEvent {
               isUtc: true,
             )
           : null,
-      streamId = message.hasBos()
+      streamId = message.hasAudioInputReady()
+          ? message.audioInputReady.streamId
+          : message.hasBos()
           ? message.bos.streamId
           : message.hasEos()
           ? message.eos.streamId
@@ -127,6 +130,8 @@ class PeerStreamEvent {
   };
 
   String get type => switch (eventType) {
+    events.PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY =>
+      'audio.input.ready',
     events.PeerEventType.PEER_EVENT_TYPE_BOS => 'bos',
     events.PeerEventType.PEER_EVENT_TYPE_EOS => 'eos',
     events.PeerEventType.PEER_EVENT_TYPE_TEXT_DELTA => 'text.delta',
@@ -154,6 +159,8 @@ class PeerStreamEvent {
 events.PeerEventType _eventType(Object value) {
   if (value is events.PeerEventType) return value;
   return switch (value.toString()) {
+    'audio.input.ready' =>
+      events.PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY,
     'bos' => events.PeerEventType.PEER_EVENT_TYPE_BOS,
     'eos' => events.PeerEventType.PEER_EVENT_TYPE_EOS,
     'text.delta' => events.PeerEventType.PEER_EVENT_TYPE_TEXT_DELTA,
@@ -209,21 +216,37 @@ class WorkspaceEventSession {
   late final StreamSubscription<Uint8List> _subscription;
   var _receiveBuffer = Uint8List(0);
   var _closed = false;
+  final _pendingAudio = <String, Completer<void>>{};
 
   Stream<PeerStreamEvent> get events => _events.stream;
 
+  /// Completes only after the Server authorizes and installs the input route.
+  /// Closing this session cancels a pending acknowledgement.
   Future<void> beginAudio(String streamId) {
     if (_closed) {
       throw StateError('workspace event session is closed');
     }
-    return _send(
-      PeerStreamEvent(
-        type: _bosEventType,
-        kind: _audioStreamKind,
-        label: 'user',
-        streamId: streamId,
-      ),
+    if (streamId.trim().isEmpty) {
+      throw ArgumentError.value(streamId, 'streamId', 'must not be empty');
+    }
+    if (_pendingAudio.isNotEmpty) {
+      throw StateError('audio input is already awaiting acknowledgement');
+    }
+    final ready = Completer<void>();
+    _pendingAudio[streamId] = ready;
+    unawaited(
+      _send(
+        PeerStreamEvent(
+          type: _bosEventType,
+          kind: _audioStreamKind,
+          label: 'user',
+          streamId: streamId,
+        ),
+      ).catchError((Object error, StackTrace stackTrace) {
+        _pendingAudio.remove(streamId)?.completeError(error, stackTrace);
+      }),
     );
+    return ready.future;
   }
 
   Future<void> endAudio(String streamId, {String? error}) {
@@ -245,13 +268,17 @@ class WorkspaceEventSession {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    for (final ready in _pendingAudio.values) {
+      ready.completeError(StateError('workspace event session is closed'));
+    }
+    _pendingAudio.clear();
     await _subscription.cancel();
     await _channel.close();
     await _events.close();
   }
 
-  Future<void> _send(PeerStreamEvent event) {
-    return _channel.send(
+  Future<void> _send(PeerStreamEvent event) async {
+    await _channel.send(
       encodeFrame(rpcFrameTypeBinary, event.message.writeToBuffer()),
     );
   }
@@ -273,7 +300,19 @@ class WorkspaceEventSession {
             'peer stream event frame type ${frame.type} is unsupported',
           );
         }
-        _events.add(PeerStreamEvent.decode(frame.payload));
+        final event = PeerStreamEvent.decode(frame.payload);
+        if (event.eventType == _readyEventType) {
+          _pendingAudio.remove(event.streamId)?.complete();
+          continue;
+        }
+        if (event.eventType == _eosEventType && event.errorCode != null) {
+          _pendingAudio
+              .remove(event.streamId)
+              ?.completeError(
+                StateError('${event.errorCode}: ${event.errorMessage}'),
+              );
+        }
+        _events.add(event);
       }
     } catch (error, stackTrace) {
       _receiveBuffer = Uint8List(0);
@@ -291,6 +330,10 @@ class WorkspaceEventSession {
 
   void _fail(Object error, StackTrace stackTrace) {
     if (_closed) return;
+    for (final ready in _pendingAudio.values) {
+      ready.completeError(error, stackTrace);
+    }
+    _pendingAudio.clear();
     _events.addError(error, stackTrace);
     unawaited(close());
   }
@@ -313,6 +356,8 @@ events.PeerEvent _buildMessage({
 }) {
   final message = events.PeerEvent(version: 1, type: type);
   switch (type) {
+    case events.PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY:
+      message.audioInputReady = events.AudioInputReady(streamId: streamId);
     case events.PeerEventType.PEER_EVENT_TYPE_BOS:
       message.bos = events.StreamBegin(
         streamId: streamId ?? '',
@@ -381,6 +426,8 @@ void _validateMessage(events.PeerEvent message, {bool allowUnknown = false}) {
     throw const FormatException('peer event version must be 1');
   }
   final matches = switch (message.type) {
+    events.PeerEventType.PEER_EVENT_TYPE_AUDIO_INPUT_READY =>
+      message.hasAudioInputReady(),
     events.PeerEventType.PEER_EVENT_TYPE_BOS =>
       message.whichPayload() == events.PeerEvent_Payload.bos,
     events.PeerEventType.PEER_EVENT_TYPE_EOS =>
@@ -406,6 +453,10 @@ void _validateMessage(events.PeerEvent message, {bool allowUnknown = false}) {
     throw const FormatException('peer event type and payload do not match');
   }
   switch (message.whichPayload()) {
+    case events.PeerEvent_Payload.audioInputReady:
+      if (message.audioInputReady.streamId.trim().isEmpty) {
+        throw const FormatException('audio input ready requires streamId');
+      }
     case events.PeerEvent_Payload.bos:
     case events.PeerEvent_Payload.eos:
     case events.PeerEvent_Payload.textDelta:

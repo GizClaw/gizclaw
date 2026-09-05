@@ -198,12 +198,14 @@ func TestPeerStreamPushWritesEventsAndOpus(t *testing.T) {
 	defer serverSide.Close()
 	writer := &recordingPeerPacketWriter{ch: make(chan []byte, 1)}
 	stream := &PeerStream{
-		events: clientSide,
-		conn:   writer,
-		out:    make(chan *genx.MessageChunk, 1),
-		done:   make(chan struct{}),
+		events:       clientSide,
+		eventResults: make(chan peerStreamEventResult, 1),
+		conn:         writer,
+		out:          make(chan *genx.MessageChunk, 1),
+		done:         make(chan struct{}),
 	}
 	defer stream.Close()
+	go stream.readEvents()
 
 	pushErr := make(chan error, 1)
 	go func() {
@@ -215,6 +217,24 @@ func TestPeerStreamPushWritesEventsAndOpus(t *testing.T) {
 	event, err := ReadPeerStreamEvent(serverSide)
 	if err != nil {
 		t.Fatalf("ReadPeerStreamEvent() error = %v", err)
+	}
+	select {
+	case <-writer.ch:
+		t.Fatal("audio sent before server acknowledgement")
+	default:
+	}
+	select {
+	case <-pushErr:
+		t.Fatal("BOS completed before server acknowledgement")
+	default:
+	}
+	for _, id := range []string{"stale-turn", "s1"} {
+		if err := WritePeerStreamEvent(serverSide, &eventpb.PeerEvent{
+			Version: eventpb.Version, Type: eventpb.PeerEventType_PEER_EVENT_TYPE_AUDIO_INPUT_READY,
+			Payload: &eventpb.PeerEvent_AudioInputReady{AudioInputReady: &eventpb.AudioInputReady{StreamId: id}},
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := <-pushErr; err != nil {
 		t.Fatalf("Push() error = %v", err)

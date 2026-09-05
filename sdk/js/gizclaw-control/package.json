@@ -1,6 +1,6 @@
 {
   "name": "@gizclaw/gizclaw-control",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
     "test": "node --test --experimental-strip-types *.test.ts"
   },
   "dependencies": {
-    "@gizclaw/gizclaw": "^0.15.0"
+    "@gizclaw/gizclaw": "^0.15.0 || ^0.16.0"
   },
   "devDependencies": {
     "@types/node": "26.4.0",

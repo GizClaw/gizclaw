@@ -63,6 +63,8 @@ Provider、protocol、context cancellation、normalizer 和下游 emit error 保
 
 Push-to-Talk 的输入音频 EOS 按原始顺序一次性提交未发布 chunks。Provider failure 如果在提交前被记录，会丢弃整个未发布 turn 并返回 provider error，不暴露任何 retained data 或 control chunks。Commit gate 同时绑定输入 StreamID 与 provider session epoch，因此被打断 session 的迟到事件不能影响复用同一 StreamID 的新 session。
 
+AST 接收循环发生错误时，会直接结束输出流并保留原始错误，不等待下一段输入或音频 EOS。如果接收流在 `SessionFinished` 之前结束，即使 WebSocket 使用正常关闭码，也会返回包装 `io.ErrUnexpectedEOF` 的会话未完成错误。调用方取消 context 或关闭输出流时，Adapter 会关闭 provider session，释放正在等待事件的接收循环和输入读取。
+
 每个 turn 未发布的 assistant TTS output 最多保留两分钟，以规范化 Opus packet duration 计算。超过限制时丢弃整个未发布 turn，并只为对应 StreamID 发送一个 error EOS，不关闭共享 transformer output；input 和 history audio 不计入该限制。
 
 ## 两套 Realtime API

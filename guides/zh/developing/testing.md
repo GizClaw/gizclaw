@@ -232,6 +232,15 @@ platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行�
 
 ### Giztest 场景
 
+AST 连续轮次回归由 `volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml`
+和 `volc-ast-translate.realtime-consecutive-turns.giztest.yaml` 覆盖。每个场景只合成一次
+中文音频，在同一个 Workspace 中连续进行三轮中文到法语翻译；每轮保留 30 秒
+`idle_timeout`，要求非空文本、音频以及同一回复的完整 EOS。两个文件由
+`run_tests.sh` 的标准 Giztest 发现规则自动执行，CI 的 Release Contract job 校验其文档。
+真实火山调用需要标准 Docker fixture 和凭据；无需凭据的授权阻塞、AST 异常关闭及
+CLI 完成判定回归由普通 `go test` 执行。通过 `GIZCLAW_TEST_ENDPOINT` 分别选择
+Server 直连或 Edge 入口；一次直连通过不能代表 Edge 路径已验证。
+
 每个 Giztest 文件是独立 user story：文件自行创建临时 Peer、Workspace、invite、group
 等可变资源，并在 `finally` 中清理。设备身份按任务随机生成；测试之间不共享固定 device
 key 或输出。`clients` 可声明同一任务内同时在线的多个设备。
@@ -306,7 +315,9 @@ CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输�
 上传 `content_type`：Ogg/Opus 解码成 16 kHz 单声道 PCM，格式匹配的 `pcm_s16le` 以相同
 wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不拥有这项 wire metadata。
 
-`peer_stream.terminal_label` 默认等待 `assistant` 的文本和音频 EOS；
+`peer_stream.terminal_label` 默认等待同一个 `assistant` response 的文本和音频 EOS，
+并要求该 response 实际产出所需模态的非空内容。没有观察到 BOS 或内容的迟到 EOS
+不参与完成判定，不同 StreamID 的文本和音频 EOS 不能拼成一次成功；
 以已持久化用户 transcript 为终止边界的场景显式设为 `transcript`。
 `peer_stream.completion: first_response` 是面向部署探针的有界替代模式。
 `require_text` 和 `require_audio` 选择必须等待的模态，二者都默认为 true；每个必需模态必须

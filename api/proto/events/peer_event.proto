@@ -14,6 +14,9 @@ enum PeerEventType {
   PEER_EVENT_TYPE_FRIEND_RELATIONSHIP_UPDATED = 6;
   PEER_EVENT_TYPE_FRIEND_GROUP_UPDATED = 7;
   PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED = 8;
+  // Server acknowledgement that an input audio BOS has been authorized and
+  // installed. Clients must receive this before sending its Opus packets.
+  PEER_EVENT_TYPE_AUDIO_INPUT_READY = 9;
 }
 
 enum StreamKind {
@@ -58,7 +61,12 @@ message PeerEvent {
     FriendRelationshipUpdated friend_relationship_updated = 15;
     FriendGroupUpdated friend_group_updated = 16;
     GameplayRewardUpdated gameplay_reward_updated = 17;
+    AudioInputReady audio_input_ready = 18;
   }
+}
+
+message AudioInputReady {
+  string stream_id = 1;
 }
 
 message StreamBegin {

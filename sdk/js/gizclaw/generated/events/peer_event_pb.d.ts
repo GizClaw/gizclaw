@@ -88,6 +88,13 @@ export declare type PeerEvent = Message<"gizclaw.events.v1.PeerEvent"> & {
         value: GameplayRewardUpdated;
         case: "gameplayRewardUpdated";
       }
+    | {
+        /**
+         * @generated from field: gizclaw.events.v1.AudioInputReady audio_input_ready = 18;
+         */
+        value: AudioInputReady;
+        case: "audioInputReady";
+      }
     | { case: undefined; value?: undefined };
 };
 
@@ -96,6 +103,23 @@ export declare type PeerEvent = Message<"gizclaw.events.v1.PeerEvent"> & {
  * Use `create(PeerEventSchema)` to create a new message.
  */
 export declare const PeerEventSchema: GenMessage<PeerEvent>;
+
+/**
+ * @generated from message gizclaw.events.v1.AudioInputReady
+ */
+export declare type AudioInputReady =
+  Message<"gizclaw.events.v1.AudioInputReady"> & {
+    /**
+     * @generated from field: string stream_id = 1;
+     */
+    streamId: string;
+  };
+
+/**
+ * Describes the message gizclaw.events.v1.AudioInputReady.
+ * Use `create(AudioInputReadySchema)` to create a new message.
+ */
+export declare const AudioInputReadySchema: GenMessage<AudioInputReady>;
 
 /**
  * @generated from message gizclaw.events.v1.StreamBegin
@@ -453,6 +477,14 @@ export enum PeerEventType {
    * @generated from enum value: PEER_EVENT_TYPE_GAMEPLAY_REWARD_UPDATED = 8;
    */
   GAMEPLAY_REWARD_UPDATED = 8,
+
+  /**
+   * Server acknowledgement that an input audio BOS has been authorized and
+   * installed. Clients must receive this before sending its Opus packets.
+   *
+   * @generated from enum value: PEER_EVENT_TYPE_AUDIO_INPUT_READY = 9;
+   */
+  AUDIO_INPUT_READY = 9,
 }
 
 /**
