@@ -15,3 +15,6 @@
 | `Server.ActivateRunAgent` | Activates the selection and returns the updated running status. |
 
 `peerrun` only saves and parses the selection; the actual starting, stopping and replacing the Agent runtime is completed by `agenthost.Service`.
+
+`GetDebugMode` / `SetDebugMode` persist device-owned debug permissions, defaulting to `off`.
+The setting survives reconnects. HTTP authorization reads it on every request and fails closed on storage errors.

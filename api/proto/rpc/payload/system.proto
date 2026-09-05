@@ -115,11 +115,9 @@ message DeviceInfo {
   optional string name = 2;
   optional string emoji = 4;
   optional DeviceIdentifiers identifiers = 5;
-  optional string debug_mode = 6;
 }
 
 message DeviceProfile {
-  optional string debug_mode = 3;
   optional string name = 1;
   optional string emoji = 2;
 }
@@ -219,6 +217,7 @@ message ServerPeerDeleteRequest {
 message ServerPeerDeleteResponse {
 }
 message Runtime {
+  optional string debug_mode = 6;
   optional string last_addr = 1;
   string last_seen_at = 2;
   bool online = 3;
@@ -256,4 +255,12 @@ message SpeedTestRequest {
 message SpeedTestResponse {
   int64 down_content_length = 1;
   int64 up_content_length = 2;
+}
+
+message ServerPutRuntimeRequest {
+  string debug_mode = 1;
+}
+
+message ServerPutRuntimeResponse {
+  string debug_mode = 1;
 }

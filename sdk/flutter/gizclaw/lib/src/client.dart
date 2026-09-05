@@ -121,6 +121,14 @@ class GizClawClient {
     );
   }
 
+  /// Updates this authenticated device's runtime debug mode.
+  Future<payload.ServerPutRuntimeResponse> putServerRuntime(String debugMode) {
+    return rpc.call<payload.ServerPutRuntimeResponse>(
+      'server.runtime.put',
+      payload.ServerPutRuntimeRequest(debugMode: debugMode),
+    );
+  }
+
   Future<payload.WorkflowListResponse> listWorkflows({
     required String collection,
     String? cursor,

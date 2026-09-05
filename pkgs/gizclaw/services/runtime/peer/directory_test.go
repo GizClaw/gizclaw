@@ -58,25 +58,3 @@ func TestIMEIDuplicateUpdateAndLegacyLookup(t *testing.T) {
 	}
 	check()
 }
-
-func TestDebugModePartialUpdate(t *testing.T) {
-	ctx := context.Background()
-	server := &Server{Store: kv.NewMemory(nil)}
-	key := giznet.PublicKey{1}
-	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
-	for _, mode := range []string{"readonly", "fullcontrol", "off"} {
-		if _, err := server.PutSelfInfo(ctx, key, apitypes.DeviceInfo{DebugMode: &mode}); err != nil {
-			t.Fatal(err)
-		}
-		got, err := server.PutSelfInfo(ctx, key, apitypes.DeviceInfo{Name: new("renamed")})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.DebugMode == nil || *got.DebugMode != mode {
-			t.Fatalf("mode=%v", got.DebugMode)
-		}
-	}
-	if _, err := server.PutSelfInfo(ctx, key, apitypes.DeviceInfo{DebugMode: new("invalid")}); err == nil {
-		t.Fatal("invalid mode accepted")
-	}
-}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 )
 
 func TestDeviceDebugAccessModes(t *testing.T) {
@@ -29,16 +30,17 @@ func TestDeviceDebugAccessModes(t *testing.T) {
 		{"off", "GET", "/device", "", 403},
 	} {
 		t.Run(tc.mode+tc.method+tc.path, func(t *testing.T) {
-			if _, err := f.peers.PutSelfInfo(context.Background(), f.owner, apitypes.DeviceInfo{DebugMode: &tc.mode}); err != nil {
+			if err := f.manager.PeerRun.SetDebugMode(context.Background(), f.owner, tc.mode); err != nil {
 				t.Fatal(err)
 			}
-			req := httptest.NewRequest(tc.method, "/gizclaw/v1"+tc.path+"?public_key="+f.owner.String(), strings.NewReader(tc.body))
+			req := httptest.NewRequest(tc.method, "/gizclaw/v1"+tc.path, strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Bearer gizclaw_pk_"+f.owner.String())
 			if tc.body != "" {
 				req.Header.Set("Content-Type", "application/json")
 			}
 			res := httptest.NewRecorder()
 			f.handler.ServeHTTP(res, req)
-			if res.Code == http.StatusOK && res.Header().Get("Cache-Control") != "no-store" {
+			if peerhttp.IsDebugDataPath(req.URL.Path) && res.Header().Get("Cache-Control") != "no-store" {
 				t.Fatal("debug response is cacheable")
 			}
 			if res.Code != tc.want {
@@ -52,7 +54,7 @@ func TestDeviceDebugAccessModes(t *testing.T) {
 	}
 	// An invalid bearer must never fall back to debug access.
 	mode := "fullcontrol"
-	if _, err := f.peers.PutSelfInfo(context.Background(), f.owner, apitypes.DeviceInfo{DebugMode: &mode}); err != nil {
+	if err := f.manager.PeerRun.SetDebugMode(context.Background(), f.owner, mode); err != nil {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest("GET", "/gizclaw/v1/device?public_key="+f.owner.String(), nil)
@@ -89,5 +91,36 @@ func TestAnonymousDeviceDirectoryIncludesDebugOff(t *testing.T) {
 		if len(result.PublicKeys) != 1 || result.PublicKeys[0] != f.owner.String() {
 			t.Fatalf("%s: %s", path, res.Body.String())
 		}
+	}
+}
+
+func TestDebugAccessRequiresTaggedBearer(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	if err := f.manager.PeerRun.SetDebugMode(context.Background(), f.owner, "fullcontrol"); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		auth string
+		want int
+	}{
+		{"", 401}, {"Bearer " + f.owner.String(), 401},
+		{"Bearer gizclaw_pk_invalid", 400}, {"Bearer gizclaw_pk_", 400},
+	} {
+		req := httptest.NewRequest("GET", "/gizclaw/v1/device?public_key="+f.owner.String(), nil)
+		req.Header.Set("Authorization", tc.auth)
+		res := httptest.NewRecorder()
+		f.handler.ServeHTTP(res, req)
+		if res.Code != tc.want {
+			t.Fatalf("authorization %q: status=%d body=%s", tc.auth, res.Code, res.Body.String())
+		}
+	}
+	// An unavailable runtime must never grant access, even when the device exists.
+	f.manager.PeerRun = nil
+	req := httptest.NewRequest("GET", "/gizclaw/v1/device", nil)
+	req.Header.Set("Authorization", "Bearer gizclaw_pk_"+f.owner.String())
+	res := httptest.NewRecorder()
+	f.handler.ServeHTTP(res, req)
+	if res.Code != 500 {
+		t.Fatalf("runtime unavailable: status=%d", res.Code)
 	}
 }

@@ -52,9 +52,9 @@ func newOrderedUpstreamTransport(ctx context.Context, cfg Config) (*orderedUpstr
 }
 
 func (t *orderedUpstreamTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if request.Header.Get("Authorization") == "" && request.URL.Query().Get("public_key") != "" && peerhttp.IsDebugDataPath(request.URL.Path) {
-		var key giznet.PublicKey
-		if err := key.UnmarshalText([]byte(request.URL.Query().Get("public_key"))); err != nil || key.IsZero() {
+	key, debug, debugErr := peerhttp.DebugPublicKey(request.Header.Get("Authorization"))
+	if debug && peerhttp.IsDebugDataPath(request.URL.Path) {
+		if debugErr != nil {
 			return nil, errInvalidDebugPublicKey
 		}
 		assignment, err := t.resolvePeerAssignment(request.Context(), key)

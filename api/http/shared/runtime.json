@@ -32,6 +32,10 @@
           "tx_bytes": {
             "type": "integer",
             "format": "uint64"
+          },
+          "debug_mode": {
+            "type": "string",
+            "description": "Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put."
           }
         }
       }

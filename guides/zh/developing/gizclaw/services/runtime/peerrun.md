@@ -15,3 +15,6 @@
 | `Server.ActivateRunAgent` | 激活选择并返回更新后的运行状态。 |
 
 `peerrun` 只保存和解析 selection；真正启动、停止和替换 Agent runtime 由 `agenthost.Service` 完成。
+
+`GetDebugMode` / `SetDebugMode` 持久化设备自设的调试权限，缺失时为 `off`。
+设置跨断线重连保留，HTTP 鉴权每次读取并在存储失败时拒绝访问。

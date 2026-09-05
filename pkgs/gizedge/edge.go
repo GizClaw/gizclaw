@@ -21,6 +21,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
@@ -426,7 +427,10 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 	return proxy
 }
 
-func writeEdgeProxyError(w http.ResponseWriter, _ *http.Request, err error) {
+func writeEdgeProxyError(w http.ResponseWriter, req *http.Request, err error) {
+	if _, debug, _ := peerhttp.DebugPublicKey(req.Header.Get("Authorization")); debug && peerhttp.IsDebugDataPath(req.URL.Path) {
+		w.Header().Set("Cache-Control", "no-store")
+	}
 	status := http.StatusBadGateway
 	code := "UPSTREAM_ERROR"
 	switch {

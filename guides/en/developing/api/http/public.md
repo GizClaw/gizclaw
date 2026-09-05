@@ -15,7 +15,7 @@ See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authent
 
 ## Device and contact surface
 
-`/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` accept `Authorization: Bearer <api-key>` or device debug access as described below. The Server takes the immutable owner Peer from the key record; the `public_key` debug query does not override the API key owner, and manager keys and ordinary keys have the same owner-scoped capability on these routes. An invalid or revoked key answers `401 INVALID_API_KEY`, an owner that is not an active Client with a RuntimeProfile binding answers `403 API_KEY_OWNER_UNAVAILABLE`, an owner pending deletion answers `409 PEER_PENDING_DELETION`, validation and pagination failures answer `400 INVALID_REQUEST`, and store or service failures collapse into a redacted `500 INTERNAL_ERROR`.
+`/gizclaw/v1/device*` and `/gizclaw/v1/contacts*` accept `Authorization: Bearer <api-key>` or device debug access as described below. The Server takes the immutable owner Peer from the key record; API key bearer credentials always select their own immutable owner, and manager keys and ordinary keys have the same owner-scoped capability on these routes. An invalid or revoked key answers `401 INVALID_API_KEY`, an owner that is not an active Client with a RuntimeProfile binding answers `403 API_KEY_OWNER_UNAVAILABLE`, an owner pending deletion answers `409 PEER_PENDING_DELETION`, validation and pagination failures answer `400 INVALID_REQUEST`, and store or service failures collapse into a redacted `500 INTERNAL_ERROR`.
 
 Read routes project the authoritative services and never send an RPC to the device:
 
@@ -57,26 +57,29 @@ Before connection, `/server-info` reports the authoritative Server's `public_key
 
 ## Device debug access and anonymous lookup
 
-An authenticated device sets its own `debug_mode` through `server.info.put`:
-`off` (default), `readonly`, or `fullcontrol`. Omission preserves the stored mode;
-invalid values are rejected. The mode lives in the device record in PeerStore and
-is not overwritten by reverse identifier refresh.
+An authenticated device calls `server.runtime.put` with `{"debug_mode":"readonly"}`.
+Allowed modes are `off` (default), `readonly`, and `fullcontrol`; missing or invalid modes fail.
+The authoritative Server persists this setting in PeerRunStore at
+`by-peer:<pubkey>:debug-mode` within the `runs` namespace and exposes it in Runtime.debug_mode. It is not part of
+DeviceInfo and cannot be set through `server.info.put`. Reconnecting preserves the
+setting; an absent record means off.
 
-Without Authorization, device and contact HTTP routes accept `?public_key=<pubkey>`.
-`readonly` permits GET; `fullcontrol` permits reads, writes, and device controls on
-these routes. The Server reads the mode on every request; disabling it rejects new
-anonymous requests, without canceling requests already in progress. Active Client
-status and RuntimeProfile binding remain required. API key management, Admin, and
-OpenAI routes do not accept debug authorization. An invalid Authorization header
-never falls back to debug access; valid API keys retain their own immutable owner.
-Debug responses carry `Cache-Control: no-store`. Edge uses the existing Peer
-assignment to forward to the configured owning Server, which enforces access.
+Device and contact HTTP routes accept `Authorization: Bearer gizclaw_pk_<Base58 public key>`.
+The key must use canonical Base58; bare keys and public_key query parameters do not
+provide debug authorization. API keys beginning gizclaw_sk_v1_ retain their existing
+authentication path and never fall back to public-key access. Edge resolves the
+existing Peer assignment and proxies to the configured authoritative Server without
+reading DeviceInfo or debug mode. That Server reads the current PeerRunStore mode on
+every request: readonly permits GET, fullcontrol permits device/contact reads, writes,
+and controls. Available active Client status and RuntimeProfile binding remain required.
+API-key management, Admin, and OpenAI APIs do not accept public-key debug authorization.
+Disabling debug rejects new requests without canceling work already in progress.
+Storage errors fail closed and are redacted. Debug responses use Cache-Control: no-store.
 
 Anonymous GET `/gizclaw/v1/peers/@findBySn/{sn}` and
-`/gizclaw/v1/peers/@findByImei/{tac}/{serial}` return
-`{"public_keys": [...]}` for every match, including devices with debug disabled.
-No match returns an empty array; no device metadata is included. Both identifiers
-are non-unique device declarations. IMEI indexes use
-`by-imei:<tac>:<serial>:<pubkey>` and validate prefix matches against current records.
-Admin lookup is `/peers/@findPubKeysByImei/{tac}/{serial}`; it and CLI
-`admin peers resolve-imei` return all matching public keys.
+`/gizclaw/v1/peers/@findByImei/{tac}/{serial}` require no Authorization and return
+`{"public_keys": [...]}` for every match, including debug-off devices. No match returns
+an empty array, without device metadata. SN and IMEI are non-unique declarations.
+IMEI indexes use `by-imei:<tac>:<serial>:<pubkey>` and verify prefix candidates against
+current records. Updates and deletes affect only that public key. Admin lookup is
+`/peers/@findPubKeysByImei/{tac}/{serial}`; CLI `admin peers resolve-imei` also returns a list.

@@ -169,10 +169,6 @@ export type DeviceInfo = {
     emoji?: string;
     hardware?: HardwareInfo;
     identifiers?: DeviceIdentifiers;
-    /**
-     * Device-owned anonymous access mode: off (default), readonly, or fullcontrol. Set only through authenticated server.info.put.
-     */
-    debug_mode?: string;
 };
 
 export type ErrorPayload = {
@@ -281,6 +277,10 @@ export type Runtime = {
     last_addr?: string;
     rx_bytes?: number;
     tx_bytes?: number;
+    /**
+     * Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
+     */
+    debug_mode?: string;
 };
 
 export type ServerInfo = {
@@ -671,16 +671,15 @@ export type GetApiKeyResponse = GetApiKeyResponses[keyof GetApiKeyResponses];
 export type GetDeviceData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device';
 };
 
 export type GetDeviceErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -713,16 +712,15 @@ export type GetDeviceResponse = GetDeviceResponses[keyof GetDeviceResponses];
 export type GetDeviceRuntimeData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/runtime';
 };
 
 export type GetDeviceRuntimeErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -755,16 +753,15 @@ export type GetDeviceRuntimeResponse = GetDeviceRuntimeResponses[keyof GetDevice
 export type GetDeviceStatusData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/status';
 };
 
 export type GetDeviceStatusErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -802,10 +799,6 @@ export type GetDeviceTelemetryLatestData = {
          * Comma-separated telemetry field names. Omitted means all supported fields.
          */
         fields?: string;
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
     };
     url: '/gizclaw/v1/device/telemetry/latest';
 };
@@ -872,10 +865,6 @@ export type QueryDeviceTelemetryData = {
          * Returned point order
          */
         order?: PeerTelemetryOrder;
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
     };
     url: '/gizclaw/v1/device/telemetry';
 };
@@ -938,10 +927,6 @@ export type AggregateDeviceTelemetryData = {
          * Aggregate mode
          */
         aggregate: PeerTelemetryAggregate;
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
     };
     url: '/gizclaw/v1/device/telemetry/aggregate';
 };
@@ -983,12 +968,7 @@ export type AggregateDeviceTelemetryResponse = AggregateDeviceTelemetryResponses
 export type SetDeviceVolumeData = {
     body: DeviceVolumeSetRequest;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/volume';
 };
 
@@ -1041,12 +1021,7 @@ export type SetDeviceVolumeResponse = SetDeviceVolumeResponses[keyof SetDeviceVo
 export type PlayDeviceSoundData = {
     body: DevicePlaySoundRequest;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/actions/play-sound';
 };
 
@@ -1099,12 +1074,7 @@ export type PlayDeviceSoundResponse = PlayDeviceSoundResponses[keyof PlayDeviceS
 export type RebootDeviceData = {
     body?: DeviceRebootRequest;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/actions/reboot';
 };
 
@@ -1157,16 +1127,15 @@ export type RebootDeviceResponse = RebootDeviceResponses[keyof RebootDeviceRespo
 export type GetDeviceWifiData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/wifi';
 };
 
 export type GetDeviceWifiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1211,12 +1180,7 @@ export type GetDeviceWifiResponse = GetDeviceWifiResponses[keyof GetDeviceWifiRe
 export type ConnectDeviceWifiData = {
     body: DeviceWifiConnectRequest;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/wifi';
 };
 
@@ -1267,12 +1231,7 @@ export type ConnectDeviceWifiResponses = {
 export type ScanDeviceWifiData = {
     body?: DeviceWifiScanRequest;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/wifi/scan';
 };
 
@@ -1325,16 +1284,15 @@ export type ScanDeviceWifiResponse = ScanDeviceWifiResponses[keyof ScanDeviceWif
 export type ListDeviceSavedWifiData = {
     body?: never;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/wifi/saved';
 };
 
 export type ListDeviceSavedWifiErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1384,12 +1342,7 @@ export type ForgetDeviceSavedWifiData = {
          */
         ssid: string;
     };
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/device/wifi/saved/{ssid}';
 };
 
@@ -1452,10 +1405,6 @@ export type ListContactsData = {
          */
         cursor?: string;
         limit?: number;
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
     };
     url: '/gizclaw/v1/contacts';
 };
@@ -1497,12 +1446,7 @@ export type ListContactsResponse = ListContactsResponses[keyof ListContactsRespo
 export type CreateContactData = {
     body: ContactCreateRequest;
     path?: never;
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/contacts';
 };
 
@@ -1548,16 +1492,15 @@ export type DeleteContactData = {
          */
         contactName: string;
     };
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/contacts/{contactName}';
 };
 
 export type DeleteContactErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1599,16 +1542,15 @@ export type GetContactData = {
          */
         contactName: string;
     };
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/contacts/{contactName}';
 };
 
 export type GetContactErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
     /**
      * Missing, invalid, or revoked API key.
      */
@@ -1650,12 +1592,7 @@ export type PutContactData = {
          */
         contactName: string;
     };
-    query?: {
-        /**
-         * Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.
-         */
-        public_key?: string;
-    };
+    query?: never;
     url: '/gizclaw/v1/contacts/{contactName}';
 };
 

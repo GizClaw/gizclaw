@@ -214,3 +214,11 @@ func (c *rpcClient) ServerRunSay(ctx context.Context, conn net.Conn, id string, 
 	}
 	return result, nil
 }
+
+func (c *rpcClient) PutServerRuntime(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerPutRuntimeRequest) (*rpcapi.ServerPutRuntimeResponse, error) {
+	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromServerPutRuntimeRequest)
+	if err != nil {
+		return nil, err
+	}
+	return callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodServerRuntimePut, params), rpcapi.RPCPayload.AsServerPutRuntimeResponse)
+}

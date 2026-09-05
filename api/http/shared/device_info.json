@@ -34,10 +34,6 @@
           },
           "identifiers": {
             "$ref": "./device_identifiers.json#/components/schemas/DeviceIdentifiers"
-          },
-          "debug_mode": {
-            "type": "string",
-            "description": "Device-owned anonymous access mode: off (default), readonly, or fullcontrol. Set only through authenticated server.info.put."
           }
         }
       }

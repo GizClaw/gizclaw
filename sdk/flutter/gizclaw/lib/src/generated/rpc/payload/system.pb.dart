@@ -1414,14 +1414,12 @@ class DeviceInfo extends $pb.GeneratedMessage {
     $core.String? name,
     $core.String? emoji,
     DeviceIdentifiers? identifiers,
-    $core.String? debugMode,
   }) {
     final result = create();
     if (hardware != null) result.hardware = hardware;
     if (name != null) result.name = name;
     if (emoji != null) result.emoji = emoji;
     if (identifiers != null) result.identifiers = identifiers;
-    if (debugMode != null) result.debugMode = debugMode;
     return result;
   }
 
@@ -1444,7 +1442,6 @@ class DeviceInfo extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'emoji')
     ..aOM<DeviceIdentifiers>(5, _omitFieldNames ? '' : 'identifiers',
         subBuilder: DeviceIdentifiers.create)
-    ..aOS(6, _omitFieldNames ? '' : 'debugMode')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1504,27 +1501,16 @@ class DeviceInfo extends $pb.GeneratedMessage {
   void clearIdentifiers() => $_clearField(5);
   @$pb.TagNumber(5)
   DeviceIdentifiers ensureIdentifiers() => $_ensure(3);
-
-  @$pb.TagNumber(6)
-  $core.String get debugMode => $_getSZ(4);
-  @$pb.TagNumber(6)
-  set debugMode($core.String value) => $_setString(4, value);
-  @$pb.TagNumber(6)
-  $core.bool hasDebugMode() => $_has(4);
-  @$pb.TagNumber(6)
-  void clearDebugMode() => $_clearField(6);
 }
 
 class DeviceProfile extends $pb.GeneratedMessage {
   factory DeviceProfile({
     $core.String? name,
     $core.String? emoji,
-    $core.String? debugMode,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (emoji != null) result.emoji = emoji;
-    if (debugMode != null) result.debugMode = debugMode;
     return result;
   }
 
@@ -1543,7 +1529,6 @@ class DeviceProfile extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOS(2, _omitFieldNames ? '' : 'emoji')
-    ..aOS(3, _omitFieldNames ? '' : 'debugMode')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1582,15 +1567,6 @@ class DeviceProfile extends $pb.GeneratedMessage {
   $core.bool hasEmoji() => $_has(1);
   @$pb.TagNumber(2)
   void clearEmoji() => $_clearField(2);
-
-  @$pb.TagNumber(3)
-  $core.String get debugMode => $_getSZ(2);
-  @$pb.TagNumber(3)
-  set debugMode($core.String value) => $_setString(2, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDebugMode() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearDebugMode() => $_clearField(3);
 }
 
 class DeviceIdentifiers extends $pb.GeneratedMessage {
@@ -2824,6 +2800,7 @@ class Runtime extends $pb.GeneratedMessage {
     $core.bool? online,
     $fixnum.Int64? rxBytes,
     $fixnum.Int64? txBytes,
+    $core.String? debugMode,
   }) {
     final result = create();
     if (lastAddr != null) result.lastAddr = lastAddr;
@@ -2831,6 +2808,7 @@ class Runtime extends $pb.GeneratedMessage {
     if (online != null) result.online = online;
     if (rxBytes != null) result.rxBytes = rxBytes;
     if (txBytes != null) result.txBytes = txBytes;
+    if (debugMode != null) result.debugMode = debugMode;
     return result;
   }
 
@@ -2854,6 +2832,7 @@ class Runtime extends $pb.GeneratedMessage {
         defaultOrMaker: $fixnum.Int64.ZERO)
     ..a<$fixnum.Int64>(5, _omitFieldNames ? '' : 'txBytes', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(6, _omitFieldNames ? '' : 'debugMode')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2918,6 +2897,15 @@ class Runtime extends $pb.GeneratedMessage {
   $core.bool hasTxBytes() => $_has(4);
   @$pb.TagNumber(5)
   void clearTxBytes() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get debugMode => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set debugMode($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDebugMode() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDebugMode() => $_clearField(6);
 }
 
 class ServerGetInfoRequest extends $pb.GeneratedMessage {
@@ -3358,6 +3346,116 @@ class SpeedTestResponse extends $pb.GeneratedMessage {
   $core.bool hasUpContentLength() => $_has(1);
   @$pb.TagNumber(2)
   void clearUpContentLength() => $_clearField(2);
+}
+
+class ServerPutRuntimeRequest extends $pb.GeneratedMessage {
+  factory ServerPutRuntimeRequest({
+    $core.String? debugMode,
+  }) {
+    final result = create();
+    if (debugMode != null) result.debugMode = debugMode;
+    return result;
+  }
+
+  ServerPutRuntimeRequest._();
+
+  factory ServerPutRuntimeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPutRuntimeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPutRuntimeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'debugMode')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPutRuntimeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPutRuntimeRequest copyWith(
+          void Function(ServerPutRuntimeRequest) updates) =>
+      super.copyWith((message) => updates(message as ServerPutRuntimeRequest))
+          as ServerPutRuntimeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPutRuntimeRequest create() => ServerPutRuntimeRequest._();
+  @$core.override
+  ServerPutRuntimeRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPutRuntimeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPutRuntimeRequest>(create);
+  static ServerPutRuntimeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get debugMode => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set debugMode($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDebugMode() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDebugMode() => $_clearField(1);
+}
+
+class ServerPutRuntimeResponse extends $pb.GeneratedMessage {
+  factory ServerPutRuntimeResponse({
+    $core.String? debugMode,
+  }) {
+    final result = create();
+    if (debugMode != null) result.debugMode = debugMode;
+    return result;
+  }
+
+  ServerPutRuntimeResponse._();
+
+  factory ServerPutRuntimeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerPutRuntimeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerPutRuntimeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'debugMode')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPutRuntimeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerPutRuntimeResponse copyWith(
+          void Function(ServerPutRuntimeResponse) updates) =>
+      super.copyWith((message) => updates(message as ServerPutRuntimeResponse))
+          as ServerPutRuntimeResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerPutRuntimeResponse create() => ServerPutRuntimeResponse._();
+  @$core.override
+  ServerPutRuntimeResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerPutRuntimeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ServerPutRuntimeResponse>(create);
+  static ServerPutRuntimeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get debugMode => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set debugMode($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDebugMode() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDebugMode() => $_clearField(1);
 }
 
 const $core.bool _omitFieldNames =

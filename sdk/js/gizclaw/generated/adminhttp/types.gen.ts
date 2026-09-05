@@ -931,10 +931,6 @@ export type DeviceInfo = {
     emoji?: string;
     hardware?: HardwareInfo;
     identifiers?: DeviceIdentifiers;
-    /**
-     * Device-owned anonymous access mode: off (default), readonly, or fullcontrol. Set only through authenticated server.info.put.
-     */
-    debug_mode?: string;
 };
 
 export type ErrorPayload = {
@@ -1714,6 +1710,10 @@ export type Runtime = {
     last_addr?: string;
     rx_bytes?: number;
     tx_bytes?: number;
+    /**
+     * Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
+     */
+    debug_mode?: string;
 };
 
 export type RuntimeProfile = {

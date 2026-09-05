@@ -175,6 +175,7 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_CLIENT_WIFI_SAVED_FORGET', '2': 106, '3': {}},
     {'1': 'RPC_METHOD_CLIENT_WIFI_SCAN', '2': 108, '3': {}},
     {'1': 'RPC_METHOD_CLIENT_WIFI_CONNECT', '2': 109, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_RUNTIME_PUT', '2': 111, '3': {}},
   ],
 };
 
@@ -413,7 +414,9 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'd2lmaS5zY2FuEhVDbGllbnRXaWZpU2NhblJlcXVlc3QaFkNsaWVudFdpZmlTY2FuUmVzcG9uc2'
     'UScgoeUlBDX01FVEhPRF9DTElFTlRfV0lGSV9DT05ORUNUEG0aTsLzGEoKE2NsaWVudC53aWZp'
     'LmNvbm5lY3QSGENsaWVudFdpZmlDb25uZWN0UmVxdWVzdBoZQ2xpZW50V2lmaUNvbm5lY3RSZX'
-    'Nwb25zZQ==');
+    'Nwb25zZRJuCh1SUENfTUVUSE9EX1NFUlZFUl9SVU5USU1FX1BVVBBvGkvC8xhHChJzZXJ2ZXIu'
+    'cnVudGltZS5wdXQSF1NlcnZlclB1dFJ1bnRpbWVSZXF1ZXN0GhhTZXJ2ZXJQdXRSdW50aW1lUm'
+    'VzcG9uc2U=');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

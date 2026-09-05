@@ -126,7 +126,6 @@ typedef struct _gizclaw_rpc_v1_DeviceProfile {
     char name[257];
     bool has_emoji;
     char emoji[65];
-    pb_callback_t debug_mode;
 } gizclaw_rpc_v1_DeviceProfile;
 
 typedef struct _gizclaw_rpc_v1_DeviceIdentifiers {
@@ -159,7 +158,6 @@ typedef struct _gizclaw_rpc_v1_DeviceInfo {
     char emoji[65];
     bool has_identifiers;
     gizclaw_rpc_v1_DeviceIdentifiers identifiers;
-    pb_callback_t debug_mode;
 } gizclaw_rpc_v1_DeviceInfo;
 
 typedef struct _gizclaw_rpc_v1_PeerIMEI {
@@ -285,6 +283,7 @@ typedef struct _gizclaw_rpc_v1_Runtime {
     uint64_t rx_bytes;
     bool has_tx_bytes;
     uint64_t tx_bytes;
+    pb_callback_t debug_mode;
 } gizclaw_rpc_v1_Runtime;
 
 typedef struct _gizclaw_rpc_v1_ServerGetInfoRequest {
@@ -325,6 +324,14 @@ typedef struct _gizclaw_rpc_v1_SpeedTestResponse {
     int64_t up_content_length;
 } gizclaw_rpc_v1_SpeedTestResponse;
 
+typedef struct _gizclaw_rpc_v1_ServerPutRuntimeRequest {
+    pb_callback_t debug_mode;
+} gizclaw_rpc_v1_ServerPutRuntimeRequest;
+
+typedef struct _gizclaw_rpc_v1_ServerPutRuntimeResponse {
+    pb_callback_t debug_mode;
+} gizclaw_rpc_v1_ServerPutRuntimeResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -356,8 +363,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientWifiScanResponse_init_default {0, {gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default, gizclaw_rpc_v1_WifiScanResult_init_default}}
 #define gizclaw_rpc_v1_ClientWifiConnectRequest_init_default {"", false, ""}
 #define gizclaw_rpc_v1_ClientWifiConnectResponse_init_default {0}
-#define gizclaw_rpc_v1_DeviceInfo_init_default   {false, gizclaw_rpc_v1_HardwareInfo_init_default, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_default, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DeviceProfile_init_default {false, "", false, "", {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DeviceInfo_init_default   {false, gizclaw_rpc_v1_HardwareInfo_init_default, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_default}
+#define gizclaw_rpc_v1_DeviceProfile_init_default {false, "", false, ""}
 #define gizclaw_rpc_v1_DeviceIdentifiers_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_HardwareInfo_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -377,7 +384,7 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_default {0}
-#define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
+#define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_default {0}
@@ -386,6 +393,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_default {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_default {0, 0}
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientGetIdentifiersResponse_init_zero {false, gizclaw_rpc_v1_DeviceIdentifiers_init_zero}
 #define gizclaw_rpc_v1_ClientGetInfoRequest_init_zero {0}
@@ -411,8 +420,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientWifiScanResponse_init_zero {0, {gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero, gizclaw_rpc_v1_WifiScanResult_init_zero}}
 #define gizclaw_rpc_v1_ClientWifiConnectRequest_init_zero {"", false, ""}
 #define gizclaw_rpc_v1_ClientWifiConnectResponse_init_zero {0}
-#define gizclaw_rpc_v1_DeviceInfo_init_zero      {false, gizclaw_rpc_v1_HardwareInfo_init_zero, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_zero, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_DeviceProfile_init_zero   {false, "", false, "", {{NULL}, NULL}}
+#define gizclaw_rpc_v1_DeviceInfo_init_zero      {false, gizclaw_rpc_v1_HardwareInfo_init_zero, {{NULL}, NULL}, false, "", false, gizclaw_rpc_v1_DeviceIdentifiers_init_zero}
+#define gizclaw_rpc_v1_DeviceProfile_init_zero   {false, "", false, ""}
 #define gizclaw_rpc_v1_DeviceIdentifiers_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_HardwareInfo_init_zero    {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
@@ -432,7 +441,7 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_zero {0}
-#define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0}
+#define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_zero {0}
@@ -441,6 +450,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerPutInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_SpeedTestRequest_init_zero {0, 0}
 #define gizclaw_rpc_v1_SpeedTestResponse_init_zero {0, 0}
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_init_zero {{{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetRequest_level_tag 1
@@ -468,7 +479,6 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientWifiConnectRequest_passphrase_tag 2
 #define gizclaw_rpc_v1_DeviceProfile_name_tag    1
 #define gizclaw_rpc_v1_DeviceProfile_emoji_tag   2
-#define gizclaw_rpc_v1_DeviceProfile_debug_mode_tag 3
 #define gizclaw_rpc_v1_DeviceIdentifiers_sn_tag  1
 #define gizclaw_rpc_v1_DeviceIdentifiers_imeis_tag 2
 #define gizclaw_rpc_v1_DeviceIdentifiers_labels_tag 3
@@ -481,7 +491,6 @@ extern "C" {
 #define gizclaw_rpc_v1_DeviceInfo_name_tag       2
 #define gizclaw_rpc_v1_DeviceInfo_emoji_tag      4
 #define gizclaw_rpc_v1_DeviceInfo_identifiers_tag 5
-#define gizclaw_rpc_v1_DeviceInfo_debug_mode_tag 6
 #define gizclaw_rpc_v1_PeerIMEI_name_tag         1
 #define gizclaw_rpc_v1_PeerIMEI_serial_tag       2
 #define gizclaw_rpc_v1_PeerIMEI_tac_tag          3
@@ -526,6 +535,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Runtime_online_tag        3
 #define gizclaw_rpc_v1_Runtime_rx_bytes_tag      4
 #define gizclaw_rpc_v1_Runtime_tx_bytes_tag      5
+#define gizclaw_rpc_v1_Runtime_debug_mode_tag    6
 #define gizclaw_rpc_v1_ServerGetInfoResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerGetStatusResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPutInfoRequest_value_tag 1
@@ -534,6 +544,8 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeedTestRequest_up_content_length_tag 2
 #define gizclaw_rpc_v1_SpeedTestResponse_down_content_length_tag 1
 #define gizclaw_rpc_v1_SpeedTestResponse_up_content_length_tag 2
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_debug_mode_tag 1
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_debug_mode_tag 1
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_FIELDLIST(X, a) \
@@ -683,8 +695,7 @@ X(a, STATIC,   OPTIONAL, STRING,   passphrase,        2)
 X(a, STATIC,   OPTIONAL, MESSAGE,  hardware,          1) \
 X(a, CALLBACK, OPTIONAL, STRING,   name,              2) \
 X(a, STATIC,   OPTIONAL, STRING,   emoji,             4) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  identifiers,       5) \
-X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        6)
+X(a, STATIC,   OPTIONAL, MESSAGE,  identifiers,       5)
 #define gizclaw_rpc_v1_DeviceInfo_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_DeviceInfo_DEFAULT NULL
 #define gizclaw_rpc_v1_DeviceInfo_hardware_MSGTYPE gizclaw_rpc_v1_HardwareInfo
@@ -692,9 +703,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        6)
 
 #define gizclaw_rpc_v1_DeviceProfile_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, STRING,   name,              1) \
-X(a, STATIC,   OPTIONAL, STRING,   emoji,             2) \
-X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        3)
-#define gizclaw_rpc_v1_DeviceProfile_CALLBACK pb_default_field_callback
+X(a, STATIC,   OPTIONAL, STRING,   emoji,             2)
+#define gizclaw_rpc_v1_DeviceProfile_CALLBACK NULL
 #define gizclaw_rpc_v1_DeviceProfile_DEFAULT NULL
 
 #define gizclaw_rpc_v1_DeviceIdentifiers_FIELDLIST(X, a) \
@@ -830,7 +840,8 @@ X(a, CALLBACK, OPTIONAL, STRING,   last_addr,         1) \
 X(a, CALLBACK, SINGULAR, STRING,   last_seen_at,      2) \
 X(a, STATIC,   SINGULAR, BOOL,     online,            3) \
 X(a, STATIC,   OPTIONAL, UINT64,   rx_bytes,          4) \
-X(a, STATIC,   OPTIONAL, UINT64,   tx_bytes,          5)
+X(a, STATIC,   OPTIONAL, UINT64,   tx_bytes,          5) \
+X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        6)
 #define gizclaw_rpc_v1_Runtime_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Runtime_DEFAULT NULL
 
@@ -879,6 +890,16 @@ X(a, STATIC,   SINGULAR, INT64,    down_content_length,   1) \
 X(a, STATIC,   SINGULAR, INT64,    up_content_length,   2)
 #define gizclaw_rpc_v1_SpeedTestResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_SpeedTestResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   debug_mode,        1)
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   debug_mode,        1)
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_DEFAULT NULL
 
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersResponse_msg;
@@ -935,6 +956,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutInfoRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutInfoResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_fields &gizclaw_rpc_v1_ClientGetIdentifiersRequest_msg
@@ -992,6 +1015,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ServerPutInfoResponse_fields &gizclaw_rpc_v1_ServerPutInfoResponse_msg
 #define gizclaw_rpc_v1_SpeedTestRequest_fields &gizclaw_rpc_v1_SpeedTestRequest_msg
 #define gizclaw_rpc_v1_SpeedTestResponse_fields &gizclaw_rpc_v1_SpeedTestResponse_msg
+#define gizclaw_rpc_v1_ServerPutRuntimeRequest_fields &gizclaw_rpc_v1_ServerPutRuntimeRequest_msg
+#define gizclaw_rpc_v1_ServerPutRuntimeResponse_fields &gizclaw_rpc_v1_ServerPutRuntimeResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ClientGetIdentifiersResponse_size depends on runtime parameters */
@@ -999,7 +1024,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_ClientDeviceStatusGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DeviceInfo_size depends on runtime parameters */
-/* gizclaw_rpc_v1_DeviceProfile_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DeviceIdentifiers_size depends on runtime parameters */
 /* gizclaw_rpc_v1_HardwareInfo_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerIMEI_size depends on runtime parameters */
@@ -1009,8 +1033,9 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 /* gizclaw_rpc_v1_Runtime_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetInfoResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
-/* gizclaw_rpc_v1_ServerPutInfoRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerPutInfoResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ServerPutRuntimeRequest_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ServerPutRuntimeResponse_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_MAX_SIZE gizclaw_rpc_v1_APIKeyListResponse_size
 #define gizclaw_rpc_v1_APIKeyCreateRequest_size  84
 #define gizclaw_rpc_v1_APIKeyCreateResponse_size 374
@@ -1037,12 +1062,14 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 #define gizclaw_rpc_v1_ClientWifiScanResponse_size 2688
 #define gizclaw_rpc_v1_ClientWifiStatusGetRequest_size 0
 #define gizclaw_rpc_v1_ClientWifiStatusGetResponse_size 115
+#define gizclaw_rpc_v1_DeviceProfile_size        325
 #define gizclaw_rpc_v1_PingRequest_size          11
 #define gizclaw_rpc_v1_PingResponse_size         11
 #define gizclaw_rpc_v1_ServerGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ServerGetStatusRequest_size 0
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_size 0
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_size 0
+#define gizclaw_rpc_v1_ServerPutInfoRequest_size 328
 #define gizclaw_rpc_v1_ServerRegisterRequest_size 258
 #define gizclaw_rpc_v1_ServerRegisterResponse_size 258
 #define gizclaw_rpc_v1_SpeedTestRequest_size     22

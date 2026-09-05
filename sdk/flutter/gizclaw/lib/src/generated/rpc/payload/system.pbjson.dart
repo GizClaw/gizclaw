@@ -492,22 +492,12 @@ const DeviceInfo$json = {
       '10': 'identifiers',
       '17': true
     },
-    {
-      '1': 'debug_mode',
-      '3': 6,
-      '4': 1,
-      '5': 9,
-      '9': 4,
-      '10': 'debugMode',
-      '17': true
-    },
   ],
   '8': [
     {'1': '_hardware'},
     {'1': '_name'},
     {'1': '_emoji'},
     {'1': '_identifiers'},
-    {'1': '_debug_mode'},
   ],
 };
 
@@ -516,28 +506,17 @@ final $typed_data.Uint8List deviceInfoDescriptor = $convert.base64Decode(
     'CgpEZXZpY2VJbmZvEj0KCGhhcmR3YXJlGAEgASgLMhwuZ2l6Y2xhdy5ycGMudjEuSGFyZHdhcm'
     'VJbmZvSABSCGhhcmR3YXJliAEBEhcKBG5hbWUYAiABKAlIAVIEbmFtZYgBARIZCgVlbW9qaRgE'
     'IAEoCUgCUgVlbW9qaYgBARJICgtpZGVudGlmaWVycxgFIAEoCzIhLmdpemNsYXcucnBjLnYxLk'
-    'RldmljZUlkZW50aWZpZXJzSANSC2lkZW50aWZpZXJziAEBEiIKCmRlYnVnX21vZGUYBiABKAlI'
-    'BFIJZGVidWdNb2RliAEBQgsKCV9oYXJkd2FyZUIHCgVfbmFtZUIICgZfZW1vamlCDgoMX2lkZW'
-    '50aWZpZXJzQg0KC19kZWJ1Z19tb2Rl');
+    'RldmljZUlkZW50aWZpZXJzSANSC2lkZW50aWZpZXJziAEBQgsKCV9oYXJkd2FyZUIHCgVfbmFt'
+    'ZUIICgZfZW1vamlCDgoMX2lkZW50aWZpZXJz');
 
 @$core.Deprecated('Use deviceProfileDescriptor instead')
 const DeviceProfile$json = {
   '1': 'DeviceProfile',
   '2': [
-    {
-      '1': 'debug_mode',
-      '3': 3,
-      '4': 1,
-      '5': 9,
-      '9': 0,
-      '10': 'debugMode',
-      '17': true
-    },
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 1, '10': 'name', '17': true},
-    {'1': 'emoji', '3': 2, '4': 1, '5': 9, '9': 2, '10': 'emoji', '17': true},
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'name', '17': true},
+    {'1': 'emoji', '3': 2, '4': 1, '5': 9, '9': 1, '10': 'emoji', '17': true},
   ],
   '8': [
-    {'1': '_debug_mode'},
     {'1': '_name'},
     {'1': '_emoji'},
   ],
@@ -545,9 +524,8 @@ const DeviceProfile$json = {
 
 /// Descriptor for `DeviceProfile`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List deviceProfileDescriptor = $convert.base64Decode(
-    'Cg1EZXZpY2VQcm9maWxlEiIKCmRlYnVnX21vZGUYAyABKAlIAFIJZGVidWdNb2RliAEBEhcKBG'
-    '5hbWUYASABKAlIAVIEbmFtZYgBARIZCgVlbW9qaRgCIAEoCUgCUgVlbW9qaYgBAUINCgtfZGVi'
-    'dWdfbW9kZUIHCgVfbmFtZUIICgZfZW1vamk=');
+    'Cg1EZXZpY2VQcm9maWxlEhcKBG5hbWUYASABKAlIAFIEbmFtZYgBARIZCgVlbW9qaRgCIAEoCU'
+    'gBUgVlbW9qaYgBAUIHCgVfbmFtZUIICgZfZW1vamk=');
 
 @$core.Deprecated('Use deviceIdentifiersDescriptor instead')
 const DeviceIdentifiers$json = {
@@ -993,11 +971,20 @@ const Runtime$json = {
   '1': 'Runtime',
   '2': [
     {
+      '1': 'debug_mode',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'debugMode',
+      '17': true
+    },
+    {
       '1': 'last_addr',
       '3': 1,
       '4': 1,
       '5': 9,
-      '9': 0,
+      '9': 1,
       '10': 'lastAddr',
       '17': true
     },
@@ -1008,7 +995,7 @@ const Runtime$json = {
       '3': 4,
       '4': 1,
       '5': 4,
-      '9': 1,
+      '9': 2,
       '10': 'rxBytes',
       '17': true
     },
@@ -1017,12 +1004,13 @@ const Runtime$json = {
       '3': 5,
       '4': 1,
       '5': 4,
-      '9': 2,
+      '9': 3,
       '10': 'txBytes',
       '17': true
     },
   ],
   '8': [
+    {'1': '_debug_mode'},
     {'1': '_last_addr'},
     {'1': '_rx_bytes'},
     {'1': '_tx_bytes'},
@@ -1031,10 +1019,11 @@ const Runtime$json = {
 
 /// Descriptor for `Runtime`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List runtimeDescriptor = $convert.base64Decode(
-    'CgdSdW50aW1lEiAKCWxhc3RfYWRkchgBIAEoCUgAUghsYXN0QWRkcogBARIgCgxsYXN0X3NlZW'
-    '5fYXQYAiABKAlSCmxhc3RTZWVuQXQSFgoGb25saW5lGAMgASgIUgZvbmxpbmUSHgoIcnhfYnl0'
-    'ZXMYBCABKARIAVIHcnhCeXRlc4gBARIeCgh0eF9ieXRlcxgFIAEoBEgCUgd0eEJ5dGVziAEBQg'
-    'wKCl9sYXN0X2FkZHJCCwoJX3J4X2J5dGVzQgsKCV90eF9ieXRlcw==');
+    'CgdSdW50aW1lEiIKCmRlYnVnX21vZGUYBiABKAlIAFIJZGVidWdNb2RliAEBEiAKCWxhc3RfYW'
+    'RkchgBIAEoCUgBUghsYXN0QWRkcogBARIgCgxsYXN0X3NlZW5fYXQYAiABKAlSCmxhc3RTZWVu'
+    'QXQSFgoGb25saW5lGAMgASgIUgZvbmxpbmUSHgoIcnhfYnl0ZXMYBCABKARIAlIHcnhCeXRlc4'
+    'gBARIeCgh0eF9ieXRlcxgFIAEoBEgDUgd0eEJ5dGVziAEBQg0KC19kZWJ1Z19tb2RlQgwKCl9s'
+    'YXN0X2FkZHJCCwoJX3J4X2J5dGVzQgsKCV90eF9ieXRlcw==');
 
 @$core.Deprecated('Use serverGetInfoRequestDescriptor instead')
 const ServerGetInfoRequest$json = {
@@ -1174,3 +1163,31 @@ const SpeedTestResponse$json = {
 final $typed_data.Uint8List speedTestResponseDescriptor = $convert.base64Decode(
     'ChFTcGVlZFRlc3RSZXNwb25zZRIuChNkb3duX2NvbnRlbnRfbGVuZ3RoGAEgASgDUhFkb3duQ2'
     '9udGVudExlbmd0aBIqChF1cF9jb250ZW50X2xlbmd0aBgCIAEoA1IPdXBDb250ZW50TGVuZ3Ro');
+
+@$core.Deprecated('Use serverPutRuntimeRequestDescriptor instead')
+const ServerPutRuntimeRequest$json = {
+  '1': 'ServerPutRuntimeRequest',
+  '2': [
+    {'1': 'debug_mode', '3': 1, '4': 1, '5': 9, '10': 'debugMode'},
+  ],
+};
+
+/// Descriptor for `ServerPutRuntimeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverPutRuntimeRequestDescriptor =
+    $convert.base64Decode(
+        'ChdTZXJ2ZXJQdXRSdW50aW1lUmVxdWVzdBIdCgpkZWJ1Z19tb2RlGAEgASgJUglkZWJ1Z01vZG'
+        'U=');
+
+@$core.Deprecated('Use serverPutRuntimeResponseDescriptor instead')
+const ServerPutRuntimeResponse$json = {
+  '1': 'ServerPutRuntimeResponse',
+  '2': [
+    {'1': 'debug_mode', '3': 1, '4': 1, '5': 9, '10': 'debugMode'},
+  ],
+};
+
+/// Descriptor for `ServerPutRuntimeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List serverPutRuntimeResponseDescriptor =
+    $convert.base64Decode(
+        'ChhTZXJ2ZXJQdXRSdW50aW1lUmVzcG9uc2USHQoKZGVidWdfbW9kZRgBIAEoCVIJZGVidWdNb2'
+        'Rl');

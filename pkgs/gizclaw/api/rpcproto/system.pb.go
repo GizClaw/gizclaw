@@ -1146,7 +1146,6 @@ type DeviceInfo struct {
 	Name          *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Emoji         *string                `protobuf:"bytes,4,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
 	Identifiers   *DeviceIdentifiers     `protobuf:"bytes,5,opt,name=identifiers,proto3,oneof" json:"identifiers,omitempty"`
-	DebugMode     *string                `protobuf:"bytes,6,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1209,16 +1208,8 @@ func (x *DeviceInfo) GetIdentifiers() *DeviceIdentifiers {
 	return nil
 }
 
-func (x *DeviceInfo) GetDebugMode() string {
-	if x != nil && x.DebugMode != nil {
-		return *x.DebugMode
-	}
-	return ""
-}
-
 type DeviceProfile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	DebugMode     *string                `protobuf:"bytes,3,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
 	Name          *string                `protobuf:"bytes,1,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Emoji         *string                `protobuf:"bytes,2,opt,name=emoji,proto3,oneof" json:"emoji,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1253,13 +1244,6 @@ func (x *DeviceProfile) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeviceProfile.ProtoReflect.Descriptor instead.
 func (*DeviceProfile) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{26}
-}
-
-func (x *DeviceProfile) GetDebugMode() string {
-	if x != nil && x.DebugMode != nil {
-		return *x.DebugMode
-	}
-	return ""
 }
 
 func (x *DeviceProfile) GetName() string {
@@ -2254,6 +2238,7 @@ func (*ServerPeerDeleteResponse) Descriptor() ([]byte, []int) {
 
 type Runtime struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	DebugMode     *string                `protobuf:"bytes,6,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
 	LastAddr      *string                `protobuf:"bytes,1,opt,name=last_addr,json=lastAddr,proto3,oneof" json:"last_addr,omitempty"`
 	LastSeenAt    string                 `protobuf:"bytes,2,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
 	Online        bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`
@@ -2291,6 +2276,13 @@ func (x *Runtime) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Runtime.ProtoReflect.Descriptor instead.
 func (*Runtime) Descriptor() ([]byte, []int) {
 	return file_payload_system_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *Runtime) GetDebugMode() string {
+	if x != nil && x.DebugMode != nil {
+		return *x.DebugMode
+	}
+	return ""
 }
 
 func (x *Runtime) GetLastAddr() string {
@@ -2680,6 +2672,94 @@ func (x *SpeedTestResponse) GetUpContentLength() int64 {
 	return 0
 }
 
+type ServerPutRuntimeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DebugMode     string                 `protobuf:"bytes,1,opt,name=debug_mode,json=debugMode,proto3" json:"debug_mode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerPutRuntimeRequest) Reset() {
+	*x = ServerPutRuntimeRequest{}
+	mi := &file_payload_system_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerPutRuntimeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerPutRuntimeRequest) ProtoMessage() {}
+
+func (x *ServerPutRuntimeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerPutRuntimeRequest.ProtoReflect.Descriptor instead.
+func (*ServerPutRuntimeRequest) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *ServerPutRuntimeRequest) GetDebugMode() string {
+	if x != nil {
+		return x.DebugMode
+	}
+	return ""
+}
+
+type ServerPutRuntimeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DebugMode     string                 `protobuf:"bytes,1,opt,name=debug_mode,json=debugMode,proto3" json:"debug_mode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ServerPutRuntimeResponse) Reset() {
+	*x = ServerPutRuntimeResponse{}
+	mi := &file_payload_system_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ServerPutRuntimeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ServerPutRuntimeResponse) ProtoMessage() {}
+
+func (x *ServerPutRuntimeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ServerPutRuntimeResponse.ProtoReflect.Descriptor instead.
+func (*ServerPutRuntimeResponse) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ServerPutRuntimeResponse) GetDebugMode() string {
+	if x != nil {
+		return x.DebugMode
+	}
+	return ""
+}
+
 var File_payload_system_proto protoreflect.FileDescriptor
 
 const file_payload_system_proto_rawDesc = "" +
@@ -2753,26 +2833,20 @@ const file_payload_system_proto_rawDesc = "" +
 	"passphrase\x18\x02 \x01(\tH\x00R\n" +
 	"passphrase\x88\x01\x01B\r\n" +
 	"\v_passphrase\"\x1b\n" +
-	"\x19ClientWifiConnectResponse\"\xac\x02\n" +
+	"\x19ClientWifiConnectResponse\"\xf9\x01\n" +
 	"\n" +
 	"DeviceInfo\x12=\n" +
 	"\bhardware\x18\x01 \x01(\v2\x1c.gizclaw.rpc.v1.HardwareInfoH\x00R\bhardware\x88\x01\x01\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x19\n" +
 	"\x05emoji\x18\x04 \x01(\tH\x02R\x05emoji\x88\x01\x01\x12H\n" +
-	"\videntifiers\x18\x05 \x01(\v2!.gizclaw.rpc.v1.DeviceIdentifiersH\x03R\videntifiers\x88\x01\x01\x12\"\n" +
-	"\n" +
-	"debug_mode\x18\x06 \x01(\tH\x04R\tdebugMode\x88\x01\x01B\v\n" +
+	"\videntifiers\x18\x05 \x01(\v2!.gizclaw.rpc.v1.DeviceIdentifiersH\x03R\videntifiers\x88\x01\x01B\v\n" +
 	"\t_hardwareB\a\n" +
 	"\x05_nameB\b\n" +
 	"\x06_emojiB\x0e\n" +
-	"\f_identifiersB\r\n" +
-	"\v_debug_mode\"\x89\x01\n" +
-	"\rDeviceProfile\x12\"\n" +
-	"\n" +
-	"debug_mode\x18\x03 \x01(\tH\x00R\tdebugMode\x88\x01\x01\x12\x17\n" +
-	"\x04name\x18\x01 \x01(\tH\x01R\x04name\x88\x01\x01\x12\x19\n" +
-	"\x05emoji\x18\x02 \x01(\tH\x02R\x05emoji\x88\x01\x01B\r\n" +
-	"\v_debug_modeB\a\n" +
+	"\f_identifiers\"V\n" +
+	"\rDeviceProfile\x12\x17\n" +
+	"\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12\x19\n" +
+	"\x05emoji\x18\x02 \x01(\tH\x01R\x05emoji\x88\x01\x01B\a\n" +
 	"\x05_nameB\b\n" +
 	"\x06_emoji\"\x92\x01\n" +
 	"\x11DeviceIdentifiers\x12\x13\n" +
@@ -2859,14 +2933,17 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x16\n" +
 	"\x14APIKeyRevokeResponse\"\x19\n" +
 	"\x17ServerPeerDeleteRequest\"\x1a\n" +
-	"\x18ServerPeerDeleteResponse\"\xcd\x01\n" +
-	"\aRuntime\x12 \n" +
-	"\tlast_addr\x18\x01 \x01(\tH\x00R\blastAddr\x88\x01\x01\x12 \n" +
+	"\x18ServerPeerDeleteResponse\"\x80\x02\n" +
+	"\aRuntime\x12\"\n" +
+	"\n" +
+	"debug_mode\x18\x06 \x01(\tH\x00R\tdebugMode\x88\x01\x01\x12 \n" +
+	"\tlast_addr\x18\x01 \x01(\tH\x01R\blastAddr\x88\x01\x01\x12 \n" +
 	"\flast_seen_at\x18\x02 \x01(\tR\n" +
 	"lastSeenAt\x12\x16\n" +
 	"\x06online\x18\x03 \x01(\bR\x06online\x12\x1e\n" +
-	"\brx_bytes\x18\x04 \x01(\x04H\x01R\arxBytes\x88\x01\x01\x12\x1e\n" +
-	"\btx_bytes\x18\x05 \x01(\x04H\x02R\atxBytes\x88\x01\x01B\f\n" +
+	"\brx_bytes\x18\x04 \x01(\x04H\x02R\arxBytes\x88\x01\x01\x12\x1e\n" +
+	"\btx_bytes\x18\x05 \x01(\x04H\x03R\atxBytes\x88\x01\x01B\r\n" +
+	"\v_debug_modeB\f\n" +
 	"\n" +
 	"_last_addrB\v\n" +
 	"\t_rx_bytesB\v\n" +
@@ -2886,7 +2963,13 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"o\n" +
 	"\x11SpeedTestResponse\x12.\n" +
 	"\x13down_content_length\x18\x01 \x01(\x03R\x11downContentLength\x12*\n" +
-	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLengthB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x11up_content_length\x18\x02 \x01(\x03R\x0fupContentLength\"8\n" +
+	"\x17ServerPutRuntimeRequest\x12\x1d\n" +
+	"\n" +
+	"debug_mode\x18\x01 \x01(\tR\tdebugMode\"9\n" +
+	"\x18ServerPutRuntimeResponse\x12\x1d\n" +
+	"\n" +
+	"debug_mode\x18\x01 \x01(\tR\tdebugModeB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_system_proto_rawDescOnce sync.Once
@@ -2900,7 +2983,7 @@ func file_payload_system_proto_rawDescGZIP() []byte {
 	return file_payload_system_proto_rawDescData
 }
 
-var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
 var file_payload_system_proto_goTypes = []any{
 	(*ClientGetIdentifiersRequest)(nil),   // 0: gizclaw.rpc.v1.ClientGetIdentifiersRequest
 	(*ClientGetIdentifiersResponse)(nil),  // 1: gizclaw.rpc.v1.ClientGetIdentifiersResponse
@@ -2956,8 +3039,10 @@ var file_payload_system_proto_goTypes = []any{
 	(*ServerPutInfoResponse)(nil),         // 51: gizclaw.rpc.v1.ServerPutInfoResponse
 	(*SpeedTestRequest)(nil),              // 52: gizclaw.rpc.v1.SpeedTestRequest
 	(*SpeedTestResponse)(nil),             // 53: gizclaw.rpc.v1.SpeedTestResponse
-	nil,                                   // 54: gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	(*structpb.Struct)(nil),               // 55: google.protobuf.Struct
+	(*ServerPutRuntimeRequest)(nil),       // 54: gizclaw.rpc.v1.ServerPutRuntimeRequest
+	(*ServerPutRuntimeResponse)(nil),      // 55: gizclaw.rpc.v1.ServerPutRuntimeResponse
+	nil,                                   // 56: gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	(*structpb.Struct)(nil),               // 57: google.protobuf.Struct
 }
 var file_payload_system_proto_depIdxs = []int32{
 	27, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
@@ -2971,8 +3056,8 @@ var file_payload_system_proto_depIdxs = []int32{
 	27, // 8: gizclaw.rpc.v1.DeviceInfo.identifiers:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
 	29, // 9: gizclaw.rpc.v1.DeviceIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
 	30, // 10: gizclaw.rpc.v1.DeviceIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
-	55, // 11: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
-	54, // 12: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	57, // 11: gizclaw.rpc.v1.PeerStatus.details:type_name -> google.protobuf.Struct
+	56, // 12: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
 	36, // 13: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
 	36, // 14: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
 	25, // 15: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
@@ -3012,7 +3097,7 @@ func file_payload_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_system_proto_rawDesc), len(file_payload_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   55,
+			NumMessages:   57,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

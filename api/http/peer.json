@@ -182,29 +182,18 @@
         "summary": "Get the device bound to the API key",
         "tags": ["Device"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "responses": {
           "200": {"description": "Device identity, hardware, and identifiers.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/DeviceInfo"}}}},
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/runtime": {
@@ -213,10 +202,7 @@
         "summary": "Get the online runtime of the bound device",
         "tags": ["Device"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "responses": {
           "200": {
@@ -226,19 +212,11 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/status": {
@@ -247,10 +225,7 @@
         "summary": "Get the latest reported status of the bound device",
         "tags": ["Device"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Returns the most recent authoritative PeerStatus snapshot. Reading never contacts the device or changes runtime state.",
         "responses": {
@@ -258,19 +233,11 @@
           "401": {"$ref": "#/components/responses/Unauthorized"},
           "403": {"$ref": "#/components/responses/Forbidden"},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/telemetry/latest": {
@@ -279,10 +246,7 @@
         "summary": "Get latest sampled telemetry values for the bound device",
         "tags": ["Device"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "parameters": [
           {
@@ -291,15 +255,6 @@
             "required": false,
             "description": "Comma-separated telemetry field names. Omitted means all supported fields.",
             "schema": {"type": "string"}
-          },
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -318,10 +273,7 @@
         "summary": "Query sampled telemetry points for the bound device",
         "tags": ["Device"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "parameters": [
           {"name": "field", "in": "query", "required": true, "description": "Telemetry field name", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
@@ -341,16 +293,7 @@
             "description": "Maximum returned points. Omitted uses the default point budget.",
             "schema": {"type": "integer", "format": "int32"}
           },
-          {"name": "order", "in": "query", "required": false, "description": "Returned point order", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryOrder"}},
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
+          {"name": "order", "in": "query", "required": false, "description": "Returned point order", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryOrder"}}
         ],
         "responses": {
           "200": {"description": "Sampled telemetry range.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryRangeResponse"}}}},
@@ -368,26 +311,14 @@
         "summary": "Query bucketed aggregate telemetry for the bound device",
         "tags": ["Device"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "parameters": [
           {"name": "field", "in": "query", "required": true, "description": "Telemetry field name", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryField"}},
           {"name": "start_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond start time", "schema": {"type": "integer", "format": "int64"}},
           {"name": "end_time_ms", "in": "query", "required": true, "description": "Inclusive Unix millisecond end time", "schema": {"type": "integer", "format": "int64"}},
           {"name": "bucket_ms", "in": "query", "required": true, "description": "Bucket size in milliseconds", "schema": {"type": "integer", "format": "int64"}},
-          {"name": "aggregate", "in": "query", "required": true, "description": "Aggregate mode", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregate"}},
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
+          {"name": "aggregate", "in": "query", "required": true, "description": "Aggregate mode", "schema": {"$ref": "./shared.json#/components/schemas/PeerTelemetryAggregate"}}
         ],
         "responses": {
           "200": {
@@ -408,10 +339,7 @@
         "summary": "Set the absolute volume and mute state of the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.device.volume.set to the online device and stores the PeerStatus it reports. Equal inputs are idempotent.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceVolumeSetRequest"}}}},
@@ -428,18 +356,7 @@
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/actions/play-sound": {
@@ -448,10 +365,7 @@
         "summary": "Play a device-defined sound on the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.device.sound.play to the online device. The sound identifier is device-defined; the device validates it and answers DEVICE_REJECTED for unknown sounds.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DevicePlaySoundRequest"}}}},
@@ -465,18 +379,7 @@
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/actions/reboot": {
@@ -485,10 +388,7 @@
         "summary": "Reboot the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.device.reboot to the online device. The device acknowledges before rebooting; later control commands answer DEVICE_OFFLINE until the device reconnects.",
         "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceRebootRequest"}}}},
@@ -502,18 +402,7 @@
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/wifi": {
@@ -522,10 +411,7 @@
         "summary": "Get the current Wi-Fi status of the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.wifi.status.get to the online device.",
         "responses": {
@@ -536,29 +422,18 @@
           "500": {"$ref": "#/components/responses/InternalError"},
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
-          "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "504": {"$ref": "#/components/responses/DeviceTimeout"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       },
       "put": {
         "operationId": "connectDeviceWifi",
         "summary": "Connect the bound device to a Wi-Fi network",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.wifi.connect to the online device. A 202 response means the device accepted the credentials and will switch networks after replying; poll GET /device/wifi after it reconnects to observe the result.",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiConnectRequest"}}}},
@@ -572,18 +447,7 @@
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/wifi/scan": {
@@ -592,10 +456,7 @@
         "summary": "Scan for Wi-Fi networks near the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.wifi.scan to the online device using a scan-specific timeout clamped to 1000-15000 milliseconds.",
         "requestBody": {"required": false, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/DeviceWifiScanRequest"}}}},
@@ -609,18 +470,7 @@
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/wifi/saved": {
@@ -629,10 +479,7 @@
         "summary": "List Wi-Fi networks saved on the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.wifi.saved.list to the online device.",
         "responses": {
@@ -643,19 +490,11 @@
           "500": {"$ref": "#/components/responses/InternalError"},
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
-          "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "504": {"$ref": "#/components/responses/DeviceTimeout"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       }
     },
     "/gizclaw/v1/device/wifi/saved/{ssid}": {
@@ -673,10 +512,7 @@
         "summary": "Forget a Wi-Fi network saved on the bound device",
         "tags": ["DeviceControl"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "description": "Forwards client.wifi.saved.forget to the online device. Unknown SSIDs answer 404.",
         "responses": {
@@ -693,18 +529,7 @@
           "501": {"$ref": "#/components/responses/DeviceUnsupported"},
           "502": {"$ref": "#/components/responses/DeviceError"},
           "504": {"$ref": "#/components/responses/DeviceTimeout"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/contacts": {
@@ -713,23 +538,11 @@
         "summary": "List contacts owned by the bound device",
         "tags": ["Contacts"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "parameters": [
           {"name": "cursor", "in": "query", "required": false, "description": "Contact name returned as next_cursor by the previous page.", "schema": {"type": "string"}},
-          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}},
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
+          {"name": "limit", "in": "query", "required": false, "schema": {"type": "integer", "format": "int32", "minimum": 1, "maximum": 200, "default": 50}}
         ],
         "responses": {
           "200": {"description": "Contacts in stable name order.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactList"}}}},
@@ -745,10 +558,7 @@
         "summary": "Create a contact owned by the bound device",
         "tags": ["Contacts"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactCreateRequest"}}}},
         "responses": {
@@ -761,18 +571,7 @@
             "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
           },
           "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/gizclaw/v1/contacts/{contactName}": {
@@ -782,10 +581,7 @@
         "summary": "Get a contact owned by the bound device",
         "tags": ["Contacts"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "responses": {
           "200": {"description": "Contact.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Contact"}}}},
@@ -793,29 +589,18 @@
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       },
       "put": {
         "operationId": "putContact",
         "summary": "Update a contact owned by the bound device",
         "tags": ["Contacts"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContactPutRequest"}}}},
         "responses": {
@@ -829,28 +614,14 @@
             "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}
           },
           "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       },
       "delete": {
         "operationId": "deleteContact",
         "summary": "Delete a contact owned by the bound device",
         "tags": ["Contacts"],
         "security": [
-          {"BearerAuth": []},
-          {
-
-          }
+          {"BearerAuth": []}
         ],
         "responses": {
           "204": {"description": "Contact deleted."},
@@ -858,19 +629,11 @@
           "403": {"$ref": "#/components/responses/Forbidden"},
           "404": {"description": "The contact does not exist for this owner.", "content": {"application/json": {"schema": {"$ref": "./shared.json#/components/schemas/ErrorResponse"}}}},
           "409": {"$ref": "#/components/responses/Conflict"},
-          "500": {"$ref": "#/components/responses/InternalError"}
-        },
-        "parameters": [
-          {
-            "name": "public_key",
-            "in": "query",
-            "required": false,
-            "description": "Anonymous target, accepted only when no Authorization header is supplied and the device debug mode permits this operation.",
-            "schema": {
-              "type": "string"
-            }
+          "500": {"$ref": "#/components/responses/InternalError"},
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           }
-        ]
+        }
       }
     },
     "/gizclaw/v1/peers/@findBySn/{sn}": {
@@ -990,7 +753,11 @@
       }
     },
     "securitySchemes": {
-      "BearerAuth": {"type": "http", "scheme": "bearer"}
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key gizclaw_sk_v1_<secret>, or gizclaw_pk_<canonical Base58 public key> for device debug access. Public-key bearer access requires the authoritative Server runtime mode to permit the operation. Raw public keys and query selectors are not supported."
+      }
     },
     "schemas": {
       "APIKey": {

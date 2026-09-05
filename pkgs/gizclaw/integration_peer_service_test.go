@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 )
 
 func TestIntegrationPeerConnectionCollectsDeviceSN(t *testing.T) {
@@ -210,27 +211,34 @@ func mustWritableAdminResource(t *testing.T, resource apitypes.Resource) adminht
 	return writable
 }
 
-func TestIntegrationDeviceSetsOwnDebugMode(t *testing.T) {
+func TestIntegrationDeviceSetsOwnRuntimeDebugMode(t *testing.T) {
 	ts := startTestServer(t)
 	first := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
 	second := newTestClientWithDevice(t, ts, apitypes.DeviceInfo{})
 	for _, mode := range []string{"readonly", "fullcontrol", "off"} {
-		got, err := putInfo(context.Background(), first, apitypes.DeviceInfo{DebugMode: &mode})
+		got, err := first.PutServerRuntime(t.Context(), "runtime-put", rpcapi.ServerPutRuntimeRequest{DebugMode: mode})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.DebugMode == nil || *got.DebugMode != mode {
-			t.Fatalf("RPC mode = %v", got.DebugMode)
+		if got.DebugMode != mode {
+			t.Fatalf("mode=%s", got.DebugMode)
 		}
-		other, err := getInfo(context.Background(), second)
+		runtime, err := getRuntime(t.Context(), first)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if runtime.DebugMode == nil || *runtime.DebugMode != mode {
+			t.Fatalf("runtime mode=%v", runtime.DebugMode)
+		}
+		other, err := getRuntime(t.Context(), second)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if other.DebugMode != nil && *other.DebugMode != "off" {
-			t.Fatalf("other device mode = %s", *other.DebugMode)
+			t.Fatal("changed another device")
 		}
 	}
-	if _, err := putInfo(context.Background(), first, apitypes.DeviceInfo{DebugMode: new("invalid")}); err == nil {
-		t.Fatal("invalid RPC mode accepted")
+	if _, err := first.PutServerRuntime(t.Context(), "invalid", rpcapi.ServerPutRuntimeRequest{DebugMode: "invalid"}); err == nil {
+		t.Fatal("invalid mode accepted")
 	}
 }

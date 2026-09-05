@@ -3414,8 +3414,6 @@ type DeviceIdentifiers struct {
 
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
-	// DebugMode Device-owned anonymous access mode: off (default), readonly, or fullcontrol. Set only through authenticated server.info.put.
-	DebugMode   *string            `json:"debug_mode,omitempty"`
 	Emoji       *string            `json:"emoji,omitempty"`
 	Hardware    *HardwareInfo      `json:"hardware,omitempty"`
 	Identifiers *DeviceIdentifiers `json:"identifiers,omitempty"`
@@ -5678,6 +5676,8 @@ type RewardGrantListResponse struct {
 
 // Runtime defines model for Runtime.
 type Runtime struct {
+	// DebugMode Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
+	DebugMode  *string   `json:"debug_mode,omitempty"`
 	LastAddr   *string   `json:"last_addr,omitempty"`
 	LastSeenAt time.Time `json:"last_seen_at"`
 	Online     bool      `json:"online"`

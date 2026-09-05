@@ -224,6 +224,7 @@ const (
 	RpcMethod_RPC_METHOD_CLIENT_WIFI_SAVED_FORGET                RpcMethod = 106
 	RpcMethod_RPC_METHOD_CLIENT_WIFI_SCAN                        RpcMethod = 108
 	RpcMethod_RPC_METHOD_CLIENT_WIFI_CONNECT                     RpcMethod = 109
+	RpcMethod_RPC_METHOD_SERVER_RUNTIME_PUT                      RpcMethod = 111
 )
 
 // Enum value maps for RpcMethod.
@@ -336,6 +337,7 @@ var (
 		106: "RPC_METHOD_CLIENT_WIFI_SAVED_FORGET",
 		108: "RPC_METHOD_CLIENT_WIFI_SCAN",
 		109: "RPC_METHOD_CLIENT_WIFI_CONNECT",
+		111: "RPC_METHOD_SERVER_RUNTIME_PUT",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                             0,
@@ -445,6 +447,7 @@ var (
 		"RPC_METHOD_CLIENT_WIFI_SAVED_FORGET":                106,
 		"RPC_METHOD_CLIENT_WIFI_SCAN":                        108,
 		"RPC_METHOD_CLIENT_WIFI_CONNECT":                     109,
+		"RPC_METHOD_SERVER_RUNTIME_PUT":                      111,
 	}
 )
 
@@ -1018,7 +1021,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x89e\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xf9e\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1233,7 +1236,9 @@ const file_rpc_proto_rawDesc = "" +
 	"\x1bRPC_METHOD_CLIENT_WIFI_SCAN\x10l\x1aE\xc2\xf3\x18A\n" +
 	"\x10client.wifi.scan\x12\x15ClientWifiScanRequest\x1a\x16ClientWifiScanResponse\x12r\n" +
 	"\x1eRPC_METHOD_CLIENT_WIFI_CONNECT\x10m\x1aN\xc2\xf3\x18J\n" +
-	"\x13client.wifi.connect\x12\x18ClientWifiConnectRequest\x1a\x19ClientWifiConnectResponse:d\n" +
+	"\x13client.wifi.connect\x12\x18ClientWifiConnectRequest\x1a\x19ClientWifiConnectResponse\x12n\n" +
+	"\x1dRPC_METHOD_SERVER_RUNTIME_PUT\x10o\x1aK\xc2\xf3\x18G\n" +
+	"\x12server.runtime.put\x12\x17ServerPutRuntimeRequest\x1a\x18ServerPutRuntimeResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

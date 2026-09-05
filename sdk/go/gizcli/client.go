@@ -711,3 +711,10 @@ func peerDeviceToPeerRefreshIdentifiers(in apitypes.DeviceInfo) apitypes.DeviceI
 	}
 	return out
 }
+
+// PutServerRuntime updates this authenticated device's runtime settings.
+func (c *Client) PutServerRuntime(ctx context.Context, id string, request rpcapi.ServerPutRuntimeRequest) (*rpcapi.ServerPutRuntimeResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerPutRuntimeResponse, error) {
+		return client.PutServerRuntime(ctx, conn, id, request)
+	})
+}
