@@ -127,7 +127,10 @@ func TestTransformerConcurrentCallsOwnSessions(t *testing.T) {
 	var mu sync.Mutex
 	var sessions []*fakeASTTranslateSession
 	transformer.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
-		session := &fakeASTTranslateSession{beforeRecv: recvGate}
+		session := &fakeASTTranslateSession{
+			beforeRecv: recvGate,
+			events:     []*doubaospeech.ASTTranslateEvent{{Type: doubaospeech.ASTEventSessionFinished}},
+		}
 		mu.Lock()
 		sessions = append(sessions, session)
 		mu.Unlock()
@@ -947,6 +950,7 @@ func TestTransformerPushToTalkCancelBeforeEOSDoesNotLeak(t *testing.T) {
 		events: []*doubaospeech.ASTTranslateEvent{
 			{Type: doubaospeech.ASTEventTranslationSubtitleStart},
 			{Type: doubaospeech.ASTEventTranslationSubtitleResponse, Text: "discard on cancel"},
+			{Type: doubaospeech.ASTEventSessionFinished},
 		},
 	}
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
