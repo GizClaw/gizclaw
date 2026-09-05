@@ -17,6 +17,10 @@ type PeerStatusStore interface {
 	PutStatus(context.Context, giznet.PublicKey, apitypes.PeerStatus) (apitypes.PeerStatus, error)
 }
 
+type otaStatusStore interface {
+	PutOTAStatus(context.Context, giznet.PublicKey, apitypes.PeerOtaStatus) error
+}
+
 type StatusSync struct {
 	Store PeerStatusStore
 }
@@ -41,6 +45,17 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	}
 	if s.Store == nil {
 		return ErrStatusServiceNil
+	}
+	if len(patch.OTA) > 0 {
+		store, ok := s.Store.(otaStatusStore)
+		if !ok {
+			return fmt.Errorf("peertelemetry: runtime store does not support ota status")
+		}
+		for _, ota := range patch.OTA {
+			if err := store.PutOTAStatus(ctx, peer, ota); err != nil {
+				return err
+			}
+		}
 	}
 	status, err := s.Store.GetStatus(ctx, peer)
 	if err != nil {

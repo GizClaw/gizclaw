@@ -1,14 +1,12 @@
 package peertelemetry
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"time"
 	"unicode/utf8"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
-	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
 func validateOTA(obs *telemetrypb.OtaObservation) error {
@@ -47,37 +45,8 @@ func validateOTA(obs *telemetrypb.OtaObservation) error {
 	return nil
 }
 
-// Emit only after the entire frame passes validation; OTA events do not mutate
-// fixed peer status or create high-cardinality metric series.
-func logOTA(ctx context.Context, peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime time.Time) {
-	for _, observation := range frame.Observations {
-		obs := observation.GetOta()
-		if obs == nil {
-			continue
-		}
-		attrs := []slog.Attr{
-			slog.String("peer_public_key", peer.String()),
-			slog.String("ota_state", obs.State.String()),
-			slog.String("update_id", obs.UpdateId),
-			slog.Int64("observed_at_unix_ms", baseTime.Add(time.Duration(observation.ObservedAtDeltaMs)*time.Millisecond).UnixMilli()),
-			slog.Uint64("sequence", uint64(frame.Sequence)),
-		}
-		if obs.TargetVersion != nil {
-			attrs = append(attrs, slog.String("target_version", *obs.TargetVersion))
-		}
-		if obs.DownloadPercent != nil {
-			attrs = append(attrs, slog.Float64("download_percent", *obs.DownloadPercent))
-		}
-		if obs.ErrorCode != nil {
-			attrs = append(attrs, slog.String("error_code", *obs.ErrorCode))
-		}
-		if obs.ErrorMessage != nil {
-			attrs = append(attrs, slog.String("error_message", *obs.ErrorMessage))
-		}
-		level := slog.LevelInfo
-		if obs.State == telemetrypb.OtaState_OTA_STATE_FAILED {
-			level = slog.LevelWarn
-		}
-		slog.LogAttrs(ctx, level, "gizclaw: ota telemetry", attrs...)
-	}
+func otaStatus(obs *telemetrypb.OtaObservation, ts time.Time) apitypes.PeerOtaStatus {
+	states := map[telemetrypb.OtaState]string{1: "started", 2: "downloading", 3: "succeeded", 4: "failed"}
+	return apitypes.PeerOtaStatus{State: states[obs.State], UpdateId: obs.UpdateId, ObservedAt: ts,
+		TargetVersion: obs.TargetVersion, DownloadPercent: obs.DownloadPercent, ErrorCode: obs.ErrorCode, ErrorMessage: obs.ErrorMessage}
 }

@@ -61,7 +61,6 @@ func (s *Service) Report(ctx context.Context, peer giznet.PublicKey, frame *tele
 	if s == nil {
 		return ErrServiceNil
 	}
-	logOTA(ctx, peer, frame, baseTime)
 	var errs []error
 	if !status.Empty() {
 		if s.Status == nil {

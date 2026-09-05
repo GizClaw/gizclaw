@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  encodeRPCResponsePayload,
+  decodeRPCResponsePayload,
+} from "./generated/rpc/payload-codec.ts";
 import { encodeTelemetryPacket, otaTelemetry, OtaState } from "./telemetry.ts";
 
 test("OTA packet matches protoc including zero progress and negative time delta", () => {
@@ -43,6 +47,28 @@ test("all OTA states can be sent, including absent progress", () => {
         ],
       })[0],
       0x40,
+    );
+  }
+});
+
+test("RPC OTA status preserves zero progress and future state values", () => {
+  for (const state of ["downloading", "future-state"]) {
+    const response = {
+      labels: {},
+      ota: {
+        state,
+        update_id: "one",
+        observed_at: "2026-09-06T00:00:00Z",
+        download_percent: 0,
+        target_version: "2.0",
+      },
+    };
+    assert.deepEqual(
+      decodeRPCResponsePayload(
+        "server.status.get",
+        encodeRPCResponsePayload("server.status.get", response),
+      ),
+      response,
     );
   }
 });

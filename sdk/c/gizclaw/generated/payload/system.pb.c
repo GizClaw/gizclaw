@@ -99,6 +99,9 @@ PB_BIND(gizclaw_rpc_v1_PeerIMEI, gizclaw_rpc_v1_PeerIMEI, AUTO)
 PB_BIND(gizclaw_rpc_v1_PeerLabel, gizclaw_rpc_v1_PeerLabel, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_PeerOtaStatus, gizclaw_rpc_v1_PeerOtaStatus, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_PeerStatus, gizclaw_rpc_v1_PeerStatus, 2)
 
 

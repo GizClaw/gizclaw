@@ -629,10 +629,80 @@ const PeerLabel$json = {
 final $typed_data.Uint8List peerLabelDescriptor = $convert.base64Decode(
     'CglQZWVyTGFiZWwSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVl');
 
+@$core.Deprecated('Use peerOtaStatusDescriptor instead')
+const PeerOtaStatus$json = {
+  '1': 'PeerOtaStatus',
+  '2': [
+    {'1': 'state', '3': 1, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'update_id', '3': 2, '4': 1, '5': 9, '10': 'updateId'},
+    {'1': 'observed_at', '3': 3, '4': 1, '5': 9, '10': 'observedAt'},
+    {
+      '1': 'download_percent',
+      '3': 4,
+      '4': 1,
+      '5': 1,
+      '9': 0,
+      '10': 'downloadPercent',
+      '17': true
+    },
+    {
+      '1': 'target_version',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'targetVersion',
+      '17': true
+    },
+    {
+      '1': 'error_code',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'errorCode',
+      '17': true
+    },
+    {
+      '1': 'error_message',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'errorMessage',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_download_percent'},
+    {'1': '_target_version'},
+    {'1': '_error_code'},
+    {'1': '_error_message'},
+  ],
+};
+
+/// Descriptor for `PeerOtaStatus`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List peerOtaStatusDescriptor = $convert.base64Decode(
+    'Cg1QZWVyT3RhU3RhdHVzEhQKBXN0YXRlGAEgASgJUgVzdGF0ZRIbCgl1cGRhdGVfaWQYAiABKA'
+    'lSCHVwZGF0ZUlkEh8KC29ic2VydmVkX2F0GAMgASgJUgpvYnNlcnZlZEF0Ei4KEGRvd25sb2Fk'
+    'X3BlcmNlbnQYBCABKAFIAFIPZG93bmxvYWRQZXJjZW50iAEBEioKDnRhcmdldF92ZXJzaW9uGA'
+    'UgASgJSAFSDXRhcmdldFZlcnNpb26IAQESIgoKZXJyb3JfY29kZRgGIAEoCUgCUgllcnJvckNv'
+    'ZGWIAQESKAoNZXJyb3JfbWVzc2FnZRgHIAEoCUgDUgxlcnJvck1lc3NhZ2WIAQFCEwoRX2Rvd2'
+    '5sb2FkX3BlcmNlbnRCEQoPX3RhcmdldF92ZXJzaW9uQg0KC19lcnJvcl9jb2RlQhAKDl9lcnJv'
+    'cl9tZXNzYWdl');
+
 @$core.Deprecated('Use peerStatusDescriptor instead')
 const PeerStatus$json = {
   '1': 'PeerStatus',
   '2': [
+    {
+      '1': 'ota',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerOtaStatus',
+      '10': 'ota'
+    },
     {
       '1': 'battery_percent',
       '3': 1,
@@ -759,20 +829,21 @@ const PeerStatus_LabelsEntry$json = {
 
 /// Descriptor for `PeerStatus`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
-    'CgpQZWVyU3RhdHVzEiwKD2JhdHRlcnlfcGVyY2VudBgBIAEoA0gAUg5iYXR0ZXJ5UGVyY2VudI'
-    'gBARIfCghjaGFyZ2luZxgCIAEoCEgBUghjaGFyZ2luZ4gBARIxCgdkZXRhaWxzGAMgASgLMhcu'
-    'Z29vZ2xlLnByb3RvYnVmLlN0cnVjdFIHZGV0YWlscxIsCg9maXJtd2FyZV9zaGEyNTYYDCABKA'
-    'lIAlIOZmlybXdhcmVTaGEyNTaIAQESKwoPZ25zc19hY2N1cmFjeV9tGAQgASgBSANSDWduc3NB'
-    'Y2N1cmFjeU2IAQESKwoPZ25zc19hbHRpdHVkZV9tGAUgASgBSARSDWduc3NBbHRpdHVkZU2IAQ'
-    'ESKAoNZ25zc19sYXRpdHVkZRgGIAEoAUgFUgxnbnNzTGF0aXR1ZGWIAQESKgoOZ25zc19sb25n'
-    'aXR1ZGUYByABKAFIBlINZ25zc0xvbmdpdHVkZYgBARI+CgZsYWJlbHMYCCADKAsyJi5naXpjbG'
-    'F3LnJwYy52MS5QZWVyU3RhdHVzLkxhYmVsc0VudHJ5UgZsYWJlbHMSGQoFbXV0ZWQYCSABKAhI'
-    'B1IFbXV0ZWSIAQESJAoLcmVwb3J0ZWRfYXQYCiABKAlICFIKcmVwb3J0ZWRBdIgBARIbCgZ2b2'
-    'x1bWUYCyABKANICVIGdm9sdW1liAEBGjkKC0xhYmVsc0VudHJ5EhAKA2tleRgBIAEoCVIDa2V5'
-    'EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAFCEgoQX2JhdHRlcnlfcGVyY2VudEILCglfY2hhcm'
-    'dpbmdCEgoQX2Zpcm13YXJlX3NoYTI1NkISChBfZ25zc19hY2N1cmFjeV9tQhIKEF9nbnNzX2Fs'
-    'dGl0dWRlX21CEAoOX2duc3NfbGF0aXR1ZGVCEQoPX2duc3NfbG9uZ2l0dWRlQggKBl9tdXRlZE'
-    'IOCgxfcmVwb3J0ZWRfYXRCCQoHX3ZvbHVtZQ==');
+    'CgpQZWVyU3RhdHVzEi8KA290YRgNIAEoCzIdLmdpemNsYXcucnBjLnYxLlBlZXJPdGFTdGF0dX'
+    'NSA290YRIsCg9iYXR0ZXJ5X3BlcmNlbnQYASABKANIAFIOYmF0dGVyeVBlcmNlbnSIAQESHwoI'
+    'Y2hhcmdpbmcYAiABKAhIAVIIY2hhcmdpbmeIAQESMQoHZGV0YWlscxgDIAEoCzIXLmdvb2dsZS'
+    '5wcm90b2J1Zi5TdHJ1Y3RSB2RldGFpbHMSLAoPZmlybXdhcmVfc2hhMjU2GAwgASgJSAJSDmZp'
+    'cm13YXJlU2hhMjU2iAEBEisKD2duc3NfYWNjdXJhY3lfbRgEIAEoAUgDUg1nbnNzQWNjdXJhY3'
+    'lNiAEBEisKD2duc3NfYWx0aXR1ZGVfbRgFIAEoAUgEUg1nbnNzQWx0aXR1ZGVNiAEBEigKDWdu'
+    'c3NfbGF0aXR1ZGUYBiABKAFIBVIMZ25zc0xhdGl0dWRliAEBEioKDmduc3NfbG9uZ2l0dWRlGA'
+    'cgASgBSAZSDWduc3NMb25naXR1ZGWIAQESPgoGbGFiZWxzGAggAygLMiYuZ2l6Y2xhdy5ycGMu'
+    'djEuUGVlclN0YXR1cy5MYWJlbHNFbnRyeVIGbGFiZWxzEhkKBW11dGVkGAkgASgISAdSBW11dG'
+    'VkiAEBEiQKC3JlcG9ydGVkX2F0GAogASgJSAhSCnJlcG9ydGVkQXSIAQESGwoGdm9sdW1lGAsg'
+    'ASgDSAlSBnZvbHVtZYgBARo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YW'
+    'x1ZRgCIAEoCVIFdmFsdWU6AjgBQhIKEF9iYXR0ZXJ5X3BlcmNlbnRCCwoJX2NoYXJnaW5nQhIK'
+    'EF9maXJtd2FyZV9zaGEyNTZCEgoQX2duc3NfYWNjdXJhY3lfbUISChBfZ25zc19hbHRpdHVkZV'
+    '9tQhAKDl9nbnNzX2xhdGl0dWRlQhEKD19nbnNzX2xvbmdpdHVkZUIICgZfbXV0ZWRCDgoMX3Jl'
+    'cG9ydGVkX2F0QgkKB192b2x1bWU=');
 
 @$core.Deprecated('Use pingRequestDescriptor instead')
 const PingRequest$json = {

@@ -63,6 +63,52 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "description": "Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device."
+          },
+          "ota": {
+            "$ref": "#/components/schemas/PeerOtaStatus"
+          }
+        }
+      },
+      "PeerOtaStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Latest device-reported OTA attempt snapshot, retained across disconnects.",
+        "required": [
+          "state",
+          "update_id",
+          "observed_at"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "Device-reported OTA state: started, downloading, succeeded, or failed. Readers must preserve unknown future values."
+          },
+          "update_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "download_percent": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "target_version": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "error_code": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "error_message": {
+            "type": "string",
+            "maxLength": 512
           }
         }
       }

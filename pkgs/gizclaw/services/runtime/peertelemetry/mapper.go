@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -28,6 +29,7 @@ const (
 )
 
 type StatusPatch struct {
+	OTA              []apitypes.PeerOtaStatus
 	ReportedAt       time.Time
 	BatteryPercent   *int
 	BatteryPercentAt time.Time
@@ -44,7 +46,7 @@ type StatusPatch struct {
 }
 
 func (p StatusPatch) Empty() bool {
-	return p.BatteryPercent == nil &&
+	return len(p.OTA) == 0 && p.BatteryPercent == nil &&
 		p.Charging == nil &&
 		p.GNSSLatitude == nil &&
 		p.GNSSLongitude == nil &&
@@ -98,6 +100,7 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 			if err := validateOTA(body.Ota); err != nil {
 				return nil, StatusPatch{}, err
 			}
+			status.OTA = append(status.OTA, otaStatus(body.Ota, ts))
 		default:
 			return nil, StatusPatch{}, fmt.Errorf("%w: unsupported observation body %T", ErrInvalidFrame, body)
 		}

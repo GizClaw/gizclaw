@@ -145,7 +145,19 @@ message PeerLabel {
   string value = 2;
 }
 
+// Latest OTA snapshot read from the device runtime status store.
+message PeerOtaStatus {
+  string state = 1;
+  string update_id = 2;
+  string observed_at = 3;
+  optional double download_percent = 4;
+  optional string target_version = 5;
+  optional string error_code = 6;
+  optional string error_message = 7;
+}
+
 message PeerStatus {
+  PeerOtaStatus ota = 13;
   optional int64 battery_percent = 1;
   optional bool charging = 2;
   google.protobuf.Struct details = 3;

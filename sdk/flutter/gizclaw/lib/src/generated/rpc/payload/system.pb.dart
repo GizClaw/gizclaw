@@ -1857,6 +1857,133 @@ class PeerLabel extends $pb.GeneratedMessage {
   void clearValue() => $_clearField(2);
 }
 
+/// Latest OTA snapshot read from the device runtime status store.
+class PeerOtaStatus extends $pb.GeneratedMessage {
+  factory PeerOtaStatus({
+    $core.String? state,
+    $core.String? updateId,
+    $core.String? observedAt,
+    $core.double? downloadPercent,
+    $core.String? targetVersion,
+    $core.String? errorCode,
+    $core.String? errorMessage,
+  }) {
+    final result = create();
+    if (state != null) result.state = state;
+    if (updateId != null) result.updateId = updateId;
+    if (observedAt != null) result.observedAt = observedAt;
+    if (downloadPercent != null) result.downloadPercent = downloadPercent;
+    if (targetVersion != null) result.targetVersion = targetVersion;
+    if (errorCode != null) result.errorCode = errorCode;
+    if (errorMessage != null) result.errorMessage = errorMessage;
+    return result;
+  }
+
+  PeerOtaStatus._();
+
+  factory PeerOtaStatus.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PeerOtaStatus.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PeerOtaStatus',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'state')
+    ..aOS(2, _omitFieldNames ? '' : 'updateId')
+    ..aOS(3, _omitFieldNames ? '' : 'observedAt')
+    ..aD(4, _omitFieldNames ? '' : 'downloadPercent')
+    ..aOS(5, _omitFieldNames ? '' : 'targetVersion')
+    ..aOS(6, _omitFieldNames ? '' : 'errorCode')
+    ..aOS(7, _omitFieldNames ? '' : 'errorMessage')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PeerOtaStatus clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PeerOtaStatus copyWith(void Function(PeerOtaStatus) updates) =>
+      super.copyWith((message) => updates(message as PeerOtaStatus))
+          as PeerOtaStatus;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PeerOtaStatus create() => PeerOtaStatus._();
+  @$core.override
+  PeerOtaStatus createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PeerOtaStatus getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PeerOtaStatus>(create);
+  static PeerOtaStatus? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get state => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set state($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasState() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearState() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get updateId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set updateId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUpdateId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUpdateId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get observedAt => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set observedAt($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasObservedAt() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearObservedAt() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get downloadPercent => $_getN(3);
+  @$pb.TagNumber(4)
+  set downloadPercent($core.double value) => $_setDouble(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDownloadPercent() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDownloadPercent() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get targetVersion => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set targetVersion($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTargetVersion() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTargetVersion() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get errorCode => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set errorCode($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasErrorCode() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearErrorCode() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get errorMessage => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set errorMessage($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasErrorMessage() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearErrorMessage() => $_clearField(7);
+}
+
 class PeerStatus extends $pb.GeneratedMessage {
   factory PeerStatus({
     $fixnum.Int64? batteryPercent,
@@ -1871,6 +1998,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     $core.String? reportedAt,
     $fixnum.Int64? volume,
     $core.String? firmwareSha256,
+    PeerOtaStatus? ota,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -1885,6 +2013,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (reportedAt != null) result.reportedAt = reportedAt;
     if (volume != null) result.volume = volume;
     if (firmwareSha256 != null) result.firmwareSha256 = firmwareSha256;
+    if (ota != null) result.ota = ota;
     return result;
   }
 
@@ -1918,6 +2047,8 @@ class PeerStatus extends $pb.GeneratedMessage {
     ..aOS(10, _omitFieldNames ? '' : 'reportedAt')
     ..aInt64(11, _omitFieldNames ? '' : 'volume')
     ..aOS(12, _omitFieldNames ? '' : 'firmwareSha256')
+    ..aOM<PeerOtaStatus>(13, _omitFieldNames ? '' : 'ota',
+        subBuilder: PeerOtaStatus.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2041,6 +2172,17 @@ class PeerStatus extends $pb.GeneratedMessage {
   $core.bool hasFirmwareSha256() => $_has(11);
   @$pb.TagNumber(12)
   void clearFirmwareSha256() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  PeerOtaStatus get ota => $_getN(12);
+  @$pb.TagNumber(13)
+  set ota(PeerOtaStatus value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasOta() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearOta() => $_clearField(13);
+  @$pb.TagNumber(13)
+  PeerOtaStatus ensureOta() => $_ensure(12);
 }
 
 class PingRequest extends $pb.GeneratedMessage {

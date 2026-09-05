@@ -62,13 +62,29 @@ telemetry sending surface; this contract does not add a Flutter transport.
 
 SDKs encode and send the wire message; the server validates the semantics above,
 rejecting unspecified or unsupported states. After validating the entire frame,
-the server emits `gizclaw: ota telemetry` with `peer_public_key`, `update_id`,
-`ota_state`, `sequence`, `observed_at_unix_ms`, and reported version, progress and
-error fields. Failure is WARN; other states are INFO. Persistence depends on the
-configured log sink. OTA does not write numerical metrics or fixed Peer status,
-and is not queried through telemetry latest/aggregate APIs.
+the server updates runtime status. OTA payloads, including diagnostic strings, are
+never logged and do not write numerical metrics or use telemetry latest/aggregate
+queries. Bounded diagnostic strings are retained as supplied, without heuristic
+secret detection, and returned only through the existing authenticated device
+status access. Devices must avoid including secrets in diagnostics.
+
+The latest OTA snapshot is persisted in the device runtime KV Store and exposed
+as `PeerStatus.ota`. LiteLink and other API-key clients read
+`GET /gizclaw/v1/device/status` for `state` (`started`, `downloading`, `succeeded`,
+`failed`), `update_id`, `observed_at`, and optional version, download percentage,
+and error fields. Peer RPC `server.status.get` returns the same snapshot. Status
+SDKs preserve unknown future state strings. The last snapshot remains readable
+while the device is disconnected; connection statistics at `/device/runtime` do
+not carry OTA state.
+
+The runtime atomically compares a dedicated per-peer OTA record. Older timestamps
+cannot overwrite newer snapshots. Terminal states and download percentages cannot
+regress within one attempt; equal timestamps may advance only the same attempt.
+A new attempt requires a different `update_id` and later time and replaces the
+whole snapshot, clearing previous errors and progress. Omitted version/progress
+retain their latest values within an attempt. Control/status writes such as volume
+changes cannot overwrite OTA.
 
 Delivery retains direct-packet semantics without application acknowledgement,
-retries, or exactly-once delivery. The server logs valid reports individually and
-does not infer final upgrade state from duplicate or out-of-order packets. Devices
+retries, or exactly-once delivery. The server maintains the latest snapshot with the ordering rules above. Devices
 should limit the frequency of progress reports.

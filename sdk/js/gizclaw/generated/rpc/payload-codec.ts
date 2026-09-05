@@ -745,6 +745,15 @@ export type PeerLabel = {
   "key": string;
   "value": string;
 };
+export type PeerOtaStatus = {
+  "state": string;
+  "update_id": string;
+  "observed_at": string;
+  "download_percent"?: number;
+  "target_version"?: string;
+  "error_code"?: string;
+  "error_message"?: string;
+};
 export type PeerRunAgent = {
   "active"?: AgentSelection;
   "pending"?: AgentSelection;
@@ -835,6 +844,7 @@ export type PeerRunWorkspaceState = {
   "workspace_name": string;
 };
 export type PeerStatus = {
+  "ota": PeerOtaStatus;
   "battery_percent"?: number;
   "charging"?: boolean;
   "details": Record<string, unknown>;
@@ -4741,6 +4751,49 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "PeerOtaStatus": {
+    "fields": [
+      {
+        "name": "state",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "update_id",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "observed_at",
+        "number": 3,
+        "type": "string"
+      },
+      {
+        "name": "download_percent",
+        "number": 4,
+        "optional": true,
+        "type": "double"
+      },
+      {
+        "name": "target_version",
+        "number": 5,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "error_code",
+        "number": 6,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "error_message",
+        "number": 7,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
   "PeerRunAgent": {
     "fields": [
       {
@@ -5152,6 +5205,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "PeerStatus": {
     "fields": [
+      {
+        "name": "ota",
+        "number": 13,
+        "type": "PeerOtaStatus"
+      },
       {
         "name": "battery_percent",
         "number": 1,

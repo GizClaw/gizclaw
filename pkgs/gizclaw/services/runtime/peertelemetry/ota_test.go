@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
+	"fmt"
 	"log/slog"
 	"math"
 	"strings"
 	"testing"
 	"time"
+
+	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestOTAPacketIngestion(t *testing.T) {
@@ -34,21 +37,30 @@ func TestOTAPacketIngestion(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	peer := testPublicKey(t)
 	store := &fakeMetricsStore{}
-	service := &Service{Metrics: store}
+	runtimeStore := kv.NewMemory(nil)
+	t.Cleanup(func() { _ = runtimeStore.Close() })
+	service := &Service{Metrics: store, Status: StatusSync{Store: &peerrun.Server{Store: runtimeStore}}}
 	if err := service.ReportPacket(context.Background(), peer, payload); err != nil {
 		t.Fatal(err)
 	}
-	var record map[string]any
-	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
-		t.Fatal(err)
+	if output.Len() != 0 {
+		t.Fatal("OTA payload leaked to logs")
 	}
-	for key, want := range map[string]any{"ota_state": "OTA_STATE_FAILED", "update_id": "ota-1", "target_version": "2.0", "download_percent": float64(0), "error_code": "E_DOWNLOAD", "error_message": "timeout", "observed_at_unix_ms": float64(1232), "sequence": float64(7), "peer_public_key": peer.String(), "level": "WARN"} {
-		if record[key] != want {
-			t.Errorf("%s = %v, want %v", key, record[key], want)
-		}
+	status, err := (&peerrun.Server{Store: runtimeStore}).GetStatus(context.Background(), peer)
+	if err != nil || status.Ota == nil || status.Ota.State != "failed" || status.Ota.DownloadPercent == nil || *status.Ota.DownloadPercent != 0 || status.Ota.ErrorMessage == nil || *status.Ota.ErrorMessage != "timeout" || status.Ota.ObservedAt.UnixMilli() != 1232 {
+		t.Fatalf("OTA runtime: %+v, %v", status.Ota, err)
 	}
 	if len(store.samples) != 0 {
 		t.Fatal("OTA created metric series")
+	}
+	for i, diagnostic := range []string{"Authorization: Bearer test-secret", "https://example.com/update?X-Amz-Signature=secret", "password=test-secret"} {
+		sensitive := &telemetrypb.TelemetryFrame{ObservedAtUnixMs: 2000 + int64(i), Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Ota{Ota: &telemetrypb.OtaObservation{State: 4, UpdateId: fmt.Sprintf("attempt-%d", i), ErrorCode: &diagnostic, ErrorMessage: &diagnostic}}}}}
+		if err := service.ReportPacket(context.Background(), peer, marshalFrame(t, sensitive)); err != nil {
+			t.Fatal(err)
+		}
+		if output.Len() != 0 {
+			t.Fatal("diagnostic leaked to logs")
+		}
 	}
 	output.Reset()
 	frame.Observations = append(frame.Observations, &telemetrypb.Observation{})

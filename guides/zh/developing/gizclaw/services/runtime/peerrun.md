@@ -15,3 +15,7 @@
 | `Server.ActivateRunAgent` | 激活选择并返回更新后的运行状态。 |
 
 `peerrun` 只保存和解析 selection；真正启动、停止和替换 Agent runtime 由 `agenthost.Service` 完成。
+
+## OTA 状态
+
+`Server.PutOTAStatus` 将设备 telemetry 投影保存到独立的 per-peer OTA KV record，使用原子 compare-and-mutate 防止并发或乱序进度覆盖终态。`GetStatus` 将其合并为 `PeerStatus.ota`；普通 `PutStatus` 不写 OTA record，控制响应不能覆盖升级进度。Store 必须支持原子 create-if-absent 与 compare-and-mutate，不支持时返回错误。字段和排序规则见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。
