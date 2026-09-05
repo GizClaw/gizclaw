@@ -84,12 +84,13 @@ func TestAudioPlayerDocuments(t *testing.T) {
 				if step.ClientRPC == nil {
 					continue
 				}
-				code, _, err := errorResponse(step.ClientRPC.Response)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if code != 0 {
-					continue
+				if object, ok := step.ClientRPC.Response.(map[string]any); ok {
+					if _, scriptedError := object["error_code"]; scriptedError {
+						if _, _, err := errorResponse(object); err != nil {
+							t.Fatal(err)
+						}
+						continue
+					}
 				}
 				info, err := lookupMethod(step.ClientRPC.Method)
 				if err != nil {
