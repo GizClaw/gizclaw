@@ -1,0 +1,5 @@
+ARG BASE_IMAGE=gizclaw-go:linux-amd64-cn-base
+FROM ${BASE_IMAGE}
+WORKDIR /src
+COPY bin/ /usr/local/bin/
+COPY tests/ tests/

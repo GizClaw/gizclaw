@@ -36,11 +36,11 @@ go build ./cmd/gizclaw
 
 `dist/` 中的生成资源不提交，保留 `.keep` 以便纯 Go 测试在未构建 UI 时仍可编译。未构建 UI 的二进制访问页面返回明确的 503。Linux Docker 构建及 macOS release 流程会先构建 UI，然后编译 Go；本地修改 UI 后也需要重新编译使用 embed 的进程。
 
-开发可运行 `npm run dev --workspace @gizclaw/monitor`，默认将 API 转发至本地 9821 Edge。前端请求使用生成的 Peer HTTP client，外部 JSON 经过运行时校验；凭证不放入 URL；设置 `MONITOR_PROXY` 可改变开发代理目标。
+开发可运行 `npm run dev --workspace @gizclaw/monitor`，默认将 API 转发至本地 9821 Edge。前端请求统一使用 `@gizclaw/gizclaw-control`，由 SDK 复用生成的 Peer HTTP client，外部 JSON 经过运行时校验；凭证不放入 URL；设置 `MONITOR_PROXY` 可改变开发代理目标。
 
 ## HTTP 契约和验证
 
-`api/http/monitor.json` 拥有独立的 Monitor OpenAPI surface。Server 和 Edge 在已有 HTTP listener 上挂载 `pkgs/monitor.Handler`，Token middleware 先执行认证，然后进入生成的标准库 router；`nodeServer` 实现生成的 strict interface。控制台调用生成的 JavaScript client。该接口只读取本进程，不使用 Peer assignment 或 Admin 认证。
+`api/http/monitor.json` 拥有独立的 Monitor OpenAPI surface。Server 和 Edge 在已有 HTTP listener 上挂载 `pkgs/monitor.Handler`，Token middleware 先执行认证，然后进入生成的标准库 router；`nodeServer` 实现生成的 strict interface。控制台通过 `@gizclaw/gizclaw-control` 的 Node Monitor client 调用生成的 JavaScript client。该接口只读取本进程，不使用 Peer assignment 或 Admin 认证。
 
 | 状态码 | 响应 |
 | --- | --- |
@@ -62,3 +62,5 @@ go build ./cmd/gizclaw
 - `GET /gizclaw/v1/device/logs/search` 查询配置的 `services.system_log.query_store`，支持正数 Unix 毫秒时间区间、最长 512 UTF-8 字节的文本、严格 `DEBUG|INFO|WARN|ERROR` 级别和游标；每页最多 500 条，页面使用 200 条。Server 强制绑定授权 Peer，续页不能改用其他 Peer 的游标。非法级别返回 400 `INVALID_REQUEST`，非法/跨设备日志游标分别返回 400 `INVALID_LOG_CURSOR` / `LOG_CURSOR_MISMATCH`，未配置查询 Store 返回 500 `LOG_QUERY_NOT_CONFIGURED`。单行日志显示时间、级别、模块、消息和错误，支持横向滚动。
 
 上述接口走现有 Edge 路由与 Server runtime 权限校验，readonly 可读取；不把工作流 spec 或 provider credentials 暴露给浏览器。API 定义位于 `api/http/peer.json`，Go 和 JavaScript client 随 Schema 生成。
+
+真实接口验收运行 `bash tests/gizclaw-e2e/run_monitor_tests.sh`，覆盖设备与节点权限、聊天历史、运行日志和音频下载，详见 [Monitor API giztest](testing#monitor-api-giztest)。
