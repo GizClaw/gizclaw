@@ -34,6 +34,6 @@ npm test --workspace @gizclaw/monitor
 go build ./cmd/gizclaw
 ```
 
-Generated `dist/` assets are ignored. A tracked README keeps pure Go builds compilable before frontend generation; such builds return 503 for the UI until assets are built and the binary is recompiled. Linux Docker and macOS release builds generate assets before Go compilation.
+Generated `dist/` assets are ignored. A tracked `.keep` keeps pure Go builds compilable before frontend generation; such builds return 503 for the UI until assets are built and the binary is recompiled. Linux Docker and macOS release builds generate assets before Go compilation.
 
 For frontend development, run `npm run dev --workspace @gizclaw/monitor`; APIs proxy to the local Edge at port 9821. Peer calls use the generated HTTP client, JSON is validated at runtime, and credentials never enter URLs or persistent browser storage.

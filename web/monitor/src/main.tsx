@@ -232,6 +232,8 @@ function App() {
           setError(e instanceof Error ? e.message : "连接失败");
           setNode(undefined);
           setPeer(undefined);
+          setSamples([]);
+          setLast(undefined);
           previous = undefined;
         }
       } finally {

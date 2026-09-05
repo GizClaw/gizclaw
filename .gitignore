@@ -50,4 +50,4 @@ openteam/
 
 # Embedded monitor assets are built before release compilation.
 /web/monitor/dist/*
-!/web/monitor/dist/README.md
+!/web/monitor/dist/.keep
