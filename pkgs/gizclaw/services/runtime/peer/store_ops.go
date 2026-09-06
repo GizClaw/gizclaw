@@ -166,7 +166,7 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 					return err
 				}
 				previous := optionalPeer(peer, err)
-				if previous != nil && peer.Role == apitypes.PeerRoleEdgeNode && peer.Status == apitypes.PeerRegistrationStatusActive {
+				if previous != nil && peer.Role == apitypes.PeerRoleEdgeNode && peer.Status == apitypes.PeerRegistrationStatusActive && peer.ApprovedAt != nil {
 					return s.rememberPeer(ctx, peer)
 				}
 				if previous == nil {
@@ -175,6 +175,10 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 				peer.Role = apitypes.PeerRoleEdgeNode
 				peer.Status = apitypes.PeerRegistrationStatusActive
 				peer.UpdatedAt = time.Now()
+				if peer.ApprovedAt == nil {
+					approvedAt := peer.UpdatedAt
+					peer.ApprovedAt = &approvedAt
+				}
 				err = s.writePeerLocked(ctx, peer, previous)
 				if errors.Is(err, ErrPeerConcurrentUpdate) || errors.Is(err, ErrPeerAlreadyExists) {
 					continue

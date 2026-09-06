@@ -977,7 +977,7 @@ func TestNewBootstrapsConfiguredEdgeNodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadPeer error = %v", err)
 	}
-	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive {
+	if peer.Role != apitypes.PeerRoleEdgeNode || peer.Status != apitypes.PeerRegistrationStatusActive || peer.ApprovedAt == nil {
 		t.Fatalf("bootstrapped edge peer = %+v", peer)
 	}
 }

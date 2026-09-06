@@ -7,11 +7,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
@@ -202,37 +200,10 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		cmdSrv.metricsShutdown = metricsShutdown
 	}
 	peerRecords := kv.Prefixed(gizServer.PeerStore, kv.Key{"records"})
-	if err := bootstrapEdgeNodes(context.Background(), &runtimepeer.Server{Store: peerRecords}, cfg.EdgeNodes); err != nil {
+	if err := (&runtimepeer.Server{Store: peerRecords}).BootstrapEdgeNodes(context.Background(), cfg.EdgeNodes); err != nil {
 		return nil, err
 	}
 	return cmdSrv, nil
-}
-
-func bootstrapEdgeNodes(ctx context.Context, peers *runtimepeer.Server, publicKeys []giznet.PublicKey) error {
-	if len(publicKeys) == 0 {
-		return nil
-	}
-	approvedAt := time.Now()
-	for _, publicKey := range publicKeys {
-		if publicKey.IsZero() {
-			return fmt.Errorf("server: bootstrap edge-node: zero public key")
-		}
-		peer, err := peers.LoadPeer(ctx, publicKey)
-		if errors.Is(err, runtimepeer.ErrPeerNotFound) {
-			peer = apitypes.Peer{PublicKey: publicKey.String()}
-		} else if err != nil {
-			return fmt.Errorf("server: load bootstrap edge-node %s: %w", publicKey, err)
-		}
-		peer.Role = apitypes.PeerRoleEdgeNode
-		peer.Status = apitypes.PeerRegistrationStatusActive
-		if peer.ApprovedAt == nil {
-			peer.ApprovedAt = &approvedAt
-		}
-		if _, err := peers.SavePeer(ctx, peer); err != nil {
-			return fmt.Errorf("server: bootstrap edge-node %s: %w", publicKey, err)
-		}
-	}
-	return nil
 }
 
 func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPListener net.Listener) gizwebrtc.ListenConfig {
