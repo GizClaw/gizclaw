@@ -169,11 +169,12 @@ func workspaceParametersWithPatch(
 			value.Input = input
 		}
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
-	default:
+	case apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverPet:
 		if input != nil {
-			// The input helper also ignores drivers without input support.
 			return workspaceParametersWithInput(parameters, driver, *input)
 		}
+		return parameters, nil
+	default:
 		return parameters, nil
 	}
 }
