@@ -55,6 +55,12 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 	if rpcErr != nil || resolved.Id != workspaces.item.Id {
 		t.Fatalf("ResolveRunWorkspaceSelection() = %#v, %#v; want %q", resolved, rpcErr, workspaces.item.Id)
 	}
+	// A replacement connection has no connection-scoped registration. Its
+	// existing Social membership still grants access to the built-in SFU.
+	server.RuntimeProfile = nil
+	if resolved, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName); rpcErr != nil || resolved.Id != workspaces.item.Id {
+		t.Fatalf("selection without RuntimeProfile = %#v, %#v", resolved, rpcErr)
+	}
 
 	server.Caller = unrelated
 	if _, rpcErr := server.ValidateRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil || rpcErr.Code != rpcapi.StatusCodeNotFound {
@@ -62,7 +68,7 @@ func TestValidateRunWorkspaceSelectionResolvesSharedFriendWorkspaceByPeerName(t 
 	}
 }
 
-func TestResolveRunWorkspaceSelectionMaterializesSharedSocialWorkspace(t *testing.T) {
+func TestResolveRunWorkspaceSelectionMaterializesSharedSocialWorkspaceWithoutRuntimeProfile(t *testing.T) {
 	ctx := t.Context()
 	caller := giznet.PublicKey{1}
 	workspaceOwner := giznet.PublicKey{2}
@@ -79,12 +85,10 @@ func TestResolveRunWorkspaceSelectionMaterializesSharedSocialWorkspace(t *testin
 
 	// The caller's Server shares the Social KV but has an empty local catalog.
 	localWorkspaces := &sharedWorkspaceNameService{owner: workspaceOwner.String()}
-	profile := apitypes.RuntimeProfile{}
 	server := &Server{
-		Caller:         caller,
-		Workspaces:     localWorkspaces,
-		Friends:        &friend.Server{Friends: friendStore, Workspaces: localWorkspaces, SFUURL: "wss://sfu.test"},
-		RuntimeProfile: func() *apitypes.RuntimeProfile { return &profile },
+		Caller:     caller,
+		Workspaces: localWorkspaces,
+		Friends:    &friend.Server{Friends: friendStore, Workspaces: localWorkspaces, SFUURL: "wss://sfu.test"},
 	}
 	resolved, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName)
 	if rpcErr != nil {
@@ -110,6 +114,13 @@ func TestResolveRunWorkspaceSelectionMaterializesSharedSocialWorkspace(t *testin
 	}
 	if strangerWorkspaces.created != 0 {
 		t.Fatal("stranger materialized a Social Workspace")
+	}
+	if _, err := friends.DeleteFriend(ctx, workspaceOwner.String(), rpcapi.FriendDeleteRequest{Name: caller.String()}); err != nil {
+		t.Fatalf("delete Friend relationship: %v", err)
+	}
+	server.Caller, server.Workspaces = caller, localWorkspaces
+	if _, rpcErr := server.ResolveRunWorkspaceSelection(ctx, workspaceName); rpcErr == nil {
+		t.Fatal("revoked member selected an existing local SFU Workspace")
 	}
 }
 

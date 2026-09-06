@@ -1,0 +1,355 @@
+# User Story:
+# As a participant in a cross-server SFU Workspace,
+# I want to stop and reactivate both runtimes then reconnect one Peer identity,
+# So that PTT and realtime audio resume in both directions.
+# Uses a committed two-second Opus tone; media assertions are never retried.
+# Realtime listen windows include the runner's four-second silence tail.
+# No second server.register: built-in SFU selection depends on Social membership.
+version: gizclaw.test/v1alpha1
+name: sfu.workspace.stop-reconnect.audio-bytes
+timeout: 5m
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  tone:
+    direction: input
+    type: audio
+    env: GIZCLAW_TEST_SFU_TONE_OGG_BASE64
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+  friend_invite:
+    direction: output
+    type: string
+    secret: true
+  friend_name:
+    direction: output
+    type: string
+  friend_workspace:
+    direction: output
+    type: string
+steps:
+  - id: friend_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      friend_invite: /invite_token
+  - id: friend_add
+    client: alice
+    rpc:
+      method: server.friend.add
+      request: {invite_token: '${friend_invite}'}
+    capture:
+      friend_name: /name
+      friend_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: friend_visible
+    client: bob
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${friend_workspace}'}
+  - id: alice_initial
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${friend_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: alice_initial_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+  - id: bob_initial
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${friend_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_initial_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+  - id: baseline_forward
+    timeout: 20s
+    parallel:
+      - id: baseline_forward_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: baseline_forward_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: baseline_forward_alice_speak
+        client: alice
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /baseline_forward_bob_listen/audio_bytes: {minimum: 2000}
+      /baseline_forward_bob_listen/packets: {minimum: 50}
+      /baseline_forward_alice_listen/audio_bytes: {maximum: 0}
+      /baseline_forward_alice_speak/input_sent: {equals: true}
+  - id: baseline_reverse
+    timeout: 20s
+    parallel:
+      - id: baseline_reverse_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: baseline_reverse_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: baseline_reverse_bob_speak
+        client: bob
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /baseline_reverse_alice_listen/audio_bytes: {minimum: 2000}
+      /baseline_reverse_alice_listen/packets: {minimum: 50}
+      /baseline_reverse_bob_listen/audio_bytes: {maximum: 0}
+      /baseline_reverse_bob_speak/input_sent: {equals: true}
+  - id: alice_stop
+    client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - id: alice_stopped
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
+  - id: bob_stop
+    client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - id: bob_stopped
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
+  - id: alice_restart
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${friend_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: alice_restart_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+  - id: bob_restart
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${friend_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_restart_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+  - id: restart_forward
+    timeout: 20s
+    parallel:
+      - id: restart_forward_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: restart_forward_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: restart_forward_alice_speak
+        client: alice
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /restart_forward_bob_listen/audio_bytes: {minimum: 2000}
+      /restart_forward_bob_listen/packets: {minimum: 50}
+      /restart_forward_alice_listen/audio_bytes: {maximum: 0}
+      /restart_forward_alice_speak/input_sent: {equals: true}
+  - id: restart_reverse
+    timeout: 20s
+    parallel:
+      - id: restart_reverse_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 8s}
+      - id: restart_reverse_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 8s}
+      - id: restart_reverse_bob_speak
+        client: bob
+        delay: 200ms
+        peer_stream: {mode: realtime, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /restart_reverse_alice_listen/audio_bytes: {minimum: 2000}
+      /restart_reverse_alice_listen/packets: {minimum: 50}
+      /restart_reverse_bob_listen/audio_bytes: {maximum: 0}
+      /restart_reverse_bob_speak/input_sent: {equals: true}
+  - id: bob_reconnect
+    client: bob
+    reconnect: {await_ms: 30000}
+  - id: bob_ping_after_reconnect
+    client: bob
+    rpc:
+      method: all.ping
+      request: {client_send_time: 0}
+  - id: bob_membership_after_reconnect
+    client: bob
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items:
+        count: 1
+      /items/0/workspace_name:
+        equals: ${friend_workspace}
+  - id: bob_select_after_reconnect
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${friend_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_select_after_reconnect_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+  - id: alice_survives_reconnect
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${friend_workspace}'}
+  - id: reconnect_forward
+    timeout: 20s
+    parallel:
+      - id: reconnect_forward_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: reconnect_forward_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: reconnect_forward_alice_speak
+        client: alice
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /reconnect_forward_bob_listen/audio_bytes: {minimum: 2000}
+      /reconnect_forward_bob_listen/packets: {minimum: 50}
+      /reconnect_forward_alice_listen/audio_bytes: {maximum: 0}
+      /reconnect_forward_alice_speak/input_sent: {equals: true}
+  - id: reconnect_reverse
+    timeout: 20s
+    parallel:
+      - id: reconnect_reverse_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 8s}
+      - id: reconnect_reverse_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 8s}
+      - id: reconnect_reverse_bob_speak
+        client: bob
+        delay: 200ms
+        peer_stream: {mode: realtime, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /reconnect_reverse_alice_listen/audio_bytes: {minimum: 2000}
+      /reconnect_reverse_alice_listen/packets: {minimum: 50}
+      /reconnect_reverse_bob_listen/audio_bytes: {maximum: 0}
+      /reconnect_reverse_bob_speak/input_sent: {equals: true}
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend.delete
+      request: {name: '${friend_name}'}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact:
+    - token_a
+    - token_b
+    - friend_invite
