@@ -8,10 +8,10 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type reloadOptionsResources struct {
@@ -83,9 +83,7 @@ func TestWorkspaceReloadWithOptions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := t.Context()
 			var steps []string
-			store := kv.NewMemory(nil)
-			t.Cleanup(func() { _ = store.Close() })
-			runs := &peerrun.Server{Store: store}
+			runs := peerruntest.New(t)
 			caller := giznet.PublicKey{1}
 			if _, err := runs.SetRunAgent(ctx, caller, apitypes.AgentSelection{WorkspaceName: "old"}); err != nil {
 				t.Fatal(err)
