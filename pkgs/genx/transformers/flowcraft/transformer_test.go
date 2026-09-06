@@ -14,7 +14,6 @@ import (
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -1097,7 +1096,7 @@ func TestTransformCancellationClosesIdleInput(t *testing.T) {
 
 func TestInlineScriptPersistsSerializableBoardState(t *testing.T) {
 	t.Parallel()
-	state := kv.NewMemory(nil)
+	state := newMemoryState()
 	config := testConfig(&echoGenerator{})
 	config.State = state
 	config.Graph = flowgraph.GraphDefinition{Name: "script", Entry: "script", Nodes: []flowgraph.NodeDefinition{{
@@ -1114,7 +1113,7 @@ func TestInlineScriptPersistsSerializableBoardState(t *testing.T) {
 	}
 	stream := output.(*sessionStream)
 	drain(t, output)
-	data, err := state.Get(context.Background(), kv.Key{stream.session.contextID})
+	data, err := state.LoadState(context.Background(), stream.session.contextID)
 	if err != nil {
 		t.Fatalf("load saved State: %v", err)
 	}

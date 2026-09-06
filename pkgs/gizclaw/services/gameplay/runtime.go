@@ -75,6 +75,8 @@ type WorkflowService interface {
 	GetWorkflow(context.Context, adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error)
 }
 
+// Migration initializes and validates the Gameplay schema before serving requests.
+// Hosts must call it before using Runtime or starting its dispatchers.
 func (r *Runtime) Migration(ctx context.Context) error {
 	db, err := r.db()
 	if err != nil {
@@ -295,8 +297,19 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 			reason TEXT NOT NULL,
 			deleted_at TEXT NOT NULL,
 			descriptor_version INTEGER NOT NULL,
-			descriptor_json TEXT NOT NULL
-		)`,
+			descriptor_json TEXT NOT NULL,
+            marker_fingerprint TEXT NOT NULL DEFAULT '',
+            task_created_at TEXT NOT NULL DEFAULT '',
+            task_status TEXT NOT NULL DEFAULT 'queued',
+            task_phase TEXT NOT NULL DEFAULT 'validate',
+            failure_count INTEGER NOT NULL DEFAULT 0,
+            next_attempt_at TEXT NOT NULL DEFAULT '',
+            lease_token TEXT NOT NULL DEFAULT '',
+            lease_deadline TEXT NOT NULL DEFAULT '',
+            last_error_code TEXT NOT NULL DEFAULT '',
+            last_error_message TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT ''
+        )`,
 		`CREATE TABLE IF NOT EXISTS gameplay_pending_deletion_locators (
 			kind TEXT NOT NULL,
 			owner_public_key TEXT NOT NULL,
@@ -309,36 +322,20 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 			return err
 		}
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
-		SELECT kind, owner_public_key, resource_id, deletion_id
-		FROM (
-			SELECT kind, owner_public_key, resource_id, deletion_id,
-				ROW_NUMBER() OVER (
-					PARTITION BY kind, owner_public_key, resource_id
-					ORDER BY deleted_at, deletion_id
-				) AS locator_rank
-			FROM gameplay_pending_deletions
-		) AS ranked
-		WHERE locator_rank = 1
-			AND NOT EXISTS (SELECT 1 FROM gameplay_pending_deletion_locators LIMIT 1)
-		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`); err != nil {
-		return err
-	}
-	if err := migratePendingDeletionTasks(ctx, db); err != nil {
-		return err
+	for _, query := range []string{
+		`CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_due_idx ON gameplay_pending_deletions(kind, task_status, next_attempt_at, deletion_id)`,
+		`CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_lease_idx ON gameplay_pending_deletions(kind, task_status, lease_deadline, deletion_id)`,
+		`CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_admin_idx ON gameplay_pending_deletions(task_created_at, deletion_id)`,
+	} {
+		if _, err := db.ExecContext(ctx, query); err != nil {
+			return err
+		}
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_game_results_idempotency_idx ON gameplay_game_results(owner_public_key, runtime_profile_id, idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''`); err != nil {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_reward_grants_source_idx ON gameplay_reward_grants(owner_public_key, runtime_profile_id, source_type, source_id) WHERE source_id <> ''`); err != nil {
 		return err
-	}
-	if exists, err := sqlColumnExists(ctx, db, "gameplay_reward_grants", "policy_digest"); err != nil {
-		return err
-	} else if !exists {
-		if _, err := db.ExecContext(ctx, `ALTER TABLE gameplay_reward_grants ADD COLUMN policy_digest TEXT NOT NULL DEFAULT ''`); err != nil {
-			return err
-		}
 	}
 	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_points_transactions_pet_adoption_idx ON gameplay_points_transactions(owner_public_key, source_id) WHERE source_type = 'pet' AND reason = 'pet.adopt'`); err != nil {
 		return err
@@ -352,10 +349,7 @@ func migrateGameplaySchema(ctx context.Context, db sqlDialectExecutor) error {
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_drive_fact_outbox_due_idx ON gameplay_drive_fact_outbox(state, next_attempt_at, claim_until)`); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_active_v2_idx ON gameplay_workspace_reward_windows(workspace_id) WHERE state IN ('pending', 'claimed', 'retry')`); err != nil {
-		return err
-	}
-	if _, err := db.ExecContext(ctx, `DROP INDEX IF EXISTS gameplay_workspace_reward_windows_active_idx`); err != nil {
+	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_active_idx ON gameplay_workspace_reward_windows(workspace_id) WHERE state IN ('pending', 'claimed', 'retry')`); err != nil {
 		return err
 	}
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_workspace_reward_windows_due_idx ON gameplay_workspace_reward_windows(state, evaluate_after, next_attempt_at, claim_until)`); err != nil {
@@ -389,7 +383,7 @@ func (r *Runtime) AdoptPet(ctx context.Context, owner string, req apitypes.PetAd
 	if err := r.validatePetWorkflow(ctx, ruleset.Spec.PetWorkflowID); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return apitypes.PetAdoptResponse{}, err
 	}
 	mu := r.adoptionMutex(owner + "\x00" + req.Name)
@@ -476,29 +470,32 @@ func (r *Runtime) reservePetAdoption(ctx context.Context, owner string, req apit
 }
 
 func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation petAdoptionReservation, ruleset ProfileRules) (apitypes.PetAdoptResponse, error) {
-	response, workspaceCreatedByAttempt, createErr := func() (apitypes.PetAdoptResponse, bool, error) {
+	// Workspace creation may use the same SQL pool and initialize other local
+	// services. Complete it before opening the accounting transaction. A failed
+	// settlement compensates only the Workspace created by this attempt.
+	petWorkspace, workspaceCreatedByAttempt, err := r.createPetWorkspace(ctx, reservation.OwnerPublicKey, reservation.WorkspaceName, reservation.WorkflowID)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, err
+	}
+	response, createErr := func() (apitypes.PetAdoptResponse, error) {
 		db, err := r.db()
 		if err != nil {
-			return apitypes.PetAdoptResponse{}, false, err
+			return apitypes.PetAdoptResponse{}, err
 		}
 		tx, err := db.BeginTxx(ctx, nil)
 		if err != nil {
-			return apitypes.PetAdoptResponse{}, false, err
+			return apitypes.PetAdoptResponse{}, err
 		}
 		defer tx.Rollback()
 		account, err := r.ensureAccountTx(ctx, tx, reservation.OwnerPublicKey, ruleset)
 		if err != nil {
-			return apitypes.PetAdoptResponse{}, false, err
+			return apitypes.PetAdoptResponse{}, err
 		}
 		if err := lockPointsAccountTx(ctx, tx, &account); err != nil {
-			return apitypes.PetAdoptResponse{}, false, err
+			return apitypes.PetAdoptResponse{}, err
 		}
 		if account.Balance < reservation.AdoptionCost {
-			return apitypes.PetAdoptResponse{}, false, errInsufficientPoints
-		}
-		petWorkspace, workspaceCreated, err := r.createPetWorkspace(ctx, reservation.OwnerPublicKey, reservation.WorkspaceName, reservation.WorkflowID)
-		if err != nil {
-			return apitypes.PetAdoptResponse{}, false, err
+			return apitypes.PetAdoptResponse{}, errInsufficientPoints
 		}
 		now := r.now()
 		pet := apitypes.Pet{
@@ -510,15 +507,15 @@ func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation pet
 		}
 		txn, err := r.recordPointsTx(ctx, tx, &account, -reservation.AdoptionCost, ruleset.ID, pet.Id, "", "", "pet.adopt", "pet", pet.Id, true)
 		if err != nil {
-			return apitypes.PetAdoptResponse{}, workspaceCreated, err
+			return apitypes.PetAdoptResponse{}, err
 		}
 		if err := insertPet(ctx, tx, pet); err != nil {
-			return apitypes.PetAdoptResponse{}, workspaceCreated, err
+			return apitypes.PetAdoptResponse{}, err
 		}
 		if err := tx.Commit(); err != nil {
-			return apitypes.PetAdoptResponse{}, workspaceCreated, err
+			return apitypes.PetAdoptResponse{}, err
 		}
-		return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, workspaceCreated, nil
+		return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, nil
 	}()
 	if createErr == nil {
 		return response, nil
@@ -544,7 +541,7 @@ func (r *Runtime) createReservedPetAdoption(ctx context.Context, reservation pet
 	if workspaceCreatedByAttempt {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cleanupCancel()
-		if _, err := r.Workspaces.DeleteSystemWorkspace(cleanupCtx, reservation.WorkspaceName); err != nil && !errors.Is(err, kv.ErrNotFound) {
+		if _, err := r.Workspaces.DeleteSystemWorkspace(ownership.WithOwner(cleanupCtx, reservation.OwnerPublicKey), reservation.WorkspaceName); err != nil && !errors.Is(err, kv.ErrNotFound) {
 			return apitypes.PetAdoptResponse{}, errors.Join(createErr, fmt.Errorf("delete failed adoption Workspace: %w", err))
 		}
 	}
@@ -612,14 +609,6 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	if pet.RuntimeProfileId != runtimeProfileID {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q belongs to RuntimeProfile %q", ErrPetIDConflict, petID, pet.RuntimeProfileId)
 	}
-	workspaceName := petWorkspaceName(owner, petID)
-	boundWorkspace, _, err := r.createPetWorkspace(ctx, owner, workspaceName, workflowName)
-	if err != nil {
-		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace binding: %v", ErrPetIDConflict, petID, err)
-	}
-	if boundWorkspace.Id != pet.WorkspaceId {
-		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace domain binding", ErrPetIDConflict, petID)
-	}
 	if txnErr != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load adoption transaction for Pet %q: %w", petID, txnErr)
 	}
@@ -629,6 +618,19 @@ func (r *Runtime) completedAdoptionResponse(ctx context.Context, owner, runtimeP
 	account, err := findPointsAccount(ctx, readTx, owner, runtimeProfileID)
 	if err != nil {
 		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("load points account for Pet %q: %w", petID, err)
+	}
+	// Release the read snapshot before validating through Workspace, which may
+	// share this single-connection pool and initialize a missing binding.
+	if err := readTx.Commit(); err != nil {
+		return apitypes.PetAdoptResponse{}, true, err
+	}
+	workspaceName := petWorkspaceName(owner, petID)
+	boundWorkspace, _, err := r.createPetWorkspace(ctx, owner, workspaceName, workflowName)
+	if err != nil {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace binding: %v", ErrPetIDConflict, petID, err)
+	}
+	if boundWorkspace.Id != pet.WorkspaceId {
+		return apitypes.PetAdoptResponse{}, true, fmt.Errorf("%w: %q has a different Workspace domain binding", ErrPetIDConflict, petID)
 	}
 	return apitypes.PetAdoptResponse{Pet: pet, Points: account, Transaction: txn}, true, nil
 }
@@ -783,7 +785,7 @@ func (r *Runtime) ListPetWorkspaceNames(ctx context.Context, owner string) ([]st
 	if r == nil || r.DB == nil {
 		return nil, nil
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return nil, err
 	}
 	profile, ok := runtimeProfileFromContext(ctx)
@@ -829,7 +831,7 @@ func (r *Runtime) OwnerHasPetWorkspace(ctx context.Context, owner, workspaceName
 	if r == nil || r.DB == nil {
 		return false, nil
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return false, err
 	}
 	profile, ok := runtimeProfileFromContext(ctx)
@@ -916,7 +918,7 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 			return apitypes.Pet{}, err
 		}
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return apitypes.Pet{}, err
 	}
 	db, err := r.db()
@@ -947,15 +949,6 @@ func (r *Runtime) DeletePet(ctx context.Context, owner, id string) (apitypes.Pet
 	fingerprint, err := pendingdeletion.Fingerprint(record)
 	if err != nil {
 		return apitypes.Pet{}, err
-	}
-	if _, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id)
-		SELECT kind, owner_public_key, resource_id, deletion_id
-		FROM gameplay_pending_deletions
-		WHERE kind = ? AND owner_public_key = ? AND resource_id = ?
-		ORDER BY deleted_at, deletion_id
-		LIMIT 1
-		ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID); err != nil {
-		return apitypes.Pet{}, fmt.Errorf("delete pet %q legacy pending deletion locator: %w", pet.Id, err)
 	}
 	result, err := tx.ExecContext(ctx, db.Rebind(`INSERT INTO gameplay_pending_deletion_locators (kind, owner_public_key, resource_id, deletion_id) VALUES (?, ?, ?, ?) ON CONFLICT (kind, owner_public_key, resource_id) DO NOTHING`), record.Kind, pet.OwnerPublicKey, record.ResourceID, record.DeletionID)
 	if err != nil {
@@ -1020,7 +1013,7 @@ func (r *Runtime) DrivePet(ctx context.Context, owner string, req apitypes.PetDr
 	if err := r.ensurePeerAvailable(ctx, owner); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return apitypes.PetDriveResponse{}, err
 	}
 	mu := r.driveMutex(owner + "\x00" + req.PetId)
@@ -1552,7 +1545,7 @@ func listDriveTransactions(ctx context.Context, db *sqlx.DB, owner string, resul
 }
 
 func (r *Runtime) GetPoints(ctx context.Context, owner, runtimeProfileID string) (apitypes.PointsAccount, error) {
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return apitypes.PointsAccount{}, err
 	}
 	if _, registered := runtimeProfileFromContext(ctx); !registered && strings.TrimSpace(runtimeProfileID) == "" {
@@ -1659,41 +1652,52 @@ func (r *Runtime) resolveProfileRules(ctx context.Context, requestedID string) (
 		return ProfileRules{}, errors.New("gameplay: catalog is not configured")
 	}
 
+	db, err := r.Catalog.database()
+	if err != nil {
+		return ProfileRules{}, err
+	}
+	petIDs := make([]string, 0, len(rules.Spec.PetPool))
+	for _, entry := range rules.Spec.PetPool {
+		petIDs = append(petIDs, entry.PetDefID)
+	}
+	petExists, err := existingCatalogIDs(ctx, db, "pet_definitions", petIDs)
+	if err != nil {
+		return ProfileRules{}, err
+	}
 	petPool := make([]ProfilePetPoolEntry, 0, len(rules.Spec.PetPool))
 	for _, entry := range rules.Spec.PetPool {
-		if _, err := r.Catalog.GetPetDefByID(ctx, entry.PetDefID); err != nil {
-			if errors.Is(err, kv.ErrNotFound) {
-				continue
-			}
-			return ProfileRules{}, err
+		if petExists[entry.PetDefID] {
+			petPool = append(petPool, entry)
 		}
-		petPool = append(petPool, entry)
 	}
 	rules.Spec.PetPool = petPool
-
-	games := make(map[string]ProfileGameRule, len(rules.Spec.Games))
-	for id, rule := range rules.Spec.Games {
-		if _, err := r.Catalog.GetGameDefByID(ctx, id); err != nil {
-			if errors.Is(err, kv.ErrNotFound) {
-				continue
-			}
-			return ProfileRules{}, err
-		}
-		games[id] = rule
+	gameIDs := make([]string, 0, len(rules.Spec.Games))
+	for id := range rules.Spec.Games {
+		gameIDs = append(gameIDs, id)
 	}
-	rules.Spec.Games = games
-
-	badgeDefs := make(map[string]string, len(rules.Spec.BadgeDefs))
+	gameExists, err := existingCatalogIDs(ctx, db, "game_definitions", gameIDs)
+	if err != nil {
+		return ProfileRules{}, err
+	}
+	for id := range rules.Spec.Games {
+		if !gameExists[id] {
+			delete(rules.Spec.Games, id)
+		}
+	}
+	badgeIDs := make([]string, 0, len(rules.Spec.BadgeDefs))
+	for _, id := range rules.Spec.BadgeDefs {
+		badgeIDs = append(badgeIDs, id)
+	}
+	badgeExists, err := existingCatalogIDs(ctx, db, "badge_definitions", badgeIDs)
+	if err != nil {
+		return ProfileRules{}, err
+	}
 	for alias, id := range rules.Spec.BadgeDefs {
-		if _, err := r.Catalog.GetBadgeDefByID(ctx, id); err != nil {
-			if errors.Is(err, kv.ErrNotFound) {
-				continue
-			}
-			return ProfileRules{}, err
+		if !badgeExists[id] {
+			delete(rules.Spec.BadgeDefs, alias)
 		}
-		badgeDefs[alias] = id
 	}
-	rules.Spec.BadgeDefs = badgeDefs
+
 	return rules, nil
 }
 
@@ -1883,7 +1887,15 @@ func (r *Runtime) applyBadgeExp(ctx context.Context, tx *sqlx.Tx, owner, badgeDe
 	if badgeDefID == "" || delta == 0 {
 		return apitypes.Badge{}, nil
 	}
-	if _, err := r.Catalog.GetBadgeDefByID(ctx, badgeDefID); err != nil {
+	if r.Catalog == nil {
+		return apitypes.Badge{}, errors.New("gameplay: catalog is not configured")
+	}
+	if r.Catalog.DB == r.DB {
+		// Reuse the reward transaction when both services share a connection pool.
+		if _, _, err := scanBadgeDefSQL(tx.QueryRowContext(ctx, tx.Rebind("SELECT "+badgeDefColumns+" FROM badge_definitions WHERE id=?"), badgeDefID)); err != nil {
+			return apitypes.Badge{}, err
+		}
+	} else if _, err := r.Catalog.GetBadgeDefByID(ctx, badgeDefID); err != nil {
 		return apitypes.Badge{}, err
 	}
 	initialExp := max(int64(0), delta)
@@ -1968,43 +1980,4 @@ func (r *Runtime) ensurePeerAvailable(ctx context.Context, owner string) error {
 		return r.PeerAvailability(ctx, strings.TrimSpace(owner))
 	}
 	return nil
-}
-
-func sqlColumnExists(ctx context.Context, db sqlDialectExecutor, table, column string) (bool, error) {
-	switch db.DriverName() {
-	case "sqlite":
-		rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
-		if err != nil {
-			return false, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var cid int
-			var name string
-			var typ string
-			var notNull int
-			var defaultValue any
-			var pk int
-			if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
-				return false, err
-			}
-			if name == column {
-				return true, nil
-			}
-		}
-		return false, rows.Err()
-	case "postgres":
-		var exists bool
-		err := db.QueryRowContext(ctx, db.Rebind(`
-SELECT EXISTS (
-	SELECT 1
-	FROM information_schema.columns
-	WHERE table_schema = current_schema()
-	  AND table_name = ?
-	  AND column_name = ?
-)`), table, column).Scan(&exists)
-		return exists, err
-	default:
-		return false, fmt.Errorf("gameplay: unsupported sql dialect %q", db.DriverName())
-	}
 }

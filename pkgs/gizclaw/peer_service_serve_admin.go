@@ -268,8 +268,7 @@ func (response resource200JSONResponse) VisitDeleteResourceResponse(ctx *fiber.C
 }
 
 func resourceManagerError(err error) (int, apitypes.ErrorResponse) {
-	var resourceErr *resourcemanager.Error
-	if errors.As(err, &resourceErr) {
+	if resourceErr, ok := errors.AsType[*resourcemanager.Error](err); ok {
 		return resourceErr.StatusCode, apitypes.NewErrorResponse(resourceErr.Code, resourceErr.Message)
 	}
 	return http.StatusInternalServerError, apitypes.NewErrorResponse("RESOURCE_MANAGER_ERROR", err.Error())

@@ -2,6 +2,7 @@ package providertenants
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,13 +13,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/voicetest"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/credentialtest"
+
 	"github.com/volcengine/volcengine-go-sdk/service/speechsaasprod"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
 	voicecatalog "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestServerMiniMaxTenantsCRUD(t *testing.T) {
@@ -120,7 +125,7 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 		SyncedAt:  new(created.CreatedAt),
 		UpdatedAt: created.CreatedAt,
 	}
-	voiceStore := testVoiceStore(t, srv)
+	voiceStore := testVoiceDB(t, srv)
 	if err := writeVoice(ctx, voiceStore, voice, nil); err != nil {
 		t.Fatalf("writeVoice() error = %v", err)
 	}
@@ -145,8 +150,8 @@ func TestServerMiniMaxTenantsCRUD(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteMiniMaxTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteMiniMaxTenant() response = %#v", deleteResp)
 	}
-	if _, err := getVoice(ctx, voiceStore, string(voice.Id)); err != kv.ErrNotFound {
-		t.Fatalf("getVoice() after tenant delete err = %v, want kv.ErrNotFound", err)
+	if _, err := getVoice(ctx, voiceStore, string(voice.Id)); err != sql.ErrNoRows {
+		t.Fatalf("getVoice() after tenant delete err = %v, want sql.ErrNoRows", err)
 	}
 	if _, err := getVoice(ctx, voiceStore, string(manualVoice.Id)); err != nil {
 		t.Fatalf("manual voice after tenant delete err = %v, want nil", err)
@@ -458,34 +463,6 @@ func TestVoiceHelperEdgeCases(t *testing.T) {
 	}
 }
 
-func TestDecodeVoiceMigratesLegacyProviderFields(t *testing.T) {
-	t.Parallel()
-
-	var voice apitypes.Voice
-	if err := decodeVoice([]byte(`{
-		"id": "minimax-tenant:tenant-a:voice-1",
-		"source": "sync",
-		"provider": {"kind": "minimax-tenant", "id": "tenant-a"},
-		"provider_voice_id": "voice-1",
-		"provider_voice_type": "system",
-		"raw": {"gender": "female"},
-		"created_at": "2026-05-06T03:48:50Z",
-		"updated_at": "2026-05-06T03:48:50Z"
-	}`), &voice); err != nil {
-		t.Fatalf("decodeVoice() error = %v", err)
-	}
-	if voiceProviderDataString(voice, "voice_id") != "voice-1" || voiceProviderDataString(voice, "voice_type") != "system" {
-		t.Fatalf("provider data = %#v", voice.ProviderData)
-	}
-	providerData, err := voice.ProviderData.AsMiniMaxTenantVoiceProviderData()
-	if err != nil {
-		t.Fatalf("provider data = %#v", voice.ProviderData)
-	}
-	if providerData.Raw == nil || (*providerData.Raw)["gender"] != "female" {
-		t.Fatalf("raw provider data = %#v", providerData.Raw)
-	}
-}
-
 func TestServerMiniMaxStoreNotConfigured(t *testing.T) {
 	t.Parallel()
 
@@ -504,7 +481,7 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	t.Parallel()
 
 	var nilServer *Server
-	if _, err := nilServer.tenantStore(); err == nil {
+	if _, err := nilServer.database(); err == nil {
 		t.Fatal("nil server tenantStore() error = nil")
 	}
 	if _, err := nilServer.voiceService(); err == nil {
@@ -513,10 +490,10 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	if _, err := nilServer.credentialService(); err == nil {
 		t.Fatal("nil server credentialService() error = nil")
 	}
-	if _, err := nilServer.volcTenantStore(); err == nil {
+	if _, err := nilServer.database(); err == nil {
 		t.Fatal("nil server volcTenantStore() error = nil")
 	}
-	if _, err := (&Server{}).tenantStore(); err == nil {
+	if _, err := (&Server{}).database(); err == nil {
 		t.Fatal("empty server tenantStore() error = nil")
 	}
 	if _, err := (&Server{}).voiceService(); err == nil {
@@ -525,16 +502,14 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	if _, err := (&Server{}).credentialService(); err == nil {
 		t.Fatal("empty server credentialService() error = nil")
 	}
-	if _, err := (&Server{}).volcTenantStore(); err == nil {
+	if _, err := (&Server{}).database(); err == nil {
 		t.Fatal("empty server volcTenantStore() error = nil")
 	}
 
-	srv := &Server{Store: kv.NewMemory(nil)}
-	voiceStore := kv.NewMemory(nil)
-	credentialStore := kv.NewMemory(nil)
-	srv.Voices = &voicecatalog.Server{Store: voiceStore}
-	srv.Credentials = &credential.Server{Store: credentialStore}
-	if _, err := srv.tenantStore(); err != nil {
+	srv := &Server{DB: tenantTestDB(t)}
+	srv.Voices = voicetest.New(t)
+	srv.Credentials = credentialtest.New(t)
+	if _, err := srv.database(); err != nil {
 		t.Fatalf("tenantStore() error = %v", err)
 	}
 	if got, err := srv.voiceService(); err != nil || got != srv.Voices {
@@ -543,12 +518,12 @@ func TestServerMiniMaxStoreHelpers(t *testing.T) {
 	if got, err := srv.credentialService(); err != nil || got != srv.Credentials {
 		t.Fatalf("credentialService explicit = %v, %v", got, err)
 	}
-	if _, err := srv.volcTenantStore(); err != nil {
+	if _, err := srv.database(); err != nil {
 		t.Fatalf("volcTenantStore() error = %v", err)
 	}
 
-	srv.Store = nil
-	if _, err := srv.volcTenantStore(); err == nil {
+	srv.DB = nil
+	if _, err := srv.database(); err == nil {
 		t.Fatal("volcTenantStore missing root Store error = nil")
 	}
 }
@@ -914,7 +889,7 @@ func TestServerSyncMiniMaxTenantVoicesReconcile(t *testing.T) {
 		Source:    apitypes.VoiceSourceManual,
 		UpdatedAt: srv.now(),
 	}
-	voiceStore := testVoiceStore(t, srv)
+	voiceStore := testVoiceDB(t, srv)
 	if err := writeVoice(ctx, voiceStore, manualVoice, nil); err != nil {
 		t.Fatalf("writeVoice(manual) error = %v", err)
 	}
@@ -1195,8 +1170,8 @@ func TestServerVolcTenantsCRUDAndSyncVoices(t *testing.T) {
 	if _, ok := deleteResp.(adminhttp.DeleteVolcTenant200JSONResponse); !ok {
 		t.Fatalf("DeleteVolcTenant() response = %#v", deleteResp)
 	}
-	if _, err := getVoice(ctx, testVoiceStore(t, srv), stableVoiceID(volcProviderKind, "tenant-a", "S_female_1")); err != kv.ErrNotFound {
-		t.Fatalf("getVoice() after volc tenant delete err = %v, want kv.ErrNotFound", err)
+	if _, err := getVoice(ctx, testVoiceDB(t, srv), stableVoiceID(volcProviderKind, "tenant-a", "S_female_1")); err != sql.ErrNoRows {
+		t.Fatalf("getVoice() after volc tenant delete err = %v, want sql.ErrNoRows", err)
 	}
 }
 
@@ -1806,12 +1781,12 @@ func TestVolcMegaTTSTrainStatusPagePreservesRawStatus(t *testing.T) {
 
 func TestSyncVolcTenantVoicesReportsMissingCredential(t *testing.T) {
 	srv := newTestServer(t)
-	store, err := srv.volcTenantStore()
+	store, err := srv.database()
 	if err != nil {
 		t.Fatal(err)
 	}
 	tenant := apitypes.VolcTenant{Id: "missing-credential", CredentialId: "missing"}
-	if err := writeVolcTenant(t.Context(), store, tenant); err != nil {
+	if _, err := createSQLTenant(t.Context(), store, "volc", tenant); err != nil {
 		t.Fatal(err)
 	}
 	response, err := srv.SyncVolcTenantVoices(t.Context(), adminhttp.SyncVolcTenantVoicesRequestObject{Id: tenant.Id})
@@ -1870,45 +1845,30 @@ func (f *fakeVolcSpeakerClient) BatchListMegaTTSTrainStatusWithContext(_ context
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 
-	store, err := kv.NewBadgerInMemory(nil)
-	if err != nil {
-		t.Fatalf("NewBadgerInMemory() error = %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-
 	fixed := time.Date(2026, 4, 22, 12, 0, 0, 0, time.UTC)
 	return &Server{
-		Store:       kv.Prefixed(store, kv.Key{"provider-tenants"}),
-		Voices:      &voicecatalog.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
-		Credentials: &credential.Server{Store: kv.Prefixed(store, kv.Key{"credentials"})},
+		DB:          tenantTestDB(t),
+		Voices:      voicetest.New(t),
+		Credentials: credentialtest.New(t),
 		Now: func() time.Time {
 			return fixed
 		},
 	}
 }
 
-func testVoiceStore(t *testing.T, srv *Server) kv.Store {
+func testVoiceDB(t *testing.T, srv *Server) *sqlx.DB {
 	t.Helper()
 	service, ok := srv.Voices.(*voicecatalog.Server)
 	if !ok {
 		t.Fatalf("Voices = %T", srv.Voices)
 	}
-	return service.Store
-}
-
-func testCredentialStore(t *testing.T, srv *Server) kv.Store {
-	t.Helper()
-	service, ok := srv.Credentials.(*credential.Server)
-	if !ok {
-		t.Fatalf("Credentials = %T", srv.Credentials)
-	}
-	return service.Store
+	return service.DB
 }
 
 func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id string) apitypes.Voice {
 	t.Helper()
 
-	store := testVoiceStore(t, srv)
+	store := testVoiceDB(t, srv)
 	voice, err := getVoice(ctx, store, id)
 	if err != nil {
 		t.Fatalf("getVoice(%s) error = %v", id, err)
@@ -1919,35 +1879,33 @@ func requireStoredVoice(t *testing.T, srv *Server, ctx context.Context, id strin
 func requireMissingVoice(t *testing.T, srv *Server, ctx context.Context, id string) {
 	t.Helper()
 
-	store := testVoiceStore(t, srv)
-	if _, err := getVoice(ctx, store, id); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("getVoice(%s) err = %v, want kv.ErrNotFound", id, err)
+	store := testVoiceDB(t, srv)
+	if _, err := getVoice(ctx, store, id); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("getVoice(%s) err = %v, want sql.ErrNoRows", id, err)
 	}
 }
 
-func seedCredential(t *testing.T, srv *Server, credential apitypes.Credential) {
+func seedCredential(t *testing.T, srv *Server, item apitypes.Credential) {
 	t.Helper()
-	if credential.Id == "" {
+	if item.Id == "" {
 		t.Fatal("credential id is required")
 	}
 
-	data, err := json.Marshal(credential)
-	if err != nil {
-		t.Fatalf("json.Marshal(credential) error = %v", err)
+	service, ok := srv.Credentials.(*credential.Server)
+	if !ok {
+		t.Fatalf("Credentials = %T", srv.Credentials)
 	}
-	store := testCredentialStore(t, srv)
-	if err := store.Set(context.Background(), credentialKey(credential.Id), data); err != nil {
-		t.Fatalf("Store.Set(credential) error = %v", err)
-	}
+	credentialtest.Seed(t, service, item)
+
 }
 
 func miniMaxTenantID(t *testing.T, srv *Server, ctx context.Context, id string) string {
 	t.Helper()
-	store, err := srv.tenantStore()
+	store, err := srv.database()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.Get(ctx, miniMaxTenantKey(id))
+	_, err = getMiniMaxTenant(ctx, store, id)
 	if err != nil {
 		t.Fatalf("resolve MiniMax tenant %q: %v", id, err)
 	}
@@ -1956,11 +1914,11 @@ func miniMaxTenantID(t *testing.T, srv *Server, ctx context.Context, id string) 
 
 func volcTenantID(t *testing.T, srv *Server, ctx context.Context, id string) string {
 	t.Helper()
-	store, err := srv.volcTenantStore()
+	store, err := srv.database()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.Get(ctx, volcTenantKey(id))
+	_, err = getVolcTenant(ctx, store, id)
 	if err != nil {
 		t.Fatalf("resolve Volc tenant %q: %v", id, err)
 	}

@@ -6,7 +6,6 @@
 
 ```text
 pkgs/store/
-├── graph/        # Entity / Relation graph abstraction
 ├── kv/           # Ordered hierarchical key-value store
 ├── logstore/     # 可查询的 immutable/mutable record 与 log driver
 ├── memory/       # Observation extraction、fact recall 与 provider adapters
@@ -19,8 +18,7 @@ pkgs/store/
 
 | Package | 核心边界 | 主要消费者 |
 | --- | --- | --- |
-| [graph](./graph) | Entity、Relation 与邻接查询 | Agent memory、recall |
-| [kv](./kv) | 有序层级 key、CRUD 与范围遍历 | GizClaw services、Agent memory、其他 stores |
+| [kv](./kv) | 有序层级 key、CRUD 与范围遍历 | GizClaw services、其他 stores |
 | [logstore](./logstore) | 追加/修改结构化 record、backend-neutral 查询与分页 | 进程日志、conversation/event 等生产者 |
 | [memory](./memory) | 原始 observation、fact recall/update/delete 与异步 operation | Agent runtime、memory evaluation harness |
 | [metrics](./metrics) | Sample 写入、instant/range query 与 aggregation | Peer telemetry、Server metrics |
@@ -36,11 +34,9 @@ flowchart TB
     Domains --> Metrics["metrics"]
     Domains --> Objects["objectstore"]
     Domains --> Vectors["vecstore"]
-    Domains --> Graph["graph"]
     Domains --> Memory["memory"]
     Memory --> Flowcraft["Flowcraft embedded"]
     Memory --> Remote["Mem0 / Volc remote"]
-    Graph --> KV
     Vectors --> Objects
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
@@ -103,7 +99,7 @@ physical, err := storage.New(map[string]storage.Config{
 Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 YAML DTO，
 根据 `kind` 显式转换为对应的具体 Go 类型；YAML 字段不会进入公共配置类型。
 
-多个 Store 可以借用同一个 connector；调用方必须先关闭逻辑 `Stores`，再关闭物理 `Storage`。`memory` 只是无状态 marker，每个引用它的 keyvalue 或 metrics Store 都创建独立实例。`vecstore` 与 `graph` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
+多个 Store 可以借用同一个 connector；调用方必须先关闭逻辑 `Stores`，再关闭物理 `Storage`。`memory` 只是无状态 marker，每个引用它的 keyvalue 或 metrics Store 都创建独立实例。`vecstore` 没有内置 Server 消费者，因此不属于命令层 Store 配置；对应公共 package 与构造函数仍保留。RuntimeProfile 与 MemoryLayout 选择的 Memory connection 仍在此 registry 之外。
 
 `objectstore` 与 `filesystem.dir`、`volc-tos`、`aliyun-oss`、`gcs` 和
 `azure-blob` 兼容。物理 Storage 拥有 official SDK client、readiness probe、

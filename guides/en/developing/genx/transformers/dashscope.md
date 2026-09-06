@@ -28,6 +28,10 @@ The default output voice follows the selected model family. Qwen 3.5 Omni Realti
 
 Provider session update and event name remain inside the Adapter; the caller only relies on GenX Stream and an explicit update contract.
 
+## Output stream correlation
+
+Spoken transcripts and audio for the same response share a `StreamID`, with independent BOS, data, and EOS lifecycles per MIME type. Standalone model text uses a separate `StreamID` so its completion cannot close the spoken transcript early. Interruption closes both streams for the response.
+
 ## Function-tool continuation
 
 When `ToolInvoker` is non-nil, each `Transform` resolves the current tool names, descriptions, and JSON Schemas before opening its provider session. DashScope function calls execute in provider order through `InvokeTool(name, arguments)`. Each raw JSON result is submitted with the original provider call ID, then `response.create` continues the same conversation. ToolCall and ToolResult control data remain internal and never enter the public GenX Stream.

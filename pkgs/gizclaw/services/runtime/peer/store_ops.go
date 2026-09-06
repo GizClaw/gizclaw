@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"golang.org/x/sync/errgroup"
 )
 
 const peerTombstoneVersion = 1
@@ -54,11 +55,17 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 // EnsureConnectedPeer creates a default active peer record for a connected peer
 // when the peer has not been registered yet. Existing records are preserved.
 func (s *Server) EnsureConnectedPeer(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
-	return s.EnsureConnectedPeerGuarded(ctx, publicKey, nil)
+	record, err := s.EnsureConnectedPeerGuarded(ctx, publicKey, nil)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	return record, s.rememberPeer(ctx, record)
 }
 
 // EnsureConnectedPeerGuarded runs guard while holding the per-Peer record lock
 // and creates the connected Peer only when the guard still accepts it.
+// It does not publish the Peer in the local directory; admission must first
+// verify shared routing ownership before recording the local PeerRun entry.
 func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey giznet.PublicKey, guard func() error) (apitypes.Peer, error) {
 	if publicKey.IsZero() {
 		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
@@ -390,12 +397,14 @@ func (s *Server) create(ctx context.Context, peer apitypes.Peer) (apitypes.Peer,
 	}
 	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
 	defer recordUnlock()
-	return s.createLocked(ctx, publicKey, peer)
+	created, err := s.createLocked(ctx, publicKey, peer)
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	return created, s.rememberPeer(ctx, created)
 }
 
 func (s *Server) createLocked(ctx context.Context, publicKey giznet.PublicKey, peer apitypes.Peer) (apitypes.Peer, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
 	}
@@ -434,8 +443,6 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 		return apitypes.Peer{}, err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
 		return apitypes.Peer{}, err
 	}
@@ -453,6 +460,9 @@ func (s *Server) putRecord(ctx context.Context, peer apitypes.Peer) (apitypes.Pe
 	}
 	peer.UpdatedAt = time.Now()
 	if err := s.writePeerLocked(ctx, peer, optionalPeer(old, err)); err != nil {
+		return apitypes.Peer{}, err
+	}
+	if err := s.rememberPeer(ctx, peer); err != nil {
 		return apitypes.Peer{}, err
 	}
 	return s.get(ctx, publicKey)
@@ -484,119 +494,49 @@ func (s *Server) EnsureAvailable(ctx context.Context, publicKey giznet.PublicKey
 	return nil
 }
 
-func (s *Server) list(ctx context.Context) ([]apitypes.Peer, error) {
-	store, err := s.store()
-	if err != nil {
-		return nil, err
-	}
-	items := make([]apitypes.Peer, 0)
-	for entry, err := range store.List(ctx, peersPrefix()) {
-		if err != nil {
-			return nil, fmt.Errorf("peer: list: %w", err)
-		}
-		if isPeerTombstone(entry.Value) {
-			continue
-		}
-		var peer apitypes.Peer
-		if err := json.Unmarshal(entry.Value, &peer); err != nil {
-			return nil, fmt.Errorf("peer: decode list %s: %w", entry.Key.String(), err)
-		}
-		items = append(items, peer)
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
-			return items[i].PublicKey < items[j].PublicKey
-		}
-		return items[i].CreatedAt.Before(items[j].CreatedAt)
-	})
-	return items, nil
-}
-
 func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([]adminhttp.PeerRegistrationResult, bool, *string, error) {
+	if s.LocalRuns == nil {
+		return nil, false, nil, errors.New("peer: local runtime directory is not configured")
+	}
+	keys, more, err := s.LocalRuns.ListPeerPublicKeys(ctx, cursor, limit)
+	if err != nil {
+		return nil, false, nil, err
+	}
 	store, err := s.store()
 	if err != nil {
 		return nil, false, nil, err
 	}
-	type item struct {
-		publicKey string
-		createdAt time.Time
-		result    adminhttp.PeerRegistrationResult
-	}
-	items := make([]item, 0)
-	for entry, err := range store.List(ctx, peersPrefix()) {
-		if err != nil {
-			return nil, false, nil, fmt.Errorf("peer: list: %w", err)
-		}
-		if len(entry.Key) != 2 {
-			return nil, false, nil, fmt.Errorf("peer: malformed public-key record %v", entry.Key)
-		}
-		publicKey := entry.Key[1]
-		if isPeerTombstone(entry.Value) {
-			items = append(items, item{publicKey: publicKey, result: toAdminTombstoneResult(publicKey)})
-			continue
-		}
-		peer, err := decodePeer(entry.Value)
-		if err != nil || peer.PublicKey != publicKey {
-			return nil, false, nil, fmt.Errorf("peer: decode list %s: %w", entry.Key.String(), err)
-		}
-		items = append(items, item{publicKey: publicKey, createdAt: peer.CreatedAt, result: toAdminRegistrationResult(peer)})
-	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].createdAt.Equal(items[j].createdAt) {
-			return items[i].publicKey < items[j].publicKey
-		}
-		return items[i].createdAt.Before(items[j].createdAt)
-	})
-	start := 0
-	if cursor != "" {
-		start = len(items)
-		for index, item := range items {
-			if item.publicKey == cursor {
-				start = index + 1
-				break
+	items := make([]adminhttp.PeerRegistrationResult, len(keys))
+	workers, workerCtx := errgroup.WithContext(ctx)
+	workers.SetLimit(8)
+	for i, key := range keys {
+		workers.Go(func() error {
+			data, err := store.Get(workerCtx, peerKey(key))
+			if err != nil {
+				return err
 			}
-		}
+			if isPeerTombstone(data) {
+				items[i] = toAdminTombstoneResult(key)
+				return nil
+			}
+			record, err := decodePeer(data)
+			if err != nil {
+				return err
+			}
+			if record.PublicKey != key {
+				return errors.New("peer: local directory registration identity mismatch")
+			}
+			items[i] = toAdminRegistrationResult(record)
+			return nil
+		})
 	}
-	if start >= len(items) {
-		return nil, false, nil, nil
-	}
-	end := min(start+limit, len(items))
-	page := make([]adminhttp.PeerRegistrationResult, 0, end-start)
-	for _, item := range items[start:end] {
-		page = append(page, item.result)
-	}
-	if end >= len(items) {
-		return page, false, nil, nil
-	}
-	next := items[end-1].publicKey
-	return page, true, &next, nil
-}
-
-func (s *Server) listPage(ctx context.Context, cursor string, limit int) ([]apitypes.Peer, bool, *string, error) {
-	items, err := s.list(ctx)
-	if err != nil {
+	if err := workers.Wait(); err != nil {
 		return nil, false, nil, err
 	}
-	start := 0
-	if cursor != "" {
-		start = len(items)
-		for index, peer := range items {
-			if peer.PublicKey == cursor {
-				start = index + 1
-				break
-			}
-		}
+	if more {
+		return items, true, new(keys[len(keys)-1]), nil
 	}
-	if start >= len(items) {
-		return nil, false, nil, nil
-	}
-	end := min(start+limit, len(items))
-	page := items[start:end]
-	if end >= len(items) {
-		return page, false, nil, nil
-	}
-	nextCursor := page[len(page)-1].PublicKey
-	return page, true, &nextCursor, nil
+	return items, false, nil, nil
 }
 
 func (s *Server) listBySN(ctx context.Context, sn string) ([]adminhttp.PeerRegistrationResult, error) {
@@ -604,50 +544,36 @@ func (s *Server) listBySN(ctx context.Context, sn string) ([]adminhttp.PeerRegis
 	if err != nil {
 		return nil, err
 	}
-	publicKeys := make(map[string]struct{})
-	_, legacyErr := store.Get(ctx, snPrefix(sn))
-	if legacyErr == nil {
-		// The former one-to-one index stored a public key directly at the
-		// prefix. Scan records so collisions hidden by that index are restored.
-		for entry, err := range store.List(ctx, peersPrefix()) {
-			if err != nil {
-				return nil, fmt.Errorf("peer: list legacy sn %q: %w", sn, err)
-			}
-			if isPeerTombstone(entry.Value) {
-				continue
-			}
-			peer, err := decodePeer(entry.Value)
-			if err != nil {
-				return nil, fmt.Errorf("peer: decode legacy sn %q: %w", sn, err)
-			}
-			if peerSN(peer) == sn {
-				publicKeys[peer.PublicKey] = struct{}{}
-			}
-		}
-	} else if !errors.Is(legacyErr, kv.ErrNotFound) {
-		return nil, fmt.Errorf("peer: get legacy sn %q: %w", sn, legacyErr)
-	}
-	for entry, err := range store.List(ctx, snPrefix(sn)) {
-		if err != nil {
-			return nil, fmt.Errorf("peer: list sn %q: %w", sn, err)
-		}
-		if len(entry.Key) != 3 {
-			return nil, fmt.Errorf("peer: malformed sn index %v", entry.Key)
-		}
-		publicKeys[entry.Key[2]] = struct{}{}
+	publicKeys, err := store.ListMembers(ctx, snPrefix(sn))
+	if err != nil {
+		return nil, fmt.Errorf("peer: list serial number index: %w", err)
 	}
 
+	candidates := make([]*apitypes.Peer, len(publicKeys))
+	workers, workerCtx := errgroup.WithContext(ctx)
+	workers.SetLimit(8)
+	for i, publicKey := range publicKeys {
+		workers.Go(func() error {
+			peer, err := s.getByPublicKeyText(workerCtx, store, publicKey)
+			if errors.Is(err, ErrPeerNotFound) || errors.Is(err, ErrPeerDeleted) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if peerSN(peer) == sn {
+				candidates[i] = &peer
+			}
+			return nil
+		})
+	}
+	if err := workers.Wait(); err != nil {
+		return nil, err
+	}
 	peers := make([]apitypes.Peer, 0, len(publicKeys))
-	for publicKey := range publicKeys {
-		peer, err := s.getByPublicKeyText(ctx, store, publicKey)
-		if errors.Is(err, ErrPeerNotFound) || errors.Is(err, ErrPeerDeleted) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		if peerSN(peer) == sn {
-			peers = append(peers, peer)
+	for _, peer := range candidates {
+		if peer != nil {
+			peers = append(peers, *peer)
 		}
 	}
 	sort.Slice(peers, func(i, j int) bool {
@@ -669,32 +595,13 @@ func (s *Server) ListPublicKeysByIMEI(ctx context.Context, tac, serial string) (
 	if err != nil {
 		return nil, err
 	}
-	keys := make(map[string]struct{})
-	prefix := imeiPrefix(tac, serial)
-	// A legacy single-value entry may have hidden collisions; recover from records.
-	if _, err := store.Get(ctx, prefix); err == nil {
-		for entry, err := range store.List(ctx, peersPrefix()) {
-			if err != nil {
-				return nil, err
-			}
-			if !isPeerTombstone(entry.Value) {
-				keys[entry.Key[len(entry.Key)-1]] = struct{}{}
-			}
-		}
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	keys, err := store.ListMembers(ctx, imeiPrefix(tac, serial))
+	if err != nil {
 		return nil, err
 	}
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, err
-		}
-		if len(entry.Key) != 4 {
-			return nil, errors.New("peer: malformed IMEI index")
-		}
-		keys[entry.Key[3]] = struct{}{}
-	}
+
 	result := make([]string, 0, len(keys))
-	for key := range keys {
+	for _, key := range keys {
 		peer, err := s.getByPublicKeyText(ctx, store, key)
 		if errors.Is(err, ErrPeerNotFound) || errors.Is(err, ErrPeerDeleted) {
 			continue
@@ -734,15 +641,77 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 	entries := []kv.Entry{{Key: peerKey(peer.PublicKey), Value: data}}
 	entries = append(entries, indexEntries(peer)...)
 
-	if len(deletes) > 0 {
-		if err := store.BatchDelete(ctx, deletes); err != nil {
-			return fmt.Errorf("peer: delete stale indexes %s: %w", peer.PublicKey, err)
+	// Preserve indexes still present in the new record: mutation deletes run
+	// after record writes, and member removals run after additions.
+	retained := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		retained[entry.Key.String()] = true
+	}
+	filtered := deletes[:0]
+	for _, key := range deletes {
+		if !retained[key.String()] {
+			filtered = append(filtered, key)
 		}
 	}
-	if err := store.BatchSet(ctx, entries); err != nil {
-		return fmt.Errorf("peer: write %s: %w", peer.PublicKey, err)
+	additions := identifierSets(peer)
+	var removals []kv.SetMembers
+	if previous != nil {
+		current := make(map[string]bool, len(additions))
+		for _, group := range additions {
+			current[group.Key.String()] = true
+		}
+		for _, group := range identifierSets(*previous) {
+			if previous.PublicKey != peer.PublicKey || !current[group.Key.String()] {
+				removals = append(removals, group)
+			}
+		}
 	}
+	var expected []byte
+	if previous != nil {
+		expected, err = json.Marshal(previous)
+		if err != nil {
+			return fmt.Errorf("peer: encode previous record: %w", err)
+		}
+	}
+	// A process-local lock cannot protect shared identifier indexes. Compare
+	// the source record in the same transaction as all index changes so a
+	// competing Server cannot publish an index derived from a stale record.
+	applied, err := store.ApplyMutation(ctx, kv.Mutation{
+		Conditions: []kv.Condition{
+			{Key: peerKey(peer.PublicKey), Expected: expected},
+			pendingdeletion.AbsentLocatorCondition(pendingdeletion.KindPeer, peer.PublicKey),
+		},
+		Entries: entries, DeleteKeys: filtered, AddMembers: additions, RemoveMembers: removals,
+	})
+	if err != nil {
+		return fmt.Errorf("peer: write record and identifier indexes: %w", err)
+	}
+	if !applied {
+		pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, peer.PublicKey)
+		if err != nil {
+			return err
+		}
+		if pending {
+			return ErrPeerPendingDeletion
+		}
+		if previous == nil {
+			return ErrPeerAlreadyExists
+		}
+		return ErrPeerConcurrentUpdate
+	}
+
 	return nil
+}
+
+func (s *Server) rememberPeer(ctx context.Context, record apitypes.Peer) error {
+	if s.LocalRuns == nil {
+		return nil
+	}
+	key, err := publicKeyFromText(record.PublicKey)
+	if err != nil {
+		return err
+	}
+	return s.LocalRuns.RememberPeer(ctx, key, record.CreatedAt)
 }
 
 func (s *Server) store() (kv.Store, error) {

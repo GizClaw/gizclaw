@@ -5,17 +5,18 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/firmwaretest"
+
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/runtimeprofiletest"
 )
 
 func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing.T) {
 	ctx := context.Background()
-	profiles := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
+	profiles := runtimeprofiletest.New(t)
 	manager := New(Services{
-		Firmwares:       &firmware.Server{Store: kv.NewMemory(nil)},
+		Firmwares:       firmwaretest.New(t),
 		RuntimeProfiles: profiles,
 	})
 	if _, err := manager.Apply(ctx, mustResource(t, `{
@@ -129,7 +130,7 @@ func TestApplyRegistrationTokenCreatesReadsAndUpdatesOrdinaryResource(t *testing
 	if readBackResource.Spec.Token != "replacement-token" || readBackResource.Spec.RuntimeProfileId != "profile-b" || readBackResource.Spec.FirmwareId != nil {
 		t.Fatalf("updated RegistrationToken = %#v", readBackResource)
 	}
-	if _, err := profiles.ResolveRegistration(ctx, "device-token"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := profiles.ResolveRegistration(ctx, "device-token"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("ResolveRegistration(old token) error = %v, want not found", err)
 	}
 	registration, err := profiles.ResolveRegistration(ctx, "replacement-token")

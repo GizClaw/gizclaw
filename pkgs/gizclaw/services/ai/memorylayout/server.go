@@ -4,6 +4,7 @@ package memorylayout
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,21 +16,16 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
-	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
-
-var layoutsRoot = kv.Key{"by-id"}
 
 const (
 	defaultListLimit = 50
 	maxListLimit     = 200
 )
 
-type Server struct {
-	Store         kv.Store
-	mutationLocks keyedlock.Locker[string]
-}
+// Server owns SQL MemoryLayout declarations; it does not store Memory content.
+type Server struct{ DB *sqlx.DB }
 
 type MemoryLayoutAdminService interface {
 	ListMemoryLayouts(context.Context, adminhttp.ListMemoryLayoutsRequestObject) (adminhttp.ListMemoryLayoutsResponseObject, error)
@@ -42,30 +38,19 @@ type MemoryLayoutAdminService interface {
 var _ MemoryLayoutAdminService = (*Server)(nil)
 
 func (s *Server) ListMemoryLayouts(ctx context.Context, request adminhttp.ListMemoryLayoutsRequestObject) (adminhttp.ListMemoryLayoutsResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.ListMemoryLayouts500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.ListMemoryLayouts500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout database not configured")), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	entries, err := kv.ListAfter(ctx, s.Store, layoutsRoot, cursorAfterKey(cursor), limit+1)
+	items, err := s.listPage(ctx, cursor, limit+1)
 	if err != nil {
 		return adminhttp.ListMemoryLayouts500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	hasNext := len(entries) > limit
-	if hasNext {
-		entries = entries[:limit]
-	}
-	items := make([]apitypes.MemoryLayout, 0, len(entries))
-	for _, entry := range entries {
-		item, err := decode(entry.Value)
-		if err != nil {
-			return adminhttp.ListMemoryLayouts500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-		}
-		items = append(items, item)
-	}
+	hasNext := len(items) > limit
 	var nextCursor *string
-	if hasNext && len(entries) > 0 {
-		value := customid.UnescapeStoreSegment(entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1])
-		nextCursor = &value
+	if hasNext {
+		items = items[:limit]
+		nextCursor = &items[len(items)-1].Id
 	}
 	return adminhttp.ListMemoryLayouts200JSONResponse(adminhttp.MemoryLayoutList{
 		HasNext: hasNext, Items: items, NextCursor: nextCursor,
@@ -73,8 +58,8 @@ func (s *Server) ListMemoryLayouts(ctx context.Context, request adminhttp.ListMe
 }
 
 func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.CreateMemoryLayoutRequestObject) (adminhttp.CreateMemoryLayoutResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout database not configured")), nil
 	}
 	if request.Body == nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", "request body required")), nil
@@ -83,19 +68,20 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 	if err != nil {
 		return adminhttp.CreateMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
-	raw, err := json.Marshal(item)
+	values, err := layoutPolicyValues(item.Spec)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	release, err := s.mutationLocks.Acquire(ctx, item.Id)
+	args := append([]any{item.Id}, values...)
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json) VALUES (?,?,?,?) ON CONFLICT(id) DO NOTHING`), args...)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	defer release()
-	_, created, err := kv.CreateIfAbsent(ctx, s.Store, kv.Entry{Key: layoutKey(item.Id), Value: raw}, nil)
+	count, err := result.RowsAffected()
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
+	created := count == 1
 	if !created {
 		return adminhttp.CreateMemoryLayout409JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_ALREADY_EXISTS", fmt.Sprintf("memory layout %q already exists", item.Id))), nil
 	}
@@ -107,17 +93,13 @@ func (s *Server) GetMemoryLayout(ctx context.Context, request adminhttp.GetMemor
 	if err != nil {
 		return nil, err
 	}
-	if s == nil || s.Store == nil {
-		return adminhttp.GetMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.GetMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout database not configured")), nil
 	}
-	raw, err := s.Store.Get(ctx, layoutKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
+	item, err := scanLayout(s.DB.QueryRowContext(ctx, s.DB.Rebind(`SELECT `+layoutColumns+` FROM memory_layouts WHERE id=?`), id))
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.GetMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
 	}
-	if err != nil {
-		return adminhttp.GetMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	item, err := decode(raw)
 	if err != nil {
 		return adminhttp.GetMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -125,8 +107,8 @@ func (s *Server) GetMemoryLayout(ctx context.Context, request adminhttp.GetMemor
 }
 
 func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemoryLayoutRequestObject) (adminhttp.PutMemoryLayoutResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout database not configured")), nil
 	}
 	if request.Body == nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", "request body required")), nil
@@ -135,31 +117,24 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return nil, err
 	}
-	release, err := s.mutationLocks.Acquire(ctx, id)
-	if err != nil {
-		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	defer release()
-	previousRaw, err := s.Store.Get(ctx, layoutKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
-	}
-	if err != nil {
-		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if _, err := decode(previousRaw); err != nil {
-		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
 	item, _, err := validate(upsertToLayout(*request.Body), id)
 	if err != nil {
 		return adminhttp.PutMemoryLayout400JSONResponse(apitypes.NewErrorResponse("INVALID_MEMORY_LAYOUT", err.Error())), nil
 	}
-	raw, err := json.Marshal(item)
+	values, err := layoutPolicyValues(item.Spec)
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.Store.Set(ctx, layoutKey(id), raw); err != nil {
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`UPDATE memory_layouts SET flowcraft_json=?,mem0_json=?,volc_mem0_json=? WHERE id=?`), append(values, id)...)
+	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if count == 0 {
+		return adminhttp.PutMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
 	}
 	return adminhttp.PutMemoryLayout200JSONResponse(item), nil
 }
@@ -169,26 +144,14 @@ func (s *Server) DeleteMemoryLayout(ctx context.Context, request adminhttp.Delet
 	if err != nil {
 		return nil, err
 	}
-	if s == nil || s.Store == nil {
-		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "memory layout database not configured")), nil
 	}
-	release, err := s.mutationLocks.Acquire(ctx, id)
-	if err != nil {
-		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	defer release()
-	raw, err := s.Store.Get(ctx, layoutKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
+	item, err := scanLayout(s.DB.QueryRowContext(ctx, s.DB.Rebind(`DELETE FROM memory_layouts WHERE id=? RETURNING `+layoutColumns), id))
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.DeleteMemoryLayout404JSONResponse(apitypes.NewErrorResponse("MEMORY_LAYOUT_NOT_FOUND", fmt.Sprintf("memory layout %q not found", id))), nil
 	}
 	if err != nil {
-		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	item, err := decode(raw)
-	if err != nil {
-		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := s.Store.Delete(ctx, layoutKey(id)); err != nil {
 		return adminhttp.DeleteMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteMemoryLayout200JSONResponse(item), nil
@@ -354,21 +317,8 @@ func NormalizeSpec(id string, spec apitypes.MemoryLayoutSpec) (apitypes.MemoryLa
 	return item.Spec, nil
 }
 
-func decode(raw []byte) (apitypes.MemoryLayout, error) {
-	var item apitypes.MemoryLayout
-	if err := json.Unmarshal(raw, &item); err != nil {
-		return apitypes.MemoryLayout{}, err
-	}
-	_, _, err := validate(item, "")
-	return item, err
-}
-
 func upsertToLayout(in adminhttp.MemoryLayoutUpsert) apitypes.MemoryLayout {
 	return apitypes.MemoryLayout{Id: in.Id, Spec: in.Spec}
-}
-
-func layoutKey(id string) kv.Key {
-	return append(append(kv.Key{}, layoutsRoot...), customid.EscapeStoreSegment(id))
 }
 
 func pathID(value string) (string, error) {
@@ -396,9 +346,70 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 	return cursorValue, limitValue
 }
 
-func cursorAfterKey(cursor string) kv.Key {
-	if cursor == "" {
-		return nil
+const layoutColumns = "id,flowcraft_json,mem0_json,volc_mem0_json"
+
+// Initialize creates the layout schema at Server startup using the shared pool.
+func (s *Server) Initialize(ctx context.Context) error {
+	if s == nil || s.DB == nil {
+		return errors.New("memory layout database not configured")
 	}
-	return append(append(kv.Key{}, layoutsRoot...), customid.EscapeStoreSegment(cursor))
+	switch s.DB.DriverName() {
+	case "sqlite", "postgres":
+	default:
+		return fmt.Errorf("memorylayout: unsupported SQL driver %q", s.DB.DriverName())
+	}
+	_, err := s.DB.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS memory_layouts (
+ id TEXT PRIMARY KEY CHECK(length(id)>0),
+ flowcraft_json TEXT NOT NULL,
+ mem0_json TEXT NOT NULL,
+ volc_mem0_json TEXT NOT NULL
+ )`)
+	return err
+}
+
+func layoutPolicyValues(spec apitypes.MemoryLayoutSpec) ([]any, error) {
+	values := make([]any, 0, 3)
+	for _, policy := range []any{spec.Flowcraft, spec.Mem0, spec.VolcMem0} {
+		data, err := json.Marshal(policy)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, string(data))
+	}
+	return values, nil
+}
+
+func scanLayout(row interface{ Scan(...any) error }) (apitypes.MemoryLayout, error) {
+	var item apitypes.MemoryLayout
+	var flowcraft, mem0, volc string
+	if err := row.Scan(&item.Id, &flowcraft, &mem0, &volc); err != nil {
+		return item, err
+	}
+	for _, policy := range []struct {
+		raw    string
+		target any
+	}{{flowcraft, &item.Spec.Flowcraft}, {mem0, &item.Spec.Mem0}, {volc, &item.Spec.VolcMem0}} {
+		if err := json.Unmarshal([]byte(policy.raw), policy.target); err != nil {
+			return item, err
+		}
+	}
+	_, _, err := validate(item, "")
+	return item, err
+}
+
+func (s *Server) listPage(ctx context.Context, cursor string, limit int) ([]apitypes.MemoryLayout, error) {
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(`SELECT `+layoutColumns+` FROM memory_layouts WHERE id>? ORDER BY id LIMIT ?`), cursor, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]apitypes.MemoryLayout, 0, limit)
+	for rows.Next() {
+		item, err := scanLayout(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }

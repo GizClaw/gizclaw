@@ -74,6 +74,7 @@ type PeerConn struct {
 	agentInputMu            sync.Mutex
 	events                  *peerStreamEventBroker
 	inputAccessMu           sync.Mutex
+	permissions             peerInputPermissions
 	deniedInputStreams      map[string]struct{}
 	acceptedInputStreams    map[string]eventpb.StreamKind
 	deniedAudioInput        bool
@@ -83,6 +84,7 @@ type PeerConn struct {
 	acceptedAudioStream     string
 	acceptedAudioSFU        bool
 	acceptedAudioWorkspace  string
+	acceptedAudioRevision   uint64
 	sfuDroppedPackets       atomic.Uint64
 	telemetryStatusMu       *sync.Mutex
 	serverGenX              *peergenx.Service
@@ -480,7 +482,7 @@ func (h *PeerConn) initAgentHost() {
 		h.ownerGenX,
 		manager.Gameplay,
 		manager.FlowcraftHistory,
-		manager.FlowcraftState,
+		manager.FlowcraftStateDB,
 		manager.MemoryRoot,
 		manager.MemoryStores,
 		sfu.Factory{Config: manager.SFU, Bindings: manager.sfuBindings()},
@@ -691,6 +693,7 @@ func (h *PeerConn) close() error {
 				closeErr = errors.Join(closeErr, err)
 			}
 		}
+		h.stopInputAccessRefresh()
 		if h.agentInput != nil {
 			closeErr = errors.Join(closeErr, h.agentInput.Close())
 		}
@@ -759,6 +762,8 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 	if stream == nil {
 		return nil
 	}
+	h.startInputAccessRefresh()
+	defer h.stopInputAccessRefresh()
 	var terminalErr error
 	defer func() {
 		if terminalErr == nil {
@@ -798,6 +803,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		}
 		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS &&
 			event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_AUDIO {
+			h.updateAcceptedAudioRevision(event.StreamID())
 			// A successful event write does not order the independent Opus
 			// packet channel. Acknowledge only after authorization and routing.
 			if err := h.events.Broadcast(&eventpb.PeerEvent{
@@ -828,7 +834,8 @@ func (h *PeerConn) rejectDuplicateEventStreams(listener giznet.ServiceListener) 
 // Workspace. Workflow Workspaces admit input as before. SFU Workspaces admit
 // input only while the Peer is a current member of the bound Social resource,
 // the Workspace has not been revoked on this connection, and the SFU runtime
-// is active; anything else is denied and never cached.
+// is active. Decisions are cached per runtime revision and refreshed in the
+// background; expiration and refresh failures deny input locally.
 func (h *PeerConn) authorizeInputEvent(ctx context.Context, event *eventpb.PeerEvent) (bool, error) {
 	if h == nil || event == nil || h.Service == nil || h.Service.manager == nil || h.Conn == nil {
 		return true, nil
@@ -849,23 +856,11 @@ func (h *PeerConn) authorizeInputEvent(ctx context.Context, event *eventpb.PeerE
 		}
 		return false, nil
 	}
-	run, err := h.currentRunState(ctx)
-	if err != nil {
-		return h.rejectInputEvent(ctx, event, streamID, sfuAccessCheckFailedError())
+	permission := h.inputPermission(ctx, false)
+	if permission.denial != nil {
+		return h.rejectInputEvent(ctx, event, streamID, permission.denial)
 	}
-	workspaceName := run.workspaceName
-	if workspaceName == "" {
-		h.acceptInputEvent(event, streamID, "", false)
-		return true, nil
-	}
-	isSFU, denial := h.Service.manager.sfuInputAccess(ctx, h.Conn.PublicKey(), workspaceName)
-	if denial == nil && isSFU && !run.active {
-		denial = sfuRuntimeNotAttachedError()
-	}
-	if denial != nil {
-		return h.rejectInputEvent(ctx, event, streamID, denial)
-	}
-	h.acceptInputEvent(event, streamID, workspaceName, isSFU)
+	h.acceptInputEvent(event, streamID, permission.run.workspaceName, permission.isSFU, permission.revision)
 	return true, nil
 }
 
@@ -968,11 +963,24 @@ func (h *PeerConn) currentRunState(ctx context.Context) (peerRunState, error) {
 }
 
 func (h *PeerConn) currentInputWorkspace(ctx context.Context) (string, error) {
-	run, err := h.currentRunState(ctx)
-	if err != nil {
-		return "", err
+	if h == nil {
+		return "", ErrNilPeerConn
 	}
-	return run.workspaceName, nil
+	if h.agentHost != nil {
+		status, err := h.agentHost.Status(ctx)
+		if err != nil {
+			return "", err
+		}
+		if status.WorkspaceName != nil {
+			return *status.WorkspaceName, nil
+		}
+	}
+	h.permissions.mu.Lock()
+	defer h.permissions.mu.Unlock()
+	if h.permissions.valid {
+		return h.permissions.value.run.workspaceName, nil
+	}
+	return "", nil
 }
 
 func (h *PeerConn) inputStreamDenied(streamID string) bool {
@@ -1025,6 +1033,7 @@ func (h *PeerConn) acceptInputEvent(
 	streamID string,
 	workspaceName string,
 	isSFU bool,
+	revision uint64,
 ) {
 	if event == nil {
 		return
@@ -1048,6 +1057,7 @@ func (h *PeerConn) acceptInputEvent(
 			h.acceptedAudioStream = streamID
 			h.acceptedAudioSFU = isSFU
 			h.acceptedAudioWorkspace = strings.TrimSpace(workspaceName)
+			h.acceptedAudioRevision = revision
 		}
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_TEXT_DELTA:
 		if len(h.acceptedInputStreams) >= maxDeniedInputStreams {
@@ -1072,18 +1082,10 @@ func (h *PeerConn) audioInputAccepted() bool {
 	return h.acceptedAudioInput && !h.deniedAudioInput
 }
 
-// authorizeAudioPacket admits a direct Opus packet only for the accepted audio
-// stream of the Peer's current Workspace. Packets of a revoked SFU Workspace
-// are dropped and counted; nothing is cached for later forwarding.
-//
-// This runs once per 20 ms packet, so it deliberately re-checks only the
-// Workspace selection, which is local state. Membership and the SFU binding
-// are resolved when the utterance opens, not per packet: resolving them here
-// would put a shared Social KV read on every packet. Membership revoked in the
-// middle of an utterance therefore stops the forwarding through the SFU
-// session's periodic binding recheck instead, which bounds the exposure by one
-// services.sfu.recheck_interval. The next utterance is refused at BOS.
-func (h *PeerConn) authorizeAudioPacket(ctx context.Context) (bool, error) {
+// authorizeAudioPacket uses only the accepted stream and local AgentHost
+// revision. Selection, reload, and stop invalidate older audio streams without
+// a database lookup for each Opus packet. SFU session refresh governs revocation.
+func (h *PeerConn) authorizeAudioPacket(_ context.Context) (bool, error) {
 	if h == nil {
 		return false, nil
 	}
@@ -1091,7 +1093,7 @@ func (h *PeerConn) authorizeAudioPacket(ctx context.Context) (bool, error) {
 	accepted := h.acceptedAudioInput && !h.deniedAudioInput
 	countDrop := !accepted && h.deniedAudioInput && h.deniedAudioSFU
 	streamID := h.acceptedAudioStream
-	workspaceName := h.acceptedAudioWorkspace
+	revision := h.acceptedAudioRevision
 	h.inputAccessMu.Unlock()
 	if !accepted {
 		if countDrop {
@@ -1099,20 +1101,17 @@ func (h *PeerConn) authorizeAudioPacket(ctx context.Context) (bool, error) {
 		}
 		return false, nil
 	}
-	if workspaceName == "" {
-		return true, nil
+	if !h.permissionAllowsAudio(revision) {
+		return false, nil
 	}
-	currentWorkspace, err := h.currentInputWorkspace(ctx)
-	if err != nil {
-		return false, err
-	}
-	if strings.TrimSpace(currentWorkspace) == workspaceName {
+	current := h.agentHost.RuntimeRevision()
+	if current == revision && current%2 == 0 {
 		return true, nil
 	}
 	h.inputAccessMu.Lock()
 	if h.acceptedAudioInput &&
 		h.acceptedAudioStream == streamID &&
-		h.acceptedAudioWorkspace == workspaceName {
+		h.acceptedAudioRevision == revision {
 		delete(h.acceptedInputStreams, streamID)
 		h.acceptedAudioInput = false
 		h.acceptedAudioStream = ""
@@ -1121,6 +1120,52 @@ func (h *PeerConn) authorizeAudioPacket(ctx context.Context) (bool, error) {
 	}
 	h.inputAccessMu.Unlock()
 	return false, nil
+}
+
+// updateAcceptedAudioRevision accounts for a same-workspace runtime recovery
+// performed while accepting BOS. A concurrent switch cannot revive the stream.
+func (h *PeerConn) updateAcceptedAudioRevision(streamID string) {
+	if h.agentHost == nil {
+		return
+	}
+	revision := h.agentHost.RuntimeRevision()
+	if revision%2 != 0 {
+		return
+	}
+	status, err := h.agentHost.Status(context.Background())
+	if err != nil || status.WorkspaceName == nil || status.State != apitypes.PeerRunStatusStateRunning {
+		return
+	}
+	h.inputAccessMu.Lock()
+	previous := h.acceptedAudioRevision
+	updated := h.agentHost.RuntimeRevision() == revision && h.acceptedAudioInput && h.acceptedAudioStream == streamID && h.acceptedAudioWorkspace == *status.WorkspaceName
+	if updated {
+		h.acceptedAudioRevision = revision
+	}
+	h.inputAccessMu.Unlock()
+	if updated {
+		h.advanceInputPermissionRevision(*status.WorkspaceName, previous, revision)
+	}
+}
+
+// pushAuthorizedAudioChunk keeps the authorization revision through delivery.
+// If a switch wins the transition gate, the packet is discarded.
+func (h *PeerConn) pushAuthorizedAudioChunk(ctx context.Context, chunk *genx.MessageChunk) error {
+	h.inputAccessMu.Lock()
+	accepted := h.acceptedAudioInput && !h.deniedAudioInput
+	revision := h.acceptedAudioRevision
+	h.inputAccessMu.Unlock()
+	if !accepted {
+		return nil
+	}
+	if h.agentHost == nil {
+		return h.pushAgentInputChunk(ctx, chunk)
+	}
+	_, err := h.agentHost.PushInputIfCurrentRevision(ctx, revision, peerConnInputPusher{peer: h, input: h.agentInput}, chunk)
+	if errors.Is(err, agenthost.ErrNoActiveInput) {
+		return nil
+	}
+	return err
 }
 
 func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err error) {
@@ -1196,7 +1241,7 @@ func (h *PeerConn) serveDirectPackets() error {
 			if !authorized {
 				continue
 			}
-			if err := h.pushAgentInputChunk(context.Background(), chunk); err != nil {
+			if err := h.pushAuthorizedAudioChunk(context.Background(), chunk); err != nil {
 				return err
 			}
 		case EventStreamTelemetry:

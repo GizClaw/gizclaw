@@ -157,7 +157,16 @@ chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
+
+Standard runners exclude cross-server `sfu.*` documents, which are verified by `run_multi_server_tests.sh` with its two-Server environment. The intentionally failing `failure-cleanup.giztest.yaml` runs only in its dedicated cleanup phase, outside the successful JavaScript, Flutter, C, and standard Go scenario batches.
+
+The standard JavaScript batch uses `setup/run_js_giztest.py` to start a separate Node process for each document, with at most four processes running concurrently. This isolates native WebRTC lifetimes between scenarios. Each process has a 600-second external deadline; timeouts, process failures, and scenario failures remain failures in the combined report.
+
+The JavaScript runner uses `protoc` to generate temporary descriptors from the repository RPC schema. It converts scenario Protobuf JSON requests into SDK objects and converts responses back into Protobuf JSON before assertions. Enums, oneofs, default fields, and 64-bit integers follow the same schema; unknown fields and invalid enums are rejected. Both `npm run giztest` and `npm run test:giztest-unit` prepare the descriptors automatically.
+
 ### Manual environment
+
+The standard Docker environment includes a single-node LiveKit with temporary SFU credentials generated for each setup. Group RPC, event-stream, and social tests use this service inside the Compose network. LiveKit publishes no host ports and is removed with the test environment.
 
 Start or stop only the environment with:
 
@@ -1060,17 +1069,6 @@ go test -race -tags gizclaw_locomo_e2e \
 git lfs fsck
 ```
 
-## Memory provider E2E
-
-The three live-model Memory cases use the `gizclaw_memory_e2e` build tag and one
-fixed entrypoint:
-
-```sh
-cp tests/memory/.env.example tests/memory/.env
-bash tests/memory/run_tests.sh
-```
-
-Ordinary Memory tests remain credential-free and run under `go test ./...`.
 
 ## OpenAI Conversations and Responses E2E
 

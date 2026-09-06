@@ -3,7 +3,6 @@ package kv_test
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -80,85 +79,6 @@ func TestBadgerGetSetDelete(t *testing.T) {
 	}
 }
 
-func TestBadgerList(t *testing.T) {
-	ctx := context.Background()
-	s := newBadgerStore(t, nil)
-
-	entries := []kv.Entry{
-		{Key: kv.Key{"m1", "g", "e", "Alice"}, Value: []byte("a")},
-		{Key: kv.Key{"m1", "g", "e", "Bob"}, Value: []byte("b")},
-		{Key: kv.Key{"m1", "g", "r", "Alice", "knows", "Bob"}, Value: []byte("r1")},
-		{Key: kv.Key{"m1", "seg", "20260101", "1"}, Value: []byte("s1")},
-		{Key: kv.Key{"m2", "g", "e", "Charlie"}, Value: []byte("c")},
-	}
-	if err := s.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	var got []string
-	for entry, err := range s.List(ctx, kv.Key{"m1", "g", "e"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String()+"="+string(entry.Value))
-	}
-	want := []string{
-		"m1:g:e:Alice=a",
-		"m1:g:e:Bob=b",
-	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("List m1:g:e = %v, want %v", got, want)
-	}
-
-	got = nil
-	for entry, err := range s.List(ctx, kv.Key{"m1"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	if len(got) != 4 {
-		t.Fatalf("List m1: got %d entries, want 4: %v", len(got), got)
-	}
-
-	got = nil
-	for entry, err := range s.List(ctx, nil) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	if len(got) != 5 {
-		t.Fatalf("List all: got %d entries, want 5: %v", len(got), got)
-	}
-}
-
-func TestBadgerListPrefixBoundary(t *testing.T) {
-	ctx := context.Background()
-	s := newBadgerStore(t, nil)
-
-	entries := []kv.Entry{
-		{Key: kv.Key{"ab", "1"}, Value: []byte("yes")},
-		{Key: kv.Key{"abc", "2"}, Value: []byte("no")},
-		{Key: kv.Key{"ab", "3"}, Value: []byte("yes")},
-	}
-	if err := s.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	var got []string
-	for entry, err := range s.List(ctx, kv.Key{"ab"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	want := []string{"ab:1", "ab:3"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("List ab = %v, want %v", got, want)
-	}
-}
-
 func TestBadgerBatchSetBatchDelete(t *testing.T) {
 	ctx := context.Background()
 	s := newBadgerStore(t, nil)
@@ -226,15 +146,8 @@ func TestBadgerBatchSetDeadlineExpires(t *testing.T) {
 		return err
 	})
 
-	var gotKeys []string
-	for entry, err := range s.List(ctx, kv.Key{"sessions"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		gotKeys = append(gotKeys, entry.Key.String())
-	}
-	if !slices.Equal(gotKeys, []string{"sessions:kept"}) {
-		t.Fatalf("List after expiration = %v, want [sessions:kept]", gotKeys)
+	if value, err := s.Get(ctx, kv.Key{"sessions", "kept"}); err != nil || string(value) != "kept" {
+		t.Fatalf("unexpired value = %q, %v", value, err)
 	}
 }
 
@@ -268,16 +181,6 @@ func TestBadgerCustomSeparator(t *testing.T) {
 		t.Fatalf("Get = %q, want %q", got, val)
 	}
 
-	var keys []string
-	for entry, err := range s.List(ctx, kv.Key{"path", "to"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		keys = append(keys, entry.Key.String())
-	}
-	if len(keys) != 1 || keys[0] != "path:to:value" {
-		t.Fatalf("List = %v, want [path:to:value]", keys)
-	}
 }
 
 func waitForBadgerNotFound(t *testing.T, getErr func() error) {
@@ -445,16 +348,8 @@ func TestBadgerClosedStoreAnswersErrorInsteadOfPanic(t *testing.T) {
 		{"Get", func() error { _, err := store.Get(ctx, key); return err }},
 		{"Set", func() error { return store.Set(ctx, key, []byte("value")) }},
 		{"Delete", func() error { return store.Delete(ctx, key) }},
-		{"List", func() error {
-			for _, err := range store.List(ctx, kv.Key{"pending"}) {
-				return err
-			}
-			return nil
-		}},
-		{"ListAfter", func() error {
-			_, err := store.ListAfter(ctx, kv.Key{"pending"}, nil, 10)
-			return err
-		}},
+		{"ListMembers", func() error { _, err := store.ListMembers(ctx, key); return err }},
+		{"RangeOrderedMembers", func() error { _, err := store.RangeOrderedMembers(ctx, key, kv.OrderedRange{Limit: 10}); return err }},
 		{"BatchSet", func() error { return store.BatchSet(ctx, entries) }},
 		{"BatchDelete", func() error { return store.BatchDelete(ctx, keys) }},
 		{"BatchMutate", func() error { return store.BatchMutate(ctx, entries, keys) }},
@@ -524,13 +419,13 @@ func TestBadgerCloseWaitsForInFlightReads(t *testing.T) {
 	go func() {
 		defer close(readerDone)
 		for {
-			_, err := store.ListAfter(ctx, kv.Key{"pending", "by-id"}, nil, 16)
+			_, err := store.Get(ctx, kv.Key{"pending", "by-id", "0000a"})
 			if errors.Is(err, kv.ErrStoreClosed) {
 				close(closedSeen)
 				return
 			}
 			if err != nil {
-				t.Errorf("ListAfter before close error = %v", err)
+				t.Errorf("Get before close error = %v", err)
 				return
 			}
 		}
@@ -548,112 +443,5 @@ func TestBadgerCloseWaitsForInFlightReads(t *testing.T) {
 	case <-closedSeen:
 	default:
 		t.Fatal("reader never observed ErrStoreClosed")
-	}
-}
-
-func TestBadgerNestedCallInsideListIsNotBlockedByClose(t *testing.T) {
-	ctx := context.Background()
-	store, err := kv.NewBadgerInMemory(nil)
-	if err != nil {
-		t.Fatalf("NewBadgerInMemory: %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	for _, name := range []string{"a", "b", "c"} {
-		if err := store.Set(ctx, kv.Key{"pending", name}, []byte(name)); err != nil {
-			t.Fatalf("Set: %v", err)
-		}
-	}
-
-	// A Get inside a List iteration is the shape KVSource.ListTasks uses. It
-	// must not be able to wedge against a concurrent Close.
-	seen := 0
-	for entry, err := range store.List(ctx, kv.Key{"pending"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		value, err := store.Get(ctx, entry.Key)
-		if err != nil {
-			t.Fatalf("nested Get: %v", err)
-		}
-		if string(value) != string(entry.Value) {
-			t.Fatalf("nested Get = %q, want %q", value, entry.Value)
-		}
-		seen++
-	}
-	if seen != 3 {
-		t.Fatalf("listed %d entries, want 3", seen)
-	}
-}
-
-func TestBadgerNestedCallRacingCloseTerminates(t *testing.T) {
-	ctx := context.Background()
-	store, err := kv.NewBadgerInMemory(nil)
-	if err != nil {
-		t.Fatalf("NewBadgerInMemory: %v", err)
-	}
-	if err := store.Set(ctx, kv.Key{"pending", "a"}, []byte("a")); err != nil {
-		t.Fatalf("Set: %v", err)
-	}
-
-	started := make(chan struct{})
-	proceed := make(chan struct{})
-	iterated := make(chan error, 1)
-	go func() {
-		var nested error
-		for entry, err := range store.List(ctx, kv.Key{"pending"}) {
-			if err != nil {
-				iterated <- err
-				return
-			}
-			close(started)
-			<-proceed
-			_, nested = store.Get(ctx, entry.Key)
-			break
-		}
-		iterated <- nested
-	}()
-
-	<-started
-	closed := make(chan error, 1)
-	go func() { closed <- store.Close() }()
-
-	// Release the nested call only once Close has marked the store closed and
-	// is draining the List that is still in flight. An independent call
-	// answering the sentinel proves that state; under a reader/writer lock it
-	// would block behind the pending writer instead and time out here.
-	draining := make(chan struct{})
-	go func() {
-		for {
-			if _, err := store.Get(ctx, kv.Key{"pending", "a"}); errors.Is(err, kv.ErrStoreClosed) {
-				close(draining)
-				return
-			}
-			time.Sleep(time.Millisecond)
-		}
-	}()
-	select {
-	case <-draining:
-	case <-time.After(10 * time.Second):
-		// The probe itself blocks under a reader/writer-lock guard, so it is
-		// bounded here rather than left to the package test timeout.
-		t.Fatal("Close did not start draining")
-	}
-	close(proceed)
-
-	select {
-	case nested := <-iterated:
-		if !errors.Is(nested, kv.ErrStoreClosed) {
-			t.Fatalf("nested Get error = %v, want %v", nested, kv.ErrStoreClosed)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("nested call did not finish while Close was draining")
-	}
-	select {
-	case err := <-closed:
-		if err != nil {
-			t.Fatalf("Close: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("Close did not return")
 	}
 }

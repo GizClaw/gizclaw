@@ -11,15 +11,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/toolkittest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestToolkitInvokerUsesCanonicalCurrentPeerScope(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	volume := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	brightness := putAgentHostTool(t, server, agentHostClientTool("brightness_set"))
 	client := &recordingClientTools{result: json.RawMessage(`{"ok":true}`)}
@@ -50,7 +51,7 @@ func TestToolkitInvokerUsesCanonicalCurrentPeerScope(t *testing.T) {
 }
 
 func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	tool := agentHostClientTool("volume_set")
 	created := putAgentHostTool(t, server, tool)
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
@@ -69,7 +70,7 @@ func TestToolkitInvokerReauthorizesResourceAtInvoke(t *testing.T) {
 }
 
 func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	for _, test := range []struct {
 		name          string
@@ -105,7 +106,7 @@ func TestToolkitInvokerClientRecoverableErrors(t *testing.T) {
 }
 
 func TestToolkitInvokerClientTimeoutIsEnforcedWithinLongerParentDeadline(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	invoker := &ToolkitInvoker{
 		Builder:       &toolkit.Builder{Tools: server},
@@ -123,7 +124,7 @@ func TestToolkitInvokerClientTimeoutIsEnforcedWithinLongerParentDeadline(t *test
 }
 
 func TestToolkitInvokerHTTPDispatch(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	created := putAgentHostTool(t, server, agentHostHTTPTool("get_weather"))
 	transport := roundTripperFunc(func(request *http.Request) (*http.Response, error) {
 		if request.URL.String() != "https://weather.example/v1?city=Hangzhou" {
@@ -147,7 +148,7 @@ func TestToolkitInvokerHTTPDispatch(t *testing.T) {
 }
 
 func TestToolkitInvokerConcurrentPeerScopesStayIsolated(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}
 	first := &recordingClientTools{result: json.RawMessage(`{"peer":"a"}`)}
@@ -278,7 +279,7 @@ func agentHostHTTPTool(name string) toolkit.Tool {
 }
 
 func TestToolkitInvokerRejectsInvalidArgumentsBeforeClientRPC(t *testing.T) {
-	server := &toolkit.Server{Store: kv.NewMemory(nil)}
+	server := toolkittest.New(t)
 	created := putAgentHostTool(t, server, agentHostClientTool("volume_set"))
 	client := &recordingClientTools{}
 	invoker := &ToolkitInvoker{Builder: &toolkit.Builder{Tools: server}}

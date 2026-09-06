@@ -11,12 +11,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 	ctx := context.Background()
-	s := newTestServer()
+	s := newTestServer(t)
 
 	contact, err := s.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{
 		Name:        "alice001",
@@ -92,9 +93,9 @@ func TestCRUDUsesDirectFieldsAndPerPeerScope(t *testing.T) {
 	}
 }
 
-func TestDuplicatePhoneScansBeyondFirstPage(t *testing.T) {
+func TestDuplicatePhoneConstraintAcrossLargeCatalog(t *testing.T) {
 	ctx := context.Background()
-	s := newTestServer()
+	s := newTestServer(t)
 	nextID := 0
 	s.NewID = func() string {
 		nextID++
@@ -119,7 +120,7 @@ func TestDuplicatePhoneScansBeyondFirstPage(t *testing.T) {
 
 func TestAdminContactCRUDAndPagination(t *testing.T) {
 	ctx := context.Background()
-	s := newTestServer()
+	s := newTestServer(t)
 
 	first, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		Id:             "id-a",
@@ -264,7 +265,7 @@ func TestAdminContactCRUDAndPagination(t *testing.T) {
 
 func TestAdminContactAcceptsShortNameAndRejectsPaddedName(t *testing.T) {
 	ctx := context.Background()
-	s := newTestServer()
+	s := newTestServer(t)
 
 	if _, err := s.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{
 		Id:             "contact-alice",
@@ -295,12 +296,12 @@ func TestConfigurationErrors(t *testing.T) {
 	}
 }
 
-func newTestServer() *Server {
+func newTestServer(t *testing.T) *Server {
 	now := time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC)
 	nextID := 0
 	return &Server{
-		Store: kv.NewMemory(nil),
-		Now:   func() time.Time { return now },
+		DB:  newTestDB(t),
+		Now: func() time.Time { return now },
 		NewID: func() string {
 			nextID++
 			return "id-" + string(rune('a'+nextID-1))
@@ -319,7 +320,7 @@ func intPtr(v int) *int {
 }
 
 func TestPeerRetirementDeletesOnlyOwnedContactSnapshot(t *testing.T) {
-	s := newTestServer()
+	s := newTestServer(t)
 	first, err := s.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{
 		Id: "contact-a", OwnerPublicKey: "peer-a", Name: "alice", DisplayName: new("Alice"),
 	})
@@ -342,7 +343,7 @@ func TestPeerRetirementDeletesOnlyOwnedContactSnapshot(t *testing.T) {
 	if err := s.RetirePeerContact(t.Context(), snapshot[0]); err != nil {
 		t.Fatalf("replayed RetirePeerContact() error = %v", err)
 	}
-	if _, err := s.AdminGetContactByID(t.Context(), first.Id); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.AdminGetContactByID(t.Context(), first.Id); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("retired Contact error = %v", err)
 	}
 	if got, err := s.AdminGetContactByID(t.Context(), foreign.Id); err != nil || got.OwnerPublicKey != "peer-b" {
@@ -351,7 +352,7 @@ func TestPeerRetirementDeletesOnlyOwnedContactSnapshot(t *testing.T) {
 }
 
 func TestPutAndDeleteContactAreSerialized(t *testing.T) {
-	s := newTestServer()
+	s := newTestServer(t)
 	created, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{
 		Name:        "alice001",
 		DisplayName: new("Alice"),
@@ -359,17 +360,12 @@ func TestPutAndDeleteContactAreSerialized(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateContact() error = %v", err)
 	}
-	id, err := s.resolveContactName(t.Context(), "peer-a", created.Name)
-	if err != nil {
-		t.Fatalf("resolveContactName() error = %v", err)
-	}
-	blocked := &blockingContactGetStore{
-		Store:   s.Store,
-		key:     socialutil.ContactKey("peer-a", id).String(),
+	blocked := &blockingContactAvailability{
+		owner:   "peer-a",
 		reached: make(chan struct{}, 1),
 		release: make(chan struct{}),
 	}
-	s.Store = blocked
+	s.PeerAvailability = blocked.Check
 	putDone := make(chan error, 1)
 	go func() {
 		_, putErr := s.PutContact(t.Context(), "peer-a", rpcapi.ContactPutRequest{
@@ -397,13 +393,13 @@ func TestPutAndDeleteContactAreSerialized(t *testing.T) {
 	if err := <-deleteDone; err != nil {
 		t.Fatalf("DeleteContact() error = %v", err)
 	}
-	if _, err := s.GetContact(t.Context(), "peer-a", rpcapi.ContactGetRequest{Name: created.Name}); err != kv.ErrNotFound {
-		t.Fatalf("GetContact() after delete error = %v, want kv.ErrNotFound", err)
+	if _, err := s.GetContact(t.Context(), "peer-a", rpcapi.ContactGetRequest{Name: created.Name}); err != ErrNotFound {
+		t.Fatalf("GetContact() after delete error = %v, want ErrNotFound", err)
 	}
 }
 
 func TestPutContactDoesNotBlockIndependentOwner(t *testing.T) {
-	s := newTestServer()
+	s := newTestServer(t)
 	first, err := s.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{
 		Name: "alice001", DisplayName: new("Alice"),
 	})
@@ -416,17 +412,12 @@ func TestPutContactDoesNotBlockIndependentOwner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstID, err := s.resolveContactName(t.Context(), "peer-a", first.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	blocked := &blockingContactGetStore{
-		Store:   s.Store,
-		key:     socialutil.ContactKey("peer-a", firstID).String(),
+	blocked := &blockingContactAvailability{
+		owner:   "peer-a",
 		reached: make(chan struct{}, 2),
 		release: make(chan struct{}),
 	}
-	s.Store = blocked
+	s.PeerAvailability = blocked.Check
 
 	firstDone := make(chan error, 1)
 	go func() {
@@ -452,7 +443,7 @@ func TestPutContactDoesNotBlockIndependentOwner(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		close(blocked.release)
-		t.Fatal("independent Contact owner could not complete Put while first owner Store.Get was blocked")
+		t.Fatal("independent Contact owner could not complete Put while first owner admission was blocked")
 	}
 	select {
 	case <-blocked.reached:
@@ -473,7 +464,7 @@ func TestPutContactDoesNotBlockIndependentOwner(t *testing.T) {
 func TestContactMutationsRejectUnavailableOwner(t *testing.T) {
 	blocked := false
 	s := &Server{
-		Store: kv.NewMemory(nil),
+		DB:    newTestDB(t),
 		NewID: func() string { return "contact001" },
 		PeerAvailability: func(context.Context, string) error {
 			if blocked {
@@ -503,20 +494,94 @@ func TestContactMutationsRejectUnavailableOwner(t *testing.T) {
 	}
 }
 
-type blockingContactGetStore struct {
-	kv.Store
-	key     string
+type blockingContactAvailability struct {
+	owner   string
 	reached chan struct{}
 	release chan struct{}
 }
 
-func (s *blockingContactGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	if key.String() == s.key {
+func (s *blockingContactAvailability) Check(ctx context.Context, owner string) error {
+	if owner == s.owner {
 		select {
 		case s.reached <- struct{}{}:
 		default:
 		}
-		<-s.release
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.release:
+		}
 	}
-	return s.Store.Get(ctx, key)
+	return nil
+}
+func newTestDB(t testing.TB) *sqlx.DB {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := (&Server{DB: db}).Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+func TestSQLPhoneUniquenessAcrossServiceInstances(t *testing.T) {
+	db := newTestDB(t)
+	servers := []*Server{{DB: db}, {DB: db}}
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for i, server := range servers {
+		go func() {
+			<-start
+			_, err := server.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: fmt.Sprintf("contact-%d", i), OwnerPublicKey: "owner", Name: fmt.Sprintf("person-%d", i), PhoneNumber: new([]string{"+1 (555) 0100", "15550100"}[i])})
+			results <- err
+		}()
+	}
+	close(start)
+	successes, conflicts := 0, 0
+	for range 2 {
+		err := <-results
+		switch {
+		case err == nil:
+			successes++
+		case errors.Is(err, socialutil.ErrResourceAlreadyExists):
+			conflicts++
+		default:
+			t.Fatal(err)
+		}
+	}
+	if successes != 1 || conflicts != 1 {
+		t.Fatalf("claims = %d successes/%d conflicts", successes, conflicts)
+	}
+}
+
+func TestRetirementSnapshotDoesNotDeleteRecreatedContact(t *testing.T) {
+	server := newTestServer(t)
+	request := adminhttp.AdminContactCreateRequest{Id: "same-id", OwnerPublicKey: "owner", Name: "alice", DisplayName: new("Alice")}
+	if _, err := server.AdminCreateContact(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := server.SnapshotPeerContacts(t.Context(), "owner")
+	if err != nil || len(snapshot) != 1 {
+		t.Fatalf("snapshot = %#v, %v", snapshot, err)
+	}
+	if _, err := server.AdminDeleteContactByID(t.Context(), request.Id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.AdminCreateContact(t.Context(), request); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.RetirePeerContact(t.Context(), snapshot[0]); err == nil {
+		t.Fatal("old snapshot accepted a new creation instance")
+	}
+	if _, err := server.AdminGetContactByID(t.Context(), request.Id); err != nil {
+		t.Fatalf("replacement removed: %v", err)
+	}
 }

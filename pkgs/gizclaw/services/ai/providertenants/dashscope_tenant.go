@@ -2,20 +2,18 @@ package providertenants
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
 
-var dashScopeTenantsRoot = kv.Key{"dashscope-tenants", "by-id"}
-
 func (s *Server) ListDashScopeTenants(ctx context.Context, request adminhttp.ListDashScopeTenantsRequestObject) (adminhttp.ListDashScopeTenantsResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.ListDashScopeTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -32,7 +30,7 @@ func (s *Server) ListDashScopeTenants(ctx context.Context, request adminhttp.Lis
 }
 
 func (s *Server) CreateDashScopeTenant(ctx context.Context, request adminhttp.CreateDashScopeTenantRequestObject) (adminhttp.CreateDashScopeTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -46,7 +44,7 @@ func (s *Server) CreateDashScopeTenant(ctx context.Context, request adminhttp.Cr
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	created, err := createTenant(ctx, store, dashScopeTenantKey(tenant.Id), tenant)
+	created, err := createSQLTenant(ctx, store, "dashscope", tenant)
 	if err != nil {
 		return adminhttp.CreateDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -57,14 +55,14 @@ func (s *Server) CreateDashScopeTenant(ctx context.Context, request adminhttp.Cr
 }
 
 func (s *Server) GetDashScopeTenant(ctx context.Context, request adminhttp.GetDashScopeTenantRequestObject) (adminhttp.GetDashScopeTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
 	tenant, err := getDashScopeTenant(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", id))), nil
 		}
 		return adminhttp.GetDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -73,7 +71,7 @@ func (s *Server) GetDashScopeTenant(ctx context.Context, request adminhttp.GetDa
 }
 
 func (s *Server) PutDashScopeTenant(ctx context.Context, request adminhttp.PutDashScopeTenantRequestObject) (adminhttp.PutDashScopeTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -85,39 +83,32 @@ func (s *Server) PutDashScopeTenant(ctx context.Context, request adminhttp.PutDa
 	if err != nil {
 		return adminhttp.PutDashScopeTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_DASHSCOPE_TENANT", err.Error())), nil
 	}
-	previous, err := getDashScopeTenant(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", id))), nil
+	tenant.UpdatedAt = s.now()
+	tenant, err = updateSQLTenant(ctx, store, "dashscope", tenant)
+	if errors.Is(err, sql.ErrNoRows) {
+		return adminhttp.PutDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("tenant %q not found", id))), nil
 	}
 	if err != nil {
 		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	now := s.now()
-	tenant.CreatedAt = now
-	tenant.UpdatedAt = now
-	tenant.CreatedAt = previous.CreatedAt
-	if err := writeDashScopeTenant(ctx, store, tenant); err != nil {
-		return adminhttp.PutDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.PutDashScopeTenant200JSONResponse(tenant), nil
 }
 
 func (s *Server) DeleteDashScopeTenant(ctx context.Context, request adminhttp.DeleteDashScopeTenantRequestObject) (adminhttp.DeleteDashScopeTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	tenant, err := getDashScopeTenant(ctx, store, id)
+	tenant, err := deleteSQLTenant[apitypes.DashScopeTenant](ctx, store, "dashscope", id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteDashScopeTenant404JSONResponse(apitypes.NewErrorResponse("DASHSCOPE_TENANT_NOT_FOUND", fmt.Sprintf("DashScope tenant %q not found", id))), nil
 		}
 		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteTenant(ctx, store, dashScopeTenantKey(tenant.Id)); err != nil {
-		return adminhttp.DeleteDashScopeTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.DeleteDashScopeTenant200JSONResponse(tenant), nil
 }
 
@@ -152,63 +143,10 @@ func normalizeDashScopeTenantUpsert(in adminhttp.DashScopeTenantUpsert, expected
 	return tenant, nil
 }
 
-func listDashScopeTenantsPage(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.DashScopeTenant, bool, *string, error) {
-	items := make([]apitypes.DashScopeTenant, 0, limit+1)
-	for entry, err := range store.List(ctx, dashScopeTenantsRoot) {
-		if err != nil {
-			return nil, false, nil, err
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		lastSegment := entry.Key[len(entry.Key)-1]
-		if cursor != "" && lastSegment <= cursor {
-			continue
-		}
-		var tenant apitypes.DashScopeTenant
-		if err := json.Unmarshal(entry.Value, &tenant); err != nil {
-			return nil, false, nil, fmt.Errorf("dashscope tenants: decode tenant list %s: %w", entry.Key.String(), err)
-		}
-		items = append(items, tenant)
-		if len(items) >= limit+1 {
-			break
-		}
-	}
-	if len(items) == 0 {
-		return []apitypes.DashScopeTenant{}, false, nil, nil
-	}
-	hasNext := len(items) > limit
-	if !hasNext {
-		return items, false, nil, nil
-	}
-	page := items[:limit]
-	next := escapeStoreSegment(string(page[len(page)-1].Id))
-	return page, true, &next, nil
+func listDashScopeTenantsPage(ctx context.Context, db *sqlx.DB, cursor string, limit int) ([]apitypes.DashScopeTenant, bool, *string, error) {
+	return listSQLTenants[apitypes.DashScopeTenant](ctx, db, "dashscope", cursor, limit)
 }
 
-func writeDashScopeTenant(ctx context.Context, store kv.Store, tenant apitypes.DashScopeTenant) error {
-	data, err := json.Marshal(tenant)
-	if err != nil {
-		return fmt.Errorf("dashscope tenants: encode tenant %s: %w", tenant.Id, err)
-	}
-	if err := store.Set(ctx, dashScopeTenantKey(string(tenant.Id)), data); err != nil {
-		return fmt.Errorf("dashscope tenants: write tenant %s: %w", tenant.Id, err)
-	}
-	return nil
-}
-
-func getDashScopeTenant(ctx context.Context, store kv.Store, id string) (apitypes.DashScopeTenant, error) {
-	data, err := store.Get(ctx, dashScopeTenantKey(id))
-	if err != nil {
-		return apitypes.DashScopeTenant{}, err
-	}
-	var tenant apitypes.DashScopeTenant
-	if err := json.Unmarshal(data, &tenant); err != nil {
-		return apitypes.DashScopeTenant{}, fmt.Errorf("dashscope tenants: decode tenant %s: %w", id, err)
-	}
-	return tenant, nil
-}
-
-func dashScopeTenantKey(id string) kv.Key {
-	return append(append(kv.Key{}, dashScopeTenantsRoot...), escapeStoreSegment(id))
+func getDashScopeTenant(ctx context.Context, db *sqlx.DB, id string) (apitypes.DashScopeTenant, error) {
+	return getSQLTenant[apitypes.DashScopeTenant](ctx, db, "dashscope", id)
 }

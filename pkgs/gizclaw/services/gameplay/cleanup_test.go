@@ -175,15 +175,15 @@ func TestPetDeletionExpiredLeaseDeletesNothing(t *testing.T) {
 	}
 }
 
-func TestCompatibleLegacyMissingPetFinalizesWithoutReceipt(t *testing.T) {
+func TestPetDeletionRejectsUnrecognizedMarkerIdentity(t *testing.T) {
 	ctx, runtime, now := newPetRuntime(t)
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatal(err)
 	}
-	owner := "peer-legacy"
+	owner := "peer-invalid"
 	descriptor := petDeletionDescriptor{
-		OwnerPublicKey: owner, PetID: "pet-legacy", RuntimeProfile: "profile-legacy",
-		PetDefID: "petdef-legacy", WorkspaceID: "workspace-legacy",
+		OwnerPublicKey: owner, PetID: "pet-invalid", RuntimeProfile: "profile-invalid",
+		PetDefID: "petdef-invalid", WorkspaceID: "workspace-invalid",
 	}
 	record, err := pendingdeletion.New(pendingdeletion.KindPet, descriptor.PetID, &owner, pendingdeletion.ReasonResourceDelete, descriptor, *now)
 	if err != nil {
@@ -218,11 +218,13 @@ func TestCompatibleLegacyMissingPetFinalizesWithoutReceipt(t *testing.T) {
 	if err != nil || !claimed {
 		t.Fatalf("Claim() = %#v, %v, %v", claim, claimed, err)
 	}
-	if err := (PetDeletionHandler{DB: runtime.DB, Now: func() time.Time { return now.Add(time.Second) }}).Handle(ctx, claim); err != nil {
-		t.Fatalf("Handle() error = %v", err)
+	err = (PetDeletionHandler{DB: runtime.DB, Now: func() time.Time { return now.Add(time.Second) }}).Handle(ctx, claim)
+	var outcome *pendingdeletion.OutcomeError
+	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeTerminal || outcome.Code != "invalid_pet_marker" {
+		t.Fatalf("invalid marker outcome = %v", err)
 	}
-	if _, err := source.GetTask(ctx, record.DeletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
-		t.Fatalf("GetTask() error = %v, want ErrNotFound", err)
+	if _, err := source.GetTask(ctx, record.DeletionID); err != nil {
+		t.Fatalf("invalid marker was finalized: %v", err)
 	}
 }
 

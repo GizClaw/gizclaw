@@ -4,18 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/memorylayouttest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestMemoryLayoutResourceLifecycle(t *testing.T) {
-	store, err := kv.NewBadgerInMemory(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	manager := New(Services{MemoryLayouts: &memorylayout.Server{Store: store}})
+	manager := New(Services{MemoryLayouts: memorylayouttest.New(t)})
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MemoryLayout",
@@ -78,12 +73,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 }
 
 func TestMemoryLayoutResourceApplyComparesNormalizedSpec(t *testing.T) {
-	store, err := kv.NewBadgerInMemory(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	manager := New(Services{MemoryLayouts: &memorylayout.Server{Store: store}})
+	manager := New(Services{MemoryLayouts: memorylayouttest.New(t)})
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "MemoryLayout",

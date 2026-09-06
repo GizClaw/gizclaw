@@ -557,16 +557,16 @@ func TestNewWithLayeredStorageConfig(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = srv.Close() })
 
-	if srv.PeerStore == nil || srv.PeerRunStore == nil || srv.CredentialStore == nil || srv.FirmwareStore == nil || srv.ProviderTenantStore == nil || srv.VoiceStore == nil || srv.WorkspaceStore == nil || srv.WorkflowStore == nil {
+	if srv.PeerStore == nil || srv.PeerRunDB == nil || srv.CredentialDB == nil || srv.FirmwareDB == nil || srv.ProviderTenantDB == nil || srv.VoiceDB == nil || srv.WorkspaceDB == nil || srv.WorkflowDB == nil {
 		t.Fatalf("module stores not wired: %+v", srv)
 	}
 	if srv.AgentHostStore == nil {
 		t.Fatalf("agenthost store not wired: %+v", srv.Server)
 	}
-	if srv.ContactStore == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil {
+	if srv.ContactDB == nil || srv.FriendStore == nil || srv.FriendGroupStore == nil {
 		t.Fatalf("social stores not wired: %+v", srv.Server)
 	}
-	if srv.GameplayStore == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
+	if srv.GameplayCatalogDB == nil || srv.GameplayAssets == nil || srv.WorkspaceAssets == nil || srv.GameplayDB == nil {
 		t.Fatalf("gameplay stores not wired: %+v", srv.Server)
 	}
 }
@@ -1210,23 +1210,23 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	}
 	services := cfg.Services
 	expect("services.peer.store", services.Peer.Store, stores.KindKeyValue)
-	expect("services.peer_run.store", services.PeerRun.Store, stores.KindKeyValue)
+	expect("services.workspace.store", services.Workspace.Store, stores.KindSQL)
+	expect("services.peer_run.store", services.PeerRun.Store, stores.KindSQL)
+	expect("services.firmware.store", services.Firmware.Store, stores.KindSQL)
+	expect("services.toolkit.store", services.Toolkit.Store, stores.KindSQL)
+	expect("services.memory_layout.store", services.MemoryLayout.Store, stores.KindSQL)
+	expect("services.contact.store", services.Contact.Store, stores.KindSQL)
+	expect("services.workflow.store", services.Workflow.Store, stores.KindSQL)
+	expect("services.model.store", services.Model.Store, stores.KindSQL)
+	expect("services.credential.store", services.Credential.Store, stores.KindSQL)
+	expect("services.voice.store", services.Voice.Store, stores.KindSQL)
+	expect("services.runtime_profile.store", services.RuntimeProfile.Store, stores.KindSQL)
+	expect("services.gameplay.store", services.Gameplay.Store, stores.KindSQL)
+	expect("services.provider_tenants.store", services.ProviderTenants.Store, stores.KindSQL)
 	for path, name := range map[string]string{
-		"services.api_key.store":          services.APIKey.Store,
-		"services.credential.store":       services.Credential.Store,
-		"services.firmware.store":         services.Firmware.Store,
-		"services.runtime_profile.store":  services.RuntimeProfile.Store,
-		"services.model.store":            services.Model.Store,
-		"services.voice.store":            services.Voice.Store,
-		"services.memory_layout.store":    services.MemoryLayout.Store,
-		"services.provider_tenants.store": services.ProviderTenants.Store,
-		"services.workflow.store":         services.Workflow.Store,
-		"services.workspace.store":        services.Workspace.Store,
-		"services.toolkit.store":          services.Toolkit.Store,
-		"services.contact.store":          services.Contact.Store,
-		"services.friend.store":           services.Friend.Store,
-		"services.friend_group.store":     services.FriendGroup.Store,
-		"services.gameplay.store":         services.Gameplay.Store,
+		"services.api_key.store":      services.APIKey.Store,
+		"services.friend.store":       services.Friend.Store,
+		"services.friend_group.store": services.FriendGroup.Store,
 	} {
 		expect(path, name, stores.KindKeyValue)
 	}
@@ -1236,7 +1236,7 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.gameplay.assets_store", services.Gameplay.AssetsStore, stores.KindObjectStore)
 	expect("services.gameplay.database_store", services.Gameplay.DatabaseStore, stores.KindSQL)
 	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
-	expect("services.agent_host.flowcraft.state_store", services.AgentHost.Flowcraft.StateStore, stores.KindKeyValue)
+	expect("services.agent_host.flowcraft.state_store", services.AgentHost.Flowcraft.StateStore, stores.KindSQL)
 	expect("services.agent_host.flowcraft.history_store", services.AgentHost.Flowcraft.HistoryStore, stores.KindLogMutable)
 	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
 	if services.SystemLog.QueryStore != "" {
@@ -1423,7 +1423,7 @@ func TestNewUsesExplicitServiceBindings(t *testing.T) {
 		t.Fatalf("New() error = %v", err)
 	}
 	t.Cleanup(func() { _ = srv.Close() })
-	if srv.PeerStore == nil || srv.WorkflowStore == nil {
+	if srv.PeerStore == nil || srv.WorkflowDB == nil {
 		t.Fatalf("explicit service Stores were not wired: %+v", srv.Server)
 	}
 }
@@ -1446,7 +1446,7 @@ func TestNewRejectsMissingRequiredServiceBlock(t *testing.T) {
 	}
 }
 
-func TestNewRequiresDistinctPeerRunKeyValueStore(t *testing.T) {
+func TestNewRequiresPeerRunSQLStore(t *testing.T) {
 	missing := validLayeredConfig(t.TempDir())
 	missing.Services.PeerRun = nil
 	if _, err := New(missing); err == nil || !strings.Contains(err.Error(), "services.peer_run is required") {
@@ -1459,40 +1459,34 @@ func TestNewRequiresDistinctPeerRunKeyValueStore(t *testing.T) {
 	}
 	wrongKind := validLayeredConfig(t.TempDir())
 	wrongKind.Services.PeerRun.Store = "workspace-assets"
-	if _, err := New(wrongKind); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "workspace-assets" requires kv.Store`) {
+	if _, err := New(wrongKind); err == nil || !strings.Contains(err.Error(), `services.peer_run.store "workspace-assets" requires *sqlx.DB`) {
 		t.Fatalf("New(non-KV peer_run) error = %v", err)
 	}
 }
 
-func TestConfigAcceptsPeerRunKeyValueBackends(t *testing.T) {
-	tests := map[string]storage.Config{
-		"postgresql": storage.PostgreSQLConfig{DSN: "postgres://example.invalid/gizclaw"},
-		"redis":      storage.RedisConfig{URL: "redis://example.invalid:6379/0"},
-	}
-	for name, backend := range tests {
-		t.Run(name, func(t *testing.T) {
-			cfg := validLayeredConfig(t.TempDir())
-			cfg.Storage["peer-run-backend"] = backend
-			peerRun := cfg.Stores[cfg.Services.PeerRun.Store]
-			peerRun.Storage = "peer-run-backend"
-			cfg.Stores[cfg.Services.PeerRun.Store] = peerRun
-			if _, err := prepareConfig(cfg); err != nil {
-				t.Fatalf("prepareConfig() error = %v", err)
-			}
-		})
+func TestConfigAcceptsPostgreSQLPeerRun(t *testing.T) {
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.Storage["peer-runs-db"] = storage.PostgreSQLConfig{DSN: "postgres://example.invalid/gizclaw"}
+	if _, err := prepareConfig(cfg); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestNewAcceptsMemoryPeerRunStore(t *testing.T) {
-	cfg := validLayeredConfig(t.TempDir())
-	peerRun := cfg.Stores[cfg.Services.PeerRun.Store]
-	peerRun.Storage = "memory"
-	cfg.Stores[cfg.Services.PeerRun.Store] = peerRun
-	srv, err := New(cfg)
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
+func TestNewRejectsNonSQLPeerRunStore(t *testing.T) {
+	for _, backend := range []string{"memory", "redis"} {
+		t.Run(backend, func(t *testing.T) {
+			cfg := validLayeredConfig(t.TempDir())
+			if backend == "redis" {
+				cfg.Storage["redis"] = storage.RedisConfig{URL: "redis://example.invalid:6379/0"}
+			}
+			peerRun := cfg.Stores[cfg.Services.PeerRun.Store]
+			peerRun.Storage = backend
+			cfg.Stores[cfg.Services.PeerRun.Store] = peerRun
+			if _, err := prepareConfig(cfg); err == nil {
+				t.Fatal("non-SQL runtime database accepted")
+			}
+		})
 	}
-	t.Cleanup(func() { _ = srv.Close() })
 }
 
 func validLayeredConfig(dir string) Config {
@@ -1507,23 +1501,23 @@ func validLayeredConfig(dir string) Config {
 		},
 		Stores: map[string]stores.Config{
 			"peers":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "peers"},
-			"peer-runs":                {Kind: stores.KindKeyValue, Storage: "peer-runs-db", Prefix: "peer_runs"},
+			"peer-runs":                {Kind: stores.KindSQL, Storage: "peer-runs-db"},
 			"api-keys":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "api-keys"},
-			"credentials":              {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "credentials"},
-			"firmwares":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "firmwares"},
-			"runtime-profiles":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "runtime-profiles"},
-			"memory-layouts":           {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "memory-layouts"},
+			"credentials":              {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"firmwares":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"runtime-profiles":         {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"memory-layouts":           {Kind: stores.KindSQL, Storage: "gameplay-db"},
 			"agenthost":                {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "agenthost"},
-			"provider-tenants":         {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "provider-tenants"},
-			"models":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "models"},
-			"voices":                   {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "voices"},
-			"workspaces":               {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspaces"},
-			"workflows":                {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workflows"},
-			"tools":                    {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "tools"},
-			"contacts":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "contacts"},
+			"provider-tenants":         {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"models":                   {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"voices":                   {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"workspaces":               {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"workflows":                {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"tools":                    {Kind: stores.KindSQL, Storage: "gameplay-db"},
+			"contacts":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
 			"friends":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
 			"friend-groups":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
-			"gameplay":                 {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "gameplay"},
+			"gameplay":                 {Kind: stores.KindSQL, Storage: "gameplay-db"},
 			"gameplay-assets":          {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "gameplay"},
 			"workspace-assets":         {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
 			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "gameplay-db", Table: "workspace_history", TTL: 30 * 24 * time.Hour},

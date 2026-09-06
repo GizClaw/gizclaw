@@ -66,6 +66,15 @@ func scanPendingDeletionTask(row rowScanner) (pendingdeletion.Task, error) {
 	return task, nil
 }
 
+const pendingDeletionDueSQL = `SELECT deletion_id, marker_fingerprint
+	FROM gameplay_pending_deletions
+	WHERE kind = ? AND task_status IN (?, ?) AND next_attempt_at <= ? AND deletion_id > ?
+	UNION ALL
+	SELECT deletion_id, marker_fingerprint
+	FROM gameplay_pending_deletions
+	WHERE kind = ? AND task_status = ? AND lease_deadline <= ? AND deletion_id > ?
+	ORDER BY deletion_id LIMIT ?`
+
 func (s PendingDeletionSource) ScanDue(ctx context.Context, now time.Time, limit int, cursor string) ([]pendingdeletion.Reference, string, error) {
 	if s.DB == nil {
 		return nil, "", errors.New("gameplay: database not configured")
@@ -73,14 +82,9 @@ func (s PendingDeletionSource) ScanDue(ctx context.Context, now time.Time, limit
 	if limit <= 0 {
 		return nil, "", fmt.Errorf("gameplay: pending deletion scan limit must be positive")
 	}
-	rows, err := s.DB.QueryxContext(ctx, s.DB.Rebind(pendingDeletionTaskSelectSQL()+`
-		WHERE kind = ? AND deletion_id > ? AND (
-			(task_status IN (?, ?) AND next_attempt_at <= ?)
-			OR (task_status = ? AND lease_deadline <= ?)
-		)
-		ORDER BY deletion_id LIMIT ?`),
-		pendingdeletion.KindPet, cursor, pendingdeletion.StatusQueued, pendingdeletion.StatusRetryWait, formatPendingDeletionTime(now),
-		pendingdeletion.StatusRunning, formatPendingDeletionTime(now), limit)
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(pendingDeletionDueSQL),
+		pendingdeletion.KindPet, pendingdeletion.StatusQueued, pendingdeletion.StatusRetryWait, formatPendingDeletionTime(now), cursor,
+		pendingdeletion.KindPet, pendingdeletion.StatusRunning, formatPendingDeletionTime(now), cursor, limit)
 	if err != nil {
 		return nil, "", err
 	}
@@ -88,15 +92,12 @@ func (s PendingDeletionSource) ScanDue(ctx context.Context, now time.Time, limit
 	refs := make([]pendingdeletion.Reference, 0, limit)
 	next := ""
 	for rows.Next() {
-		task, scanErr := scanPendingDeletionTask(rows)
-		if scanErr != nil {
-			return nil, "", scanErr
+		ref := pendingdeletion.Reference{Source: s.Name()}
+		if err := rows.Scan(&ref.DeletionID, &ref.MarkerFingerprint); err != nil {
+			return nil, "", err
 		}
-		refs = append(refs, pendingdeletion.Reference{
-			Source: task.Source, DeletionID: task.Record.DeletionID,
-			MarkerFingerprint: task.MarkerFingerprint,
-		})
-		next = task.Record.DeletionID
+		refs = append(refs, ref)
+		next = ref.DeletionID
 	}
 	if err := rows.Err(); err != nil {
 		return nil, "", err
@@ -353,81 +354,6 @@ func newPendingDeletionLeaseToken() (string, error) {
 		return "", fmt.Errorf("gameplay: generate pending deletion lease token: %w", err)
 	}
 	return hex.EncodeToString(value[:]), nil
-}
-
-func migratePendingDeletionTasks(ctx context.Context, db sqlDialectExecutor) error {
-	columns := []struct {
-		name       string
-		definition string
-	}{
-		{"marker_fingerprint", "TEXT NOT NULL DEFAULT ''"},
-		{"task_created_at", "TEXT NOT NULL DEFAULT ''"},
-		{"task_status", "TEXT NOT NULL DEFAULT 'queued'"},
-		{"task_phase", "TEXT NOT NULL DEFAULT 'validate'"},
-		{"failure_count", "INTEGER NOT NULL DEFAULT 0"},
-		{"next_attempt_at", "TEXT NOT NULL DEFAULT ''"},
-		{"lease_token", "TEXT NOT NULL DEFAULT ''"},
-		{"lease_deadline", "TEXT NOT NULL DEFAULT ''"},
-		{"last_error_code", "TEXT NOT NULL DEFAULT ''"},
-		{"last_error_message", "TEXT NOT NULL DEFAULT ''"},
-		{"updated_at", "TEXT NOT NULL DEFAULT ''"},
-	}
-	for _, column := range columns {
-		exists, err := sqlColumnExists(ctx, db, "gameplay_pending_deletions", column.name)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-		if _, err := db.ExecContext(ctx, `ALTER TABLE gameplay_pending_deletions ADD COLUMN `+column.name+` `+column.definition); err != nil {
-			return fmt.Errorf("gameplay: add pending deletion column %s: %w", column.name, err)
-		}
-	}
-	rows, err := db.QueryContext(ctx, `SELECT deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json
-		FROM gameplay_pending_deletions WHERE marker_fingerprint = '' OR task_created_at = '' OR next_attempt_at = '' OR updated_at = ''`)
-	if err != nil {
-		return err
-	}
-	type backfill struct {
-		id, fingerprint, deletedAt string
-	}
-	var updates []backfill
-	for rows.Next() {
-		var record pendingdeletion.Record
-		var owner, deletedAt, descriptor string
-		if err := rows.Scan(&record.DeletionID, &record.Kind, &owner, &record.ResourceID, &record.Reason, &deletedAt, &record.DescriptorVersion, &descriptor); err != nil {
-			rows.Close()
-			return err
-		}
-		record.OwnerPublicKey = &owner
-		record.DeletedAt = parseTime(deletedAt)
-		record.Descriptor = []byte(descriptor)
-		fingerprint, err := pendingdeletion.StoredFingerprint(record)
-		if err != nil {
-			rows.Close()
-			return fmt.Errorf("gameplay: backfill pending deletion %q: %w", record.DeletionID, err)
-		}
-		updates = append(updates, backfill{id: record.DeletionID, fingerprint: fingerprint, deletedAt: formatPendingDeletionTime(record.DeletedAt)})
-	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
-	for _, update := range updates {
-		if _, err := db.ExecContext(ctx, db.Rebind(`UPDATE gameplay_pending_deletions
-			SET marker_fingerprint = ?,
-				task_created_at = CASE WHEN task_created_at = '' THEN ? ELSE task_created_at END,
-				next_attempt_at = CASE WHEN next_attempt_at = '' THEN ? ELSE next_attempt_at END,
-				updated_at = CASE WHEN updated_at = '' THEN ? ELSE updated_at END
-			WHERE deletion_id = ?`), update.fingerprint, update.deletedAt, update.deletedAt, update.deletedAt, update.id); err != nil {
-			return err
-		}
-	}
-	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_due_idx ON gameplay_pending_deletions(task_status, next_attempt_at, lease_deadline, deletion_id)`); err != nil {
-		return err
-	}
-	_, err = db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS gameplay_pending_deletions_admin_idx ON gameplay_pending_deletions(task_created_at, deletion_id)`)
-	return err
 }
 
 var _ pendingdeletion.Source = PendingDeletionSource{}

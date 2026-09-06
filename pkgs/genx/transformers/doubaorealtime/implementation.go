@@ -10,11 +10,12 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/GizClaw/doubao-speech-go"
+	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -1584,6 +1585,7 @@ func (t *Transformer) processSession(
 
 	slog.InfoContext(ctx, "doubao: starting audio send loop")
 
+	var textInput doubaoRealtimeTextInput
 	audioSent := 0
 	inputRouteID := ""
 	inputAudioEnded := false
@@ -1647,6 +1649,15 @@ func (t *Transformer) processSession(
 
 		if chunk == nil {
 			continue
+		}
+		if t.mode == ModeText {
+			chunk, err = textInput.push(chunk)
+			if err != nil {
+				return err
+			}
+			if chunk == nil {
+				continue
+			}
 		}
 		if t.mode == ModePushToTalk && runtime.consumeEmptyPTTTrailingEOS(chunk) {
 			continue
@@ -1907,9 +1918,9 @@ func realtimeASRText(payload []byte) string {
 	if text := strings.TrimSpace(decoded.Extra.OriginText); text != "" {
 		return text
 	}
-	for i := len(decoded.Results) - 1; i >= 0; i-- {
+	for i := range slices.Backward(decoded.Results) {
 		alternatives := decoded.Results[i].Alternatives
-		for j := len(alternatives) - 1; j >= 0; j-- {
+		for j := range slices.Backward(alternatives) {
 			if text := strings.TrimSpace(alternatives[j].Text); text != "" {
 				return text
 			}

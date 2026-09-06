@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/toolkittest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
-	tools := &toolkit.Server{Store: kv.NewMemory(nil)}
+	tools := toolkittest.New(t)
 	manager := New(Services{Tools: tools})
 	resource := mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1",
@@ -61,7 +61,7 @@ func TestToolResourceLifecycleUsesCallerID(t *testing.T) {
 }
 
 func TestToolResourceDirectSecretIsWriteOnlyRetainedAndRotated(t *testing.T) {
-	tools := &toolkit.Server{Store: kv.NewMemory(nil)}
+	tools := toolkittest.New(t)
 	manager := New(Services{Tools: tools})
 	resourceWithSecret := func(secretField string) apitypes.Resource {
 		return mustResource(t, `{
@@ -109,7 +109,7 @@ func TestToolResourceDirectSecretIsWriteOnlyRetainedAndRotated(t *testing.T) {
 
 func TestToolResourceIdentityConflictsReturnConflict(t *testing.T) {
 	t.Parallel()
-	tools := &toolkit.Server{Store: kv.NewMemory(nil)}
+	tools := toolkittest.New(t)
 	manager := New(Services{Tools: tools})
 	resource := func(id, invokeName string) apitypes.Resource {
 		return mustResource(t, `{

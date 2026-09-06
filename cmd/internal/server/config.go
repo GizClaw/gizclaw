@@ -1010,6 +1010,15 @@ func (cfg Config) validate() error {
 	if cfg.Services.Peer.Store == cfg.Services.PeerRun.Store {
 		return fmt.Errorf("server: services.peer_run.store must be separate from services.peer.store")
 	}
+	runtimeStore, ok := cfg.Stores[cfg.Services.PeerRun.Store]
+	if ok && runtimeStore.Kind == store.KindSQL {
+		switch cfg.Storage[runtimeStore.Storage].(type) {
+		case storage.SQLiteConfig, storage.PostgreSQLConfig:
+		default:
+			return fmt.Errorf("server: services.peer_run.store requires SQLite or PostgreSQL storage")
+		}
+	}
+
 	if err := validateProfilingConfig(cfg.Profiling, cfg.Services); err != nil {
 		return err
 	}

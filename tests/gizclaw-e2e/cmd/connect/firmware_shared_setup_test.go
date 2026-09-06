@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
@@ -56,21 +55,9 @@ func createRuntimeProfileRegistrationToken(t *testing.T, h *clitest.Harness) str
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	profileName := "e2e-firmware-main"
-	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
-		Id: profileName,
-		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					Pet: "pet-care",
-				},
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("put RuntimeProfile: %v", err)
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		t.Fatalf("resolve firmware RuntimeProfile: found=%v err=%v", found, err)
 	}
 	tokenName := "e2e-firmware-main-token"
 	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenName); err != nil {

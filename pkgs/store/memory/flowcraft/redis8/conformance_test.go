@@ -2,7 +2,6 @@ package redis8
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -104,44 +103,19 @@ func TestSearchUsesRedisNativeHybridAndFilter(t *testing.T) {
 	}
 }
 
-func TestOpenBackendMigratesExistingRetrievalIndex(t *testing.T) {
-	client := redis8TestClient(t)
-	ctx := context.Background()
-	prefix := fmt.Sprintf("gizclaw:test:flowcraft:redis8:upgrade:%d", time.Now().UnixNano())
-	index := newIndex(client, prefix)
-	if _, err := client.FTCreate(ctx, index.indexName, &redis.FTCreateOptions{OnHash: true, Prefix: []any{index.docPrefix}},
-		&redis.FieldSchema{FieldName: "namespace", FieldType: redis.SearchFieldTypeTag},
-		&redis.FieldSchema{FieldName: "content", FieldType: redis.SearchFieldTypeText},
-		&redis.FieldSchema{FieldName: "timestamp", FieldType: redis.SearchFieldTypeNumeric, Sortable: true},
-	).Result(); err != nil {
+func TestOpenBackendReopensCurrentRetrievalIndex(t *testing.T) {
+	backend := freshBackend(t)
+	ctx := t.Context()
+	doc := retrieval.Doc{ID: "current", Content: "likes tea", Metadata: map[string]any{"kind": "preference", "confidence": 0.9}, Timestamp: time.Now()}
+	if err := backend.RetrievalIndex().Upsert(ctx, "workspace", []retrieval.Doc{doc}); err != nil {
 		t.Fatal(err)
 	}
-	doc := retrieval.Doc{ID: "legacy", Content: "likes tea", Metadata: map[string]any{"kind": "preference", "confidence": 0.9}, Timestamp: time.Now()}
-	raw, err := json.Marshal(doc)
+	reopened, err := OpenBackend(ctx, backend.client, backend.prefix)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.HSet(ctx, index.docKey("workspace", doc.ID), map[string]any{
-		"namespace": encodePart("workspace"),
-		"content":   doc.Content,
-		"timestamp": doc.Timestamp.UnixNano(),
-		docField:    raw,
-	}).Err(); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		keys, _ := client.Keys(context.Background(), prefix+"*").Result()
-		if len(keys) > 0 {
-			_ = client.Del(context.Background(), keys...).Err()
-		}
-		_ = client.FTDropIndex(context.Background(), index.indexName).Err()
-	})
-
-	backend, err := OpenBackend(ctx, client, prefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response, err := backend.RetrievalIndex().Search(ctx, "workspace", retrieval.SearchRequest{
+	t.Cleanup(func() { _ = reopened.Close() })
+	response, err := reopened.RetrievalIndex().Search(ctx, "workspace", retrieval.SearchRequest{
 		QueryText: "tea",
 		Filter: retrieval.Filter{
 			Eq:    map[string]any{"kind": "preference"},
@@ -153,10 +127,7 @@ func TestOpenBackendMigratesExistingRetrievalIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(response.Hits) != 1 || response.Hits[0].Doc.ID != doc.ID {
-		t.Fatalf("Search() hits = %#v, want migrated legacy document", response.Hits)
-	}
-	if version, err := client.Get(ctx, index.schemaVersionKey).Result(); err != nil || version != redisSearchSchemaVersion {
-		t.Fatalf("schema version = %q, %v; want %q", version, err, redisSearchSchemaVersion)
+		t.Fatalf("Search() hits = %#v, want retained document", response.Hits)
 	}
 }
 

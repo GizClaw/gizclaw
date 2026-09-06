@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import type { Readable } from "node:stream";
 
 import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
@@ -8,7 +12,21 @@ import wrtc from "@roamhq/wrtc";
 import { closePeerConnection, repoRoot } from "../common/webrtc.ts";
 
 async function main(): Promise<void> {
-  const probe = spawn("go", ["run", "./tests/gizclaw-e2e/cmd/serverrpcprobe"], {
+  const tempDirectory = await mkdtemp(
+    join(tmpdir(), "gizclaw-serverrpcprobe-"),
+  );
+  const probePath = join(tempDirectory, "serverrpcprobe");
+  try {
+    await promisify(execFile)(
+      "go",
+      ["build", "-o", probePath, "./tests/gizclaw-e2e/cmd/serverrpcprobe"],
+      { cwd: repoRoot },
+    );
+  } catch (err) {
+    await rm(tempDirectory, { recursive: true, force: true });
+    throw err;
+  }
+  const probe = spawn(probePath, [], {
     cwd: repoRoot,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -75,6 +93,7 @@ async function main(): Promise<void> {
       probe.kill("SIGTERM");
       await exit;
     }
+    await rm(tempDirectory, { recursive: true, force: true });
   }
 }
 

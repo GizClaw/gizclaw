@@ -77,7 +77,7 @@ Config 只接受 `model`、`input`、`output` 和 `rules`。Alias 不能包含 `
 ## Store 边界
 
 - `History` 使用调用方提供的 `logstore.MutableStore`，按 `HistoryScope` 保存同一 Agent lifetime 内的有序对话。为空时使用 Agent-local memory。
-- `State` 使用调用方已做好 prefix 的 `kv.Store`，保存可 JSON 序列化的 Board variables。`response`、`usage`、`tool`、`tmp_*` 和 `__*` 不持久化。
+- `State` 使用调用方提供的 `StateStore`，只包含 `LoadState` 和 `SaveState`；缺失状态返回 nil。GizClaw 将 Owner、Workspace、Agent 与 Context ID 分列保存到 SQL `flowcraft_board_states` 表，在启动时建表，复用统一 SQL 连接池。Workspace 删除会清理所有 Agent 状态，并在 `flowcraft_state_scopes` 中保留删除标记，拒绝旧会话保存或重新打开。`response`、`usage`、`tool`、`tmp_*` 和 `__*` 不持久化。
 - `Memory` 使用 provider-neutral `memory.Store`。`MemoryScope` 由调用方固定配置，所有 recall 与 observe 都使用同一 scope。
 
 `RecallRenderer` 和 `ObservationBuilder` 都有 package 默认实现，也可以替换。默认 recall 文本写成 `Relevant memory:` 列表；默认 observation 只包含 user turn 和实际 pull 的 assistant turn，不把 Board variables 当作 fact。

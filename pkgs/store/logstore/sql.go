@@ -274,7 +274,7 @@ func (store *SQLStore) Query(ctx context.Context, query Query) (Page, error) {
 		}
 		position = &cursor.Position
 	}
-	statement, args, err := store.buildQuery(bound, position, time.Now().UTC().UnixNano())
+	statement, args, err := store.buildQuery(bound, position, time.Now().UTC().UnixNano(), query.Limit+1)
 	if err != nil {
 		return Page{}, err
 	}
@@ -298,9 +298,6 @@ func (store *SQLStore) Query(ctx context.Context, query Query) (Page, error) {
 			return Page{}, fmt.Errorf("logstore: decode sql attributes: %w", err)
 		}
 		record.Payload = append(json.RawMessage(nil), payload...)
-		if !matchesSQLRecord(record, bound) {
-			continue
-		}
 		if err := ValidateRecord(record); err != nil {
 			return Page{}, fmt.Errorf("logstore: invalid sql record: %w", err)
 		}
@@ -512,7 +509,7 @@ func (store *SQLStore) lockPostgresWriteTable(ctx context.Context, tx *sqlx.Tx) 
 	return nil
 }
 
-func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, nowUnixNano int64) (string, []any, error) {
+func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, nowUnixNano int64, limit int) (string, []any, error) {
 	startNano, err := storage.SQLUnixNano(time.UnixMilli(query.StartMS))
 	if err != nil {
 		return "", nil, fmt.Errorf("logstore: query start: %w", err)
@@ -535,6 +532,35 @@ func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, no
 	appendSet("stream", query.Streams)
 	appendSet("kind", query.Kinds)
 	appendSet("severity", query.Severities)
+	// Both supported dialects filter in SQL before applying the page limit.
+	// Iterate the flat JSON object so dotted attribute names remain literal keys.
+	attributes := "json_each(attributes_json)"
+	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+		attributes = "jsonb_each_text(attributes_json::jsonb)"
+	}
+	if query.Text != "" {
+		predicate := "instr(message, ?) > 0"
+		if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+			predicate = "strpos(message, ?) > 0"
+		}
+		parts = append(parts, predicate)
+		args = append(args, query.Text)
+	}
+	for _, matcher := range query.Matchers {
+		predicate := "EXISTS (SELECT 1 FROM " + attributes + " AS attr WHERE attr.key = ?"
+		args = append(args, matcher.Name)
+		switch matcher.Op {
+		case MatchEqual:
+			predicate += " AND attr.value = ?"
+			args = append(args, matcher.Value)
+		case MatchNotEqual:
+			predicate += " AND attr.value <> ?"
+			args = append(args, matcher.Value)
+		case MatchNotExists:
+			predicate = "NOT " + predicate
+		}
+		parts = append(parts, predicate+")")
+	}
 	if position != nil {
 		operator := ">"
 		if query.Order == OrderDesc {
@@ -548,31 +574,9 @@ func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, no
 		direction = "DESC"
 	}
 	statement := "SELECT stream, id, timestamp_unix_nano, kind, severity, message, attributes_json, payload_json FROM " + store.quoted + " WHERE " + strings.Join(parts, " AND ") + " ORDER BY timestamp_unix_nano " + direction + ", stream " + direction + ", id " + direction
+	statement += " LIMIT ?"
+	args = append(args, limit)
 	return statement, args, nil
-}
-
-func matchesSQLRecord(record Record, query sqlBoundQuery) bool {
-	if query.Text != "" && !strings.Contains(record.Message, query.Text) {
-		return false
-	}
-	for _, matcher := range query.Matchers {
-		value, exists := record.Attributes[matcher.Name]
-		matched := false
-		switch matcher.Op {
-		case MatchEqual:
-			matched = exists && value == matcher.Value
-		case MatchNotEqual:
-			matched = exists && value != matcher.Value
-		case MatchExists:
-			matched = exists
-		case MatchNotExists:
-			matched = !exists
-		}
-		if !matched {
-			return false
-		}
-	}
-	return true
 }
 
 func (store *SQLStore) recordTime(ctx context.Context, tx *sqlx.Tx, key RecordKey, nowUnixNano int64) (int64, error) {

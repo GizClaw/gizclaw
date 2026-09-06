@@ -15,6 +15,18 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 )
 
+// SetupRuntimeResources reads the standard E2E resource bindings for test profiles.
+func SetupRuntimeResources(ctx context.Context, api *adminhttp.ClientWithResponses) (apitypes.RuntimeProfileResources, error) {
+	profile, found, err := RuntimeProfileByID(ctx, api, "e2e-giztest")
+	if err != nil {
+		return apitypes.RuntimeProfileResources{}, err
+	}
+	if !found {
+		return apitypes.RuntimeProfileResources{}, fmt.Errorf("standard E2E RuntimeProfile e2e-giztest not found")
+	}
+	return profile.Spec.Resources, nil
+}
+
 // UpsertRuntimeProfile applies an exact caller-supplied RuntimeProfile ID and
 // assumes every nested Admin reference already contains its canonical ID.
 func UpsertRuntimeProfile(ctx context.Context, api *adminhttp.ClientWithResponses, body adminhttp.RuntimeProfileUpsert) (apitypes.RuntimeProfile, error) {

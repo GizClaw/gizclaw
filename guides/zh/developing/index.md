@@ -100,7 +100,7 @@ gizclaw/
 | `pkgs/gizedge` | Edge ingress、upstream connection 与 forwarding | Authoritative resource、最终 resource access | [Gizedge](gizedge) |
 | `pkgs/gizlog` | 进程级结构化 logger、level、fan-out 与 Store sink | 产品日志字段与 backend provisioning | [Observability](observability) |
 | `pkgs/genx` | Message、Stream、Generator、Transformer、Tool 与 adapters | Agent instance、workspace、产品 model resource | [GenX](genx/overview) |
-| `pkgs/store` | KV、object、metrics、graph、vector 与 identity primitives | 领域 resource schema 与业务规则 | [Stores](stores/overview) |
+| `pkgs/store` | KV、object、metrics、vector 与 identity primitives | 领域 resource schema 与业务规则 | [Stores](stores/overview) |
 | `pkgs/audio` | Codec、PCM、resampling、device I/O 与 voiceprint | WebRTC connection、Agent lifecycle | [Audio](audio/overview) |
 | `cmd` | 配置读取、dependency wiring、进程生命周期与 CLI UX | 可复用领域逻辑 | 对应 package 指引 |
 | `sdk` | 面向各语言的生成 contract 与客户端封装 | 独立定义另一套 wire contract | [API 生成](api/generation) |

@@ -10,7 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestIMEIDuplicateUpdateAndLegacyLookup(t *testing.T) {
+func TestIMEIDuplicateUpdateAndLookup(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
 	server := &Server{Store: store}
@@ -30,14 +30,6 @@ func TestIMEIDuplicateUpdateAndLegacyLookup(t *testing.T) {
 		}
 	}
 	check(first.String(), second.String())
-	// Legacy one-to-one index must recover all collisions from current records.
-	if err := store.BatchDelete(ctx, []kv.Key{imeiKey("t:ac", "s%erial", first.String()), imeiKey("t:ac", "s%erial", second.String())}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Set(ctx, imeiPrefix("t:ac", "s%erial"), []byte(second.String())); err != nil {
-		t.Fatal(err)
-	}
-	check(first.String(), second.String())
 	// Updating one peer must leave its sibling discoverable.
 	record, err := server.LoadPeer(ctx, first)
 	if err != nil {
@@ -49,7 +41,7 @@ func TestIMEIDuplicateUpdateAndLegacyLookup(t *testing.T) {
 	}
 	check(second.String())
 	// A stale index never returns an unrelated peer.
-	if err := store.Set(ctx, imeiKey("t:ac", "s%erial", first.String()), []byte{1}); err != nil {
+	if err := store.AddMembers(ctx, imeiPrefix("t:ac", "s%erial"), first.String()); err != nil {
 		t.Fatal(err)
 	}
 	check(second.String())

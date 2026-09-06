@@ -134,35 +134,10 @@ func (*notifyingKVSource) ActiveStats(context.Context, time.Time) (int64, time.T
 
 func (h *finalizingKVHandler) Kind() Kind { return h.kind }
 func (h *finalizingKVHandler) Handle(ctx context.Context, claim Claim) error {
-	marker, err := Get(ctx, h.source.Store, claim.Record.DeletionID)
-	if err != nil {
+	if err := h.source.Finalize(ctx, claim, time.Now().UTC(), nil); err != nil {
 		return err
 	}
-	fingerprint, err := Fingerprint(marker)
-	if err != nil || fingerprint != claim.MarkerFingerprint {
-		return ErrConflict
-	}
-	raw, err := h.source.Store.Get(ctx, kvTaskKey(claim.Record.DeletionID))
-	if err != nil {
-		return err
-	}
-	current, _, err := h.source.decodeTask(claim.Record, raw)
-	if err != nil {
-		return err
-	}
-	if current.MarkerFingerprint != claim.MarkerFingerprint || current.Status != StatusRunning ||
-		current.LeaseToken != claim.LeaseToken || !current.LeaseDeadline.After(time.Now().UTC()) {
-		return ErrConflict
-	}
-	matched, err := kv.CompareAndMutate(ctx, h.source.Store, kvTaskKey(claim.Record.DeletionID), raw, nil, []kv.Key{
-		kvTaskKey(claim.Record.DeletionID), byIDKey(claim.Record.DeletionID), byLocatorKey(claim.Record.Kind, claim.Record.ResourceID),
-	})
-	if err != nil {
-		return err
-	}
-	if !matched {
-		return ErrConflict
-	}
+
 	h.calls.Add(1)
 	return nil
 }

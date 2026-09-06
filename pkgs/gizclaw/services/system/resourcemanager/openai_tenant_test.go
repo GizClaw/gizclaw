@@ -9,7 +9,7 @@ import (
 )
 
 func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
@@ -61,7 +61,7 @@ func TestApplyOpenAITenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 }
 
 func TestPutGetDeleteOpenAITenantResource(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "OpenAITenant",
@@ -159,7 +159,7 @@ func TestOpenAITenantMissingServiceErrors(t *testing.T) {
 }
 
 func TestApplyOpenAITenantRejectsInvalidHeader(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "OpenAITenant",

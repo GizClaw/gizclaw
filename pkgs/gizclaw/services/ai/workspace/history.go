@@ -36,7 +36,7 @@ const (
 	HistoryOriginOpenAI = "openai.responses"
 )
 
-var historyIDSeq uint64
+var historyIDSeq atomic.Uint64
 
 // HistoryStore persists structured workspace history in a LogStore and keeps
 // only binary assets in object storage.
@@ -711,7 +711,7 @@ func historyID(createdAt, now time.Time) string {
 	if createdAt.IsZero() {
 		createdAt = now
 	}
-	seq := atomic.AddUint64(&historyIDSeq, 1)
+	seq := historyIDSeq.Add(1)
 	return createdAt.UTC().Format("20060102T150405.000000000Z") + "-" + strconv.FormatUint(seq, 36)
 }
 

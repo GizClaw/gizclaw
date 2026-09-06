@@ -162,8 +162,7 @@ func (s *Server) createChatCompletion(ctx context.Context, request backend.Reque
 	}
 	modelContext, err := buildModelContext(&body)
 	if err != nil {
-		var backendErr *backend.Error
-		if errors.As(err, &backendErr) {
+		if backendErr, ok := errors.AsType[*backend.Error](err); ok {
 			return backend.Response{}, backendErr
 		}
 		return backend.Response{}, invalid("invalid_messages", "messages", "The messages field is invalid.")

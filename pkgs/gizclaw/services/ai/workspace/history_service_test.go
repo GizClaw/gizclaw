@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -76,7 +75,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	ctx := context.Background()
 	seedWorkspace(t, srv, "demo0001")
 
-	before, err := getWorkspace(ctx, srv.Store, "demo0001")
+	before, err := getWorkspace(ctx, srv.DB, "demo0001")
 	if err != nil {
 		t.Fatalf("getWorkspace(before) error = %v", err)
 	}
@@ -93,7 +92,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	if !entry.CreatedAt.Equal(entryCreatedAt) {
 		t.Fatalf("entry created_at = %s, want %s", entry.CreatedAt, entryCreatedAt)
 	}
-	after, err := getWorkspace(ctx, srv.Store, "demo0001")
+	after, err := getWorkspace(ctx, srv.DB, "demo0001")
 	if err != nil {
 		t.Fatalf("getWorkspace(after) error = %v", err)
 	}
@@ -112,7 +111,7 @@ func TestServerAppendWorkspaceHistoryBumpsLastActiveAt(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("AppendWorkspaceHistory(older) error = %v", err)
 	}
-	got, err := getWorkspace(ctx, srv.Store, "demo0001")
+	got, err := getWorkspace(ctx, srv.DB, "demo0001")
 	if err != nil {
 		t.Fatalf("getWorkspace(final) error = %v", err)
 	}
@@ -168,11 +167,7 @@ func TestMonitorOwnedWorkspacesIncludeSystemAndExcludeForeign(t *testing.T) {
 		item.CreatedAt = time.Now().UTC()
 		item.UpdatedAt = item.CreatedAt
 		item.LastActiveAt = item.CreatedAt
-		data, err := json.Marshal(item)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := srv.Store.Set(t.Context(), workspaceKey(item.Id), data); err != nil {
+		if err := createSQLWorkspace(t.Context(), srv.DB, item); err != nil {
 			t.Fatal(err)
 		}
 	}

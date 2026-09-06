@@ -77,7 +77,7 @@ A new text BOS, whether control-only or text-bearing, cancels an unfinished prio
 ## Store boundaries
 
 - `History` uses the caller-provided `logstore.MutableStore` and `HistoryScope` for ordered turns across one Agent lifetime. Agent-local memory is used when it is nil.
-- `State` uses a caller-prefixed `kv.Store` for JSON-serializable Board variables. `response`, `usage`, `tool`, `tmp_*`, and `__*` variables are excluded.
+- `State` uses the caller-provided `StateStore` with only `LoadState` and `SaveState`; absent checkpoints return nil. GizClaw stores Owner, Workspace, Agent, and Context IDs in separate columns of the SQL `flowcraft_board_states` table, initialized at startup through the shared SQL pool. Workspace deletion removes all Agent checkpoints and retains a retirement marker in `flowcraft_state_scopes` to reject stale saves and scope reopening. `response`, `usage`, `tool`, `tmp_*`, and `__*` variables are not persisted.
 - `Memory` uses the provider-neutral `memory.Store`. Every recall and observation uses the fixed caller-configured `MemoryScope`.
 
 `RecallRenderer` and `ObservationBuilder` have package defaults and may be replaced. The default recall value is a `Relevant memory:` list. The default observation contains the user turn and the assistant text actually pulled by downstream, never Board variables as facts.

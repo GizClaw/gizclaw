@@ -1,18 +1,10 @@
 package workspace
 
-import (
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-)
+import "github.com/jmoiron/sqlx"
 
 const pendingDeletionSourceName = "workspace"
 
-// NewPendingDeletionSource binds Workspace tasks to the exact Workspace KV
-// transaction boundary.
-func NewPendingDeletionSource(store kv.Store) pendingdeletion.KVSource {
-	return pendingdeletion.KVSource{
-		Store:      store,
-		SourceName: pendingDeletionSourceName,
-		OwnedKinds: []pendingdeletion.Kind{pendingdeletion.KindWorkspace},
-	}
+// NewPendingDeletionSource binds cleanup to the Workspace SQL transaction boundary.
+func NewPendingDeletionSource(db *sqlx.DB) workspaceSQLDeletionSource {
+	return workspaceSQLDeletionSource{DB: db}
 }

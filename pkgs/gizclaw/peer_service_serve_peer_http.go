@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
@@ -16,7 +17,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func (s *PeerService) servePublic(conn giznet.Conn) error {
@@ -214,7 +214,7 @@ func (s *PeerService) validateAPIKeyOwner(ctx context.Context, publicKey giznet.
 		return errAPIKeyOwnerUnavailable
 	}
 	if _, err := s.manager.RuntimeProfiles.ResolveOwnerProfile(ctx, publicKey.String()); err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errAPIKeyOwnerUnavailable
 		}
 		return err

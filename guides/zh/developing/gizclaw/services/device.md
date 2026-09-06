@@ -24,7 +24,7 @@ services/device/
 ```mermaid
 flowchart LR
     GizClaw["pkgs/gizclaw<br/>Admin surface"] --> Firmware["services/device/firmware"]
-    Firmware --> KV["KV metadata store"]
+    Firmware --> SQL["SQL catalog"]
 ```
 
 应该放在 `services/device/firmware`：
@@ -42,3 +42,5 @@ flowchart LR
 - CLI storage backend 和 filesystem root 的创建。
 
 未来新增 device 领域服务时，应先确认它是否拥有独立资源和生命周期，再决定新增 `services/device/<service>`，不要把所有与设备有关的逻辑都放进 `firmware/`。
+
+Firmware catalog 保存在 `firmwares` 业务表中，ID 为主键，描述、创建时间和更新时间为独立列，频道配置保留为 JSON。Server 启动时初始化表结构，并复用配置的 SQL 连接池；请求不执行 DDL。列表按 ID 使用数据库范围查询与 `LIMIT` 分页，更新和删除使用 SQL `RETURNING`，不通过 KV 枚举。

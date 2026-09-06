@@ -1,6 +1,17 @@
 # services/gameplay
 
+Gameplay SQL schema 在 Server 启动时初始化并校验。直接使用 `Runtime` 的宿主必须先调用 `Migration`，再处理请求或启动 dispatcher；业务查询和后台任务不会创建或修复表结构。
+
+目录使用独立 SQL 业务表 `pet_definitions`、`badge_definitions` 和 `game_definitions`，通过 `services.gameplay.store` 选择 SQL 连接。ID、提示词、显示名称、描述、奖励提示和资产路径等分别保存为列；视觉配置、元数据、标签和图标配置保留 JSON。表在启动时创建，列表按 ID 游标和数量限制查询，不再依赖 KV 前缀枚举。更新和删除比较版本号与创建标识，拒绝覆盖并发更新或同名重建记录。目录与运行数据可以复用同一连接池；奖励事务内的 Badge 定义读取复用当前事务。
+
+RuntimeProfile 的目录存在性校验先去重 ID，再按最多 256 个 ID 分批查询，只读取 ID 列；重复绑定不增加数据库读取，空集合不发起查询。
+
+后台删除任务分别使用 `(kind, task_status, next_attempt_at, deletion_id)` 和 `(kind, task_status, lease_deadline, deletion_id)` 索引发现到期重试与过期租约。发现阶段只读取任务 ID 和指纹，按 ID 游标分页；领取任务时才读取完整记录。删除状态检查直接查询 locator，不扫描旧记录恢复索引。
+
 `pkgs/gizclaw/services/gameplay` 拥有 Gameplay catalog、玩家状态、奖励行为和数字资产。Gameplay 配置属于连接的 RuntimeProfile，不再有独立 GameRuleset 资源。
+
+Pet 领养先完成 Workspace 创建，再开启扣款与 Pet 写入事务；事务内重新验证余额。失败时只清理本次创建的 Workspace，并使用其 owner 查询，避免共享单连接数据库中的嵌套连接等待。
+幂等重试先读取 Pet、扣款和余额的一致快照，释放只读事务后再检查 Workspace 绑定。
 
 ## Ownership
 
@@ -62,7 +73,7 @@ dispatcher 在 provider work 前以及 asynchronous wait 后再次检查权威 W
 
 Gameplay 使用 Workspace owner 和 Pet 领域关系，不创建额外 role 或 policy binding。领养时会独立于 active Pet row 持久化 Pet-to-Workspace binding。Pet 删除在同一个 gameplay SQL database transaction 中创建或复用一条 `kind=pet` PendingDeletion，同时保留 Pet row 及其 binding；该标记不影响 Pet 的读取、list、authorization 或 mutation，也不会创建 Workspace pending record。
 
-已注册的 `source=gameplay` processor handler 随后验证 immutable Pet descriptor、marker fingerprint、准确的 deterministic marker 分类与 live SQL lease。Final transaction 只删除完全匹配的 retained Pet row、对应 locator 和 marker/task state。Pet 已不存在的 compatible legacy marker 会幂等完成；任何仍能看到 Pet 的 legacy marker 会以 replacement-ambiguous 失败。Pet-to-Workspace binding 和绑定的 system Workspace 继续保留，Points、badge、result、transaction、reward、Drive Fact outbox、Workspace reward state、Social data、prompt、message 与 history 也都保留。完成后不留下 task receipt；cleanup 抢先提交后，零行 Pet mutation 不能报告成功。
+已注册的 `source=gameplay` processor handler 随后验证 immutable Pet descriptor、marker fingerprint、准确的 deterministic marker 分类与 live SQL lease。Final transaction 只删除完全匹配的 retained Pet row、对应 locator 和 marker/task state。不符合当前确定性身份规则的 marker 会在 finalization 前被拒绝，不提供旧标记完成路径。Pet-to-Workspace binding 和绑定的 system Workspace 继续保留，Points、badge、result、transaction、reward、Drive Fact outbox、Workspace reward state、Social data、prompt、message 与 history 也都保留。完成后不留下 task receipt；cleanup 抢先提交后，零行 Pet mutation 不能报告成功。
 
 ## Workspace 对话奖励
 
@@ -90,4 +101,4 @@ Badge EXP、window 完成和 checkpoint 在同一个 Gameplay SQL transaction �
 `GAMEPLAY_REWARD_UPDATED` invalidation Event；客户端收到后重新拉取权威 Gameplay
 状态。确定性任务奖励属于独立任务系统，不经过该模型 evaluator。
 
-Workspace reward 的精确 Workspace 激活、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion，或规范 Workspace 已完成物理删除后，stale activation 会幂等完成：未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History、model 或记录 operational error。PendingDeletion marker 创建与最终 settlement 还通过既有的 per-Workspace reward source row 串行化：marker 创建前已提交的 settlement 保留为有效历史；marker 抢先取得 fence 后，后续 settlement 不能再提交 RewardGrant、Points 或 badge。该数据库 fence 跨进程和重启保持有效，不同 Workspace 仍保持独立顺序。重启时直接从带索引的 Gameplay SQL 队列恢复已有 pending、retry 与过期 claim，不扫描 Workspace catalog。
+Workspace reward 的精确 Workspace 激活、History paging、model evaluation 与 retry dispatch 都使用同一个权威 availability gate。Workspace 或 owner 进入 pending deletion，或规范 Workspace 已完成物理删除后，stale activation 会幂等完成：未结算 window 与准确 source row 会被删除，已完成 reward audit row 保留，并且不再为该 Workspace 调用 History、model 或记录 operational error。PendingDeletion marker 创建与最终 settlement 还通过既有的 per-Workspace reward source row 串行化：marker 创建前已提交的 settlement 保留为有效历史；marker 抢先取得 fence 后，后续 settlement 不能再提交 RewardGrant、Points 或 badge。该数据库 fence 跨进程和重启保持有效，不同 Workspace 仍保持独立顺序。Workspace 与 Gameplay 复用同一 SQL 连接池时，删除标记写入和结算时的 availability 检查均复用当前奖励事务，单连接配置也不会嵌套申请数据库连接。重启时直接从带索引的 Gameplay SQL 队列恢复已有 pending、retry 与过期 claim，不扫描 Workspace catalog。

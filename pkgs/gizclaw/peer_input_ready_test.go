@@ -7,43 +7,54 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-// Hold the authorization lookup rather than sleeping: the packet channel can
-// make progress while the independent event channel is still accepting BOS.
-type inputReadyRunStore struct {
-	kv.Store
+// Hold the workspace lookup before BOS is accepted, without blocking packets.
+type delayedReadyCatalog struct {
+	sfuTestWorkspaceCatalog
 	entered, release chan struct{}
 	once             sync.Once
 }
 
-func (s *inputReadyRunStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	s.once.Do(func() { close(s.entered); <-s.release })
-	return s.Store.Get(ctx, key)
+func (c *delayedReadyCatalog) GetWorkspaceByName(ctx context.Context, name string) (apitypes.Workspace, error) {
+	c.once.Do(func() { close(c.entered) })
+	select {
+	case <-c.release:
+	case <-ctx.Done():
+		return apitypes.Workspace{}, ctx.Err()
+	}
+	return c.sfuTestWorkspaceCatalog.GetWorkspaceByName(ctx, name)
 }
 
-func TestAudioInputReadyPreservesAudioAcrossAuthorization(t *testing.T) {
+func TestAudioInputReadyPreservesAudioAcrossBOSAcceptance(t *testing.T) {
 	for _, waitForReady := range []bool{false, true} {
 		name := "without_acknowledgement"
 		if waitForReady {
 			name = "with_acknowledgement"
 		}
 		t.Run(name, func(t *testing.T) {
-			store := &inputReadyRunStore{Store: kv.NewMemory(nil), entered: make(chan struct{}), release: make(chan struct{})}
-			var releaseOnce sync.Once
-			release := func() { releaseOnce.Do(func() { close(store.release) }) }
-			defer release()
+			runs := peerruntest.New(t)
 			input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 256)}
+			catalog := &delayedReadyCatalog{sfuTestWorkspaceCatalog: sfuTestWorkspaces(), entered: make(chan struct{}), release: make(chan struct{})}
+			if _, err := runs.SetRunAgent(t.Context(), giznet.PublicKey{9}, apitypes.AgentSelection{WorkspaceName: testWorkflowWorkspaceName}); err != nil {
+				t.Fatal(err)
+			}
+
+			var releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(catalog.release) }) }
+			defer release()
 			conn := &peerConnPacketConn{testGiznetConn: testGiznetConn{publicKey: giznet.PublicKey{9}}}
 			for range 200 {
 				conn.packets = append(conn.packets, peerConnTestPacket{protocol: giznet.ProtocolOpusPacket, payload: []byte{0xf8, 0xff, 0xfe}})
 			}
-			peer := &PeerConn{Conn: conn, agentInput: input, events: newPeerStreamEventBroker(), Service: &PeerService{manager: &Manager{PeerRun: &peerrun.Server{Store: store}}}}
+			peer := &PeerConn{Conn: conn, agentInput: input, events: newPeerStreamEventBroker(), Service: &PeerService{manager: &Manager{PeerRun: runs, Workspaces: catalog}}}
 			server, client := net.Pipe()
 			defer server.Close()
 			defer client.Close()
@@ -52,12 +63,12 @@ func TestAudioInputReadyPreservesAudioAcrossAuthorization(t *testing.T) {
 			if err := writePeerStreamEvent(client, audioBOS("delayed-turn")); err != nil {
 				t.Fatal(err)
 			}
-			<-store.entered
+			<-catalog.entered
 			acknowledged := make(chan *eventpb.PeerEvent, 1)
 			go func() { event, _ := readPeerStreamEvent(client); acknowledged <- event }()
 			select {
 			case <-acknowledged:
-				t.Fatal("acknowledged before authorization")
+				t.Fatal("acknowledged before BOS acceptance")
 			default:
 			}
 			if !waitForReady {

@@ -2,13 +2,11 @@ package resourcemanager
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/catalogtest"
 )
 
 func TestApplyGameDefIgnoresOwnerManagedIcon(t *testing.T) {
@@ -21,15 +19,8 @@ func TestApplyGameDefIgnoresOwnerManagedIcon(t *testing.T) {
 		Spec:      apitypes.GameDefSpec{DisplayName: "Demo"},
 		UpdatedAt: time.Now().UTC(),
 	}
-	data, err := json.Marshal(item)
-	if err != nil {
-		t.Fatalf("Marshal game def error = %v", err)
-	}
-	store := kv.NewMemory(nil)
-	if err := store.Set(ctx, kv.Key{"by-id", "demo"}, data); err != nil {
-		t.Fatalf("seed game def error = %v", err)
-	}
-	catalog := &gameplay.Catalog{GameDefs: store}
+	catalog := catalogtest.New(t)
+	catalogtest.SeedGame(t, catalog, item)
 	manager := New(Services{GameplayCatalog: catalog})
 
 	unchanged, err := manager.Apply(ctx, mustResource(t, `{

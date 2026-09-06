@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,7 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
 
 func (s *Server) AppendWorkspaceHistory(ctx context.Context, workspaceName string, req AppendHistoryRequest) (HistoryEntry, error) {
@@ -252,7 +251,7 @@ func (s *Server) historyStore(ctx context.Context, workspaceName string) (*Histo
 	return history, err
 }
 
-func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName string) (kv.Store, *HistoryStore, error) {
+func (s *Server) historyStoreWithMetadata(ctx context.Context, workspaceName string) (*sqlx.DB, *HistoryStore, error) {
 	if s == nil {
 		return nil, nil, fmt.Errorf("workspace: nil server")
 	}
@@ -331,20 +330,15 @@ func (s *Server) historyStoreByIDWithFence(ctx context.Context, workspaceID stri
 	return rt.History, nil
 }
 
-func bumpWorkspaceLastActive(ctx context.Context, store kv.Store, workspaceName string, lastActiveAt time.Time) error {
-	if lastActiveAt.IsZero() {
-		lastActiveAt = time.Now().UTC()
+func bumpWorkspaceLastActive(ctx context.Context, db *sqlx.DB, name string, active time.Time) error {
+	if active.IsZero() {
+		active = time.Now().UTC()
 	}
-	workspace, err := getWorkspace(ctx, store, workspaceName)
+	item, err := getWorkspace(ctx, db, name)
 	if err != nil {
 		return err
 	}
-	lastActiveAt = lastActiveAt.UTC()
-	if !lastActiveAt.After(workspace.LastActiveAt) {
-		return nil
-	}
-	workspace.LastActiveAt = lastActiveAt
-	return writeWorkspace(ctx, store, workspace)
+	return bumpSQLWorkspaceActivity(ctx, db, item.Id, active)
 }
 
 // SearchWorkspaceHistoryByID queries persisted history without selecting a runtime.
@@ -360,38 +354,18 @@ func (s *Server) SearchWorkspaceHistoryByID(ctx context.Context, id string, req 
 // ListOwnedHistoryWorkspaces includes domain-owned Workspaces (such as Pets)
 // with an explicit immutable Peer owner. Shared or ownerless spaces are omitted.
 func (s *Server) ListOwnedHistoryWorkspaces(ctx context.Context, owner string) ([]apitypes.Workspace, error) {
-	store, err := s.store()
+	db, err := s.store()
 	if err != nil {
 		return nil, err
 	}
-	result := make([]apitypes.Workspace, 0)
-	cursor := ""
-	for {
-		items, more, next, err := listWorkspacePage(ctx, store, workspacesRoot, cursor, 200, nil)
-		if err != nil {
+	items, err := listAllSQLWorkspaces(ctx, db, workspaceSQLFilter{owner: &owner, activeOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	if len(items) > 0 {
+		if err := s.ensureWorkspaceOwnerAvailable(ctx, items[0]); err != nil {
 			return nil, err
 		}
-		for _, item := range items {
-			if item.OwnerPublicKey == nil || *item.OwnerPublicKey != owner {
-				continue
-			}
-			if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
-				if errors.Is(err, ErrWorkspacePendingDeletion) {
-					continue
-				}
-				return nil, err
-			}
-			if err := s.ensureWorkspaceOwnerAvailable(ctx, item); err != nil {
-				return nil, err
-			}
-			result = append(result, item)
-		}
-		if !more {
-			return result, nil
-		}
-		if next == nil || *next == cursor {
-			return nil, fmt.Errorf("workspace: invalid list continuation")
-		}
-		cursor = *next
 	}
+	return items, nil
 }

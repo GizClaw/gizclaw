@@ -1,50 +1,26 @@
 package workspace
 
 import (
-	"encoding/json"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestPeerWorkspaceRetirementSnapshotsAndMarksOnlyOwnedUserWorkspaces(t *testing.T) {
 	ctx := t.Context()
-	store := kv.NewMemory(nil)
-	server := &Server{Store: store}
+	server := newTestServer(t)
+	store := server.DB
 	now := time.Now().UTC()
 	ownerA, ownerB := "peer-a", "peer-b"
 	itemA := deletionTestWorkspace("workspace-a", "a", &ownerA, false, now)
 	itemB := deletionTestWorkspace("workspace-b", "b", &ownerB, false, now)
 	petWorkspace := deletionTestWorkspace("workspace-pet", "pet-a", &ownerA, true, now)
-	for _, item := range []struct {
-		workspaceID string
-		name        string
-		owner       string
-		value       any
-	}{{itemA.Id, itemA.Name, ownerA, itemA}, {itemB.Id, itemB.Name, ownerB, itemB}} {
-		data, err := json.Marshal(item.value)
-		if err != nil {
+	for _, item := range []apitypes.Workspace{itemA, itemB, petWorkspace} {
+		if err := createSQLWorkspace(ctx, store, item); err != nil {
 			t.Fatal(err)
 		}
-		if err := store.BatchSet(ctx, []kv.Entry{
-			{Key: workspaceKey(item.workspaceID), Value: data},
-			{Key: workspaceByOwnerKey(item.owner, item.name), Value: []byte(item.workspaceID)},
-			{Key: workspaceScopeNameKey(&item.owner, item.name), Value: []byte(item.workspaceID)},
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	petData, err := json.Marshal(petWorkspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.BatchSet(ctx, []kv.Entry{
-		{Key: workspaceKey(petWorkspace.Id), Value: petData},
-		{Key: workspaceScopeNameKey(petWorkspace.OwnerPublicKey, petWorkspace.Name), Value: []byte(petWorkspace.Id)},
-	}); err != nil {
-		t.Fatal(err)
 	}
 	if err := server.fastDeleteWorkspaceRecord(ctx, store, itemA); err != nil {
 		t.Fatalf("preexisting Workspace deletion marker: %v", err)
@@ -58,20 +34,20 @@ func TestPeerWorkspaceRetirementSnapshotsAndMarksOnlyOwnedUserWorkspaces(t *test
 	if err != nil || len(ids) != 1 || ids[0] != itemA.Id {
 		t.Fatalf("RetirePeerWorkspaces() = %#v, %v", ids, err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, itemA.Id); err != nil || !pending {
+	if pending, err := NewPendingDeletionSource(store).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: itemA.Id}); err != nil || !pending {
 		t.Fatalf("owned Workspace marker = %v, %v", pending, err)
 	}
-	if _, err := store.Get(ctx, workspaceKey(itemB.Id)); err != nil {
+	if _, err := getWorkspaceByID(ctx, store, itemB.Id); err != nil {
 		t.Fatalf("foreign Workspace removed: %v", err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, petWorkspace.Id); err != nil || pending {
+	if pending, err := NewPendingDeletionSource(store).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: petWorkspace.Id}); err != nil || pending {
 		t.Fatalf("Pet Workspace marker before Pet completion = %v, %v", pending, err)
 	}
 	petIDs, err := server.RetirePeerPetWorkspaces(ctx, snapshot)
 	if err != nil || len(petIDs) != 1 || petIDs[0] != petWorkspace.Id {
 		t.Fatalf("RetirePeerPetWorkspaces() = %#v, %v", petIDs, err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, petWorkspace.Id); err != nil || !pending {
+	if pending, err := NewPendingDeletionSource(store).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: petWorkspace.Id}); err != nil || !pending {
 		t.Fatalf("Pet Workspace marker after Pet completion = %v, %v", pending, err)
 	}
 	if _, err := server.RetirePeerWorkspaces(ctx, snapshot); err != nil {

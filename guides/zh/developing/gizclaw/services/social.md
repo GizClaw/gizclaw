@@ -17,6 +17,8 @@ services/social/
 
 拥有 peer 的 contact 资源和 contact lifecycle。Contact 是用户维护的通讯录数据，不等同于已经建立的 friend relationship，也不等同于底层 giznet peer connection。
 
+Contact 使用 Server 本地 SQL 连接池中的 `contacts` 业务表。ID、owner、名称、显示名、手机号、规范化手机号、时间和创建标识分别保存为列；数据库约束保证同一 owner 下名称与规范化手机号唯一。按 ID 或 owner/name 直接查询，列表使用 `(owner_public_key, id)` 索引进行游标分页，一次读取完整记录。启动阶段创建表和索引。Peer 清理快照保留创建标识，条件删除不会误删同 ID 重建后的联系人。
+
 ### friend
 
 拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。Friend 关系直接决定双方对 system Workspace 的访问，不创建通用访问 role。
@@ -29,13 +31,19 @@ Friend relationship 行保存 Peer 可见的精确 Workspace name，内部 bindi
 
 Friend invite token 是不透明且区分每个字节的 credential。`friend.add` 只把空值或纯空白值视为缺少参数；其他输入不会做 trim 或格式校验，只有与当前有效 token 完全相等才可建立关系。未知、格式任意、带首尾空白、已清除或已过期的 token 统一返回 not found，调用方自己的 token 返回 conflict。存储读取、解码、有效记录校验或过期记录清理失败统一返回脱敏的 internal error；所有拒绝都不会创建 Friend relationship 或 Workspace，也不会关闭底层 Peer connection。
 
+好友创建、好友删除和群组删除的恢复任务各自维护专用 Set 索引，任务 ID 经哈希分到 256 个集合。一个最多 256 项的目录只记录分片名称；空分片可以留在目录中，以避免清空目录与并发新增任务的竞争。任务记录和成员索引在同一原子操作中写入或删除，恢复过程逐分片读取待处理 ID，再重新读取记录，不扫描业务 key；已完成任务不会永久留在成员集合中。
+
+Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信息写入 256 个分片有序集合，目录最多保存 256 个分片名称；创建／删除好友时，同一原子操作同步更新双方的管理索引。分页游标是不透明值，排序为分片与分片内的 owner／关系 ID，索引范围与返回数量下推到存储后端，仅读取当前页记录，并在页内复用 Workspace binding 查询。
+
 ### friendgroup
+
+群组删除回执保留该群成员的身份和本地名称快照。清理校验只读取群记录、绑定、成员集合及快照中成员的精确归属／名称索引，不扫描全站数据；允许成员将原名称用于另一个群。已删除群的名称通过 `owner + name` 索引直接解析，索引与回执原子提交，较早的删除任务重试不会覆盖较新的同名删除索引。
 
 拥有 friend group、member、invite 以及权威的 canonical `friend_group_id -> workspace_id` 绑定。Admin 始终用 canonical ID 定位 Group；Peer RPC 只接受当前成员自己的本地 Group `name`，服务在 owner/member scope 内把该 name 解析为 canonical ID。不同 Peer 可以为同一 Group 使用不同 name，也可以为各自资源复用相同 name。Group membership 直接决定成员对 group system Workspace 的访问。
 
-每个 Friend Group 生命周期拥有一个 system Workspace。创建 rollback 可以立即删除未投入使用的 Workspace；正式删除群组时先在一个共享 relationship store transaction 中原子删除 Group、invite、member 与 belongs 记录并保存 retirement intent。提交成功后，服务先创建一条 Friend Group 数据 `PendingDeletion`，再把 Workspace 放入它自己的 `PendingDeletion`。runtime 与 artifact 保持物理完整，由各自 ownership 的异步 cleaner 处理。Peer 创建的群归创建者所有；Admin 创建必须显式给出 owner。成员身份只授予 Workspace 访问，不改变 ownership。Workspace 固定绑定内置 `system-sfu` Workflow；Group 的 SFU binding 保存在 `social-workspace-bindings/friend-groups/<groupID>`，随 Group record 的 `CreateIfAbsent` 一起提交。
+每个 Friend Group 生命周期拥有一个 system Workspace。创建 rollback 可以立即删除未投入使用的 Workspace；正式删除群组时先在一个共享 relationship store transaction 中原子删除 Group、invite、member 与 belongs 记录并保存 retirement intent。提交成功后，服务先创建一条 Friend Group 数据 `PendingDeletion`，再把 Workspace 放入它自己的 `PendingDeletion`。runtime 与 artifact 保持物理完整，由各自 ownership 的异步 cleaner 处理。Peer 创建的群归创建者所有；Admin 创建必须显式给出 owner。成员身份只授予 Workspace 访问，不改变 ownership。Workspace 固定绑定内置 `system-sfu` Workflow；Group 的 SFU binding 保存在 `social-workspace-bindings/friend-groups/<groupID>`。群组主记录、binding、owner 成员、名称与集合索引一次原子提交，其他 Server 不会读到尚未初始化 owner 的群组。
 
-Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Friend Group 成员上限固定为 10 人（含 owner），由 `socialutil.FriendGroupMemberLimit` 写死，不通过 RuntimeProfile 或配置调整。`friend_group.join`、`members.add` 与 Admin 创建成员在成员数已达上限时返回 `409 Conflict` 与错误码 `FRIEND_GROUP_FULL`，不消费 invite token。Friend Group 不拥有消息、History、音频 store、独立 TTL 或清理循环。
+Peer membership object 以 `friend_group_name` scope 内的 `name` 作为身份；Admin membership object 继续同时保留 canonical `id` 与 scoped `name`。Friend Group 成员上限固定为 10 人（含 owner），由 `socialutil.FriendGroupMemberLimit` 写死，不通过 RuntimeProfile 或配置调整。成员数已达上限时，`friend_group.join`、`members.add` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `FRIEND_GROUP_FULL`；Admin HTTP 创建成员返回 `409 Conflict` 与错误码 `FRIEND_GROUP_FULL`。这些拒绝不消费 invite token。每次成员增删、角色或群组资料更新都会原子推进共享群组版本；人数检查和整组删除在提交时比较该版本及主记录，过期快照不能提交，调用方需重新读取后重试。Friend Group 不拥有消息、History、音频 store、独立 TTL 或清理循环。
 
 relationship 提交与 Workspace retirement 分成两个可重试阶段：第一阶段失败时
 relationship 与 Workspace 都保持可用；第二阶段失败时保留 retirement intent，
@@ -160,7 +168,7 @@ Floor：runtime 按远端 identity 记录 data channel 上仍打开的 utterance
 - 删除 Friend Group（`friend_group.delete`）。
 - 从 Friend Group 移除成员（`members.delete`、Peer 退休）。
 
-Social 服务在一个 `BatchMutate` 中提交关系变化（binding 被替换时同时递增 `generation`），不向任何 Peer 或 Server 推送取消信号。终止由 SFU runtime 自己完成：它按 `services.sfu.recheck_interval` 周期重读共享 Social KV 中的 binding，成员不再有效、generation 不匹配或 resolver 出错时立即 fail closed，断开 participant 并结束 session。本机与异机 Peer 行为一致，撤权是最终一致的，停止转发的延迟上限为一个 recheck 周期。新的发言不受这个延迟影响：每个入站 BOS 与 Opus packet 都会按 Peer 校验成员身份，失败以 typed EOS 拒绝且不缓存音频。Workspace deletion cleaner 的异步 quiesce 继续负责最终释放。
+Social 服务在一个 `BatchMutate` 中提交关系变化（binding 被替换时同时递增 `generation`），不向任何 Peer 或 Server 推送取消信号。终止由 SFU runtime 自己完成：它按 `services.sfu.recheck_interval` 周期重读共享 Social KV 中的 binding，成员不再有效、generation 不匹配或 resolver 出错时立即 fail closed，断开 participant 并结束 session。本机与异机 Peer 行为一致，撤权是最终一致的，每次刷新最多等待 `min(recheck_interval, 2s)`，停止转发的延迟上限为刷新周期加请求超时，默认 7 秒。刷新错误或超时立即停止转发，不无限延用旧权限。BOS／EOS 使用连接内按运行版本缓存、后台刷新的权限结果；Opus packet 检查本地音频流、权限有效期与 AgentHost 运行版本，不查询数据库。Workspace deletion cleaner 的异步 quiesce 继续负责最终释放。
 
 ### 多 Server materialize
 
@@ -217,3 +225,11 @@ flowchart LR
 新增 social 能力时，应先判断它属于 contact、friend 还是 friend group；只有形成新的独立资源与生命周期时才增加新的子 package。
 
 Contact mutation 与 retirement 按 owner 协调。Friend retirement 快照只持有目标 Peer admission gate，双向关系变化仍按 relation key 串行。Friend Group 快照使用相同的目标 Peer admission 边界；删除群时按 canonical 顺序获取 owner/全部 member Peer 集合及 group lock。退休扫描不会停止与目标 Peer 无关的关系或群。
+
+## 共享查询索引
+
+Friend 与 Friend Group 通过 Workspace ID 和系统生成的规范名称直接读取绑定定位记录。定位记录与绑定同时原子写入，并保留原 Workspace 身份；退休后绑定消失，定位查询返回撤权，关系重建也不会把旧 Workspace 解析到新房间。查询不扫描 binding、retirement intent 或 receipt。
+
+每个 Peer 的好友关系 ID、每个 Peer 的群组 ID、每个群组的成员公钥分别保存在独立 Set。关系和成员的完整记录继续独立保存，角色等字段可以扩展。创建、删除与角色更新通过原子 mutation 保持主记录、名称索引和 Set 一致。群成员 RPC 列表和 Peer 的好友／群组列表从相应集合读取，不执行任意前缀扫描；分页只加载当前页的详细记录。群组的 SFU 鉴权直接读取成员 Set，不逐个加载成员详情。这些集合按 Peer 或群组隔离，不构建全站大 Set。
+
+邀请令牌使用独立的摘要索引定位所属记录，再精确读取主记录并验证令牌和有效期。好友与群组的令牌分别位于各自存储域，查询不扫描其他令牌。令牌替换和显式清除原子更新主记录与索引；同一存储域内不同资源不能占用同一个令牌。过期读取只返回不可用，不执行清理写入；替换时移除旧索引，避免查询清理误删并发生成的新令牌。

@@ -3,27 +3,20 @@ package voice
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-)
-
-var (
-	voicesRoot                  = kv.Key{"by-id"}
-	voicesBySourceRoot          = kv.Key{"by-source"}
-	voicesByProviderRoot        = kv.Key{"by-provider"}
-	voicesByProviderVoiceIDRoot = kv.Key{"by-provider-voice-id"}
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -31,9 +24,10 @@ const (
 	maxListLimit     = 200
 )
 
+// Server owns the local SQL Voice catalog.
 type Server struct {
-	Store kv.Store
-	Now   func() time.Time
+	DB  *sqlx.DB
+	Now func() time.Time
 }
 
 type VoiceAdminService interface {
@@ -57,94 +51,21 @@ var _ ProviderVoiceService = (*Server)(nil)
 // ReconcileProviderVoices makes synchronized voices for one provider tenant
 // match desired while preserving stable IDs and creation timestamps.
 func (s *Server) ReconcileProviderVoices(ctx context.Context, kind apitypes.VoiceProviderKind, providerID string, desired []apitypes.Voice) (int32, int32, int32, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return 0, 0, 0, err
 	}
-	seen := make(map[string]struct{}, len(desired))
-	for _, candidate := range desired {
-		if candidate.Provider.Kind != kind || string(candidate.Provider.Id) != providerID || candidate.Source != apitypes.VoiceSourceSync {
-			return 0, 0, 0, fmt.Errorf("provider voice %q does not belong to %s tenant %q", candidate.Id, kind, providerID)
-		}
-		providerVoiceID := ProviderDataString(candidate, "voice_id")
-		if providerVoiceID == "" {
-			return 0, 0, 0, errors.New("provider voice is missing voice_id")
-		}
-		if _, duplicate := seen[providerVoiceID]; duplicate {
-			return 0, 0, 0, fmt.Errorf("duplicate provider voice_id %q", providerVoiceID)
-		}
-		seen[providerVoiceID] = struct{}{}
-	}
-	existing, err := ListProvider(ctx, store, kind, providerID)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	existingByProviderVoiceID := make(map[string]apitypes.Voice, len(existing))
-	for _, current := range existing {
-		if current.Source != apitypes.VoiceSourceSync {
-			continue
-		}
-		providerVoiceID := ProviderDataString(current, "voice_id")
-		if providerVoiceID != "" {
-			existingByProviderVoiceID[providerVoiceID] = current
-		}
-	}
-
-	var created, updated int32
-	for _, candidate := range desired {
-		providerVoiceID := ProviderDataString(candidate, "voice_id")
-		if previous, ok := existingByProviderVoiceID[providerVoiceID]; ok {
-			candidate.Id = previous.Id
-			candidate.CreatedAt = previous.CreatedAt
-			if SemanticEqual(previous, candidate) {
-				candidate.UpdatedAt = previous.UpdatedAt
-			} else {
-				updated++
-			}
-			previousCopy := previous
-			if err := Write(ctx, store, candidate, &previousCopy); err != nil {
-				return 0, 0, 0, err
-			}
-			continue
-		}
-		created++
-		if err := Write(ctx, store, candidate, nil); err != nil {
-			return 0, 0, 0, err
-		}
-	}
-
-	var deleted int32
-	for providerVoiceID, current := range existingByProviderVoiceID {
-		if _, ok := seen[providerVoiceID]; ok {
-			continue
-		}
-		if err := Delete(ctx, store, current); err != nil {
-			return 0, 0, 0, err
-		}
-		deleted++
-	}
-	return created, updated, deleted, nil
+	return reconcileVoiceSQL(ctx, db, kind, providerID, desired)
 }
 
 // DeleteProviderVoices removes synchronized voices owned by one provider
 // tenant while leaving manually managed voices untouched.
 func (s *Server) DeleteProviderVoices(ctx context.Context, kind apitypes.VoiceProviderKind, providerID string) error {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return err
 	}
-	voices, err := ListProvider(ctx, store, kind, providerID)
-	if err != nil {
-		return err
-	}
-	for _, current := range voices {
-		if current.Source == apitypes.VoiceSourceSync {
-			if err := Delete(ctx, store, current); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return deleteProviderVoiceSQL(ctx, db, kind, providerID)
 }
 
 type Filters struct {
@@ -154,7 +75,7 @@ type Filters struct {
 }
 
 func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceRequestObject) (adminhttp.CreateVoiceResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -168,25 +89,19 @@ func (s *Server) CreateVoice(ctx context.Context, request adminhttp.CreateVoiceR
 	now := s.now()
 	voice.CreatedAt = now
 	voice.UpdatedAt = now
-	data, err := json.Marshal(voice)
-	if err != nil {
-		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: voiceKey(voice.Id), Value: data},
-		voiceIndexEntries(voice),
-	)
+	created, err := insertVoiceSQL(ctx, db, voice)
 	if err != nil {
 		return adminhttp.CreateVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
 		return adminhttp.CreateVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_ALREADY_EXISTS", fmt.Sprintf("voice %q already exists", voice.Id))), nil
 	}
+
 	return adminhttp.CreateVoice200JSONResponse(voice), nil
 }
 
 func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesRequestObject) (adminhttp.ListVoicesResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -210,7 +125,7 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 			filters.ProviderId = &providerID
 		}
 	}
-	items, hasNext, nextCursor, err := listPage(ctx, store, filters, cursor, limit)
+	items, hasNext, nextCursor, err := listVoiceSQL(ctx, db, filters, cursor, limit)
 	if err != nil {
 		return adminhttp.ListVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -222,33 +137,31 @@ func (s *Server) ListVoices(ctx context.Context, request adminhttp.ListVoicesReq
 }
 
 func (s *Server) DeleteVoice(ctx context.Context, request adminhttp.DeleteVoiceRequestObject) (adminhttp.DeleteVoiceResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	voice, err := Get(ctx, store, id)
+	voice, err := deleteVoiceSQL(ctx, db, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
 		}
 		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := Delete(ctx, store, voice); err != nil {
-		return adminhttp.DeleteVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.DeleteVoice200JSONResponse(voice), nil
 }
 
 func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequestObject) (adminhttp.GetVoiceResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	voice, err := Get(ctx, store, id)
+	voice, err := Get(ctx, db, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
 		}
 		return adminhttp.GetVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -257,7 +170,7 @@ func (s *Server) GetVoice(ctx context.Context, request adminhttp.GetVoiceRequest
 }
 
 func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequestObject) (adminhttp.PutVoiceResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -269,24 +182,32 @@ func (s *Server) PutVoice(ctx context.Context, request adminhttp.PutVoiceRequest
 	if err != nil {
 		return adminhttp.PutVoice400JSONResponse(apitypes.NewErrorResponse("INVALID_VOICE", err.Error())), nil
 	}
-	previous, err := Get(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
+	data, err := json.Marshal(voice.ProviderData)
+	if err != nil {
+		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	var providerVoiceID *string
+	if value := ProviderDataString(voice, "voice_id"); value != "" {
+		providerVoiceID = &value
+	}
+	voice, err = scanVoice(db.QueryRowContext(ctx, db.Rebind(`UPDATE voices SET source=?,provider_kind=?,provider_id=?,provider_voice_id=?,provider_data_json=?,display_name=?,description=?,updated_at=? WHERE id=? AND source<>'sync' RETURNING `+voiceSQLColumns), string(voice.Source), string(voice.Provider.Kind), voice.Provider.Id, providerVoiceID, string(data), voice.DisplayName, voice.Description, s.now().Format(time.RFC3339Nano), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		current, lookupErr := Get(ctx, db, id)
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			return adminhttp.PutVoice404JSONResponse(apitypes.NewErrorResponse("VOICE_NOT_FOUND", fmt.Sprintf("voice %q not found", id))), nil
+		}
+		if lookupErr != nil {
+			return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", lookupErr.Error())), nil
+		}
+		if current.Source == apitypes.VoiceSourceSync {
+			return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", id))), nil
+		}
+		return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("VOICE_CONFLICT", "voice changed concurrently")), nil
 	}
 	if err != nil {
 		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	now := s.now()
-	voice.CreatedAt = now
-	voice.UpdatedAt = now
-	if previous.Source == apitypes.VoiceSourceSync {
-		return adminhttp.PutVoice409JSONResponse(apitypes.NewErrorResponse("SYNC_VOICE_READ_ONLY", fmt.Sprintf("voice %q has source sync and cannot be modified via API", previous.Id))), nil
-	}
-	voice.CreatedAt = previous.CreatedAt
-	voice.SyncedAt = cloneTime(previous.SyncedAt)
-	if err := Write(ctx, store, voice, &previous); err != nil {
-		return adminhttp.PutVoice500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.PutVoice200JSONResponse(voice), nil
 }
 
@@ -447,127 +368,70 @@ func SemanticEqual(left, right apitypes.Voice) bool {
 		providerDataEqual(left.ProviderData, right.ProviderData)
 }
 
-func ListProvider(ctx context.Context, store kv.Store, kind apitypes.VoiceProviderKind, providerID string) ([]apitypes.Voice, error) {
-	prefix := voiceByProviderPrefix(string(kind), providerID)
-	items := make([]apitypes.Voice, 0)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, err
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		id := entry.Key[len(entry.Key)-1]
-		voice, err := Get(ctx, store, unescapeStoreSegment(id))
-		if err != nil {
-			if errors.Is(err, kv.ErrNotFound) {
-				continue
-			}
-			return nil, err
-		}
-		items = append(items, voice)
+// ListProvider reads records belonging to one Provider from its SQL index.
+func ListProvider(ctx context.Context, db *sqlx.DB, kind apitypes.VoiceProviderKind, providerID string) ([]apitypes.Voice, error) {
+	rows, err := db.QueryContext(ctx, db.Rebind(`SELECT `+voiceSQLColumns+` FROM voices WHERE provider_kind=? AND provider_id=? ORDER BY id`), string(kind), providerID)
+	if err != nil {
+		return nil, err
 	}
-	return items, nil
+	defer rows.Close()
+	items := make([]apitypes.Voice, 0)
+	for rows.Next() {
+		item, err := scanVoice(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }
 
-func Write(ctx context.Context, store kv.Store, voice apitypes.Voice, previous *apitypes.Voice) error {
-	data, err := json.Marshal(voice)
-	if err != nil {
-		return fmt.Errorf("voice: encode voice %s: %w", voice.Id, err)
-	}
-	var deletes []kv.Key
-	if previous != nil {
-		deletes = staleIndexKeys(*previous, voice)
-	}
-	entries := []kv.Entry{
-		{Key: voiceKey(string(voice.Id)), Value: data},
-		{Key: voiceBySourceKey(string(voice.Source), string(voice.Id)), Value: []byte{}},
-		{Key: voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Id), string(voice.Id)), Value: []byte{}},
-	}
-	if providerVoiceID := ProviderDataString(voice, "voice_id"); providerVoiceID != "" {
-		entries = append(entries, kv.Entry{
-			Key:   voiceByProviderVoiceIDKey(string(voice.Provider.Kind), string(voice.Provider.Id), providerVoiceID),
-			Value: []byte(string(voice.Id)),
-		})
-	}
+// Write creates a record, or replaces an existing record when previous is supplied.
+func Write(ctx context.Context, db *sqlx.DB, item apitypes.Voice, previous *apitypes.Voice) error {
 	if previous == nil {
-		_, created, err := kv.CreateIfAbsent(ctx, store,
-			kv.Entry{Key: voiceKey(voice.Id), Value: data},
-			voiceIndexEntries(voice),
-		)
+		created, err := insertVoiceSQL(ctx, db, item)
 		if err != nil {
-			return fmt.Errorf("voice: create voice %s: %w", voice.Id, err)
+			return err
 		}
 		if !created {
-			return fmt.Errorf("voice: id %q already exists", voice.Id)
+			return fmt.Errorf("voice: id %q already exists", item.Id)
 		}
 		return nil
 	}
-	if err := store.BatchMutate(ctx, entries, deletes); err != nil {
-		return fmt.Errorf("voice: write voice %s: %w", voice.Id, err)
-	}
-	return nil
-}
-
-func Delete(ctx context.Context, store kv.Store, voice apitypes.Voice) error {
-	keys := []kv.Key{
-		voiceKey(string(voice.Id)),
-		voiceBySourceKey(string(voice.Source), string(voice.Id)),
-		voiceByProviderKey(string(voice.Provider.Kind), string(voice.Provider.Id), string(voice.Id)),
-	}
-	if providerVoiceID := ProviderDataString(voice, "voice_id"); providerVoiceID != "" {
-		keys = append(keys, voiceByProviderVoiceIDKey(
-			string(voice.Provider.Kind),
-			string(voice.Provider.Id),
-			providerVoiceID,
-		))
-	}
-	if err := store.BatchDelete(ctx, keys); err != nil {
-		return fmt.Errorf("voice: delete voice %s: %w", voice.Id, err)
-	}
-	return nil
-}
-
-func Get(ctx context.Context, store kv.Store, id string) (apitypes.Voice, error) {
-	data, err := store.Get(ctx, voiceKey(id))
+	values, err := voiceSQLValues(item)
 	if err != nil {
-		return apitypes.Voice{}, err
-	}
-	var voice apitypes.Voice
-	if err := Decode(data, &voice); err != nil {
-		return apitypes.Voice{}, fmt.Errorf("voice: decode voice %s: %w", id, err)
-	}
-	return voice, nil
-}
-
-func Decode(data []byte, out *apitypes.Voice) error {
-	var decoded struct {
-		apitypes.Voice
-		ProviderVoiceID   *string         `json:"provider_voice_id,omitempty"`
-		ProviderVoiceType *string         `json:"provider_voice_type,omitempty"`
-		Raw               *map[string]any `json:"raw,omitempty"`
-	}
-	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
 	}
-	voice := decoded.Voice
-	if voice.ProviderData == nil {
-		values := map[string]any{
-			"raw":        RawMapValue(decoded.Raw),
-			"voice_id":   stringPtrValue(decoded.ProviderVoiceID),
-			"voice_type": stringPtrValue(decoded.ProviderVoiceType),
-		}
-		voice.ProviderData = ProviderData(voice.Provider.Kind, values)
+	args := append(values[1:], item.Id)
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE voices SET source=?,provider_kind=?,provider_id=?,provider_voice_id=?,provider_data_json=?,display_name=?,description=?,created_at=?,updated_at=?,synced_at=? WHERE id=?`), args...)
+	if err != nil {
+		return err
 	}
-	*out = voice
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
 	return nil
 }
 
-func (s *Server) store() (kv.Store, error) {
-	if s == nil || s.Store == nil {
-		return nil, errors.New("voice: nil store")
+// Delete removes a Voice by its ID.
+func Delete(ctx context.Context, db *sqlx.DB, item apitypes.Voice) error {
+	_, err := deleteVoiceSQL(ctx, db, item.Id)
+	return err
+}
+
+// Get looks up one Voice by its exact ID.
+func Get(ctx context.Context, db *sqlx.DB, id string) (apitypes.Voice, error) {
+	return getVoiceSQL(ctx, db, id)
+}
+func (s *Server) database() (*sqlx.DB, error) {
+	if s == nil || s.DB == nil {
+		return nil, errors.New("voice: database not configured")
 	}
-	return s.Store, nil
+	return s.DB, nil
 }
 
 func (s *Server) now() time.Time {
@@ -627,99 +491,6 @@ func normalizeVoiceUpsert(in adminhttp.VoiceUpsert, expectedID string) (apitypes
 		voice.ProviderData = cloneProviderData(in.ProviderData)
 	}
 	return voice, nil
-}
-
-func listPage(ctx context.Context, store kv.Store, filters Filters, cursor string, limit int) ([]apitypes.Voice, bool, *string, error) {
-	prefix := voicesRoot
-	switch {
-	case filters.ProviderKind != nil && filters.ProviderId != nil:
-		prefix = voiceByProviderPrefix(*filters.ProviderKind, *filters.ProviderId)
-	case filters.Source != nil:
-		prefix = voiceBySourcePrefix(*filters.Source)
-	}
-	items := make([]apitypes.Voice, 0, limit+1)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, false, nil, err
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		lastSegment := entry.Key[len(entry.Key)-1]
-		if cursor != "" && lastSegment <= cursor {
-			continue
-		}
-		var voice apitypes.Voice
-		if prefix.String() == voicesRoot.String() {
-			if err := Decode(entry.Value, &voice); err != nil {
-				return nil, false, nil, fmt.Errorf("voice: decode voice list %s: %w", entry.Key.String(), err)
-			}
-		} else {
-			decodedID := unescapeStoreSegment(lastSegment)
-			var err error
-			voice, err = Get(ctx, store, decodedID)
-			if err != nil {
-				if errors.Is(err, kv.ErrNotFound) {
-					continue
-				}
-				return nil, false, nil, err
-			}
-		}
-		if !matchesFilters(voice, filters) {
-			continue
-		}
-		items = append(items, voice)
-		if len(items) >= limit+1 {
-			break
-		}
-	}
-	if len(items) == 0 {
-		return []apitypes.Voice{}, false, nil, nil
-	}
-	hasNext := len(items) > limit
-	if !hasNext {
-		return items, false, nil, nil
-	}
-	page := items[:limit]
-	next := escapeStoreSegment(string(page[len(page)-1].Id))
-	return page, true, &next, nil
-}
-
-func matchesFilters(voice apitypes.Voice, filters Filters) bool {
-	if filters.Source != nil && string(voice.Source) != *filters.Source {
-		return false
-	}
-	if filters.ProviderKind != nil && string(voice.Provider.Kind) != *filters.ProviderKind {
-		return false
-	}
-	if filters.ProviderId != nil && string(voice.Provider.Id) != *filters.ProviderId {
-		return false
-	}
-	return true
-}
-
-func staleIndexKeys(previous, next apitypes.Voice) []kv.Key {
-	var keys []kv.Key
-	if previous.Source != next.Source {
-		keys = append(keys, voiceBySourceKey(string(previous.Source), string(previous.Id)))
-	}
-	if previous.Provider.Kind != next.Provider.Kind || previous.Provider.Id != next.Provider.Id {
-		keys = append(keys, voiceByProviderKey(string(previous.Provider.Kind), string(previous.Provider.Id), string(previous.Id)))
-	}
-	previousProviderVoiceID := ProviderDataString(previous, "voice_id")
-	if previousProviderVoiceID != "" {
-		nextProviderVoiceID := ProviderDataString(next, "voice_id")
-		if previous.Provider.Kind != next.Provider.Kind ||
-			previous.Provider.Id != next.Provider.Id ||
-			previousProviderVoiceID != nextProviderVoiceID {
-			keys = append(keys, voiceByProviderVoiceIDKey(
-				string(previous.Provider.Kind),
-				string(previous.Provider.Id),
-				previousProviderVoiceID,
-			))
-		}
-	}
-	return keys
 }
 
 func providerDataEqual(left, right *apitypes.VoiceProviderData) bool {
@@ -892,62 +663,4 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 		normalizedCursor = strings.TrimSpace(string(*cursor))
 	}
 	return normalizedCursor, normalizedLimit
-}
-
-func voiceKey(id string) kv.Key {
-	return append(append(kv.Key{}, voicesRoot...), escapeStoreSegment(id))
-}
-
-func voiceEntries(voice apitypes.Voice, data []byte) []kv.Entry {
-	return append([]kv.Entry{{Key: voiceKey(voice.Id), Value: data}}, voiceIndexEntries(voice)...)
-}
-
-func voiceIndexEntries(voice apitypes.Voice) []kv.Entry {
-	entries := []kv.Entry{
-		{Key: voiceBySourceKey(string(voice.Source), voice.Id), Value: []byte{}},
-		{Key: voiceByProviderKey(string(voice.Provider.Kind), voice.Provider.Id, voice.Id), Value: []byte{}},
-	}
-	if providerVoiceID := ProviderDataString(voice, "voice_id"); providerVoiceID != "" {
-		entries = append(entries, kv.Entry{
-			Key:   voiceByProviderVoiceIDKey(string(voice.Provider.Kind), voice.Provider.Id, providerVoiceID),
-			Value: []byte(voice.Id),
-		})
-	}
-	return entries
-}
-
-func voiceBySourcePrefix(source string) kv.Key {
-	return append(append(kv.Key{}, voicesBySourceRoot...), escapeStoreSegment(source))
-}
-
-func voiceBySourceKey(source, id string) kv.Key {
-	return append(voiceBySourcePrefix(source), escapeStoreSegment(id))
-}
-
-func voiceByProviderPrefix(kind, providerID string) kv.Key {
-	prefix := append(append(kv.Key{}, voicesByProviderRoot...), escapeStoreSegment(kind))
-	return append(prefix, escapeStoreSegment(providerID))
-}
-
-func voiceByProviderKey(kind, providerID, id string) kv.Key {
-	return append(voiceByProviderPrefix(kind, providerID), escapeStoreSegment(id))
-}
-
-func voiceByProviderVoiceIDKey(kind, providerID, providerVoiceID string) kv.Key {
-	key := append(append(kv.Key{}, voicesByProviderVoiceIDRoot...), escapeStoreSegment(kind))
-	key = append(key, escapeStoreSegment(providerID))
-	return append(key, escapeStoreSegment(providerVoiceID))
-}
-
-func escapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%", "%25")
-	return strings.ReplaceAll(value, ":", "%3A")
-}
-
-func unescapeStoreSegment(value string) string {
-	unescaped, err := url.PathUnescape(value)
-	if err != nil {
-		return value
-	}
-	return unescaped
 }

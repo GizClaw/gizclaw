@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/contacttest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
@@ -723,7 +725,7 @@ func newSocialResourceManager(t *testing.T) *Manager {
 	workspaces := socialWorkspaceService{}
 	return New(Services{
 		Contacts: &contact.Server{
-			Store: kv.NewMemory(nil),
+			DB:    contacttest.New(t).DB,
 			NewID: func() string { return "alice001" },
 		},
 		Friends: &friend.Server{

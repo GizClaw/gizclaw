@@ -5,9 +5,11 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -100,9 +102,9 @@ func (r managerSFUBindings) resolve(lookup func(sfu.BindingResolver) (socialutil
 // sfuInputAccess classifies one inbound turn for the named Workspace. The
 // first result reports whether the Workspace is an SFU Workspace; the second is
 // the denial the Peer must receive, or nil when input may flow. The check
-// reads the authoritative Social KV by Workspace name: the Server-local
-// catalog indexes Social Workspaces under their creator's scope, so a lookup
-// on behalf of another member would not find them.
+// first recognizes ordinary owner-scoped Workspaces locally. Social Workspaces
+// use the authoritative binding by name because their local catalog copy may
+// be absent when accessed from another Server.
 func (m *Manager) sfuInputAccess(
 	ctx context.Context,
 	caller giznet.PublicKey,
@@ -112,6 +114,17 @@ func (m *Manager) sfuInputAccess(
 		return false, sfuAccessCheckFailedError()
 	}
 	workspaceName = strings.TrimSpace(workspaceName)
+	// An exact owner-scoped ordinary Workspace needs no Social membership
+	// lookup. Shared Workspaces may not yet be materialized on this Server,
+	// so an absent local record still goes through the authoritative resolver.
+	if catalog, ok := m.Workspaces.(interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	}); ok {
+		item, err := catalog.GetWorkspaceByName(ownership.WithOwner(ctx, caller.String()), workspaceName)
+		if err == nil && strings.TrimSpace(item.WorkflowId) != socialutil.SFUWorkflowID {
+			return false, nil
+		}
+	}
 	_, err := m.sfuBindings().ResolveSFUWorkspaceBindingByName(ctx, workspaceName, caller.String())
 	switch {
 	case err == nil:

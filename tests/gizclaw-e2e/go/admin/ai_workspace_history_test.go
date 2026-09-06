@@ -38,7 +38,7 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromWorkflowWorkspace(t *testing.T) {
 		t.Fatalf("workspace history list = %#v", history.JSON200)
 	}
 	first := history.JSON200.Items[0]
-	if first.Id == "" || first.Text == "" || !first.ReplayAvailable || first.GearId == nil {
+	if first.Id == "" || first.Text == "" || !first.ReplayAvailable || first.GearId != nil || string(first.Type) != "agent" {
 		t.Fatalf("first workspace history = %#v", first)
 	}
 	if first.Text != texts[0] {
@@ -116,7 +116,7 @@ func requireAdminSocialWorkspaceHistoryEmpty(t *testing.T, env *adminAPIHarness,
 const (
 	adminHistoryCollection    = "assistants"
 	adminHistoryWorkflowAlias = "echo"
-	adminHistoryWorkflowID    = "flowcraft-scenario-000"
+	adminHistoryWorkflowID    = "admin-history-echo"
 )
 
 func createAdminWorkflowWorkspaceHistory(t *testing.T, env *adminAPIHarness) (string, string, []string) {
@@ -177,6 +177,45 @@ func createAdminWorkflowWorkspaceHistory(t *testing.T, env *adminAPIHarness) (st
 	return workspaceName, workspace.Id, texts
 }
 
+// The fixture emits real assistant text; a passthrough node emits no content.
+func ensureAdminHistoryWorkflow(t *testing.T, env *adminAPIHarness) {
+	t.Helper()
+	var node apitypes.FlowcraftNode
+	if err := node.FromFlowcraftScriptNode(apitypes.FlowcraftScriptNode{
+		Id: "echo", Type: apitypes.FlowcraftScriptNodeTypeScript, Publish: ptr(true),
+		Config: apitypes.FlowcraftScriptNodeConfig{Source: `host.emit("token", {content: board.getVar("input")});`},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	body := adminhttp.WorkflowUpsert{Id: adminHistoryWorkflowID, Spec: apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverFlowcraft,
+		Flowcraft: &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{
+			Name: "Admin history echo", Entry: "echo", Nodes: []apitypes.FlowcraftNode{node},
+			Edges: &[]apitypes.FlowcraftEdge{{From: "echo", To: "__end__"}},
+		}},
+	}}
+	existing, err := env.api.GetWorkflowWithResponse(env.ctx, adminHistoryWorkflowID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if existing.JSON200 != nil {
+		updated, err := env.api.PutWorkflowWithResponse(env.ctx, adminHistoryWorkflowID, body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requireStatusOK(t, updated, updated.Body)
+		return
+	}
+	if existing.StatusCode() != 404 {
+		t.Fatalf("get history workflow: status=%d body=%s", existing.StatusCode(), existing.Body)
+	}
+	created, err := env.api.CreateWorkflowWithResponse(env.ctx, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireStatusOK(t, created, created.Body)
+}
+
 func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*gizcli.Client) {
 	t.Helper()
 
@@ -191,10 +230,15 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 			"zh-CN": {DisplayName: "回声"},
 		},
 	}
+	resources, err := clitest.SetupRuntimeResources(env.ctx, env.api)
+	if err != nil {
+		t.Fatalf("read E2E runtime resources: %v", err)
+	}
+	ensureAdminHistoryWorkflow(t, env)
 	profile, err := clitest.UpsertRuntimeProfile(env.ctx, env.api, adminhttp.RuntimeProfileUpsert{
 		Id: profileName,
 		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{},
+			Resources: resources,
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
 					Pet: "pet-care",

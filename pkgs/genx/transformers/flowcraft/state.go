@@ -3,20 +3,18 @@ package flowcraft
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/GizClaw/flowcraft/sdk/engine"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func loadBoardState(ctx context.Context, store kv.Store, contextID string) (map[string]any, error) {
+func loadBoardState(ctx context.Context, store StateStore, contextID string) (map[string]any, error) {
 	if store == nil {
 		return nil, nil
 	}
-	data, err := store.Get(ctx, kv.Key{contextID})
-	if errors.Is(err, kv.ErrNotFound) {
+	data, err := store.LoadState(ctx, contextID)
+	if err == nil && data == nil {
 		return nil, nil
 	}
 	if err != nil {
@@ -29,7 +27,7 @@ func loadBoardState(ctx context.Context, store kv.Store, contextID string) (map[
 	return state, nil
 }
 
-func saveBoardState(ctx context.Context, store kv.Store, contextID string, board *engine.Board) error {
+func saveBoardState(ctx context.Context, store StateStore, contextID string, board *engine.Board) error {
 	if store == nil || board == nil {
 		return nil
 	}
@@ -41,7 +39,7 @@ func saveBoardState(ctx context.Context, store kv.Store, contextID string, board
 	if err != nil {
 		return fmt.Errorf("flowcraft: encode State: %w", err)
 	}
-	if err := store.Set(ctx, kv.Key{contextID}, data); err != nil {
+	if err := store.SaveState(ctx, contextID, data); err != nil {
 		return fmt.Errorf("flowcraft: save State: %w", err)
 	}
 	return nil

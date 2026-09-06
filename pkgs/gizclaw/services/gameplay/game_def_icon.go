@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func (c *Catalog) DownloadGameDefIcon(ctx context.Context, request adminhttp.DownloadGameDefIconRequestObject) (adminhttp.DownloadGameDefIconResponseObject, error) {
@@ -20,7 +20,7 @@ func (c *Catalog) DownloadGameDefIcon(ctx context.Context, request adminhttp.Dow
 	}
 	doc, err := c.GetGameDefByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DownloadGameDefIcon404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", "game def not found")), nil
 		}
 		return adminhttp.DownloadGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to load game def icon metadata")), nil
@@ -57,7 +57,7 @@ func (c *Catalog) UploadGameDefIcon(ctx context.Context, request adminhttp.Uploa
 	defer unlock()
 	_, err = c.GetGameDefByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.UploadGameDefIcon404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", "game def not found")), nil
 		}
 		return adminhttp.UploadGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to load game def icon metadata")), nil
@@ -71,16 +71,16 @@ func (c *Catalog) UploadGameDefIcon(ctx context.Context, request adminhttp.Uploa
 	}
 	recordUnlock := c.IconLocks.LockRecord(id)
 	defer recordUnlock()
-	doc, err := c.GetGameDefByID(ctx, id)
+	doc, version, err := getGameDefSQL(ctx, c.DB, id)
 	if err != nil {
 		return adminhttp.UploadGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to reload game def icon metadata")), nil
 	}
 	doc.Icon = iconasset.SetSlot(doc.Icon, format, &objectName)
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.UploadGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "game def store not configured")), nil
 	}
-	if err := writeJSON(ctx, store, gameDefKey(id), doc); err != nil {
+	if _, _, err := updateGameDefSQL(ctx, store, doc, version); err != nil {
 		return adminhttp.UploadGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to update game def icon")), nil
 	}
 	return adminhttp.UploadGameDefIcon200JSONResponse(doc), nil
@@ -95,7 +95,7 @@ func (c *Catalog) DeleteGameDefIcon(ctx context.Context, request adminhttp.Delet
 	defer unlock()
 	_, err = c.GetGameDefByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteGameDefIcon404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", "game def not found")), nil
 		}
 		return adminhttp.DeleteGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "game def store not configured")), nil
@@ -108,16 +108,16 @@ func (c *Catalog) DeleteGameDefIcon(ctx context.Context, request adminhttp.Delet
 	}
 	recordUnlock := c.IconLocks.LockRecord(id)
 	defer recordUnlock()
-	doc, err := c.GetGameDefByID(ctx, id)
+	doc, version, err := getGameDefSQL(ctx, c.DB, id)
 	if err != nil {
 		return adminhttp.DeleteGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to reload game def icon metadata")), nil
 	}
 	doc.Icon = iconasset.SetSlot(doc.Icon, format, nil)
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.DeleteGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := writeJSON(ctx, store, gameDefKey(id), doc); err != nil {
+	if _, _, err := updateGameDefSQL(ctx, store, doc, version); err != nil {
 		return adminhttp.DeleteGameDefIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to update game def icon")), nil
 	}
 	return adminhttp.DeleteGameDefIcon200JSONResponse(doc), nil

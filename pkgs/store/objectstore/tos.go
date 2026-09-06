@@ -85,8 +85,7 @@ func tosObjectError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var serverErr *tos.TosServerError
-	if errors.As(err, &serverErr) {
+	if serverErr, ok := errors.AsType[*tos.TosServerError](err); ok {
 		if serverErr.StatusCode == http.StatusNotFound {
 			return fs.ErrNotExist
 		}

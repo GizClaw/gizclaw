@@ -94,24 +94,19 @@ func resourceKindAndID(resource apitypes.Resource) (apitypes.ResourceKind, strin
 
 func safeResourceInputError(path string, err error) error {
 	input := resourceInputName(path)
-	var formatError *unsupportedResourceFormatError
-	if errors.As(err, &formatError) {
+	if formatError, ok := errors.AsType[*unsupportedResourceFormatError](err); ok {
 		return fmt.Errorf("%s: %w", input, formatError)
 	}
-	var envError *missingResourceEnvError
-	if errors.As(err, &envError) {
+	if envError, ok := errors.AsType[*missingResourceEnvError](err); ok {
 		return fmt.Errorf("%s: environment variable %s is required", input, envError.name)
 	}
-	var kindError *unknownResourceKindError
-	if errors.As(err, &kindError) {
+	if _, ok := errors.AsType[*unknownResourceKindError](err); ok {
 		return fmt.Errorf("%s: /kind [discriminator]: invalid resource kind", input)
 	}
-	var syntaxError *json.SyntaxError
-	if errors.As(err, &syntaxError) {
+	if syntaxError, ok := errors.AsType[*json.SyntaxError](err); ok {
 		return fmt.Errorf("%s: invalid JSON at byte %d", input, syntaxError.Offset)
 	}
-	var yamlError yaml.Error
-	if errors.As(err, &yamlError) {
+	if yamlError, ok := errors.AsType[yaml.Error](err); ok {
 		if token := yamlError.GetToken(); token != nil && token.Position != nil {
 			return fmt.Errorf("%s: invalid YAML at line %d, column %d", input, token.Position.Line, token.Position.Column)
 		}

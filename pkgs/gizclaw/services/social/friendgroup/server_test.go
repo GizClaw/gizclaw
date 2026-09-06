@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"iter"
 	"slices"
 	"strings"
 	"sync"
@@ -447,7 +446,7 @@ func TestAdminDeleteFriendGroupMemberFollowsTheConfiguredMemberStores(t *testing
 	}
 }
 
-func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing.T) {
+func TestAdminCreateFriendGroupRejectsSeparateMemberStore(t *testing.T) {
 	ctx := t.Context()
 	groups := kv.NewMemory(nil)
 	workspaces := &recordingWorkspaceService{}
@@ -462,8 +461,8 @@ func TestAdminCreateFriendGroupRollsBackOnOwnerMembershipWriteFailure(t *testing
 	if _, err := groups.Get(ctx, socialutil.GroupKey("id-a")); !errors.Is(err, kv.ErrNotFound) {
 		t.Fatalf("group after rollback error = %v, want not found", err)
 	}
-	if len(workspaces.deleted) != 1 {
-		t.Fatalf("deleted workspaces = %#v, want one workspace rollback", workspaces.deleted)
+	if len(workspaces.created) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf("misconfigured store mutated Workspaces: created=%#v deleted=%#v", workspaces.created, workspaces.deleted)
 	}
 }
 
@@ -768,7 +767,7 @@ func TestDeleteFriendGroupBatchFailureKeepsRelationshipsAndWorkspace(t *testing.
 	}
 }
 
-func TestDeleteFriendGroupRequiresConditionalCreateBeforeRelationshipMutation(t *testing.T) {
+func TestDeleteFriendGroupRejectsDifferentAtomicStore(t *testing.T) {
 	ctx := t.Context()
 	workspaces := &recordingWorkspaceService{}
 	s := newTestServer(t)
@@ -784,7 +783,7 @@ func TestDeleteFriendGroupRequiresConditionalCreateBeforeRelationshipMutation(t 
 		ctx,
 		"peer-a",
 		rpcapi.FriendGroupDeleteRequest{Name: group.Name},
-	); !errors.Is(err, kv.ErrCreateIfAbsentUnsupported) {
+	); err == nil || !strings.Contains(err.Error(), "do not share an atomic store") {
 		t.Fatalf("DeleteFriendGroup without conditional create error = %v", err)
 	}
 	if _, err := s.AdminGetFriendGroup(ctx, groupID); err != nil {
@@ -940,7 +939,7 @@ func TestPeerRetirementSnapshotOnlyBlocksGroupsForTargetPeer(t *testing.T) {
 	release := make(chan struct{})
 	s.Belongs = &blockingGroupListStore{
 		Store:   s.Belongs,
-		prefix:  append(append(kv.Key{}, socialutil.GroupBelongsRoot...), socialutil.EscapeStoreSegment("peer-a")),
+		prefix:  belongCollectionKey("peer-a"),
 		entered: entered, release: release,
 	}
 	secondary := *s
@@ -1156,7 +1155,7 @@ func TestConfigurationErrorsAndHelpers(t *testing.T) {
 	}
 }
 
-func TestCreateRollsBackPartialWrites(t *testing.T) {
+func TestCreateRejectsSeparateStoresWithoutWrites(t *testing.T) {
 	ctx := context.Background()
 	groupStore := kv.NewMemory(nil)
 	s := newTestServer(t)
@@ -1170,15 +1169,9 @@ func TestCreateRollsBackPartialWrites(t *testing.T) {
 	if group.Name != "" {
 		t.Fatalf("CreateFriendGroup returned partial group = %#v", group)
 	}
-	var groups []kv.Entry
-	for entry, err := range groupStore.List(ctx, socialutil.GroupsRoot) {
-		if err != nil {
-			t.Fatalf("list groups after rollback: %v", err)
-		}
-		groups = append(groups, entry)
-	}
-	if len(groups) != 0 {
-		t.Fatalf("groups after rollback = %#v, want empty", groups)
+	page, listErr := listAdminGroupRecords(ctx, groupStore, "", 1)
+	if listErr != nil || len(page.Items) != 0 {
+		t.Fatalf("groups after rollback: %#v, %v", page, listErr)
 	}
 
 	workspaces := &recordingWorkspaceService{}
@@ -1188,8 +1181,8 @@ func TestCreateRollsBackPartialWrites(t *testing.T) {
 	if _, err := s.CreateFriendGroup(ctx, "peer-a", rpcapi.FriendGroupCreateRequest{Name: "room"}); err == nil {
 		t.Fatal("CreateFriendGroup with failing group store error = nil")
 	}
-	if len(workspaces.deleted) != 1 {
-		t.Fatalf("deleted workspaces after group write rollback = %#v, want one", workspaces.deleted)
+	if len(workspaces.created) != 0 || len(workspaces.deleted) != 0 {
+		t.Fatalf("misconfigured store mutated Workspaces: created=%#v deleted=%#v", workspaces.created, workspaces.deleted)
 	}
 }
 
@@ -1219,6 +1212,9 @@ func TestCreateMemberAtomicallyClaimsIdentityAcrossServers(t *testing.T) {
 
 	primary := newTestServer(t)
 	friendGroupID := "group-atomic"
+	if _, err := primary.AdminCreateFriendGroup(t.Context(), friendGroupID, "owner", "owner-room", nil, nil); err != nil {
+		t.Fatal(err)
+	}
 	secondary := &Server{
 		Groups:            primary.Groups,
 		InviteTokens:      primary.InviteTokens,
@@ -1360,17 +1356,11 @@ type blockingGroupListStore struct {
 	once             sync.Once
 }
 
-func (s *blockingGroupListStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
-	entries := s.Store.List(ctx, prefix)
-	return func(yield func(kv.Entry, error) bool) {
-		if slices.Equal(prefix, s.prefix) {
-			s.once.Do(func() {
-				close(s.entered)
-				<-s.release
-			})
-		}
-		entries(yield)
+func (s *blockingGroupListStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	if slices.Equal(key, s.prefix) {
+		s.once.Do(func() { close(s.entered); <-s.release })
 	}
+	return s.Store.ListMembers(ctx, key)
 }
 
 func (s failingSetStore) Set(context.Context, kv.Key, []byte) error {
@@ -1417,10 +1407,6 @@ func (s storeWithoutCreateIfAbsent) Set(ctx context.Context, key kv.Key, value [
 
 func (s storeWithoutCreateIfAbsent) Delete(ctx context.Context, key kv.Key) error {
 	return s.store.Delete(ctx, key)
-}
-
-func (s storeWithoutCreateIfAbsent) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
-	return s.store.List(ctx, prefix)
 }
 
 func (s storeWithoutCreateIfAbsent) BatchSet(ctx context.Context, entries []kv.Entry) error {
@@ -1564,4 +1550,32 @@ func (s failingWorkspaceService) DeleteWorkspace(context.Context, adminhttp.Dele
 //go:fix inline
 func strPtr(v string) *string {
 	return new(v)
+}
+
+func (s storeWithoutCreateIfAbsent) AddMembers(ctx context.Context, key kv.Key, members ...string) error {
+	return s.store.AddMembers(ctx, key, members...)
+}
+func (s storeWithoutCreateIfAbsent) RemoveMembers(ctx context.Context, key kv.Key, members ...string) error {
+	return s.store.RemoveMembers(ctx, key, members...)
+}
+func (s storeWithoutCreateIfAbsent) HasMember(ctx context.Context, key kv.Key, member string) (bool, error) {
+	return s.store.HasMember(ctx, key, member)
+}
+func (s storeWithoutCreateIfAbsent) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	return s.store.ListMembers(ctx, key)
+}
+func (s storeWithoutCreateIfAbsent) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	return s.store.ApplyMutation(ctx, mutation)
+}
+
+func (s failingBatchMutateStore) ApplyMutation(context.Context, kv.Mutation) (bool, error) {
+	return false, errors.New("forced batch mutate failure")
+}
+
+func (s storeWithoutCreateIfAbsent) RangeOrderedMembers(ctx context.Context, key kv.Key, query kv.OrderedRange) ([]string, error) {
+	return s.store.RangeOrderedMembers(ctx, key, query)
+}
+
+func (s failingSetStore) ApplyMutation(context.Context, kv.Mutation) (bool, error) {
+	return false, errors.New("forced set failure")
 }

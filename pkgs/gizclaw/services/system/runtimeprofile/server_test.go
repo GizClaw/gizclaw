@@ -10,19 +10,19 @@ import (
 	"testing"
 	"time"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
+func TestRegistrationTokenIsReadableAndIndexedByToken(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
-	store := kv.NewMemory(nil)
+	store := profileSQLTestDB(t)
 	s := &Server{
-		Store: store,
-		Now:   func() time.Time { return now },
+		DB:  store,
+		Now: func() time.Time { return now },
 	}
 	createProfile(t, s, "pet-runtime", map[string]string{
 		"primary":   "model-a",
@@ -40,23 +40,19 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 	if !ok || created.Token != "device-token" || !created.CreatedAt.Equal(now) || !created.UpdatedAt.Equal(now) {
 		t.Fatalf("create response = %#v, want complete persisted resource", response)
 	}
-	stored, err := store.Get(ctx, tokenKey(created.Id))
+	persisted, err := getRegistrationTokenByID(ctx, store, created.Id)
 	if err != nil {
-		t.Fatal(err)
-	}
-	var persisted apitypes.RegistrationToken
-	if err := json.Unmarshal(stored, &persisted); err != nil {
 		t.Fatal(err)
 	}
 	if persisted != apitypes.RegistrationToken(created) {
 		t.Fatalf("persisted = %#v, want %#v", persisted, created)
 	}
-	indexedName, err := store.Get(ctx, tokenHashKey(tokenDigest(created.Token)))
-	if err != nil {
+	var indexedName string
+	if err := store.QueryRowContext(ctx, "SELECT id FROM registration_tokens WHERE token=?", created.Token).Scan(&indexedName); err != nil {
 		t.Fatal(err)
 	}
-	if string(indexedName) != created.Id {
-		t.Fatalf("hash index = %q, want %q", indexedName, created.Id)
+	if indexedName != created.Id {
+		t.Fatalf("token index = %q, want %q", indexedName, created.Id)
 	}
 
 	gotResponse, err := s.GetRegistrationToken(ctx, adminhttp.GetRegistrationTokenRequestObject{Id: created.Id})
@@ -92,8 +88,8 @@ func TestRegistrationTokenIsReadableAndIndexedByHash(t *testing.T) {
 func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	s := &Server{Store: store}
+	store := profileSQLTestDB(t)
+	s := &Server{DB: store}
 	createProfile(t, s, "pet-runtime", nil)
 	response, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
 		Id: "pet-board", Token: "reusable-token", RuntimeProfileId: "pet-runtime",
@@ -115,7 +111,7 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 	if !ok || deleted.Token != created.Token {
 		t.Fatalf("delete response = %#v, want complete resource", deleteResponse)
 	}
-	if _, err := s.ResolveRegistration(ctx, created.Token); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.ResolveRegistration(ctx, created.Token); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("resolve after delete error = %v, want not found", err)
 	}
 }
@@ -123,9 +119,9 @@ func TestRegistrationTokenCanBeReusedUntilDeleted(t *testing.T) {
 func TestPutRegistrationTokenReplacesTokenAndHashIndexAtomically(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
+	store := profileSQLTestDB(t)
 	now := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
-	s := &Server{Store: store, Now: func() time.Time { return now }}
+	s := &Server{DB: store, Now: func() time.Time { return now }}
 	createProfile(t, s, "pet-runtime", nil)
 	createResponse, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
 		Id: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
@@ -147,54 +143,22 @@ func TestPutRegistrationTokenReplacesTokenAndHashIndexAtomically(t *testing.T) {
 	if !ok || updated.Token != "new-token" || !updated.CreatedAt.Equal(created.CreatedAt) || !updated.UpdatedAt.Equal(now) {
 		t.Fatalf("PutRegistrationToken() = %#v", putResponse)
 	}
-	if _, err := s.ResolveRegistration(ctx, "old-token"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.ResolveRegistration(ctx, "old-token"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("ResolveRegistration(old-token) error = %v, want not found", err)
 	}
 	if _, err := s.ResolveRegistration(ctx, "new-token"); err != nil {
 		t.Fatalf("ResolveRegistration(new-token) error = %v", err)
 	}
-	if _, err := store.Get(ctx, tokenHashKey(tokenDigest("old-token"))); !errors.Is(err, kv.ErrNotFound) {
+	if _, _, _, err := resolveRegistrationSQL(ctx, store, "old-token"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("old hash index error = %v, want not found", err)
 	}
-}
-
-type failingBatchMutateStore struct {
-	kv.Store
-}
-
-func (f failingBatchMutateStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
-	return errors.New("injected BatchMutate failure")
-}
-
-type blockingProfileGetStore struct {
-	kv.Store
-	key     string
-	enabled atomic.Bool
-	entered chan struct{}
-	release chan struct{}
-}
-
-func (s *blockingProfileGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	if s.enabled.Load() && key.String() == s.key {
-		s.entered <- struct{}{}
-		select {
-		case <-s.release:
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
-	}
-	return s.Store.Get(ctx, key)
-}
-
-func (s *blockingProfileGetStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
-	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
 }
 
 func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	s := &Server{Store: store}
+	store := profileSQLTestDB(t)
+	s := &Server{DB: store}
 	createProfile(t, s, "pet-runtime", nil)
 	createResponse, err := s.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
 		Id: "pet-board", Token: "old-token", RuntimeProfileId: "pet-runtime",
@@ -206,7 +170,9 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 	if !ok {
 		t.Fatalf("CreateRegistrationToken() = %#v", createResponse)
 	}
-	s.Store = failingBatchMutateStore{Store: store}
+	if _, err := store.ExecContext(ctx, `CREATE TRIGGER fail_token_update BEFORE UPDATE ON registration_tokens BEGIN SELECT RAISE(ABORT,'injected token update failure'); END`); err != nil {
+		t.Fatal(err)
+	}
 	putResponse, err := s.PutRegistrationToken(ctx, adminhttp.PutRegistrationTokenRequestObject{
 		Id:   created.Id,
 		Body: &adminhttp.RegistrationTokenUpsert{Id: "pet-board", Token: "new-token", RuntimeProfileId: "pet-runtime"},
@@ -227,7 +193,7 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 	if _, err := s.ResolveRegistration(ctx, "old-token"); err != nil {
 		t.Fatalf("ResolveRegistration(old-token) error = %v", err)
 	}
-	if _, err := s.ResolveRegistration(ctx, "new-token"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.ResolveRegistration(ctx, "new-token"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("ResolveRegistration(new-token) error = %v, want not found", err)
 	}
 }
@@ -235,8 +201,8 @@ func TestPutRegistrationTokenStoreFailurePreservesRecordAndIndexes(t *testing.T)
 func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	s := &Server{Store: store}
+	store := profileSQLTestDB(t)
+	s := &Server{DB: store}
 	createProfile(t, s, "pet-runtime", nil)
 	createdIDs := map[string]string{}
 	for _, item := range []adminhttp.RegistrationTokenUpsert{
@@ -287,7 +253,7 @@ func TestRegistrationTokenCollisionLeavesBothResourcesUnchanged(t *testing.T) {
 func TestRegistrationTokenAcceptsScopedAppName(t *testing.T) {
 	t.Parallel()
 	s := &Server{
-		Store: kv.NewMemory(nil),
+		DB: profileSQLTestDB(t),
 	}
 	createProfile(t, s, "app-runtime", nil)
 	response, err := s.CreateRegistrationToken(context.Background(), adminhttp.CreateRegistrationTokenRequestObject{Body: &adminhttp.RegistrationTokenUpsert{
@@ -306,10 +272,10 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := &Server{
-		Store: kv.NewMemory(nil),
+		DB: profileSQLTestDB(t),
 		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
 			if kind != apitypes.ResourceKindFirmware || name != "h106" {
-				return apitypes.Resource{}, kv.ErrNotFound
+				return apitypes.Resource{}, sql.ErrNoRows
 			}
 			var resource apitypes.Resource
 			err := resource.FromFirmwareResource(apitypes.FirmwareResource{
@@ -374,8 +340,8 @@ func TestRegistrationTokenBindsOptionalFirmwareReleaseLine(t *testing.T) {
 func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	s := &Server{Store: store}
+	store := profileSQLTestDB(t)
+	s := &Server{DB: store}
 	createProfile(t, s, "pet-runtime", nil)
 
 	const attempts = 16
@@ -421,9 +387,9 @@ func TestConcurrentRegistrationTokenCreateKeepsNameAndHashIndexesConsistent(t *t
 func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 	t.Parallel()
 	s := &Server{
-		Store: kv.NewMemory(nil),
+		DB: profileSQLTestDB(t),
 		ResolveResource: func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
-			return apitypes.Resource{}, kv.ErrNotFound
+			return apitypes.Resource{}, sql.ErrNoRows
 		},
 	}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
@@ -478,7 +444,7 @@ func TestNormalizeProfileRequiresExactSystemWorkflowIDs(t *testing.T) {
 func TestRuntimeProfileRejectsResolverReturningWrongResourceKind(t *testing.T) {
 	t.Parallel()
 	s := &Server{
-		Store: kv.NewMemory(nil),
+		DB: profileSQLTestDB(t),
 		ResolveResource: func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
 			var resource apitypes.Resource
 			err := resource.FromVoiceResource(apitypes.VoiceResource{
@@ -811,7 +777,7 @@ func TestPetGameplayValidatesConfiguredRewardModels(t *testing.T) {
 
 func TestRuntimeProfileRejectsAliasesSharedAcrossResourceKinds(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	models := map[string]apitypes.RuntimeProfileBinding{"assistant": runtimeProfileTestBinding("model-a")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"assistant": runtimeProfileTestBinding("voice-a")}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
@@ -867,8 +833,7 @@ func TestRuntimeProfileAliasGrammar(t *testing.T) {
 func TestRuntimeProfileCreateAndUpdatePreserveScopedAliases(t *testing.T) {
 	t.Parallel()
 	profile := scopedAliasProfileForTest(t)
-	server := &Server{Store: kv.NewMemory(nil)}
-	t.Cleanup(func() { _ = server.Store.Close() })
+	server := &Server{DB: profileSQLTestDB(t)}
 
 	response, err := server.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{Body: &profile})
 	if err != nil {
@@ -1047,7 +1012,7 @@ func TestRuntimeProfileRejectsWorkflowCollectionsDuplicatedAfterNormalization(t 
 
 func TestRuntimeProfileRejectsInvalidGameplayReferences(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	petDefs := map[string]apitypes.RuntimeProfileBinding{"pet": runtimeProfileTestBinding("petdef-basic")}
 	pool := []apitypes.RuntimeProfilePetPoolEntry{{PetDef: "missing", Weight: 1}}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
@@ -1243,7 +1208,7 @@ func workspaceRewardResourceResolverForTest(
 			})
 			return resource, err
 		default:
-			return apitypes.Resource{}, kv.ErrNotFound
+			return apitypes.Resource{}, sql.ErrNoRows
 		}
 	}
 }
@@ -1384,7 +1349,7 @@ func validPetGameplaySpecForTest() apitypes.RuntimeProfilePetGameplaySpec {
 
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	response, err := s.CreateRuntimeProfile(context.Background(), adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
 		Id: "default",
 		Spec: apitypes.RuntimeProfileSpec{
@@ -1405,7 +1370,7 @@ func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 
 func TestResolveProfileReturnsPersistedSnapshotWithoutResolvingResources(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	createProfile(t, s, "owner-profile", nil)
 	s.ResolveResource = func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
 		t.Fatal("ResolveProfile() resolved a RuntimeProfile dependency")
@@ -1422,7 +1387,7 @@ func TestResolveProfileReturnsPersistedSnapshotWithoutResolvingResources(t *test
 
 func TestResolveOwnerProfileReturnsPersistedSnapshotWithoutResolvingResources(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	createProfile(t, s, "owner-profile", nil)
 	if err := s.BindOwnerProfile(t.Context(), "peer-a", "owner-profile"); err != nil {
 		t.Fatalf("BindOwnerProfile() error = %v", err)
@@ -1440,47 +1405,30 @@ func TestResolveOwnerProfileReturnsPersistedSnapshotWithoutResolvingResources(t 
 	}
 }
 
-func TestResolveOwnerProfileReadsSharedProfileConcurrently(t *testing.T) {
-	t.Parallel()
-	store := &blockingProfileGetStore{
-		Store:   kv.NewMemory(nil),
-		key:     profileKey("shared-profile").String(),
-		entered: make(chan struct{}, 2),
-		release: make(chan struct{}),
-	}
-	s := &Server{Store: store}
-	createProfile(t, s, "shared-profile", nil)
+func TestResolveOwnerProfileDoesNotLockOtherOwners(t *testing.T) {
+	db := profileSQLTestDB(t)
+	server := &Server{DB: db}
+	createProfile(t, server, "shared-profile", nil)
 	for _, owner := range []string{"peer-a", "peer-b"} {
-		if err := s.BindOwnerProfile(t.Context(), owner, "shared-profile"); err != nil {
-			t.Fatalf("BindOwnerProfile(%q) error = %v", owner, err)
+		if err := server.BindOwnerProfile(t.Context(), owner, "shared-profile"); err != nil {
+			t.Fatal(err)
 		}
 	}
-	store.enabled.Store(true)
-	results := make(chan error, 2)
-	for _, owner := range []string{"peer-a", "peer-b"} {
-		go func() {
-			_, err := s.ResolveOwnerProfile(t.Context(), owner)
-			results <- err
-		}()
+	release, err := server.ownerLocks.Acquire(t.Context(), "peer-a")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for range 2 {
-		select {
-		case <-store.entered:
-		case <-time.After(time.Second):
-			close(store.release)
-			t.Fatal("shared RuntimeProfile reads did not enter the store concurrently")
-		}
-	}
-	close(store.release)
-	for range 2 {
-		if err := <-results; err != nil {
-			t.Fatalf("ResolveOwnerProfile() error = %v", err)
-		}
+	defer release()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	got, err := server.ResolveOwnerProfile(ctx, "peer-b")
+	if err != nil || got.Id != "shared-profile" {
+		t.Fatalf("independent owner = %#v, %v", got, err)
 	}
 }
 
 func BenchmarkResolveOwnerProfile(b *testing.B) {
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(b)}
 	createProfile(b, s, "shared-profile", nil)
 	owners := []string{"peer-0", "peer-1", "peer-2", "peer-3", "peer-4", "peer-5", "peer-6", "peer-7"}
 	for _, owner := range owners {
@@ -1506,7 +1454,7 @@ func BenchmarkResolveOwnerProfile(b *testing.B) {
 
 func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	createProfile(t, s, "owner-profile", nil)
 	if err := s.BindOwnerProfile(t.Context(), "peer-a", " owner-profile "); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
 		t.Fatalf("BindOwnerProfile(whitespace ID) error = %v", err)
@@ -1561,7 +1509,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 
 func TestBindOwnerProfileAndCommitRestoresPreviousBinding(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	createProfile(t, s, "profile-a", nil)
 	createProfile(t, s, "profile-b", nil)
 	if err := s.BindOwnerProfile(t.Context(), "peer-a", "profile-a"); err != nil {
@@ -1585,13 +1533,13 @@ func TestBindOwnerProfileAndCommitRestoresPreviousBinding(t *testing.T) {
 	if !errors.Is(err, commitErr) {
 		t.Fatalf("BindOwnerProfileAndCommit(new owner) error = %v, want %v", err, commitErr)
 	}
-	if _, err := s.ResolveOwnerProfile(t.Context(), "peer-b"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := s.ResolveOwnerProfile(t.Context(), "peer-b"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("ResolveOwnerProfile(new owner) error = %v, want not found", err)
 	}
 }
 
 func TestBindOwnerProfileDoesNotBlockIndependentOwnerAndProfile(t *testing.T) {
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: profileSQLTestDB(t)}
 	createProfile(t, server, "profile-a", nil)
 	createProfile(t, server, "profile-b", nil)
 	firstEntered := make(chan struct{})
@@ -1642,7 +1590,7 @@ func TestBindOwnerProfileDoesNotBlockIndependentOwnerAndProfile(t *testing.T) {
 
 func TestBindOwnerProfileAndCommitRestoresBindingAfterRequestCancellation(t *testing.T) {
 	t.Parallel()
-	s := &Server{Store: kv.NewMemory(nil)}
+	s := &Server{DB: profileSQLTestDB(t)}
 	createProfile(t, s, "profile-a", nil)
 	createProfile(t, s, "profile-b", nil)
 	if err := s.BindOwnerProfile(t.Context(), "peer-a", "profile-a"); err != nil {
@@ -1702,7 +1650,7 @@ func createProfile(t testing.TB, s *Server, name string, models map[string]strin
 		if previousResolver != nil {
 			return previousResolver(ctx, kind, resourceName)
 		}
-		return apitypes.Resource{}, kv.ErrNotFound
+		return apitypes.Resource{}, sql.ErrNoRows
 	}
 	resources := apitypes.RuntimeProfileResources{}
 	if models != nil {
@@ -1776,30 +1724,6 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 	}
 }
 
-func TestPersistedFlowcraftBBHProfileRemainsReadable(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	const id = "legacy-bbh-profile"
-	raw := []byte(`{"id":"legacy-bbh-profile","spec":{"resources":{"memories":{"legacy":{"layout_id":"default-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}}}}}`)
-	if err := store.Set(ctx, profileKey(id), raw); err != nil {
-		t.Fatal(err)
-	}
-	item, err := getProfileByID(ctx, store, id)
-	if err != nil {
-		t.Fatalf("getProfileByID() error = %v", err)
-	}
-	binding := (*item.Spec.Resources.Memories)["legacy"]
-	connectionType, err := binding.Connection.Discriminator()
-	if err != nil || connectionType != "flowcraft_bbh" {
-		t.Fatalf("legacy connection = %q, error = %v", connectionType, err)
-	}
-	stored, err := store.Get(ctx, profileKey(id))
-	if err != nil || string(stored) != string(raw) {
-		t.Fatalf("BBH profile changed while read: stored=%s error=%v", stored, err)
-	}
-}
-
 func TestNormalizeMemoryBindingTrimsConnectionValues(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -1853,15 +1777,15 @@ func TestNormalizeMemoryBindingTrimsConnectionValues(t *testing.T) {
 
 func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *testing.T) {
 	t.Parallel()
-	store := kv.NewMemory(nil)
+	store := profileSQLTestDB(t)
 	server := &Server{
-		Store: store,
+		DB: store,
 		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
 			if kind == apitypes.ResourceKindMemoryLayout {
-				return apitypes.Resource{}, kv.ErrNotFound
+				return apitypes.Resource{}, sql.ErrNoRows
 			}
 			if kind != apitypes.ResourceKindWorkflow {
-				return apitypes.Resource{}, kv.ErrNotFound
+				return apitypes.Resource{}, sql.ErrNoRows
 			}
 			spec := apitypes.WorkflowSpec{
 				Driver: apitypes.WorkflowDriverEino,
@@ -1918,7 +1842,7 @@ func TestRuntimeProfileRejectsMissingMemoryLayoutWithoutPersistingRevision(t *te
 	if !ok || !strings.Contains(invalid.Error.Message, "missing-layout") {
 		t.Fatalf("CreateRuntimeProfile() = %#v, want missing MemoryLayout rejection", response)
 	}
-	if _, err := GetProfile(t.Context(), store, "default"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := GetProfile(t.Context(), store, "default"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("persisted profile after validation failure: %v", err)
 	}
 }

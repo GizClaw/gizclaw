@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/runtimeprofiletest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -99,12 +100,6 @@ func TestRPCRegistrationSnapshotIsRaceSafe(t *testing.T) {
 func TestRPCRegistrationSerializesOwnerBindingAndSnapshot(t *testing.T) {
 	registrations, tokenA := registrationServerAndToken(t, "profile-a")
 	tokenB := createRegistrationToken(t, registrations, "profile-b")
-	bPersisted := make(chan struct{})
-	registrations.Store = &ownerBindingObserver{
-		Store:       registrations.Store,
-		profileName: "profile-b",
-		persisted:   bPersisted,
-	}
 	var snapshot atomic.Pointer[runtimeprofile.Registration]
 	aPublishing := make(chan struct{})
 	releaseA := make(chan struct{})
@@ -141,7 +136,7 @@ func TestRPCRegistrationSerializesOwnerBindingAndSnapshot(t *testing.T) {
 	}()
 	<-bStarted
 	select {
-	case <-bPersisted:
+	case <-bDone:
 		t.Fatal("profile-b owner binding crossed profile-a snapshot publication")
 	case <-time.After(50 * time.Millisecond):
 	}
@@ -163,7 +158,7 @@ func TestRPCRegistrationPersistsAndReturnsFirmwareReleaseLine(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	registrations := &runtimeprofile.Server{
-		Store: kv.NewMemory(nil),
+		DB: runtimeprofiletest.New(t).DB,
 		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
 			if kind != apitypes.ResourceKindFirmware || name != "h106" {
 				return apitypes.Resource{}, kv.ErrNotFound
@@ -301,7 +296,9 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 	if _, err := peers.BindFirmware(ctx, publicKey, "previous-firmware"); err != nil {
 		t.Fatal(err)
 	}
-	registrations.Store = rejectingOwnerBindingStore{Store: registrations.Store}
+	if _, err := registrations.DB.ExecContext(ctx, `CREATE TRIGGER reject_owner_update BEFORE UPDATE ON runtime_profile_owners BEGIN SELECT RAISE(ABORT,'owner binding database unavailable'); END`); err != nil {
+		t.Fatal(err)
+	}
 	server := &rpcServer{registrations: registrations, peer: peers, callerPublicKey: publicKey}
 
 	response, err := server.dispatch(ctx, registrationRequest(created.Token))
@@ -326,36 +323,6 @@ func TestRPCRegistrationOwnerProfileBindingFailurePreservesFirmware(t *testing.T
 
 type rejectingFirmwarePeer struct{}
 
-type rejectingOwnerBindingStore struct {
-	kv.Store
-}
-
-type ownerBindingObserver struct {
-	kv.Store
-	profileName string
-	persisted   chan<- struct{}
-	once        sync.Once
-}
-
-func (s *ownerBindingObserver) Set(ctx context.Context, key kv.Key, value []byte) error {
-	if err := s.Store.Set(ctx, key, value); err != nil {
-		return err
-	}
-	if strings.Contains(key.String(), "by-owner") && string(value) == s.profileName {
-		s.once.Do(func() {
-			close(s.persisted)
-		})
-	}
-	return nil
-}
-
-func (s rejectingOwnerBindingStore) Set(ctx context.Context, key kv.Key, value []byte) error {
-	if strings.Contains(key.String(), "by-owner") {
-		return errors.New("owner binding store unavailable")
-	}
-	return s.Store.Set(ctx, key, value)
-}
-
 func (rejectingFirmwarePeer) GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error) {
 	return apitypes.DeviceInfo{}, nil
 }
@@ -379,7 +346,7 @@ func (rejectingFirmwarePeer) DeleteSelf(context.Context, giznet.PublicKey) error
 func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *runtimeprofile.Server {
 	t.Helper()
 	server := &runtimeprofile.Server{
-		Store: kv.NewMemory(nil),
+		DB: runtimeprofiletest.New(t).DB,
 		ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
 			if kind != apitypes.ResourceKindFirmware || name != firmwareID {
 				return apitypes.Resource{}, kv.ErrNotFound
@@ -412,7 +379,7 @@ func firmwareRegistrationServer(t *testing.T, profileName, firmwareID string) *r
 
 func registrationServerAndToken(t *testing.T, profileName string) (*runtimeprofile.Server, string) {
 	t.Helper()
-	server := &runtimeprofile.Server{Store: kv.NewMemory(nil)}
+	server := &runtimeprofile.Server{DB: runtimeprofiletest.New(t).DB}
 	return server, createRegistrationToken(t, server, profileName)
 }
 

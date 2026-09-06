@@ -3,7 +3,6 @@ package kv
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -37,24 +36,12 @@ func TestSQLStoreContract(t *testing.T) {
 	if err := store.BatchSet(ctx, entries); err != nil {
 		t.Fatal(err)
 	}
-	var listed []Entry
-	for entry, err := range store.List(ctx, Key{"a"}) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		listed = append(listed, entry)
-	}
-	if len(listed) != 2 || !slices.Equal(listed[0].Key, Key{"a", "1"}) || !slices.Equal(listed[1].Key, Key{"a", "2"}) {
-		t.Fatalf("List() = %+v", listed)
-	}
-	got, err := store.ListAfter(ctx, Key{"a"}, nil, 10)
+	got, err := store.Get(ctx, Key{"a", "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || !slices.Equal(got[0].Key, Key{"a", "1"}) || !slices.Equal(got[1].Key, Key{"a", "2"}) {
-		t.Fatalf("ListAfter() = %+v", got)
-	}
-	got[0].Value[0] = 'X'
+	got[0] = 'X'
+
 	value, err := store.Get(ctx, Key{"a", "1"})
 	if err != nil || string(value) != "one" {
 		t.Fatalf("Get() = %q, %v", value, err)
@@ -238,8 +225,8 @@ func TestSQLCloseLeavesPoolOpen(t *testing.T) {
 	if _, err := store.Get(context.Background(), Key{"a"}); err == nil {
 		t.Fatal("closed Store accepted Get")
 	}
-	if _, err := store.ListAfter(context.Background(), nil, nil, 0); err == nil {
-		t.Fatal("closed Store accepted zero-limit ListAfter")
+	if _, err := store.RangeOrderedMembers(context.Background(), nil, OrderedRange{Limit: 1}); err == nil {
+		t.Fatal("closed Store accepted RangeOrderedMembers")
 	}
 	if err := db.Ping(); err != nil {
 		t.Fatalf("Close closed borrowed pool: %v", err)

@@ -125,18 +125,21 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		if err != nil {
 			return Created{}, err
 		}
-		guards := []kv.Entry{
-			{Key: recordKey(item.Name), Value: data},
-			{Key: secretKey(secret), Value: []byte(item.Name)},
-		}
-		_, _, created, err := kv.CreateIfAllAbsent(ctx, s.Store, guards, []kv.Entry{
-			{Key: ownerKey(owner, item.Name), Value: []byte(item.Name)},
+		created, err := s.Store.ApplyMutation(ctx, kv.Mutation{
+			Conditions: []kv.Condition{{Key: recordKey(item.Name)}, {Key: secretKey(secret)}, {Key: retiredKey(owner)}},
+			Entries:    []kv.Entry{{Key: recordKey(item.Name), Value: data}, {Key: secretKey(secret), Value: []byte(item.Name)}},
+			AddMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: []string{item.Name}}},
 		})
 		if err != nil {
 			return Created{}, err
 		}
 		if created {
 			return Created{Key: item, Secret: secret}, nil
+		}
+		if _, err := s.Store.Get(ctx, retiredKey(owner)); err == nil {
+			return Created{}, ErrOwnerRetired
+		} else if !errors.Is(err, kv.ErrNotFound) {
+			return Created{}, err
 		}
 	}
 	return Created{}, errors.New("api key: random identifier collision limit reached")
@@ -201,27 +204,32 @@ func (s *Server) ListOwner(ctx context.Context, owner, cursor string, limit int)
 		return ListResult{}, err
 	}
 	defer release()
+	names, err := s.Store.ListMembers(ctx, ownerPrefix(owner))
+	if err != nil {
+		return ListResult{}, err
+	}
+	sort.Strings(names)
 	var items []Key
-	for entry, err := range s.Store.List(ctx, ownerPrefix(owner)) {
-		if err != nil {
-			return ListResult{}, err
-		}
-		if len(entry.Key) != 3 {
-			return ListResult{}, fmt.Errorf("api key: malformed owner index %v", entry.Key)
-		}
-		name := entry.Key[2]
+	for _, name := range names {
 		if name <= cursor {
 			continue
 		}
 		item, err := s.load(ctx, name)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
 		if err != nil {
 			return ListResult{}, err
 		}
 		if item.Owner != owner {
-			return ListResult{}, fmt.Errorf("api key: cross-owned index %v", entry.Key)
+			return ListResult{}, fmt.Errorf("api key: cross-owned index member %q", name)
 		}
 		items = append(items, item)
+		if len(items) > limit {
+			break
+		}
 	}
+
 	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
 	result := ListResult{Items: items}
 	if len(result.Items) > limit {
@@ -284,24 +292,30 @@ func (s *Server) CleanupPeer(ctx context.Context, owner string) error {
 		return err
 	}
 	defer release()
+	// Fence concurrent creators on every Server before discovering credentials.
+	if err := s.Store.Set(ctx, retiredKey(owner), []byte("retired")); err != nil {
+		return err
+	}
+	names, err := s.Store.ListMembers(ctx, ownerPrefix(owner))
+	if err != nil {
+		return err
+	}
 	var deletes []kv.Key
-	for entry, err := range s.Store.List(ctx, ownerPrefix(owner)) {
-		if err != nil {
-			return err
+	for _, name := range names {
+		item, err := s.load(ctx, name)
+		if errors.Is(err, ErrNotFound) {
+			continue
 		}
-		if len(entry.Key) != 3 {
-			return fmt.Errorf("api key: malformed owner index %v", entry.Key)
-		}
-		item, err := s.load(ctx, entry.Key[2])
 		if err != nil {
 			return err
 		}
 		if item.Owner != owner {
-			return fmt.Errorf("api key: cross-owned index %v", entry.Key)
+			return fmt.Errorf("api key: cross-owned index member %q", name)
 		}
-		deletes = append(deletes, entry.Key, recordKey(item.Name), secretKey(item.APIKey))
+		deletes = append(deletes, recordKey(item.Name), secretKey(item.APIKey))
 	}
-	return s.Store.BatchMutate(ctx, []kv.Entry{{Key: retiredKey(owner), Value: []byte("retired")}}, deletes)
+	_, err = s.Store.ApplyMutation(ctx, kv.Mutation{DeleteKeys: deletes, RemoveMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: names}}})
+	return err
 }
 
 func (s *Server) revoke(ctx context.Context, owner, name string) error {
@@ -317,7 +331,8 @@ func (s *Server) revoke(ctx context.Context, owner, name string) error {
 	if item.Owner != owner {
 		return ErrNotFound
 	}
-	return s.Store.BatchDelete(ctx, []kv.Key{recordKey(name), secretKey(item.APIKey), ownerKey(owner, name)})
+	_, err = s.Store.ApplyMutation(ctx, kv.Mutation{DeleteKeys: []kv.Key{recordKey(name), secretKey(item.APIKey)}, RemoveMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: []string{name}}}})
+	return err
 }
 
 func (s *Server) randomParts() (string, string, error) {
@@ -399,8 +414,7 @@ func validName(name string) bool {
 	return err == nil && len(decoded) == 16
 }
 
-func recordKey(name string) kv.Key       { return kv.Key{"records", name} }
-func secretKey(secret string) kv.Key     { return kv.Key{"secrets", secret} }
-func ownerPrefix(owner string) kv.Key    { return kv.Key{"owners", owner} }
-func ownerKey(owner, name string) kv.Key { return kv.Key{"owners", owner, name} }
-func retiredKey(owner string) kv.Key     { return kv.Key{"retired", owner} }
+func recordKey(name string) kv.Key    { return kv.Key{"records", name} }
+func secretKey(secret string) kv.Key  { return kv.Key{"secrets", secret} }
+func ownerPrefix(owner string) kv.Key { return kv.Key{"owners", owner} }
+func retiredKey(owner string) kv.Key  { return kv.Key{"retired", owner} }

@@ -9,7 +9,7 @@ import (
 )
 
 func TestApplyDashScopeTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DashScopeTenant",
@@ -57,7 +57,7 @@ func TestApplyDashScopeTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 }
 
 func TestPutGetDeleteDashScopeTenantResource(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DashScopeTenant",
@@ -155,7 +155,7 @@ func TestDashScopeTenantMissingServiceErrors(t *testing.T) {
 }
 
 func TestApplyDashScopeTenantRejectsInvalidHeader(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "DashScopeTenant",

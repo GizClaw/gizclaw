@@ -65,21 +65,36 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	if err != nil {
 		return Record{}, false, err
 	}
-	if existing, found, err := resolveExistingLocator(ctx, store, record.Kind, record.ResourceID); err != nil {
+	fingerprint, err := Fingerprint(record)
+	if err != nil {
 		return Record{}, false, err
-	} else if found {
-		return existing, false, nil
 	}
-	existingID, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{
-		Key:   byLocatorKey(record.Kind, record.ResourceID),
-		Value: []byte(record.DeletionID),
-	}, entries)
+	task := Task{Record: record, MarkerFingerprint: fingerprint, Status: StatusQueued, Phase: PhaseValidate, NextAttemptAt: record.DeletedAt, UpdatedAt: record.DeletedAt}
+	state, err := encodeKVTaskState(task)
+	if err != nil {
+		return Record{}, false, err
+	}
+	locatorKey := byLocatorKey(record.Kind, record.ResourceID)
+	entries = append(entries, kv.Entry{Key: locatorKey, Value: []byte(record.DeletionID)}, kv.Entry{Key: kvTaskKey(record.DeletionID), Value: state})
+	add, _ := kvTaskIndexChanges(nil, &task)
+	created, err := store.ApplyMutation(ctx, kv.Mutation{
+		Conditions: []kv.Condition{{Key: locatorKey}, {Key: byIDKey(record.DeletionID)}, {Key: kvTaskKey(record.DeletionID)}},
+		Entries:    entries, AddOrderedMembers: add,
+	})
 	if err != nil {
 		return Record{}, false, err
 	}
 	if created {
 		return record, true, nil
 	}
+	existingID, err := store.Get(ctx, locatorKey)
+	if errors.Is(err, kv.ErrNotFound) {
+		return Record{}, false, ErrConflict
+	}
+	if err != nil {
+		return Record{}, false, err
+	}
+
 	if len(existingID) == 0 {
 		return Record{}, false, errors.New("pending deletion: empty KV locator record")
 	}
@@ -94,7 +109,6 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 }
 
 // GetByLocator loads the PendingDeletion record for one logical resource.
-// Legacy locator entries are migrated to the fixed locator as part of lookup.
 func GetByLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (Record, error) {
 	if store == nil {
 		return Record{}, errors.New("pending deletion: KV store not configured")
@@ -110,7 +124,6 @@ func GetByLocator(ctx context.Context, store kv.Store, kind Kind, resourceID str
 }
 
 func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (Record, bool, error) {
-	prefix := legacyByLocatorPrefix(kind, resourceID)
 	if fixedID, err := store.Get(ctx, byLocatorKey(kind, resourceID)); err == nil {
 		if len(fixedID) == 0 {
 			return Record{}, false, errors.New("pending deletion: empty KV locator record")
@@ -126,53 +139,7 @@ func resolveExistingLocator(ctx context.Context, store kv.Store, kind Kind, reso
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return Record{}, false, err
 	}
-	var legacy *Record
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return Record{}, false, err
-		}
-		if len(entry.Key) != len(prefix)+1 {
-			continue
-		}
-		deletionID := entry.Key[len(prefix)]
-		candidate, err := Get(ctx, store, deletionID)
-		if err != nil {
-			return Record{}, false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
-		}
-		if err := validateLocatorRecord(candidate, kind, resourceID); err != nil {
-			return Record{}, false, err
-		}
-		if legacy == nil ||
-			candidate.DeletedAt.Before(legacy.DeletedAt) ||
-			(candidate.DeletedAt.Equal(legacy.DeletedAt) && candidate.DeletionID < legacy.DeletionID) {
-			legacy = &candidate
-		}
-	}
-	if legacy == nil {
-		return Record{}, false, nil
-	}
-	deletionID := legacy.DeletionID
-	existingID, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{
-		Key:   byLocatorKey(kind, resourceID),
-		Value: []byte(deletionID),
-	}, nil)
-	if err != nil {
-		return Record{}, false, err
-	}
-	if !created {
-		if len(existingID) == 0 {
-			return Record{}, false, errors.New("pending deletion: empty KV locator record")
-		}
-		deletionID = string(existingID)
-	}
-	existing, err := Get(ctx, store, deletionID)
-	if err != nil {
-		return Record{}, false, fmt.Errorf("pending deletion: get migrated locator record: %w", err)
-	}
-	if err := validateLocatorRecord(existing, kind, resourceID); err != nil {
-		return Record{}, false, err
-	}
-	return existing, true, nil
+	return Record{}, false, nil
 }
 
 func validateLocatorRecord(record Record, kind Kind, resourceID string) error {
@@ -243,27 +210,14 @@ func HasLocator(ctx context.Context, store kv.Store, kind Kind, resourceID strin
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return false, err
 	}
-	// Legacy #469 entries used a deletion-ID suffix. Keep source lookup
-	// compatible until the cleanup processor consumes those records.
-	prefix := legacyByLocatorPrefix(kind, resourceID)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return false, err
-		}
-		if len(entry.Key) != len(prefix)+1 {
-			continue
-		}
-		deletionID := entry.Key[len(prefix)]
-		record, err := Get(ctx, store, deletionID)
-		if err != nil {
-			return false, fmt.Errorf("pending deletion: get legacy locator record: %w", err)
-		}
-		if err := validateLocatorRecord(record, kind, resourceID); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
 	return false, nil
+}
+
+// AbsentLocatorCondition fences a domain mutation against a concurrent deletion
+// request. Apply it on the same KV store used by CreateOrGet, together with a
+// condition on the domain record so a completed tombstone cannot be overwritten.
+func AbsentLocatorCondition(kind Kind, resourceID string) kv.Condition {
+	return kv.Condition{Key: byLocatorKey(kind, resourceID)}
 }
 
 func byIDKey(deletionID string) kv.Key {
@@ -273,8 +227,4 @@ func byIDKey(deletionID string) kv.Key {
 func byLocatorKey(kind Kind, resourceID string) kv.Key {
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(resourceID))
 	return append(append(kv.Key{}, root...), "by-locator", string(kind), encoded)
-}
-
-func legacyByLocatorPrefix(kind Kind, resourceID string) kv.Key {
-	return byLocatorKey(kind, resourceID)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/sqltest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/asttranslate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/dashscoperealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime"
@@ -15,7 +16,6 @@ import (
 	petagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/pet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
@@ -68,7 +68,7 @@ func (*peerAgentHostHistoryStore) Close() error { return nil }
 func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
 	history := &peerAgentHostHistoryStore{}
-	state := kv.NewMemory(nil)
+	state, _ := sqltest.New(t)
 	got := newPeerAgentHost(base, nil, nil, nil, nil, history, state, t.TempDir(), nil, sfu.Factory{})
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil", sfu.Factory{})

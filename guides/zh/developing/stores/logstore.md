@@ -80,6 +80,8 @@ Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timest
 
 ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 normalized selector、text、millisecond-aligned `[Start, End)` 和 order，允许 continuation 修改 limit，并保持 16 KiB bound。相同 records 可以跨三种 SQL driver continuation。SQLite/PostgreSQL 的 text matching 保持 case-sensitive literal，attribute matcher 在 validated flat map 上执行；逻辑 Store 不关闭共享 pool。
 
+SQLite/PostgreSQL 将时间、selector、区分大小写的字面文本、属性存在性与等值条件、排序和 `LIMIT` 全部交给数据库执行；每页最多返回 `limit + 1` 条记录，用额外一条判断是否存在下一页。属性名称作为绑定值匹配 flat JSON 的 key，点号不会被解释成 JSON 路径。
+
 ## Process logging
 
 `services.system_log` 是 Server 自身的 `slog` pipeline，不是产品 record 写入 API：

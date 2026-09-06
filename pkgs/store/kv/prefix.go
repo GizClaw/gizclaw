@@ -2,8 +2,6 @@ package kv
 
 import (
 	"context"
-	"fmt"
-	"iter"
 	"reflect"
 )
 
@@ -84,49 +82,6 @@ func (s *prefixedStore) Set(ctx context.Context, key Key, value []byte) error {
 
 func (s *prefixedStore) Delete(ctx context.Context, key Key) error {
 	return s.base.Delete(ctx, s.prefixedKey(key))
-}
-
-func (s *prefixedStore) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
-	return func(yield func(Entry, error) bool) {
-		for entry, err := range s.base.List(ctx, s.prefixedKey(prefix)) {
-			if err != nil {
-				if !yield(Entry{}, err) {
-					return
-				}
-				continue
-			}
-			localKey, err := s.localKey(entry.Key)
-			if err != nil {
-				if !yield(Entry{}, err) {
-					return
-				}
-				continue
-			}
-			entry.Key = localKey
-			if !yield(entry, nil) {
-				return
-			}
-		}
-	}
-}
-
-func (s *prefixedStore) ListAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error) {
-	globalAfter := Key(nil)
-	if len(after) > 0 {
-		globalAfter = s.prefixedKey(after)
-	}
-	entries, err := ListAfter(ctx, s.base, s.prefixedKey(prefix), globalAfter, limit)
-	if err != nil {
-		return nil, err
-	}
-	for i := range entries {
-		localKey, err := s.localKey(entries[i].Key)
-		if err != nil {
-			return nil, err
-		}
-		entries[i].Key = localKey
-	}
-	return entries, nil
 }
 
 func (s *prefixedStore) BatchSet(ctx context.Context, entries []Entry) error {
@@ -235,30 +190,11 @@ func (s *prefixedStore) prefixedKey(key Key) Key {
 	return out
 }
 
-func (s *prefixedStore) localKey(key Key) (Key, error) {
-	if !hasKeyPrefix(key, s.prefix) {
-		return nil, fmt.Errorf("kv: prefixed store got key %v outside prefix %v", key, s.prefix)
-	}
-	return cloneKey(key[len(s.prefix):]), nil
-}
-
 func cloneKey(key Key) Key {
 	if len(key) == 0 {
 		return nil
 	}
 	return append(Key(nil), key...)
-}
-
-func hasKeyPrefix(key, prefix Key) bool {
-	if len(key) < len(prefix) {
-		return false
-	}
-	for i, segment := range prefix {
-		if key[i] != segment {
-			return false
-		}
-	}
-	return true
 }
 
 var _ Store = (*prefixedStore)(nil)

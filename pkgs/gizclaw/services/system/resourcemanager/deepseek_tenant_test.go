@@ -9,7 +9,7 @@ import (
 )
 
 func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
@@ -57,7 +57,7 @@ func TestApplyDeepSeekTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 }
 
 func TestPutGetDeleteDeepSeekTenantResource(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "DeepSeekTenant",
@@ -155,7 +155,7 @@ func TestDeepSeekTenantMissingServiceErrors(t *testing.T) {
 }
 
 func TestApplyDeepSeekTenantRejectsInvalidHeader(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "DeepSeekTenant",

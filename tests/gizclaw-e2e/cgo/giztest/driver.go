@@ -118,8 +118,7 @@ func matchesRoute(route, candidate string) bool {
 
 // FailureCode reports the structured RPC error an rpc step observed.
 func (driver) FailureCode(err error) (int32, string, bool) {
-	var failure *rpcError
-	if errors.As(err, &failure) {
+	if failure, ok := errors.AsType[*rpcError](err); ok {
 		return failure.code, failure.message, true
 	}
 	return 0, "", false

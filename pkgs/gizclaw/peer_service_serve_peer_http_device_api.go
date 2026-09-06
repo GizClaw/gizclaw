@@ -351,7 +351,7 @@ func publicContact(item rpcapi.ContactObject) peerhttp.Contact {
 // failures are 400; store failures are redacted as 500.
 func publicContactError(err error) (int, apitypes.ErrorResponse) {
 	switch {
-	case errors.Is(err, kv.ErrNotFound):
+	case errors.Is(err, kv.ErrNotFound), errors.Is(err, contact.ErrNotFound):
 		return http.StatusNotFound, apiError(publicHTTPContactNotFound, "contact not found")
 	case errors.Is(err, socialutil.ErrResourceAlreadyExists):
 		return http.StatusConflict, apiError(publicHTTPContactExists, err.Error())

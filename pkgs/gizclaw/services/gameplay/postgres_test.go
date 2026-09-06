@@ -233,14 +233,6 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("initial Migration() error = %v", err)
 	}
-	if _, err := db.ExecContext(ctx, `DROP INDEX gameplay_workspace_reward_windows_active_v2_idx`); err != nil {
-		t.Fatalf("drop v2 active index: %v", err)
-	}
-	if _, err := db.ExecContext(ctx, `CREATE UNIQUE INDEX gameplay_workspace_reward_windows_active_idx
-		ON gameplay_workspace_reward_windows(workspace_id)
-		WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
-		t.Fatalf("create legacy active index: %v", err)
-	}
 	source := workspaceRewardSource{
 		WorkspaceID: "workflow-upgrade", ScheduledCheckpoint: "001",
 		CreatedAt: now, UpdatedAt: now,
@@ -260,7 +252,7 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
-		t.Fatalf("insert legacy blocked window: %v", err)
+		t.Fatalf("insert blocked window: %v", err)
 	}
 	const workers = 8
 	runtimes := make([]*Runtime, workers)
@@ -293,32 +285,24 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 			t.Fatalf("concurrent Migration() lost %s", column)
 		}
 	}
-	var v2IndexExists, legacyIndexExists bool
-	if err := db.QueryRowContext(ctx, `SELECT EXISTS (
-		SELECT 1 FROM pg_indexes
-		WHERE schemaname = current_schema()
-			AND tablename = 'gameplay_workspace_reward_windows'
-			AND indexname = 'gameplay_workspace_reward_windows_active_v2_idx'
-	)`).Scan(&v2IndexExists); err != nil {
-		t.Fatalf("inspect v2 active index: %v", err)
-	}
+	var activeIndexExists bool
 	if err := db.QueryRowContext(ctx, `SELECT EXISTS (
 		SELECT 1 FROM pg_indexes
 		WHERE schemaname = current_schema()
 			AND tablename = 'gameplay_workspace_reward_windows'
 			AND indexname = 'gameplay_workspace_reward_windows_active_idx'
-	)`).Scan(&legacyIndexExists); err != nil {
-		t.Fatalf("inspect legacy active index: %v", err)
+	)`).Scan(&activeIndexExists); err != nil {
+		t.Fatalf("inspect active index: %v", err)
 	}
-	if !v2IndexExists || legacyIndexExists {
-		t.Fatalf("active indexes: v2=%v legacy=%v, want true and false", v2IndexExists, legacyIndexExists)
+	if !activeIndexExists {
+		t.Fatal("active reward-window index is missing")
 	}
 	var preservedState string
 	if err := db.QueryRowContext(ctx, `SELECT state FROM gameplay_workspace_reward_windows WHERE id = $1`, window.ID).Scan(&preservedState); err != nil {
-		t.Fatalf("load legacy blocked window: %v", err)
+		t.Fatalf("load blocked window: %v", err)
 	}
 	if preservedState != workspaceRewardBlocked {
-		t.Fatalf("legacy window state = %q, want %q", preservedState, workspaceRewardBlocked)
+		t.Fatalf("blocked window state = %q, want %q", preservedState, workspaceRewardBlocked)
 	}
 	window.ID = "window-pending"
 	window.BeneficiaryPublicKey = "peer-b"
@@ -327,7 +311,7 @@ func TestPostgresGameplayConcurrentMigration(t *testing.T) {
 	window.State = workspaceRewardPending
 	source.ScheduledCheckpoint = "002"
 	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
-		t.Fatalf("insert pending window after concurrent upgrade: %v", err)
+		t.Fatalf("insert pending window after concurrent initialization: %v", err)
 	}
 }
 
@@ -653,8 +637,17 @@ func TestPostgresDifferentPetAdoptionsReleaseFailedReservation(t *testing.T) {
 	if reservations != 1 || pets != 1 || transactions != 1 {
 		t.Fatalf("persisted reservations=%d Pets=%d transactions=%d, want 1, 1, 1", reservations, pets, transactions)
 	}
-	if len(workspaces.created) != 1 {
-		t.Fatalf("created workspaces = %d, want 1", len(workspaces.created))
+	if len(workspaces.created)-len(workspaces.deleted) != 1 {
+		t.Fatalf("Workspace attempts=%d rollbacks=%d, want one retained Workspace", len(workspaces.created), len(workspaces.deleted))
+	}
+	var retainedWorkspaceID string
+	if err := db.QueryRowContext(ctx, `SELECT workspace_id FROM gameplay_pets WHERE owner_public_key = $1`, "peer-postgres").Scan(&retainedWorkspaceID); err != nil {
+		t.Fatal(err)
+	}
+	for _, deleted := range workspaces.deleted {
+		if "id-"+deleted == retainedWorkspaceID {
+			t.Fatal("failed adoption deleted the winning Pet Workspace")
+		}
 	}
 }
 

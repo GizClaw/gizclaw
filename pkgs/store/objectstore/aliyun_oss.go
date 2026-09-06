@@ -95,8 +95,7 @@ func aliyunOSSError(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
 	}
-	var serviceErr oss.ServiceError
-	if errors.As(err, &serviceErr) {
+	if serviceErr, ok := errors.AsType[oss.ServiceError](err); ok {
 		if serviceErr.StatusCode == http.StatusNotFound {
 			return fs.ErrNotExist
 		}

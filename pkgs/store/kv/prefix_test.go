@@ -3,9 +3,7 @@ package kv_test
 import (
 	"context"
 	"errors"
-	"iter"
 	"reflect"
-	"slices"
 	"testing"
 	"time"
 
@@ -60,80 +58,6 @@ func TestPrefixedStoreScopesOperations(t *testing.T) {
 	}
 	if _, err := base.Get(ctx, kv.Key{"service", "credentials", "unrelated"}); err != nil {
 		t.Fatalf("unrelated key should remain: %v", err)
-	}
-}
-
-func TestPrefixedStoreListReturnsLocalKeys(t *testing.T) {
-	ctx := context.Background()
-	base := kv.NewMemory(nil)
-	store := kv.Prefixed(base, kv.Key{"service", "workspace"})
-
-	if err := base.BatchSet(ctx, []kv.Entry{
-		{Key: kv.Key{"service", "workspace", "items", "a"}, Value: []byte("a")},
-		{Key: kv.Key{"service", "workspace", "items", "b"}, Value: []byte("b")},
-		{Key: kv.Key{"service", "workspace", "settings"}, Value: []byte("settings")},
-		{Key: kv.Key{"service", "credentials", "items", "x"}, Value: []byte("x")},
-	}); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	var got []string
-	for entry, err := range store.List(ctx, nil) {
-		if err != nil {
-			t.Fatalf("List all: %v", err)
-		}
-		got = append(got, entry.Key.String()+"="+string(entry.Value))
-	}
-	want := []string{
-		"items:a=a",
-		"items:b=b",
-		"settings=settings",
-	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("List all = %v, want %v", got, want)
-	}
-
-	got = nil
-	for entry, err := range store.List(ctx, kv.Key{"items"}) {
-		if err != nil {
-			t.Fatalf("List items: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	want = []string{"items:a", "items:b"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("List items = %v, want %v", got, want)
-	}
-}
-
-func TestPrefixedStoreListAfterUsesLocalCursor(t *testing.T) {
-	ctx := context.Background()
-	base := kv.NewMemory(nil)
-	store := kv.Prefixed(base, kv.Key{"service", "workspace"})
-
-	if err := base.BatchSet(ctx, []kv.Entry{
-		{Key: kv.Key{"service", "workspace", "items", "a"}, Value: []byte("a")},
-		{Key: kv.Key{"service", "workspace", "items", "b"}, Value: []byte("b")},
-		{Key: kv.Key{"service", "workspace", "items", "c"}, Value: []byte("c")},
-		{Key: kv.Key{"service", "workspace-other", "items", "z"}, Value: []byte("z")},
-	}); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	got, err := kv.ListAfter(ctx, store, kv.Key{"items"}, nil, 2)
-	if err != nil {
-		t.Fatalf("ListAfter first page: %v", err)
-	}
-	if len(got) != 2 || got[0].Key.String() != "items:a" || got[1].Key.String() != "items:b" {
-		t.Fatalf("ListAfter first page = %+v", got)
-	}
-
-	got, err = kv.ListAfter(ctx, store, kv.Key{"items"}, got[len(got)-1].Key, 2)
-	if err != nil {
-		t.Fatalf("ListAfter second page: %v", err)
-	}
-	if len(got) != 1 || got[0].Key.String() != "items:c" {
-		t.Fatalf("ListAfter second page = %+v", got)
 	}
 }
 
@@ -270,16 +194,6 @@ func TestPrefixedStoreEmptyPrefixActsAsTransparentView(t *testing.T) {
 		t.Fatalf("Get through base = %q, want %q", got, "settings")
 	}
 
-	var keys []string
-	for entry, err := range store.List(ctx, nil) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		keys = append(keys, entry.Key.String())
-	}
-	if !slices.Equal(keys, []string{"service:workspace"}) {
-		t.Fatalf("List = %v, want [service:workspace]", keys)
-	}
 }
 
 func TestSharedAtomicStoreResolvesNestedPrefixes(t *testing.T) {
@@ -320,71 +234,6 @@ func TestSharedAtomicStoreRejectsDifferentRoots(t *testing.T) {
 	}
 }
 
-func TestPrefixedStoreListPropagatesBaseError(t *testing.T) {
-	ctx := context.Background()
-	wantErr := errors.New("list failed")
-	store := kv.Prefixed(listScriptStore{
-		list: func(context.Context, kv.Key) iter.Seq2[kv.Entry, error] {
-			return func(yield func(kv.Entry, error) bool) {
-				yield(kv.Entry{}, wantErr)
-			}
-		},
-	}, kv.Key{"service"})
-
-	for _, err := range collectListErrors(ctx, store, nil) {
-		if errors.Is(err, wantErr) {
-			return
-		}
-	}
-	t.Fatal("List did not propagate base error")
-}
-
-func TestPrefixedStoreListRejectsOutOfScopeKeys(t *testing.T) {
-	ctx := context.Background()
-	store := kv.Prefixed(listScriptStore{
-		list: func(context.Context, kv.Key) iter.Seq2[kv.Entry, error] {
-			return func(yield func(kv.Entry, error) bool) {
-				yield(kv.Entry{Key: kv.Key{"other", "key"}}, nil)
-			}
-		},
-	}, kv.Key{"service"})
-
-	errs := collectListErrors(ctx, store, nil)
-	if len(errs) != 1 {
-		t.Fatalf("List errors = %v, want one error", errs)
-	}
-	if got := errs[0].Error(); got != "kv: prefixed store got key other:key outside prefix service" {
-		t.Fatalf("List error = %q", got)
-	}
-}
-
-func TestPrefixedStoreListAfterPropagatesBaseError(t *testing.T) {
-	ctx := context.Background()
-	wantErr := errors.New("page failed")
-	store := kv.Prefixed(listScriptStore{
-		listAfter: func(context.Context, kv.Key, kv.Key, int) ([]kv.Entry, error) {
-			return nil, wantErr
-		},
-	}, kv.Key{"service"})
-
-	if _, err := kv.ListAfter(ctx, store, nil, nil, 10); !errors.Is(err, wantErr) {
-		t.Fatalf("ListAfter error = %v, want %v", err, wantErr)
-	}
-}
-
-func TestPrefixedStoreListAfterRejectsOutOfScopeKeys(t *testing.T) {
-	ctx := context.Background()
-	store := kv.Prefixed(listScriptStore{
-		listAfter: func(context.Context, kv.Key, kv.Key, int) ([]kv.Entry, error) {
-			return []kv.Entry{{Key: kv.Key{"other", "key"}}}, nil
-		},
-	}, kv.Key{"service"})
-
-	if _, err := kv.ListAfter(ctx, store, nil, nil, 10); err == nil {
-		t.Fatal("ListAfter succeeded with out-of-scope key")
-	}
-}
-
 func TestPrefixedStoreCloseDoesNotCloseBase(t *testing.T) {
 	base := &closeTrackingStore{Store: kv.NewMemory(nil)}
 	store := kv.Prefixed(base, kv.Key{"service"})
@@ -405,55 +254,4 @@ type closeTrackingStore struct {
 func (s *closeTrackingStore) Close() error {
 	s.closed = true
 	return nil
-}
-
-type listScriptStore struct {
-	list      func(context.Context, kv.Key) iter.Seq2[kv.Entry, error]
-	listAfter func(context.Context, kv.Key, kv.Key, int) ([]kv.Entry, error)
-}
-
-func (s listScriptStore) Get(context.Context, kv.Key) ([]byte, error) {
-	return nil, kv.ErrNotFound
-}
-
-func (s listScriptStore) Set(context.Context, kv.Key, []byte) error {
-	return nil
-}
-
-func (s listScriptStore) Delete(context.Context, kv.Key) error {
-	return nil
-}
-
-func (s listScriptStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
-	return s.list(ctx, prefix)
-}
-
-func (s listScriptStore) ListAfter(ctx context.Context, prefix, after kv.Key, limit int) ([]kv.Entry, error) {
-	return s.listAfter(ctx, prefix, after, limit)
-}
-
-func (s listScriptStore) BatchSet(context.Context, []kv.Entry) error {
-	return nil
-}
-
-func (s listScriptStore) BatchDelete(context.Context, []kv.Key) error {
-	return nil
-}
-
-func (s listScriptStore) BatchMutate(context.Context, []kv.Entry, []kv.Key) error {
-	return nil
-}
-
-func (s listScriptStore) Close() error {
-	return nil
-}
-
-func collectListErrors(ctx context.Context, store kv.Store, prefix kv.Key) []error {
-	var errs []error
-	for _, err := range store.List(ctx, prefix) {
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return errs
 }

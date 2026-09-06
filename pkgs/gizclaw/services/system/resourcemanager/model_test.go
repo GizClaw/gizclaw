@@ -4,15 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/modeltest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/providertenanttest"
 )
 
 func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Model",
@@ -66,7 +66,7 @@ func TestApplyModelCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 }
 
 func TestPutGetDeleteModelResource(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "Model",
@@ -146,13 +146,10 @@ func TestModelServiceResponseErrors(t *testing.T) {
 	assertResourceError(t, err, 500, "INTERNAL_ERROR")
 }
 
-func newModelManager() *Manager {
-	base := kv.NewMemory(nil)
+func newModelManager(t *testing.T) *Manager {
 	return New(Services{
-		Models: &model.Server{Store: kv.Prefixed(base, kv.Key{"models"})},
-		ProviderTenants: &providertenants.Server{
-			Store: kv.Prefixed(base, kv.Key{"provider-tenants"}),
-		},
+		Models:          modeltest.New(t),
+		ProviderTenants: providertenanttest.New(t),
 	})
 }
 

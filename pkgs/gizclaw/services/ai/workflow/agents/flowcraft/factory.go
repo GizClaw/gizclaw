@@ -23,11 +23,12 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	memoryflowcraft "github.com/GizClaw/gizclaw-go/pkgs/store/memory/flowcraft"
+	"github.com/jmoiron/sqlx"
 	"github.com/openai/openai-go/option"
 )
 
@@ -39,7 +40,7 @@ type Factory struct {
 	GenX             *peergenx.Service
 	GenXForOwner     func(context.Context, string) (*peergenx.Service, error)
 	History          logstore.MutableStore
-	State            kv.Store
+	State            *sqlx.DB
 	Memory           memory.Store
 	MemoryKind       string
 	MemoryLaneRecall map[string]string
@@ -68,6 +69,14 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		f.MemoryKind = spec.MemoryKind
 	}
 	owner := stringValue(spec.Workspace.OwnerPublicKey)
+	var checkpoint genxflowcraft.StateStore
+	if f.State != nil {
+		state, err := flowstate.OpenScope(ctx, f.State, owner, workspaceID, workspaceID)
+		if err != nil {
+			return nil, fmt.Errorf("flowcraft: open Board state: %w", err)
+		}
+		checkpoint = state
+	}
 	initiativePolicy := ""
 	inputMode := apitypes.WorkspaceInputModePushToTalk
 	if owner != "" {
@@ -132,10 +141,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if f.Memory != nil && f.MemoryKind == string(apitypes.RuntimeProfileMemoryDriverFlowcraft) && spec.MemoryLayout != nil {
 		f.MemoryLaneRecall = flowcraftLaneRecall(spec.MemoryLayout.Spec.Flowcraft.Lanes)
 	}
-	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, memoryCloser)
+	return f.newAgent(ctx, owner, workspaceID, spec.Workflow.Id, public, spec.ToolInvoker, spec.BoardInputs, initiativePolicy, inputMode, checkpoint, memoryCloser)
 }
 
-func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, memoryCloser io.Closer) (agenthost.Agent, error) {
+func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName string, public apitypes.FlowcraftWorkflowSpec, toolInvoker genx.ToolInvoker, inputs InputProvider, initiativePolicy string, inputMode apitypes.WorkspaceInputMode, checkpoint genxflowcraft.StateStore, memoryCloser io.Closer) (agenthost.Agent, error) {
 	if f.GenX == nil {
 		return nil, fmt.Errorf("flowcraft: peergenx service is required")
 	}
@@ -165,9 +174,7 @@ func (f Factory) newAgent(ctx context.Context, owner, workspaceID, workflowName 
 		BoardInputs: genxflowcraftBoardInputs(inputs), ToolInvoker: toolInvoker,
 	}
 	config.Initiative = mapInitiative(public.Conversation, initiativePolicy)
-	if f.State != nil {
-		config.State = flowcraftStateStore(f.State, scope)
-	}
+	config.State = checkpoint
 
 	var owned []io.Closer
 	if memoryCloser != nil {
@@ -546,7 +553,7 @@ func (closers multiCloser) Close() error { return closeAll(closers) }
 
 func closeAll(closers []io.Closer) error {
 	var err error
-	for index := len(closers) - 1; index >= 0; index-- {
+	for index := range slices.Backward(closers) {
 		if closers[index] != nil {
 			err = errors.Join(err, closers[index].Close())
 		}
@@ -573,10 +580,6 @@ func WorkspaceAgentScope(owner, workspaceID, agentID string) string {
 
 func workspaceAgentScope(owner, workspaceID, agentID string) string {
 	return WorkspaceAgentScope(owner, workspaceID, agentID)
-}
-
-func flowcraftStateStore(base kv.Store, scope string) kv.Store {
-	return kv.Prefixed(base, append(kv.Key{"flowcraft"}, strings.Split(scope, "/")...))
 }
 
 // scopeToken keeps the product-owned owner/Workspace/Agent namespace short.

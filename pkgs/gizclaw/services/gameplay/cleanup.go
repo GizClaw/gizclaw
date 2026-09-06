@@ -67,6 +67,9 @@ func (h PetDeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Cl
 }
 
 func validatePetDeletionClaim(claim pendingdeletion.Claim) (petDeletionDescriptor, error) {
+	if !pendingdeletion.IsDeterministic(claim.Record) {
+		return petDeletionDescriptor{}, errors.New("gameplay: invalid Pet deletion identity")
+	}
 	if claim.Source != gameplayPendingDeletionSource || claim.Record.Kind != pendingdeletion.KindPet {
 		return petDeletionDescriptor{}, errors.New("gameplay: unsupported pending deletion source or kind")
 	}
@@ -124,40 +127,30 @@ func (h PetDeletionHandler) finalize(ctx context.Context, claim pendingdeletion.
 		return pendingdeletion.ErrConflict
 	}
 
-	retained := pendingdeletion.IsDeterministic(claim.Record)
 	pet, petErr := findPetByOwnerID(ctx, tx, descriptor.OwnerPublicKey, descriptor.PetID)
-	if retained {
-		if errors.Is(petErr, sql.ErrNoRows) {
-			return pendingdeletion.Terminal("retained_pet_missing", "Retained Pet is missing", petErr)
-		}
-		if petErr != nil {
-			return petErr
-		}
-		if pet.OwnerPublicKey != descriptor.OwnerPublicKey || pet.Id != descriptor.PetID ||
-			pet.RuntimeProfileId != descriptor.RuntimeProfile || pet.PetDefId != descriptor.PetDefID ||
-			pet.WorkspaceId != descriptor.WorkspaceID {
-			return pendingdeletion.Terminal("retained_pet_mismatch", "Retained Pet no longer matches its deletion marker", nil)
-		}
-		result, deleteErr := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_pets
-			WHERE owner_public_key = ? AND id = ? AND runtime_profile_id = ? AND pet_def_id = ? AND workspace_id = ?`),
-			descriptor.OwnerPublicKey, descriptor.PetID, descriptor.RuntimeProfile, descriptor.PetDefID, descriptor.WorkspaceID)
-		if deleteErr != nil {
-			return deleteErr
-		}
-		deleted, deleteErr := result.RowsAffected()
-		if deleteErr != nil {
-			return deleteErr
-		}
-		if deleted != 1 {
-			return pendingdeletion.Terminal("pet_delete_conflict", "Retained Pet changed during finalization", nil)
-		}
-	} else {
-		if petErr == nil {
-			return pendingdeletion.Terminal("replacement_ambiguous", "Legacy marker may refer to a replacement Pet", nil)
-		}
-		if !errors.Is(petErr, sql.ErrNoRows) {
-			return petErr
-		}
+	if errors.Is(petErr, sql.ErrNoRows) {
+		return pendingdeletion.Terminal("retained_pet_missing", "Retained Pet is missing", petErr)
+	}
+	if petErr != nil {
+		return petErr
+	}
+	if pet.OwnerPublicKey != descriptor.OwnerPublicKey || pet.Id != descriptor.PetID ||
+		pet.RuntimeProfileId != descriptor.RuntimeProfile || pet.PetDefId != descriptor.PetDefID ||
+		pet.WorkspaceId != descriptor.WorkspaceID {
+		return pendingdeletion.Terminal("retained_pet_mismatch", "Retained Pet no longer matches its deletion marker", nil)
+	}
+	result, deleteErr := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_pets
+		WHERE owner_public_key = ? AND id = ? AND runtime_profile_id = ? AND pet_def_id = ? AND workspace_id = ?`),
+		descriptor.OwnerPublicKey, descriptor.PetID, descriptor.RuntimeProfile, descriptor.PetDefID, descriptor.WorkspaceID)
+	if deleteErr != nil {
+		return deleteErr
+	}
+	deleted, deleteErr := result.RowsAffected()
+	if deleteErr != nil {
+		return deleteErr
+	}
+	if deleted != 1 {
+		return pendingdeletion.Terminal("pet_delete_conflict", "Retained Pet changed during finalization", nil)
 	}
 
 	locatorResult, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_pending_deletion_locators
@@ -170,11 +163,8 @@ func (h PetDeletionHandler) finalize(ctx context.Context, claim pendingdeletion.
 	if err != nil {
 		return err
 	}
-	if retained && locatorRows != 1 {
+	if locatorRows != 1 {
 		return pendingdeletion.Terminal("locator_mismatch", "Pet deletion locator does not match marker", nil)
-	}
-	if locatorRows > 1 {
-		return pendingdeletion.Terminal("locator_duplicate", "Pet deletion locator is duplicated", nil)
 	}
 
 	markerResult, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM gameplay_pending_deletions

@@ -4,19 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/jsonschema-go/jsonschema"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.Date(2026, 7, 9, 10, 0, 0, 0, time.UTC)
-	server := &Server{Store: kv.NewMemory(nil), Now: func() time.Time { return now }}
+	server := &Server{DB: newTestDatabase(t), Now: func() time.Time { return now }}
 	tool := testClientTool("volume_set")
 	tool.Metadata = json.RawMessage(`{"category":"device"}`)
 	created, err := server.CreateTool(ctx, tool)
@@ -59,8 +62,8 @@ func TestServerPutGetListDeleteAndDefensiveCopies(t *testing.T) {
 	}
 }
 
-func TestServerAcceptsOpaqueToolIDWithKVSeparator(t *testing.T) {
-	server := &Server{Store: kv.NewMemory(nil)}
+func TestServerAcceptsOpaqueToolID(t *testing.T) {
+	server := &Server{DB: newTestDatabase(t)}
 	tool := testClientTool("volume_set")
 	tool.ID = "tenant:tool"
 	created, err := server.CreateTool(t.Context(), tool)
@@ -75,7 +78,7 @@ func TestServerAcceptsOpaqueToolIDWithKVSeparator(t *testing.T) {
 func TestServerReportsToolIdentityConflicts(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	created, err := server.CreateTool(ctx, testClientTool("volume_set"))
 	if err != nil {
 		t.Fatalf("CreateTool() error = %v", err)
@@ -103,8 +106,8 @@ func TestServerReportsToolIdentityConflicts(t *testing.T) {
 func TestCreateToolAtomicallyClaimsIDAndInvokeNameAcrossServers(t *testing.T) {
 	t.Parallel()
 
-	store := kv.NewMemory(nil)
-	servers := []*Server{{Store: store}, {Store: store}}
+	db := newTestDatabase(t)
+	servers := []*Server{{DB: db}, {DB: db}}
 	tools := []Tool{testClientTool("shared_tool"), testClientTool("shared_tool")}
 	tools[0].ID = "tool-alpha"
 	tools[1].ID = "tool-beta"
@@ -162,7 +165,7 @@ func TestCreateToolAtomicallyClaimsIDAndInvokeNameAcrossServers(t *testing.T) {
 func TestServerRetainsRotatesAndDropsDirectSecrets(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	tool := testHTTPTool("get_weather")
 	tool.HTTP.Auth = HTTPAuth{Method: "bearer", BearerToken: new("first")}
 	created, err := server.CreateTool(ctx, tool)
@@ -244,7 +247,7 @@ func TestNormalizeToolRejectsInvalidNamesTypesSchemasAndHTTP(t *testing.T) {
 	}
 }
 
-func TestNormalizeToolValidatesTriggersAndStrictLegacyPersistence(t *testing.T) {
+func TestNormalizeToolValidatesTriggers(t *testing.T) {
 	t.Parallel()
 	tool := testClientTool("volume_set")
 	tool.Triggers = []ToolTrigger{{
@@ -261,14 +264,6 @@ func TestNormalizeToolValidatesTriggersAndStrictLegacyPersistence(t *testing.T) 
 		t.Fatal("NormalizeTool(invalid trigger JSON) succeeded")
 	}
 
-	server := &Server{Store: kv.NewMemory(nil)}
-	legacy := []byte(`{"id":"legacy","source":"builtin","enabled":true,"input_schema":{"type":"object"},"executor":{"kind":"builtin"}}`)
-	if err := server.Store.Set(context.Background(), toolKey("legacy"), legacy); err != nil {
-		t.Fatalf("raw legacy Set(): %v", err)
-	}
-	if _, err := server.GetTool(context.Background(), "legacy"); err == nil {
-		t.Fatal("legacy persisted Tool was accepted")
-	}
 }
 
 func TestServerInvalidStateAndConfigErrors(t *testing.T) {
@@ -277,14 +272,94 @@ func TestServerInvalidStateAndConfigErrors(t *testing.T) {
 	if _, err := (&Server{}).ListTools(ctx); !errors.Is(err, ErrNotConfigured) {
 		t.Fatalf("ListTools(no store) = %v", err)
 	}
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	if _, err := server.GetTool(ctx, "bad:name"); !errors.Is(err, ErrInvalidTool) {
 		t.Fatalf("GetTool(invalid name) = %v", err)
 	}
-	if err := server.Store.Set(ctx, toolKey("bad_json"), []byte(`{`)); err != nil {
-		t.Fatalf("raw Set(): %v", err)
+	tool, err := server.CreateTool(ctx, testClientTool("bad_json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.DB.ExecContext(ctx, `UPDATE tools SET input_schema_json='{' WHERE id=?`, tool.ID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := server.ListTools(ctx); err == nil {
 		t.Fatal("ListTools(bad JSON) succeeded")
+	}
+}
+
+func newTestDatabase(t testing.TB) *sqlx.DB {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := (&Server{DB: db}).Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+func TestToolUpdateRetainsConcurrentSecretRotation(t *testing.T) {
+	for _, recreate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("recreate=%v", recreate), func(t *testing.T) {
+			db := newTestDatabase(t)
+			first, second := &Server{DB: db}, &Server{DB: db}
+			original := testHTTPTool("get_weather")
+			original.HTTP.Auth = HTTPAuth{Method: "bearer", BearerToken: new("old")}
+			created, err := first.CreateTool(t.Context(), original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			entered, release := make(chan struct{}), make(chan struct{})
+			var enterOnce, releaseOnce sync.Once
+			unblock := func() { releaseOnce.Do(func() { close(release) }) }
+			t.Cleanup(unblock)
+			first.Now = func() time.Time { enterOnce.Do(func() { close(entered); <-release }); return time.Now() }
+			desired := cloneTool(created)
+			desired.HTTP.Auth.BearerToken = nil
+			done := make(chan error, 1)
+			go func() { _, err := first.PutTool(t.Context(), created.ID, desired); done <- err }()
+			select {
+			case <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("update did not reach the write boundary")
+			}
+			rotated := cloneTool(created)
+			rotated.HTTP.Auth.BearerToken = new("new")
+			if recreate {
+				if err := second.DeleteTool(t.Context(), created.ID); err != nil {
+					t.Fatal(err)
+				}
+				_, err = second.CreateTool(t.Context(), rotated)
+			} else {
+				_, err = second.PutTool(t.Context(), created.ID, rotated)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			unblock()
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("update did not complete")
+			}
+			got, err := second.GetToolByID(t.Context(), created.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.HTTP.Auth.BearerToken == nil || *got.HTTP.Auth.BearerToken != "new" {
+				t.Fatal("stale update restored the old secret")
+			}
+		})
 	}
 }

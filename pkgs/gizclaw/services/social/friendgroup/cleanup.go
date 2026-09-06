@@ -117,7 +117,7 @@ func (h DeletionHandler) verifyRetirement(ctx context.Context, friendGroupID str
 	if err := validateFriendGroupRetirementReceipt(receipt, friendGroupID); err != nil {
 		return pendingdeletion.Terminal("retirement_receipt_invalid", "Friend Group retirement receipt is invalid", err)
 	}
-	if err := h.verifyControlPlaneAbsent(ctx, friendGroupID); err != nil {
+	if err := h.verifyControlPlaneAbsent(ctx, receipt); err != nil {
 		return err
 	}
 	return nil
@@ -132,10 +132,27 @@ func validateFriendGroupRetirementReceipt(receipt retirementReceipt, friendGroup
 	if err := customid.ValidateResourceID(receipt.WorkspaceID); err != nil {
 		return fmt.Errorf("social: invalid retired Workspace ID: %w", err)
 	}
+	if len(receipt.Members) == 0 || len(receipt.Members) > socialutil.FriendGroupMemberLimit {
+		return errors.New("social: invalid retirement member count")
+	}
+	seen := make(map[string]bool, len(receipt.Members))
+	for _, member := range receipt.Members {
+		if err := member.validate(); err != nil {
+			return err
+		}
+		if member.FriendGroupID != friendGroupID || seen[member.PeerPublicKey] {
+			return errors.New("social: invalid retirement member identity")
+		}
+		seen[member.PeerPublicKey] = true
+	}
+	if !seen[receipt.Owner] {
+		return errors.New("social: retirement receipt is missing its owner membership")
+	}
 	return nil
 }
 
-func (h DeletionHandler) verifyControlPlaneAbsent(ctx context.Context, friendGroupID string) error {
+func (h DeletionHandler) verifyControlPlaneAbsent(ctx context.Context, receipt retirementReceipt) error {
+	friendGroupID := receipt.FriendGroupID
 	type exactRecord struct {
 		name  string
 		store kv.Store
@@ -169,43 +186,42 @@ func (h DeletionHandler) verifyControlPlaneAbsent(ctx context.Context, friendGro
 	if err != nil {
 		return pendingdeletion.Retryable("store_unavailable", "Friend Group member store is unavailable", err)
 	}
-	memberPrefix := append(append(kv.Key{}, socialutil.GroupMembersRoot...), socialutil.EscapeStoreSegment(friendGroupID))
-	if err := requireNoEntries(ctx, members, memberPrefix, "member"); err != nil {
-		return err
+	remaining, err := members.ListMembers(ctx, memberCollectionKey(friendGroupID))
+	if err != nil {
+		return pendingdeletion.Retryable("store_error", "Friend Group member index could not be read", err)
+	}
+	if len(remaining) != 0 {
+		return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group members remain after retirement", friendGroupRetirementPollInterval)
 	}
 	belongs, err := h.Server.belongsStore()
 	if err != nil {
 		return pendingdeletion.Retryable("store_unavailable", "Friend Group belongs store is unavailable", err)
 	}
-	for entry, err := range belongs.List(ctx, socialutil.GroupBelongsRoot) {
+	for _, member := range receipt.Members {
+		for _, record := range []exactRecord{
+			{name: "member", store: members, key: socialutil.GroupMemberKey(friendGroupID, member.PeerPublicKey)},
+			{name: "belongs", store: belongs, key: socialutil.GroupBelongKey(member.PeerPublicKey, friendGroupID)},
+		} {
+			if _, err := record.store.Get(ctx, record.key); err == nil {
+				return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group "+record.name+" remains after retirement", friendGroupRetirementPollInterval)
+			} else if !errors.Is(err, kv.ErrNotFound) {
+				return pendingdeletion.Retryable("store_error", "Friend Group "+record.name+" could not be read", err)
+			}
+		}
+		present, err := belongs.HasMember(ctx, belongCollectionKey(member.PeerPublicKey), friendGroupID)
 		if err != nil {
-			return pendingdeletion.Retryable("store_error", "Friend Group belongs rows could not be listed", err)
+			return pendingdeletion.Retryable("store_error", "Friend Group belongs index could not be read", err)
 		}
-		var member friendGroupMemberRecord
-		if err := json.Unmarshal(entry.Value, &member); err != nil {
-			return pendingdeletion.Terminal("control_plane_corrupt", "Friend Group belongs row is invalid", err)
+		if present {
+			return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group belongs index remains after retirement", friendGroupRetirementPollInterval)
 		}
-		if member.FriendGroupID == friendGroupID {
-			return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group belongs row remains after retirement", friendGroupRetirementPollInterval)
+		value, err := belongs.Get(ctx, socialutil.GroupNameKey(member.PeerPublicKey, member.FriendGroupName))
+		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return pendingdeletion.Retryable("store_error", "Friend Group membership name could not be read", err)
 		}
-	}
-	for entry, err := range belongs.List(ctx, socialutil.GroupNamesRoot) {
-		if err != nil {
-			return pendingdeletion.Retryable("store_error", "Friend Group membership-name indexes could not be listed", err)
+		if err == nil && string(value) == friendGroupID {
+			return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group membership name remains after retirement", friendGroupRetirementPollInterval)
 		}
-		if string(entry.Value) == friendGroupID {
-			return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group membership-name index remains after retirement", friendGroupRetirementPollInterval)
-		}
-	}
-	return nil
-}
-
-func requireNoEntries(ctx context.Context, store kv.Store, prefix kv.Key, name string) error {
-	for _, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return pendingdeletion.Retryable("store_error", "Friend Group "+name+" rows could not be listed", err)
-		}
-		return pendingdeletion.Deferred("social_cleanup_incomplete", "Friend Group "+name+" row remains after retirement", friendGroupRetirementPollInterval)
 	}
 	return nil
 }

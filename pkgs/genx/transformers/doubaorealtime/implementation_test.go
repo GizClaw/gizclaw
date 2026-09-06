@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/doubao-speech-go"
+	doubaospeech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -1153,8 +1153,7 @@ func TestTransformerInputBoundariesRejectMIMEChange(t *testing.T) {
 				withInputTranscode(false),
 			)
 			err := runTransformerProcessLoop(t, tfr, &sliceRealtimeStream{chunks: test.chunks}, newBufferStream(8), session)
-			var mimeErr *doubaoRealtimeStreamMIMEChangeError
-			if !errors.As(err, &mimeErr) {
+			if _, ok := errors.AsType[*doubaoRealtimeStreamMIMEChangeError](err); !ok {
 				t.Fatalf("processLoop() error = %T %v, want MIME change", err, err)
 			}
 		})
@@ -1707,6 +1706,36 @@ func TestTransformerTextDrainsFinalResponseAfterInputEOF(t *testing.T) {
 	}
 	if !hasRealtimeTestBlob(chunks, genx.RoleModel, "audio/pcm") {
 		t.Fatalf("output missing final assistant audio: %#v", chunks)
+	}
+}
+
+func TestTransformerTextSubmitsOneMessageAtInputEOS(t *testing.T) {
+	textSent := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv: textSent, firstTextSent: textSent, blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventChatResponse, Text: "answer"},
+			{Type: doubaospeech.EventChatEnded},
+			{Type: doubaospeech.EventTTSStarted},
+			{Type: doubaospeech.EventTTSFinished},
+		},
+	}
+	tfr := newTransformer(nil, withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}), withMode(ModeText))
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "question", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text("你好，"), Ctrl: &genx.StreamCtrl{StreamID: "question"}},
+		{Role: genx.RoleUser, Part: genx.Text("今天怎么样？"), Ctrl: &genx.StreamCtrl{StreamID: "question"}},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "question", EndOfStream: true}},
+	}}
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	output, err := tfr.transform(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainRealtimeTestOutput(t, output)
+	if got := session.textMessages(); !slices.Equal(got, []string{"你好，今天怎么样？"}) {
+		t.Fatalf("submitted user messages = %q, want one complete question", got)
 	}
 }
 

@@ -176,25 +176,18 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	workflowResources := map[string]string{
-		"echo":              "flowcraft-scenario-000",
-		"realtime-workflow": "doubao-realtime-conversation",
-	}
-	modelResources := map[string]string{
-		"llm":      "doubao-mini-chat",
-		"tts":      "volc-bigtts",
-		"asr":      "volc-bigasr-sauc",
-		"realtime": "doubao-realtime-dialog",
-	}
-	voiceResources := map[string]string{
-		"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
+		"echo":                     "flowcraft-scenario-000",
+		"flowcraft-chat-assistant": "flowcraft-chat-assistant",
+		"realtime-workflow":        "doubao-realtime-conversation",
 	}
 	profileName := "cgo-chat"
+	resources, err := clitest.SetupRuntimeResources(ctx, api)
+	if err != nil {
+		t.Fatalf("read E2E runtime resources: %v", err)
+	}
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id: profileName,
-		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-			Models: ptr(runtimeBindings(modelResources)),
-			Voices: ptr(runtimeBindings(voiceResources)),
-		}, Workflows: apitypes.RuntimeProfileWorkflows{
+		Spec: apitypes.RuntimeProfileSpec{Resources: resources, Workflows: apitypes.RuntimeProfileWorkflows{
 			System: apitypes.RuntimeProfileSystemWorkflows{
 				Pet: "pet-care",
 			},

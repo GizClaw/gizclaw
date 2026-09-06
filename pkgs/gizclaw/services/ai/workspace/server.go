@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,15 +22,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
 )
 
 var (
-	workspacesRoot         = kv.Key{"by-id"}
-	workspacesByScopeRoot  = kv.Key{"by-scope-name"}
-	workflowsRoot          = kv.Key{"by-id"}
-	workspacesByOwnerRoot  = kv.Key{"by-owner"}
 	errWorkspaceIDExists   = errors.New("workspace id already exists")
 	errWorkspaceNameExists = errors.New("workspace name already exists")
 )
@@ -55,7 +52,7 @@ var (
 )
 
 type Server struct {
-	Store            kv.Store
+	DB               *sqlx.DB
 	Workflows        WorkflowService
 	Models           ModelService
 	Voices           VoiceService
@@ -73,7 +70,7 @@ type Server struct {
 // creation with any not-yet-committed reward settlement for the same
 // Workspace. The callback must be invoked while the durable fence is held.
 type WorkspaceDeletionFencer interface {
-	WithWorkspaceDeletionFence(context.Context, string, func(context.Context) error) error
+	WithWorkspaceDeletionFence(context.Context, string, func(context.Context, *sqlx.DB, *sqlx.Tx) error) error
 }
 
 // WorkflowService resolves Workflow resources without exposing the owning
@@ -255,7 +252,7 @@ func (s *Server) ListWorkspaces(ctx context.Context, request adminhttp.ListWorks
 	if err != nil {
 		return adminhttp.ListWorkspaces400JSONResponse(apitypes.NewErrorResponse("INVALID_PARAMS", err.Error())), nil
 	}
-	items, hasNext, nextCursor, err := listWorkspacePage(ctx, store, workspacesRoot, cursor, limit, selector)
+	items, hasNext, nextCursor, err := listSQLWorkspaces(ctx, store, workspaceSQLFilter{labels: selector}, cursor, limit)
 	if err != nil {
 		return adminhttp.ListWorkspaces500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -279,7 +276,7 @@ func (s *Server) ListWorkspacesByOwner(ctx context.Context, owner string) ([]api
 // unfinished asynchronous deletion cannot hide the owner's remaining
 // Workspaces.
 func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner string, selector map[string]string) ([]apitypes.Workspace, error) {
-	store, err := s.store()
+	db, err := s.store()
 	if err != nil {
 		return nil, err
 	}
@@ -287,34 +284,7 @@ func (s *Server) ListWorkspacesByOwnerAndLabels(ctx context.Context, owner strin
 	if owner == "" {
 		return []apitypes.Workspace{}, nil
 	}
-	prefix := workspaceByOwnerPrefix(owner)
-	items := make([]apitypes.Workspace, 0)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, fmt.Errorf("workspace: list owner %s: %w", owner, err)
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		item, err := getWorkspaceByID(ctx, store, string(entry.Value))
-		if errors.Is(err, kv.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		if err := s.ensureWorkspaceAvailable(ctx, item.Id); err != nil {
-			if errors.Is(err, ErrWorkspacePendingDeletion) {
-				continue
-			}
-			return nil, err
-		}
-		if !workspaceMatchesLabels(item, selector) {
-			continue
-		}
-		items = append(items, item)
-	}
-	return items, nil
+	return listAllSQLWorkspaces(ctx, db, workspaceSQLFilter{owner: &owner, ordinaryOnly: true, activeOnly: true, labels: selector})
 }
 
 func (s *Server) CreatePeerWorkspace(ctx context.Context, request PeerWorkspaceCreateRequest) (apitypes.Workspace, error) {
@@ -358,12 +328,12 @@ func (s *Server) createPeerWorkspace(ctx context.Context, request PeerWorkspaceC
 	}
 	if _, err := getWorkspace(ctx, store, string(normalized.Name)); err == nil {
 		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, fmt.Errorf("workspace %q already exists", normalized.Name))
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
 	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
 		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, fmt.Errorf("workspace id %q already exists", normalized.Id))
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInternal, err)
 	}
 	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, false, request.Initialize)
@@ -410,12 +380,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	existingID, err := workspaceIDByName(ctx, store, normalized.Name)
 	if err == nil {
-		retiring, pendingErr := pendingdeletion.HasLocator(
-			ctx,
-			store,
-			pendingdeletion.KindWorkspace,
-			existingID,
-		)
+		retiring, pendingErr := NewPendingDeletionSource(store).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: existingID})
 		if pendingErr != nil {
 			return apitypes.Workspace{}, false, pendingErr
 		}
@@ -425,7 +390,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 				normalized.Name,
 			)
 		}
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, false, err
 	}
 	if err := s.validateReferences(ctx, normalized, true); err != nil {
@@ -441,7 +406,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 		}
 		return existing, false, nil
 	}
-	if !errors.Is(err, kv.ErrNotFound) {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, false, err
 	}
 	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, true, nil)
@@ -450,7 +415,7 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 
 func (s *Server) createWorkspaceRecord(
 	ctx context.Context,
-	store kv.Store,
+	store *sqlx.DB,
 	normalized adminhttp.WorkspaceUpsert,
 	system bool,
 	initialize func(context.Context, Runtime) error,
@@ -470,13 +435,12 @@ func (s *Server) createWorkspaceRecord(
 	}
 	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
 		return apitypes.Workspace{}, fmt.Errorf("%w: %q", errWorkspaceIDExists, normalized.Id)
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, err
 	}
-	nameKey := workspaceScopeNameKey(owner, normalized.Name)
-	if _, err := store.Get(ctx, nameKey); err == nil {
+	if _, _, err := getSQLWorkspaceByName(ctx, store, owner, normalized.Name); err == nil {
 		return apitypes.Workspace{}, fmt.Errorf("%w: %q", errWorkspaceNameExists, normalized.Name)
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, err
 	}
 	now := time.Now().UTC()
@@ -522,27 +486,14 @@ func (s *Server) createWorkspaceRecord(
 			return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("initialize Workspace runtime: %w", err))
 		}
 	}
-	data, err := json.Marshal(workspace)
-	if err != nil {
-		return apitypes.Workspace{}, cleanupRuntime(err)
-	}
-	guards := []kv.Entry{
-		{Key: workspaceKey(workspace.Id), Value: data},
-		{Key: nameKey, Value: []byte(workspace.Id)},
-	}
-	var entries []kv.Entry
-	if workspace.OwnerPublicKey != nil && !system {
-		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)})
-	}
-	conflict, _, created, err := kv.CreateIfAllAbsent(ctx, store, guards, entries)
-	if err != nil {
-		return apitypes.Workspace{}, cleanupRuntime(err)
-	}
-	if !created {
-		if reflect.DeepEqual(conflict, workspaceKey(workspace.Id)) {
-			return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("%w: %q", errWorkspaceIDExists, workspace.Id))
+	if err := createSQLWorkspace(ctx, store, workspace); err != nil {
+		if errors.Is(err, errWorkspaceSQLConflict) {
+			if _, _, lookupErr := getSQLWorkspaceByID(ctx, store, workspace.Id); lookupErr == nil {
+				return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("%w: %q", errWorkspaceIDExists, workspace.Id))
+			}
+			return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("%w: %q", errWorkspaceNameExists, workspace.Name))
 		}
-		return apitypes.Workspace{}, cleanupRuntime(fmt.Errorf("%w: %q", errWorkspaceNameExists, workspace.Name))
+		return apitypes.Workspace{}, cleanupRuntime(err)
 	}
 	return workspace, nil
 }
@@ -565,7 +516,7 @@ func (s *Server) DeleteWorkspace(ctx context.Context, request adminhttp.DeleteWo
 	defer unlock()
 	workspace, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
 		}
 		return adminhttp.DeleteWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -648,7 +599,7 @@ func (s *Server) RetireSystemWorkspace(ctx context.Context, name string, kind so
 	defer unlock()
 	if item, err := s.getRetiredSystemWorkspace(ctx, store, name, kind, socialResourceID); err == nil {
 		return item, nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, err
 	}
 	item, err := getWorkspace(ctx, store, name)
@@ -675,7 +626,7 @@ func (s *Server) RetireSystemWorkspaceByID(ctx context.Context, id string, kind 
 	defer unlock()
 	if item, err := s.getRetiredSystemWorkspaceByID(ctx, store, id, kind, socialResourceID); err == nil {
 		return item, nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
+	} else if !errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, err
 	}
 	item, err := getWorkspaceByID(ctx, store, id)
@@ -695,7 +646,7 @@ func validateSocialRetirementRequest(kind socialutil.SFUWorkspaceKind, socialRes
 	return nil
 }
 
-func (s *Server) retireSystemWorkspace(ctx context.Context, store kv.Store, item apitypes.Workspace, kind socialutil.SFUWorkspaceKind, socialResourceID string) (apitypes.Workspace, error) {
+func (s *Server) retireSystemWorkspace(ctx context.Context, store *sqlx.DB, item apitypes.Workspace, kind socialutil.SFUWorkspaceKind, socialResourceID string) (apitypes.Workspace, error) {
 	name := item.Name
 	if !workspaceIsSystem(item) {
 		return apitypes.Workspace{}, fmt.Errorf("workspace %q is not a system Workspace", name)
@@ -723,21 +674,16 @@ func (s *Server) retireSystemWorkspace(ctx context.Context, store kv.Store, item
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	// Social SFU Workspaces are never reward eligible, so there is no reward
-	// settlement to fence against. Their marker is written directly: the
-	// reward fence opens a transaction on the gameplay SQL storage, and a
-	// Workspace KV store sharing that single-connection SQLite handle would
-	// deadlock behind it. Any other system Workspace reaching this path -- a
-	// stale or malformed Social retirement record naming it -- keeps the
-	// fence, because being a system Workspace alone does not prove that no
-	// reward settlement is in flight.
+	// Social SFU Workspaces are never reward eligible and need no settlement
+	// fence. Other system Workspaces retain reward fencing; when both services
+	// share a database, the marker is created in the reward transaction.
 	if !workspaceIsSocialSFU(item) {
 		if err := s.createPendingDeletion(ctx, store, record); err != nil {
 			return apitypes.Workspace{}, err
 		}
 		return item, nil
 	}
-	if _, _, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil {
+	if _, _, err := NewPendingDeletionSource(store).CreateOrGet(ctx, record); err != nil {
 		return apitypes.Workspace{}, err
 	}
 	return item, nil
@@ -790,7 +736,7 @@ func (s *Server) GetRetiredSystemWorkspaceByID(ctx context.Context, id string, k
 
 func (s *Server) getRetiredSystemWorkspace(
 	ctx context.Context,
-	store kv.Store,
+	store *sqlx.DB,
 	name string,
 	kind socialutil.SFUWorkspaceKind,
 	socialResourceID string,
@@ -804,17 +750,12 @@ func (s *Server) getRetiredSystemWorkspace(
 
 func (s *Server) getRetiredSystemWorkspaceByID(
 	ctx context.Context,
-	store kv.Store,
+	store *sqlx.DB,
 	id string,
 	kind socialutil.SFUWorkspaceKind,
 	socialResourceID string,
 ) (apitypes.Workspace, error) {
-	record, err := pendingdeletion.GetByLocator(
-		ctx,
-		store,
-		pendingdeletion.KindWorkspace,
-		id,
-	)
+	record, err := workspaceDeletionByResource(ctx, store, id)
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
@@ -822,22 +763,10 @@ func (s *Server) getRetiredSystemWorkspaceByID(
 	if err := json.Unmarshal(record.Descriptor, &stored); err != nil {
 		return apitypes.Workspace{}, fmt.Errorf("workspace: decode Social retirement descriptor: %w", err)
 	}
-	descriptor, err := validateSocialRetirementRecord(record, stored.Name, kind, socialResourceID)
-	if err != nil {
+	if _, err := validateSocialRetirementRecord(record, stored.Name, kind, socialResourceID); err != nil {
 		return apitypes.Workspace{}, err
 	}
-	item, getErr := getWorkspaceByID(ctx, store, id)
-	if getErr == nil {
-		return item, nil
-	}
-	if errors.Is(getErr, kv.ErrNotFound) {
-		return apitypes.Workspace{
-			Id:             descriptor.ID,
-			Name:           descriptor.Name,
-			OwnerPublicKey: cloneString(descriptor.OwnerPublicKey),
-		}, nil
-	}
-	return apitypes.Workspace{}, getErr
+	return getWorkspaceByID(ctx, store, id)
 }
 
 func validateSocialRetirementRecord(
@@ -880,7 +809,14 @@ func validateSocialRetirementRecord(
 	return descriptor, nil
 }
 
-func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
+func (s *Server) deleteWorkspaceRecord(ctx context.Context, store *sqlx.DB, workspace apitypes.Workspace) error {
+	current, version, err := getSQLWorkspaceByID(ctx, store, workspace.Id)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(current, workspace) {
+		return errWorkspaceSQLConflict
+	}
 	if workspace.Icon != nil && s.Assets == nil {
 		return errors.New("workspace asset store not configured")
 	}
@@ -896,14 +832,10 @@ func (s *Server) deleteWorkspaceRecord(ctx context.Context, store kv.Store, work
 			return err
 		}
 	}
-	keys := []kv.Key{workspaceKey(string(workspace.Id)), workspaceScopeNameKey(workspace.OwnerPublicKey, workspace.Name)}
-	if workspace.OwnerPublicKey != nil && !workspaceIsSystem(workspace) {
-		keys = append(keys, workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name))
-	}
-	return store.BatchDelete(ctx, keys)
+	return deleteSQLWorkspace(ctx, store, workspace.Id, version)
 }
 
-func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
+func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store *sqlx.DB, workspace apitypes.Workspace) error {
 	descriptor := workspaceDeletionDescriptor{
 		ID:             workspace.Id,
 		Name:           workspace.Name,
@@ -924,7 +856,7 @@ func (s *Server) fastDeleteWorkspaceRecord(ctx context.Context, store kv.Store, 
 	return s.createPendingDeletion(ctx, store, record)
 }
 
-func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store kv.Store, item apitypes.Workspace, owner string) error {
+func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store *sqlx.DB, item apitypes.Workspace, owner string) error {
 	if item.OwnerPublicKey == nil || *item.OwnerPublicKey != owner || !workspaceIsSystem(item) {
 		return errors.New("workspace: invalid Peer-owned Pet system Workspace")
 	}
@@ -946,13 +878,17 @@ func (s *Server) retirePeerPetWorkspaceRecord(ctx context.Context, store kv.Stor
 	return s.createPendingDeletion(ctx, store, record)
 }
 
-func (s *Server) createPendingDeletion(ctx context.Context, store kv.Store, record pendingdeletion.Record) error {
-	create := func(ctx context.Context) error {
-		_, _, err := pendingdeletion.CreateOrGet(ctx, store, record)
+func (s *Server) createPendingDeletion(ctx context.Context, db *sqlx.DB, record pendingdeletion.Record) error {
+	create := func(ctx context.Context, fenceDB *sqlx.DB, tx *sqlx.Tx) error {
+		if fenceDB == db && tx != nil {
+			_, _, err := createWorkspaceDeletionTx(ctx, tx, record)
+			return err
+		}
+		_, _, err := NewPendingDeletionSource(db).CreateOrGet(ctx, record)
 		return err
 	}
 	if s.DeletionFencer == nil {
-		return create(ctx)
+		return create(ctx, nil, nil)
 	}
 	return s.DeletionFencer.WithWorkspaceDeletionFence(ctx, record.ResourceID, create)
 }
@@ -965,7 +901,7 @@ func (s *Server) GetWorkspace(ctx context.Context, request adminhttp.GetWorkspac
 	id := string(request.Id)
 	workspace, err := getWorkspaceByID(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
 		}
 		return adminhttp.GetWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -998,22 +934,47 @@ func (s *Server) GetWorkspaceByName(ctx context.Context, name string) (apitypes.
 // background work. Admin GetWorkspace intentionally retains its diagnostic
 // projection while deletion is pending.
 func (s *Server) GetAvailableWorkspaceByID(ctx context.Context, id string) (apitypes.Workspace, error) {
-	if s == nil {
-		return apitypes.Workspace{}, errors.New("workspace: nil server")
-	}
-	if err := customid.ValidateResourceID(id); err != nil {
-		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
-	}
-	if err := s.ensureWorkspaceAvailable(ctx, id); err != nil {
-		return apitypes.Workspace{}, err
-	}
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Workspace{}, err
 	}
-	item, err := getWorkspaceByID(ctx, store, id)
+	return s.getAvailableWorkspace(ctx, store, id)
+}
+
+// GetAvailableWorkspaceInTransaction reuses a caller's transaction when both
+// services share the registered database, preserving the deletion fence without
+// acquiring a second connection from the same pool.
+func (s *Server) GetAvailableWorkspaceInTransaction(ctx context.Context, db *sqlx.DB, tx *sqlx.Tx, id string) (apitypes.Workspace, error) {
+	store, err := s.store()
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		return apitypes.Workspace{}, err
+	}
+	if store == db && tx != nil {
+		return s.getAvailableWorkspace(ctx, tx, id)
+	}
+	return s.getAvailableWorkspace(ctx, store, id)
+}
+
+type workspaceAvailabilityQuery interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+	Rebind(string) string
+}
+
+func (s *Server) getAvailableWorkspace(ctx context.Context, query workspaceAvailabilityQuery, id string) (apitypes.Workspace, error) {
+	if err := customid.ValidateResourceID(id); err != nil {
+		return apitypes.Workspace{}, fmt.Errorf("workspace: invalid id: %w", err)
+	}
+	var pending int
+	err := query.QueryRowContext(ctx, query.Rebind("SELECT 1 FROM workspace_pending_deletions WHERE resource_id=?"), id).Scan(&pending)
+	if err == nil {
+		return apitypes.Workspace{}, fmt.Errorf("%w: Workspace %q cannot be used", ErrWorkspacePendingDeletion, id)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return apitypes.Workspace{}, err
+	}
+	item, _, err := scanSQLWorkspace(query.QueryRowContext(ctx, query.Rebind("SELECT "+workspaceSQLColumns+" FROM workspaces w WHERE w.id=?"), id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
 			return apitypes.Workspace{}, fmt.Errorf("%w: Workspace %q no longer exists", ErrWorkspaceDeleted, id)
 		}
 		return apitypes.Workspace{}, err
@@ -1077,8 +1038,8 @@ func (s *Server) putWorkspaceRecord(
 		}
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	previous, previousErr := getWorkspaceByID(ctx, store, id)
-	if errors.Is(previousErr, kv.ErrNotFound) {
+	previous, version, previousErr := getSQLWorkspaceByID(ctx, store, id)
+	if errors.Is(previousErr, sql.ErrNoRows) {
 		return adminhttp.PutWorkspace404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", fmt.Sprintf("workspace %q not found", id))), nil
 	}
 	if previousErr != nil {
@@ -1142,7 +1103,7 @@ func (s *Server) putWorkspaceRecord(
 			return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 	}
-	if err := writeWorkspace(ctx, store, workspace); err != nil {
+	if err := updateSQLWorkspace(ctx, store, workspace, version); err != nil {
 		return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutWorkspace200JSONResponse(workspace), nil
@@ -1171,24 +1132,6 @@ func peerAvailabilityCode(err error) string {
 		return PeerDeletedCode
 	}
 	return PeerPendingDeletionCode
-}
-
-func writeWorkspace(ctx context.Context, store kv.Store, workspace apitypes.Workspace) error {
-	data, err := json.Marshal(workspace)
-	if err != nil {
-		return fmt.Errorf("workspace: encode %s: %w", workspace.Name, err)
-	}
-	entries := []kv.Entry{
-		{Key: workspaceKey(string(workspace.Id)), Value: data},
-		{Key: workspaceScopeNameKey(workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)},
-	}
-	if workspace.OwnerPublicKey != nil && !workspaceIsSystem(workspace) {
-		entries = append(entries, kv.Entry{Key: workspaceByOwnerKey(*workspace.OwnerPublicKey, workspace.Name), Value: []byte(workspace.Id)})
-	}
-	if err := store.BatchSet(ctx, entries); err != nil {
-		return fmt.Errorf("workspace: write %s: %w", workspace.Name, err)
-	}
-	return nil
 }
 
 func systemWorkspaceMatches(existing apitypes.Workspace, desired adminhttp.WorkspaceUpsert, owner string) bool {
@@ -1243,76 +1186,19 @@ func systemWorkspaceDomainParametersMatch(existing, desired *apitypes.WorkspaceP
 	return reflect.DeepEqual(existing, desired)
 }
 
-func getWorkspace(ctx context.Context, store kv.Store, name string) (apitypes.Workspace, error) {
-	id, err := workspaceIDByName(ctx, store, name)
-	if err != nil {
-		return apitypes.Workspace{}, err
-	}
-	return getWorkspaceByID(ctx, store, id)
+func getWorkspace(ctx context.Context, db *sqlx.DB, name string) (apitypes.Workspace, error) {
+	item, _, err := getSQLWorkspaceByName(ctx, db, optionalWorkspaceOwner(ctx), name)
+	return item, err
 }
 
-func workspaceIDByName(ctx context.Context, store kv.Store, name string) (string, error) {
-	var owner *string
-	if value, ok := ownership.FromContext(ctx); ok && strings.TrimSpace(value) != "" {
-		value = strings.TrimSpace(value)
-		owner = &value
-	}
-	id, err := store.Get(ctx, workspaceScopeNameKey(owner, name))
-	if err != nil {
-		return "", err
-	}
-	return string(id), nil
+func workspaceIDByName(ctx context.Context, db *sqlx.DB, name string) (string, error) {
+	item, _, err := getSQLWorkspaceByName(ctx, db, optionalWorkspaceOwner(ctx), name)
+	return item.Id, err
 }
 
-func getWorkspaceByID(ctx context.Context, store kv.Store, id string) (apitypes.Workspace, error) {
-	data, err := store.Get(ctx, workspaceKey(id))
-	if err != nil {
-		return apitypes.Workspace{}, err
-	}
-	var workspace apitypes.Workspace
-	if err := json.Unmarshal(data, &workspace); err != nil {
-		return apitypes.Workspace{}, fmt.Errorf("workspace: decode %s: %w", id, err)
-	}
-	return validateStoredWorkspace(workspace)
-}
-
-func listWorkspacePage(ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int, selector map[string]string) ([]apitypes.Workspace, bool, *string, error) {
-	items := make([]apitypes.Workspace, 0, limit+1)
-	keys := make([]string, 0, limit+1)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, false, nil, err
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		key := entry.Key[len(entry.Key)-1]
-		if cursor != "" && key <= cursor {
-			continue
-		}
-		var workspace apitypes.Workspace
-		if err := json.Unmarshal(entry.Value, &workspace); err != nil {
-			return nil, false, nil, fmt.Errorf("workspace: decode list %s: %w", entry.Key.String(), err)
-		}
-		workspace, err = validateStoredWorkspace(workspace)
-		if err != nil {
-			return nil, false, nil, fmt.Errorf("workspace: validate list %s: %w", entry.Key.String(), err)
-		}
-		if !workspaceMatchesLabels(workspace, selector) {
-			continue
-		}
-		items = append(items, workspace)
-		keys = append(keys, key)
-		if len(items) > limit {
-			break
-		}
-	}
-	if len(items) <= limit {
-		return items, false, nil, nil
-	}
-	items = items[:limit]
-	nextCursor := keys[limit-1]
-	return items, true, &nextCursor, nil
+func getWorkspaceByID(ctx context.Context, db *sqlx.DB, id string) (apitypes.Workspace, error) {
+	item, _, err := getSQLWorkspaceByID(ctx, db, id)
+	return item, err
 }
 
 func validateStoredWorkspace(workspace apitypes.Workspace) (apitypes.Workspace, error) {
@@ -1338,7 +1224,7 @@ func (s *Server) ensureWorkspaceAvailable(ctx context.Context, id string) error 
 	if err != nil {
 		return err
 	}
-	pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, id)
+	pending, err := NewPendingDeletionSource(store).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: id})
 	if err != nil {
 		return err
 	}
@@ -1964,26 +1850,6 @@ func isInvalidWorkspaceReference(err error) bool {
 	return errors.As(err, &invalid)
 }
 
-func workspaceKey(id string) kv.Key {
-	return append(append(kv.Key{}, workspacesRoot...), escapeStoreSegment(id))
-}
-
-func workspaceScopeNameKey(owner *string, name string) kv.Key {
-	scope := "@admin"
-	if owner != nil && strings.TrimSpace(*owner) != "" {
-		scope = strings.TrimSpace(*owner)
-	}
-	return append(append(append(kv.Key{}, workspacesByScopeRoot...), escapeStoreSegment(scope)), escapeStoreSegment(name))
-}
-
-func workspaceByOwnerKey(owner, name string) kv.Key {
-	return append(workspaceByOwnerPrefix(owner), escapeStoreSegment(name))
-}
-
-func workspaceByOwnerPrefix(owner string) kv.Key {
-	return append(append(kv.Key{}, workspacesByOwnerRoot...), escapeStoreSegment(owner))
-}
-
 func (s *Server) newID() string {
 	if s != nil && s.NewID != nil {
 		return s.NewID()
@@ -2008,15 +1874,6 @@ func cloneLabelsOrEmpty(labels *map[string]string) *map[string]string {
 	return &cloned
 }
 
-func workflowReferenceKey(name string) kv.Key {
-	return append(append(kv.Key{}, workflowsRoot...), escapeStoreSegment(name))
-}
-
-func escapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%", "%25")
-	return strings.ReplaceAll(value, ":", "%3A")
-}
-
 func normalizeListParams(cursor *string, limit *int32) (string, int) {
 	nextCursor := ""
 	if cursor != nil {
@@ -2033,30 +1890,6 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 		nextLimit = maxListLimit
 	}
 	return nextCursor, nextLimit
-}
-
-func cursorAfterKey(prefix kv.Key, cursor string) kv.Key {
-	if cursor == "" {
-		return nil
-	}
-	after := append(kv.Key{}, prefix...)
-	return append(after, cursor)
-}
-
-func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) {
-	if len(entries) == 0 {
-		return nil, false, nil
-	}
-	hasNext := len(entries) > limit
-	if !hasNext {
-		return entries, false, nil
-	}
-	page := entries[:limit]
-	if len(page) == 0 || len(page[len(page)-1].Key) == 0 {
-		return page, true, nil
-	}
-	nextCursor := page[len(page)-1].Key[len(page[len(page)-1].Key)-1]
-	return page, true, &nextCursor
 }
 
 func cloneParameters(parameters *apitypes.WorkspaceParameters) *apitypes.WorkspaceParameters {
@@ -2086,11 +1919,11 @@ func cloneToolkitPolicy(policy *apitypes.ToolkitPolicy) *apitypes.ToolkitPolicy 
 	return &cloned
 }
 
-func (s *Server) store() (kv.Store, error) {
-	if s == nil || s.Store == nil {
+func (s *Server) store() (*sqlx.DB, error) {
+	if s == nil || s.DB == nil {
 		return nil, errors.New("workspace store not configured")
 	}
-	return s.Store, nil
+	return s.DB, nil
 }
 
 func (s *Server) getWorkflow(ctx context.Context, id string) (apitypes.Workflow, error) {

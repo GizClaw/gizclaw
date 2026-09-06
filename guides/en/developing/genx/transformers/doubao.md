@@ -111,7 +111,9 @@ Resolution, invocation, invalid result JSON, result submission, cancellation, du
 | --- | --- |
 | Push-to-Talk | BOS starts a push-to-talk, the audio chunks belong to the current turn, EOS ends the input and triggers `EndASR`. |
 | Realtime | Continuously sends audio, and the user utterance is divided by provider VAD; entering EOS only closes the local segment. |
-| Text | Sends text chunks, does not accept audio input. |
+| Text | Combines text fragments sharing a StreamID and submits at EOS; does not accept audio input. |
+
+Text mode accumulates fragments with a `StreamID` as one user message and calls provider `SendText` once at EOS. The accumulated limit is 1 MiB; exceeding it terminates the Transform. A new input ID replaces unsubmitted text, duplicate EOS does not submit twice, and input EOF discards fragments without EOS. An EOS carrying an error discards buffered text and returns failure without submitting a provider message. A text chunk without a `StreamID` is submitted directly as one complete message.
 
 `Config.Model` is required and is never inferred by the transformer. `Config.Instructions` is the semantic initial dialogue instruction. GizClaw passes it unchanged to `doubao-speech-go`; the SDK maps it to `dialog.system_role` for O20 or `dialog.character_manifest` for SC20 after model normalization. Exact `SystemRole`, `SpeakingStyle`, and `CharacterManifest` settings remain independent advanced fields and are validated by the SDK. The adapter does not copy semantic instructions into `prompt.system`, and it does not inject an O-only `BotName` into SC20 sessions.
 

@@ -498,8 +498,7 @@ func ServerLogBackendError(err error) *ServerLogQueryError {
 }
 
 func serverLogQueryErrorResponse(err error) (int, apitypes.ErrorResponse) {
-	var queryErr *ServerLogQueryError
-	if errors.As(err, &queryErr) {
+	if queryErr, ok := errors.AsType[*ServerLogQueryError](err); ok {
 		return queryErr.StatusCode, apitypes.NewErrorResponse(queryErr.Code, queryErr.Message)
 	}
 	return http.StatusBadGateway, apitypes.NewErrorResponse("LOG_QUERY_BACKEND_ERROR", "server log query backend failed")

@@ -99,8 +99,7 @@ func azureBlobError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var responseErr *azcore.ResponseError
-	if errors.As(err, &responseErr) {
+	if responseErr, ok := errors.AsType[*azcore.ResponseError](err); ok {
 		if responseErr.StatusCode == http.StatusNotFound {
 			return fs.ErrNotExist
 		}

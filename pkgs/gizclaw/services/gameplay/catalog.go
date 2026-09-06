@@ -3,7 +3,7 @@ package gameplay
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -17,8 +17,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -28,16 +28,8 @@ const (
 	pixaClipNameSize  = 32
 )
 
-var (
-	petDefsRoot   = kv.Key{"by-id"}
-	badgeDefsRoot = kv.Key{"by-id"}
-	gameDefsRoot  = kv.Key{"by-id"}
-)
-
 type Catalog struct {
-	PetDefs   kv.Store
-	BadgeDefs kv.Store
-	GameDefs  kv.Store
+	DB        *sqlx.DB
 	Assets    objectstore.ObjectStore
 	Now       func() time.Time
 	IconLocks iconasset.Locker
@@ -76,12 +68,12 @@ type GameDefIconAdminService interface {
 var _ GameDefIconAdminService = (*Catalog)(nil)
 
 func (c *Catalog) ListPetDefs(ctx context.Context, request adminhttp.ListPetDefsRequestObject) (adminhttp.ListPetDefsResponseObject, error) {
-	store, err := c.store(c.PetDefs, "pet defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listJSON[apitypes.PetDef](ctx, store, petDefsRoot, cursor, limit)
+	items, hasNext, nextCursor, err := listPetDefSQL(ctx, store, cursor, limit)
 	if err != nil {
 		return adminhttp.ListPetDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -92,7 +84,7 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 	if request.Body == nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", "request body required")), nil
 	}
-	store, err := c.store(c.PetDefs, "pet defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -100,7 +92,7 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 	if err != nil {
 		return adminhttp.CreatePetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
-	created, err := createCatalogItem(ctx, store, petDefKey(item.Id), item)
+	created, err := insertPetDefSQL(ctx, store, item)
 	if err != nil {
 		return adminhttp.CreatePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -111,7 +103,7 @@ func (c *Catalog) CreatePetDef(ctx context.Context, request adminhttp.CreatePetD
 }
 
 func (c *Catalog) DeletePetDef(ctx context.Context, request adminhttp.DeletePetDefRequestObject) (adminhttp.DeletePetDefResponseObject, error) {
-	store, err := c.store(c.PetDefs, "pet defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -119,14 +111,14 @@ func (c *Catalog) DeletePetDef(ctx context.Context, request adminhttp.DeletePetD
 	if err != nil {
 		return nil, err
 	}
-	item, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
+	item, version, err := getPetDefSQL(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeletePetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", fmt.Sprintf("pet def %q not found", id))), nil
 		}
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, petDefKey(id)); err != nil {
+	if _, _, err := deletePetDefSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeletePetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
@@ -138,7 +130,7 @@ func (c *Catalog) DeletePetDef(ctx context.Context, request adminhttp.DeletePetD
 func (c *Catalog) GetPetDef(ctx context.Context, request adminhttp.GetPetDefRequestObject) (adminhttp.GetPetDefResponseObject, error) {
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetPetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.GetPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -150,7 +142,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if request.Body == nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", "request body required")), nil
 	}
-	store, err := c.store(c.PetDefs, "pet defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -158,8 +150,8 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err != nil {
 		return nil, err
 	}
-	previous, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
+	previous, version, err := getPetDefSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.PutPetDef404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", fmt.Sprintf("pet def %q not found", id))), nil
 	}
 	if err != nil {
@@ -181,7 +173,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 	if err != nil {
 		return adminhttp.PutPetDef400JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF", err.Error())), nil
 	}
-	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
+	if _, _, err := updatePetDefSQL(ctx, store, item, version); err != nil {
 		return adminhttp.PutPetDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutPetDef200JSONResponse(item), nil
@@ -190,7 +182,7 @@ func (c *Catalog) PutPetDef(ctx context.Context, request adminhttp.PutPetDefRequ
 func (c *Catalog) DownloadPetDefPixa(ctx context.Context, request adminhttp.DownloadPetDefPixaRequestObject) (adminhttp.DownloadPetDefPixaResponseObject, error) {
 	item, err := c.GetPetDefByID(ctx, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DownloadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.DownloadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -206,13 +198,13 @@ func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.Upload
 	if request.Body == nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_PET_DEF_PIXA", "request body required")), nil
 	}
-	store, err := c.store(c.PetDefs, "pet defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item, err := c.GetPetDefByID(ctx, request.Id)
+	item, version, err := getPetDefSQL(ctx, store, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.UploadPetDefPixa404JSONResponse(apitypes.NewErrorResponse("PET_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -236,19 +228,19 @@ func (c *Catalog) UploadPetDefPixa(ctx context.Context, request adminhttp.Upload
 	}
 	item.PixaPath = &pixaPath
 	item.UpdatedAt = c.now()
-	if err := writeJSON(ctx, store, petDefKey(item.Id), item); err != nil {
+	if _, _, err := updatePetDefSQL(ctx, store, item, version); err != nil {
 		return adminhttp.UploadPetDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.UploadPetDefPixa200JSONResponse(item), nil
 }
 
 func (c *Catalog) ListBadgeDefs(ctx context.Context, request adminhttp.ListBadgeDefsRequestObject) (adminhttp.ListBadgeDefsResponseObject, error) {
-	store, err := c.store(c.BadgeDefs, "badge defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.ListBadgeDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listJSON[apitypes.BadgeDef](ctx, store, badgeDefsRoot, cursor, limit)
+	items, hasNext, nextCursor, err := listBadgeDefSQL(ctx, store, cursor, limit)
 	if err != nil {
 		return adminhttp.ListBadgeDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -259,7 +251,7 @@ func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminhttp.CreateBa
 	if request.Body == nil {
 		return adminhttp.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", "request body required")), nil
 	}
-	store, err := c.store(c.BadgeDefs, "badge defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -267,7 +259,7 @@ func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminhttp.CreateBa
 	if err != nil {
 		return adminhttp.CreateBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
-	created, err := createCatalogItem(ctx, store, badgeDefKey(item.Id), item)
+	created, err := insertBadgeDefSQL(ctx, store, item)
 	if err != nil {
 		return adminhttp.CreateBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -278,7 +270,7 @@ func (c *Catalog) CreateBadgeDef(ctx context.Context, request adminhttp.CreateBa
 }
 
 func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminhttp.DeleteBadgeDefRequestObject) (adminhttp.DeleteBadgeDefResponseObject, error) {
-	store, err := c.store(c.BadgeDefs, "badge defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -286,14 +278,14 @@ func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminhttp.DeleteBa
 	if err != nil {
 		return nil, err
 	}
-	item, err := readJSON[apitypes.BadgeDef](ctx, store, badgeDefKey(id))
+	item, version, err := getBadgeDefSQL(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", fmt.Sprintf("badge def %q not found", id))), nil
 		}
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := store.Delete(ctx, badgeDefKey(id)); err != nil {
+	if _, _, err := deleteBadgeDefSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeleteBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if c.Assets != nil {
@@ -305,7 +297,7 @@ func (c *Catalog) DeleteBadgeDef(ctx context.Context, request adminhttp.DeleteBa
 func (c *Catalog) GetBadgeDef(ctx context.Context, request adminhttp.GetBadgeDefRequestObject) (adminhttp.GetBadgeDefResponseObject, error) {
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.GetBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -317,7 +309,7 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 	if request.Body == nil {
 		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", "request body required")), nil
 	}
-	store, err := c.store(c.BadgeDefs, "badge defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -325,8 +317,8 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 	if err != nil {
 		return nil, err
 	}
-	previous, err := readJSON[apitypes.BadgeDef](ctx, store, badgeDefKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
+	previous, version, err := getBadgeDefSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.PutBadgeDef404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", fmt.Sprintf("badge def %q not found", id))), nil
 	}
 	if err != nil {
@@ -345,7 +337,7 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 	if err != nil {
 		return adminhttp.PutBadgeDef400JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF", err.Error())), nil
 	}
-	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
+	if _, _, err := updateBadgeDefSQL(ctx, store, item, version); err != nil {
 		return adminhttp.PutBadgeDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutBadgeDef200JSONResponse(item), nil
@@ -354,7 +346,7 @@ func (c *Catalog) PutBadgeDef(ctx context.Context, request adminhttp.PutBadgeDef
 func (c *Catalog) DownloadBadgeDefPixa(ctx context.Context, request adminhttp.DownloadBadgeDefPixaRequestObject) (adminhttp.DownloadBadgeDefPixaResponseObject, error) {
 	item, err := c.GetBadgeDefByID(ctx, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DownloadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.DownloadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -370,13 +362,13 @@ func (c *Catalog) UploadBadgeDefPixa(ctx context.Context, request adminhttp.Uplo
 	if request.Body == nil {
 		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INVALID_BADGE_DEF_PIXA", "request body required")), nil
 	}
-	store, err := c.store(c.BadgeDefs, "badge defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item, err := c.GetBadgeDefByID(ctx, request.Id)
+	item, version, err := getBadgeDefSQL(ctx, store, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.UploadBadgeDefPixa404JSONResponse(apitypes.NewErrorResponse("BADGE_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -394,19 +386,19 @@ func (c *Catalog) UploadBadgeDefPixa(ctx context.Context, request adminhttp.Uplo
 	}
 	item.PixaPath = &pixaPath
 	item.UpdatedAt = c.now()
-	if err := writeJSON(ctx, store, badgeDefKey(item.Id), item); err != nil {
+	if _, _, err := updateBadgeDefSQL(ctx, store, item, version); err != nil {
 		return adminhttp.UploadBadgeDefPixa500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.UploadBadgeDefPixa200JSONResponse(item), nil
 }
 
 func (c *Catalog) ListGameDefs(ctx context.Context, request adminhttp.ListGameDefsRequestObject) (adminhttp.ListGameDefsResponseObject, error) {
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.ListGameDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	items, hasNext, nextCursor, err := listJSON[apitypes.GameDef](ctx, store, gameDefsRoot, cursor, limit)
+	items, hasNext, nextCursor, err := listGameDefSQL(ctx, store, cursor, limit)
 	if err != nil {
 		return adminhttp.ListGameDefs500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -420,7 +412,7 @@ func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGam
 	if request.Body.Icon != nil {
 		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "icon object names are managed by the icon API")), nil
 	}
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -428,7 +420,7 @@ func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGam
 	if err != nil {
 		return adminhttp.CreateGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
-	created, err := createCatalogItem(ctx, store, gameDefKey(item.Id), item)
+	created, err := insertGameDefSQL(ctx, store, item)
 	if err != nil {
 		return adminhttp.CreateGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -439,7 +431,7 @@ func (c *Catalog) CreateGameDef(ctx context.Context, request adminhttp.CreateGam
 }
 
 func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGameDefRequestObject) (adminhttp.DeleteGameDefResponseObject, error) {
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -449,9 +441,9 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGam
 	}
 	unlock := c.IconLocks.LockOwner(id)
 	defer unlock()
-	item, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
+	item, version, err := getGameDefSQL(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", fmt.Sprintf("game def %q not found", id))), nil
 		}
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -466,7 +458,7 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGam
 			}
 		}
 	}
-	if err := store.Delete(ctx, gameDefKey(id)); err != nil {
+	if _, _, err := deleteGameDefSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeleteGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteGameDef200JSONResponse(item), nil
@@ -475,7 +467,7 @@ func (c *Catalog) DeleteGameDef(ctx context.Context, request adminhttp.DeleteGam
 func (c *Catalog) GetGameDef(ctx context.Context, request adminhttp.GetGameDefRequestObject) (adminhttp.GetGameDefResponseObject, error) {
 	item, err := c.GetGameDefByID(ctx, request.Id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", err.Error())), nil
 		}
 		return adminhttp.GetGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -487,7 +479,7 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	if request.Body == nil {
 		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", "request body required")), nil
 	}
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -497,8 +489,8 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 	}
 	unlock := c.IconLocks.LockRecord(id)
 	defer unlock()
-	previous, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
+	previous, version, err := getGameDefSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.PutGameDef404JSONResponse(apitypes.NewErrorResponse("GAME_DEF_NOT_FOUND", fmt.Sprintf("game def %q not found", id))), nil
 	}
 	if err != nil {
@@ -519,14 +511,14 @@ func (c *Catalog) PutGameDef(ctx context.Context, request adminhttp.PutGameDefRe
 		return adminhttp.PutGameDef400JSONResponse(apitypes.NewErrorResponse("INVALID_GAME_DEF", err.Error())), nil
 	}
 	item.Icon = previous.Icon
-	if err := writeJSON(ctx, store, gameDefKey(item.Id), item); err != nil {
+	if _, _, err := updateGameDefSQL(ctx, store, item, version); err != nil {
 		return adminhttp.PutGameDef500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.PutGameDef200JSONResponse(item), nil
 }
 
 func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef, error) {
-	store, err := c.store(c.PetDefs, "pet defs")
+	store, err := c.database()
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
@@ -534,15 +526,15 @@ func (c *Catalog) GetPetDefByID(ctx context.Context, id string) (apitypes.PetDef
 	if err != nil {
 		return apitypes.PetDef{}, err
 	}
-	item, err := readJSON[apitypes.PetDef](ctx, store, petDefKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.PetDef{}, fmt.Errorf("pet def %q not found: %w", id, kv.ErrNotFound)
+	item, _, err := getPetDefSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.PetDef{}, fmt.Errorf("pet def %q not found: %w", id, sql.ErrNoRows)
 	}
 	return item, err
 }
 
 func (c *Catalog) GetBadgeDefByID(ctx context.Context, id string) (apitypes.BadgeDef, error) {
-	store, err := c.store(c.BadgeDefs, "badge defs")
+	store, err := c.database()
 	if err != nil {
 		return apitypes.BadgeDef{}, err
 	}
@@ -550,15 +542,15 @@ func (c *Catalog) GetBadgeDefByID(ctx context.Context, id string) (apitypes.Badg
 	if err != nil {
 		return apitypes.BadgeDef{}, err
 	}
-	item, err := readJSON[apitypes.BadgeDef](ctx, store, badgeDefKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.BadgeDef{}, fmt.Errorf("badge def %q not found: %w", id, kv.ErrNotFound)
+	item, _, err := getBadgeDefSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.BadgeDef{}, fmt.Errorf("badge def %q not found: %w", id, sql.ErrNoRows)
 	}
 	return item, err
 }
 
 func (c *Catalog) GetGameDefByID(ctx context.Context, id string) (apitypes.GameDef, error) {
-	store, err := c.store(c.GameDefs, "game defs")
+	store, err := c.database()
 	if err != nil {
 		return apitypes.GameDef{}, err
 	}
@@ -566,9 +558,9 @@ func (c *Catalog) GetGameDefByID(ctx context.Context, id string) (apitypes.GameD
 	if err != nil {
 		return apitypes.GameDef{}, err
 	}
-	item, err := readJSON[apitypes.GameDef](ctx, store, gameDefKey(id))
-	if errors.Is(err, kv.ErrNotFound) {
-		return apitypes.GameDef{}, fmt.Errorf("game def %q not found: %w", id, kv.ErrNotFound)
+	item, _, err := getGameDefSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return apitypes.GameDef{}, fmt.Errorf("game def %q not found: %w", id, sql.ErrNoRows)
 	}
 	return item, err
 }
@@ -733,11 +725,20 @@ func (c *Catalog) buildGameDef(id string, spec apitypes.GameDefSpec, createdAt t
 	return apitypes.GameDef{Id: id, Spec: spec, CreatedAt: createdAt, UpdatedAt: now}, nil
 }
 
-func (c *Catalog) store(store kv.Store, name string) (kv.Store, error) {
-	if store == nil {
-		return nil, fmt.Errorf("gameplay: %s store is not configured", name)
+func (c *Catalog) database() (*sqlx.DB, error) {
+	if c == nil || c.DB == nil {
+		return nil, errors.New("gameplay: catalog database is not configured")
 	}
-	return store, nil
+	return c.DB, nil
+}
+
+// Initialize creates the three Gameplay catalog tables at startup.
+func (c *Catalog) Initialize(ctx context.Context) error {
+	db, err := c.database()
+	if err != nil {
+		return err
+	}
+	return initializeCatalogSQL(ctx, db)
 }
 
 func (c *Catalog) now() time.Time {
@@ -780,83 +781,9 @@ func (c *Catalog) openAsset(name string) (io.ReadCloser, int64, error) {
 	}
 	return reader, size, nil
 }
-func petDefKey(id string) kv.Key {
-	return append(append(kv.Key(nil), petDefsRoot...), customid.EscapeStoreSegment(id))
-}
-
-func badgeDefKey(id string) kv.Key {
-	return append(append(kv.Key(nil), badgeDefsRoot...), customid.EscapeStoreSegment(id))
-}
-
-func gameDefKey(id string) kv.Key {
-	return append(append(kv.Key(nil), gameDefsRoot...), customid.EscapeStoreSegment(id))
-}
-
 func catalogAssetPrefix(kind, id string) string {
 	return path.Join(kind, customid.OpaquePathSegment(id))
 }
-func createCatalogItem(ctx context.Context, store kv.Store, recordKey kv.Key, value any) (bool, error) {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return false, err
-	}
-	_, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: recordKey, Value: data}, nil)
-	return created, err
-}
-
-func writeJSON(ctx context.Context, store kv.Store, key kv.Key, value any) error {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	return store.Set(ctx, key, data)
-}
-
-func readJSON[T any](ctx context.Context, store kv.Store, key kv.Key) (T, error) {
-	var out T
-	data, err := store.Get(ctx, key)
-	if err != nil {
-		return out, err
-	}
-	if err := json.Unmarshal(data, &out); err != nil {
-		return out, err
-	}
-	return out, nil
-}
-
-func listJSON[T any](ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) ([]T, bool, *string, error) {
-	entries, err := kv.ListAfter(ctx, store, prefix, cursorAfterKey(prefix, cursor), limit+1)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]T, 0, len(pageEntries))
-	for _, entry := range pageEntries {
-		var item T
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return nil, false, nil, err
-		}
-		items = append(items, item)
-	}
-	return items, hasNext, nextCursor, nil
-}
-
-func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) {
-	if limit <= 0 {
-		limit = defaultListLimit
-	}
-	hasNext := len(entries) > limit
-	if hasNext {
-		entries = entries[:limit]
-	}
-	var nextCursor *string
-	if hasNext && len(entries) > 0 {
-		cursor := customid.UnescapeStoreSegment(entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1])
-		nextCursor = &cursor
-	}
-	return entries, hasNext, nextCursor
-}
-
 func normalizeListParams(cursor *string, limit *int32) (string, int) {
 	normalizedLimit := defaultListLimit
 	if limit != nil && *limit > 0 {
@@ -869,13 +796,6 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 		return "", normalizedLimit
 	}
 	return strings.TrimSpace(*cursor), normalizedLimit
-}
-
-func cursorAfterKey(prefix kv.Key, cursor string) kv.Key {
-	if strings.TrimSpace(cursor) == "" {
-		return nil
-	}
-	return append(append(kv.Key(nil), prefix...), customid.EscapeStoreSegment(cursor))
 }
 
 func pathID(id string) (string, error) {

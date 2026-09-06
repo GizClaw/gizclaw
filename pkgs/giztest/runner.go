@@ -441,8 +441,7 @@ func failureKind(err error) string {
 	if err == nil {
 		return ""
 	}
-	var assertion *AssertionError
-	if errors.As(err, &assertion) {
+	if _, ok := errors.AsType[*AssertionError](err); ok {
 		return "assertion"
 	}
 	if errors.Is(err, context.Canceled) {

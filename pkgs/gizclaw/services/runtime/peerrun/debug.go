@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // ErrInvalidDebugMode indicates an unsupported device-owned access mode.
@@ -18,22 +18,22 @@ func validDebugMode(mode string) bool {
 
 // GetDebugMode reads the durable device runtime setting; missing values mean off.
 func (s *Server) GetDebugMode(ctx context.Context, publicKey giznet.PublicKey) (string, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return "", err
 	}
-	key, err := key(publicKey, "debug-mode")
-	if err != nil {
-		return "", err
+	if publicKey.IsZero() {
+		return "", ErrInvalidPublicKey
 	}
-	data, err := store.Get(ctx, key)
-	if errors.Is(err, kv.ErrNotFound) {
+	var mode string
+	err = db.QueryRowContext(ctx, db.Rebind(`SELECT debug_mode FROM peer_runs WHERE public_key=?`), publicKey.String()).Scan(&mode)
+	if errors.Is(err, sql.ErrNoRows) {
 		return "off", nil
 	}
 	if err != nil {
 		return "", fmt.Errorf("peerrun: read debug mode: %w", err)
 	}
-	mode := string(data)
+
 	if !validDebugMode(mode) {
 		return "", ErrInvalidDebugMode
 	}
@@ -45,13 +45,13 @@ func (s *Server) SetDebugMode(ctx context.Context, publicKey giznet.PublicKey, m
 	if !validDebugMode(mode) {
 		return ErrInvalidDebugMode
 	}
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return err
 	}
-	key, err := key(publicKey, "debug-mode")
-	if err != nil {
-		return err
+	if publicKey.IsZero() {
+		return ErrInvalidPublicKey
 	}
-	return store.Set(ctx, key, []byte(mode))
+	_, err = db.ExecContext(ctx, db.Rebind(`INSERT INTO peer_runs(public_key,debug_mode) VALUES (?,?) ON CONFLICT(public_key) DO UPDATE SET debug_mode=excluded.debug_mode`), publicKey.String(), mode)
+	return err
 }

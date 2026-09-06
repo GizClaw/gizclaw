@@ -53,7 +53,7 @@ steps:
     request:
       name: missing-badge
   expect_error:
-    code: 404
+    code: 5
 finally:
 - id: cleanup_pet
   client: peer

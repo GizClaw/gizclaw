@@ -115,8 +115,7 @@ func decodeResourceJSONValue(data []byte) (any, error) {
 	decoder.UseNumber()
 	var value any
 	if err := decoder.Decode(&value); err != nil {
-		var syntaxError *json.SyntaxError
-		if errors.As(err, &syntaxError) {
+		if syntaxError, ok := errors.AsType[*json.SyntaxError](err); ok {
 			return nil, fmt.Errorf("invalid resource JSON at byte %d", syntaxError.Offset)
 		}
 		return nil, errors.New("invalid resource JSON")

@@ -16,14 +16,6 @@ func (h *registryTestHandler) Handle(context.Context, Claim) error {
 	return nil
 }
 
-type registryStoreWithoutCompare struct {
-	kv.Store
-}
-
-func (s registryStoreWithoutCompare) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
-	return kv.CreateIfAbsent(ctx, s.Store, guard, entries)
-}
-
 func TestRegistryRejectsInvalidRegistrations(t *testing.T) {
 	validSource := func(name string, kinds ...Kind) KVSource {
 		return KVSource{Store: kv.NewMemory(nil), SourceName: name, OwnedKinds: kinds}
@@ -41,8 +33,8 @@ func TestRegistryRejectsInvalidRegistrations(t *testing.T) {
 		{name: "typed nil handler", source: validSource("nil_handler", KindPet), handlers: []Handler{(*registryTestHandler)(nil)}},
 		{name: "unadvertised handler", source: validSource("wrong", KindPet), handlers: []Handler{&registryTestHandler{kind: KindPeer}}},
 		{name: "duplicate handler", source: validSource("handlers", KindPet), handlers: []Handler{&registryTestHandler{kind: KindPet}, &registryTestHandler{kind: KindPet}}},
-		{name: "missing compare and mutate", source: KVSource{
-			Store: registryStoreWithoutCompare{Store: kv.NewMemory(nil)}, SourceName: "peer", OwnedKinds: []Kind{KindPeer},
+		{name: "missing store", source: KVSource{
+			SourceName: "peer", OwnedKinds: []Kind{KindPeer},
 		}, handlers: []Handler{&registryTestHandler{kind: KindPeer}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

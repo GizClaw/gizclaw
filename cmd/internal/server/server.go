@@ -344,7 +344,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 		return err
 	}
 	server.PeerStore = peerRoot
-	server.PeerRunStore, err = resolveKVStore(registry, "services.peer_run.store", cfg.PeerRun.Store)
+	server.PeerRunDB, err = resolveSQLStore(registry, "services.peer_run.store", cfg.PeerRun.Store)
 	if err != nil {
 		return err
 	}
@@ -352,40 +352,39 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	server.CredentialStore, err = resolveKVStore(registry, "services.credential.store", cfg.Credential.Store)
+	server.CredentialDB, err = resolveSQLStore(registry, "services.credential.store", cfg.Credential.Store)
 	if err != nil {
 		return err
 	}
-	server.FirmwareStore, err = resolveKVStore(registry, "services.firmware.store", cfg.Firmware.Store)
+	server.FirmwareDB, err = resolveSQLStore(registry, "services.firmware.store", cfg.Firmware.Store)
 	if err != nil {
 		return err
 	}
-	server.RuntimeProfileStore, err = resolveKVStore(registry, "services.runtime_profile.store", cfg.RuntimeProfile.Store)
+	server.RuntimeProfileDB, err = resolveSQLStore(registry, "services.runtime_profile.store", cfg.RuntimeProfile.Store)
 	if err != nil {
 		return err
 	}
-	server.ModelStore, err = resolveKVStore(registry, "services.model.store", cfg.Model.Store)
+	server.ModelDB, err = resolveSQLStore(registry, "services.model.store", cfg.Model.Store)
 	if err != nil {
 		return err
 	}
-	server.VoiceStore, err = resolveKVStore(registry, "services.voice.store", cfg.Voice.Store)
+	server.VoiceDB, err = resolveSQLStore(registry, "services.voice.store", cfg.Voice.Store)
 	if err != nil {
 		return err
 	}
-	server.MemoryLayoutStore, err = resolveKVStore(registry, "services.memory_layout.store", cfg.MemoryLayout.Store)
+	server.MemoryLayoutDB, err = resolveSQLStore(registry, "services.memory_layout.store", cfg.MemoryLayout.Store)
 	if err != nil {
 		return err
 	}
-	providerRoot, err := resolveKVStore(registry, "services.provider_tenants.store", cfg.ProviderTenants.Store)
+	server.ProviderTenantDB, err = resolveSQLStore(registry, "services.provider_tenants.store", cfg.ProviderTenants.Store)
 	if err != nil {
 		return err
 	}
-	server.ProviderTenantStore = providerRoot
-	server.WorkflowStore, err = resolveKVStore(registry, "services.workflow.store", cfg.Workflow.Store)
+	server.WorkflowDB, err = resolveSQLStore(registry, "services.workflow.store", cfg.Workflow.Store)
 	if err != nil {
 		return err
 	}
-	server.WorkspaceStore, err = resolveKVStore(registry, "services.workspace.store", cfg.Workspace.Store)
+	server.WorkspaceDB, err = resolveSQLStore(registry, "services.workspace.store", cfg.Workspace.Store)
 	if err != nil {
 		return err
 	}
@@ -412,11 +411,11 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	server.ToolStore, err = resolveKVStore(registry, "services.toolkit.store", cfg.Toolkit.Store)
+	server.ToolDB, err = resolveSQLStore(registry, "services.toolkit.store", cfg.Toolkit.Store)
 	if err != nil {
 		return err
 	}
-	server.ContactStore, err = resolveKVStore(registry, "services.contact.store", cfg.Contact.Store)
+	server.ContactDB, err = resolveSQLStore(registry, "services.contact.store", cfg.Contact.Store)
 	if err != nil {
 		return err
 	}
@@ -430,11 +429,10 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 		return err
 	}
 	server.FriendGroupStore = friendGroupRoot
-	gameplayRoot, err := resolveKVStore(registry, "services.gameplay.store", cfg.Gameplay.Store)
+	server.GameplayCatalogDB, err = resolveSQLStore(registry, "services.gameplay.store", cfg.Gameplay.Store)
 	if err != nil {
 		return err
 	}
-	server.GameplayStore = gameplayRoot
 	server.GameplayAssets, err = resolveObjectStore(registry, "services.gameplay.assets_store", cfg.Gameplay.AssetsStore)
 	if err != nil {
 		return err
@@ -452,7 +450,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 		}
 		if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
 			if flowcraft.StateStore != "" {
-				server.FlowcraftState, err = resolveKVStore(registry, "services.agent_host.flowcraft.state_store", flowcraft.StateStore)
+				server.FlowcraftStateDB, err = resolveSQLStore(registry, "services.agent_host.flowcraft.state_store", flowcraft.StateStore)
 				if err != nil {
 					return err
 				}

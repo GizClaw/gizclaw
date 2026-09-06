@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -19,7 +21,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestRPCServerPeerMethods(t *testing.T) {
@@ -53,7 +54,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 		recall:      apitypes.PeerRunRecallResponse{Available: true, Hits: []apitypes.PeerRunRecallHit{{Name: "m1", Score: 0.9, Snippet: "hello"}}},
 	}
 	serverGenX := &fakeRPCServerGenXService{}
-	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
+	peerRun := peerruntest.New(t)
 	server := &rpcServer{
 		peer:            fake,
 		peerRun:         peerRun,
@@ -192,7 +193,7 @@ func TestRPCServerPeerMethods(t *testing.T) {
 
 func TestRPCServerSetRunWorkspaceDoesNotRequireRuntime(t *testing.T) {
 	publicKey := giznet.PublicKey{1, 2, 3}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	server := &rpcServer{
 		peerRun:         store,
 		serverResources: &fakeRPCRunWorkspaceResources{},
@@ -233,7 +234,7 @@ func (f *fakeRPCRunWorkspaceSelectionResolver) ResolveRunWorkspaceSelection(_ co
 
 func TestRPCServerSetRunWorkspaceActivatesSFUSelectionEagerly(t *testing.T) {
 	publicKey := giznet.PublicKey{7, 7, 7}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	runtime := &fakeRPCPeerRunRuntime{
 		status: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateStopped},
 		reload: apitypes.PeerRunStatus{State: apitypes.PeerRunStatusStateRunning, WorkspaceName: new("sfu-room")},
@@ -300,7 +301,7 @@ func TestRPCServerSetRunWorkspaceActivatesSFUSelectionEagerly(t *testing.T) {
 
 func TestRPCServerSetRunSelectionUsesRuntimeGate(t *testing.T) {
 	publicKey := giznet.PublicKey{1, 2, 3}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	runtime := &fakeRPCPeerRunSelectionRuntime{
 		fakeRPCPeerRunRuntime: &fakeRPCPeerRunRuntime{workspaceState: apitypes.PeerRunWorkspaceState{RuntimeState: apitypes.PeerRunStatusStateStopped}},
 		store:                 store,
@@ -360,7 +361,7 @@ func TestRPCServerSetRunSelectionPersistsCanonicalWorkspace(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			publicKey := giznet.PublicKey{1, 2, 3}
-			store := &peerrun.Server{Store: kv.NewMemory(nil)}
+			store := peerruntest.New(t)
 			validator := &fakeRPCRunWorkspaceResources{canonicalName: "canonical"}
 			server := &rpcServer{peerRun: store, serverResources: validator, callerPublicKey: publicKey}
 
@@ -421,7 +422,7 @@ func TestRPCServerSetRunSelectionValidationFailureDoesNotMutate(t *testing.T) {
 		for _, failure := range failures {
 			t.Run(method.name+"/"+failure.name, func(t *testing.T) {
 				publicKey := giznet.PublicKey{1, 2, 3}
-				store := &peerrun.Server{Store: kv.NewMemory(nil)}
+				store := peerruntest.New(t)
 				active := apitypes.AgentSelection{WorkspaceName: "active"}
 				if _, err := store.SetRunAgent(context.Background(), publicKey, active); err != nil {
 					t.Fatalf("seed SetRunAgent(active) error = %v", err)

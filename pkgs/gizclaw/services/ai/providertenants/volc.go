@@ -2,6 +2,7 @@ package providertenants
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,10 +20,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	voicecatalog "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
-
-var volcTenantsRoot = kv.Key{"volc-by-id"}
 
 const (
 	defaultVolcRegion         = "cn-beijing"
@@ -41,7 +40,7 @@ type VolcSpeakerClient interface {
 type VolcSpeakerClientFactory func(context.Context, apitypes.Credential, apitypes.VolcTenant) (VolcSpeakerClient, error)
 
 func (s *Server) ListVolcTenants(ctx context.Context, request adminhttp.ListVolcTenantsRequestObject) (adminhttp.ListVolcTenantsResponseObject, error) {
-	store, err := s.volcTenantStore()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.ListVolcTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -58,7 +57,7 @@ func (s *Server) ListVolcTenants(ctx context.Context, request adminhttp.ListVolc
 }
 
 func (s *Server) CreateVolcTenant(ctx context.Context, request adminhttp.CreateVolcTenantRequestObject) (adminhttp.CreateVolcTenantResponseObject, error) {
-	store, err := s.volcTenantStore()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -79,7 +78,7 @@ func (s *Server) CreateVolcTenant(ctx context.Context, request adminhttp.CreateV
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	created, err := createTenant(ctx, store, volcTenantKey(tenant.Id), tenant)
+	created, err := createSQLTenant(ctx, store, "volc", tenant)
 	if err != nil {
 		return adminhttp.CreateVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -90,14 +89,14 @@ func (s *Server) CreateVolcTenant(ctx context.Context, request adminhttp.CreateV
 }
 
 func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteVolcTenantRequestObject) (adminhttp.DeleteVolcTenantResponseObject, error) {
-	store, err := s.volcTenantStore()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	tenant, err := getVolcTenant(ctx, store, id)
+	tenant, incarnation, err := scanTenant[apitypes.VolcTenant](store.QueryRowContext(ctx, store.Rebind(`SELECT `+tenantColumns+` FROM provider_tenants WHERE provider_kind=? AND id=?`), "volc", id))
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
 		}
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -109,21 +108,21 @@ func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteV
 	if err := deleteVolcTenantVoices(ctx, voices, tenant.Id); err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteTenant(ctx, store, volcTenantKey(tenant.Id)); err != nil {
+	if _, err := deleteSQLTenantIncarnation[apitypes.VolcTenant](ctx, store, "volc", tenant.Id, incarnation); err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteVolcTenant200JSONResponse(tenant), nil
 }
 
 func (s *Server) GetVolcTenant(ctx context.Context, request adminhttp.GetVolcTenantRequestObject) (adminhttp.GetVolcTenantResponseObject, error) {
-	store, err := s.volcTenantStore()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
 	tenant, err := getVolcTenant(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
 		}
 		return adminhttp.GetVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -132,7 +131,7 @@ func (s *Server) GetVolcTenant(ctx context.Context, request adminhttp.GetVolcTen
 }
 
 func (s *Server) PutVolcTenant(ctx context.Context, request adminhttp.PutVolcTenantRequestObject) (adminhttp.PutVolcTenantResponseObject, error) {
-	store, err := s.volcTenantStore()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -151,25 +150,20 @@ func (s *Server) PutVolcTenant(ctx context.Context, request adminhttp.PutVolcTen
 	if err := validateVolcTenantReferences(ctx, credentials, tenant); err != nil {
 		return adminhttp.PutVolcTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_VOLC_TENANT", err.Error())), nil
 	}
-	previous, err := getVolcTenant(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
+	tenant.UpdatedAt = s.now()
+	tenant, err = updateSQLTenant(ctx, store, "volc", tenant)
+	if errors.Is(err, sql.ErrNoRows) {
+		return adminhttp.PutVolcTenant404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("tenant %q not found", id))), nil
 	}
 	if err != nil {
 		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	now := s.now()
-	tenant.UpdatedAt = now
-	tenant.CreatedAt = previous.CreatedAt
-	tenant.LastSyncedAt = cloneTime(previous.LastSyncedAt)
-	if err := writeVolcTenant(ctx, store, tenant); err != nil {
-		return adminhttp.PutVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.PutVolcTenant200JSONResponse(tenant), nil
 }
 
 func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.SyncVolcTenantVoicesRequestObject) (adminhttp.SyncVolcTenantVoicesResponseObject, error) {
-	tenantStore, err := s.volcTenantStore()
+	tenantStore, err := s.database()
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -182,9 +176,9 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	tenant, err := getVolcTenant(ctx, tenantStore, id)
+	tenant, incarnation, err := scanTenant[apitypes.VolcTenant](tenantStore.QueryRowContext(ctx, tenantStore.Rebind(`SELECT `+tenantColumns+` FROM provider_tenants WHERE provider_kind=? AND id=?`), "volc", id))
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.SyncVolcTenantVoices404JSONResponse(apitypes.NewErrorResponse("VOLC_TENANT_NOT_FOUND", fmt.Sprintf("Volcengine tenant %q not found", id))), nil
 		}
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -213,9 +207,7 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 	if err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	tenant.LastSyncedAt = &now
-	tenant.UpdatedAt = now
-	if err := writeVolcTenant(ctx, tenantStore, tenant); err != nil {
+	if err := recordTenantSync(ctx, tenantStore, "volc", tenant.Id, incarnation, now); err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.SyncVolcTenantVoices200JSONResponse(adminhttp.VolcSyncVoicesResult{
@@ -227,21 +219,8 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 	}), nil
 }
 
-func listVolcTenantsPage(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.VolcTenant, bool, *string, error) {
-	entries, err := kv.ListAfter(ctx, store, volcTenantsRoot, cursorAfterKey(volcTenantsRoot, cursor), limit+1)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.VolcTenant, 0, len(pageEntries))
-	for _, entry := range pageEntries {
-		var tenant apitypes.VolcTenant
-		if err := json.Unmarshal(entry.Value, &tenant); err != nil {
-			return nil, false, nil, fmt.Errorf("mmx: decode volc tenant list %s: %w", entry.Key.String(), err)
-		}
-		items = append(items, tenant)
-	}
-	return items, hasNext, nextCursor, nil
+func listVolcTenantsPage(ctx context.Context, db *sqlx.DB, cursor string, limit int) ([]apitypes.VolcTenant, bool, *string, error) {
+	return listSQLTenants[apitypes.VolcTenant](ctx, db, "volc", cursor, limit)
 }
 
 func normalizeVolcTenantUpsert(in adminhttp.VolcTenantUpsert, expectedID string) (apitypes.VolcTenant, error) {
@@ -296,27 +275,8 @@ func validateVolcTenantReferences(ctx context.Context, service CredentialService
 	return err
 }
 
-func writeVolcTenant(ctx context.Context, store kv.Store, tenant apitypes.VolcTenant) error {
-	data, err := json.Marshal(tenant)
-	if err != nil {
-		return fmt.Errorf("mmx: encode volc tenant %s: %w", tenant.Id, err)
-	}
-	if err := store.Set(ctx, volcTenantKey(string(tenant.Id)), data); err != nil {
-		return fmt.Errorf("mmx: write volc tenant %s: %w", tenant.Id, err)
-	}
-	return nil
-}
-
-func getVolcTenant(ctx context.Context, store kv.Store, id string) (apitypes.VolcTenant, error) {
-	data, err := store.Get(ctx, volcTenantKey(id))
-	if err != nil {
-		return apitypes.VolcTenant{}, err
-	}
-	var tenant apitypes.VolcTenant
-	if err := json.Unmarshal(data, &tenant); err != nil {
-		return apitypes.VolcTenant{}, fmt.Errorf("mmx: decode volc tenant %s: %w", id, err)
-	}
-	return tenant, nil
+func getVolcTenant(ctx context.Context, db *sqlx.DB, id string) (apitypes.VolcTenant, error) {
+	return getSQLTenant[apitypes.VolcTenant](ctx, db, "volc", id)
 }
 
 func (s *Server) volcSpeakerClientForTenant(ctx context.Context, credential apitypes.Credential, tenant apitypes.VolcTenant) (VolcSpeakerClient, error) {
@@ -903,15 +863,4 @@ func firstVolcTimbreSpeakerName(infos []*speechsaasprod.TimbreInfoForListBigMode
 		}
 	}
 	return ""
-}
-
-func volcTenantKey(id string) kv.Key {
-	return append(append(kv.Key{}, volcTenantsRoot...), escapeStoreSegment(id))
-}
-
-func (s *Server) volcTenantStore() (kv.Store, error) {
-	if s == nil || s.Store == nil {
-		return nil, errors.New("provider tenant store not configured")
-	}
-	return kv.Prefixed(s.Store, kv.Key{"volc"}), nil
 }

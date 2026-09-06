@@ -256,7 +256,7 @@ func (h DeletionHandler) finalize(ctx context.Context, claim pendingdeletion.Cla
 		return pendingdeletion.Terminal("peer_replacement_ambiguous", "Retained Peer no longer matches its retirement plan", err)
 	}
 	deletes := append(indexKeys(plan.Peer), peerRetirementPlanKey(claim.Record.DeletionID))
-	if err := h.Source.FinalizeWithEntries(ctx, claim, now, []kv.Entry{{Key: peerKey(publicKey.String()), Value: encodedPeerTombstone}}, deletes); err != nil {
+	if err := h.Source.FinalizeWithEntries(ctx, claim, now, []kv.Entry{{Key: peerKey(publicKey.String()), Value: encodedPeerTombstone}}, deletes, identifierSets(plan.Peer)...); err != nil {
 		if errors.Is(err, pendingdeletion.ErrConflict) {
 			return err
 		}

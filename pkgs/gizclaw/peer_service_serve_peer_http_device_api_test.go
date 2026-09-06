@@ -10,13 +10,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/contacttest"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/firmwaretest"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
@@ -56,11 +61,11 @@ func newDeviceHTTPFixture(t *testing.T) *deviceHTTPFixture {
 	peers := &peer.Server{Store: kv.NewMemory(nil)}
 	manager := NewManager(peers)
 	peers.PeerManager = manager
-	manager.PeerRun = &peerrun.Server{Store: kv.NewMemory(nil)}
+	manager.PeerRun = peerruntest.New(t)
 	manager.Metrics = metrics.NewMemoryStore()
-	contacts := &contact.Server{Store: kv.NewMemory(nil)}
+	contacts := contacttest.New(t)
 	manager.Contacts = contacts
-	firmwares := &firmware.Server{Store: kv.NewMemory(nil)}
+	firmwares := firmwaretest.New(t)
 	manager.Firmwares = firmwares
 	if _, err := peers.SavePeer(ctx, apitypes.Peer{
 		PublicKey: ownerKey.Public.String(), Role: apitypes.PeerRoleClient,

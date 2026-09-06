@@ -2,15 +2,13 @@ package gizclaw
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
@@ -67,17 +65,11 @@ func TestMonitorHistoryForeignWorkspaceIsNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := kv.NewMemory(nil)
+	workspaces := workspacetest.New(t)
 	now := time.Now().UTC()
 	foreign := apitypes.Workspace{Id: "foreign", Name: "foreign", WorkflowId: "flow", OwnerPublicKey: new("another-peer"), System: new(false), CreatedAt: now, UpdatedAt: now, LastActiveAt: now}
-	data, err := json.Marshal(foreign)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Set(t.Context(), kv.Key{"by-id", "foreign"}, data); err != nil {
-		t.Fatal(err)
-	}
-	s := &peerHTTP{Workspaces: &workspace.Server{Store: store}}
+	workspacetest.Seed(t, workspaces, foreign)
+	s := &peerHTTP{Workspaces: workspaces}
 	response, err := s.ListDeviceWorkspaceHistory(peerhttp.WithCallerPublicKey(t.Context(), key.Public), peerhttp.ListDeviceWorkspaceHistoryRequestObject{WorkspaceId: "foreign"})
 	if err != nil {
 		t.Fatal(err)

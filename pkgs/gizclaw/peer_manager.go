@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"net"
 	"strings"
 	"sync"
@@ -139,7 +140,7 @@ type Manager struct {
 	FriendGroups     *friendgroup.Server
 	Gameplay         *gameplay.Runtime
 	FlowcraftHistory logstore.MutableStore
-	FlowcraftState   kv.Store
+	FlowcraftStateDB *sqlx.DB
 	MemoryRoot       string
 	MemoryStores     *memorystore.Registry
 	SpeechLimits     SpeechLimits
@@ -519,11 +520,15 @@ func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.Pub
 	if err != nil {
 		return err
 	}
-	if peerRecord.Role != apitypes.PeerRoleClient || m.PeerRoutes == nil {
-		return nil
+	if peerRecord.Role == apitypes.PeerRoleClient && m.PeerRoutes != nil {
+		if _, err := m.PeerRoutes.Assign(ctx, publicKey, nil); err != nil {
+			return err
+		}
 	}
-	_, err = m.PeerRoutes.Assign(ctx, publicKey, nil)
-	return err
+	if m.Peers.LocalRuns != nil {
+		return m.Peers.LocalRuns.RememberPeer(ctx, publicKey, peerRecord.CreatedAt)
+	}
+	return nil
 }
 
 func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn, beginRetiring func() func()) error {

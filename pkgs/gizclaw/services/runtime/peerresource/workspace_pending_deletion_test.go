@@ -3,13 +3,15 @@ package peerresource
 import (
 	"context"
 	"errors"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workflowtest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
@@ -24,14 +26,13 @@ import (
 // while the deletion is still in flight.
 func TestWorkspaceListSkipsWorkspacePendingDeletion(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
-	workflows := &workflow.Server{Store: store}
+	store := workspacetest.New(t).DB
+	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
 	profile := runtimeProfileWithWorkspaceAlias("r1")
 	server := &Server{
 		Caller:     giznet.PublicKey{1},
-		Workspaces: &workspace.Server{Store: store, Workflows: workflows},
+		Workspaces: &workspace.Server{DB: store, Workflows: workflows},
 		Workflows:  workflows,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			return &profile
@@ -66,17 +67,16 @@ func TestWorkspaceListSkipsWorkspacePendingDeletion(t *testing.T) {
 // caller's own Collection.
 func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
-	workspaceStore := kv.Prefixed(store, kv.Key{"workspaces"})
-	workflows := &workflow.Server{Store: kv.Prefixed(store, kv.Key{"workflows"})}
+	store := workspacetest.New(t).DB
+	workspaceStore := store
+	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
 	// The shared Workspace binds the built-in system-sfu Workflow, which every
 	// Server materializes at startup.
 	if err := workflows.EnsureBuiltinWorkflows(ctx); err != nil {
 		t.Fatalf("materialize built-in Workflows: %v", err)
 	}
-	workspaces := &workspace.Server{Store: workspaceStore, Workflows: workflows}
+	workspaces := &workspace.Server{DB: workspaceStore, Workflows: workflows}
 	friendStore := kv.NewMemory(nil)
 	t.Cleanup(func() { _ = friendStore.Close() })
 	friends := &friend.Server{
@@ -118,7 +118,7 @@ func TestWorkspaceListSkipsSharedWorkspacePendingDeletion(t *testing.T) {
 	); err != nil {
 		t.Fatalf("retire shared Workspace: %v", err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, workspaceStore, pendingdeletion.KindWorkspace, shared.Id); err != nil || !pending {
+	if pending, err := workspace.NewPendingDeletionSource(workspaceStore).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: shared.Id}); err != nil || !pending {
 		t.Fatalf("shared Workspace pending deletion = %v, error = %v", pending, err)
 	}
 

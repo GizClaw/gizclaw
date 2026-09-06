@@ -111,7 +111,9 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 | --- | --- |
 | Push-to-Talk | BOS 开始一次按键讲话，audio chunks 属于当前 turn，EOS 结束输入并触发 `EndASR`。 |
 | Realtime | 连续发送 audio，由 provider VAD 划分用户 utterance；输入 EOS 只关闭本地 segment。 |
-| Text | 发送 text chunks，不接受 audio input。 |
+| Text | 同一 StreamID 的文本片段在 EOS 合并提交，不接受 audio input。 |
+
+Text 模式将带 `StreamID` 的文本片段按一条用户消息累积，在 EOS 时调用一次 provider `SendText`；累计上限为 1 MiB，超限终止本次 Transform。新输入 ID 替换尚未提交的旧文本，重复 EOS 不会重复提交；输入 EOF 不提交缺少 EOS 的片段。带错误的 EOS 丢弃缓存并返回失败，不向 provider 提交文本。没有 `StreamID` 的 text chunk 直接作为一条完整消息提交。
 
 `Config.Model` 是必填项，transformer 不会猜测默认 model。`Config.Instructions` 是初始音频对话的语义指令。GizClaw 将它原样交给 `doubao-speech-go`；SDK 在规范化 model 后，将其映射到 O20 的 `dialog.system_role` 或 SC20 的 `dialog.character_manifest`。精确的 `SystemRole`、`SpeakingStyle` 和 `CharacterManifest` 仍是独立高级字段，由 SDK 校验兼容性。Adapter 不会把语义指令复制到 `prompt.system`，也不会向 SC20 session 注入 O-only `BotName`。
 

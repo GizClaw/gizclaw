@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
@@ -59,25 +60,25 @@ type Server struct {
 	PeerListenerFactories []PeerListenerFactory
 
 	PeerStore              kv.Store
-	PeerRunStore           kv.Store
-	CredentialStore        kv.Store
-	FirmwareStore          kv.Store
-	RuntimeProfileStore    kv.Store
+	PeerRunDB              *sqlx.DB
+	CredentialDB           *sqlx.DB
+	FirmwareDB             *sqlx.DB
+	RuntimeProfileDB       *sqlx.DB
 	AgentHostStore         objectstore.ObjectStore
-	ProviderTenantStore    kv.Store
-	ModelStore             kv.Store
-	VoiceStore             kv.Store
-	MemoryLayoutStore      kv.Store
-	WorkspaceStore         kv.Store
+	ProviderTenantDB       *sqlx.DB
+	ModelDB                *sqlx.DB
+	VoiceDB                *sqlx.DB
+	MemoryLayoutDB         *sqlx.DB
+	WorkspaceDB            *sqlx.DB
 	WorkspaceHistory       logstore.MutableRecordStore
 	WorkspaceHistoryAssets objectstore.ObjectStore
-	WorkflowStore          kv.Store
-	ToolStore              kv.Store
+	WorkflowDB             *sqlx.DB
+	ToolDB                 *sqlx.DB
 	APIKeyStore            kv.Store
-	ContactStore           kv.Store
+	ContactDB              *sqlx.DB
 	FriendStore            kv.Store
 	FriendGroupStore       kv.Store
-	GameplayStore          kv.Store
+	GameplayCatalogDB      *sqlx.DB
 	GameplayAssets         objectstore.ObjectStore
 	WorkspaceAssets        objectstore.ObjectStore
 	GameplayDB             *sqlx.DB
@@ -85,7 +86,7 @@ type Server struct {
 	PendingDeletionConfig  pendingdeletion.Config
 	ServerLogQuery         ServerLogQueryService
 	FlowcraftHistory       logstore.MutableStore
-	FlowcraftState         kv.Store
+	FlowcraftStateDB       *sqlx.DB
 	// SFU is the Server-held SFU connector configuration; a zero value
 	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
 	// writers so credentials never leave this struct.
@@ -343,20 +344,38 @@ func (s *Server) init() error {
 		return errors.New("gizclaw: empty local static private key")
 	case s.PeerStore == nil:
 		return errors.New("gizclaw: nil peer store")
-	case s.PeerRunStore == nil:
-		return errors.New("gizclaw: nil peer run store")
+	case s.PeerRunDB == nil:
+		return errors.New("gizclaw: nil peer run database")
+	case s.ProviderTenantDB == nil:
+		return errors.New("gizclaw: nil provider tenant database")
+	case s.GameplayCatalogDB == nil:
+		return errors.New("gizclaw: nil gameplay catalog database")
+	case s.RuntimeProfileDB == nil:
+		return errors.New("gizclaw: nil runtime profile database")
+	case s.VoiceDB == nil:
+		return errors.New("gizclaw: nil voice database")
+	case s.CredentialDB == nil:
+		return errors.New("gizclaw: nil credential database")
+	case s.ModelDB == nil:
+		return errors.New("gizclaw: nil model database")
+	case s.WorkflowDB == nil:
+		return errors.New("gizclaw: nil workflow database")
+	case s.ContactDB == nil:
+		return errors.New("gizclaw: nil contact database")
+	case s.MemoryLayoutDB == nil:
+		return errors.New("gizclaw: nil memory layout database")
+	case s.ToolDB == nil:
+		return errors.New("gizclaw: nil tool database")
+	case s.FirmwareDB == nil:
+		return errors.New("gizclaw: nil firmware database")
 	}
 	for _, required := range []struct {
 		name  string
 		store kv.Store
 	}{
-		{"API key", s.APIKeyStore}, {"credential", s.CredentialStore},
-		{"firmware", s.FirmwareStore}, {"runtime profile", s.RuntimeProfileStore},
-		{"model", s.ModelStore}, {"voice", s.VoiceStore}, {"memory layout", s.MemoryLayoutStore},
-		{"provider tenant", s.ProviderTenantStore}, {"workflow", s.WorkflowStore},
-		{"workspace", s.WorkspaceStore},
-		{"tool", s.ToolStore}, {"contact", s.ContactStore},
-		{"friend", s.FriendStore}, {"friend group", s.FriendGroupStore}, {"gameplay", s.GameplayStore},
+		{"API key", s.APIKeyStore},
+
+		{"friend", s.FriendStore}, {"friend group", s.FriendGroupStore},
 	} {
 		if required.store == nil {
 			return fmt.Errorf("gizclaw: nil %s store", required.name)
@@ -377,18 +396,8 @@ func (s *Server) init() error {
 
 	peerStore := kv.Prefixed(s.PeerStore, kv.Key{"records"})
 	peerRouteStore := kv.Prefixed(s.PeerStore, kv.Key{"routes"})
-	peerRunStore := kv.Prefixed(s.PeerRunStore, kv.Key{"runs"})
-	credentialStore := s.CredentialStore
-	firmwareStore := s.FirmwareStore
-	runtimeProfileStore := s.RuntimeProfileStore
-	modelStore := s.ModelStore
-	voiceStore := s.VoiceStore
-	memoryLayoutStore := s.MemoryLayoutStore
-	workspaceStore := s.WorkspaceStore
-	workflowStore := s.WorkflowStore
-	toolStore := s.ToolStore
+	workspaceDB := s.WorkspaceDB
 	apiKeyStore := s.APIKeyStore
-	contactStore := s.ContactStore
 	friendInviteTokenStore := kv.Prefixed(s.FriendStore, kv.Key{"invite-tokens"})
 	friendStore := kv.Prefixed(s.FriendStore, kv.Key{"friends"})
 	friendGroupStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"groups"})
@@ -408,9 +417,6 @@ func (s *Server) init() error {
 	friendGroupInvitePrefix := friendGroupRelationshipPrefixes[1]
 	friendGroupMemberPrefix := friendGroupRelationshipPrefixes[2]
 	friendGroupBelongPrefix := friendGroupRelationshipPrefixes[3]
-	petDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"pet-defs"})
-	badgeDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"badge-defs"})
-	gameDefStore := kv.Prefixed(s.GameplayStore, kv.Key{"game-defs"})
 	if !kv.SupportsCreateIfAbsent(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
@@ -420,12 +426,7 @@ func (s *Server) init() error {
 	if !kv.SupportsCompareAndMutate(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCompareAndMutateUnsupported)
 	}
-	if !kv.SupportsCreateIfAbsent(workspaceStore) {
-		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCreateIfAbsentUnsupported)
-	}
-	if !kv.SupportsCompareAndMutate(workspaceStore) {
-		return fmt.Errorf("gizclaw: workspace store: %w", kv.ErrCompareAndMutateUnsupported)
-	}
+
 	if !kv.SupportsCreateIfAbsent(friendStore) {
 		return fmt.Errorf("gizclaw: friend store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}
@@ -468,7 +469,12 @@ func (s *Server) init() error {
 		_ = manager.BroadcastPeerEvent(recipient, event)
 	}
 	manager.FlowcraftHistory = s.FlowcraftHistory
-	manager.FlowcraftState = s.FlowcraftState
+	if s.FlowcraftStateDB != nil {
+		if err := flowstate.Initialize(context.Background(), s.FlowcraftStateDB); err != nil {
+			return fmt.Errorf("initialize flowcraft state: %w", err)
+		}
+	}
+	manager.FlowcraftStateDB = s.FlowcraftStateDB
 	manager.MemoryRoot = s.MemoryRoot
 	manager.MemoryStores = memorystore.NewRegistry()
 	manager.SpeechLimits = s.SpeechLimits
@@ -478,18 +484,37 @@ func (s *Server) init() error {
 		ServerPublicKey: s.LocalStatic.Public,
 		ServerEndpoint:  s.PublicEndpoint,
 	}
-	manager.PeerRun = &peerrun.Server{Store: peerRunStore}
+	manager.PeerRun = &peerrun.Server{DB: s.PeerRunDB}
+	if err := manager.PeerRun.Initialize(context.Background()); err != nil {
+		return err
+	}
+	peersServer.LocalRuns = manager.PeerRun
 	peersServer.PeerManager = manager
 	if err := peersServer.BootstrapEdgeNodes(context.Background(), s.EdgeNodes); err != nil {
 		return err
 	}
 
-	modelServer := &model.Server{Store: modelStore}
-	voiceServer := &voice.Server{Store: voiceStore}
-	memoryLayoutServer := &memorylayout.Server{Store: memoryLayoutStore}
-	workflowServer := &workflow.Server{Store: workflowStore}
+	modelServer := &model.Server{DB: s.ModelDB}
+	if err := modelServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize model: %w", err)
+	}
+	voiceServer := &voice.Server{DB: s.VoiceDB}
+	if err := voiceServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize voice: %w", err)
+	}
+	memoryLayoutServer := &memorylayout.Server{DB: s.MemoryLayoutDB}
+	if err := memoryLayoutServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize memory layout: %w", err)
+	}
+	workflowServer := &workflow.Server{DB: s.WorkflowDB}
+	if err := workflowServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize workflow: %w", err)
+	}
+	if err := workspace.Initialize(context.Background(), workspaceDB); err != nil {
+		return fmt.Errorf("gizclaw: initialize workspace: %w", err)
+	}
 	workspaceServer := &workspace.Server{
-		Store: workspaceStore, Workflows: workflowServer,
+		DB: workspaceDB, Workflows: workflowServer,
 		Models: modelServer, Voices: voiceServer, Assets: s.WorkspaceAssets,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
@@ -510,12 +535,24 @@ func (s *Server) init() error {
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore, s.WorkspaceHistory, s.WorkspaceHistoryAssets)
 	}
-	credentialServer := &credential.Server{Store: credentialStore}
-	firmwareServer := &firmware.Server{Store: firmwareStore}
-	runtimeProfileServer := &runtimeprofile.Server{Store: runtimeProfileStore}
-	toolServer := &toolkit.Server{Store: toolStore}
+	credentialServer := &credential.Server{DB: s.CredentialDB}
+	if err := credentialServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize credential: %w", err)
+	}
+	firmwareServer := &firmware.Server{DB: s.FirmwareDB}
+	if err := firmwareServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize firmware: %w", err)
+	}
+	runtimeProfileServer := &runtimeprofile.Server{DB: s.RuntimeProfileDB}
+	if err := runtimeProfileServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("initialize runtime profile database: %w", err)
+	}
+	toolServer := &toolkit.Server{DB: s.ToolDB}
+	if err := toolServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize toolkit: %w", err)
+	}
 	contactServer := &contact.Server{
-		Store: contactStore,
+		DB: s.ContactDB,
 		PeerAvailability: func(ctx context.Context, publicKey string) error {
 			key, err := parsePeerPublicKey(publicKey)
 			if err != nil {
@@ -531,6 +568,9 @@ func (s *Server) init() error {
 				return err
 			}
 		},
+	}
+	if err := contactServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("gizclaw: initialize contact: %w", err)
 	}
 	friendServer := &friend.Server{
 		InviteTokens: friendInviteTokenStore,
@@ -569,15 +609,19 @@ func (s *Server) init() error {
 		SFUURL: s.SFUURL,
 	}
 	providerTenantsServer := &providertenants.Server{
-		Store:       s.ProviderTenantStore,
+		DB:          s.ProviderTenantDB,
 		Voices:      voiceServer,
 		Credentials: credentialServer,
 	}
+	if err := providerTenantsServer.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("initialize provider tenant database: %w", err)
+	}
 	gameplayCatalog := &gameplay.Catalog{
-		PetDefs:   petDefStore,
-		BadgeDefs: badgeDefStore,
-		GameDefs:  gameDefStore,
-		Assets:    s.GameplayAssets,
+		DB:     s.GameplayCatalogDB,
+		Assets: s.GameplayAssets,
+	}
+	if err := gameplayCatalog.Initialize(context.Background()); err != nil {
+		return fmt.Errorf("initialize gameplay catalog: %w", err)
 	}
 	gameplayRuntime := &gameplay.Runtime{
 		DB:         s.GameplayDB,
@@ -599,7 +643,11 @@ func (s *Server) init() error {
 		workspaceServer.DeletionFencer = gameplayRuntime
 	}
 	pendingDeletionRegistry := pendingdeletion.NewRegistry()
-	workspacePendingDeletionSource := workspace.NewPendingDeletionSource(workspaceStore)
+	workspacePendingDeletionSource := workspace.NewPendingDeletionSource(workspaceDB)
+	var flowcraftWorkspaceCleanup workspace.FlowcraftWorkspaceCleanup
+	if s.FlowcraftStateDB != nil {
+		flowcraftWorkspaceCleanup = flowstate.WorkspaceCleanup{DB: s.FlowcraftStateDB}
+	}
 	var gameplayWorkspaceCleanup workspace.GameplayWorkspaceCleanup
 	if s.GameplayDB != nil {
 		gameplayWorkspaceCleanup = gameplayRuntime
@@ -607,10 +655,11 @@ func (s *Server) init() error {
 	if err := pendingDeletionRegistry.Register(
 		workspacePendingDeletionSource,
 		workspace.DeletionHandler{
-			Server:   workspaceServer,
-			Source:   workspacePendingDeletionSource,
-			Quiescer: manager,
-			Gameplay: gameplayWorkspaceCleanup,
+			Server:    workspaceServer,
+			Source:    workspacePendingDeletionSource,
+			Quiescer:  manager,
+			Gameplay:  gameplayWorkspaceCleanup,
+			Flowcraft: flowcraftWorkspaceCleanup,
 		},
 	); err != nil {
 		return fmt.Errorf("gizclaw: register Workspace pending deletion: %w", err)

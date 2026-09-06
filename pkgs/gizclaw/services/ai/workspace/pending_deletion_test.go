@@ -7,11 +7,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestPendingDeletionSourceOwnsOnlyWorkspaces(t *testing.T) {
-	source := NewPendingDeletionSource(kv.NewMemory(nil))
+	source := NewPendingDeletionSource(newTestServer(t).DB)
 	if err := source.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +49,7 @@ func TestListWorkspacesByOwnerSkipsPendingDeletion(t *testing.T) {
 	if _, ok := deleteResponse.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
 		t.Fatalf("DeleteWorkspace() response = %#v", deleteResponse)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, "workspace-01"); err != nil || !pending {
+	if pending, err := NewPendingDeletionSource(srv.DB).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: "workspace-01"}); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 

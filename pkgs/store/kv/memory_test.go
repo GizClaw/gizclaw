@@ -3,7 +3,6 @@ package kv_test
 import (
 	"context"
 	"errors"
-	"slices"
 	"testing"
 	"time"
 
@@ -34,15 +33,8 @@ func TestMemoryBatchSetDeadlineExpires(t *testing.T) {
 		t.Fatalf("Get after expiration err = %v, want ErrNotFound", err)
 	}
 
-	var gotKeys []string
-	for entry, err := range s.List(ctx, kv.Key{"sessions"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		gotKeys = append(gotKeys, entry.Key.String())
-	}
-	if !slices.Equal(gotKeys, []string{"sessions:kept"}) {
-		t.Fatalf("List after expiration = %v, want [sessions:kept]", gotKeys)
+	if value, err := s.Get(ctx, kv.Key{"sessions", "kept"}); err != nil || string(value) != "kept" {
+		t.Fatalf("unexpired value = %q, %v", value, err)
 	}
 }
 

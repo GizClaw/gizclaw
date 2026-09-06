@@ -275,6 +275,7 @@ run_timed() {
 
 prepare_node_dependencies() {
 	(cd "$repo_root" && npm ci)
+	(cd "$repo_root" && npm run build --workspace @gizclaw/gizclaw-control)
 }
 
 prepare_nanopb() {
@@ -329,10 +330,12 @@ run_js_rpc_tests() {
 # The JavaScript and Flutter runners execute the same scenario documents as the
 # Go runner, through their own SDKs. Each reports documents that use step kinds
 # it does not implement as skipped.
+# Cross-server SFU documents belong to run_multi_server_tests.sh; the deliberate
+# failure-cleanup document belongs to its dedicated negative-test phase.
 # Monitor scenarios need the dedicated runner's node token, retained assets
 # and script Workflow. Keep them out of unrelated provider/SDK environments.
 standard_sdk_giztest_files() {
-	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' -print | sort
+	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
 }
 
 run_js_giztest() {
@@ -341,8 +344,7 @@ run_js_giztest() {
 	local report="$script_dir/testdata/giztest-js-report.json"
 	echo "==> node tests/gizclaw-e2e/js/giztest"
 	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:giztest-unit)
-	(cd "$repo_root/tests/gizclaw-e2e/js" &&
-		npm run giztest -- run "${files[@]}" --parallel 4 --output "$report")
+	python3 -B "$setup_dir/run_js_giztest.py" "$report" "${files[@]}"
 }
 
 run_flutter_giztest() {
@@ -380,7 +382,7 @@ run_standard_giztest() {
 	local -a files=()
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' -print | sort
+			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' -print | sort
 	)
 	files+=(
 		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-1.giztest.yaml"
@@ -416,7 +418,7 @@ run_c_giztest() {
 	# failure, so it is excluded here the way run_standard_giztest excludes it.
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$script_dir/giztest" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' -print | sort
+			! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' -print | sort
 	)
 	local -a validate_args=()
 	local file
@@ -449,7 +451,8 @@ PY
 validate_deadlines
 start_full_watchdog
 
-run_timed "preflight:diagnostic-redaction" python3 "$setup_dir/redact_diagnostics_test.py"
+run_timed "preflight:diagnostic-redaction" python3 -B "$setup_dir/redact_diagnostics_test.py"
+run_timed "preflight:js-process-isolation" python3 -B "$setup_dir/run_js_giztest_test.py"
 run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb
 

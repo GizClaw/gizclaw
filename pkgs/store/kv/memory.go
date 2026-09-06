@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"iter"
-	"sort"
 	"sync"
 	"time"
 )
 
 type memoryEntry struct {
+	members   map[string]struct{}
+	ordered   bool
 	value     []byte
 	expiresAt time.Time
 }
@@ -51,6 +51,9 @@ func (m *Memory) Get(ctx context.Context, key Key) ([]byte, error) {
 		m.mu.Unlock()
 		return nil, ErrNotFound
 	}
+	if entry.members != nil {
+		return nil, ErrWrongType
+	}
 	cp := make([]byte, len(entry.value))
 	copy(cp, entry.value)
 	return cp, nil
@@ -78,84 +81,6 @@ func (m *Memory) Delete(ctx context.Context, key Key) error {
 	delete(m.data, k)
 	m.mu.Unlock()
 	return nil
-}
-
-func (m *Memory) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
-	return func(yield func(Entry, error) bool) {
-		if err := ctx.Err(); err != nil {
-			yield(Entry{}, err)
-			return
-		}
-
-		p := m.opts.encode(prefix)
-		var prefixBytes []byte
-		if len(p) > 0 {
-			prefixBytes = append(p, m.opts.sep())
-		}
-
-		m.mu.RLock()
-		type pair struct {
-			key string
-			val []byte
-		}
-		var matches []pair
-		now := time.Now()
-		for k, entry := range m.data {
-			if entry.expired(now) {
-				continue
-			}
-			if len(prefixBytes) == 0 || bytes.HasPrefix([]byte(k), prefixBytes) {
-				cp := make([]byte, len(entry.value))
-				copy(cp, entry.value)
-				matches = append(matches, pair{key: k, val: cp})
-			}
-		}
-		m.mu.RUnlock()
-
-		sort.Slice(matches, func(i, j int) bool {
-			return matches[i].key < matches[j].key
-		})
-
-		for _, match := range matches {
-			if err := ctx.Err(); err != nil {
-				yield(Entry{}, err)
-				return
-			}
-			entry := Entry{
-				Key:   m.opts.decode([]byte(match.key)),
-				Value: match.val,
-			}
-			if !yield(entry, nil) {
-				return
-			}
-		}
-	}
-}
-
-// ListAfter returns up to limit entries under the prefix subtree, strictly
-// after the provided key.
-func (m *Memory) ListAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error) {
-	if limit <= 0 {
-		return nil, nil
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	entries := make([]Entry, 0, limit)
-	for entry, err := range m.List(ctx, prefix) {
-		if err != nil {
-			return nil, err
-		}
-		if len(after) > 0 && entry.Key.String() <= after.String() {
-			continue
-		}
-		entries = append(entries, entry)
-		if len(entries) >= limit {
-			break
-		}
-	}
-	return entries, nil
 }
 
 func (m *Memory) BatchSet(ctx context.Context, entries []Entry) error {

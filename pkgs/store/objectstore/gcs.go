@@ -75,8 +75,7 @@ func gcsObjectError(err error) error {
 	if errors.Is(err, gcs.ErrObjectNotExist) {
 		return fs.ErrNotExist
 	}
-	var apiErr *googleapi.Error
-	if errors.As(err, &apiErr) {
+	if apiErr, ok := errors.AsType[*googleapi.Error](err); ok {
 		if apiErr.Code == 404 {
 			return fs.ErrNotExist
 		}

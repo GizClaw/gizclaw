@@ -253,8 +253,7 @@ func normalizeResourceKind(data []byte) ([]byte, error) {
 	}
 	var kind string
 	if err := json.Unmarshal(rawKind, &kind); err != nil {
-		var typeError *json.UnmarshalTypeError
-		if errors.As(err, &typeError) {
+		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
 			return data, nil
 		}
 		return nil, err

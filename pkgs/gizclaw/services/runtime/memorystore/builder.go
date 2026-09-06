@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -212,7 +213,7 @@ func rejectSymlinkPath(root, target string) error {
 		if err != nil || relative == "." {
 			return nil
 		}
-		next := strings.Split(relative, string(filepath.Separator))[0]
+		next, _, _ := strings.Cut(relative, string(filepath.Separator))
 		current = filepath.Join(current, next)
 	}
 }
@@ -682,7 +683,7 @@ func (closers multiCloser) Close() error { return closeAll(closers) }
 
 func closeAll(closers []io.Closer) error {
 	var err error
-	for index := len(closers) - 1; index >= 0; index-- {
+	for index := range slices.Backward(closers) {
 		if closers[index] != nil {
 			err = errors.Join(err, closers[index].Close())
 		}

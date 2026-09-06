@@ -12,15 +12,16 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 11, 8, 0, 0, 0, time.UTC)
 	srv := &Server{
-		Store: kv.NewMemory(nil),
-		Now:   func() time.Time { return now },
+		DB:  newTestDB(t),
+		Now: func() time.Time { return now },
 	}
 	first := modelUpsert("qwen-flash", "openai-tenant", "dashscope")
 	first.DisplayName = new("Qwen Flash")
@@ -122,7 +123,7 @@ func TestServerModelCRUDListFiltersAndIndexes(t *testing.T) {
 }
 
 func TestServerModelAcceptsOpaqueIDWithKVSeparator(t *testing.T) {
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 	item := modelUpsert("tenant:model", "openai-tenant", "global")
 	response, err := srv.CreateModel(t.Context(), adminhttp.CreateModelRequestObject{Body: &item})
 	if err != nil {
@@ -136,7 +137,7 @@ func TestServerModelAcceptsOpaqueIDWithKVSeparator(t *testing.T) {
 
 func TestServerListModelsPagination(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 	for _, id := range []string{"a", "b", "c"} {
 		upsert := modelUpsert(id, "openai-tenant", "main")
 		if resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{Body: &upsert}); err != nil {
@@ -178,7 +179,7 @@ func TestServerListModelsPagination(t *testing.T) {
 
 func TestServerListModelsEmptyReturnsEmptyItems(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 
 	resp, err := srv.ListModels(ctx, adminhttp.ListModelsRequestObject{})
 	if err != nil {
@@ -195,7 +196,7 @@ func TestServerListModelsEmptyReturnsEmptyItems(t *testing.T) {
 
 func TestServerRejectsInvalidAndSyncModelWrites(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 	if resp, err := srv.CreateModel(ctx, adminhttp.CreateModelRequestObject{}); err != nil {
 		t.Fatalf("CreateModel(nil) error = %v", err)
 	} else if _, ok := resp.(adminhttp.CreateModel400JSONResponse); !ok {
@@ -209,8 +210,8 @@ func TestServerRejectsInvalidAndSyncModelWrites(t *testing.T) {
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
-	if err := writeModel(ctx, srv.Store, syncModel, nil); err != nil {
-		t.Fatalf("writeModel(sync) error = %v", err)
+	if _, err := insertModel(ctx, srv.DB, syncModel); err != nil {
+		t.Fatalf("insertModel(sync) error = %v", err)
 	}
 	manual := modelUpsert("synced", "openai-tenant", "main")
 	if resp, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: "synced", Body: &manual}); err != nil {
@@ -222,7 +223,7 @@ func TestServerRejectsInvalidAndSyncModelWrites(t *testing.T) {
 
 func TestServerModelValidationAndErrorResponses(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 	for _, tc := range []struct {
 		name string
 		body adminhttp.ModelUpsert
@@ -287,7 +288,7 @@ func TestServerModelValidationAndErrorResponses(t *testing.T) {
 
 func TestServerValidatesProviderKindAgainstProviderData(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 
 	dashScopeMode := apitypes.DashScopeTenantModelProviderDataApiModeChatCompletions
 	dashScopeRealtimeMode := apitypes.DashScopeTenantModelProviderDataApiModeRealtime
@@ -588,7 +589,7 @@ func TestValidateLLMThinkingSupportsBooleanAndLevelParameters(t *testing.T) {
 func TestServerListModelsSourceFilterAndSyncedTimePreserved(t *testing.T) {
 	ctx := context.Background()
 	syncedAt := time.Date(2026, 5, 10, 8, 0, 0, 0, time.UTC)
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 	previous := apitypes.Model{
 		Id:       "sync-preserved",
 		Kind:     apitypes.ModelKindLlm,
@@ -596,8 +597,8 @@ func TestServerListModelsSourceFilterAndSyncedTimePreserved(t *testing.T) {
 		Source:   apitypes.ModelSourceManual,
 		SyncedAt: &syncedAt,
 	}
-	if err := writeModel(ctx, srv.Store, previous, nil); err != nil {
-		t.Fatalf("writeModel() error = %v", err)
+	if _, err := insertModel(ctx, srv.DB, previous); err != nil {
+		t.Fatalf("insertModel() error = %v", err)
 	}
 	update := modelUpsert("sync-preserved", "openai-tenant", "main")
 	resp, err := srv.PutModel(ctx, adminhttp.PutModelRequestObject{Id: "sync-preserved", Body: &update})
@@ -690,4 +691,23 @@ func requireModelList(t *testing.T, resp adminhttp.ListModelsResponseObject) adm
 		t.Fatalf("ListModels() response = %#v", resp)
 	}
 	return adminhttp.ModelList(list)
+}
+
+func newTestDB(t *testing.T) *sqlx.DB {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	server := &Server{DB: db}
+	if err := server.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return db
 }

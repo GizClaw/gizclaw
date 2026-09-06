@@ -183,8 +183,8 @@ func TestSetPeerWorkspaceParametersReadsUnderTheRecordLock(t *testing.T) {
 	concurrentTools := []string{"tool-b"}
 	concurrent := created
 	concurrent.Toolkit = &apitypes.ToolkitPolicy{ToolIds: &concurrentTools}
-	if err := writeWorkspace(ctx, store, concurrent); err != nil {
-		t.Fatalf("writeWorkspace() error = %v", err)
+	if err := seedWorkspaceRecord(ctx, store, concurrent); err != nil {
+		t.Fatalf("seedWorkspaceRecord() error = %v", err)
 	}
 	unlock()
 

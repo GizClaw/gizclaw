@@ -27,9 +27,11 @@ services/system/
 
 Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active depth、最老 active age、claim、active worker、phase latency、deferral、retry、terminal failure、transition error 与 completion；resource ID、owner、deletion ID、descriptor、fingerprint、lease token 和 error text 都不会成为 label。Metrics store 失败不会停止 cleanup。
 
+共享 KV source 在创建 marker 时同时写入 locator、初始 task state 和有序索引，不在读取时补建状态。每个 kind 的任务按 deletion ID 分为 16 个分片：到期索引按下次执行时间或租约到期时间排序，管理索引按 status 与创建时间排序。查询将时间边界和每片返回上限下推到存储，最多并发读取 8 个分片，再合并结果；到期发现只返回 ID 与 fingerprint，不逐条读取 task。状态转换、续租和 finalization 原子维护索引，未变化的成员不会重复删除，完成后移除全部 task 索引。
+
 ### runtimeprofile
 
-拥有 RuntimeProfile 和 RegistrationToken 的 KV 状态、schema validation、确定性 revision、hash 索引和注册解析。它通过安全 alias 投影 Admin 资源，不定义 reader/member role system。完整结构见 [RuntimeProfile 与设备注册](./runtime-profile)。
+拥有 RuntimeProfile 和 RegistrationToken 的 SQL 表、schema validation、确定性 revision、token 唯一索引和注册解析。它通过安全 alias 投影 Admin 资源，不定义 reader/member role system。完整结构见 [RuntimeProfile 与设备注册](./runtime-profile)。
 
 ### apikey
 

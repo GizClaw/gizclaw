@@ -2,20 +2,18 @@ package providertenants
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
 
-var geminiTenantsRoot = kv.Key{"gemini-tenants", "by-id"}
-
 func (s *Server) ListGeminiTenants(ctx context.Context, request adminhttp.ListGeminiTenantsRequestObject) (adminhttp.ListGeminiTenantsResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.ListGeminiTenants500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -32,7 +30,7 @@ func (s *Server) ListGeminiTenants(ctx context.Context, request adminhttp.ListGe
 }
 
 func (s *Server) CreateGeminiTenant(ctx context.Context, request adminhttp.CreateGeminiTenantRequestObject) (adminhttp.CreateGeminiTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -46,7 +44,7 @@ func (s *Server) CreateGeminiTenant(ctx context.Context, request adminhttp.Creat
 	now := s.now()
 	tenant.CreatedAt = now
 	tenant.UpdatedAt = now
-	created, err := createTenant(ctx, store, geminiTenantKey(tenant.Id), tenant)
+	created, err := createSQLTenant(ctx, store, "gemini", tenant)
 	if err != nil {
 		return adminhttp.CreateGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -57,14 +55,14 @@ func (s *Server) CreateGeminiTenant(ctx context.Context, request adminhttp.Creat
 }
 
 func (s *Server) GetGeminiTenant(ctx context.Context, request adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.GetGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
 	tenant, err := getGeminiTenant(ctx, store, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", id))), nil
 		}
 		return adminhttp.GetGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -73,7 +71,7 @@ func (s *Server) GetGeminiTenant(ctx context.Context, request adminhttp.GetGemin
 }
 
 func (s *Server) PutGeminiTenant(ctx context.Context, request adminhttp.PutGeminiTenantRequestObject) (adminhttp.PutGeminiTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -85,38 +83,32 @@ func (s *Server) PutGeminiTenant(ctx context.Context, request adminhttp.PutGemin
 	if err != nil {
 		return adminhttp.PutGeminiTenant400JSONResponse(apitypes.NewErrorResponse("INVALID_GEMINI_TENANT", err.Error())), nil
 	}
-	previous, err := getGeminiTenant(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", id))), nil
+	tenant.UpdatedAt = s.now()
+	tenant, err = updateSQLTenant(ctx, store, "gemini", tenant)
+	if errors.Is(err, sql.ErrNoRows) {
+		return adminhttp.PutGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("tenant %q not found", id))), nil
 	}
 	if err != nil {
 		return adminhttp.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	now := s.now()
-	tenant.UpdatedAt = now
-	tenant.CreatedAt = previous.CreatedAt
-	if err := writeGeminiTenant(ctx, store, tenant); err != nil {
-		return adminhttp.PutGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.PutGeminiTenant200JSONResponse(tenant), nil
 }
 
 func (s *Server) DeleteGeminiTenant(ctx context.Context, request adminhttp.DeleteGeminiTenantRequestObject) (adminhttp.DeleteGeminiTenantResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	tenant, err := getGeminiTenant(ctx, store, id)
+	tenant, err := deleteSQLTenant[apitypes.GeminiTenant](ctx, store, "gemini", id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteGeminiTenant404JSONResponse(apitypes.NewErrorResponse("GEMINI_TENANT_NOT_FOUND", fmt.Sprintf("Gemini tenant %q not found", id))), nil
 		}
 		return adminhttp.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteTenant(ctx, store, geminiTenantKey(tenant.Id)); err != nil {
-		return adminhttp.DeleteGeminiTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.DeleteGeminiTenant200JSONResponse(tenant), nil
 }
 
@@ -163,63 +155,10 @@ func normalizeGeminiTenantUpsert(in adminhttp.GeminiTenantUpsert, expectedID str
 	return tenant, nil
 }
 
-func listGeminiTenantsPage(ctx context.Context, store kv.Store, cursor string, limit int) ([]apitypes.GeminiTenant, bool, *string, error) {
-	items := make([]apitypes.GeminiTenant, 0, limit+1)
-	for entry, err := range store.List(ctx, geminiTenantsRoot) {
-		if err != nil {
-			return nil, false, nil, err
-		}
-		if len(entry.Key) == 0 {
-			continue
-		}
-		lastSegment := entry.Key[len(entry.Key)-1]
-		if cursor != "" && lastSegment <= cursor {
-			continue
-		}
-		var tenant apitypes.GeminiTenant
-		if err := json.Unmarshal(entry.Value, &tenant); err != nil {
-			return nil, false, nil, fmt.Errorf("gemini tenants: decode tenant list %s: %w", entry.Key.String(), err)
-		}
-		items = append(items, tenant)
-		if len(items) >= limit+1 {
-			break
-		}
-	}
-	if len(items) == 0 {
-		return []apitypes.GeminiTenant{}, false, nil, nil
-	}
-	hasNext := len(items) > limit
-	if !hasNext {
-		return items, false, nil, nil
-	}
-	page := items[:limit]
-	next := escapeStoreSegment(string(page[len(page)-1].Id))
-	return page, true, &next, nil
+func listGeminiTenantsPage(ctx context.Context, db *sqlx.DB, cursor string, limit int) ([]apitypes.GeminiTenant, bool, *string, error) {
+	return listSQLTenants[apitypes.GeminiTenant](ctx, db, "gemini", cursor, limit)
 }
 
-func writeGeminiTenant(ctx context.Context, store kv.Store, tenant apitypes.GeminiTenant) error {
-	data, err := json.Marshal(tenant)
-	if err != nil {
-		return fmt.Errorf("gemini tenants: encode tenant %s: %w", tenant.Id, err)
-	}
-	if err := store.Set(ctx, geminiTenantKey(string(tenant.Id)), data); err != nil {
-		return fmt.Errorf("gemini tenants: write tenant %s: %w", tenant.Id, err)
-	}
-	return nil
-}
-
-func getGeminiTenant(ctx context.Context, store kv.Store, id string) (apitypes.GeminiTenant, error) {
-	data, err := store.Get(ctx, geminiTenantKey(id))
-	if err != nil {
-		return apitypes.GeminiTenant{}, err
-	}
-	var tenant apitypes.GeminiTenant
-	if err := json.Unmarshal(data, &tenant); err != nil {
-		return apitypes.GeminiTenant{}, fmt.Errorf("gemini tenants: decode tenant %s: %w", id, err)
-	}
-	return tenant, nil
-}
-
-func geminiTenantKey(id string) kv.Key {
-	return append(append(kv.Key{}, geminiTenantsRoot...), escapeStoreSegment(id))
+func getGeminiTenant(ctx context.Context, db *sqlx.DB, id string) (apitypes.GeminiTenant, error) {
+	return getSQLTenant[apitypes.GeminiTenant](ctx, db, "gemini", id)
 }

@@ -2,12 +2,13 @@ package peer
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func saveTestPeer(t *testing.T, server *Server, publicKey giznet.PublicKey, device apitypes.DeviceInfo) {
@@ -42,7 +42,7 @@ func registrationResultForTest(t *testing.T, result adminhttp.PeerRegistrationRe
 
 func TestDeleteSelfRetainsPeerFencesMutationsAndReusesDeletionEvent(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{9}
 	saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
@@ -65,21 +65,16 @@ func TestDeleteSelfRetainsPeerFencesMutationsAndReusesDeletionEvent(t *testing.T
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(second): %v", err)
 	}
-	count := 0
-	for _, err := range server.Store.List(ctx, kv.Key{"pending-deletion", "by-id"}) {
-		if err != nil {
-			t.Fatalf("list pending deletions: %v", err)
-		}
-		count++
+	tasks, err := (pendingdeletion.KVSource{Store: server.Store, SourceName: "peer", OwnedKinds: []pendingdeletion.Kind{pendingdeletion.KindPeer}}).ListTasks(ctx, pendingdeletion.SourceListOptions{Limit: 2})
+	if err != nil || len(tasks) != 1 {
+		t.Fatalf("pending deletion tasks = %d, %v", len(tasks), err)
 	}
-	if count != 1 {
-		t.Fatalf("pending deletion events = %d, want 1", count)
-	}
+
 }
 
 func TestDeleteSelfRetryPreservesPeerButRejectsReconnect(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{10}
 	saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
@@ -96,9 +91,9 @@ func TestDeleteSelfRetryPreservesPeerButRejectsReconnect(t *testing.T) {
 	}
 }
 
-func TestDeleteSelfLegacyMarkerAllowsRetryAfterRemovedPeer(t *testing.T) {
+func TestDeleteSelfMarkerAllowsRetryAfterRemovedPeer(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{11}
 	publicKeyText := publicKey.String()
 	record, err := pendingdeletion.New(
@@ -110,22 +105,14 @@ func TestDeleteSelfLegacyMarkerAllowsRetryAfterRemovedPeer(t *testing.T) {
 		time.Unix(1, 0),
 	)
 	if err != nil {
-		t.Fatalf("New legacy marker: %v", err)
+		t.Fatalf("New marker: %v", err)
 	}
-	entries, err := pendingdeletion.KVEntries(record)
-	if err != nil {
-		t.Fatalf("KVEntries legacy marker: %v", err)
-	}
-	encodedPublicKey := base64.RawURLEncoding.EncodeToString([]byte(publicKeyText))
-	entries = append(entries, kv.Entry{Key: kv.Key{
-		"pending-deletion", "by-locator", string(record.Kind), encodedPublicKey, record.DeletionID,
-	}})
-	if err := server.Store.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("seed legacy marker: %v", err)
+	if _, _, err := pendingdeletion.CreateOrGet(ctx, server.Store, record); err != nil {
+		t.Fatalf("seed marker: %v", err)
 	}
 
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
-		t.Fatalf("DeleteSelf(legacy removed Peer retry): %v", err)
+		t.Fatalf("DeleteSelf(removed Peer retry): %v", err)
 	}
 }
 
@@ -145,7 +132,7 @@ func (m stubPeerManager) RefreshPeer(context.Context, giznet.PublicKey) (adminht
 }
 
 func TestServerAdminPeerHandlers(t *testing.T) {
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 
 	peerKey := giznet.PublicKey{1}
 	peerPublicKey := peerKey.String()
@@ -322,16 +309,11 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	} else if _, ok := response.(adminhttp.FindPubKeysByIMEI200JSONResponse); !ok {
 		t.Fatalf("FindPubKeysByIMEI after delete response = %T", response)
 	}
-	var pendingRecord pendingdeletion.Record
-	for entry, err := range server.Store.List(ctx, kv.Key{"pending-deletion", "by-id"}) {
-		if err != nil {
-			t.Fatalf("list pending deletions: %v", err)
-		}
-		if err := json.Unmarshal(entry.Value, &pendingRecord); err != nil {
-			t.Fatalf("decode pending deletion: %v", err)
-		}
-		break
+	pendingRecord, err := pendingdeletion.GetByLocator(ctx, server.Store, pendingdeletion.KindPeer, peerPublicKey)
+	if err != nil {
+		t.Fatal(err)
 	}
+
 	var descriptor map[string]any
 	if err := json.Unmarshal(pendingRecord.Descriptor, &descriptor); err != nil {
 		t.Fatalf("decode pending descriptor: %v", err)
@@ -349,7 +331,7 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 
 func TestFindPeersBySNReturnsEveryMatchingPeer(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	sn := "shared-sn"
 	first := giznet.PublicKey{1}
 	second := giznet.PublicKey{2}
@@ -383,7 +365,7 @@ func TestFindPeersBySNReturnsEveryMatchingPeer(t *testing.T) {
 }
 
 func TestFindPeersBySNRejectsInvalidSerialNumber(t *testing.T) {
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	for _, sn := range []string{"", strings.Repeat("s", maxDeviceSNBytes+1), string([]byte{0xff})} {
 		response, err := server.FindPeersBySN(context.Background(), adminhttp.FindPeersBySNRequestObject{Sn: sn})
 		if err != nil {
@@ -396,34 +378,9 @@ func TestFindPeersBySNRejectsInvalidSerialNumber(t *testing.T) {
 	}
 }
 
-func TestFindPeersBySNRecoversLegacyIndexCollisions(t *testing.T) {
-	ctx := context.Background()
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
-	sn := "legacy-shared-sn"
-	first := giznet.PublicKey{3}
-	second := giznet.PublicKey{4}
-	saveTestPeer(t, server, first, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
-	saveTestPeer(t, server, second, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
-	if err := server.Store.BatchDelete(ctx, []kv.Key{snKey(sn, first.String()), snKey(sn, second.String())}); err != nil {
-		t.Fatalf("delete current indexes: %v", err)
-	}
-	if err := server.Store.Set(ctx, snPrefix(sn), []byte(second.String())); err != nil {
-		t.Fatalf("seed legacy index: %v", err)
-	}
-
-	response, err := server.FindPeersBySN(ctx, adminhttp.FindPeersBySNRequestObject{Sn: sn})
-	if err != nil {
-		t.Fatalf("FindPeersBySN error: %v", err)
-	}
-	matched, ok := response.(adminhttp.FindPeersBySN200JSONResponse)
-	if !ok || len(matched.Items) != 2 {
-		t.Fatalf("FindPeersBySN legacy response = %#v", response)
-	}
-}
-
 func TestSaveRefreshedDeviceFieldsPreservesConcurrentProfileUpdate(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{5}
 	saveTestPeer(t, server, publicKey, apitypes.DeviceInfo{})
 	name := "updated-while-refreshing"
@@ -449,7 +406,7 @@ func TestSaveRefreshedDeviceFieldsPreservesConcurrentProfileUpdate(t *testing.T)
 }
 
 func TestServerListPeersPagination(t *testing.T) {
-	server := &Server{
+	server := &Server{LocalRuns: peerruntest.New(t),
 		Store: mustBadgerInMemory(t, nil),
 	}
 
@@ -493,7 +450,7 @@ func TestServerListPeersPagination(t *testing.T) {
 }
 
 func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
-	server := &Server{
+	server := &Server{LocalRuns: peerruntest.New(t),
 		Store: mustBadgerInMemory(t, nil),
 	}
 
@@ -549,7 +506,7 @@ func TestServerListPeersPaginationPreservesCreationOrder(t *testing.T) {
 }
 
 func TestServerListPeersLimitClampsToConfiguredBounds(t *testing.T) {
-	server := &Server{
+	server := &Server{LocalRuns: peerruntest.New(t),
 		Store: mustBadgerInMemory(t, nil),
 	}
 	for _, publicKey := range []giznet.PublicKey{{1}, {2}, {3}} {
@@ -591,7 +548,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 	now := time.Unix(1_700_200_000, 0).UTC()
 	runtimeAddr := "10.0.0.1:1234"
 	peerKey := giznet.PublicKey{3}
-	server := &Server{
+	server := &Server{LocalRuns: peerruntest.New(t),
 		Store: mustBadgerInMemory(t, nil),
 		PeerManager: stubPeerManager{
 			runtime: apitypes.Runtime{
@@ -650,7 +607,7 @@ func TestServerRuntimeHandlers(t *testing.T) {
 func TestPeerHTTPHandlers(t *testing.T) {
 	before := time.Now()
 	peerKey := giznet.PublicKey{5}
-	server := &Server{
+	server := &Server{LocalRuns: peerruntest.New(t),
 		Store:           mustBadgerInMemory(t, nil),
 		BuildVersion:    "0.2.5",
 		BuildCommit:     "deadbeef",
@@ -709,7 +666,7 @@ func TestPeerHTTPHandlers(t *testing.T) {
 }
 
 func TestGetServerInfoDefaultsDevelopmentBuildIdentity(t *testing.T) {
-	server := &Server{ServerPublicKey: giznet.PublicKey{1}}
+	server := &Server{LocalRuns: peerruntest.New(t), ServerPublicKey: giznet.PublicKey{1}}
 	response, err := server.GetServerInfo(context.Background(), peerhttp.GetServerInfoRequestObject{})
 	if err != nil {
 		t.Fatalf("GetServerInfo() error = %v", err)
@@ -724,7 +681,7 @@ func TestGetServerInfoDefaultsDevelopmentBuildIdentity(t *testing.T) {
 }
 
 func TestGetServerInfoReportsICETCP(t *testing.T) {
-	server := &Server{ICETCP: true}
+	server := &Server{LocalRuns: peerruntest.New(t), ICETCP: true}
 
 	serverInfoResp, err := server.GetServerInfo(context.Background(), peerhttp.GetServerInfoRequestObject{})
 	if err != nil {
@@ -788,7 +745,7 @@ func TestPeerHTTPHandlersPutInfoAndRuntime(t *testing.T) {
 	now := time.Unix(1_700_500_000, 0).UTC()
 	runtimeAddr := "10.0.0.1:8888"
 	peerKey := giznet.PublicKey{4}
-	server := &Server{
+	server := &Server{LocalRuns: peerruntest.New(t),
 		Store: mustBadgerInMemory(t, nil),
 		PeerManager: stubPeerManager{
 			runtime: apitypes.Runtime{
@@ -831,7 +788,7 @@ func TestPeerHTTPHandlersPutInfoAndRuntime(t *testing.T) {
 
 func TestPutSelfInfoPartialUpdate(t *testing.T) {
 	peerKey := giznet.PublicKey{5}
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	name := "device-1"
 	emoji := "🐈"
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Name: &name, Emoji: &emoji})
@@ -872,7 +829,7 @@ func TestPutSelfInfoPartialUpdate(t *testing.T) {
 func TestPutPeerInfoPartialUpdate(t *testing.T) {
 	ctx := context.Background()
 	peerKey := giznet.PublicKey{6}
-	server := &Server{Store: mustBadgerInMemory(t, nil)}
+	server := &Server{LocalRuns: peerruntest.New(t), Store: mustBadgerInMemory(t, nil)}
 	name := "device-1"
 	emoji := "🐈"
 	saveTestPeer(t, server, peerKey, apitypes.DeviceInfo{Name: &name, Emoji: &emoji})

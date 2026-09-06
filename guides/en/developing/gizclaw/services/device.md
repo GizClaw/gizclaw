@@ -24,7 +24,7 @@ It does not own device connections, peer registration, runtime status, or teleme
 ```mermaid
 flowchart LR
     GizClaw["pkgs/gizclaw<br/>Admin surface"] --> Firmware["services/device/firmware"]
-    Firmware --> KV["KV metadata store"]
+    Firmware --> SQL["SQL catalog"]
 ```
 
 Should be placed at `services/device/firmware`:
@@ -42,3 +42,5 @@ Shouldn't be placed here:
 - Creation of CLI storage backend and filesystem root.
 
 When adding device domain services in the future, you should first confirm whether it has independent resources and life cycle before deciding to add `services/device/<service>`. Do not put all device-related logic into `firmware/`.
+
+The Firmware catalog uses the `firmwares` business table. ID is the primary key; description and creation/update timestamps have separate columns, while channel configuration remains JSON. Server startup initializes the schema using the configured shared SQL pool; requests never execute DDL. Lists use ID range queries and SQL limits, and updates/deletes use `RETURNING` without KV enumeration.

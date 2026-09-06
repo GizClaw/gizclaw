@@ -339,7 +339,7 @@ func largestVolcJSONString(value any) ([]volcJSONPathElement, int) {
 				stack = append(stack, node{value: typed[key], path: path})
 			}
 		case []any:
-			for index := len(typed) - 1; index >= 0; index-- {
+			for index := range slices.Backward(typed) {
 				path := append(append([]volcJSONPathElement(nil), current.path...), volcJSONPathElement{index: index, array: true})
 				stack = append(stack, node{value: typed[index], path: path})
 			}

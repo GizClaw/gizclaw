@@ -9,7 +9,7 @@ import (
 )
 
 func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
@@ -59,7 +59,7 @@ func TestApplyGeminiTenantCreatesUpdatesAndSkipsUnchanged(t *testing.T) {
 }
 
 func TestPutGetDeleteGeminiTenantResource(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "gizclaw.admin/v1alpha1",
 		"kind": "GeminiTenant",
@@ -157,7 +157,7 @@ func TestGeminiTenantMissingServiceErrors(t *testing.T) {
 }
 
 func TestApplyGeminiTenantRejectsInvalidHeader(t *testing.T) {
-	manager := newModelManager()
+	manager := newModelManager(t)
 	resource := mustResource(t, `{
 		"apiVersion": "unsupported",
 		"kind": "GeminiTenant",

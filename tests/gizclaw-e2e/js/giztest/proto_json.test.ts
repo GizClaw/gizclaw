@@ -1,0 +1,56 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
+
+test("scenario Protobuf JSON converts workspace oneofs and enums for the SDK", () => {
+  const request = requestFromProtoJSON("server.workspace.create", {
+    name: "example",
+    workflow_name: "flowcraft-chat-assistant",
+    parameters: {
+      flowcraft_workspace_parameters: {
+        agent_type: "FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT",
+        input: "WORKSPACE_INPUT_MODE_PUSH_TO_TALK",
+      },
+    },
+  });
+  assert.ok(
+    request != null && typeof request === "object" && "parameters" in request,
+  );
+  assert.ok(
+    request.parameters != null && typeof request.parameters === "object",
+  );
+  assert.ok(
+    "agent_type" in request.parameters && "input" in request.parameters,
+  );
+  assert.equal(request.parameters.agent_type, "flowcraft");
+  assert.equal(request.parameters.input, "push-to-talk");
+});
+
+test("scenario enum conversion retains strict Protobuf JSON validation", () => {
+  assert.deepEqual(
+    requestFromProtoJSON("server.firmware.get", {
+      channel: "FIRMWARE_CHANNEL_NAME_STABLE",
+    }),
+    { channel: "stable" },
+  );
+  assert.throws(() =>
+    requestFromProtoJSON("server.firmware.get", {
+      channel: "FIRMWARE_CHANNEL_NAME_STABEL",
+    }),
+  );
+  assert.throws(() =>
+    requestFromProtoJSON("server.firmware.get", {
+      unknown_field: true,
+    }),
+  );
+});
+
+test("SDK response conversion retains protobuf int64 strings and defaults", () => {
+  const response = responseToProtoJSON("all.ping", { server_time: 123 });
+  assert.ok(
+    response != null &&
+      typeof response === "object" &&
+      "server_time" in response,
+  );
+  assert.equal(response.server_time, "123");
+});

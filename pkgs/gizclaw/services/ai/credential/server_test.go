@@ -6,43 +6,9 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
-
-func TestMigrationNoop(t *testing.T) {
-	t.Parallel()
-
-	srv := newTestServer(t)
-	ctx := context.Background()
-	legacy := []byte(`{
-		"id":"legacy-volc",
-		"provider":"volc",
-		"method":"api_key",
-		"description":"legacy credential",
-		"body":{"method":"api_key","api_key":"ak","token":"tok"},
-		"created_at":"2026-01-01T00:00:00Z",
-		"updated_at":"2026-01-01T00:00:00Z"
-	}`)
-	if err := srv.Store.BatchSet(ctx, []kv.Entry{
-		{Key: credentialKey("legacy-volc"), Value: legacy},
-	}); err != nil {
-		t.Fatalf("seed legacy credential: %v", err)
-	}
-
-	for range 2 {
-		if err := srv.Migration(ctx); err != nil {
-			t.Fatalf("Migration() error = %v", err)
-		}
-	}
-
-	data, err := srv.Store.Get(ctx, credentialKey("legacy-volc"))
-	if err != nil {
-		t.Fatalf("get credential after migration: %v", err)
-	}
-	if string(data) != string(legacy) {
-		t.Fatalf("Migration changed credential: %s", data)
-	}
-}
 
 func TestServerCredentialsCRUD(t *testing.T) {
 	t.Parallel()
@@ -471,7 +437,7 @@ func TestServerPutRetainsExistingSecretForSameMethod(t *testing.T) {
 		t.Fatalf("PutCredential() response = %#v", putResp)
 	}
 
-	record, err := getCredentialRecord(ctx, srv.Store, created.Id)
+	record, err := getCredentialRecord(ctx, srv.DB, created.Id)
 	if err != nil {
 		t.Fatalf("getCredentialRecord() error = %v", err)
 	}
@@ -562,12 +528,21 @@ func TestServerCredentialValidationAndMissingPaths(t *testing.T) {
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 
-	store, err := kv.NewBadgerInMemory(nil)
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
-		t.Fatalf("NewBadgerInMemory() error = %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Close() })
-	return &Server{Store: store}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	s := &Server{DB: db}
+	if err := s.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return s
 }
 
 func mustCredentialUpsert(t *testing.T, raw string) adminhttp.CredentialUpsert {

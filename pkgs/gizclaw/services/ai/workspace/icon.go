@@ -3,6 +3,7 @@ package workspace
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +11,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func (s *Server) DownloadWorkspaceIcon(ctx context.Context, request adminhttp.DownloadWorkspaceIconRequestObject) (adminhttp.DownloadWorkspaceIconResponseObject, error) {
@@ -20,7 +20,7 @@ func (s *Server) DownloadWorkspaceIcon(ctx context.Context, request adminhttp.Do
 	}
 	doc, err := s.adminWorkspace(ctx, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DownloadWorkspaceIcon404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found")), nil
 		}
 		return adminhttp.DownloadWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to load workspace icon metadata")), nil
@@ -57,7 +57,7 @@ func (s *Server) UploadWorkspaceIcon(ctx context.Context, request adminhttp.Uplo
 	defer unlock()
 	_, err = s.workspace(ctx, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.UploadWorkspaceIcon404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found")), nil
 		}
 		if response, ok := workspaceUnavailableError(err); ok {
@@ -74,7 +74,7 @@ func (s *Server) UploadWorkspaceIcon(ctx context.Context, request adminhttp.Uplo
 	}
 	recordUnlock := s.IconLocks.LockRecord(id)
 	defer recordUnlock()
-	doc, err := s.workspace(ctx, id)
+	doc, version, err := s.workspaceForMutation(ctx, id)
 	if err != nil {
 		return adminhttp.UploadWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to reload workspace icon metadata")), nil
 	}
@@ -83,7 +83,7 @@ func (s *Server) UploadWorkspaceIcon(ctx context.Context, request adminhttp.Uplo
 	if err != nil {
 		return adminhttp.UploadWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workspace store not configured")), nil
 	}
-	if err := writeWorkspace(ctx, store, doc); err != nil {
+	if err := updateSQLWorkspace(ctx, store, doc, version); err != nil {
 		return adminhttp.UploadWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to update workspace icon")), nil
 	}
 	return adminhttp.UploadWorkspaceIcon200JSONResponse(doc), nil
@@ -98,7 +98,7 @@ func (s *Server) DeleteWorkspaceIcon(ctx context.Context, request adminhttp.Dele
 	defer unlock()
 	_, err = s.workspace(ctx, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteWorkspaceIcon404JSONResponse(apitypes.NewErrorResponse("WORKSPACE_NOT_FOUND", "workspace not found")), nil
 		}
 		if response, ok := workspaceUnavailableError(err); ok {
@@ -114,7 +114,7 @@ func (s *Server) DeleteWorkspaceIcon(ctx context.Context, request adminhttp.Dele
 	}
 	recordUnlock := s.IconLocks.LockRecord(id)
 	defer recordUnlock()
-	doc, err := s.workspace(ctx, id)
+	doc, version, err := s.workspaceForMutation(ctx, id)
 	if err != nil {
 		return adminhttp.DeleteWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to reload workspace icon metadata")), nil
 	}
@@ -123,7 +123,7 @@ func (s *Server) DeleteWorkspaceIcon(ctx context.Context, request adminhttp.Dele
 	if err != nil {
 		return adminhttp.DeleteWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := writeWorkspace(ctx, store, doc); err != nil {
+	if err := updateSQLWorkspace(ctx, store, doc, version); err != nil {
 		return adminhttp.DeleteWorkspaceIcon500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "failed to update workspace icon")), nil
 	}
 	return adminhttp.DeleteWorkspaceIcon200JSONResponse(doc), nil

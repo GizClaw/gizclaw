@@ -36,7 +36,7 @@ func TestCSDKSpeedTest(t *testing.T) {
 }
 
 func TestCSDKServerInitiatedPing(t *testing.T) {
-	fixture := cgointernal.NewServerRPCFixture(t)
+	fixture := cgointernal.NewServerRPCFixture(t, true)
 	response, err := fixture.Ping("server-ping")
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestCSDKServerInitiatedSpeedTest(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fixture := cgointernal.NewServerRPCFixture(t)
+			fixture := cgointernal.NewServerRPCFixture(t, true)
 			uploaded, downloaded, err := fixture.SpeedTest("server-speed-"+tc.name, tc.up, tc.down)
 			if err != nil {
 				t.Fatal(err)
@@ -171,21 +171,9 @@ func createCSDKRegistrationToken(t *testing.T, h *clitest.Harness, scenario stri
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	profileName := "cgo-firmware"
-	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
-		Id: profileName,
-		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{},
-			Workflows: apitypes.RuntimeProfileWorkflows{
-				System: apitypes.RuntimeProfileSystemWorkflows{
-					Pet: "pet-care",
-				},
-				Collections: apitypes.RuntimeProfileWorkflowCollections{},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("put C SDK RuntimeProfile: %v", err)
+	profile, found, err := clitest.RuntimeProfileByID(ctx, api, "default-gameplay")
+	if err != nil || !found {
+		t.Fatalf("resolve C SDK RuntimeProfile: found=%v err=%v", found, err)
 	}
 	tokenName := "cgo-" + scenario
 	if err := clitest.DeleteRegistrationTokenByID(ctx, api, tokenName); err != nil {

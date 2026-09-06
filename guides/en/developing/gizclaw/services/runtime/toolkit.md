@@ -66,3 +66,5 @@ Client `timeout` and `unavailable` are bounded JSON Tool results submitted to
 the model continuation. Raw handler, transport, Peer, and Credential details
 are redacted. Tool calls and Tool results remain internal to the Transformer or
 Graph and are not public assistant stream control messages.
+
+The Tool catalog uses the `tools` SQL business table. Canonical ID is the primary key and `invoke_name` has a unique constraint. Type, enabled state, description, version and timestamps occupy separate columns; input Schema, triggers, metadata and HTTP configuration each remain JSON. Server startup initializes the schema using the configured SQL pool. Invocation-name lookup uses one indexed query, and catalog enumeration reads ID-ordered batches of at most 256 rows. Conditional updates check both row revision and creation incarnation. Concurrent secret rotation or deletion/recreation causes a reread before retaining omitted secrets, preventing restoration of an old secret.

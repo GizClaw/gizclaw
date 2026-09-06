@@ -142,22 +142,9 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 		}
 	}
 	set(&server.PeerStore, "peers")
-	set(&server.PeerRunStore, "peer-runs")
 	set(&server.APIKeyStore, "api-keys")
-	set(&server.CredentialStore, "credentials")
-	set(&server.FirmwareStore, "firmwares")
-	set(&server.RuntimeProfileStore, "runtime-profiles")
-	set(&server.ModelStore, "models")
-	set(&server.VoiceStore, "voices")
-	set(&server.MemoryLayoutStore, "memory-layouts")
-	set(&server.ProviderTenantStore, "provider-tenants")
-	set(&server.WorkflowStore, "workflows")
-	set(&server.WorkspaceStore, "workspaces")
-	set(&server.ToolStore, "tools")
-	set(&server.ContactStore, "contacts")
 	set(&server.FriendStore, "friends")
 	set(&server.FriendGroupStore, "friend-groups")
-	set(&server.GameplayStore, "gameplay")
 	server.WorkspaceAssets = newTestObjectStore(t)
 	server.GameplayAssets = newTestObjectStore(t)
 	db, err := sqlx.Open("sqlite", ":memory:")
@@ -167,6 +154,45 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
 	server.GameplayDB = db
+	if server.WorkspaceDB == nil {
+		server.WorkspaceDB = server.GameplayDB
+	}
+	if server.ProviderTenantDB == nil {
+		server.ProviderTenantDB = server.GameplayDB
+	}
+	if server.GameplayCatalogDB == nil {
+		server.GameplayCatalogDB = server.GameplayDB
+	}
+	if server.RuntimeProfileDB == nil {
+		server.RuntimeProfileDB = server.GameplayDB
+	}
+	if server.VoiceDB == nil {
+		server.VoiceDB = server.GameplayDB
+	}
+	if server.CredentialDB == nil {
+		server.CredentialDB = server.GameplayDB
+	}
+	if server.ModelDB == nil {
+		server.ModelDB = server.GameplayDB
+	}
+	if server.WorkflowDB == nil {
+		server.WorkflowDB = server.GameplayDB
+	}
+	if server.ContactDB == nil {
+		server.ContactDB = server.GameplayDB
+	}
+	if server.MemoryLayoutDB == nil {
+		server.MemoryLayoutDB = server.GameplayDB
+	}
+	if server.ToolDB == nil {
+		server.ToolDB = server.GameplayDB
+	}
+	if server.FirmwareDB == nil {
+		server.FirmwareDB = server.GameplayDB
+	}
+	if server.PeerRunDB == nil {
+		server.PeerRunDB = db
+	}
 	history, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
 	if err != nil {
 		t.Fatalf("open test workspace history: %v", err)
@@ -500,8 +526,8 @@ func listWorkspaces(ctx context.Context, c *gizcli.Client) ([]apitypes.Workspace
 
 func createWorkspace(ctx context.Context, ts *testServer, c *gizcli.Client, body adminhttp.WorkspaceUpsert) (apitypes.Workspace, error) {
 	server := &workspace.Server{
-		Store:     ts.server.WorkspaceStore,
-		Workflows: &workflow.Server{Store: ts.server.WorkflowStore},
+		DB:        ts.server.WorkspaceDB,
+		Workflows: &workflow.Server{DB: ts.server.WorkflowDB},
 	}
 	ctx = ownership.WithOwner(ctx, c.KeyPair.Public.String())
 	return server.CreatePeerWorkspace(ctx, workspace.PeerWorkspaceCreateRequest{

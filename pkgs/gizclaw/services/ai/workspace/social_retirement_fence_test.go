@@ -2,13 +2,13 @@ package workspace
 
 import (
 	"context"
+	"github.com/jmoiron/sqlx"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // recordingFencer runs the fenced callback and records which Workspaces took
@@ -17,9 +17,9 @@ type recordingFencer struct {
 	fenced []string
 }
 
-func (f *recordingFencer) WithWorkspaceDeletionFence(ctx context.Context, resourceID string, fenced func(context.Context) error) error {
+func (f *recordingFencer) WithWorkspaceDeletionFence(ctx context.Context, resourceID string, fenced func(context.Context, *sqlx.DB, *sqlx.Tx) error) error {
 	f.fenced = append(f.fenced, resourceID)
-	return fenced(ctx)
+	return fenced(ctx, nil, nil)
 }
 
 // TestRetireSystemWorkspaceFencesEveryNonSFUSystemWorkspace pins which
@@ -50,9 +50,14 @@ func TestRetireSystemWorkspaceFencesEveryNonSFUSystemWorkspace(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			ctx := t.Context()
-			store := kv.NewMemory(nil)
+			store := newTestServer(t).DB
 			fencer := &recordingFencer{}
-			server := &Server{Store: store, DeletionFencer: fencer}
+			server := &Server{DB: store, DeletionFencer: fencer}
+			if tc.item.System != nil {
+				if err := createSQLWorkspace(ctx, store, tc.item); err != nil {
+					t.Fatal(err)
+				}
+			}
 			retired, err := server.retireSystemWorkspace(ctx, store, tc.item, socialutil.SFUWorkspaceKindFriend, "relation-1")
 			if tc.wantErr {
 				if err == nil {
@@ -66,7 +71,7 @@ func TestRetireSystemWorkspaceFencesEveryNonSFUSystemWorkspace(t *testing.T) {
 			if err != nil {
 				t.Fatalf("retireSystemWorkspace() error = %v", err)
 			}
-			pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindWorkspace, tc.item.Id)
+			pending, err := NewPendingDeletionSource(store).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: tc.item.Id})
 			if err != nil || !pending {
 				t.Fatalf("pending deletion marker = %v, %v; want present", pending, err)
 			}

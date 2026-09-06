@@ -2,6 +2,7 @@ package peerresource
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -387,7 +388,7 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 // workspaceLookupResponse.
 func (s *Server) getWorkspaceForList(ctx context.Context, requestID, name string) (apitypes.Workspace, *rpcapi.RPCResponse, error) {
 	item, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, statusError(requestID, rpcapi.StatusCodeNotFound, "workspace not found"), nil
 	}
 	return item, nil, err
@@ -399,11 +400,11 @@ func (s *Server) getWorkspaceByName(ctx context.Context, name string) (apitypes.
 		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
 	}); ok {
 		item, err := resolver.GetWorkspaceByName(ctx, name)
-		if err == nil || !errors.Is(err, kv.ErrNotFound) {
+		if err == nil || !(errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)) {
 			return item, err
 		}
 		item, err = s.getAccessibleDomainWorkspaceByName(ctx, name)
-		if err == nil || !errors.Is(err, kv.ErrNotFound) {
+		if err == nil || !(errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)) {
 			return item, err
 		}
 		return s.materializeSocialWorkspace(ctx, name)
@@ -479,7 +480,7 @@ func (s *Server) ResolveWorkspaceForAccessCheck(ctx context.Context, name string
 		if err == nil {
 			return item, nil
 		}
-		if !errors.Is(err, kv.ErrNotFound) {
+		if !(errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)) {
 			return apitypes.Workspace{}, err
 		}
 	}
@@ -597,7 +598,7 @@ func (s *Server) ResolveAccessibleWorkspace(ctx context.Context, name string) (a
 		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: "workspace service not configured"}
 	}
 	workspace, err := s.getWorkspaceByName(s.ownerContext(ctx), name)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
 		return apitypes.Workspace{}, &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: "workspace not found"}
 	}
 	if isWorkspacePendingDeletion(err) {
@@ -700,8 +701,7 @@ func (s *Server) handleWorkspaceCreate(ctx context.Context, req *rpcapi.RPCReque
 		Parameters: parameters, Toolkit: toolkitPolicy,
 	})
 	if err != nil {
-		var createErr *workspace.PeerWorkspaceCreateError
-		if errors.As(err, &createErr) {
+		if createErr, ok := errors.AsType[*workspace.PeerWorkspaceCreateError](err); ok {
 			switch createErr.Kind {
 			case workspace.PeerWorkspaceCreateInvalid:
 				observability.SetErrorCode(ctx, "INVALID_WORKSPACE")
@@ -740,7 +740,7 @@ func (s *Server) handleWorkspacePut(ctx context.Context, req *rpcapi.RPCRequest)
 		return invalidParams(req.Id), true, nil
 	}
 	current, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
 		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found"), true, nil
 	}
 	if err != nil {
@@ -873,7 +873,7 @@ func (s *Server) handleWorkspaceDelete(ctx context.Context, req *rpcapi.RPCReque
 		return invalidParams(req.Id)
 	}
 	current, err := s.getWorkspaceByName(s.ownerContext(ctx), params.Name)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows) {
 		return statusError(req.Id, rpcapi.StatusCodeNotFound, "workspace not found")
 	}
 	if err != nil {
@@ -1018,7 +1018,7 @@ func historyRPCError(err error) *rpcapi.RPCStatus {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, kv.ErrNotFound), errors.Is(err, fs.ErrNotExist):
+	case (errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)), errors.Is(err, fs.ErrNotExist):
 		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeNotFound, Message: err.Error()}
 	default:
 		return &rpcapi.RPCStatus{Code: rpcapi.StatusCodeInternal, Message: err.Error()}
@@ -1673,7 +1673,7 @@ func workspaceLookupResponse(requestID string, err error) *rpcapi.RPCResponse {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, kv.ErrNotFound):
+	case (errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)):
 		return statusError(requestID, rpcapi.StatusCodeNotFound, "workspace not found")
 	case isWorkspacePendingDeletion(err):
 		status := workspacePendingDeletionStatus()

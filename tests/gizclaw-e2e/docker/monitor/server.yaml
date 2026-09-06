@@ -33,52 +33,42 @@ stores:
     storage: memory
     prefix: peers
   peer-runs:
-    kind: keyvalue
+    kind: sql
     storage: gameplay-db
-    prefix: peer_runs
   api-keys:
     kind: keyvalue
     storage: memory
     prefix: api-keys
   flowcraft-state:
-    kind: keyvalue
-    storage: memory
-    prefix: flowcraft-state
+    kind: sql
+    storage: gameplay-db
   credentials:
-    kind: keyvalue
-    storage: memory
-    prefix: credentials
+    kind: sql
+    storage: gameplay-db
   firmwares:
-    kind: keyvalue
-    storage: memory
-    prefix: firmwares
+    kind: sql
+    storage: gameplay-db
   runtime-profiles:
-    kind: keyvalue
-    storage: memory
-    prefix: runtime-profiles
+    kind: sql
+    storage: gameplay-db
   memory-layouts:
-    kind: keyvalue
-    storage: memory
-    prefix: memory-layouts
+    kind: sql
+    storage: gameplay-db
   agenthost:
     kind: objectstore
     storage: agenthost-files
   provider-tenants:
-    kind: keyvalue
-    storage: memory
-    prefix: provider-tenants
+    kind: sql
+    storage: gameplay-db
   models:
-    kind: keyvalue
-    storage: memory
-    prefix: models
+    kind: sql
+    storage: gameplay-db
   voices:
-    kind: keyvalue
-    storage: memory
-    prefix: voices
+    kind: sql
+    storage: gameplay-db
   workspaces:
-    kind: keyvalue
-    storage: memory
-    prefix: workspaces
+    kind: sql
+    storage: gameplay-db
   workspace-history:
     kind: log.mutable
     storage: gameplay-db
@@ -90,17 +80,14 @@ stores:
     prefix: workspace-history
     ttl: 720h
   workflows:
-    kind: keyvalue
-    storage: memory
-    prefix: workflows
+    kind: sql
+    storage: gameplay-db
   tools:
-    kind: keyvalue
-    storage: memory
-    prefix: tools
+    kind: sql
+    storage: gameplay-db
   gameplay:
-    kind: keyvalue
-    storage: memory
-    prefix: gameplay
+    kind: sql
+    storage: gameplay-db
   gameplay-assets:
     kind: objectstore
     storage: local-files
@@ -113,9 +100,8 @@ stores:
     kind: sql
     storage: gameplay-db
   contacts:
-    kind: keyvalue
-    storage: memory
-    prefix: contacts
+    kind: sql
+    storage: gameplay-db
   friends:
     kind: keyvalue
     storage: memory

@@ -119,7 +119,7 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	}
 	host := newPeerAgentHost(
 		a.manager.AgentHost, nil, nil, a.manager.ownerGenX, a.manager.Gameplay,
-		a.manager.FlowcraftHistory, a.manager.FlowcraftState, a.manager.MemoryRoot, a.manager.MemoryStores,
+		a.manager.FlowcraftHistory, a.manager.FlowcraftStateDB, a.manager.MemoryRoot, a.manager.MemoryStores,
 		sfu.Factory{Config: a.manager.SFU, Bindings: a.manager.sfuBindings()},
 	)
 	resolver, ok := host.Resolver.(canonicalAgentResolver)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 )
 
 const (
@@ -44,7 +45,7 @@ func EncodeToString(data []byte) string {
 	for i := 0; i < leadingZeros; i++ {
 		out = append(out, btcAlphabet[0])
 	}
-	for i := len(encoded) - 1; i >= 0; i-- {
+	for i := range slices.Backward(encoded) {
 		out = append(out, encoded[i])
 	}
 	return string(out)

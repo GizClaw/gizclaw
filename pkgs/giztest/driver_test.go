@@ -49,8 +49,7 @@ func (d *stubDriver) Open(context.Context, *Document, *Variables) (Session, erro
 }
 
 func (d *stubDriver) FailureCode(err error) (int32, string, bool) {
-	var failure stubFailure
-	if errors.As(err, &failure) {
+	if failure, ok := errors.AsType[stubFailure](err); ok {
 		return failure.code, failure.message, true
 	}
 	return 0, "", false

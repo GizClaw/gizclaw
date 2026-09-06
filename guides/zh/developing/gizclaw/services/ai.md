@@ -24,9 +24,13 @@ services/ai/
 
 拥有调用外部 AI provider 所需的 credential 资源及其持久化边界。Credential 是受保护的产品资源，不应泄漏到 workflow definition、workspace history 或通用 GenX abstraction。
 
+Credential 使用本地 SQL `credentials` 表，ID、Provider、描述、时间、版本号和创建标识分列保存，密钥配置保留 JSON。启动阶段创建表和 `(provider, id)` 索引，按 Provider 查询和分页直接由 SQL 执行。更新以版本号和创建标识为条件；省略密钥时，在冲突重试中重新读取最新配置，避免覆盖同时发生的密钥轮换。记录删除重建或持续冲突时，旧更新返回 `CREDENTIAL_CONFLICT`，不修改新记录。
+
 ### [model](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/model)
 
 拥有 GizClaw model catalog，并把持久化的 model 定义解析为 GenX 可以使用的模型能力。通用模型接口属于 `pkgs/genx`；具体 GizClaw model 资源和选择逻辑属于这里。
+
+Model 使用本地 SQL `models` 表。ID、模型类型、来源、Provider 类型与 ID、显示信息和时间分别保存为列，Provider 配置保留 JSON。启动阶段创建表及来源、Provider 查询索引；列表把游标、所有筛选条件、排序和数量限制下推 SQL，一次读取完整记录。更新保留创建时间和同步时间，通过 SQL 条件禁止修改同步模型，也不会重新创建已删除的记录。
 
 ### memorylayout
 
@@ -44,15 +48,19 @@ services/ai/
 
 拥有各 AI provider tenant 的产品资源，例如 provider endpoint、account-level 配置和 voice 同步所需信息。它可以依赖具体 provider SDK，但不能让 provider-specific 字段扩散到无关领域。
 
-Server 配置只为 ProviderTenants 指定一个根 Store；generic、MiniMax、DeepSeek 与 Volc tenant record 使用代码拥有的内部 scope。它实际消费的 Credential 与 Voice 由各自 Service 组合提供，不再由 `services.provider_tenants` 重复配置底层 Store；旧 `model_store` 没有消费者，直接移除。
+ProviderTenants 使用本地 SQL `provider_tenants` 表，以 `(provider_kind, id)` 为联合主键，六类 Provider 可以独立使用同名 ID。凭据 ID、描述、创建与更新时间、同步时间分列保存，Provider 配置保留 JSON。启动时创建表和凭据查询索引；列表通过 Provider 范围、ID 游标与数量限制直接查询 SQL。配置更新保留创建和同步时间；同步完成只更新同步元数据，并核对创建标识，避免修改删除后重新创建的租户。Credential 与 Voice 由对应业务 Service 提供。
 
 ### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
 
 拥有可供 Agent/GenX 选择的 voice 资源和 provider voice 映射。Audio codec、resampling 和 playback 等通用能力属于 `pkgs/audio`，不属于 voice catalog。
 
+Voice 使用本地 SQL `voices` 表，来源、Provider 类型与 ID、上游音色 ID、显示信息和时间分列存储；Provider 配置保留 JSON。列表按筛选组合和 ID 索引查询。同步在同一事务内锁定目标 Provider，按 64 条批量写入，保留原有 ID 与创建时间，再删除该 Provider 本次同步缺失的同步音色；手工音色不参与清理。任一批次失败会回滚整次同步。表和索引在启动阶段创建，不读取旧格式音色字段。
+
 ### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
 
 拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 Flowcraft、SFU、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
+
+Workflow 使用本地 SQL `workflows` 表，ID、driver 和配置 JSON 分列存储，复用 Server 的数据库连接池。表在启动阶段初始化；列表按 ID 范围和数量限制查询，并由 SQL 排除内置项。更新只影响存在的记录，删除原子返回删除的记录，因此并发更新不会重新创建已删除的 Workflow。内置 SFU Workflow 在启动时幂等写入，Admin 的创建、更新和删除限制保持不变。
 
 Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态和 stream lifecycle。
 
@@ -136,4 +144,6 @@ flowchart LR
 - Provider credential 明文日志或跨领域复制。
 - 仅属于 Admin/Peer HTTP route 注册的接线代码。
 
-Workspace 创建按 owner 注册并 drain in-flight 工作。Runtime preparation 与调用者 initializer 在 coordinator mutex 外执行；退休只关闭目标 owner 的 admission，并在快照前等待该 owner 的创建。MemoryLayout 的 read-modify-write 按 canonical layout ID 串行，而不是按整个 Server 串行。
+Workspace 创建按 owner 注册并 drain in-flight 工作。Runtime preparation 与调用者 initializer 在 coordinator mutex 外执行；退休只关闭目标 owner 的 admission，并在快照前等待该 owner 的创建。MemoryLayout 使用 SQL 原子更新和删除，不在 service 中持有覆盖数据库 I/O 的读改写锁。
+
+MemoryLayout 保存于 `memory_layouts` 业务表。ID 为主键，Flowcraft、Mem0 和 VolcMem0 policy 分别存入独立 JSON 列；该表不存 Memory 内容或运行时连接。Server 启动时建表并复用 SQL 连接池，列表按 ID 使用范围查询和 `LIMIT` 分页，完整替换仅更新已存在的行，不能把并发删除的记录重新写回。

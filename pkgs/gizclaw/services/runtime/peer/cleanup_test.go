@@ -49,8 +49,8 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	if err != nil || string(data) != string(encodedPeerTombstone) {
 		t.Fatalf("tombstone = %q, %v", data, err)
 	}
-	if _, err := store.Get(ctx, snKey(sn, key.String())); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("SN index error = %v", err)
+	if found, err := store.HasMember(ctx, snPrefix(sn), key.String()); err != nil || found {
+		t.Fatalf("SN index membership = %v, %v", found, err)
 	}
 	if _, err := server.LoadPeer(ctx, key); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("LoadPeer(tombstone) error = %v", err)
@@ -88,16 +88,6 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	}
 	if adapters.sessionCalls == 0 || adapters.bindingCalls == 0 || adapters.quiesceCalls == 0 {
 		t.Fatalf("adapter calls = sessions:%d binding:%d quiesce:%d", adapters.sessionCalls, adapters.bindingCalls, adapters.quiesceCalls)
-	}
-	entries := 0
-	for _, err := range store.List(ctx, peersPrefix()) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		entries++
-	}
-	if entries != 2 {
-		t.Fatalf("by-pubkey records = %d, want tombstone plus foreign Peer", entries)
 	}
 }
 

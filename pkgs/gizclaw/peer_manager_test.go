@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
@@ -80,6 +81,7 @@ func TestManagerRejectsForeignHomeBeforePublishingPeer(t *testing.T) {
 	if _, err := foreign.Assign(t.Context(), key, nil); err != nil {
 		t.Fatal(err)
 	}
+	peers.LocalRuns = peerruntest.New(t)
 	manager := NewManager(peers)
 	manager.PeerRoutes = &peerroute.Server{
 		Store: routes, Peers: peers, ServerPublicKey: giznet.PublicKey{1}, ServerEndpoint: "server-a:9820",
@@ -89,6 +91,14 @@ func TestManagerRejectsForeignHomeBeforePublishingPeer(t *testing.T) {
 	}
 	if _, ok := manager.Peer(key); ok {
 		t.Fatal("foreign-home Peer was published before ownership rejection")
+	}
+	keys, _, err := peers.LocalRuns.ListPeerPublicKeys(t.Context(), "", 10)
+	if err != nil || len(keys) != 0 {
+		t.Fatalf("foreign admission changed local directory: %v, %v", keys, err)
+	}
+	var localRows int
+	if err := peers.LocalRuns.DB.QueryRowContext(t.Context(), "SELECT count(*) FROM peer_runs").Scan(&localRows); err != nil || localRows != 0 {
+		t.Fatalf("foreign admission wrote local runtime rows: %d, %v", localRows, err)
 	}
 	assignment, err := foreign.Lookup(t.Context(), key)
 	if err != nil {
@@ -256,7 +266,7 @@ func TestManagerPeerDownPreservesDeletingReservation(t *testing.T) {
 			if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
 				t.Fatalf("EnsureConnectedPeer: %v", err)
 			}
-			blockingStore := &blockingCreateIfAbsentStore{
+			blockingStore := &blockingDeletionMutationStore{
 				Store:   store,
 				entered: make(chan struct{}),
 				release: make(chan struct{}),
@@ -294,7 +304,7 @@ func TestManagerDeletingReservationRejectsBlockedReplacementEnsure(t *testing.T)
 	if _, err := peers.EnsureConnectedPeer(context.Background(), key); err != nil {
 		t.Fatalf("EnsureConnectedPeer: %v", err)
 	}
-	blockingStore := &blockingCreateIfAbsentStore{
+	blockingStore := &blockingDeletionMutationStore{
 		Store:   store,
 		entered: make(chan struct{}),
 		release: make(chan struct{}),
@@ -890,4 +900,20 @@ func TestIsPeerDisconnectedError(t *testing.T) {
 			t.Fatal("generic read response error should not be treated as disconnected")
 		}
 	})
+}
+
+func TestManagerPublishesLocalDirectoryAfterHomeAssignment(t *testing.T) {
+	peers := &peer.Server{Store: kv.NewMemory(nil), LocalRuns: peerruntest.New(t)}
+	key := giznet.PublicKey{7, 10}
+	manager := NewManager(peers)
+	manager.PeerRoutes = &peerroute.Server{
+		Store: kv.NewMemory(nil), Peers: peers, ServerPublicKey: giznet.PublicKey{1}, ServerEndpoint: "server-a:9820",
+	}
+	if _, err := manager.activatePeer(t.Context(), &testGiznetConn{publicKey: key}); err != nil {
+		t.Fatal(err)
+	}
+	keys, more, err := peers.LocalRuns.ListPeerPublicKeys(t.Context(), "", 10)
+	if err != nil || more || len(keys) != 1 || keys[0] != key.String() {
+		t.Fatalf("home admission directory = %v, %v, %v", keys, more, err)
+	}
 }

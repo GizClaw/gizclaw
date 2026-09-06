@@ -2,11 +2,10 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sort"
 	"strings"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type PeerRetirementWorkspace struct {
@@ -35,19 +34,14 @@ func (s *Server) SnapshotPeerWorkspaces(ctx context.Context, publicKey string, p
 		return PeerRetirementSnapshot{}, err
 	}
 	result := PeerRetirementSnapshot{PublicKey: publicKey}
-	for entry, err := range store.List(ctx, workspaceByOwnerPrefix(publicKey)) {
-		if err != nil {
-			return PeerRetirementSnapshot{}, err
-		}
-		item, err := getWorkspaceByID(ctx, store, string(entry.Value))
-		if err != nil {
-			return PeerRetirementSnapshot{}, err
-		}
-		if item.OwnerPublicKey == nil || *item.OwnerPublicKey != publicKey || workspaceIsSystem(item) {
-			return PeerRetirementSnapshot{}, errors.New("workspace: owner index contains a foreign or system Workspace")
-		}
+	items, err := listAllSQLWorkspaces(ctx, store, workspaceSQLFilter{owner: &publicKey, ordinaryOnly: true})
+	if err != nil {
+		return PeerRetirementSnapshot{}, err
+	}
+	for _, item := range items {
 		result.Workspaces = append(result.Workspaces, PeerRetirementWorkspace{ID: item.Id, Name: item.Name, HasIcon: item.Icon != nil})
 	}
+
 	sort.Slice(result.Workspaces, func(i, j int) bool { return result.Workspaces[i].ID < result.Workspaces[j].ID })
 	seen := make(map[string]struct{}, len(petWorkspaceIDs))
 	for _, id := range petWorkspaceIDs {
@@ -91,7 +85,7 @@ func (s *Server) RetirePeerWorkspaces(ctx context.Context, snapshot PeerRetireme
 			getErr = s.fastDeleteWorkspaceRecord(ctx, store, item)
 		}
 		unlock()
-		if getErr != nil && !errors.Is(getErr, kv.ErrNotFound) {
+		if getErr != nil && !errors.Is(getErr, sql.ErrNoRows) {
 			return nil, getErr
 		}
 		ids = append(ids, expected.ID)
@@ -124,7 +118,7 @@ func (s *Server) RetirePeerPetWorkspaces(ctx context.Context, snapshot PeerRetir
 			getErr = s.retirePeerPetWorkspaceRecord(ctx, store, item, snapshot.PublicKey)
 		}
 		unlock()
-		if getErr != nil && !errors.Is(getErr, kv.ErrNotFound) {
+		if getErr != nil && !errors.Is(getErr, sql.ErrNoRows) {
 			return nil, getErr
 		}
 		ids = append(ids, expected.ID)

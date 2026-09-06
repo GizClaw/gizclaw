@@ -3,7 +3,6 @@ package kv_test
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 
@@ -74,129 +73,6 @@ func TestGetSetDelete(t *testing.T) {
 	}
 }
 
-func TestList(t *testing.T) {
-	ctx := context.Background()
-	s := newTestStore(t, nil)
-
-	// Insert test data with varying prefixes.
-	entries := []kv.Entry{
-		{Key: kv.Key{"m1", "g", "e", "Alice"}, Value: []byte("a")},
-		{Key: kv.Key{"m1", "g", "e", "Bob"}, Value: []byte("b")},
-		{Key: kv.Key{"m1", "g", "r", "Alice", "knows", "Bob"}, Value: []byte("r1")},
-		{Key: kv.Key{"m1", "seg", "20260101", "1"}, Value: []byte("s1")},
-		{Key: kv.Key{"m2", "g", "e", "Charlie"}, Value: []byte("c")},
-	}
-	if err := s.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	// List m1:g:e — should get Alice and Bob.
-	var got []string
-	for entry, err := range s.List(ctx, kv.Key{"m1", "g", "e"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String()+"="+string(entry.Value))
-	}
-	want := []string{
-		"m1:g:e:Alice=a",
-		"m1:g:e:Bob=b",
-	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("List m1:g:e = %v, want %v", got, want)
-	}
-
-	// List m1 — should get all m1 entries.
-	got = nil
-	for entry, err := range s.List(ctx, kv.Key{"m1"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	if len(got) != 4 {
-		t.Fatalf("List m1: got %d entries, want 4: %v", len(got), got)
-	}
-
-	// List with empty prefix — should get everything.
-	got = nil
-	for entry, err := range s.List(ctx, nil) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	if len(got) != 5 {
-		t.Fatalf("List all: got %d entries, want 5: %v", len(got), got)
-	}
-}
-
-func TestListPrefixBoundary(t *testing.T) {
-	ctx := context.Background()
-	s := newTestStore(t, nil)
-
-	// "ab" prefix must not match "abc:x", only "ab:*".
-	entries := []kv.Entry{
-		{Key: kv.Key{"ab", "1"}, Value: []byte("yes")},
-		{Key: kv.Key{"abc", "2"}, Value: []byte("no")},
-		{Key: kv.Key{"ab", "3"}, Value: []byte("yes")},
-	}
-	if err := s.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	var got []string
-	for entry, err := range s.List(ctx, kv.Key{"ab"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		got = append(got, entry.Key.String())
-	}
-	want := []string{"ab:1", "ab:3"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("List ab = %v, want %v", got, want)
-	}
-}
-
-func TestListAfter(t *testing.T) {
-	ctx := context.Background()
-	s := newTestStore(t, nil)
-
-	entries := []kv.Entry{
-		{Key: kv.Key{"m1", "g", "e", "Alice"}, Value: []byte("a")},
-		{Key: kv.Key{"m1", "g", "e", "Bob"}, Value: []byte("b")},
-		{Key: kv.Key{"m1", "g", "e", "Carol"}, Value: []byte("c")},
-		{Key: kv.Key{"m1", "g", "r", "Alice", "knows", "Bob"}, Value: []byte("r1")},
-	}
-	if err := s.BatchSet(ctx, entries); err != nil {
-		t.Fatalf("BatchSet: %v", err)
-	}
-
-	got, err := kv.ListAfter(ctx, s, kv.Key{"m1", "g", "e"}, nil, 2)
-	if err != nil {
-		t.Fatalf("ListAfter first page: %v", err)
-	}
-	if len(got) != 2 || got[0].Key.String() != "m1:g:e:Alice" || got[1].Key.String() != "m1:g:e:Bob" {
-		t.Fatalf("ListAfter first page = %+v", got)
-	}
-
-	got, err = kv.ListAfter(ctx, s, kv.Key{"m1", "g", "e"}, got[len(got)-1].Key, 2)
-	if err != nil {
-		t.Fatalf("ListAfter second page: %v", err)
-	}
-	if len(got) != 1 || got[0].Key.String() != "m1:g:e:Carol" {
-		t.Fatalf("ListAfter second page = %+v", got)
-	}
-
-	got, err = kv.ListAfter(ctx, s, kv.Key{"m1", "g", "e"}, kv.Key{"m1", "g", "e", "Zed"}, 2)
-	if err != nil {
-		t.Fatalf("ListAfter after end: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("ListAfter after end = %+v, want empty", got)
-	}
-}
-
 func TestBatchSetBatchDelete(t *testing.T) {
 	ctx := context.Background()
 	s := newTestStore(t, nil)
@@ -262,18 +138,6 @@ func TestCustomSeparator(t *testing.T) {
 		t.Fatalf("Get = %q, want %q", got, val)
 	}
 
-	// List with prefix should work with custom separator.
-	var keys []string
-	for entry, err := range s.List(ctx, kv.Key{"path", "to"}) {
-		if err != nil {
-			t.Fatalf("List: %v", err)
-		}
-		keys = append(keys, entry.Key.String())
-	}
-	if len(keys) != 1 || keys[0] != "path:to:value" {
-		// Key.String() always uses ':' for display, but the store encodes with '/'.
-		t.Fatalf("List = %v, want [path:to:value]", keys)
-	}
 }
 
 func TestValueIsolation(t *testing.T) {

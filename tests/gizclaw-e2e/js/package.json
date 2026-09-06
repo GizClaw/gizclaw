@@ -8,6 +8,9 @@
     "test:rpc": "node --experimental-strip-types rpc/audio_download_e2e.test.ts && node --experimental-strip-types rpc/webrtc_rpc_e2e.test.ts && node --experimental-strip-types rpc/server_initiated_rpc_e2e.test.ts",
     "test:streams": "node --experimental-strip-types streams/peer_conversation_lifecycle_e2e.test.ts && GIZCLAW_E2E_INPUT_MODE=audio-reload node --experimental-strip-types streams/peer_conversation_lifecycle_e2e.test.ts && node --experimental-strip-types streams/peer_streams_e2e.test.ts",
     "giztest": "node --experimental-strip-types giztest/index.ts",
-    "test:giztest-unit": "node --test --experimental-strip-types giztest/*.test.ts"
+    "test:giztest-unit": "node --test --experimental-strip-types giztest/*.test.ts",
+    "prepare:giztest": "mkdir -p ../testdata && protoc -I ../../../api/proto/rpc --include_imports --descriptor_set_out=../testdata/rpc-descriptors.pb ../../../api/proto/rpc/rpc.proto ../../../api/proto/rpc/payload/*.proto",
+    "pregiztest": "npm run prepare:giztest",
+    "pretest:giztest-unit": "npm run prepare:giztest"
   }
 }

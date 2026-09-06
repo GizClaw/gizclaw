@@ -176,7 +176,7 @@ func (s *MemoryStore) Close() error {
 }
 func latestPoint(points []Point, at time.Time, lookback time.Duration) (Point, bool) {
 	start := at.Add(-lookback)
-	for i := len(points) - 1; i >= 0; i-- {
+	for i := range slices.Backward(points) {
 		p := points[i]
 		if p.Timestamp.After(at) {
 			continue
@@ -190,7 +190,7 @@ func latestPoint(points []Point, at time.Time, lookback time.Duration) (Point, b
 }
 func latestPointInclusive(points []Point, at time.Time, lookback time.Duration) (Point, bool) {
 	start := at.Add(-lookback)
-	for i := len(points) - 1; i >= 0; i-- {
+	for i := range slices.Backward(points) {
 		p := points[i]
 		if p.Timestamp.After(at) {
 			continue

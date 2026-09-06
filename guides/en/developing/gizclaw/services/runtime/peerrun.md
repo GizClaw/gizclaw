@@ -21,4 +21,12 @@ The setting survives reconnects. HTTP authorization reads it on every request an
 
 ## OTA status
 
-`Server.PutOTAStatus` persists device telemetry in a dedicated per-peer OTA KV record using atomic compare-and-mutate, protecting terminal states from concurrent or out-of-order progress. `GetStatus` projects it as `PeerStatus.ota`; ordinary `PutStatus` does not write the OTA record, so control responses cannot overwrite update progress. Stores must support atomic create-if-absent and compare-and-mutate; unsupported stores return an error. See [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for fields and ordering.
+`Server.PutOTAStatus` uses a conditional SQL update of `peer_runs.ota_json` to protect terminal states from concurrent or out-of-order reports. `GetStatus` reads status and OTA in one query; `PutStatus` updates only `status_json`. See [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for ordering rules.
+
+## SQL and the local directory
+
+`Server.DB` borrows a centrally managed SQLite or PostgreSQL pool. Call `Initialize` at startup; requests do not execute DDL. Each Server uses its own runtime database.
+
+`peer_runs` stores rows by `public_key`, with separate `pending_workspace`, `active_workspace`, `debug_mode`, and `registered_at` columns. Setting Pending preserves Active. Activation uses a conditional UPDATE so an older activation cannot overwrite a newer selection.
+
+`RememberPeer` records peers registered or connected on this Server. Admin `ListPeers` pages through the local `(registered_at, public_key)` index and reads shared registration details only for that page. It does not enumerate central Redis or represent a global device directory. Runtime-only rows without local registration are excluded.

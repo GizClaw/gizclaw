@@ -19,6 +19,18 @@ func TestBusinessErrorMapsMissingPeerProfileToNotFound(t *testing.T) {
 	}
 }
 
+func TestBusinessErrorMapsSharedWriteConflictsToAborted(t *testing.T) {
+	for _, test := range []struct {
+		err    error
+		reason string
+	}{{friendgroup.ErrGroupChanged, "FRIEND_GROUP_CHANGED"}, {peer.ErrPeerConcurrentUpdate, "PEER_CHANGED"}} {
+		response := businessError("update", fmt.Errorf("wrapped: %w", test.err))
+		if response.Error == nil || response.Error.Code != rpcapi.StatusCodeAborted || response.Error.Reason != test.reason {
+			t.Fatalf("conflict response=%+v", response)
+		}
+	}
+}
+
 func TestBusinessErrorMapsFriendGroupFullToResourceExhausted(t *testing.T) {
 	response := businessError("social", fmt.Errorf("wrapped: %w", friendgroup.ErrFriendGroupFull))
 	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted ||
