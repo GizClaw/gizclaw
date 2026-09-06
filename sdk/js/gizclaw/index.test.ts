@@ -3759,3 +3759,28 @@ test("audioplayer telemetry encodes safe uint64 progress and index zero", () => 
     /safe integer/,
   );
 });
+
+test("workspace reload options and parameter patches round-trip through protobuf", () => {
+  const request = {
+    workspace_name: "voice-room",
+    parameters: { input: "realtime" },
+  };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.run.workspace.reload-with-options",
+      encodeRPCRequestPayload(
+        "server.run.workspace.reload-with-options",
+        request,
+      ),
+    ),
+    request,
+  );
+  const patch = { name: "voice-room", parameters: request.parameters };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.workspace.parameters.set",
+      encodeRPCRequestPayload("server.workspace.parameters.set", patch),
+    ),
+    patch,
+  );
+});

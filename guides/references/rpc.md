@@ -53,8 +53,8 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 25 | `server.workspace.get` | 按 name 读取一个 Workspace。 |
 | 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_name` 创建当前 Peer 的 Workspace。 |
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
-| 107 | `server.workspace.input.put` | 只更新指定 Workspace 的 input mode，保留其余 parameters 与 toolkit；Workspace 继承 Workflow parameters 时由 Server 解析继承配置。 |
 | 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
+| 120 | `server.run.workspace.reload-with-options` | 应用受支持参数、选择目标 Workspace 并执行一次 reload，返回实际运行状态。 |
 | 112 | `server.runtime.put` | 设备设置自身 Runtime 的 `debug_mode`（`off`、`readonly` 或 `fullcontrol`），由所属 Server 存储并执行访问权限检查。 |
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
@@ -62,7 +62,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 | 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
 
-`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input` 以及 `conversation.initiative`、`conversation.agent_initiative_policy`，未提供的字段保持不变。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。字段不受该 driver 支持、枚举值无效或 patch 为空时返回 `BAD_REQUEST`。
+`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input` 以及 `conversation.initiative`、`conversation.agent_initiative_policy`，未提供的字段保持不变。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；枚举值无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
 
 ## Workflow、Model 与 Voice catalog
 
@@ -195,3 +195,14 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 ## 未指定值
 
 ID `0` 是 unspecified，不能调用。调用方遇到未知 method 时应按 method not found 处理。
+
+`server.run.workspace.reload-with-options` 的请求可携带 `workspace_name` 和 `parameters`（与 `workspace.parameters.set` 相同的 patch）。省略名称时重载当前选择，省略参数时保留配置。服务端依次校验、更新参数、保存选择、执行一次 reload，并返回运行状态。参数失败不会切换或重载；后续失败不会回滚已保存参数。
+
+```json
+{
+  "workspace_name": "voice-room",
+  "parameters": { "input": "WORKSPACE_INPUT_MODE_REALTIME" }
+}
+```
+
+`server.run.workspace.set` 仅负责选择（SFU 会立即激活）；`server.run.workspace.reload` 保持空请求，只重载当前选择。Workspace 配置仍可独立通过 `server.workspace.put` 和 `server.workspace.parameters.set` 更新。

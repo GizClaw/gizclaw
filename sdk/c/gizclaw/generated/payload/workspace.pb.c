@@ -99,6 +99,12 @@ PB_BIND(gizclaw_rpc_v1_ServerReloadRunResponse, gizclaw_rpc_v1_ServerReloadRunRe
 PB_BIND(gizclaw_rpc_v1_ServerReloadRunWorkspaceRequest, gizclaw_rpc_v1_ServerReloadRunWorkspaceRequest, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsResponse, gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest, gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_ServerReloadRunWorkspaceResponse, gizclaw_rpc_v1_ServerReloadRunWorkspaceResponse, AUTO)
 
 
@@ -196,12 +202,6 @@ PB_BIND(gizclaw_rpc_v1_WorkspacePutRequest, gizclaw_rpc_v1_WorkspacePutRequest, 
 
 
 PB_BIND(gizclaw_rpc_v1_WorkspacePutResponse, gizclaw_rpc_v1_WorkspacePutResponse, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkspaceInputPutRequest, gizclaw_rpc_v1_WorkspaceInputPutRequest, 2)
-
-
-PB_BIND(gizclaw_rpc_v1_WorkspaceInputPutResponse, gizclaw_rpc_v1_WorkspaceInputPutResponse, 2)
 
 
 PB_BIND(gizclaw_rpc_v1_WorkspaceParametersPatch, gizclaw_rpc_v1_WorkspaceParametersPatch, AUTO)

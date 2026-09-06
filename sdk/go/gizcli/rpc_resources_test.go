@@ -49,8 +49,11 @@ func TestRPCResourceClientWrappers(t *testing.T) {
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspacePut, rpcapi.WorkspacePutResponse{}, (*rpcapi.RPCPayload).FromWorkspacePutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspacePutResponse, error) {
 			return client.PutWorkspace(ctx, conn, "workspace-put", rpcapi.WorkspacePutRequest{Name: "main"})
 		})
-		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceInputPut, rpcapi.WorkspaceInputPutResponse{}, (*rpcapi.RPCPayload).FromWorkspaceInputPutResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceInputPutResponse, error) {
-			return client.PutWorkspaceInput(ctx, conn, "workspace-input-put", rpcapi.WorkspaceInputPutRequest{Name: "main", Input: rpcapi.WorkspaceInputModeRealtime})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceParametersSet, rpcapi.WorkspaceParametersSetResponse{}, (*rpcapi.RPCPayload).FromWorkspaceParametersSetResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceParametersSetResponse, error) {
+			return client.SetWorkspaceParameters(ctx, conn, "workspace-parameters-set", rpcapi.WorkspaceParametersSetRequest{Name: "main", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)}})
+		})
+		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerRunWorkspaceReloadWithOptions, rpcapi.ServerReloadRunWorkspaceWithOptionsResponse{}, (*rpcapi.RPCPayload).FromServerReloadRunWorkspaceWithOptionsResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.ServerReloadRunWorkspaceWithOptionsResponse, error) {
+			return client.ReloadServerRunWorkspaceWithOptions(ctx, conn, "reload-options", rpcapi.ServerReloadRunWorkspaceWithOptionsRequest{WorkspaceName: new("main"), Parameters: &rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)}})
 		})
 		runRPCResultWrapperTest(t, rpcapi.RPCMethodServerWorkspaceDelete, rpcapi.WorkspaceDeleteResponse{}, (*rpcapi.RPCPayload).FromWorkspaceDeleteResponse, func(ctx context.Context, conn net.Conn) (*rpcapi.WorkspaceDeleteResponse, error) {
 			return client.DeleteWorkspace(ctx, conn, "workspace-delete", rpcapi.WorkspaceDeleteRequest{Name: "main"})

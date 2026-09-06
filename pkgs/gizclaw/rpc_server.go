@@ -167,6 +167,8 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 		return s.handleGetRunWorkspace(ctx, req)
 	case rpcapi.RPCMethodServerRunWorkspaceSet:
 		return s.handleSetRunWorkspace(ctx, req)
+	case rpcapi.RPCMethodServerRunWorkspaceReloadWithOptions:
+		return s.handleReloadRunWorkspaceWithOptions(ctx, req)
 	case rpcapi.RPCMethodServerRunWorkspaceReload:
 		return s.handleReloadRunWorkspace(ctx, req)
 	case rpcapi.RPCMethodServerRunWorkspaceHistory:
@@ -262,7 +264,6 @@ func isPlannedServerMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,
 		rpcapi.RPCMethodServerWorkspacePut,
-		rpcapi.RPCMethodServerWorkspaceInputPut,
 		rpcapi.RPCMethodServerWorkspaceDelete,
 		rpcapi.RPCMethodServerWorkflowList,
 		rpcapi.RPCMethodServerWorkflowGet,
@@ -589,6 +590,89 @@ func (s *rpcServer) handleReloadRunWorkspace(ctx context.Context, req *rpcapi.RP
 		return nil, err
 	}
 	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerReloadRunWorkspaceResponse)
+}
+
+func (s *rpcServer) handleReloadRunWorkspaceWithOptions(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+	if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsServerReloadRunWorkspaceWithOptionsRequest); err != nil {
+		return rpcInvalidParams(req.Id), nil
+	}
+	var options rpcapi.ServerReloadRunWorkspaceWithOptionsRequest
+	if req.Params != nil {
+		var err error
+		options, err = req.Params.AsServerReloadRunWorkspaceWithOptionsRequest()
+		if err != nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+	}
+	if s.peerRunRuntime == nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer run runtime not configured"}.RPCResponse(), nil
+	}
+	if options.WorkspaceName != nil || options.Parameters != nil {
+		if response, err := s.prepareWorkspaceReload(ctx, req.Id, options); response != nil || err != nil {
+			return response, err
+		}
+	}
+	status, err := s.peerRunRuntime.Reload(ctx)
+	if err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
+	}
+	state, resp := s.runWorkspaceState(ctx, req.Id, nil, &status)
+	if resp != nil {
+		return resp, nil
+	}
+	result, err := convertRPCType[rpcapi.ServerReloadRunWorkspaceWithOptionsResponse](state)
+	if err != nil {
+		return nil, err
+	}
+	return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromServerReloadRunWorkspaceWithOptionsResponse)
+}
+
+// prepareWorkspaceReload applies options before selecting the target. It does
+// not activate SFU Workspaces: the caller performs exactly one reload afterward.
+func (s *rpcServer) prepareWorkspaceReload(ctx context.Context, requestID string, options rpcapi.ServerReloadRunWorkspaceWithOptionsRequest) (*rpcapi.RPCResponse, error) {
+	if s.peerRun == nil {
+		return rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "peer run service not configured"}.RPCResponse(), nil
+	}
+	var selection apitypes.AgentSelection
+	if options.WorkspaceName != nil {
+		selection.WorkspaceName = *options.WorkspaceName
+	} else {
+		state, response := s.runWorkspaceState(ctx, requestID, nil, nil)
+		if response != nil {
+			return response, nil
+		}
+		selection.WorkspaceName = state.WorkspaceName
+	}
+	selection, _, response := s.validateRunWorkspaceSelection(ctx, requestID, selection)
+	if response != nil {
+		return response, nil
+	}
+	if options.Parameters != nil {
+		params, err := newRPCRequestParams(rpcapi.WorkspaceParametersSetRequest{
+			Name: selection.WorkspaceName, Parameters: *options.Parameters,
+		}, (*rpcapi.RPCPayload).FromWorkspaceParametersSetRequest)
+		if err != nil {
+			return nil, err
+		}
+		// Reuse the same authenticated parameter update boundary without an
+		// extra network round trip or bypassing its validation and ownership.
+		updated, handled, err := s.serverResources.Dispatch(ctx, newRPCRequest(requestID, rpcapi.RPCMethodServerWorkspaceParametersSet, params))
+		if err != nil {
+			return nil, err
+		}
+		if !handled || updated == nil {
+			return rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "workspace parameter service not configured"}.RPCResponse(), nil
+		}
+		if updated.Error != nil {
+			return updated, nil
+		}
+	}
+	if options.WorkspaceName != nil {
+		if _, err := s.setRunAgent(ctx, selection); err != nil {
+			return rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse(), nil
+		}
+	}
+	return nil, nil
 }
 
 func (s *rpcServer) handleListRunWorkspaceHistory(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {

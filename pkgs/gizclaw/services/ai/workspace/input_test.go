@@ -31,7 +31,7 @@ func workspaceInputMode(t *testing.T, workspace apitypes.Workspace) *apitypes.Wo
 	return value.Input
 }
 
-func TestPutPeerWorkspaceInputKeepsOtherParameters(t *testing.T) {
+func TestSetPeerWorkspaceParametersKeepsOtherParameters(t *testing.T) {
 	srv := newTestServer(t)
 	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
@@ -53,11 +53,11 @@ func TestPutPeerWorkspaceInputKeepsOtherParameters(t *testing.T) {
 		t.Fatalf("CreatePeerWorkspace() error = %v", err)
 	}
 
-	updated, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{
-		ID: created.Id, Input: apitypes.WorkspaceInputModeRealtime,
+	updated, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{
+		ID: created.Id, Input: new(apitypes.WorkspaceInputModeRealtime),
 	})
 	if err != nil {
-		t.Fatalf("PutPeerWorkspaceInput(realtime) error = %v", err)
+		t.Fatalf("SetPeerWorkspaceParameters(realtime) error = %v", err)
 	}
 	if mode := workspaceInputMode(t, updated); mode == nil || *mode != apitypes.WorkspaceInputModeRealtime {
 		t.Fatalf("input = %+v, want realtime", mode)
@@ -76,18 +76,18 @@ func TestPutPeerWorkspaceInputKeepsOtherParameters(t *testing.T) {
 		t.Fatalf("toolkit = %+v, want %+v", updated.Toolkit, created.Toolkit)
 	}
 
-	back, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{
-		ID: created.Id, Input: apitypes.WorkspaceInputModePushToTalk,
+	back, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{
+		ID: created.Id, Input: new(apitypes.WorkspaceInputModePushToTalk),
 	})
 	if err != nil {
-		t.Fatalf("PutPeerWorkspaceInput(push-to-talk) error = %v", err)
+		t.Fatalf("SetPeerWorkspaceParameters(push-to-talk) error = %v", err)
 	}
 	if mode := workspaceInputMode(t, back); mode == nil || *mode != apitypes.WorkspaceInputModePushToTalk {
 		t.Fatalf("input = %+v, want push-to-talk", mode)
 	}
 }
 
-func TestPutPeerWorkspaceInputResolvesInheritedParameters(t *testing.T) {
+func TestSetPeerWorkspaceParametersResolvesInheritedParameters(t *testing.T) {
 	srv := newTestServer(t)
 	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
@@ -101,18 +101,18 @@ func TestPutPeerWorkspaceInputResolvesInheritedParameters(t *testing.T) {
 		t.Fatalf("created parameters = %+v, want inherited", created.Parameters)
 	}
 
-	updated, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{
-		ID: created.Id, Input: apitypes.WorkspaceInputModeRealtime,
+	updated, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{
+		ID: created.Id, Input: new(apitypes.WorkspaceInputModeRealtime),
 	})
 	if err != nil {
-		t.Fatalf("PutPeerWorkspaceInput() error = %v", err)
+		t.Fatalf("SetPeerWorkspaceParameters() error = %v", err)
 	}
 	if mode := workspaceInputMode(t, updated); mode == nil || *mode != apitypes.WorkspaceInputModeRealtime {
 		t.Fatalf("input = %+v, want realtime", mode)
 	}
 }
 
-func TestPutPeerWorkspaceInputRejectsInvalidRequests(t *testing.T) {
+func TestSetPeerWorkspaceParametersRejectsInvalidRequests(t *testing.T) {
 	srv := newTestServer(t)
 	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
@@ -122,25 +122,25 @@ func TestPutPeerWorkspaceInputRejectsInvalidRequests(t *testing.T) {
 		t.Fatalf("CreatePeerWorkspace() error = %v", err)
 	}
 
-	var inputErr *PeerWorkspaceInputPutError
-	if _, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{ID: created.Id, Input: "spoken"}); !errors.As(err, &inputErr) || inputErr.Kind != PeerWorkspaceInputPutInvalid {
-		t.Fatalf("PutPeerWorkspaceInput(unknown mode) error = %#v", err)
+	var inputErr *PeerWorkspaceParametersSetError
+	if _, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{ID: created.Id, Input: new(apitypes.WorkspaceInputMode("spoken"))}); !errors.As(err, &inputErr) || inputErr.Kind != PeerWorkspaceParametersSetInvalid {
+		t.Fatalf("SetPeerWorkspaceParameters(unknown mode) error = %#v", err)
 	}
-	if _, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{ID: "missing", Input: apitypes.WorkspaceInputModeRealtime}); !errors.As(err, &inputErr) || inputErr.Kind != PeerWorkspaceInputPutNotFound {
-		t.Fatalf("PutPeerWorkspaceInput(missing workspace) error = %#v", err)
-	}
-}
-
-func TestWorkspaceParametersWithInputRejectsDriversWithoutInput(t *testing.T) {
-	if _, err := workspaceParametersWithInput(nil, apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkspaceInputModeRealtime); err == nil {
-		t.Fatal("workspaceParametersWithInput(dashscope-realtime) error = nil, want unsupported driver")
-	}
-	if _, err := workspaceParametersWithInput(nil, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkspaceInputModeRealtime); err == nil {
-		t.Fatal("workspaceParametersWithInput(doubao-realtime-duplex) error = nil, want unsupported driver")
+	if _, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{ID: "missing", Input: new(apitypes.WorkspaceInputModeRealtime)}); !errors.As(err, &inputErr) || inputErr.Kind != PeerWorkspaceParametersSetNotFound {
+		t.Fatalf("SetPeerWorkspaceParameters(missing workspace) error = %#v", err)
 	}
 }
 
-func TestPutPeerWorkspaceInputReadsUnderTheRecordLock(t *testing.T) {
+func TestWorkspaceParametersWithInputIgnoresDriversWithoutInput(t *testing.T) {
+	if _, err := workspaceParametersWithInput(nil, apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkspaceInputModeRealtime); err != nil {
+		t.Fatal("workspaceParametersWithInput(dashscope-realtime) unexpected error")
+	}
+	if _, err := workspaceParametersWithInput(nil, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkspaceInputModeRealtime); err != nil {
+		t.Fatal("workspaceParametersWithInput(doubao-realtime-duplex) unexpected error")
+	}
+}
+
+func TestSetPeerWorkspaceParametersReadsUnderTheRecordLock(t *testing.T) {
 	srv := newTestServer(t)
 	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
@@ -164,8 +164,8 @@ func TestPutPeerWorkspaceInputReadsUnderTheRecordLock(t *testing.T) {
 	started := make(chan struct{})
 	go func() {
 		close(started)
-		workspace, err := srv.PutPeerWorkspaceInput(ctx, PeerWorkspaceInputPutRequest{
-			ID: created.Id, Input: apitypes.WorkspaceInputModeRealtime,
+		workspace, err := srv.SetPeerWorkspaceParameters(ctx, PeerWorkspaceParametersSetRequest{
+			ID: created.Id, Input: new(apitypes.WorkspaceInputModeRealtime),
 		})
 		if err != nil {
 			failed <- err
@@ -190,7 +190,7 @@ func TestPutPeerWorkspaceInputReadsUnderTheRecordLock(t *testing.T) {
 
 	select {
 	case err := <-failed:
-		t.Fatalf("PutPeerWorkspaceInput() error = %v", err)
+		t.Fatalf("SetPeerWorkspaceParameters() error = %v", err)
 	case workspace := <-updated:
 		if mode := workspaceInputMode(t, workspace); mode == nil || *mode != apitypes.WorkspaceInputModeRealtime {
 			t.Fatalf("input = %+v, want realtime", mode)
@@ -200,6 +200,6 @@ func TestPutPeerWorkspaceInputReadsUnderTheRecordLock(t *testing.T) {
 			t.Fatalf("toolkit = %+v, want the concurrent update %v", workspace.Toolkit, concurrentTools)
 		}
 	case <-time.After(10 * time.Second):
-		t.Fatal("PutPeerWorkspaceInput() did not finish after the record lock was released")
+		t.Fatal("SetPeerWorkspaceParameters() did not finish after the record lock was released")
 	}
 }

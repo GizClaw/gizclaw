@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -47,6 +48,8 @@ func (e *PeerWorkspaceParametersSetError) Unwrap() error {
 	return e.Err
 }
 
+var errWorkspaceParametersUnchanged = errors.New("workspace: parameters unchanged")
+
 // PeerWorkspaceParametersService is the authenticated Peer-owned parameter update surface.
 type PeerWorkspaceParametersService interface {
 	SetPeerWorkspaceParameters(context.Context, PeerWorkspaceParametersSetRequest) (apitypes.Workspace, error)
@@ -67,10 +70,15 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
-		return adminhttp.WorkspaceUpsert{
+		desired := adminhttp.WorkspaceUpsert{
 			Id: previous.Id, Name: previous.Name, WorkflowId: previous.WorkflowId,
 			Labels: previous.Labels, Parameters: parameters, Toolkit: previous.Toolkit,
-		}, nil
+		}
+		if reflect.DeepEqual(previous.Parameters, parameters) ||
+			(workspaceIsSystem(previous) && !systemWorkspaceAllowsInputUpdate(previous, desired)) {
+			return adminhttp.WorkspaceUpsert{}, errWorkspaceParametersUnchanged
+		}
+		return desired, nil
 	})
 	if err != nil {
 		return apitypes.Workspace{}, peerWorkspaceParametersSetError(PeerWorkspaceParametersSetInternal, err)
@@ -162,7 +170,10 @@ func workspaceParametersWithPatch(
 		}
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
 	default:
-		return nil, invalidWorkspaceReference("workspace: %q workspaces do not support conversation parameters", variant)
+		if input != nil {
+			return workspaceParametersWithInput(parameters, driver, *input)
+		}
+		return parameters, nil
 	}
 }
 

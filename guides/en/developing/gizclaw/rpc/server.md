@@ -27,3 +27,5 @@ Server methods cover Peer info, runtime status, run Agent, run workspace, histor
 | `isPlannedServerMethod` / `rpcNotImplemented` | Identify methods that have been planned but not yet implemented, and generate a unified response. |
 
 `server.run.say` accepts `text` and a scoped RuntimeProfile `voice_name`. It does not accept canonical Voice, Model, or Credential identifiers.
+
+`handleReloadRunWorkspaceWithOptions` accepts an optional target `workspace_name` and partial `parameters`, reuses Peer resource validation and updates, saves the selection and reloads once. Omitting the target uses the current selection. See [Server Provided to Client](../../api/proto/rpc/server-provided-to-client) for the request and failure semantics.

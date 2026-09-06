@@ -46,6 +46,7 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET = 11,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET = 12,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD = 13,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS = 120,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY = 14,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY = 15,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS = 16,
@@ -59,7 +60,6 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET = 25,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE = 26,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT = 27,
-    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT = 107,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET = 110,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE = 28,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST = 29,
@@ -217,8 +217,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS+1))
 
 
 

@@ -212,6 +212,10 @@ final _messageFactories = <String, MessageFactory>{
       payload.ServerReloadRunWorkspaceRequest.new,
   'ServerReloadRunWorkspaceResponse':
       payload.ServerReloadRunWorkspaceResponse.new,
+  'ServerReloadRunWorkspaceWithOptionsRequest':
+      payload.ServerReloadRunWorkspaceWithOptionsRequest.new,
+  'ServerReloadRunWorkspaceWithOptionsResponse':
+      payload.ServerReloadRunWorkspaceWithOptionsResponse.new,
   'ServerRewardGrantGetRequest': payload.ServerRewardGrantGetRequest.new,
   'ServerRewardGrantGetResponse': payload.ServerRewardGrantGetResponse.new,
   'ServerRewardGrantListRequest': payload.ServerRewardGrantListRequest.new,
@@ -268,8 +272,6 @@ final _messageFactories = <String, MessageFactory>{
   'WorkspaceHistoryListResponse': payload.WorkspaceHistoryListResponse.new,
   'WorkspaceIconDownloadRequest': payload.WorkspaceIconDownloadRequest.new,
   'WorkspaceIconDownloadResponse': payload.WorkspaceIconDownloadResponse.new,
-  'WorkspaceInputPutRequest': payload.WorkspaceInputPutRequest.new,
-  'WorkspaceInputPutResponse': payload.WorkspaceInputPutResponse.new,
   'WorkspaceListRequest': payload.WorkspaceListRequest.new,
   'WorkspaceListResponse': payload.WorkspaceListResponse.new,
   'WorkspaceParametersSetRequest': payload.WorkspaceParametersSetRequest.new,
@@ -478,6 +480,10 @@ final _messageTypes = <String, Type>{
   'ServerReloadRunResponse': payload.ServerReloadRunResponse,
   'ServerReloadRunWorkspaceRequest': payload.ServerReloadRunWorkspaceRequest,
   'ServerReloadRunWorkspaceResponse': payload.ServerReloadRunWorkspaceResponse,
+  'ServerReloadRunWorkspaceWithOptionsRequest':
+      payload.ServerReloadRunWorkspaceWithOptionsRequest,
+  'ServerReloadRunWorkspaceWithOptionsResponse':
+      payload.ServerReloadRunWorkspaceWithOptionsResponse,
   'ServerRewardGrantGetRequest': payload.ServerRewardGrantGetRequest,
   'ServerRewardGrantGetResponse': payload.ServerRewardGrantGetResponse,
   'ServerRewardGrantListRequest': payload.ServerRewardGrantListRequest,
@@ -532,8 +538,6 @@ final _messageTypes = <String, Type>{
   'WorkspaceHistoryListResponse': payload.WorkspaceHistoryListResponse,
   'WorkspaceIconDownloadRequest': payload.WorkspaceIconDownloadRequest,
   'WorkspaceIconDownloadResponse': payload.WorkspaceIconDownloadResponse,
-  'WorkspaceInputPutRequest': payload.WorkspaceInputPutRequest,
-  'WorkspaceInputPutResponse': payload.WorkspaceInputPutResponse,
   'WorkspaceListRequest': payload.WorkspaceListRequest,
   'WorkspaceListResponse': payload.WorkspaceListResponse,
   'WorkspaceParametersSetRequest': payload.WorkspaceParametersSetRequest,

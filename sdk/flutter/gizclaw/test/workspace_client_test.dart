@@ -107,28 +107,36 @@ void main() {
     final factory = FakeDataChannelFactory();
     final client = GizClawClient(factory);
 
-    final future = client.putWorkspaceInput(
+    final future = client.setWorkspaceParameters(
       'mobile-ast-device',
-      payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+      payload.WorkspaceParametersPatch(
+        input: payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+      ),
     );
     final request = await _request(factory, 0);
-    // The envelope proves the generated RpcMethod lookup resolves method 107,
+    // The envelope proves the generated RpcMethod lookup resolves method 110,
     // which encodeRpcRequest needs before it can send the request at all.
-    expect(request.method, rpc.RpcMethod.RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT);
-    expect(rpc.RpcMethod.valueOf(107), isNotNull);
+    expect(
+      request.method,
+      rpc.RpcMethod.RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET,
+    );
+    expect(rpc.RpcMethod.valueOf(110), isNotNull);
     final body =
-        decodeRpcRequestPayload('server.workspace.input.put', request.payload)
-            as payload.WorkspaceInputPutRequest;
+        decodeRpcRequestPayload(
+              'server.workspace.parameters.set',
+              request.payload,
+            )
+            as payload.WorkspaceParametersSetRequest;
     expect(body.name, 'mobile-ast-device');
     expect(
-      body.input,
+      body.parameters.input,
       payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
     );
     _respond(
       factory.channels.single,
       request.id,
-      'server.workspace.input.put',
-      payload.WorkspaceInputPutResponse(
+      'server.workspace.parameters.set',
+      payload.WorkspaceParametersSetResponse(
         value: payload.Workspace(
           name: 'mobile-ast-device',
           workflowName: 'volc-ast-translate',
@@ -137,6 +145,39 @@ void main() {
     );
 
     expect((await future).value.name, 'mobile-ast-device');
+  });
+
+  test('reloads another workspace with parameters in one RPC', () async {
+    final factory = FakeDataChannelFactory();
+    final client = GizClawClient(factory);
+    final future = client.reloadRunWorkspaceWithOptions(
+      workspaceName: 'voice-room',
+      parameters: payload.WorkspaceParametersPatch(
+        input: payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+      ),
+    );
+    final request = await _request(factory, 0);
+    final body =
+        decodeRpcRequestPayload(
+              'server.run.workspace.reload-with-options',
+              request.payload,
+            )
+            as payload.ServerReloadRunWorkspaceWithOptionsRequest;
+    expect(body.workspaceName, 'voice-room');
+    expect(
+      body.parameters.input,
+      payload.WorkspaceInputMode.WORKSPACE_INPUT_MODE_REALTIME,
+    );
+    expect(factory.channels, hasLength(1));
+    _respond(
+      factory.channels.single,
+      request.id,
+      'server.run.workspace.reload-with-options',
+      payload.ServerReloadRunWorkspaceWithOptionsResponse(
+        value: payload.PeerRunWorkspaceState(activeWorkspaceName: 'voice-room'),
+      ),
+    );
+    expect((await future).value.activeWorkspaceName, 'voice-room');
   });
 
   test('selects and reloads a run workspace', () async {

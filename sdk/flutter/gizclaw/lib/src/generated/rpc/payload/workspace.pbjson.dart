@@ -951,6 +951,69 @@ const ServerReloadRunWorkspaceRequest$json = {
 final $typed_data.Uint8List serverReloadRunWorkspaceRequestDescriptor =
     $convert.base64Decode('Ch9TZXJ2ZXJSZWxvYWRSdW5Xb3Jrc3BhY2VSZXF1ZXN0');
 
+@$core.Deprecated(
+    'Use serverReloadRunWorkspaceWithOptionsResponseDescriptor instead')
+const ServerReloadRunWorkspaceWithOptionsResponse$json = {
+  '1': 'ServerReloadRunWorkspaceWithOptionsResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerRunWorkspaceState',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ServerReloadRunWorkspaceWithOptionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List
+    serverReloadRunWorkspaceWithOptionsResponseDescriptor =
+    $convert.base64Decode(
+        'CitTZXJ2ZXJSZWxvYWRSdW5Xb3Jrc3BhY2VXaXRoT3B0aW9uc1Jlc3BvbnNlEjsKBXZhbHVlGA'
+        'EgASgLMiUuZ2l6Y2xhdy5ycGMudjEuUGVlclJ1bldvcmtzcGFjZVN0YXRlUgV2YWx1ZQ==');
+
+@$core.Deprecated(
+    'Use serverReloadRunWorkspaceWithOptionsRequestDescriptor instead')
+const ServerReloadRunWorkspaceWithOptionsRequest$json = {
+  '1': 'ServerReloadRunWorkspaceWithOptionsRequest',
+  '2': [
+    {
+      '1': 'workspace_name',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'workspaceName',
+      '17': true
+    },
+    {
+      '1': 'parameters',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.WorkspaceParametersPatch',
+      '9': 1,
+      '10': 'parameters',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_workspace_name'},
+    {'1': '_parameters'},
+  ],
+};
+
+/// Descriptor for `ServerReloadRunWorkspaceWithOptionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List
+    serverReloadRunWorkspaceWithOptionsRequestDescriptor =
+    $convert.base64Decode(
+        'CipTZXJ2ZXJSZWxvYWRSdW5Xb3Jrc3BhY2VXaXRoT3B0aW9uc1JlcXVlc3QSKgoOd29ya3NwYW'
+        'NlX25hbWUYASABKAlIAFINd29ya3NwYWNlTmFtZYgBARJNCgpwYXJhbWV0ZXJzGAIgASgLMigu'
+        'Z2l6Y2xhdy5ycGMudjEuV29ya3NwYWNlUGFyYW1ldGVyc1BhdGNoSAFSCnBhcmFtZXRlcnOIAQ'
+        'FCEQoPX3dvcmtzcGFjZV9uYW1lQg0KC19wYXJhbWV0ZXJz');
+
 @$core.Deprecated('Use serverReloadRunWorkspaceResponseDescriptor instead')
 const ServerReloadRunWorkspaceResponse$json = {
   '1': 'ServerReloadRunWorkspaceResponse',
@@ -1795,49 +1858,6 @@ const WorkspacePutResponse$json = {
 final $typed_data.Uint8List workspacePutResponseDescriptor = $convert.base64Decode(
     'ChRXb3Jrc3BhY2VQdXRSZXNwb25zZRIvCgV2YWx1ZRgBIAEoCzIZLmdpemNsYXcucnBjLnYxLl'
     'dvcmtzcGFjZVIFdmFsdWU=');
-
-@$core.Deprecated('Use workspaceInputPutRequestDescriptor instead')
-const WorkspaceInputPutRequest$json = {
-  '1': 'WorkspaceInputPutRequest',
-  '2': [
-    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
-    {
-      '1': 'input',
-      '3': 2,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.WorkspaceInputMode',
-      '10': 'input'
-    },
-  ],
-};
-
-/// Descriptor for `WorkspaceInputPutRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workspaceInputPutRequestDescriptor =
-    $convert.base64Decode(
-        'ChhXb3Jrc3BhY2VJbnB1dFB1dFJlcXVlc3QSEgoEbmFtZRgBIAEoCVIEbmFtZRI4CgVpbnB1dB'
-        'gCIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlucHV0TW9kZVIFaW5wdXQ=');
-
-@$core.Deprecated('Use workspaceInputPutResponseDescriptor instead')
-const WorkspaceInputPutResponse$json = {
-  '1': 'WorkspaceInputPutResponse',
-  '2': [
-    {
-      '1': 'value',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.Workspace',
-      '10': 'value'
-    },
-  ],
-};
-
-/// Descriptor for `WorkspaceInputPutResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List workspaceInputPutResponseDescriptor =
-    $convert.base64Decode(
-        'ChlXb3Jrc3BhY2VJbnB1dFB1dFJlc3BvbnNlEi8KBXZhbHVlGAEgASgLMhkuZ2l6Y2xhdy5ycG'
-        'MudjEuV29ya3NwYWNlUgV2YWx1ZQ==');
 
 @$core.Deprecated('Use workspaceParametersPatchDescriptor instead')
 const WorkspaceParametersPatch$json = {

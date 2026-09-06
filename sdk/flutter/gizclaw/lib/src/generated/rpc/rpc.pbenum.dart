@@ -108,6 +108,12 @@ class RpcMethod extends $pb.ProtobufEnum {
       12, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUN_WORKSPACE_SET');
   static const RpcMethod RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD = RpcMethod._(
       13, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD');
+  static const RpcMethod RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS =
+      RpcMethod._(
+          120,
+          _omitEnumNames
+              ? ''
+              : 'RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS');
   static const RpcMethod RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY = RpcMethod._(
       14, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY');
   static const RpcMethod RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY =
@@ -136,8 +142,6 @@ class RpcMethod extends $pb.ProtobufEnum {
       26, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_CREATE');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_PUT =
       RpcMethod._(27, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PUT');
-  static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT = RpcMethod._(
-      107, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT');
   static const RpcMethod RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET =
       RpcMethod._(110,
           _omitEnumNames ? '' : 'RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET');
@@ -375,6 +379,7 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_RUN_WORKSPACE_GET,
     RPC_METHOD_SERVER_RUN_WORKSPACE_SET,
     RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD,
+    RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS,
     RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY,
     RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY,
     RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS,
@@ -388,7 +393,6 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_WORKSPACE_GET,
     RPC_METHOD_SERVER_WORKSPACE_CREATE,
     RPC_METHOD_SERVER_WORKSPACE_PUT,
-    RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT,
     RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET,
     RPC_METHOD_SERVER_WORKSPACE_DELETE,
     RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST,
@@ -480,7 +484,7 @@ class RpcMethod extends $pb.ProtobufEnum {
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 119);
+      $pb.ProtobufEnum.$_initByValueList(values, 120);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

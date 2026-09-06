@@ -27,3 +27,5 @@ Server methods 覆盖 Peer info、runtime status、run Agent、run workspace、h
 | `isPlannedServerMethod` / `rpcNotImplemented` | 识别已规划但尚未实现的 method，并生成统一响应。 |
 
 `server.run.say` 只接收 `text` 与 RuntimeProfile scoped `voice_name`，不接受真实 Voice、Model 或 Credential 标识符。
+
+`handleReloadRunWorkspaceWithOptions` 可接收目标 `workspace_name` 和局部 `parameters`，复用 Peer resource 的参数校验与更新，再保存选择、执行一次 reload；省略目标时使用当前选择。完整请求与失败语义见 [Server Provided to Client](../../api/proto/rpc/server-provided-to-client)。

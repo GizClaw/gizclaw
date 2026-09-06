@@ -1088,6 +1088,9 @@ func (s *Server) putWorkspaceRecord(
 		return adminhttp.PutWorkspace409JSONResponse(apitypes.NewErrorResponse(peerAvailabilityCode(err), err.Error())), nil
 	}
 	normalized, err := build(previous)
+	if errors.Is(err, errWorkspaceParametersUnchanged) {
+		return adminhttp.PutWorkspace200JSONResponse(previous), nil
+	}
 	if err != nil {
 		if isInvalidWorkspaceReference(err) {
 			return adminhttp.PutWorkspace400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKSPACE", err.Error())), nil

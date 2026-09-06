@@ -1167,6 +1167,11 @@ export type ServerReloadRunRequest = Record<string, never>;
 export type ServerReloadRunResponse = PeerRunStatus;
 export type ServerReloadRunWorkspaceRequest = Record<string, never>;
 export type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState;
+export type ServerReloadRunWorkspaceWithOptionsRequest = {
+  "workspace_name"?: string;
+  "parameters"?: WorkspaceParametersPatch;
+};
+export type ServerReloadRunWorkspaceWithOptionsResponse = PeerRunWorkspaceState;
 export type ServerRewardGrantGetRequest = GameplayNameGetRequest;
 export type ServerRewardGrantGetResponse = RewardGrant;
 export type ServerRewardGrantListRequest = GameplayListRequest;
@@ -1412,11 +1417,6 @@ export type WorkspaceIconDownloadResponse = {
   "format": IconFormat;
   "size_bytes": number;
 };
-export type WorkspaceInputPutRequest = {
-  "name": string;
-  "input": WorkspaceInputMode;
-};
-export type WorkspaceInputPutResponse = Workspace;
 export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
@@ -1542,6 +1542,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.memory.stats": "ServerGetRunWorkspaceMemoryStatsRequest",
   "server.run.workspace.recall": "ServerRunWorkspaceRecallRequest",
   "server.run.workspace.reload": "ServerReloadRunWorkspaceRequest",
+  "server.run.workspace.reload-with-options": "ServerReloadRunWorkspaceWithOptionsRequest",
   "server.run.workspace.set": "ServerSetRunWorkspaceRequest",
   "server.runtime.get": "ServerGetRuntimeRequest",
   "server.runtime.put": "ServerPutRuntimeRequest",
@@ -1562,7 +1563,6 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.history.get": "WorkspaceHistoryGetRequest",
   "server.workspace.history.list": "WorkspaceHistoryListRequest",
   "server.workspace.icon.download": "WorkspaceIconDownloadRequest",
-  "server.workspace.input.put": "WorkspaceInputPutRequest",
   "server.workspace.list": "WorkspaceListRequest",
   "server.workspace.parameters.set": "WorkspaceParametersSetRequest",
   "server.workspace.put": "WorkspacePutRequest"
@@ -1659,6 +1659,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.memory.stats": "ServerGetRunWorkspaceMemoryStatsResponse",
   "server.run.workspace.recall": "ServerRunWorkspaceRecallResponse",
   "server.run.workspace.reload": "ServerReloadRunWorkspaceResponse",
+  "server.run.workspace.reload-with-options": "ServerReloadRunWorkspaceWithOptionsResponse",
   "server.run.workspace.set": "ServerSetRunWorkspaceResponse",
   "server.runtime.get": "ServerGetRuntimeResponse",
   "server.runtime.put": "ServerPutRuntimeResponse",
@@ -1679,7 +1680,6 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.workspace.history.get": "WorkspaceHistoryGetResponse",
   "server.workspace.history.list": "WorkspaceHistoryListResponse",
   "server.workspace.icon.download": "WorkspaceIconDownloadResponse",
-  "server.workspace.input.put": "WorkspaceInputPutResponse",
   "server.workspace.list": "WorkspaceListResponse",
   "server.workspace.parameters.set": "WorkspaceParametersSetResponse",
   "server.workspace.put": "WorkspacePutResponse"
@@ -6864,6 +6864,31 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ServerReloadRunWorkspaceWithOptionsRequest": {
+    "fields": [
+      {
+        "name": "workspace_name",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "parameters",
+        "number": 2,
+        "optional": true,
+        "type": "WorkspaceParametersPatch"
+      }
+    ]
+  },
+  "ServerReloadRunWorkspaceWithOptionsResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "PeerRunWorkspaceState"
+      }
+    ]
+  },
   "ServerRewardGrantGetRequest": {
     "fields": [
       {
@@ -7935,29 +7960,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "size_bytes",
         "number": 3,
         "type": "int64"
-      }
-    ]
-  },
-  "WorkspaceInputPutRequest": {
-    "fields": [
-      {
-        "name": "name",
-        "number": 1,
-        "type": "string"
-      },
-      {
-        "name": "input",
-        "number": 2,
-        "type": "WorkspaceInputMode"
-      }
-    ]
-  },
-  "WorkspaceInputPutResponse": {
-    "fields": [
-      {
-        "name": "value",
-        "number": 1,
-        "type": "Workspace"
       }
     ]
   },

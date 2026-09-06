@@ -625,6 +625,7 @@ const (
 	RPCMethodServerRunWorkspaceMemoryStats       RPCMethod = "server.run.workspace.memory.stats"
 	RPCMethodServerRunWorkspaceRecall            RPCMethod = "server.run.workspace.recall"
 	RPCMethodServerRunWorkspaceReload            RPCMethod = "server.run.workspace.reload"
+	RPCMethodServerRunWorkspaceReloadWithOptions RPCMethod = "server.run.workspace.reload-with-options"
 	RPCMethodServerRunWorkspaceSet               RPCMethod = "server.run.workspace.set"
 	RPCMethodServerRuntimeGet                    RPCMethod = "server.runtime.get"
 	RPCMethodServerRuntimePut                    RPCMethod = "server.runtime.put"
@@ -643,7 +644,6 @@ const (
 	RPCMethodServerWorkspaceHistoryGet           RPCMethod = "server.workspace.history.get"
 	RPCMethodServerWorkspaceHistoryList          RPCMethod = "server.workspace.history.list"
 	RPCMethodServerWorkspaceIconDownload         RPCMethod = "server.workspace.icon.download"
-	RPCMethodServerWorkspaceInputPut             RPCMethod = "server.workspace.input.put"
 	RPCMethodServerWorkspaceList                 RPCMethod = "server.workspace.list"
 	RPCMethodServerWorkspaceParametersSet        RPCMethod = "server.workspace.parameters.set"
 	RPCMethodServerWorkspacePut                  RPCMethod = "server.workspace.put"
@@ -820,6 +820,8 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerRunWorkspaceRecall:
 		return true
+	case RPCMethodServerRunWorkspaceReloadWithOptions:
+		return true
 	case RPCMethodServerRunWorkspaceReload:
 		return true
 	case RPCMethodServerRunWorkspaceSet:
@@ -861,8 +863,6 @@ func (e RPCMethod) Valid() bool {
 	case RPCMethodServerWorkspaceHistoryList:
 		return true
 	case RPCMethodServerWorkspaceIconDownload:
-		return true
-	case RPCMethodServerWorkspaceInputPut:
 		return true
 	case RPCMethodServerWorkspaceList:
 		return true
@@ -2727,6 +2727,15 @@ type ServerReloadRunResponse = PeerRunStatus
 // ServerReloadRunWorkspaceRequest defines model for ServerReloadRunWorkspaceRequest.
 type ServerReloadRunWorkspaceRequest = map[string]any
 
+// ServerReloadRunWorkspaceWithOptionsResponse returns the actual runtime state.
+type ServerReloadRunWorkspaceWithOptionsResponse = PeerRunWorkspaceState
+
+// ServerReloadRunWorkspaceWithOptionsRequest configures and reloads a Workspace.
+type ServerReloadRunWorkspaceWithOptionsRequest struct {
+	WorkspaceName *string                   `json:"workspace_name,omitempty"`
+	Parameters    *WorkspaceParametersPatch `json:"parameters,omitempty"`
+}
+
 // ServerReloadRunWorkspaceResponse defines model for ServerReloadRunWorkspaceResponse.
 type ServerReloadRunWorkspaceResponse = PeerRunWorkspaceState
 
@@ -3102,15 +3111,6 @@ type WorkspaceHistoryListResponse = PeerRunHistoryListResponse
 
 // WorkspaceInputMode defines model for WorkspaceInputMode.
 type WorkspaceInputMode string
-
-// WorkspaceInputPutRequest defines model for WorkspaceInputPutRequest.
-type WorkspaceInputPutRequest struct {
-	Input WorkspaceInputMode `json:"input"`
-	Name  string             `json:"name"`
-}
-
-// WorkspaceInputPutResponse defines model for WorkspaceInputPutResponse.
-type WorkspaceInputPutResponse = Workspace
 
 // WorkspaceParametersPatch contains driver-neutral Workspace parameter updates.
 type WorkspaceParametersPatch struct {
@@ -3830,23 +3830,6 @@ func (t *RPCPayload) FromWorkspaceCreateRequest(v WorkspaceCreateRequest) error 
 // MergeWorkspaceCreateRequest performs a merge with any protobuf payload, using the provided WorkspaceCreateRequest
 func (t *RPCPayload) MergeWorkspaceCreateRequest(v WorkspaceCreateRequest) error {
 	return t.merge("WorkspaceCreateRequest", v)
-}
-
-// AsWorkspaceInputPutRequest decodes the RPCPayload as a WorkspaceInputPutRequest
-func (t RPCPayload) AsWorkspaceInputPutRequest() (WorkspaceInputPutRequest, error) {
-	var body WorkspaceInputPutRequest
-	err := t.decode("WorkspaceInputPutRequest", &body)
-	return body, err
-}
-
-// FromWorkspaceInputPutRequest overwrites any protobuf payload as the provided WorkspaceInputPutRequest
-func (t *RPCPayload) FromWorkspaceInputPutRequest(v WorkspaceInputPutRequest) error {
-	return t.encode("WorkspaceInputPutRequest", v)
-}
-
-// MergeWorkspaceInputPutRequest performs a merge with any protobuf payload, using the provided WorkspaceInputPutRequest
-func (t *RPCPayload) MergeWorkspaceInputPutRequest(v WorkspaceInputPutRequest) error {
-	return t.merge("WorkspaceInputPutRequest", v)
 }
 
 // AsWorkspaceParametersSetRequest decodes the RPCPayload as a WorkspaceParametersSetRequest.
@@ -5156,23 +5139,6 @@ func (t *RPCPayload) FromWorkspaceCreateResponse(v WorkspaceCreateResponse) erro
 // MergeWorkspaceCreateResponse performs a merge with any protobuf payload, using the provided WorkspaceCreateResponse
 func (t *RPCPayload) MergeWorkspaceCreateResponse(v WorkspaceCreateResponse) error {
 	return t.merge("WorkspaceCreateResponse", v)
-}
-
-// AsWorkspaceInputPutResponse decodes the RPCPayload as a WorkspaceInputPutResponse
-func (t RPCPayload) AsWorkspaceInputPutResponse() (WorkspaceInputPutResponse, error) {
-	var body WorkspaceInputPutResponse
-	err := t.decode("WorkspaceInputPutResponse", &body)
-	return body, err
-}
-
-// FromWorkspaceInputPutResponse overwrites any protobuf payload as the provided WorkspaceInputPutResponse
-func (t *RPCPayload) FromWorkspaceInputPutResponse(v WorkspaceInputPutResponse) error {
-	return t.encode("WorkspaceInputPutResponse", v)
-}
-
-// MergeWorkspaceInputPutResponse performs a merge with any protobuf payload, using the provided WorkspaceInputPutResponse
-func (t *RPCPayload) MergeWorkspaceInputPutResponse(v WorkspaceInputPutResponse) error {
-	return t.merge("WorkspaceInputPutResponse", v)
 }
 
 // AsWorkspaceParametersSetResponse decodes the RPCPayload as a WorkspaceParametersSetResponse.
@@ -6491,4 +6457,38 @@ func (t *RPCPayload) FromServerPutRuntimeResponse(v ServerPutRuntimeResponse) er
 // MergeServerPutRuntimeResponse merges runtime settings.
 func (t *RPCPayload) MergeServerPutRuntimeResponse(v ServerPutRuntimeResponse) error {
 	return t.merge("ServerPutRuntimeResponse", v)
+}
+
+// AsServerReloadRunWorkspaceWithOptionsRequest decodes the RPCPayload as a ServerReloadRunWorkspaceWithOptionsRequest
+func (t RPCPayload) AsServerReloadRunWorkspaceWithOptionsRequest() (ServerReloadRunWorkspaceWithOptionsRequest, error) {
+	var body ServerReloadRunWorkspaceWithOptionsRequest
+	err := t.decode("ServerReloadRunWorkspaceWithOptionsRequest", &body)
+	return body, err
+}
+
+// FromServerReloadRunWorkspaceWithOptionsRequest overwrites any protobuf payload as the provided ServerReloadRunWorkspaceWithOptionsRequest
+func (t *RPCPayload) FromServerReloadRunWorkspaceWithOptionsRequest(v ServerReloadRunWorkspaceWithOptionsRequest) error {
+	return t.encode("ServerReloadRunWorkspaceWithOptionsRequest", v)
+}
+
+// MergeServerReloadRunWorkspaceWithOptionsRequest performs a merge with any protobuf payload, using the provided ServerReloadRunWorkspaceWithOptionsRequest
+func (t *RPCPayload) MergeServerReloadRunWorkspaceWithOptionsRequest(v ServerReloadRunWorkspaceWithOptionsRequest) error {
+	return t.merge("ServerReloadRunWorkspaceWithOptionsRequest", v)
+}
+
+// AsServerReloadRunWorkspaceWithOptionsResponse decodes the RPCPayload as a ServerReloadRunWorkspaceWithOptionsResponse
+func (t RPCPayload) AsServerReloadRunWorkspaceWithOptionsResponse() (ServerReloadRunWorkspaceWithOptionsResponse, error) {
+	var body ServerReloadRunWorkspaceWithOptionsResponse
+	err := t.decode("ServerReloadRunWorkspaceWithOptionsResponse", &body)
+	return body, err
+}
+
+// FromServerReloadRunWorkspaceWithOptionsResponse overwrites any protobuf payload as the provided ServerReloadRunWorkspaceWithOptionsResponse
+func (t *RPCPayload) FromServerReloadRunWorkspaceWithOptionsResponse(v ServerReloadRunWorkspaceWithOptionsResponse) error {
+	return t.encode("ServerReloadRunWorkspaceWithOptionsResponse", v)
+}
+
+// MergeServerReloadRunWorkspaceWithOptionsResponse performs a merge with any protobuf payload, using the provided ServerReloadRunWorkspaceWithOptionsResponse
+func (t *RPCPayload) MergeServerReloadRunWorkspaceWithOptionsResponse(v ServerReloadRunWorkspaceWithOptionsResponse) error {
+	return t.merge("ServerReloadRunWorkspaceWithOptionsResponse", v)
 }
