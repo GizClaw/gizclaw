@@ -415,17 +415,35 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 			req.URL.Host = "gizclaw"
 			req.Host = "gizclaw"
 		},
-		Transport: transport,
-		ModifyResponse: func(resp *http.Response) error {
-			clearEdgeUpstreamCORSHeaders(resp.Header)
-			if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Path == "/server-info" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-				return rewriteServerInfo(resp, edgeEndpoint, infoTransport)
-			}
-			return nil
-		},
+		Transport:    transport,
 		ErrorHandler: writeEdgeProxyError,
 	}
-	return proxy
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Capture the ingress origin before the Director rewrites the request.
+		requestTransport := infoTransport
+		if infoTransport != nil {
+			info := *infoTransport
+			endpoint := url.URL{Scheme: "http", Host: req.Host}
+			if req.TLS != nil {
+				endpoint.Scheme = "https"
+			}
+			if configured, err := url.Parse(info.Endpoint); err == nil && configured.IsAbs() && configured.Host != "" {
+				endpoint.Path = configured.Path
+				endpoint.RawPath = configured.RawPath
+			}
+			info.Endpoint = endpoint.String()
+			requestTransport = &info
+		}
+		requestProxy := *proxy
+		requestProxy.ModifyResponse = func(resp *http.Response) error {
+			clearEdgeUpstreamCORSHeaders(resp.Header)
+			if resp.Request != nil && resp.Request.URL != nil && resp.Request.URL.Path == "/server-info" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return rewriteServerInfo(resp, edgeEndpoint, requestTransport)
+			}
+			return nil
+		}
+		requestProxy.ServeHTTP(w, req)
+	})
 }
 
 func writeEdgeProxyError(w http.ResponseWriter, req *http.Request, err error) {

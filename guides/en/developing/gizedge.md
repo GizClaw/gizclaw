@@ -100,13 +100,15 @@ is a concrete literal IP, the gateway also rewrites answer-SDP UDP host
 candidates to that exact host and port. A hostname or unspecified address does
 not trigger DNS lookup or fabricate a public candidate. Additional HTTP
 listeners add TCP HTTP/HTTPS ingress only; they publish no ICE candidate and
-open no UDP socket. Optional `http.endpoint` is the absolute `http` or `https`
-public access-point base URL published in `/server-info.transport.endpoint`.
-It may use a different host and port from the ICE UDP tuple. When omitted, the
-transport endpoint falls back to `webrtc.endpoint` for compatibility with a
-plaintext single-entry deployment. The URL may contain a path prefix but no
-userinfo, query, fragment, empty path segment, or invalid port; invalid values
-fail before listeners open. The optional `turn.listen` and
+open no UDP socket. `/server-info.transport.endpoint` preserves the request
+scheme and its Host, including the port: HTTP stays HTTP, TLS stays HTTPS,
+and requests through ports 9821 and 443 retain their respective ports.
+Client-supplied `Forwarded` and `X-Forwarded-*` headers do not override this origin.
+Optional `http.endpoint` supplies the public access-point path prefix; its
+scheme, host, and port do not override the request origin. Omitting it adds no
+prefix. The configuration must be an absolute `http` or `https` URL without
+userinfo, query, fragment, empty path segments, or an invalid port; invalid
+values fail before listeners open. The optional `turn.listen` and
 `turn.public-endpoint` remain separate because they configure a downstream
 relay service rather than the client HTTP/WebRTC ingress.
 

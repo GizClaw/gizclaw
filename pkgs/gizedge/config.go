@@ -58,6 +58,7 @@ type UpstreamConfig struct {
 
 // HTTPConfig defines the public HTTP access point and ordered HTTP/HTTPS listeners.
 type HTTPConfig struct {
+	// Endpoint supplies the optional public path prefix; signaling preserves the request origin.
 	Endpoint  string               `yaml:"endpoint"`
 	Listeners []HTTPListenerConfig `yaml:"listeners"`
 }

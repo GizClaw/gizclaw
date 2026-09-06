@@ -1269,7 +1269,7 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 		SignalingPath: gizwebrtc.SignalingPath,
 	}), nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://edge.example.com:9821/server-info", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -1284,7 +1284,7 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 		t.Fatalf("endpoint = %q, want edge.example.com:9821", got)
 	}
 	transport, ok := body["transport"].(map[string]any)
-	if !ok || transport["endpoint"] != "https://ap.gizclaw.com" {
+	if !ok || transport["endpoint"] != "http://edge.example.com:9821" {
 		t.Fatalf("transport = %#v", body["transport"])
 	}
 	if got := body["signaling_path"]; got != gizwebrtc.SignalingPath {
@@ -1559,4 +1559,55 @@ func (p edgeTestSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 
 func (p edgeTestSecurityPolicy) AllowService(publicKey giznet.PublicKey, service uint64) bool {
 	return p.allowService == nil || p.allowService(publicKey, service)
+}
+
+func TestPeerHTTPProxyPreservesSignalingOrigin(t *testing.T) {
+	for _, prefix := range []string{"", "/api"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			configured := &serverInfoTransport{
+				Mode: "edge-gateway", Endpoint: "https://published.example" + prefix,
+				PublicKey: "edge-key", SignalingPath: gizwebrtc.SignalingPath,
+			}
+			handler := newPeerHTTPProxy("192.0.2.10:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK, Header: make(http.Header), Request: req,
+					Body: io.NopCloser(strings.NewReader(`{"public_key":"server-key"}`)),
+				}, nil
+			}), configured)
+			for _, origin := range []string{
+				"http://edge.example:9821", "https://edge.example:9821",
+				"https://edge.example:443", "https://edge.example",
+				"http://[2001:db8::1]:9821", "https://[2001:db8::1]:8443",
+			} {
+				t.Run(origin, func(t *testing.T) {
+					t.Parallel()
+					req := httptest.NewRequest(http.MethodGet, origin+"/server-info", nil)
+					// Real ingress requests use origin-form URLs, with the authority in Host.
+					req.URL.Scheme = ""
+					req.URL.Host = ""
+					req.Header.Set("Forwarded", "proto=https;host=wrong.example:443")
+					req.Header.Set("X-Forwarded-Proto", "https")
+					req.Header.Set("X-Forwarded-Host", "wrong.example:443")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, req)
+					if response.Code != http.StatusOK {
+						t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+					}
+					var info struct {
+						Endpoint  string              `json:"endpoint"`
+						Transport serverInfoTransport `json:"transport"`
+					}
+					if err := json.NewDecoder(response.Body).Decode(&info); err != nil {
+						t.Fatal(err)
+					}
+					if got, want := info.Transport.Endpoint+info.Transport.SignalingPath, origin+prefix+gizwebrtc.SignalingPath; got != want {
+						t.Fatalf("signaling URL = %q, want %q", got, want)
+					}
+					if info.Endpoint != "192.0.2.10:9821" || configured.Endpoint != "https://published.example"+prefix {
+						t.Fatalf("ICE or shared configuration changed: %#v, %#v", info, configured)
+					}
+				})
+			}
+		})
+	}
 }
