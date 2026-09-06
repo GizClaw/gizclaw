@@ -939,18 +939,18 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "echo" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
-	var inputResponse rpcpb.WorkspaceInputPutResponse
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT, &rpcpb.WorkspaceInputPutRequest{
-		Name: workspaceName, Input: rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME,
+	var inputResponse rpcpb.WorkspaceParametersSetResponse
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET, &rpcpb.WorkspaceParametersSetRequest{
+		Name: workspaceName, Parameters: &rpcpb.WorkspaceParametersPatch{Input: new(rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME)},
 	}, &inputResponse)
 	if mode := inputResponse.GetValue().GetParameters().GetChatRoomWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME {
-		t.Fatalf("invalid server.workspace.input.put: %s", inputResponse.String())
+		t.Fatalf("invalid server.workspace.parameters.set: %s", inputResponse.String())
 	}
-	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT, &rpcpb.WorkspaceInputPutRequest{
-		Name: workspaceName, Input: rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK,
+	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET, &rpcpb.WorkspaceParametersSetRequest{
+		Name: workspaceName, Parameters: &rpcpb.WorkspaceParametersPatch{Input: new(rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK)},
 	}, &inputResponse)
 	if mode := inputResponse.GetValue().GetParameters().GetChatRoomWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
-		t.Fatalf("invalid server.workspace.input.put revert: %s", inputResponse.String())
+		t.Fatalf("invalid server.workspace.parameters.set revert: %s", inputResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)
 	var getResponse rpcpb.ServerGetRunWorkspaceResponse
@@ -1704,19 +1704,10 @@ func setChatWorkspace(t *testing.T, client *Client, workspaceName string) {
 }
 
 func setCSDKRunWorkspace(client *Client, workspaceName string) error {
-	var setResponse rpcpb.ServerSetRunWorkspaceResponse
-	if err := client.CallRPC(rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET, &rpcpb.ServerSetRunWorkspaceRequest{
-		Value: &rpcpb.AgentSelection{WorkspaceName: workspaceName},
-	}, &setResponse); err != nil {
-		return err
-	}
-	if setResponse.GetValue().GetWorkspaceName() != workspaceName {
-		return fmt.Errorf("invalid server.run.workspace.set: %s", setResponse.String())
-	}
-	var reloadResponse rpcpb.ServerReloadRunWorkspaceResponse
+	var reloadResponse rpcpb.ServerReloadRunWorkspaceWithOptionsResponse
 	if err := client.CallRPC(
-		rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD,
-		&rpcpb.ServerReloadRunWorkspaceRequest{},
+		rpcpb.RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS,
+		&rpcpb.ServerReloadRunWorkspaceWithOptionsRequest{WorkspaceName: &workspaceName},
 		&reloadResponse,
 	); err != nil {
 		return err

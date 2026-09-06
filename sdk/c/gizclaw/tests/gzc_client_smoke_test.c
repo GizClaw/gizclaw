@@ -3165,58 +3165,88 @@ int main(void) {
   }
 
   gzc_buf_reset(&fake_webrtc.sent);
-  gizclaw_rpc_v1_WorkspaceInputPutRequest workspace_input =
-      gizclaw_rpc_v1_WorkspaceInputPutRequest_init_zero;
+  gizclaw_rpc_v1_WorkspaceParametersSetRequest workspace_input =
+      gizclaw_rpc_v1_WorkspaceParametersSetRequest_init_zero;
   strcpy(workspace_input.name, "journey-1");
-  workspace_input.input = gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME;
+  workspace_input.has_parameters = true;
+  workspace_input.parameters.has_input = true;
+  workspace_input.parameters.input = gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME;
   gzc_buf_t workspace_input_params;
   gzc_buf_init(&workspace_input_params);
   rc = encode_test_pb_message(
       platform,
-      gizclaw_rpc_v1_WorkspaceInputPutRequest_fields,
+      gizclaw_rpc_v1_WorkspaceParametersSetRequest_fields,
       &workspace_input,
       &workspace_input_params);
-  if (expect(rc == GZC_OK, "encode workspace input put request") != 0) {
+  if (expect(rc == GZC_OK, "encode workspace parameters set request") != 0) {
     return 1;
   }
   memset(&response, 0, sizeof(response));
   rc = test_rpc_call(
       client,
-      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET,
       gzc_str_from_parts((const char *)workspace_input_params.data, workspace_input_params.len),
       &response);
-  if (expect(rc == GZC_OK, "workspace input put rpc call") != 0) {
+  if (expect(rc == GZC_OK, "workspace parameters set rpc call") != 0) {
     return 1;
   }
   rc = gzc_rpc_frame_decode(fake_webrtc.sent.data, first_frame_size(&fake_webrtc.sent), &sent_frame);
-  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_BINARY, "workspace input put request frame") != 0) {
+  if (expect(rc == GZC_OK && sent_frame.type == GZC_RPC_FRAME_BINARY, "workspace parameters set request frame") != 0) {
     return 1;
   }
   method_id = 0;
   rc = read_test_proto_method_id(gzc_str_from_parts((const char *)sent_frame.data, sent_frame.len), &method_id);
-  if (expect(rc == GZC_OK, "workspace input put method id field") != 0) {
+  if (expect(rc == GZC_OK, "workspace parameters set method id field") != 0) {
     return 1;
   }
   if (expect(
-          method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT &&
-              method_id == 107,
-          "workspace input put method id value") != 0) {
+          method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET &&
+              method_id == 110,
+          "workspace parameters set method id value") != 0) {
     return 1;
   }
-  gizclaw_rpc_v1_WorkspaceInputPutRequest decoded_workspace_input =
-      gizclaw_rpc_v1_WorkspaceInputPutRequest_init_zero;
+  gizclaw_rpc_v1_WorkspaceParametersSetRequest decoded_workspace_input =
+      gizclaw_rpc_v1_WorkspaceParametersSetRequest_init_zero;
   rc = decode_test_pb_message(
       gzc_str_from_parts((const char *)workspace_input_params.data, workspace_input_params.len),
-      gizclaw_rpc_v1_WorkspaceInputPutRequest_fields,
+      gizclaw_rpc_v1_WorkspaceParametersSetRequest_fields,
       &decoded_workspace_input);
   if (expect(
           rc == GZC_OK && strcmp(decoded_workspace_input.name, "journey-1") == 0 &&
-              decoded_workspace_input.input ==
+              decoded_workspace_input.has_parameters && decoded_workspace_input.parameters.has_input &&
+              decoded_workspace_input.parameters.input ==
                   gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME,
-          "workspace input put request round trip") != 0) {
+          "workspace parameters set request round trip") != 0) {
     return 1;
   }
   gzc_buf_free(&workspace_input_params, platform);
+
+  gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest reload_options =
+      gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_init_zero;
+  reload_options.has_workspace_name = true;
+  strcpy(reload_options.workspace_name, "journey-1");
+  reload_options.has_parameters = true;
+  reload_options.parameters.has_input = true;
+  reload_options.parameters.input = gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME;
+  gzc_buf_t reload_params;
+  gzc_buf_init(&reload_params);
+  rc = encode_test_pb_message(platform, gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_fields,
+                              &reload_options, &reload_params);
+  if (expect(rc == GZC_OK, "encode reload options") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest decoded_reload =
+      gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_init_zero;
+  rc = decode_test_pb_message(gzc_str_from_parts((const char *)reload_params.data, reload_params.len),
+                              gizclaw_rpc_v1_ServerReloadRunWorkspaceWithOptionsRequest_fields, &decoded_reload);
+  if (expect(rc == GZC_OK && decoded_reload.has_workspace_name &&
+                 strcmp(decoded_reload.workspace_name, "journey-1") == 0 &&
+                 decoded_reload.has_parameters && decoded_reload.parameters.has_input &&
+                 decoded_reload.parameters.input == gizclaw_rpc_v1_WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME,
+             "reload options round trip") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&reload_params, platform);
 
   gzc_buf_reset(&fake_webrtc.sent);
   int create_channel_count_before_edge = fake_webrtc.create_channel_count;

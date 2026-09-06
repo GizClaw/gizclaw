@@ -131,6 +131,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_GET                  RpcMethod = 11
 	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_SET                  RpcMethod = 12
 	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD               RpcMethod = 13
+	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS  RpcMethod = 120
 	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY              RpcMethod = 14
 	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY         RpcMethod = 15
 	RpcMethod_RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS         RpcMethod = 16
@@ -144,7 +145,6 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET                      RpcMethod = 25
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE                   RpcMethod = 26
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PUT                      RpcMethod = 27
-	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT                RpcMethod = 107
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET           RpcMethod = 110
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_DELETE                   RpcMethod = 28
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST             RpcMethod = 29
@@ -252,6 +252,7 @@ var (
 		11:  "RPC_METHOD_SERVER_RUN_WORKSPACE_GET",
 		12:  "RPC_METHOD_SERVER_RUN_WORKSPACE_SET",
 		13:  "RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD",
+		120: "RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS",
 		14:  "RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY",
 		15:  "RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY",
 		16:  "RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS",
@@ -265,7 +266,6 @@ var (
 		25:  "RPC_METHOD_SERVER_WORKSPACE_GET",
 		26:  "RPC_METHOD_SERVER_WORKSPACE_CREATE",
 		27:  "RPC_METHOD_SERVER_WORKSPACE_PUT",
-		107: "RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT",
 		110: "RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET",
 		28:  "RPC_METHOD_SERVER_WORKSPACE_DELETE",
 		29:  "RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST",
@@ -370,6 +370,7 @@ var (
 		"RPC_METHOD_SERVER_RUN_WORKSPACE_GET":                  11,
 		"RPC_METHOD_SERVER_RUN_WORKSPACE_SET":                  12,
 		"RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD":               13,
+		"RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS":  120,
 		"RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY":              14,
 		"RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY":         15,
 		"RPC_METHOD_SERVER_RUN_WORKSPACE_MEMORY_STATS":         16,
@@ -383,7 +384,6 @@ var (
 		"RPC_METHOD_SERVER_WORKSPACE_GET":                      25,
 		"RPC_METHOD_SERVER_WORKSPACE_CREATE":                   26,
 		"RPC_METHOD_SERVER_WORKSPACE_PUT":                      27,
-		"RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT":                107,
 		"RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET":           110,
 		"RPC_METHOD_SERVER_WORKSPACE_DELETE":                   28,
 		"RPC_METHOD_SERVER_WORKSPACE_HISTORY_LIST":             29,
@@ -1045,7 +1045,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xc6p\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x88q\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1074,7 +1074,9 @@ const file_rpc_proto_rawDesc = "" +
 	"#RPC_METHOD_SERVER_RUN_WORKSPACE_SET\x10\f\x1a[\xc2\xf3\x18W\n" +
 	"\x18server.run.workspace.set\x12\x1cServerSetRunWorkspaceRequest\x1a\x1dServerSetRunWorkspaceResponse\x12\x90\x01\n" +
 	"&RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD\x10\r\x1ad\xc2\xf3\x18`\n" +
-	"\x1bserver.run.workspace.reload\x12\x1fServerReloadRunWorkspaceRequest\x1a ServerReloadRunWorkspaceResponse\x12\x9c\x01\n" +
+	"\x1bserver.run.workspace.reload\x12\x1fServerReloadRunWorkspaceRequest\x1a ServerReloadRunWorkspaceResponse\x12\xc2\x01\n" +
+	"3RPC_METHOD_SERVER_RUN_WORKSPACE_RELOAD_WITH_OPTIONS\x10x\x1a\x88\x01\xc2\xf3\x18\x83\x01\n" +
+	"(server.run.workspace.reload-with-options\x12*ServerReloadRunWorkspaceWithOptionsRequest\x1a+ServerReloadRunWorkspaceWithOptionsResponse\x12\x9c\x01\n" +
 	"'RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY\x10\x0e\x1ao\xc2\xf3\x18k\n" +
 	"\x1cserver.run.workspace.history\x12$ServerListRunWorkspaceHistoryRequest\x1a%ServerListRunWorkspaceHistoryResponse\x12\xa6\x01\n" +
 	",RPC_METHOD_SERVER_RUN_WORKSPACE_HISTORY_PLAY\x10\x0f\x1at\xc2\xf3\x18p\n" +
@@ -1100,9 +1102,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\"RPC_METHOD_SERVER_WORKSPACE_CREATE\x10\x1a\x1aN\xc2\xf3\x18J\n" +
 	"\x17server.workspace.create\x12\x16WorkspaceCreateRequest\x1a\x17WorkspaceCreateResponse\x12j\n" +
 	"\x1fRPC_METHOD_SERVER_WORKSPACE_PUT\x10\x1b\x1aE\xc2\xf3\x18A\n" +
-	"\x14server.workspace.put\x12\x13WorkspacePutRequest\x1a\x14WorkspacePutResponse\x12\x80\x01\n" +
-	"%RPC_METHOD_SERVER_WORKSPACE_INPUT_PUT\x10k\x1aU\xc2\xf3\x18Q\n" +
-	"\x1aserver.workspace.input.put\x12\x18WorkspaceInputPutRequest\x1a\x19WorkspaceInputPutResponse\x12\x94\x01\n" +
+	"\x14server.workspace.put\x12\x13WorkspacePutRequest\x1a\x14WorkspacePutResponse\x12\x94\x01\n" +
 	"*RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET\x10n\x1ad\xc2\xf3\x18`\n" +
 	"\x1fserver.workspace.parameters.set\x12\x1dWorkspaceParametersSetRequest\x1a\x1eWorkspaceParametersSetResponse\x12v\n" +
 	"\"RPC_METHOD_SERVER_WORKSPACE_DELETE\x10\x1c\x1aN\xc2\xf3\x18J\n" +

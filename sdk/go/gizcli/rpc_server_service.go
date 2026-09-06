@@ -115,6 +115,18 @@ func (c *rpcClient) ReloadServerRunWorkspace(ctx context.Context, conn net.Conn,
 	return result, nil
 }
 
+func (c *rpcClient) ReloadServerRunWorkspaceWithOptions(ctx context.Context, conn net.Conn, id string, options rpcapi.ServerReloadRunWorkspaceWithOptionsRequest) (*rpcapi.ServerReloadRunWorkspaceWithOptionsResponse, error) {
+	params, err := newRPCRequestParams(options, (*rpcapi.RPCPayload).FromServerReloadRunWorkspaceWithOptionsRequest)
+	if err != nil {
+		return nil, err
+	}
+	result, err := callRPCResult(ctx, conn, newRPCRequest(id, rpcapi.RPCMethodServerRunWorkspaceReloadWithOptions, params), rpcapi.RPCPayload.AsServerReloadRunWorkspaceWithOptionsResponse)
+	if err != nil {
+		return nil, wrapRPCResultError("peer run workspace reload", err)
+	}
+	return result, nil
+}
+
 func (c *rpcClient) ListServerRunWorkspaceHistory(ctx context.Context, conn net.Conn, id string, request rpcapi.ServerListRunWorkspaceHistoryRequest) (*rpcapi.ServerListRunWorkspaceHistoryResponse, error) {
 	params, err := newRPCRequestParams(request, (*rpcapi.RPCPayload).FromServerListRunWorkspaceHistoryRequest)
 	if err != nil {

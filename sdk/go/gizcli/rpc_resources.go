@@ -76,10 +76,6 @@ func (c *rpcClient) PutWorkspace(ctx context.Context, conn net.Conn, id string, 
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspacePut, request, (*rpcapi.RPCPayload).FromWorkspacePutRequest, rpcapi.RPCPayload.AsWorkspacePutResponse, "workspace put")
 }
 
-func (c *rpcClient) PutWorkspaceInput(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceInputPutRequest) (*rpcapi.WorkspaceInputPutResponse, error) {
-	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceInputPut, request, (*rpcapi.RPCPayload).FromWorkspaceInputPutRequest, rpcapi.RPCPayload.AsWorkspaceInputPutResponse, "workspace input put")
-}
-
 func (c *rpcClient) DeleteWorkspace(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceDeleteRequest) (*rpcapi.WorkspaceDeleteResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceDelete, request, (*rpcapi.RPCPayload).FromWorkspaceDeleteRequest, rpcapi.RPCPayload.AsWorkspaceDeleteResponse, "workspace delete")
 }
@@ -278,4 +274,8 @@ func (c *rpcClient) ListTools(ctx context.Context, conn net.Conn, id string, req
 
 func (c *rpcClient) GetTool(ctx context.Context, conn net.Conn, id string, request rpcapi.ToolGetRequest) (*rpcapi.ToolGetResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolGet, request, (*rpcapi.RPCPayload).FromToolGetRequest, rpcapi.RPCPayload.AsToolGetResponse, "tool get")
+}
+
+func (c *rpcClient) SetWorkspaceParameters(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceParametersSetRequest) (*rpcapi.WorkspaceParametersSetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceParametersSet, request, (*rpcapi.RPCPayload).FromWorkspaceParametersSetRequest, rpcapi.RPCPayload.AsWorkspaceParametersSetResponse, "workspace parameters set")
 }

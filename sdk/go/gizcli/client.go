@@ -718,3 +718,11 @@ func (c *Client) PutServerRuntime(ctx context.Context, id string, request rpcapi
 		return client.PutServerRuntime(ctx, conn, id, request)
 	})
 }
+
+// ReloadServerRunWorkspaceWithOptions applies supported parameters, optionally
+// selects another Workspace, and reloads its runtime in one RPC.
+func (c *Client) ReloadServerRunWorkspaceWithOptions(ctx context.Context, id string, options rpcapi.ServerReloadRunWorkspaceWithOptionsRequest) (*rpcapi.ServerReloadRunWorkspaceWithOptionsResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.ServerReloadRunWorkspaceWithOptionsResponse, error) {
+		return client.ReloadServerRunWorkspaceWithOptions(ctx, conn, id, options)
+	})
+}

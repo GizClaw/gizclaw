@@ -34,26 +34,6 @@ func newWorkspaceInputTestServer(t *testing.T, ctx context.Context) *Server {
 	}
 }
 
-func callWorkspaceInputPut(
-	t *testing.T,
-	ctx context.Context,
-	server *Server,
-	request rpcapi.WorkspaceInputPutRequest,
-) *rpcapi.RPCResponse {
-	t.Helper()
-	var payload rpcapi.RPCPayload
-	if err := payload.FromWorkspaceInputPutRequest(request); err != nil {
-		t.Fatal(err)
-	}
-	response, handled, err := server.Dispatch(ctx, &rpcapi.RPCRequest{
-		Id: "input-put", Method: rpcapi.RPCMethodServerWorkspaceInputPut, Params: &payload,
-	})
-	if err != nil || !handled {
-		t.Fatalf("workspace input put handled=%v error=%v", handled, err)
-	}
-	return response
-}
-
 func callWorkspaceParametersSet(
 	t *testing.T,
 	ctx context.Context,
@@ -130,7 +110,7 @@ func TestWorkspaceParametersSetRejectsEmptyPatch(t *testing.T) {
 	}
 }
 
-func TestWorkspaceInputPutKeepsParametersAndToolkit(t *testing.T) {
+func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 
@@ -154,13 +134,13 @@ func TestWorkspaceInputPutKeepsParametersAndToolkit(t *testing.T) {
 		t.Fatalf("created Workspace = %#v", created)
 	}
 
-	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: "journey-1", Input: rpcapi.WorkspaceInputModeRealtime,
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-1", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
 	})
 	if response.Error != nil || response.Result == nil {
-		t.Fatalf("workspace input put response = %#v", response)
+		t.Fatalf("workspace parameters set response = %#v", response)
 	}
-	updated, err := response.Result.AsWorkspaceInputPutResponse()
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,13 +162,13 @@ func TestWorkspaceInputPutKeepsParametersAndToolkit(t *testing.T) {
 		t.Fatalf("toolkit = %+v, want %+v", updated.Toolkit, created.Toolkit)
 	}
 
-	back := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: "journey-1", Input: rpcapi.WorkspaceInputModePushToTalk,
+	back := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-1", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModePushToTalk)},
 	})
 	if back.Error != nil || back.Result == nil {
-		t.Fatalf("workspace input put (realtime to push-to-talk) response = %#v", back)
+		t.Fatalf("workspace parameters set (realtime to push-to-talk) response = %#v", back)
 	}
-	restored, err := back.Result.AsWorkspaceInputPutResponse()
+	restored, err := back.Result.AsWorkspaceParametersSetResponse()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +181,7 @@ func TestWorkspaceInputPutKeepsParametersAndToolkit(t *testing.T) {
 	}
 }
 
-func TestWorkspaceInputPutSetsInheritedParameters(t *testing.T) {
+func TestWorkspaceParametersSetInputSetsInheritedParameters(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	created := callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
@@ -211,13 +191,13 @@ func TestWorkspaceInputPutSetsInheritedParameters(t *testing.T) {
 		t.Fatalf("created Workspace parameters = %#v, want inherited", created.Parameters)
 	}
 
-	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: "journey-1", Input: rpcapi.WorkspaceInputModeRealtime,
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-1", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
 	})
 	if response.Error != nil || response.Result == nil {
-		t.Fatalf("workspace input put response = %#v", response)
+		t.Fatalf("workspace parameters set response = %#v", response)
 	}
-	updated, err := response.Result.AsWorkspaceInputPutResponse()
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,27 +210,27 @@ func TestWorkspaceInputPutSetsInheritedParameters(t *testing.T) {
 	}
 }
 
-func TestWorkspaceInputPutRejectsUnknownWorkspaceAndInput(t *testing.T) {
+func TestWorkspaceParametersSetInputRejectsUnknownWorkspaceAndInput(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	callWorkspaceCreate(t, ctx, server, rpcapi.WorkspaceCreateBody{
 		Name: "journey-1", Collection: "story-teller", WorkflowName: "journey",
 	})
 
-	missing := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: "missing", Input: rpcapi.WorkspaceInputModeRealtime,
+	missing := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "missing", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
 	})
 	if missing.Error == nil || missing.Error.Code != rpcapi.StatusCodeNotFound {
-		t.Fatalf("workspace input put (missing) error = %#v, want NOT_FOUND", missing.Error)
+		t.Fatalf("workspace parameters set (missing) error = %#v, want NOT_FOUND", missing.Error)
 	}
 
-	invalid := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{Name: "journey-1"})
+	invalid := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{Name: "journey-1"})
 	if invalid.Error == nil || invalid.Error.Code != rpcapi.StatusCodeInvalidArgument {
-		t.Fatalf("workspace input put (invalid mode) response = %#v, want INVALID_ARGUMENT", invalid)
+		t.Fatalf("workspace parameters set (invalid mode) response = %#v, want INVALID_ARGUMENT", invalid)
 	}
 }
 
-func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
+func TestWorkspaceParametersSetInputIgnoresSharedSFUParameters(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	domain, ok := server.Workspaces.(*workspace.Server)
@@ -284,15 +264,29 @@ func TestWorkspaceInputPutRejectsAnotherPeersWorkspace(t *testing.T) {
 	server.Friends = friends
 	sharedName := socialutil.StringValue(relation.WorkspaceName)
 
-	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: sharedName, Input: rpcapi.WorkspaceInputModeRealtime,
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.StatusCodePermissionDenied {
-		t.Fatalf("workspace input put (shared foreign Workspace) response = %#v, want PERMISSION_DENIED", response)
+	if response.Error != nil {
+		t.Fatalf("shared SFU parameter update: %+v", response.Error)
+	}
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
+	if err != nil || updated.Parameters != nil {
+		t.Fatalf("SFU parameters changed: %+v, %v", updated.Parameters, err)
+	}
+	// Revocation must still reject the same request, including a no-op.
+	if _, err := friends.DeleteFriend(ctx, other.String(), rpcapi.FriendDeleteRequest{Name: relation.Name}); err != nil {
+		t.Fatal(err)
+	}
+	denied := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: sharedName, Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
+	})
+	if denied.Error == nil {
+		t.Fatal("revoked member updated SFU parameters")
 	}
 }
 
-func TestWorkspaceInputPutHidesUnsharedForeignWorkspace(t *testing.T) {
+func TestWorkspaceParametersSetInputHidesUnsharedForeignWorkspace(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	domain, ok := server.Workspaces.(*workspace.Server)
@@ -306,15 +300,15 @@ func TestWorkspaceInputPutHidesUnsharedForeignWorkspace(t *testing.T) {
 		t.Fatalf("CreatePeerWorkspace error: %v", err)
 	}
 
-	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: "journey-1", Input: rpcapi.WorkspaceInputModeRealtime,
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "journey-1", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
 	})
 	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeNotFound {
-		t.Fatalf("workspace input put (unshared foreign Workspace) response = %#v, want NOT_FOUND", response)
+		t.Fatalf("workspace parameters set (unshared foreign Workspace) response = %#v, want NOT_FOUND", response)
 	}
 }
 
-func TestWorkspaceInputPutRejectsForbiddenSystemWorkspaceUpdate(t *testing.T) {
+func TestWorkspaceParametersSetInputIgnoresUnsupportedSystemUpdate(t *testing.T) {
 	ctx := context.Background()
 	server := newWorkspaceInputTestServer(t, ctx)
 	domain, ok := server.Workspaces.(*workspace.Server)
@@ -328,10 +322,14 @@ func TestWorkspaceInputPutRejectsForbiddenSystemWorkspaceUpdate(t *testing.T) {
 		t.Fatalf("CreateSystemWorkspace error: %v", err)
 	}
 
-	response := callWorkspaceInputPut(t, ctx, server, rpcapi.WorkspaceInputPutRequest{
-		Name: "system-1", Input: rpcapi.WorkspaceInputModeRealtime,
+	response := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
+		Name: "system-1", Parameters: rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
 	})
-	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeFailedPrecondition {
-		t.Fatalf("workspace input put (system workspace) response = %#v, want FAILED_PRECONDITION", response)
+	if response.Error != nil {
+		t.Fatalf("unsupported system update: %+v", response.Error)
+	}
+	updated, err := response.Result.AsWorkspaceParametersSetResponse()
+	if err != nil || updated.Parameters != nil {
+		t.Fatalf("system parameters changed: %+v, %v", updated.Parameters, err)
 	}
 }

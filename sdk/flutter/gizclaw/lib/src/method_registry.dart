@@ -93,6 +93,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ServerReloadRunWorkspaceRequest',
     responseType: 'ServerReloadRunWorkspaceResponse',
   ),
+  'server.run.workspace.reload-with-options': RpcMethodDescriptor(
+    id: 120,
+    name: 'server.run.workspace.reload-with-options',
+    requestType: 'ServerReloadRunWorkspaceWithOptionsRequest',
+    responseType: 'ServerReloadRunWorkspaceWithOptionsResponse',
+  ),
   'server.run.workspace.history': RpcMethodDescriptor(
     id: 14,
     name: 'server.run.workspace.history',
@@ -170,12 +176,6 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     name: 'server.workspace.put',
     requestType: 'WorkspacePutRequest',
     responseType: 'WorkspacePutResponse',
-  ),
-  'server.workspace.input.put': RpcMethodDescriptor(
-    id: 107,
-    name: 'server.workspace.input.put',
-    requestType: 'WorkspaceInputPutRequest',
-    responseType: 'WorkspaceInputPutResponse',
   ),
   'server.workspace.parameters.set': RpcMethodDescriptor(
     id: 110,
@@ -721,6 +721,7 @@ const rpcMethodNamesById = <int, String>{
   11: 'server.run.workspace.get',
   12: 'server.run.workspace.set',
   13: 'server.run.workspace.reload',
+  120: 'server.run.workspace.reload-with-options',
   14: 'server.run.workspace.history',
   15: 'server.run.workspace.history.play',
   16: 'server.run.workspace.memory.stats',
@@ -734,7 +735,6 @@ const rpcMethodNamesById = <int, String>{
   25: 'server.workspace.get',
   26: 'server.workspace.create',
   27: 'server.workspace.put',
-  107: 'server.workspace.input.put',
   110: 'server.workspace.parameters.set',
   28: 'server.workspace.delete',
   29: 'server.workspace.history.list',

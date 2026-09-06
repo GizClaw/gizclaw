@@ -577,7 +577,7 @@ steps:
     client: m8
     rpc: {method: server.friend_group.join, request: {invite_token: "${group_invite}", name: "${group_name}"}}
     expect_error:
-      code: 409
+      code: 8 # RESOURCE_EXHAUSTED: the group member quota is full
       message_contains: friend group is full
   - id: invite_still_resolvable
     client: alice

@@ -42,13 +42,15 @@ steps:
         flowcraft_workspace_parameters:
           agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-- id: select_workspace
+- id: primary_rpc
   client: peer
   rpc:
-    method: server.run.workspace.set
+    method: server.run.workspace.reload-with-options
     request:
       workspace_name: "${resource_name}"
-- id: primary_rpc
+      parameters:
+        input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: reload_current
   client: peer
   rpc:
     method: server.run.workspace.reload

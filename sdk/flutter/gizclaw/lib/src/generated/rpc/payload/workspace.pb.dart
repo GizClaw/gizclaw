@@ -2315,6 +2315,145 @@ class ServerReloadRunWorkspaceRequest extends $pb.GeneratedMessage {
   static ServerReloadRunWorkspaceRequest? _defaultInstance;
 }
 
+class ServerReloadRunWorkspaceWithOptionsResponse extends $pb.GeneratedMessage {
+  factory ServerReloadRunWorkspaceWithOptionsResponse({
+    PeerRunWorkspaceState? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ServerReloadRunWorkspaceWithOptionsResponse._();
+
+  factory ServerReloadRunWorkspaceWithOptionsResponse.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerReloadRunWorkspaceWithOptionsResponse.fromJson(
+          $core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerReloadRunWorkspaceWithOptionsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<PeerRunWorkspaceState>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: PeerRunWorkspaceState.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerReloadRunWorkspaceWithOptionsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerReloadRunWorkspaceWithOptionsResponse copyWith(
+          void Function(ServerReloadRunWorkspaceWithOptionsResponse) updates) =>
+      super.copyWith((message) =>
+              updates(message as ServerReloadRunWorkspaceWithOptionsResponse))
+          as ServerReloadRunWorkspaceWithOptionsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerReloadRunWorkspaceWithOptionsResponse create() =>
+      ServerReloadRunWorkspaceWithOptionsResponse._();
+  @$core.override
+  ServerReloadRunWorkspaceWithOptionsResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerReloadRunWorkspaceWithOptionsResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          ServerReloadRunWorkspaceWithOptionsResponse>(create);
+  static ServerReloadRunWorkspaceWithOptionsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PeerRunWorkspaceState get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(PeerRunWorkspaceState value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PeerRunWorkspaceState ensureValue() => $_ensure(0);
+}
+
+/// Reloads the selected Workspace, optionally selecting another Workspace and
+/// applying supported parameters first. Unsupported parameter fields are ignored.
+class ServerReloadRunWorkspaceWithOptionsRequest extends $pb.GeneratedMessage {
+  factory ServerReloadRunWorkspaceWithOptionsRequest({
+    $core.String? workspaceName,
+    WorkspaceParametersPatch? parameters,
+  }) {
+    final result = create();
+    if (workspaceName != null) result.workspaceName = workspaceName;
+    if (parameters != null) result.parameters = parameters;
+    return result;
+  }
+
+  ServerReloadRunWorkspaceWithOptionsRequest._();
+
+  factory ServerReloadRunWorkspaceWithOptionsRequest.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ServerReloadRunWorkspaceWithOptionsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ServerReloadRunWorkspaceWithOptionsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'workspaceName')
+    ..aOM<WorkspaceParametersPatch>(2, _omitFieldNames ? '' : 'parameters',
+        subBuilder: WorkspaceParametersPatch.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerReloadRunWorkspaceWithOptionsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ServerReloadRunWorkspaceWithOptionsRequest copyWith(
+          void Function(ServerReloadRunWorkspaceWithOptionsRequest) updates) =>
+      super.copyWith((message) =>
+              updates(message as ServerReloadRunWorkspaceWithOptionsRequest))
+          as ServerReloadRunWorkspaceWithOptionsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ServerReloadRunWorkspaceWithOptionsRequest create() =>
+      ServerReloadRunWorkspaceWithOptionsRequest._();
+  @$core.override
+  ServerReloadRunWorkspaceWithOptionsRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ServerReloadRunWorkspaceWithOptionsRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<
+          ServerReloadRunWorkspaceWithOptionsRequest>(create);
+  static ServerReloadRunWorkspaceWithOptionsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get workspaceName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set workspaceName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasWorkspaceName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearWorkspaceName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  WorkspaceParametersPatch get parameters => $_getN(1);
+  @$pb.TagNumber(2)
+  set parameters(WorkspaceParametersPatch value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasParameters() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearParameters() => $_clearField(2);
+  @$pb.TagNumber(2)
+  WorkspaceParametersPatch ensureParameters() => $_ensure(1);
+}
+
 class ServerReloadRunWorkspaceResponse extends $pb.GeneratedMessage {
   factory ServerReloadRunWorkspaceResponse({
     PeerRunWorkspaceState? value,
@@ -4797,132 +4936,6 @@ class WorkspacePutResponse extends $pb.GeneratedMessage {
   static WorkspacePutResponse getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<WorkspacePutResponse>(create);
   static WorkspacePutResponse? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  Workspace get value => $_getN(0);
-  @$pb.TagNumber(1)
-  set value(Workspace value) => $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasValue() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearValue() => $_clearField(1);
-  @$pb.TagNumber(1)
-  Workspace ensureValue() => $_ensure(0);
-}
-
-class WorkspaceInputPutRequest extends $pb.GeneratedMessage {
-  factory WorkspaceInputPutRequest({
-    $core.String? name,
-    $4.WorkspaceInputMode? input,
-  }) {
-    final result = create();
-    if (name != null) result.name = name;
-    if (input != null) result.input = input;
-    return result;
-  }
-
-  WorkspaceInputPutRequest._();
-
-  factory WorkspaceInputPutRequest.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkspaceInputPutRequest.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkspaceInputPutRequest',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'name')
-    ..aE<$4.WorkspaceInputMode>(2, _omitFieldNames ? '' : 'input',
-        enumValues: $4.WorkspaceInputMode.values)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceInputPutRequest clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceInputPutRequest copyWith(
-          void Function(WorkspaceInputPutRequest) updates) =>
-      super.copyWith((message) => updates(message as WorkspaceInputPutRequest))
-          as WorkspaceInputPutRequest;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkspaceInputPutRequest create() => WorkspaceInputPutRequest._();
-  @$core.override
-  WorkspaceInputPutRequest createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkspaceInputPutRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkspaceInputPutRequest>(create);
-  static WorkspaceInputPutRequest? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get name => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set name($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasName() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearName() => $_clearField(1);
-
-  @$pb.TagNumber(2)
-  $4.WorkspaceInputMode get input => $_getN(1);
-  @$pb.TagNumber(2)
-  set input($4.WorkspaceInputMode value) => $_setField(2, value);
-  @$pb.TagNumber(2)
-  $core.bool hasInput() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearInput() => $_clearField(2);
-}
-
-class WorkspaceInputPutResponse extends $pb.GeneratedMessage {
-  factory WorkspaceInputPutResponse({
-    Workspace? value,
-  }) {
-    final result = create();
-    if (value != null) result.value = value;
-    return result;
-  }
-
-  WorkspaceInputPutResponse._();
-
-  factory WorkspaceInputPutResponse.fromBuffer($core.List<$core.int> data,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
-  factory WorkspaceInputPutResponse.fromJson($core.String json,
-          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'WorkspaceInputPutResponse',
-      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
-      createEmptyInstance: create)
-    ..aOM<Workspace>(1, _omitFieldNames ? '' : 'value',
-        subBuilder: Workspace.create)
-    ..hasRequiredFields = false;
-
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceInputPutResponse clone() => deepCopy();
-  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  WorkspaceInputPutResponse copyWith(
-          void Function(WorkspaceInputPutResponse) updates) =>
-      super.copyWith((message) => updates(message as WorkspaceInputPutResponse))
-          as WorkspaceInputPutResponse;
-
-  @$core.override
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static WorkspaceInputPutResponse create() => WorkspaceInputPutResponse._();
-  @$core.override
-  WorkspaceInputPutResponse createEmptyInstance() => create();
-  @$core.pragma('dart2js:noInline')
-  static WorkspaceInputPutResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WorkspaceInputPutResponse>(create);
-  static WorkspaceInputPutResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
   Workspace get value => $_getN(0);

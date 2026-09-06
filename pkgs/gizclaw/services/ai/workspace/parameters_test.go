@@ -103,8 +103,8 @@ func TestSetPeerWorkspaceParametersRejectsInvalidPatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("invalid initiative error = nil")
 	}
-	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverPet, nil, &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}); err == nil {
-		t.Fatal("pet conversation patch error = nil")
+	if _, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverPet, nil, &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}); err != nil {
+		t.Fatalf("pet conversation patch error = %v", err)
 	}
 }
 
@@ -130,5 +130,37 @@ func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
 	if parameters.Conversation == nil || parameters.Conversation.Initiative == nil || *parameters.Conversation.Initiative != agent ||
 		parameters.Conversation.AgentInitiativePolicy == nil || *parameters.Conversation.AgentInitiativePolicy != policy {
 		t.Fatalf("conversation = %+v", parameters.Conversation)
+	}
+}
+
+func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
+	for _, driver := range []apitypes.WorkflowDriver{
+		apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime,
+		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft, apitypes.WorkflowDriverPet,
+		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
+		apitypes.WorkflowDriverSfu,
+	} {
+		t.Run(string(driver), func(t *testing.T) {
+			realtime := apitypes.WorkspaceInputModeRealtime
+			conversation := &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}
+			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch driver {
+			case apitypes.WorkflowDriverSfu, apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex:
+				if updated != nil {
+					t.Fatalf("unsupported parameters stored: %+v", updated)
+				}
+			default:
+				if updated == nil {
+					t.Fatal("supported input was discarded with unsupported conversation")
+				}
+				discriminator, err := updated.Discriminator()
+				if err != nil || discriminator != string(driver) {
+					t.Fatalf("parameters discriminator = %q, %v", discriminator, err)
+				}
+			}
+		})
 	}
 }

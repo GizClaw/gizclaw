@@ -116,7 +116,8 @@ seed_server() {
   # the Server they are homed on. SFU activation never reads another Peer's
   # profile, so nothing catalog-related is shared between the Servers.
   compose run --rm -T seed -server "$server" -profile-id multi-server-sfu \
-    -token-id "$token_id" -admin-key-env "$admin_env" | tail -n 1
+    -token-id "$token_id" -admin-key-env "$admin_env" \
+    -monitor-workflow-id workspace-reload-echo | tail -n 1
 }
 echo "==> seed server-a and server-b catalogs"
 GIZCLAW_TEST_REGISTRATION_TOKEN_A="$(seed_server server-a:9820 multi-server-sfu-token-a GIZCLAW_E2E_ADMIN_PRIVATE_KEY_A)"

@@ -181,6 +181,17 @@ message ServerReloadRunResponse {
 message ServerReloadRunWorkspaceRequest {
 }
 
+message ServerReloadRunWorkspaceWithOptionsResponse {
+  PeerRunWorkspaceState value = 1;
+}
+
+// Reloads the selected Workspace, optionally selecting another Workspace and
+// applying supported parameters first. Unsupported parameter fields are ignored.
+message ServerReloadRunWorkspaceWithOptionsRequest {
+  optional string workspace_name = 1;
+  optional WorkspaceParametersPatch parameters = 2;
+}
+
 message ServerReloadRunWorkspaceResponse {
   PeerRunWorkspaceState value = 1;
 }
@@ -353,15 +364,6 @@ message WorkspacePutRequest {
 }
 
 message WorkspacePutResponse {
-  Workspace value = 1;
-}
-
-message WorkspaceInputPutRequest {
-  string name = 1;
-  WorkspaceInputMode input = 2;
-}
-
-message WorkspaceInputPutResponse {
   Workspace value = 1;
 }
 

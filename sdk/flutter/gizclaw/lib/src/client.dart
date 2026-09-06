@@ -377,16 +377,14 @@ class GizClawClient {
     );
   }
 
-  /// Changes only the input mode of [name]. The Server keeps every other
-  /// Workspace parameter and the toolkit policy, so callers must not read the
-  /// Workspace or its Workflow first.
-  Future<payload.WorkspaceInputPutResponse> putWorkspaceInput(
+  /// Updates supported Workspace parameters, ignoring unsupported fields.
+  Future<payload.WorkspaceParametersSetResponse> setWorkspaceParameters(
     String name,
-    payload.WorkspaceInputMode input,
+    payload.WorkspaceParametersPatch parameters,
   ) {
-    return rpc.call<payload.WorkspaceInputPutResponse>(
-      'server.workspace.input.put',
-      payload.WorkspaceInputPutRequest(name: name, input: input),
+    return rpc.call<payload.WorkspaceParametersSetResponse>(
+      'server.workspace.parameters.set',
+      payload.WorkspaceParametersSetRequest(name: name, parameters: parameters),
     );
   }
 
@@ -410,6 +408,20 @@ class GizClawClient {
     return rpc.call<payload.ServerReloadRunWorkspaceResponse>(
       'server.run.workspace.reload',
       payload.ServerReloadRunWorkspaceRequest(),
+    );
+  }
+
+  Future<payload.ServerReloadRunWorkspaceWithOptionsResponse>
+  reloadRunWorkspaceWithOptions({
+    String? workspaceName,
+    payload.WorkspaceParametersPatch? parameters,
+  }) {
+    return rpc.call<payload.ServerReloadRunWorkspaceWithOptionsResponse>(
+      'server.run.workspace.reload-with-options',
+      payload.ServerReloadRunWorkspaceWithOptionsRequest(
+        workspaceName: workspaceName,
+        parameters: parameters,
+      ),
     );
   }
 

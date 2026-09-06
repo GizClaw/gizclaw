@@ -10,7 +10,9 @@
 
 RuntimeProfile binding alias 按 Collection 分组，但 Peer 边界把每个 binding 统一投影为不可变 `name`。`server.workflow.list` 必须传 Collection；Workflow、Model、Voice、Tool 的 get/list request 与 response 都只使用 name。响应使用 `runtime_profile_name`；RuntimeProfile 没有独立的 Peer alias，因此其值是 canonical RuntimeProfile ID 原样投影得到的 Peer name，并同时携带 revision。这是正常的 Peer 投影规则，不是兼容字段。其他 canonical ID、provider 配置、credential、ownership 和 executor routing 都留在 Server。
 
-`server.workspace.input.put` 只更新一个 Workspace 的 input mode。Client 传 Workspace `name` 与目标 `WorkspaceInputMode`，Server 读取当前 Workspace、按 Workflow driver 解析继承的 parameters variant、只替换 `input` 并写回，其余 parameters 字段与 toolkit policy 保持不变。Client 不得先 GET Workspace 或 Workflow 再 PUT。Workspace 不存在返回 404；只能通过 Friend、Friend Group 或 Pet 关系解析到、但不属于 caller 的 Workspace 返回 403，未共享的他人 Workspace 不暴露存在性，同样返回 404；Workflow driver 没有 input mode（`dashscope-realtime`、`doubao-realtime-duplex`）或 input 非法返回 400；system Workspace 的其他更新限制仍然适用，被拒时返回 409。读取、修改与写入在同一个 Workspace record lock 内完成，不会覆盖期间提交的其他 Workspace 更新。
+`server.workspace.parameters.set` 接受 Workspace `name` 和局部 `parameters`，由 Server 根据 Workflow driver 更新支持的字段，保留未提供的字段与 toolkit。合法但不支持的字段忽略，不写入配置；非法枚举、空 patch、失效 Workspace 和存储失败仍返回错误。普通 Workspace 保持 owner-only；共享 SFU Workspace 先验证当前好友／群成员身份，再接受参数 no-op，不改变 SFU 输入模式、共享配置或个人设置。系统 Workspace 仅应用其领域允许的参数，其他合法参数忽略。
+
+`server.run.workspace.reload-with-options` 接受可选 `workspace_name` 与 `parameters`：先校验目标访问权和 Workflow 可用性、应用支持的参数，再保存选择并执行一次 reload，返回实际 `PeerRunWorkspaceState`。不传 `workspace_name` 时沿用当前选择；不传 `parameters` 时不更新参数。客户端可用一次 RPC 完成配置、选择与启动，SFU 不会先激活再重复 reload。参数更新失败时不改变选择、不执行 reload；后续选择或启动失败会返回错误，已经成功保存的配置不会回滚。
 
 Workspace create 必须传 `collection` 与 `workflow_name`。Server 把该 Peer name 解析为当前 RuntimeProfile binding，并通过内部 Workspace label 保存 Collection。Workspace list 必须传 Collection 并做精确筛选，但 Peer 响应不包含通用 labels。删除 binding 不会隐藏或删除已有 Workspace；name 再次可解析前 reload/run 返回 not found。
 

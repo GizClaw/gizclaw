@@ -79,9 +79,12 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 
 	// 1. Creating the Social resource never creates a Room.
 	roomsBefore := listRoomNames(t, ctx, rooms)
-	// Selecting an SFU Workspace joins the Room at once: the response already
-	// carries the post-activation runtime state.
-	selected, err := clientA.SetServerRunWorkspace(ctx, "sfu-select-a", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: workspace})
+	// Reload with options selects and starts SFU for the non-owner member.
+	// Unsupported input is ignored, and the response carries the runtime state.
+	selected, err := clientA.ReloadServerRunWorkspaceWithOptions(ctx, "sfu-reload-a", rpcapi.ServerReloadRunWorkspaceWithOptionsRequest{
+		WorkspaceName: &workspace,
+		Parameters:    &rpcapi.WorkspaceParametersPatch{Input: new(rpcapi.WorkspaceInputModeRealtime)},
+	})
 	if err != nil {
 		t.Fatalf("Peer A select Workspace: %v", err)
 	}
