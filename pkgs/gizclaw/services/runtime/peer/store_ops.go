@@ -152,22 +152,39 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 		if err := func() error {
 			unlock := s.IconLocks.LockRecord(publicKey.String())
 			defer unlock()
-			peer, err := s.get(ctx, publicKey)
-			if err != nil {
-				if !errors.Is(err, ErrPeerNotFound) {
+			// Each conflict requires a fresh snapshot: startup may race with
+			// another Server bootstrapping the same configured Edge.
+			for range 8 {
+				if err := ctx.Err(); err != nil {
 					return err
 				}
-				peer = apitypes.Peer{
-					PublicKey: publicKey.String(),
-					Device:    apitypes.DeviceInfo{},
+				if err := s.EnsureAvailable(ctx, publicKey); err != nil && !errors.Is(err, ErrPeerNotFound) {
+					return err
 				}
+				peer, err := s.get(ctx, publicKey)
+				if err != nil && !errors.Is(err, ErrPeerNotFound) {
+					return err
+				}
+				previous := optionalPeer(peer, err)
+				if previous != nil && peer.Role == apitypes.PeerRoleEdgeNode && peer.Status == apitypes.PeerRegistrationStatusActive {
+					return s.rememberPeer(ctx, peer)
+				}
+				if previous == nil {
+					peer = apitypes.Peer{PublicKey: publicKey.String(), Device: apitypes.DeviceInfo{}, CreatedAt: time.Now()}
+				}
+				peer.Role = apitypes.PeerRoleEdgeNode
+				peer.Status = apitypes.PeerRegistrationStatusActive
+				peer.UpdatedAt = time.Now()
+				err = s.writePeerLocked(ctx, peer, previous)
+				if errors.Is(err, ErrPeerConcurrentUpdate) || errors.Is(err, ErrPeerAlreadyExists) {
+					continue
+				}
+				if err != nil {
+					return err
+				}
+				return s.rememberPeer(ctx, peer)
 			}
-			peer.Role = apitypes.PeerRoleEdgeNode
-			peer.Status = apitypes.PeerRegistrationStatusActive
-			if _, err := s.putRecord(ctx, peer); err != nil {
-				return err
-			}
-			return nil
+			return ErrPeerConcurrentUpdate
 		}(); err != nil {
 			return err
 		}

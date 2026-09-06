@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestStoreOpsHelpers(t *testing.T) {
@@ -93,4 +94,58 @@ func TestStoreOpsSavePeerRejectsInvalidPeer(t *testing.T) {
 		t.Fatalf("SavePeer invalid err = %v", err)
 	}
 
+}
+
+// Another Server can create or edit the shared Edge record after bootstrap
+// reads it. A retry must merge from that record, not overwrite its metadata.
+func TestBootstrapEdgeNodesPreservesConcurrentMetadata(t *testing.T) {
+	for _, exists := range []bool{false, true} {
+		t.Run(map[bool]string{false: "create", true: "update"}[exists], func(t *testing.T) {
+			base := mustBadgerInMemory(t, nil)
+			key := giznet.PublicKey{43}
+			other := &Server{Store: base}
+			record := apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive}
+			if exists {
+				if _, err := other.SavePeer(t.Context(), record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			store := &bootstrapConflictStore{Store: base}
+			store.before = func() {
+				sn := "concurrent-sn"
+				record.Device.Identifiers = &apitypes.DeviceIdentifiers{Sn: &sn}
+				if _, err := other.SavePeer(t.Context(), record); err != nil {
+					t.Fatal(err)
+				}
+			}
+			server := &Server{Store: store}
+			if err := server.BootstrapEdgeNodes(t.Context(), []giznet.PublicKey{key}); err != nil {
+				t.Fatal(err)
+			}
+			got, err := other.LoadPeer(t.Context(), key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Role != apitypes.PeerRoleEdgeNode || got.Device.Identifiers == nil || got.Device.Identifiers.Sn == nil || *got.Device.Identifiers.Sn != "concurrent-sn" {
+				t.Fatalf("bootstrap lost concurrent metadata: %#v", got)
+			}
+			keys, err := base.ListMembers(t.Context(), snPrefix("concurrent-sn"))
+			if err != nil || len(keys) != 1 || keys[0] != key.String() {
+				t.Fatalf("identifier index: %v, %v", keys, err)
+			}
+		})
+	}
+}
+
+type bootstrapConflictStore struct {
+	kv.Store
+	before func()
+}
+
+func (s *bootstrapConflictStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	if before := s.before; before != nil {
+		s.before = nil
+		before()
+	}
+	return s.Store.ApplyMutation(ctx, mutation)
 }
