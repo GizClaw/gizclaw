@@ -215,13 +215,18 @@ func deleteProviderVoiceSQL(ctx context.Context, db *sqlx.DB, kind apitypes.Voic
 		return err
 	}
 	defer tx.Rollback()
-	if err := lockVoiceProvider(ctx, tx, kind, providerID); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM voices WHERE source='sync' AND provider_kind=? AND provider_id=?`), string(kind), providerID); err != nil {
+	if err := deleteProviderVoiceTx(ctx, tx, kind, providerID); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func deleteProviderVoiceTx(ctx context.Context, tx *sqlx.Tx, kind apitypes.VoiceProviderKind, providerID string) error {
+	if err := lockVoiceProvider(ctx, tx, kind, providerID); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, tx.Rebind(`DELETE FROM voices WHERE source='sync' AND provider_kind=? AND provider_id=?`), string(kind), providerID)
+	return err
 }
 
 func getVoiceSQL(ctx context.Context, db *sqlx.DB, id string) (apitypes.Voice, error) {

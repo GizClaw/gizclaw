@@ -105,10 +105,9 @@ func (s *Server) DeleteVolcTenant(ctx context.Context, request adminhttp.DeleteV
 	if err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteVolcTenantVoices(ctx, voices, tenant.Id); err != nil {
-		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if _, err := deleteSQLTenantIncarnation[apitypes.VolcTenant](ctx, store, "volc", tenant.Id, incarnation); err != nil {
+	if _, err := deleteSQLTenantIncarnation[apitypes.VolcTenant](ctx, store, "volc", tenant.Id, incarnation, func(tx *sqlx.Tx) error {
+		return voices.DeleteProviderVoicesInTransaction(ctx, store, tx, volcProviderKind, tenant.Id)
+	}); err != nil {
 		return adminhttp.DeleteVolcTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteVolcTenant200JSONResponse(tenant), nil
@@ -753,10 +752,6 @@ func (r volcSpeakerRecord) statusText() string {
 		return ""
 	}
 	return strings.TrimSpace(r.status.InstanceStatus)
-}
-
-func deleteVolcTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenantID string) error {
-	return service.DeleteProviderVoices(ctx, volcProviderKind, tenantID)
 }
 
 func volcTenantResourceIDs(tenant apitypes.VolcTenant) []string {

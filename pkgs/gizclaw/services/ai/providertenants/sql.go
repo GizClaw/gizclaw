@@ -138,10 +138,29 @@ func deleteSQLTenant[T tenantObject](ctx context.Context, db *sqlx.DB, kind, id 
 	return item, err
 }
 
-// deleteSQLTenantIncarnation removes only the tenant observed before dependent cleanup.
-func deleteSQLTenantIncarnation[T tenantObject](ctx context.Context, db *sqlx.DB, kind, id, incarnation string) (T, error) {
-	item, _, err := scanTenant[T](db.QueryRowContext(ctx, db.Rebind(`DELETE FROM provider_tenants WHERE provider_kind=? AND id=? AND incarnation=? RETURNING `+tenantColumns), kind, id, incarnation))
-	return item, err
+// deleteSQLTenantIncarnation locks and removes the observed tenant before
+// dependent cleanup. The uncommitted deletion prevents a replacement with the
+// same identity from being published until cleanup finishes.
+func deleteSQLTenantIncarnation[T tenantObject](ctx context.Context, db *sqlx.DB, kind, id, incarnation string, cleanup func(*sqlx.Tx) error) (T, error) {
+	var zero T
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return zero, err
+	}
+	defer tx.Rollback()
+	item, _, err := scanTenant[T](tx.QueryRowContext(ctx, tx.Rebind(`DELETE FROM provider_tenants WHERE provider_kind=? AND id=? AND incarnation=? RETURNING `+tenantColumns), kind, id, incarnation))
+	if err != nil {
+		return zero, err
+	}
+	if cleanup != nil {
+		if err := cleanup(tx); err != nil {
+			return zero, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return zero, err
+	}
+	return item, nil
 }
 
 func listSQLTenants[T tenantObject](ctx context.Context, db *sqlx.DB, kind, cursor string, limit int) ([]T, bool, *string, error) {

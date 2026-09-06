@@ -43,6 +43,7 @@ type VoiceAdminService interface {
 type ProviderVoiceService interface {
 	ReconcileProviderVoices(context.Context, apitypes.VoiceProviderKind, string, []apitypes.Voice) (created, updated, deleted int32, err error)
 	DeleteProviderVoices(context.Context, apitypes.VoiceProviderKind, string) error
+	DeleteProviderVoicesInTransaction(context.Context, *sqlx.DB, *sqlx.Tx, apitypes.VoiceProviderKind, string) error
 }
 
 var _ VoiceAdminService = (*Server)(nil)
@@ -64,6 +65,24 @@ func (s *Server) DeleteProviderVoices(ctx context.Context, kind apitypes.VoicePr
 	db, err := s.database()
 	if err != nil {
 		return err
+	}
+	return deleteProviderVoiceSQL(ctx, db, kind, providerID)
+}
+
+// DeleteProviderVoicesInTransaction joins tenant retirement when the services
+// share a pool, avoiding a second connection and rolling both changes back
+// together. With separate databases, the caller must keep the tenant lifecycle
+// locked until the independent, retryable voice cleanup commits.
+func (s *Server) DeleteProviderVoicesInTransaction(ctx context.Context, ownerDB *sqlx.DB, tx *sqlx.Tx, kind apitypes.VoiceProviderKind, providerID string) error {
+	db, err := s.database()
+	if err != nil {
+		return err
+	}
+	if ownerDB == nil || tx == nil {
+		return errors.New("voice: tenant transaction is required")
+	}
+	if db.DB == ownerDB.DB {
+		return deleteProviderVoiceTx(ctx, tx, kind, providerID)
 	}
 	return deleteProviderVoiceSQL(ctx, db, kind, providerID)
 }

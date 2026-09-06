@@ -120,6 +120,8 @@ Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入
 
 一个 OpenAI Conversation 一对一映射一个用户 Workspace；绑定 `sfu` driver Workspace 的文本执行会被明确拒绝，因为该 Workspace 没有可执行文本输入的 Agent。History 仍是唯一 transcript store；OpenAI item record 只保存稳定 ID、role/status/order 与准确 History correlation。Conversation metadata、item index、不可变 Response input snapshot 与 Response lifecycle record 共用 Workspace runtime prefix，因此会被普通 Workspace cleanup 一并移除。
 
+租户删除先在 SQL 事务内按创建标识删除原记录，保持生命周期锁直到音色清理完成；旧请求若遇到重建记录，在清理音色之前就失败。租户与 Voice 共用连接池时，音色删除加入同一事务，失败一起回滚，也不会占用第二个连接。使用不同数据库时，音色清理独立提交且可重试，租户事务在此期间阻止同名替代记录创建；该配置不提供跨数据库原子提交。
+
 ## 依赖与边界
 
 ```mermaid

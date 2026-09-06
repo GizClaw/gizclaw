@@ -159,10 +159,9 @@ func (s *Server) DeleteMiniMaxTenant(ctx context.Context, request adminhttp.Dele
 	if err != nil {
 		return adminhttp.DeleteMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := deleteMiniMaxTenantVoices(ctx, voices, tenant.Id); err != nil {
-		return adminhttp.DeleteMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if _, err := deleteSQLTenantIncarnation[apitypes.MiniMaxTenant](ctx, store, "minimax", tenant.Id, incarnation); err != nil {
+	if _, err := deleteSQLTenantIncarnation[apitypes.MiniMaxTenant](ctx, store, "minimax", tenant.Id, incarnation, func(tx *sqlx.Tx) error {
+		return voices.DeleteProviderVoicesInTransaction(ctx, store, tx, miniMaxProviderKind, tenant.Id)
+	}); err != nil {
 		return adminhttp.DeleteMiniMaxTenant500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.DeleteMiniMaxTenant200JSONResponse(tenant), nil
@@ -679,10 +678,6 @@ func voiceFromMiniMax(tenantID string, upstream minimax.Voice, now time.Time) ap
 		voice.Description = &description
 	}
 	return voice
-}
-
-func deleteMiniMaxTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenantID string) error {
-	return service.DeleteProviderVoices(ctx, miniMaxProviderKind, tenantID)
 }
 
 func getCredentialFromService(ctx context.Context, service CredentialService, id string) (apitypes.Credential, error) {

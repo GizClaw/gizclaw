@@ -120,6 +120,8 @@ Ordinary Workspace creation is Peer-owned. Admin `PUT` updates an existing Works
 
 One OpenAI Conversation maps one-to-one to one user Workspace. Text execution against a Workspace bound to the `sfu` driver is rejected explicitly because that Workspace has no Agent that can execute text input. History remains the sole transcript store; OpenAI item records contain only stable IDs, role/status/order, and exact History correlation. Conversation metadata, item indexes, immutable Response input snapshots, and Response lifecycle records share the Workspace runtime prefix and are therefore removed by normal Workspace cleanup.
 
+Tenant retirement first deletes the observed incarnation within a SQL transaction and holds its lifecycle lock until voice cleanup completes. A stale request encountering a replacement fails before touching voices. When tenant and Voice services share a pool, voice removal joins that transaction, rolls back with it, and does not borrow a second connection. With separate databases, voice cleanup commits independently and is retryable while the tenant transaction prevents a same-ID replacement; this configuration does not provide cross-database atomic commit.
+
 ## Dependencies and boundaries
 
 ```mermaid
