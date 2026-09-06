@@ -103,6 +103,7 @@ listeners add TCP HTTP/HTTPS ingress only; they publish no ICE candidate and
 open no UDP socket. `/server-info.transport.endpoint` preserves the request
 scheme and its Host, including the port: HTTP stays HTTP, TLS stays HTTPS,
 and requests through ports 9821 and 443 retain their respective ports.
+Missing or invalid Host values (including invalid DNS names, IPv6, empty ports or ports outside 1–65535) return `400` before forwarding. Valid authorities retain their spelling and explicit port. IPv6 requires brackets and does not accept zone identifiers.
 Client-supplied `Forwarded` and `X-Forwarded-*` headers do not override this origin.
 Optional `http.endpoint` supplies the public access-point path prefix; its
 scheme, host, and port do not override the request origin. Omitting it adds no

@@ -1577,6 +1577,7 @@ func TestPeerHTTPProxyPreservesSignalingOrigin(t *testing.T) {
 			for _, origin := range []string{
 				"http://edge.example:9821", "https://edge.example:9821",
 				"https://edge.example:443", "https://edge.example",
+				"http://127.0.0.1:9821", "http://localhost:9821", "https://EDGE.example.:443",
 				"http://[2001:db8::1]:9821", "https://[2001:db8::1]:8443",
 			} {
 				t.Run(origin, func(t *testing.T) {
@@ -1607,6 +1608,29 @@ func TestPeerHTTPProxyPreservesSignalingOrigin(t *testing.T) {
 						t.Fatalf("ICE or shared configuration changed: %#v, %#v", info, configured)
 					}
 				})
+			}
+		})
+	}
+}
+
+func TestPeerHTTPProxyRejectsInvalidSignalingAuthority(t *testing.T) {
+	handler := newPeerHTTPProxy("edge:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("invalid Host reached upstream")
+		return nil, nil
+	}), &serverInfoTransport{Mode: "edge-gateway", Endpoint: "https://configured.example"})
+	for _, host := range []string{
+		"", "edge.example:", "edge.example:0", "edge.example:65536", "edge.example:abc",
+		"[::1", "[not-ip]:9821", "[127.0.0.1]:9821", "::1", "edge.example/path",
+		"user@edge.example", "edge.example?", "edge.example#", "edge example", ".", "-edge.example",
+		"edge..example", "edge.example\n", "edge.example%20", "[fe80::1%25en0]:9821",
+	} {
+		t.Run(host, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+			req.Host = host
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, req)
+			if response.Code != http.StatusBadRequest || response.Body.String() != "invalid request Host\n" {
+				t.Fatalf("response = %d %q", response.Code, response.Body.String())
 			}
 		})
 	}

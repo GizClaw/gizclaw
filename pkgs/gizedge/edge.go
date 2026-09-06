@@ -421,7 +421,11 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Capture the ingress origin before the Director rewrites the request.
 		requestTransport := infoTransport
-		if infoTransport != nil {
+		if infoTransport != nil && req.URL.Path == "/server-info" {
+			if !validSignalingAuthority(req.Host) {
+				http.Error(w, "invalid request Host", http.StatusBadRequest)
+				return
+			}
 			info := *infoTransport
 			endpoint := url.URL{Scheme: "http", Host: req.Host}
 			if req.TLS != nil {
@@ -444,6 +448,35 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 		}
 		requestProxy.ServeHTTP(w, req)
 	})
+}
+
+// validSignalingAuthority checks the authority without changing its spelling or port.
+func validSignalingAuthority(authority string) bool {
+	parsed, err := url.Parse("http://" + authority)
+	if err != nil || parsed.Host != authority || parsed.User != nil || parsed.Path != "" || parsed.ForceQuery || parsed.RawQuery != "" || parsed.Fragment != "" || strings.ContainsAny(authority, "#%") {
+		return false
+	}
+	if _, err := normalizeHTTPPublicEndpoint("http://" + authority); err != nil {
+		return false
+	}
+	host := parsed.Hostname()
+	if strings.HasPrefix(authority, "[") {
+		return strings.Contains(host, ":") && net.ParseIP(host) != nil
+	}
+	if len(host) > 253 {
+		return false
+	}
+	for label := range strings.SplitSeq(strings.TrimSuffix(host, "."), ".") {
+		if label == "" || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return false
+		}
+		for _, char := range label {
+			if !(char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || char == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func writeEdgeProxyError(w http.ResponseWriter, req *http.Request, err error) {

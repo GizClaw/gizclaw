@@ -104,6 +104,7 @@ address 不触发 DNS lookup，也不会伪造 public candidate。额外的 HTTP
 HTTP/HTTPS 入口，不发布 ICE candidate，也不创建 UDP socket。
 `/server-info.transport.endpoint` 保留本次请求的协议以及 Host 中的域名和端口：
 HTTP 请求返回 HTTP，TLS 请求返回 HTTPS；9821 与 443 入口各自返回原端口。
+缺失或非法 Host（包括非法 DNS 名、IPv6、空端口或超出 1–65535 的端口）会在转发前返回 `400`；合法 Host 保留原拼写与显式端口。IPv6 必须使用方括号，且不接受 zone identifier。
 不使用客户端提供的 `Forwarded` 或 `X-Forwarded-*` headers 改写入口。
 可选的 `http.endpoint` 提供公网 access-point 的 path prefix，其协议、域名和端口
 不覆盖请求入口；省略时不附加 prefix。该配置必须是绝对 `http` 或 `https` URL，
