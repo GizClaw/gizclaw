@@ -36,7 +36,16 @@ func (h *PeerConn) inputPermission(ctx context.Context, refresh bool) peerInputP
 	revision := h.agentHost.RuntimeRevision()
 	denied := peerInputPermission{revision: revision, denial: sfuAccessCheckFailedError()}
 	if revision%2 != 0 {
-		return denied
+		// Reload ends the old route before publishing its replacement. The
+		// SDK may rearm immediately; await publication before admission.
+		waitCtx, cancel := context.WithTimeout(ctx, peerPermissionRequestTimeout)
+		stable, err := h.agentHost.WaitRuntimeRevision(waitCtx)
+		cancel()
+		if err != nil {
+			return denied
+		}
+		revision = stable
+		denied.revision = stable
 	}
 	cache := &h.permissions
 	for {

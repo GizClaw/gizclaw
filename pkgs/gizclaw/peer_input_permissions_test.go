@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
@@ -249,5 +250,58 @@ func TestBackgroundPermissionRefreshRevokesMembership(t *testing.T) {
 				return
 			}
 		}
+	}
+}
+
+func TestPermissionAdmissionWaitsForReloadPublication(t *testing.T) {
+	peer, _ := permissionTestPeer(t)
+	source := newPeerConnBlockingOpenInput()
+	host := &agenthost.Service{
+		Host:      peerConnTestHost{output: &peerConnBlockingStream{done: make(chan struct{})}},
+		PeerRun:   peer.Service.manager.PeerRun,
+		PublicKey: peer.Conn.PublicKey(),
+		Source:    source,
+		Consumer:  agenthost.StreamConsumerFunc(func(ctx context.Context, _ genx.Stream) error { <-ctx.Done(); return nil }),
+	}
+	peer.agentHost = host
+	reloadDone := make(chan error, 1)
+	go func() { _, err := host.Reload(t.Context()); reloadDone <- err }()
+	var release sync.Once
+	defer func() {
+		release.Do(func() { close(source.openRelease) })
+		if err := <-reloadDone; err != nil {
+			t.Errorf("reload: %v", err)
+		}
+		if _, err := host.Stop(context.Background()); err != nil {
+			t.Errorf("stop: %v", err)
+		}
+	}()
+	select {
+	case <-source.openEntered:
+	case <-time.After(time.Second):
+		t.Fatal("reload did not enter input replacement")
+	}
+	waitCtx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+	defer cancel()
+	if value := peer.inputPermission(waitCtx, false); value.denial == nil {
+		t.Fatal("canceled admission accepted an unpublished runtime")
+	}
+	// The SDK can send the replacement BOS as soon as the old route ends,
+	// while OpenAgentInput and runtime publication are still in progress.
+	admitted := make(chan peerInputPermission, 1)
+	go func() { admitted <- peer.inputPermission(t.Context(), false) }()
+	select {
+	case value := <-admitted:
+		t.Fatalf("admission finished before runtime publication: %+v", value)
+	case <-time.After(50 * time.Millisecond):
+	}
+	release.Do(func() { close(source.openRelease) })
+	select {
+	case value := <-admitted:
+		if value.denial != nil || value.revision%2 != 0 || value.revision != host.RuntimeRevision() {
+			t.Fatalf("replacement route was not admitted on the published revision: %+v", value)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("admission did not resume after publication")
 	}
 }
