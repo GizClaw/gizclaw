@@ -171,6 +171,7 @@ func workspaceParametersWithPatch(
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
 	default:
 		if input != nil {
+			// The input helper also ignores drivers without input support.
 			return workspaceParametersWithInput(parameters, driver, *input)
 		}
 		return parameters, nil

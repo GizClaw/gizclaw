@@ -5,7 +5,8 @@ import "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 // workspaceParametersWithInput projects stored Workspace parameters with the
 // input mode replaced. A Workspace that inherits its parameters keeps
 // inheriting every other field: only the agent_type discriminator required by
-// the Workflow driver and the input override are written.
+// the Workflow driver and the input override are written. Drivers without
+// input support preserve the original parameters without an update.
 func workspaceParametersWithInput(
 	parameters *apitypes.WorkspaceParameters,
 	driver apitypes.WorkflowDriver,
