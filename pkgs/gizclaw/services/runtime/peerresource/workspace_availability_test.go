@@ -2,13 +2,14 @@ package peerresource
 
 import (
 	"context"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workflowtest"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -176,6 +177,34 @@ func TestSystemWorkspaceAvailabilityDoesNotRequireCollectionLabel(t *testing.T) 
 		Name: "legacy", WorkflowId: "pet-care",
 	}) {
 		t.Fatal("ordinary unlabeled Workspace is available")
+	}
+}
+
+func TestSFUWorkspaceProjectionWithoutRuntimeProfile(t *testing.T) {
+	system, ordinary := true, false
+	for _, tc := range []struct {
+		name      string
+		workspace apitypes.Workspace
+		available bool
+	}{
+		{"sfu", apitypes.Workspace{WorkflowId: socialutil.SFUWorkflowID, System: &system}, true},
+		{"ordinary sfu id", apitypes.Workspace{WorkflowId: socialutil.SFUWorkflowID, System: &ordinary}, false},
+		{"unmarked sfu id", apitypes.Workspace{WorkflowId: socialutil.SFUWorkflowID}, false},
+		{"pet", apitypes.Workspace{WorkflowId: "pet-care", System: &system}, false},
+		{"ordinary workflow", apitypes.Workspace{WorkflowId: "canonical-workflow"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			projected, err := workspaceRPCProjection(tc.workspace, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if projected.Available != tc.available {
+				t.Fatalf("Available = %v, want %v", projected.Available, tc.available)
+			}
+			if tc.available && projected.WorkflowName != "sfu" {
+				t.Fatalf("WorkflowName = %q, want sfu", projected.WorkflowName)
+			}
+		})
 	}
 }
 

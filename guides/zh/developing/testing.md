@@ -36,7 +36,23 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 它运行 Redis、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
 
-`sfu.friend.cross-server.audio-bytes` 不需要凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频，不需要语音服务凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+
+不依赖语音服务的 SFU 场景覆盖如下边界：
+
+| 场景（省略 `sfu.` 和 `.audio-bytes`） | 验证内容 |
+| --- | --- |
+| `friend.cross-server` | 两台 Server 上的好友双向 PTT，发送方不收到自己的音频 |
+| `friend-group.remove-readd` | 等待踢出撤权，保持连接，加回并选择原 Workspace 后恢复双向音频 |
+| `friend-group.reconnect-readd` | 被踢出后重连仍无成员权限，加回后无需再次注册即可选择原 Workspace 并恢复双向音频 |
+| `friend-group.rapid-readd` | 连续三轮立即踢出再加回，不等待周期撤权，验证 PTT 和 realtime |
+| `friend-group.mixed-server-members` | 每台 Server 两名成员，移除本机和异机成员；其余成员继续通话；重复添加不重复计数，owner 添加与邀请重入恢复广播 |
+| `friend.delete-readd` | 删除好友后双方撤权，重新添加生成新 Workspace 并恢复通话 |
+| `friend-group.delete-recreate` | 删除群后同名重建生成新 Workspace，未重新加入的旧成员收不到新群音频 |
+| `workspace.isolation-switch` | 两个跨 Server 群的音频隔离、成员切群及切回 |
+| `workspace.stop-reconnect` | 双方停止后重选原 Workspace，同一 Peer 断线重连后无需再次注册即可恢复双向 PTT/realtime 音频 |
+
+媒体断言检查实际 Opus 字节和包数，不重试媒体步骤；运行状态等待有明确上限。快速加回用例覆盖撤权检查与重新激活的竞争窗口，不保证每次都命中某一种执行顺序。每个场景使用独立 Peer 和资源，`finally` 清理运行时、社交资源和 Peer；完整报告位于 `tests/gizclaw-e2e/testdata/multi-server/sfu-report.json`。这些用例不验证设备扬声器播放或转写内容。
 
 ### Cloud ObjectStore conformance
 

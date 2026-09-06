@@ -18,3 +18,5 @@ Peer resource create/put/delete exists only for Workspace state. Admin owns cano
 Firmware is not part of the RuntimeProfile name catalog. A RegistrationToken may bind one caller-defined canonical Firmware ID to a Peer; `server.register` returns no Firmware identity, and `server.firmware.get` resolves the internal binding without exposing the ID. The device requests one channel and receives its external HTTPS `.tar.zlib` URL, SHA-256, and archive size. Peer RPC does not list Firmware or transfer package bytes.
 
 Catalog resolution takes a fresh profile snapshot for each operation. A dangling internal binding is unavailable without exposing its canonical target. Removing a Workflow binding does not remove or hide existing Workspace state; execution returns not found until the same Peer name is restored.
+
+Run selection for a built-in SFU Workspace does not depend on a RuntimeProfile. A reconnected Peer can select an SFU Workspace it still belongs to without registering again. Selection still checks current Social membership and Workspace deletion state; ordinary Workflow and Pet Workspaces still require the current RuntimeProfile.

@@ -3,7 +3,7 @@
 # single-node LiveKit and a giztest runner. Runs the Go multi-server suite,
 # then the SFU giztest scenarios. Provider-backed (TTS/ASR) scenarios only run
 # when tests/gizclaw-e2e/.env carries the Volc/Doubao credentials; the
-# provider-free audio scenario always runs.
+# provider-free audio scenarios always run.
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -174,7 +174,17 @@ for task in report.get("tasks", []):
 PY
 }
 
-scenarios=("$giztest_dir/sfu.friend.cross-server.audio-bytes.giztest.yaml")
+scenarios=(
+  "$giztest_dir/sfu.friend.cross-server.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend-group.reconnect-readd.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend-group.rapid-readd.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend-group.mixed-server-members.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend.delete-readd.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.friend-group.delete-recreate.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.workspace.isolation-switch.audio-bytes.giztest.yaml"
+  "$giztest_dir/sfu.workspace.stop-reconnect.audio-bytes.giztest.yaml"
+)
 if [[ "$GIZCLAW_E2E_SFU_PROVIDER" == 1 ]]; then
   scenarios+=(
     "$giztest_dir/sfu.friend.cross-server.giztest.yaml"

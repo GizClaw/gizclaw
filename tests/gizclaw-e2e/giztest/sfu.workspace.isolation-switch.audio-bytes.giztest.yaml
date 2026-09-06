@@ -1,0 +1,564 @@
+# User Story:
+# As a member of two groups spanning the same pair of Servers,
+# I want to switch my selected Workspace between the groups and back,
+# So that audio reaches only the currently selected group on the same Peer connection.
+# Uses a committed two-second Opus tone; media assertions are never retried.
+# Realtime listen windows include the runner's four-second silence tail.
+version: gizclaw.test/v1alpha1
+name: sfu.workspace.isolation-switch.audio-bytes
+timeout: 5m
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+  carol:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  dave:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  tone:
+    direction: input
+    type: audio
+    env: GIZCLAW_TEST_SFU_TONE_OGG_BASE64
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+  group_x:
+    direction: input
+    type: string
+    generate: token
+  group_x_invite:
+    direction: output
+    type: string
+    secret: true
+  group_x_workspace:
+    direction: output
+    type: string
+  bob_member:
+    direction: output
+    type: string
+  bob_public_key:
+    direction: output
+    type: string
+  group_y:
+    direction: input
+    type: string
+    generate: token
+  group_y_invite:
+    direction: output
+    type: string
+    secret: true
+  group_y_workspace:
+    direction: output
+    type: string
+  dave_member:
+    direction: output
+    type: string
+  dave_public_key:
+    direction: output
+    type: string
+steps:
+  - id: create_group_x
+    client: alice
+    rpc:
+      method: server.friend_group.create
+      request: {name: '${group_x}'}
+    capture:
+      group_x_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: invite_group_x
+    client: alice
+    rpc:
+      method: server.friend_group.invite_token.create
+      request: {friend_group_name: '${group_x}'}
+    capture:
+      group_x_invite: /invite_token
+  - id: join_group_x_bob
+    client: bob
+    rpc:
+      method: server.friend_group.join
+      request: {invite_token: '${group_x_invite}', name: '${group_x}'}
+    capture:
+      bob_member: /member/name
+      bob_public_key: /member/peer_public_key
+    expect:
+      /group/workspace_name: {equals: '${group_x_workspace}'}
+  - id: create_group_y
+    client: carol
+    rpc:
+      method: server.friend_group.create
+      request: {name: '${group_y}'}
+    capture:
+      group_y_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: invite_group_y
+    client: carol
+    rpc:
+      method: server.friend_group.invite_token.create
+      request: {friend_group_name: '${group_y}'}
+    capture:
+      group_y_invite: /invite_token
+  - id: join_group_y_dave
+    client: dave
+    rpc:
+      method: server.friend_group.join
+      request: {invite_token: '${group_y_invite}', name: '${group_y}'}
+    capture:
+      dave_member: /member/name
+      dave_public_key: /member/peer_public_key
+    expect:
+      /group/workspace_name: {equals: '${group_y_workspace}'}
+  - id: join_group_y_bob
+    client: bob
+    rpc:
+      method: server.friend_group.join
+      request: {invite_token: '${group_y_invite}', name: '${group_y}'}
+    expect:
+      /group/workspace_name: {equals: '${group_y_workspace}'}
+      /member/name:
+        equals: ${bob_member}
+      /member/peer_public_key:
+        equals: ${bob_public_key}
+  - id: alice_x
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${group_x_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${group_x_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: alice_x_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${group_x_workspace}'}
+  - id: bob_x
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${group_x_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${group_x_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_x_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${group_x_workspace}'}
+  - id: carol_y
+    client: carol
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${group_y_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${group_y_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: carol_y_running
+    client: carol
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${group_y_workspace}'}
+  - id: dave_y
+    client: dave
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${group_y_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${group_y_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: dave_y_running
+    client: dave
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${group_y_workspace}'}
+  - id: x_forward
+    timeout: 20s
+    parallel:
+      - id: x_forward_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_forward_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_forward_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_forward_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_forward_alice_speak
+        client: alice
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /x_forward_bob_listen/audio_bytes: {minimum: 2000}
+      /x_forward_bob_listen/packets: {minimum: 50}
+      /x_forward_carol_listen/audio_bytes: {maximum: 0}
+      /x_forward_dave_listen/audio_bytes: {maximum: 0}
+      /x_forward_alice_listen/audio_bytes: {maximum: 0}
+      /x_forward_alice_speak/input_sent: {equals: true}
+  - id: x_reverse
+    timeout: 20s
+    parallel:
+      - id: x_reverse_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_bob_speak
+        client: bob
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /x_reverse_alice_listen/audio_bytes: {minimum: 2000}
+      /x_reverse_alice_listen/packets: {minimum: 50}
+      /x_reverse_carol_listen/audio_bytes: {maximum: 0}
+      /x_reverse_dave_listen/audio_bytes: {maximum: 0}
+      /x_reverse_bob_listen/audio_bytes: {maximum: 0}
+      /x_reverse_bob_speak/input_sent: {equals: true}
+  - id: y_forward
+    timeout: 20s
+    parallel:
+      - id: y_forward_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_forward_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_forward_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_forward_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_forward_carol_speak
+        client: carol
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /y_forward_dave_listen/audio_bytes: {minimum: 2000}
+      /y_forward_dave_listen/packets: {minimum: 50}
+      /y_forward_alice_listen/audio_bytes: {maximum: 0}
+      /y_forward_bob_listen/audio_bytes: {maximum: 0}
+      /y_forward_carol_listen/audio_bytes: {maximum: 0}
+      /y_forward_carol_speak/input_sent: {equals: true}
+  - id: y_reverse
+    timeout: 20s
+    parallel:
+      - id: y_reverse_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_reverse_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_reverse_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_reverse_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_reverse_dave_speak
+        client: dave
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /y_reverse_carol_listen/audio_bytes: {minimum: 2000}
+      /y_reverse_carol_listen/packets: {minimum: 50}
+      /y_reverse_alice_listen/audio_bytes: {maximum: 0}
+      /y_reverse_bob_listen/audio_bytes: {maximum: 0}
+      /y_reverse_dave_listen/audio_bytes: {maximum: 0}
+      /y_reverse_dave_speak/input_sent: {equals: true}
+  - id: bob_switches_y
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${group_y_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${group_y_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_switches_y_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${group_y_workspace}'}
+  - id: x_now_alone
+    timeout: 20s
+    parallel:
+      - id: x_now_alone_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_now_alone_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_now_alone_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_now_alone_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_now_alone_alice_speak
+        client: alice
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /x_now_alone_bob_listen/audio_bytes: {maximum: 0}
+      /x_now_alone_carol_listen/audio_bytes: {maximum: 0}
+      /x_now_alone_dave_listen/audio_bytes: {maximum: 0}
+      /x_now_alone_alice_listen/audio_bytes: {maximum: 0}
+      /x_now_alone_alice_speak/input_sent: {equals: true}
+  - id: y_includes_bob
+    timeout: 20s
+    parallel:
+      - id: y_includes_bob_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_includes_bob_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_includes_bob_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_includes_bob_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_includes_bob_dave_speak
+        client: dave
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /y_includes_bob_carol_listen/audio_bytes: {minimum: 2000}
+      /y_includes_bob_carol_listen/packets: {minimum: 50}
+      /y_includes_bob_bob_listen/audio_bytes: {minimum: 2000}
+      /y_includes_bob_bob_listen/packets: {minimum: 50}
+      /y_includes_bob_alice_listen/audio_bytes: {maximum: 0}
+      /y_includes_bob_dave_listen/audio_bytes: {maximum: 0}
+      /y_includes_bob_dave_speak/input_sent: {equals: true}
+  - id: bob_speaks_y
+    timeout: 20s
+    parallel:
+      - id: bob_speaks_y_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 8s}
+      - id: bob_speaks_y_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 8s}
+      - id: bob_speaks_y_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 8s}
+      - id: bob_speaks_y_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 8s}
+      - id: bob_speaks_y_bob_speak
+        client: bob
+        delay: 200ms
+        peer_stream: {mode: realtime, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /bob_speaks_y_carol_listen/audio_bytes: {minimum: 2000}
+      /bob_speaks_y_carol_listen/packets: {minimum: 50}
+      /bob_speaks_y_dave_listen/audio_bytes: {minimum: 2000}
+      /bob_speaks_y_dave_listen/packets: {minimum: 50}
+      /bob_speaks_y_alice_listen/audio_bytes: {maximum: 0}
+      /bob_speaks_y_bob_listen/audio_bytes: {maximum: 0}
+      /bob_speaks_y_bob_speak/input_sent: {equals: true}
+  - id: bob_switches_back
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${group_x_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${group_x_workspace}'}
+      /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STARTING|RUNNING)$}
+  - id: bob_switches_back_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 1s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${group_x_workspace}'}
+  - id: x_restored
+    timeout: 20s
+    parallel:
+      - id: x_restored_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_restored_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_restored_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_restored_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_restored_alice_speak
+        client: alice
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /x_restored_bob_listen/audio_bytes: {minimum: 2000}
+      /x_restored_bob_listen/packets: {minimum: 50}
+      /x_restored_carol_listen/audio_bytes: {maximum: 0}
+      /x_restored_dave_listen/audio_bytes: {maximum: 0}
+      /x_restored_alice_listen/audio_bytes: {maximum: 0}
+      /x_restored_alice_speak/input_sent: {equals: true}
+  - id: x_reverse_restored
+    timeout: 20s
+    parallel:
+      - id: x_reverse_restored_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_restored_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_restored_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_restored_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: x_reverse_restored_bob_speak
+        client: bob
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /x_reverse_restored_alice_listen/audio_bytes: {minimum: 2000}
+      /x_reverse_restored_alice_listen/packets: {minimum: 50}
+      /x_reverse_restored_carol_listen/audio_bytes: {maximum: 0}
+      /x_reverse_restored_dave_listen/audio_bytes: {maximum: 0}
+      /x_reverse_restored_bob_listen/audio_bytes: {maximum: 0}
+      /x_reverse_restored_bob_speak/input_sent: {equals: true}
+  - id: y_excludes_bob_again
+    timeout: 20s
+    parallel:
+      - id: y_excludes_bob_again_dave_listen
+        client: dave
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_excludes_bob_again_alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_excludes_bob_again_bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_excludes_bob_again_carol_listen
+        client: carol
+        peer_stream: {mode: listen, duration: 5s}
+      - id: y_excludes_bob_again_carol_speak
+        client: carol
+        delay: 200ms
+        peer_stream: {mode: push-to-talk, input: '${tone}', pacing: 20ms, completion: input_sent}
+    expect:
+      /y_excludes_bob_again_dave_listen/audio_bytes: {minimum: 2000}
+      /y_excludes_bob_again_dave_listen/packets: {minimum: 50}
+      /y_excludes_bob_again_alice_listen/audio_bytes: {maximum: 0}
+      /y_excludes_bob_again_bob_listen/audio_bytes: {maximum: 0}
+      /y_excludes_bob_again_carol_listen/audio_bytes: {maximum: 0}
+      /y_excludes_bob_again_carol_speak/input_sent: {equals: true}
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: carol
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: dave
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend_group.delete
+      request: {name: '${group_x}'}
+  - client: carol
+    rpc:
+      method: server.friend_group.delete
+      request: {name: '${group_y}'}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: carol
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: dave
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact:
+    - token_a
+    - token_b
+    - group_x_invite
+    - group_y_invite

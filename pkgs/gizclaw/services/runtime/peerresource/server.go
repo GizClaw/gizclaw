@@ -19,7 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
@@ -559,21 +558,14 @@ func workspaceAvailable(profile *apitypes.RuntimeProfile, item apitypes.Workspac
 }
 
 func workspaceWorkflowName(profile *apitypes.RuntimeProfile, item apitypes.Workspace) (string, bool) {
+	if isSocialWorkspace(item) {
+		return "sfu", true
+	}
 	if profile == nil {
 		return "", false
 	}
-	if item.System != nil && *item.System {
-		for _, alias := range []struct {
-			name string
-			id   string
-		}{
-			{name: "sfu", id: socialutil.SFUWorkflowID},
-			{name: "pet", id: profile.Spec.Workflows.System.Pet},
-		} {
-			if alias.id == item.WorkflowId {
-				return alias.name, true
-			}
-		}
+	if item.System != nil && *item.System && item.WorkflowId == profile.Spec.Workflows.System.Pet {
+		return "pet", true
 	}
 	if item.Labels == nil {
 		return "", false
@@ -622,7 +614,7 @@ func (s *Server) ResolveAccessibleWorkspace(ctx context.Context, name string) (a
 }
 
 // ResolveRunWorkspaceSelection additionally verifies that the resolved
-// Workspace workflow is available in the current RuntimeProfile.
+// Workspace uses built-in SFU or a workflow available in the current RuntimeProfile.
 func (s *Server) ResolveRunWorkspaceSelection(ctx context.Context, name string) (apitypes.Workspace, *rpcapi.RPCStatus) {
 	workspace, rpcErr := s.ResolveAccessibleWorkspace(ctx, name)
 	if rpcErr != nil {

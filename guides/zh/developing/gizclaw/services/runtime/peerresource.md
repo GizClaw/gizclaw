@@ -18,3 +18,5 @@ Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Mode
 Firmware 不属于 RuntimeProfile name catalog。RegistrationToken 可以给 Peer 绑定一个 caller-defined canonical Firmware ID；`server.register` 不返回 Firmware identity，`server.firmware.get` 从内部 binding 解析 Firmware 但不暴露 ID。设备请求一个 channel，并得到 external HTTPS `.tar.zlib` URL、SHA-256 与 archive size。Peer RPC 不提供 Firmware list，也不传输 package bytes。
 
 每次 catalog 操作都重新取得当前 profile snapshot。Dangling internal binding 只表现为不可用，不泄漏真实 target。删除 Workflow binding 不会删除或隐藏已有 Workspace；在相同 Peer name 恢复前，执行操作返回 not found。
+
+内置 SFU Workspace 的运行选择不依赖 RuntimeProfile；同一 Peer 重连后无需再次注册即可选择仍有成员权限的 SFU Workspace。选择仍校验当前 Social 成员关系与 Workspace 删除状态，普通 Workflow 和 Pet Workspace 仍依赖当前 RuntimeProfile。
