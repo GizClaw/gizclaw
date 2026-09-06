@@ -306,6 +306,18 @@ export class ScenarioClient {
     this.rpc = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
       requestTimeoutMs: RPC_TIMEOUT_MS,
     });
+    try {
+      // ICE completion can precede Server registration of this replacement.
+      // Require a response on the new connection before following HTTP steps.
+      await this.rpc.call(
+        "all.ping",
+        { client_send_time: Date.now() },
+        { signal },
+      );
+    } catch (error) {
+      pc.close();
+      throw error;
+    }
   }
 
   close(): void {
