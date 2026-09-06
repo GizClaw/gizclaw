@@ -6,8 +6,7 @@ import json
 import pathlib
 import subprocess
 import tempfile
-import unittest
-from unittest import mock
+import unittest.mock
 
 SPEC = importlib.util.spec_from_file_location(
     "run_js_giztest", pathlib.Path(__file__).with_name("run_js_giztest.py"))
@@ -24,7 +23,7 @@ class ScenarioProcessTest(unittest.TestCase):
                 "tasks": [{"path": "scenario.yaml", "repeat_index": 0,
                            "status": status, "error": "original failure"}]}))
             completed = subprocess.CompletedProcess([], exit_code, "", "")
-            with mock.patch.object(runner.subprocess, "run", return_value=completed):
+            with unittest.mock.patch.object(runner.subprocess, "run", return_value=completed):
                 return runner.run_document(pathlib.Path("scenario.yaml"), report,
                                            pathlib.Path("index.ts"))
 
@@ -39,7 +38,7 @@ class ScenarioProcessTest(unittest.TestCase):
         self.assertIn("disagrees", tasks[0]["error"])
 
     def test_external_timeout_is_a_failed_task(self):
-        with mock.patch.object(runner.subprocess, "run",
+        with unittest.mock.patch.object(runner.subprocess, "run",
                                side_effect=subprocess.TimeoutExpired([], 600)):
             tasks = runner.run_document(pathlib.Path("scenario.yaml"),
                                         pathlib.Path("unused.json"), pathlib.Path("index.ts"))
