@@ -39,7 +39,23 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 It runs Redis 7.0, two Servers with distinct local runtime state, two Edges whose configured Server order is reversed, and one single-node LiveKit; both Servers point `services.sfu` at the same signaling URL with test credentials generated for that Compose project's lifetime. The Go cases verify fixed Peer homes through both Edges, API Key routing through an Edge to the owner Server, foreign-Server rejection, local-only PeerRun writes, shared-KV versus local-state isolation, lazy SFU Room creation, and bounded reconnection after a LiveKit restart. giztest then runs the `sfu.*.giztest.yaml` scenarios serially: clients register on different Servers through different Edges and verify cross-Server friend creation, group join, the member cap, revocation after member removal, and that a `listen`-mode broadcast reaches only the other members of the room. The real LiveKit is the only acceptance environment; no in-memory fake replaces it. It does not test Workflow Workspace routing.
 
-`sfu.friend.cross-server.audio-bytes` needs no credentials and always runs; the other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
+`sfu.*.audio-bytes` uses the committed Ogg/Opus fixture, needs no speech-provider credentials, and always runs; the other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
+
+The provider-free SFU scenarios cover these boundaries:
+
+| Scenario (without `sfu.` and `.audio-bytes`) | Coverage |
+| --- | --- |
+| `friend.cross-server` | Bidirectional PTT between friends on different Servers, without self audio |
+| `friend-group.remove-readd` | Wait for revocation, retain the connection, then add back and select the original Workspace to restore both directions |
+| `friend-group.reconnect-readd` | Reconnect while removed without regaining membership; after re-add, select the original Workspace and restore both audio directions without registering again |
+| `friend-group.rapid-readd` | Three immediate remove/add cycles without waiting for periodic revocation, with PTT and realtime audio |
+| `friend-group.mixed-server-members` | Two members per Server; local and remote removal preserves remaining audio; duplicate add preserves the member count; owner-add and invite-rejoin restore broadcasts |
+| `friend.delete-readd` | Both friends are revoked after deletion; re-adding creates a new Workspace and restores audio |
+| `friend-group.delete-recreate` | Reusing a deleted group's local name creates a new Workspace; former members not invited back cannot hear the new group |
+| `workspace.isolation-switch` | Two cross-Server groups remain isolated while a member switches groups and returns |
+| `workspace.stop-reconnect` | Both runtimes stop and select the same Workspace again; a same-identity Peer reconnect restores bidirectional PTT/realtime audio without registering again |
+
+Media assertions check actual Opus bytes and packet counts without retrying media steps; runtime waits are bounded. The rapid-add case exercises the revocation/activation race window without guaranteeing a particular interleaving. Each scenario uses isolated Peers and resources and cleans up runtimes, social resources, and Peers in `finally`. The report is written to `tests/gizclaw-e2e/testdata/multi-server/sfu-report.json`. These cases do not verify device speaker playback or speech transcripts.
 
 ### Cloud ObjectStore conformance
 
