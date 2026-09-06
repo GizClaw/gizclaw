@@ -1269,7 +1269,7 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 		SignalingPath: gizwebrtc.SignalingPath,
 	}), nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://edge.example.com:9821/server-info", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -1284,7 +1284,7 @@ func TestEdgeProxyRewritesServerInfoEndpoint(t *testing.T) {
 		t.Fatalf("endpoint = %q, want edge.example.com:9821", got)
 	}
 	transport, ok := body["transport"].(map[string]any)
-	if !ok || transport["endpoint"] != "https://ap.gizclaw.com" {
+	if !ok || transport["endpoint"] != "http://edge.example.com:9821" {
 		t.Fatalf("transport = %#v", body["transport"])
 	}
 	if got := body["signaling_path"]; got != gizwebrtc.SignalingPath {
@@ -1559,4 +1559,79 @@ func (p edgeTestSecurityPolicy) AllowPeer(giznet.PublicKey) bool {
 
 func (p edgeTestSecurityPolicy) AllowService(publicKey giznet.PublicKey, service uint64) bool {
 	return p.allowService == nil || p.allowService(publicKey, service)
+}
+
+func TestPeerHTTPProxyPreservesSignalingOrigin(t *testing.T) {
+	for _, prefix := range []string{"", "/api"} {
+		t.Run("prefix="+prefix, func(t *testing.T) {
+			configured := &serverInfoTransport{
+				Mode: "edge-gateway", Endpoint: "https://published.example" + prefix,
+				PublicKey: "edge-key", SignalingPath: gizwebrtc.SignalingPath,
+			}
+			handler := newPeerHTTPProxy("192.0.2.10:9821", roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK, Header: make(http.Header), Request: req,
+					Body: io.NopCloser(strings.NewReader(`{"public_key":"server-key"}`)),
+				}, nil
+			}), configured)
+			for _, origin := range []string{
+				"http://edge.example:9821", "https://edge.example:9821",
+				"https://edge.example:443", "https://edge.example",
+				"http://127.0.0.1:9821", "http://localhost:9821", "https://EDGE.example.:443",
+				"http://[2001:db8::1]:9821", "https://[2001:db8::1]:8443",
+			} {
+				t.Run(origin, func(t *testing.T) {
+					t.Parallel()
+					req := httptest.NewRequest(http.MethodGet, origin+"/server-info", nil)
+					// Real ingress requests use origin-form URLs, with the authority in Host.
+					req.URL.Scheme = ""
+					req.URL.Host = ""
+					req.Header.Set("Forwarded", "proto=https;host=wrong.example:443")
+					req.Header.Set("X-Forwarded-Proto", "https")
+					req.Header.Set("X-Forwarded-Host", "wrong.example:443")
+					response := httptest.NewRecorder()
+					handler.ServeHTTP(response, req)
+					if response.Code != http.StatusOK {
+						t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+					}
+					var info struct {
+						Endpoint  string              `json:"endpoint"`
+						Transport serverInfoTransport `json:"transport"`
+					}
+					if err := json.NewDecoder(response.Body).Decode(&info); err != nil {
+						t.Fatal(err)
+					}
+					if got, want := info.Transport.Endpoint+info.Transport.SignalingPath, origin+prefix+gizwebrtc.SignalingPath; got != want {
+						t.Fatalf("signaling URL = %q, want %q", got, want)
+					}
+					if info.Endpoint != "192.0.2.10:9821" || configured.Endpoint != "https://published.example"+prefix {
+						t.Fatalf("ICE or shared configuration changed: %#v, %#v", info, configured)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestPeerHTTPProxyRejectsInvalidSignalingAuthority(t *testing.T) {
+	handler := newPeerHTTPProxy("edge:9821", roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("invalid Host reached upstream")
+		return nil, nil
+	}), &serverInfoTransport{Mode: "edge-gateway", Endpoint: "https://configured.example"})
+	for _, host := range []string{
+		"", "edge.example:", "edge.example:0", "edge.example:65536", "edge.example:abc",
+		"[::1", "[not-ip]:9821", "[127.0.0.1]:9821", "::1", "edge.example/path",
+		"user@edge.example", "edge.example?", "edge.example#", "edge example", ".", "-edge.example",
+		"edge..example", "edge.example\n", "edge.example%20", "[fe80::1%25en0]:9821",
+	} {
+		t.Run(host, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/server-info", nil)
+			req.Host = host
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, req)
+			if response.Code != http.StatusBadRequest || response.Body.String() != "invalid request Host\n" {
+				t.Fatalf("response = %d %q", response.Code, response.Body.String())
+			}
+		})
+	}
 }
