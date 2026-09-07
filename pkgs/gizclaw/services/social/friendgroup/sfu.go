@@ -62,9 +62,10 @@ func (s *Server) removeMember(ctx context.Context, friendGroupID, peerID string,
 		return err
 	}
 	changed, err := guard.apply(ctx, kv.Mutation{
-		Conditions:    []kv.Condition{{Key: memberKey, Expected: memberData}},
-		DeleteKeys:    []kv.Key{s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID)), s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)), s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName)))},
-		RemoveMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		Conditions:           []kv.Condition{{Key: memberKey, Expected: memberData}},
+		DeleteKeys:           []kv.Key{s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID)), s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)), s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName)))},
+		RemoveMembers:        []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		RemoveOrderedMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[1], belongPageKey(peerID)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}}},
 	}, false)
 	if err != nil {
 		return err

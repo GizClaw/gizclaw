@@ -8,12 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type adminFriendReadStore struct {
 	kv.Store
+	lists          atomic.Int64
 	gets           atomic.Int64
 	indexedMembers atomic.Int64
 }
@@ -139,4 +141,40 @@ func TestAdminFriendReadsBoundConcurrencyAndStopOnCancellation(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("canceled page reads did not stop")
 	}
+}
+
+func TestOwnerPagesBoundMembershipReads(t *testing.T) {
+	s := newTestServer()
+	for i := range 1000 {
+		id := fmt.Sprintf("item-%04d", i)
+		if _, err := s.AdminCreateFriend(t.Context(), "owner", id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reader := &adminFriendReadStore{Store: s.Friends}
+	s.Friends = reader
+	var cursor *string
+	for range 2 {
+		reader.indexedMembers.Store(0)
+		reader.gets.Store(0)
+		page, err := s.ListFriends(t.Context(), "owner", rpcapi.FriendListRequest{Cursor: cursor, Limit: new(3)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Items) != 3 || !page.HasNext || page.NextCursor == nil {
+			t.Fatalf("page=%#v", page)
+		}
+		if reader.indexedMembers.Load() != 4 || reader.gets.Load() != 3 {
+			t.Fatalf("unbounded page: members=%d reads=%d", reader.indexedMembers.Load(), reader.gets.Load())
+		}
+		if reader.lists.Load() != 0 {
+			t.Fatal("pagination enumerated the full set")
+		}
+		cursor = page.NextCursor
+	}
+}
+
+func (s *adminFriendReadStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	s.lists.Add(1)
+	return s.Store.ListMembers(ctx, key)
 }

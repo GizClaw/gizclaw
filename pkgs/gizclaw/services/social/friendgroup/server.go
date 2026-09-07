@@ -690,19 +690,19 @@ func (s *Server) ListFriendGroups(ctx context.Context, owner string, req rpcapi.
 		return rpcapi.FriendGroupListResponse{}, err
 	}
 	escapedCursor, limit := socialutil.NormalizeListParams(socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
-	ids, err := belongs.ListMembers(ctx, belongCollectionKey(owner))
+	ids, err := belongs.RangeOrderedMembers(ctx, belongPageKey(owner), kv.OrderedRange{After: &escapedCursor, Limit: limit + 1})
 	if err != nil {
 		return rpcapi.FriendGroupListResponse{}, err
 	}
-	slices.SortFunc(ids, func(a, b string) int {
-		return strings.Compare(socialutil.EscapeStoreSegment(a), socialutil.EscapeStoreSegment(b))
-	})
-	items := make([]rpcapi.FriendGroupObject, 0, min(limit+1, len(ids)))
-	pageIDs := make([]string, 0, min(limit+1, len(ids)))
-	for _, id := range ids {
-		if escapedCursor != "" && socialutil.EscapeStoreSegment(id) <= escapedCursor {
-			continue
-		}
+	hasNext := len(ids) > limit
+	ids = ids[:min(limit, len(ids))]
+	var nextCursor *string
+	if hasNext {
+		nextCursor = new(socialutil.UnescapeStoreSegment(ids[len(ids)-1]))
+	}
+	items := make([]rpcapi.FriendGroupObject, 0, len(ids))
+	for _, escapedID := range ids {
+		id := socialutil.UnescapeStoreSegment(escapedID)
 		member, err := socialutil.ReadJSONValue[friendGroupMemberRecord](ctx, belongs, socialutil.GroupBelongKey(owner, id))
 		if errors.Is(err, kv.ErrNotFound) {
 			continue
@@ -726,20 +726,10 @@ func (s *Server) ListFriendGroups(ctx context.Context, owner string, req rpcapi.
 		item.MyRole = new(member.Role)
 		item.Name = member.FriendGroupName
 		items = append(items, item)
-		pageIDs = append(pageIDs, id)
-		if len(items) > limit {
-			break
-		}
 	}
-	if len(items) > limit {
-		return rpcapi.FriendGroupListResponse{Items: items[:limit], HasNext: true, NextCursor: new(pageIDs[limit-1])}, nil
-	}
-	return rpcapi.FriendGroupListResponse{Items: items}, nil
+	return rpcapi.FriendGroupListResponse{Items: items, HasNext: hasNext, NextCursor: nextCursor}, nil
 }
 
-// WorkspaceRecipientsByID returns current members of the Friend Group bound
-// to the canonical SFU Workspace without inferring the group identifier from its
-// peer-visible name.
 func (s *Server) WorkspaceRecipientsByID(ctx context.Context, workspaceID string) ([]string, error) {
 	if err := customid.ValidateResourceID(workspaceID); err != nil {
 		return nil, fmt.Errorf("social: invalid workspace id: %w", err)
@@ -1538,9 +1528,10 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 	}
 	memberKey := s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID))
 	changed, err := guard.apply(ctx, kv.Mutation{
-		Conditions: []kv.Condition{{Key: memberKey, Expected: currentData}},
-		Entries:    []kv.Entry{{Key: memberKey, Value: data}, {Key: s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)), Value: data}, {Key: s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, localName)), Value: []byte(friendGroupID)}},
-		AddMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		Conditions:        []kv.Condition{{Key: memberKey, Expected: currentData}},
+		Entries:           []kv.Entry{{Key: memberKey, Value: data}, {Key: s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)), Value: data}, {Key: s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, localName)), Value: []byte(friendGroupID)}},
+		AddMembers:        []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		AddOrderedMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[1], belongPageKey(peerID)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}}},
 	}, false)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -1598,9 +1589,10 @@ func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string,
 	belongKey := s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID))
 	nameKey := s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, localName))
 	created, err := guard.apply(ctx, kv.Mutation{
-		Conditions: []kv.Condition{{Key: memberKey}, {Key: nameKey}},
-		Entries:    []kv.Entry{{Key: memberKey, Value: data}, {Key: nameKey, Value: []byte(friendGroupID)}, {Key: belongKey, Value: data}},
-		AddMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		Conditions:        []kv.Condition{{Key: memberKey}, {Key: nameKey}},
+		Entries:           []kv.Entry{{Key: memberKey, Value: data}, {Key: nameKey, Value: []byte(friendGroupID)}, {Key: belongKey, Value: data}},
+		AddMembers:        []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		AddOrderedMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[1], belongPageKey(peerID)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}}},
 	}, false)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -1764,8 +1756,10 @@ func (s *Server) deleteFriendGroup(ctx context.Context, friendGroupID string) (r
 	}
 	deleteKeys = append(deleteKeys, s.relationshipKey(guard.prefixes[0], memberCollectionKey(friendGroupID)))
 	removals := make([]kv.SetMembers, 0, len(members))
+	orderedRemovals := make([]kv.SetMembers, 0, len(members)+1)
 	for _, member := range members {
 		removals = append(removals, kv.SetMembers{Key: s.relationshipKey(guard.prefixes[1], belongCollectionKey(member.PeerPublicKey)), Members: []string{friendGroupID}})
+		orderedRemovals = append(orderedRemovals, kv.SetMembers{Key: s.relationshipKey(guard.prefixes[1], belongPageKey(member.PeerPublicKey)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}})
 	}
 	inviteKey := s.relationshipKey(guard.prefixes[2], socialutil.GroupInviteTokenKey(friendGroupID))
 	inviteData, err := guard.store.Get(ctx, inviteKey)
@@ -1793,7 +1787,7 @@ func (s *Server) deleteFriendGroup(ctx context.Context, friendGroupID string) (r
 		Entries:    []kv.Entry{{Key: s.relationshipKey(guard.prefixes[3], groupRetirementIntentKey(friendGroupID)), Value: data}},
 		AddMembers: recoveryMembers,
 		DeleteKeys: deleteKeys, RemoveMembers: removals,
-		RemoveOrderedMembers: []kv.SetMembers{adminMembership},
+		RemoveOrderedMembers: append(orderedRemovals, adminMembership),
 	}, true)
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
@@ -2550,4 +2544,8 @@ func (s *Server) commitRetirementReceipt(ctx context.Context, store kv.Store, re
 			return nil
 		}
 	}
+}
+
+func belongPageKey(peer string) kv.Key {
+	return kv.Key{"group-pages", socialutil.EscapeStoreSegment(strings.TrimSpace(peer))}
 }

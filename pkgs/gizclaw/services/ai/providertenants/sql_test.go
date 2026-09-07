@@ -107,6 +107,12 @@ func TestProviderUpdatePreservesSyncMetadata(t *testing.T) {
 	if !updated.CreatedAt.Equal(now) || updated.LastSyncedAt == nil || !updated.LastSyncedAt.Equal(synced) {
 		t.Fatal("configuration update overwrote independent timestamps")
 	}
+	if err := recordTenantSync(ctx, db, "minimax", "main", incarnation, synced, func(*sqlx.Tx) error {
+		t.Fatal("stale configuration reached voice reconciliation")
+		return nil
+	}); err == nil {
+		t.Fatal("old sync accepted a replaced configuration")
+	}
 	if _, err := deleteSQLTenant[apitypes.MiniMaxTenant](ctx, db, "minimax", "main"); err != nil {
 		t.Fatal(err)
 	}

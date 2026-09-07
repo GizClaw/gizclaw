@@ -245,6 +245,9 @@ func TestIncompleteFriendRecordIsRejected(t *testing.T) {
 	if err := s.Friends.AddMembers(ctx, friendCollectionKey("peer-a"), relationID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.Friends.ApplyMutation(ctx, kv.Mutation{AddOrderedMembers: []kv.SetMembers{friendPageMembership("peer-a", relationID)}}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{}); err == nil || err.Error() != "social: persisted Friend relationship is invalid" {
 		t.Fatalf("ListFriends incomplete record error = %v", err)
 	}

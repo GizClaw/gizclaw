@@ -129,7 +129,9 @@ func updateSQLTenant[T tenantObject](ctx context.Context, db *sqlx.DB, kind stri
 		var zero T
 		return zero, err
 	}
-	result, _, err := scanTenant[T](db.QueryRowContext(ctx, db.Rebind(`UPDATE provider_tenants SET credential_id=?,description=?,updated_at=?,config_json=? WHERE provider_kind=? AND id=? RETURNING `+tenantColumns), fields.CredentialID, fields.Description, fields.UpdatedAt.UTC().Format(time.RFC3339Nano), config, kind, fields.ID))
+	// A configuration replacement invalidates snapshots held by in-flight sync
+	// and deletion operations, even when the caller reuses the same timestamp.
+	result, _, err := scanTenant[T](db.QueryRowContext(ctx, db.Rebind(`UPDATE provider_tenants SET credential_id=?,description=?,updated_at=?,config_json=?,incarnation=? WHERE provider_kind=? AND id=? RETURNING `+tenantColumns), fields.CredentialID, fields.Description, fields.UpdatedAt.UTC().Format(time.RFC3339Nano), config, uuid.NewString(), kind, fields.ID))
 	return result, err
 }
 

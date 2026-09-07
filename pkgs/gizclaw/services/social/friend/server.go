@@ -560,19 +560,19 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 		return rpcapi.FriendListResponse{}, err
 	}
 	escapedCursor, limit := socialutil.NormalizeListParams(socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
-	ids, err := store.ListMembers(ctx, friendCollectionKey(owner))
+	ids, err := store.RangeOrderedMembers(ctx, friendPageKey(owner), kv.OrderedRange{After: &escapedCursor, Limit: limit + 1})
 	if err != nil {
 		return rpcapi.FriendListResponse{}, err
 	}
-	slices.SortFunc(ids, func(a, b string) int {
-		return strings.Compare(socialutil.EscapeStoreSegment(a), socialutil.EscapeStoreSegment(b))
-	})
-	items := make([]rpcapi.FriendObject, 0, min(limit+1, len(ids)))
-	pageIDs := make([]string, 0, min(limit+1, len(ids)))
-	for _, id := range ids {
-		if escapedCursor != "" && socialutil.EscapeStoreSegment(id) <= escapedCursor {
-			continue
-		}
+	hasNext := len(ids) > limit
+	ids = ids[:min(limit, len(ids))]
+	var nextCursor *string
+	if hasNext {
+		nextCursor = new(socialutil.UnescapeStoreSegment(ids[len(ids)-1]))
+	}
+	items := make([]rpcapi.FriendObject, 0, len(ids))
+	for _, escapedID := range ids {
+		id := socialutil.UnescapeStoreSegment(escapedID)
 		record, err := socialutil.ReadJSONValue[friendRecord](ctx, store, socialutil.FriendKey(owner, id))
 		if errors.Is(err, kv.ErrNotFound) {
 			continue
@@ -587,15 +587,8 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 			return rpcapi.FriendListResponse{}, errors.New("social: friend collection identity mismatch")
 		}
 		items = append(items, record.peerObject())
-		pageIDs = append(pageIDs, id)
-		if len(items) > limit {
-			break
-		}
 	}
-	if len(items) > limit {
-		return rpcapi.FriendListResponse{Items: items[:limit], HasNext: true, NextCursor: new(pageIDs[limit-1])}, nil
-	}
-	return rpcapi.FriendListResponse{Items: items}, nil
+	return rpcapi.FriendListResponse{Items: items, HasNext: hasNext, NextCursor: nextCursor}, nil
 }
 
 func friendCollectionKey(owner string) kv.Key {
@@ -760,7 +753,7 @@ func (s *Server) retireActiveFriend(
 		AddMembers:           (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Add(relationID),
 		DeleteKeys:           []kv.Key{socialutil.FriendKey(owner, relationID), socialutil.FriendKey(other, relationID), workspaceBindingKey(relationID)},
 		RemoveMembers:        []kv.SetMembers{{Key: friendCollectionKey(owner), Members: []string{relationID}}, {Key: friendCollectionKey(other), Members: []string{relationID}}},
-		RemoveOrderedMembers: []kv.SetMembers{adminFriendMembership(owner, relationID), adminFriendMembership(other, relationID)},
+		RemoveOrderedMembers: []kv.SetMembers{adminFriendMembership(owner, relationID), adminFriendMembership(other, relationID), friendPageMembership(owner, relationID), friendPageMembership(other, relationID)},
 	}); err != nil {
 		return rpcapi.FriendObject{}, err
 	}
@@ -1327,7 +1320,7 @@ func (s *Server) commitFriendCreation(
 	created, err := store.ApplyMutation(ctx, kv.Mutation{
 		Conditions: []kv.Condition{{Key: creationDecisionKey(relationID, intent.IncarnationID)}}, Entries: entries,
 		AddMembers:        []kv.SetMembers{{Key: friendCollectionKey(from), Members: []string{relationID}}, {Key: friendCollectionKey(to), Members: []string{relationID}}, adminFriendDirectoryMembership(from, relationID), adminFriendDirectoryMembership(to, relationID)},
-		AddOrderedMembers: []kv.SetMembers{adminFriendMembership(from, relationID), adminFriendMembership(to, relationID)},
+		AddOrderedMembers: []kv.SetMembers{adminFriendMembership(from, relationID), adminFriendMembership(to, relationID), friendPageMembership(from, relationID), friendPageMembership(to, relationID)},
 	})
 	if err != nil {
 		return rpcapi.FriendObject{}, err
@@ -1973,4 +1966,12 @@ func (s *Server) newID() string {
 		return s.NewID()
 	}
 	return socialutil.NewID()
+}
+
+func friendPageKey(owner string) kv.Key {
+	return kv.Key{"friend-pages", socialutil.EscapeStoreSegment(strings.TrimSpace(owner))}
+}
+
+func friendPageMembership(owner, id string) kv.SetMembers {
+	return kv.SetMembers{Key: friendPageKey(owner), Members: []string{socialutil.EscapeStoreSegment(id)}}
 }

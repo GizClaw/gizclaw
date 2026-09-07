@@ -112,7 +112,7 @@ func (s *Server) createGroupWithOwner(ctx context.Context, id string, group rpca
 	}
 	admin := adminGroupMembership(id)
 	admin.Key = s.relationshipKey(prefixes[0], admin.Key)
-	mutation.AddOrderedMembers = []kv.SetMembers{admin}
+	mutation.AddOrderedMembers = []kv.SetMembers{admin, {Key: s.relationshipKey(prefixes[2], belongPageKey(owner)), Members: []string{socialutil.EscapeStoreSegment(id)}}}
 	locators, err := socialutil.WorkspaceLocatorEntries(socialutil.WorkspaceBindingLocator{ResourceID: id, WorkspaceID: binding.WorkspaceID, WorkspaceName: binding.WorkspaceName})
 	if err != nil {
 		return err

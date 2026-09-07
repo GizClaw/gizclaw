@@ -122,3 +122,63 @@ func TestPeerStreamRealtimeProcessesOutputBeyondReadQueueDuringInput(t *testing.
 		t.Fatalf("observed packets = %d, want %d", count, packets)
 	}
 }
+
+func TestPeerStreamInputSentDrainsBeyondReaderQueue(t *testing.T) {
+	for _, keep := range []bool{false, true} {
+		t.Run(map[bool]string{false: "step", true: "retained"}[keep], func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancel()
+			observed := make(chan struct{})
+			stream := &duplexOutputProbe{fakeRelayStream: newFakeRelayStream(), observed: observed}
+			defer stream.Close()
+			const packets = 300
+			go func() {
+				for range packets {
+					select {
+					case stream.in <- assistantText("reply", "chunk", false):
+					case <-ctx.Done():
+						return
+					}
+				}
+				close(observed)
+			}()
+			go func() {
+				for {
+					select {
+					case <-stream.pushes:
+					case <-ctx.Done():
+						return
+					case <-stream.closed:
+						return
+					}
+				}
+			}()
+			var session *peerStreamSession
+			if keep {
+				session = newPeerStreamSession("peer", stream)
+				defer session.Close()
+			}
+			result, err := invokePeerStreamOnStream(ctx, nil, func() (peerStream, error) { return stream, nil }, stream, session, "", giztest.Step{ID: "send", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "realtime", Completion: "input_sent", Pacing: "1ms"}}, []byte{0xf8}, 0, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.evidence["input_sent"] != true {
+				t.Fatalf("input not completed: %#v", result.evidence)
+			}
+			if keep {
+				for range packets {
+					select {
+					case item := <-session.next:
+						if item.err != nil || item.chunk == nil {
+							t.Fatalf("lost retained output: %#v", item)
+						}
+					case <-ctx.Done():
+						t.Fatal("retained output was consumed by input_sent")
+					}
+				}
+			} else if result.evidence["events"].(int) < packets-128 {
+				t.Fatalf("output was not drained: %#v", result.evidence)
+			}
+		})
+	}
+}

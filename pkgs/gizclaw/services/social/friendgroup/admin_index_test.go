@@ -7,12 +7,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type adminGroupReadStore struct {
 	kv.Store
+	lists   atomic.Int64
 	gets    atomic.Int64
 	ranges  atomic.Int64
 	members atomic.Int64
@@ -86,4 +88,40 @@ func createGroupRecord(ctx context.Context, store kv.Store, id string, data []by
 		Entries:           []kv.Entry{{Key: socialutil.GroupKey(id), Value: data}},
 		AddOrderedMembers: []kv.SetMembers{adminGroupMembership(id)},
 	})
+}
+
+func TestOwnerPagesBoundMembershipReads(t *testing.T) {
+	s := newTestServer(t)
+	for i := range 1000 {
+		id := fmt.Sprintf("item-%04d", i)
+		if _, err := s.AdminCreateFriendGroup(t.Context(), id, "owner", id, nil, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reader := &adminGroupReadStore{Store: s.Belongs}
+	s.Belongs = reader
+	var cursor *string
+	for range 2 {
+		reader.members.Store(0)
+		reader.gets.Store(0)
+		page, err := s.ListFriendGroups(t.Context(), "owner", rpcapi.FriendGroupListRequest{Cursor: cursor, Limit: new(3)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Items) != 3 || !page.HasNext || page.NextCursor == nil {
+			t.Fatalf("page=%#v", page)
+		}
+		if reader.members.Load() != 4 || reader.gets.Load() != 3 {
+			t.Fatalf("unbounded page: members=%d reads=%d", reader.members.Load(), reader.gets.Load())
+		}
+		if reader.lists.Load() != 0 {
+			t.Fatal("pagination enumerated the full set")
+		}
+		cursor = page.NextCursor
+	}
+}
+
+func (s *adminGroupReadStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	s.lists.Add(1)
+	return s.Store.ListMembers(ctx, key)
 }

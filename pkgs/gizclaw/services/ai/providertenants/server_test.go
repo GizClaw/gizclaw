@@ -1957,76 +1957,90 @@ func timePtr(value time.Time) *time.Time {
 }
 
 func TestSyncVoicesRejectsRetiredTenantSnapshot(t *testing.T) {
-	for _, shared := range []bool{false, true} {
-		t.Run(map[bool]string{false: "separate databases", true: "shared database"}[shared], func(t *testing.T) {
-			srv := newTestServer(t)
-			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-			defer cancel()
-			if shared {
-				voices := &voicecatalog.Server{DB: srv.DB}
-				if err := voices.Initialize(ctx); err != nil {
-					t.Fatal(err)
+	for _, replace := range []bool{false, true} {
+		for _, shared := range []bool{false, true} {
+			t.Run(map[bool]string{false: "update/", true: "recreate/"}[replace]+map[bool]string{false: "separate databases", true: "shared database"}[shared], func(t *testing.T) {
+				srv := newTestServer(t)
+				ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+				defer cancel()
+				if shared {
+					voices := &voicecatalog.Server{DB: srv.DB}
+					if err := voices.Initialize(ctx); err != nil {
+						t.Fatal(err)
+					}
+					srv.Voices = voices
 				}
-				srv.Voices = voices
-			}
-			entered, release := make(chan struct{}), make(chan struct{})
-			var seen, released sync.Once
-			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				seen.Do(func() { close(entered) })
+				entered, release := make(chan struct{}), make(chan struct{})
+				var seen, released sync.Once
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					seen.Do(func() { close(entered) })
+					select {
+					case <-release:
+					case <-r.Context().Done():
+						return
+					}
+					_, _ = w.Write([]byte(`{"base_resp":{"status_code":0},"voices":[{"voice_id":"retired-voice","voice_name":"old","voice_type":"system"}],"has_more":false}`))
+				}))
+				defer upstream.Close()
+				defer released.Do(func() { close(release) })
+				srv.MiniMaxBaseURLs = []string{upstream.URL}
+				seedCredential(t, srv, apitypes.Credential{Id: "credential", Provider: "minimax", Body: testMiniMaxCredentialBody("key"), CreatedAt: srv.now(), UpdatedAt: srv.now()})
+				body := mustMiniMaxTenantUpsert(t, `{"id":"tenant","credential_id":"credential","app_id":"app","group_id":"group"}`)
+				body.BaseUrl = new(upstream.URL)
+				create := func() {
+					response, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, ok := response.(adminhttp.CreateMiniMaxTenant200JSONResponse); !ok {
+						t.Fatalf("create=%#v", response)
+					}
+				}
+				create()
+				result := make(chan adminhttp.SyncMiniMaxTenantVoicesResponseObject, 1)
+				go func() {
+					response, _ := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: "tenant"})
+					result <- response
+				}()
 				select {
-				case <-release:
-				case <-r.Context().Done():
-					return
+				case <-entered:
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
 				}
-				_, _ = w.Write([]byte(`{"base_resp":{"status_code":0},"voices":[{"voice_id":"retired-voice","voice_name":"old","voice_type":"system"}],"has_more":false}`))
-			}))
-			defer upstream.Close()
-			defer released.Do(func() { close(release) })
-			srv.MiniMaxBaseURLs = []string{upstream.URL}
-			seedCredential(t, srv, apitypes.Credential{Id: "credential", Provider: "minimax", Body: testMiniMaxCredentialBody("key"), CreatedAt: srv.now(), UpdatedAt: srv.now()})
-			body := mustMiniMaxTenantUpsert(t, `{"id":"tenant","credential_id":"credential","app_id":"app","group_id":"group"}`)
-			body.BaseUrl = new(upstream.URL)
-			create := func() {
-				response, err := srv.CreateMiniMaxTenant(ctx, adminhttp.CreateMiniMaxTenantRequestObject{Body: &body})
-				if err != nil {
-					t.Fatal(err)
+				if replace {
+					response, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: "tenant"})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, ok := response.(adminhttp.DeleteMiniMaxTenant200JSONResponse); !ok {
+						t.Fatalf("delete=%#v", response)
+					}
+					create()
+				} else {
+					body.GroupId = new("new-group")
+					response, err := srv.PutMiniMaxTenant(ctx, adminhttp.PutMiniMaxTenantRequestObject{Id: "tenant", Body: &body})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if _, ok := response.(adminhttp.PutMiniMaxTenant200JSONResponse); !ok {
+						t.Fatalf("put=%#v", response)
+					}
 				}
-				if _, ok := response.(adminhttp.CreateMiniMaxTenant200JSONResponse); !ok {
-					t.Fatalf("create=%#v", response)
+
+				released.Do(func() { close(release) })
+				select {
+				case response := <-result:
+					if _, ok := response.(adminhttp.SyncMiniMaxTenantVoices500JSONResponse); !ok {
+						t.Fatalf("stale sync=%#v", response)
+					}
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
 				}
-			}
-			create()
-			result := make(chan adminhttp.SyncMiniMaxTenantVoicesResponseObject, 1)
-			go func() {
-				response, _ := srv.SyncMiniMaxTenantVoices(ctx, adminhttp.SyncMiniMaxTenantVoicesRequestObject{Id: "tenant"})
-				result <- response
-			}()
-			select {
-			case <-entered:
-			case <-ctx.Done():
-				t.Fatal(ctx.Err())
-			}
-			response, err := srv.DeleteMiniMaxTenant(ctx, adminhttp.DeleteMiniMaxTenantRequestObject{Id: "tenant"})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, ok := response.(adminhttp.DeleteMiniMaxTenant200JSONResponse); !ok {
-				t.Fatalf("delete=%#v", response)
-			}
-			create()
-			released.Do(func() { close(release) })
-			select {
-			case response := <-result:
-				if _, ok := response.(adminhttp.SyncMiniMaxTenantVoices500JSONResponse); !ok {
-					t.Fatalf("stale sync=%#v", response)
+				var count int
+				if err := testVoiceDB(t, srv).QueryRow(`SELECT count(*) FROM voices`).Scan(&count); err != nil || count != 0 {
+					t.Fatalf("retired voices leaked: %d %v", count, err)
 				}
-			case <-ctx.Done():
-				t.Fatal(ctx.Err())
-			}
-			var count int
-			if err := testVoiceDB(t, srv).QueryRow(`SELECT count(*) FROM voices`).Scan(&count); err != nil || count != 0 {
-				t.Fatalf("retired voices leaked: %d %v", count, err)
-			}
-		})
+			})
+		}
 	}
 }

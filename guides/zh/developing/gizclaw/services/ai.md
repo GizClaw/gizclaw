@@ -48,7 +48,7 @@ Model 使用本地 SQL `models` 表。ID、模型类型、来源、Provider 类�
 
 拥有各 AI provider tenant 的产品资源，例如 provider endpoint、account-level 配置和 voice 同步所需信息。它可以依赖具体 provider SDK，但不能让 provider-specific 字段扩散到无关领域。
 
-ProviderTenants 使用本地 SQL `provider_tenants` 表，以 `(provider_kind, id)` 为联合主键，六类 Provider 可以独立使用同名 ID。凭据 ID、描述、创建与更新时间、同步时间分列保存，Provider 配置保留 JSON。启动时创建表和凭据查询索引；列表通过 Provider 范围、ID 游标与数量限制直接查询 SQL。配置更新保留创建和同步时间；同步完成只更新同步元数据，并核对创建标识，避免修改删除后重新创建的租户。Credential 与 Voice 由对应业务 Service 提供。
+ProviderTenants 使用本地 SQL `provider_tenants` 表，以 `(provider_kind, id)` 为联合主键，六类 Provider 可以独立使用同名 ID。凭据 ID、描述、创建与更新时间、同步时间分列保存，Provider 配置保留 JSON。启动时创建表和凭据查询索引；列表通过 Provider 范围、ID 游标与数量限制直接查询 SQL。配置更新保留创建和同步时间；同步完成只更新同步元数据，并核对配置版本标识，避免修改已更新或删除后重新创建的租户。Credential 与 Voice 由对应业务 Service 提供。
 
 ### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
 
@@ -122,7 +122,7 @@ Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入
 
 租户删除先在 SQL 事务内按创建标识删除原记录，保持生命周期锁直到音色清理完成；旧请求若遇到重建记录，在清理音色之前就失败。租户与 Voice 共用连接池时，音色删除加入同一事务，失败一起回滚，也不会占用第二个连接。使用不同数据库时，音色清理独立提交且可重试，租户事务在此期间阻止同名替代记录创建；该配置不提供跨数据库原子提交。
 
-音色同步在获取上游结果后，先在租户事务内验证并锁定原创建标识，再写入音色和同步时间。同库时共用事务；分库时持有租户行锁直到音色提交，删除遵循相同锁顺序。已退休或重建的租户快照不能发布音色。Workspace 历史活动更新时间保持单调；记录已删除或处于待删除状态时返回冲突，不能把未执行的更新报告为成功。
+音色同步在获取上游结果后，先在租户事务内验证并锁定原配置版本标识，再写入音色和同步时间。同库时共用事务；分库时持有租户行锁直到音色提交，删除遵循相同锁顺序。配置 PUT 会原子更换内部版本标识；已更新、退休或重建的租户快照不能发布音色。Workspace 历史活动更新时间保持单调；记录已删除或处于待删除状态时返回冲突，不能把未执行的更新报告为成功。
 
 ## 依赖与边界
 

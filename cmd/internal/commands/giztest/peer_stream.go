@@ -604,7 +604,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return nil
 		}
-		if op.Mode == "realtime" && !firstResponse && !inputSent {
+		if op.Mode == "realtime" && !firstResponse {
 			initialPush = func(sendCtx context.Context) error { return pushTurn(sendCtx, streamID) }
 		} else if err := pushTurn(ctx, streamID); err != nil {
 			return operationResult{}, err
@@ -803,16 +803,48 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		// The turn is complete once its input is on the wire. Output that has
 		// already arrived on a step-owned stream is recorded without waiting;
 		// a retained session keeps its queue for the step that consumes it.
-		for session == nil {
+		var retained []nextPeerStreamResult
+		if session != nil {
+			defer func() { session.prependOutput(retained) }()
+		}
+		for {
 			var result nextPeerStreamResult
-			select {
-			case result = <-next:
-			default:
-				return finish()
+			if initialDone != nil {
+				select {
+				case <-ctx.Done():
+					return operationResult{}, context.Cause(ctx)
+				case <-initialDone:
+					initialDone = nil
+					if initialError != nil {
+						return operationResult{}, initialError
+					}
+					continue
+				case result = <-next:
+				}
+			} else {
+				if session != nil {
+					return finish()
+				}
+				select {
+				case result = <-next:
+				default:
+					return finish()
+				}
+			}
+			if session != nil {
+				retained = append(retained, result)
 			}
 			if result.err != nil || result.chunk == nil {
-				return finish()
+				if initialDone == nil {
+					return finish()
+				}
+				next = nil
+				continue
 			}
+			if session != nil {
+				continue
+			}
+
 			events++
 			lastEventMS = time.Since(started).Milliseconds()
 			switch part := result.chunk.Part.(type) {
@@ -830,7 +862,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				audioBytes += len(part.Data)
 			}
 		}
-		return finish()
 	}
 	responseComplete, interruptPending := false, false
 	for {
@@ -1351,4 +1382,41 @@ func decodeOpusPackets(audio []byte) ([][]byte, error) {
 		return nil, fmt.Errorf("Ogg input contains no Opus audio packets")
 	}
 	return packets, nil
+}
+
+// prependOutput preserves output drained during input_sent for the next retained
+// session consumer. The relay exits with the session and keeps arrival order.
+func (s *peerStreamSession) prependOutput(results []nextPeerStreamResult) {
+	if len(results) == 0 {
+		return
+	}
+	source := s.next
+	out := make(chan nextPeerStreamResult)
+	s.next = out
+	go func() {
+		defer close(out)
+		send := func(result nextPeerStreamResult) bool {
+			select {
+			case out <- result:
+				return true
+			case <-s.ctx.Done():
+				return false
+			}
+		}
+		for _, result := range results {
+			if !send(result) {
+				return
+			}
+		}
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case result, ok := <-source:
+				if !ok || !send(result) {
+					return
+				}
+			}
+		}
+	}()
 }
