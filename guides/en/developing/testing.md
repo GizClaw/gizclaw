@@ -504,15 +504,18 @@ delivery respectively. Those ranges permit bounded recovery around the 500 ms
 target without demanding an unrealistic exact 20 ms arrival for every network
 packet.
 
-Those two cases keep replies short enough to fit one TTS segment, so they never
-reach a segment boundary. `flowcraft-voice-assistant.push-to-talk-long-reply-continuity.giztest.yaml`
-and `eino-concurrency-assistant.push-to-talk-long-reply-continuity.giztest.yaml`
-ask for a reply of several sentences and require at least 400 packets, so the
-reply has to span multiple segments before the continuity assertions apply.
-Both then require no underruns, a positive `minimum_buffer_ms`, and a maximum
-interval no greater than the 500 ms prebuffer. The two cases cover the flowcraft
-and eino drivers, which share the same cascaded text-to-TTS path and therefore
-the same segment boundaries.
+Both of those cases exercise a single turn, where the downlink pacer is
+building its target for the first time. The turns that follow are the ones that
+regress: the idle wall clock between them is not audio the client consumed, so
+charging it to the pacer makes every later turn arrive ahead of real time.
+`flowcraft-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` and
+`eino-concurrency-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` take
+three turns against one Workspace and require at least 200 packets on each, a
+`buffer_surplus_ms` no greater than 700 ms, no underruns, and a positive
+`minimum_buffer_ms`. The packet floor keeps a short reply from satisfying the
+pacing assertions without exercising them, since the surplus a broken pacer
+accumulates grows with the length of the turn. The two cases cover the flowcraft
+and eino drivers, which share the same cascaded text-to-TTS downlink.
 
 `workspace_relay` connects two selected Workspaces in one task as one bounded
 conversation: the tester Workflow owns test intent, generated user behavior,

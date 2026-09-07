@@ -128,6 +128,88 @@ func TestTTSStreamBuffersInterleavedStreamIDs(t *testing.T) {
 	}
 }
 
+// A provider picks its own chunk sizes, so a lookahead segment that runs ahead
+// of the consumer must be held back by how much audio it retains, not by how
+// many chunks it produced.
+func TestTTSSegmentQueueBlocksProviderPastByteBudget(t *testing.T) {
+	chunk := make([]byte, ttsAudioQueueBytes/2)
+	pushed := make(chan int, 4)
+	job := startTTSSegment(context.Background(), "segment", TTSMeta{}, "audio/ogg", func(_ context.Context, _ string, _ TTSMeta, _ string, emit func([]byte) error) error {
+		for index := range 3 {
+			if err := emit(chunk); err != nil {
+				return err
+			}
+			pushed <- index + 1
+		}
+		return nil
+	})
+
+	for want := 1; want <= 2; want++ {
+		select {
+		case got := <-pushed:
+			if got != want {
+				t.Fatalf("accepted chunk %d, want %d", got, want)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("chunk %d never accepted within the byte budget", want)
+		}
+	}
+	select {
+	case got := <-pushed:
+		t.Fatalf("chunk %d accepted past the %d byte budget", got, ttsAudioQueueBytes)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	emitted := 0
+	emitErr, synthErr := job.drain(func(data []byte) error {
+		emitted += len(data)
+		return nil
+	})
+	if emitErr != nil || synthErr != nil {
+		t.Fatalf("drain errors = %v / %v", emitErr, synthErr)
+	}
+	if want := 3 * len(chunk); emitted != want {
+		t.Fatalf("emitted %d bytes, want %d once the consumer drained the queue", emitted, want)
+	}
+}
+
+// Cancelling a segment must release a provider parked on the byte budget, or
+// an interrupted stream would leak the goroutine holding that chunk.
+func TestTTSSegmentQueueReleasesBlockedProviderOnCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	chunk := make([]byte, ttsAudioQueueBytes)
+	filled := make(chan struct{})
+	returned := make(chan error, 2)
+	startTTSSegment(ctx, "segment", TTSMeta{}, "audio/ogg", func(_ context.Context, _ string, _ TTSMeta, _ string, emit func([]byte) error) error {
+		if err := emit(chunk); err != nil {
+			returned <- err
+			return err
+		}
+		close(filled)
+		err := emit(chunk)
+		returned <- err
+		return err
+	})
+
+	// Cancel only once the budget is full, so the callback under test is the
+	// one parked on it rather than one rejected before it ever pushed.
+	select {
+	case <-filled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("provider never filled the byte budget")
+	}
+	cancel()
+	select {
+	case err := <-returned:
+		if err == nil {
+			t.Fatal("blocked provider callback returned nil, want a cancellation error")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("blocked provider callback was never released by cancellation")
+	}
+}
+
 // Every segment costs a fresh provider request, so synthesizing them one after
 // another puts a full first-audio latency of silence at each segment boundary.
 // A segment must therefore start while its predecessor is still emitting.

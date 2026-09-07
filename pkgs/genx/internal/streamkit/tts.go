@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -23,10 +24,12 @@ const (
 	// caps a turn at two concurrent provider sessions.
 	ttsLookahead = 1
 
-	// ttsAudioQueue bounds the audio a lookahead segment may buffer before its
-	// synthesis blocks. Emission order is fixed, so a segment that finishes
-	// early waits here rather than being emitted out of turn.
-	ttsAudioQueue = 256
+	// ttsAudioQueueBytes bounds the audio a lookahead segment may hold before
+	// its synthesis blocks. Emission order is fixed, so a segment that finishes
+	// early waits here rather than being emitted out of turn. A provider picks
+	// its own chunk sizes, so the budget is in bytes: counting chunks would let
+	// one stream retain an unbounded amount of provider output.
+	ttsAudioQueueBytes = 1 << 20
 )
 
 // TTSMeta is immutable input-route metadata supplied to a TTS synthesizer.
@@ -55,35 +58,87 @@ func (s *ttsStreamState) cancelPending() {
 
 // ttsSegmentJob is one segment being synthesized ahead of its turn to be
 // emitted. Audio accumulates in the queue while an earlier segment is still
-// emitting, so the provider's first-audio latency is paid concurrently.
+// emitting, so the provider's first-audio latency is paid concurrently. The
+// queue holds at most ttsAudioQueueBytes; past that the provider callback
+// blocks until the consumer catches up or the job is cancelled.
 type ttsSegmentJob struct {
-	audio  chan []byte
-	done   chan error
 	cancel context.CancelFunc
+	done   chan error
+
+	mu      sync.Mutex
+	ready   *sync.Cond
+	pending [][]byte
+	bytes   int
+	sealed  bool
+	stopped bool
 }
 
 func startTTSSegment(ctx context.Context, segment string, meta TTSMeta, mimeType string, synthesize TTSSynthesizer) *ttsSegmentJob {
 	jobCtx, cancel := context.WithCancel(ctx)
-	job := &ttsSegmentJob{
-		audio:  make(chan []byte, ttsAudioQueue),
-		done:   make(chan error, 1),
-		cancel: cancel,
-	}
+	job := &ttsSegmentJob{cancel: cancel, done: make(chan error, 1)}
+	job.ready = sync.NewCond(&job.mu)
+	stop := context.AfterFunc(jobCtx, job.stop)
 	go func() {
-		defer close(job.audio)
-		job.done <- synthesize(jobCtx, segment, meta, mimeType, func(data []byte) error {
-			if len(data) == 0 {
-				return nil
-			}
-			select {
-			case job.audio <- bytes.Clone(data):
-				return nil
-			case <-jobCtx.Done():
-				return jobCtx.Err()
-			}
-		})
+		err := synthesize(jobCtx, segment, meta, mimeType, job.push)
+		stop()
+		job.seal()
+		job.done <- err
 	}()
 	return job
+}
+
+// push hands one chunk of provider audio to the queue, blocking while the queue
+// is over budget so a fast provider cannot outrun the consumer's memory.
+func (j *ttsSegmentJob) push(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for j.bytes >= ttsAudioQueueBytes && !j.stopped {
+		j.ready.Wait()
+	}
+	if j.stopped {
+		return context.Canceled
+	}
+	j.pending = append(j.pending, bytes.Clone(data))
+	j.bytes += len(data)
+	j.ready.Broadcast()
+	return nil
+}
+
+// seal marks the provider finished so a waiting consumer stops.
+func (j *ttsSegmentJob) seal() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.sealed = true
+	j.ready.Broadcast()
+}
+
+// stop releases a producer or consumer blocked on the queue after cancellation.
+func (j *ttsSegmentJob) stop() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.stopped = true
+	j.ready.Broadcast()
+}
+
+// next returns the queue's oldest chunk, waiting for one while the provider is
+// still running.
+func (j *ttsSegmentJob) next() ([]byte, bool) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for len(j.pending) == 0 && !j.sealed {
+		j.ready.Wait()
+	}
+	if len(j.pending) == 0 {
+		return nil, false
+	}
+	data := j.pending[0]
+	j.pending = j.pending[1:]
+	j.bytes -= len(data)
+	j.ready.Broadcast()
+	return data, true
 }
 
 // drain emits this segment's audio in order and reports the emission and
@@ -91,7 +146,11 @@ func startTTSSegment(ctx context.Context, segment string, meta TTSMeta, mimeType
 func (j *ttsSegmentJob) drain(emit func([]byte) error) (error, error) {
 	defer j.cancel()
 	var emitErr error
-	for data := range j.audio {
+	for {
+		data, ok := j.next()
+		if !ok {
+			break
+		}
 		if emitErr != nil {
 			continue
 		}

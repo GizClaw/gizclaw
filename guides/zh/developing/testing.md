@@ -419,13 +419,14 @@ frame、平均间隔 12 到 21 ms、P95 不超过 30 ms、最大间隔不超过 
 盈余在 450 到 550 ms 之间，分别覆盖 push-to-talk 与 realtime 下发。这些区间允许 pacer
 围绕 500 ms 目标有界恢复，但不要求网络上每包严格等于 20 ms。
 
-这两个用例的回复都短到只有一个 TTS segment，永远到不了 segment 边界。
-`flowcraft-voice-assistant.push-to-talk-long-reply-continuity.giztest.yaml` 与
-`eino-concurrency-assistant.push-to-talk-long-reply-continuity.giztest.yaml` 会要求
-多句回复并断言至少 400 包，只有跨越多个 segment 之后连续性断言才真正生效；两者都要求
-没有欠载、`minimum_buffer_ms` 为正，且最大间隔不超过 500 ms 的 prebuffer。这两个用例分别
-覆盖 flowcraft 与 eino driver——它们共用同一条级联 text 到 TTS 的路径，因而有相同的
-segment 边界。
+这两个用例都只有一轮，此时下行 pacer 正在第一次建立目标缓冲。真正会回归的是后续轮次：
+轮次之间的空闲墙上时间并不是客户端消费掉的音频，把它记到 pacer 头上会让之后每一轮都
+超前于实时到达。`flowcraft-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml`
+与 `eino-concurrency-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` 对同一个
+Workspace 连续跑三轮，每轮要求至少 200 包、`buffer_surplus_ms` 不超过 700 ms、没有欠载，
+且 `minimum_buffer_ms` 为正。包数下限用于防止过短的回复在没有真正考验 pacing 断言的情况下
+通过，因为 pacer 出问题时累积的超前量随回合长度增长。这两个用例分别覆盖 flowcraft 与
+eino driver——它们共用同一条级联 text 到 TTS 的下行路径。
 
 `workspace_relay` 在一个 task 内把两个已选中的 Workspace 接成一场有界对话：
 tester Workflow 拥有测试意图、生成的用户行为、语义评判和最终裁决；Giztest 拥有传输、
