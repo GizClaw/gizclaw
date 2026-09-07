@@ -98,6 +98,7 @@ func (m *Manager) setEdgeTransportDown(publicKey giznet.PublicKey, conn giznet.C
 	if m == nil || conn == nil {
 		return
 	}
+	defer m.recordPeerLastSeen(publicKey, conn)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	state := m.peers[publicKey]
@@ -630,6 +631,7 @@ func (m *Manager) runtimeProfileForOwner(ctx context.Context, owner string) (api
 }
 
 func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
+	defer m.recordPeerLastSeen(publicKey, conn)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	state, ok := m.peers[publicKey]
@@ -645,18 +647,25 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 }
 
 func (m *Manager) ForcePeerDown(publicKey giznet.PublicKey) {
+	m.recordPeerLastSeen(publicKey, m.forcePeerDown(publicKey))
+}
+
+// forcePeerDown drops the Peer entry and reports the connection it removed.
+func (m *Manager) forcePeerDown(publicKey giznet.PublicKey) giznet.Conn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	state, ok := m.peers[publicKey]
 	if !ok {
-		return
+		return nil
 	}
+	conn := state.conn
 	if state.deleting || state.activating != nil {
 		state.conn = nil
 		state.registration = nil
-		return
+		return conn
 	}
 	delete(m.peers, publicKey)
+	return conn
 }
 
 func (m *Manager) Peer(publicKey giznet.PublicKey) (giznet.Conn, bool) {
@@ -675,8 +684,29 @@ func (m *Manager) PeerRuntime(ctx context.Context, publicKey giznet.PublicKey) a
 		if mode, err := m.PeerRun.GetDebugMode(ctx, publicKey); err == nil {
 			runtime.DebugMode = &mode
 		}
+		if runtime.LastSeenAt.IsZero() {
+			// An offline Peer keeps the last activity recorded when its
+			// connection went down, so operators can read how long it has
+			// been unreachable instead of a zero timestamp.
+			if seen, err := m.PeerRun.GetLastSeen(ctx, publicKey); err == nil {
+				runtime.LastSeenAt = seen
+			}
+		}
 	}
 	return runtime
+}
+
+// recordPeerLastSeen persists the last activity observed on a Peer connection
+// that is going down. It must run without m.mu held.
+func (m *Manager) recordPeerLastSeen(publicKey giznet.PublicKey, conn giznet.Conn) {
+	if m == nil || m.PeerRun == nil || conn == nil {
+		return
+	}
+	info := conn.PeerInfo()
+	if info == nil || info.LastSeen.IsZero() {
+		return
+	}
+	_ = m.PeerRun.RecordLastSeen(context.Background(), publicKey, info.LastSeen)
 }
 
 func (m *Manager) peerConnectionRuntime(publicKey giznet.PublicKey) apitypes.Runtime {

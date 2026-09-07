@@ -5789,8 +5789,10 @@ type RewardGrantListResponse struct {
 // Runtime defines model for Runtime.
 type Runtime struct {
 	// DebugMode Device-owned debug access mode: off (default), readonly, or fullcontrol. Stored by the authoritative Server and set through authenticated server.runtime.put.
-	DebugMode  *string   `json:"debug_mode,omitempty"`
-	LastAddr   *string   `json:"last_addr,omitempty"`
+	DebugMode *string `json:"debug_mode,omitempty"`
+	LastAddr  *string `json:"last_addr,omitempty"`
+
+	// LastSeenAt Last observed activity on the Peer connection. While the Peer is online this advances with packet and service-stream traffic; while it is offline this is the activity recorded when the connection went down. It is the zero time only when the Server has never observed the Peer.
 	LastSeenAt time.Time `json:"last_seen_at"`
 	Online     bool      `json:"online"`
 	RxBytes    *uint64   `json:"rx_bytes,omitempty"`
