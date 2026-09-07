@@ -63,8 +63,6 @@ type Transformer struct {
 	responseDeadline  time.Duration
 	initiative        InitiativePolicy
 	initiativeQuery   string
-	initiativeMu      sync.Mutex
-	initiativeClaimed bool
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -320,32 +318,6 @@ func withInitiative(policy InitiativePolicy, query string) option {
 	}
 }
 
-// claimInitiative reports whether this session must send the opening query.
-// The claim is released again when the query cannot be submitted or the
-// provider session is lost before the opening response starts, so the
-// replacement session opens the conversation instead.
-func (t *Transformer) claimInitiative() bool {
-	if t == nil || t.initiative == InitiativeDisabled {
-		return false
-	}
-	t.initiativeMu.Lock()
-	defer t.initiativeMu.Unlock()
-	if t.initiativeClaimed {
-		return false
-	}
-	t.initiativeClaimed = true
-	return true
-}
-
-func (t *Transformer) releaseInitiative() {
-	if t == nil {
-		return
-	}
-	t.initiativeMu.Lock()
-	t.initiativeClaimed = false
-	t.initiativeMu.Unlock()
-}
-
 // newTransformer creates a Transformer.
 //
 // Parameters:
@@ -594,6 +566,12 @@ type doubaoRealtimeRuntime struct {
 	history                *doubaoRealtimeHistoryRoutes
 	emptyPTTTrailingRoute  string
 	emptyPTTTrailingRouteM sync.Mutex
+	// initiativeClaimed guards the agent-initiative opening query. It belongs
+	// to one Transform invocation so every Workspace served by the same
+	// configured Transformer opens its own conversation; the provider session
+	// replacements of that invocation share it.
+	initiativeMu      sync.Mutex
+	initiativeClaimed bool
 }
 
 func newDoubaoRealtimeRuntime(t *Transformer) *doubaoRealtimeRuntime {
@@ -614,6 +592,32 @@ func (r *doubaoRealtimeRuntime) markEmptyPTTTrailingRoute(streamID string) {
 	r.emptyPTTTrailingRouteM.Lock()
 	r.emptyPTTTrailingRoute = strings.TrimSpace(streamID)
 	r.emptyPTTTrailingRouteM.Unlock()
+}
+
+// claimInitiative reports whether this session must send the opening query.
+// The claim is released again when the query cannot be submitted or the
+// provider session is lost before the opening response starts, so the
+// replacement session opens the conversation instead.
+func (r *doubaoRealtimeRuntime) claimInitiative(policy InitiativePolicy) bool {
+	if r == nil || policy == InitiativeDisabled {
+		return false
+	}
+	r.initiativeMu.Lock()
+	defer r.initiativeMu.Unlock()
+	if r.initiativeClaimed {
+		return false
+	}
+	r.initiativeClaimed = true
+	return true
+}
+
+func (r *doubaoRealtimeRuntime) releaseInitiative() {
+	if r == nil {
+		return
+	}
+	r.initiativeMu.Lock()
+	r.initiativeClaimed = false
+	r.initiativeMu.Unlock()
 }
 
 func (r *doubaoRealtimeRuntime) consumeEmptyPTTTrailingEOS(chunk *genx.MessageChunk) bool {
@@ -1307,7 +1311,7 @@ func (t *Transformer) processSession(
 					}
 				}
 			}()
-			if t.claimInitiative() {
+			if runtime.claimInitiative(t.initiative) {
 				// Agent initiative: the dialogue model opens the conversation from
 				// a hidden ChatTextQuery. The query text never reaches output or
 				// history; only the assistant response is published on the
@@ -1328,7 +1332,7 @@ func (t *Transformer) processSession(
 				slog.InfoContext(ctx, "doubao: sending agent initiative query", "streamID", responseStreamID)
 				if err := session.SendText(ctx, t.initiativeQuery); err != nil {
 					initiativeActive.Store(false)
-					t.releaseInitiative()
+					runtime.releaseInitiative()
 					slog.ErrorContext(ctx, "doubao: send initiative query error", "error", err)
 					return doubaoRealtimeRecoverable("send initiative query", err)
 				}
@@ -1678,7 +1682,7 @@ func (t *Transformer) processSession(
 			isDoubaoRealtimeRecoverable(err) &&
 			!errors.Is(err, errDoubaoRealtimeInterruptHandoff) &&
 			!errors.Is(err, errDoubaoRealtimeEmptyPTTHandoff) {
-			t.releaseInitiative()
+			runtime.releaseInitiative()
 		}
 		eventsResult <- err
 	}()
