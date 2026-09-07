@@ -40,7 +40,67 @@ func initializeProfileSQL(ctx context.Context, db *sqlx.DB) error {
 			return err
 		}
 	}
+	if err := dropLegacyProfileColumns(ctx, tx); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// legacyProfileColumns are columns earlier releases created as NOT NULL on
+// runtime_profiles. CREATE TABLE IF NOT EXISTS leaves an existing table
+// untouched, so a deployment upgraded in place keeps them and rejects every
+// insert that omits them. Dropping them makes startup converge on the current
+// schema instead of requiring a hand-written migration.
+var legacyProfileColumns = []string{"gameplay_json"}
+
+func dropLegacyProfileColumns(ctx context.Context, tx *sqlx.Tx) error {
+	switch tx.DriverName() {
+	case "postgres", "pgx":
+		for _, column := range legacyProfileColumns {
+			if _, err := tx.ExecContext(ctx, `ALTER TABLE runtime_profiles DROP COLUMN IF EXISTS `+column); err != nil {
+				return fmt.Errorf("runtimeprofile: drop legacy column %q: %w", column, err)
+			}
+		}
+		return nil
+	case "sqlite":
+		present, err := sqliteProfileColumns(ctx, tx)
+		if err != nil {
+			return err
+		}
+		for _, column := range legacyProfileColumns {
+			if !present[column] {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `ALTER TABLE runtime_profiles DROP COLUMN `+column); err != nil {
+				return fmt.Errorf("runtimeprofile: drop legacy column %q: %w", column, err)
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("runtimeprofile: unsupported SQL driver %q", tx.DriverName())
+	}
+}
+
+func sqliteProfileColumns(ctx context.Context, tx *sqlx.Tx) (map[string]bool, error) {
+	rows, err := tx.QueryContext(ctx, `PRAGMA table_info(runtime_profiles)`)
+	if err != nil {
+		return nil, fmt.Errorf("runtimeprofile: inspect runtime_profiles columns: %w", err)
+	}
+	defer rows.Close()
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid, notNull, primaryKey int
+		var name, columnType string
+		var defaultValue sql.NullString
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return nil, fmt.Errorf("runtimeprofile: scan runtime_profiles columns: %w", err)
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("runtimeprofile: read runtime_profiles columns: %w", err)
+	}
+	return columns, nil
 }
 
 const runtimeProfileColumns = "id,revision,resources_json,workflows_json,created_at,updated_at,incarnation,row_version"
