@@ -1,0 +1,90 @@
+# User Story:
+# As a device reloading a doubao-realtime-conversation Workspace in Realtime mode with agent initiative,
+# I want the Doubao dialogue model to speak first from a hidden ChatTextQuery without any Peer input,
+# So that the opening turn reaches the device and is recorded in Workspace history.
+version: gizclaw.test/v1alpha1
+name: doubao-realtime-conversation.initiative-listen-realtime
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: doubao-realtime-conversation
+      parameters:
+        doubao_realtime_workspace_parameters:
+          agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+          input: WORKSPACE_INPUT_MODE_REALTIME
+          conversation:
+            initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT
+            agent_initiative_policy: CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+- id: activate_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: listen_for_opening
+  client: peer
+  timeout: 45s
+  peer_stream:
+    mode: listen
+    duration: 30s
+  expect:
+    /audio_bytes:
+      minimum: 1
+- id: verify_history
+  client: peer
+  rpc:
+    method: server.run.workspace.history
+    request:
+      limit: 20
+  expect:
+    "/items":
+      non_empty: true
+finally:
+- client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

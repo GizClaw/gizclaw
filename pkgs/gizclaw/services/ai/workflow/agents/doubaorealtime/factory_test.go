@@ -4,12 +4,19 @@ import (
 	"context"
 	"io"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 //go:fix inline
@@ -310,3 +317,110 @@ func (emptyStream) Next() (*genx.MessageChunk, error) { return nil, io.EOF }
 func (emptyStream) Close() error { return nil }
 
 func (emptyStream) CloseWithError(error) error { return nil }
+
+func newTestDoubaoRealtimeHistory(t testing.TB) *workspace.HistoryStore {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", filepath.Join(t.TempDir(), "history.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	records, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() })
+	objects, err := objectstore.NewRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return workspace.NewHistoryStore(records, objects, "demo")
+}
+
+func TestFactoryAgentInitiativeEnablesHiddenQuery(t *testing.T) {
+	factory := Factory{Transformer: recordingTransformer{}}
+	agent := apitypes.ConversationParametersInitiativeAgent
+	policy := apitypes.ConversationParametersAgentInitiativePolicyOnReload
+	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+		Conversation: &apitypes.ConversationParameters{Initiative: &agent, AgentInitiativePolicy: &policy},
+	})
+	got, err := factory.NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-initiative", Name: "demo", Parameters: params},
+		Workflow: testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{
+			Model:           "workflow-dialog",
+			InitiativeQuery: new("请先打个招呼"),
+		}),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	query := patternQuery(t, transformPattern(t, got))
+	if query.Get("initiative") != "on_reload" {
+		t.Fatalf("initiative = %q, want on_reload", query.Get("initiative"))
+	}
+	if query.Get("initiative_query") != "请先打个招呼" {
+		t.Fatalf("initiative_query = %q, want workflow query", query.Get("initiative_query"))
+	}
+}
+
+func TestFactoryPeerInitiativeSendsNoHiddenQuery(t *testing.T) {
+	factory := Factory{Transformer: recordingTransformer{}}
+	peer := apitypes.ConversationParametersInitiativePeer
+	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+		Conversation: &apitypes.ConversationParameters{Initiative: &peer},
+	})
+	got, err := factory.NewAgent(context.Background(), agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-peer", Name: "demo", Parameters: params},
+		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "workflow-dialog"}),
+	})
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if query := patternQuery(t, transformPattern(t, got)); query.Has("initiative") {
+		t.Fatalf("pattern enables initiative for peer conversation: %v", query)
+	}
+}
+
+func TestFactoryOnceWhenEmptyInitiativeFollowsHistory(t *testing.T) {
+	agent := apitypes.ConversationParametersInitiativeAgent
+	policy := apitypes.ConversationParametersAgentInitiativePolicyOnceWhenEmpty
+	params := testDoubaoRealtimeWorkspaceParameters(t, apitypes.DoubaoRealtimeWorkspaceParameters{
+		Conversation: &apitypes.ConversationParameters{Initiative: &agent, AgentInitiativePolicy: &policy},
+	})
+	history := newTestDoubaoRealtimeHistory(t)
+	spec := agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "workspace-once", Name: "demo", Parameters: params},
+		Workflow:  testDoubaoRealtimeWorkflow(apitypes.DoubaoRealtimeWorkflowSpec{Model: "workflow-dialog"}),
+		Runtime:   workspace.Runtime{History: history},
+	}
+	factory := Factory{Transformer: recordingTransformer{}}
+
+	got, err := factory.NewAgent(context.Background(), spec)
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if query := patternQuery(t, transformPattern(t, got)); query.Get("initiative") != "on_reload" {
+		t.Fatalf("empty history should enable initiative, got %v", query)
+	}
+
+	if _, err := history.Append(context.Background(), workspace.AppendHistoryRequest{Type: "agent", Name: "agent", Text: "hello"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = factory.NewAgent(context.Background(), spec)
+	if err != nil {
+		t.Fatalf("NewAgent() error = %v", err)
+	}
+	if query := patternQuery(t, transformPattern(t, got)); query.Has("initiative") {
+		t.Fatalf("non-empty history should disable once_when_empty initiative, got %v", query)
+	}
+
+	spec.Runtime.History = nil
+	if _, err := factory.NewAgent(context.Background(), spec); err == nil || !strings.Contains(err.Error(), "history is required") {
+		t.Fatalf("NewAgent() without history error = %v, want history required", err)
+	}
+}

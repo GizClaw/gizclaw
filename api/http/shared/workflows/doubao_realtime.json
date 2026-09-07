@@ -361,6 +361,10 @@
           "instructions": {
             "type": "string"
           },
+          "initiative_query": {
+            "type": "string",
+            "description": "Hidden ChatTextQuery text sent when Workspace conversation initiative is agent, so the dialogue model generates the opening turn. Defaults to a generic greeting request."
+          },
           "audio": {
             "$ref": "#/components/schemas/DoubaoRealtimeAudio"
           },
