@@ -349,6 +349,16 @@ func deleteSQLWorkspace(ctx context.Context, db *sqlx.DB, id string, version wor
 
 func bumpSQLWorkspaceActivity(ctx context.Context, db *sqlx.DB, id string, active time.Time) error {
 	stamp := active.UTC().Format(workspaceSQLTimeLayout)
-	_, err := db.ExecContext(ctx, db.Rebind(`UPDATE workspaces SET last_active_at=?,revision=revision+1 WHERE id=? AND last_active_at<? AND pending_deletion_id IS NULL`), stamp, id, stamp)
-	return err
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE workspaces SET last_active_at=CASE WHEN last_active_at<? THEN ? ELSE last_active_at END,revision=revision+CASE WHEN last_active_at<? THEN 1 ELSE 0 END WHERE id=? AND pending_deletion_id IS NULL`), stamp, stamp, stamp, id)
+	if err != nil {
+		return err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return errWorkspaceSQLConflict
+	}
+	return nil
 }

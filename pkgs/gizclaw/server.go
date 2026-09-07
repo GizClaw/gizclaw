@@ -358,6 +358,8 @@ func (s *Server) init() error {
 		return errors.New("gizclaw: nil credential database")
 	case s.ModelDB == nil:
 		return errors.New("gizclaw: nil model database")
+	case s.WorkspaceDB == nil:
+		return errors.New("gizclaw: nil workspace database")
 	case s.WorkflowDB == nil:
 		return errors.New("gizclaw: nil workflow database")
 	case s.ContactDB == nil:

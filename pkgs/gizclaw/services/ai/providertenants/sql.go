@@ -195,8 +195,13 @@ func listSQLTenants[T tenantObject](ctx context.Context, db *sqlx.DB, kind, curs
 }
 
 // recordTenantSync updates synchronization metadata without replacing configuration.
-func recordTenantSync(ctx context.Context, db *sqlx.DB, kind, id, incarnation string, at time.Time) error {
-	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE provider_tenants SET last_synced_at=?,updated_at=? WHERE provider_kind=? AND id=? AND incarnation=?`), at.UTC().Format(time.RFC3339Nano), at.UTC().Format(time.RFC3339Nano), kind, id, incarnation)
+func recordTenantSync(ctx context.Context, db *sqlx.DB, kind, id, incarnation string, at time.Time, reconcile func(*sqlx.Tx) error) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, tx.Rebind(`UPDATE provider_tenants SET last_synced_at=?,updated_at=? WHERE provider_kind=? AND id=? AND incarnation=?`), at.UTC().Format(time.RFC3339Nano), at.UTC().Format(time.RFC3339Nano), kind, id, incarnation)
 	if err != nil {
 		return err
 	}
@@ -207,5 +212,10 @@ func recordTenantSync(ctx context.Context, db *sqlx.DB, kind, id, incarnation st
 	if count == 0 {
 		return fmt.Errorf("provider tenant %q changed during synchronization", id)
 	}
-	return nil
+	if reconcile != nil {
+		if err := reconcile(tx); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

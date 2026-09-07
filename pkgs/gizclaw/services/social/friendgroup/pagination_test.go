@@ -9,7 +9,7 @@ import (
 
 func TestListFriendGroupsPaginatesOpaqueIDs(t *testing.T) {
 	s := newTestServer(t)
-	want := []string{"group:a", "group:b", "group:c"}
+	want := []string{"group/a", "group:b", "group_c"}
 	for _, id := range want {
 		if _, err := s.AdminCreateFriendGroup(t.Context(), id, "peer-a", id, nil, nil); err != nil {
 			t.Fatal(err)
@@ -35,7 +35,7 @@ func TestListFriendGroupsPaginatesOpaqueIDs(t *testing.T) {
 
 func TestListFriendGroupMembersPaginatesOpaqueIdentities(t *testing.T) {
 	s := newTestServer(t)
-	want := []string{"peer:a", "peer:b", "peer:c"}
+	want := []string{"peer/a", "peer:b", "peer_c"}
 	if _, err := s.AdminCreateFriendGroup(t.Context(), "group:a", want[0], "room", nil, nil); err != nil {
 		t.Fatal(err)
 	}

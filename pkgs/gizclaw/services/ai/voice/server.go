@@ -42,6 +42,7 @@ type VoiceAdminService interface {
 // services that discover voices from an external provider.
 type ProviderVoiceService interface {
 	ReconcileProviderVoices(context.Context, apitypes.VoiceProviderKind, string, []apitypes.Voice) (created, updated, deleted int32, err error)
+	ReconcileProviderVoicesInTransaction(context.Context, *sqlx.DB, *sqlx.Tx, apitypes.VoiceProviderKind, string, []apitypes.Voice) (created, updated, deleted int32, err error)
 	DeleteProviderVoices(context.Context, apitypes.VoiceProviderKind, string) error
 	DeleteProviderVoicesInTransaction(context.Context, *sqlx.DB, *sqlx.Tx, apitypes.VoiceProviderKind, string) error
 }
@@ -55,6 +56,23 @@ func (s *Server) ReconcileProviderVoices(ctx context.Context, kind apitypes.Voic
 	db, err := s.database()
 	if err != nil {
 		return 0, 0, 0, err
+	}
+	return reconcileVoiceSQL(ctx, db, kind, providerID, desired)
+}
+
+// ReconcileProviderVoicesInTransaction joins a locked tenant incarnation when
+// sharing its pool. With separate databases, the caller holds that tenant row
+// through reconciliation so retirement cannot race with the independent commit.
+func (s *Server) ReconcileProviderVoicesInTransaction(ctx context.Context, ownerDB *sqlx.DB, tx *sqlx.Tx, kind apitypes.VoiceProviderKind, providerID string, desired []apitypes.Voice) (int32, int32, int32, error) {
+	db, err := s.database()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if ownerDB == nil || tx == nil {
+		return 0, 0, 0, errors.New("voice: tenant transaction is required")
+	}
+	if db.DB == ownerDB.DB {
+		return reconcileVoiceTx(ctx, tx, kind, providerID, desired)
 	}
 	return reconcileVoiceSQL(ctx, db, kind, providerID, desired)
 }

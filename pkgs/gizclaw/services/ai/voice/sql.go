@@ -105,6 +105,22 @@ func scanVoice(row interface{ Scan(...any) error }) (apitypes.Voice, error) {
 }
 
 func reconcileVoiceSQL(ctx context.Context, db *sqlx.DB, kind apitypes.VoiceProviderKind, providerID string, desired []apitypes.Voice) (int32, int32, int32, error) {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	defer tx.Rollback()
+	created, updated, deleted, err := reconcileVoiceTx(ctx, tx, kind, providerID, desired)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, 0, 0, err
+	}
+	return created, updated, deleted, nil
+}
+
+func reconcileVoiceTx(ctx context.Context, tx *sqlx.Tx, kind apitypes.VoiceProviderKind, providerID string, desired []apitypes.Voice) (int32, int32, int32, error) {
 	seen := make(map[string]struct{}, len(desired))
 	for _, candidate := range desired {
 		if candidate.Provider.Kind != kind || candidate.Provider.Id != providerID || candidate.Source != apitypes.VoiceSourceSync {
@@ -122,16 +138,11 @@ func reconcileVoiceSQL(ctx context.Context, db *sqlx.DB, kind apitypes.VoiceProv
 		}
 		seen[identity] = struct{}{}
 	}
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	defer tx.Rollback()
 	if err := lockVoiceProvider(ctx, tx, kind, providerID); err != nil {
 		return 0, 0, 0, err
 	}
 	query := `SELECT ` + voiceSQLColumns + ` FROM voices WHERE source='sync' AND provider_kind=? AND provider_id=? ORDER BY id`
-	if db.DriverName() == "pgx" || db.DriverName() == "postgres" {
+	if tx.DriverName() == "pgx" || tx.DriverName() == "postgres" {
 		query += ` FOR UPDATE`
 	}
 	rows, err := tx.QueryContext(ctx, tx.Rebind(query), string(kind), providerID)
@@ -201,9 +212,6 @@ func reconcileVoiceSQL(ctx context.Context, db *sqlx.DB, kind apitypes.VoiceProv
 	}
 	deleted, err := result.RowsAffected()
 	if err != nil {
-		return 0, 0, 0, err
-	}
-	if err := tx.Commit(); err != nil {
 		return 0, 0, 0, err
 	}
 	return created, updated, int32(deleted), nil

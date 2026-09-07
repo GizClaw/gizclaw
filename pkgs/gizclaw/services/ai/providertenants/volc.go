@@ -202,11 +202,13 @@ func (s *Server) SyncVolcTenantVoices(ctx context.Context, request adminhttp.Syn
 		return adminhttp.SyncVolcTenantVoices502JSONResponse(apitypes.NewErrorResponse("VOLC_SYNC_FAILED", err.Error())), nil
 	}
 	now := s.now()
-	createdCount, updatedCount, deletedCount, err := reconcileVolcTenantVoices(ctx, voices, tenant, upstream, now)
+	var createdCount, updatedCount, deletedCount int32
+	err = recordTenantSync(ctx, tenantStore, "volc", tenant.Id, incarnation, now, func(tx *sqlx.Tx) error {
+		var syncErr error
+		createdCount, updatedCount, deletedCount, syncErr = reconcileVolcTenantVoices(ctx, voices, tenantStore, tx, tenant, upstream, now)
+		return syncErr
+	})
 	if err != nil {
-		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := recordTenantSync(ctx, tenantStore, "volc", tenant.Id, incarnation, now); err != nil {
 		return adminhttp.SyncVolcTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.SyncVolcTenantVoices200JSONResponse(adminhttp.VolcSyncVoicesResult{
@@ -663,7 +665,7 @@ func (r volcSpeakerRecord) providerVoiceID() string {
 	return ""
 }
 
-func reconcileVolcTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenant apitypes.VolcTenant, upstream []volcSpeakerRecord, now time.Time) (int32, int32, int32, error) {
+func reconcileVolcTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, db *sqlx.DB, tx *sqlx.Tx, tenant apitypes.VolcTenant, upstream []volcSpeakerRecord, now time.Time) (int32, int32, int32, error) {
 	desired := make([]apitypes.Voice, 0, len(upstream))
 	for _, upstreamVoice := range upstream {
 		providerVoiceID := upstreamVoice.providerVoiceID()
@@ -672,7 +674,7 @@ func reconcileVolcTenantVoices(ctx context.Context, service voicecatalog.Provide
 		}
 		desired = append(desired, voiceFromVolc(tenant.Id, upstreamVoice, now))
 	}
-	return service.ReconcileProviderVoices(ctx, volcProviderKind, tenant.Id, desired)
+	return service.ReconcileProviderVoicesInTransaction(ctx, db, tx, volcProviderKind, tenant.Id, desired)
 }
 
 func voiceFromVolc(tenantID string, upstream volcSpeakerRecord, now time.Time) apitypes.Voice {

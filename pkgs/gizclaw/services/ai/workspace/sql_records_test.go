@@ -212,3 +212,44 @@ func TestWorkspaceSQLLabelFailureRollsBackRecord(t *testing.T) {
 		t.Fatalf("failed update changed index=%s,error=%v", label, err)
 	}
 }
+
+func TestWorkspaceActivityRejectsRetirementAndPreservesMonotonicTime(t *testing.T) {
+	db, _ := sqltest.New(t)
+	testWorkspaceActivityRetirement(t, db)
+}
+
+func testWorkspaceActivityRetirement(t *testing.T, db *sqlx.DB) {
+	ctx := t.Context()
+	if err := Initialize(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	item := sqlWorkspaceFixture("activity", "owner", "activity")
+	if err := createSQLWorkspace(ctx, db, item); err != nil {
+		t.Fatal(err)
+	}
+	_, original, err := getSQLWorkspaceByID(ctx, db, item.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, at := range []time.Time{item.LastActiveAt, item.LastActiveAt.Add(-time.Hour)} {
+		if err := bumpSQLWorkspaceActivity(ctx, db, item.Id, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read, version, err := getSQLWorkspaceByID(ctx, db, item.Id)
+	if err != nil || !read.LastActiveAt.Equal(item.LastActiveAt) || version != original {
+		t.Fatalf("no-op activity changed record: %+v %+v %v", read, version, err)
+	}
+	if _, err := db.Exec(`UPDATE workspaces SET pending_deletion_id='retiring' WHERE id='activity'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := bumpSQLWorkspaceActivity(ctx, db, item.Id, item.LastActiveAt.Add(time.Hour)); !errors.Is(err, errWorkspaceSQLConflict) {
+		t.Fatalf("retired activity = %v", err)
+	}
+	if _, err := db.Exec(`DELETE FROM workspaces WHERE id='activity'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := bumpSQLWorkspaceActivity(ctx, db, item.Id, item.LastActiveAt); !errors.Is(err, errWorkspaceSQLConflict) {
+		t.Fatalf("deleted activity = %v", err)
+	}
+}

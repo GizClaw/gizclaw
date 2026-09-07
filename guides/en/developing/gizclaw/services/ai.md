@@ -122,6 +122,8 @@ One OpenAI Conversation maps one-to-one to one user Workspace. Text execution ag
 
 Tenant retirement first deletes the observed incarnation within a SQL transaction and holds its lifecycle lock until voice cleanup completes. A stale request encountering a replacement fails before touching voices. When tenant and Voice services share a pool, voice removal joins that transaction, rolls back with it, and does not borrow a second connection. With separate databases, voice cleanup commits independently and is retryable while the tenant transaction prevents a same-ID replacement; this configuration does not provide cross-database atomic commit.
 
+After fetching upstream voices, synchronization validates and locks the observed tenant incarnation before publishing voices or synchronization metadata. Shared pools use one transaction; separate pools hold the tenant row lock through the voice commit, in the same lock order as deletion. A retired or replaced tenant snapshot cannot publish voices. Workspace history activity timestamps remain monotonic; deleted or pending-deletion records return a conflict instead of reporting a skipped update as successful.
+
 ## Dependencies and boundaries
 
 ```mermaid

@@ -248,11 +248,13 @@ func (s *Server) SyncMiniMaxTenantVoices(ctx context.Context, request adminhttp.
 		return adminhttp.SyncMiniMaxTenantVoices502JSONResponse(apitypes.NewErrorResponse("MINIMAX_SYNC_FAILED", err.Error())), nil
 	}
 	now := s.now()
-	createdCount, updatedCount, deletedCount, err := reconcileTenantVoices(ctx, voices, tenant, upstream, now)
+	var createdCount, updatedCount, deletedCount int32
+	err = recordTenantSync(ctx, tenantStore, "minimax", tenant.Id, incarnation, now, func(tx *sqlx.Tx) error {
+		var syncErr error
+		createdCount, updatedCount, deletedCount, syncErr = reconcileTenantVoices(ctx, voices, tenantStore, tx, tenant, upstream, now)
+		return syncErr
+	})
 	if err != nil {
-		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	if err := recordTenantSync(ctx, tenantStore, "minimax", tenant.Id, incarnation, now); err != nil {
 		return adminhttp.SyncMiniMaxTenantVoices500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	return adminhttp.SyncMiniMaxTenantVoices200JSONResponse(adminhttp.MiniMaxSyncVoicesResult{
@@ -632,7 +634,7 @@ func cloneMiniMaxRaw(in map[string]json.RawMessage) map[string]json.RawMessage {
 	return out
 }
 
-func reconcileTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, tenant apitypes.MiniMaxTenant, upstream []minimax.Voice, now time.Time) (int32, int32, int32, error) {
+func reconcileTenantVoices(ctx context.Context, service voicecatalog.ProviderVoiceService, db *sqlx.DB, tx *sqlx.Tx, tenant apitypes.MiniMaxTenant, upstream []minimax.Voice, now time.Time) (int32, int32, int32, error) {
 	desired := make([]apitypes.Voice, 0, len(upstream))
 	for _, upstreamVoice := range upstream {
 		providerVoiceID := strings.TrimSpace(upstreamVoice.VoiceID)
@@ -641,7 +643,7 @@ func reconcileTenantVoices(ctx context.Context, service voicecatalog.ProviderVoi
 		}
 		desired = append(desired, voiceFromMiniMax(tenant.Id, upstreamVoice, now))
 	}
-	return service.ReconcileProviderVoices(ctx, miniMaxProviderKind, tenant.Id, desired)
+	return service.ReconcileProviderVoicesInTransaction(ctx, db, tx, miniMaxProviderKind, tenant.Id, desired)
 }
 
 func voiceFromMiniMax(tenantID string, upstream minimax.Voice, now time.Time) apitypes.Voice {

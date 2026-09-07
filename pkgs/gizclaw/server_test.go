@@ -877,3 +877,16 @@ func TestServerServeHTTPDeviceExtensionOnDirectAndEdge(t *testing.T) {
 		})
 	}
 }
+
+func TestServerInitRejectsMissingWorkspaceDatabase(t *testing.T) {
+	key, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{LocalStatic: *key}
+	completeTestServer(t, server)
+	server.WorkspaceDB = nil
+	if err := server.init(); err == nil || !strings.Contains(err.Error(), "nil workspace database") {
+		t.Fatalf("init error = %v", err)
+	}
+}

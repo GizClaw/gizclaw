@@ -94,7 +94,7 @@ func TestProviderUpdatePreservesSyncMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	synced := now.Add(time.Minute)
-	if err := recordTenantSync(ctx, db, "minimax", "main", incarnation, synced); err != nil {
+	if err := recordTenantSync(ctx, db, "minimax", "main", incarnation, synced, nil); err != nil {
 		t.Fatal(err)
 	}
 	item.CreatedAt = now.Add(time.Hour)
@@ -113,7 +113,7 @@ func TestProviderUpdatePreservesSyncMetadata(t *testing.T) {
 	if _, err := createSQLTenant(ctx, db, "minimax", item); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordTenantSync(ctx, db, "minimax", "main", incarnation, synced); err == nil {
+	if err := recordTenantSync(ctx, db, "minimax", "main", incarnation, synced, nil); err == nil {
 		t.Fatal("old sync modified recreated tenant")
 	}
 }
@@ -275,5 +275,42 @@ func TestTenantDeleteHandlerFencesConcurrentReplacement(t *testing.T) {
 	var count int
 	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM voices WHERE id='replacement'`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("replacement voices=%d/%v", count, err)
+	}
+}
+
+func TestTenantSyncRollsBackSharedVoiceReconciliation(t *testing.T) {
+	db := tenantTestDB(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	voices := &voicecatalog.Server{DB: db}
+	if err := voices.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	item := apitypes.MiniMaxTenant{Id: "tenant", CredentialId: "credential"}
+	if _, err := createSQLTenant(ctx, db, "minimax", item); err != nil {
+		t.Fatal(err)
+	}
+	_, incarnation, err := scanTenant[apitypes.MiniMaxTenant](db.QueryRowContext(ctx, `SELECT `+tenantColumns+` FROM provider_tenants WHERE provider_kind='minimax' AND id='tenant'`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	desired := []apitypes.Voice{{Id: "voice", Source: apitypes.VoiceSourceSync, Provider: apitypes.VoiceProvider{Kind: miniMaxProviderKind, Id: "tenant"}, ProviderData: voicecatalog.ProviderData(miniMaxProviderKind, map[string]any{"voice_id": "voice"}), CreatedAt: time.Now(), UpdatedAt: time.Now()}}
+	aborted := errors.New("abort sync")
+	err = recordTenantSync(ctx, db, "minimax", "tenant", incarnation, time.Now(), func(tx *sqlx.Tx) error {
+		if _, _, _, err := voices.ReconcileProviderVoicesInTransaction(ctx, db, tx, miniMaxProviderKind, "tenant", desired); err != nil {
+			return err
+		}
+		return aborted
+	})
+	if !errors.Is(err, aborted) {
+		t.Fatalf("sync=%v", err)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM voices`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("rollback voices=%d %v", count, err)
+	}
+	tenant, err := getSQLTenant[apitypes.MiniMaxTenant](ctx, db, "minimax", "tenant")
+	if err != nil || tenant.LastSyncedAt != nil {
+		t.Fatalf("rollback metadata=%+v %v", tenant, err)
 	}
 }
