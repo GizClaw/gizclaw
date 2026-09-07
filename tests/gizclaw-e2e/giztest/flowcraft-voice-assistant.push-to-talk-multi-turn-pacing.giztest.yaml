@@ -1,0 +1,168 @@
+# User Story:
+# As a registered device using the flowcraft-voice-assistant Workflow,
+# I want every turn of a conversation to arrive paced, not seconds ahead of real time,
+# So that a device with a bounded jitter buffer never has to discard audio.
+version: gizclaw.test/v1alpha1
+name: flowcraft-voice-assistant.push-to-talk-multi-turn-pacing
+timeout: 300s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        collection: assistants
+        workflow_name: flowcraft-voice-assistant
+        parameters:
+          flowcraft_workspace_parameters:
+            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  # A reply of several sentences spans multiple TTS segments, and the packet
+  # floor below keeps a short reply from passing the pacing assertions without
+  # ever exercising them.
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: Please answer with at least six complete sentences, one after another, so your spoken reply runs for about twenty seconds.
+        accepted_content_types: [audio/ogg]
+    save_as: input_audio
+  - id: turn_1
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+      /audio_pacing/packets:
+        minimum: 200
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      # The downlink pacer keeps the device about 500 ms of audio ahead of its
+      # playback clock. Every turn must hold that target: delivering seconds
+      # ahead overruns a bounded jitter buffer, and the device then discards
+      # audio that the transport never lost.
+      /audio_pacing/buffer_surplus_ms:
+        maximum: 700
+      # Continuity is judged against the client's own buffer: underruns counts
+      # the gaps that outlasted the audio held at the time, and a positive
+      # minimum_buffer_ms means it never ran dry.
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 1
+  # Turns after the first are the regression: the seconds of silence while
+  # the peer speaks and the agent thinks are not audio the client consumed,
+  # so they must not be charged to the pacer as a deficit it then works off
+  # by running every later turn ahead of real time.
+  - id: turn_2
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+      /audio_pacing/packets:
+        minimum: 200
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      # The downlink pacer keeps the device about 500 ms of audio ahead of its
+      # playback clock. Every turn must hold that target: delivering seconds
+      # ahead overruns a bounded jitter buffer, and the device then discards
+      # audio that the transport never lost.
+      /audio_pacing/buffer_surplus_ms:
+        maximum: 700
+      # Continuity is judged against the client's own buffer: underruns counts
+      # the gaps that outlasted the audio held at the time, and a positive
+      # minimum_buffer_ms means it never ran dry.
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 1
+  - id: turn_3
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+    expect:
+      /events:
+        non_empty: true
+      /audio_pacing/packets:
+        minimum: 200
+      /audio_pacing/mean_packet_ms:
+        equals: 20
+      # The downlink pacer keeps the device about 500 ms of audio ahead of its
+      # playback clock. Every turn must hold that target: delivering seconds
+      # ahead overruns a bounded jitter buffer, and the device then discards
+      # audio that the transport never lost.
+      /audio_pacing/buffer_surplus_ms:
+        maximum: 700
+      # Continuity is judged against the client's own buffer: underruns counts
+      # the gaps that outlasted the audio held at the time, and a positive
+      # minimum_buffer_ms means it never ran dry.
+      /audio_pacing/underruns:
+        equals: 0
+      /audio_pacing/minimum_buffer_ms:
+        minimum: 1
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
