@@ -276,6 +276,14 @@ func (c *rpcClient) GetTool(ctx context.Context, conn net.Conn, id string, reque
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerToolGet, request, (*rpcapi.RPCPayload).FromToolGetRequest, rpcapi.RPCPayload.AsToolGetResponse, "tool get")
 }
 
+func (c *rpcClient) ListAppConfig(ctx context.Context, conn net.Conn, id string, request rpcapi.AppConfigListRequest) (*rpcapi.AppConfigListResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerAppConfigList, request, (*rpcapi.RPCPayload).FromAppConfigListRequest, rpcapi.RPCPayload.AsAppConfigListResponse, "app config list")
+}
+
+func (c *rpcClient) GetAppConfig(ctx context.Context, conn net.Conn, id string, request rpcapi.AppConfigGetRequest) (*rpcapi.AppConfigGetResponse, error) {
+	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerAppConfigGet, request, (*rpcapi.RPCPayload).FromAppConfigGetRequest, rpcapi.RPCPayload.AsAppConfigGetResponse, "app config get")
+}
+
 func (c *rpcClient) SetWorkspaceParameters(ctx context.Context, conn net.Conn, id string, request rpcapi.WorkspaceParametersSetRequest) (*rpcapi.WorkspaceParametersSetResponse, error) {
 	return callResourceRPC(ctx, conn, id, rpcapi.RPCMethodServerWorkspaceParametersSet, request, (*rpcapi.RPCPayload).FromWorkspaceParametersSetRequest, rpcapi.RPCPayload.AsWorkspaceParametersSetResponse, "workspace parameters set")
 }

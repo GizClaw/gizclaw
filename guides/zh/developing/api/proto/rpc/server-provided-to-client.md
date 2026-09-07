@@ -14,6 +14,8 @@ RuntimeProfile binding alias 按 Collection 分组，但 Peer 边界把每个 bi
 
 `server.run.workspace.reload-with-options` 接受可选 `workspace_name` 与 `parameters`：先校验目标访问权和 Workflow 可用性、应用支持的参数，再保存选择并执行一次 reload，返回实际 `PeerRunWorkspaceState`。不传 `workspace_name` 时沿用当前选择；不传 `parameters` 时不更新参数。客户端可用一次 RPC 完成配置、选择与启动，SFU 不会先激活再重复 reload。参数更新失败时不改变选择、不执行 reload；后续选择或启动失败会返回错误，已经成功保存的配置不会回滚。
 
+`app_config` 是 RuntimeProfile 中唯一投影给 Peer 的非资源配置。`server.app_config.list` 分页返回 key，`server.app_config.get` 按 key 原样返回 value；两个响应同样携带 `runtime_profile_name` 与 `runtime_profile_revision`，list cursor 与 revision 绑定，revision 变化时返回 `ABORTED`。Server 不解析 value，也不提供任何写入方法；设备写入不属于这个通道。因为 value 上限 4096 字节、key 上限 64 个，list 只返回 key，避免单帧超过 RPC 帧上限。RuntimeProfile 的 memory connection 等其他字段仍只对 Admin 可读，不进入这个 projection。
+
 Workspace create 必须传 `collection` 与 `workflow_name`。Server 把该 Peer name 解析为当前 RuntimeProfile binding，并通过内部 Workspace label 保存 Collection。Workspace list 必须传 Collection 并做精确筛选，但 Peer 响应不包含通用 labels。删除 binding 不会隐藏或删除已有 Workspace；name 再次可解析前 reload/run 返回 not found。
 
 ## 调用关系

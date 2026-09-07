@@ -200,6 +200,8 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY', '2': 117, '3': {}},
     {'1': 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP', '2': 118, '3': {}},
     {'1': 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET', '2': 119, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_APP_CONFIG_LIST', '2': 121, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_APP_CONFIG_GET', '2': 122, '3': {}},
   ],
 };
 
@@ -465,7 +467,11 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'NDbGllbnREZXZpY2VBdWRpb1BsYXllclN0b3BSZXNwb25zZRKqAQotUlBDX01FVEhPRF9DTElF'
     'TlRfREVWSUNFX0FVRElPUExBWUVSX01PREVfU0VUEHcad8LzGHMKImNsaWVudC5kZXZpY2UuYX'
     'VkaW9wbGF5ZXIubW9kZS5zZXQSJUNsaWVudERldmljZUF1ZGlvUGxheWVyTW9kZVNldFJlcXVl'
-    'c3QaJkNsaWVudERldmljZUF1ZGlvUGxheWVyTW9kZVNldFJlc3BvbnNl');
+    'c3QaJkNsaWVudERldmljZUF1ZGlvUGxheWVyTW9kZVNldFJlc3BvbnNlEnAKIVJQQ19NRVRIT0'
+    'RfU0VSVkVSX0FQUF9DT05GSUdfTElTVBB5GknC8xhFChZzZXJ2ZXIuYXBwX2NvbmZpZy5saXN0'
+    'EhRBcHBDb25maWdMaXN0UmVxdWVzdBoVQXBwQ29uZmlnTGlzdFJlc3BvbnNlEmwKIFJQQ19NRV'
+    'RIT0RfU0VSVkVSX0FQUF9DT05GSUdfR0VUEHoaRsLzGEIKFXNlcnZlci5hcHBfY29uZmlnLmdl'
+    'dBITQXBwQ29uZmlnR2V0UmVxdWVzdBoUQXBwQ29uZmlnR2V0UmVzcG9uc2U=');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

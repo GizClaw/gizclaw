@@ -124,3 +124,8 @@ spec:
             pet_exp_max: 25
             badge_exp_max_per_badge: 100
             prompt: Evaluate the validated starter game result and award only demonstrated progress.
+  app_config:
+    ui.theme: dark
+    app.entrypoints: |
+      {"home": "/tab/home", "settings": "/tab/settings"}
+    feature.flags: beta-voice,beta-pet
