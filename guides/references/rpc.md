@@ -28,7 +28,6 @@
 | 11 | `server.run.workspace.get` | 读取当前、待切换和已选 Workspace 及其运行状态。 |
 | 12 | `server.run.workspace.set` | 选择要运行的 Workspace，并返回切换后的状态。 |
 | 13 | `server.run.workspace.reload` | 重新加载当前 Workspace 的运行实例。 |
-| 120 | `server.run.workspace.reload-with-options` | 重新加载指定或当前 Workspace，并按 `parameters` patch 覆盖本次运行的 Workspace 参数。 |
 | 14 | `server.run.workspace.history` | 分页读取当前运行 Workspace 的 history。 |
 | 15 | `server.run.workspace.history.play` | 请求播放一条当前 Workspace history 的音频。 |
 | 16 | `server.run.workspace.memory.stats` | 读取当前 Workspace memory/recall backend 的统计信息。 |
@@ -55,6 +54,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_name` 创建当前 Peer 的 Workspace。 |
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
 | 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
+| 120 | `server.run.workspace.reload-with-options` | 应用受支持参数、选择目标 Workspace 并执行一次 reload，返回实际运行状态。 |
 | 112 | `server.runtime.put` | 设备设置自身 Runtime 的 `debug_mode`（`off`、`readonly` 或 `fullcontrol`），由所属 Server 存储并执行访问权限检查。 |
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
@@ -158,13 +158,13 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 108 | `client.wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
 | 109 | `client.wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
 | 111 | `client.firmware.update` | 通知设备执行一次 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 声明调用方看到的目标包，与设备解析出的包不一致时设备拒绝。设备在应答后自行下载、校验、写入并重启。 |
-| 113 | `client.device.audioplayer.get` | 读取设备当前的 `AudioPlayerStatus`（播放状态、曲目索引与 repeat mode）。 |
-| 114 | `client.device.audioplayer.playlist.get` | 读取设备当前播放列表。 |
-| 115 | `client.device.audioplayer.playlist.set` | 整体替换设备播放列表。 |
-| 116 | `client.device.audioplayer.playlist.append` | 向设备播放列表追加曲目。 |
-| 117 | `client.device.audioplayer.play` | 开始播放，可选 `index` 指定曲目。 |
-| 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与 repeat mode。 |
-| 119 | `client.device.audioplayer.mode.set` | 设置 repeat mode：`off` 播完停止、`one` 单曲循环、`all` 列表循环。 |
+| 113 | `client.device.audioplayer.get` | 读取设备播放器的完整状态：播放状态、当前索引、实际进度、可选时长、循环模式、列表长度与版本。 |
+| 114 | `client.device.audioplayer.playlist.get` | 读取设备当前播放列表与 `playlist_revision`，不读取服务端缓存。 |
+| 115 | `client.device.audioplayer.playlist.set` | 校验并原子替换播放列表（最多 32 项），停止当前播放；空列表清空列表；失败保留原列表与播放。 |
+| 116 | `client.device.audioplayer.playlist.append` | 原子追加 1–32 项并保持总容量 32，保留顺序与重复项；不中断播放，也不自动开始播放，失败后不应自动重试。 |
+| 117 | `client.device.audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
+| 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
+| 119 | `client.device.audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
 
 ## 独立流式语音
 
@@ -185,7 +185,7 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 83 | `server.peer.lookup` | 只读查询指定 Peer 当前的固定 Server assignment。 |
 | 84 | `server.peer.assign` | 原子 claim 缺少 assignment 的 Peer，或刷新同 owner metadata；其他 owner 返回 conflict，`expected_version` 不能转移归属。 |
 | 85 | `server.route.resolve` | 只读解析目标 Peer 当前的固定 Server route/assignment。 |
-| 99 | `server.api_key.resolve` | Edge-node 用 API Key 换取对应 Peer 的 assignment。 |
+| 99 | `server.api_key.resolve` | 认证 Edge 收到的 Bearer credential，并返回其 owner Peer 现有的 assignment；不创建、移动或刷新 assignment。 |
 
 ## 未指定值
 

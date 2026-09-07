@@ -471,8 +471,9 @@ response checks.
 When `peer_stream` receives assistant Opus, its result and redacted evidence
 expose receiver-side pacing under `audio_pacing`: `packets`, `audio_ms`,
 `target_span_ms`, `receive_span_ms`, `mean_packet_ms`, `mean_interval_ms`,
-`p95_interval_ms`, `max_interval_ms`, `drift_ms`, `absolute_drift_ms`, and
-`buffer_surplus_ms`. Intervals use the stream reader's monotonic receipt time,
+`p95_interval_ms`, `max_interval_ms`, `drift_ms`, `absolute_drift_ms`,
+`buffer_surplus_ms`, and the continuous-playback simulation `prebuffer_ms`,
+`underruns`, `underrun_ms`, `max_underrun_ms`, and `minimum_buffer_ms`. Intervals use the stream reader's monotonic receipt time,
 before assertions, persistence, or PortAudio playback; a positive
 `buffer_surplus_ms` means network delivery is ahead of the Opus media clock.
 All `*_ms` values use milliseconds. `target_span_ms` is the sum of every packet
@@ -480,16 +481,41 @@ duration except the last, `drift_ms = receive_span_ms - target_span_ms`, and
 `buffer_surplus_ms = -drift_ms`. P95 uses nearest-rank selection over arrival
 gaps. With one packet, only `packets` and `audio_ms` are present; with no
 assistant Opus, `audio_pacing` is absent.
+
+The playback simulation replays the arrival trace through a client that
+buffers `prebuffer_ms` (500 ms) before it starts and then consumes audio on
+its own clock. `minimum_buffer_ms` is the lowest the buffer ever falls; a
+negative value means one gap outlasted the audio held at that moment, which
+the listener hears as a stall. `underruns` counts those stalls and
+`underrun_ms` and `max_underrun_ms` report the total and longest silence.
+A single stall cannot move the P95 interval, so playback continuity is
+asserted through `underruns` and `minimum_buffer_ms` instead. A reply
+shorter than `prebuffer_ms` only starts once every packet has arrived and
+cannot underrun, so only `prebuffer_ms` is reported.
 Giztest documents assert these paths through ordinary numeric `expect`
 constraints rather than a separate pacing schema.
 `flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` and
 `doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` require 20 ms
 Opus frames, a mean interval from 12 through 21 ms, P95 no greater than 30 ms,
-maximum interval no greater than 100 ms, at least 101 packets, and final buffer
+maximum interval no greater than 100 ms, at least 101 packets, no underruns
+with a positive `minimum_buffer_ms`, and final buffer
 surplus from 450 through 550 ms. The two cases cover push-to-talk and realtime
 delivery respectively. Those ranges permit bounded recovery around the 500 ms
 target without demanding an unrealistic exact 20 ms arrival for every network
 packet.
+
+Both of those cases exercise a single turn, where the downlink pacer is
+building its target for the first time. The turns that follow are the ones that
+regress: the idle wall clock between them is not audio the client consumed, so
+charging it to the pacer makes every later turn arrive ahead of real time.
+`flowcraft-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` and
+`eino-concurrency-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` take
+three turns against one Workspace and require at least 200 packets on each, a
+`buffer_surplus_ms` no greater than 700 ms, no underruns, and a positive
+`minimum_buffer_ms`. The packet floor keeps a short reply from satisfying the
+pacing assertions without exercising them, since the surplus a broken pacer
+accumulates grows with the length of the turn. The two cases cover the flowcraft
+and eino drivers, which share the same cascaded text-to-TTS downlink.
 
 `workspace_relay` connects two selected Workspaces in one task as one bounded
 conversation: the tester Workflow owns test intent, generated user behavior,
