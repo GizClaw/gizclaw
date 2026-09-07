@@ -1484,3 +1484,36 @@ func TestServerPutInfoRequestPreservesFieldPresence(t *testing.T) {
 		})
 	}
 }
+
+func TestDoubaoRealtimeWorkspaceParametersConversationRoundTrip(t *testing.T) {
+	input := WorkspaceInputModePushToTalk
+	initiative := ConversationParametersInitiativeAgent
+	policy := ConversationParametersAgentInitiativePolicyOnReload
+	var parameters WorkspaceParameters
+	if err := parameters.FromDoubaoRealtimeWorkspaceParameters(DoubaoRealtimeWorkspaceParameters{
+		AgentType: DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+		Input:     &input,
+		Conversation: &ConversationParameters{
+			Initiative: &initiative, AgentInitiativePolicy: &policy,
+		},
+	}); err != nil {
+		t.Fatalf("FromDoubaoRealtimeWorkspaceParameters() error = %v", err)
+	}
+	want := WorkspaceCreateRequest{Name: "opening", WorkflowName: "doubao-realtime-conversation", Parameters: &parameters}
+	var payload RPCPayload
+	if err := payload.FromWorkspaceCreateRequest(want); err != nil {
+		t.Fatalf("FromWorkspaceCreateRequest() error = %v", err)
+	}
+	got, err := payload.AsWorkspaceCreateRequest()
+	if err != nil {
+		t.Fatalf("AsWorkspaceCreateRequest() error = %v", err)
+	}
+	decoded, err := got.Parameters.AsDoubaoRealtimeWorkspaceParameters()
+	if err != nil {
+		t.Fatalf("AsDoubaoRealtimeWorkspaceParameters() error = %v", err)
+	}
+	if decoded.Conversation == nil || decoded.Conversation.Initiative == nil || *decoded.Conversation.Initiative != initiative ||
+		decoded.Conversation.AgentInitiativePolicy == nil || *decoded.Conversation.AgentInitiativePolicy != policy {
+		t.Fatalf("doubao realtime conversation round trip = %#v", decoded.Conversation)
+	}
+}

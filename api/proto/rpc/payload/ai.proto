@@ -285,6 +285,7 @@ message DoubaoRealtimeWorkflowSpec {
   optional string instructions = 3;
   string model = 4;
   repeated DoubaoRealtimeFunctionTool tools = 5;
+  optional string initiative_query = 6;
 }
 
 message DoubaoRealtimeWorkspaceParameters {
@@ -296,6 +297,7 @@ message DoubaoRealtimeWorkspaceParameters {
   optional string instructions = 6;
   optional string model = 7;
   repeated DoubaoRealtimeFunctionTool tools = 8;
+  optional ConversationParameters conversation = 9;
 }
 
 message ConversationParameters {

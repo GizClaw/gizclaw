@@ -169,7 +169,17 @@ func workspaceParametersWithPatch(
 			value.Input = input
 		}
 		return updated, updated.FromFlowcraftWorkspaceParameters(value)
-	case apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverPet:
+	case apitypes.WorkflowDriverDoubaoRealtime:
+		value := apitypes.DoubaoRealtimeWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime}
+		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDoubaoRealtimeWorkspaceParameters); err != nil {
+			return nil, err
+		}
+		value.Conversation = mergeConversationParameters(value.Conversation, conversation)
+		if input != nil {
+			value.Input = input
+		}
+		return updated, updated.FromDoubaoRealtimeWorkspaceParameters(value)
+	case apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverPet:
 		if input != nil {
 			return workspaceParametersWithInput(parameters, driver, *input)
 		}
