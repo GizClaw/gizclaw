@@ -246,8 +246,8 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 	var pacing peerAudioPacing
 	audioBytes, packets, events, droppedText := 0, 0, 0, 0
 	streams := make(map[string]struct{})
-	var firstAudioMS, lastEventMS int64
-	firstAudioObserved := false
+	var firstTextMS, firstTranscriptMS, firstAudioMS, lastEventMS int64
+	firstTextObserved, firstTranscriptObserved, firstAudioObserved := false, false, false
 	observationOpen := false
 	defer func() {
 		if observeAudio != nil && observationOpen {
@@ -257,7 +257,8 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 	evidence := func() map[string]any {
 		return map[string]any{
 			"mode": "listen", "duration_ms": duration.Milliseconds(), "events": events, "audio_bytes": audioBytes,
-			"packets": packets, "streams": len(streams), "first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS,
+			"packets": packets, "streams": len(streams), "first_text_ms": firstTextMS,
+			"first_transcript_ms": firstTranscriptMS, "first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS,
 		}
 	}
 	counters := func() string {
@@ -272,6 +273,7 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 		}
 		object := map[string]any{
 			"text": texts, "audio_bytes": audioBytes, "packets": packets, "events": events, "streams": len(streams),
+			"first_text_ms": firstTextMS, "first_transcript_ms": firstTranscriptMS,
 			"first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS, "duration_ms": duration.Milliseconds(),
 			"listened_ms": time.Since(started).Milliseconds(), "dropped_text": droppedText,
 		}
@@ -327,7 +329,9 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 			events++
 			elapsed := result.receivedAt.Sub(started)
 			lastEventMS = elapsed.Milliseconds()
+			label := ""
 			if result.chunk.Ctrl != nil {
+				label = strings.TrimSpace(result.chunk.Ctrl.Label)
 				if id := strings.TrimSpace(result.chunk.Ctrl.StreamID); id != "" {
 					streams[id] = struct{}{}
 				}
@@ -341,6 +345,20 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 			case genx.Text:
 				if strings.TrimSpace(string(part)) == "" {
 					continue
+				}
+				// Downlink labels name the remote participant, so only an
+				// explicit transcript label separates the peer's own ASR text
+				// from the assistant reply this step is listening for. Timing is
+				// recorded before the retention bound, so a flood of fragments
+				// cannot hide when the first one arrived.
+				if label == "transcript" {
+					if !firstTranscriptObserved {
+						firstTranscriptObserved = true
+						firstTranscriptMS = max(int64(1), elapsed.Milliseconds())
+					}
+				} else if !firstTextObserved {
+					firstTextObserved = true
+					firstTextMS = max(int64(1), elapsed.Milliseconds())
 				}
 				if len(texts) >= maxListenTextFragments {
 					droppedText++

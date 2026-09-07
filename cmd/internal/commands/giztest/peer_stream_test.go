@@ -1037,6 +1037,45 @@ func TestListenPeerStreamAcceptsSilence(t *testing.T) {
 	if _, present := object["audio_pacing"]; present {
 		t.Fatal("silent listen produced audio_pacing")
 	}
+	if object["first_text_ms"] != int64(0) || object["first_transcript_ms"] != int64(0) || object["first_audio_ms"] != int64(0) {
+		t.Fatalf("silent listen reported arrival times: %#v", object)
+	}
+}
+
+// TestListenPeerStreamRecordsFirstTextArrival covers the agent-initiated
+// greeting: only a listen step observes it, so its first text must be timed on
+// the same clock as its first audio, with an explicit transcript label kept
+// separate from the assistant's own reply.
+func TestListenPeerStreamRecordsFirstTextArrival(t *testing.T) {
+	stream := newFakeRelayStream()
+	stream.in <- &genx.MessageChunk{Part: genx.Text("peer said this"), Ctrl: &genx.StreamCtrl{StreamID: "remote-a", Label: "transcript"}}
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		stream.in <- &genx.MessageChunk{Part: genx.Text("   "), Ctrl: &genx.StreamCtrl{StreamID: "remote-b", Label: "participant-b"}}
+		stream.in <- &genx.MessageChunk{Part: genx.Text("hello there"), Ctrl: &genx.StreamCtrl{StreamID: "remote-b", Label: "participant-b"}}
+	}()
+	result, err := listenPeerStream(context.Background(), stream, listenStep("300ms"), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	transcriptMS, _ := object["first_transcript_ms"].(int64)
+	textMS, _ := object["first_text_ms"].(int64)
+	if transcriptMS < 1 || transcriptMS >= 60 {
+		t.Fatalf("first_transcript_ms = %v, want the transcript arrival", object["first_transcript_ms"])
+	}
+	if textMS < 80 {
+		t.Fatalf("first_text_ms = %v, want the assistant fragment arrival on the listen clock", object["first_text_ms"])
+	}
+	if object["first_audio_ms"] != int64(0) {
+		t.Fatalf("first_audio_ms = %v, want zero without audio", object["first_audio_ms"])
+	}
+	if texts, _ := object["text"].([]string); len(texts) != 2 {
+		t.Fatalf("text fragments = %#v", object["text"])
+	}
+	if result.evidence["first_text_ms"] != textMS || result.evidence["first_transcript_ms"] != transcriptMS {
+		t.Fatalf("listen evidence = %#v", result.evidence)
+	}
 }
 
 func TestListenPeerStreamEnforcesCaptureBound(t *testing.T) {

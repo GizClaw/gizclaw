@@ -30,7 +30,9 @@ func New(ctx context.Context, config Config) (*Store, error) {
 		recallOptions = append(recallOptions, recall.WithAsyncSemanticQueue(queue))
 	}
 	if config.SideEffectOutbox != nil {
-		recallOptions = append(recallOptions, recall.WithSideEffectOutbox(nonClosingSideEffectOutbox{SideEffectOutbox: config.SideEffectOutbox}))
+		recallOptions = append(recallOptions, recall.WithSideEffectOutbox(nonClosingSideEffectOutbox{
+			SideEffectOutbox: scopedSideEffectOutbox{SideEffectOutbox: config.SideEffectOutbox},
+		}))
 	}
 	if config.RetrievalIndex != nil {
 		recallOptions = append(recallOptions, recall.WithRetrievalIndex(nonClosingRetrievalIndex{Index: config.RetrievalIndex}))

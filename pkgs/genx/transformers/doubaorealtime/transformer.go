@@ -20,6 +20,21 @@ const (
 	ModeText Mode = "text"
 )
 
+// InitiativePolicy controls whether the Agent opens the conversation without
+// Peer input by sending a hidden ChatTextQuery on the first provider session.
+type InitiativePolicy string
+
+const (
+	// InitiativeDisabled never sends an opening query.
+	InitiativeDisabled InitiativePolicy = ""
+	// InitiativeOnReload sends the opening query once per Transformer lifetime.
+	InitiativeOnReload InitiativePolicy = "on_reload"
+)
+
+// DefaultInitiativeQuery is the hidden ChatTextQuery text used when the
+// Workflow does not configure one.
+const DefaultInitiativeQuery = "对话刚刚开始，请你先主动开口，用一两句话自然地打招呼并开启话题。"
+
 // Config contains immutable Doubao realtime dependencies and session options.
 type Config struct {
 	Client            *doubaospeech.Client
@@ -46,6 +61,10 @@ type Config struct {
 	SearchAPIKey      string
 	Model             string
 	Mode              Mode
+	// Initiative selects the agent-initiative policy; InitiativeQuery replaces
+	// DefaultInitiativeQuery as the hidden ChatTextQuery text.
+	Initiative      InitiativePolicy
+	InitiativeQuery string
 }
 
 // New constructs a Doubao realtime transformer without opening a WebSocket.
@@ -55,6 +74,11 @@ func New(config Config) (*Transformer, error) {
 	}
 	if strings.TrimSpace(config.Model) == "" {
 		return nil, fmt.Errorf("doubao realtime: model is required")
+	}
+	switch config.Initiative {
+	case InitiativeDisabled, InitiativeOnReload:
+	default:
+		return nil, fmt.Errorf("doubao realtime: unsupported Initiative %q", config.Initiative)
 	}
 	config, err := cloneConfig(config)
 	if err != nil {
@@ -129,6 +153,9 @@ func New(config Config) (*Transformer, error) {
 	}
 	if config.Mode != "" {
 		opts = append(opts, withMode(config.Mode))
+	}
+	if config.Initiative != InitiativeDisabled {
+		opts = append(opts, withInitiative(config.Initiative, config.InitiativeQuery))
 	}
 	return newTransformer(config.Client, opts...), nil
 }

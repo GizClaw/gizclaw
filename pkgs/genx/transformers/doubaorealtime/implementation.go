@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
@@ -60,6 +61,10 @@ type Transformer struct {
 	retryMax          time.Duration
 	retryWait         func(context.Context, <-chan struct{}, time.Duration) bool
 	responseDeadline  time.Duration
+	initiative        InitiativePolicy
+	initiativeQuery   string
+	initiativeMu      sync.Mutex
+	initiativeClaimed bool
 }
 
 var _ genx.Transformer = (*Transformer)(nil)
@@ -68,6 +73,9 @@ const (
 	doubaoRealtimeTranscriptLabel = "transcript"
 	doubaoRealtimeAssistantLabel  = "assistant"
 	doubaoRealtimeInterrupted     = "interrupted"
+	// doubaoRealtimeInitiativeStreamID is the synthetic input route of the
+	// agent-initiative opening turn; the hidden query never enters output.
+	doubaoRealtimeInitiativeStreamID = "initiative"
 
 	doubaoRealtimeFixedInputFormat      = "speech_opus"
 	doubaoRealtimeFixedInputSampleRate  = 16000
@@ -300,6 +308,42 @@ func withResponseDeadline(timeout time.Duration) option {
 	return func(t *Transformer) {
 		t.responseDeadline = timeout
 	}
+}
+
+func withInitiative(policy InitiativePolicy, query string) option {
+	return func(t *Transformer) {
+		t.initiative = policy
+		t.initiativeQuery = strings.TrimSpace(query)
+		if t.initiativeQuery == "" {
+			t.initiativeQuery = DefaultInitiativeQuery
+		}
+	}
+}
+
+// claimInitiative reports whether this session must send the opening query.
+// The claim is released again when the query cannot be submitted or the
+// provider session is lost before the opening response starts, so the
+// replacement session opens the conversation instead.
+func (t *Transformer) claimInitiative() bool {
+	if t == nil || t.initiative == InitiativeDisabled {
+		return false
+	}
+	t.initiativeMu.Lock()
+	defer t.initiativeMu.Unlock()
+	if t.initiativeClaimed {
+		return false
+	}
+	t.initiativeClaimed = true
+	return true
+}
+
+func (t *Transformer) releaseInitiative() {
+	if t == nil {
+		return
+	}
+	t.initiativeMu.Lock()
+	t.initiativeClaimed = false
+	t.initiativeMu.Unlock()
 }
 
 // newTransformer creates a Transformer.
@@ -1035,6 +1079,13 @@ func (t *Transformer) processSession(
 	var realtimeSpoken *doubaoRealtimeSpokenResponse
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
+	// initiativeActive is set while the hidden opening query owns the
+	// assistant route. Push-to-talk event routing is bypassed for that
+	// response because no push-to-talk turn produced it.
+	var initiativeActive atomic.Bool
+	pttEvents := func() bool {
+		return t.mode == ModePushToTalk && !initiativeActive.Load()
+	}
 
 	markAssistantPending := func(streamID string, epoch uint64) {
 		assistant.markPending(streamID, epoch)
@@ -1049,7 +1100,8 @@ func (t *Transformer) processSession(
 			return false
 		}
 		responseDeadline.finish(epoch)
-		pttUncommitted := t.mode == ModePushToTalk && !pttTurn.outputCommitted()
+		pttUncommitted := pttEvents() && !pttTurn.outputCommitted()
+		initiativeActive.Store(false)
 		discarded := output.discardChunks(func(chunk *genx.MessageChunk) bool {
 			return isDoubaoRealtimeAssistantChunk(chunk, interruption.streamID)
 		})
@@ -1114,7 +1166,7 @@ func (t *Transformer) processSession(
 		return true, nil
 	}
 	pushAssistantOutput := func(epoch uint64, response *doubaoRealtimePTTResponse, chunk *genx.MessageChunk) error {
-		if t.mode != ModePushToTalk {
+		if !pttEvents() {
 			_, err := assistant.pushIfCurrent(epoch, chunk, func() error {
 				return output.Push(chunk)
 			})
@@ -1223,6 +1275,7 @@ func (t *Transformer) processSession(
 		defer responseDeadline.stop()
 		lastTranscriptText := ""
 		transcriptOpen := false
+		initiativeStarted := false
 		closeInputSegment := func(errText string) error {
 			inputStreamID := streamIDs.endInputSegment()
 			doneChunk := &genx.MessageChunk{
@@ -1254,6 +1307,32 @@ func (t *Transformer) processSession(
 					}
 				}
 			}()
+			if t.claimInitiative() {
+				// Agent initiative: the dialogue model opens the conversation from
+				// a hidden ChatTextQuery. The query text never reaches output or
+				// history; only the assistant response is published on the
+				// synthetic "initiative" route.
+				streamIDs.beginInput(doubaoRealtimeInitiativeStreamID)
+				responseStreamID := streamIDs.endInputSegment()
+				assistant.setAccept(true)
+				epoch := assistant.nextEpoch()
+				realtimeSpoken = &doubaoRealtimeSpokenResponse{}
+				if t.mode == ModeText {
+					textResponses.begin()
+				}
+				markAssistantPending(responseStreamID, epoch)
+				if t.mode != ModeText {
+					responseDeadline.start(epoch)
+				}
+				initiativeActive.Store(true)
+				slog.InfoContext(ctx, "doubao: sending agent initiative query", "streamID", responseStreamID)
+				if err := session.SendText(ctx, t.initiativeQuery); err != nil {
+					initiativeActive.Store(false)
+					t.releaseInitiative()
+					slog.ErrorContext(ctx, "doubao: send initiative query error", "error", err)
+					return doubaoRealtimeRecoverable("send initiative query", err)
+				}
+			}
 			for event, err := range session.Recv() {
 				if err != nil {
 					if timeoutErr := responseDeadlineError(); timeoutErr != nil {
@@ -1271,7 +1350,7 @@ func (t *Transformer) processSession(
 				slog.DebugContext(ctx, "doubao: received event", "type", event.Type, "text", event.Text, "audioLen", len(event.Audio))
 
 				streamID := streamIDs.response()
-				if t.mode == ModePushToTalk {
+				if pttEvents() {
 					streamID = firstNonEmptyString(pttTurn.stream(), streamID)
 				}
 
@@ -1405,7 +1484,7 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventTTSStarted:
 					var response *doubaoRealtimePTTResponse
 					var epoch uint64
-					if t.mode == ModePushToTalk {
+					if pttEvents() {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1427,6 +1506,9 @@ func (t *Transformer) processSession(
 					if state == nil {
 						continue
 					}
+					if initiativeActive.Load() {
+						initiativeStarted = true
+					}
 					if err := applySpokenTransition(epoch, response, streamID, state.ttsStarted(event.Text)); err != nil {
 						return err
 					}
@@ -1434,7 +1516,7 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventChatResponse:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == ModePushToTalk {
+					if pttEvents() {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1449,6 +1531,9 @@ func (t *Transformer) processSession(
 					if state == nil {
 						continue
 					}
+					if initiativeActive.Load() {
+						initiativeStarted = true
+					}
 					if err := applySpokenTransition(epoch, response, streamID, state.chat(event.Text)); err != nil {
 						return err
 					}
@@ -1456,7 +1541,7 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventTTSAudioData:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == ModePushToTalk {
+					if pttEvents() {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1474,6 +1559,9 @@ func (t *Transformer) processSession(
 						state := spokenResponse(response)
 						if state == nil {
 							continue
+						}
+						if initiativeActive.Load() {
+							initiativeStarted = true
 						}
 						if err := applySpokenTransition(epoch, response, streamID, state.audioStarted()); err != nil {
 							return err
@@ -1498,7 +1586,7 @@ func (t *Transformer) processSession(
 				case doubaospeech.EventTTSFinished:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == ModePushToTalk {
+					if pttEvents() {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1518,21 +1606,24 @@ func (t *Transformer) processSession(
 					if err := applySpokenTransition(epoch, response, streamID, state.finishTTS()); err != nil {
 						return err
 					}
-					if t.mode == ModeRealtime && state.done() {
+					if state.done() && (t.mode == ModeRealtime || initiativeActive.Load()) {
 						responseDeadline.finish(epoch)
 					}
-					if t.mode == ModePushToTalk {
+					if response != nil {
 						pushToTalk.ttsFinished(streamID)
 						response.ttsFinished = true
 						pttResponses.finish(response)
 					} else if t.mode == ModeText {
 						textResponses.markTTSFinished()
 					}
+					if state.done() {
+						initiativeActive.Store(false)
+					}
 
 				case doubaospeech.EventChatEnded:
 					var response *doubaoRealtimePTTResponse
 					epoch := assistant.currentEpoch()
-					if t.mode == ModePushToTalk {
+					if pttEvents() {
 						response = pttResponses.match(doubaoRealtimeEventResponseIdentity(event))
 						if response == nil {
 							continue
@@ -1553,7 +1644,7 @@ func (t *Transformer) processSession(
 					if err := applySpokenTransition(epoch, response, streamID, state.finishChat()); err != nil {
 						return err
 					}
-					if t.mode == ModeRealtime && state.done() {
+					if state.done() && (t.mode == ModeRealtime || initiativeActive.Load()) {
 						responseDeadline.finish(epoch)
 					}
 					if response != nil {
@@ -1561,6 +1652,9 @@ func (t *Transformer) processSession(
 						pttResponses.finish(response)
 					} else if t.mode == ModeText {
 						textResponses.markChatEnded()
+					}
+					if state.done() {
+						initiativeActive.Store(false)
 					}
 
 				case doubaospeech.EventSessionFinished:
@@ -1576,7 +1670,17 @@ func (t *Transformer) processSession(
 			}
 			return doubaoRealtimeRecoverable("receive events", io.EOF)
 		}
-		eventsResult <- receive()
+		err := receive()
+		// A provider loss before the opening response started hands the
+		// initiative to the replacement session. Once the response started,
+		// or the Peer interrupted it, the opening is never repeated.
+		if initiativeActive.Swap(false) && !initiativeStarted &&
+			isDoubaoRealtimeRecoverable(err) &&
+			!errors.Is(err, errDoubaoRealtimeInterruptHandoff) &&
+			!errors.Is(err, errDoubaoRealtimeEmptyPTTHandoff) {
+			t.releaseInitiative()
+		}
+		eventsResult <- err
 	}()
 	defer func() {
 		closeSession()
