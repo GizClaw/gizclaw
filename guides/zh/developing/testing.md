@@ -370,6 +370,8 @@ turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 la
 EOS，再发送 fresh BOS，之后才发送声明的音频输入。一个 session 只能创建一次、消费一次；
 未知、重复、已消费、跨 client 或跨 task 的 session 都在发送输入前失败。
 
+从等待重载到替换回复结束，任何 assistant EOS 的 error code 或 message 都使步骤失败，包括 `interrupted`；无错误 EOS 和精确的输入重载通知允许通过。
+
 持久 session 不能与 `retry`、`interrupt_after` 或 `finally` 组合。re-arm 步骤成功消费后
 默认关闭；同一步再次设置 `keep_open: true` 时则继续保留，供下一次 re-arm 消费。任务成功、
 失败、timeout 或 cancellation 时，runner 在 RPC finalizer 之前关闭所有未消费 session。

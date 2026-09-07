@@ -68,7 +68,7 @@ Parallel Graph execution always uses the Flowcraft SDK defaults: up to 10 branch
 
 Each constructed Transformer owns one ContextID. All `Transform(ctx, input)` calls during that Agent lifetime share the ContextID, History, Memory scope, and Board State. A configured `ContextID` restores the same History and State after reconstruction; an empty value generates an Agent-lifetime identity for standalone use. GizClaw's workflow Factory derives the stable value from the Workspace/Agent scope rather than exposing it in Workflow YAML. Concurrent Transform calls still own independent runs, input accumulators, output buffers, and cancellation.
 
-`InitiativeOnReload` runs one empty-input Graph turn on the first `Transform` of a Transformer lifetime. `InitiativeOnceWhenEmpty` does so only when the configured conversation History is empty. Initiative is claimed once across concurrent attachments and later Transform calls.
+`InitiativeOnReload` runs one empty-input Graph turn on the first `Transform` of a Transformer lifetime. `InitiativeOnceWhenEmpty` does so only when the configured conversation History is empty. Initiative is claimed once across concurrent attachments and later Transform calls. The model adapter omits blank user text and generates the opening from system instructions and meaningful history without injecting placeholder user text.
 
 Text input starts at BOS and is accumulated until the matching text EOS before the Graph runs. Each completed text turn produces a fresh output StreamID, BOS, streaming text, and EOS. Non-text content bypasses Flowcraft unchanged on its original route.
 

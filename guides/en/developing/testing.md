@@ -437,6 +437,8 @@ sends its declared audio input. A session can be created once and consumed
 once. Unknown, duplicate, already-consumed, cross-client, or cross-task
 sessions fail before input is sent.
 
+From waiting for reload through completion of the replacement response, any assistant EOS error code or message fails the step, including `interrupted`; error-free EOS and the exact input-reload notification remain valid.
+
 Persistent sessions cannot be combined with `retry`, `interrupt_after`, or
 `finally`. A re-arm step closes the consumed session after success unless it
 also sets `keep_open: true` to retain it for another re-arm. On task success,

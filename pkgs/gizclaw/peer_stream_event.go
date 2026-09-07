@@ -365,13 +365,15 @@ func isRouteControlError(ctrl *genx.StreamCtrl) bool {
 	if ctrl == nil {
 		return false
 	}
-	switch strings.ToLower(strings.TrimSpace(ctrl.Error)) {
-	case "interrupted", context.Canceled.Error():
-		return true
-	}
 	switch strings.ToUpper(strings.TrimSpace(ctrl.ErrorCode)) {
 	case "STREAM_INTERRUPTED", "CANCELED", "CANCELLED", "CONTEXT_CANCELED", "CONTEXT_CANCELLED", "STREAM_CANCELED", "STREAM_CANCELLED":
 		return true
+	case "":
+		switch strings.ToLower(strings.TrimSpace(ctrl.Error)) {
+		case "interrupted", context.Canceled.Error():
+			return true
+		}
+		return false
 	default:
 		return false
 	}
@@ -551,6 +553,11 @@ func (a *peerAudioRouteAggregator) abort(cause error) *eventpb.PeerEvent {
 				Retryable: true,
 			},
 		}},
+	}
+	if errors.Is(cause, context.Canceled) {
+		// Workspace replacement cancels the old consumer. Its audio still
+		// needs an EOS, but cancellation is not a device-visible failure.
+		event.GetEos().Error = nil
 	}
 	normalizePeerOutputAudioEvent(event, a.epoch)
 	clear(a.active)
@@ -760,7 +767,7 @@ func peerStreamEventFromChunk(chunk *genx.MessageChunk, eventType eventpb.PeerEv
 		}
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
 		var eventErr *eventpb.EventError
-		if ctrl.Error != "" || ctrl.ErrorCode != "" {
+		if (ctrl.Error != "" || ctrl.ErrorCode != "") && !isRouteControlError(ctrl) {
 			code := ctrl.ErrorCode
 			if code == "" {
 				code = "STREAM_ERROR"

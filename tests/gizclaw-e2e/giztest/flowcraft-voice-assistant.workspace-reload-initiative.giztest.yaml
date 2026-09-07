@@ -1,0 +1,153 @@
+# User Story:
+# As a device switching to an Flowcraft Workspace with agent initiative,
+# I want the opening turn and the next audio BOS to succeed,
+# So that an empty opening input never becomes a remote stream error.
+version: gizclaw.test/v1alpha1
+name: flowcraft-voice-assistant.workspace-reload-initiative
+repeat: 3
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  target_workspace:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: flowcraft-voice-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_REALTIME
+- id: create_target_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${target_workspace}"
+      collection: assistants
+      workflow_name: flowcraft-voice-assistant
+      parameters:
+        flowcraft_workspace_parameters:
+          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          input: WORKSPACE_INPUT_MODE_REALTIME
+          conversation:
+            initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT
+            agent_initiative_policy: CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+- id: activate_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: synthesize_input
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    request:
+      voice_name: narrator
+      text: Giztest audio input
+      accepted_content_types:
+      - audio/ogg
+  save_as: input_audio
+- id: exercise_workflow
+  client: peer
+  peer_stream:
+    mode: realtime
+    input: "${input_audio}"
+    pacing: 20ms
+    session: microphone
+    keep_open: true
+    completion: first_response
+    first_audio_timeout: 20s
+    require_audio: true
+    require_text: false
+  expect:
+    "/events":
+      non_empty: true
+- id: reload_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.reload-with-options
+    request:
+      workspace_name: "${target_workspace}"
+- id: exercise_after_reload
+  client: peer
+  timeout: 30s
+  peer_stream:
+    mode: realtime
+    input: "${input_audio}"
+    pacing: 20ms
+    session: microphone
+    # Strictly rejects assistant terminal errors before rearm and during the next response.
+    await_rearm: INPUT_ROUTE_RELOADED
+  expect:
+    "/events":
+      non_empty: true
+- id: verify_history_after_reload
+  client: peer
+  rpc:
+    method: server.run.workspace.history
+    request:
+      limit: 20
+  expect:
+    "/items":
+      non_empty: true
+finally:
+- client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${target_workspace}"
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

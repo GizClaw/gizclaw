@@ -290,6 +290,14 @@ func addNativeComponentNode(
 			if !ok {
 				return nil, fmt.Errorf("eino: ChatModel requires messages input")
 			}
+			// An agent-initiated turn has no user text. A Prompt may still
+			// render an empty user placeholder; omit content-free messages
+			// instead of sending an invalid user message to the model.
+			messages = slices.DeleteFunc(messages, func(message *schema.Message) bool {
+				return message != nil && message.Role == schema.User && message.Content == "" &&
+					len(message.MultiContent) == 0 && len(message.UserInputMultiContent) == 0 &&
+					len(message.AssistantGenMultiContent) == 0 && len(message.ToolCalls) == 0 && message.ToolCallID == ""
+			})
 			return messages, nil
 		})
 		if err := graph.AddLambdaNode("prepare", prepare); err != nil {

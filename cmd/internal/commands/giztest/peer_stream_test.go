@@ -428,6 +428,74 @@ func TestInvokePeerStreamRearmsRetainedRealtimeSession(t *testing.T) {
 	}
 }
 
+func TestInvokePeerStreamRearmRejectsAssistantTerminalErrors(t *testing.T) {
+	for _, afterRearm := range []bool{false, true} {
+		for _, terminal := range []genx.StreamCtrl{
+			{ErrorCode: "STREAM_ERROR", Error: "user message must contain text"},
+			{Error: "interrupted"},
+			{ErrorCode: "MODEL_ERROR"},
+		} {
+			t.Run(fmt.Sprintf("after_rearm=%t/code=%s/message=%s", afterRearm, terminal.ErrorCode, terminal.Error), func(t *testing.T) {
+				stream := newFakeRelayStream()
+				sessions := newPeerStreamSessions()
+				t.Cleanup(func() { _ = sessions.Close() })
+				session := newPeerStreamSession("peer", stream)
+				session.streamID = "old-route"
+				session.startReader()
+				if err := sessions.add("microphone", session); err != nil {
+					t.Fatal(err)
+				}
+				terminal.StreamID = "opening"
+				terminal.Label = "assistant"
+				terminal.EndOfStream = true
+				failed := &genx.MessageChunk{Part: genx.Text(""), Ctrl: &terminal}
+				if afterRearm {
+					stream.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{
+						StreamID: "old-route", Label: "user", EndOfStream: true,
+						ErrorCode: "INPUT_ROUTE_RELOADED", Error: "input route reloaded", ErrorRetryable: true,
+					}}
+				}
+				if !afterRearm {
+					stream.in <- failed
+				}
+				ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+				defer cancel()
+				go func() {
+					sent := false
+					for {
+						select {
+						case <-stream.pushes:
+							if afterRearm && !sent {
+								stream.in <- failed
+								sent = true
+							}
+						case <-ctx.Done():
+							return
+						}
+					}
+				}()
+				result, err := invokePeerStreamWithSessions(ctx, nil, func() (peerStream, error) {
+					t.Fatal("rearm must reuse its session")
+					return nil, nil
+				}, sessions, giztest.Step{ID: "rearm", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+					Mode: "realtime", Session: "microphone", AwaitRearm: "INPUT_ROUTE_RELOADED",
+				}}, []byte{1}, 0)
+				if err == nil || !strings.Contains(err.Error(), "assistant terminal error") {
+					t.Fatalf("error = %v", err)
+				}
+				if result.evidence["reload_eos_observed"] != afterRearm {
+					t.Fatalf("evidence = %#v", result.evidence)
+				}
+				select {
+				case <-stream.closed:
+				default:
+					t.Fatal("failed session was not closed")
+				}
+			})
+		}
+	}
+}
+
 func TestInvokePeerStreamAwaitRearmTimesOutWithCausalEvidence(t *testing.T) {
 	stream := newFakeRelayStream()
 	sessions := newPeerStreamSessions()
