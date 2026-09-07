@@ -40,11 +40,15 @@ func (s *Server) Initialize(ctx context.Context) error {
  pending_workspace TEXT,
  active_workspace TEXT,
  debug_mode TEXT NOT NULL DEFAULT 'off' CHECK (debug_mode IN ('off','readonly','fullcontrol')),
+ last_seen_at TEXT,
  CHECK (pending_workspace IS NULL OR length(pending_workspace) > 0),
  CHECK (active_workspace IS NULL OR length(active_workspace) > 0)
  )`)
 	if err != nil {
 		return fmt.Errorf("peerrun: initialize schema: %w", err)
+	}
+	if err = addLastSeenColumn(ctx, db); err != nil {
+		return err
 	}
 	_, err = db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS peer_runs_directory ON peer_runs(registered_at,public_key) WHERE registered_at IS NOT NULL`)
 	return err

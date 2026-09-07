@@ -66,6 +66,7 @@ type Conn struct {
 	closeErr       error
 	rxBytes        atomic.Uint64
 	txBytes        atomic.Uint64
+	lastSeen       atomic.Int64
 	metricsMu      sync.Mutex
 	metricsActive  bool
 	metricsStarted time.Time
@@ -118,6 +119,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		closeCh:        make(chan struct{}),
 		audioTrack:     audioTrack,
 	}
+	c.touch()
 	pc.OnDataChannel(c.handleDataChannel)
 	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		if strings.EqualFold(track.Codec().MimeType, MediaStreamOpus) {
@@ -291,6 +293,7 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes
+	stream.activity = &c.lastSeen
 	if err := c.trackStream(service, stream, nil); err != nil {
 		_ = stream.Close()
 		_ = dc.Close()
@@ -358,6 +361,7 @@ func (c *Conn) Read(buf []byte) (byte, int, error) {
 		copy(buf, pkt.payload)
 		c.rxBytes.Add(uint64(len(pkt.payload)))
 		monitorRX.Add(uint64(len(pkt.payload)))
+		c.touch()
 		return pkt.protocol, len(pkt.payload), nil
 	case <-c.closeCh:
 		if err := c.closeError(); err != nil {
@@ -376,6 +380,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 		if n > 0 {
 			c.txBytes.Add(uint64(n))
 			monitorTX.Add(uint64(n))
+			c.touch()
 		}
 		return n, err
 	}
@@ -386,6 +391,7 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	if n > 0 {
 		c.txBytes.Add(uint64(n))
 		monitorTX.Add(uint64(n))
+		c.touch()
 	}
 	return n, err
 }
@@ -411,9 +417,21 @@ func (c *Conn) PeerInfo() *giznet.PeerInfo {
 		State:     state,
 		RxBytes:   c.rxBytes.Load(),
 		TxBytes:   c.txBytes.Load(),
-		LastSeen:  time.Now(),
+		LastSeen:  c.LastActivity(),
 	}
 }
+
+// LastActivity reports the last observed packet or service-stream activity on
+// this connection. It is set when the connection is created and advanced by
+// every packet read or write and by every attached stream transfer.
+func (c *Conn) LastActivity() time.Time {
+	if c == nil {
+		return time.Time{}
+	}
+	return time.Unix(0, c.lastSeen.Load())
+}
+
+func (c *Conn) touch() { c.lastSeen.Store(time.Now().UnixNano()) }
 
 func (c *Conn) Close() error {
 	return c.close(nil)
@@ -578,6 +596,7 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 		stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 		stream.rx = &c.rxBytes
 		stream.tx = &c.txBytes
+		stream.activity = &c.lastSeen
 		// A detached channel closes through raw.Close, which does not invoke
 		// the Pion wrapper's OnClose callback. Bind the admission release to
 		// the service stream itself so every unary RPC drops its DataChannel.
@@ -684,6 +703,7 @@ func (c *Conn) readPacketLoop(raw datachannel.ReadWriteCloserDeadliner) {
 func (c *Conn) enqueuePacket(pkt directPacket) {
 	select {
 	case c.readCh <- pkt:
+		c.touch()
 	case <-c.closeCh:
 	}
 }

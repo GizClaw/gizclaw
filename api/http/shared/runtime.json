@@ -20,7 +20,8 @@
           },
           "last_seen_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Last observed activity on the Peer connection. While the Peer is online this advances with packet and service-stream traffic; while it is offline this is the activity recorded when the connection went down. It is the zero time only when the Server has never observed the Peer."
           },
           "last_addr": {
             "type": "string"
