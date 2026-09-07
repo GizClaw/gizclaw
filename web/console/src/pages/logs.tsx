@@ -34,9 +34,25 @@ const WINDOWS = [
   { label: "本次会话全部", seconds: 0 },
 ];
 
-// The console polls every node itself, so its own snapshot requests would
-// otherwise dominate the stream.
-const SELF_ROUTE = "/monitor/api/node";
+// The console polls the nodes and its watched devices itself, so its own
+// requests would otherwise dominate the stream.
+const SELF_NODE_ROUTE = "/monitor/api/node";
+const SELF_DEVICE_ROUTES = new Set([
+  "/gizclaw/v1/device",
+  "/gizclaw/v1/device/runtime",
+  "/gizclaw/v1/device/status",
+]);
+
+function isConsoleTraffic(record: LogRecord, watched: Set<string>): boolean {
+  const route = record.fields?.route;
+  if (route === SELF_NODE_ROUTE) return true;
+  return (
+    route !== undefined &&
+    SELF_DEVICE_ROUTES.has(route) &&
+    record.peer_public_key !== undefined &&
+    watched.has(record.peer_public_key)
+  );
+}
 
 export function LogsPage({
   config,
@@ -117,6 +133,10 @@ export function LogsPage({
     return () => controller.abort();
   }, [device, windowSeconds]);
 
+  const watchedKeys = useMemo(
+    () => new Set(peers.map((peer) => peer.publicKey)),
+    [peers],
+  );
   const query = useMemo(() => parseQuery(text), [text]);
   const cutoff = windowSeconds > 0 ? Date.now() - windowSeconds * 1000 : 0;
   const shown = useMemo(
@@ -125,10 +145,10 @@ export function LogsPage({
         if (!device && node !== "ALL" && record.node !== node) return false;
         if (level !== "ALL" && record.level !== level) return false;
         if (cutoff > 0 && Date.parse(record.time) < cutoff) return false;
-        if (hideSelf && record.fields?.route === SELF_ROUTE) return false;
+        if (hideSelf && isConsoleTraffic(record, watchedKeys)) return false;
         return matches(record, query);
       }),
-    [all, device, node, level, cutoff, hideSelf, query],
+    [all, device, node, level, cutoff, hideSelf, query, watchedKeys],
   );
 
   const errors = shown.filter((record) => record.level === "ERROR").length;
@@ -226,7 +246,7 @@ export function LogsPage({
                   checked={hideSelf}
                   onChange={(event) => setHideSelf(event.target.checked)}
                 />
-                隐藏 Console 自身的 Monitor 轮询请求
+                隐藏 Console 自身的轮询请求（节点快照与关注设备）
               </label>
             )}
             {device && (
@@ -274,7 +294,7 @@ export function LogsPage({
           )}
         </CardContent>
       </Card>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <LogStream
           records={shown}
           selectedId={selected ? `${selected.node}-${selected.id}` : undefined}

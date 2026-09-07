@@ -63,3 +63,12 @@ export function timestamp(value: string | number | undefined): string {
   if (!Number.isFinite(parsed) || parsed <= 0) return "—";
   return new Date(parsed).toLocaleString();
 }
+
+/** Log times need millisecond precision to order events within one request. */
+export function logTime(value: string | number): string {
+  const parsed = typeof value === "number" ? value : Date.parse(value);
+  if (!Number.isFinite(parsed)) return "—";
+  const at = new Date(parsed);
+  const pad = (input: number, width = 2) => String(input).padStart(width, "0");
+  return `${pad(at.getHours())}:${pad(at.getMinutes())}:${pad(at.getSeconds())}.${pad(at.getMilliseconds(), 3)}`;
+}

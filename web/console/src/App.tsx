@@ -76,7 +76,9 @@ export function App() {
   }, []);
 
   const fleet = useFleet(config?.servers ?? [], 5000, paused);
-  const watch = useWatchedPeers(5000, paused);
+  // Device polling is slower than node polling: each watched device costs three
+  // requests that land in the node's bounded log ring.
+  const watch = useWatchedPeers(15000, paused);
   const importPeers = watch.importPeers;
 
   const connect = useCallback(

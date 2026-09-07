@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { SUMMARY_FIELDS, type LogRecord } from "@/lib/log-query";
+import { summarize, type LogRecord } from "@/lib/log-query";
+import { logTime } from "@/lib/format";
 
 const ROW = 30;
 
@@ -17,13 +18,11 @@ export function LogStream({
   selectedId,
   onSelect,
   emptyMessage,
-  height = 520,
 }: {
   records: LogRecord[];
   selectedId?: string;
   onSelect: (record: LogRecord) => void;
   emptyMessage: string;
-  height?: number;
 }) {
   const [follow, setFollow] = useState(true);
   const box = useRef<HTMLDivElement>(null);
@@ -31,7 +30,7 @@ export function LogStream({
     if (follow && box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [records, follow]);
   return (
-    <section className="overflow-hidden rounded-lg border border-surface-dark-border bg-surface-dark">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-surface-dark-border bg-surface-dark">
       <div className="flex items-center gap-3 border-b border-surface-dark-border bg-[#211f1b] px-4 py-2.5 text-[11px] text-surface-dark-foreground">
         <span>{records.length} 条记录</span>
         <span className="text-[#817c73]">最新在下方</span>
@@ -44,8 +43,7 @@ export function LogStream({
       </div>
       <div
         ref={box}
-        style={{ height }}
-        className="overflow-auto font-mono text-[11px]"
+        className="log-scroll min-h-80 flex-1 overflow-auto font-mono text-[11px]"
         onScroll={(event) => {
           const element = event.currentTarget;
           const atBottom =
@@ -61,22 +59,34 @@ export function LogStream({
         ) : (
           records.map((record) => {
             const id = `${record.node}-${record.id}`;
-            const summary = SUMMARY_FIELDS.map((key) => record.fields?.[key])
-              .filter((value) => value !== undefined)
-              .join(" · ");
+            const summary = summarize(record);
             const request = record.fields?.request_id;
             return (
-              <button
+              <div
                 key={id}
-                onClick={() => onSelect(record)}
+                role="button"
+                tabIndex={0}
+                // Rows stay selectable so a line can be copied; a click that
+                // ends a text selection opens nothing.
+                onClick={() => {
+                  if ((window.getSelection()?.toString() ?? "") === "") {
+                    onSelect(record);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(record);
+                  }
+                }}
                 className={cn(
-                  "flex w-full items-center gap-3 border-b border-[#26231e] px-4 text-left text-[#c8c0b2] hover:bg-[#242017]",
+                  "flex w-full cursor-default items-center gap-3 border-b border-[#26231e] px-4 text-left text-[#c8c0b2] select-text hover:bg-[#242017]",
                   selectedId === id && "bg-[#2b2619]",
                 )}
                 style={{ height: ROW }}
               >
-                <time className="whitespace-nowrap text-[#756e62]">
-                  {new Date(record.time).toLocaleTimeString()}
+                <time className="whitespace-nowrap text-[#756e62] tabular-nums">
+                  {logTime(record.time)}
                 </time>
                 <b
                   className={cn(
@@ -90,7 +100,7 @@ export function LogStream({
                   {record.nodeName}
                 </span>
                 <span className="min-w-0 flex-1 truncate">
-                  {summary || record.message}
+                  {summary}
                   {record.error ? (
                     <span className="text-[#e08a76]"> · {record.error}</span>
                   ) : null}
@@ -100,7 +110,7 @@ export function LogStream({
                     {request}
                   </span>
                 )}
-              </button>
+              </div>
             );
           })
         )}

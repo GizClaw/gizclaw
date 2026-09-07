@@ -32,7 +32,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
       <aside className="flex shrink-0 flex-wrap items-center gap-4 border-b border-border bg-secondary p-4 md:fixed md:inset-y-0 md:left-0 md:w-60 md:flex-col md:items-stretch md:gap-6 md:p-5 md:border-b-0 md:border-r">
         <div>
           <div className="flex items-center gap-2 text-lg font-semibold">
@@ -101,7 +101,7 @@ export function AppShell({
           </Button>
         </div>
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col md:ml-60">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:ml-60">
         <header className="flex h-14 items-center justify-between border-b border-border px-6 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
             {breadcrumb.map((part, index) => (
@@ -120,7 +120,7 @@ export function AppShell({
             <LogOut size={14} /> 退出
           </Button>
         </header>
-        <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-6 py-8">
+        <main className="mx-auto flex w-full max-w-[1440px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-8">
           {children}
         </main>
       </div>

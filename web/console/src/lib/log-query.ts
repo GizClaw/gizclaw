@@ -80,15 +80,39 @@ export function matches(record: LogRecord, query: LogQuery): boolean {
   return true;
 }
 
-/** Fields worth showing inline; everything else stays in the detail panel. */
-export const SUMMARY_FIELDS = [
-  "operation",
-  "route",
-  "method",
-  "status",
-  "rpc_code",
-  "duration_ms",
-] as const;
+/**
+ * One readable line per record: an HTTP/RPC completion reads as its operation
+ * and outcome, a conversation record as who said what, and anything else keeps
+ * its message plus the few fields that carry the meaning.
+ */
+export function summarize(record: LogRecord): string {
+  const fields = record.fields ?? {};
+  if (fields.content !== undefined) {
+    const role = fields.content_role ?? fields.content_source ?? "";
+    const turn =
+      fields.turn_index === undefined ? "" : ` #${fields.turn_index}`;
+    return `${role}${turn}: ${fields.content}`;
+  }
+  if (fields.operation !== undefined) {
+    const parts = [fields.operation];
+    if (fields.method !== undefined && fields.route !== undefined) {
+      parts.push(`${fields.method} ${fields.route}`);
+    } else if (fields.route !== undefined) {
+      parts.push(fields.route);
+    }
+    if (fields.status !== undefined) parts.push(fields.status);
+    if (fields.rpc_code !== undefined) parts.push(`rpc ${fields.rpc_code}`);
+    if (fields.duration_ms !== undefined)
+      parts.push(`${fields.duration_ms} ms`);
+    return parts.join(" · ");
+  }
+  const extras = ["component", "event_type", "state", "reason", "duration_ms"]
+    .filter((key) => fields[key] !== undefined)
+    .map((key) => `${key}=${fields[key]}`);
+  return extras.length === 0
+    ? record.message
+    : `${record.message} · ${extras.join(" ")}`;
+}
 
 export function requestId(record: LogRecord): string | undefined {
   return record.fields?.request_id;
