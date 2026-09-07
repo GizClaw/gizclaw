@@ -118,6 +118,7 @@ steps:
     input: "${input_audio}"
     pacing: 20ms
     session: microphone
+    # Strictly rejects assistant terminal errors before rearm and during the next response.
     await_rearm: INPUT_ROUTE_RELOADED
   expect:
     "/events":

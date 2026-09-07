@@ -956,6 +956,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					label = "assistant"
 				}
 			}
+			if op.AwaitRearm != "" && assistantTerminalHasError(result.chunk) {
+				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream assistant terminal error after re-arm: code=%q message=%q", result.chunk.Ctrl.ErrorCode, result.chunk.Ctrl.Error)
+			}
 			var response *peerStreamResponseProgress
 			if label == "assistant" {
 				response = responses[actualStreamID]
@@ -1212,6 +1215,22 @@ func mapsWith(base, extra map[string]any) map[string]any {
 	return base
 }
 
+// Rearm checks include normal-interruption errors that ordinary interrupt
+// scenarios tolerate: workspace handoff must deliver an error-free terminal.
+func assistantTerminalHasError(chunk *genx.MessageChunk) bool {
+	if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() {
+		return false
+	}
+	label := strings.TrimSpace(chunk.Ctrl.Label)
+	if label == "" {
+		switch chunk.Part.(type) {
+		case genx.Text, *genx.Blob:
+			label = "assistant"
+		}
+	}
+	return label == "assistant" && (chunk.Ctrl.ErrorCode != "" || chunk.Ctrl.Error != "")
+}
+
 func waitForPeerStreamRearm(ctx context.Context, name string, session *peerStreamSession, code string) (map[string]any, error) {
 	evidence := map[string]any{
 		"session_connection_reused": true,
@@ -1231,6 +1250,9 @@ func waitForPeerStreamRearm(ctx context.Context, name string, session *peerStrea
 			chunk := result.chunk
 			if chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() {
 				continue
+			}
+			if assistantTerminalHasError(chunk) {
+				return evidence, fmt.Errorf("peer_stream assistant terminal error while waiting for re-arm: code=%q message=%q", chunk.Ctrl.ErrorCode, chunk.Ctrl.Error)
 			}
 			mimeType, _ := chunk.MIMEType()
 			ctrl := chunk.Ctrl
