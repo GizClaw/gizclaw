@@ -530,12 +530,19 @@ conventions:
   chunk the PeerStream delivers within that window. An Opus blob with any label
   counts as received audio, because SFU downlink labels identify the remote
   participant. The result exposes `audio_bytes`, `packets`, `events`,
-  `streams`, `first_audio_ms`, `last_event_ms`, `duration_ms`, `listened_ms`,
-  bounded `text`, `audio_pacing`, and `/audio` in the same encoding as the
+  `streams`, `first_text_ms`, `first_transcript_ms`, `first_audio_ms`,
+  `last_event_ms`, `duration_ms`, `listened_ms`, bounded `text`, `audio_pacing`, and `/audio` in the same encoding as the
   existing `peer_stream` result (Ogg/Opus, present only when a `/audio` capture
   is declared and audio arrived, bounded by the output variable's
   `max_bytes`), so it feeds `server.speech.transcribe` directly. Receiving no
   audio is not an error; the document asserts `audio_bytes` with `expect`.
+  `first_text_ms`, `first_transcript_ms`, and `first_audio_ms` are measured on
+  the same clock — milliseconds from the moment the listen window opens, and 0
+  when nothing of that kind arrived — so an agent-initiated greeting
+  (`conversation.initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT`) can gate
+  its first-text latency as well as its first-audio latency. Only an explicit
+  `transcript` label counts as a transcript; every other text fragment counts
+  toward `first_text_ms`, matching how any Opus blob counts as received audio.
   A listen may sit in the same `parallel` step as the speaking client's own
   turn: both children share that connection's single Peer Event Stream
   subscription, and the speaker's own audio never comes back
