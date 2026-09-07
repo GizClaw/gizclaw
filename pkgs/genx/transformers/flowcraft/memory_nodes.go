@@ -115,6 +115,12 @@ func (n *memoryRecallNode) ID() string { return n.id }
 func (*memoryRecallNode) Type() string { return "memory_recall" }
 func (n *memoryRecallNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *flowgraph.Board) error {
 	queryText := boardString(board, n.config.Query.TextFrom)
+	if strings.TrimSpace(queryText) == "" {
+		// An agent-initiative turn has no user text to recall against. Render
+		// an empty result instead of failing the opening turn.
+		board.SetVar(n.config.Output, renderMemoryMatches(nil, n.config.Render, nil))
+		return nil
+	}
 	filters := make([]memory.Filter, 0, len(n.config.Query.Filters))
 	for _, filter := range n.config.Query.Filters {
 		operator := memory.FilterEqual
@@ -288,6 +294,11 @@ func (n *memoryObserveNode) ExecuteBoard(ctx flowgraph.ExecutionContext, board *
 			}
 			observation.Facts = append(observation.Facts, memory.FactCandidate{Text: text, Attributes: attributes})
 		}
+	}
+	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 && len(observation.Facts) == 0 {
+		// An agent-initiative turn may bind only user text, which is empty.
+		// Nothing to observe is not a failure of the opening turn.
+		return nil
 	}
 	result, err := n.store.Observe(ctx.Context, observation)
 	if err != nil {

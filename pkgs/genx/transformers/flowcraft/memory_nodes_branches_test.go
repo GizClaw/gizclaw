@@ -102,7 +102,10 @@ func TestMemoryRecallNodeBranches(t *testing.T) {
 		id: "recall", store: &memoryNodeStore{recallErr: wantErr},
 		config: memoryRecallNodeConfig{TopK: 1},
 	}
-	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); !errors.Is(err, wantErr) {
+	errorNode.config.Query.TextFrom = "input"
+	errorBoard := flowgraph.NewBoard()
+	errorBoard.SetVar("input", "question")
+	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, errorBoard); !errors.Is(err, wantErr) {
 		t.Fatalf("ExecuteBoard() error = %v, want %v", err, wantErr)
 	}
 
@@ -151,8 +154,22 @@ func TestMemoryRecallNodeBranches(t *testing.T) {
 
 func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 	wantErr := errors.New("observe failed")
-	errorNode := &memoryObserveNode{id: "observe", store: &memoryNodeStore{observeErr: wantErr}}
-	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); !errors.Is(err, wantErr) {
+	var observeText memoryObserveNodeConfig
+	observeText.Observations = append(observeText.Observations, struct {
+		TurnsFrom string `json:"turns_from"`
+		TextFrom  string `json:"text_from"`
+		Facts     []struct {
+			TextFrom   string            `json:"text_from"`
+			Attributes map[string]string `json:"attributes"`
+		} `json:"facts"`
+	}{TextFrom: "input"})
+	textBoard := func() *flowgraph.Board {
+		board := flowgraph.NewBoard()
+		board.SetVar("input", "observed text")
+		return board
+	}
+	errorNode := &memoryObserveNode{id: "observe", store: &memoryNodeStore{observeErr: wantErr}, config: observeText}
+	if err := errorNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, textBoard()); !errors.Is(err, wantErr) {
 		t.Fatalf("Observe error = %v, want %v", err, wantErr)
 	}
 
@@ -161,14 +178,16 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 		memoryNodeStore: &memoryNodeStore{observeResult: pendingMemoryResult("operation")},
 		waitErr:         waitErr,
 	}
-	waitNode := &memoryObserveNode{id: "observe", store: waitStore, config: memoryObserveNodeConfig{WaitForCompletion: true}}
-	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); !errors.Is(err, waitErr) {
+	waitConfig := observeText
+	waitConfig.WaitForCompletion = true
+	waitNode := &memoryObserveNode{id: "observe", store: waitStore, config: waitConfig}
+	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, textBoard()); !errors.Is(err, waitErr) {
 		t.Fatalf("Wait error = %v, want %v", err, waitErr)
 	}
 
 	waitStore.waitErr = nil
 	waitStore.waitResult = memory.ObserveResult{Operation: &memory.Operation{ID: "operation", Status: memory.OperationFailed, Error: "materialization failed"}}
-	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); err == nil || !strings.Contains(err.Error(), "materialization failed") {
+	if err := waitNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, textBoard()); err == nil || !strings.Contains(err.Error(), "materialization failed") {
 		t.Fatalf("failed operation error = %v", err)
 	}
 
@@ -176,16 +195,16 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 		memoryNodeStore: &memoryNodeStore{observeResult: pendingMemoryResult("async")},
 		processed:       make(chan memory.OperationRequest, 1),
 	}
-	if err := (&memoryObserveNode{id: "observe", store: asyncStore}).ExecuteBoard(
-		flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard(),
+	if err := (&memoryObserveNode{id: "observe", store: asyncStore, config: observeText}).ExecuteBoard(
+		flowgraph.ExecutionContext{Context: t.Context()}, textBoard(),
 	); err == nil || !strings.Contains(err.Error(), "no generation task owner") {
 		t.Fatalf("missing task owner error = %v", err)
 	}
 
 	owner := newTaskOwner()
 	defer owner.Close()
-	asyncNode := &memoryObserveNode{id: "observe", store: asyncStore, tasks: owner}
-	if err := asyncNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard()); err != nil {
+	asyncNode := &memoryObserveNode{id: "observe", store: asyncStore, tasks: owner, config: observeText}
+	if err := asyncNode.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context()}, textBoard()); err != nil {
 		t.Fatalf("async ExecuteBoard() error = %v", err)
 	}
 	select {
@@ -199,7 +218,7 @@ func TestMemoryObserveNodeTerminalAndAsyncBranches(t *testing.T) {
 
 	plainPending := &memoryNodeStore{observeResult: pendingMemoryResult("external")}
 	if err := (&memoryObserveNode{id: "observe", store: plainPending}).ExecuteBoard(
-		flowgraph.ExecutionContext{Context: t.Context()}, flowgraph.NewBoard(),
+		flowgraph.ExecutionContext{Context: t.Context()}, textBoard(),
 	); err != nil {
 		t.Fatalf("provider-owned pending operation error = %v", err)
 	}
