@@ -1282,3 +1282,82 @@ func TestInvokePeerStreamRealtimeFirstResponseTimesFromSpeechEnd(t *testing.T) {
 		}
 	}
 }
+
+func TestInvokePeerStreamRealtimeFirstResponseDeadlineIgnoresTailSilence(t *testing.T) {
+	// The realtime tail silence is pushed after the user stops speaking, so a
+	// deadline armed once that push finished would let a late response answer
+	// inside its timeout. Each case answers after the deadline has passed but
+	// while the tail silence is still being paced, and must still be rejected.
+	const responseDelay = 250 * time.Millisecond
+	textRequired, audioRequired := true, true
+	textDisabled, audioDisabled := false, false
+	for _, tc := range []struct {
+		name     string
+		op       giztest.PeerStreamOperation
+		response *genx.MessageChunk
+		deadline string
+	}{
+		{
+			name: "text only",
+			op: giztest.PeerStreamOperation{
+				Mode: "realtime", Completion: "first_response", Pacing: "2ms", FirstTextTimeout: "100ms",
+				RequireText: &textRequired, RequireAudio: &audioDisabled,
+			},
+			response: assistantText("reply", "hello", false),
+			deadline: "first_text_timeout",
+		},
+		{
+			name: "audio only",
+			op: giztest.PeerStreamOperation{
+				Mode: "realtime", Completion: "first_response", Pacing: "2ms", FirstAudioTimeout: "100ms",
+				RequireText: &textDisabled, RequireAudio: &audioRequired,
+			},
+			response: assistantBlob("reply", []byte{0xf8}, false),
+			deadline: "first_audio_timeout",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			defer cancel()
+			speechEnded := make(chan struct{})
+			go func() {
+				pushed := 0
+				for {
+					select {
+					case <-stream.pushes:
+						pushed++
+						if pushed == 2 {
+							close(speechEnded)
+						}
+					case <-stream.closed:
+						return
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			go func() {
+				select {
+				case <-speechEnded:
+				case <-ctx.Done():
+					return
+				}
+				// The tail silence paces 4s of audio at 2ms per packet, so this
+				// still lands well before the input push completes.
+				time.Sleep(responseDelay)
+				select {
+				case stream.in <- tc.response:
+				case <-ctx.Done():
+				}
+			}()
+			op := tc.op
+			result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+				ID: "turn", Client: "peer", PeerStream: &op,
+			}, []byte{0xf8}, 0)
+			if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != tc.deadline || !strings.Contains(err.Error(), "deadline="+tc.deadline) {
+				t.Fatalf("late realtime response accepted: result = %#v, error = %v", result, err)
+			}
+		})
+	}
+}
