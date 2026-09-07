@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1409,6 +1410,72 @@ func TestInvokePeerStreamRealtimeFirstResponseDeadlineIgnoresTailSilence(t *test
 			}, []byte{0xf8}, 0)
 			if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != tc.deadline || !strings.Contains(err.Error(), "deadline="+tc.deadline) {
 				t.Fatalf("late realtime response accepted: result = %#v, error = %v", result, err)
+			}
+		})
+	}
+}
+
+func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
+	// A full-duplex provider can answer while the turn input is still being
+	// paced. push-to-talk closes its turn with an end-of-stream and dates its
+	// response clock from there, and a realtime provider may start talking
+	// before the user stops, so both cases can see a receipt older than the
+	// clock origin. No reported timing may go negative.
+	for _, mode := range []string{"push-to-talk", "realtime"} {
+		t.Run(mode, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			defer cancel()
+			pushed := make(chan struct{})
+			var pushedOnce sync.Once
+			go func() {
+				for {
+					select {
+					case <-stream.pushes:
+						pushedOnce.Do(func() { close(pushed) })
+					case <-stream.closed:
+						return
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			go func() {
+				select {
+				case <-pushed:
+				case <-ctx.Done():
+					return
+				}
+				// Answer immediately, while the paced input is still going out.
+				for _, chunk := range []*genx.MessageChunk{
+					transcriptText("user-1", "question", false),
+					assistantText("reply", "hello", false),
+					assistantBlob("reply", []byte{0xf8}, false),
+				} {
+					select {
+					case stream.in <- chunk:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+				ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+					Mode: mode, Completion: "first_response", Pacing: "2ms",
+					FirstTextTimeout: "10s", FirstAudioTimeout: "10s",
+				},
+			}, []byte{0xf8}, 0)
+			if err != nil {
+				t.Fatalf("%s first_response turn: %v", mode, err)
+			}
+			for _, name := range []string{"first_transcript_ms", "first_text_ms", "first_audio_ms", "last_event_ms"} {
+				elapsed, ok := result.evidence[name].(int64)
+				if !ok {
+					t.Fatalf("%s evidence = %#v, want int64", name, result.evidence[name])
+				}
+				if elapsed < 0 {
+					t.Fatalf("%s = %d, want a non-negative elapsed time for output that arrived during input", name, elapsed)
+				}
 			}
 		})
 	}

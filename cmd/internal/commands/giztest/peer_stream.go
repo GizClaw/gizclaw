@@ -522,13 +522,18 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if session != nil {
 		session.streamID = streamID
 	}
-	if (inputSent || op.Mode == "realtime" || op.Mode == "push-to-talk") && next == nil {
-		// Output can arrive while input is still being paced. Start reading
-		// before the first input chunk so those arrival timestamps are not
-		// shifted to the end of input; a reader started afterwards drains the
-		// whole transport backlog at once and collapses every elapsed time to
-		// zero. first_response retains its separate response-only clock, which
-		// starts once the user's speech is on the wire.
+	if (inputSent || op.Mode == "realtime") && next == nil {
+		// Realtime output can arrive while input is still being paced. Start
+		// reading before the first input chunk so those arrival timestamps are
+		// not shifted to the end of input; a reader started afterwards drains
+		// the whole transport backlog at once and collapses every elapsed time
+		// to zero. first_response retains its separate response-only clock,
+		// which starts once the user's speech is on the wire.
+		//
+		// push-to-talk is deliberately excluded: it closes its turn with an
+		// end-of-stream rather than tail silence, and its response clock still
+		// starts once that input is complete, so reading ahead would only
+		// produce receipts older than the origin they are measured against.
 		if session == nil {
 			next = readPeerStream(ctx, stream, arrivals)
 		} else {
@@ -964,7 +969,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			eventElapsed := time.Since(started)
 			if firstResponse {
-				eventElapsed = result.receivedAt.Sub(responseStarted)
+				// A realtime provider may answer before the user stops
+				// speaking, which puts the receipt ahead of the response clock
+				// origin. That is zero latency, not negative latency, so the
+				// reported timings stay monotonic.
+				eventElapsed = max(result.receivedAt.Sub(responseStarted), 0)
 			}
 			if result.err != nil {
 				if result.err == io.EOF {
