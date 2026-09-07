@@ -642,8 +642,8 @@ jobs:
       - name: Install guide dependencies
         run: npm --prefix guides ci
 
-      - name: Build and test monitor
-        run: npm run build:monitor && npm test --workspace @gizclaw/monitor
+      - name: Build and test console
+        run: npm run build --workspace @gizclaw/console && npm test --workspace @gizclaw/console
 
       - name: Build guides
         run: npm --prefix guides run build:site

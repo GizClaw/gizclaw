@@ -15,7 +15,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
-	monitorweb "github.com/GizClaw/gizclaw-go/web/monitor"
 )
 
 // Config grants read-only access to this node; an empty token disables node data.
@@ -61,22 +60,31 @@ func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonit
 		if entry.PeerPublicKey != "" {
 			log.PeerPublicKey = &entry.PeerPublicKey
 		}
+		if len(entry.Fields) > 0 {
+			fields := entry.Fields
+			log.Fields = &fields
+		}
 		snapshot.Logs = append(snapshot.Logs, log)
 	}
 	return monitorapi.GetNodeMonitor200JSONResponse(snapshot), nil
 }
 
-// Handler shares the embedded UI with a token-protected node snapshot API.
+// Handler serves the token-protected node snapshot API. The monitoring UI is
+// the separately hosted console in web/console, so no assets are embedded.
 func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler {
 	endpoint := monitorapi.Handler(monitorapi.NewStrictHandler(&nodeServer{role: role, publicKey: publicKey, started: time.Now()}, nil))
 	tokenHash := sha256.Sum256([]byte(cfg.Token))
-	assets := monitorweb.Handler()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/monitor/api/node" {
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "application/json")
+			setMonitorCORSHeaders(w.Header(), r.Header.Get("Origin"))
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(204)
+				return
+			}
 			if r.Method != http.MethodGet {
-				w.Header().Set("Allow", "GET")
+				w.Header().Set("Allow", "GET,OPTIONS")
 				w.WriteHeader(405)
 				return
 			}
@@ -97,9 +105,24 @@ func Handler(cfg Config, role, publicKey string, next http.Handler) http.Handler
 			return
 		}
 		if r.URL.Path == "/monitor" || strings.HasPrefix(r.URL.Path, "/monitor/") {
-			assets.ServeHTTP(w, r)
+			http.NotFound(w, r)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// setMonitorCORSHeaders lets a separately hosted console read node snapshots.
+// The Monitor Token travels in an explicit Authorization header, so no browser
+// credentials are shared and the origin is echoed like the peer HTTP surface.
+func setMonitorCORSHeaders(header http.Header, origin string) {
+	if origin == "" {
+		header.Set("Access-Control-Allow-Origin", "*")
+	} else {
+		header.Add("Vary", "Origin")
+		header.Set("Access-Control-Allow-Origin", origin)
+	}
+	header.Set("Access-Control-Allow-Methods", "GET,OPTIONS")
+	header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type")
+	header.Set("Access-Control-Max-Age", "600")
 }

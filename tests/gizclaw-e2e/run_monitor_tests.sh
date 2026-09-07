@@ -28,7 +28,6 @@ fi
 # Build the browser assets on the host and native Linux binaries with persistent
 # caches. Only binaries, contracts and fixtures enter the runtime image.
 npm ci
-npm run build:monitor
 image_dir="$run_dir/image"
 mkdir -p "$image_dir/bin" "$image_dir/tests/gizclaw-e2e/docker" "$image_dir/tests/gizclaw-e2e/testdata/audio" "$image_dir/tests/gizclaw-e2e/giztest"
 docker run --rm --entrypoint /bin/bash \

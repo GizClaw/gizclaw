@@ -33,7 +33,6 @@ trap cleanup EXIT
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
 npm ci
-npm run build:monitor
 image_dir="$run_dir/image"
 mkdir -p "$image_dir/bin" "$image_dir/tests/gizclaw-e2e/docker" "$image_dir/tests/gizclaw-e2e/giztest"
 if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
