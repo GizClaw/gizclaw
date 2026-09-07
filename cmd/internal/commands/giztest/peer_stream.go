@@ -1079,17 +1079,25 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				}
 				audioBytes += len(part.Data)
 			}
+			// An arrival that was queued while the turn input was still being
+			// pushed reaches the loop in the same iteration its deadline timer
+			// becomes ready, so expiry is decided from the recorded receipt
+			// rather than from whichever select case the scheduler picks, and
+			// as soon as that modality is seen rather than once every required
+			// modality has been.
+			if firstResponse {
+				if requireText && firstTextObserved && firstTextElapsed > firstTextTimeout {
+					return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
+				}
+				if requireAudio && firstAudioObserved && firstAudioElapsed > firstAudioTimeout {
+					return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
+				}
+			}
 			if firstResponse && (!requireText || firstTextObserved) && (!requireAudio || firstAudioObserved) {
 				if len(terminalErrors) != 0 {
 					evidence := baseEvidence()
 					evidence["terminal_errors"] = len(terminalErrors)
 					return operationResult{evidence: evidence}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
-				}
-				if requireText && firstTextElapsed > firstTextTimeout {
-					return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)
-				}
-				if requireAudio && firstAudioElapsed > firstAudioTimeout {
-					return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 				}
 				return finish()
 			}

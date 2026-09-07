@@ -1315,6 +1315,19 @@ func TestInvokePeerStreamRealtimeFirstResponseDeadlineIgnoresTailSilence(t *test
 			response: assistantBlob("reply", []byte{0xf8}, false),
 			deadline: "first_audio_timeout",
 		},
+		{
+			// The late text is rejected as soon as it is consumed, so the
+			// failure names the deadline it actually missed rather than
+			// waiting for the audio the turn never receives.
+			name: "text late while audio never arrives",
+			op: giztest.PeerStreamOperation{
+				Mode: "realtime", Completion: "first_response", Pacing: "2ms",
+				FirstTextTimeout: "100ms", FirstAudioTimeout: "10s",
+				RequireText: &textRequired, RequireAudio: &audioRequired,
+			},
+			response: assistantText("reply", "hello", false),
+			deadline: "first_text_timeout",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stream := newFakeRelayStream()
