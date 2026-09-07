@@ -1438,36 +1438,40 @@ func (h *PeerConn) writeOpusPacket(packet []byte) error {
 	return err
 }
 
+// peerConnAudioPacer keeps the device roughly peerConnPacingBufferTarget of
+// audio ahead of its playback clock. surplus is carried as state rather than
+// derived from a fixed origin: deriving it charged every idle wall-clock gap
+// between turns as a deficit the bounded per-packet recovery could never work
+// off, so from the second turn onward the pacer ran permanently at the minimum
+// period and delivered audio far ahead of real time.
 type peerConnAudioPacer struct {
-	started time.Time
 	next    time.Time
-	packet  int
+	surplus time.Duration
 }
 
 func (p *peerConnAudioPacer) waitDuration(now time.Time) time.Duration {
 	if p.next.IsZero() {
-		p.started = now
 		p.next = now
-		p.packet = 1
 		return 0
 	}
 	period := peerConnPacingSteadyPeriod
-	mediaSpan := time.Duration(p.packet-1) * peerConnOpusFrameDuration
-	surplus := mediaSpan - p.next.Sub(p.started)
-	if deficit := peerConnPacingBufferTarget - surplus; deficit > 0 {
-		recovery := min(deficit, peerConnPacingMaxRecoveryPerPkt)
-		period -= recovery
+	if deficit := peerConnPacingBufferTarget - p.surplus; deficit > 0 {
+		period -= min(deficit, peerConnPacingMaxRecoveryPerPkt)
 	}
+	// One frame of audio leaves in period of wall clock, so the client gains
+	// exactly the difference.
+	p.surplus += peerConnOpusFrameDuration - period
 	p.next = p.next.Add(period)
 	delay := p.next.Sub(now)
 	if delay < 0 {
 		// Send only the current overdue packet immediately. Rebase instead of
 		// bursting; later packets replenish the target at the bounded rate above.
+		// The client drained while this packet was overdue, but never past
+		// empty, so an idle gap between turns leaves nothing to work off.
+		p.surplus = max(0, p.surplus-now.Sub(p.next))
 		p.next = now
-		p.packet++
 		return 0
 	}
-	p.packet++
 	return delay
 }
 
