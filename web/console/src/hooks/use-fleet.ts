@@ -56,6 +56,13 @@ export function useFleet(
   const targets = useRef(servers);
   targets.current = servers;
   const ids = servers.map((server) => server.id).join(" ");
+  // An edited configuration can keep a node id while changing where or with
+  // which token it is read, so polling restarts on the effective settings.
+  const settings = servers
+    .map(
+      (server) => `${server.id}\u0000${server.url}\u0000${server.monitorToken}`,
+    )
+    .join("\u0001");
 
   useEffect(() => {
     const current = targets.current;
@@ -72,13 +79,12 @@ export function useFleet(
   }, [ids]);
 
   useEffect(() => {
-    const current = targets.current;
-    if (paused || current.length === 0) return;
+    if (paused || targets.current.length === 0) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
       await Promise.all(
-        current.map(async (server) => {
+        targets.current.map(async (server) => {
           try {
             const snapshot = await loadNode(server, controller.signal);
             const time = Date.parse(snapshot.time) || Date.now();
@@ -132,7 +138,7 @@ export function useFleet(
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [ids, intervalMs, paused]);
+  }, [settings, intervalMs, paused]);
 
   return fleet;
 }

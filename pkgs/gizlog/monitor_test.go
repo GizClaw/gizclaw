@@ -67,6 +67,11 @@ func TestMonitorLogKeepsBoundedStructuredFields(t *testing.T) {
 	if entry.PeerPublicKey != "owner" {
 		t.Fatalf("identity came from attributes: %q", entry.PeerPublicKey)
 	}
+	// The caller-supplied value stays visible as an ordinary field so a reader
+	// can still filter on it; only the identity comes from the context.
+	if entry.Fields["peer_public_key"] != "spoofed" {
+		t.Fatalf("caller peer_public_key dropped: %v", entry.Fields)
+	}
 	if _, ok := entry.Fields["empty"]; ok {
 		t.Fatal("empty value retained")
 	}

@@ -62,7 +62,7 @@ func (h *monitorHandler) Handle(ctx context.Context, r slog.Record) error {
 			}
 			return
 		}
-		if a.Key == "" || a.Key == "peer_public_key" || len(a.Key) > monitorMaxFieldKey {
+		if a.Key == "" || len(a.Key) > monitorMaxFieldKey {
 			return
 		}
 		value := a.Value.Resolve().String()
@@ -96,7 +96,6 @@ func (h *monitorHandler) Handle(ctx context.Context, r slog.Record) error {
 // ReadMonitorLogs returns at most 500 recent records, optionally scoped to a peer.
 func ReadMonitorLogs(peer string) []MonitorEntry {
 	monitorLogs.Lock()
-	defer monitorLogs.Unlock()
 	result := make([]MonitorEntry, 0, 500)
 	start := uint64(1)
 	if monitorLogs.sequence > 500 {
@@ -105,17 +104,23 @@ func ReadMonitorLogs(peer string) []MonitorEntry {
 	for id := start; id <= monitorLogs.sequence; id++ {
 		e := monitorLogs.entries[(id-1)%500]
 		if peer == "" || e.PeerPublicKey == peer {
-			e.Message = strings.ToValidUTF8(e.Message, "�")
-			// Callers must not be able to edit the retained record.
-			if len(e.Fields) > 0 {
-				fields := make(map[string]string, len(e.Fields))
-				for key, value := range e.Fields {
-					fields[key] = value
-				}
-				e.Fields = fields
-			}
 			result = append(result, e)
 		}
+	}
+	monitorLogs.Unlock()
+	// A retained record's field map is never written after publication, so the
+	// defensive copy that keeps callers from editing it happens outside the
+	// critical section.
+	for i := range result {
+		result[i].Message = strings.ToValidUTF8(result[i].Message, "�")
+		if len(result[i].Fields) == 0 {
+			continue
+		}
+		fields := make(map[string]string, len(result[i].Fields))
+		for key, value := range result[i].Fields {
+			fields[key] = value
+		}
+		result[i].Fields = fields
 	}
 	return result
 }

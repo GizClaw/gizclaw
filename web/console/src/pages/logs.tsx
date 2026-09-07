@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,9 @@ export function LogsPage({
   const [deviceRecords, setDeviceRecords] = useState<LogRecord[]>([]);
   const [deviceError, setDeviceError] = useState("");
   const [deviceBusy, setDeviceBusy] = useState(false);
+  const [deviceCursor, setDeviceCursor] = useState<string>();
+  const [deviceNext, setDeviceNext] = useState<string>();
+  const deviceRecordCount = useRef(0);
 
   const all = useMemo(() => {
     if (device) return deviceRecords;
@@ -88,9 +91,26 @@ export function LogsPage({
     return merged.sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
   }, [config.servers, fleet, device, deviceRecords]);
 
+  // The Log Store filters server-side, so the supported filters travel with the
+  // query instead of being applied to one page after the fact. Free text is
+  // sent whole; field clauses stay local because the store has no such syntax.
+  const deviceQuery = useMemo(() => parseQuery(text).text.join(" "), [text]);
+  const deviceLevel =
+    level === "DEBUG" ||
+    level === "INFO" ||
+    level === "WARN" ||
+    level === "ERROR"
+      ? level
+      : undefined;
+
+  useEffect(() => {
+    setDeviceRecords([]);
+    setDeviceCursor(undefined);
+    setDeviceNext(undefined);
+  }, [source, deviceQuery, deviceLevel, windowSeconds]);
+
   useEffect(() => {
     if (!device) {
-      setDeviceRecords([]);
       setDeviceError("");
       return;
     }
@@ -101,27 +121,34 @@ export function LogsPage({
     loadDeviceLogs(
       device.endpoint,
       device.publicKey,
-      "",
-      undefined,
+      deviceQuery,
+      deviceLevel,
       end - (windowSeconds > 0 ? windowSeconds * 1000 : 24 * 3600000),
       end,
-      undefined,
+      deviceCursor,
       controller.signal,
     )
       .then((page) => {
         if (controller.signal.aborted) return;
-        setDeviceRecords(
-          page.items.map((item, index) => ({
-            id: index,
-            time: new Date(item.time_ms).toISOString(),
-            level: item.level,
-            message: item.message,
-            peer_public_key: device.publicKey,
-            fields: { ...item.fields, source: item.source, path: item.path },
-            node: peerId(device),
-            nodeName: peerLabel(device, undefined),
-          })),
-        );
+        const offset =
+          deviceCursor === undefined ? 0 : deviceRecordCount.current;
+        const records = page.items.map((item, index) => ({
+          id: offset + index,
+          time: new Date(item.time_ms).toISOString(),
+          level: item.level,
+          message: item.message,
+          peer_public_key: device.publicKey,
+          fields: { ...item.fields, source: item.source, path: item.path },
+          node: peerId(device),
+          nodeName: peerLabel(device, undefined),
+        }));
+        setDeviceRecords((current) => {
+          const next =
+            deviceCursor === undefined ? records : [...current, ...records];
+          deviceRecordCount.current = next.length;
+          return next;
+        });
+        setDeviceNext(page.end.has_next ? page.end.next_cursor : undefined);
       })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted)
@@ -131,7 +158,7 @@ export function LogsPage({
         if (!controller.signal.aborted) setDeviceBusy(false);
       });
     return () => controller.abort();
-  }, [device, windowSeconds]);
+  }, [device, deviceQuery, deviceLevel, windowSeconds, deviceCursor]);
 
   const watchedKeys = useMemo(
     () => new Set(peers.map((peer) => peer.publicKey)),
@@ -251,9 +278,20 @@ export function LogsPage({
             )}
             {device && (
               <span>
-                Log Store · {peerLabel(device, undefined)}
+                Log Store · {peerLabel(device, undefined)} ·
+                文本与级别由服务端过滤，key:value 子句仅在已加载的记录上生效
                 {deviceBusy ? " · 查询中" : ""}
               </span>
+            )}
+            {device && deviceNext !== undefined && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={deviceBusy}
+                onClick={() => setDeviceCursor(deviceNext)}
+              >
+                加载更早的记录
+              </Button>
             )}
             <span>
               命中 {shown.length} / {all.length} 条 · ERROR {errors} · WARN{" "}

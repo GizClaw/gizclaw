@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Pause, Play, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -251,6 +251,17 @@ function HistoryAudio({
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // A download started here must not outlive the row: leaving the workspace,
+  // page or device while it is pending would otherwise start playback on a
+  // component that no longer exists and leak its object URL.
+  const pending = useRef<AbortController>(null);
+
+  useEffect(() => {
+    return () => {
+      pending.current?.abort();
+      pending.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!audio) return;
@@ -281,6 +292,7 @@ function HistoryAudio({
     setBusy(true);
     setError("");
     const controller = new AbortController();
+    pending.current = controller;
     loadHistoryAudio(
       peer.endpoint,
       peer.publicKey,
@@ -289,16 +301,25 @@ function HistoryAudio({
       controller.signal,
     )
       .then((blob) => {
-        const element = new Audio(URL.createObjectURL(blob));
+        const url = URL.createObjectURL(blob);
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        const element = new Audio(url);
         setAudio(element);
         setPlaying(true);
         return element.play();
       })
       .catch((failure: unknown) => {
+        if (controller.signal.aborted) return;
         setPlaying(false);
         setError(nodeErrorMessage(failure));
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        if (pending.current === controller) pending.current = null;
+        if (!controller.signal.aborted) setBusy(false);
+      });
   };
 
   return (

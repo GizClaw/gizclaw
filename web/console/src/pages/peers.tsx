@@ -174,32 +174,6 @@ export function PeersPage({
           )}
         </CardContent>
       </Card>
-      {peers.map((peer) => {
-        const state = states[peerId(peer)];
-        if (!state?.snapshot) return null;
-        return (
-          <Card key={`${peerId(peer)}-detail`}>
-            <CardHeader>
-              <CardTitle>
-                {peerLabel(peer, state.snapshot)} · 原始记录
-              </CardTitle>
-              <CardDescription>
-                设备信息、运行时状态与 Server 记录的状态字段，空值保持为空。
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <details>
-                <summary className="cursor-pointer text-xs text-muted-foreground">
-                  展开 JSON
-                </summary>
-                <pre className="mt-3 max-h-96 overflow-auto text-[11px] leading-relaxed text-muted-foreground">
-                  {JSON.stringify(state.snapshot, null, 2)}
-                </pre>
-              </details>
-            </CardContent>
-          </Card>
-        );
-      })}
     </>
   );
 }
