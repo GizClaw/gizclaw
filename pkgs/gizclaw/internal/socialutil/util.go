@@ -85,6 +85,8 @@ func RequireOwner(owner string) error {
 	return nil
 }
 
+// NormalizeListParams converts a raw RPC cursor to the escaped collection
+// ordering representation. Responses must return raw IDs, not this cursor.
 func NormalizeListParams(cursor string, limit int) (string, int) {
 	normalizedCursor := EscapeStoreSegment(strings.TrimSpace(cursor))
 	normalizedLimit := DefaultListLimit

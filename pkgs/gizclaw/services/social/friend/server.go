@@ -559,7 +559,7 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 	if err != nil {
 		return rpcapi.FriendListResponse{}, err
 	}
-	cursor, limit := socialutil.NormalizeListParams(socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
+	escapedCursor, limit := socialutil.NormalizeListParams(socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
 	ids, err := store.ListMembers(ctx, friendCollectionKey(owner))
 	if err != nil {
 		return rpcapi.FriendListResponse{}, err
@@ -570,7 +570,7 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 	items := make([]rpcapi.FriendObject, 0, min(limit+1, len(ids)))
 	pageIDs := make([]string, 0, min(limit+1, len(ids)))
 	for _, id := range ids {
-		if cursor != "" && socialutil.EscapeStoreSegment(id) <= cursor {
+		if escapedCursor != "" && socialutil.EscapeStoreSegment(id) <= escapedCursor {
 			continue
 		}
 		record, err := socialutil.ReadJSONValue[friendRecord](ctx, store, socialutil.FriendKey(owner, id))

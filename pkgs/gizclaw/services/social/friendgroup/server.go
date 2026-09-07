@@ -689,7 +689,7 @@ func (s *Server) ListFriendGroups(ctx context.Context, owner string, req rpcapi.
 	if err != nil {
 		return rpcapi.FriendGroupListResponse{}, err
 	}
-	cursor, limit := socialutil.NormalizeListParams(socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
+	escapedCursor, limit := socialutil.NormalizeListParams(socialutil.StringValue(req.Cursor), socialutil.IntValue(req.Limit))
 	ids, err := belongs.ListMembers(ctx, belongCollectionKey(owner))
 	if err != nil {
 		return rpcapi.FriendGroupListResponse{}, err
@@ -700,7 +700,7 @@ func (s *Server) ListFriendGroups(ctx context.Context, owner string, req rpcapi.
 	items := make([]rpcapi.FriendGroupObject, 0, min(limit+1, len(ids)))
 	pageIDs := make([]string, 0, min(limit+1, len(ids)))
 	for _, id := range ids {
-		if cursor != "" && socialutil.EscapeStoreSegment(id) <= cursor {
+		if escapedCursor != "" && socialutil.EscapeStoreSegment(id) <= escapedCursor {
 			continue
 		}
 		member, err := socialutil.ReadJSONValue[friendGroupMemberRecord](ctx, belongs, socialutil.GroupBelongKey(owner, id))
@@ -1416,7 +1416,7 @@ func (s *Server) AdminDeleteFriendGroupMember(ctx context.Context, friendGroupID
 }
 
 func (s *Server) listFriendGroupMembers(ctx context.Context, friendGroupID, cursor string, limit int) (rpcapi.FriendGroupMemberListResponse, error) {
-	cursor, limit = socialutil.NormalizeListParams(cursor, limit)
+	escapedCursor, limit := socialutil.NormalizeListParams(cursor, limit)
 	store, err := s.membersStore()
 	if err != nil {
 		return rpcapi.FriendGroupMemberListResponse{}, err
@@ -1430,7 +1430,7 @@ func (s *Server) listFriendGroupMembers(ctx context.Context, friendGroupID, curs
 	})
 	items := make([]rpcapi.FriendGroupMemberObject, 0, min(limit+1, len(peers)))
 	for _, peer := range peers {
-		if cursor != "" && socialutil.EscapeStoreSegment(peer) <= cursor {
+		if escapedCursor != "" && socialutil.EscapeStoreSegment(peer) <= escapedCursor {
 			continue
 		}
 		record, err := socialutil.ReadJSONValue[friendGroupMemberRecord](ctx, store, socialutil.GroupMemberKey(friendGroupID, peer))

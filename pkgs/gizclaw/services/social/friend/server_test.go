@@ -1987,3 +1987,32 @@ func (s *blockingCreationDecisionStore) ApplyMutation(ctx context.Context, mutat
 	}
 	return s.Store.ApplyMutation(ctx, mutation)
 }
+
+func TestListFriendsPaginatesEscapedRelationIDs(t *testing.T) {
+	s := newTestServer()
+	want := []string{"peer/a", "peer:b", "peer_c"}
+	for _, peer := range want {
+		if _, err := s.AdminCreateFriend(t.Context(), "owner", peer); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var cursor *string
+	var got []string
+	for i, peer := range want {
+		page, err := s.ListFriends(t.Context(), "owner", rpcapi.FriendListRequest{Cursor: cursor, Limit: new(1)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Items) != 1 || page.HasNext != (i < len(want)-1) {
+			t.Fatalf("page %d=%#v", i, page)
+		}
+		got = append(got, page.Items[0].Name)
+		if page.HasNext && (page.NextCursor == nil || *page.NextCursor != socialutil.RelationID("owner", peer)) {
+			t.Fatalf("cursor must be raw: %#v", page.NextCursor)
+		}
+		cursor = page.NextCursor
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("friends=%q want=%q", got, want)
+	}
+}
