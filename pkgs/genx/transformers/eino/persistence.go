@@ -64,8 +64,16 @@ func recallMemory(ctx context.Context, config *MemoryConfig, state *runState) er
 			return fmt.Errorf("eino: Recall[%d] query: %w", index, err)
 		}
 		query, ok := queryValue.(string)
-		if !ok || strings.TrimSpace(query) == "" {
-			return fmt.Errorf("eino: Recall[%d] query is empty or not text", index)
+		if !ok {
+			return fmt.Errorf("eino: Recall[%d] query is not text", index)
+		}
+		if strings.TrimSpace(query) == "" {
+			// An agent-initiative turn has no user text to recall against.
+			// Leave the output empty instead of failing the opening turn.
+			if err := state.set(definition.Output, ""); err != nil {
+				return err
+			}
+			continue
 		}
 		result, err := config.Store.Recall(ctx, memory.Query{
 			Scope: config.Scope, Text: query, Limit: definition.TopK,

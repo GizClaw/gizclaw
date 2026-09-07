@@ -2,10 +2,12 @@ package flowcraft
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
+	flownode "github.com/GizClaw/flowcraft/sdk/graph/node"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -87,6 +89,63 @@ func TestMemoryRecallNodeMapsBoardToStoreAndBack(t *testing.T) {
 	rendered, _ := board.GetVar("memory_context")
 	if rendered != "Recall policy:\nUse confirmed clues to maintain continuity.\nRelevant memory:\n- first\n- second" {
 		t.Fatalf("Board memory_context = %#v", rendered)
+	}
+}
+
+func TestMemoryRecallNodeSkipsStoreForEmptyQuery(t *testing.T) {
+	t.Parallel()
+	store := &memoryNodeStore{recallErr: errors.New("store must not be called")}
+	board := flowgraph.NewBoard()
+	board.SetVar("input", "  ")
+	node := &memoryRecallNode{
+		id:    "recall",
+		store: store,
+		scope: memory.Scope{AppID: "workspace"},
+		config: memoryRecallNodeConfig{
+			Query: struct {
+				TextFrom string         `json:"text_from"`
+				Kinds    []string       `json:"kinds"`
+				Lanes    []string       `json:"lanes"`
+				Filters  []memoryFilter `json:"filters"`
+			}{TextFrom: "input", Lanes: []string{"clues"}},
+			Output: "memory_context",
+			TopK:   2,
+		},
+		laneRecall: map[string]string{"clues": "Use confirmed clues."},
+	}
+	if err := node.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context(), RunID: "run"}, board); err != nil {
+		t.Fatalf("ExecuteBoard() error = %v", err)
+	}
+	if store.recallQuery.Text != "" || store.recallQuery.Scope.AppID != "" {
+		t.Fatalf("empty query reached the store: %#v", store.recallQuery)
+	}
+	rendered, _ := board.GetVar("memory_context")
+	if rendered != "" {
+		t.Fatalf("Board memory_context = %#v, want empty", rendered)
+	}
+}
+
+func TestMemoryObserveNodeSkipsStoreForEmptyObservation(t *testing.T) {
+	t.Parallel()
+	store := &memoryNodeStore{observeErr: errors.New("store must not be called")}
+	factory := flownode.NewFactory()
+	registerMemoryNodes(factory, Config{Memory: store, MemoryScope: memory.Scope{AppID: "workspace"}})
+	node, err := factory.Build(flowgraph.NodeDefinition{ID: "observe", Type: "memory_observe", Config: map[string]any{
+		"observations": []any{map[string]any{
+			"text_from": "input",
+			"facts":     []any{map[string]any{"text_from": "input", "attributes": map[string]string{"lane": "facts"}}},
+		}},
+	}})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	board := flowgraph.NewBoard()
+	board.SetVar("input", " ")
+	if err := node.ExecuteBoard(flowgraph.ExecutionContext{Context: t.Context(), RunID: "run"}, board); err != nil {
+		t.Fatalf("ExecuteBoard() error = %v", err)
+	}
+	if store.observation.ID != "" {
+		t.Fatalf("empty observation reached the store: %#v", store.observation)
 	}
 }
 

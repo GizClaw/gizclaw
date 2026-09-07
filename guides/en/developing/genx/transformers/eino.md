@@ -228,7 +228,7 @@ The Store loads one versioned snapshot before the Graph. Only configured fields 
 
 History uses an optional `logstore.MutableStore`, stable scope, Agent ID, ContextID, and bounded query limit. Without a Store, the Transformer keeps a bounded Agent-local History. Stored records contain ordered user and pull-visible assistant messages; interrupted assistant records contain an interruption marker.
 
-Memory uses an optional provider-neutral `memory.Store`. Each Recall declaration runs before the Graph, renders ordered facts as `- text` lines, writes its string State field, and contributes to `memory.recalled`. Observe runs after delivery observation. It submits pull-visible turns and explicitly declared State fact bindings only.
+Memory uses an optional provider-neutral `memory.Store`. Each Recall declaration runs before the Graph, renders ordered facts as `- text` lines, writes its string State field, and contributes to `memory.recalled`. A Recall whose query text is blank, as in an agent-initiative turn, skips the Store and writes an empty result instead of failing the run. Observe runs after delivery observation. It submits pull-visible turns and explicitly declared State fact bindings only.
 
 When `WaitForCompletion` is true, the Store must implement `memory.OperationWaiter`, and primary EOS waits for terminal operation success. When false, Observe acceptance still precedes EOS; a Store implementing `memory.AsyncOperationProcessor` may process a pending operation asynchronously.
 

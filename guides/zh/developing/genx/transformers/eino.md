@@ -228,7 +228,7 @@ Store 在 Graph 前加载 versioned snapshot。只有配置列出的 field 会�
 
 History 使用可选的 `logstore.MutableStore`、稳定 scope、Agent ID、ContextID 和有界 query limit。没有 Store 时，Transformer 使用有界的 Agent-local History。Record 按顺序保存 user 与真正 pull-visible 的 assistant message；被中断的 assistant record 带 interruption marker。
 
-Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph 前执行，把有序 fact 渲染为 `- text` 行，写入声明的 string State field，并加入 `memory.recalled`。Observe 在 delivery observation 后执行，只提交 pull-visible turn 与显式声明的 State fact binding。
+Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph 前执行，把有序 fact 渲染为 `- text` 行，写入声明的 string State field，并加入 `memory.recalled`。Recall 的 query 文本为空时（例如 Agent 主动开场 turn）跳过 Store，写入空结果而不是让本次 run 失败。Observe 在 delivery observation 后执行，只提交 pull-visible turn 与显式声明的 State fact binding。
 
 `WaitForCompletion=true` 时 Store 必须实现 `memory.OperationWaiter`，primary EOS 会等待 operation terminal success。设为 false 时，Observe acceptance 仍在 EOS 前完成；实现 `memory.AsyncOperationProcessor` 的 Store 可以异步处理 pending operation。
 
