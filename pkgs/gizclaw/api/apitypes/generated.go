@@ -5813,6 +5813,9 @@ type RuntimeProfileAdoptionSpec struct {
 	Pool *[]RuntimeProfilePetPoolEntry `json:"pool,omitempty"`
 }
 
+// RuntimeProfileAppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
+type RuntimeProfileAppConfig map[string]string
+
 // RuntimeProfileBinding defines model for RuntimeProfileBinding.
 type RuntimeProfileBinding struct {
 	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
@@ -6015,6 +6018,8 @@ type RuntimeProfileResources struct {
 
 // RuntimeProfileSpec defines model for RuntimeProfileSpec.
 type RuntimeProfileSpec struct {
+	// AppConfig Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
+	AppConfig *RuntimeProfileAppConfig    `json:"app_config,omitempty"`
 	Gameplay  *RuntimeProfileGameplaySpec `json:"gameplay,omitempty"`
 	Resources RuntimeProfileResources     `json:"resources"`
 	Workflows RuntimeProfileWorkflows     `json:"workflows"`

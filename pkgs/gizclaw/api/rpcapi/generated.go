@@ -684,6 +684,10 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodClientToolInvoke:
 		return true
+	case RPCMethodServerAppConfigList:
+		return true
+	case RPCMethodServerAppConfigGet:
+		return true
 	case RPCMethodServerBadgeDefPixaDownload:
 		return true
 	case RPCMethodServerBadgeGet:

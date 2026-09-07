@@ -2445,6 +2445,308 @@ class ServerRegisterResponse extends $pb.GeneratedMessage {
   void clearRuntimeProfileName() => $_clearField(1);
 }
 
+/// AppConfig is the opaque device-defined configuration downlink carried by the
+/// selected RuntimeProfile. The Server stores and returns every value verbatim
+/// and never parses it; Clients read it and cannot write it.
+class AppConfigListRequest extends $pb.GeneratedMessage {
+  factory AppConfigListRequest({
+    $core.String? cursor,
+    $fixnum.Int64? limit,
+  }) {
+    final result = create();
+    if (cursor != null) result.cursor = cursor;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  AppConfigListRequest._();
+
+  factory AppConfigListRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AppConfigListRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AppConfigListRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'cursor')
+    ..aInt64(2, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigListRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigListRequest copyWith(void Function(AppConfigListRequest) updates) =>
+      super.copyWith((message) => updates(message as AppConfigListRequest))
+          as AppConfigListRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AppConfigListRequest create() => AppConfigListRequest._();
+  @$core.override
+  AppConfigListRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AppConfigListRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AppConfigListRequest>(create);
+  static AppConfigListRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get cursor => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set cursor($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCursor() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCursor() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get limit => $_getI64(1);
+  @$pb.TagNumber(2)
+  set limit($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimit() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimit() => $_clearField(2);
+}
+
+class AppConfigListResponse extends $pb.GeneratedMessage {
+  factory AppConfigListResponse({
+    $core.Iterable<$core.String>? keys,
+    $core.bool? hasNext,
+    $core.String? nextCursor,
+    $core.String? runtimeProfileName,
+    $core.String? runtimeProfileRevision,
+  }) {
+    final result = create();
+    if (keys != null) result.keys.addAll(keys);
+    if (hasNext != null) result.hasNext = hasNext;
+    if (nextCursor != null) result.nextCursor = nextCursor;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
+    if (runtimeProfileRevision != null)
+      result.runtimeProfileRevision = runtimeProfileRevision;
+    return result;
+  }
+
+  AppConfigListResponse._();
+
+  factory AppConfigListResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AppConfigListResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AppConfigListResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'keys')
+    ..aOB(2, _omitFieldNames ? '' : 'hasNext')
+    ..aOS(3, _omitFieldNames ? '' : 'nextCursor')
+    ..aOS(4, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(5, _omitFieldNames ? '' : 'runtimeProfileRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigListResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigListResponse copyWith(
+          void Function(AppConfigListResponse) updates) =>
+      super.copyWith((message) => updates(message as AppConfigListResponse))
+          as AppConfigListResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AppConfigListResponse create() => AppConfigListResponse._();
+  @$core.override
+  AppConfigListResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AppConfigListResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AppConfigListResponse>(create);
+  static AppConfigListResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get keys => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.bool get hasNext => $_getBF(1);
+  @$pb.TagNumber(2)
+  set hasNext($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasHasNext() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearHasNext() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get nextCursor => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set nextCursor($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNextCursor() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNextCursor() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get runtimeProfileName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set runtimeProfileName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRuntimeProfileName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRuntimeProfileName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get runtimeProfileRevision => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set runtimeProfileRevision($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRuntimeProfileRevision() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRuntimeProfileRevision() => $_clearField(5);
+}
+
+class AppConfigGetRequest extends $pb.GeneratedMessage {
+  factory AppConfigGetRequest({
+    $core.String? key,
+  }) {
+    final result = create();
+    if (key != null) result.key = key;
+    return result;
+  }
+
+  AppConfigGetRequest._();
+
+  factory AppConfigGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AppConfigGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AppConfigGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigGetRequest copyWith(void Function(AppConfigGetRequest) updates) =>
+      super.copyWith((message) => updates(message as AppConfigGetRequest))
+          as AppConfigGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AppConfigGetRequest create() => AppConfigGetRequest._();
+  @$core.override
+  AppConfigGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AppConfigGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AppConfigGetRequest>(create);
+  static AppConfigGetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+}
+
+class AppConfigGetResponse extends $pb.GeneratedMessage {
+  factory AppConfigGetResponse({
+    $core.String? value,
+    $core.String? runtimeProfileName,
+    $core.String? runtimeProfileRevision,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    if (runtimeProfileName != null)
+      result.runtimeProfileName = runtimeProfileName;
+    if (runtimeProfileRevision != null)
+      result.runtimeProfileRevision = runtimeProfileRevision;
+    return result;
+  }
+
+  AppConfigGetResponse._();
+
+  factory AppConfigGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AppConfigGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AppConfigGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'value')
+    ..aOS(2, _omitFieldNames ? '' : 'runtimeProfileName')
+    ..aOS(3, _omitFieldNames ? '' : 'runtimeProfileRevision')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AppConfigGetResponse copyWith(void Function(AppConfigGetResponse) updates) =>
+      super.copyWith((message) => updates(message as AppConfigGetResponse))
+          as AppConfigGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AppConfigGetResponse create() => AppConfigGetResponse._();
+  @$core.override
+  AppConfigGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AppConfigGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AppConfigGetResponse>(create);
+  static AppConfigGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get value => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set value($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get runtimeProfileName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set runtimeProfileName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRuntimeProfileName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRuntimeProfileName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get runtimeProfileRevision => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set runtimeProfileRevision($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRuntimeProfileRevision() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRuntimeProfileRevision() => $_clearField(3);
+}
+
 class APIKey extends $pb.GeneratedMessage {
   factory APIKey({
     $core.String? name,

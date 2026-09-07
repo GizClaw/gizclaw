@@ -154,6 +154,27 @@ field also grants no conversation rewards. The policy freezes when each
 debounced window opens, so later RuntimeProfile or BadgeDef updates affect only
 new windows. It does not register an Admin Tool, built-in Tool, or Toolkit.
 
+## app_config
+
+`spec.app_config` is the optional opaque configuration downlink for the device itself. It puts device-owned product configuration into the RuntimeProfile the device already selects, so switching environments does not require a firmware rebuild. It is a key-value map: keys use exactly the RuntimeProfile alias syntax shared with every other binding (1-63 bytes of dot-separated lowercase kebab-case segments), and values are arbitrary strings.
+
+The Server stores and returns each value verbatim: it never parses, trims, re-encodes, or checks whether a value is JSON. The encoding is the device's choice. The Server validates only the key syntax, a 4096-byte ceiling per value, and a 64-entry ceiling per profile, and rejects a write whose keys collide after normalization. Key syntax and the byte ceiling are both enforced during normalization: OpenAPI 3.0 has no `propertyNames` keyword and its `maxLength` counts characters, while Clients decode into static buffers sized in UTF-8 bytes, so normalization is stricter than the schema.
+
+```yaml
+spec:
+  app_config:
+    ui.theme: dark
+    app.entrypoints: |
+      {"home": "/tab/home", "settings": "/tab/settings"}
+    feature.flags: beta-voice,beta-pet
+```
+
+app_config keys and binding aliases such as Workflow, Model, Voice, and Tool are independent namespaces and do not participate in global alias uniqueness: `chat` under `app_config` and `chat` under `resources.models` do not collide.
+
+Clients read it through `server.app_config.list` and `server.app_config.get` and have no write method. Every device bound to one RuntimeProfile reads identical content; there is no per-Peer configuration. Any registered device holding that binding can read every key and value, so credentials, API keys, and other secrets must not be stored here; credentials stay in Credential and ProviderTenant, resolved on the Server and never projected.
+
+app_config participates in spec normalization and revision computation, so changing configuration publishes a new revision and a Client can cache the revision and skip a refetch while it is unchanged.
+
 The normalized spec has an opaque deterministic revision. Catalog list/get responses include the RuntimeProfile ID and revision. Pagination cursors are revision-bound. Each list, get, Workspace reload, and standalone Speech call obtains one current profile snapshot; a concurrent update affects the next operation.
 
 RuntimeProfile create and update validate the complete dependency graph before publishing a revision. Snapshot reads, including Workspace reload, trust that persisted revision and do not traverse Workflow, Model, Voice, Tool, Memory, or gameplay dependencies again. Each consumer resolves only the exact bindings it uses; an unavailable selected dependency fails in that consumer, while unrelated unavailable resources do not block the snapshot or an unaffected Workspace.

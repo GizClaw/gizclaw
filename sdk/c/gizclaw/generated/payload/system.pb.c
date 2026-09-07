@@ -120,6 +120,18 @@ PB_BIND(gizclaw_rpc_v1_ServerRegisterRequest, gizclaw_rpc_v1_ServerRegisterReque
 PB_BIND(gizclaw_rpc_v1_ServerRegisterResponse, gizclaw_rpc_v1_ServerRegisterResponse, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_AppConfigListRequest, gizclaw_rpc_v1_AppConfigListRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_AppConfigListResponse, gizclaw_rpc_v1_AppConfigListResponse, 4)
+
+
+PB_BIND(gizclaw_rpc_v1_AppConfigGetRequest, gizclaw_rpc_v1_AppConfigGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_AppConfigGetResponse, gizclaw_rpc_v1_AppConfigGetResponse, 4)
+
+
 PB_BIND(gizclaw_rpc_v1_APIKey, gizclaw_rpc_v1_APIKey, 2)
 
 

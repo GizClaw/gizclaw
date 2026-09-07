@@ -3804,3 +3804,48 @@ test("workspace reload options and parameter patches round-trip through protobuf
     patch,
   );
 });
+
+test("app config requests and opaque values round-trip through protobuf", () => {
+  const listRequest = { cursor: "cmV2aXNpb24AdWkudGhlbWU", limit: 10 };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.app_config.list",
+      encodeRPCRequestPayload("server.app_config.list", listRequest),
+    ),
+    listRequest,
+  );
+  const getRequest = { key: "ui.theme" };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.app_config.get",
+      encodeRPCRequestPayload("server.app_config.get", getRequest),
+    ),
+    getRequest,
+  );
+  const listResponse = {
+    keys: ["app.entrypoints", "ui.theme"],
+    has_next: false,
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision",
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.app_config.list",
+      encodeRPCResponsePayload("server.app_config.list", listResponse),
+    ),
+    listResponse,
+  );
+  // The value is opaque: newlines and non-ASCII survive verbatim.
+  const getResponse = {
+    value: '{\n  "theme": "深色"\n}\n',
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision",
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.app_config.get",
+      encodeRPCResponsePayload("server.app_config.get", getResponse),
+    ),
+    getResponse,
+  );
+});

@@ -705,6 +705,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientDeviceAudioPlayerModeSetRequest',
     responseType: 'ClientDeviceAudioPlayerModeSetResponse',
   ),
+  'server.app_config.list': RpcMethodDescriptor(
+    id: 121,
+    name: 'server.app_config.list',
+    requestType: 'AppConfigListRequest',
+    responseType: 'AppConfigListResponse',
+  ),
+  'server.app_config.get': RpcMethodDescriptor(
+    id: 122,
+    name: 'server.app_config.get',
+    requestType: 'AppConfigGetRequest',
+    responseType: 'AppConfigGetResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -823,6 +835,8 @@ const rpcMethodNamesById = <int, String>{
   117: 'client.device.audioplayer.play',
   118: 'client.device.audioplayer.stop',
   119: 'client.device.audioplayer.mode.set',
+  121: 'server.app_config.list',
+  122: 'server.app_config.get',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {
