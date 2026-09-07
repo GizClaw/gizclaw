@@ -34,6 +34,40 @@ C SDK 的 `inbound_is_client_method` 接受这些设备控制方法并分发到 
 
 Go Client 的 provider dispatch 位于 `sdk/go/gizcli` 的 RPC Client implementation；C Client 通过 `gzc_client_config_t.rpc_provider` 注册同一方向的 provider，callback 在返回前提供 borrowed Protobuf response bytes 或稳定的 RPC error。Server 侧通过在线 Peer connection 调用这些 methods。
 
+## 设备配置与能力发现
+
+`client.device.settings.get`（123）、`client.device.settings.set`（124）、`client.device.factory_reset`（125）与
+`client.rpc.methods.get`（126）同样由设备 `rpc_provider` 实现，用于读取和修改设备自身的选项。
+
+`DeviceSettings` 的每个成员在两个方向上都是可选的，这正是它能用一个消息服务不同硬件、而不必为每个选项新增
+一个 RPC method 的原因：
+
+| 成员 | 类型 | 含义 |
+| --- | --- | --- |
+| `cellular_enabled` | `optional bool` | 蜂窝（4G）模块是否供电并允许承载流量。 |
+| `screen_off_timeout_ms` | `optional int64` | 无操作多久后熄屏；`0` 表示常亮。 |
+| `screen_brightness` | `optional int64` | 屏幕背光亮度，取值 0–100。 |
+| `led_brightness` | `optional int64` | 指示灯亮度，取值 0–100。 |
+| `locale` | `optional string` | 界面语言，BCP 47 标签，例如 `zh-CN`。 |
+| `default_interaction_mode` | `optional DeviceInteractionMode` | 默认交互模式：`push-to-talk` 或 `realtime`，与 `WorkspaceInputMode` 使用同一套取值。 |
+| `key_feedback` | `optional DeviceKeyFeedback` | 按键提示方式：`none`、`sound`、`vibrate`、`sound_and_vibrate`。 |
+
+Provider 责任：
+
+- `settings.get` 只上报本设备真正支持的成员。没有对应硬件的选项应当缺省，而不是填一个占位值——调用方正是靠
+  "缺省"与"存在但为关闭"来区分"不支持"和"已关闭"。
+- `settings.set` 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此
+  得知设备实际接受了哪些项。设备不支持的成员应忽略而不是报错，这样新版 Server 可以对接旧设备。超出取值范围的
+  成员应在应用任何一项之前返回 `INVALID_PARAMS`，避免设备停在配置了一半的状态。
+- `factory_reset` 清除设备本机状态，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，
+  使设备无需重新配网即可回连。Server 自身的 Peer 记录不受影响。与 `reboot` 一样必须先发出响应再执行。
+- `rpc.methods.get` 返回设备实现的 method name 列表，调用方据此隐藏或跳过设备只会拒绝的控制项。名称使用
+  registry 名（例如 `client.device.reboot`）；读取方必须忽略未知名称而不是拒绝整个响应。
+
+JavaScript SDK 通过 `GizClawDeviceControlHandlers` 的 `getSettings`、`setSettings`、`factoryReset` 安装
+provider，并直接从已注册的 handler 推导 `client.rpc.methods.get` 的返回值，因此这个列表不会与设备真正接受的
+方法脱节。
+
 ## 音乐播放器
 
 设备的单个播放器通过 `client.device.audioplayer.*` 提供七个方法：`get`（113）、`playlist.get`（114）、`playlist.set`（115）、`playlist.append`（116）、`play`（117）、`stop`（118）、`mode.set`（119）。无需 `play_id`；`playlist_revision` 标识设备列表版本，不能用于自动重试 append。

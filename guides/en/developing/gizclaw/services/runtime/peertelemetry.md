@@ -30,4 +30,16 @@ Telemetry schema belongs to `api/proto/telemetry`, metrics persistence belongs t
 
 Network observation `imei` / `imsi` values pass pattern and cellular-route validation into the `StatusPatch`, and `StatusSync` merges them per field by observation time into `PeerStatus.network_imei` / `network_imsi`, never as metrics or logs; see [Telemetry API](/en/developing/api/proto/telemetry#network-reporting) for the rules.
 
+Activity observation `activity` and its optional `detail` enter the `StatusPatch` together, and `StatusSync` merges them as one unit into `PeerStatus.activity` / `activity_detail`, again as status and never as metrics; `SystemObservation.firmware_version` follows the same per-field rule into `PeerStatus.firmware_version`. See [Telemetry API](/en/developing/api/proto/telemetry#activity-reporting) for the rules.
+
+The observation time of each telemetry-sourced field lives in the typed
+`PeerStatus.telemetry_observed_at`, whose members are named after the `PeerStatus` field each one
+describes and hold RFC 3339 timestamps. Those timestamps are what per-field ordering is decided on: a
+late or replayed report is rejected instead of overwriting a newer observation. A member is absent
+until that field has been observed at least once.
+
+`telemetry_observed_at` is Server-maintained and not device-writable: a `telemetry_observed_at` carried
+on a control response is dropped, and the observation time comes only from what the Server recorded
+when it handled the observation.
+
 Validated OTA observations update queryable runtime OTA status through `StatusSync`, without payload logs or metrics; see [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for fields and SDK usage.

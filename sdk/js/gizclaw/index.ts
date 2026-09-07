@@ -27,7 +27,10 @@ import {
   type SpeechTranscribeRequest,
   type SpeechTranscribeResponse,
   type SpeedTestRequest,
+  type ClientDeviceFactoryResetRequest,
   type ClientDeviceRebootRequest,
+  type ClientDeviceSettingsSetRequest,
+  type DeviceSettings,
   type ClientDeviceSoundPlayRequest,
   type ClientDeviceVolumeSetRequest,
   type ClientFirmwareUpdateRequest,
@@ -203,10 +206,10 @@ export type PreparedGiznetWebRTCOffer = {
 
 // GizClawDeviceStatus is the PeerStatus shape a device handler reports. The
 // generated PeerStatus type describes a decoded response, where protobuf maps
-// are always present; a device supplies them only when it has labels or
-// details to report.
-export type GizClawDeviceStatus = Omit<PeerStatus, "details" | "labels"> &
-  Partial<Pick<PeerStatus, "details" | "labels">>;
+// are always present; a device supplies them only when it has labels to
+// report.
+export type GizClawDeviceStatus = Omit<PeerStatus, "labels"> &
+  Partial<Pick<PeerStatus, "labels">>;
 
 /** Device-owned playlist and player. Append must be atomic and preserve playback. */
 export type GizClawAudioPlayerHandlers = {
@@ -276,6 +279,19 @@ export type GizClawDeviceControlHandlers = {
   ) => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
   status?: () => Promise<GizClawDeviceStatus> | GizClawDeviceStatus;
   wifiStatus?: () => Promise<WifiStatus> | WifiStatus;
+  // getSettings reports every option this device supports. An option the
+  // device has no hardware for stays absent rather than being reported with a
+  // placeholder value, which is how a caller tells "off" from "not supported".
+  getSettings?: () => Promise<DeviceSettings> | DeviceSettings;
+  // setSettings applies only the options present in the patch and answers with
+  // the device's full settings afterwards, so the caller sees what was
+  // accepted. An option the device does not support is ignored, not an error.
+  setSettings?: (
+    patch: DeviceSettings,
+  ) => Promise<DeviceSettings> | DeviceSettings;
+  // factoryReset erases device-local state. keepNetwork retains saved Wi-Fi and
+  // cellular configuration so the device can reconnect without provisioning.
+  factoryReset?: (keepNetwork: boolean) => Promise<void> | void;
 };
 
 // GizClawPeerRPCHandlers answers the client.* RPCs a GizClaw server initiates.
@@ -2390,6 +2406,79 @@ function deviceControlDuration(value: unknown): number | undefined | null {
   return value;
 }
 
+const DEVICE_INTERACTION_MODES = ["push-to-talk", "realtime"];
+const DEVICE_KEY_FEEDBACKS = ["none", "sound", "vibrate", "sound_and_vibrate"];
+
+// deviceSettingsPatchValid rejects a patch before the device applies any of it,
+// so a bad member cannot leave the device half-configured. Unknown members are
+// ignored rather than rejected, so a newer server can talk to an older device.
+function deviceSettingsPatchValid(patch: DeviceSettings): boolean {
+  const percent = (value: unknown): boolean =>
+    value === undefined ||
+    (typeof value === "number" &&
+      Number.isInteger(value) &&
+      value >= 0 &&
+      value <= 100);
+  const duration = (value: unknown): boolean =>
+    value === undefined ||
+    (typeof value === "number" && Number.isInteger(value) && value >= 0);
+  const member = (value: unknown, allowed: string[]): boolean =>
+    value === undefined ||
+    (typeof value === "string" && allowed.includes(value));
+  return (
+    (patch.cellular_enabled === undefined ||
+      typeof patch.cellular_enabled === "boolean") &&
+    duration(patch.screen_off_timeout_ms) &&
+    percent(patch.screen_brightness) &&
+    percent(patch.led_brightness) &&
+    (patch.locale === undefined ||
+      (typeof patch.locale === "string" &&
+        patch.locale.length > 0 &&
+        patch.locale.length <= 35)) &&
+    member(patch.default_interaction_mode, DEVICE_INTERACTION_MODES) &&
+    member(patch.key_feedback, DEVICE_KEY_FEEDBACKS)
+  );
+}
+
+// supportedDeviceMethods lists the client.* methods this device answers, taken
+// from the handlers it registered. client.rpc.methods.get is always present
+// because answering it is what produced this list.
+function supportedDeviceMethods(
+  handlers: GizClawPeerRPCHandlers | undefined,
+): string[] {
+  const control = handlers?.deviceControl;
+  const player = control?.audioplayer;
+  const present: [string, unknown][] = [
+    ["client.info.get", handlers?.deviceInfo],
+    ["client.identifiers.get", handlers?.deviceIdentifiers],
+    ["client.device.status.get", control?.status],
+    ["client.device.volume.set", control?.setVolume],
+    ["client.device.sound.play", control?.playSound],
+    ["client.device.reboot", control?.reboot],
+    ["client.device.settings.get", control?.getSettings],
+    ["client.device.settings.set", control?.setSettings],
+    ["client.device.factory_reset", control?.factoryReset],
+    ["client.firmware.update", control?.updateFirmware],
+    ["client.wifi.status.get", control?.wifiStatus],
+    ["client.wifi.saved.list", control?.savedWifi],
+    ["client.wifi.saved.forget", control?.forgetWifi],
+    ["client.wifi.scan", control?.scanWifi],
+    ["client.wifi.connect", control?.connectWifi],
+    ["client.device.audioplayer.get", player?.get],
+    ["client.device.audioplayer.playlist.get", player?.playlistGet],
+    ["client.device.audioplayer.playlist.set", player?.playlistSet],
+    ["client.device.audioplayer.playlist.append", player?.playlistAppend],
+    ["client.device.audioplayer.play", player?.play],
+    ["client.device.audioplayer.stop", player?.stop],
+    ["client.device.audioplayer.mode.set", player?.modeSet],
+  ];
+  const methods = present
+    .filter(([, handler]) => handler != null)
+    .map(([method]) => method);
+  methods.push("client.rpc.methods.get");
+  return methods;
+}
+
 // answerClientRequest answers one inbound client.* RPC from the handlers the
 // caller installed. An unhandled method answers METHOD_NOT_FOUND so the server
 // maps it to 501 DEVICE_UNSUPPORTED, matching the Go and Dart SDKs.
@@ -2527,6 +2616,40 @@ async function answerClientRequest(
         }
         await handler(delayMs);
         return ok({});
+      }
+      case "client.device.settings.get": {
+        const handler = control?.getSettings;
+        if (handler == null) {
+          return unsupported();
+        }
+        return ok(await handler());
+      }
+      case "client.device.settings.set": {
+        const handler = control?.setSettings;
+        if (handler == null) {
+          return unsupported();
+        }
+        const patch = (request.params ?? {}) as ClientDeviceSettingsSetRequest;
+        if (!deviceSettingsPatchValid(patch)) {
+          return invalid();
+        }
+        return ok(await handler(patch));
+      }
+      case "client.device.factory_reset": {
+        const handler = control?.factoryReset;
+        if (handler == null) {
+          return unsupported();
+        }
+        const params = request.params as
+          ClientDeviceFactoryResetRequest | undefined;
+        await handler(params?.keep_network === true);
+        return ok({});
+      }
+      case "client.rpc.methods.get": {
+        // Derived from the handlers this device actually registered rather
+        // than from a hand-kept list, so the answer cannot drift from what the
+        // device will really accept.
+        return ok({ methods: supportedDeviceMethods(handlers) });
       }
       case "client.firmware.update": {
         const handler = control?.updateFirmware;

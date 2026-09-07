@@ -3,6 +3,7 @@ package gizcli
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -258,5 +259,55 @@ func TestRPCClientFirmwareUpdateProvider(t *testing.T) {
 	// Firmware without the provider answers METHOD_NOT_FOUND.
 	if resp := deviceControlDispatch(t, &Client{}, rpcapi.RPCMethodClientFirmwareUpdate, nil); resp.Error == nil || resp.Error.Code != rpcapi.StatusCodeUnimplemented {
 		t.Fatalf("update without handler = %#v", resp)
+	}
+}
+
+// The settings patch is validated before any handler runs, and the capability
+// list is derived from the handlers that are actually installed.
+func TestDeviceSettingsHandlersAndCapabilityList(t *testing.T) {
+	handlers := DeviceControlHandlers{
+		Reboot: func(context.Context, *int64) error { return nil },
+		GetSettings: func(context.Context) (rpcapi.DeviceSettings, error) {
+			return rpcapi.DeviceSettings{ScreenBrightness: new(int64(30))}, nil
+		},
+		FactoryReset: func(context.Context, bool) error { return nil },
+	}
+	want := []string{
+		string(rpcapi.RPCMethodClientDeviceReboot),
+		string(rpcapi.RPCMethodClientDeviceSettingsGet),
+		string(rpcapi.RPCMethodClientDeviceFactoryReset),
+		string(rpcapi.RPCMethodClientRPCMethodsGet),
+	}
+	if got := handlers.supportedDeviceMethods(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("supportedDeviceMethods() = %#v, want %#v", got, want)
+	}
+	// A device with no handlers still answers, listing only the method that
+	// produced the answer.
+	var empty DeviceControlHandlers
+	if got := empty.supportedDeviceMethods(); !reflect.DeepEqual(got, []string{string(rpcapi.RPCMethodClientRPCMethodsGet)}) {
+		t.Fatalf("empty supportedDeviceMethods() = %#v", got)
+	}
+
+	mode := rpcapi.DeviceInteractionModeRealtime
+	unknown := rpcapi.DeviceInteractionMode("telepathy")
+	for name, patch := range map[string]rpcapi.DeviceSettings{
+		"ok":           {ScreenBrightness: new(int64(0)), LedBrightness: new(int64(100)), Locale: new("zh-CN"), DefaultInteractionMode: &mode},
+		"empty patch":  {},
+		"zero timeout": {ScreenOffTimeoutMs: new(int64(0))},
+	} {
+		if !validDeviceSettingsPatch(patch) {
+			t.Fatalf("validDeviceSettingsPatch(%s) = false, want true", name)
+		}
+	}
+	for name, patch := range map[string]rpcapi.DeviceSettings{
+		"brightness over 100": {ScreenBrightness: new(int64(101))},
+		"negative led":        {LedBrightness: new(int64(-1))},
+		"negative timeout":    {ScreenOffTimeoutMs: new(int64(-1))},
+		"empty locale":        {Locale: new("")},
+		"unknown enum":        {DefaultInteractionMode: &unknown},
+	} {
+		if validDeviceSettingsPatch(patch) {
+			t.Fatalf("validDeviceSettingsPatch(%s) = true, want false", name)
+		}
 	}
 }

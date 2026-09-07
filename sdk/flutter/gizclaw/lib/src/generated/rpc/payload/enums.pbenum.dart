@@ -958,5 +958,66 @@ class WorkspaceInputMode extends $pb.ProtobufEnum {
   const WorkspaceInputMode._(super.value, super.name);
 }
 
+/// DeviceInteractionMode is the device's default conversation input mode. It
+/// mirrors WorkspaceInputMode so a device default and a workspace override use
+/// the same vocabulary. Readers must preserve unknown future values.
+class DeviceInteractionMode extends $pb.ProtobufEnum {
+  static const DeviceInteractionMode DEVICE_INTERACTION_MODE_UNSPECIFIED =
+      DeviceInteractionMode._(
+          0, _omitEnumNames ? '' : 'DEVICE_INTERACTION_MODE_UNSPECIFIED');
+  static const DeviceInteractionMode DEVICE_INTERACTION_MODE_PUSH_TO_TALK =
+      DeviceInteractionMode._(
+          1, _omitEnumNames ? '' : 'DEVICE_INTERACTION_MODE_PUSH_TO_TALK');
+  static const DeviceInteractionMode DEVICE_INTERACTION_MODE_REALTIME =
+      DeviceInteractionMode._(
+          2, _omitEnumNames ? '' : 'DEVICE_INTERACTION_MODE_REALTIME');
+
+  static const $core.List<DeviceInteractionMode> values =
+      <DeviceInteractionMode>[
+    DEVICE_INTERACTION_MODE_UNSPECIFIED,
+    DEVICE_INTERACTION_MODE_PUSH_TO_TALK,
+    DEVICE_INTERACTION_MODE_REALTIME,
+  ];
+
+  static final $core.List<DeviceInteractionMode?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static DeviceInteractionMode? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DeviceInteractionMode._(super.value, super.name);
+}
+
+/// DeviceKeyFeedback is the feedback a device gives on a physical key press.
+class DeviceKeyFeedback extends $pb.ProtobufEnum {
+  static const DeviceKeyFeedback DEVICE_KEY_FEEDBACK_UNSPECIFIED =
+      DeviceKeyFeedback._(
+          0, _omitEnumNames ? '' : 'DEVICE_KEY_FEEDBACK_UNSPECIFIED');
+  static const DeviceKeyFeedback DEVICE_KEY_FEEDBACK_NONE =
+      DeviceKeyFeedback._(1, _omitEnumNames ? '' : 'DEVICE_KEY_FEEDBACK_NONE');
+  static const DeviceKeyFeedback DEVICE_KEY_FEEDBACK_SOUND =
+      DeviceKeyFeedback._(2, _omitEnumNames ? '' : 'DEVICE_KEY_FEEDBACK_SOUND');
+  static const DeviceKeyFeedback DEVICE_KEY_FEEDBACK_VIBRATE =
+      DeviceKeyFeedback._(
+          3, _omitEnumNames ? '' : 'DEVICE_KEY_FEEDBACK_VIBRATE');
+  static const DeviceKeyFeedback DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE =
+      DeviceKeyFeedback._(
+          4, _omitEnumNames ? '' : 'DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE');
+
+  static const $core.List<DeviceKeyFeedback> values = <DeviceKeyFeedback>[
+    DEVICE_KEY_FEEDBACK_UNSPECIFIED,
+    DEVICE_KEY_FEEDBACK_NONE,
+    DEVICE_KEY_FEEDBACK_SOUND,
+    DEVICE_KEY_FEEDBACK_VIBRATE,
+    DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE,
+  ];
+
+  static final $core.List<DeviceKeyFeedback?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static DeviceKeyFeedback? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DeviceKeyFeedback._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

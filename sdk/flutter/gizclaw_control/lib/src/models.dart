@@ -281,8 +281,9 @@ class DeviceRuntime {
 
 /// Latest status reported by the device (shared `PeerStatus`).
 ///
-/// Every field is optional in the contract. [labels] and [details] default to
-/// empty maps; [raw] holds the complete decoded object.
+/// Every field is optional in the contract. [labels] defaults to an empty map
+/// and [raw] holds the complete decoded object, so fields this class does not
+/// model, such as `telemetry_observed_at`, stay readable through [raw].
 class PeerStatus {
   const PeerStatus({
     this.audioplayer,
@@ -296,8 +297,10 @@ class PeerStatus {
     this.gnssAltitudeM,
     this.gnssAccuracyM,
     this.firmwareSha256,
+    this.firmwareVersion,
+    this.activity,
+    this.activityDetail,
     this.labels = const {},
-    this.details = const {},
     this.raw = const {},
   });
 
@@ -317,8 +320,10 @@ class PeerStatus {
       gnssAltitudeM: readOptionalDouble(object, 'gnss_altitude_m'),
       gnssAccuracyM: readOptionalDouble(object, 'gnss_accuracy_m'),
       firmwareSha256: readOptionalString(object, 'firmware_sha256'),
+      firmwareVersion: readOptionalString(object, 'firmware_version'),
+      activity: readOptionalString(object, 'activity'),
+      activityDetail: readOptionalString(object, 'activity_detail'),
       labels: Map.unmodifiable(readStringMap(object, 'labels')),
-      details: Map.unmodifiable(readOptionalObject(object, 'details') ?? {}),
       raw: Map.unmodifiable(object),
     );
   }
@@ -340,8 +345,16 @@ class PeerStatus {
   /// tell whether the device already runs that package. The device reports it
   /// on a control response, so it is absent until the device has answered one.
   final String? firmwareSha256;
+
+  /// Human-readable firmware release the device reported running, next to the
+  /// exact-package [firmwareSha256] digest.
+  final String? firmwareVersion;
+
+  /// Feature the device reports it is currently using, with an optional
+  /// human-readable [activityDetail]. Preserve unknown activity values.
+  final String? activity;
+  final String? activityDetail;
   final Map<String, String> labels;
-  final Map<String, Object?> details;
 
   /// Complete decoded response object, including unmodeled keys.
   final Map<String, Object?> raw;
@@ -359,8 +372,10 @@ class PeerStatus {
     'gnss_altitude_m': gnssAltitudeM,
     'gnss_accuracy_m': gnssAccuracyM,
     'firmware_sha256': firmwareSha256,
+    'firmware_version': firmwareVersion,
+    'activity': activity,
+    'activity_detail': activityDetail,
     'labels': labels.isEmpty ? null : labels,
-    'details': details.isEmpty ? null : details,
   });
 }
 

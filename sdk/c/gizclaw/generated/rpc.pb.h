@@ -148,6 +148,10 @@ typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY = 117,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP = 118,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET = 119,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = 123,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = 124,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = 125,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET = 126,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST = 121,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET = 122
 } gizclaw_rpc_v1_RpcMethod;
@@ -219,8 +223,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_GET+1))
 
 
 

@@ -325,7 +325,9 @@ void main() {
           'gnss_latitude': 31.2,
           'gnss_longitude': 121.5,
           'labels': {'mode': 'home'},
-          'details': {'firmware': '1.2.3'},
+          'firmware_version': '1.2.3',
+          'activity': 'audioplayer',
+          'activity_detail': 'Track 3',
           'future_field': 1,
         }),
       ]);
@@ -337,7 +339,9 @@ void main() {
       expect(status.charging, isTrue);
       expect(status.gnssLatitude, 31.2);
       expect(status.labels, {'mode': 'home'});
-      expect(status.details, {'firmware': '1.2.3'});
+      expect(status.firmwareVersion, '1.2.3');
+      expect(status.activity, 'audioplayer');
+      expect(status.activityDetail, 'Track 3');
       expect(status.raw['future_field'], 1);
     });
 
@@ -933,7 +937,8 @@ void main() {
       final status = PeerStatus.fromJson(<String, Object?>{});
       expect(status.volume, isNull);
       expect(status.labels, isEmpty);
-      expect(status.details, isEmpty);
+      expect(status.activity, isNull);
+      expect(status.firmwareVersion, isNull);
       expect(status.toJson(), isEmpty);
     });
 

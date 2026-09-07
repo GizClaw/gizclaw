@@ -5165,19 +5165,26 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
-	Audioplayer    *AudioPlayerStatus      `json:"audioplayer,omitempty"`
-	BatteryPercent *int                    `json:"battery_percent,omitempty"`
-	Charging       *bool                   `json:"charging,omitempty"`
-	Details        *map[string]interface{} `json:"details,omitempty"`
+	// Activity Stable machine-readable id of the feature the device reports it is currently using, e.g. "chat", "audioplayer", "ota", "idle". Readers must preserve unknown future values and localize by id rather than parsing it.
+	Activity *string `json:"activity,omitempty"`
+
+	// ActivityDetail Optional device-supplied human-readable detail for the current activity, shown next to it. Never parsed by the Server.
+	ActivityDetail *string            `json:"activity_detail,omitempty"`
+	Audioplayer    *AudioPlayerStatus `json:"audioplayer,omitempty"`
+	BatteryPercent *int               `json:"battery_percent,omitempty"`
+	Charging       *bool              `json:"charging,omitempty"`
 
 	// FirmwareSha256 Lowercase SHA-256 digest of the .tar.zlib package the device is currently running, as reported by the device.
-	FirmwareSha256 *string            `json:"firmware_sha256,omitempty"`
-	GnssAccuracyM  *float32           `json:"gnss_accuracy_m,omitempty"`
-	GnssAltitudeM  *float32           `json:"gnss_altitude_m,omitempty"`
-	GnssLatitude   *float32           `json:"gnss_latitude,omitempty"`
-	GnssLongitude  *float32           `json:"gnss_longitude,omitempty"`
-	Labels         *map[string]string `json:"labels,omitempty"`
-	Muted          *bool              `json:"muted,omitempty"`
+	FirmwareSha256 *string `json:"firmware_sha256,omitempty"`
+
+	// FirmwareVersion Human-readable firmware version the device reports it is running, e.g. "1.4.2". Reported over telemetry alongside the digest; the digest identifies the exact package, this names the release. Never parsed by the Server.
+	FirmwareVersion *string            `json:"firmware_version,omitempty"`
+	GnssAccuracyM   *float32           `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM   *float32           `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude    *float32           `json:"gnss_latitude,omitempty"`
+	GnssLongitude   *float32           `json:"gnss_longitude,omitempty"`
+	Labels          *map[string]string `json:"labels,omitempty"`
+	Muted           *bool              `json:"muted,omitempty"`
 
 	// NetworkImei Modem hardware IMEI from the latest cellular network telemetry observation: exactly 15 ASCII digits. Owner-scoped; never logged.
 	NetworkImei *string `json:"network_imei,omitempty"`
@@ -5188,7 +5195,24 @@ type PeerStatus struct {
 	// Ota Latest device-reported OTA attempt snapshot, retained across disconnects.
 	Ota        *PeerOtaStatus `json:"ota,omitempty"`
 	ReportedAt *time.Time     `json:"reported_at,omitempty"`
-	Volume     *int           `json:"volume,omitempty"`
+
+	// TelemetryObservedAt Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.
+	TelemetryObservedAt *PeerStatusTelemetryObservedAt `json:"telemetry_observed_at,omitempty"`
+	Volume              *int                           `json:"volume,omitempty"`
+}
+
+// PeerStatusTelemetryObservedAt Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.
+type PeerStatusTelemetryObservedAt struct {
+	Activity        *time.Time `json:"activity,omitempty"`
+	BatteryPercent  *time.Time `json:"battery_percent,omitempty"`
+	Charging        *time.Time `json:"charging,omitempty"`
+	FirmwareVersion *time.Time `json:"firmware_version,omitempty"`
+	GnssAccuracyM   *time.Time `json:"gnss_accuracy_m,omitempty"`
+	GnssAltitudeM   *time.Time `json:"gnss_altitude_m,omitempty"`
+	GnssLatitude    *time.Time `json:"gnss_latitude,omitempty"`
+	GnssLongitude   *time.Time `json:"gnss_longitude,omitempty"`
+	NetworkImei     *time.Time `json:"network_imei,omitempty"`
+	NetworkImsi     *time.Time `json:"network_imsi,omitempty"`
 }
 
 // PeerTelemetryAggregate Bucket aggregate mode for peer telemetry range data.

@@ -48,8 +48,18 @@ final _messageFactories = <String, MessageFactory>{
       payload.ClientDeviceAudioPlayerStopRequest.new,
   'ClientDeviceAudioPlayerStopResponse':
       payload.ClientDeviceAudioPlayerStopResponse.new,
+  'ClientDeviceFactoryResetRequest':
+      payload.ClientDeviceFactoryResetRequest.new,
+  'ClientDeviceFactoryResetResponse':
+      payload.ClientDeviceFactoryResetResponse.new,
   'ClientDeviceRebootRequest': payload.ClientDeviceRebootRequest.new,
   'ClientDeviceRebootResponse': payload.ClientDeviceRebootResponse.new,
+  'ClientDeviceSettingsGetRequest': payload.ClientDeviceSettingsGetRequest.new,
+  'ClientDeviceSettingsGetResponse':
+      payload.ClientDeviceSettingsGetResponse.new,
+  'ClientDeviceSettingsSetRequest': payload.ClientDeviceSettingsSetRequest.new,
+  'ClientDeviceSettingsSetResponse':
+      payload.ClientDeviceSettingsSetResponse.new,
   'ClientDeviceSoundPlayRequest': payload.ClientDeviceSoundPlayRequest.new,
   'ClientDeviceSoundPlayResponse': payload.ClientDeviceSoundPlayResponse.new,
   'ClientDeviceStatusGetRequest': payload.ClientDeviceStatusGetRequest.new,
@@ -62,6 +72,8 @@ final _messageFactories = <String, MessageFactory>{
   'ClientGetIdentifiersResponse': payload.ClientGetIdentifiersResponse.new,
   'ClientGetInfoRequest': payload.ClientGetInfoRequest.new,
   'ClientGetInfoResponse': payload.ClientGetInfoResponse.new,
+  'ClientRpcMethodsGetRequest': payload.ClientRpcMethodsGetRequest.new,
+  'ClientRpcMethodsGetResponse': payload.ClientRpcMethodsGetResponse.new,
   'ClientWifiConnectRequest': payload.ClientWifiConnectRequest.new,
   'ClientWifiConnectResponse': payload.ClientWifiConnectResponse.new,
   'ClientWifiSavedForgetRequest': payload.ClientWifiSavedForgetRequest.new,
@@ -325,8 +337,14 @@ final _messageTypes = <String, Type>{
       payload.ClientDeviceAudioPlayerStopRequest,
   'ClientDeviceAudioPlayerStopResponse':
       payload.ClientDeviceAudioPlayerStopResponse,
+  'ClientDeviceFactoryResetRequest': payload.ClientDeviceFactoryResetRequest,
+  'ClientDeviceFactoryResetResponse': payload.ClientDeviceFactoryResetResponse,
   'ClientDeviceRebootRequest': payload.ClientDeviceRebootRequest,
   'ClientDeviceRebootResponse': payload.ClientDeviceRebootResponse,
+  'ClientDeviceSettingsGetRequest': payload.ClientDeviceSettingsGetRequest,
+  'ClientDeviceSettingsGetResponse': payload.ClientDeviceSettingsGetResponse,
+  'ClientDeviceSettingsSetRequest': payload.ClientDeviceSettingsSetRequest,
+  'ClientDeviceSettingsSetResponse': payload.ClientDeviceSettingsSetResponse,
   'ClientDeviceSoundPlayRequest': payload.ClientDeviceSoundPlayRequest,
   'ClientDeviceSoundPlayResponse': payload.ClientDeviceSoundPlayResponse,
   'ClientDeviceStatusGetRequest': payload.ClientDeviceStatusGetRequest,
@@ -339,6 +357,8 @@ final _messageTypes = <String, Type>{
   'ClientGetIdentifiersResponse': payload.ClientGetIdentifiersResponse,
   'ClientGetInfoRequest': payload.ClientGetInfoRequest,
   'ClientGetInfoResponse': payload.ClientGetInfoResponse,
+  'ClientRpcMethodsGetRequest': payload.ClientRpcMethodsGetRequest,
+  'ClientRpcMethodsGetResponse': payload.ClientRpcMethodsGetResponse,
   'ClientWifiConnectRequest': payload.ClientWifiConnectRequest,
   'ClientWifiConnectResponse': payload.ClientWifiConnectResponse,
   'ClientWifiSavedForgetRequest': payload.ClientWifiSavedForgetRequest,

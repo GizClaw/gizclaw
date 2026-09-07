@@ -4414,6 +4414,38 @@ int main(void) {
   if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network imsi must be at least 6 digits") != 0)
     return 1;
 
+  // Activity rides in observation field 16 and validates its id and detail
+  // before any bytes are written, so a bad value cannot reach the Server.
+  memset(&observation, 0, sizeof(observation));
+  observation.kind = GZC_TELEMETRY_OBSERVATION_ACTIVITY;
+  observation.activity.activity = gzc_str_from_cstr("audioplayer");
+  observation.activity.has_detail = true;
+  observation.activity.detail = gzc_str_from_cstr("Track 3");
+  gzc_buf_t activity_wire;
+  gzc_buf_init(&activity_wire);
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &activity_wire);
+  const uint8_t activity_golden[] = {0x1a, 0x19, 0x82, 0x01, 0x16, 0x0a, 0x0b, 'a', 'u', 'd', 'i', 'o', 'p', 'l', 'a', 'y', 'e', 'r', 0x12, 0x07, 'T', 'r', 'a', 'c', 'k', ' ', '3'};
+  bool activity_matches = rc == GZC_OK && activity_wire.len == sizeof(activity_golden) && memcmp(activity_wire.data, activity_golden, sizeof(activity_golden)) == 0;
+  gzc_buf_free(&activity_wire, platform);
+  if (expect(activity_matches, "activity telemetry protobuf golden") != 0)
+    return 1;
+  observation.activity.has_detail = false;
+  observation.activity.activity = gzc_str_from_cstr("AudioPlayer");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &activity_wire);
+  gzc_buf_free(&activity_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "activity rejects uppercase ids") != 0)
+    return 1;
+  observation.activity.activity = gzc_str_from_cstr("-chat");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &activity_wire);
+  gzc_buf_free(&activity_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "activity rejects a leading separator") != 0)
+    return 1;
+  observation.activity.activity = gzc_str_from_cstr("");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &activity_wire);
+  gzc_buf_free(&activity_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "activity rejects an empty id") != 0)
+    return 1;
+
   gzc_buf_t large_params;
   gzc_buf_init(&large_params);
   const char quote = '"';

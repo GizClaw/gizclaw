@@ -14,9 +14,9 @@ import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
-import 'package:protobuf/well_known_types/google/protobuf/struct.pb.dart' as $0;
 
-import 'audioplayer.pb.dart' as $1;
+import 'audioplayer.pb.dart' as $0;
+import 'enums.pbenum.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -555,6 +555,575 @@ class ClientDeviceSoundPlayResponse extends $pb.GeneratedMessage {
   static ClientDeviceSoundPlayResponse getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ClientDeviceSoundPlayResponse>(create);
   static ClientDeviceSoundPlayResponse? _defaultInstance;
+}
+
+/// DeviceSettings is the device's own configuration, readable and writable by
+/// the Server over reverse RPC. Every member is optional in both directions: on
+/// a set request an absent member leaves that option unchanged, and on any
+/// response an absent member means the device does not support that option.
+/// That is what lets one message serve devices with different hardware without
+/// a per-option RPC method.
+class DeviceSettings extends $pb.GeneratedMessage {
+  factory DeviceSettings({
+    $core.bool? cellularEnabled,
+    $fixnum.Int64? screenOffTimeoutMs,
+    $fixnum.Int64? screenBrightness,
+    $fixnum.Int64? ledBrightness,
+    $core.String? locale,
+    $1.DeviceInteractionMode? defaultInteractionMode,
+    $1.DeviceKeyFeedback? keyFeedback,
+  }) {
+    final result = create();
+    if (cellularEnabled != null) result.cellularEnabled = cellularEnabled;
+    if (screenOffTimeoutMs != null)
+      result.screenOffTimeoutMs = screenOffTimeoutMs;
+    if (screenBrightness != null) result.screenBrightness = screenBrightness;
+    if (ledBrightness != null) result.ledBrightness = ledBrightness;
+    if (locale != null) result.locale = locale;
+    if (defaultInteractionMode != null)
+      result.defaultInteractionMode = defaultInteractionMode;
+    if (keyFeedback != null) result.keyFeedback = keyFeedback;
+    return result;
+  }
+
+  DeviceSettings._();
+
+  factory DeviceSettings.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeviceSettings.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeviceSettings',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'cellularEnabled')
+    ..aInt64(2, _omitFieldNames ? '' : 'screenOffTimeoutMs')
+    ..aInt64(3, _omitFieldNames ? '' : 'screenBrightness')
+    ..aInt64(4, _omitFieldNames ? '' : 'ledBrightness')
+    ..aOS(5, _omitFieldNames ? '' : 'locale')
+    ..aE<$1.DeviceInteractionMode>(
+        6, _omitFieldNames ? '' : 'defaultInteractionMode',
+        enumValues: $1.DeviceInteractionMode.values)
+    ..aE<$1.DeviceKeyFeedback>(7, _omitFieldNames ? '' : 'keyFeedback',
+        enumValues: $1.DeviceKeyFeedback.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceSettings clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeviceSettings copyWith(void Function(DeviceSettings) updates) =>
+      super.copyWith((message) => updates(message as DeviceSettings))
+          as DeviceSettings;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeviceSettings create() => DeviceSettings._();
+  @$core.override
+  DeviceSettings createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeviceSettings getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeviceSettings>(create);
+  static DeviceSettings? _defaultInstance;
+
+  /// Whether the cellular (4G) modem is powered and allowed to carry traffic.
+  @$pb.TagNumber(1)
+  $core.bool get cellularEnabled => $_getBF(0);
+  @$pb.TagNumber(1)
+  set cellularEnabled($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCellularEnabled() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCellularEnabled() => $_clearField(1);
+
+  /// Idle time before the screen turns off; 0 keeps the screen always on.
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get screenOffTimeoutMs => $_getI64(1);
+  @$pb.TagNumber(2)
+  set screenOffTimeoutMs($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasScreenOffTimeoutMs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearScreenOffTimeoutMs() => $_clearField(2);
+
+  /// Screen backlight level in [0, 100].
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get screenBrightness => $_getI64(2);
+  @$pb.TagNumber(3)
+  set screenBrightness($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasScreenBrightness() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearScreenBrightness() => $_clearField(3);
+
+  /// Indicator light level in [0, 100].
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get ledBrightness => $_getI64(3);
+  @$pb.TagNumber(4)
+  set ledBrightness($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasLedBrightness() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLedBrightness() => $_clearField(4);
+
+  /// UI language as a BCP 47 tag, e.g. "zh-CN" or "en-US".
+  @$pb.TagNumber(5)
+  $core.String get locale => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set locale($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLocale() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLocale() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $1.DeviceInteractionMode get defaultInteractionMode => $_getN(5);
+  @$pb.TagNumber(6)
+  set defaultInteractionMode($1.DeviceInteractionMode value) =>
+      $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDefaultInteractionMode() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDefaultInteractionMode() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $1.DeviceKeyFeedback get keyFeedback => $_getN(6);
+  @$pb.TagNumber(7)
+  set keyFeedback($1.DeviceKeyFeedback value) => $_setField(7, value);
+  @$pb.TagNumber(7)
+  $core.bool hasKeyFeedback() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearKeyFeedback() => $_clearField(7);
+}
+
+class ClientDeviceSettingsGetRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceSettingsGetRequest() => create();
+
+  ClientDeviceSettingsGetRequest._();
+
+  factory ClientDeviceSettingsGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceSettingsGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceSettingsGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsGetRequest copyWith(
+          void Function(ClientDeviceSettingsGetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceSettingsGetRequest))
+          as ClientDeviceSettingsGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsGetRequest create() =>
+      ClientDeviceSettingsGetRequest._();
+  @$core.override
+  ClientDeviceSettingsGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsGetRequest>(create);
+  static ClientDeviceSettingsGetRequest? _defaultInstance;
+}
+
+class ClientDeviceSettingsGetResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceSettingsGetResponse({
+    DeviceSettings? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ClientDeviceSettingsGetResponse._();
+
+  factory ClientDeviceSettingsGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceSettingsGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceSettingsGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<DeviceSettings>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: DeviceSettings.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsGetResponse copyWith(
+          void Function(ClientDeviceSettingsGetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceSettingsGetResponse))
+          as ClientDeviceSettingsGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsGetResponse create() =>
+      ClientDeviceSettingsGetResponse._();
+  @$core.override
+  ClientDeviceSettingsGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsGetResponse>(
+          create);
+  static ClientDeviceSettingsGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  DeviceSettings get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(DeviceSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  DeviceSettings ensureValue() => $_ensure(0);
+}
+
+/// ClientDeviceSettingsSetRequest applies only the members it carries. The
+/// response is the device's full settings after the change, so a caller sees
+/// which options the device actually accepted.
+class ClientDeviceSettingsSetRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceSettingsSetRequest({
+    DeviceSettings? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ClientDeviceSettingsSetRequest._();
+
+  factory ClientDeviceSettingsSetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceSettingsSetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceSettingsSetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<DeviceSettings>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: DeviceSettings.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsSetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsSetRequest copyWith(
+          void Function(ClientDeviceSettingsSetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceSettingsSetRequest))
+          as ClientDeviceSettingsSetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsSetRequest create() =>
+      ClientDeviceSettingsSetRequest._();
+  @$core.override
+  ClientDeviceSettingsSetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsSetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsSetRequest>(create);
+  static ClientDeviceSettingsSetRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  DeviceSettings get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(DeviceSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  DeviceSettings ensureValue() => $_ensure(0);
+}
+
+class ClientDeviceSettingsSetResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceSettingsSetResponse({
+    DeviceSettings? value,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  ClientDeviceSettingsSetResponse._();
+
+  factory ClientDeviceSettingsSetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceSettingsSetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceSettingsSetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<DeviceSettings>(1, _omitFieldNames ? '' : 'value',
+        subBuilder: DeviceSettings.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsSetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceSettingsSetResponse copyWith(
+          void Function(ClientDeviceSettingsSetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceSettingsSetResponse))
+          as ClientDeviceSettingsSetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsSetResponse create() =>
+      ClientDeviceSettingsSetResponse._();
+  @$core.override
+  ClientDeviceSettingsSetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceSettingsSetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceSettingsSetResponse>(
+          create);
+  static ClientDeviceSettingsSetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  DeviceSettings get value => $_getN(0);
+  @$pb.TagNumber(1)
+  set value(DeviceSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+  @$pb.TagNumber(1)
+  DeviceSettings ensureValue() => $_ensure(0);
+}
+
+/// ClientDeviceFactoryResetRequest erases device-local state. It is
+/// irreversible on the device; the Server keeps its own peer records.
+class ClientDeviceFactoryResetRequest extends $pb.GeneratedMessage {
+  factory ClientDeviceFactoryResetRequest({
+    $core.bool? keepNetwork,
+  }) {
+    final result = create();
+    if (keepNetwork != null) result.keepNetwork = keepNetwork;
+    return result;
+  }
+
+  ClientDeviceFactoryResetRequest._();
+
+  factory ClientDeviceFactoryResetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceFactoryResetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceFactoryResetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'keepNetwork')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFactoryResetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFactoryResetRequest copyWith(
+          void Function(ClientDeviceFactoryResetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceFactoryResetRequest))
+          as ClientDeviceFactoryResetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFactoryResetRequest create() =>
+      ClientDeviceFactoryResetRequest._();
+  @$core.override
+  ClientDeviceFactoryResetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFactoryResetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceFactoryResetRequest>(
+          create);
+  static ClientDeviceFactoryResetRequest? _defaultInstance;
+
+  /// Keep saved Wi-Fi networks and cellular configuration so the device can
+  /// reconnect without being re-provisioned. Defaults to false.
+  @$pb.TagNumber(1)
+  $core.bool get keepNetwork => $_getBF(0);
+  @$pb.TagNumber(1)
+  set keepNetwork($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKeepNetwork() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKeepNetwork() => $_clearField(1);
+}
+
+class ClientDeviceFactoryResetResponse extends $pb.GeneratedMessage {
+  factory ClientDeviceFactoryResetResponse() => create();
+
+  ClientDeviceFactoryResetResponse._();
+
+  factory ClientDeviceFactoryResetResponse.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientDeviceFactoryResetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientDeviceFactoryResetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFactoryResetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientDeviceFactoryResetResponse copyWith(
+          void Function(ClientDeviceFactoryResetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientDeviceFactoryResetResponse))
+          as ClientDeviceFactoryResetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFactoryResetResponse create() =>
+      ClientDeviceFactoryResetResponse._();
+  @$core.override
+  ClientDeviceFactoryResetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientDeviceFactoryResetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientDeviceFactoryResetResponse>(
+          create);
+  static ClientDeviceFactoryResetResponse? _defaultInstance;
+}
+
+class ClientRpcMethodsGetRequest extends $pb.GeneratedMessage {
+  factory ClientRpcMethodsGetRequest() => create();
+
+  ClientRpcMethodsGetRequest._();
+
+  factory ClientRpcMethodsGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientRpcMethodsGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientRpcMethodsGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRpcMethodsGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRpcMethodsGetRequest copyWith(
+          void Function(ClientRpcMethodsGetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientRpcMethodsGetRequest))
+          as ClientRpcMethodsGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientRpcMethodsGetRequest create() => ClientRpcMethodsGetRequest._();
+  @$core.override
+  ClientRpcMethodsGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientRpcMethodsGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientRpcMethodsGetRequest>(create);
+  static ClientRpcMethodsGetRequest? _defaultInstance;
+}
+
+/// ClientRpcMethodsGetResponse lists the RPC method names the device
+/// implements, so the Server can hide or reject a control it would only fail.
+/// Names are the registry names from RpcMethod, e.g. "client.device.reboot".
+/// Unknown names must be ignored rather than rejected.
+class ClientRpcMethodsGetResponse extends $pb.GeneratedMessage {
+  factory ClientRpcMethodsGetResponse({
+    $core.Iterable<$core.String>? methods,
+  }) {
+    final result = create();
+    if (methods != null) result.methods.addAll(methods);
+    return result;
+  }
+
+  ClientRpcMethodsGetResponse._();
+
+  factory ClientRpcMethodsGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientRpcMethodsGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientRpcMethodsGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'methods')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRpcMethodsGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientRpcMethodsGetResponse copyWith(
+          void Function(ClientRpcMethodsGetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientRpcMethodsGetResponse))
+          as ClientRpcMethodsGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientRpcMethodsGetResponse create() =>
+      ClientRpcMethodsGetResponse._();
+  @$core.override
+  ClientRpcMethodsGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientRpcMethodsGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientRpcMethodsGetResponse>(create);
+  static ClientRpcMethodsGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get methods => $_getList(0);
 }
 
 class ClientDeviceRebootRequest extends $pb.GeneratedMessage {
@@ -1990,7 +2559,6 @@ class PeerStatus extends $pb.GeneratedMessage {
   factory PeerStatus({
     $fixnum.Int64? batteryPercent,
     $core.bool? charging,
-    $0.Struct? details,
     $core.double? gnssAccuracyM,
     $core.double? gnssAltitudeM,
     $core.double? gnssLatitude,
@@ -2001,14 +2569,17 @@ class PeerStatus extends $pb.GeneratedMessage {
     $fixnum.Int64? volume,
     $core.String? firmwareSha256,
     PeerOtaStatus? ota,
-    $1.AudioPlayerStatus? audioplayer,
+    $0.AudioPlayerStatus? audioplayer,
     $core.String? networkImei,
     $core.String? networkImsi,
+    PeerStatusTelemetryObservedAt? telemetryObservedAt,
+    $core.String? activity,
+    $core.String? activityDetail,
+    $core.String? firmwareVersion,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
     if (charging != null) result.charging = charging;
-    if (details != null) result.details = details;
     if (gnssAccuracyM != null) result.gnssAccuracyM = gnssAccuracyM;
     if (gnssAltitudeM != null) result.gnssAltitudeM = gnssAltitudeM;
     if (gnssLatitude != null) result.gnssLatitude = gnssLatitude;
@@ -2022,6 +2593,11 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (audioplayer != null) result.audioplayer = audioplayer;
     if (networkImei != null) result.networkImei = networkImei;
     if (networkImsi != null) result.networkImsi = networkImsi;
+    if (telemetryObservedAt != null)
+      result.telemetryObservedAt = telemetryObservedAt;
+    if (activity != null) result.activity = activity;
+    if (activityDetail != null) result.activityDetail = activityDetail;
+    if (firmwareVersion != null) result.firmwareVersion = firmwareVersion;
     return result;
   }
 
@@ -2040,8 +2616,6 @@ class PeerStatus extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aInt64(1, _omitFieldNames ? '' : 'batteryPercent')
     ..aOB(2, _omitFieldNames ? '' : 'charging')
-    ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'details',
-        subBuilder: $0.Struct.create)
     ..aD(4, _omitFieldNames ? '' : 'gnssAccuracyM')
     ..aD(5, _omitFieldNames ? '' : 'gnssAltitudeM')
     ..aD(6, _omitFieldNames ? '' : 'gnssLatitude')
@@ -2057,10 +2631,16 @@ class PeerStatus extends $pb.GeneratedMessage {
     ..aOS(12, _omitFieldNames ? '' : 'firmwareSha256')
     ..aOM<PeerOtaStatus>(13, _omitFieldNames ? '' : 'ota',
         subBuilder: PeerOtaStatus.create)
-    ..aOM<$1.AudioPlayerStatus>(14, _omitFieldNames ? '' : 'audioplayer',
-        subBuilder: $1.AudioPlayerStatus.create)
+    ..aOM<$0.AudioPlayerStatus>(14, _omitFieldNames ? '' : 'audioplayer',
+        subBuilder: $0.AudioPlayerStatus.create)
     ..aOS(15, _omitFieldNames ? '' : 'networkImei')
     ..aOS(16, _omitFieldNames ? '' : 'networkImsi')
+    ..aOM<PeerStatusTelemetryObservedAt>(
+        17, _omitFieldNames ? '' : 'telemetryObservedAt',
+        subBuilder: PeerStatusTelemetryObservedAt.create)
+    ..aOS(18, _omitFieldNames ? '' : 'activity')
+    ..aOS(19, _omitFieldNames ? '' : 'activityDetail')
+    ..aOS(20, _omitFieldNames ? '' : 'firmwareVersion')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2099,131 +2679,333 @@ class PeerStatus extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearCharging() => $_clearField(2);
 
-  @$pb.TagNumber(3)
-  $0.Struct get details => $_getN(2);
-  @$pb.TagNumber(3)
-  set details($0.Struct value) => $_setField(3, value);
-  @$pb.TagNumber(3)
-  $core.bool hasDetails() => $_has(2);
-  @$pb.TagNumber(3)
-  void clearDetails() => $_clearField(3);
-  @$pb.TagNumber(3)
-  $0.Struct ensureDetails() => $_ensure(2);
-
   @$pb.TagNumber(4)
-  $core.double get gnssAccuracyM => $_getN(3);
+  $core.double get gnssAccuracyM => $_getN(2);
   @$pb.TagNumber(4)
-  set gnssAccuracyM($core.double value) => $_setDouble(3, value);
+  set gnssAccuracyM($core.double value) => $_setDouble(2, value);
   @$pb.TagNumber(4)
-  $core.bool hasGnssAccuracyM() => $_has(3);
+  $core.bool hasGnssAccuracyM() => $_has(2);
   @$pb.TagNumber(4)
   void clearGnssAccuracyM() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  $core.double get gnssAltitudeM => $_getN(4);
+  $core.double get gnssAltitudeM => $_getN(3);
   @$pb.TagNumber(5)
-  set gnssAltitudeM($core.double value) => $_setDouble(4, value);
+  set gnssAltitudeM($core.double value) => $_setDouble(3, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGnssAltitudeM() => $_has(3);
+  @$pb.TagNumber(5)
+  void clearGnssAltitudeM() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.double get gnssLatitude => $_getN(4);
+  @$pb.TagNumber(6)
+  set gnssLatitude($core.double value) => $_setDouble(4, value);
+  @$pb.TagNumber(6)
+  $core.bool hasGnssLatitude() => $_has(4);
+  @$pb.TagNumber(6)
+  void clearGnssLatitude() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.double get gnssLongitude => $_getN(5);
+  @$pb.TagNumber(7)
+  set gnssLongitude($core.double value) => $_setDouble(5, value);
+  @$pb.TagNumber(7)
+  $core.bool hasGnssLongitude() => $_has(5);
+  @$pb.TagNumber(7)
+  void clearGnssLongitude() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $pb.PbMap<$core.String, $core.String> get labels => $_getMap(6);
+
+  @$pb.TagNumber(9)
+  $core.bool get muted => $_getBF(7);
+  @$pb.TagNumber(9)
+  set muted($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(9)
+  $core.bool hasMuted() => $_has(7);
+  @$pb.TagNumber(9)
+  void clearMuted() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get reportedAt => $_getSZ(8);
+  @$pb.TagNumber(10)
+  set reportedAt($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(10)
+  $core.bool hasReportedAt() => $_has(8);
+  @$pb.TagNumber(10)
+  void clearReportedAt() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get volume => $_getI64(9);
+  @$pb.TagNumber(11)
+  set volume($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(11)
+  $core.bool hasVolume() => $_has(9);
+  @$pb.TagNumber(11)
+  void clearVolume() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get firmwareSha256 => $_getSZ(10);
+  @$pb.TagNumber(12)
+  set firmwareSha256($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(12)
+  $core.bool hasFirmwareSha256() => $_has(10);
+  @$pb.TagNumber(12)
+  void clearFirmwareSha256() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  PeerOtaStatus get ota => $_getN(11);
+  @$pb.TagNumber(13)
+  set ota(PeerOtaStatus value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasOta() => $_has(11);
+  @$pb.TagNumber(13)
+  void clearOta() => $_clearField(13);
+  @$pb.TagNumber(13)
+  PeerOtaStatus ensureOta() => $_ensure(11);
+
+  @$pb.TagNumber(14)
+  $0.AudioPlayerStatus get audioplayer => $_getN(12);
+  @$pb.TagNumber(14)
+  set audioplayer($0.AudioPlayerStatus value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasAudioplayer() => $_has(12);
+  @$pb.TagNumber(14)
+  void clearAudioplayer() => $_clearField(14);
+  @$pb.TagNumber(14)
+  $0.AudioPlayerStatus ensureAudioplayer() => $_ensure(12);
+
+  @$pb.TagNumber(15)
+  $core.String get networkImei => $_getSZ(13);
+  @$pb.TagNumber(15)
+  set networkImei($core.String value) => $_setString(13, value);
+  @$pb.TagNumber(15)
+  $core.bool hasNetworkImei() => $_has(13);
+  @$pb.TagNumber(15)
+  void clearNetworkImei() => $_clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.String get networkImsi => $_getSZ(14);
+  @$pb.TagNumber(16)
+  set networkImsi($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(16)
+  $core.bool hasNetworkImsi() => $_has(14);
+  @$pb.TagNumber(16)
+  void clearNetworkImsi() => $_clearField(16);
+
+  /// Per-field observation times for the telemetry-sourced members above.
+  @$pb.TagNumber(17)
+  PeerStatusTelemetryObservedAt get telemetryObservedAt => $_getN(15);
+  @$pb.TagNumber(17)
+  set telemetryObservedAt(PeerStatusTelemetryObservedAt value) =>
+      $_setField(17, value);
+  @$pb.TagNumber(17)
+  $core.bool hasTelemetryObservedAt() => $_has(15);
+  @$pb.TagNumber(17)
+  void clearTelemetryObservedAt() => $_clearField(17);
+  @$pb.TagNumber(17)
+  PeerStatusTelemetryObservedAt ensureTelemetryObservedAt() => $_ensure(15);
+
+  /// Feature the device reports it is currently using. Readers must preserve
+  /// unknown future values.
+  @$pb.TagNumber(18)
+  $core.String get activity => $_getSZ(16);
+  @$pb.TagNumber(18)
+  set activity($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(18)
+  $core.bool hasActivity() => $_has(16);
+  @$pb.TagNumber(18)
+  void clearActivity() => $_clearField(18);
+
+  @$pb.TagNumber(19)
+  $core.String get activityDetail => $_getSZ(17);
+  @$pb.TagNumber(19)
+  set activityDetail($core.String value) => $_setString(17, value);
+  @$pb.TagNumber(19)
+  $core.bool hasActivityDetail() => $_has(17);
+  @$pb.TagNumber(19)
+  void clearActivityDetail() => $_clearField(19);
+
+  /// Human-readable firmware release the device reports running, next to the
+  /// exact-package firmware_sha256 digest.
+  @$pb.TagNumber(20)
+  $core.String get firmwareVersion => $_getSZ(18);
+  @$pb.TagNumber(20)
+  set firmwareVersion($core.String value) => $_setString(18, value);
+  @$pb.TagNumber(20)
+  $core.bool hasFirmwareVersion() => $_has(18);
+  @$pb.TagNumber(20)
+  void clearFirmwareVersion() => $_clearField(20);
+}
+
+/// PeerStatusTelemetryObservedAt records when the device observed the value now
+/// stored in each sibling PeerStatus field, as an RFC 3339 timestamp. The
+/// Server uses these to reject an out-of-order or replayed report without
+/// overwriting a newer observation. A member is empty until first observed.
+class PeerStatusTelemetryObservedAt extends $pb.GeneratedMessage {
+  factory PeerStatusTelemetryObservedAt({
+    $core.String? batteryPercent,
+    $core.String? charging,
+    $core.String? gnssLatitude,
+    $core.String? gnssLongitude,
+    $core.String? gnssAltitudeM,
+    $core.String? gnssAccuracyM,
+    $core.String? networkImei,
+    $core.String? networkImsi,
+    $core.String? activity,
+    $core.String? firmwareVersion,
+  }) {
+    final result = create();
+    if (batteryPercent != null) result.batteryPercent = batteryPercent;
+    if (charging != null) result.charging = charging;
+    if (gnssLatitude != null) result.gnssLatitude = gnssLatitude;
+    if (gnssLongitude != null) result.gnssLongitude = gnssLongitude;
+    if (gnssAltitudeM != null) result.gnssAltitudeM = gnssAltitudeM;
+    if (gnssAccuracyM != null) result.gnssAccuracyM = gnssAccuracyM;
+    if (networkImei != null) result.networkImei = networkImei;
+    if (networkImsi != null) result.networkImsi = networkImsi;
+    if (activity != null) result.activity = activity;
+    if (firmwareVersion != null) result.firmwareVersion = firmwareVersion;
+    return result;
+  }
+
+  PeerStatusTelemetryObservedAt._();
+
+  factory PeerStatusTelemetryObservedAt.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PeerStatusTelemetryObservedAt.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PeerStatusTelemetryObservedAt',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'batteryPercent')
+    ..aOS(2, _omitFieldNames ? '' : 'charging')
+    ..aOS(3, _omitFieldNames ? '' : 'gnssLatitude')
+    ..aOS(4, _omitFieldNames ? '' : 'gnssLongitude')
+    ..aOS(5, _omitFieldNames ? '' : 'gnssAltitudeM')
+    ..aOS(6, _omitFieldNames ? '' : 'gnssAccuracyM')
+    ..aOS(7, _omitFieldNames ? '' : 'networkImei')
+    ..aOS(8, _omitFieldNames ? '' : 'networkImsi')
+    ..aOS(9, _omitFieldNames ? '' : 'activity')
+    ..aOS(10, _omitFieldNames ? '' : 'firmwareVersion')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PeerStatusTelemetryObservedAt clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PeerStatusTelemetryObservedAt copyWith(
+          void Function(PeerStatusTelemetryObservedAt) updates) =>
+      super.copyWith(
+              (message) => updates(message as PeerStatusTelemetryObservedAt))
+          as PeerStatusTelemetryObservedAt;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PeerStatusTelemetryObservedAt create() =>
+      PeerStatusTelemetryObservedAt._();
+  @$core.override
+  PeerStatusTelemetryObservedAt createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PeerStatusTelemetryObservedAt getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PeerStatusTelemetryObservedAt>(create);
+  static PeerStatusTelemetryObservedAt? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get batteryPercent => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set batteryPercent($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBatteryPercent() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBatteryPercent() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get charging => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set charging($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCharging() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCharging() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get gnssLatitude => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set gnssLatitude($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGnssLatitude() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGnssLatitude() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get gnssLongitude => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set gnssLongitude($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGnssLongitude() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGnssLongitude() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get gnssAltitudeM => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set gnssAltitudeM($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasGnssAltitudeM() => $_has(4);
   @$pb.TagNumber(5)
   void clearGnssAltitudeM() => $_clearField(5);
 
   @$pb.TagNumber(6)
-  $core.double get gnssLatitude => $_getN(5);
+  $core.String get gnssAccuracyM => $_getSZ(5);
   @$pb.TagNumber(6)
-  set gnssLatitude($core.double value) => $_setDouble(5, value);
+  set gnssAccuracyM($core.String value) => $_setString(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasGnssLatitude() => $_has(5);
+  $core.bool hasGnssAccuracyM() => $_has(5);
   @$pb.TagNumber(6)
-  void clearGnssLatitude() => $_clearField(6);
+  void clearGnssAccuracyM() => $_clearField(6);
 
   @$pb.TagNumber(7)
-  $core.double get gnssLongitude => $_getN(6);
+  $core.String get networkImei => $_getSZ(6);
   @$pb.TagNumber(7)
-  set gnssLongitude($core.double value) => $_setDouble(6, value);
+  set networkImei($core.String value) => $_setString(6, value);
   @$pb.TagNumber(7)
-  $core.bool hasGnssLongitude() => $_has(6);
+  $core.bool hasNetworkImei() => $_has(6);
   @$pb.TagNumber(7)
-  void clearGnssLongitude() => $_clearField(7);
+  void clearNetworkImei() => $_clearField(7);
 
   @$pb.TagNumber(8)
-  $pb.PbMap<$core.String, $core.String> get labels => $_getMap(7);
+  $core.String get networkImsi => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set networkImsi($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasNetworkImsi() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearNetworkImsi() => $_clearField(8);
 
   @$pb.TagNumber(9)
-  $core.bool get muted => $_getBF(8);
+  $core.String get activity => $_getSZ(8);
   @$pb.TagNumber(9)
-  set muted($core.bool value) => $_setBool(8, value);
+  set activity($core.String value) => $_setString(8, value);
   @$pb.TagNumber(9)
-  $core.bool hasMuted() => $_has(8);
+  $core.bool hasActivity() => $_has(8);
   @$pb.TagNumber(9)
-  void clearMuted() => $_clearField(9);
+  void clearActivity() => $_clearField(9);
 
   @$pb.TagNumber(10)
-  $core.String get reportedAt => $_getSZ(9);
+  $core.String get firmwareVersion => $_getSZ(9);
   @$pb.TagNumber(10)
-  set reportedAt($core.String value) => $_setString(9, value);
+  set firmwareVersion($core.String value) => $_setString(9, value);
   @$pb.TagNumber(10)
-  $core.bool hasReportedAt() => $_has(9);
+  $core.bool hasFirmwareVersion() => $_has(9);
   @$pb.TagNumber(10)
-  void clearReportedAt() => $_clearField(10);
-
-  @$pb.TagNumber(11)
-  $fixnum.Int64 get volume => $_getI64(10);
-  @$pb.TagNumber(11)
-  set volume($fixnum.Int64 value) => $_setInt64(10, value);
-  @$pb.TagNumber(11)
-  $core.bool hasVolume() => $_has(10);
-  @$pb.TagNumber(11)
-  void clearVolume() => $_clearField(11);
-
-  @$pb.TagNumber(12)
-  $core.String get firmwareSha256 => $_getSZ(11);
-  @$pb.TagNumber(12)
-  set firmwareSha256($core.String value) => $_setString(11, value);
-  @$pb.TagNumber(12)
-  $core.bool hasFirmwareSha256() => $_has(11);
-  @$pb.TagNumber(12)
-  void clearFirmwareSha256() => $_clearField(12);
-
-  @$pb.TagNumber(13)
-  PeerOtaStatus get ota => $_getN(12);
-  @$pb.TagNumber(13)
-  set ota(PeerOtaStatus value) => $_setField(13, value);
-  @$pb.TagNumber(13)
-  $core.bool hasOta() => $_has(12);
-  @$pb.TagNumber(13)
-  void clearOta() => $_clearField(13);
-  @$pb.TagNumber(13)
-  PeerOtaStatus ensureOta() => $_ensure(12);
-
-  @$pb.TagNumber(14)
-  $1.AudioPlayerStatus get audioplayer => $_getN(13);
-  @$pb.TagNumber(14)
-  set audioplayer($1.AudioPlayerStatus value) => $_setField(14, value);
-  @$pb.TagNumber(14)
-  $core.bool hasAudioplayer() => $_has(13);
-  @$pb.TagNumber(14)
-  void clearAudioplayer() => $_clearField(14);
-  @$pb.TagNumber(14)
-  $1.AudioPlayerStatus ensureAudioplayer() => $_ensure(13);
-
-  @$pb.TagNumber(15)
-  $core.String get networkImei => $_getSZ(14);
-  @$pb.TagNumber(15)
-  set networkImei($core.String value) => $_setString(14, value);
-  @$pb.TagNumber(15)
-  $core.bool hasNetworkImei() => $_has(14);
-  @$pb.TagNumber(15)
-  void clearNetworkImei() => $_clearField(15);
-
-  @$pb.TagNumber(16)
-  $core.String get networkImsi => $_getSZ(15);
-  @$pb.TagNumber(16)
-  set networkImsi($core.String value) => $_setString(15, value);
-  @$pb.TagNumber(16)
-  $core.bool hasNetworkImsi() => $_has(15);
-  @$pb.TagNumber(16)
-  void clearNetworkImsi() => $_clearField(16);
+  void clearFirmwareVersion() => $_clearField(10);
 }
 
 class PingRequest extends $pb.GeneratedMessage {

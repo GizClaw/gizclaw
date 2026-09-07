@@ -175,6 +175,222 @@ const ClientDeviceSoundPlayResponse$json = {
 final $typed_data.Uint8List clientDeviceSoundPlayResponseDescriptor =
     $convert.base64Decode('Ch1DbGllbnREZXZpY2VTb3VuZFBsYXlSZXNwb25zZQ==');
 
+@$core.Deprecated('Use deviceSettingsDescriptor instead')
+const DeviceSettings$json = {
+  '1': 'DeviceSettings',
+  '2': [
+    {
+      '1': 'cellular_enabled',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'cellularEnabled',
+      '17': true
+    },
+    {
+      '1': 'screen_off_timeout_ms',
+      '3': 2,
+      '4': 1,
+      '5': 3,
+      '9': 1,
+      '10': 'screenOffTimeoutMs',
+      '17': true
+    },
+    {
+      '1': 'screen_brightness',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 2,
+      '10': 'screenBrightness',
+      '17': true
+    },
+    {
+      '1': 'led_brightness',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '9': 3,
+      '10': 'ledBrightness',
+      '17': true
+    },
+    {'1': 'locale', '3': 5, '4': 1, '5': 9, '9': 4, '10': 'locale', '17': true},
+    {
+      '1': 'default_interaction_mode',
+      '3': 6,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.DeviceInteractionMode',
+      '9': 5,
+      '10': 'defaultInteractionMode',
+      '17': true
+    },
+    {
+      '1': 'key_feedback',
+      '3': 7,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.DeviceKeyFeedback',
+      '9': 6,
+      '10': 'keyFeedback',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_cellular_enabled'},
+    {'1': '_screen_off_timeout_ms'},
+    {'1': '_screen_brightness'},
+    {'1': '_led_brightness'},
+    {'1': '_locale'},
+    {'1': '_default_interaction_mode'},
+    {'1': '_key_feedback'},
+  ],
+};
+
+/// Descriptor for `DeviceSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deviceSettingsDescriptor = $convert.base64Decode(
+    'Cg5EZXZpY2VTZXR0aW5ncxIuChBjZWxsdWxhcl9lbmFibGVkGAEgASgISABSD2NlbGx1bGFyRW'
+    '5hYmxlZIgBARI2ChVzY3JlZW5fb2ZmX3RpbWVvdXRfbXMYAiABKANIAVISc2NyZWVuT2ZmVGlt'
+    'ZW91dE1ziAEBEjAKEXNjcmVlbl9icmlnaHRuZXNzGAMgASgDSAJSEHNjcmVlbkJyaWdodG5lc3'
+    'OIAQESKgoObGVkX2JyaWdodG5lc3MYBCABKANIA1INbGVkQnJpZ2h0bmVzc4gBARIbCgZsb2Nh'
+    'bGUYBSABKAlIBFIGbG9jYWxliAEBEmQKGGRlZmF1bHRfaW50ZXJhY3Rpb25fbW9kZRgGIAEoDj'
+    'IlLmdpemNsYXcucnBjLnYxLkRldmljZUludGVyYWN0aW9uTW9kZUgFUhZkZWZhdWx0SW50ZXJh'
+    'Y3Rpb25Nb2RliAEBEkkKDGtleV9mZWVkYmFjaxgHIAEoDjIhLmdpemNsYXcucnBjLnYxLkRldm'
+    'ljZUtleUZlZWRiYWNrSAZSC2tleUZlZWRiYWNriAEBQhMKEV9jZWxsdWxhcl9lbmFibGVkQhgK'
+    'Fl9zY3JlZW5fb2ZmX3RpbWVvdXRfbXNCFAoSX3NjcmVlbl9icmlnaHRuZXNzQhEKD19sZWRfYn'
+    'JpZ2h0bmVzc0IJCgdfbG9jYWxlQhsKGV9kZWZhdWx0X2ludGVyYWN0aW9uX21vZGVCDwoNX2tl'
+    'eV9mZWVkYmFjaw==');
+
+@$core.Deprecated('Use clientDeviceSettingsGetRequestDescriptor instead')
+const ClientDeviceSettingsGetRequest$json = {
+  '1': 'ClientDeviceSettingsGetRequest',
+};
+
+/// Descriptor for `ClientDeviceSettingsGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceSettingsGetRequestDescriptor =
+    $convert.base64Decode('Ch5DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlcXVlc3Q=');
+
+@$core.Deprecated('Use clientDeviceSettingsGetResponseDescriptor instead')
+const ClientDeviceSettingsGetResponse$json = {
+  '1': 'ClientDeviceSettingsGetResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DeviceSettings',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ClientDeviceSettingsGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceSettingsGetResponseDescriptor =
+    $convert.base64Decode(
+        'Ch9DbGllbnREZXZpY2VTZXR0aW5nc0dldFJlc3BvbnNlEjQKBXZhbHVlGAEgASgLMh4uZ2l6Y2'
+        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVl');
+
+@$core.Deprecated('Use clientDeviceSettingsSetRequestDescriptor instead')
+const ClientDeviceSettingsSetRequest$json = {
+  '1': 'ClientDeviceSettingsSetRequest',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DeviceSettings',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ClientDeviceSettingsSetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceSettingsSetRequestDescriptor =
+    $convert.base64Decode(
+        'Ch5DbGllbnREZXZpY2VTZXR0aW5nc1NldFJlcXVlc3QSNAoFdmFsdWUYASABKAsyHi5naXpjbG'
+        'F3LnJwYy52MS5EZXZpY2VTZXR0aW5nc1IFdmFsdWU=');
+
+@$core.Deprecated('Use clientDeviceSettingsSetResponseDescriptor instead')
+const ClientDeviceSettingsSetResponse$json = {
+  '1': 'ClientDeviceSettingsSetResponse',
+  '2': [
+    {
+      '1': 'value',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.DeviceSettings',
+      '10': 'value'
+    },
+  ],
+};
+
+/// Descriptor for `ClientDeviceSettingsSetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceSettingsSetResponseDescriptor =
+    $convert.base64Decode(
+        'Ch9DbGllbnREZXZpY2VTZXR0aW5nc1NldFJlc3BvbnNlEjQKBXZhbHVlGAEgASgLMh4uZ2l6Y2'
+        'xhdy5ycGMudjEuRGV2aWNlU2V0dGluZ3NSBXZhbHVl');
+
+@$core.Deprecated('Use clientDeviceFactoryResetRequestDescriptor instead')
+const ClientDeviceFactoryResetRequest$json = {
+  '1': 'ClientDeviceFactoryResetRequest',
+  '2': [
+    {
+      '1': 'keep_network',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'keepNetwork',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_keep_network'},
+  ],
+};
+
+/// Descriptor for `ClientDeviceFactoryResetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceFactoryResetRequestDescriptor =
+    $convert.base64Decode(
+        'Ch9DbGllbnREZXZpY2VGYWN0b3J5UmVzZXRSZXF1ZXN0EiYKDGtlZXBfbmV0d29yaxgBIAEoCE'
+        'gAUgtrZWVwTmV0d29ya4gBAUIPCg1fa2VlcF9uZXR3b3Jr');
+
+@$core.Deprecated('Use clientDeviceFactoryResetResponseDescriptor instead')
+const ClientDeviceFactoryResetResponse$json = {
+  '1': 'ClientDeviceFactoryResetResponse',
+};
+
+/// Descriptor for `ClientDeviceFactoryResetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientDeviceFactoryResetResponseDescriptor =
+    $convert.base64Decode('CiBDbGllbnREZXZpY2VGYWN0b3J5UmVzZXRSZXNwb25zZQ==');
+
+@$core.Deprecated('Use clientRpcMethodsGetRequestDescriptor instead')
+const ClientRpcMethodsGetRequest$json = {
+  '1': 'ClientRpcMethodsGetRequest',
+};
+
+/// Descriptor for `ClientRpcMethodsGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientRpcMethodsGetRequestDescriptor =
+    $convert.base64Decode('ChpDbGllbnRScGNNZXRob2RzR2V0UmVxdWVzdA==');
+
+@$core.Deprecated('Use clientRpcMethodsGetResponseDescriptor instead')
+const ClientRpcMethodsGetResponse$json = {
+  '1': 'ClientRpcMethodsGetResponse',
+  '2': [
+    {'1': 'methods', '3': 1, '4': 3, '5': 9, '10': 'methods'},
+  ],
+};
+
+/// Descriptor for `ClientRpcMethodsGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientRpcMethodsGetResponseDescriptor =
+    $convert.base64Decode(
+        'ChtDbGllbnRScGNNZXRob2RzR2V0UmVzcG9uc2USGAoHbWV0aG9kcxgBIAMoCVIHbWV0aG9kcw'
+        '==');
+
 @$core.Deprecated('Use clientDeviceRebootRequestDescriptor instead')
 const ClientDeviceRebootRequest$json = {
   '1': 'ClientDeviceRebootRequest',
@@ -724,14 +940,6 @@ const PeerStatus$json = {
       '17': true
     },
     {
-      '1': 'details',
-      '3': 3,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Struct',
-      '10': 'details'
-    },
-    {
       '1': 'firmware_sha256',
       '3': 12,
       '4': 1,
@@ -831,6 +1039,43 @@ const PeerStatus$json = {
       '10': 'networkImsi',
       '17': true
     },
+    {
+      '1': 'telemetry_observed_at',
+      '3': 17,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerStatusTelemetryObservedAt',
+      '9': 14,
+      '10': 'telemetryObservedAt',
+      '17': true
+    },
+    {
+      '1': 'activity',
+      '3': 18,
+      '4': 1,
+      '5': 9,
+      '9': 15,
+      '10': 'activity',
+      '17': true
+    },
+    {
+      '1': 'activity_detail',
+      '3': 19,
+      '4': 1,
+      '5': 9,
+      '9': 16,
+      '10': 'activityDetail',
+      '17': true
+    },
+    {
+      '1': 'firmware_version',
+      '3': 20,
+      '4': 1,
+      '5': 9,
+      '9': 17,
+      '10': 'firmwareVersion',
+      '17': true
+    },
   ],
   '3': [PeerStatus_LabelsEntry$json],
   '8': [
@@ -848,7 +1093,15 @@ const PeerStatus$json = {
     {'1': '_volume'},
     {'1': '_network_imei'},
     {'1': '_network_imsi'},
+    {'1': '_telemetry_observed_at'},
+    {'1': '_activity'},
+    {'1': '_activity_detail'},
+    {'1': '_firmware_version'},
   ],
+  '9': [
+    {'1': 3, '2': 4},
+  ],
+  '10': ['details'],
 };
 
 @$core.Deprecated('Use peerStatusDescriptor instead')
@@ -865,23 +1118,152 @@ const PeerStatus_LabelsEntry$json = {
 final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'CgpQZWVyU3RhdHVzEjQKA290YRgNIAEoCzIdLmdpemNsYXcucnBjLnYxLlBlZXJPdGFTdGF0dX'
     'NIAFIDb3RhiAEBEiwKD2JhdHRlcnlfcGVyY2VudBgBIAEoA0gBUg5iYXR0ZXJ5UGVyY2VudIgB'
-    'ARIfCghjaGFyZ2luZxgCIAEoCEgCUghjaGFyZ2luZ4gBARIxCgdkZXRhaWxzGAMgASgLMhcuZ2'
-    '9vZ2xlLnByb3RvYnVmLlN0cnVjdFIHZGV0YWlscxIsCg9maXJtd2FyZV9zaGEyNTYYDCABKAlI'
-    'A1IOZmlybXdhcmVTaGEyNTaIAQESSAoLYXVkaW9wbGF5ZXIYDiABKAsyIS5naXpjbGF3LnJwYy'
-    '52MS5BdWRpb1BsYXllclN0YXR1c0gEUgthdWRpb3BsYXllcogBARIrCg9nbnNzX2FjY3VyYWN5'
-    'X20YBCABKAFIBVINZ25zc0FjY3VyYWN5TYgBARIrCg9nbnNzX2FsdGl0dWRlX20YBSABKAFIBl'
-    'INZ25zc0FsdGl0dWRlTYgBARIoCg1nbnNzX2xhdGl0dWRlGAYgASgBSAdSDGduc3NMYXRpdHVk'
-    'ZYgBARIqCg5nbnNzX2xvbmdpdHVkZRgHIAEoAUgIUg1nbnNzTG9uZ2l0dWRliAEBEj4KBmxhYm'
-    'VscxgIIAMoCzImLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuTGFiZWxzRW50cnlSBmxhYmVs'
-    'cxIZCgVtdXRlZBgJIAEoCEgJUgVtdXRlZIgBARIkCgtyZXBvcnRlZF9hdBgKIAEoCUgKUgpyZX'
-    'BvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQESJgoMbmV0d29ya19pbWVp'
-    'GA8gASgJSAxSC25ldHdvcmtJbWVpiAEBEiYKDG5ldHdvcmtfaW1zaRgQIAEoCUgNUgtuZXR3b3'
-    'JrSW1zaYgBARo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEo'
-    'CVIFdmFsdWU6AjgBQgYKBF9vdGFCEgoQX2JhdHRlcnlfcGVyY2VudEILCglfY2hhcmdpbmdCEg'
-    'oQX2Zpcm13YXJlX3NoYTI1NkIOCgxfYXVkaW9wbGF5ZXJCEgoQX2duc3NfYWNjdXJhY3lfbUIS'
-    'ChBfZ25zc19hbHRpdHVkZV9tQhAKDl9nbnNzX2xhdGl0dWRlQhEKD19nbnNzX2xvbmdpdHVkZU'
-    'IICgZfbXV0ZWRCDgoMX3JlcG9ydGVkX2F0QgkKB192b2x1bWVCDwoNX25ldHdvcmtfaW1laUIP'
-    'Cg1fbmV0d29ya19pbXNp');
+    'ARIfCghjaGFyZ2luZxgCIAEoCEgCUghjaGFyZ2luZ4gBARIsCg9maXJtd2FyZV9zaGEyNTYYDC'
+    'ABKAlIA1IOZmlybXdhcmVTaGEyNTaIAQESSAoLYXVkaW9wbGF5ZXIYDiABKAsyIS5naXpjbGF3'
+    'LnJwYy52MS5BdWRpb1BsYXllclN0YXR1c0gEUgthdWRpb3BsYXllcogBARIrCg9nbnNzX2FjY3'
+    'VyYWN5X20YBCABKAFIBVINZ25zc0FjY3VyYWN5TYgBARIrCg9nbnNzX2FsdGl0dWRlX20YBSAB'
+    'KAFIBlINZ25zc0FsdGl0dWRlTYgBARIoCg1nbnNzX2xhdGl0dWRlGAYgASgBSAdSDGduc3NMYX'
+    'RpdHVkZYgBARIqCg5nbnNzX2xvbmdpdHVkZRgHIAEoAUgIUg1nbnNzTG9uZ2l0dWRliAEBEj4K'
+    'BmxhYmVscxgIIAMoCzImLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuTGFiZWxzRW50cnlSBm'
+    'xhYmVscxIZCgVtdXRlZBgJIAEoCEgJUgVtdXRlZIgBARIkCgtyZXBvcnRlZF9hdBgKIAEoCUgK'
+    'UgpyZXBvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQESJgoMbmV0d29ya1'
+    '9pbWVpGA8gASgJSAxSC25ldHdvcmtJbWVpiAEBEiYKDG5ldHdvcmtfaW1zaRgQIAEoCUgNUgtu'
+    'ZXR3b3JrSW1zaYgBARJmChV0ZWxlbWV0cnlfb2JzZXJ2ZWRfYXQYESABKAsyLS5naXpjbGF3Ln'
+    'JwYy52MS5QZWVyU3RhdHVzVGVsZW1ldHJ5T2JzZXJ2ZWRBdEgOUhN0ZWxlbWV0cnlPYnNlcnZl'
+    'ZEF0iAEBEh8KCGFjdGl2aXR5GBIgASgJSA9SCGFjdGl2aXR5iAEBEiwKD2FjdGl2aXR5X2RldG'
+    'FpbBgTIAEoCUgQUg5hY3Rpdml0eURldGFpbIgBARIuChBmaXJtd2FyZV92ZXJzaW9uGBQgASgJ'
+    'SBFSD2Zpcm13YXJlVmVyc2lvbogBARo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleR'
+    'IUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgBQgYKBF9vdGFCEgoQX2JhdHRlcnlfcGVyY2VudEIL'
+    'CglfY2hhcmdpbmdCEgoQX2Zpcm13YXJlX3NoYTI1NkIOCgxfYXVkaW9wbGF5ZXJCEgoQX2duc3'
+    'NfYWNjdXJhY3lfbUISChBfZ25zc19hbHRpdHVkZV9tQhAKDl9nbnNzX2xhdGl0dWRlQhEKD19n'
+    'bnNzX2xvbmdpdHVkZUIICgZfbXV0ZWRCDgoMX3JlcG9ydGVkX2F0QgkKB192b2x1bWVCDwoNX2'
+    '5ldHdvcmtfaW1laUIPCg1fbmV0d29ya19pbXNpQhgKFl90ZWxlbWV0cnlfb2JzZXJ2ZWRfYXRC'
+    'CwoJX2FjdGl2aXR5QhIKEF9hY3Rpdml0eV9kZXRhaWxCEwoRX2Zpcm13YXJlX3ZlcnNpb25KBA'
+    'gDEARSB2RldGFpbHM=');
+
+@$core.Deprecated('Use peerStatusTelemetryObservedAtDescriptor instead')
+const PeerStatusTelemetryObservedAt$json = {
+  '1': 'PeerStatusTelemetryObservedAt',
+  '2': [
+    {
+      '1': 'battery_percent',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'batteryPercent',
+      '17': true
+    },
+    {
+      '1': 'charging',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'charging',
+      '17': true
+    },
+    {
+      '1': 'gnss_latitude',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'gnssLatitude',
+      '17': true
+    },
+    {
+      '1': 'gnss_longitude',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'gnssLongitude',
+      '17': true
+    },
+    {
+      '1': 'gnss_altitude_m',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '9': 4,
+      '10': 'gnssAltitudeM',
+      '17': true
+    },
+    {
+      '1': 'gnss_accuracy_m',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 5,
+      '10': 'gnssAccuracyM',
+      '17': true
+    },
+    {
+      '1': 'network_imei',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '9': 6,
+      '10': 'networkImei',
+      '17': true
+    },
+    {
+      '1': 'network_imsi',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 7,
+      '10': 'networkImsi',
+      '17': true
+    },
+    {
+      '1': 'activity',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 8,
+      '10': 'activity',
+      '17': true
+    },
+    {
+      '1': 'firmware_version',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '9': 9,
+      '10': 'firmwareVersion',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_battery_percent'},
+    {'1': '_charging'},
+    {'1': '_gnss_latitude'},
+    {'1': '_gnss_longitude'},
+    {'1': '_gnss_altitude_m'},
+    {'1': '_gnss_accuracy_m'},
+    {'1': '_network_imei'},
+    {'1': '_network_imsi'},
+    {'1': '_activity'},
+    {'1': '_firmware_version'},
+  ],
+};
+
+/// Descriptor for `PeerStatusTelemetryObservedAt`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List peerStatusTelemetryObservedAtDescriptor = $convert.base64Decode(
+    'Ch1QZWVyU3RhdHVzVGVsZW1ldHJ5T2JzZXJ2ZWRBdBIsCg9iYXR0ZXJ5X3BlcmNlbnQYASABKA'
+    'lIAFIOYmF0dGVyeVBlcmNlbnSIAQESHwoIY2hhcmdpbmcYAiABKAlIAVIIY2hhcmdpbmeIAQES'
+    'KAoNZ25zc19sYXRpdHVkZRgDIAEoCUgCUgxnbnNzTGF0aXR1ZGWIAQESKgoOZ25zc19sb25naX'
+    'R1ZGUYBCABKAlIA1INZ25zc0xvbmdpdHVkZYgBARIrCg9nbnNzX2FsdGl0dWRlX20YBSABKAlI'
+    'BFINZ25zc0FsdGl0dWRlTYgBARIrCg9nbnNzX2FjY3VyYWN5X20YBiABKAlIBVINZ25zc0FjY3'
+    'VyYWN5TYgBARImCgxuZXR3b3JrX2ltZWkYByABKAlIBlILbmV0d29ya0ltZWmIAQESJgoMbmV0'
+    'd29ya19pbXNpGAggASgJSAdSC25ldHdvcmtJbXNpiAEBEh8KCGFjdGl2aXR5GAkgASgJSAhSCG'
+    'FjdGl2aXR5iAEBEi4KEGZpcm13YXJlX3ZlcnNpb24YCiABKAlICVIPZmlybXdhcmVWZXJzaW9u'
+    'iAEBQhIKEF9iYXR0ZXJ5X3BlcmNlbnRCCwoJX2NoYXJnaW5nQhAKDl9nbnNzX2xhdGl0dWRlQh'
+    'EKD19nbnNzX2xvbmdpdHVkZUISChBfZ25zc19hbHRpdHVkZV9tQhIKEF9nbnNzX2FjY3VyYWN5'
+    'X21CDwoNX25ldHdvcmtfaW1laUIPCg1fbmV0d29ya19pbXNpQgsKCV9hY3Rpdml0eUITChFfZm'
+    'lybXdhcmVfdmVyc2lvbg==');
 
 @$core.Deprecated('Use pingRequestDescriptor instead')
 const PingRequest$json = {

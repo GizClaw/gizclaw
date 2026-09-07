@@ -1461,6 +1461,114 @@ func (WorkspaceInputMode) EnumDescriptor() ([]byte, []int) {
 	return file_payload_enums_proto_rawDescGZIP(), []int{27}
 }
 
+// DeviceInteractionMode is the device's default conversation input mode. It
+// mirrors WorkspaceInputMode so a device default and a workspace override use
+// the same vocabulary. Readers must preserve unknown future values.
+type DeviceInteractionMode int32
+
+const (
+	DeviceInteractionMode_DEVICE_INTERACTION_MODE_UNSPECIFIED  DeviceInteractionMode = 0
+	DeviceInteractionMode_DEVICE_INTERACTION_MODE_PUSH_TO_TALK DeviceInteractionMode = 1
+	DeviceInteractionMode_DEVICE_INTERACTION_MODE_REALTIME     DeviceInteractionMode = 2
+)
+
+// Enum value maps for DeviceInteractionMode.
+var (
+	DeviceInteractionMode_name = map[int32]string{
+		0: "DEVICE_INTERACTION_MODE_UNSPECIFIED",
+		1: "DEVICE_INTERACTION_MODE_PUSH_TO_TALK",
+		2: "DEVICE_INTERACTION_MODE_REALTIME",
+	}
+	DeviceInteractionMode_value = map[string]int32{
+		"DEVICE_INTERACTION_MODE_UNSPECIFIED":  0,
+		"DEVICE_INTERACTION_MODE_PUSH_TO_TALK": 1,
+		"DEVICE_INTERACTION_MODE_REALTIME":     2,
+	}
+)
+
+func (x DeviceInteractionMode) Enum() *DeviceInteractionMode {
+	p := new(DeviceInteractionMode)
+	*p = x
+	return p
+}
+
+func (x DeviceInteractionMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceInteractionMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_enums_proto_enumTypes[28].Descriptor()
+}
+
+func (DeviceInteractionMode) Type() protoreflect.EnumType {
+	return &file_payload_enums_proto_enumTypes[28]
+}
+
+func (x DeviceInteractionMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DeviceInteractionMode.Descriptor instead.
+func (DeviceInteractionMode) EnumDescriptor() ([]byte, []int) {
+	return file_payload_enums_proto_rawDescGZIP(), []int{28}
+}
+
+// DeviceKeyFeedback is the feedback a device gives on a physical key press.
+type DeviceKeyFeedback int32
+
+const (
+	DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_UNSPECIFIED       DeviceKeyFeedback = 0
+	DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_NONE              DeviceKeyFeedback = 1
+	DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND             DeviceKeyFeedback = 2
+	DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_VIBRATE           DeviceKeyFeedback = 3
+	DeviceKeyFeedback_DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE DeviceKeyFeedback = 4
+)
+
+// Enum value maps for DeviceKeyFeedback.
+var (
+	DeviceKeyFeedback_name = map[int32]string{
+		0: "DEVICE_KEY_FEEDBACK_UNSPECIFIED",
+		1: "DEVICE_KEY_FEEDBACK_NONE",
+		2: "DEVICE_KEY_FEEDBACK_SOUND",
+		3: "DEVICE_KEY_FEEDBACK_VIBRATE",
+		4: "DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE",
+	}
+	DeviceKeyFeedback_value = map[string]int32{
+		"DEVICE_KEY_FEEDBACK_UNSPECIFIED":       0,
+		"DEVICE_KEY_FEEDBACK_NONE":              1,
+		"DEVICE_KEY_FEEDBACK_SOUND":             2,
+		"DEVICE_KEY_FEEDBACK_VIBRATE":           3,
+		"DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE": 4,
+	}
+)
+
+func (x DeviceKeyFeedback) Enum() *DeviceKeyFeedback {
+	p := new(DeviceKeyFeedback)
+	*p = x
+	return p
+}
+
+func (x DeviceKeyFeedback) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceKeyFeedback) Descriptor() protoreflect.EnumDescriptor {
+	return file_payload_enums_proto_enumTypes[29].Descriptor()
+}
+
+func (DeviceKeyFeedback) Type() protoreflect.EnumType {
+	return &file_payload_enums_proto_enumTypes[29]
+}
+
+func (x DeviceKeyFeedback) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DeviceKeyFeedback.Descriptor instead.
+func (DeviceKeyFeedback) EnumDescriptor() ([]byte, []int) {
+	return file_payload_enums_proto_rawDescGZIP(), []int{29}
+}
+
 var File_payload_enums_proto protoreflect.FileDescriptor
 
 const file_payload_enums_proto_rawDesc = "" +
@@ -1600,7 +1708,17 @@ const file_payload_enums_proto_rawDesc = "" +
 	"\x12WorkspaceInputMode\x12$\n" +
 	" WORKSPACE_INPUT_MODE_UNSPECIFIED\x10\x00\x12%\n" +
 	"!WORKSPACE_INPUT_MODE_PUSH_TO_TALK\x10\x01\x12!\n" +
-	"\x1dWORKSPACE_INPUT_MODE_REALTIME\x10\x02B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x1dWORKSPACE_INPUT_MODE_REALTIME\x10\x02*\x90\x01\n" +
+	"\x15DeviceInteractionMode\x12'\n" +
+	"#DEVICE_INTERACTION_MODE_UNSPECIFIED\x10\x00\x12(\n" +
+	"$DEVICE_INTERACTION_MODE_PUSH_TO_TALK\x10\x01\x12$\n" +
+	" DEVICE_INTERACTION_MODE_REALTIME\x10\x02*\xc1\x01\n" +
+	"\x11DeviceKeyFeedback\x12#\n" +
+	"\x1fDEVICE_KEY_FEEDBACK_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18DEVICE_KEY_FEEDBACK_NONE\x10\x01\x12\x1d\n" +
+	"\x19DEVICE_KEY_FEEDBACK_SOUND\x10\x02\x12\x1f\n" +
+	"\x1bDEVICE_KEY_FEEDBACK_VIBRATE\x10\x03\x12)\n" +
+	"%DEVICE_KEY_FEEDBACK_SOUND_AND_VIBRATE\x10\x04B?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_enums_proto_rawDescOnce sync.Once
@@ -1614,7 +1732,7 @@ func file_payload_enums_proto_rawDescGZIP() []byte {
 	return file_payload_enums_proto_rawDescData
 }
 
-var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 28)
+var file_payload_enums_proto_enumTypes = make([]protoimpl.EnumInfo, 30)
 var file_payload_enums_proto_goTypes = []any{
 	(IconFormat)(0),       // 0: gizclaw.rpc.v1.IconFormat
 	(ASTTranslateMode)(0), // 1: gizclaw.rpc.v1.ASTTranslateMode
@@ -1644,6 +1762,8 @@ var file_payload_enums_proto_goTypes = []any{
 	(ReusableWorkflowDriver)(0),                           // 25: gizclaw.rpc.v1.ReusableWorkflowDriver
 	(WorkspaceHistoryListRequestOrder)(0),                 // 26: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
 	(WorkspaceInputMode)(0),                               // 27: gizclaw.rpc.v1.WorkspaceInputMode
+	(DeviceInteractionMode)(0),                            // 28: gizclaw.rpc.v1.DeviceInteractionMode
+	(DeviceKeyFeedback)(0),                                // 29: gizclaw.rpc.v1.DeviceKeyFeedback
 }
 var file_payload_enums_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -1663,7 +1783,7 @@ func file_payload_enums_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_enums_proto_rawDesc), len(file_payload_enums_proto_rawDesc)),
-			NumEnums:      28,
+			NumEnums:      30,
 			NumMessages:   0,
 			NumExtensions: 0,
 			NumServices:   0,

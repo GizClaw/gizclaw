@@ -705,6 +705,30 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientDeviceAudioPlayerModeSetRequest',
     responseType: 'ClientDeviceAudioPlayerModeSetResponse',
   ),
+  'client.device.settings.get': RpcMethodDescriptor(
+    id: 123,
+    name: 'client.device.settings.get',
+    requestType: 'ClientDeviceSettingsGetRequest',
+    responseType: 'ClientDeviceSettingsGetResponse',
+  ),
+  'client.device.settings.set': RpcMethodDescriptor(
+    id: 124,
+    name: 'client.device.settings.set',
+    requestType: 'ClientDeviceSettingsSetRequest',
+    responseType: 'ClientDeviceSettingsSetResponse',
+  ),
+  'client.device.factory_reset': RpcMethodDescriptor(
+    id: 125,
+    name: 'client.device.factory_reset',
+    requestType: 'ClientDeviceFactoryResetRequest',
+    responseType: 'ClientDeviceFactoryResetResponse',
+  ),
+  'client.rpc.methods.get': RpcMethodDescriptor(
+    id: 126,
+    name: 'client.rpc.methods.get',
+    requestType: 'ClientRpcMethodsGetRequest',
+    responseType: 'ClientRpcMethodsGetResponse',
+  ),
   'server.app_config.list': RpcMethodDescriptor(
     id: 121,
     name: 'server.app_config.list',
@@ -835,6 +859,10 @@ const rpcMethodNamesById = <int, String>{
   117: 'client.device.audioplayer.play',
   118: 'client.device.audioplayer.stop',
   119: 'client.device.audioplayer.mode.set',
+  123: 'client.device.settings.get',
+  124: 'client.device.settings.set',
+  125: 'client.device.factory_reset',
+  126: 'client.rpc.methods.get',
   121: 'server.app_config.list',
   122: 'server.app_config.get',
 };

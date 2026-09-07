@@ -363,6 +363,14 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET = RpcMethod._(
+      123, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET = RpcMethod._(
+      124, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET');
+  static const RpcMethod RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET = RpcMethod._(
+      125, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET');
+  static const RpcMethod RPC_METHOD_CLIENT_RPC_METHODS_GET = RpcMethod._(
+      126, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_RPC_METHODS_GET');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_LIST = RpcMethod._(
       121, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_LIST');
   static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_GET = RpcMethod._(
@@ -485,12 +493,16 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP,
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET,
+    RPC_METHOD_CLIENT_DEVICE_SETTINGS_GET,
+    RPC_METHOD_CLIENT_DEVICE_SETTINGS_SET,
+    RPC_METHOD_CLIENT_DEVICE_FACTORY_RESET,
+    RPC_METHOD_CLIENT_RPC_METHODS_GET,
     RPC_METHOD_SERVER_APP_CONFIG_LIST,
     RPC_METHOD_SERVER_APP_CONFIG_GET,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 122);
+      $pb.ProtobufEnum.$_initByValueList(values, 126);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

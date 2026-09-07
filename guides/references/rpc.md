@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 117 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 121 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -187,6 +187,10 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 117 | `client.device.audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
 | 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
 | 119 | `client.device.audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
+| 123 | `client.device.settings.get` | 读取设备自身配置 `DeviceSettings`：4G 开关、熄屏时间、屏幕与指示灯亮度、语言、默认交互模式、按键提示方式。缺省的成员表示该设备没有这项配置。 |
+| 124 | `client.device.settings.set` | 只应用请求中出现的成员，未出现的保持不变；响应返回应用后的完整 `DeviceSettings`，调用方据此得知设备实际接受了哪些项。 |
+| 125 | `client.device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
+| 126 | `client.rpc.methods.get` | 设备上报自己实现的 RPC method name 列表，调用方据此隐藏或跳过设备不支持的控制项。未知名称应忽略而不是拒绝。 |
 
 ## 独立流式语音
 

@@ -402,7 +402,13 @@ int gzc_control_decode_peer_status(gzc_str_t object_json, gzc_control_peer_statu
     rc = gzc_control_opt_raw(object_json, "labels", &out->labels);
   }
   if (rc == GZC_OK) {
-    rc = gzc_control_opt_raw(object_json, "details", &out->details);
+    rc = gzc_control_opt_str(object_json, "activity", &out->activity);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "activity_detail", &out->activity_detail);
+  }
+  if (rc == GZC_OK) {
+    rc = gzc_control_opt_str(object_json, "firmware_version", &out->firmware_version);
   }
   return rc;
 }
