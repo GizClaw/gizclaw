@@ -451,7 +451,9 @@ func (s *VolcStore) Query(ctx context.Context, query Query) (Page, error) {
 	if response.Status != "complete" {
 		return Page{}, fmt.Errorf("logstore: query Volc logs returned status %q", response.Status)
 	}
-	if response.Analysis || response.AnalysisResult != nil {
+	// Search responses may include an empty AnalysisResult object.
+	analysis := response.AnalysisResult
+	if response.Analysis || analysis != nil && (len(analysis.Schema) != 0 || len(analysis.Type) != 0 || len(analysis.Data) != 0) {
 		return Page{}, errors.New("logstore: query Volc logs unexpectedly returned an analysis response")
 	}
 	page := Page{Records: make([]Record, 0, len(response.Logs))}
