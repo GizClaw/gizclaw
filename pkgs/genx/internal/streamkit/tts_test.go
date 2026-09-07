@@ -157,11 +157,13 @@ func TestTTSStreamSynthesizesAheadWhilePriorSegmentEmits(t *testing.T) {
 			return ""
 		}
 	}
-	if text := await("first segment"); text != "第一句话已经说完了。" {
-		t.Fatalf("first synthesis = %q", text)
-	}
-	if text := await("lookahead segment"); text != "第二句话也说完了。" {
-		t.Fatalf("lookahead synthesis = %q", text)
+	// The two syntheses run concurrently, so which goroutine records itself
+	// first is scheduling, not contract. What matters is that both are in
+	// flight while neither has been allowed to finish.
+	inFlight := []string{await("first segment"), await("lookahead segment")}
+	slices.Sort(inFlight)
+	if want := []string{"第一句话已经说完了。", "第二句话也说完了。"}; !reflect.DeepEqual(inFlight, want) {
+		t.Fatalf("in-flight syntheses = %#v, want %#v", inFlight, want)
 	}
 	// Lookahead is bounded: the third segment waits for the first to be emitted
 	// rather than opening a third concurrent provider session.
