@@ -44,7 +44,7 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `doubaoasr.Config` 通过 `VADSegmentDuration`、`EndWindowSize` 和 `ForceToSpeechTime` 把 BigASR VAD 请求参数传给每个 SAUC session。这些字段使用 `*int`：`nil` 表示不发送并保留 provider 默认行为，非 `nil` 表示发送对应值，包括显式的零值。
 
-GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=200` 和 `force_to_speech_time=0`，使 continuous ASR 在短句后的静音阶段更快产生 definite transcript；只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
+GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=800` 和 `force_to_speech_time=1000`，与 provider 的强制判停缺省一致；`force_to_speech_time` 的文档最小值为 `1`，`0` 并不是合法的“无下限”取值。只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
 
 ### Seed V2 空音频
 
@@ -129,7 +129,7 @@ Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream bou
 
 ### Realtime Dialogue Agent initiative
 
-Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transformer` 让对话模型自己生成开场：第一个 provider session 建立后，Transformer 立即通过 ChatTextQuery（event 501，SDK `SendText`）发送一条隐藏 query，默认文本要求模型主动打招呼并开启话题，Workflow `doubao_realtime.initiative_query` 可覆盖。隐藏 query 永远不进入 output stream 和 Workspace History，只有模型的回复以 assistant text/audio route 发布；这条 route 的 StreamID 固定为 `initiative`（Realtime 模式下带 segment 后缀），不是任何 Peer 输入 route。`Config.Initiative` 只支持 `on_reload`：每个 Transformer 生命周期最多发送一次，reload 得到的新 Agent generation 会再次开场；`once_when_empty` 由 factory 在 Workspace History 为空时映射为 `on_reload`，History 非空时不启用。不发送 SayHello 或 ChatTTSText。
+Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transformer` 让对话模型自己生成开场：第一个 provider session 建立后，Transformer 立即通过 ChatTextQuery（event 501，SDK `SendText`）发送一条隐藏 query，默认文本要求模型主动打招呼并开启话题，Workflow `doubao_realtime.initiative_query` 可覆盖。隐藏 query 永远不进入 output stream 和 Workspace History，只有模型的回复以 assistant text/audio route 发布；这条 route 的 StreamID 固定为 `initiative`（Realtime 模式下带 segment 后缀），不是任何 Peer 输入 route。`Config.Initiative` 只支持 `on_reload`：每个 `Transform` session 最多发送一次，同一个已配置 Transformer 服务的每个 Workspace 各自开场，reload 得到的新 Agent generation 会再次开场；`once_when_empty` 由 factory 在 Workspace History 为空时映射为 `on_reload`，History 非空时不启用。不发送 SayHello 或 ChatTTSText。
 
 开场回复走非 Push-to-Talk 的 event 路径：Push-to-Talk 模式下它不属于任何 turn，不经过 `pttResponses` 匹配和 turn 状态机，Chat/TTS event 直接映射到 `initiative` route，与 Realtime 模式相同；Text 模式把它当作一次普通 text response 等待。非 Text 模式为这次回复启动 response deadline。开场期间 Peer 发出 BOS（Push-to-Talk barge-in 或 Realtime 新 route）按普通 interruption 处理：`initiative` route 收到 `interrupted` EOS，Push-to-Talk 发送 `ClientInterrupt`，Realtime 走本地 close-and-replace handoff；被打断或已开始的开场不会在 replacement session 上重发。只有 provider 在回复开始前丢失（包括 `SendText` 失败）时，replacement session 才重新发送隐藏 query。
 

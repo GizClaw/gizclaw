@@ -42,6 +42,11 @@ message NetworkObservation {
   optional string rat = 3;
   optional string operator = 4;
   optional bool connected = 5;
+  // Modem hardware identity: exactly 15 ASCII digits. Cellular routes only.
+  optional string imei = 6;
+  // Identity of the SIM serving the default packet-data route: 6 to 15 ASCII
+  // digits. Cellular routes only; unset when no SIM is readable.
+  optional string imsi = 7;
 }
 
 message SystemObservation {

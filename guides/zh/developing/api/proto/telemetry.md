@@ -33,6 +33,44 @@ Telemetry Protobuf 拥有设备上报的 wire fields。Metrics store 拥有保�
 - Aggregation、retention 和 query filtering 属于 service/store，不属于 wire schema。
 - Schema 变化后重新生成 Go 与 JavaScript telemetry code，并验证真实 packet decode 和 service ingestion。
 
+## Network 上报
+
+`Observation.network`（field 12）使用 `NetworkObservation` 报告当前默认数据路由的信号与蜂窝身份：
+
+| 字段 | 编号 | 类型 | 含义与校验 |
+| --- | --- | --- | --- |
+| `rssi_dbm` | 1 | `optional double` | 接收信号强度，单位 dBm，必须有限；写入 `network.rssi_dbm` 指标。 |
+| `signal_level` | 2 | `optional double` | 设备定义的信号等级，必须有限；写入 `network.signal_level` 指标。 |
+| `rat` | 3 | `optional string` | 无线接入技术，例如 `lte`、`nr`、`wifi`；只用于校验，不落库。 |
+| `operator` | 4 | `optional string` | 运营商名称；只用于校验，不落库。 |
+| `connected` | 5 | `optional bool` | 路由是否已连接；写入 `network.connected` 指标。 |
+| `imei` | 6 | `optional string` | 调制解调器硬件 IMEI，必须恰好 15 个 ASCII 数字（`^[0-9]{15}$`）。没有调制解调器的设备不设置。 |
+| `imsi` | 7 | `optional string` | 当前承载默认数据路由的 SIM 的 IMSI，6 到 15 个 ASCII 数字（`^[0-9]{6,15}$`）。无法读取 SIM 时不设置。 |
+
+`imei` 与 `imsi` 只对蜂窝路由有意义：`rat` 为 `wifi`（不区分大小写）时携带任一字段，整个 frame 按
+`ErrInvalidFrame` 拒绝；模式不匹配同样拒绝整个 frame，不产生部分状态写入。未携带 6、7 号字段的旧
+SDK frame 解码与存储行为不变。
+
+身份字符串不是指标：它们不进入 metrics store、`PeerTelemetryField` 枚举或 Prometheus 风格的 label，
+而是随观测时间进入 owner-scoped 的 `PeerStatus.network_imei` / `PeerStatus.network_imsi`，并在
+`details.telemetry_status` 下记录 `network_imei_at_unix_ms` / `network_imsi_at_unix_ms`。逐字段排序
+与 battery、GNSS 相同：较旧的观测不会覆盖更新的已存值；与已存值相等的观测只刷新 `_at` 时间戳，不额外推进
+`reported_at`；值与时间戳都未变化时不重写状态。telemetry 从不清除身份字段，设备丢失 SIM 后只是停止上报
+`imsi`；清除属于管理操作，不在 telemetry 范围内。
+
+`PeerStatus` 已由 Peer RPC `server.status.get`、`GET /gizclaw/v1/device/status` 等既有状态接口返回，
+两个新字段随之暴露，不新增 endpoint。Side-control 与 monitor 投影把它们当作不透明字符串。
+
+隐私范围：IMEI 与 IMSI 与 GNSS 一样是 owner-scoped 状态，不得出现在 Server、Edge 或 SDK 的日志、trace
+或错误信息中，校验错误只报告字段名。设备只为当前承载流量的 SIM 上报 `imsi`，不得上报已移除 SIM 的缓存值。
+telemetry 上报的 IMEI 与 `client.identifiers.get` 返回的 `DeviceIdentifiers.imeis` 是相互独立的来源，
+不合并，也不影响 `by-imei` 索引。
+
+Go 使用 `telemetrypb.NetworkObservation` 的 `Imei` / `Imsi`；JavaScript 使用 `networkTelemetry({ imei, imsi })`；
+C 使用 `gzc_telemetry_network_t` 的 `has_imei` / `imei` 与 `has_imsi` / `imsi`，编码前按上述长度与数字规则
+校验并在 `rat` 为 `wifi` 时返回 `GZC_ERR_INVALID_ARGUMENT`。字符串在调用期间借用。Flutter 没有 telemetry
+发送 surface，只通过生成的 `PeerStatus` 读取 `network_imei` / `network_imsi`。
+
 ## OTA 上报
 
 `Observation.ota`（field 14）使用 `OtaObservation`，在同一个 `update_id` 下报告一次升级尝试：

@@ -33,6 +33,57 @@ Telemetry Protobuf owns the wire fields reported by the device. Metrics store ha
 - Aggregation, retention and query filtering belong to service/store and not to wire schema.
 - Regenerate Go and JavaScript telemetry code after Schema changes, and verify the real packet decode and service ingestion.
 
+## Network reporting
+
+`Observation.network` (field 12) carries `NetworkObservation`, describing signal strength and the cellular identity of the current default packet-data route:
+
+| Field | Number | Type | Meaning and validation |
+| --- | --- | --- | --- |
+| `rssi_dbm` | 1 | `optional double` | Received signal strength in dBm; must be finite. Stored as the `network.rssi_dbm` metric. |
+| `signal_level` | 2 | `optional double` | Device-defined signal level; must be finite. Stored as the `network.signal_level` metric. |
+| `rat` | 3 | `optional string` | Radio access technology such as `lte`, `nr` or `wifi`. Used for validation only; not persisted. |
+| `operator` | 4 | `optional string` | Operator name. Used for validation only; not persisted. |
+| `connected` | 5 | `optional bool` | Whether the route is connected. Stored as the `network.connected` metric. |
+| `imei` | 6 | `optional string` | Modem hardware IMEI: exactly 15 ASCII digits (`^[0-9]{15}$`). Devices without a modem leave it unset. |
+| `imsi` | 7 | `optional string` | IMSI of the SIM serving the default packet-data route: 6 to 15 ASCII digits (`^[0-9]{6,15}$`). Unset when no SIM is readable. |
+
+`imei` and `imsi` are only meaningful on a cellular route. A frame whose `rat` is
+`wifi` (case-insensitive) with either field set is rejected as `ErrInvalidFrame`, as is
+any value that does not match its pattern; a rejected frame produces no partial status
+write. Frames without fields 6 and 7, produced by SDKs built before these fields
+existed, decode and store exactly as before.
+
+The identity strings are not metrics. They never enter the metrics store, the
+`PeerTelemetryField` enum, or Prometheus-style labels. Instead they are merged with
+their observation time into the owner-scoped `PeerStatus.network_imei` /
+`PeerStatus.network_imsi`, recording `network_imei_at_unix_ms` /
+`network_imsi_at_unix_ms` under `details.telemetry_status`. Per-field ordering follows
+battery and GNSS: an older observation never overwrites a newer stored value; an
+observation equal to the stored value only refreshes its `_at` timestamp and does not
+bump `reported_at` beyond the existing rule; when neither the value nor the timestamp
+changes, the status is not rewritten. Telemetry never clears the identity: a device that
+loses its SIM simply stops sending `imsi`. Clearing is an admin operation outside
+telemetry.
+
+`PeerStatus` is already returned by the Peer RPC `server.status.get`,
+`GET /gizclaw/v1/device/status`, and the other existing status surfaces, so both fields
+ride along without new endpoints. Side-control and monitor projections treat them as
+opaque strings.
+
+Privacy scope: IMEI and IMSI are owner-scoped status like GNSS. They must not appear in
+Server, Edge, or SDK logs, traces, or error messages; validation errors report the field
+name only. Devices report `imsi` only for the SIM currently serving traffic and never
+report cached values from a removed SIM. The telemetry IMEI and
+`DeviceIdentifiers.imeis` from `client.identifiers.get` stay independent sources: they
+are not merged and the `by-imei` index is unaffected.
+
+Go sets `Imei` / `Imsi` on `telemetrypb.NetworkObservation`; JavaScript uses
+`networkTelemetry({ imei, imsi })`; C sets `has_imei` / `imei` and `has_imsi` / `imsi` on
+`gzc_telemetry_network_t`, which validates the length and digit rules before encoding and
+returns `GZC_ERR_INVALID_ARGUMENT` when `rat` is `wifi`. Strings are borrowed during the
+call. Flutter has no telemetry sending surface and only reads `network_imei` /
+`network_imsi` through the generated `PeerStatus`.
+
 ## OTA reporting
 
 `Observation.ota` (field 14) carries `OtaObservation` for one device-owned update attempt:

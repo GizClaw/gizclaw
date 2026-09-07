@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1245,6 +1246,310 @@ func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
 			}
 			if got := result.assertion.(map[string]any)["events"]; got != len(tc.chunks) {
 				t.Fatalf("completed after %v events, want %d", got, len(tc.chunks))
+			}
+		})
+	}
+}
+
+// A stall at a TTS segment boundary hides from the p95 interval: almost every
+// interval stays on the 20ms packet clock, so only max_interval_ms and the
+// buffer surplus expose the gap that drains a client's jitter buffer.
+func TestPeerAudioPacingExposesSegmentBoundaryStall(t *testing.T) {
+	var pacing peerAudioPacing
+	packet := []byte{0xf8}
+	at := time.Unix(1, 0)
+	observe := func(count int) {
+		for range count {
+			pacing.observe(at, [][]byte{packet})
+			at = at.Add(20 * time.Millisecond)
+		}
+	}
+	observe(100)
+	at = at.Add(2 * time.Second)
+	observe(100)
+
+	summary := pacing.summary()
+	if summary["packets"] != 200 || summary["audio_ms"] != int64(4000) {
+		t.Fatalf("pacing summary = %#v", summary)
+	}
+	if summary["target_span_ms"] != int64(3980) || summary["receive_span_ms"] != int64(5980) {
+		t.Fatalf("pacing spans = %#v", summary)
+	}
+	if summary["p95_interval_ms"] != float64(20) {
+		t.Fatalf("p95 interval = %#v, want the stall to stay out of the p95", summary["p95_interval_ms"])
+	}
+	if summary["max_interval_ms"] != float64(2020) {
+		t.Fatalf("max interval = %#v, want the stall", summary["max_interval_ms"])
+	}
+	if summary["drift_ms"] != float64(2000) || summary["buffer_surplus_ms"] != float64(-2000) {
+		t.Fatalf("pacing drift = %#v", summary)
+	}
+	// The client holds 500ms before it starts, keeps 480ms of that through the
+	// steady stretch, and then hears 1520ms of silence the gap drains it into.
+	if summary["underruns"] != 1 || summary["underrun_ms"] != float64(1520) || summary["max_underrun_ms"] != float64(1520) {
+		t.Fatalf("pacing underruns = %#v", summary)
+	}
+	if summary["minimum_buffer_ms"] != float64(-1520) || summary["prebuffer_ms"] != float64(500) {
+		t.Fatalf("pacing buffer level = %#v", summary)
+	}
+}
+
+// A gap the prebuffer covers is inaudible, so it must not be reported as an
+// underrun even though it dwarfs the packet clock.
+func TestPeerAudioPacingAcceptsGapsTheBufferCovers(t *testing.T) {
+	var pacing peerAudioPacing
+	packet := []byte{0xf8}
+	at := time.Unix(1, 0)
+	observe := func(count int) {
+		for range count {
+			pacing.observe(at, [][]byte{packet})
+			at = at.Add(20 * time.Millisecond)
+		}
+	}
+	observe(100)
+	at = at.Add(400 * time.Millisecond)
+	observe(100)
+
+	summary := pacing.summary()
+	if summary["max_interval_ms"] != float64(420) {
+		t.Fatalf("max interval = %#v, want the gap", summary["max_interval_ms"])
+	}
+	if summary["underruns"] != 0 {
+		t.Fatalf("gap inside the buffer reported underruns: %#v", summary)
+	}
+	if summary["minimum_buffer_ms"] != float64(80) {
+		t.Fatalf("minimum buffer = %#v, want the 500ms buffer less the 420ms gap", summary["minimum_buffer_ms"])
+	}
+	if _, present := summary["underrun_ms"]; !present {
+		t.Fatalf("continuous playback summary lacks underrun_ms: %#v", summary)
+	}
+}
+
+func TestInvokePeerStreamRealtimeFirstResponseTimesFromSpeechEnd(t *testing.T) {
+	// A realtime turn keeps pushing tail silence after the user stops speaking,
+	// so the provider normally answers while input is still on the wire. A
+	// reader started only once that push finished drained the whole transport
+	// backlog at once and stamped every chunk with the same time, collapsing
+	// first_text_ms, first_audio_ms and last_event_ms to zero.
+	const responseDelay = 100 * time.Millisecond
+	stream := newFakeRelayStream()
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	speechEnded := make(chan struct{})
+	go func() {
+		// The turn pushes one begin-of-stream chunk and one speech packet
+		// before the tail silence; the user stops speaking at the second push.
+		pushed := 0
+		for {
+			select {
+			case <-stream.pushes:
+				pushed++
+				if pushed == 2 {
+					close(speechEnded)
+				}
+			case <-stream.closed:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	go func() {
+		select {
+		case <-speechEnded:
+		case <-ctx.Done():
+			return
+		}
+		time.Sleep(responseDelay)
+		for _, chunk := range []*genx.MessageChunk{
+			assistantText("reply", "hello", false),
+			assistantBlob("reply", []byte{0xf8}, false),
+		} {
+			select {
+			case stream.in <- chunk:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+			Mode: "realtime", Completion: "first_response", Pacing: "2ms",
+			FirstTextTimeout: "10s", FirstAudioTimeout: "10s",
+		},
+	}, []byte{0xf8}, 0)
+	if err != nil {
+		t.Fatalf("realtime first_response turn: %v", err)
+	}
+	floor := (responseDelay - 10*time.Millisecond).Milliseconds()
+	// The tail silence alone paces 4s of audio at 2ms per packet, so a clock
+	// that ran from the operation start or the end of the push would land far
+	// outside this bound in either direction.
+	ceiling := (responseDelay * 3).Milliseconds()
+	for _, name := range []string{"first_text_ms", "first_audio_ms", "last_event_ms"} {
+		elapsed, ok := result.evidence[name].(int64)
+		if !ok {
+			t.Fatalf("%s evidence = %#v, want int64", name, result.evidence[name])
+		}
+		if elapsed < floor || elapsed > ceiling {
+			t.Fatalf("%s = %d, want response latency measured from the end of the user's speech in [%d, %d]", name, elapsed, floor, ceiling)
+		}
+	}
+}
+
+func TestInvokePeerStreamRealtimeFirstResponseDeadlineIgnoresTailSilence(t *testing.T) {
+	// The realtime tail silence is pushed after the user stops speaking, so a
+	// deadline armed once that push finished would let a late response answer
+	// inside its timeout. Each case answers after the deadline has passed but
+	// while the tail silence is still being paced, and must still be rejected.
+	const responseDelay = 250 * time.Millisecond
+	textRequired, audioRequired := true, true
+	textDisabled, audioDisabled := false, false
+	for _, tc := range []struct {
+		name     string
+		op       giztest.PeerStreamOperation
+		response *genx.MessageChunk
+		deadline string
+	}{
+		{
+			name: "text only",
+			op: giztest.PeerStreamOperation{
+				Mode: "realtime", Completion: "first_response", Pacing: "2ms", FirstTextTimeout: "100ms",
+				RequireText: &textRequired, RequireAudio: &audioDisabled,
+			},
+			response: assistantText("reply", "hello", false),
+			deadline: "first_text_timeout",
+		},
+		{
+			name: "audio only",
+			op: giztest.PeerStreamOperation{
+				Mode: "realtime", Completion: "first_response", Pacing: "2ms", FirstAudioTimeout: "100ms",
+				RequireText: &textDisabled, RequireAudio: &audioRequired,
+			},
+			response: assistantBlob("reply", []byte{0xf8}, false),
+			deadline: "first_audio_timeout",
+		},
+		{
+			// The late text is rejected as soon as it is consumed, so the
+			// failure names the deadline it actually missed rather than
+			// waiting for the audio the turn never receives.
+			name: "text late while audio never arrives",
+			op: giztest.PeerStreamOperation{
+				Mode: "realtime", Completion: "first_response", Pacing: "2ms",
+				FirstTextTimeout: "100ms", FirstAudioTimeout: "10s",
+				RequireText: &textRequired, RequireAudio: &audioRequired,
+			},
+			response: assistantText("reply", "hello", false),
+			deadline: "first_text_timeout",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			defer cancel()
+			speechEnded := make(chan struct{})
+			go func() {
+				pushed := 0
+				for {
+					select {
+					case <-stream.pushes:
+						pushed++
+						if pushed == 2 {
+							close(speechEnded)
+						}
+					case <-stream.closed:
+						return
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			go func() {
+				select {
+				case <-speechEnded:
+				case <-ctx.Done():
+					return
+				}
+				// The tail silence paces 4s of audio at 2ms per packet, so this
+				// still lands well before the input push completes.
+				time.Sleep(responseDelay)
+				select {
+				case stream.in <- tc.response:
+				case <-ctx.Done():
+				}
+			}()
+			op := tc.op
+			result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+				ID: "turn", Client: "peer", PeerStream: &op,
+			}, []byte{0xf8}, 0)
+			if !errors.Is(err, context.DeadlineExceeded) || result.evidence["deadline"] != tc.deadline || !strings.Contains(err.Error(), "deadline="+tc.deadline) {
+				t.Fatalf("late realtime response accepted: result = %#v, error = %v", result, err)
+			}
+		})
+	}
+}
+
+func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
+	// A full-duplex provider can answer while the turn input is still being
+	// paced. push-to-talk closes its turn with an end-of-stream and dates its
+	// response clock from there, and a realtime provider may start talking
+	// before the user stops, so both cases can see a receipt older than the
+	// clock origin. No reported timing may go negative.
+	for _, mode := range []string{"push-to-talk", "realtime"} {
+		t.Run(mode, func(t *testing.T) {
+			stream := newFakeRelayStream()
+			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			defer cancel()
+			pushed := make(chan struct{})
+			var pushedOnce sync.Once
+			go func() {
+				for {
+					select {
+					case <-stream.pushes:
+						pushedOnce.Do(func() { close(pushed) })
+					case <-stream.closed:
+						return
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			go func() {
+				select {
+				case <-pushed:
+				case <-ctx.Done():
+					return
+				}
+				// Answer immediately, while the paced input is still going out.
+				for _, chunk := range []*genx.MessageChunk{
+					transcriptText("user-1", "question", false),
+					assistantText("reply", "hello", false),
+					assistantBlob("reply", []byte{0xf8}, false),
+				} {
+					select {
+					case stream.in <- chunk:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+				ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+					Mode: mode, Completion: "first_response", Pacing: "2ms",
+					FirstTextTimeout: "10s", FirstAudioTimeout: "10s",
+				},
+			}, []byte{0xf8}, 0)
+			if err != nil {
+				t.Fatalf("%s first_response turn: %v", mode, err)
+			}
+			for _, name := range []string{"first_transcript_ms", "first_text_ms", "first_audio_ms", "last_event_ms"} {
+				elapsed, ok := result.evidence[name].(int64)
+				if !ok {
+					t.Fatalf("%s evidence = %#v, want int64", name, result.evidence[name])
+				}
+				if elapsed < 0 {
+					t.Fatalf("%s = %d, want a non-negative elapsed time for output that arrived during input", name, elapsed)
+				}
 			}
 		})
 	}

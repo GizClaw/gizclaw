@@ -749,3 +749,125 @@ func telemetryStatusDetails(items ...any) map[string]any {
 	}
 	return map[string]any{telemetryStatusDetailsKey: fields}
 }
+
+func TestServiceReportPacketStoresNetworkIdentityWithoutSamples(t *testing.T) {
+	peer := testPublicKey(t)
+	base := time.Unix(300, 0).UTC()
+	rssi := -60.0
+	rat := "lte"
+	imei := "490154203237518"
+	imsi := "460001234567890"
+	payload := marshalFrame(t, &telemetrypb.TelemetryFrame{
+		ObservedAtUnixMs: base.UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			ObservedAtDeltaMs: 40,
+			Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{
+				RssiDbm: &rssi, Rat: &rat, Imei: &imei, Imsi: &imsi,
+			}},
+		}},
+	})
+	metricsStore := &fakeMetricsStore{}
+	statusStore := &fakeStatusStore{}
+	service := &Service{Metrics: metricsStore, Status: StatusSync{Store: statusStore}}
+	if err := service.ReportPacket(context.Background(), peer, payload); err != nil {
+		t.Fatalf("ReportPacket() error = %v", err)
+	}
+	if len(metricsStore.samples) != 1 {
+		t.Fatalf("samples = %+v, want only rssi", metricsStore.samples)
+	}
+	for _, sample := range metricsStore.samples {
+		for key, value := range sample.Labels {
+			if value == imei || value == imsi {
+				t.Fatalf("identity leaked into metric label %s", key)
+			}
+		}
+	}
+	at := base.Add(40 * time.Millisecond)
+	status := statusStore.status
+	if status.NetworkImei == nil || *status.NetworkImei != imei || status.NetworkImsi == nil || *status.NetworkImsi != imsi {
+		t.Fatalf("network identity = %#v / %#v", status.NetworkImei, status.NetworkImsi)
+	}
+	if got, ok := telemetryStatusFieldTime(status, telemetryStatusNetworkIMEIAtKey); !ok || !got.Equal(at) {
+		t.Fatalf("network_imei_at = %v, %v, want %v", got, ok, at)
+	}
+	if got, ok := telemetryStatusFieldTime(status, telemetryStatusNetworkIMSIAtKey); !ok || !got.Equal(at) {
+		t.Fatalf("network_imsi_at = %v, %v, want %v", got, ok, at)
+	}
+	if status.ReportedAt == nil || !status.ReportedAt.Equal(at) {
+		t.Fatalf("ReportedAt = %v, want %v", status.ReportedAt, at)
+	}
+}
+
+func TestMapFrameRejectsInvalidNetworkIdentity(t *testing.T) {
+	peer := testPublicKey(t)
+	wifi := "wifi"
+	wifiUpper := "WiFi"
+	imei := "490154203237518"
+	imsi := "460001"
+	cases := map[string]*telemetrypb.NetworkObservation{
+		"imei 14 digits":      {Imei: new("49015420323751")},
+		"imei 16 digits":      {Imei: new("4901542032375180")},
+		"imei non numeric":    {Imei: new("49015420323751A")},
+		"imei empty":          {Imei: new("")},
+		"imsi 5 digits":       {Imsi: new("46000")},
+		"imsi 16 digits":      {Imsi: new("4600012345678901")},
+		"imsi non numeric":    {Imsi: new("46000x")},
+		"wifi with imei":      {Rat: &wifi, Imei: &imei},
+		"wifi with imsi":      {Rat: &wifi, Imsi: &imsi},
+		"WiFi case with imei": {Rat: &wifiUpper, Imei: &imei},
+	}
+	for name, network := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{
+				{Body: &telemetrypb.Observation_Network{Network: network}},
+			}}, time.Unix(1, 0).UTC())
+			if !errors.Is(err, ErrInvalidFrame) {
+				t.Fatalf("MapFrame() error = %v, want %v", err, ErrInvalidFrame)
+			}
+			if !patch.Empty() {
+				t.Fatalf("patch = %+v, want empty on rejected frame", patch)
+			}
+			if network.Imei != nil && strings.Contains(err.Error(), *network.Imei) && *network.Imei != "" {
+				t.Fatalf("error %q echoes the reported imei", err)
+			}
+			if network.Imsi != nil && strings.Contains(err.Error(), *network.Imsi) && *network.Imsi != "" {
+				t.Fatalf("error %q echoes the reported imsi", err)
+			}
+		})
+	}
+
+	// A rejected observation later in the frame leaves no partial status.
+	good := "490154203237518"
+	bad := "1"
+	_, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{
+		{Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Imei: &good}}},
+		{Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Imsi: &bad}}},
+	}}, time.Unix(1, 0).UTC())
+	if !errors.Is(err, ErrInvalidFrame) || !patch.Empty() {
+		t.Fatalf("MapFrame(mixed) = %+v, %v", patch, err)
+	}
+}
+
+func TestMapFrameNetworkIdentityUsesLatestObservation(t *testing.T) {
+	peer := testPublicKey(t)
+	base := time.Unix(902, 0).UTC()
+	older := "460000000000001"
+	newer := "460000000000002"
+	imei := "490154203237518"
+	_, patch, err := MapFrame(peer, &telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{
+		{ObservedAtDeltaMs: 1000, Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Imsi: &newer}}},
+		{ObservedAtDeltaMs: 100, Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Imsi: &older, Imei: &imei}}},
+	}}, base)
+	if err != nil {
+		t.Fatalf("MapFrame() error = %v", err)
+	}
+	if patch.NetworkIMSI == nil || *patch.NetworkIMSI != newer || !patch.NetworkIMSIAt.Equal(base.Add(time.Second)) {
+		t.Fatalf("NetworkIMSI = %#v at %v, want latest", patch.NetworkIMSI, patch.NetworkIMSIAt)
+	}
+	if patch.NetworkIMEI == nil || *patch.NetworkIMEI != imei || !patch.NetworkIMEIAt.Equal(base.Add(100*time.Millisecond)) {
+		t.Fatalf("NetworkIMEI = %#v at %v, want older missing field value", patch.NetworkIMEI, patch.NetworkIMEIAt)
+	}
+	if !patch.ReportedAt.Equal(base.Add(time.Second)) {
+		t.Fatalf("ReportedAt = %v", patch.ReportedAt)
+	}
+}

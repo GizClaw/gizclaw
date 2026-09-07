@@ -995,6 +995,39 @@ func TestPeerConnAudioPacerMaintainsTargetAcrossRepeatedStalls(t *testing.T) {
 	}
 }
 
+// Turns are separated by seconds of silence while the peer speaks and the
+// agent thinks. That idle wall clock is not audio the client consumed, so it
+// must not be charged to the pacer: charging it kept every turn after the
+// first pinned at the minimum period, delivering audio seconds ahead of real
+// time until the device had more than it could hold.
+func TestPeerConnAudioPacerDoesNotChargeIdleTimeBetweenTurns(t *testing.T) {
+	var pacer peerConnAudioPacer
+	now := time.Unix(1, 0)
+	playTurn := func(packets int) time.Duration {
+		started := now
+		for range packets {
+			now = now.Add(pacer.waitDuration(now))
+		}
+		return time.Duration(packets-1)*peerConnOpusFrameDuration - now.Sub(started)
+	}
+
+	if surplus := playTurn(200); surplus != peerConnPacingBufferTarget {
+		t.Fatalf("first turn surplus = %s, want the target %s", surplus, peerConnPacingBufferTarget)
+	}
+	// The peer speaks and the agent thinks; no audio is mixed meanwhile.
+	now = now.Add(8 * time.Second)
+	if delay := pacer.waitDuration(now); delay != 0 {
+		t.Fatalf("first packet after idle delay = %s, want immediate rebase", delay)
+	}
+	surplus := playTurn(600)
+	if surplus > peerConnPacingBufferTarget {
+		t.Fatalf("second turn surplus = %s, want at most the target %s", surplus, peerConnPacingBufferTarget)
+	}
+	if surplus < peerConnPacingBufferTarget-peerConnOpusFrameDuration {
+		t.Fatalf("second turn surplus = %s, want the target %s rebuilt", surplus, peerConnPacingBufferTarget)
+	}
+}
+
 func TestPeerConnRealPacingDoesNotAccumulateWriteLatency(t *testing.T) {
 	const packetCount = 40
 	mx := pcm.NewMixer(peerConnMixerFormat)

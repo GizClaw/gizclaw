@@ -50,6 +50,16 @@
             "type": "number",
             "minimum": 0
           },
+          "network_imei": {
+            "type": "string",
+            "pattern": "^[0-9]{15}$",
+            "description": "Modem hardware IMEI from the latest cellular network telemetry observation: exactly 15 ASCII digits. Owner-scoped; never logged."
+          },
+          "network_imsi": {
+            "type": "string",
+            "pattern": "^[0-9]{6,15}$",
+            "description": "IMSI of the SIM serving the default packet-data route from the latest cellular network telemetry observation: 6 to 15 ASCII digits. Owner-scoped; never logged."
+          },
           "labels": {
             "type": "object",
             "additionalProperties": {

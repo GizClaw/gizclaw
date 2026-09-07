@@ -33,6 +33,7 @@ import {
   createWebRTCFetch,
   decodeFrames,
   encodeTelemetryPacket,
+  networkTelemetry,
   encodeFrame,
   encodeRPCRequest,
   serveGiznetWebRTCRPC,
@@ -2581,6 +2582,25 @@ test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
   );
 });
 
+test("encodeTelemetryPacket carries cellular imei and imsi on network observations", () => {
+  const packet = encodeTelemetryPacket({
+    observedAtUnixMs: 1000,
+    observations: [
+      networkTelemetry({
+        rat: "lte",
+        imei: "490154203237518",
+        imsi: "460001",
+      }),
+    ],
+  });
+
+  assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
+  assert.equal(
+    Buffer.from(packet.slice(1)).toString("hex"),
+    "10e8071a20621e1a036c7465320f3439303135343230333233373531383a06343630303031",
+  );
+});
+
 test("encodeTelemetryPacket stamps frames before send", () => {
   const originalNow = Date.now;
   Date.now = () => 1234;
@@ -3782,5 +3802,50 @@ test("workspace reload options and parameter patches round-trip through protobuf
       encodeRPCRequestPayload("server.workspace.parameters.set", patch),
     ),
     patch,
+  );
+});
+
+test("app config requests and opaque values round-trip through protobuf", () => {
+  const listRequest = { cursor: "cmV2aXNpb24AdWkudGhlbWU", limit: 10 };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.app_config.list",
+      encodeRPCRequestPayload("server.app_config.list", listRequest),
+    ),
+    listRequest,
+  );
+  const getRequest = { key: "ui.theme" };
+  assert.deepEqual(
+    decodeRPCRequestPayload(
+      "server.app_config.get",
+      encodeRPCRequestPayload("server.app_config.get", getRequest),
+    ),
+    getRequest,
+  );
+  const listResponse = {
+    keys: ["app.entrypoints", "ui.theme"],
+    has_next: false,
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision",
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.app_config.list",
+      encodeRPCResponsePayload("server.app_config.list", listResponse),
+    ),
+    listResponse,
+  );
+  // The value is opaque: newlines and non-ASCII survive verbatim.
+  const getResponse = {
+    value: '{\n  "theme": "深色"\n}\n',
+    runtime_profile_name: "default",
+    runtime_profile_revision: "revision",
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.app_config.get",
+      encodeRPCResponsePayload("server.app_config.get", getResponse),
+    ),
+    getResponse,
   );
 });

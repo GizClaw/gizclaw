@@ -173,6 +173,8 @@ message PeerStatus {
   optional bool muted = 9;
   optional string reported_at = 10;
   optional int64 volume = 11;
+  optional string network_imei = 15;
+  optional string network_imsi = 16;
 }
 
 message PingRequest {
@@ -189,6 +191,32 @@ message ServerRegisterRequest {
 
 message ServerRegisterResponse {
   string runtime_profile_name = 1;
+}
+
+// AppConfig is the opaque device-defined configuration downlink carried by the
+// selected RuntimeProfile. The Server stores and returns every value verbatim
+// and never parses it; Clients read it and cannot write it.
+message AppConfigListRequest {
+  optional string cursor = 1;
+  optional int64 limit = 2;
+}
+
+message AppConfigListResponse {
+  repeated string keys = 1;
+  bool has_next = 2;
+  optional string next_cursor = 3;
+  string runtime_profile_name = 4;
+  string runtime_profile_revision = 5;
+}
+
+message AppConfigGetRequest {
+  string key = 1;
+}
+
+message AppConfigGetResponse {
+  string value = 1;
+  string runtime_profile_name = 2;
+  string runtime_profile_revision = 3;
 }
 
 message APIKey {

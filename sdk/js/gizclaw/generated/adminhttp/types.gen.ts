@@ -1731,6 +1731,13 @@ export type RuntimeProfileAdoptionSpec = {
     pool?: Array<RuntimeProfilePetPoolEntry>;
 };
 
+/**
+ * Opaque device-defined configuration downlink. Keys use the RuntimeProfile alias syntax and values are bounded at 4096 UTF-8 bytes; both are enforced during Server-side normalization because OpenAPI 3.0 has no propertyNames keyword and expresses maxLength in characters. The Server stores and returns every value verbatim and never parses it. Clients read it through server.app_config.list and server.app_config.get and cannot write it. Any registered device bound to this RuntimeProfile can read every entry, so values must not contain credentials, API keys or other secrets.
+ */
+export type RuntimeProfileAppConfig = {
+    [key: string]: string;
+};
+
 export type RuntimeProfileBinding = {
     resource_id: string;
     i18n: {
@@ -1912,6 +1919,7 @@ export type RuntimeProfileSpec = {
     workflows: RuntimeProfileWorkflows;
     resources: RuntimeProfileResources;
     gameplay?: RuntimeProfileGameplaySpec;
+    app_config?: RuntimeProfileAppConfig;
 };
 
 export type RuntimeProfileSystemWorkflows = {

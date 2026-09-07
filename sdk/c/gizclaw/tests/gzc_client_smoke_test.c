@@ -3248,6 +3248,58 @@ int main(void) {
   }
   gzc_buf_free(&reload_params, platform);
 
+  /* app_config decodes into static buffers: a full 4096-byte value and a full
+     page of keys must round trip without heap allocation. */
+  gizclaw_rpc_v1_AppConfigGetResponse app_config_value =
+      gizclaw_rpc_v1_AppConfigGetResponse_init_zero;
+  memset(app_config_value.value, 'x', 4096);
+  app_config_value.value[4096] = '\0';
+  strcpy(app_config_value.runtime_profile_revision, "revision");
+  gzc_buf_t app_config_params;
+  gzc_buf_init(&app_config_params);
+  rc = encode_test_pb_message(platform, gizclaw_rpc_v1_AppConfigGetResponse_fields,
+                              &app_config_value, &app_config_params);
+  if (expect(rc == GZC_OK, "encode app config get response") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_AppConfigGetResponse decoded_app_config =
+      gizclaw_rpc_v1_AppConfigGetResponse_init_zero;
+  rc = decode_test_pb_message(
+      gzc_str_from_parts((const char *)app_config_params.data, app_config_params.len),
+      gizclaw_rpc_v1_AppConfigGetResponse_fields, &decoded_app_config);
+  if (expect(rc == GZC_OK && strlen(decoded_app_config.value) == 4096 &&
+                 strcmp(decoded_app_config.runtime_profile_revision, "revision") == 0,
+             "app config value round trip") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&app_config_params, platform);
+
+  gizclaw_rpc_v1_AppConfigListResponse app_config_keys =
+      gizclaw_rpc_v1_AppConfigListResponse_init_zero;
+  app_config_keys.keys_count = 64;
+  for (size_t key_index = 0; key_index < 64; key_index++) {
+    snprintf(app_config_keys.keys[key_index], sizeof(app_config_keys.keys[key_index]),
+             "app.key-%02zu", key_index);
+  }
+  gzc_buf_t app_config_keys_params;
+  gzc_buf_init(&app_config_keys_params);
+  rc = encode_test_pb_message(platform, gizclaw_rpc_v1_AppConfigListResponse_fields,
+                              &app_config_keys, &app_config_keys_params);
+  if (expect(rc == GZC_OK, "encode app config list response") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_AppConfigListResponse decoded_app_config_keys =
+      gizclaw_rpc_v1_AppConfigListResponse_init_zero;
+  rc = decode_test_pb_message(
+      gzc_str_from_parts((const char *)app_config_keys_params.data, app_config_keys_params.len),
+      gizclaw_rpc_v1_AppConfigListResponse_fields, &decoded_app_config_keys);
+  if (expect(rc == GZC_OK && decoded_app_config_keys.keys_count == 64 &&
+                 strcmp(decoded_app_config_keys.keys[63], "app.key-63") == 0,
+             "app config key page round trip") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&app_config_keys_params, platform);
+
   gzc_buf_reset(&fake_webrtc.sent);
   int create_channel_count_before_edge = fake_webrtc.create_channel_count;
   memset(&response, 0, sizeof(response));
@@ -4326,6 +4378,40 @@ int main(void) {
   bool player_matches = rc == GZC_OK && player_wire.len == sizeof(player_golden) && memcmp(player_wire.data, player_golden, sizeof(player_golden)) == 0;
   gzc_buf_free(&player_wire, platform);
   if (expect(player_matches, "audioplayer telemetry protobuf golden") != 0)
+    return 1;
+
+  memset(&observation, 0, sizeof(observation));
+  observation.kind = GZC_TELEMETRY_OBSERVATION_NETWORK;
+  observation.network.has_rat = true;
+  observation.network.rat = gzc_str_from_cstr("lte");
+  observation.network.has_imei = true;
+  observation.network.imei = gzc_str_from_cstr("490154203237518");
+  observation.network.has_imsi = true;
+  observation.network.imsi = gzc_str_from_cstr("460001");
+  gzc_buf_t network_wire;
+  gzc_buf_init(&network_wire);
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  const uint8_t network_golden[] = {0x1a, 0x20, 0x62, 0x1e, 0x1a, 3, 'l', 't', 'e', 0x32, 15, '4', '9', '0', '1', '5', '4', '2', '0', '3', '2', '3', '7', '5', '1', '8', 0x3a, 6, '4', '6', '0', '0', '0', '1'};
+  bool network_matches = rc == GZC_OK && network_wire.len == sizeof(network_golden) && memcmp(network_wire.data, network_golden, sizeof(network_golden)) == 0;
+  gzc_buf_free(&network_wire, platform);
+  if (expect(network_matches, "network imei/imsi telemetry protobuf golden") != 0)
+    return 1;
+  observation.network.rat = gzc_str_from_cstr("WiFi");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  gzc_buf_free(&network_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network identity rejected on wifi observation") != 0)
+    return 1;
+  observation.network.rat = gzc_str_from_cstr("lte");
+  observation.network.imei = gzc_str_from_cstr("49015420323751");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  gzc_buf_free(&network_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network imei must be 15 digits") != 0)
+    return 1;
+  observation.network.imei = gzc_str_from_cstr("490154203237518");
+  observation.network.imsi = gzc_str_from_cstr("46000");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  gzc_buf_free(&network_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network imsi must be at least 6 digits") != 0)
     return 1;
 
   gzc_buf_t large_params;

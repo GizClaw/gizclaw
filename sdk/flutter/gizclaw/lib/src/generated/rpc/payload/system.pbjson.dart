@@ -813,6 +813,24 @@ const PeerStatus$json = {
       '10': 'volume',
       '17': true
     },
+    {
+      '1': 'network_imei',
+      '3': 15,
+      '4': 1,
+      '5': 9,
+      '9': 12,
+      '10': 'networkImei',
+      '17': true
+    },
+    {
+      '1': 'network_imsi',
+      '3': 16,
+      '4': 1,
+      '5': 9,
+      '9': 13,
+      '10': 'networkImsi',
+      '17': true
+    },
   ],
   '3': [PeerStatus_LabelsEntry$json],
   '8': [
@@ -828,6 +846,8 @@ const PeerStatus$json = {
     {'1': '_muted'},
     {'1': '_reported_at'},
     {'1': '_volume'},
+    {'1': '_network_imei'},
+    {'1': '_network_imsi'},
   ],
 };
 
@@ -854,12 +874,14 @@ final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'ZYgBARIqCg5nbnNzX2xvbmdpdHVkZRgHIAEoAUgIUg1nbnNzTG9uZ2l0dWRliAEBEj4KBmxhYm'
     'VscxgIIAMoCzImLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuTGFiZWxzRW50cnlSBmxhYmVs'
     'cxIZCgVtdXRlZBgJIAEoCEgJUgVtdXRlZIgBARIkCgtyZXBvcnRlZF9hdBgKIAEoCUgKUgpyZX'
-    'BvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQEaOQoLTGFiZWxzRW50cnkS'
-    'EAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUIGCgRfb3RhQhIKEF'
-    '9iYXR0ZXJ5X3BlcmNlbnRCCwoJX2NoYXJnaW5nQhIKEF9maXJtd2FyZV9zaGEyNTZCDgoMX2F1'
-    'ZGlvcGxheWVyQhIKEF9nbnNzX2FjY3VyYWN5X21CEgoQX2duc3NfYWx0aXR1ZGVfbUIQCg5fZ2'
-    '5zc19sYXRpdHVkZUIRCg9fZ25zc19sb25naXR1ZGVCCAoGX211dGVkQg4KDF9yZXBvcnRlZF9h'
-    'dEIJCgdfdm9sdW1l');
+    'BvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQESJgoMbmV0d29ya19pbWVp'
+    'GA8gASgJSAxSC25ldHdvcmtJbWVpiAEBEiYKDG5ldHdvcmtfaW1zaRgQIAEoCUgNUgtuZXR3b3'
+    'JrSW1zaYgBARo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEo'
+    'CVIFdmFsdWU6AjgBQgYKBF9vdGFCEgoQX2JhdHRlcnlfcGVyY2VudEILCglfY2hhcmdpbmdCEg'
+    'oQX2Zpcm13YXJlX3NoYTI1NkIOCgxfYXVkaW9wbGF5ZXJCEgoQX2duc3NfYWNjdXJhY3lfbUIS'
+    'ChBfZ25zc19hbHRpdHVkZV9tQhAKDl9nbnNzX2xhdGl0dWRlQhEKD19nbnNzX2xvbmdpdHVkZU'
+    'IICgZfbXV0ZWRCDgoMX3JlcG9ydGVkX2F0QgkKB192b2x1bWVCDwoNX25ldHdvcmtfaW1laUIP'
+    'Cg1fbmV0d29ya19pbXNp');
 
 @$core.Deprecated('Use pingRequestDescriptor instead')
 const PingRequest$json = {
@@ -918,6 +940,107 @@ final $typed_data.Uint8List serverRegisterResponseDescriptor =
     $convert.base64Decode(
         'ChZTZXJ2ZXJSZWdpc3RlclJlc3BvbnNlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAEgASgJUh'
         'JydW50aW1lUHJvZmlsZU5hbWU=');
+
+@$core.Deprecated('Use appConfigListRequestDescriptor instead')
+const AppConfigListRequest$json = {
+  '1': 'AppConfigListRequest',
+  '2': [
+    {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
+    {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
+  ],
+  '8': [
+    {'1': '_cursor'},
+    {'1': '_limit'},
+  ],
+};
+
+/// Descriptor for `AppConfigListRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigListRequestDescriptor = $convert.base64Decode(
+    'ChRBcHBDb25maWdMaXN0UmVxdWVzdBIbCgZjdXJzb3IYASABKAlIAFIGY3Vyc29yiAEBEhkKBW'
+    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBQgkKB19jdXJzb3JCCAoGX2xpbWl0');
+
+@$core.Deprecated('Use appConfigListResponseDescriptor instead')
+const AppConfigListResponse$json = {
+  '1': 'AppConfigListResponse',
+  '2': [
+    {'1': 'keys', '3': 1, '4': 3, '5': 9, '10': 'keys'},
+    {'1': 'has_next', '3': 2, '4': 1, '5': 8, '10': 'hasNext'},
+    {
+      '1': 'next_cursor',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'nextCursor',
+      '17': true
+    },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
+  ],
+  '8': [
+    {'1': '_next_cursor'},
+  ],
+};
+
+/// Descriptor for `AppConfigListResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigListResponseDescriptor = $convert.base64Decode(
+    'ChVBcHBDb25maWdMaXN0UmVzcG9uc2USEgoEa2V5cxgBIAMoCVIEa2V5cxIZCghoYXNfbmV4dB'
+    'gCIAEoCFIHaGFzTmV4dBIkCgtuZXh0X2N1cnNvchgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBEjAK'
+    'FHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUhJydW50aW1lUHJvZmlsZU5hbWUSOAoYcnVudG'
+    'ltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZydW50aW1lUHJvZmlsZVJldmlzaW9uQg4KDF9u'
+    'ZXh0X2N1cnNvcg==');
+
+@$core.Deprecated('Use appConfigGetRequestDescriptor instead')
+const AppConfigGetRequest$json = {
+  '1': 'AppConfigGetRequest',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+  ],
+};
+
+/// Descriptor for `AppConfigGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigGetRequestDescriptor = $convert
+    .base64Decode('ChNBcHBDb25maWdHZXRSZXF1ZXN0EhAKA2tleRgBIAEoCVIDa2V5');
+
+@$core.Deprecated('Use appConfigGetResponseDescriptor instead')
+const AppConfigGetResponse$json = {
+  '1': 'AppConfigGetResponse',
+  '2': [
+    {'1': 'value', '3': 1, '4': 1, '5': 9, '10': 'value'},
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
+  ],
+};
+
+/// Descriptor for `AppConfigGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigGetResponseDescriptor = $convert.base64Decode(
+    'ChRBcHBDb25maWdHZXRSZXNwb25zZRIUCgV2YWx1ZRgBIAEoCVIFdmFsdWUSMAoUcnVudGltZV'
+    '9wcm9maWxlX25hbWUYAiABKAlSEnJ1bnRpbWVQcm9maWxlTmFtZRI4ChhydW50aW1lX3Byb2Zp'
+    'bGVfcmV2aXNpb24YAyABKAlSFnJ1bnRpbWVQcm9maWxlUmV2aXNpb24=');
 
 @$core.Deprecated('Use aPIKeyDescriptor instead')
 const APIKey$json = {

@@ -115,6 +115,25 @@ export type ASTTranslateWorkspaceParameters = {
 export type AgentSelection = {
   "workspace_name": string;
 };
+export type AppConfigGetRequest = {
+  "key": string;
+};
+export type AppConfigGetResponse = {
+  "value": string;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
+export type AppConfigListRequest = {
+  "cursor"?: string;
+  "limit"?: number;
+};
+export type AppConfigListResponse = {
+  "keys": string[];
+  "has_next": boolean;
+  "next_cursor"?: string;
+  "runtime_profile_name": string;
+  "runtime_profile_revision": string;
+};
 export type AudioPlayerItem = {
   "url": string;
   "title"?: string;
@@ -902,6 +921,8 @@ export type PeerStatus = {
   "muted"?: boolean;
   "reported_at"?: string;
   "volume"?: number;
+  "network_imei"?: string;
+  "network_imsi"?: string;
 };
 export type Pet = {
   "name": string;
@@ -1480,6 +1501,8 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.api_key.list": "APIKeyListRequest",
   "server.api_key.resolve": "ServerAPIKeyResolveRequest",
   "server.api_key.revoke": "APIKeyRevokeRequest",
+  "server.app_config.get": "AppConfigGetRequest",
+  "server.app_config.list": "AppConfigListRequest",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadRequest",
   "server.badge.get": "ServerBadgeGetRequest",
   "server.badge.list": "ServerBadgeListRequest",
@@ -1597,6 +1620,8 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.api_key.list": "APIKeyListResponse",
   "server.api_key.resolve": "ServerAPIKeyResolveResponse",
   "server.api_key.revoke": "APIKeyRevokeResponse",
+  "server.app_config.get": "AppConfigGetResponse",
+  "server.app_config.list": "AppConfigListResponse",
   "server.badge_def.pixa.download": "BadgeDefPixaDownloadResponse",
   "server.badge.get": "ServerBadgeGetResponse",
   "server.badge.list": "ServerBadgeListResponse",
@@ -1801,6 +1826,81 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "APIKeyRevokeResponse": {
     "fields": []
+  },
+  "AppConfigGetRequest": {
+    "fields": [
+      {
+        "name": "key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "AppConfigGetResponse": {
+    "fields": [
+      {
+        "name": "value",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "AppConfigListRequest": {
+    "fields": [
+      {
+        "name": "cursor",
+        "number": 1,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "limit",
+        "number": 2,
+        "optional": true,
+        "type": "int64"
+      }
+    ]
+  },
+  "AppConfigListResponse": {
+    "fields": [
+      {
+        "name": "keys",
+        "number": 1,
+        "repeated": true,
+        "type": "string"
+      },
+      {
+        "name": "has_next",
+        "number": 2,
+        "type": "bool"
+      },
+      {
+        "name": "next_cursor",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_name",
+        "number": 4,
+        "type": "string"
+      },
+      {
+        "name": "runtime_profile_revision",
+        "number": 5,
+        "type": "string"
+      }
+    ]
   },
   "ASTTranslateExternalVoiceParameters": {
     "fields": [
@@ -5563,6 +5663,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 11,
         "optional": true,
         "type": "int64"
+      },
+      {
+        "name": "network_imei",
+        "number": 15,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "network_imsi",
+        "number": 16,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

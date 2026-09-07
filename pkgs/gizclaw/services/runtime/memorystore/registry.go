@@ -20,7 +20,13 @@ var errRegistryEntryClosed = errors.New("memory store: registry entry closed")
 type Registry struct {
 	mu      sync.Mutex
 	entries map[string]*registryEntry
-	open    func(context.Context, Request) (sharedBackend, error)
+	// draining holds one barrier per binding whose physical backend is being
+	// closed but whose exclusive resources are not released yet. A binding
+	// backed by a local BBH index owns a badger directory lock, so a Resolve
+	// that reopened the same binding before the previous backend finished
+	// closing would fail with "Another process is using this Badger database".
+	draining map[string]chan struct{}
+	open     func(context.Context, Request) (sharedBackend, error)
 }
 
 type registryEntry struct {
@@ -49,8 +55,16 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 		return Result{}, err
 	}
 
-	entry, owner, opener := registry.reserve(key)
-	if owner {
+	entry, opener, drained := registry.reserve(key)
+	for entry == nil {
+		select {
+		case <-drained:
+		case <-ctx.Done():
+			return Result{}, ctx.Err()
+		}
+		entry, opener, drained = registry.reserve(key)
+	}
+	if opener != nil {
 		backend, openErr := opener(ctx, request)
 		registry.publish(key, entry, backend, openErr)
 	}
@@ -94,18 +108,13 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 		if logicalCloser != nil {
 			closeErr = logicalCloser.Close()
 		}
-		backendToClose := registry.finishFailedResolve(key, entry)
-		if backendToClose != nil {
-			closeErr = errors.Join(closeErr, backendToClose.Close())
-		}
+		backendToClose, drained := registry.finishFailedResolve(key, entry)
+		closeErr = errors.Join(closeErr, registry.closeDrained(key, backendToClose, drained))
 		return Result{}, errors.Join(errRegistryEntryClosed, closeErr)
 	}
-	var backendToClose sharedBackend
 	if resolveErr != nil {
-		backendToClose = registry.finishFailedResolve(key, entry)
-	}
-	if backendToClose != nil {
-		resolveErr = errors.Join(resolveErr, backendToClose.Close())
+		backendToClose, drained := registry.finishFailedResolve(key, entry)
+		resolveErr = errors.Join(resolveErr, registry.closeDrained(key, backendToClose, drained))
 	}
 	if resolveErr != nil {
 		return Result{}, resolveErr
@@ -119,23 +128,62 @@ func (registry *Registry) Resolve(ctx context.Context, request Request) (Result,
 	return result, nil
 }
 
-func (registry *Registry) reserve(key string) (*registryEntry, bool, func(context.Context, Request) (sharedBackend, error)) {
+// reserve returns the shared entry for key. When the previous backend for that
+// binding is still releasing its physical resources it returns a nil entry and
+// the barrier the caller must wait on before reserving again.
+func (registry *Registry) reserve(key string) (*registryEntry, func(context.Context, Request) (sharedBackend, error), <-chan struct{}) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
 	if registry.entries == nil {
 		registry.entries = make(map[string]*registryEntry)
 	}
-	entry := registry.entries[key]
-	if entry != nil {
-		return entry, false, nil
+	if entry := registry.entries[key]; entry != nil {
+		return entry, nil, nil
 	}
-	entry = &registryEntry{ready: make(chan struct{}), idle: make(chan struct{})}
+	if drained := registry.draining[key]; drained != nil {
+		return nil, nil, drained
+	}
+	entry := &registryEntry{ready: make(chan struct{}), idle: make(chan struct{})}
 	registry.entries[key] = entry
 	opener := registry.open
 	if opener == nil {
 		opener = openSharedBackend
 	}
-	return entry, true, opener
+	return entry, opener, nil
+}
+
+// beginDrain reserves the binding while its physical backend closes. Callers
+// hold registry.mu and must pair every barrier with finishDrain.
+func (registry *Registry) beginDrain(key string) chan struct{} {
+	if registry.draining == nil {
+		registry.draining = make(map[string]chan struct{})
+	}
+	drained := make(chan struct{})
+	registry.draining[key] = drained
+	return drained
+}
+
+func (registry *Registry) finishDrain(key string, drained chan struct{}) {
+	if drained == nil {
+		return
+	}
+	registry.mu.Lock()
+	if registry.draining[key] == drained {
+		delete(registry.draining, key)
+	}
+	registry.mu.Unlock()
+	close(drained)
+}
+
+// closeDrained closes the physical backend and only then releases the binding
+// so a waiting Resolve reopens it without contending for its files.
+func (registry *Registry) closeDrained(key string, backend sharedBackend, drained chan struct{}) error {
+	var err error
+	if backend != nil {
+		err = backend.Close()
+	}
+	registry.finishDrain(key, drained)
+	return err
 }
 
 func (registry *Registry) publish(key string, entry *registryEntry, backend sharedBackend, err error) {
@@ -160,7 +208,7 @@ func (registry *Registry) acceptResolve(key string, entry *registryEntry) bool {
 	return true
 }
 
-func (registry *Registry) finishFailedResolve(key string, entry *registryEntry) sharedBackend {
+func (registry *Registry) finishFailedResolve(key string, entry *registryEntry) (sharedBackend, chan struct{}) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
 	entry.active--
@@ -171,9 +219,12 @@ func (registry *Registry) finishFailedResolve(key string, entry *registryEntry) 
 		delete(registry.entries, key)
 		entry.closing = true
 		close(entry.idle)
-		return entry.backend
+		if entry.backend == nil {
+			return nil, nil
+		}
+		return entry.backend, registry.beginDrain(key)
 	}
-	return nil
+	return nil, nil
 }
 
 func registryKey(request Request) (string, error) {
@@ -219,6 +270,7 @@ func (lease *registryLease) Close() error {
 			lease.err = lease.logical.Close()
 		}
 		var backend sharedBackend
+		var drained chan struct{}
 		lease.registry.mu.Lock()
 		if lease.registry.entries[lease.key] == lease.entry && !lease.entry.closing {
 			lease.entry.refs--
@@ -226,13 +278,13 @@ func (lease *registryLease) Close() error {
 				delete(lease.registry.entries, lease.key)
 				lease.entry.closing = true
 				close(lease.entry.idle)
-				backend = lease.entry.backend
+				if backend = lease.entry.backend; backend != nil {
+					drained = lease.registry.beginDrain(lease.key)
+				}
 			}
 		}
 		lease.registry.mu.Unlock()
-		if backend != nil {
-			lease.err = errors.Join(lease.err, backend.Close())
-		}
+		lease.err = errors.Join(lease.err, lease.registry.closeDrained(lease.key, backend, drained))
 	})
 	return lease.err
 }
@@ -244,8 +296,13 @@ func (registry *Registry) Close() error {
 	registry.mu.Lock()
 	entries := registry.entries
 	registry.entries = make(map[string]*registryEntry)
-	for _, entry := range entries {
-		if entry == nil || entry.closing {
+	drains := make(map[string]chan struct{}, len(entries))
+	for key, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		drains[key] = registry.beginDrain(key)
+		if entry.closing {
 			continue
 		}
 		entry.closing = true
@@ -255,15 +312,13 @@ func (registry *Registry) Close() error {
 	}
 	registry.mu.Unlock()
 	var result error
-	for _, entry := range entries {
+	for key, entry := range entries {
 		if entry == nil {
 			continue
 		}
 		<-entry.ready
 		<-entry.idle
-		if entry.backend != nil {
-			result = errors.Join(result, entry.backend.Close())
-		}
+		result = errors.Join(result, registry.closeDrained(key, entry.backend, drains[key]))
 	}
 	return result
 }

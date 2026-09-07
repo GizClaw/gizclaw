@@ -364,6 +364,14 @@ export type PeerStatus = {
     gnss_longitude?: number;
     gnss_altitude_m?: number;
     gnss_accuracy_m?: number;
+    /**
+     * Modem hardware IMEI from the latest cellular network telemetry observation: exactly 15 ASCII digits. Owner-scoped; never logged.
+     */
+    network_imei?: string;
+    /**
+     * IMSI of the SIM serving the default packet-data route from the latest cellular network telemetry observation: 6 to 15 ASCII digits. Owner-scoped; never logged.
+     */
+    network_imsi?: string;
     labels?: {
         [key: string]: string;
     };
