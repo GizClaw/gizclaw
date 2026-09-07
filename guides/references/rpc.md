@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 108 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 115 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -171,6 +171,13 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 108 | `client.wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
 | 109 | `client.wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
 | 111 | `client.firmware.update` | 通知设备执行一次 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 声明调用方看到的目标包，与设备解析出的包不一致时设备拒绝。设备在应答后自行下载、校验、写入并重启。 |
+| 113 | `client.device.audioplayer.get` | 读取设备播放器的完整状态：播放状态、当前索引、实际进度、可选时长、循环模式、列表长度与版本。 |
+| 114 | `client.device.audioplayer.playlist.get` | 读取设备当前播放列表与 `playlist_revision`，不读取服务端缓存。 |
+| 115 | `client.device.audioplayer.playlist.set` | 校验并原子替换播放列表（最多 32 项），停止当前播放；空列表清空列表；失败保留原列表与播放。 |
+| 116 | `client.device.audioplayer.playlist.append` | 原子追加 1–32 项并保持总容量 32，保留顺序与重复项；不中断播放，也不自动开始播放，失败后不应自动重试。 |
+| 117 | `client.device.audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
+| 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
+| 119 | `client.device.audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
 
 ## 独立流式语音
 
@@ -191,6 +198,7 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 83 | `server.peer.lookup` | 只读查询指定 Peer 当前的固定 Server assignment。 |
 | 84 | `server.peer.assign` | 原子 claim 缺少 assignment 的 Peer，或刷新同 owner metadata；其他 owner 返回 conflict，`expected_version` 不能转移归属。 |
 | 85 | `server.route.resolve` | 只读解析目标 Peer 当前的固定 Server route/assignment。 |
+| 99 | `server.api_key.resolve` | 认证 Edge 收到的 Bearer credential，并返回其 owner Peer 现有的 assignment；不创建、移动或刷新 assignment。 |
 
 ## 未指定值
 
