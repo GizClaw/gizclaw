@@ -62,7 +62,7 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
 | 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
 
-`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input` 以及 `conversation.initiative`、`conversation.agent_initiative_policy`，未提供的字段保持不变。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；枚举值无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
+`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input` 以及 `conversation.initiative`、`conversation.agent_initiative_policy`（`eino`、`flowcraft` 和 `doubao_realtime` driver），未提供的字段保持不变。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；枚举值无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
 
 ## Workflow、Model 与 Voice catalog
 

@@ -133,6 +133,53 @@ func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
 	}
 }
 
+func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
+	pushToTalk := apitypes.WorkspaceInputModePushToTalk
+	agent := apitypes.ConversationParametersInitiativeAgent
+	policy := apitypes.ConversationParametersAgentInitiativePolicyOnReload
+
+	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDoubaoRealtime, &pushToTalk, &apitypes.ConversationParameters{
+		Initiative:            &agent,
+		AgentInitiativePolicy: &policy,
+	})
+	if err != nil {
+		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
+	}
+	parameters, err := updated.AsDoubaoRealtimeWorkspaceParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parameters.AgentType != apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime || parameters.Input == nil || *parameters.Input != pushToTalk {
+		t.Fatalf("parameters = %+v", parameters)
+	}
+	if parameters.Conversation == nil || parameters.Conversation.Initiative == nil || *parameters.Conversation.Initiative != agent ||
+		parameters.Conversation.AgentInitiativePolicy == nil || *parameters.Conversation.AgentInitiativePolicy != policy {
+		t.Fatalf("conversation = %+v", parameters.Conversation)
+	}
+
+	model := "workspace-dialog"
+	existing := &apitypes.WorkspaceParameters{}
+	if err := existing.FromDoubaoRealtimeWorkspaceParameters(apitypes.DoubaoRealtimeWorkspaceParameters{
+		AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
+		Model:     &model,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	peer := apitypes.ConversationParametersInitiativePeer
+	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer})
+	if err != nil {
+		t.Fatalf("workspaceParametersWithPatch(existing) error = %v", err)
+	}
+	parameters, err = updated.AsDoubaoRealtimeWorkspaceParameters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parameters.Model == nil || *parameters.Model != model || parameters.Conversation == nil ||
+		parameters.Conversation.Initiative == nil || *parameters.Conversation.Initiative != peer {
+		t.Fatalf("patched parameters = %+v", parameters)
+	}
+}
+
 func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 	for _, driver := range []apitypes.WorkflowDriver{
 		apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime,

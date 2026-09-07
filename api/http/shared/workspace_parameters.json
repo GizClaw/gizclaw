@@ -147,6 +147,9 @@
             "type": "string",
             "description": "RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model."
           },
+          "conversation": {
+            "$ref": "#/components/schemas/ConversationParameters"
+          },
           "instructions": {
             "type": "string"
           },

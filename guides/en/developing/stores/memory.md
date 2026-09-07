@@ -54,7 +54,7 @@ Asynchronous `Observe` calls return an operation. Stores implementing `Operation
 
 Provider packages accept in-memory runtime dependencies only. They do not decode YAML, expand environment variables, open configuration files, or choose product identity.
 
-Flowcraft is constructed with one `flowcraft.Config`. The config can inject a `ModelLoader`, retrieval index, temporal store, evidence store, async queue, and side-effect outbox. Injected dependencies remain caller-owned. If a dependency is omitted, the adapter uses Flowcraft's in-memory implementation.
+Flowcraft is constructed with one `flowcraft.Config`. The config can inject a `ModelLoader`, retrieval index, temporal store, evidence store, async queue, and side-effect outbox. Injected dependencies remain caller-owned. If a dependency is omitted, the adapter uses Flowcraft's in-memory implementation. Before a side-effect outbox job reaches the injected outbox, the adapter assigns it a scope-qualified identity (`<scope canonical key>|<request ID>|<kind>`) only when the job carries no ID and has a non-empty request ID; a caller-supplied ID and a job without a request ID pass through unchanged. Flowcraft's own Save batches always arrive without an ID, so concurrent Saves in different scopes that share one outbox never dedupe each other's projection, embedding, or evolution jobs, while replay of one scope's batch stays idempotent.
 
 ```go
 store, err := flowcraft.New(ctx, flowcraft.Config{

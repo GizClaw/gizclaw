@@ -465,6 +465,7 @@ export type DoubaoRealtimeWorkflowSpec = {
   "instructions"?: string;
   "model": string;
   "tools": DoubaoRealtimeFunctionTool[];
+  "initiative_query"?: string;
 };
 export type DoubaoRealtimeWorkspaceParameters = {
   "agent_type": string;
@@ -475,6 +476,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
   "instructions"?: string;
   "model"?: string;
   "tools": DoubaoRealtimeFunctionTool[];
+  "conversation"?: ConversationParameters;
 };
 export type EinoWorkflowSpec = {
   "graph": Record<string, unknown>;
@@ -3594,6 +3596,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      },
+      {
+        "name": "initiative_query",
+        "number": 6,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -3645,6 +3653,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "repeated": true,
         "type": "DoubaoRealtimeFunctionTool"
+      },
+      {
+        "name": "conversation",
+        "number": 9,
+        "optional": true,
+        "type": "ConversationParameters"
       }
     ]
   },

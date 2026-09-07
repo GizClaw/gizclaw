@@ -29,7 +29,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if transformer == nil {
 		return nil, fmt.Errorf("doubaorealtime: transformer is required")
 	}
-	pattern, err := resolveRealtimeModelPattern(spec)
+	pattern, err := resolveRealtimeModelPattern(ctx, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (g
 	return t.Transformer.Transform(ctx, t.Pattern, input)
 }
 
-func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
+func resolveRealtimeModelPattern(ctx context.Context, spec agenthost.Spec) (string, error) {
 	workflowSpec := spec.Workflow.Spec.DoubaoRealtime
 	if workflowSpec == nil {
 		return "", fmt.Errorf("doubaorealtime: workflow doubao_realtime spec is required")
@@ -89,6 +89,10 @@ func resolveRealtimeModelPattern(spec agenthost.Spec) (string, error) {
 			return "", err
 		}
 		params = mergeDoubaoRealtimeWorkspaceParams(params, typed)
+		params, err = applyDoubaoRealtimeInitiative(ctx, spec, typed, params)
+		if err != nil {
+			return "", err
+		}
 	}
 	dialogID := spec.Workspace.Id
 	if dialogID == "" {
@@ -123,10 +127,51 @@ func realtimeWorkflowParams(spec apitypes.DoubaoRealtimeWorkflowSpec) map[string
 	if spec.Extension != nil {
 		params["extension"] = *spec.Extension
 	}
+	if value := stringPtrValue(spec.InitiativeQuery); value != "" {
+		params["initiative_query"] = value
+	}
 	if len(params) == 0 {
 		return nil
 	}
 	return params
+}
+
+// applyDoubaoRealtimeInitiative enables the hidden opening ChatTextQuery when
+// the Workspace conversation initiative is agent. Policy once_when_empty only
+// opens the conversation while the Workspace History is still empty; on_reload
+// (the default) opens it on every Agent generation.
+func applyDoubaoRealtimeInitiative(
+	ctx context.Context,
+	spec agenthost.Spec,
+	typed apitypes.DoubaoRealtimeWorkspaceParameters,
+	params map[string]any,
+) (map[string]any, error) {
+	conversation := typed.Conversation
+	if conversation == nil || conversation.Initiative == nil ||
+		*conversation.Initiative != apitypes.ConversationParametersInitiativeAgent {
+		return params, nil
+	}
+	policy := apitypes.ConversationParametersAgentInitiativePolicyOnReload
+	if conversation.AgentInitiativePolicy != nil {
+		policy = *conversation.AgentInitiativePolicy
+	}
+	if policy == apitypes.ConversationParametersAgentInitiativePolicyOnceWhenEmpty {
+		if spec.Runtime.History == nil {
+			return nil, fmt.Errorf("doubaorealtime: workspace %q history is required for once_when_empty initiative", spec.Workspace.Name)
+		}
+		_, found, err := spec.Runtime.History.LatestEntry(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("doubaorealtime: workspace %q history: %w", spec.Workspace.Name, err)
+		}
+		if found {
+			return params, nil
+		}
+	}
+	if params == nil {
+		params = make(map[string]any)
+	}
+	params["initiative"] = "on_reload"
+	return params, nil
 }
 
 func mergeDoubaoRealtimeWorkspaceParams(params map[string]any, typed apitypes.DoubaoRealtimeWorkspaceParameters) map[string]any {

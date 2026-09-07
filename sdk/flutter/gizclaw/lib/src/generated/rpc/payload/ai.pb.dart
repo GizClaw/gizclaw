@@ -3627,6 +3627,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     $core.String? instructions,
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
+    $core.String? initiativeQuery,
   }) {
     final result = create();
     if (audio != null) result.audio = audio;
@@ -3634,6 +3635,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     if (instructions != null) result.instructions = instructions;
     if (model != null) result.model = model;
     if (tools != null) result.tools.addAll(tools);
+    if (initiativeQuery != null) result.initiativeQuery = initiativeQuery;
     return result;
   }
 
@@ -3658,6 +3660,7 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(5, _omitFieldNames ? '' : 'tools',
         subBuilder: DoubaoRealtimeFunctionTool.create)
+    ..aOS(6, _omitFieldNames ? '' : 'initiativeQuery')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3723,6 +3726,15 @@ class DoubaoRealtimeWorkflowSpec extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(5)
   $pb.PbList<DoubaoRealtimeFunctionTool> get tools => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $core.String get initiativeQuery => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set initiativeQuery($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasInitiativeQuery() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearInitiativeQuery() => $_clearField(6);
 }
 
 class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
@@ -3735,6 +3747,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     $core.String? instructions,
     $core.String? model,
     $core.Iterable<DoubaoRealtimeFunctionTool>? tools,
+    ConversationParameters? conversation,
   }) {
     final result = create();
     if (agentType != null) result.agentType = agentType;
@@ -3745,6 +3758,7 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     if (instructions != null) result.instructions = instructions;
     if (model != null) result.model = model;
     if (tools != null) result.tools.addAll(tools);
+    if (conversation != null) result.conversation = conversation;
     return result;
   }
 
@@ -3776,6 +3790,8 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
     ..aOS(7, _omitFieldNames ? '' : 'model')
     ..pPM<DoubaoRealtimeFunctionTool>(8, _omitFieldNames ? '' : 'tools',
         subBuilder: DoubaoRealtimeFunctionTool.create)
+    ..aOM<ConversationParameters>(9, _omitFieldNames ? '' : 'conversation',
+        subBuilder: ConversationParameters.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3871,6 +3887,17 @@ class DoubaoRealtimeWorkspaceParameters extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(8)
   $pb.PbList<DoubaoRealtimeFunctionTool> get tools => $_getList(7);
+
+  @$pb.TagNumber(9)
+  ConversationParameters get conversation => $_getN(8);
+  @$pb.TagNumber(9)
+  set conversation(ConversationParameters value) => $_setField(9, value);
+  @$pb.TagNumber(9)
+  $core.bool hasConversation() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearConversation() => $_clearField(9);
+  @$pb.TagNumber(9)
+  ConversationParameters ensureConversation() => $_ensure(8);
 }
 
 class ConversationParameters extends $pb.GeneratedMessage {
