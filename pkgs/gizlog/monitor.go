@@ -8,15 +8,26 @@ import (
 	"time"
 )
 
-// MonitorEntry is a bounded recent process log, not a firmware log.
+// MonitorEntry is a bounded recent process log, not a firmware log. Fields
+// carries the record's structured attributes so one request can be followed
+// across records by request_id, peer key, stream identifier and the rest.
 type MonitorEntry struct {
-	ID            uint64    `json:"id"`
-	Time          time.Time `json:"time"`
-	Level         string    `json:"level"`
-	Error         string    `json:"error,omitempty"`
-	Message       string    `json:"message"`
-	PeerPublicKey string    `json:"peer_public_key,omitempty"`
+	ID            uint64            `json:"id"`
+	Time          time.Time         `json:"time"`
+	Level         string            `json:"level"`
+	Error         string            `json:"error,omitempty"`
+	Message       string            `json:"message"`
+	PeerPublicKey string            `json:"peer_public_key,omitempty"`
+	Fields        map[string]string `json:"fields,omitempty"`
 }
+
+// Structured attributes are bounded per record so a chatty caller cannot grow
+// the ring beyond its memory budget.
+const (
+	monitorMaxFields   = 24
+	monitorMaxFieldKey = 64
+	monitorMaxFieldLen = 512
+)
 
 var monitorLogs struct {
 	sync.Mutex
@@ -41,14 +52,33 @@ func (h *monitorHandler) Handle(ctx context.Context, r slog.Record) error {
 	if len(entry.Message) > 4096 {
 		entry.Message = entry.Message[:4096]
 	}
-	// Identity is taken only from the trusted logging context, never caller attributes.
+	// Identity is taken only from the trusted logging context, never caller
+	// attributes: a caller-supplied peer_public_key stays an ordinary field.
 	read := func(a slog.Attr) {
 		if a.Key == "error" {
 			entry.Error = a.Value.Resolve().String()
 			if len(entry.Error) > 4096 {
 				entry.Error = entry.Error[:4096]
 			}
+			return
 		}
+		if a.Key == "" || a.Key == "peer_public_key" || len(a.Key) > monitorMaxFieldKey {
+			return
+		}
+		value := a.Value.Resolve().String()
+		if value == "" {
+			return
+		}
+		if len(value) > monitorMaxFieldLen {
+			value = value[:monitorMaxFieldLen]
+		}
+		if entry.Fields == nil {
+			entry.Fields = make(map[string]string, 8)
+		}
+		if _, ok := entry.Fields[a.Key]; !ok && len(entry.Fields) >= monitorMaxFields {
+			return
+		}
+		entry.Fields[a.Key] = strings.ToValidUTF8(value, "\uFFFD")
 	}
 	for _, a := range h.attrs {
 		read(a)
@@ -76,6 +106,14 @@ func ReadMonitorLogs(peer string) []MonitorEntry {
 		e := monitorLogs.entries[(id-1)%500]
 		if peer == "" || e.PeerPublicKey == peer {
 			e.Message = strings.ToValidUTF8(e.Message, "�")
+			// Callers must not be able to edit the retained record.
+			if len(e.Fields) > 0 {
+				fields := make(map[string]string, len(e.Fields))
+				for key, value := range e.Fields {
+					fields[key] = value
+				}
+				e.Fields = fields
+			}
 			result = append(result, e)
 		}
 	}

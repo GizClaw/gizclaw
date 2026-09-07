@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* Warm GizClaw palette shared with the embedded Monitor (web/monitor/DESIGN.md):
+   canvas #faf9f5, card #fffdf9, ink #141413, muted #6c6a64, hairline #e6dfd8,
+   terracotta accent #cc785c, warm dark #181715 for log surfaces. */
+:root {
+  --radius: 0.75rem;
+  --background: #faf9f5;
+  --foreground: #141413;
+  --card: #fffdf9;
+  --card-foreground: #141413;
+  --popover: #fffdf9;
+  --popover-foreground: #141413;
+  --primary: #cc785c;
+  --primary-foreground: #fffdf9;
+  --secondary: #f3f0e9;
+  --secondary-foreground: #3d3d3a;
+  --muted: #f3f0e9;
+  --muted-foreground: #6c6a64;
+  --accent: #e9e3d8;
+  --accent-foreground: #252523;
+  --destructive: #a14b36;
+  --destructive-foreground: #fff0eb;
+  --success: #5f956c;
+  --warning: #a27235;
+  --border: #e6dfd8;
+  --input: #e6dfd8;
+  --ring: #cc785c;
+  --chart-rx: #438e80;
+  --chart-tx: #cc785c;
+  --surface-dark: #181715;
+  --surface-dark-foreground: #c8c0b2;
+  --surface-dark-border: #322f29;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-rx: var(--chart-rx);
+  --color-chart-tx: var(--chart-tx);
+  --color-surface-dark: var(--surface-dark);
+  --color-surface-dark-foreground: var(--surface-dark-foreground);
+  --color-surface-dark-border: var(--surface-dark-border);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --font-serif: Georgia, "Songti SC", serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    font-size: 14px;
+  }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+      Inter,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      "PingFang SC",
+      sans-serif;
+    font-synthesis: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
