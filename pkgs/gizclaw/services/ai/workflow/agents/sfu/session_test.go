@@ -489,9 +489,13 @@ func TestTransformUplinkForwardsOpusFrames(t *testing.T) {
 		t.Fatalf("output chunks = %d, want 0", len(chunks))
 	}
 	waitFor(t, func() bool { return client.disconnects() == 1 }, "disconnect")
-	if _, attached := h.agent.SessionStatus(testPeer); attached {
-		t.Fatal("session still registered after cancel")
-	}
+	// The session goroutine deregisters itself after it disconnects the
+	// client, so the disconnect count reaching one does not yet order the
+	// registry delete.
+	waitFor(t, func() bool {
+		_, attached := h.agent.SessionStatus(testPeer)
+		return !attached
+	}, "deregistration after cancel")
 }
 
 // TestUplinkPushToTalkSegmentsPerPress covers the push-to-talk input mode:
@@ -1118,9 +1122,10 @@ func TestTransformRevokesWhenMembershipIsLost(t *testing.T) {
 	if client.sampleCount() != before {
 		t.Fatal("audio forwarded after the membership was revoked")
 	}
-	if status, attached := h.agent.SessionStatus(testPeer); attached {
-		t.Fatalf("session still attached: %+v", status)
-	}
+	waitFor(t, func() bool {
+		_, attached := h.agent.SessionStatus(testPeer)
+		return !attached
+	}, "deregistration after revocation")
 }
 
 func TestTransformRevokesOnResolverError(t *testing.T) {
