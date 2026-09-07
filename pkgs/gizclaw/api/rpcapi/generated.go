@@ -2286,6 +2286,8 @@ type PeerStatus struct {
 	GnssLongitude  *float32                 `json:"gnss_longitude,omitempty"`
 	Labels         *map[string]string       `json:"labels,omitempty"`
 	Muted          *bool                    `json:"muted,omitempty"`
+	NetworkImei    *string                  `json:"network_imei,omitempty"`
+	NetworkImsi    *string                  `json:"network_imsi,omitempty"`
 	ReportedAt     *time.Time               `json:"reported_at,omitempty"`
 	Volume         *int                     `json:"volume,omitempty"`
 }

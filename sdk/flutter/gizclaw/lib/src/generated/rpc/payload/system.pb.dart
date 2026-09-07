@@ -2002,6 +2002,8 @@ class PeerStatus extends $pb.GeneratedMessage {
     $core.String? firmwareSha256,
     PeerOtaStatus? ota,
     $1.AudioPlayerStatus? audioplayer,
+    $core.String? networkImei,
+    $core.String? networkImsi,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -2018,6 +2020,8 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (firmwareSha256 != null) result.firmwareSha256 = firmwareSha256;
     if (ota != null) result.ota = ota;
     if (audioplayer != null) result.audioplayer = audioplayer;
+    if (networkImei != null) result.networkImei = networkImei;
+    if (networkImsi != null) result.networkImsi = networkImsi;
     return result;
   }
 
@@ -2055,6 +2059,8 @@ class PeerStatus extends $pb.GeneratedMessage {
         subBuilder: PeerOtaStatus.create)
     ..aOM<$1.AudioPlayerStatus>(14, _omitFieldNames ? '' : 'audioplayer',
         subBuilder: $1.AudioPlayerStatus.create)
+    ..aOS(15, _omitFieldNames ? '' : 'networkImei')
+    ..aOS(16, _omitFieldNames ? '' : 'networkImsi')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2200,6 +2206,24 @@ class PeerStatus extends $pb.GeneratedMessage {
   void clearAudioplayer() => $_clearField(14);
   @$pb.TagNumber(14)
   $1.AudioPlayerStatus ensureAudioplayer() => $_ensure(13);
+
+  @$pb.TagNumber(15)
+  $core.String get networkImei => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set networkImei($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasNetworkImei() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearNetworkImei() => $_clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.String get networkImsi => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set networkImsi($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasNetworkImsi() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearNetworkImsi() => $_clearField(16);
 }
 
 class PingRequest extends $pb.GeneratedMessage {

@@ -48,6 +48,13 @@ typedef struct {
   gzc_str_t operator_name;
   bool has_connected;
   bool connected;
+  // Cellular subscriber identity. imei is exactly 15 ASCII digits and imsi is
+  // 6 to 15 ASCII digits; both are rejected when rat is "wifi". Strings are
+  // borrowed for the duration of the encode/send call.
+  bool has_imei;
+  gzc_str_t imei;
+  bool has_imsi;
+  gzc_str_t imsi;
 } gzc_telemetry_network_t;
 
 typedef struct {

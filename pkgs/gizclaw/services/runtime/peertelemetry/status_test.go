@@ -207,3 +207,105 @@ func TestApplyDeviceStatusRejectsMalformedFirmwareDigest(t *testing.T) {
 		t.Fatalf("firmware_sha256 = %v, want none", got.FirmwareSha256)
 	}
 }
+
+func TestSyncTelemetryStatusNetworkIdentityOrdering(t *testing.T) {
+	store := &memoryStatusStore{}
+	sync := StatusSync{Store: store}
+	peer := giznet.PublicKey{5}
+	base := time.Date(2026, 9, 4, 8, 0, 0, 0, time.UTC)
+	imei := "490154203237518"
+	imsi := "460001234567890"
+
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: base, NetworkIMEI: &imei, NetworkIMEIAt: base, NetworkIMSI: &imsi, NetworkIMSIAt: base,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := store.status[peer]
+	if got.NetworkImei == nil || *got.NetworkImei != imei || got.NetworkImsi == nil || *got.NetworkImsi != imsi {
+		t.Fatalf("stored identity = %+v", got)
+	}
+	if at, ok := telemetryStatusFieldTime(got, telemetryStatusNetworkIMSIAtKey); !ok || !at.Equal(base) {
+		t.Fatalf("network_imsi_at = %v, %v", at, ok)
+	}
+	if store.puts != 1 {
+		t.Fatalf("puts = %d, want 1", store.puts)
+	}
+
+	// An older observation never overwrites the newer stored value.
+	stale := base.Add(-time.Minute)
+	staleIMSI := "460009999999999"
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: stale, NetworkIMSI: &staleIMSI, NetworkIMSIAt: stale,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got = store.status[peer]
+	if *got.NetworkImsi != imsi || store.puts != 1 {
+		t.Fatalf("stale observation rewrote status: %+v puts=%d", got, store.puts)
+	}
+
+	// The same value at the same time is a no-op.
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: base, NetworkIMEI: &imei, NetworkIMEIAt: base,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if store.puts != 1 {
+		t.Fatalf("unchanged identity rewrote status: puts=%d", store.puts)
+	}
+
+	// The same value at a later time only refreshes the field timestamp.
+	later := base.Add(time.Minute)
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: later, NetworkIMEI: &imei, NetworkIMEIAt: later,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got = store.status[peer]
+	if *got.NetworkImei != imei || store.puts != 2 {
+		t.Fatalf("equal identity refresh: %+v puts=%d", got, store.puts)
+	}
+	if at, ok := telemetryStatusFieldTime(got, telemetryStatusNetworkIMEIAtKey); !ok || !at.Equal(later) {
+		t.Fatalf("network_imei_at after refresh = %v, %v, want %v", at, ok, later)
+	}
+	if at, ok := telemetryStatusFieldTime(got, telemetryStatusNetworkIMSIAtKey); !ok || !at.Equal(base) {
+		t.Fatalf("network_imsi_at must stay %v, got %v, %v", base, at, ok)
+	}
+	if !got.ReportedAt.Equal(later) {
+		t.Fatalf("reported_at = %v, want %v", got.ReportedAt, later)
+	}
+
+	// A SIM swap replaces the IMSI and leaves the IMEI in place; the identity
+	// is never cleared by telemetry that omits it.
+	swapped := "460001111111111"
+	swapAt := later.Add(time.Minute)
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: swapAt, NetworkIMSI: &swapped, NetworkIMSIAt: swapAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got = store.status[peer]
+	if *got.NetworkImsi != swapped || *got.NetworkImei != imei {
+		t.Fatalf("sim swap = %+v", got)
+	}
+	if err := sync.SyncTelemetryStatus(context.Background(), peer, StatusPatch{
+		ReportedAt: swapAt.Add(time.Minute), BatteryPercent: new(50), BatteryPercentAt: swapAt.Add(time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got = store.status[peer]
+	if got.NetworkImsi == nil || got.NetworkImei == nil {
+		t.Fatalf("identity cleared by unrelated telemetry: %+v", got)
+	}
+
+	// Control responses never overwrite a newer telemetry identity.
+	stale = swapAt.Add(-time.Second)
+	if _, err := sync.ApplyDeviceStatus(context.Background(), peer, apitypes.PeerStatus{Volume: new(9), ReportedAt: &stale}, swapAt.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	got = store.status[peer]
+	if *got.NetworkImsi != swapped || *got.Volume != 9 {
+		t.Fatalf("control response = %+v", got)
+	}
+}

@@ -48,6 +48,8 @@ export type NetworkObservation = {
   rat?: string;
   operator?: string;
   connected?: boolean;
+  imei?: string;
+  imsi?: string;
 };
 
 export type SystemObservation = {
@@ -167,6 +169,12 @@ function encodeNetworkObservation(message: NetworkObservation): Uint8Array {
   }
   if (message.connected != null) {
     writer.bool(5, message.connected);
+  }
+  if (message.imei != null) {
+    writer.string(6, message.imei);
+  }
+  if (message.imsi != null) {
+    writer.string(7, message.imsi);
   }
   return writer.finish();
 }

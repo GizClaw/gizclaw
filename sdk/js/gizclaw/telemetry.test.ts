@@ -85,3 +85,18 @@ test("RPC status without an OTA snapshot omits ota", () => {
     response,
   );
 });
+
+test("RPC status round-trips cellular identity strings", () => {
+  const response = {
+    labels: {},
+    network_imei: "490154203237518",
+    network_imsi: "460001234567890",
+  };
+  assert.deepEqual(
+    decodeRPCResponsePayload(
+      "server.status.get",
+      encodeRPCResponsePayload("server.status.get", response),
+    ),
+    response,
+  );
+});

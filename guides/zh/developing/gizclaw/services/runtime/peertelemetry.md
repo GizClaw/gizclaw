@@ -28,4 +28,6 @@ flowchart LR
 
 Telemetry schema 属于 `api/proto/telemetry`，metrics persistence 属于 `pkgs/store/metrics`。本 package 只拥有解码、映射和同步策略。
 
+Network observation 的 `imei` / `imsi` 经模式与蜂窝路由校验后进入 `StatusPatch`，由 `StatusSync` 以逐字段观测时间合并到 `PeerStatus.network_imei` / `network_imsi`，不写指标、不写日志；规则见 [Telemetry API](/zh/developing/api/proto/telemetry#network-上报)。
+
 OTA observation 校验后由 `StatusSync` 写入可查询的 runtime OTA 状态，不记录 payload 日志，也不映射为 metrics；字段和 SDK 用法见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。

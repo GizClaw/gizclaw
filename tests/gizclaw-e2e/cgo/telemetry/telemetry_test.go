@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	cgointernal "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cgo/internal"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
@@ -75,6 +76,32 @@ func TestCSDKTelemetryPersistsForAdminQueries(t *testing.T) {
 	requireTelemetryValue(t, latest.JSON200.Values, apitypes.PeerTelemetryFieldGnssLatitude, 31.2304)
 	requireTelemetryValue(t, latest.JSON200.Values, apitypes.PeerTelemetryFieldNetworkRssiDbm, -67)
 	requireTelemetryValue(t, latest.JSON200.Values, apitypes.PeerTelemetryFieldSystemTemperatureC, 36.5)
+
+	// The cellular identity is not a metric; it rides on the owner-scoped
+	// PeerStatus that server.status.get returns, with per-field observation
+	// timestamps under details.telemetry_status.
+	var status rpcpb.ServerGetStatusResponse
+	statusDeadline := time.Now().Add(10 * time.Second)
+	for {
+		if err := client.CallRPC(rpcpb.RpcMethod_RPC_METHOD_SERVER_STATUS_GET, &rpcpb.ServerGetStatusRequest{}, &status); err != nil {
+			t.Fatalf("server.status.get: %v", err)
+		}
+		if status.GetValue().GetNetworkImei() == cgointernal.FullTelemetryNetworkIMEI &&
+			status.GetValue().GetNetworkImsi() == cgointernal.FullTelemetryNetworkIMSI {
+			break
+		}
+		if time.Now().After(statusDeadline) {
+			t.Fatalf("server.status.get did not expose the C SDK network identity: network_imei set=%t network_imsi set=%t",
+				status.GetValue().NetworkImei != nil, status.GetValue().NetworkImsi != nil)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	telemetryStatus := status.GetValue().GetDetails().GetFields()["telemetry_status"].GetStructValue().GetFields()
+	for _, key := range []string{"network_imei_at_unix_ms", "network_imsi_at_unix_ms"} {
+		if _, ok := telemetryStatus[key]; !ok {
+			t.Fatalf("server.status.get details.telemetry_status missing %s: %v", key, telemetryStatus)
+		}
+	}
 }
 
 func hasTelemetryValue(values []apitypes.PeerTelemetryValue, field apitypes.PeerTelemetryField, want float64) bool {

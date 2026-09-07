@@ -5175,6 +5175,12 @@ type PeerStatus struct {
 	Labels         *map[string]string `json:"labels,omitempty"`
 	Muted          *bool              `json:"muted,omitempty"`
 
+	// NetworkImei Modem hardware IMEI from the latest cellular network telemetry observation: exactly 15 ASCII digits. Owner-scoped; never logged.
+	NetworkImei *string `json:"network_imei,omitempty"`
+
+	// NetworkImsi IMSI of the SIM serving the default packet-data route from the latest cellular network telemetry observation: 6 to 15 ASCII digits. Owner-scoped; never logged.
+	NetworkImsi *string `json:"network_imsi,omitempty"`
+
 	// Ota Latest device-reported OTA attempt snapshot, retained across disconnects.
 	Ota        *PeerOtaStatus `json:"ota,omitempty"`
 	ReportedAt *time.Time     `json:"reported_at,omitempty"`
