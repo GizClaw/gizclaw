@@ -37,6 +37,8 @@ const (
 	telemetryStatusGNSSLongitudeAtKey  = "gnss_longitude_at_unix_ms"
 	telemetryStatusGNSSAltitudeMAtKey  = "gnss_altitude_m_at_unix_ms"
 	telemetryStatusGNSSAccuracyMAtKey  = "gnss_accuracy_m_at_unix_ms"
+	telemetryStatusNetworkIMEIAtKey    = "network_imei_at_unix_ms"
+	telemetryStatusNetworkIMSIAtKey    = "network_imsi_at_unix_ms"
 )
 
 func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicKey, patch StatusPatch) error {
@@ -192,7 +194,40 @@ func applyTelemetryStatusPatch(status *apitypes.PeerStatus, patch StatusPatch) b
 		setTelemetryStatusFieldTime(status, telemetryStatusGNSSAccuracyMAtKey, patch.GNSSAccuracyMAt, patch.ReportedAt)
 		changed = true
 	}
+	if applyTelemetryStatusIdentity(status, &status.NetworkImei, telemetryStatusNetworkIMEIAtKey, patch.NetworkIMEI, patch.NetworkIMEIAt, patch.ReportedAt) {
+		changed = true
+	}
+	if applyTelemetryStatusIdentity(status, &status.NetworkImsi, telemetryStatusNetworkIMSIAtKey, patch.NetworkIMSI, patch.NetworkIMSIAt, patch.ReportedAt) {
+		changed = true
+	}
 	return changed
+}
+
+// applyTelemetryStatusIdentity merges one cellular identity string with the
+// same per-field observation ordering as battery and GNSS. An observation that
+// repeats the stored value only refreshes the field timestamp; when neither the
+// value nor the timestamp moves, the status is reported unchanged so the store
+// is not rewritten.
+func applyTelemetryStatusIdentity(status *apitypes.PeerStatus, current **string, fieldKey string, value *string, fieldAt time.Time, fallback time.Time) bool {
+	if value == nil || !shouldApplyTelemetryStatusField(*status, fieldKey, *current == nil, fieldAt, fallback) {
+		return false
+	}
+	at := fieldAt
+	if at.IsZero() {
+		at = fallback
+	}
+	changed := *current == nil || **current != *value
+	if !changed && !at.IsZero() {
+		storedAt, ok := telemetryStatusFieldTime(*status, fieldKey)
+		changed = !ok || !storedAt.Equal(at.UTC().Truncate(time.Millisecond))
+	}
+	if !changed {
+		return false
+	}
+	next := *value
+	*current = &next
+	setTelemetryStatusFieldTime(status, fieldKey, fieldAt, fallback)
+	return true
 }
 
 func shouldApplyTelemetryStatusField(status apitypes.PeerStatus, fieldKey string, currentMissing bool, fieldAt time.Time, fallback time.Time) bool {

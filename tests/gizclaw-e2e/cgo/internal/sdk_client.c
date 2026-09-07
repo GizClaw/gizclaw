@@ -1013,6 +1013,10 @@ int gzc_cgo_session_send_full_telemetry(
   observations[2].network.operator_name = gzc_str_from_cstr("test-operator");
   observations[2].network.has_connected = true;
   observations[2].network.connected = true;
+  observations[2].network.has_imei = true;
+  observations[2].network.imei = gzc_str_from_cstr("490154203237518");
+  observations[2].network.has_imsi = true;
+  observations[2].network.imsi = gzc_str_from_cstr("460001234567890");
 
   observations[3].observed_at_delta_ms = 30;
   observations[3].kind = GZC_TELEMETRY_OBSERVATION_SYSTEM;

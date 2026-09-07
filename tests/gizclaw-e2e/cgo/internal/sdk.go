@@ -566,6 +566,15 @@ func (c *Client) SendBatteryTelemetry(percent float64, charging bool) error {
 	return nil
 }
 
+// FullTelemetryNetworkIMEI and FullTelemetryNetworkIMSI are the cellular
+// identity strings carried by the network observation of SendFullTelemetry.
+const (
+	FullTelemetryNetworkIMEI = "490154203237518"
+	FullTelemetryNetworkIMSI = "460001234567890"
+)
+
+// SendFullTelemetry sends one frame with battery, GNSS, network and system
+// observations, including the cellular IMEI/IMSI on the network observation.
 func (c *Client) SendFullTelemetry() error {
 	if c == nil || c.session == nil {
 		return fmt.Errorf("closed C SDK client")
@@ -833,7 +842,8 @@ func CSDKServerStatus(t *testing.T, identityDir string) {
 		mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_STATUS_GET, &rpcpb.ServerGetStatusRequest{}, &getResponse)
 		status := getResponse.GetValue()
 		if status != nil && status.BatteryPercent != nil && status.GetBatteryPercent() == 91 &&
-			status.Charging != nil && status.GetCharging() {
+			status.Charging != nil && status.GetCharging() &&
+			status.GetNetworkImei() == FullTelemetryNetworkIMEI && status.GetNetworkImsi() == FullTelemetryNetworkIMSI {
 			return
 		}
 		if time.Now().After(deadline) {

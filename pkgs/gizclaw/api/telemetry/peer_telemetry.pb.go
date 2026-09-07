@@ -420,12 +420,17 @@ func (x *GnssObservation) GetAccuracyM() float64 {
 }
 
 type NetworkObservation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RssiDbm       *float64               `protobuf:"fixed64,1,opt,name=rssi_dbm,json=rssiDbm,proto3,oneof" json:"rssi_dbm,omitempty"`
-	SignalLevel   *float64               `protobuf:"fixed64,2,opt,name=signal_level,json=signalLevel,proto3,oneof" json:"signal_level,omitempty"`
-	Rat           *string                `protobuf:"bytes,3,opt,name=rat,proto3,oneof" json:"rat,omitempty"`
-	Operator      *string                `protobuf:"bytes,4,opt,name=operator,proto3,oneof" json:"operator,omitempty"`
-	Connected     *bool                  `protobuf:"varint,5,opt,name=connected,proto3,oneof" json:"connected,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	RssiDbm     *float64               `protobuf:"fixed64,1,opt,name=rssi_dbm,json=rssiDbm,proto3,oneof" json:"rssi_dbm,omitempty"`
+	SignalLevel *float64               `protobuf:"fixed64,2,opt,name=signal_level,json=signalLevel,proto3,oneof" json:"signal_level,omitempty"`
+	Rat         *string                `protobuf:"bytes,3,opt,name=rat,proto3,oneof" json:"rat,omitempty"`
+	Operator    *string                `protobuf:"bytes,4,opt,name=operator,proto3,oneof" json:"operator,omitempty"`
+	Connected   *bool                  `protobuf:"varint,5,opt,name=connected,proto3,oneof" json:"connected,omitempty"`
+	// Modem hardware identity: exactly 15 ASCII digits. Cellular routes only.
+	Imei *string `protobuf:"bytes,6,opt,name=imei,proto3,oneof" json:"imei,omitempty"`
+	// Identity of the SIM serving the default packet-data route: 6 to 15 ASCII
+	// digits. Cellular routes only; unset when no SIM is readable.
+	Imsi          *string `protobuf:"bytes,7,opt,name=imsi,proto3,oneof" json:"imsi,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -493,6 +498,20 @@ func (x *NetworkObservation) GetConnected() bool {
 		return *x.Connected
 	}
 	return false
+}
+
+func (x *NetworkObservation) GetImei() string {
+	if x != nil && x.Imei != nil {
+		return *x.Imei
+	}
+	return ""
+}
+
+func (x *NetworkObservation) GetImsi() string {
+	if x != nil && x.Imsi != nil {
+		return *x.Imsi
+	}
+	return ""
 }
 
 type SystemObservation struct {
@@ -815,19 +834,23 @@ const file_api_proto_telemetry_peer_telemetry_proto_rawDesc = "" +
 	"\n" +
 	"accuracy_m\x18\x04 \x01(\x01H\x01R\taccuracyM\x88\x01\x01B\r\n" +
 	"\v_altitude_mB\r\n" +
-	"\v_accuracy_m\"\xf8\x01\n" +
+	"\v_accuracy_m\"\xbc\x02\n" +
 	"\x12NetworkObservation\x12\x1e\n" +
 	"\brssi_dbm\x18\x01 \x01(\x01H\x00R\arssiDbm\x88\x01\x01\x12&\n" +
 	"\fsignal_level\x18\x02 \x01(\x01H\x01R\vsignalLevel\x88\x01\x01\x12\x15\n" +
 	"\x03rat\x18\x03 \x01(\tH\x02R\x03rat\x88\x01\x01\x12\x1f\n" +
 	"\boperator\x18\x04 \x01(\tH\x03R\boperator\x88\x01\x01\x12!\n" +
-	"\tconnected\x18\x05 \x01(\bH\x04R\tconnected\x88\x01\x01B\v\n" +
+	"\tconnected\x18\x05 \x01(\bH\x04R\tconnected\x88\x01\x01\x12\x17\n" +
+	"\x04imei\x18\x06 \x01(\tH\x05R\x04imei\x88\x01\x01\x12\x17\n" +
+	"\x04imsi\x18\a \x01(\tH\x06R\x04imsi\x88\x01\x01B\v\n" +
 	"\t_rssi_dbmB\x0f\n" +
 	"\r_signal_levelB\x06\n" +
 	"\x04_ratB\v\n" +
 	"\t_operatorB\f\n" +
 	"\n" +
-	"_connected\"\xa4\x03\n" +
+	"_connectedB\a\n" +
+	"\x05_imeiB\a\n" +
+	"\x05_imsi\"\xa4\x03\n" +
 	"\x11SystemObservation\x12*\n" +
 	"\x0euptime_seconds\x18\x01 \x01(\x01H\x00R\ruptimeSeconds\x88\x01\x01\x12/\n" +
 	"\x11free_memory_bytes\x18\x02 \x01(\x01H\x01R\x0ffreeMemoryBytes\x88\x01\x01\x12(\n" +
