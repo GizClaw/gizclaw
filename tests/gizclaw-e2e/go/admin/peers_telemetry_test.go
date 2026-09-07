@@ -4,14 +4,18 @@ package admin_test
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	clitest "github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/cmd"
 )
 
@@ -95,6 +99,115 @@ func TestPeerTelemetryAdminQueriesFromProtocolPath(t *testing.T) {
 	if len(aggregate.JSON200.Points) == 0 {
 		t.Fatalf("aggregate returned no buckets")
 	}
+
+	// The cellular identity is exposed through PeerStatus rather than the
+	// metric query enum, and the latest observation wins.
+	latestIMSI := peerTelemetryFixtureIMSI(11)
+	status := waitForPeerStatusNetworkIdentity(t, ctx, peer, peerTelemetryFixtureIMEI, latestIMSI)
+	latestAt := start.Add(11 * 2 * time.Minute)
+	requireTelemetryStatusFieldTime(t, status, "network_imei_at_unix_ms", latestAt)
+	requireTelemetryStatusFieldTime(t, status, "network_imsi_at_unix_ms", latestAt)
+
+	// An older observation never overwrites the newer stored identity, and a
+	// rejected frame (identity on a Wi-Fi route) leaves no partial write.
+	staleIMSI := "460009999999999"
+	rat := "lte"
+	wifi := "wifi"
+	staleAt := start.Add(-time.Hour)
+	if err := peer.SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Sequence:         100,
+		ObservedAtUnixMs: staleAt.UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Rat: &rat, Imsi: &staleIMSI}},
+		}},
+	}); err != nil {
+		t.Fatalf("send stale telemetry frame: %v", err)
+	}
+	wifiIMEI := "111111111111111"
+	if err := peer.SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Sequence:         101,
+		ObservedAtUnixMs: now.UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Network{Network: &telemetrypb.NetworkObservation{Rat: &wifi, Imei: &wifiIMEI}},
+		}},
+	}); err != nil {
+		t.Fatalf("send wifi telemetry frame: %v", err)
+	}
+	// A later battery frame proves the stale and rejected frames were processed.
+	marker := 99.0
+	markerAt := now.Add(time.Second)
+	if err := peer.SendTelemetryFrame(&telemetrypb.TelemetryFrame{
+		Sequence:         102,
+		ObservedAtUnixMs: markerAt.UnixMilli(),
+		Observations: []*telemetrypb.Observation{{
+			Body: &telemetrypb.Observation_Battery{Battery: &telemetrypb.BatteryObservation{Percent: &marker}},
+		}},
+	}); err != nil {
+		t.Fatalf("send marker telemetry frame: %v", err)
+	}
+	waitForTelemetryLatest(t, ctx, api, peerKey, "battery.percent", 99)
+	status, err = peer.GetServerStatus(ctx, "status-after-stale")
+	if err != nil {
+		t.Fatalf("server.status.get: %v", err)
+	}
+	if status.NetworkImsi == nil || *status.NetworkImsi != latestIMSI || status.NetworkImei == nil || *status.NetworkImei != peerTelemetryFixtureIMEI {
+		t.Fatalf("stale or rejected frames changed the stored identity: imei set=%t imsi set=%t", status.NetworkImei != nil, status.NetworkImsi != nil)
+	}
+	requireTelemetryStatusFieldTime(t, status, "network_imsi_at_unix_ms", latestAt)
+}
+
+const peerTelemetryFixtureIMEI = "490154203237518"
+
+func peerTelemetryFixtureIMSI(index int) string {
+	return fmt.Sprintf("46000123456%04d", index)
+}
+
+func waitForPeerStatusNetworkIdentity(t *testing.T, ctx context.Context, peer *gizcli.Client, imei, imsi string) *rpcapi.ServerGetStatusResponse {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		status, err := peer.GetServerStatus(ctx, "status-network-identity")
+		if err == nil && status != nil && status.NetworkImei != nil && *status.NetworkImei == imei &&
+			status.NetworkImsi != nil && *status.NetworkImsi == imsi {
+			return status
+		}
+		if time.Now().After(deadline) {
+			if err != nil {
+				t.Fatalf("server.status.get did not expose the network identity: %v", err)
+			}
+			t.Fatalf("server.status.get did not expose the network identity: imei set=%t imsi set=%t",
+				status != nil && status.NetworkImei != nil, status != nil && status.NetworkImsi != nil)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func requireTelemetryStatusFieldTime(t *testing.T, status *rpcapi.ServerGetStatusResponse, key string, want time.Time) {
+	t.Helper()
+	if status.Details == nil {
+		t.Fatalf("status details missing for %s", key)
+	}
+	fields, _ := (*status.Details)["telemetry_status"].(map[string]any)
+	raw, ok := fields[key]
+	if !ok {
+		t.Fatalf("details.telemetry_status missing %s: %v", key, fields)
+	}
+	var unixMS int64
+	switch v := raw.(type) {
+	case string:
+		parsed, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			t.Fatalf("details.telemetry_status.%s = %q is not unix ms", key, v)
+		}
+		unixMS = parsed
+	case float64:
+		unixMS = int64(v)
+	default:
+		t.Fatalf("details.telemetry_status.%s = %#v", key, raw)
+	}
+	if unixMS != want.UnixMilli() {
+		t.Fatalf("details.telemetry_status.%s = %d, want %d", key, unixMS, want.UnixMilli())
+	}
 }
 
 func peerTelemetryFixtureFrame(sequence uint32, at time.Time, index int) *telemetrypb.TelemetryFrame {
@@ -109,6 +222,9 @@ func peerTelemetryFixtureFrame(sequence uint32, at time.Time, index int) *teleme
 	uptime := 3600 + float64(index*120)
 	freeMemory := 64*1024*1024 - float64(index*128*1024)
 	temperature := 35.5 + float64(index)/10
+	rat := "lte"
+	imei := peerTelemetryFixtureIMEI
+	imsi := peerTelemetryFixtureIMSI(index)
 	return &telemetrypb.TelemetryFrame{
 		Sequence:         sequence,
 		ObservedAtUnixMs: at.UnixMilli(),
@@ -133,6 +249,9 @@ func peerTelemetryFixtureFrame(sequence uint32, at time.Time, index int) *teleme
 					RssiDbm:     &rssi,
 					SignalLevel: &signal,
 					Connected:   &connected,
+					Rat:         &rat,
+					Imei:        &imei,
+					Imsi:        &imsi,
 				}},
 			},
 			{

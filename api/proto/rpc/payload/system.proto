@@ -173,6 +173,8 @@ message PeerStatus {
   optional bool muted = 9;
   optional string reported_at = 10;
   optional int64 volume = 11;
+  optional string network_imei = 15;
+  optional string network_imsi = 16;
 }
 
 message PingRequest {

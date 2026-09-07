@@ -211,6 +211,10 @@ typedef struct _gizclaw_rpc_v1_PeerStatus {
     gizclaw_rpc_v1_PeerOtaStatus ota;
     bool has_audioplayer;
     gizclaw_rpc_v1_AudioPlayerStatus audioplayer;
+    bool has_network_imei;
+    char network_imei[16];
+    bool has_network_imsi;
+    char network_imsi[16];
 } gizclaw_rpc_v1_PeerStatus;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
@@ -389,7 +393,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default}
+#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, google_protobuf_Struct_init_default, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default, false, "", false, ""}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
@@ -447,7 +451,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero}
+#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, google_protobuf_Struct_init_zero, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero, false, "", false, ""}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
@@ -538,6 +542,8 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_firmware_sha256_tag 12
 #define gizclaw_rpc_v1_PeerStatus_ota_tag        13
 #define gizclaw_rpc_v1_PeerStatus_audioplayer_tag 14
+#define gizclaw_rpc_v1_PeerStatus_network_imei_tag 15
+#define gizclaw_rpc_v1_PeerStatus_network_imsi_tag 16
 #define gizclaw_rpc_v1_ClientDeviceStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ClientDeviceVolumeSetResponse_value_tag 1
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_key_tag 1
@@ -792,7 +798,9 @@ X(a, CALLBACK, OPTIONAL, STRING,   reported_at,      10) \
 X(a, STATIC,   OPTIONAL, INT64,    volume,           11) \
 X(a, STATIC,   OPTIONAL, STRING,   firmware_sha256,  12) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  ota,              13) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  audioplayer,      14)
+X(a, STATIC,   OPTIONAL, MESSAGE,  audioplayer,      14) \
+X(a, STATIC,   OPTIONAL, STRING,   network_imei,     15) \
+X(a, STATIC,   OPTIONAL, STRING,   network_imsi,     16)
 #define gizclaw_rpc_v1_PeerStatus_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_DEFAULT NULL
 #define gizclaw_rpc_v1_PeerStatus_details_MSGTYPE google_protobuf_Struct

@@ -4328,6 +4328,40 @@ int main(void) {
   if (expect(player_matches, "audioplayer telemetry protobuf golden") != 0)
     return 1;
 
+  memset(&observation, 0, sizeof(observation));
+  observation.kind = GZC_TELEMETRY_OBSERVATION_NETWORK;
+  observation.network.has_rat = true;
+  observation.network.rat = gzc_str_from_cstr("lte");
+  observation.network.has_imei = true;
+  observation.network.imei = gzc_str_from_cstr("490154203237518");
+  observation.network.has_imsi = true;
+  observation.network.imsi = gzc_str_from_cstr("460001");
+  gzc_buf_t network_wire;
+  gzc_buf_init(&network_wire);
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  const uint8_t network_golden[] = {0x1a, 0x20, 0x62, 0x1e, 0x1a, 3, 'l', 't', 'e', 0x32, 15, '4', '9', '0', '1', '5', '4', '2', '0', '3', '2', '3', '7', '5', '1', '8', 0x3a, 6, '4', '6', '0', '0', '0', '1'};
+  bool network_matches = rc == GZC_OK && network_wire.len == sizeof(network_golden) && memcmp(network_wire.data, network_golden, sizeof(network_golden)) == 0;
+  gzc_buf_free(&network_wire, platform);
+  if (expect(network_matches, "network imei/imsi telemetry protobuf golden") != 0)
+    return 1;
+  observation.network.rat = gzc_str_from_cstr("WiFi");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  gzc_buf_free(&network_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network identity rejected on wifi observation") != 0)
+    return 1;
+  observation.network.rat = gzc_str_from_cstr("lte");
+  observation.network.imei = gzc_str_from_cstr("49015420323751");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  gzc_buf_free(&network_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network imei must be 15 digits") != 0)
+    return 1;
+  observation.network.imei = gzc_str_from_cstr("490154203237518");
+  observation.network.imsi = gzc_str_from_cstr("46000");
+  rc = gzc_telemetry_encode_frame(&telemetry_frame, platform, &network_wire);
+  gzc_buf_free(&network_wire, platform);
+  if (expect(rc == GZC_ERR_INVALID_ARGUMENT, "network imsi must be at least 6 digits") != 0)
+    return 1;
+
   gzc_buf_t large_params;
   gzc_buf_init(&large_params);
   const char quote = '"';

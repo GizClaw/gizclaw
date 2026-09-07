@@ -480,8 +480,13 @@ func (b DefaultBuilder) buildVolcASR(cfg TransformerConfig) (genx.Transformer, e
 	endWindowSize, hasEndWindowSize := mapInt(data, "end_window_size", "endWindowSize")
 	forceToSpeechTime, hasForceToSpeechTime := mapInt(data, "force_to_speech_time", "forceToSpeechTime")
 	if !hasVADSegmentDuration && !hasEndWindowSize && !hasForceToSpeechTime {
-		endWindowSize = 200
-		forceToSpeechTime = 0
+		// BigASR forced endpointing: end_window_size is the trailing silence
+		// that closes an utterance, and force_to_speech_time is the minimum
+		// audio duration before that can happen. The provider documents a
+		// minimum of 1 for force_to_speech_time, so 0 is not a valid "no
+		// minimum" value.
+		endWindowSize = 800
+		forceToSpeechTime = 1000
 		hasEndWindowSize = true
 		hasForceToSpeechTime = true
 	}

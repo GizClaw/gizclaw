@@ -28,4 +28,6 @@ flowchart LR
 
 Telemetry schema belongs to `api/proto/telemetry`, metrics persistence belongs to `pkgs/store/metrics`. This package only has decoding, mapping and synchronization strategies.
 
+Network observation `imei` / `imsi` values pass pattern and cellular-route validation into the `StatusPatch`, and `StatusSync` merges them per field by observation time into `PeerStatus.network_imei` / `network_imsi`, never as metrics or logs; see [Telemetry API](/en/developing/api/proto/telemetry#network-reporting) for the rules.
+
 Validated OTA observations update queryable runtime OTA status through `StatusSync`, without payload logs or metrics; see [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for fields and SDK usage.

@@ -813,6 +813,24 @@ const PeerStatus$json = {
       '10': 'volume',
       '17': true
     },
+    {
+      '1': 'network_imei',
+      '3': 15,
+      '4': 1,
+      '5': 9,
+      '9': 12,
+      '10': 'networkImei',
+      '17': true
+    },
+    {
+      '1': 'network_imsi',
+      '3': 16,
+      '4': 1,
+      '5': 9,
+      '9': 13,
+      '10': 'networkImsi',
+      '17': true
+    },
   ],
   '3': [PeerStatus_LabelsEntry$json],
   '8': [
@@ -828,6 +846,8 @@ const PeerStatus$json = {
     {'1': '_muted'},
     {'1': '_reported_at'},
     {'1': '_volume'},
+    {'1': '_network_imei'},
+    {'1': '_network_imsi'},
   ],
 };
 
@@ -854,12 +874,14 @@ final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'ZYgBARIqCg5nbnNzX2xvbmdpdHVkZRgHIAEoAUgIUg1nbnNzTG9uZ2l0dWRliAEBEj4KBmxhYm'
     'VscxgIIAMoCzImLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuTGFiZWxzRW50cnlSBmxhYmVs'
     'cxIZCgVtdXRlZBgJIAEoCEgJUgVtdXRlZIgBARIkCgtyZXBvcnRlZF9hdBgKIAEoCUgKUgpyZX'
-    'BvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQEaOQoLTGFiZWxzRW50cnkS'
-    'EAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUIGCgRfb3RhQhIKEF'
-    '9iYXR0ZXJ5X3BlcmNlbnRCCwoJX2NoYXJnaW5nQhIKEF9maXJtd2FyZV9zaGEyNTZCDgoMX2F1'
-    'ZGlvcGxheWVyQhIKEF9nbnNzX2FjY3VyYWN5X21CEgoQX2duc3NfYWx0aXR1ZGVfbUIQCg5fZ2'
-    '5zc19sYXRpdHVkZUIRCg9fZ25zc19sb25naXR1ZGVCCAoGX211dGVkQg4KDF9yZXBvcnRlZF9h'
-    'dEIJCgdfdm9sdW1l');
+    'BvcnRlZEF0iAEBEhsKBnZvbHVtZRgLIAEoA0gLUgZ2b2x1bWWIAQESJgoMbmV0d29ya19pbWVp'
+    'GA8gASgJSAxSC25ldHdvcmtJbWVpiAEBEiYKDG5ldHdvcmtfaW1zaRgQIAEoCUgNUgtuZXR3b3'
+    'JrSW1zaYgBARo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEo'
+    'CVIFdmFsdWU6AjgBQgYKBF9vdGFCEgoQX2JhdHRlcnlfcGVyY2VudEILCglfY2hhcmdpbmdCEg'
+    'oQX2Zpcm13YXJlX3NoYTI1NkIOCgxfYXVkaW9wbGF5ZXJCEgoQX2duc3NfYWNjdXJhY3lfbUIS'
+    'ChBfZ25zc19hbHRpdHVkZV9tQhAKDl9nbnNzX2xhdGl0dWRlQhEKD19nbnNzX2xvbmdpdHVkZU'
+    'IICgZfbXV0ZWRCDgoMX3JlcG9ydGVkX2F0QgkKB192b2x1bWVCDwoNX25ldHdvcmtfaW1laUIP'
+    'Cg1fbmV0d29ya19pbXNp');
 
 @$core.Deprecated('Use pingRequestDescriptor instead')
 const PingRequest$json = {
