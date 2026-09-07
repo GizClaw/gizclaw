@@ -133,6 +133,7 @@ type peerAudioPacing struct {
 	firstAt         time.Time
 	lastAt          time.Time
 	gaps            []time.Duration
+	arrivals        []time.Duration
 	packetDurations []time.Duration
 }
 
@@ -147,6 +148,7 @@ func (p *peerAudioPacing) observe(receivedAt time.Time, packets [][]byte) {
 			p.gaps = append(p.gaps, receivedAt.Sub(p.lastAt))
 		}
 		p.lastAt = receivedAt
+		p.arrivals = append(p.arrivals, receivedAt.Sub(p.firstAt))
 		ticks := codecconv.OpusPacketRTPTicks(packet)
 		p.packetDurations = append(p.packetDurations, time.Duration(ticks)*time.Second/48000)
 	}
@@ -188,6 +190,55 @@ func (p *peerAudioPacing) summary() map[string]any {
 	result["drift_ms"] = float64(drift) / float64(time.Millisecond)
 	result["absolute_drift_ms"] = float64(absDrift) / float64(time.Millisecond)
 	result["buffer_surplus_ms"] = float64(-drift) / float64(time.Millisecond)
+	maps.Copy(result, p.playback())
+	return result
+}
+
+// peerAudioPrebuffer is the downlink audio a client holds before it starts
+// playing. Playback then runs on its own clock, so this is exactly the budget
+// every later gap has to fit inside.
+const peerAudioPrebuffer = 500 * time.Millisecond
+
+// playback replays the arrival trace through a client that prebuffers before it
+// starts playing and then consumes audio at its own clock. The buffer it has
+// built up must outlast every downlink gap; a gap longer than the audio already
+// held is silence the listener hears, so the deficit is reported rather than
+// hidden behind an interval percentile that a single stall cannot move.
+func (p *peerAudioPacing) playback() map[string]any {
+	result := map[string]any{"prebuffer_ms": float64(peerAudioPrebuffer) / float64(time.Millisecond)}
+	buffered := time.Duration(0)
+	started := -1
+	for index, duration := range p.packetDurations {
+		buffered += duration
+		if buffered >= peerAudioPrebuffer {
+			started = index
+			break
+		}
+	}
+	if started < 0 {
+		// The whole reply is shorter than the prebuffer, so the client only
+		// starts once every packet is in hand and cannot underrun.
+		return result
+	}
+	startAt := p.arrivals[started]
+	stalled := time.Duration(0)
+	underruns := 0
+	longestUnderrun := time.Duration(0)
+	minimumBuffer := buffered
+	for index := started + 1; index < len(p.arrivals); index++ {
+		level := buffered - (p.arrivals[index] - startAt - stalled)
+		minimumBuffer = min(minimumBuffer, level)
+		if level < 0 {
+			underruns++
+			longestUnderrun = max(longestUnderrun, -level)
+			stalled += -level
+		}
+		buffered += p.packetDurations[index]
+	}
+	result["underruns"] = underruns
+	result["underrun_ms"] = float64(stalled) / float64(time.Millisecond)
+	result["max_underrun_ms"] = float64(longestUnderrun) / float64(time.Millisecond)
+	result["minimum_buffer_ms"] = float64(minimumBuffer) / float64(time.Millisecond)
 	return result
 }
 

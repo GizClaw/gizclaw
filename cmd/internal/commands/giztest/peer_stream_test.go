@@ -1249,3 +1249,77 @@ func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
 		})
 	}
 }
+
+// A stall at a TTS segment boundary hides from the p95 interval: almost every
+// interval stays on the 20ms packet clock, so only max_interval_ms and the
+// buffer surplus expose the gap that drains a client's jitter buffer.
+func TestPeerAudioPacingExposesSegmentBoundaryStall(t *testing.T) {
+	var pacing peerAudioPacing
+	packet := []byte{0xf8}
+	at := time.Unix(1, 0)
+	observe := func(count int) {
+		for range count {
+			pacing.observe(at, [][]byte{packet})
+			at = at.Add(20 * time.Millisecond)
+		}
+	}
+	observe(100)
+	at = at.Add(2 * time.Second)
+	observe(100)
+
+	summary := pacing.summary()
+	if summary["packets"] != 200 || summary["audio_ms"] != int64(4000) {
+		t.Fatalf("pacing summary = %#v", summary)
+	}
+	if summary["target_span_ms"] != int64(3980) || summary["receive_span_ms"] != int64(5980) {
+		t.Fatalf("pacing spans = %#v", summary)
+	}
+	if summary["p95_interval_ms"] != float64(20) {
+		t.Fatalf("p95 interval = %#v, want the stall to stay out of the p95", summary["p95_interval_ms"])
+	}
+	if summary["max_interval_ms"] != float64(2020) {
+		t.Fatalf("max interval = %#v, want the stall", summary["max_interval_ms"])
+	}
+	if summary["drift_ms"] != float64(2000) || summary["buffer_surplus_ms"] != float64(-2000) {
+		t.Fatalf("pacing drift = %#v", summary)
+	}
+	// The client holds 500ms before it starts, keeps 480ms of that through the
+	// steady stretch, and then hears 1520ms of silence the gap drains it into.
+	if summary["underruns"] != 1 || summary["underrun_ms"] != float64(1520) || summary["max_underrun_ms"] != float64(1520) {
+		t.Fatalf("pacing underruns = %#v", summary)
+	}
+	if summary["minimum_buffer_ms"] != float64(-1520) || summary["prebuffer_ms"] != float64(500) {
+		t.Fatalf("pacing buffer level = %#v", summary)
+	}
+}
+
+// A gap the prebuffer covers is inaudible, so it must not be reported as an
+// underrun even though it dwarfs the packet clock.
+func TestPeerAudioPacingAcceptsGapsTheBufferCovers(t *testing.T) {
+	var pacing peerAudioPacing
+	packet := []byte{0xf8}
+	at := time.Unix(1, 0)
+	observe := func(count int) {
+		for range count {
+			pacing.observe(at, [][]byte{packet})
+			at = at.Add(20 * time.Millisecond)
+		}
+	}
+	observe(100)
+	at = at.Add(400 * time.Millisecond)
+	observe(100)
+
+	summary := pacing.summary()
+	if summary["max_interval_ms"] != float64(420) {
+		t.Fatalf("max interval = %#v, want the gap", summary["max_interval_ms"])
+	}
+	if summary["underruns"] != 0 {
+		t.Fatalf("gap inside the buffer reported underruns: %#v", summary)
+	}
+	if summary["minimum_buffer_ms"] != float64(80) {
+		t.Fatalf("minimum buffer = %#v, want the 500ms buffer less the 420ms gap", summary["minimum_buffer_ms"])
+	}
+	if _, present := summary["underrun_ms"]; !present {
+		t.Fatalf("continuous playback summary lacks underrun_ms: %#v", summary)
+	}
+}
