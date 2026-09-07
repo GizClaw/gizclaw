@@ -3,6 +3,7 @@ package gizlog
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -117,9 +118,7 @@ func ReadMonitorLogs(peer string) []MonitorEntry {
 			continue
 		}
 		fields := make(map[string]string, len(result[i].Fields))
-		for key, value := range result[i].Fields {
-			fields[key] = value
-		}
+		maps.Copy(fields, result[i].Fields)
 		result[i].Fields = fields
 	}
 	return result
