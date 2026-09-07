@@ -162,11 +162,18 @@ func TestMemoryAdversarialRecallAndObserveFailures(t *testing.T) {
 	if err := state.set("query", " "); err != nil {
 		t.Fatalf("set(query) error = %v", err)
 	}
+	emptyStore := &adversarialMemoryStore{recallErr: storeErr}
 	if err := recallMemory(t.Context(), &MemoryConfig{
-		Store:  &adversarialMemoryStore{},
+		Store:  emptyStore,
 		Recall: []RecallDefinition{{QueryFrom: "query", Output: "recalled", TopK: 1}},
-	}, state); err == nil || !strings.Contains(err.Error(), "empty or not text") {
-		t.Fatalf("recallMemory(empty) error = %v", err)
+	}, state); err != nil {
+		t.Fatalf("recallMemory(empty) error = %v, want skipped recall", err)
+	}
+	if got, _ := state.value("recalled"); got != "" {
+		t.Fatalf("recalled after empty query = %#v, want empty", got)
+	}
+	if emptyStore.recallCalls != 0 {
+		t.Fatalf("empty query reached the store %d times", emptyStore.recallCalls)
 	}
 	if err := state.set("query", "question"); err != nil {
 		t.Fatalf("set(query) error = %v", err)
@@ -298,6 +305,7 @@ type adversarialMemoryStore struct {
 	recallErr     error
 	observeResult memory.ObserveResult
 	observeErr    error
+	recallCalls   int
 }
 
 func (*adversarialMemoryStore) SupportsDirectFactObservation() bool { return true }
@@ -317,6 +325,7 @@ func (store *adversarialMemoryStore) Recall(
 ) (memory.RecallResult, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	store.recallCalls++
 	return store.recallResult, store.recallErr
 }
 

@@ -1,0 +1,90 @@
+# User Story:
+# As a device reloading a eino-memory-assistant Workspace with agent initiative,
+# I want the agent to speak without any input even though the Workflow recalls memory,
+# So that an empty recall query never silences the opening turn.
+version: gizclaw.test/v1alpha1
+name: eino-memory-assistant.initiative-listen
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: create_workspace
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${workspace_name}"
+      collection: assistants
+      workflow_name: eino-memory-assistant
+      parameters:
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+          conversation:
+            initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT
+            agent_initiative_policy: CONVERSATION_PARAMETERS_AGENT_INITIATIVE_POLICY_ON_RELOAD
+- id: select_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: "${workspace_name}"
+- id: activate_workspace
+  client: peer
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: listen_for_opening
+  client: peer
+  timeout: 45s
+  peer_stream:
+    mode: listen
+    duration: 30s
+  expect:
+    /audio_bytes:
+      minimum: 1
+- id: verify_history
+  client: peer
+  rpc:
+    method: server.run.workspace.history
+    request:
+      limit: 20
+  expect:
+    "/items":
+      non_empty: true
+finally:
+- client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: "${workspace_name}"
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

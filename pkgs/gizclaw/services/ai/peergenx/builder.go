@@ -611,7 +611,31 @@ func (b DefaultBuilder) buildVolcRealtime(cfg TransformerConfig) (genx.Transform
 	if value := mapString(data, "character_manifest"); value != "" {
 		config.CharacterManifest = value
 	}
+	if value := mapString(data, "initiative"); value != "" {
+		parsed, err := doubaoRealtimeInitiative(value)
+		if err != nil {
+			return nil, err
+		}
+		config.Initiative = parsed
+	}
+	if value := mapString(data, "initiative_query"); value != "" {
+		config.InitiativeQuery = value
+	}
 	return doubaorealtime.New(config)
+}
+
+// doubaoRealtimeInitiative maps the Workflow-facing initiative parameter to the
+// transformer policy. "agent" is the Workspace conversation initiative value
+// and resolves to the on-reload policy.
+func doubaoRealtimeInitiative(value string) (doubaorealtime.InitiativePolicy, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "peer", "disabled", "none", "off":
+		return doubaorealtime.InitiativeDisabled, nil
+	case "on_reload", "on-reload", "agent":
+		return doubaorealtime.InitiativeOnReload, nil
+	default:
+		return "", fmt.Errorf("%w: doubao realtime initiative %q", ErrUnsupported, value)
+	}
 }
 
 func doubaoRealtimeExtension(data map[string]any) (*apitypes.DoubaoRealtimeExtension, error) {

@@ -127,6 +127,12 @@ Input already handed to a failed session is not replayed. Unread input remains b
 
 Realtime mode treats ordinary BOS, MIME EOS, and route EOS as local stream boundaries. They do not call `EndASR`, inject silence, commit audio, or send `ClientInterrupt`. The only BOS-triggered session replacement is the local interruption handoff described above. Input EOF remains terminal for the transform: it stops reconnecting and closes the current session after draining the matching Chat/TTS response for a submitted finite Push-to-Talk or Text turn; it closes immediately when no response is pending and never triggers a rebuild. Provider `ASRInfo` performs the same local close-and-replace handoff when a response is pending; duplicate or stale events from the closed epoch cannot affect its replacement. Text mode never sends `EndASR` or `ClientInterrupt`. Push-to-Talk remains the only mode that uses those provider operations.
 
+### Realtime Dialogue agent initiative
+
+When the Workspace `conversation.initiative` is `agent`, `doubaorealtime.Transformer` lets the dialogue model generate the opening itself. As soon as the first provider session is open, the transformer submits one hidden query through ChatTextQuery (event 501, SDK `SendText`). The default text asks the model to greet the Peer and open a topic; the Workflow `doubao_realtime.initiative_query` overrides it. The hidden query never enters the output stream or Workspace History; only the model's reply is published as assistant text and audio routes. That route uses the fixed StreamID `initiative` (with the segment suffix in Realtime mode) and never aliases a Peer input route. `Config.Initiative` supports only `on_reload`: at most one query per transformer lifetime, and every reload produces a new Agent generation that opens again. The factory maps `once_when_empty` to `on_reload` while the Workspace History is empty and leaves initiative disabled otherwise. SayHello and ChatTTSText are not used.
+
+The opening reply follows the non-Push-to-Talk event path. In Push-to-Talk mode it belongs to no turn, bypasses `pttResponses` matching and the turn state machine, and its Chat/TTS events map straight onto the `initiative` route, exactly as in Realtime mode; Text mode waits for it as an ordinary text response. Non-Text modes arm the response deadline for it. A Peer BOS during the opening (a Push-to-Talk barge-in or a new Realtime route) is an ordinary interruption: the `initiative` route receives an `interrupted` EOS, Push-to-Talk sends `ClientInterrupt`, and Realtime performs the local close-and-replace handoff. An interrupted or already started opening is never resent on the replacement session. Only a provider loss before the reply starts, including a failed `SendText`, makes the replacement session submit the hidden query again.
+
 ### doubaorealtime Push-to-Talk state machine
 
 This section only describes `doubaorealtime.Transformer`'s adaptation to the Realtime Dialogue API's native Push-to-Talk mode. `doubaorealtimeduplex.Transformer` does not support Push-to-Talk and does not use this state machine.
@@ -180,7 +186,7 @@ Doubao Transformers handle provider session, concurrent event receiver, audio co
 | Input format | PCM, MP3, raw Opus; supported sample rates and channels; illegal MIME and corrupt frames. |
 | Stream contract | BOS, data, EOS; duplicate/out-of-order marker; StreamID, role, label and terminal error. |
 | Lifecycle | normal close, context cancel, provider EOF/error, blocked Send/Recv, session restart and repeated Close. |
-| Realtime Dialogue | Push-to-Talk legal state transitions, single EndASR per turn, Realtime VAD, text mode and Interrupt. |
+| Realtime Dialogue | Push-to-Talk legal state transitions, single EndASR per turn, Realtime VAD, text mode, Interrupt, and the agent-initiative hidden query. |
 | Realtime Duplex | continuous input, transcription, text/audio response, function call output and CancelResponse. |
 | Barge-in | pending response, text is being output, audio is being output; only one interrupted EOS is generated, and old epochs must not continue to be output. |
 | Output buffering | Provider audio drains immediately into a growable buffer; a slow consumer must not backpressure the provider session. |

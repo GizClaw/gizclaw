@@ -3525,9 +3525,12 @@ type DoubaoRealtimeTTSExtra struct {
 
 // DoubaoRealtimeWorkflowSpec defines model for DoubaoRealtimeWorkflowSpec.
 type DoubaoRealtimeWorkflowSpec struct {
-	Audio        *DoubaoRealtimeAudio     `json:"audio,omitempty"`
-	Extension    *DoubaoRealtimeExtension `json:"extension,omitempty"`
-	Instructions *string                  `json:"instructions,omitempty"`
+	Audio     *DoubaoRealtimeAudio     `json:"audio,omitempty"`
+	Extension *DoubaoRealtimeExtension `json:"extension,omitempty"`
+
+	// InitiativeQuery Hidden ChatTextQuery text sent when Workspace conversation initiative is agent, so the dialogue model generates the opening turn. Defaults to a generic greeting request.
+	InitiativeQuery *string `json:"initiative_query,omitempty"`
+	Instructions    *string `json:"instructions,omitempty"`
 
 	// Model RuntimeProfile realtime Model alias. The canonical Model and upstream version are resolved on Workspace reload.
 	Model string                        `json:"model"`
@@ -3536,8 +3539,9 @@ type DoubaoRealtimeWorkflowSpec struct {
 
 // DoubaoRealtimeWorkspaceParameters defines model for DoubaoRealtimeWorkspaceParameters.
 type DoubaoRealtimeWorkspaceParameters struct {
-	AgentType DoubaoRealtimeWorkspaceParametersAgentType `json:"agent_type"`
-	Audio     *DoubaoRealtimeAudio                       `json:"audio,omitempty"`
+	AgentType    DoubaoRealtimeWorkspaceParametersAgentType `json:"agent_type"`
+	Audio        *DoubaoRealtimeAudio                       `json:"audio,omitempty"`
+	Conversation *ConversationParameters                    `json:"conversation,omitempty"`
 
 	// E2e Marks seed resources used by the local e2e harness.
 	E2e          *bool                    `json:"e2e,omitempty"`

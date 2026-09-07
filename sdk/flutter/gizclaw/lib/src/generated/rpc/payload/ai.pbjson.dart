@@ -1949,11 +1949,21 @@ const DoubaoRealtimeWorkflowSpec$json = {
       '6': '.gizclaw.rpc.v1.DoubaoRealtimeFunctionTool',
       '10': 'tools'
     },
+    {
+      '1': 'initiative_query',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'initiativeQuery',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
     {'1': '_extension'},
     {'1': '_instructions'},
+    {'1': '_initiative_query'},
   ],
 };
 
@@ -1964,8 +1974,9 @@ final $typed_data.Uint8List doubaoRealtimeWorkflowSpecDescriptor = $convert.base
     'MicuZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbWVFeHRlbnNpb25IAVIJZXh0ZW5zaW9uiA'
     'EBEicKDGluc3RydWN0aW9ucxgDIAEoCUgCUgxpbnN0cnVjdGlvbnOIAQESFAoFbW9kZWwYBCAB'
     'KAlSBW1vZGVsEkAKBXRvb2xzGAUgAygLMiouZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbW'
-    'VGdW5jdGlvblRvb2xSBXRvb2xzQggKBl9hdWRpb0IMCgpfZXh0ZW5zaW9uQg8KDV9pbnN0cnVj'
-    'dGlvbnM=');
+    'VGdW5jdGlvblRvb2xSBXRvb2xzEi4KEGluaXRpYXRpdmVfcXVlcnkYBiABKAlIA1IPaW5pdGlh'
+    'dGl2ZVF1ZXJ5iAEBQggKBl9hdWRpb0IMCgpfZXh0ZW5zaW9uQg8KDV9pbnN0cnVjdGlvbnNCEw'
+    'oRX2luaXRpYXRpdmVfcXVlcnk=');
 
 @$core.Deprecated('Use doubaoRealtimeWorkspaceParametersDescriptor instead')
 const DoubaoRealtimeWorkspaceParameters$json = {
@@ -2028,6 +2039,16 @@ const DoubaoRealtimeWorkspaceParameters$json = {
       '6': '.gizclaw.rpc.v1.DoubaoRealtimeFunctionTool',
       '10': 'tools'
     },
+    {
+      '1': 'conversation',
+      '3': 9,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ConversationParameters',
+      '9': 6,
+      '10': 'conversation',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_audio'},
@@ -2036,6 +2057,7 @@ const DoubaoRealtimeWorkspaceParameters$json = {
     {'1': '_input'},
     {'1': '_instructions'},
     {'1': '_model'},
+    {'1': '_conversation'},
   ],
 };
 
@@ -2049,8 +2071,10 @@ final $typed_data.Uint8List doubaoRealtimeWorkspaceParametersDescriptor = $conve
     'V4dGVuc2lvbogBARI9CgVpbnB1dBgFIAEoDjIiLmdpemNsYXcucnBjLnYxLldvcmtzcGFjZUlu'
     'cHV0TW9kZUgDUgVpbnB1dIgBARInCgxpbnN0cnVjdGlvbnMYBiABKAlIBFIMaW5zdHJ1Y3Rpb2'
     '5ziAEBEhkKBW1vZGVsGAcgASgJSAVSBW1vZGVsiAEBEkAKBXRvb2xzGAggAygLMiouZ2l6Y2xh'
-    'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzQggKBl9hdWRpb0IGCg'
-    'RfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lucHV0Qg8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVs');
+    'dy5ycGMudjEuRG91YmFvUmVhbHRpbWVGdW5jdGlvblRvb2xSBXRvb2xzEk8KDGNvbnZlcnNhdG'
+    'lvbhgJIAEoCzImLmdpemNsYXcucnBjLnYxLkNvbnZlcnNhdGlvblBhcmFtZXRlcnNIBlIMY29u'
+    'dmVyc2F0aW9uiAEBQggKBl9hdWRpb0IGCgRfZTJlQgwKCl9leHRlbnNpb25CCAoGX2lucHV0Qg'
+    '8KDV9pbnN0cnVjdGlvbnNCCAoGX21vZGVsQg8KDV9jb252ZXJzYXRpb24=');
 
 @$core.Deprecated('Use conversationParametersDescriptor instead')
 const ConversationParameters$json = {

@@ -127,6 +127,12 @@ Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 tri
 
 Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。唯一由 BOS 触发的 session replacement 是上述本地 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 在 response pending 时执行同样的本地 close-and-replace handoff；closed epoch 的重复或迟到 event 不能影响 replacement。Text 模式永不发送 `EndASR` 或 `ClientInterrupt`，只有 Push-to-Talk 使用这两个 provider operation。
 
+### Realtime Dialogue Agent initiative
+
+Workspace `conversation.initiative` 为 `agent` 时，`doubaorealtime.Transformer` 让对话模型自己生成开场：第一个 provider session 建立后，Transformer 立即通过 ChatTextQuery（event 501，SDK `SendText`）发送一条隐藏 query，默认文本要求模型主动打招呼并开启话题，Workflow `doubao_realtime.initiative_query` 可覆盖。隐藏 query 永远不进入 output stream 和 Workspace History，只有模型的回复以 assistant text/audio route 发布；这条 route 的 StreamID 固定为 `initiative`（Realtime 模式下带 segment 后缀），不是任何 Peer 输入 route。`Config.Initiative` 只支持 `on_reload`：每个 Transformer 生命周期最多发送一次，reload 得到的新 Agent generation 会再次开场；`once_when_empty` 由 factory 在 Workspace History 为空时映射为 `on_reload`，History 非空时不启用。不发送 SayHello 或 ChatTTSText。
+
+开场回复走非 Push-to-Talk 的 event 路径：Push-to-Talk 模式下它不属于任何 turn，不经过 `pttResponses` 匹配和 turn 状态机，Chat/TTS event 直接映射到 `initiative` route，与 Realtime 模式相同；Text 模式把它当作一次普通 text response 等待。非 Text 模式为这次回复启动 response deadline。开场期间 Peer 发出 BOS（Push-to-Talk barge-in 或 Realtime 新 route）按普通 interruption 处理：`initiative` route 收到 `interrupted` EOS，Push-to-Talk 发送 `ClientInterrupt`，Realtime 走本地 close-and-replace handoff；被打断或已开始的开场不会在 replacement session 上重发。只有 provider 在回复开始前丢失（包括 `SendText` 失败）时，replacement session 才重新发送隐藏 query。
+
 ### doubaorealtime Push-to-Talk 状态机
 
 本节只描述 `doubaorealtime.Transformer` 对 Realtime Dialogue API 原生 Push-to-Talk 模式的适配。`doubaorealtimeduplex.Transformer` 不支持 Push-to-Talk，不使用这套状态机。
@@ -180,7 +186,7 @@ Doubao Transformers 同时处理 provider session、并发 event receiver、audi
 | Input format | PCM、MP3、raw Opus；支持的采样率和声道；非法 MIME 与损坏 frame。 |
 | Stream contract | BOS、data、EOS；duplicate/out-of-order marker；StreamID、role、label 和 terminal error。 |
 | Lifecycle | normal close、context cancel、provider EOF/error、blocked Send/Recv、session restart 和 repeated Close。 |
-| Realtime Dialogue | Push-to-Talk 合法状态转换、每 turn 单次 EndASR、Realtime VAD、text mode 与 Interrupt。 |
+| Realtime Dialogue | Push-to-Talk 合法状态转换、每 turn 单次 EndASR、Realtime VAD、text mode、Interrupt 与 agent initiative 隐藏 query。 |
 | Realtime Duplex | continuous input、transcription、text/audio response、function call output 与 CancelResponse。 |
 | Barge-in | pending response、正在输出 text、正在输出 audio；只产生一次 interrupted EOS，旧 epoch 不得继续输出。 |
 | Output buffering | provider audio 必须立即 drain 到 growable buffer；慢 consumer 不得反向阻塞 provider session。 |

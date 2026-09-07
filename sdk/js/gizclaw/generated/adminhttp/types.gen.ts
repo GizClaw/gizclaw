@@ -2127,6 +2127,10 @@ export type DoubaoRealtimeWorkflowSpec = {
      */
     model: string;
     instructions?: string;
+    /**
+     * Hidden ChatTextQuery text sent when Workspace conversation initiative is agent, so the dialogue model generates the opening turn. Defaults to a generic greeting request.
+     */
+    initiative_query?: string;
     audio?: DoubaoRealtimeAudio;
     tools?: Array<DoubaoRealtimeFunctionTool>;
     extension?: DoubaoRealtimeExtension;
@@ -2718,6 +2722,7 @@ export type DoubaoRealtimeWorkspaceParameters = {
      * RuntimeProfile Model alias. Defaults to Workflow.spec.doubao_realtime.model.
      */
     model?: string;
+    conversation?: ConversationParameters;
     instructions?: string;
     input?: WorkspaceInputMode;
     audio?: DoubaoRealtimeAudio;
