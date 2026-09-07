@@ -54,7 +54,7 @@ Flowcraft 要求非空 `AppID`，允许空 `UserID` 形成 runtime-global Memory
 
 Provider 包只接收内存中的 runtime dependency，不解析 YAML、不展开环境变量、不读取配置文件，也不决定产品身份。
 
-Flowcraft 只通过一个 `flowcraft.Config` 构造。该结构可注入 `ModelLoader`、retrieval index、temporal store、evidence store、async queue 和 side-effect outbox。注入的 dependency 仍由调用方拥有；没有注入时，adapter 使用 Flowcraft 的内存实现。
+Flowcraft 只通过一个 `flowcraft.Config` 构造。该结构可注入 `ModelLoader`、retrieval index、temporal store、evidence store、async queue 和 side-effect outbox。注入的 dependency 仍由调用方拥有；没有注入时，adapter 使用 Flowcraft 的内存实现。adapter 会在 side-effect outbox job 到达注入的 outbox 之前，用 scope canonical key 限定每个 job identity，因此共享同一个 outbox 的不同 scope 并发 Save 不会互相去重 projection、embedding 或 evolution job，而同一 scope 的 batch 重放仍保持幂等。
 
 ```go
 store, err := flowcraft.New(ctx, flowcraft.Config{
