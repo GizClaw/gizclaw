@@ -773,6 +773,8 @@ func toAdminHistoryEntry(item apitypes.PeerRunHistoryEntry) adminhttp.AdminWorks
 
 func adminSocialError(err error) (int, apitypes.ErrorResponse) {
 	switch {
+	case errors.Is(err, friendgroup.ErrGroupChanged):
+		return http.StatusConflict, apitypes.NewErrorResponse("FRIEND_GROUP_CHANGED", friendgroup.ErrGroupChanged.Error())
 	case errors.Is(err, friendgroup.ErrFriendGroupFull):
 		return http.StatusConflict, apitypes.NewErrorResponse("FRIEND_GROUP_FULL", friendgroup.ErrFriendGroupFull.Error())
 	case errors.Is(err, workspace.ErrWorkspacePendingDeletion):
@@ -789,7 +791,7 @@ func adminSocialError(err error) (int, apitypes.ErrorResponse) {
 		return http.StatusConflict, apitypes.NewErrorResponse(contact.PeerPendingDeletionCode, err.Error())
 	case errors.Is(err, contact.ErrPeerDeleted):
 		return http.StatusConflict, apitypes.NewErrorResponse(contact.PeerDeletedCode, err.Error())
-	case errors.Is(err, kv.ErrNotFound), errors.Is(err, fs.ErrNotExist):
+	case errors.Is(err, kv.ErrNotFound), errors.Is(err, contact.ErrNotFound), errors.Is(err, fs.ErrNotExist):
 		return http.StatusNotFound, apitypes.NewErrorResponse("SOCIAL_RESOURCE_NOT_FOUND", err.Error())
 	case strings.Contains(err.Error(), "not configured"),
 		strings.Contains(err.Error(), "runtime store is required"),

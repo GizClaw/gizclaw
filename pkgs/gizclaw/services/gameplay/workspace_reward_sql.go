@@ -468,7 +468,11 @@ func (r *Runtime) settleWorkspaceReward(
 	if err := r.lockWorkspaceRewardSourceTx(ctx, tx, window.WorkspaceID); err != nil {
 		return apitypes.RewardGrant{}, false, err
 	}
-	if err := r.checkWorkspaceRewardAvailability(ctx, window.WorkspaceID); err != nil {
+	availability, ok := r.WorkspaceRewards.(workspaceRewardAvailability)
+	if !ok {
+		return apitypes.RewardGrant{}, false, errWorkspaceRewardAvailability
+	}
+	if err := availability.EnsureWorkspaceAvailableInTransaction(ctx, db, tx, window.WorkspaceID); err != nil {
 		return apitypes.RewardGrant{}, false, err
 	}
 	current, err := scanWorkspaceRewardWindow(tx.QueryRowContext(ctx, tx.Rebind(
@@ -576,7 +580,7 @@ func (r *Runtime) lockWorkspaceRewardSourceTx(ctx context.Context, tx *sqlx.Tx, 
 func (r *Runtime) WithWorkspaceDeletionFence(
 	ctx context.Context,
 	workspaceID string,
-	createMarker func(context.Context) error,
+	createMarker func(context.Context, *sqlx.DB, *sqlx.Tx) error,
 ) error {
 	if createMarker == nil {
 		return errors.New("gameplay: Workspace deletion marker callback is not configured")
@@ -596,7 +600,7 @@ func (r *Runtime) WithWorkspaceDeletionFence(
 	if err := r.lockWorkspaceRewardSourceTx(ctx, tx, workspaceID); err != nil {
 		return err
 	}
-	if err := createMarker(ctx); err != nil {
+	if err := createMarker(ctx, db, tx); err != nil {
 		return err
 	}
 	return tx.Commit()

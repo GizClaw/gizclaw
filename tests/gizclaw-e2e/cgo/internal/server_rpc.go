@@ -36,7 +36,9 @@ type ServerRPCFixture struct {
 	http     *httptest.Server
 }
 
-func NewServerRPCFixture(t *testing.T) *ServerRPCFixture {
+// NewServerRPCFixture connects a C client to a local Go server. Background
+// polling is only for server-initiated tests that never drive the C client.
+func NewServerRPCFixture(t *testing.T, backgroundPoll bool) *ServerRPCFixture {
 	t.Helper()
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -104,14 +106,18 @@ func NewServerRPCFixture(t *testing.T) *ServerRPCFixture {
 		Client: client, Conn: serverConn, cancel: cancel,
 		pollDone: make(chan struct{}), listener: listener, http: httpServer,
 	}
-	go func() {
-		defer close(fixture.pollDone)
-		for ctx.Err() == nil {
-			if err := client.Poll(10 * time.Millisecond); err != nil && ctx.Err() == nil {
-				return
+	if backgroundPoll {
+		go func() {
+			defer close(fixture.pollDone)
+			for ctx.Err() == nil {
+				if err := client.Poll(10 * time.Millisecond); err != nil && ctx.Err() == nil {
+					return
+				}
 			}
-		}
-	}()
+		}()
+	} else {
+		close(fixture.pollDone)
+	}
 	t.Cleanup(fixture.Close)
 	return fixture
 }

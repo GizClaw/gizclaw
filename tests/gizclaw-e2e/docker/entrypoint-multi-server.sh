@@ -27,8 +27,8 @@ until curl -fsS -o /dev/null "$GIZCLAW_E2E_LIVEKIT_HTTP_URL/"; do
 done
 
 # Store layout: peers, friends and friend-groups are the shared Social KV in
-# Redis; runtime-profiles stay in the template's Server-local memory store and
-# workspaces/workflows share the Server-local gameplay SQLite file, so a
+# Redis; runtime-profiles, workspaces and workflows use the template's
+# Server-local gameplay SQLite file, so a
 # Social Workspace retirement and the gameplay reward fence exercise one
 # single-connection SQLite handle exactly as a real deployment would.
 mkdir -p "$workspace_dir/data" "$sfu_dir"
@@ -54,8 +54,6 @@ perl -0pi -e '
   s/(  api-keys:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friends:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friend-groups:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
-  s/(  workspaces:\n    kind: keyvalue\n    storage:) memory/$1 gameplay-db/;
-  s/(  workflows:\n    kind: keyvalue\n    storage:) memory/$1 gameplay-db/;
   s/^services:\n/services:\n  sfu:\n    url: $ENV{GIZCLAW_E2E_LIVEKIT_URL}\n    api_key_file: $ENV{GIZCLAW_E2E_SFU_DIR}\/api_key\n    api_secret_file: $ENV{GIZCLAW_E2E_SFU_DIR}\/api_secret\n/m;
 ' "$config_file"
 

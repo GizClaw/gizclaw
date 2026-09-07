@@ -55,9 +55,8 @@ stores:
     ttl: 720h
 
   flowcraft-state:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: flowcraft-state
 
   peers:
     kind: keyvalue
@@ -65,9 +64,8 @@ stores:
     prefix: peers
 
   peer-runs:
-    kind: keyvalue
+    kind: sql
     storage: local-runtime
-    prefix: peer_runs
 
   api-keys:
     kind: keyvalue
@@ -75,59 +73,48 @@ stores:
     prefix: api-keys
 
   credentials:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: credentials
 
   firmwares:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: firmwares
 
   runtime-profiles:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: runtime-profiles
 
   models:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: models
 
   voices:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: voices
 
   memory-layouts:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: memory-layouts
 
   provider-tenants:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: provider-tenants
 
   workflows:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: workflows
 
   workspaces:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: workspaces
 
   tools:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: tools
 
   contacts:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: contacts
 
   friends:
     kind: keyvalue
@@ -140,9 +127,8 @@ stores:
     prefix: friend-groups
 
   gameplay:
-    kind: keyvalue
+    kind: sql
     storage: database
-    prefix: gameplay
 
   agenthost:
     kind: objectstore

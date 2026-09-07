@@ -21,7 +21,7 @@ import (
 )
 
 func TestCSDKRPCDataChannelLifecycleLocal(t *testing.T) {
-	fixture := cgointernal.NewServerRPCFixture(t)
+	fixture := cgointernal.NewServerRPCFixture(t, false)
 	listener := fixture.Conn.ListenService(0)
 	defer listener.Close()
 
@@ -137,7 +137,7 @@ func TestCSDKRPCDataChannelLifecycleLocal(t *testing.T) {
 }
 
 func TestCSDKConcurrentUnaryRPCRequests(t *testing.T) {
-	fixture := cgointernal.NewServerRPCFixture(t)
+	fixture := cgointernal.NewServerRPCFixture(t, false)
 	listener := fixture.Conn.ListenService(0)
 	defer listener.Close()
 

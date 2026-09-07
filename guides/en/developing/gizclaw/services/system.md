@@ -27,9 +27,11 @@ The common processor contains no resource deletion policy and never marks a gene
 
 Metrics report active depth, oldest active age, claims, active workers, phase latency, deferrals, retries, terminal failures, transition errors, and completions using bounded source/kind/status/phase/outcome labels. They never use resource IDs, owners, deletion IDs, descriptors, fingerprints, lease tokens, or error text as labels. Metrics storage failure cannot stop cleanup.
 
+A shared KV source writes the locator, initial task state, and ordered indexes atomically with a new marker; reads never reconstruct missing state. Each kind is partitioned into 16 shards by deletion ID. The due index orders next-attempt or lease-expiry times, while management indexes order creation times within each status. Queries push time bounds and per-shard limits into storage, overlap at most eight shard reads, and merge results. Due discovery returns IDs and fingerprints without reading individual task records. Transitions, lease renewals, and finalization maintain indexes atomically, leave unchanged memberships intact, and remove every task index on completion.
+
 ### runtimeprofile
 
-Owns RuntimeProfile and RegistrationToken KV state, schema validation, deterministic revisions, hash indexes, and registration resolution. It projects Admin resources through safe aliases and defines no reader/member role system. See [RuntimeProfile and device registration](./runtime-profile).
+Owns RuntimeProfile and RegistrationToken SQL tables, schema validation, deterministic revisions, token uniqueness indexes, and registration resolution. It projects Admin resources through safe aliases and defines no reader/member role system. See [RuntimeProfile and device registration](./runtime-profile).
 
 ### apikey
 

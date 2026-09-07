@@ -80,10 +80,9 @@ compose() {
 cleanup() {
   status=$?
   if (( status != 0 )); then
-    compose ps >&2 || true
-    compose logs --no-color --tail 800 \
-      | grep -E 'peer stream lifecycle|gateway logical session|sfu|livekit|level=(WARN|ERROR)' >&2 || true
-    compose logs --no-color --tail 200 livekit >&2 || true
+    compose ps --all >&2 || true
+    compose logs --no-color --tail 800 2>&1 \
+      | python3 -B "$script_dir/setup/redact_diagnostics.py" >&2 || true
   fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
   if [[ "${GIZCLAW_E2E_KEEP_BINARIES:-}" != 1 ]]; then

@@ -2,6 +2,7 @@
 /// the Public HTTP surface reached through `gizclaw_control`.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -105,6 +106,29 @@ Object? unwrapValueMessage(GeneratedMessage response) {
     return json['value'];
   }
   return fields.single.isGroupOrMessage ? const <String, Object?>{} : json;
+}
+
+/// Parses the shared scenario request shape, including a message whose only
+/// field is `value`. Preserve explicit wrappers and reject unknown fields.
+GeneratedMessage scenarioRequest(String method, Object? params) {
+  final descriptor = rpcMethodsByName[method];
+  if (descriptor == null) {
+    throw StateError('unsupported RPC method $method');
+  }
+  final request = newPayloadMessage(descriptor.requestType);
+  final fields = request.info_.byIndex;
+  final wrapsValue =
+      fields.length == 1 &&
+      fields.single.name == 'value' &&
+      fields.single.isGroupOrMessage;
+  final value = wrapsValue && !(params is Map && params.containsKey('value'))
+      ? <String, Object?>{'value': params ?? const <String, Object?>{}}
+      : params ?? const <String, Object?>{};
+  request.mergeFromProto3Json(
+    snakeToCamelKeys(value),
+    ignoreUnknownFields: false,
+  );
+  return request;
 }
 
 /// Reads the `{error_code, error_message}` form a scenario uses to make a
@@ -219,6 +243,8 @@ class ScenarioClient {
   /// The scripted providers are reinstalled and keep their inbound counts, so
   /// `expect_calls` still sees the total across both connections.
   Future<void> reconnect({Duration? await_}) async {
+    final deadline = await_ ?? _connectTimeout;
+    final elapsed = Stopwatch()..start();
     await _peerConnection.close();
     final httpClient = http.Client();
     try {
@@ -235,6 +261,19 @@ class ScenarioClient {
         FlutterWebRtcDataChannelFactory(peerConnection),
         requestTimeout: _rpcTimeout,
       );
+      // ICE completion can precede activation of the replacement Peer on the
+      // Server. A response on this connection proves the Server has accepted
+      // it before a following HTTP step inspects the device's online state.
+      try {
+        final remaining = deadline - elapsed.elapsed;
+        if (remaining <= Duration.zero) {
+          throw TimeoutException('reconnect deadline exceeded', deadline);
+        }
+        await callRpc('all.ping', <String, Object?>{}).timeout(remaining);
+      } catch (_) {
+        await peerConnection.close();
+        rethrow;
+      }
     } finally {
       httpClient.close();
     }
@@ -304,13 +343,7 @@ class ScenarioClient {
   /// Sends one unary Peer RPC by name and returns the decoded response as
   /// snake_case JSON.
   Future<Object?> callRpc(String method, Object? params) async {
-    final descriptor = rpcMethodsByName[method];
-    if (descriptor == null) {
-      throw StateError('unsupported RPC method $method');
-    }
-    final request = newPayloadMessage(descriptor.requestType);
-    final json = snakeToCamelKeys(params ?? const <String, Object?>{});
-    request.mergeFromProto3Json(json, ignoreUnknownFields: false);
+    final request = scenarioRequest(method, params);
     try {
       final response = await _client.rpc.call<GeneratedMessage>(
         method,

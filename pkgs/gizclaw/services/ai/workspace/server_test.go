@@ -2,12 +2,18 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jmoiron/sqlx"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/voicetest"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/modeltest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -127,7 +133,7 @@ func TestServerWorkspacesCRUD(t *testing.T) {
 	if len(runtime.deleted) != 0 {
 		t.Fatalf("runtime deleted during pending-deletion request = %#v", runtime.deleted)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, workspaceID); err != nil || !pending {
+	if pending, err := NewPendingDeletionSource(srv.DB).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: workspaceID}); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 
@@ -219,14 +225,14 @@ func TestGetAvailableWorkspaceByIDClassifiesOnlyCanonicalPhysicalAbsence(t *test
 	if _, ok := response.(createWorkspace200JSONResponse); !ok {
 		t.Fatalf("CreateWorkspace() response = %#v", response)
 	}
-	if err := srv.Store.Delete(ctx, workspaceKey(body.Id)); err != nil {
+	if _, err := srv.DB.ExecContext(ctx, `DELETE FROM workspaces WHERE id=?`, body.Id); err != nil {
 		t.Fatalf("delete canonical Workspace record: %v", err)
 	}
 	_, err = srv.GetAvailableWorkspaceByID(ctx, body.Id)
 	if !errors.Is(err, ErrWorkspaceDeleted) {
 		t.Fatalf("GetAvailableWorkspaceByID() error = %v, want %v", err, ErrWorkspaceDeleted)
 	}
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("GetAvailableWorkspaceByID() exposed Store not-found identity: %v", err)
 	}
 	if _, err := srv.GetAvailableWorkspaceByID(ctx, " not-valid "); errors.Is(err, ErrWorkspaceDeleted) {
@@ -240,7 +246,7 @@ func TestCreateWorkspaceRecordAtomicallyClaimsCallerID(t *testing.T) {
 	srv := newTestServer(t)
 	servers := []*Server{
 		srv,
-		{Store: srv.Store, RuntimeStore: srv.RuntimeStore},
+		{DB: srv.DB, RuntimeStore: srv.RuntimeStore},
 	}
 	inputs := []adminhttp.WorkspaceUpsert{
 		{Id: "shared-workspace-id", Name: "workspace-alpha", WorkflowId: "workflow-1"},
@@ -255,7 +261,7 @@ func TestCreateWorkspaceRecordAtomicallyClaimsCallerID(t *testing.T) {
 	for i, input := range inputs {
 		go func(server *Server, body adminhttp.WorkspaceUpsert) {
 			<-start
-			workspace, err := server.createWorkspaceRecord(t.Context(), server.Store, body, false, nil)
+			workspace, err := server.createWorkspaceRecord(t.Context(), server.DB, body, false, nil)
 			results <- result{workspace: workspace, err: err}
 		}(servers[i], input)
 	}
@@ -279,7 +285,7 @@ func TestCreateWorkspaceRecordAtomicallyClaimsCallerID(t *testing.T) {
 	if created != 1 || collisions != 1 {
 		t.Fatalf("create results = %d created, %d collisions; want 1 each", created, collisions)
 	}
-	stored, err := getWorkspaceByID(t.Context(), srv.Store, "shared-workspace-id")
+	stored, err := getWorkspaceByID(t.Context(), srv.DB, "shared-workspace-id")
 	if err != nil {
 		t.Fatalf("getWorkspaceByID() error = %v", err)
 	}
@@ -287,11 +293,11 @@ func TestCreateWorkspaceRecordAtomicallyClaimsCallerID(t *testing.T) {
 		t.Fatalf("stored Workspace name = %q, winner = %q", stored.Name, winner.Name)
 	}
 	for _, input := range inputs {
-		_, err := getWorkspace(t.Context(), srv.Store, input.Name)
+		_, err := getWorkspace(t.Context(), srv.DB, input.Name)
 		if input.Name == winner.Name && err != nil {
 			t.Fatalf("winner name %q lookup error = %v", input.Name, err)
 		}
-		if input.Name != winner.Name && !errors.Is(err, kv.ErrNotFound) {
+		if input.Name != winner.Name && !errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("loser name %q lookup error = %v, want not found", input.Name, err)
 		}
 	}
@@ -303,7 +309,7 @@ func TestCreateWorkspaceRecordAtomicallyClaimsScopedName(t *testing.T) {
 	srv := newTestServer(t)
 	servers := []*Server{
 		srv,
-		{Store: srv.Store, RuntimeStore: srv.RuntimeStore},
+		{DB: srv.DB, RuntimeStore: srv.RuntimeStore},
 	}
 	inputs := []adminhttp.WorkspaceUpsert{
 		{Id: "workspace-alpha-id", Name: "shared-workspace-name", WorkflowId: "workflow-1"},
@@ -318,7 +324,7 @@ func TestCreateWorkspaceRecordAtomicallyClaimsScopedName(t *testing.T) {
 	for i, input := range inputs {
 		go func(server *Server, body adminhttp.WorkspaceUpsert) {
 			<-start
-			workspace, err := server.createWorkspaceRecord(t.Context(), server.Store, body, false, nil)
+			workspace, err := server.createWorkspaceRecord(t.Context(), server.DB, body, false, nil)
 			results <- result{workspace: workspace, err: err}
 		}(servers[i], input)
 	}
@@ -342,7 +348,7 @@ func TestCreateWorkspaceRecordAtomicallyClaimsScopedName(t *testing.T) {
 	if created != 1 || conflicts != 1 {
 		t.Fatalf("create results = %d created, %d conflicts; want 1 each", created, conflicts)
 	}
-	stored, err := getWorkspace(t.Context(), srv.Store, "shared-workspace-name")
+	stored, err := getWorkspace(t.Context(), srv.DB, "shared-workspace-name")
 	if err != nil {
 		t.Fatalf("getWorkspace() error = %v", err)
 	}
@@ -350,11 +356,11 @@ func TestCreateWorkspaceRecordAtomicallyClaimsScopedName(t *testing.T) {
 		t.Fatalf("stored Workspace ID = %q, winner = %q", stored.Id, winner.Id)
 	}
 	for _, input := range inputs {
-		_, err := getWorkspaceByID(t.Context(), srv.Store, input.Id)
+		_, err := getWorkspaceByID(t.Context(), srv.DB, input.Id)
 		if input.Id == winner.Id && err != nil {
 			t.Fatalf("winner ID %q lookup error = %v", input.Id, err)
 		}
-		if input.Id != winner.Id && !errors.Is(err, kv.ErrNotFound) {
+		if input.Id != winner.Id && !errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("loser ID %q lookup error = %v, want not found", input.Id, err)
 		}
 	}
@@ -456,10 +462,10 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if len(runtime.deleted) != 0 {
 		t.Fatalf("runtime deleted after rejected generic delete = %#v", runtime.deleted)
 	}
-	if _, err := getWorkspace(ctx, srv.Store, "friend-chat"); err != nil {
+	if _, err := getWorkspace(ctx, srv.DB, "friend-chat"); err != nil {
 		t.Fatalf("system workspace after rejected generic delete: %v", err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, created.Id); err != nil || pending {
+	if pending, err := NewPendingDeletionSource(srv.DB).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: created.Id}); err != nil || pending {
 		t.Fatalf("system workspace pending deletion = %v, error = %v", pending, err)
 	}
 
@@ -473,8 +479,8 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 	if len(runtime.deleted) != 1 || runtime.deleted[0] != created.Id {
 		t.Fatalf("runtime deleted after system delete = %#v", runtime.deleted)
 	}
-	if _, err := srv.DeleteSystemWorkspace(ctx, "friend-chat"); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("DeleteSystemWorkspace(missing) error = %v, want kv.ErrNotFound", err)
+	if _, err := srv.DeleteSystemWorkspace(ctx, "friend-chat"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("DeleteSystemWorkspace(missing) error = %v, want sql.ErrNoRows", err)
 	}
 	if len(runtime.deleted) != 1 {
 		t.Fatalf("runtime deleted after missing system delete = %#v, want no name-based cleanup", runtime.deleted)
@@ -576,10 +582,10 @@ func TestWorkspaceDeleteSerializesWithPut(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := getWorkspaceByID(ctx, srv.Store, workspaceID); err != nil {
+	if _, err := getWorkspaceByID(ctx, srv.DB, workspaceID); err != nil {
 		t.Fatalf("workspace after concurrent delete/put error = %v", err)
 	}
-	if pending, err := pendingdeletion.HasLocator(ctx, srv.Store, pendingdeletion.KindWorkspace, workspaceID); err != nil || !pending {
+	if pending, err := NewPendingDeletionSource(srv.DB).HasLocator(ctx, pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: workspaceID}); err != nil || !pending {
 		t.Fatalf("workspace pending deletion = %v, error = %v", pending, err)
 	}
 }
@@ -626,58 +632,8 @@ func TestCreateSystemWorkspaceRechecksOwnerInsideCreateLock(t *testing.T) {
 	if calls != 2 {
 		t.Fatalf("PeerAvailability calls = %d, want pre-lock and in-lock checks", calls)
 	}
-	if _, err := getWorkspaceByID(t.Context(), srv.Store, body.Id); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := getWorkspaceByID(t.Context(), srv.DB, body.Id); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("rejected Workspace error = %v, want not found", err)
-	}
-}
-
-func TestCreateSystemWorkspaceRejectsRetiringWorkspaceAfterRecordRemoval(t *testing.T) {
-	srv := newTestServer(t)
-	runtime := &recordingRuntimeStore{}
-	srv.RuntimeStore = runtime
-	ctx := ownership.WithOwner(context.Background(), "peer-a")
-	seedSFUWorkflow(t, srv)
-	body := adminhttp.WorkspaceUpsert{
-		Name:       "friend-chat-partially-cleaned",
-		WorkflowId: socialutil.SFUWorkflowID,
-	}
-	created, _, err := srv.CreateSystemWorkspace(ctx, body)
-	if err != nil {
-		t.Fatalf("CreateSystemWorkspace() error = %v", err)
-	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-b"); err != nil {
-		t.Fatalf("RetireSystemWorkspace() error = %v", err)
-	}
-	if err := srv.Store.Delete(ctx, workspaceKey(created.Id)); err != nil {
-		t.Fatalf("remove active Workspace record: %v", err)
-	}
-	preparedBefore := len(runtime.prepared)
-
-	if _, _, err := srv.CreateSystemWorkspace(ctx, body); err == nil ||
-		!strings.Contains(err.Error(), "pending deletion") {
-		t.Fatalf("CreateSystemWorkspace(partially cleaned) error = %v, want pending deletion conflict", err)
-	}
-	if len(runtime.prepared) != preparedBefore {
-		t.Fatalf("runtime prepared after pending conflict = %#v, want no new preparation", runtime.prepared)
-	}
-	retired, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-b")
-	if err != nil {
-		t.Fatalf("RetireSystemWorkspace(retry after cleanup) error = %v", err)
-	}
-	if retired.Name != body.Name {
-		t.Fatalf("RetireSystemWorkspace(retry after cleanup) name = %q, want %q", retired.Name, body.Name)
-	}
-	if retired.OwnerPublicKey == nil || *retired.OwnerPublicKey != "peer-a" {
-		t.Fatalf("RetireSystemWorkspace(retry after cleanup) owner = %#v, want peer-a", retired.OwnerPublicKey)
-	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriend, "peer-a:peer-c"); err == nil {
-		t.Fatal("RetireSystemWorkspace(mismatched completed retry) error = nil")
-	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKindFriendGroup, "peer-a:peer-b"); err == nil {
-		t.Fatal("RetireSystemWorkspace(mismatched kind) error = nil")
-	}
-	if _, err := srv.RetireSystemWorkspace(ctx, body.Name, socialutil.SFUWorkspaceKind("chatroom"), "peer-a:peer-b"); err == nil {
-		t.Fatal("RetireSystemWorkspace(unsupported kind) error = nil")
 	}
 }
 
@@ -715,7 +671,9 @@ func TestServerCreateWorkspaceDeletesPreparedRuntimeWhenRecordCreationFails(t *t
 	runtime := &recordingRuntimeStore{}
 	srv.RuntimeStore = runtime
 	seedWorkflow(t, srv, "workflow-1")
-	srv.Store = failingCreateIfAbsentStore{Store: srv.Store, err: errors.New("injected create failure")}
+	if _, err := srv.DB.ExecContext(t.Context(), `CREATE TRIGGER reject_workspace BEFORE INSERT ON workspaces BEGIN SELECT RAISE(FAIL,'injected create failure'); END`); err != nil {
+		t.Fatal(err)
+	}
 	body := adminhttp.WorkspaceUpsert{Id: "workspace-failed-create", Name: "failed-create", WorkflowId: "workflow-1"}
 
 	response, err := createWorkspaceForTest(srv, t.Context(), createWorkspaceRequestObject{Body: &body})
@@ -735,35 +693,9 @@ func TestServerCreateWorkspaceDeletesPreparedRuntimeWhenRecordCreationFails(t *t
 }
 
 func TestServerRejectsWorkspaceRecordsOutsideFinalSchema(t *testing.T) {
-	t.Parallel()
-
 	srv := newTestServer(t)
-	ctx := context.Background()
-	createdAt := time.Date(2026, 6, 22, 8, 0, 0, 0, time.UTC)
-	updatedAt := createdAt.Add(time.Hour)
-	incomplete := map[string]any{
-		"id":          "legacy-id",
-		"name":        "legacy",
-		"workflow_id": "workflow-1",
-		"created_at":  createdAt.Format(time.RFC3339Nano),
-		"updated_at":  updatedAt.Format(time.RFC3339Nano),
-	}
-	data, err := json.Marshal(incomplete)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-	if err := srv.Store.BatchSet(ctx, []kv.Entry{
-		{Key: workspaceKey("legacy-id"), Value: data},
-		{Key: workspaceScopeNameKey(nil, "legacy"), Value: []byte("legacy-id")},
-	}); err != nil {
-		t.Fatalf("seed legacy workspace: %v", err)
-	}
-
-	if _, err := getWorkspace(ctx, srv.Store, "legacy"); err == nil || !strings.Contains(err.Error(), "requires system") {
-		t.Fatalf("getWorkspace() error = %v", err)
-	}
-	if _, _, _, err := listWorkspacePage(ctx, srv.Store, workspacesRoot, "", 10, nil); err == nil || !strings.Contains(err.Error(), "requires system") {
-		t.Fatalf("listWorkspacePage() error = %v", err)
+	if _, err := srv.DB.ExecContext(t.Context(), `INSERT INTO workspaces(id,name) VALUES ('incomplete','incomplete')`); err == nil {
+		t.Fatal("incomplete Workspace bypassed SQL constraints")
 	}
 }
 
@@ -901,8 +833,8 @@ func TestServerWorkspaceLabelValidation(t *testing.T) {
 			if _, ok := response.(createWorkspace400JSONResponse); !ok {
 				t.Fatalf("CreateWorkspace() response = %#v, want 400", response)
 			}
-			if _, err := getWorkspace(context.Background(), srv.Store, "invalid1"); !errors.Is(err, kv.ErrNotFound) {
-				t.Fatalf("invalid Workspace write error = %v, want kv.ErrNotFound", err)
+			if _, err := getWorkspace(context.Background(), srv.DB, "invalid1"); !errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("invalid Workspace write error = %v, want sql.ErrNoRows", err)
 			}
 		})
 	}
@@ -1594,8 +1526,8 @@ func TestServerStoreHelpers(t *testing.T) {
 		t.Fatal("empty server getWorkflow() error = nil")
 	}
 
-	base := kv.NewMemory(nil)
-	srv := &Server{Store: base}
+	base := newTestServer(t).DB
+	srv := &Server{DB: base}
 	if _, err := srv.getWorkflow(t.Context(), "missing"); err == nil {
 		t.Fatal("getWorkflow missing service error = nil")
 	}
@@ -1637,18 +1569,16 @@ func testWorkflowStore(t *testing.T, srv *Server) kv.Store {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-
-	store, err := kv.NewBadgerInMemory(nil)
+	db, err := sqlx.Open("sqlite", filepath.Join(t.TempDir(), "workspace.sqlite"))
 	if err != nil {
-		t.Fatalf("NewBadgerInMemory() error = %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Close() })
-	return &Server{
-		Store:     kv.Prefixed(store, kv.Key{"workspaces"}),
-		Workflows: testWorkflowService{store: kv.Prefixed(store, kv.Key{"workflows"})},
-		Models:    &model.Server{Store: kv.Prefixed(store, kv.Key{"models"})},
-		Voices:    &voice.Server{Store: kv.Prefixed(store, kv.Key{"voices"})},
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	if err := Initialize(t.Context(), db); err != nil {
+		t.Fatal(err)
 	}
+	return &Server{DB: db, Workflows: testWorkflowService{store: kv.NewMemory(nil)}, Models: modeltest.New(t), Voices: voicetest.New(t)}
 }
 
 func seedSFUWorkflow(t *testing.T, srv *Server) {
@@ -1696,13 +1626,7 @@ func seedModel(t *testing.T, srv *Server, id string, kind apitypes.ModelKind) {
 	if !ok {
 		t.Fatalf("Models = %T", srv.Models)
 	}
-	data, err := json.Marshal(apitypes.Model{Id: id, Kind: kind})
-	if err != nil {
-		t.Fatalf("json.Marshal(model) error = %v", err)
-	}
-	if err := modelServer.Store.Set(context.Background(), kv.Key{"by-id", id}, data); err != nil {
-		t.Fatalf("seed model %q: %v", id, err)
-	}
+	modeltest.Seed(t, modelServer, apitypes.Model{Id: id, Kind: kind})
 }
 
 func seedProviderModel(
@@ -1738,18 +1662,13 @@ func seedProviderModel(
 	if !ok {
 		t.Fatalf("Models = %T", srv.Models)
 	}
-	data, err := json.Marshal(apitypes.Model{
+	modeltest.Seed(t, modelServer, apitypes.Model{
 		Id: id, Kind: kind,
 		Provider:     apitypes.ModelProvider{Kind: providerKind, Id: providerName},
 		ProviderData: providerData,
 		Source:       apitypes.ModelSourceManual,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := modelServer.Store.Set(t.Context(), kv.Key{"by-id", id}, data); err != nil {
-		t.Fatal(err)
-	}
+
 }
 
 func seedProviderVoice(
@@ -1764,7 +1683,7 @@ func seedProviderVoice(
 	if !ok {
 		t.Fatalf("Voices = %T", srv.Voices)
 	}
-	if err := voice.Write(t.Context(), voiceServer.Store, apitypes.Voice{
+	if err := voice.Write(t.Context(), voiceServer.DB, apitypes.Voice{
 		Id: id,
 		Provider: apitypes.VoiceProvider{
 			Kind: providerKind,
@@ -1802,27 +1721,14 @@ type recordingWorkspaceDeletionFencer struct {
 func (f *recordingWorkspaceDeletionFencer) WithWorkspaceDeletionFence(
 	ctx context.Context,
 	workspaceID string,
-	createMarker func(context.Context) error,
+	createMarker func(context.Context, *sqlx.DB, *sqlx.Tx) error,
 ) error {
 	f.workspaceIDs = append(f.workspaceIDs, workspaceID)
-	if err := createMarker(ctx); err != nil {
+	if err := createMarker(ctx, nil, nil); err != nil {
 		return err
 	}
 	f.callbackInvoked = true
 	return nil
-}
-
-type failingCreateIfAbsentStore struct {
-	kv.Store
-	err error
-}
-
-func (s failingCreateIfAbsentStore) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
-	return nil, false, s.err
-}
-
-func (s failingCreateIfAbsentStore) CreateIfAllAbsent(context.Context, []kv.Entry, []kv.Entry) (kv.Key, []byte, bool, error) {
-	return nil, nil, false, s.err
 }
 
 func (s *recordingRuntimeStore) PrepareWorkspace(_ context.Context, workspace string) (Runtime, error) {
@@ -1837,4 +1743,16 @@ func (s *recordingRuntimeStore) GetWorkspaceRuntime(_ context.Context, workspace
 func (s *recordingRuntimeStore) DeleteWorkspaceRuntime(_ context.Context, workspace string) error {
 	s.deleted = append(s.deleted, workspace)
 	return nil
+}
+
+func workflowReferenceKey(name string) kv.Key { return kv.Key{"by-id", name} }
+func seedWorkspaceRecord(ctx context.Context, db *sqlx.DB, item apitypes.Workspace) error {
+	_, version, err := getSQLWorkspaceByID(ctx, db, item.Id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return createSQLWorkspace(ctx, db, item)
+	}
+	if err != nil {
+		return err
+	}
+	return updateSQLWorkspace(ctx, db, item, version)
 }

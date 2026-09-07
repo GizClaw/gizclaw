@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type WorkspaceQuiescer interface {
@@ -25,13 +25,20 @@ type GameplayWorkspaceCleanup interface {
 	WorkspaceDataAbsent(context.Context, string) (bool, error)
 }
 
+// FlowcraftWorkspaceCleanup retires and verifies scoped Board checkpoints.
+type FlowcraftWorkspaceCleanup interface {
+	DeleteWorkspaceState(context.Context, string, string) error
+	WorkspaceStateAbsent(context.Context, string, string) (bool, error)
+}
+
 // DeletionHandler owns Workspace artifact cleanup and record finalization.
 type DeletionHandler struct {
-	Server   *Server
-	Source   pendingdeletion.KVSource
-	Quiescer WorkspaceQuiescer
-	Gameplay GameplayWorkspaceCleanup
-	Now      func() time.Time
+	Server    *Server
+	Source    workspaceSQLDeletionSource
+	Quiescer  WorkspaceQuiescer
+	Gameplay  GameplayWorkspaceCleanup
+	Flowcraft FlowcraftWorkspaceCleanup
+	Now       func() time.Time
 }
 
 type validatedDeletion struct {
@@ -92,11 +99,7 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err := h.validateRetainedWorkspace(ctx, descriptor); err != nil {
 		return err
 	}
-	deleteKeys, err := h.finalizationKeys(ctx, descriptor)
-	if err != nil {
-		return err
-	}
-	if err := h.Source.Finalize(ctx, claim, now, deleteKeys); err != nil {
+	if err := h.Source.Finalize(ctx, claim, now); err != nil {
 		if errors.Is(err, pendingdeletion.ErrConflict) {
 			return err
 		}
@@ -126,13 +129,13 @@ func validateWorkspaceDeletionClaim(claim pendingdeletion.Claim) (validatedDelet
 			ID: descriptor.ID, Name: descriptor.Name, OwnerPublicKey: cloneString(descriptor.OwnerPublicKey),
 			HasIcon: descriptor.HasIcon, System: descriptor.System,
 		}
-		if claim.Record.OwnerPublicKey == nil || descriptor.OwnerPublicKey == nil || *claim.Record.OwnerPublicKey != *descriptor.OwnerPublicKey {
+		if (claim.Record.OwnerPublicKey == nil) != (descriptor.OwnerPublicKey == nil) || (claim.Record.OwnerPublicKey != nil && *claim.Record.OwnerPublicKey != *descriptor.OwnerPublicKey) {
 			return validatedDeletion{}, errors.New("workspace: Workspace deletion owner mismatch")
 		}
 		if claim.Record.Reason == pendingdeletion.ReasonResourceDelete && descriptor.System {
 			return validatedDeletion{}, errors.New("workspace: generic deletion cannot retire a system Workspace")
 		}
-		if claim.Record.Reason == pendingdeletion.ReasonPeerDelete && !descriptor.System {
+		if claim.Record.Reason == pendingdeletion.ReasonPeerDelete && (!descriptor.System || descriptor.OwnerPublicKey == nil) {
 			return validatedDeletion{}, errors.New("workspace: Peer child deletion requires a system Workspace")
 		}
 	case pendingdeletion.ReasonFriendRelationshipDelete, pendingdeletion.ReasonFriendGroupDelete:
@@ -182,8 +185,8 @@ func (h DeletionHandler) validateRetainedWorkspace(ctx context.Context, descript
 		return pendingdeletion.Retryable("store_unavailable", "Workspace store is unavailable", err)
 	}
 	item, err := getWorkspaceByID(ctx, store, descriptor.ID)
-	if errors.Is(err, kv.ErrNotFound) {
-		return h.validateLegacyIndexes(ctx, store, descriptor)
+	if errors.Is(err, sql.ErrNoRows) {
+		return pendingdeletion.Terminal("retained_workspace_missing", "Retained Workspace record is missing", err)
 	}
 	if err != nil {
 		return pendingdeletion.Retryable("store_error", "Workspace record could not be read", err)
@@ -198,36 +201,22 @@ func (h DeletionHandler) validateRetainedWorkspace(ctx context.Context, descript
 	return nil
 }
 
-func (h DeletionHandler) validateLegacyIndexes(ctx context.Context, store kv.Store, descriptor validatedDeletion) error {
-	checks := []struct {
-		key kv.Key
-	}{
-		{key: workspaceScopeNameKey(descriptor.OwnerPublicKey, descriptor.Name)},
-	}
-	if descriptor.OwnerPublicKey != nil && !descriptor.System {
-		checks = append(checks, struct{ key kv.Key }{key: workspaceByOwnerKey(*descriptor.OwnerPublicKey, descriptor.Name)})
-	}
-	for _, check := range checks {
-		value, err := store.Get(ctx, check.key)
-		if errors.Is(err, kv.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return pendingdeletion.Retryable("store_error", "Workspace index could not be read", err)
-		}
-		if string(value) != descriptor.ID {
-			return pendingdeletion.Terminal("replacement_ambiguous", "Workspace index belongs to a replacement", nil)
-		}
-	}
-	return nil
-}
-
 func (h DeletionHandler) cleanupArtifacts(ctx context.Context, descriptor validatedDeletion) error {
 	if h.Quiescer != nil {
 		if err := h.Quiescer.QuiesceWorkspace(ctx, descriptor.ID); err != nil {
 			return pendingdeletion.Retryable("quiesce_failed", "Workspace runtime could not be quiesced", err)
 		}
 	}
+	if h.Flowcraft != nil {
+		owner := ""
+		if descriptor.OwnerPublicKey != nil {
+			owner = *descriptor.OwnerPublicKey
+		}
+		if err := h.Flowcraft.DeleteWorkspaceState(ctx, owner, descriptor.ID); err != nil {
+			return pendingdeletion.Retryable("flowcraft_state_cleanup_failed", "Workspace Board state could not be deleted", err)
+		}
+	}
+
 	if h.Gameplay != nil {
 		if err := h.Gameplay.DeleteWorkspaceData(ctx, descriptor.ID); err != nil {
 			return pendingdeletion.Retryable("gameplay_cleanup_failed", "Workspace Gameplay data could not be deleted", err)
@@ -252,6 +241,20 @@ func (h DeletionHandler) cleanupArtifacts(ctx context.Context, descriptor valida
 }
 
 func (h DeletionHandler) verifyArtifactsAbsent(ctx context.Context, descriptor validatedDeletion) error {
+	if h.Flowcraft != nil {
+		owner := ""
+		if descriptor.OwnerPublicKey != nil {
+			owner = *descriptor.OwnerPublicKey
+		}
+		absent, err := h.Flowcraft.WorkspaceStateAbsent(ctx, owner, descriptor.ID)
+		if err != nil {
+			return pendingdeletion.Retryable("flowcraft_state_verify_failed", "Workspace Board state cleanup could not be verified", err)
+		}
+		if !absent {
+			return pendingdeletion.Retryable("flowcraft_state_residual", "Workspace Board state remains or its scope is not retired", nil)
+		}
+	}
+
 	if h.Gameplay != nil {
 		absent, err := h.Gameplay.WorkspaceDataAbsent(ctx, descriptor.ID)
 		if err != nil {
@@ -287,24 +290,6 @@ func (h DeletionHandler) verifyArtifactsAbsent(ctx context.Context, descriptor v
 		}
 	}
 	return nil
-}
-
-func (h DeletionHandler) finalizationKeys(ctx context.Context, descriptor validatedDeletion) ([]kv.Key, error) {
-	store, err := h.Server.store()
-	if err != nil {
-		return nil, pendingdeletion.Retryable("store_unavailable", "Workspace store is unavailable", err)
-	}
-	if err := h.validateLegacyIndexes(ctx, store, descriptor); err != nil {
-		return nil, err
-	}
-	keys := []kv.Key{
-		workspaceKey(descriptor.ID),
-		workspaceScopeNameKey(descriptor.OwnerPublicKey, descriptor.Name),
-	}
-	if descriptor.OwnerPublicKey != nil && !descriptor.System {
-		keys = append(keys, workspaceByOwnerKey(*descriptor.OwnerPublicKey, descriptor.Name))
-	}
-	return keys, nil
 }
 
 func equalOptionalString(a, b *string) bool {

@@ -19,8 +19,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/jmoiron/sqlx"
 )
 
 func newPeerAgentHost(
@@ -30,7 +30,7 @@ func newPeerAgentHost(
 	ownerGenX func(context.Context, string) (*peergenx.Service, error),
 	pets petagent.ContextProvider,
 	history logstore.MutableStore,
-	state kv.Store,
+	state *sqlx.DB,
 	memoryRoot string,
 	memoryStores *memorystore.Registry,
 	sfuFactory sfu.Factory,

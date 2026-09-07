@@ -33,12 +33,12 @@ func TestDashScopeStreamIDsFallbackRoutes(t *testing.T) {
 		t.Fatalf("current response route = %q, want %q", got, responseID)
 	}
 
-	transcriptID := ids.responseTranscript("")
-	if transcriptID == "" || transcriptID == responseID {
-		t.Fatalf("transcript route = %q, response = %q", transcriptID, responseID)
+	textID := ids.responseText("")
+	if textID == "" || textID == responseID {
+		t.Fatalf("text route = %q, response = %q", textID, responseID)
 	}
-	if got := ids.responseTranscript("provider-1"); got != transcriptID {
-		t.Fatalf("provider transcript route = %q, want %q", got, transcriptID)
+	if got := ids.responseText("provider-1"); got != textID {
+		t.Fatalf("provider text route = %q, want %q", got, textID)
 	}
 
 	var unbound dashScopeStreamIDs

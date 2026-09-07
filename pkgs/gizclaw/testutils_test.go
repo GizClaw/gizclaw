@@ -31,22 +31,9 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		}
 	}
 	set(&server.PeerStore, "peers")
-	set(&server.PeerRunStore, "peer-runs")
 	set(&server.APIKeyStore, "api-keys")
-	set(&server.CredentialStore, "credentials")
-	set(&server.FirmwareStore, "firmwares")
-	set(&server.RuntimeProfileStore, "runtime-profiles")
-	set(&server.ModelStore, "models")
-	set(&server.VoiceStore, "voices")
-	set(&server.MemoryLayoutStore, "memory-layouts")
-	set(&server.ProviderTenantStore, "provider-tenants")
-	set(&server.WorkflowStore, "workflows")
-	set(&server.WorkspaceStore, "workspaces")
-	set(&server.ToolStore, "tools")
-	set(&server.ContactStore, "contacts")
 	set(&server.FriendStore, "friends")
 	set(&server.FriendGroupStore, "friend-groups")
-	set(&server.GameplayStore, "gameplay")
 	if server.WorkspaceAssets == nil {
 		server.WorkspaceAssets = newTestObjectStore(t)
 	}
@@ -61,6 +48,45 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		db.SetMaxOpenConns(1)
 		t.Cleanup(func() { _ = db.Close() })
 		server.GameplayDB = db
+	}
+	if server.WorkspaceDB == nil {
+		server.WorkspaceDB = server.GameplayDB
+	}
+	if server.ProviderTenantDB == nil {
+		server.ProviderTenantDB = server.GameplayDB
+	}
+	if server.GameplayCatalogDB == nil {
+		server.GameplayCatalogDB = server.GameplayDB
+	}
+	if server.RuntimeProfileDB == nil {
+		server.RuntimeProfileDB = server.GameplayDB
+	}
+	if server.VoiceDB == nil {
+		server.VoiceDB = server.GameplayDB
+	}
+	if server.CredentialDB == nil {
+		server.CredentialDB = server.GameplayDB
+	}
+	if server.ModelDB == nil {
+		server.ModelDB = server.GameplayDB
+	}
+	if server.WorkflowDB == nil {
+		server.WorkflowDB = server.GameplayDB
+	}
+	if server.ContactDB == nil {
+		server.ContactDB = server.GameplayDB
+	}
+	if server.MemoryLayoutDB == nil {
+		server.MemoryLayoutDB = server.GameplayDB
+	}
+	if server.ToolDB == nil {
+		server.ToolDB = server.GameplayDB
+	}
+	if server.FirmwareDB == nil {
+		server.FirmwareDB = server.GameplayDB
+	}
+	if server.PeerRunDB == nil {
+		server.PeerRunDB = server.GameplayDB
 	}
 	if server.WorkspaceHistory == nil {
 		store, err := logstore.NewSQLStoreWithDB(server.GameplayDB, "workspace_history")

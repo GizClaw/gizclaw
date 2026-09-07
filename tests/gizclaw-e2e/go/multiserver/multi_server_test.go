@@ -379,7 +379,8 @@ func redisSnapshot(t *testing.T, client *redis.Client) byteSnapshot {
 	sort.Strings(keys)
 	snapshot := make(byteSnapshot, len(keys))
 	for _, key := range keys {
-		value, err := client.Get(ctx, key).Bytes()
+		// DUMP captures strings and collection values without assuming a Redis type.
+		value, err := client.Dump(ctx, key).Bytes()
 		if err != nil {
 			t.Fatalf("read shared Redis snapshot key %q: %v", key, err)
 		}
@@ -399,7 +400,7 @@ func sqlTableSnapshot(t *testing.T, path, table string) byteSnapshot {
 
 func querySQLTableSnapshot(path, table string) (byteSnapshot, error) {
 	switch table {
-	case "kv", "peer_runs", "runtime-profiles", "workflows", "workspaces":
+	case "peer_runs":
 	default:
 		return nil, fmt.Errorf("unsupported E2E table %q", table)
 	}
@@ -417,13 +418,13 @@ func querySQLTableSnapshot(path, table string) (byteSnapshot, error) {
 		table,
 	).Scan(&exists); {
 	case errors.Is(err, sql.ErrNoRows):
-		// A store that never wrote a row has no table. That is the same
-		// observable state as an empty one for these assertions.
-		return make(byteSnapshot), nil
+		return nil, fmt.Errorf("required business table %q is missing", table)
 	case err != nil:
 		return nil, err
 	}
-	rows, err := db.QueryContext(ctx, `SELECT encoded_key, value FROM "`+table+`" ORDER BY encoded_key`)
+	query := `SELECT public_key,json_object('registered_at',registered_at,'status_json',status_json,'ota_json',ota_json,'pending_workspace',pending_workspace,'active_workspace',active_workspace,'debug_mode',debug_mode) FROM peer_runs ORDER BY public_key`
+
+	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +466,7 @@ func assertSnapshotEqual(t *testing.T, name string, before, after byteSnapshot) 
 
 func waitPeerRunStatus(t *testing.T, path string, publicKey giznet.PublicKey, battery int) {
 	t.Helper()
-	key := "runs:by-peer:" + publicKey.String() + ":status"
+	key := publicKey.String()
 	deadline := time.Now().Add(15 * time.Second)
 	var lastErr error
 	for time.Now().Before(deadline) {
@@ -481,8 +482,16 @@ func waitPeerRunStatus(t *testing.T, path string, publicKey giznet.PublicKey, ba
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
+		var row struct {
+			Status *string `json:"status_json"`
+		}
+		if err := json.Unmarshal(value, &row); err != nil || row.Status == nil {
+			lastErr = fmt.Errorf("runtime row has no status: %v", err)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
 		var status apitypes.PeerStatus
-		if err := json.Unmarshal(value, &status); err != nil {
+		if err := json.Unmarshal([]byte(*row.Status), &status); err != nil {
 			lastErr = err
 			time.Sleep(100 * time.Millisecond)
 			continue
@@ -498,7 +507,7 @@ func waitPeerRunStatus(t *testing.T, path string, publicKey giznet.PublicKey, ba
 
 func assertPeerRunAbsent(t *testing.T, path string, publicKey giznet.PublicKey) {
 	t.Helper()
-	key := "runs:by-peer:" + publicKey.String() + ":status"
+	key := publicKey.String()
 	if _, ok := sqlTableSnapshot(t, path, "peer_runs")[key]; ok {
 		t.Fatalf("foreign PeerRun status %s exists in %s", publicKey, path)
 	}
@@ -626,4 +635,85 @@ func requiredEnv(t *testing.T, name string) string {
 		t.Fatalf("%s is required", name)
 	}
 	return value
+}
+
+// sqlDatabaseSnapshot verifies isolation across actual business tables. Looking
+// for a retired KV table would silently compare two empty snapshots.
+func sqlDatabaseSnapshot(t *testing.T, path string) byteSnapshot {
+	t.Helper()
+	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro&_pragma=busy_timeout%3d5000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	tables, err := tx.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for tables.Next() {
+		var name string
+		if err := tables.Scan(&name); err != nil {
+			tables.Close()
+			t.Fatal(err)
+		}
+		names = append(names, name)
+	}
+	if err := tables.Err(); err != nil {
+		tables.Close()
+		t.Fatal(err)
+	}
+	tables.Close()
+	if len(names) == 0 {
+		t.Fatal("Server database has no business tables")
+	}
+	snapshot := make(byteSnapshot)
+	for _, name := range names {
+		rows, err := tx.QueryContext(ctx, `SELECT * FROM "`+strings.ReplaceAll(name, `"`, `""`)+`"`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		columns, err := rows.Columns()
+		if err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+		var records []string
+		for rows.Next() {
+			values := make([]any, len(columns))
+			targets := make([]any, len(values))
+			for i := range values {
+				targets[i] = &values[i]
+			}
+			if err := rows.Scan(targets...); err != nil {
+				rows.Close()
+				t.Fatal(err)
+			}
+			data, err := json.Marshal(values)
+			if err != nil {
+				rows.Close()
+				t.Fatal(err)
+			}
+			records = append(records, string(data))
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			t.Fatal(err)
+		}
+		rows.Close()
+		sort.Strings(records)
+		data, err := json.Marshal(records)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot[name] = data
+	}
+	return snapshot
 }

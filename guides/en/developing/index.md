@@ -100,7 +100,7 @@ gizclaw/
 | `pkgs/gizedge` | Edge ingress, upstream connection and forwarding | Authoritative resource, final resource access | [Gizedge](gizedge) |
 | `pkgs/gizlog` | Process-wide structured logger, levels, fan-out, and Store sinks | Product log fields and backend provisioning | [Observability](observability) |
 | `pkgs/genx` | Message, Stream, Generator, Transformer, Tool and adapters | Agent instance, workspace, product model resource | [GenX](genx/overview) |
-| `pkgs/store` | KV, object, metrics, graph, vector and identity primitives | Domain resource schema and business rules | [Stores](stores/overview) |
+| `pkgs/store` | KV, object, metrics, vector and identity primitives | Domain resource schema and business rules | [Stores](stores/overview) |
 | `pkgs/audio` | Codec, PCM, resampling, device I/O and voiceprint | WebRTC connection, Agent lifecycle | [Audio](audio/overview) |
 | `cmd` | Configuration reading, dependency wiring, process life cycle and CLI UX | Reusable domain logic | Corresponding package guidelines |
 | `sdk` | Generate contract and client packaging for each language | Independently define another set of wire contracts | [API generation](api/generation) |

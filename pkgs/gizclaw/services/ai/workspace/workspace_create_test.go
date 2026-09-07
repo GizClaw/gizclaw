@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestCreatePeerWorkspaceRequiresOwnerAndRollsBackInitializerFailure(t *testing.T) {
@@ -38,7 +38,7 @@ func TestCreatePeerWorkspaceRequiresOwnerAndRollsBackInitializerFailure(t *testi
 	if len(runtimes.prepared) != 1 || len(runtimes.deleted) != 1 || runtimes.prepared[0] != runtimes.deleted[0] {
 		t.Fatalf("runtime rollback prepared=%#v deleted=%#v", runtimes.prepared, runtimes.deleted)
 	}
-	if _, err := srv.GetWorkspaceByName(ctx, "initializer-fails"); !errors.Is(err, kv.ErrNotFound) {
+	if _, err := srv.GetWorkspaceByName(ctx, "initializer-fails"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("failed initializer Workspace lookup error = %v, want not found", err)
 	}
 }

@@ -608,7 +608,7 @@ func listOwnerRows[T any](ctx context.Context, r *Runtime, owner, table string, 
 	if err := requireOwner(owner); err != nil {
 		return nil, false, nil, err
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return nil, false, nil, err
 	}
 	cursor, limit := normalizeRuntimeListParams(req.Cursor, req.Limit)

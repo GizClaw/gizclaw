@@ -497,7 +497,7 @@ func (r *Stores) MutableLog(name string) (logstore.MutableStore, error) {
 // Close releases logical stores. Physical storage is always caller-owned.
 func (r *Stores) Close() error {
 	var errs []error
-	for i := len(r.logicClosers) - 1; i >= 0; i-- {
+	for i := range slices.Backward(r.logicClosers) {
 		if err := r.logicClosers[i].Close(); err != nil {
 			errs = append(errs, err)
 		}

@@ -85,7 +85,7 @@ func TestApplyBadgeExpAtomicallyPreservesNegativeDeltaSemantics(t *testing.T) {
 	}
 }
 
-func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
+func TestListPetWorkspaceNamesInitializedDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
 	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "profile-a"})
 	names, err := runtime.ListPetWorkspaceNames(ctx, "peer-a")
@@ -97,7 +97,24 @@ func TestListPetWorkspaceNamesMigratesFreshDatabase(t *testing.T) {
 	}
 }
 
-func TestOwnerHasPetWorkspaceMigratesFreshDatabase(t *testing.T) {
+// A read must neither initialize nor repair schema. Missing tables are a host
+// initialization error, and request handlers must not acquire migration locks.
+func TestWorkspaceListingDoesNotInitializeSchema(t *testing.T) {
+	runtime := &Runtime{DB: freshTestDB(t)}
+	ctx := WithRuntimeProfile(t.Context(), apitypes.RuntimeProfile{Id: "profile-a"})
+	if _, err := runtime.ListPetWorkspaceNames(ctx, "peer-a"); err == nil {
+		t.Fatal("workspace listing succeeded without startup schema initialization")
+	}
+	var tables int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'gameplay_%'`).Scan(&tables); err != nil {
+		t.Fatal(err)
+	}
+	if tables != 0 {
+		t.Fatalf("workspace listing created %d Gameplay tables", tables)
+	}
+}
+
+func TestOwnerHasPetWorkspaceInitializedDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
 	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "profile-a"})
 	allowed, err := runtime.OwnerHasPetWorkspace(ctx, "peer-a", "pet-workspace")
@@ -144,7 +161,7 @@ func TestResolvePetNameUsesRetainedAdoptionReservationWithinRuntimeProfile(t *te
 
 func TestMigrationCreatesFreshReservationSchemaWithoutVoiceAlias(t *testing.T) {
 	ctx := context.Background()
-	runtime := &Runtime{DB: testDB(t)}
+	runtime := &Runtime{DB: freshTestDB(t)}
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("Migration() error = %v", err)
 	}
@@ -218,121 +235,11 @@ func assertPetWorkspaceBindingIDs(t *testing.T, ctx context.Context, tx *sqlx.Tx
 	}
 }
 
-func TestDeletePetMigratesFreshDatabase(t *testing.T) {
+func TestDeletePetInitializedDatabase(t *testing.T) {
 	runtime := &Runtime{DB: testDB(t)}
 	ctx := WithRuntimeProfile(context.Background(), apitypes.RuntimeProfile{Id: "profile-a"})
 	if _, err := runtime.DeletePet(ctx, "peer-a", "missing-pet"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("DeletePet() error = %v, want %v", err, sql.ErrNoRows)
-	}
-}
-
-func TestMigrationStopsPendingDeletionBackfillAfterLocatorTableIsPopulated(t *testing.T) {
-	ctx := context.Background()
-	db := testDB(t)
-	if _, err := db.ExecContext(ctx, `CREATE TABLE gameplay_pending_deletions (
-		deletion_id TEXT NOT NULL PRIMARY KEY,
-		kind TEXT NOT NULL,
-		owner_public_key TEXT NOT NULL,
-		resource_id TEXT NOT NULL,
-		reason TEXT NOT NULL,
-		deleted_at TEXT NOT NULL,
-		descriptor_version INTEGER NOT NULL,
-		descriptor_json TEXT NOT NULL
-	)`); err != nil {
-		t.Fatalf("create legacy pending table: %v", err)
-	}
-	owner := "peer-a"
-	record, err := pendingdeletion.New(pendingdeletion.KindPet, "pet-a", &owner, pendingdeletion.ReasonResourceDelete, map[string]string{
-		"owner_public_key": owner,
-		"pet_id":           "pet-a",
-	}, time.Unix(1, 0))
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	record.DeletionID = "10000000-0000-4000-8000-000000000002"
-	insertPending := func(label string, item pendingdeletion.Record) {
-		t.Helper()
-		if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pending_deletions (deletion_id, kind, owner_public_key, resource_id, reason, deleted_at, descriptor_version, descriptor_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			item.DeletionID, item.Kind, owner, item.ResourceID, item.Reason, formatTime(item.DeletedAt), item.DescriptorVersion, string(item.Descriptor)); err != nil {
-			t.Fatalf("insert %s pending record: %v", label, err)
-		}
-	}
-	insertPending("earliest legacy", record)
-	sameTimeRecord := record
-	sameTimeRecord.DeletionID = "10000000-0000-4000-8000-000000000003"
-	insertPending("same-time legacy", sameTimeRecord)
-	laterSameResource := record
-	laterSameResource.DeletionID = "10000000-0000-4000-8000-000000000001"
-	laterSameResource.DeletedAt = time.Unix(2, 0).UTC()
-	insertPending("later legacy", laterSameResource)
-
-	runtime := &Runtime{DB: db}
-	if err := runtime.Migration(ctx); err != nil {
-		t.Fatalf("Migration: %v", err)
-	}
-	var deletionID string
-	if err := db.QueryRowContext(ctx, `SELECT deletion_id FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
-		record.Kind, owner, record.ResourceID).Scan(&deletionID); err != nil {
-		t.Fatalf("query backfilled locator: %v", err)
-	}
-	if deletionID != record.DeletionID {
-		t.Fatalf("backfilled deletion ID = %q, want %q", deletionID, record.DeletionID)
-	}
-
-	laterRecord, err := pendingdeletion.New(pendingdeletion.KindPet, "pet-b", &owner, pendingdeletion.ReasonResourceDelete, map[string]string{
-		"owner_public_key": owner,
-		"pet_id":           "pet-b",
-	}, time.Unix(2, 0))
-	if err != nil {
-		t.Fatalf("New later record: %v", err)
-	}
-	laterRecord.DeletionID = "20000000-0000-4000-8000-000000000002"
-	insertPending("late-added earliest legacy", laterRecord)
-	laterRetryRecord := laterRecord
-	laterRetryRecord.DeletionID = "20000000-0000-4000-8000-000000000001"
-	laterRetryRecord.DeletedAt = time.Unix(3, 0).UTC()
-	insertPending("late-added retry legacy", laterRetryRecord)
-	if err := runtime.Migration(ctx); err != nil {
-		t.Fatalf("second Migration: %v", err)
-	}
-	var laterLocatorCount int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
-		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&laterLocatorCount); err != nil {
-		t.Fatalf("count later locator: %v", err)
-	}
-	if laterLocatorCount != 0 {
-		t.Fatalf("later locator count = %d, want 0 after completed backfill", laterLocatorCount)
-	}
-
-	now := time.Unix(3, 0).UTC()
-	if _, err := db.ExecContext(ctx, `INSERT INTO gameplay_pets (
-		owner_public_key, id, name, runtime_profile_id, pet_def_id, display_name, workspace_id,
-		stats_json, progression_json, lifecycle, died_at, state_settled_at, last_active_at, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		owner, laterRecord.ResourceID, "pet-later", "default", "petdef-a", "Pet B", "pet-pet-b",
-		`{"life":100,"health":100,"satiety":100,"hygiene":100,"mood":100,"energy":100}`, `{"experience":0,"level":1}`, "alive", nil,
-		formatTime(now), formatTime(now), formatTime(now), formatTime(now),
-	); err != nil {
-		t.Fatalf("insert later Pet: %v", err)
-	}
-	if _, err := runtime.DeletePet(ctx, owner, laterRecord.ResourceID); err != nil {
-		t.Fatalf("DeletePet(later legacy record): %v", err)
-	}
-	var reusedDeletionID string
-	if err := db.QueryRowContext(ctx, `SELECT deletion_id FROM gameplay_pending_deletion_locators WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
-		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&reusedDeletionID); err != nil {
-		t.Fatalf("query reused later locator: %v", err)
-	}
-	if reusedDeletionID != laterRecord.DeletionID {
-		t.Fatalf("reused later deletion ID = %q, want %q", reusedDeletionID, laterRecord.DeletionID)
-	}
-	var laterPendingCount int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM gameplay_pending_deletions WHERE kind = ? AND owner_public_key = ? AND resource_id = ?`,
-		laterRecord.Kind, owner, laterRecord.ResourceID).Scan(&laterPendingCount); err != nil {
-		t.Fatalf("count later pending deletions: %v", err)
-	}
-	if laterPendingCount != 2 {
-		t.Fatalf("later pending deletion count = %d, want 2 legacy records and no new record", laterPendingCount)
 	}
 }
 
@@ -927,7 +834,6 @@ func TestPendingDeletionSourceHasLocatorRejectsInvalidEnvelope(t *testing.T) {
 		createLocator bool
 	}{
 		{name: "fixed locator", createLocator: true},
-		{name: "legacy record"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -989,7 +895,6 @@ func TestRuntimeDeletePetRejectsInvalidPendingDeletionEnvelope(t *testing.T) {
 		createLocator bool
 	}{
 		{name: "fixed locator", createLocator: true},
-		{name: "legacy record"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
@@ -1059,8 +964,12 @@ func TestRuntimeDeletePetRejectsInvalidPendingDeletionEnvelope(t *testing.T) {
 				record.Kind, owner, petID).Scan(&locators); err != nil {
 				t.Fatalf("count pending deletion locators: %v", err)
 			}
-			if pets != 1 || pending != 1 || locators != 1 {
-				t.Fatalf("after rejection Pets=%d pending=%d locators=%d, want 1, 1 and 1", pets, pending, locators)
+			wantLocators := 0
+			if tc.createLocator {
+				wantLocators = 1
+			}
+			if pets != 1 || pending != 1 || locators != wantLocators {
+				t.Fatalf("after rejection Pets=%d pending=%d locators=%d, want 1, 1 and %d", pets, pending, locators, wantLocators)
 			}
 		})
 	}
@@ -1430,6 +1339,15 @@ func TestResolvePetContextRequiresExactlyOneWorkspaceBinding(t *testing.T) {
 
 func testDB(t *testing.T) *sqlx.DB {
 	t.Helper()
+	db := freshTestDB(t)
+	if err := (&Runtime{DB: db}).Migration(t.Context()); err != nil {
+		t.Fatalf("initialize Gameplay schema: %v", err)
+	}
+	return db
+}
+
+func freshTestDB(t *testing.T) *sqlx.DB {
+	t.Helper()
 	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
@@ -1544,4 +1462,43 @@ func (s *recordingWorkspaceService) GetWorkspaceByName(_ context.Context, name s
 
 func (s *recordingWorkspaceService) PutWorkspace(context.Context, adminhttp.PutWorkspaceRequestObject) (adminhttp.PutWorkspaceResponseObject, error) {
 	return adminhttp.PutWorkspace500JSONResponse(apitypes.NewErrorResponse("UNIMPLEMENTED", "not implemented")), nil
+}
+
+func sqlColumnExists(ctx context.Context, db sqlDialectExecutor, table, column string) (bool, error) {
+	switch db.DriverName() {
+	case "sqlite":
+		rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", table))
+		if err != nil {
+			return false, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var cid int
+			var name string
+			var typ string
+			var notNull int
+			var defaultValue any
+			var pk int
+			if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+				return false, err
+			}
+			if name == column {
+				return true, nil
+			}
+		}
+		return false, rows.Err()
+	case "postgres":
+		var exists bool
+		err := db.QueryRowContext(ctx, db.Rebind(`
+SELECT EXISTS (
+	SELECT 1
+	FROM information_schema.columns
+	WHERE table_schema = current_schema()
+	  AND table_name = ?
+	  AND column_name = ?
+)`), table, column).Scan(&exists)
+		return exists, err
+	default:
+		return false, fmt.Errorf("gameplay: unsupported sql dialect %q", db.DriverName())
+	}
 }

@@ -318,7 +318,7 @@ func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
-	wantTables := []string{"immutable_logs", "kv-items", "metric_samples", "mutable_logs"}
+	wantTables := []string{"gizclaw_kv_d2f54ce9c501c385_members", "immutable_logs", "kv-items", "metric_samples", "mutable_logs"}
 	if !reflect.DeepEqual(tables, wantTables) {
 		t.Fatalf("SQLite tables = %v, want only business tables %v", tables, wantTables)
 	}

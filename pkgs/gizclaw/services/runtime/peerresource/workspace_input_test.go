@@ -2,8 +2,11 @@ package peerresource
 
 import (
 	"context"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"reflect"
 	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workflowtest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -19,14 +22,13 @@ import (
 
 func newWorkspaceInputTestServer(t *testing.T, ctx context.Context) *Server {
 	t.Helper()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
-	workflows := &workflow.Server{Store: kv.Prefixed(store, kv.Key{"workflows"})}
+	store := workspacetest.New(t).DB
+	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
 	profile := runtimeProfileWithWorkspaceAlias("r1")
 	return &Server{
 		Caller:     giznet.PublicKey{1},
-		Workspaces: &workspace.Server{Store: kv.Prefixed(store, kv.Key{"workspaces"}), Workflows: workflows},
+		Workspaces: &workspace.Server{DB: store, Workflows: workflows},
 		Workflows:  workflows,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			return &profile

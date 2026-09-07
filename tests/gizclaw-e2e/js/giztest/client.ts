@@ -20,6 +20,7 @@ import {
 
 import type { ClientSpec, Step } from "./document.ts";
 import type { Variables } from "./variables.ts";
+import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
 
 const CONNECT_TIMEOUT_MS = 30_000;
 const RPC_TIMEOUT_MS = 30_000;
@@ -213,11 +214,12 @@ export class ScenarioClient {
     params: unknown,
     signal?: AbortSignal,
   ): Promise<unknown> {
-    return (await this.rpc.call(
+    const response = await this.rpc.call(
       method as Parameters<PeerRPCClient["call"]>[0],
-      params as never,
+      requestFromProtoJSON(method, params) as never,
       { signal },
-    )) as unknown;
+    );
+    return responseToProtoJSON(method, response);
   }
 
   // callHTTP sends one Public HTTP request through the control SDK so the
@@ -304,6 +306,18 @@ export class ScenarioClient {
     this.rpc = createPeerRPCClient(pc as unknown as RTCPeerConnection, {
       requestTimeoutMs: RPC_TIMEOUT_MS,
     });
+    try {
+      // ICE completion can precede Server registration of this replacement.
+      // Require a response on the new connection before following HTTP steps.
+      await this.rpc.call(
+        "all.ping",
+        { client_send_time: Date.now() },
+        { signal },
+      );
+    } catch (error) {
+      pc.close();
+      throw error;
+    }
   }
 
   close(): void {

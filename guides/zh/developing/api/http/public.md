@@ -63,15 +63,14 @@ PUT /gizclaw/v1/device/volume { level: 0..100, muted }
 
 设备通过自身已认证连接调用 `server.runtime.put`，设置 `{ "debug_mode": "readonly" }`。
 允许 `off`（默认）、`readonly`、`fullcontrol`，其他值或缺失字段被拒绝。
-该设置由设备所属 authoritative Server 持久化到 PeerRunStore 的 `runs` namespace 下的
-`by-peer:<pubkey>:debug-mode`，通过 Runtime 的 `debug_mode` 字段读取；不属于 DeviceInfo，
+该设置由设备所属 authoritative Server 持久化到 本机 PeerRun SQL 表的 `debug_mode` 列（按公钥定位），通过 Runtime 的 `debug_mode` 字段读取；不属于 DeviceInfo，
 也不通过 `server.info.put` 修改。断线重连保持设置，缺失记录按 off 处理。
 
 设备和联系人 HTTP 接口使用 `Authorization: Bearer gizclaw_pk_<Base58公钥>` 选择调试设备。
 公钥必须是 canonical Base58，裸公钥和 `public_key` query 不提供调试授权。
 `gizclaw_sk_v1_` API Key 继续走原有鉴权，不会回退为公钥。
 Edge 从公钥查询已有 Peer assignment 并代理到配置中的所属 Server；Edge 不读取 DeviceInfo 或调试模式。
-所属 Server 每次从 PeerRunStore 读取当前权限：readonly 只允许 GET，fullcontrol 允许设备/联系人接口的读写和控制。
+所属 Server 每次从 PeerRun 读取当前权限：readonly 只允许 GET，fullcontrol 允许设备/联系人接口的读写和控制。
 设备仍须为可用的 active Client 且具有 RuntimeProfile binding。
 API key 管理、Admin 和 OpenAI 接口不接受公钥调试授权。
 关闭模式后拒绝新请求，已开始的请求不被撤销；存储失败时拒绝访问，响应不暴露底层错误。

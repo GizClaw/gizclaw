@@ -13,20 +13,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 func TestServiceReloadBindsPeerPublicKeyToLogContext(t *testing.T) {
 	ctx := t.Context()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -94,7 +95,7 @@ func (r agenthostLogResolver) Log(string) (logstore.ImmutableStore, error) { ret
 func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -165,7 +166,7 @@ func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 func TestServiceReloadNotifiesOnlyPublishedWorkspaceActivation(t *testing.T) {
 	ctx := t.Context()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -206,7 +207,7 @@ func TestServiceReloadNotifiesOnlyPublishedWorkspaceActivation(t *testing.T) {
 func TestServiceReloadAndStopSerializeTransitions(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -272,7 +273,7 @@ func TestServiceReloadAndStopSerializeTransitions(t *testing.T) {
 func TestServiceShutdownPreventsConcurrentReloadPublication(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -336,7 +337,7 @@ func TestServiceShutdownPreventsConcurrentReloadPublication(t *testing.T) {
 func TestServiceReloadCanceledWhileWaitingKeepsPublishedStatus(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	svc := testService(t, publicKey, store, &fakeHost{})
 	if err := svc.lockTransition(ctx); err != nil {
 		t.Fatalf("lockTransition() error = %v", err)
@@ -364,7 +365,7 @@ func TestServiceReloadCanceledWhileWaitingKeepsPublishedStatus(t *testing.T) {
 func TestServiceInputRecoveryDropsSupersededTransition(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -429,7 +430,7 @@ func TestServiceInputRecoveryDropsSupersededTransition(t *testing.T) {
 func TestServicePushInputDropsSupersededRevision(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -480,7 +481,7 @@ func TestServicePushInputRequiresPusher(t *testing.T) {
 func TestServiceReloadAndPushKeepsRetryInsideTransition(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -609,7 +610,7 @@ func TestServiceSelectionChangeInvalidatesInputRecovery(t *testing.T) {
 func TestServiceInputRecoveryDropsPendingWorkspaceAfterRuntimeStops(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	demo := apitypes.AgentSelection{WorkspaceName: "demo"}
 	assistant := apitypes.AgentSelection{WorkspaceName: "assistant"}
 	if _, err := store.SetRunAgent(ctx, publicKey, demo); err != nil {
@@ -644,7 +645,7 @@ func TestServiceInputRecoveryDropsPendingWorkspaceAfterRuntimeStops(t *testing.T
 func TestServiceSameActiveSelectionAfterRuntimeStopsKeepsRevision(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	demo := apitypes.AgentSelection{WorkspaceName: "demo"}
 	if _, err := store.SetRunAgent(ctx, publicKey, demo); err != nil {
 		t.Fatalf("SetRunAgent(demo) error = %v", err)
@@ -699,7 +700,7 @@ func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
 func TestServiceReloadMissingWorkspaceInstallsSafeErrorRuntime(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "missing"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -738,7 +739,7 @@ func TestServiceReloadMissingWorkspaceInstallsSafeErrorRuntime(t *testing.T) {
 func TestServiceReloadRevalidatesPersistedWorkspaceSelection(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "removed-profile-workspace"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -777,7 +778,7 @@ func TestServiceValidationAndDefaultStatus(t *testing.T) {
 	}
 
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	for _, tc := range []struct {
 		name string
 		svc  *Service
@@ -922,7 +923,7 @@ func TestTransformerAgentDefaults(t *testing.T) {
 func TestServiceWorkspaceStateMergesOpenAgentStatus(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -997,7 +998,7 @@ func TestServiceReusesWorkspaceRuntimeForMultipleGears(t *testing.T) {
 	ctx := context.Background()
 	firstKey := testPublicKey(t)
 	secondKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	for _, key := range []giznet.PublicKey{firstKey, secondKey} {
 		if _, err := store.SetRunAgent(ctx, key, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 			t.Fatalf("SetRunAgent(%s) error = %v", key, err)
@@ -1078,7 +1079,7 @@ func TestRuntimeKeyUsesCanonicalWorkspaceOnly(t *testing.T) {
 func TestServiceReloadSourceAndOutputErrors(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1117,7 +1118,7 @@ func TestServiceReloadSourceAndOutputErrors(t *testing.T) {
 func TestServiceReloadCancellationAfterInputOpenInstallsErrorRuntime(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{
 		WorkspaceName: "demo",
 	}); err != nil {
@@ -1209,7 +1210,7 @@ func TestServiceReloadActivateFailureClosesStreams(t *testing.T) {
 func TestServiceReloadTransformFailureInstallsErrorRuntime(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatal(err)
 	}
@@ -1390,7 +1391,7 @@ func TestServiceFailedReplacementKeepsOtherPeerGenerationLive(t *testing.T) {
 	ctx := context.Background()
 	firstKey := testPublicKey(t)
 	secondKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	for _, key := range []giznet.PublicKey{firstKey, secondKey} {
 		if _, err := store.SetRunAgent(ctx, key, apitypes.AgentSelection{
 			WorkspaceName: "demo",
@@ -1479,7 +1480,7 @@ func TestServiceFailedReplacementKeepsOtherPeerGenerationLive(t *testing.T) {
 func TestServiceConsumerErrorSetsStatus(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1529,7 +1530,7 @@ func TestServiceConsumerErrorSetsStatus(t *testing.T) {
 func TestServiceWorkspaceQuiescenceSetsStoppedStatus(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1576,7 +1577,7 @@ func TestServiceWorkspaceQuiescenceSetsStoppedStatus(t *testing.T) {
 func TestServiceTreatsActiveOutputCompletionAsFailure(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1661,7 +1662,7 @@ func (c *runtimeTerminalConsumer) ObserveAgentRuntimeTerminal(err error) {
 func TestServiceNamesLastRouteWhenOutputEndsWhileActive(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1725,7 +1726,7 @@ func TestServiceNamesLastRouteWhenOutputEndsWhileActive(t *testing.T) {
 func TestServiceKeepsRuntimeAvailableForRepeatedHistoryReplayAfterRouteEOS(t *testing.T) {
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}

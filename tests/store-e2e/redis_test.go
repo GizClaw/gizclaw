@@ -49,13 +49,12 @@ func TestRedisKV(t *testing.T) {
 	first := kv.Prefixed(firstRoot, prefix)
 	second := kv.Prefixed(secondRoot, prefix)
 	t.Cleanup(func() {
-		var keys []kv.Key
-		for entry, listErr := range firstRoot.List(context.Background(), prefix) {
-			if listErr == nil {
-				keys = append(keys, entry.Key)
-			}
-		}
-		_ = firstRoot.BatchDelete(context.Background(), keys)
+		_ = first.BatchDelete(context.Background(), []kv.Key{
+			{"empty"}, {"ordered"}, {"ordered-other"},
+			{"mutation", "set"}, {"mutation", "delete-wins"},
+			{"deadline"}, {"expired"}, {"invalid-deadline"}, {"cancelled"},
+			{"race", "create"}, {"race", "all-a"}, {"race", "all-b"}, {"race", "compare"},
+		})
 	})
 
 	ctx := t.Context()
@@ -65,27 +64,15 @@ func TestRedisKV(t *testing.T) {
 	if value, err := second.Get(ctx, kv.Key{"empty"}); err != nil || value == nil || len(value) != 0 {
 		t.Fatalf("cross-client zero value = %#v, %v", value, err)
 	}
-	if err := first.BatchSet(ctx, []kv.Entry{
-		{Key: kv.Key{"ordered", "c"}, Value: []byte("c")},
-		{Key: kv.Key{"ordered", "a"}, Value: []byte("a")},
-		{Key: kv.Key{"ordered", "b"}, Value: []byte("b")},
-		{Key: kv.Key{"ordered-other"}, Value: []byte("other")},
-	}); err != nil {
+	if err := first.Set(ctx, kv.Key{"ordered-other"}, []byte("other")); err != nil {
 		t.Fatal(err)
 	}
-	var listed []string
-	for entry, err := range second.List(ctx, kv.Key{"ordered"}) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		listed = append(listed, entry.Key.String())
+	if ok, err := first.ApplyMutation(ctx, kv.Mutation{AddOrderedMembers: []kv.SetMembers{{Key: kv.Key{"ordered"}, Members: []string{"c", "a", "b"}}}}); err != nil || !ok {
+		t.Fatalf("publish ordered collection: %v, %v", ok, err)
 	}
-	if !slices.Equal(listed, []string{"ordered:a", "ordered:b", "ordered:c"}) {
-		t.Fatalf("List() = %v", listed)
-	}
-	page, err := kv.ListAfter(ctx, second, kv.Key{"ordered"}, kv.Key{"ordered", "a"}, 1)
-	if err != nil || len(page) != 1 || !slices.Equal(page[0].Key, kv.Key{"ordered", "b"}) {
-		t.Fatalf("ListAfter() = %+v, %v", page, err)
+	page, err := second.RangeOrderedMembers(ctx, kv.Key{"ordered"}, kv.OrderedRange{After: new("a"), Limit: 1})
+	if err != nil || !slices.Equal(page, []string{"b"}) {
+		t.Fatalf("cross-client ordered page = %v, %v", page, err)
 	}
 
 	if err := first.BatchMutate(ctx,

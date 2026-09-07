@@ -8,33 +8,10 @@ import (
 	"math"
 	"unicode/utf8"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
-
-func (s *Server) getOTAStatus(ctx context.Context, peer giznet.PublicKey) (*apitypes.PeerOtaStatus, error) {
-	store, err := s.store()
-	if err != nil {
-		return nil, err
-	}
-	k, err := key(peer, "ota")
-	if err != nil {
-		return nil, err
-	}
-	data, err := store.Get(ctx, k)
-	if errors.Is(err, kv.ErrNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("peerrun: get ota: %w", err)
-	}
-	var ota apitypes.PeerOtaStatus
-	if err := json.Unmarshal(data, &ota); err != nil {
-		return nil, fmt.Errorf("peerrun: decode ota: %w", err)
-	}
-	return &ota, nil
-}
 
 // PutOTAStatus atomically retains the latest OTA attempt in the peer runtime
 // store. Terminal states cannot regress within an attempt. A later attempt
@@ -43,25 +20,25 @@ func (s *Server) PutOTAStatus(ctx context.Context, peer giznet.PublicKey, next a
 	if err := validateOTAStatus(next); err != nil {
 		return err
 	}
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return err
 	}
-	k, err := key(peer, "ota")
-	if err != nil {
-		return err
+	if peer.IsZero() {
+		return ErrInvalidPublicKey
 	}
+
 	for range 16 {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		data, err := store.Get(ctx, k)
-		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+		var previous sql.NullString
+		err := db.QueryRowContext(ctx, db.Rebind(`SELECT ota_json FROM peer_runs WHERE public_key=?`), peer.String()).Scan(&previous)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("peerrun: read ota: %w", err)
 		}
-		if errors.Is(err, kv.ErrNotFound) {
-			data = nil
-		}
+		data := []byte(previous.String)
+
 		candidate := next
 		if len(data) > 0 {
 			var current apitypes.PeerOtaStatus
@@ -82,23 +59,23 @@ func (s *Server) PutOTAStatus(ctx context.Context, peer giznet.PublicKey, next a
 		if err != nil {
 			return fmt.Errorf("peerrun: encode ota: %w", err)
 		}
-		if data == nil {
-			_, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: k, Value: encoded}, nil)
-			if err != nil {
-				return fmt.Errorf("peerrun: create ota: %w", err)
-			}
-			if created {
-				return nil
-			}
-			continue
+		var result sql.Result
+		if !previous.Valid {
+			result, err = db.ExecContext(ctx, db.Rebind(`INSERT INTO peer_runs(public_key,ota_json) VALUES (?,?) ON CONFLICT(public_key) DO UPDATE SET ota_json=excluded.ota_json WHERE peer_runs.ota_json IS NULL`), peer.String(), string(encoded))
+		} else {
+			result, err = db.ExecContext(ctx, db.Rebind(`UPDATE peer_runs SET ota_json=? WHERE public_key=? AND ota_json=?`), string(encoded), peer.String(), previous.String)
 		}
-		matched, err := kv.CompareAndMutate(ctx, store, k, data, []kv.Entry{{Key: k, Value: encoded}}, nil)
 		if err != nil {
 			return fmt.Errorf("peerrun: update ota: %w", err)
 		}
-		if matched {
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if changed == 1 {
 			return nil
 		}
+
 	}
 	return fmt.Errorf("peerrun: update ota: concurrent update retry limit reached")
 }

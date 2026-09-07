@@ -1025,7 +1025,7 @@ func (m *Manager) Delete(ctx context.Context, kind apitypes.ResourceKind, id str
 			return apitypes.Resource{}, missingService("contacts")
 		}
 		item, err := m.services.Contacts.AdminDeleteContactByID(ctx, id)
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, contact.ErrNotFound) {
 			return apitypes.Resource{}, notFound(kind, id)
 		}
 		if err != nil {

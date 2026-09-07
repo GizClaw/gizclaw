@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/jmoiron/sqlx"
 )
 
 // errWorkspaceRewardNotEligible reports a Workspace whose kind has no reward
@@ -34,6 +35,14 @@ func (environment *workspaceRewardEnvironment) EnsureWorkspaceAvailable(ctx cont
 		return errors.New("gizclaw: Workspace reward source is not configured")
 	}
 	_, err := environment.workspaces.GetAvailableWorkspaceByID(ctx, workspaceID)
+	return err
+}
+
+func (environment *workspaceRewardEnvironment) EnsureWorkspaceAvailableInTransaction(ctx context.Context, db *sqlx.DB, tx *sqlx.Tx, workspaceID string) error {
+	if environment == nil || environment.workspaces == nil {
+		return errors.New("gizclaw: Workspace reward source is not configured")
+	}
+	_, err := environment.workspaces.GetAvailableWorkspaceInTransaction(ctx, db, tx, workspaceID)
 	return err
 }
 

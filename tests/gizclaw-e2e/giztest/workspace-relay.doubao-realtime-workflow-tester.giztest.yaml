@@ -64,7 +64,7 @@ steps:
         parameters:
           doubao_realtime_workspace_parameters:
             agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
-            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+            model: realtime?mode=text
   - id: create_tester_workspace
     client: tester
     rpc:

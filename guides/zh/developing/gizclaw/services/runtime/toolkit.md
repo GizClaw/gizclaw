@@ -63,3 +63,5 @@ Client 的 `timeout` 与 `unavailable` 会成为有界 JSON Tool result，交回
 执行；原始 handler、transport、Peer 与 Credential 信息会被隐藏。ToolCall 与
 ToolResult 始终是 Transformer/Graph 内部控制，不会作为 public assistant stream
 control message 发给 Peer。
+
+Tool catalog 使用 `tools` SQL 业务表：canonical ID 为主键，`invoke_name` 有唯一约束，类型、启用状态、描述、版本与时间为独立列；输入 Schema、trigger、metadata 和 HTTP 配置分别保留为 JSON。Server 启动时初始化表并复用 SQL 连接池，按调用名获取工具只执行一次索引查询。目录枚举按 ID 分批查询，每批最多 256 条。更新使用行版本和创建实例标识进行条件写入；并发轮换密钥或删除后重建时，重读当前记录再处理省略的密钥，不恢复旧密钥。

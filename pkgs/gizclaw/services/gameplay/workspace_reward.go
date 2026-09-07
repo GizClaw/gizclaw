@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -58,6 +59,7 @@ type WorkspaceRewardEnvironment interface {
 
 type workspaceRewardAvailability interface {
 	EnsureWorkspaceAvailable(context.Context, string) error
+	EnsureWorkspaceAvailableInTransaction(context.Context, *sqlx.DB, *sqlx.Tx, string) error
 }
 
 type WorkspaceRewardKind string
@@ -569,8 +571,8 @@ func (r *Runtime) applyWorkspaceRewardEntry(ctx context.Context, source *workspa
 
 func (r *Runtime) activeWorkspaceRewardWindowForReconcile(ctx context.Context, workspaceID string) (workspaceRewardWindow, error) {
 	window, err := r.activeWorkspaceRewardWindow(ctx, workspaceID)
-	var corrupt *workspaceRewardPolicyCorruptionError
-	if !errors.As(err, &corrupt) {
+	corrupt, ok := errors.AsType[*workspaceRewardPolicyCorruptionError](err)
+	if !ok {
 		return window, err
 	}
 	if corrupt.WorkspaceID != workspaceID {
@@ -620,8 +622,7 @@ func minWorkspaceRewardTime(a, b time.Time) time.Time {
 
 func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 	window, ok, err := r.claimWorkspaceRewardWindow(ctx)
-	var corrupt *workspaceRewardPolicyCorruptionError
-	if errors.As(err, &corrupt) {
+	if corrupt, ok := errors.AsType[*workspaceRewardPolicyCorruptionError](err); ok {
 		if err := r.blockCorruptWorkspaceRewardWindow(ctx, corrupt); err != nil {
 			return true, err
 		}
@@ -667,8 +668,7 @@ func (r *Runtime) dispatchWorkspaceReward(ctx context.Context) (bool, error) {
 		defer cancelPersist()
 		return true, r.retryWorkspaceRewardWindow(persistCtx, window, ctx.Err())
 	}
-	var invalid *invalidWorkspaceRewardError
-	if errors.As(err, &invalid) {
+	if invalid, ok := errors.AsType[*invalidWorkspaceRewardError](err); ok {
 		return true, r.blockAndReconcileWorkspaceRewardWindow(ctx, window, invalid)
 	}
 	if window.AttemptCount >= workspaceRewardMaxAttempts {
@@ -944,8 +944,7 @@ func safeWorkspaceRewardErrorClass(err error) string {
 	case errors.Is(err, errWorkspaceRewardTranscriptConflict):
 		return "transcript_digest_conflict"
 	}
-	var invalid *invalidWorkspaceRewardError
-	if errors.As(err, &invalid) {
+	if _, ok := errors.AsType[*invalidWorkspaceRewardError](err); ok {
 		return "invalid_result"
 	}
 	return "dependency_failure"

@@ -85,11 +85,11 @@ type dashScopeStreamIDs struct {
 }
 
 type dashScopeStreamTurn struct {
-	inputStreamID              string
-	responseStreamID           string
-	responseTranscriptStreamID string
-	transcriptionSeen          bool
-	responseSeen               bool
+	inputStreamID        string
+	responseStreamID     string
+	responseTextStreamID string
+	transcriptionSeen    bool
+	responseSeen         bool
 }
 
 func (s *dashScopeStreamIDs) currentResponseRoutes() []string {
@@ -98,10 +98,10 @@ func (s *dashScopeStreamIDs) currentResponseRoutes() []string {
 	if s.currentResponse == nil {
 		return nil
 	}
-	if s.currentResponse.responseTranscriptStreamID == "" {
-		s.currentResponse.responseTranscriptStreamID = genx.NewStreamID()
+	if s.currentResponse.responseTextStreamID == "" {
+		s.currentResponse.responseTextStreamID = genx.NewStreamID()
 	}
-	return []string{s.currentResponse.responseStreamID, s.currentResponse.responseTranscriptStreamID}
+	return []string{s.currentResponse.responseStreamID, s.currentResponse.responseTextStreamID}
 }
 
 func (s *dashScopeStreamIDs) pushInput(streamID string) {
@@ -192,7 +192,7 @@ func (s *dashScopeStreamIDs) response(providerResponseID string) string {
 	return turn.responseStreamID
 }
 
-func (s *dashScopeStreamIDs) responseTranscript(providerResponseID string) string {
+func (s *dashScopeStreamIDs) responseText(providerResponseID string) string {
 	responseStreamID := s.response(providerResponseID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -214,10 +214,10 @@ func (s *dashScopeStreamIDs) responseTranscript(providerResponseID string) strin
 	if turn == nil {
 		return genx.NewStreamID()
 	}
-	if turn.responseTranscriptStreamID == "" {
-		turn.responseTranscriptStreamID = genx.NewStreamID()
+	if turn.responseTextStreamID == "" {
+		turn.responseTextStreamID = genx.NewStreamID()
 	}
-	return turn.responseTranscriptStreamID
+	return turn.responseTextStreamID
 }
 
 func (s *dashScopeStreamIDs) rememberResponseLocked(providerResponseID string, turn *dashScopeStreamTurn) {
@@ -762,7 +762,7 @@ func (t *Transformer) processLoop(
 				}
 
 			case dashscope.EventTypeResponseTextDelta:
-				responseStreamID := streamIDs.response(dashScopeResponseID(event))
+				responseStreamID := streamIDs.responseText(dashScopeResponseID(event))
 				// Model text response
 				if event.Delta != "" {
 					outChunk := &genx.MessageChunk{
@@ -776,13 +776,13 @@ func (t *Transformer) processLoop(
 				}
 
 			case dashscope.EventTypeResponseTextDone:
-				responseStreamID := streamIDs.response(dashScopeResponseID(event))
+				responseStreamID := streamIDs.responseText(dashScopeResponseID(event))
 				if err := routes.finish(genx.RoleModel, responseStreamID, "text/plain", ""); err != nil {
 					return
 				}
 
 			case dashscope.EventTypeResponseTranscriptDelta:
-				responseStreamID := streamIDs.responseTranscript(dashScopeResponseID(event))
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				// TTS transcript (what the model is saying)
 				if event.Delta != "" {
 					outChunk := &genx.MessageChunk{
@@ -796,7 +796,7 @@ func (t *Transformer) processLoop(
 				}
 
 			case dashscope.EventTypeResponseTranscriptDone:
-				responseStreamID := streamIDs.responseTranscript(dashScopeResponseID(event))
+				responseStreamID := streamIDs.response(dashScopeResponseID(event))
 				if err := routes.finish(genx.RoleModel, responseStreamID, "text/plain", ""); err != nil {
 					return
 				}

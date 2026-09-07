@@ -5,12 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
@@ -68,8 +72,8 @@ func TestServerListenRequiresPeerStore(t *testing.T) {
 	}
 	server.PeerStore = kv.NewMemory(nil)
 	err = server.Listen()
-	if err == nil || !strings.Contains(err.Error(), "nil peer run store") {
-		t.Fatalf("Listen error = %v, want nil peer run store", err)
+	if err == nil || !strings.Contains(err.Error(), "nil peer run database") {
+		t.Fatalf("Listen error = %v, want nil peer run database", err)
 	}
 }
 
@@ -91,15 +95,6 @@ func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
 				PeerStore:   storeWithoutAtomicCreate{Store: kv.NewMemory(nil)},
 			},
 			wantMessage: "peer store",
-		},
-		{
-			name: "workspace store",
-			server: &Server{
-				LocalStatic:    *keyPair,
-				PeerStore:      kv.NewMemory(nil),
-				WorkspaceStore: storeWithoutAtomicCreate{Store: kv.NewMemory(nil)},
-			},
-			wantMessage: "workspace store",
 		},
 		{
 			name: "friend store",
@@ -150,13 +145,13 @@ func TestServerInitReconcilesFriendCreationIntents(t *testing.T) {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
 	friendStore := mustBadgerInMemory(t, nil)
-	if err := kv.Prefixed(friendStore, kv.Key{"friends"}).Set(
-		t.Context(),
-		kv.Key{"friend-creation-intents", "invalid"},
-		[]byte("{"),
-	); err != nil {
-		t.Fatalf("write malformed Friend creation intent: %v", err)
+	if _, err := kv.Prefixed(friendStore, kv.Key{"friends"}).ApplyMutation(t.Context(), kv.Mutation{
+		Entries:    []kv.Entry{{Key: kv.Key{"friend-creation-intents", "invalid"}, Value: []byte("{")}},
+		AddMembers: (socialutil.RecoveryIndex{Root: kv.Key{"friend-creation-intents"}}).Add("invalid"),
+	}); err != nil {
+		t.Fatalf("write indexed malformed Friend creation intent: %v", err)
 	}
+
 	server := &Server{
 		LocalStatic: *keyPair,
 		PeerStore:   mustBadgerInMemory(t, nil),
@@ -239,15 +234,16 @@ func TestServerListenDoesNotReadColdWorkspaceRecordsForRewards(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
-	workspaceStore := mustBadgerInMemory(t, nil)
-	malformed := []byte("{")
-	if err := workspaceStore.Set(t.Context(), kv.Key{"by-id", "workspace-cold"}, malformed); err != nil {
-		t.Fatalf("seed malformed cold Workspace: %v", err)
+	workspaces := workspacetest.New(t)
+	now := time.Now().UTC()
+	workspacetest.Seed(t, workspaces, apitypes.Workspace{Id: "workspace-cold", Name: "cold", WorkflowId: "workflow", CreatedAt: now, UpdatedAt: now, LastActiveAt: now, System: new(false)})
+	if _, err := workspaces.DB.ExecContext(t.Context(), `UPDATE workspaces SET parameters_json='{' WHERE id='workspace-cold'`); err != nil {
+		t.Fatal(err)
 	}
 	listener := newTestGiznetListener()
 	server := &Server{
 		LocalStatic: *keyPair, PeerStore: mustBadgerInMemory(t, nil),
-		WorkspaceStore: workspaceStore, PeerListeners: []giznet.Listener{listener},
+		WorkspaceDB: workspaces.DB, PeerListeners: []giznet.Listener{listener},
 	}
 	completeTestServer(t, server)
 	if err := server.Listen(); err != nil {
@@ -263,12 +259,12 @@ func TestServerListenDoesNotReadColdWorkspaceRecordsForRewards(t *testing.T) {
 		t.Fatal("listener was closed after reading a cold Workspace")
 	default:
 	}
-	stored, err := workspaceStore.Get(t.Context(), kv.Key{"by-id", "workspace-cold"})
-	if err != nil {
+	var stored string
+	if err := workspaces.DB.QueryRowContext(t.Context(), `SELECT parameters_json FROM workspaces WHERE id='workspace-cold'`).Scan(&stored); err != nil {
 		t.Fatalf("read retained cold Workspace: %v", err)
 	}
-	if !bytes.Equal(stored, malformed) {
-		t.Fatalf("cold Workspace was rewritten: got %q want %q", stored, malformed)
+	if stored != "{" {
+		t.Fatalf("cold Workspace was rewritten: got %q", stored)
 	}
 }
 
@@ -607,23 +603,15 @@ func TestServerInitConfiguresPeerRunService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	peerRunRoot := kv.NewMemory(nil)
+	peerRunRoot := peerruntest.New(t)
 	battery := 73
-	existingStatus, err := json.Marshal(apitypes.PeerStatus{BatteryPercent: &battery})
-	if err != nil {
-		t.Fatalf("json.Marshal existing PeerRun status: %v", err)
-	}
-	if err := kv.Prefixed(peerRunRoot, kv.Key{"runs"}).Set(
-		t.Context(),
-		kv.Key{"by-peer", keyPair.Public.String(), "status"},
-		existingStatus,
-	); err != nil {
-		t.Fatalf("write existing PeerRun status: %v", err)
+	if _, err := peerRunRoot.PutStatus(t.Context(), keyPair.Public, apitypes.PeerStatus{BatteryPercent: &battery}); err != nil {
+		t.Fatal(err)
 	}
 	server := &Server{
-		LocalStatic:  *keyPair,
-		PeerStore:    mustBadgerInMemory(t, nil),
-		PeerRunStore: peerRunRoot,
+		LocalStatic: *keyPair,
+		PeerStore:   mustBadgerInMemory(t, nil),
+		PeerRunDB:   peerRunRoot.DB,
 	}
 	completeTestServer(t, server)
 	if err := server.init(); err != nil {
@@ -887,5 +875,18 @@ func TestServerServeHTTPDeviceExtensionOnDirectAndEdge(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestServerInitRejectsMissingWorkspaceDatabase(t *testing.T) {
+	key, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &Server{LocalStatic: *key}
+	completeTestServer(t, server)
+	server.WorkspaceDB = nil
+	if err := server.init(); err == nil || !strings.Contains(err.Error(), "nil workspace database") {
+		t.Fatalf("init error = %v", err)
 	}
 }

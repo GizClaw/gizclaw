@@ -83,10 +83,15 @@ stale callback 不得清除它。释放授权锁后，`PeerConn` 通过现有 ev
 AgentHost 传播，使 reload 不能成功；`PeerConn` 同时标记连接关闭并立即关闭底层 Conn，
 再由 serve lifecycle 完成其余资源清理，避免未收到必需 EOS 的 Peer 继续发送 fresh BOS。
 
-Friend 与 Friend Group 的 SFU Workspace 有专门的入站授权路径。输入 BOS 到达时，`PeerConn` 通过 `Manager.sfuInputAccess` 把当前选择的 Workspace 名称直接解析为权威 Social KV 中的 SFU binding（不经过按 owner 分 scope 的 Server 本地 Workspace catalog）并校验 membership：SFU Workspace 只在校验通过、该 Workspace 未在本连接上被撤权、且当前 runtime 已 attach 时准入，否则以 `SFU_ACCESS_REVOKED`、`SFU_ACCESS_CHECK_FAILED` 或 `SFU_RUNTIME_NOT_ATTACHED` 拒绝。没有任何 binding 应答的 Workspace 先按 Server 本地 Workspace 记录分类，再决定是否按普通 Workflow Workspace 准入：绑定到内置 `system-sfu` Workflow 的记录属于 Social binding 已消失的 SFU Workspace，以 `SFU_ACCESS_REVOKED` 拒绝；本机完全无法解析出记录时以 `SFU_ACCESS_CHECK_FAILED` 拒绝，因为 Workspace catalog 是 Server 本地按需 materialize 的。只有解析出的非 SFU Workflow Workspace 才按原有规则准入。已撤权 Workspace 的 Opus packet 直接丢弃并计数，不缓存。连接不接收任何撤权推送：已建立的 participant 由 SFU runtime 自己的周期重校验终止（见 [services/social](/zh/developing/gizclaw/services/social#撤权)），随后该 Workspace 的入站校验因成员身份失效而拒绝新的发言。SFU Workspace 是唯一允许非 owner restricted reload 的 Workspace，判定依据是 Social binding membership，而不是 owner 权限。
+Friend 与 Friend Group 的 SFU Workspace 使用连接内的权限快照。首次输入或 AgentHost 运行版本变化时，Server 做一次必要校验：先用本地 owner-scoped Workspace 查询识别普通 Workflow，只有 SFU 路径才查询共享 Social binding 与 membership。SFU 还要求当前选择已激活。同一版本后续的 BOS、EOS 和文本事件读取本地快照。
+
+Event stream 拥有后台刷新任务，默认每 5 秒刷新一次，每次查询最多 2 秒；旧结果最多使用 7 秒。刷新失败、撤权或结果过期时，本地拒绝输入，错误分别使用 `SFU_ACCESS_CHECK_FAILED`、`SFU_ACCESS_REVOKED` 或 `SFU_RUNTIME_NOT_ATTACHED`。过期事件不自行重试远程查询，由后台刷新恢复；连接或 Event stream 关闭时取消并回收任务。已经建立的 SFU participant 还会自行刷新 binding，停止已撤权音频的转发。普通 Workflow 的权限刷新不扫描共享 Redis。
+
 
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 
 Turn ownership 不根据 output 到达时恰好处于 current 的 turn 推断。Producer response epoch 命名其不可变 owning input route；没有该 provenance 的 response 不归属任何 per-turn record。被替换 turn 及其 input-route 关联会有界保留，直到 owning epoch 完成、route 被 abandon、connection teardown，或 64-turn/64-route 状态上限将其淘汰。Lifecycle 只有观察到显式 `ResponseEpochEnd` 标记才认为 epoch 完成；尚未观察到 route 的空集合及普通 per-MIME EOS 都仍是不完整状态。Producer terminal 在该标记处记账，output 与 turn terminal 则继续等待 Peer broadcast 成功及可能的 audio drain。接受第 65 个 epoch mapping 前，会用 `incomplete/state_limit` 终止最旧 mapping 的真实 owner，并一起释放该 owner 的全部 mapping；释放后迟到的 epoch chunk 保持 unowned，不得重建关联。
 
 Connection 只在面向 Agent 的读取边界包装 realtime input，因此 `agent_transform_started` 证明 transformer 已消费，`agent_input_first_push` 仍只表示 queue 已接受。Producer callback 在 consumer 调度前把 output route 绑定到当前 turn；delivery callback 只在 Peer event 已交付且相关 audio 已 drain 后运行。这些 observer 不等待、不重试、不重排、不复制 payload；每个 boundary 只记录首个 output modality，并为 terminal record 保留有界 modality snapshot。
+
+音频包沿用 BOS 已接受的 AgentHost 运行版本。版本校验和投递通过 AgentHost 的切换边界协调；选择、重载或停止后，旧包不能进入新 runtime。正常 Opus 包不读取 PeerRun 数据库。BOS 恢复同一 Workspace 的 runtime 后，只在 Workspace 与稳定版本仍匹配时更新音频流版本。

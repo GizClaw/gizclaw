@@ -14,43 +14,35 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
-)
-
-var (
-	profilesRoot        = kv.Key{"runtime-profiles", "by-id"}
-	profilesByOwnerRoot = kv.Key{"runtime-profiles", "by-owner"}
-	tokensRoot          = kv.Key{"registration-tokens", "by-id"}
-	tokensByHashRoot    = kv.Key{"registration-tokens", "by-token-hash"}
+	"github.com/jmoiron/sqlx"
 )
 
 const (
-	defaultListLimit            = 50
-	maxListLimit                = 200
-	ownerBindingRollbackTimeout = 5 * time.Second
-	maxWorkspaceRewardPrompt    = 8192
-	maxWorkspaceRewardWindow    = 24 * time.Hour
-	maxWorkspaceRewardPeriod    = 365 * 24 * time.Hour
+	defaultListLimit         = 50
+	maxListLimit             = 200
+	maxWorkspaceRewardPrompt = 8192
+	maxWorkspaceRewardWindow = 24 * time.Hour
+	maxWorkspaceRewardPeriod = 365 * 24 * time.Hour
 )
 
 var errResourceResolverNotConfigured = errors.New("resource resolver not configured")
 
 // Server owns RuntimeProfile and RegistrationToken state.
 type Server struct {
-	Store           kv.Store
+	DB              *sqlx.DB
 	Now             func() time.Time
 	ResolveResource func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error)
 	ownerLocks      keyedlock.Locker[string]
 	profileLocks    keyedlock.Locker[string]
 	tokenLocks      keyedlock.Locker[string]
-	tokenHashLocks  keyedlock.Locker[string]
 }
 
 type AdminService interface {
@@ -79,7 +71,7 @@ type Registration struct {
 // without revalidating its dependencies. Registrations pin the ID, not a
 // configuration snapshot.
 func (s *Server) ResolveProfile(ctx context.Context, id string) (apitypes.RuntimeProfile, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -105,7 +97,7 @@ func (s *Server) BindOwnerProfile(ctx context.Context, owner, profileID string) 
 // executes commit while the binding is isolated from concurrent readers. If
 // commit fails, the previous binding is restored before the method returns.
 func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileID string, commit func() error) error {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return err
 	}
@@ -129,34 +121,20 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileID
 	if _, err := s.ResolveProfile(ctx, profileID); err != nil {
 		return err
 	}
-	key := ownerProfileKey(owner)
-	previous, previousErr := store.Get(ctx, key)
-	if previousErr != nil && !errors.Is(previousErr, kv.ErrNotFound) {
-		return previousErr
-	}
-	profile, err := GetProfile(ctx, store, profileID)
+
+	previous, stamp, err := setOwnerProfileSQL(ctx, store, owner, profileID)
 	if err != nil {
 		return err
 	}
-	if err := store.Set(ctx, key, []byte(profile.Id)); err != nil {
-		return err
-	}
-	if commit == nil {
-		return nil
-	}
-	if err := commit(); err != nil {
-		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), ownerBindingRollbackTimeout)
-		defer cancel()
-		var rollbackErr error
-		if previousErr == nil {
-			rollbackErr = store.Set(rollbackCtx, key, previous)
-		} else {
-			rollbackErr = store.Delete(rollbackCtx, key)
+	if commit != nil {
+		if err := commit(); err != nil {
+			rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			if rollbackErr := restoreOwnerProfileSQL(rollbackCtx, store, owner, stamp, previous); rollbackErr != nil {
+				return errors.Join(err, fmt.Errorf("restore owner RuntimeProfile binding: %w", rollbackErr))
+			}
+			return err
 		}
-		if rollbackErr != nil {
-			return errors.Join(err, fmt.Errorf("restore owner RuntimeProfile binding: %w", rollbackErr))
-		}
-		return err
 	}
 	return nil
 }
@@ -165,7 +143,7 @@ func (s *Server) BindOwnerProfileAndCommit(ctx context.Context, owner, profileID
 // most recently selected by an authenticated owner registration without
 // revalidating its dependencies.
 func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitypes.RuntimeProfile, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
@@ -178,21 +156,14 @@ func (s *Server) ResolveOwnerProfile(ctx context.Context, owner string) (apitype
 		return apitypes.RuntimeProfile{}, err
 	}
 	defer releaseOwner()
-	profileID, err := store.Get(ctx, ownerProfileKey(owner))
-	if err != nil {
-		return apitypes.RuntimeProfile{}, err
-	}
-	profile, err := getProfileByID(ctx, store, string(profileID))
-	if err != nil {
-		return apitypes.RuntimeProfile{}, err
-	}
-	return profile, nil
+	profile, _, err := resolveOwnerProfileSQL(ctx, store, owner)
+	return profile, err
 }
 
 // DeleteOwnerProfileBinding removes only the canonical owner's selected
 // RuntimeProfile binding. Global profiles and registration tokens are retained.
 func (s *Server) DeleteOwnerProfileBinding(ctx context.Context, owner string) error {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return err
 	}
@@ -205,42 +176,21 @@ func (s *Server) DeleteOwnerProfileBinding(ctx context.Context, owner string) er
 		return err
 	}
 	defer release()
-	key := ownerProfileKey(owner)
-	if err := store.Delete(ctx, key); err != nil {
-		return err
-	}
-	if _, err := store.Get(ctx, key); !errors.Is(err, kv.ErrNotFound) {
-		if err == nil {
-			return errors.New("runtime profile owner binding remains after deletion")
-		}
-		return err
-	}
-	return nil
+	_, err = store.ExecContext(ctx, store.Rebind("DELETE FROM runtime_profile_owners WHERE owner_public_key=?"), owner)
+	return err
 }
 
 func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Registration, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return Registration{}, err
 	}
 	token := strings.TrimSpace(rawToken)
-	digest := tokenDigest(token)
-	idBytes, err := store.Get(ctx, tokenHashKey(digest))
+	id, firmware, profile, err := resolveRegistrationSQL(ctx, store, token)
 	if err != nil {
 		return Registration{}, err
 	}
-	item, err := getRegistrationTokenByID(ctx, store, string(idBytes))
-	if err != nil {
-		return Registration{}, err
-	}
-	// Hash-only records are intentionally incompatible and removed before rollout.
-	if item.Token != token {
-		return Registration{}, kv.ErrNotFound
-	}
-	profile, err := getProfileByID(ctx, store, item.RuntimeProfileId)
-	if err != nil {
-		return Registration{}, err
-	}
+	item := apitypes.RegistrationToken{Id: id, FirmwareId: firmware}
 	if item.FirmwareId != nil {
 		if s.ResolveResource == nil {
 			return Registration{}, errResourceResolverNotConfigured
@@ -260,7 +210,7 @@ func (s *Server) ResolveRegistration(ctx context.Context, rawToken string) (Regi
 }
 
 func (s *Server) ListRuntimeProfiles(ctx context.Context, request adminhttp.ListRuntimeProfilesRequestObject) (adminhttp.ListRuntimeProfilesResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.ListRuntimeProfiles500JSONResponse(internalError(err)), nil
 	}
@@ -272,7 +222,7 @@ func (s *Server) ListRuntimeProfiles(ctx context.Context, request adminhttp.List
 }
 
 func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.CreateRuntimeProfileRequestObject) (adminhttp.CreateRuntimeProfileResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -296,11 +246,7 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 	if err := setProfileRevision(&item); err != nil {
 		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	encoded, err := json.Marshal(item)
-	if err != nil {
-		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
-	}
-	_, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: profileKey(item.Id), Value: encoded}, nil)
+	created, err := insertRuntimeProfileSQL(ctx, store, item)
 	if err != nil {
 		return adminhttp.CreateRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -311,7 +257,7 @@ func (s *Server) CreateRuntimeProfile(ctx context.Context, request adminhttp.Cre
 }
 
 func (s *Server) GetRuntimeProfile(ctx context.Context, request adminhttp.GetRuntimeProfileRequestObject) (adminhttp.GetRuntimeProfileResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.GetRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -320,7 +266,7 @@ func (s *Server) GetRuntimeProfile(ctx context.Context, request adminhttp.GetRun
 		return nil, err
 	}
 	item, err := getProfileByID(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.GetRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
 	if err != nil {
@@ -330,7 +276,7 @@ func (s *Server) GetRuntimeProfile(ctx context.Context, request adminhttp.GetRun
 }
 
 func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRuntimeProfileRequestObject) (adminhttp.PutRuntimeProfileResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -353,8 +299,8 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	defer release()
-	previous, getErr := getProfileByID(ctx, store, id)
-	if errors.Is(getErr, kv.ErrNotFound) {
+	previous, version, getErr := getRuntimeProfileSQL(ctx, store, id)
+	if errors.Is(getErr, sql.ErrNoRows) {
 		return adminhttp.PutRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
 	if getErr != nil {
@@ -362,14 +308,17 @@ func (s *Server) PutRuntimeProfile(ctx context.Context, request adminhttp.PutRun
 	}
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
-	if err := writeProfile(ctx, store, item); err != nil {
+	if err := setProfileRevision(&item); err != nil {
+		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
+	}
+	if _, _, err := updateRuntimeProfileSQL(ctx, store, item, version); err != nil {
 		return adminhttp.PutRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.PutRuntimeProfile200JSONResponse(item), nil
 }
 
 func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.DeleteRuntimeProfileRequestObject) (adminhttp.DeleteRuntimeProfileResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
@@ -382,20 +331,20 @@ func (s *Server) DeleteRuntimeProfile(ctx context.Context, request adminhttp.Del
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	defer release()
-	item, err := getProfileByID(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
+	item, version, err := getRuntimeProfileSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.DeleteRuntimeProfile404JSONResponse(notFound("runtime profile", id)), nil
 	}
 	if err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
-	if err := store.Delete(ctx, profileKey(id)); err != nil {
+	if _, _, err := deleteRuntimeProfileSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeleteRuntimeProfile500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRuntimeProfile200JSONResponse(item), nil
 }
 func (s *Server) ListRegistrationTokens(ctx context.Context, request adminhttp.ListRegistrationTokensRequestObject) (adminhttp.ListRegistrationTokensResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.ListRegistrationTokens500JSONResponse(internalError(err)), nil
 	}
@@ -407,7 +356,7 @@ func (s *Server) ListRegistrationTokens(ctx context.Context, request adminhttp.L
 }
 
 func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.CreateRegistrationTokenRequestObject) (adminhttp.CreateRegistrationTokenResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
@@ -434,36 +383,22 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	defer releaseProfile()
-	digest := tokenDigest(item.Token)
-	releaseHash, err := s.tokenHashLocks.Acquire(ctx, digest)
-	if err != nil {
-		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
-	}
-	defer releaseHash()
 	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.CreateRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
 		}
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	if existing, err := store.Get(ctx, tokenHashKey(digest)); err == nil {
-		return adminhttp.CreateRegistrationToken409JSONResponse(conflict(fmt.Sprintf("token is already used by registration token %q", string(existing)))), nil
-	} else if !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
-	}
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = now, now
-	encoded, err := json.Marshal(item)
+	created, err := insertRegistrationTokenSQL(ctx, store, item)
 	if err != nil {
+		if profileUniqueViolation(err) {
+			return adminhttp.CreateRegistrationToken409JSONResponse(conflict("registration token already exists")), nil
+		}
 		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: tokenKey(item.Id), Value: encoded},
-		[]kv.Entry{{Key: tokenHashKey(digest), Value: []byte(item.Id)}},
-	)
-	if err != nil {
-		return adminhttp.CreateRegistrationToken500JSONResponse(internalError(err)), nil
-	}
+
 	if !created {
 		return adminhttp.CreateRegistrationToken409JSONResponse(conflict("registration token already exists")), nil
 	}
@@ -471,7 +406,7 @@ func (s *Server) CreateRegistrationToken(ctx context.Context, request adminhttp.
 }
 
 func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.PutRegistrationTokenRequestObject) (adminhttp.PutRegistrationTokenResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
@@ -497,8 +432,8 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	defer releaseToken()
-	previous, getErr := getRegistrationTokenByID(ctx, store, id)
-	if errors.Is(getErr, kv.ErrNotFound) {
+	previous, version, getErr := getRegistrationTokenSQL(ctx, store, id)
+	if errors.Is(getErr, sql.ErrNoRows) {
 		return adminhttp.PutRegistrationToken404JSONResponse(notFound("registration token", id)), nil
 	}
 	if getErr != nil {
@@ -509,37 +444,21 @@ func (s *Server) PutRegistrationToken(ctx context.Context, request adminhttp.Put
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	defer releaseProfile()
-	digest := tokenDigest(item.Token)
-	previousDigest := tokenDigest(previous.Token)
-	releaseHashes, err := s.acquireTokenHashes(ctx, digest, previousDigest)
-	if err != nil {
-		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
-	}
-	defer releaseHashes()
 	if _, err := getProfileByID(ctx, store, item.RuntimeProfileId); err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.PutRegistrationToken400JSONResponse(invalid("runtime_profile_id does not exist")), nil
 		}
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	if existing, err := store.Get(ctx, tokenHashKey(digest)); err == nil && string(existing) != id {
-		return adminhttp.PutRegistrationToken409JSONResponse(conflict(fmt.Sprintf("token is already used by registration token %q", string(existing)))), nil
-	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
-	}
 	now := s.now()
 	item.CreatedAt, item.UpdatedAt = previous.CreatedAt, now
-	encoded, err := json.Marshal(item)
-	if err != nil {
+	if _, _, err := updateRegistrationTokenSQL(ctx, store, item, version); err != nil {
+		if profileUniqueViolation(err) {
+			return adminhttp.PutRegistrationToken409JSONResponse(conflict("token is already used")), nil
+		}
 		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	deletes := make([]kv.Key, 0, 1)
-	if previousDigest != digest {
-		deletes = append(deletes, tokenHashKey(previousDigest))
-	}
-	if err := store.BatchMutate(ctx, []kv.Entry{{Key: tokenKey(id), Value: encoded}, {Key: tokenHashKey(digest), Value: []byte(id)}}, deletes); err != nil {
-		return adminhttp.PutRegistrationToken500JSONResponse(internalError(err)), nil
-	}
+
 	return adminhttp.PutRegistrationToken200JSONResponse(item), nil
 }
 
@@ -552,7 +471,7 @@ func cloneString(value *string) *string {
 }
 
 func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.GetRegistrationTokenRequestObject) (adminhttp.GetRegistrationTokenResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.GetRegistrationToken500JSONResponse(internalError(err)), nil
 	}
@@ -561,7 +480,7 @@ func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.Get
 		return nil, err
 	}
 	item, err := getRegistrationTokenByID(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.GetRegistrationToken404JSONResponse(notFound("registration token", id)), nil
 	}
 	if err != nil {
@@ -571,7 +490,7 @@ func (s *Server) GetRegistrationToken(ctx context.Context, request adminhttp.Get
 }
 
 func (s *Server) DeleteRegistrationToken(ctx context.Context, request adminhttp.DeleteRegistrationTokenRequestObject) (adminhttp.DeleteRegistrationTokenResponseObject, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
@@ -584,85 +503,32 @@ func (s *Server) DeleteRegistrationToken(ctx context.Context, request adminhttp.
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	defer releaseToken()
-	item, err := getRegistrationTokenByID(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
+	item, version, err := getRegistrationTokenSQL(ctx, store, id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.DeleteRegistrationToken404JSONResponse(notFound("registration token", id)), nil
 	}
 	if err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
-	releaseHash, err := s.tokenHashLocks.Acquire(ctx, tokenDigest(item.Token))
-	if err != nil {
-		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
-	}
-	defer releaseHash()
-	if err := store.BatchDelete(ctx, []kv.Key{tokenKey(id), tokenHashKey(tokenDigest(item.Token))}); err != nil {
+	if _, _, err := deleteRegistrationTokenSQL(ctx, store, id, version); err != nil {
 		return adminhttp.DeleteRegistrationToken500JSONResponse(internalError(err)), nil
 	}
 	return adminhttp.DeleteRegistrationToken200JSONResponse(item), nil
 }
 
-func (s *Server) acquireTokenHashes(ctx context.Context, digests ...string) (func(), error) {
-	slices.Sort(digests)
-	digests = slices.Compact(digests)
-	releases := make([]func(), 0, len(digests))
-	for _, digest := range digests {
-		release, err := s.tokenHashLocks.Acquire(ctx, digest)
-		if err != nil {
-			for index := len(releases) - 1; index >= 0; index-- {
-				releases[index]()
-			}
-			return nil, err
-		}
-		releases = append(releases, release)
-	}
-	return func() {
-		for index := len(releases) - 1; index >= 0; index-- {
-			releases[index]()
-		}
-	}, nil
+// GetProfile resolves one persisted RuntimeProfile by ID.
+func GetProfile(ctx context.Context, db *sqlx.DB, id string) (apitypes.RuntimeProfile, error) {
+	return getProfileByID(ctx, db, id)
 }
 
-func GetProfile(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
-	return getProfileByID(ctx, store, id)
+func getProfileByID(ctx context.Context, db *sqlx.DB, id string) (apitypes.RuntimeProfile, error) {
+	item, _, err := getRuntimeProfileSQL(ctx, db, id)
+	return item, err
 }
 
-func getProfileByID(ctx context.Context, store kv.Store, id string) (apitypes.RuntimeProfile, error) {
-	data, err := store.Get(ctx, profileKey(id))
-	if err != nil {
-		return apitypes.RuntimeProfile{}, err
-	}
-	var item apitypes.RuntimeProfile
-	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: decode %s: %w", id, err)
-	}
-	if err := setProfileRevision(&item); err != nil {
-		return apitypes.RuntimeProfile{}, fmt.Errorf("runtime profile: revision %s: %w", id, err)
-	}
-	return item, nil
-}
-
-func writeProfile(ctx context.Context, store kv.Store, item apitypes.RuntimeProfile) error {
-	if err := setProfileRevision(&item); err != nil {
-		return err
-	}
-	data, err := json.Marshal(item)
-	if err != nil {
-		return err
-	}
-	return store.Set(ctx, profileKey(item.Id), data)
-}
-
-func getRegistrationTokenByID(ctx context.Context, store kv.Store, id string) (apitypes.RegistrationToken, error) {
-	data, err := store.Get(ctx, tokenKey(id))
-	if err != nil {
-		return apitypes.RegistrationToken{}, err
-	}
-	var item apitypes.RegistrationToken
-	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.RegistrationToken{}, fmt.Errorf("registration token: decode %s: %w", id, err)
-	}
-	return item, nil
+func getRegistrationTokenByID(ctx context.Context, db *sqlx.DB, id string) (apitypes.RegistrationToken, error) {
+	item, _, err := getRegistrationTokenSQL(ctx, db, id)
+	return item, err
 }
 
 func normalizeRegistrationToken(in adminhttp.RegistrationTokenUpsert, expectedID string) (apitypes.RegistrationToken, error) {
@@ -1785,67 +1651,44 @@ func parseWorkspaceRewardDuration(path, raw string, maximum time.Duration) (time
 	return value, nil
 }
 
-func listProfiles(ctx context.Context, store kv.Store, cursor *string, limit *int32) ([]apitypes.RuntimeProfile, bool, *string, error) {
-	entries, hasNext, nextCursor, err := listPage(ctx, store, profilesRoot, cursor, limit)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	items := make([]apitypes.RuntimeProfile, 0, len(entries))
-	for _, entry := range entries {
-		var item apitypes.RuntimeProfile
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return nil, false, nil, err
-		}
-		if err := setProfileRevision(&item); err != nil {
-			return nil, false, nil, err
-		}
-		items = append(items, item)
-	}
-	return items, hasNext, nextCursor, nil
-}
-
-func listTokens(ctx context.Context, store kv.Store, cursor *string, limit *int32) ([]apitypes.RegistrationToken, bool, *string, error) {
-	entries, hasNext, nextCursor, err := listPage(ctx, store, tokensRoot, cursor, limit)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	items := make([]apitypes.RegistrationToken, 0, len(entries))
-	for _, entry := range entries {
-		var item apitypes.RegistrationToken
-		if err := json.Unmarshal(entry.Value, &item); err != nil {
-			return nil, false, nil, err
-		}
-		items = append(items, item)
-	}
-	return items, hasNext, nextCursor, nil
-}
-
-func listPage(ctx context.Context, store kv.Store, root kv.Key, cursor *string, limit *int32) ([]kv.Entry, bool, *string, error) {
+func listProfiles(ctx context.Context, db *sqlx.DB, cursor *string, limit *int32) ([]apitypes.RuntimeProfile, bool, *string, error) {
 	pageLimit := defaultListLimit
 	if limit != nil && *limit > 0 {
 		pageLimit = min(int(*limit), maxListLimit)
 	}
-	var after kv.Key
-	if cursor != nil && *cursor != "" {
-		after = append(append(kv.Key{}, root...), *cursor)
+	after := ""
+	if cursor != nil {
+		after = *cursor
 	}
-	entries, err := kv.ListAfter(ctx, store, root, after, pageLimit+1)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	if len(entries) <= pageLimit {
-		return entries, false, nil, nil
-	}
-	entries = entries[:pageLimit]
-	next := entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1]
-	return entries, true, &next, nil
+	return listRuntimeProfileSQL(ctx, db, after, pageLimit)
 }
 
-func (s *Server) store() (kv.Store, error) {
-	if s == nil || s.Store == nil {
-		return nil, errors.New("runtime profile store not configured")
+func listTokens(ctx context.Context, db *sqlx.DB, cursor *string, limit *int32) ([]apitypes.RegistrationToken, bool, *string, error) {
+	pageLimit := defaultListLimit
+	if limit != nil && *limit > 0 {
+		pageLimit = min(int(*limit), maxListLimit)
 	}
-	return s.Store, nil
+	after := ""
+	if cursor != nil {
+		after = *cursor
+	}
+	return listRegistrationTokenSQL(ctx, db, after, pageLimit)
+}
+
+func (s *Server) database() (*sqlx.DB, error) {
+	if s == nil || s.DB == nil {
+		return nil, errors.New("runtime profile database not configured")
+	}
+	return s.DB, nil
+}
+
+// Initialize creates RuntimeProfile, registration token, and owner binding tables at startup.
+func (s *Server) Initialize(ctx context.Context) error {
+	db, err := s.database()
+	if err != nil {
+		return err
+	}
+	return initializeProfileSQL(ctx, db)
 }
 
 func (s *Server) now() time.Time {
@@ -1853,23 +1696,6 @@ func (s *Server) now() time.Time {
 		return s.Now().UTC()
 	}
 	return time.Now().UTC()
-}
-
-func tokenDigest(raw string) string {
-	digest := sha256.Sum256([]byte(raw))
-	return hex.EncodeToString(digest[:])
-}
-
-func profileKey(id string) kv.Key { return append(append(kv.Key{}, profilesRoot...), escape(id)) }
-func ownerProfileKey(owner string) kv.Key {
-	return append(append(kv.Key{}, profilesByOwnerRoot...), escape(owner))
-}
-func tokenKey(id string) kv.Key       { return append(append(kv.Key{}, tokensRoot...), escape(id)) }
-func tokenHashKey(hash string) kv.Key { return append(append(kv.Key{}, tokensByHashRoot...), hash) }
-
-func escape(value string) string {
-	value = strings.ReplaceAll(value, "%", "%25")
-	return strings.ReplaceAll(value, ":", "%3A")
 }
 
 func pathID(raw string) (string, error) {
@@ -1890,4 +1716,16 @@ func internalError(err error) apitypes.ErrorResponse {
 }
 func notFound(kind, id string) apitypes.ErrorResponse {
 	return apitypes.NewErrorResponse("RESOURCE_NOT_FOUND", fmt.Sprintf("%s %q not found", kind, id))
+}
+
+func profileUniqueViolation(err error) bool {
+	var pg interface{ SQLState() string }
+	if errors.As(err, &pg) {
+		return pg.SQLState() == "23505"
+	}
+	var sqlite interface{ Code() int }
+	if errors.As(err, &sqlite) {
+		return sqlite.Code() == 1555 || sqlite.Code() == 2067
+	}
+	return false
 }

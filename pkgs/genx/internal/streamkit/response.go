@@ -1,6 +1,7 @@
 package streamkit
 
 import (
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -244,7 +245,7 @@ func (r *Response) endAfterDiscard(errorText string, discarded []*genx.MessageCh
 }
 
 func markLastEpochEnd(chunks []*genx.MessageChunk) {
-	for index := len(chunks) - 1; index >= 0; index-- {
+	for index := range slices.Backward(chunks) {
 		if chunks[index] != nil && chunks[index].Ctrl != nil {
 			chunks[index].Ctrl.ResponseEpochEnd = true
 			return

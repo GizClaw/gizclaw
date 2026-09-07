@@ -3,15 +3,15 @@ package memorylayout
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerMemoryLayoutLifecycle(t *testing.T) {
@@ -175,114 +175,77 @@ func TestServerConcurrentCreateHasSingleWinner(t *testing.T) {
 	}
 }
 
-func TestServerSerializesPutWithDelete(t *testing.T) {
+func TestConcurrentMemoryLayoutPutCannotRecreateDeletedRow(t *testing.T) {
 	server := newTestServer(t)
-	layout := testLayout(t, "pet-memory")
-	createdResponse, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
-	if err != nil {
-		t.Fatal(err)
-	}
-	created := createdResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
-
-	blocked := &blockingMemoryLayoutGetStore{
-		Store:   server.Store,
-		key:     layoutKey(created.Id).String(),
-		reached: make(chan struct{}),
-		release: make(chan struct{}),
-	}
-	server.Store = blocked
-	layout.Spec.Mem0.CustomInstructions = new("updated")
-	putDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
-	go func() {
-		response, putErr := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &layout})
-		if putErr != nil {
-			t.Errorf("PutMemoryLayout() error = %v", putErr)
+	second := &Server{DB: server.DB}
+	for i := range 30 {
+		layout := testLayout(t, fmt.Sprintf("memory-%d", i))
+		if _, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout}); err != nil {
+			t.Fatal(err)
 		}
-		putDone <- response
-	}()
-	<-blocked.reached
-
-	deleteDone := make(chan adminhttp.DeleteMemoryLayoutResponseObject, 1)
-	go func() {
-		response, deleteErr := server.DeleteMemoryLayout(t.Context(), adminhttp.DeleteMemoryLayoutRequestObject{Id: created.Id})
-		if deleteErr != nil {
-			t.Errorf("DeleteMemoryLayout() error = %v", deleteErr)
+		start := make(chan struct{})
+		puts := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
+		deletes := make(chan adminhttp.DeleteMemoryLayoutResponseObject, 1)
+		go func() {
+			<-start
+			response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: layout.Id, Body: &layout})
+			if err != nil {
+				t.Error(err)
+			}
+			puts <- response
+		}()
+		go func() {
+			<-start
+			response, err := second.DeleteMemoryLayout(t.Context(), adminhttp.DeleteMemoryLayoutRequestObject{Id: layout.Id})
+			if err != nil {
+				t.Error(err)
+			}
+			deletes <- response
+		}()
+		close(start)
+		switch response := (<-puts).(type) {
+		case adminhttp.PutMemoryLayout200JSONResponse, adminhttp.PutMemoryLayout404JSONResponse:
+		default:
+			t.Fatalf("concurrent put = %T", response)
 		}
-		deleteDone <- response
-	}()
-	select {
-	case response := <-deleteDone:
-		t.Fatalf("DeleteMemoryLayout() completed during PutMemoryLayout() read: %#v", response)
-	case <-time.After(100 * time.Millisecond):
-	}
-	close(blocked.release)
-	if response := <-putDone; response == nil {
-		t.Fatal("PutMemoryLayout() response = nil")
-	}
-	if response := <-deleteDone; response == nil {
-		t.Fatal("DeleteMemoryLayout() response = nil")
-	}
-	if _, err := server.Store.Get(t.Context(), layoutKey(created.Id)); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("record after serialized delete error = %v, want kv.ErrNotFound", err)
-	}
-}
-
-func TestServerAllowsPutForIndependentMemoryLayout(t *testing.T) {
-	server := newTestServer(t)
-	first := testLayout(t, "first-memory")
-	second := testLayout(t, "second-memory")
-	for _, layout := range []*adminhttp.MemoryLayoutUpsert{&first, &second} {
-		response, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: layout})
+		if response := <-deletes; response == nil {
+			t.Fatal("delete returned no response")
+		} else if _, ok := response.(adminhttp.DeleteMemoryLayout200JSONResponse); !ok {
+			t.Fatalf("delete = %T", response)
+		}
+		got, err := server.GetMemoryLayout(t.Context(), adminhttp.GetMemoryLayoutRequestObject{Id: layout.Id})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := response.(adminhttp.CreateMemoryLayout200JSONResponse); !ok {
-			t.Fatalf("CreateMemoryLayout(%q) = %#v", layout.Id, response)
+		if _, ok := got.(adminhttp.GetMemoryLayout404JSONResponse); !ok {
+			t.Fatalf("concurrent update recreated deleted layout: %T", got)
 		}
 	}
+}
 
-	blocked := &blockingMemoryLayoutGetStore{
-		Store:   server.Store,
-		key:     layoutKey(first.Id).String(),
-		reached: make(chan struct{}),
-		release: make(chan struct{}),
+func TestSQLMemoryLayoutPaginationAndIndependentRows(t *testing.T) {
+	server := newTestServer(t)
+	for _, id := range []string{"first-memory", "second-memory", "third-memory"} {
+		layout := testLayout(t, id)
+		if _, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	server.Store = blocked
-	first.Spec.Mem0.CustomInstructions = new("first updated")
-	firstDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
-	go func() {
-		response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: first.Id, Body: &first})
-		if err != nil {
-			t.Errorf("first PutMemoryLayout() error = %v", err)
-		}
-		firstDone <- response
-	}()
-	<-blocked.reached
-
-	second.Spec.Mem0.CustomInstructions = new("second updated")
-	secondDone := make(chan adminhttp.PutMemoryLayoutResponseObject, 1)
-	go func() {
-		response, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: second.Id, Body: &second})
-		if err != nil {
-			t.Errorf("second PutMemoryLayout() error = %v", err)
-		}
-		secondDone <- response
-	}()
-	select {
-	case response := <-secondDone:
-		if _, ok := response.(adminhttp.PutMemoryLayout200JSONResponse); !ok {
-			t.Fatalf("second PutMemoryLayout() = %#v", response)
-		}
-	case <-time.After(time.Second):
-		close(blocked.release)
-		<-firstDone
-		<-secondDone
-		t.Fatal("independent MemoryLayout could not complete Put while first ID was blocked")
+	update := testLayout(t, "first-memory")
+	update.Spec.Mem0.CustomInstructions = new("changed")
+	if _, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: update.Id, Body: &update}); err != nil {
+		t.Fatal(err)
 	}
-
-	close(blocked.release)
-	if response := <-firstDone; response == nil {
-		t.Fatal("first PutMemoryLayout() response = nil")
+	response, err := server.ListMemoryLayouts(t.Context(), adminhttp.ListMemoryLayoutsRequestObject{Params: adminhttp.ListMemoryLayoutsParams{Cursor: new("first-memory"), Limit: new(int32(1))}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := response.(adminhttp.ListMemoryLayouts200JSONResponse)
+	if len(page.Items) != 1 || page.Items[0].Id != "second-memory" || !page.HasNext || page.NextCursor == nil || *page.NextCursor != "second-memory" {
+		t.Fatalf("page = %#v", page)
+	}
+	if *page.Items[0].Spec.Mem0.CustomInstructions == "changed" {
+		t.Fatal("update modified another layout")
 	}
 }
 
@@ -399,12 +362,21 @@ func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	store, err := kv.NewBadgerInMemory(nil)
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Close() })
-	return &Server{Store: store}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	server := &Server{DB: db}
+	if err := server.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return server
 }
 
 func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
@@ -428,22 +400,4 @@ func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 		t.Fatal(err)
 	}
 	return layout
-}
-
-type blockingMemoryLayoutGetStore struct {
-	kv.Store
-	key     string
-	once    sync.Once
-	reached chan struct{}
-	release chan struct{}
-}
-
-func (s *blockingMemoryLayoutGetStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	if key.String() == s.key {
-		s.once.Do(func() {
-			close(s.reached)
-			<-s.release
-		})
-	}
-	return s.Store.Get(ctx, key)
 }

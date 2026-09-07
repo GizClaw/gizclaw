@@ -21,4 +21,12 @@
 
 ## OTA 状态
 
-`Server.PutOTAStatus` 将设备 telemetry 投影保存到独立的 per-peer OTA KV record，使用原子 compare-and-mutate 防止并发或乱序进度覆盖终态。`GetStatus` 将其合并为 `PeerStatus.ota`；普通 `PutStatus` 不写 OTA record，控制响应不能覆盖升级进度。Store 必须支持原子 create-if-absent 与 compare-and-mutate，不支持时返回错误。字段和排序规则见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。
+`Server.PutOTAStatus` 使用 SQL 条件更新保存 `peer_runs.ota_json`，防止并发或乱序进度覆盖终态。`GetStatus` 在一次查询中读取状态与 OTA；`PutStatus` 只更新 `status_json` 列，不覆盖 OTA。字段和排序规则见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。
+
+## SQL 与本机目录
+
+`Server.DB` 借用统一管理的 SQLite 或 PostgreSQL 连接池，启动时调用 `Initialize` 建表和索引，请求路径不执行 DDL。每台 Server 使用自己的运行数据库。
+
+`peer_runs` 按 `public_key` 保存状态；`pending_workspace`、`active_workspace`、`debug_mode` 和 `registered_at` 为独立列。设置 Pending 不覆盖 Active；激活通过单条条件 UPDATE 验证当前选择，避免旧激活覆盖新选择。
+
+`RememberPeer` 记录本机注册或连接过的 Peer。Admin `ListPeers` 通过 `(registered_at, public_key)` 索引在本机分页，再按页内公钥读取共享注册信息。它不列举中心 Redis，也不代表全站设备列表。只有状态而没有本机注册记录的行不进入目录。

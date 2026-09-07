@@ -400,10 +400,6 @@ func (r *Runtime) StartDriveFactDispatcher(parent context.Context) (context.Canc
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		if err := r.Migration(ctx); err != nil {
-			slog.ErrorContext(ctx, "gameplay Drive Fact dispatcher migration failed", "error", sanitizeDriveFactError(err))
-			return
-		}
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		for {

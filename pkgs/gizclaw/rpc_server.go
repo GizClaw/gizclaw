@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,7 +19,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type rpcPeerService interface {
@@ -215,7 +215,7 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 	registration, err := s.registrations.ResolveRegistration(ctx, params.Token)
 	if err != nil {
 		slog.WarnContext(ctx, "device registration rejected", "peer_public_key", s.callerPublicKey.String(), "source", s.registrationSource, "error", err)
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodePermissionDenied, Message: "invalid registration token"}.RPCResponse(), nil
 		}
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil

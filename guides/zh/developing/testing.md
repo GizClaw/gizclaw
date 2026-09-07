@@ -160,7 +160,16 @@ cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
+
+标准 runner 不执行 `sfu.*` 跨服务器文档；这些文档由 `run_multi_server_tests.sh` 配置双 Server 环境并验收。`failure-cleanup.giztest.yaml` 是故意失败的夹具，只在专门的失败清理阶段运行，不混入 JavaScript、Flutter、C 或标准 Go 的成功场景批次。
+
+标准 JavaScript 批次通过 `setup/run_js_giztest.py` 为每份文档启动独立 Node 进程，最多四个进程并行，避免不同场景共用原生 WebRTC 生命周期。每个进程有 600 秒外部期限；超时、进程异常和场景失败均保留在合并报告中。
+
+JavaScript runner 使用 `protoc` 从仓库 RPC Schema 生成临时描述符，将场景的 Protobuf JSON 请求转换为 SDK 对象，并将响应转回 Protobuf JSON 后执行断言。枚举、oneof、默认字段和 64 位整数均遵循同一 Schema；未知字段和非法枚举不会被忽略。`npm run giztest` 和 `npm run test:giztest-unit` 自动准备描述符。
+
 ### 手动环境
+
+标准 Docker 环境包含单节点 LiveKit，并为每次启动生成临时 SFU 凭据，供群组 RPC、事件流和社交测试使用。LiveKit 只在 Compose 网络中提供服务，不发布主机端口；清理环境时一起删除。
 
 只启动或停止环境：
 
@@ -872,16 +881,6 @@ go test -race -tags gizclaw_locomo_e2e \
 git lfs fsck
 ```
 
-## Memory provider E2E
-
-三个 live-model Memory case 使用 `gizclaw_memory_e2e` build tag 和一个固定入口：
-
-```sh
-cp tests/memory/.env.example tests/memory/.env
-bash tests/memory/run_tests.sh
-```
-
-普通 Memory 测试保持 credential-free，并由 `go test ./...` 执行。
 
 ## Monitor API giztest
 

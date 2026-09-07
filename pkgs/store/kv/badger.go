@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"iter"
 	"sync"
 	"time"
 
@@ -16,12 +15,8 @@ import (
 // BadgerDB panics when a call reaches a closed database handle, so the store
 // counts the operations that currently touch db. Close marks the store closed
 // and waits for that count to drain before it releases the handle: an
-// operation that started first always finishes against a live handle, and
-// every call after Close answers ErrStoreClosed. The count is not a lock, so
-// nesting store calls, for example a Get inside a List iteration, stays
-// deadlock free; a nested call that starts after Close simply reports
-// ErrStoreClosed. Close must not be called from inside a List iteration, which
-// would wait for an operation that is waiting for it.
+// operation that started first always finishes against a live handle. New
+// operations after Close starts report ErrStoreClosed.
 type Badger struct {
 	db     *badger.DB
 	opts   *Options
@@ -94,12 +89,15 @@ func (b *Badger) Get(ctx context.Context, key Key) ([]byte, error) {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		item, err := txn.Get(b.opts.encode(key))
+		item, err := txn.Get(b.recordKey(key))
 		if err != nil {
 			return err
 		}
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if item.UserMeta() != 0 {
+			return ErrWrongType
 		}
 		val, err = item.ValueCopy(nil)
 		return err
@@ -123,7 +121,7 @@ func (b *Badger) Set(ctx context.Context, key Key, value []byte) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		return txn.Set(b.opts.encode(key), value)
+		return b.putRecord(txn, badger.NewEntry(b.recordKey(key), value))
 	})
 }
 
@@ -140,136 +138,12 @@ func (b *Badger) Delete(ctx context.Context, key Key) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		return txn.Delete(b.opts.encode(key))
+		return b.deleteRecord(txn, b.recordKey(key))
 	})
 	if err == badger.ErrKeyNotFound {
 		return nil
 	}
 	return err
-}
-
-func (b *Badger) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
-	return func(yield func(Entry, error) bool) {
-		release, err := b.acquire()
-		if err != nil {
-			yield(Entry{}, err)
-			return
-		}
-		defer release()
-		if err := ctx.Err(); err != nil {
-			yield(Entry{}, err)
-			return
-		}
-		err = b.db.View(func(txn *badger.Txn) error {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			iterOpts := badger.DefaultIteratorOptions
-			iterOpts.Prefix = b.listPrefix(prefix)
-			it := txn.NewIterator(iterOpts)
-			defer it.Close()
-
-			for it.Seek(iterOpts.Prefix); it.Valid(); it.Next() {
-				if err := ctx.Err(); err != nil {
-					return err
-				}
-				item := it.Item()
-				val, err := item.ValueCopy(nil)
-				if err != nil {
-					if !yield(Entry{}, err) {
-						return nil
-					}
-					continue
-				}
-				entry := Entry{
-					Key:   b.opts.decode(item.KeyCopy(nil)),
-					Value: val,
-				}
-				if !yield(entry, nil) {
-					return nil
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			yield(Entry{}, err)
-		}
-	}
-}
-
-func (b *Badger) ListAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error) {
-	release, err := b.acquire()
-	if err != nil {
-		return nil, err
-	}
-	defer release()
-	if limit <= 0 {
-		return nil, nil
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	entries := make([]Entry, 0, limit)
-	prefixBytes := b.listPrefix(prefix)
-
-	var afterBytes []byte
-	if len(after) > 0 {
-		afterBytes = b.opts.encode(after)
-	}
-
-	err = b.db.View(func(txn *badger.Txn) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		iterOpts := badger.DefaultIteratorOptions
-		iterOpts.Prefix = prefixBytes
-		it := txn.NewIterator(iterOpts)
-		defer it.Close()
-
-		switch {
-		case len(afterBytes) > 0 && len(prefixBytes) > 0 && bytes.Compare(afterBytes, prefixBytes) < 0:
-			it.Seek(prefixBytes)
-		case len(afterBytes) > 0:
-			it.Seek(afterBytes)
-		case len(prefixBytes) > 0:
-			it.Seek(prefixBytes)
-		default:
-			it.Rewind()
-		}
-
-		for ; it.Valid(); it.Next() {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if len(prefixBytes) > 0 && !it.ValidForPrefix(prefixBytes) {
-				break
-			}
-
-			item := it.Item()
-			key := item.KeyCopy(nil)
-			if len(afterBytes) > 0 && bytes.Equal(key, afterBytes) {
-				continue
-			}
-
-			val, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
-			}
-			entries = append(entries, Entry{
-				Key:   b.opts.decode(key),
-				Value: val,
-			})
-			if len(entries) >= limit {
-				break
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return entries, nil
 }
 
 func (b *Badger) BatchSet(ctx context.Context, entries []Entry) error {
@@ -287,7 +161,7 @@ func (b *Badger) BatchSet(ctx context.Context, entries []Entry) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			entry := badger.NewEntry(b.opts.encode(e.Key), e.Value)
+			entry := badger.NewEntry(b.recordKey(e.Key), e.Value)
 			if !e.Deadline.IsZero() {
 				ttl := e.Deadline.Sub(now)
 				if ttl <= 0 {
@@ -295,7 +169,7 @@ func (b *Badger) BatchSet(ctx context.Context, entries []Entry) error {
 				}
 				entry = entry.WithTTL(ttl)
 			}
-			if err := txn.SetEntry(entry); err != nil {
+			if err := b.putRecord(txn, entry); err != nil {
 				return err
 			}
 		}
@@ -317,7 +191,7 @@ func (b *Badger) BatchDelete(ctx context.Context, keys []Key) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if err := txn.Delete(b.opts.encode(k)); err != nil && err != badger.ErrKeyNotFound {
+			if err := b.deleteRecord(txn, b.recordKey(k)); err != nil && err != badger.ErrKeyNotFound {
 				return err
 			}
 		}
@@ -340,7 +214,7 @@ func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			entry := badger.NewEntry(b.opts.encode(item.Key), item.Value)
+			entry := badger.NewEntry(b.recordKey(item.Key), item.Value)
 			if !item.Deadline.IsZero() {
 				ttl := item.Deadline.Sub(now)
 				if ttl <= 0 {
@@ -348,7 +222,7 @@ func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 				}
 				entry = entry.WithTTL(ttl)
 			}
-			if err := txn.SetEntry(entry); err != nil {
+			if err := b.putRecord(txn, entry); err != nil {
 				return err
 			}
 		}
@@ -356,7 +230,7 @@ func (b *Badger) BatchMutate(ctx context.Context, entries []Entry, keys []Key) e
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if err := txn.Delete(b.opts.encode(key)); err != nil && err != badger.ErrKeyNotFound {
+			if err := b.deleteRecord(txn, b.recordKey(key)); err != nil && err != badger.ErrKeyNotFound {
 				return err
 			}
 		}
@@ -401,7 +275,7 @@ func (b *Badger) createIfAllAbsent(ctx context.Context, guards []Entry, entries 
 				return err
 			}
 			for _, guard := range guards {
-				item, err := txn.Get(b.opts.encode(guard.Key))
+				item, err := txn.Get(b.recordKey(guard.Key))
 				if err == nil {
 					conflict = cloneKey(guard.Key)
 					existing, err = item.ValueCopy(nil)
@@ -416,7 +290,7 @@ func (b *Badger) createIfAllAbsent(ctx context.Context, guards []Entry, entries 
 			all = append(all, entries...)
 			all = append(all, guards...)
 			for _, entry := range all {
-				item := badger.NewEntry(b.opts.encode(entry.Key), entry.Value)
+				item := badger.NewEntry(b.recordKey(entry.Key), entry.Value)
 				if !entry.Deadline.IsZero() {
 					ttl := entry.Deadline.Sub(now)
 					if ttl <= 0 {
@@ -424,7 +298,7 @@ func (b *Badger) createIfAllAbsent(ctx context.Context, guards []Entry, entries 
 					}
 					item = item.WithTTL(ttl)
 				}
-				if err := txn.SetEntry(item); err != nil {
+				if err := b.putRecord(txn, item); err != nil {
 					return err
 				}
 			}
@@ -453,7 +327,7 @@ func (b *Badger) CompareAndMutate(
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
-	guardKey := b.opts.encode(guard)
+	guardKey := b.recordKey(guard)
 	for {
 		matched := false
 		err := b.db.Update(func(txn *badger.Txn) error {
@@ -476,7 +350,7 @@ func (b *Badger) CompareAndMutate(
 			}
 			now := time.Now()
 			for _, entry := range entries {
-				item := badger.NewEntry(b.opts.encode(entry.Key), entry.Value)
+				item := badger.NewEntry(b.recordKey(entry.Key), entry.Value)
 				if !entry.Deadline.IsZero() {
 					ttl := entry.Deadline.Sub(now)
 					if ttl <= 0 {
@@ -484,12 +358,12 @@ func (b *Badger) CompareAndMutate(
 					}
 					item = item.WithTTL(ttl)
 				}
-				if err := txn.SetEntry(item); err != nil {
+				if err := b.putRecord(txn, item); err != nil {
 					return err
 				}
 			}
 			for _, key := range keys {
-				if err := txn.Delete(b.opts.encode(key)); err != nil &&
+				if err := b.deleteRecord(txn, b.recordKey(key)); err != nil &&
 					!errors.Is(err, badger.ErrKeyNotFound) {
 					return err
 				}
@@ -533,16 +407,6 @@ func (b *Badger) Close() error {
 	// Released outside mu: no operation can reach db any more, and closing the
 	// handle is blocking native I/O that must not run under the state mutex.
 	return db.Close()
-}
-
-// listPrefix returns the byte prefix for List iteration.
-// For a non-empty prefix key it appends the separator so "a:b" doesn't match "a:bc".
-func (b *Badger) listPrefix(prefix Key) []byte {
-	p := b.opts.encode(prefix)
-	if len(p) == 0 {
-		return nil
-	}
-	return append(p, b.opts.sep())
 }
 
 // compile-time interface check

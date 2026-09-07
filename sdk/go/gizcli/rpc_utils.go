@@ -224,8 +224,7 @@ func wrapRPCResultError(name string, err error) error {
 	if errors.Is(err, errRPCMissingResult) {
 		return fmt.Errorf("rpc: missing %s result", name)
 	}
-	var rpcErr rpcapi.Error
-	if errors.As(err, &rpcErr) {
+	if _, ok := errors.AsType[rpcapi.Error](err); ok {
 		return err
 	}
 	return fmt.Errorf("rpc: decode %s result: %w", name, err)

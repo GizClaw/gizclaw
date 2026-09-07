@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -52,13 +53,14 @@ func TestAdminServiceApplyResourceRequiresBody(t *testing.T) {
 	}
 }
 
-func TestAdminSocialErrorMapsFriendGroupFull(t *testing.T) {
+func TestAdminSocialErrorMapsGroupConflicts(t *testing.T) {
 	for _, test := range []struct {
 		err     error
 		code    string
 		message string
 	}{
 		{err: friendgroup.ErrFriendGroupFull, code: "FRIEND_GROUP_FULL", message: friendgroup.ErrFriendGroupFull.Error()},
+		{err: friendgroup.ErrGroupChanged, code: "FRIEND_GROUP_CHANGED", message: friendgroup.ErrGroupChanged.Error()},
 	} {
 		status, body := adminSocialError(fmt.Errorf("wrapped: %w", test.err))
 		if status != http.StatusConflict || body.Error.Code != test.code || body.Error.Message != test.message {
@@ -452,9 +454,32 @@ func TestAdminSocialHandlersUseDomainServices(t *testing.T) {
 		t.Fatalf("POST friend body = %s", rec.Body.String())
 	}
 	rec = serveAdminAsset(app, http.MethodGet, "/social/friends?limit=1", "")
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"owner_public_key":"peer-a"`) || !strings.Contains(rec.Body.String(), `"has_next":true`) {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("GET social friends status=%d body=%s", rec.Code, rec.Body.String())
 	}
+	var firstPage adminhttp.AdminFriendListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &firstPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(firstPage.Items) != 1 || !firstPage.HasNext || firstPage.NextCursor == nil {
+		t.Fatalf("first Friend page = %#v", firstPage)
+	}
+	rec = serveAdminAsset(app, http.MethodGet, "/social/friends?limit=1&cursor="+url.QueryEscape(*firstPage.NextCursor), "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET next Friend page status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var secondPage adminhttp.AdminFriendListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &secondPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(secondPage.Items) != 1 || secondPage.HasNext {
+		t.Fatalf("second Friend page = %#v", secondPage)
+	}
+	owners := map[string]bool{firstPage.Items[0].OwnerPublicKey: true, secondPage.Items[0].OwnerPublicKey: true}
+	if !owners["peer-a"] || !owners["peer-b"] {
+		t.Fatalf("Friend pages omitted an owner view: %#v", owners)
+	}
+
 	rec = serveAdminAsset(app, http.MethodGet, "/social/friends/peer-a/peer-a:peer-b", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"owner_public_key":"peer-a"`) {
 		t.Fatalf("GET social friend status=%d body=%s", rec.Code, rec.Body.String())

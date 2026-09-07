@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -39,55 +38,20 @@ func (s KVSource) Validate() error {
 }
 
 func (s KVSource) ScanDue(ctx context.Context, now time.Time, limit int, cursor string) ([]Reference, string, error) {
-	if err := s.validateTaskSource(); err != nil {
-		return nil, "", err
-	}
-	if limit <= 0 {
-		return nil, "", fmt.Errorf("pending deletion: KV scan limit must be positive")
-	}
-	prefix := append(append(kv.Key{}, root...), "by-id")
-	var after kv.Key
-	if cursor != "" {
-		after = append(append(kv.Key{}, prefix...), cursor)
-	}
-	entries, err := kv.ListAfter(ctx, s.Store, prefix, after, limit)
-	if err != nil {
-		return nil, "", err
-	}
-	refs := make([]Reference, 0, limit)
-	for _, entry := range entries {
-		if len(entry.Key) != len(root)+2 {
-			continue
-		}
-		deletionID := entry.Key[len(entry.Key)-1]
-		task, _, err := s.loadTask(ctx, deletionID)
-		if errors.Is(err, ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, "", err
-		}
-		if !s.owns(task.Record.Kind) || !taskDue(task, now) {
-			continue
-		}
-		refs = append(refs, Reference{Source: s.Name(), DeletionID: deletionID, MarkerFingerprint: task.MarkerFingerprint})
-	}
-	next := ""
-	if len(entries) == limit {
-		lastKey := entries[len(entries)-1].Key
-		next = lastKey[len(lastKey)-1]
-	}
-	return refs, next, nil
+	return s.scanIndexedDue(ctx, now, limit, cursor)
 }
 
 func (s KVSource) Claim(ctx context.Context, ref Reference, now time.Time, leaseDuration time.Duration) (Claim, bool, error) {
+	if leaseDuration <= 0 {
+		return Claim{}, false, fmt.Errorf("%w: lease duration must be positive", ErrInvalid)
+	}
 	if err := s.validateTaskSource(); err != nil {
 		return Claim{}, false, err
 	}
 	if ref.Source != s.Name() {
 		return Claim{}, false, fmt.Errorf("pending deletion: KV reference source mismatch")
 	}
-	task, raw, err := s.loadTaskForMutation(ctx, ref.DeletionID)
+	task, raw, err := s.loadTask(ctx, ref.DeletionID)
 	if err != nil {
 		return Claim{}, false, err
 	}
@@ -110,6 +74,9 @@ func (s KVSource) Claim(ctx context.Context, ref Reference, now time.Time, lease
 }
 
 func (s KVSource) Renew(ctx context.Context, claim Claim, now time.Time, leaseDuration time.Duration) error {
+	if leaseDuration <= 0 {
+		return fmt.Errorf("%w: lease duration must be positive", ErrInvalid)
+	}
 	return s.transition(ctx, claim, now, func(task *Task) {
 		task.LeaseDeadline = now.Add(leaseDuration)
 	})
@@ -160,41 +127,11 @@ func (s KVSource) GetTask(ctx context.Context, deletionID string) (Task, error) 
 }
 
 func (s KVSource) ListTasks(ctx context.Context, options SourceListOptions) ([]Task, error) {
-	if err := s.validateTaskSource(); err != nil {
-		return nil, err
-	}
-	if options.Limit <= 0 {
-		return nil, fmt.Errorf("pending deletion: KV list limit must be positive")
-	}
-	var tasks []Task
-	for entry, err := range s.Store.List(ctx, append(append(kv.Key{}, root...), "by-id")) {
-		if err != nil {
-			return nil, err
-		}
-		if len(entry.Key) != len(root)+2 {
-			continue
-		}
-		task, _, err := s.loadTask(ctx, entry.Key[len(entry.Key)-1])
-		if errors.Is(err, ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		if !s.owns(task.Record.Kind) || !taskMatches(task, options) {
-			continue
-		}
-		tasks = append(tasks, task)
-	}
-	sort.Slice(tasks, func(i, j int) bool { return taskLess(tasks[i], tasks[j]) })
-	if len(tasks) > options.Limit {
-		tasks = tasks[:options.Limit]
-	}
-	return tasks, nil
+	return s.listIndexedTasks(ctx, options)
 }
 
 func (s KVSource) Retry(ctx context.Context, deletionID string, now time.Time) (Task, error) {
-	task, raw, err := s.loadTaskForMutation(ctx, deletionID)
+	task, raw, err := s.loadTask(ctx, deletionID)
 	if err != nil {
 		return Task{}, err
 	}
@@ -227,7 +164,7 @@ func (s KVSource) Finalize(ctx context.Context, claim Claim, now time.Time, dele
 
 // FinalizeWithEntries atomically replaces caller-owned domain records while
 // consuming the exact marker and task. It is used for permanent tombstones.
-func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time.Time, entries []kv.Entry, deleteKeys []kv.Key) error {
+func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time.Time, entries []kv.Entry, deleteKeys []kv.Key, removeMembers ...kv.SetMembers) error {
 	if err := s.validateTaskSource(); err != nil {
 		return err
 	}
@@ -237,7 +174,7 @@ func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time
 	if claim.Source != s.Name() || !s.owns(claim.Record.Kind) {
 		return ErrConflict
 	}
-	task, raw, err := s.loadTaskForMutation(ctx, claim.Record.DeletionID)
+	task, raw, err := s.loadTask(ctx, claim.Record.DeletionID)
 	if errors.Is(err, ErrNotFound) {
 		return ErrConflict
 	}
@@ -284,7 +221,16 @@ func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time
 		}
 		seen[identity] = struct{}{}
 	}
-	matched, err := kv.CompareAndMutate(ctx, s.Store, kvTaskKey(claim.Record.DeletionID), raw, entries, keys)
+	for _, group := range removeMembers {
+		if err := validateFinalizeDomainKey(group.Key); err != nil {
+			return err
+		}
+		if _, exists := seen[kvKeyIdentity(group.Key)]; exists {
+			return fmt.Errorf("pending deletion: overlapping collection key")
+		}
+	}
+	_, removeIndexes := kvTaskIndexChanges(&task, nil)
+	matched, err := s.Store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: kvTaskKey(claim.Record.DeletionID), Expected: raw}}, Entries: entries, DeleteKeys: keys, RemoveMembers: removeMembers, RemoveOrderedMembers: removeIndexes})
 	if err != nil {
 		return err
 	}
@@ -339,7 +285,6 @@ func kvFinalizeDeleteKeys(record Record, domainKeys []kv.Key) ([]kv.Key, error) 
 	commonKeys := []kv.Key{
 		byIDKey(record.DeletionID),
 		byLocatorKey(record.Kind, record.ResourceID),
-		append(legacyByLocatorPrefix(record.Kind, record.ResourceID), record.DeletionID),
 		kvTaskKey(record.DeletionID),
 	}
 	for _, key := range commonKeys {
@@ -351,7 +296,7 @@ func kvFinalizeDeleteKeys(record Record, domainKeys []kv.Key) ([]kv.Key, error) 
 }
 
 func (s KVSource) transition(ctx context.Context, claim Claim, now time.Time, mutate func(*Task)) error {
-	task, raw, err := s.loadTaskForMutation(ctx, claim.Record.DeletionID)
+	task, raw, err := s.loadTask(ctx, claim.Record.DeletionID)
 	if err != nil {
 		return err
 	}
@@ -371,50 +316,6 @@ func (s KVSource) transition(ctx context.Context, claim Claim, now time.Time, mu
 	return nil
 }
 
-func (s KVSource) loadTaskForMutation(ctx context.Context, deletionID string) (Task, []byte, error) {
-	task, raw, err := s.loadTask(ctx, deletionID)
-	if err != nil {
-		return Task{}, nil, err
-	}
-	if raw != nil {
-		return task, raw, nil
-	}
-	encoded, err := encodeKVTaskState(task)
-	if err != nil {
-		return Task{}, nil, err
-	}
-	existing, created, err := kv.CreateIfAbsent(ctx, s.Store, kv.Entry{Key: kvTaskKey(deletionID), Value: encoded}, nil)
-	if err != nil {
-		return Task{}, nil, err
-	}
-	if created {
-		current, currentErr := getStoredRecord(ctx, s.Store, deletionID)
-		if currentErr == nil {
-			currentFingerprint, fingerprintErr := StoredFingerprint(current)
-			if fingerprintErr != nil {
-				currentErr = fingerprintErr
-			} else if currentFingerprint != task.MarkerFingerprint {
-				currentErr = ErrConflict
-			}
-		}
-		if currentErr != nil {
-			matched, cleanupErr := kv.CompareAndMutate(ctx, s.Store, kvTaskKey(deletionID), encoded, nil, []kv.Key{kvTaskKey(deletionID)})
-			if cleanupErr != nil {
-				return Task{}, nil, cleanupErr
-			}
-			if !matched {
-				return Task{}, nil, ErrConflict
-			}
-			if errors.Is(currentErr, kv.ErrNotFound) {
-				return Task{}, nil, ErrNotFound
-			}
-			return Task{}, nil, currentErr
-		}
-		return task, encoded, nil
-	}
-	return s.decodeTask(task.Record, existing)
-}
-
 func (s KVSource) loadTask(ctx context.Context, deletionID string) (Task, []byte, error) {
 	record, err := getStoredRecord(ctx, s.Store, deletionID)
 	if errors.Is(err, kv.ErrNotFound) {
@@ -428,16 +329,12 @@ func (s KVSource) loadTask(ctx context.Context, deletionID string) (Task, []byte
 	}
 	raw, err := s.Store.Get(ctx, kvTaskKey(deletionID))
 	if errors.Is(err, kv.ErrNotFound) {
-		fingerprint, fingerprintErr := StoredFingerprint(record)
-		if fingerprintErr != nil {
-			return Task{}, nil, fingerprintErr
+		if _, err := getStoredRecord(ctx, s.Store, deletionID); errors.Is(err, kv.ErrNotFound) {
+			return Task{}, nil, ErrNotFound
+		} else if err != nil {
+			return Task{}, nil, err
 		}
-		task := Task{
-			Source: s.Name(), Record: record, MarkerFingerprint: fingerprint,
-			Status: StatusQueued, Phase: PhaseValidate,
-			NextAttemptAt: record.DeletedAt, UpdatedAt: record.DeletedAt,
-		}
-		return task, nil, nil
+		return Task{}, nil, fmt.Errorf("%w: persisted KV task state is missing", ErrInvalid)
 	}
 	if err != nil {
 		return Task{}, nil, err
@@ -464,12 +361,23 @@ func (s KVSource) decodeTask(record Record, raw []byte) (Task, []byte, error) {
 }
 
 func (s KVSource) writeTask(ctx context.Context, task Task, expected []byte) (bool, error) {
+	previous, _, err := s.decodeTask(task.Record, expected)
+	if err != nil {
+		return false, err
+	}
+	if err := validateStoredTask(task); err != nil {
+		return false, err
+	}
 	encoded, err := encodeKVTaskState(task)
 	if err != nil {
 		return false, err
 	}
-	return kv.CompareAndMutate(ctx, s.Store, kvTaskKey(task.Record.DeletionID), expected,
-		[]kv.Entry{{Key: kvTaskKey(task.Record.DeletionID), Value: encoded}}, nil)
+	add, remove := kvTaskIndexChanges(&previous, &task)
+	return s.Store.ApplyMutation(ctx, kv.Mutation{
+		Conditions:        []kv.Condition{{Key: kvTaskKey(task.Record.DeletionID), Expected: expected}},
+		Entries:           []kv.Entry{{Key: kvTaskKey(task.Record.DeletionID), Value: encoded}},
+		AddOrderedMembers: add, RemoveOrderedMembers: remove,
+	})
 }
 
 func encodeKVTaskState(task Task) ([]byte, error) {
@@ -489,12 +397,7 @@ func (s KVSource) validateTaskSource() error {
 	if !sourceNamePattern.MatchString(s.Name()) || len(s.OwnedKinds) == 0 {
 		return fmt.Errorf("pending deletion: invalid KV task source")
 	}
-	if !kv.SupportsCreateIfAbsent(s.Store) {
-		return kv.ErrCreateIfAbsentUnsupported
-	}
-	if !kv.SupportsCompareAndMutate(s.Store) {
-		return kv.ErrCompareAndMutateUnsupported
-	}
+
 	return nil
 }
 

@@ -6,7 +6,6 @@
 
 ```text
 pkgs/store/
-├── graph/        # Entity / Relation graph abstraction
 ├── kv/           # Ordered hierarchical key-value store
 ├── logstore/     # Searchable immutable/mutable records and log drivers
 ├── memory/       # Observation extraction, fact recall, and provider adapters
@@ -19,8 +18,7 @@ pkgs/store/
 
 | Package | Core Boundary | Key Consumers |
 | --- | --- | --- |
-| [graph](./graph) | Entity, Relation and adjacency query | Agent memory, recall |
-| [kv](./kv) | Ordered hierarchical key, CRUD and range traversal | GizClaw services, Agent memory, other stores |
+| [kv](./kv) | Ordered hierarchical key, CRUD and range traversal | GizClaw services, other stores |
 | [logstore](./logstore) | Structured record append/mutation, backend-neutral query and pagination | Process logs and conversation/event producers |
 | [memory](./memory) | Raw observations, fact recall/update/delete, and asynchronous operations | Agent runtimes and memory evaluation harnesses |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
@@ -36,11 +34,9 @@ flowchart TB
     Domains --> Metrics["metrics"]
     Domains --> Objects["objectstore"]
     Domains --> Vectors["vecstore"]
-    Domains --> Graph["graph"]
     Domains --> Memory["memory"]
     Memory --> Flowcraft["Flowcraft embedded"]
     Memory --> Remote["Mem0 / Volc remote"]
-    Graph --> KV
     Vectors --> Objects
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
@@ -105,7 +101,7 @@ directory to PostgreSQL or a DSN/provider credential to Badger.
 `cmd/internal/server` retains the flat YAML DTO and explicitly converts each
 `kind` to its concrete Go type; YAML fields never enter the public config types.
 
-Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` and `graph` have no built-in Server consumer, so they are not command-layer Store kinds; their public packages and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
+Multiple Stores may borrow one connector. The caller closes logical `Stores` first and physical `Storage` second. `memory` is a stateless marker; every keyvalue or metrics Store that references it creates an independent instance. `vecstore` has no built-in Server consumer, so it is not a command-layer Store kind; its public package and constructors remain available. Memory connections selected through RuntimeProfile and MemoryLayout remain outside this registry.
 
 `objectstore` is compatible with `filesystem.dir`, `volc-tos`, `aliyun-oss`,
 `gcs`, and `azure-blob`. Physical Storage owns each official SDK client,

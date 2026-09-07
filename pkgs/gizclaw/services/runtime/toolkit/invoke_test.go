@@ -6,13 +6,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
 func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 	t.Parallel()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	tool := testClientTool("volume_set")
 	tool.InputSchema = jsonschema.Schema{
 		Type:       "object",
@@ -56,7 +55,7 @@ func TestResolveInvokeReauthorizesAndValidatesArguments(t *testing.T) {
 
 func TestResolveInvokeRejectsUnboundAliasAndSeesResourceUpdate(t *testing.T) {
 	t.Parallel()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	created, err := server.CreateTool(context.Background(), testClientTool("volume_set"))
 	if err != nil {
 		t.Fatalf("PutTool(): %v", err)

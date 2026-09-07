@@ -5,10 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"database/sql"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func (s *rpcServer) handleAPIKeyCreate(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
@@ -112,7 +112,7 @@ func (s *rpcServer) apiKeyRPCOwner(ctx context.Context, requestID string) (strin
 		}
 	}
 	if _, err := s.registrations.ResolveOwnerProfile(ctx, owner); err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodePermissionDenied, Message: "device registration required"}.RPCResponse()
 		}
 		return "", rpcapi.Error{RequestID: requestID, Code: rpcapi.StatusCodeInternal, Message: "RuntimeProfile lookup failed"}.RPCResponse()

@@ -3,7 +3,6 @@ package kv
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 
@@ -18,18 +17,6 @@ func TestRedisOperationErrorPreservesIdentityWithoutDetails(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "secret") || err.Error() != "kv: redis compare and mutate failed" {
 		t.Fatalf("Redis operation error = %q", err)
-	}
-}
-func TestRedisEscapesScanPatterns(t *testing.T) {
-	if got := escapeRedisPattern(`a*[b]?\\c`); got != `a\*\[b\]\?\\\\c` {
-		t.Fatalf("escapeRedisPattern() = %q", got)
-	}
-}
-
-func TestSortUniqueRedisKeys(t *testing.T) {
-	keys := []string{"items/c", "items/a", "items/b", "items/a", "items/c"}
-	if got, want := sortUniqueRedisKeys(keys), []string{"items/a", "items/b", "items/c"}; !slices.Equal(got, want) {
-		t.Fatalf("sortUniqueRedisKeys() = %q, want %q", got, want)
 	}
 }
 

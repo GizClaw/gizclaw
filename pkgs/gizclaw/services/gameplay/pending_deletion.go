@@ -81,24 +81,10 @@ func (s PendingDeletionSource) HasLocator(ctx context.Context, locator pendingde
 	if err == nil {
 		return s.validateLocatorRecord(ctx, deletionID, locator, owner)
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return false, fmt.Errorf("gameplay: lookup pending deletion: %w", err)
-	}
-
-	// Legacy #469 records predate the fixed locator table.
-	query = `SELECT deletion_id
-		FROM gameplay_pending_deletions
-		WHERE kind = ? AND resource_id = ? AND owner_public_key = ?
-		ORDER BY deleted_at, deletion_id
-		LIMIT 1`
-	err = s.DB.QueryRowContext(ctx, s.DB.Rebind(query), locator.Kind, locator.ResourceID, owner).Scan(&deletionID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
-	if err != nil {
-		return false, fmt.Errorf("gameplay: lookup pending deletion: %w", err)
-	}
-	return s.validateLocatorRecord(ctx, deletionID, locator, owner)
+	return false, fmt.Errorf("gameplay: lookup pending deletion: %w", err)
 }
 
 func (s PendingDeletionSource) validateLocatorRecord(

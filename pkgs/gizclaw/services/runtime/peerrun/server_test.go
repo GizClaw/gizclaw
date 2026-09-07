@@ -8,12 +8,13 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerStatusRoundTrip(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := newTestServer(t)
 	publicKey := testPublicKey(t)
 	if got, err := server.GetStatus(ctx, publicKey); err != nil || got.Volume != nil {
 		t.Fatalf("GetStatus(empty) = %+v, %v", got, err)
@@ -42,7 +43,7 @@ func TestServerStatusRoundTrip(t *testing.T) {
 
 func TestServerRunAgentRoundTrip(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := newTestServer(t)
 	publicKey := testPublicKey(t)
 	if got, err := server.GetRunAgent(ctx, publicKey); err != nil || got.Pending != nil || got.Active != nil {
 		t.Fatalf("GetRunAgent(empty) = %+v, %v", got, err)
@@ -96,7 +97,7 @@ func TestServerRunAgentRoundTrip(t *testing.T) {
 
 func TestValidation(t *testing.T) {
 	ctx := context.Background()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := newTestServer(t)
 	publicKey := testPublicKey(t)
 	badVolume := 101
 	if _, err := server.PutStatus(ctx, publicKey, apitypes.PeerStatus{Volume: &badVolume}); err == nil {
@@ -134,30 +135,36 @@ func TestValidation(t *testing.T) {
 }
 
 func TestCorruptStoreData(t *testing.T) {
-	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	server := &Server{Store: store}
+	server := newTestServer(t)
 	publicKey := testPublicKey(t)
-	statusKey, err := statusKey(publicKey)
+	if _, err := server.DB.ExecContext(t.Context(), `INSERT INTO peer_runs(public_key,status_json) VALUES (?,?)`, publicKey.String(), "{"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.GetStatus(t.Context(), publicKey); err == nil {
+		t.Fatal("corrupt status accepted")
+	}
+	if _, err := server.DB.ExecContext(t.Context(), `UPDATE peer_runs SET pending_workspace='' WHERE public_key=?`, publicKey.String()); err == nil {
+		t.Fatal("empty selection accepted by schema")
+	}
+}
+
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
-		t.Fatalf("statusKey() error = %v", err)
+		t.Fatal(err)
 	}
-	if err := store.Set(ctx, statusKey, []byte("{")); err != nil {
-		t.Fatalf("Set(status) error = %v", err)
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	server := &Server{DB: db}
+	if err := server.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := server.GetStatus(ctx, publicKey); err == nil {
-		t.Fatal("GetStatus(corrupt) error = nil")
-	}
-	runAgentKey, err := runAgentKey(publicKey)
-	if err != nil {
-		t.Fatalf("runAgentKey() error = %v", err)
-	}
-	if err := store.Set(ctx, runAgentKey, []byte("{")); err != nil {
-		t.Fatalf("Set(run-agent) error = %v", err)
-	}
-	if _, err := server.GetRunAgent(ctx, publicKey); err == nil {
-		t.Fatal("GetRunAgent(corrupt) error = nil")
-	}
+	return server
 }
 
 func testPublicKey(t *testing.T) giznet.PublicKey {
@@ -167,4 +174,58 @@ func testPublicKey(t *testing.T) giznet.PublicKey {
 		t.Fatalf("GenerateKeyPair() error = %v", err)
 	}
 	return keyPair.Public
+}
+
+func TestStaleActivationPreservesNewSelection(t *testing.T) {
+	s := newTestServer(t)
+	peer := testPublicKey(t)
+	first := apitypes.AgentSelection{WorkspaceName: "first"}
+	second := apitypes.AgentSelection{WorkspaceName: "second"}
+	if _, err := s.SetRunAgent(t.Context(), peer, first); err != nil {
+		t.Fatal(err)
+	}
+	selected, err := s.ResolveRunAgent(t.Context(), peer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetRunAgent(t.Context(), peer, second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ActivateRunAgent(t.Context(), peer, selected); !errors.Is(err, ErrRunAgentChanged) {
+		t.Fatalf("stale activation: %v", err)
+	}
+	got, err := s.GetRunAgent(t.Context(), peer)
+	if err != nil || got.Pending == nil || got.Pending.WorkspaceName != "second" || got.Active != nil {
+		t.Fatalf("new selection lost: %+v, %v", got, err)
+	}
+	if _, err := s.ActivateRunAgent(t.Context(), peer, second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetRunAgent(t.Context(), peer, first); err != nil {
+		t.Fatal(err)
+	}
+	got, err = s.GetRunAgent(t.Context(), peer)
+	if err != nil || got.Pending == nil || got.Active == nil || got.Active.WorkspaceName != "second" {
+		t.Fatalf("pending write lost active: %+v, %v", got, err)
+	}
+}
+
+func TestRequestsDoNotInitializeRuntimeSchema(t *testing.T) {
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	s := &Server{DB: db}
+	if _, err := s.GetStatus(t.Context(), testPublicKey(t)); err == nil {
+		t.Fatal("read unexpectedly initialized schema")
+	}
+	var tables int
+	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM sqlite_master WHERE name='peer_runs'`).Scan(&tables); err != nil {
+		t.Fatal(err)
+	}
+	if tables != 0 {
+		t.Fatal("request created runtime table")
+	}
 }

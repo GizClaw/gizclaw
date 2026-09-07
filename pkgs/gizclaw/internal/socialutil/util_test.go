@@ -11,7 +11,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func TestJSONPagingAndDeletePrefix(t *testing.T) {
+func TestJSONRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
 	owner := " peer/a "
@@ -34,27 +34,6 @@ func TestJSONPagingAndDeletePrefix(t *testing.T) {
 		t.Fatalf("ReadJSONValue = %#v, want first contact", got)
 	}
 
-	page, err := ListPage(ctx, store, OwnerPrefix(ContactsRoot, owner), "", 1)
-	if err != nil {
-		t.Fatalf("ListPage first: %v", err)
-	}
-	if len(page.Items) != 1 || !page.HasNext || page.NextCursor == nil || *page.NextCursor != firstID {
-		t.Fatalf("ListPage first = %#v, want first item and cursor %q", page, firstID)
-	}
-	page, err = ListPage(ctx, store, OwnerPrefix(ContactsRoot, owner), *page.NextCursor, 1)
-	if err != nil {
-		t.Fatalf("ListPage second: %v", err)
-	}
-	if len(page.Items) != 1 || page.HasNext || page.NextCursor != nil {
-		t.Fatalf("ListPage second = %#v, want final item", page)
-	}
-
-	if err := DeletePrefix(ctx, store, OwnerPrefix(ContactsRoot, owner)); err != nil {
-		t.Fatalf("DeletePrefix: %v", err)
-	}
-	if _, err := store.Get(ctx, ContactKey(owner, firstID)); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("Get after DeletePrefix error = %v, want kv.ErrNotFound", err)
-	}
 }
 
 func TestItemPagingAndVisibility(t *testing.T) {
@@ -84,9 +63,6 @@ func TestScalarHelpersAndRoles(t *testing.T) {
 	cursor, limit := NormalizeListParams(" a/b ", MaxListLimit+1)
 	if cursor != "a%2Fb" || limit != MaxListLimit {
 		t.Fatalf("NormalizeListParams = (%q, %d), want escaped cursor and capped limit", cursor, limit)
-	}
-	if key := CursorAfterKey(kv.Key{"root"}, cursor); len(key) != 2 || key[1] != cursor {
-		t.Fatalf("CursorAfterKey = %#v, want root/cursor", key)
 	}
 	if got := RelationID(" peer-b ", "peer-a"); got != "peer-a:peer-b" {
 		t.Fatalf("RelationID = %q, want sorted relation", got)
@@ -153,4 +129,55 @@ func TestGroupRolesAndMessageExpiry(t *testing.T) {
 //go:fix inline
 func strPtr(v string) *string {
 	return new(v)
+}
+
+func TestInviteTokenIndexRotationAndUniqueness(t *testing.T) {
+	store := kv.NewMemory(nil)
+	first := FriendInviteTokenKey("peer-a")
+	second := FriendInviteTokenKey("peer-b")
+	value := func(token string) map[string]string { return map[string]string{"invite_token": token} }
+	if err := WriteInviteToken(t.Context(), store, first, value("old")); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteInviteToken(t.Context(), store, second, value("old")); err == nil {
+		t.Fatal("duplicate token accepted")
+	}
+	if _, err := store.Get(t.Context(), second); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("collision wrote second record: %v", err)
+	}
+	if err := WriteInviteToken(t.Context(), store, first, value("new")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadInviteToken(t.Context(), store, FriendInviteTokensRoot, "old"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("rotated token remains available: %v", err)
+	}
+	if _, err := ReadInviteToken(t.Context(), store, FriendInviteTokensRoot, "new"); err != nil {
+		t.Fatal(err)
+	}
+	if err := DeleteInviteToken(t.Context(), store, first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Get(t.Context(), InviteTokenIndexKey(FriendInviteTokensRoot, "new")); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("clear left index: %v", err)
+	}
+	if _, err := store.Get(t.Context(), first); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("clear left record: %v", err)
+	}
+}
+
+func TestInviteTokenConcurrentClaimHasOneOwner(t *testing.T) {
+	store := kv.NewMemory(nil)
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for _, owner := range []string{"peer-a", "peer-b"} {
+		go func() {
+			<-start
+			results <- WriteInviteToken(t.Context(), store, FriendInviteTokenKey(owner), map[string]string{"invite_token": "shared"})
+		}()
+	}
+	close(start)
+	first, second := <-results, <-results
+	if (first == nil) == (second == nil) {
+		t.Fatalf("claims = %v / %v, want exactly one success", first, second)
+	}
 }

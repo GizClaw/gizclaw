@@ -10,17 +10,16 @@ import (
 
 	"github.com/GizClaw/flowcraft/sdk/engine"
 	flowmodel "github.com/GizClaw/flowcraft/sdk/model"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 func TestBoardStateAdversarialLoadSaveAndCopy(t *testing.T) {
 	t.Parallel()
-	store := kv.NewMemory(nil)
+	store := newMemoryState()
 	if state, err := loadBoardState(t.Context(), store, "missing"); err != nil || state != nil {
 		t.Fatalf("loadBoardState(missing) = %#v, %v", state, err)
 	}
-	if err := store.Set(t.Context(), kv.Key{"broken"}, []byte("{")); err != nil {
+	if err := store.SaveState(t.Context(), "broken", []byte("{")); err != nil {
 		t.Fatalf("Set(broken) error = %v", err)
 	}
 	if _, err := loadBoardState(t.Context(), store, "broken"); err == nil ||

@@ -4,22 +4,22 @@ import (
 	"context"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workflowtest"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
-	workflows := &workflow.Server{Store: store}
+	store := workspacetest.New(t).DB
+	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
-	workspaces := &workspace.Server{Store: store, Workflows: workflows}
+	workspaces := &workspace.Server{DB: store, Workflows: workflows}
 	profile := runtimeProfileWithWorkspaceAlias("r1")
 	server := &Server{
 		Caller:     giznet.PublicKey{1},
@@ -63,13 +63,12 @@ func TestWorkspaceRemainsVisibleWhenRuntimeAliasDisappears(t *testing.T) {
 
 func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
+	store := workspacetest.New(t).DB
 	profile := runtimeProfileWithWorkspaceAlias("r1")
-	workflows := &workflow.Server{Store: store}
+	workflows := workflowtest.New(t)
 	server := &Server{
 		Caller:     giznet.PublicKey{1},
-		Workspaces: &workspace.Server{Store: store, Workflows: workflows},
+		Workspaces: &workspace.Server{DB: store, Workflows: workflows},
 		Workflows:  workflows,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			return &profile
@@ -87,13 +86,12 @@ func TestWorkspaceListRejectsUnknownRuntimeCollection(t *testing.T) {
 
 func TestWorkspaceCreatePreservesNotFoundForUnknownWorkflowAlias(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
+	store := workspacetest.New(t).DB
 	profile := runtimeProfileWithWorkspaceAlias("r1")
-	workflows := &workflow.Server{Store: store}
+	workflows := workflowtest.New(t)
 	server := &Server{
 		Caller:     giznet.PublicKey{1},
-		Workspaces: &workspace.Server{Store: store, Workflows: workflows},
+		Workspaces: &workspace.Server{DB: store, Workflows: workflows},
 		Workflows:  workflows,
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			return &profile
@@ -113,14 +111,13 @@ func TestWorkspaceCreatePreservesNotFoundForUnknownWorkflowAlias(t *testing.T) {
 
 func TestWorkspaceCreateProjectsResolvedRuntimeProfileSnapshot(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
+	store := workspacetest.New(t).DB
 	resolved := runtimeProfileWithWorkspaceAlias("r1")
-	workflows := &workflow.Server{Store: store}
+	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
 	calls := 0
 	workspaces := &profileMutatingWorkspaceService{
-		Server: &workspace.Server{Store: store, Workflows: workflows},
+		Server: &workspace.Server{DB: store, Workflows: workflows},
 		afterCreate: func() {
 			resolved.Revision = "r2"
 			resolved.Spec.Workflows.Collections["story-teller"] = map[string]apitypes.RuntimeProfileBinding{}

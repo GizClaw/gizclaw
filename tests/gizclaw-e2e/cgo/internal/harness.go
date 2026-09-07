@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func AssertServerAvailable(t *testing.T, identityDir string) {
 	t.Helper()
 	endpoint := ReadEndpoint(t, filepath.Join(identityDir, "config.yaml"))
 	client := http.Client{Timeout: time.Second}
-	resp, err := client.Get("http://" + endpoint + "/server-info")
+	resp, err := client.Get(serverBaseURL(endpoint) + "/server-info")
 	if err != nil {
 		t.Fatalf("gizclaw e2e setup server is required at %s; run bash tests/gizclaw-e2e/setup/docker-compose-up.sh: %v", endpoint, err)
 	}
@@ -81,4 +82,11 @@ func trim(s string) string {
 		end--
 	}
 	return s[start:end]
+}
+
+func serverBaseURL(endpoint string) string {
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "http://" + endpoint
+	}
+	return strings.TrimRight(endpoint, "/")
 }

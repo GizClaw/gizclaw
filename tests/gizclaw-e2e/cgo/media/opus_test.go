@@ -76,23 +76,17 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	profileName := "cgo-opus-media"
+	resources, err := clitest.SetupRuntimeResources(ctx, api)
+	if err != nil {
+		t.Fatalf("read E2E runtime resources: %v", err)
+	}
 	profile, err := clitest.UpsertRuntimeProfile(
 		ctx,
 		api,
 		adminhttp.RuntimeProfileUpsert{
 			Id: profileName,
 			Spec: apitypes.RuntimeProfileSpec{
-				Resources: apitypes.RuntimeProfileResources{
-					Models: ptr(runtimeBindings(map[string]string{
-						"llm":      "doubao-mini-chat",
-						"tts":      "volc-bigtts",
-						"asr":      "volc-bigasr-sauc",
-						"realtime": "doubao-realtime-dialog",
-					})),
-					Voices: ptr(runtimeBindings(map[string]string{
-						"doubao-assistant": "volc-tenant:volc-main:zh_female_vv_jupiter_bigtts",
-					})),
-				},
+				Resources: resources,
 				Workflows: apitypes.RuntimeProfileWorkflows{
 					System: apitypes.RuntimeProfileSystemWorkflows{
 						Pet: "pet-care",

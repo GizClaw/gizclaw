@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -237,7 +239,7 @@ func (m *Manager) getFriend(ctx context.Context, id string) (adminhttp.AdminFrie
 
 func (m *Manager) getContact(ctx context.Context, id string) (adminhttp.AdminContactObject, bool, error) {
 	item, err := m.services.Contacts.AdminGetContactByID(ctx, id)
-	if errors.Is(err, kv.ErrNotFound) {
+	if errors.Is(err, contact.ErrNotFound) {
 		return adminhttp.AdminContactObject{}, false, nil
 	}
 	if err != nil {

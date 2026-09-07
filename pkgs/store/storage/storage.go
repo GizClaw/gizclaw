@@ -123,7 +123,7 @@ func (s *Storage) Close() error {
 	s.closers = nil
 	s.mu.Unlock()
 	var errs []error
-	for i := len(closers) - 1; i >= 0; i-- {
+	for i := range slices.Backward(closers) {
 		if err := closers[i].Close(); err != nil {
 			errs = append(errs, err)
 		}

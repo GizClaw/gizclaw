@@ -33,10 +33,14 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	}
 	workflowName := "flowcraft-chat-assistant"
 	profileID := fmt.Sprintf("e2e-cli-workspaces-%x", time.Now().UnixNano())
+	resources, err := clitest.SetupRuntimeResources(ctx, api)
+	if err != nil {
+		t.Fatalf("read E2E runtime resources: %v", err)
+	}
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id: profileID,
 		Spec: apitypes.RuntimeProfileSpec{
-			Resources: apitypes.RuntimeProfileResources{},
+			Resources: resources,
 			Workflows: apitypes.RuntimeProfileWorkflows{
 				System: apitypes.RuntimeProfileSystemWorkflows{
 					Pet: "pet-care",

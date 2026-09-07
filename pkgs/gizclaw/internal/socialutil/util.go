@@ -50,24 +50,6 @@ type ItemPage[T any] struct {
 	NextCursor *string
 }
 
-func ListPage(ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) (EntryPage, error) {
-	cursor, limit = NormalizeListParams(cursor, limit)
-	entries, err := kv.ListAfter(ctx, store, prefix, CursorAfterKey(prefix, cursor), limit+1)
-	if err != nil {
-		return EntryPage{}, err
-	}
-	hasNext := len(entries) > limit
-	if hasNext {
-		entries = entries[:limit]
-	}
-	var next *string
-	if hasNext && len(entries) > 0 {
-		v := UnescapeStoreSegment(entries[len(entries)-1].Key[len(entries[len(entries)-1].Key)-1])
-		next = &v
-	}
-	return EntryPage{Items: entries, HasNext: hasNext, NextCursor: next}, nil
-}
-
 func PageItems[T any](items []T, cursor string, limit int, id func(T) string) ItemPage[T] {
 	cursor = strings.TrimSpace(cursor)
 	_, limit = NormalizeListParams("", limit)
@@ -103,6 +85,8 @@ func RequireOwner(owner string) error {
 	return nil
 }
 
+// NormalizeListParams converts a raw RPC cursor to the escaped collection
+// ordering representation. Responses must return raw IDs, not this cursor.
 func NormalizeListParams(cursor string, limit int) (string, int) {
 	normalizedCursor := EscapeStoreSegment(strings.TrimSpace(cursor))
 	normalizedLimit := DefaultListLimit
@@ -113,13 +97,6 @@ func NormalizeListParams(cursor string, limit int) (string, int) {
 		normalizedLimit = MaxListLimit
 	}
 	return normalizedCursor, normalizedLimit
-}
-
-func CursorAfterKey(prefix kv.Key, cursor string) kv.Key {
-	if cursor == "" {
-		return nil
-	}
-	return append(append(kv.Key{}, prefix...), cursor)
 }
 
 func ReadJSONValue[T any](ctx context.Context, store kv.Store, key kv.Key) (T, error) {
@@ -140,20 +117,6 @@ func WriteJSON(ctx context.Context, store kv.Store, key kv.Key, value any) error
 		return err
 	}
 	return store.Set(ctx, key, data)
-}
-
-func DeletePrefix(ctx context.Context, store kv.Store, prefix kv.Key) error {
-	var keys []kv.Key
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return err
-		}
-		keys = append(keys, entry.Key)
-	}
-	if len(keys) == 0 {
-		return nil
-	}
-	return store.BatchDelete(ctx, keys)
 }
 
 func OwnerPrefix(root kv.Key, owner string) kv.Key {
@@ -309,4 +272,135 @@ func UnescapeStoreSegment(value string) string {
 		return value
 	}
 	return decoded
+}
+
+// InviteTokenIndexKey addresses one token within its invitation domain.
+// Tokens are hashed so bearer credentials do not appear in storage key names.
+func InviteTokenIndexKey(root kv.Key, token string) kv.Key {
+	digest := sha256.Sum256([]byte(token))
+	return append(append(kv.Key(nil), root...), "by-token", hex.EncodeToString(digest[:]))
+}
+
+// WriteInviteToken atomically replaces an invitation and its unique token index.
+func WriteInviteToken(ctx context.Context, store kv.Store, key kv.Key, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	var next struct {
+		Token string `json:"invite_token"`
+	}
+	if err := json.Unmarshal(data, &next); err != nil {
+		return err
+	}
+	if strings.TrimSpace(next.Token) == "" || len(key) < 2 {
+		return errors.New("social: invalid invite token")
+	}
+	locator, err := json.Marshal(key)
+	if err != nil {
+		return err
+	}
+	index := InviteTokenIndexKey(key[:len(key)-1], next.Token)
+	for range 16 {
+		old, err := store.Get(ctx, key)
+		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return err
+		}
+		var previous struct {
+			Token string `json:"invite_token"`
+		}
+		if old != nil {
+			if err := json.Unmarshal(old, &previous); err != nil {
+				return err
+			}
+		}
+		indexed, err := store.Get(ctx, index)
+		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+			return err
+		}
+		if indexed != nil && string(indexed) != string(locator) {
+			return errors.New("social: invite token already belongs to another resource")
+		}
+		mutation := kv.Mutation{
+			Conditions: []kv.Condition{{Key: key, Expected: old}, {Key: index, Expected: indexed}},
+			Entries:    []kv.Entry{{Key: key, Value: data}, {Key: index, Value: locator}},
+		}
+		if previous.Token != "" && previous.Token != next.Token {
+			mutation.DeleteKeys = []kv.Key{InviteTokenIndexKey(key[:len(key)-1], previous.Token)}
+		}
+		ok, err := store.ApplyMutation(ctx, mutation)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+	}
+	return errors.New("social: invite token changed concurrently")
+}
+
+// DeleteInviteToken atomically removes the current invitation and its index.
+func DeleteInviteToken(ctx context.Context, store kv.Store, key kv.Key) error {
+	for range 16 {
+		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var record struct {
+			Token string `json:"invite_token"`
+		}
+		if err := json.Unmarshal(data, &record); err != nil {
+			return err
+		}
+		keys := []kv.Key{key}
+		if record.Token != "" {
+			keys = append(keys, InviteTokenIndexKey(key[:len(key)-1], record.Token))
+		}
+		ok, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: key, Expected: data}}, DeleteKeys: keys})
+		if err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+	}
+	return errors.New("social: invite token changed concurrently")
+}
+
+// ReadInviteToken resolves a token with two exact reads and verifies that the
+// authoritative invitation still names it, including during concurrent rotation.
+func ReadInviteToken(ctx context.Context, store kv.Store, root kv.Key, token string) ([]byte, error) {
+	locator, err := store.Get(ctx, InviteTokenIndexKey(root, token))
+	if err != nil {
+		return nil, err
+	}
+	var key kv.Key
+	if err := json.Unmarshal(locator, &key); err != nil {
+		return nil, err
+	}
+	if len(key) != len(root)+1 {
+		return nil, errors.New("social: invalid invite token locator")
+	}
+	for i := range root {
+		if key[i] != root[i] {
+			return nil, errors.New("social: invite token locator domain mismatch")
+		}
+	}
+	data, err := store.Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	var record struct {
+		Token string `json:"invite_token"`
+	}
+	if err := json.Unmarshal(data, &record); err != nil {
+		return nil, err
+	}
+	if record.Token != token {
+		return nil, kv.ErrNotFound
+	}
+	return data, nil
 }

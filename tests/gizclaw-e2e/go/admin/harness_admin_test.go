@@ -164,7 +164,8 @@ func collectAdminPages[T any](t *testing.T, limit int32, call func(cursor *strin
 	t.Helper()
 	var out []T
 	var cursor *string
-	for i := 0; i < 20; i++ {
+	seen := make(map[string]bool)
+	for i := 0; i < 10000; i++ {
 		items, hasNext, nextCursor := call(cursor, limit)
 		out = append(out, items...)
 		if !hasNext {
@@ -173,9 +174,13 @@ func collectAdminPages[T any](t *testing.T, limit int32, call func(cursor *strin
 		if nextCursor == nil || *nextCursor == "" {
 			t.Fatalf("page %d has_next without next_cursor", i)
 		}
+		if seen[*nextCursor] {
+			t.Fatalf("page %d repeated cursor %q after %d items", i, *nextCursor, len(out))
+		}
+		seen[*nextCursor] = true
 		cursor = nextCursor
 	}
-	t.Fatalf("pagination did not finish")
+	t.Fatalf("pagination exceeded 10000 pages after %d items", len(out))
 	return out
 }
 
@@ -183,7 +188,8 @@ func collectAdminPagesInt[T any](t *testing.T, limit int, call func(cursor *stri
 	t.Helper()
 	var out []T
 	var cursor *string
-	for i := 0; i < 20; i++ {
+	seen := make(map[string]bool)
+	for i := 0; i < 10000; i++ {
 		items, hasNext, nextCursor := call(cursor, limit)
 		out = append(out, items...)
 		if !hasNext {
@@ -192,9 +198,13 @@ func collectAdminPagesInt[T any](t *testing.T, limit int, call func(cursor *stri
 		if nextCursor == nil || *nextCursor == "" {
 			t.Fatalf("page %d has_next without next_cursor", i)
 		}
+		if seen[*nextCursor] {
+			t.Fatalf("page %d repeated cursor %q after %d items", i, *nextCursor, len(out))
+		}
+		seen[*nextCursor] = true
 		cursor = nextCursor
 	}
-	t.Fatalf("pagination did not finish")
+	t.Fatalf("pagination exceeded 10000 pages after %d items", len(out))
 	return out
 }
 

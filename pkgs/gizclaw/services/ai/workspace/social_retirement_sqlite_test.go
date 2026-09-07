@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/jmoiron/sqlx"
 
 	_ "modernc.org/sqlite"
@@ -23,12 +24,8 @@ func (sfuWorkflowService) GetWorkflow(_ context.Context, request adminhttp.GetWo
 	return adminhttp.GetWorkflow200JSONResponse{Id: request.Id}, nil
 }
 
-// TestRetireSystemWorkspaceDoesNotTakeRewardFenceOnSharedSQLite runs the
-// Workspace KV store and the gameplay reward fence on one single-connection
-// SQLite handle, the deployment shape of a Server whose catalog stores share
-// the gameplay database. Retiring a Social SFU Workspace must write its
-// marker without the fence: the fence holds the only connection inside a
-// transaction and a KV write through it would block until the context expires.
+// TestRetireSystemWorkspaceDoesNotTakeRewardFenceOnSharedSQLite verifies Social
+// retirement when Workspace and gameplay share a single SQL connection.
 func TestRetireSystemWorkspaceDoesNotTakeRewardFenceOnSharedSQLite(t *testing.T) {
 	db, err := sqlx.Open("sqlite", "file:"+t.TempDir()+"/shared.sqlite")
 	if err != nil {
@@ -37,15 +34,14 @@ func TestRetireSystemWorkspaceDoesNotTakeRewardFenceOnSharedSQLite(t *testing.T)
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	store, err := kv.NewSQLWithDB(db, "workspaces", nil)
-	if err != nil {
-		t.Fatalf("NewSQLWithDB: %v", err)
+	if err := workspace.Initialize(t.Context(), db); err != nil {
+		t.Fatal(err)
 	}
 	fencer := &gameplay.Runtime{DB: db}
 	if err := fencer.Migration(t.Context()); err != nil {
 		t.Fatalf("gameplay Migration: %v", err)
 	}
-	server := &workspace.Server{Store: store, Workflows: sfuWorkflowService{}, DeletionFencer: fencer}
+	server := &workspace.Server{DB: db, Workflows: sfuWorkflowService{}, DeletionFencer: fencer}
 	owner := "peer-owner"
 	item, created, err := server.CreateSystemWorkspace(ownership.WithOwner(t.Context(), owner), adminhttp.WorkspaceUpsert{
 		Id: "ws-social", Name: "social-direct-1", WorkflowId: socialutil.SFUWorkflowID,
@@ -69,12 +65,41 @@ func TestRetireSystemWorkspaceDoesNotTakeRewardFenceOnSharedSQLite(t *testing.T)
 	case <-time.After(10 * time.Second):
 		t.Fatal("RetireSystemWorkspaceByID blocked on the shared SQLite handle")
 	}
-	pending, err := pendingdeletion.HasLocator(t.Context(), store, pendingdeletion.KindWorkspace, item.Id)
+	pending, err := workspace.NewPendingDeletionSource(db).HasLocator(t.Context(), pendingdeletion.Locator{Kind: pendingdeletion.KindWorkspace, ResourceID: item.Id})
 	if err != nil || !pending {
 		t.Fatalf("pending deletion marker = %v, %v; want present", pending, err)
 	}
 	retired, err := server.GetRetiredSystemWorkspace(ownership.WithOwner(t.Context(), owner), item.Name, socialutil.SFUWorkspaceKindFriend, "relation-1")
 	if err != nil || retired.Id != item.Id {
 		t.Fatalf("GetRetiredSystemWorkspace() = %#v, %v", retired, err)
+	}
+}
+
+func TestWorkspaceDeletionSharesRewardTransactionOnSingleConnection(t *testing.T) {
+	server := workspacetest.New(t)
+	fencer := &gameplay.Runtime{DB: server.DB}
+	if err := fencer.Migration(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	server.DeletionFencer = fencer
+	now := time.Now().UTC()
+	workspacetest.Seed(t, server, apitypes.Workspace{
+		Id: "workspace-ordinary", Name: "ordinary", WorkflowId: "workflow",
+		CreatedAt: now, UpdatedAt: now, LastActiveAt: now, System: new(false),
+	})
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	response, err := server.DeleteWorkspace(ctx, adminhttp.DeleteWorkspaceRequestObject{Id: "workspace-ordinary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.DeleteWorkspace200JSONResponse); !ok {
+		t.Fatalf("DeleteWorkspace() = %#v", response)
+	}
+	pending, err := workspace.NewPendingDeletionSource(server.DB).HasLocator(ctx, pendingdeletion.Locator{
+		Kind: pendingdeletion.KindWorkspace, ResourceID: "workspace-ordinary",
+	})
+	if err != nil || !pending {
+		t.Fatalf("pending deletion = %v, %v", pending, err)
 	}
 }

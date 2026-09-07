@@ -63,8 +63,7 @@ Before connection, `/server-info` reports the authoritative Server's `public_key
 
 An authenticated device calls `server.runtime.put` with `{"debug_mode":"readonly"}`.
 Allowed modes are `off` (default), `readonly`, and `fullcontrol`; missing or invalid modes fail.
-The authoritative Server persists this setting in PeerRunStore at
-`by-peer:<pubkey>:debug-mode` within the `runs` namespace and exposes it in Runtime.debug_mode. It is not part of
+The authoritative Server persists this setting in the local PeerRun SQL table, in the `debug_mode` column keyed by public key and exposes it in Runtime.debug_mode. It is not part of
 DeviceInfo and cannot be set through `server.info.put`. Reconnecting preserves the
 setting; an absent record means off.
 
@@ -73,7 +72,7 @@ The key must use canonical Base58; bare keys and public_key query parameters do 
 provide debug authorization. API keys beginning gizclaw_sk_v1_ retain their existing
 authentication path and never fall back to public-key access. Edge resolves the
 existing Peer assignment and proxies to the configured authoritative Server without
-reading DeviceInfo or debug mode. That Server reads the current PeerRunStore mode on
+reading DeviceInfo or debug mode. That Server reads the current PeerRun mode on
 every request: readonly permits GET, fullcontrol permits device/contact reads, writes,
 and controls. Available active Client status and RuntimeProfile binding remain required.
 API-key management, Admin, and OpenAI APIs do not accept public-key debug authorization.

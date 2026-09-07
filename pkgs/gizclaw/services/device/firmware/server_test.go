@@ -2,13 +2,16 @@ package firmware
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 const testSHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -16,7 +19,7 @@ const testSHA256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab
 func TestServerCRUDDeclarativeChannels(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	server := &Server{Store: kv.NewMemory(nil), Now: func() time.Time { return now }}
+	server := &Server{DB: newTestDatabase(t), Now: func() time.Time { return now }}
 
 	created := createFirmware(t, server, firmwareUpsert("devkit",
 		firmwareSlot("stable-1", "https://firmware.example/stable.tar.zlib", 101),
@@ -42,7 +45,7 @@ func TestServerPutReplacesPackageConfiguration(t *testing.T) {
 	updatedAt := createdAt.Add(time.Hour)
 	nextTime := createdAt
 	server := &Server{
-		Store: kv.NewMemory(nil),
+		DB: newTestDatabase(t),
 		Now: func() time.Time {
 			current := nextTime
 			nextTime = updatedAt
@@ -117,7 +120,7 @@ func TestServerValidatesPackageConfiguration(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &Server{Store: kv.NewMemory(nil)}
+			server := &Server{DB: newTestDatabase(t)}
 			input := firmwareUpsert("devkit", apitypes.FirmwareSlot{Package: &test.pkg}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
 			response, err := server.CreateFirmware(context.Background(), adminhttp.CreateFirmwareRequestObject{Body: &input})
 			if err != nil {
@@ -150,7 +153,7 @@ func TestServerValidatesPeerVisibleStringLengths(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &Server{Store: kv.NewMemory(nil)}
+			server := &Server{DB: newTestDatabase(t)}
 			response, err := server.CreateFirmware(context.Background(), adminhttp.CreateFirmwareRequestObject{Body: &test.input})
 			if err != nil {
 				t.Fatalf("CreateFirmware: %v", err)
@@ -164,7 +167,7 @@ func TestServerValidatesPeerVisibleStringLengths(t *testing.T) {
 }
 
 func TestServerNormalizesPackageConfiguration(t *testing.T) {
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	upperSHA := strings.ToUpper(testSHA256)
 	input := firmwareUpsert("devkit", apitypes.FirmwareSlot{Package: new(testPackage("  https://firmware.example/fw.tar.zlib?token=value  ", upperSHA, 7))}, apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{})
 	created := createFirmware(t, server, input)
@@ -177,7 +180,7 @@ func TestServerNormalizesPackageConfiguration(t *testing.T) {
 }
 
 func TestServerListFirmwaresPagination(t *testing.T) {
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	for _, name := range []string{"a", "b", "c"} {
 		createFirmware(t, server, firmwareUpsert(name, firmwareSlot(name, "https://firmware.example/"+name+".tar.zlib", 1), apitypes.FirmwareSlot{}, apitypes.FirmwareSlot{}))
 	}
@@ -232,5 +235,78 @@ func assertPackageURL(t *testing.T, slot apitypes.FirmwareSlot, want string) {
 	t.Helper()
 	if slot.Package == nil || slot.Package.Url != want {
 		t.Fatalf("package = %#v, want URL %q", slot.Package, want)
+	}
+}
+
+func newTestDatabase(t testing.TB) *sqlx.DB {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := (&Server{DB: db}).Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+func TestSQLPaginationUsesIndexedBoundedRange(t *testing.T) {
+	db := newTestDatabase(t)
+	slots, err := json.Marshal(apitypes.FirmwareSlots{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTxx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback() })
+	for i := range 2000 {
+		_, err := tx.ExecContext(t.Context(), `INSERT INTO firmwares(id,slots_json,created_at,updated_at) VALUES (?,?,?,?)`, fmt.Sprintf("firmware-%04d", i), string(slots), "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A malformed row outside the requested range must not be fetched or decoded.
+	if _, err := tx.ExecContext(t.Context(), `INSERT INTO firmwares(id,slots_json,created_at,updated_at) VALUES ('z-corrupt','invalid','invalid','invalid')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	items, more, cursor, err := listFirmwarePage(t.Context(), db, "firmware-0999", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 10 || !more || cursor == nil || *cursor != "firmware-1009" || items[0].Id != "firmware-1000" {
+		t.Fatalf("page = %v, %v, %v", items, more, cursor)
+	}
+	var id, parent, unused int
+	var plan string
+	if err := db.QueryRowContext(t.Context(), `EXPLAIN QUERY PLAN SELECT `+firmwareColumns+` FROM firmwares WHERE id>? ORDER BY id LIMIT ?`, "firmware-0999", 11).Scan(&id, &parent, &unused, &plan); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan, "SEARCH") || !strings.Contains(plan, "INDEX") {
+		t.Fatalf("pagination lacks indexed range: %s", plan)
+	}
+}
+
+func TestFirmwareRequestsDoNotInitializeSchema(t *testing.T) {
+	db := newTestDatabase(t)
+	if _, err := db.ExecContext(t.Context(), `DROP TABLE firmwares`); err != nil {
+		t.Fatal(err)
+	}
+	response, err := (&Server{DB: db}).ListFirmwares(t.Context(), adminhttp.ListFirmwaresRequestObject{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response.(adminhttp.ListFirmwares500JSONResponse); !ok {
+		t.Fatalf("request recreated missing schema: %T", response)
 	}
 }

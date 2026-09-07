@@ -117,12 +117,11 @@ func testSDKSessionFailureIsVisible(t *testing.T, mode InputMode, closeCode int)
 	go func() { _, err := out.Next(); result <- err }()
 	select {
 	case err := <-result:
-		var providerErr *doubaospeech.Error
 		if closeCode != 0 {
 			if !errors.Is(err, io.ErrUnexpectedEOF) {
 				t.Fatalf("expected incomplete session error, got %v", err)
 			}
-		} else if !errors.As(err, &providerErr) {
+		} else if _, ok := errors.AsType[*doubaospeech.Error](err); !ok {
 			t.Fatalf("expected SDK provider error, got %v", err)
 		}
 	case <-time.After(200 * time.Millisecond):

@@ -80,6 +80,8 @@ With `ttl`, both drivers assign `expires_at_unix_nano` from the backend write ti
 
 ClickHouse, SQLite, and PostgreSQL share the version-1 opaque cursor. It binds normalized selectors, text, the millisecond-aligned `[Start, End)` interval, and order while allowing a continuation to change its limit, with the same 16 KiB bound. Identical records can continue across all three SQL drivers. SQLite/PostgreSQL text matching remains case-sensitive and literal, attribute matchers run over the validated flat map, and the logical Store never closes its shared pool.
 
+SQLite/PostgreSQL execute time and selector filters, case-sensitive literal text matching, attribute predicates, ordering, and `LIMIT` in the database. Each page returns at most `limit + 1` rows to determine continuation. Attribute names are bound values matched against flat JSON keys; dots are not interpreted as JSON paths.
+
 ## Process logging
 
 `system_log` controls the Server's `slog` pipeline and is not the product-record write API:

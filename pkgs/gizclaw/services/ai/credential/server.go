@@ -3,22 +3,18 @@ package credential
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-)
-
-var (
-	credentialsRoot           = kv.Key{"by-id"}
-	credentialsByProviderRoot = kv.Key{"by-provider"}
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -26,8 +22,10 @@ const (
 	maxListLimit     = 200
 )
 
+// Server owns the local SQL Credential catalog.
 type Server struct {
-	Store kv.Store
+	DB  *sqlx.DB
+	Now func() time.Time
 }
 
 type CredentialAdminService interface {
@@ -41,6 +39,8 @@ type CredentialAdminService interface {
 var _ CredentialAdminService = (*Server)(nil)
 
 type credentialRecord struct {
+	Revision    int64
+	Incarnation string
 	Body        apitypes.CredentialBody `json:"body"`
 	CreatedAt   time.Time               `json:"created_at"`
 	Description *string                 `json:"description,omitempty"`
@@ -57,7 +57,7 @@ type normalizedCredentialUpsert struct {
 }
 
 func (s *Server) ListCredentials(ctx context.Context, request adminhttp.ListCredentialsRequestObject) (adminhttp.ListCredentialsResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.ListCredentials500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -66,16 +66,8 @@ func (s *Server) ListCredentials(ctx context.Context, request adminhttp.ListCred
 	if request.Params.Provider != nil {
 		provider = strings.TrimSpace(string(*request.Params.Provider))
 	}
-	var (
-		items      []apitypes.Credential
-		hasNext    bool
-		nextCursor *string
-	)
-	if provider == "" {
-		items, hasNext, nextCursor, err = listCredentialRecordsPage(ctx, store, credentialsRoot, cursor, limit)
-	} else {
-		items, hasNext, nextCursor, err = listCredentialsByProviderPage(ctx, store, provider, cursor, limit)
-	}
+	items, hasNext, nextCursor, err := listCredentialsPage(ctx, db, provider, cursor, limit)
+
 	if err != nil {
 		return adminhttp.ListCredentials500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -87,7 +79,7 @@ func (s *Server) ListCredentials(ctx context.Context, request adminhttp.ListCred
 }
 
 func (s *Server) CreateCredential(ctx context.Context, request adminhttp.CreateCredentialRequestObject) (adminhttp.CreateCredentialResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.CreateCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -104,7 +96,7 @@ func (s *Server) CreateCredential(ctx context.Context, request adminhttp.CreateC
 	if err := validateCredentialBody(upsert.Provider, upsert.Body); err != nil {
 		return adminhttp.CreateCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", err.Error())), nil
 	}
-	now := time.Now().UTC()
+	now := s.now()
 	record := credentialRecord{
 		Body:        cloneBody(upsert.Body),
 		CreatedAt:   now,
@@ -113,57 +105,43 @@ func (s *Server) CreateCredential(ctx context.Context, request adminhttp.CreateC
 		Provider:    upsert.Provider,
 		UpdatedAt:   now,
 	}
-	data, err := json.Marshal(record)
-	if err != nil {
-		return adminhttp.CreateCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	_, created, err := kv.CreateIfAbsent(ctx, store,
-		kv.Entry{Key: credentialKey(record.ID), Value: data},
-		[]kv.Entry{
-			{Key: credentialByProviderKey(record.Provider, record.ID), Value: []byte{}},
-		},
-	)
+	created, err := insertCredential(ctx, db, record)
 	if err != nil {
 		return adminhttp.CreateCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	if !created {
-		return adminhttp.CreateCredential409JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_ALREADY_EXISTS", fmt.Sprintf("credential %q already exists", upsert.ID))), nil
+		return adminhttp.CreateCredential409JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_ALREADY_EXISTS", fmt.Sprintf("credential %q already exists", record.ID))), nil
 	}
+
 	return adminhttp.CreateCredential200JSONResponse(credentialFromRecord(record)), nil
 }
 
 func (s *Server) DeleteCredential(ctx context.Context, request adminhttp.DeleteCredentialRequestObject) (adminhttp.DeleteCredentialResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.DeleteCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	record, err := getCredentialRecord(ctx, store, id)
+	record, err := scanCredential(db.QueryRowContext(ctx, db.Rebind(`DELETE FROM credentials WHERE id=? RETURNING `+credentialColumns), id))
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.DeleteCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", fmt.Sprintf("credential %q not found", id))), nil
 		}
 		return adminhttp.DeleteCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	keys := []kv.Key{
-		credentialKey(record.ID),
-		credentialByProviderKey(record.Provider, record.ID),
-	}
-	if err := store.BatchDelete(ctx, keys); err != nil {
-		return adminhttp.DeleteCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.DeleteCredential200JSONResponse(credentialFromRecord(record)), nil
 }
 
 func (s *Server) GetCredential(ctx context.Context, request adminhttp.GetCredentialRequestObject) (adminhttp.GetCredentialResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	id := string(request.Id)
-	record, err := getCredentialRecord(ctx, store, id)
+	record, err := getCredentialRecord(ctx, db, id)
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return adminhttp.GetCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", fmt.Sprintf("credential %q not found", id))), nil
 		}
 		return adminhttp.GetCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
@@ -172,7 +150,7 @@ func (s *Server) GetCredential(ctx context.Context, request adminhttp.GetCredent
 }
 
 func (s *Server) PutCredential(ctx context.Context, request adminhttp.PutCredentialRequestObject) (adminhttp.PutCredentialResponseObject, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -184,36 +162,49 @@ func (s *Server) PutCredential(ctx context.Context, request adminhttp.PutCredent
 	if err != nil {
 		return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", err.Error())), nil
 	}
-	previous, err := getCredentialRecord(ctx, store, id)
-	if errors.Is(err, kv.ErrNotFound) {
-		return adminhttp.PutCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", fmt.Sprintf("credential %q not found", id))), nil
+	incarnation := ""
+	for range 16 {
+		previous, err := getCredentialRecord(ctx, db, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return adminhttp.PutCredential404JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_NOT_FOUND", fmt.Sprintf("credential %q not found", id))), nil
+		}
+		if err != nil {
+			return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		}
+		if incarnation == "" {
+			incarnation = previous.Incarnation
+		} else if incarnation != previous.Incarnation {
+			return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_CONFLICT", "credential was recreated")), nil
+		}
+		now := s.now()
+		record := credentialRecord{
+			Body:        cloneBody(upsert.Body),
+			CreatedAt:   now,
+			Description: cloneString(upsert.Description),
+			ID:          id,
+			Provider:    upsert.Provider,
+			UpdatedAt:   now,
+		}
+		record.CreatedAt = previous.CreatedAt
+		if isZeroCredentialBody(record.Body) {
+			record.Body = cloneBody(previous.Body)
+		}
+		if isZeroCredentialBody(record.Body) {
+			return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "body is required")), nil
+		}
+		if err := validateCredentialBody(record.Provider, record.Body); err != nil {
+			return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", err.Error())), nil
+		}
+		changed, err := updateCredential(ctx, db, record, previous)
+		if err != nil {
+			return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+		}
+		if changed {
+			return adminhttp.PutCredential200JSONResponse(credentialFromRecord(record)), nil
+		}
 	}
-	if err != nil {
-		return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	now := time.Now().UTC()
-	record := credentialRecord{
-		Body:        cloneBody(upsert.Body),
-		CreatedAt:   now,
-		Description: cloneString(upsert.Description),
-		ID:          id,
-		Provider:    upsert.Provider,
-		UpdatedAt:   now,
-	}
-	record.CreatedAt = previous.CreatedAt
-	if isZeroCredentialBody(record.Body) {
-		record.Body = cloneBody(previous.Body)
-	}
-	if isZeroCredentialBody(record.Body) {
-		return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", "body is required")), nil
-	}
-	if err := validateCredentialBody(record.Provider, record.Body); err != nil {
-		return adminhttp.PutCredential400JSONResponse(apitypes.NewErrorResponse("INVALID_CREDENTIAL", err.Error())), nil
-	}
-	if err := writeCredential(ctx, store, record, &previous); err != nil {
-		return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	return adminhttp.PutCredential200JSONResponse(credentialFromRecord(record)), nil
+	return adminhttp.PutCredential500JSONResponse(apitypes.NewErrorResponse("CREDENTIAL_CONFLICT", "credential changed concurrently")), nil
+
 }
 
 func credentialFromRecord(record credentialRecord) apitypes.Credential {
@@ -227,81 +218,101 @@ func credentialFromRecord(record credentialRecord) apitypes.Credential {
 	}
 }
 
-func writeCredential(ctx context.Context, store kv.Store, record credentialRecord, previous *credentialRecord) error {
-	data, err := json.Marshal(record)
-	if err != nil {
-		return fmt.Errorf("credential: encode %s: %w", record.ID, err)
-	}
-	var deletes []kv.Key
-	if previous != nil && previous.Provider != record.Provider {
-		deletes = append(deletes, credentialByProviderKey(previous.Provider, previous.ID))
-	}
-	entries := []kv.Entry{
-		{Key: credentialKey(record.ID), Value: data},
-		{Key: credentialByProviderKey(record.Provider, record.ID), Value: []byte{}},
-	}
-	if err := store.BatchMutate(ctx, entries, deletes); err != nil {
-		return fmt.Errorf("credential: write %s: %w", record.ID, err)
-	}
-	return nil
-}
+const credentialColumns = "id,provider,body_json,description,created_at,updated_at,revision,incarnation"
 
-func getCredentialRecord(ctx context.Context, store kv.Store, name string) (credentialRecord, error) {
-	data, err := store.Get(ctx, credentialKey(name))
+// Initialize creates the Credential catalog and Provider index at startup.
+func (s *Server) Initialize(ctx context.Context) error {
+	db, err := s.database()
 	if err != nil {
-		return credentialRecord{}, err
+		return err
 	}
-	return decodeCredentialRecord(data)
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, query := range []string{`CREATE TABLE IF NOT EXISTS credentials(id TEXT PRIMARY KEY CHECK(length(id)>0),provider TEXT NOT NULL,body_json TEXT NOT NULL,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,revision BIGINT NOT NULL CHECK(revision>0),incarnation TEXT NOT NULL)`, `CREATE INDEX IF NOT EXISTS credentials_provider_id ON credentials(provider,id)`} {
+		if _, err := tx.ExecContext(ctx, query); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
-
-func decodeCredentialRecord(data []byte) (credentialRecord, error) {
+func insertCredential(ctx context.Context, db *sqlx.DB, record credentialRecord) (bool, error) {
+	body, err := json.Marshal(record.Body)
+	if err != nil {
+		return false, err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO credentials(`+credentialColumns+`) VALUES (?,?,?,?,?,?,1,?) ON CONFLICT(id) DO NOTHING`), record.ID, record.Provider, string(body), record.Description, record.CreatedAt.Format(time.RFC3339Nano), record.UpdatedAt.Format(time.RFC3339Nano), uuid.NewString())
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count == 1, err
+}
+func updateCredential(ctx context.Context, db *sqlx.DB, record, previous credentialRecord) (bool, error) {
+	body, err := json.Marshal(record.Body)
+	if err != nil {
+		return false, err
+	}
+	result, err := db.ExecContext(ctx, db.Rebind(`UPDATE credentials SET provider=?,body_json=?,description=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=? AND incarnation=?`), record.Provider, string(body), record.Description, record.UpdatedAt.Format(time.RFC3339Nano), record.ID, previous.Revision, previous.Incarnation)
+	if err != nil {
+		return false, err
+	}
+	count, err := result.RowsAffected()
+	return count == 1, err
+}
+func getCredentialRecord(ctx context.Context, db *sqlx.DB, id string) (credentialRecord, error) {
+	return scanCredential(db.QueryRowContext(ctx, db.Rebind(`SELECT `+credentialColumns+` FROM credentials WHERE id=?`), id))
+}
+func scanCredential(row interface{ Scan(...any) error }) (credentialRecord, error) {
 	var record credentialRecord
-	if err := json.Unmarshal(data, &record); err != nil {
-		return credentialRecord{}, err
+	var body, created, updated string
+	if err := row.Scan(&record.ID, &record.Provider, &body, &record.Description, &created, &updated, &record.Revision, &record.Incarnation); err != nil {
+		return record, err
 	}
-	return record, nil
+	if err := json.Unmarshal([]byte(body), &record.Body); err != nil {
+		return record, err
+	}
+	var err error
+	record.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+	if err != nil {
+		return record, err
+	}
+	record.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated)
+	return record, err
 }
-
-func listCredentialRecordsPage(ctx context.Context, store kv.Store, prefix kv.Key, cursor string, limit int) ([]apitypes.Credential, bool, *string, error) {
-	entries, err := kv.ListAfter(ctx, store, prefix, cursorAfterKey(prefix, cursor), limit+1)
+func listCredentialsPage(ctx context.Context, db *sqlx.DB, provider, cursor string, limit int) ([]apitypes.Credential, bool, *string, error) {
+	query := `SELECT ` + credentialColumns + ` FROM credentials WHERE id>?`
+	args := []any{cursor}
+	if provider != "" {
+		query += ` AND provider=?`
+		args = append(args, provider)
+	}
+	query += ` ORDER BY id LIMIT ?`
+	args = append(args, limit+1)
+	rows, err := db.QueryContext(ctx, db.Rebind(query), args...)
 	if err != nil {
 		return nil, false, nil, err
 	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.Credential, 0, len(pageEntries))
-	for _, entry := range pageEntries {
-		record, err := decodeCredentialRecord(entry.Value)
+	defer rows.Close()
+	items := make([]apitypes.Credential, 0, limit+1)
+	for rows.Next() {
+		record, err := scanCredential(rows)
 		if err != nil {
-			return nil, false, nil, fmt.Errorf("credential: decode list %s: %w", entry.Key.String(), err)
-		}
-		items = append(items, credentialFromRecord(record))
-	}
-	return items, hasNext, nextCursor, nil
-}
-
-func listCredentialsByProviderPage(ctx context.Context, store kv.Store, provider, cursor string, limit int) ([]apitypes.Credential, bool, *string, error) {
-	prefix := credentialByProviderPrefix(provider)
-	entries, err := kv.ListAfter(ctx, store, prefix, cursorAfterKey(prefix, cursor), limit+1)
-	if err != nil {
-		return nil, false, nil, err
-	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.Credential, 0, len(pageEntries))
-	for _, entry := range pageEntries {
-		if len(entry.Key) == 0 {
-			continue
-		}
-		id := unescapeStoreSegment(entry.Key[len(entry.Key)-1])
-		record, err := getCredentialRecord(ctx, store, id)
-		if err != nil {
-			if errors.Is(err, kv.ErrNotFound) {
-				continue
-			}
 			return nil, false, nil, err
 		}
 		items = append(items, credentialFromRecord(record))
 	}
-	return items, hasNext, nextCursor, nil
+	if err := rows.Err(); err != nil {
+		return nil, false, nil, err
+	}
+	if len(items) <= limit {
+		return items, false, nil, nil
+	}
+	items = items[:limit]
+	next := items[len(items)-1].Id
+	return items, true, &next, nil
 }
 
 func normalizeCredentialUpsert(in adminhttp.CredentialUpsert, expectedID string) (normalizedCredentialUpsert, error) {
@@ -422,31 +433,6 @@ func allEmpty(values ...*string) bool {
 	return true
 }
 
-func credentialKey(id string) kv.Key {
-	return append(append(kv.Key{}, credentialsRoot...), escapeStoreSegment(id))
-}
-
-func credentialByProviderPrefix(provider string) kv.Key {
-	return append(append(kv.Key{}, credentialsByProviderRoot...), escapeStoreSegment(provider))
-}
-
-func credentialByProviderKey(provider, id string) kv.Key {
-	return append(credentialByProviderPrefix(provider), escapeStoreSegment(id))
-}
-
-func escapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%", "%25")
-	return strings.ReplaceAll(value, ":", "%3A")
-}
-
-func unescapeStoreSegment(value string) string {
-	unescaped, err := url.PathUnescape(value)
-	if err != nil {
-		return value
-	}
-	return unescaped
-}
-
 func normalizeListParams(cursor *string, limit *int32) (string, int) {
 	nextCursor := ""
 	if cursor != nil {
@@ -463,30 +449,6 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 		nextLimit = maxListLimit
 	}
 	return nextCursor, nextLimit
-}
-
-func cursorAfterKey(prefix kv.Key, cursor string) kv.Key {
-	if cursor == "" {
-		return nil
-	}
-	after := append(kv.Key{}, prefix...)
-	return append(after, cursor)
-}
-
-func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) {
-	if len(entries) == 0 {
-		return nil, false, nil
-	}
-	hasNext := len(entries) > limit
-	if !hasNext {
-		return entries, false, nil
-	}
-	page := entries[:limit]
-	if len(page) == 0 || len(page[len(page)-1].Key) == 0 {
-		return page, true, nil
-	}
-	nextCursor := page[len(page)-1].Key[len(page[len(page)-1].Key)-1]
-	return page, true, &nextCursor
 }
 
 func cloneBody(in apitypes.CredentialBody) apitypes.CredentialBody {
@@ -516,9 +478,16 @@ func cloneString(in *string) *string {
 	return &out
 }
 
-func (s *Server) store() (kv.Store, error) {
-	if s == nil || s.Store == nil {
-		return nil, errors.New("credential store not configured")
+func (s *Server) database() (*sqlx.DB, error) {
+	if s == nil || s.DB == nil {
+		return nil, errors.New("credential database not configured")
 	}
-	return s.Store, nil
+	return s.DB, nil
+}
+
+func (s *Server) now() time.Time {
+	if s.Now != nil {
+		return s.Now().UTC()
+	}
+	return time.Now().UTC()
 }

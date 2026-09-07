@@ -29,8 +29,7 @@ func main() {
 	}
 	fmt.Fprintln(os.Stderr, err)
 	code := exitExecution
-	var coded commandError
-	if errors.As(err, &coded) {
+	if coded, ok := errors.AsType[commandError](err); ok {
 		code = coded.ExitCode()
 	}
 	os.Exit(code)

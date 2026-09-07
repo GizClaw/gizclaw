@@ -994,7 +994,7 @@ func structFromGoValue(value reflect.Value) (*structpb.Struct, error) {
 		return &st, nil
 	}
 	if value.CanInterface() {
-		if _, ok := value.Interface().(json.Marshaler); ok {
+		if _, ok := reflect.TypeAssert[json.Marshaler](value); ok {
 			data, err := json.Marshal(value.Interface())
 			if err != nil {
 				return nil, err
@@ -1127,7 +1127,7 @@ func setGoStructValue(target reflect.Value, msg protoreflect.Message) error {
 		return nil
 	}
 	if target.CanAddr() && target.Addr().CanInterface() {
-		if _, ok := target.Addr().Interface().(json.Unmarshaler); !ok {
+		if _, ok := reflect.TypeAssert[json.Unmarshaler](target.Addr()); !ok {
 			return fmt.Errorf("unsupported google.protobuf.Struct target %s", target.Type())
 		}
 		data, err := json.Marshal(st.AsMap())

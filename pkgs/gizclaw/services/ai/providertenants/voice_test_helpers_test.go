@@ -8,7 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	voicecatalog "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
 
 type voiceFilters struct {
@@ -25,16 +25,12 @@ func stableVoiceID(kind apitypes.VoiceProviderKind, tenantID, providerVoiceID st
 	return voicecatalog.StableID(kind, tenantID, providerVoiceID)
 }
 
-func writeVoice(ctx context.Context, store kv.Store, voice apitypes.Voice, previous *apitypes.Voice) error {
+func writeVoice(ctx context.Context, store *sqlx.DB, voice apitypes.Voice, previous *apitypes.Voice) error {
 	return voicecatalog.Write(ctx, store, voice, previous)
 }
 
-func getVoice(ctx context.Context, store kv.Store, id string) (apitypes.Voice, error) {
+func getVoice(ctx context.Context, store *sqlx.DB, id string) (apitypes.Voice, error) {
 	return voicecatalog.Get(ctx, store, id)
-}
-
-func decodeVoice(data []byte, out *apitypes.Voice) error {
-	return voicecatalog.Decode(data, out)
 }
 
 func voiceProviderDataString(voice apitypes.Voice, key string) string {

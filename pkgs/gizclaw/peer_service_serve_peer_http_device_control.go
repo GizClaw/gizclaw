@@ -202,8 +202,7 @@ func mapDeviceControlError(err error, ctx context.Context, notFoundCode string) 
 	case errors.Is(err, ErrDeviceOffline), isPeerDisconnectedError(err):
 		return deviceOfflineError()
 	}
-	var rpcErr rpcapi.Error
-	if errors.As(err, &rpcErr) {
+	if rpcErr, ok := errors.AsType[rpcapi.Error](err); ok {
 		switch rpcErr.Code {
 		case rpcapi.StatusCodeInvalidArgument, rpcapi.StatusCodeOutOfRange:
 			return &deviceControlError{Status: http.StatusBadRequest, Code: deviceRejectedCode, Message: "device rejected the request parameters"}

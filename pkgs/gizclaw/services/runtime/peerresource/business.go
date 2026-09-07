@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -13,6 +15,10 @@ import (
 
 func businessError(id string, err error) *rpcapi.RPCResponse {
 	switch {
+	case errors.Is(err, friendgroup.ErrGroupChanged):
+		return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeAborted, Reason: "FRIEND_GROUP_CHANGED", Message: friendgroup.ErrGroupChanged.Error()}.RPCResponse()
+	case errors.Is(err, peer.ErrPeerConcurrentUpdate):
+		return rpcapi.Error{RequestID: id, Code: rpcapi.StatusCodeAborted, Reason: "PEER_CHANGED", Message: peer.ErrPeerConcurrentUpdate.Error()}.RPCResponse()
 	case errors.Is(err, friendgroup.ErrFriendGroupFull):
 		// A ten-member cap is a quota, which is what RESOURCE_EXHAUSTED names.
 		// The 409 this used to send maps to ABORTED in StatusCodeFromHTTP, but
@@ -34,7 +40,7 @@ func businessError(id string, err error) *rpcapi.RPCResponse {
 	case errors.Is(err, friend.ErrInviteTokenLookupFailed):
 		return internalError(id, "friend invite lookup failed")
 	}
-	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows) || errors.Is(err, peer.ErrPeerNotFound) {
+	if errors.Is(err, contact.ErrNotFound) || errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows) || errors.Is(err, peer.ErrPeerNotFound) {
 		return statusError(id, rpcapi.StatusCodeNotFound, "not found")
 	}
 	return internalError(id, err.Error())

@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -18,7 +19,6 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	volcbase "github.com/volcengine/volc-sdk-golang/base"
 )
 
@@ -41,13 +41,13 @@ func (s *Server) HTTPAuthorizer(ctx context.Context, config HTTPAuthConfig) (giz
 }
 
 func (s *Server) httpAuthorizer(ctx context.Context, config HTTPAuthConfig, options HTTPAuthOptions) (giztools.HTTPAuthorizer, error) {
-	store, err := s.store()
+	store, err := s.database()
 	if err != nil {
 		return nil, err
 	}
 	record, err := getCredentialRecord(ctx, store, strings.TrimSpace(config.Credential))
 	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("credential: %q not found", config.Credential)
 		}
 		return nil, fmt.Errorf("credential: load %q: %w", config.Credential, err)

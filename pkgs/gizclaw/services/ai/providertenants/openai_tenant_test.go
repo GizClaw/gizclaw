@@ -7,15 +7,14 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestServerOpenAITenantCRUDDefaultsAndPagination(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
 	srv := &Server{
-		Store: kv.NewMemory(nil),
-		Now:   func() time.Time { return now },
+		DB:  tenantTestDB(t),
+		Now: func() time.Time { return now },
 	}
 
 	body := openAITenantUpsert("minimax")
@@ -116,7 +115,7 @@ func TestServerOpenAITenantCRUDDefaultsAndPagination(t *testing.T) {
 
 func TestServerOpenAITenantValidationAndStoreErrors(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: tenantTestDB(t)}
 	for _, tc := range []struct {
 		name string
 		body adminhttp.OpenAITenantUpsert

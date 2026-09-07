@@ -2,14 +2,14 @@
 // keys. Keys are represented as string slices (e.g., ["user", "profile", "123"])
 // and encoded internally using a configurable separator (default ':').
 //
-// The package uses BadgerDB for both persistent storage and in-memory testing.
+// Backends implement exact-key records and explicitly addressed collections.
+// Database-wide key enumeration is not part of the store contract.
 package kv
 
 import (
 	"bytes"
 	"context"
 	"errors"
-	"iter"
 	"strings"
 	"time"
 )
@@ -45,7 +45,7 @@ func (k Key) String() string {
 	return strings.Join(k, ":")
 }
 
-// Entry is a key-value pair returned by List and used by BatchSet.
+// Entry is a key-value pair used by batch and conditional writes.
 type Entry struct {
 	Key   Key
 	Value []byte
@@ -55,6 +55,21 @@ type Entry struct {
 
 // Store is the interface for a key-value store with path-based keys.
 type Store interface {
+	// Collection methods address one exact key. Members are opaque strings;
+	// ListMembers has no ordering guarantee and returns empty for missing keys.
+	AddMembers(ctx context.Context, key Key, members ...string) error
+	RemoveMembers(ctx context.Context, key Key, members ...string) error
+	HasMember(ctx context.Context, key Key, member string) (bool, error)
+	ListMembers(ctx context.Context, key Key) ([]string, error)
+
+	// RangeOrderedMembers reads a bounded, lexicographically ordered range from
+	// one exact ordered collection. It never enumerates database keys.
+	RangeOrderedMembers(ctx context.Context, key Key, query OrderedRange) ([]string, error)
+
+	// ApplyMutation atomically updates records and collection indexes. False
+	// means a condition failed and no writes were committed.
+	ApplyMutation(ctx context.Context, mutation Mutation) (bool, error)
+
 	// Get retrieves the value for a key. Returns ErrNotFound if not present.
 	Get(ctx context.Context, key Key) ([]byte, error)
 
@@ -63,12 +78,6 @@ type Store interface {
 
 	// Delete removes a key. No error if the key does not exist.
 	Delete(ctx context.Context, key Key) error
-
-	// List iterates over entries under the given prefix subtree, i.e.
-	// keys that start with "prefix + separator". The key exactly equal to
-	// prefix is not included. The iteration order is lexicographic by
-	// encoded key.
-	List(ctx context.Context, prefix Key) iter.Seq2[Entry, error]
 
 	// BatchSet atomically stores multiple key-value pairs.
 	BatchSet(ctx context.Context, entries []Entry) error
@@ -180,10 +189,6 @@ func CompareAndMutate(
 	return conditional.CompareAndMutate(ctx, guard, expected, entries, keys)
 }
 
-type listAfterStore interface {
-	ListAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error)
-}
-
 // DefaultSeparator is the default separator byte used to encode key segments.
 const DefaultSeparator byte = ':'
 
@@ -242,35 +247,4 @@ func (o *Options) decode(b []byte) Key {
 		k[i] = string(p)
 	}
 	return k
-}
-
-// ListAfter returns up to limit entries under the prefix subtree, strictly
-// after the provided key. Pass nil for after to start from the beginning of
-// the prefix. Stores with a native paging implementation are used directly;
-// older Store implementations fall back to in-process filtering over List.
-func ListAfter(ctx context.Context, store Store, prefix, after Key, limit int) ([]Entry, error) {
-	if limit <= 0 {
-		return nil, nil
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if pager, ok := store.(listAfterStore); ok {
-		return pager.ListAfter(ctx, prefix, after, limit)
-	}
-
-	entries := make([]Entry, 0, limit)
-	for entry, err := range store.List(ctx, prefix) {
-		if err != nil {
-			return nil, err
-		}
-		if len(after) > 0 && strings.Compare(entry.Key.String(), after.String()) <= 0 {
-			continue
-		}
-		entries = append(entries, entry)
-		if len(entries) >= limit {
-			break
-		}
-	}
-	return entries, nil
 }

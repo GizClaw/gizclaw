@@ -30,8 +30,7 @@ func TestNewRejectsNilConfigAndEmptyName(t *testing.T) {
 			if err == nil {
 				t.Fatal("New() error = nil")
 			}
-			var configErr *ConfigError
-			if !errors.As(err, &configErr) {
+			if _, ok := errors.AsType[*ConfigError](err); !ok {
 				t.Fatalf("New() error = %v, want ConfigError", err)
 			}
 		})

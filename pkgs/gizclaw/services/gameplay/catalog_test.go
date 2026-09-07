@@ -12,12 +12,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 func TestCatalogStoresPetDefWithoutLocalI18n(t *testing.T) {
-	catalog := &Catalog{PetDefs: kv.NewMemory(nil)}
+	catalog := &Catalog{DB: catalogSQLTestDB(t)}
 	ctx := context.Background()
 	spec := testPetDefSpec("No I18n")
 	resp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{Body: &adminhttp.PetDefUpsert{
@@ -187,7 +187,7 @@ func TestCatalogPetDefPixaUploadRejectsBeforePublication(t *testing.T) {
 	}
 }
 
-func TestCatalogOpaqueIDsUseSafeKVSegments(t *testing.T) {
+func TestCatalogOpaqueIDsRemainIndependentAcrossTables(t *testing.T) {
 	ctx := context.Background()
 	catalog := testCatalog(t, time.Unix(1, 0))
 	id := "tenant:catalog/item"
@@ -305,10 +305,8 @@ func testPetDefSpec(displayName string) apitypes.PetDefSpec {
 func testCatalog(t *testing.T, now time.Time) *Catalog {
 	t.Helper()
 	return &Catalog{
-		PetDefs:   kv.NewMemory(nil),
-		BadgeDefs: kv.NewMemory(nil),
-		GameDefs:  kv.NewMemory(nil),
-		Now:       func() time.Time { return now },
+		DB:  catalogSQLTestDB(t),
+		Now: func() time.Time { return now },
 	}
 }
 

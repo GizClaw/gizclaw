@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -92,9 +92,7 @@ func TestAudioPlayerTelemetryCrossLanguageGolden(t *testing.T) {
 func TestAudioPlayerAndOTASnapshotsCoexist(t *testing.T) {
 	ctx := context.Background()
 	peer := testPublicKey(t)
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
-	runtime := &peerrun.Server{Store: store}
+	runtime := peerruntest.New(t)
 	metrics := &fakeMetricsStore{}
 	service := &Service{Metrics: metrics, Status: StatusSync{Store: runtime}}
 	frame := &telemetrypb.TelemetryFrame{ObservedAtUnixMs: 1700000000000, Observations: []*telemetrypb.Observation{

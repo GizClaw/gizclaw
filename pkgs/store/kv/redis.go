@@ -1,12 +1,9 @@
 package kv
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"iter"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -35,6 +32,9 @@ func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
 	if errors.Is(err, redis.Nil) {
 		return nil, ErrNotFound
 	}
+	if err != nil && strings.HasPrefix(err.Error(), "WRONGTYPE") {
+		return nil, ErrWrongType
+	}
 	if err != nil {
 		return nil, redisOperationError("get", err)
 	}
@@ -53,79 +53,6 @@ func (r *Redis) Delete(ctx context.Context, key Key) error {
 		return redisOperationError("delete", err)
 	}
 	return nil
-}
-
-func (r *Redis) List(ctx context.Context, prefix Key) iter.Seq2[Entry, error] {
-	return func(yield func(Entry, error) bool) {
-		if err := ctx.Err(); err != nil {
-			yield(Entry{}, err)
-			return
-		}
-		pattern := "*"
-		if encoded := r.opts.encode(prefix); len(encoded) > 0 {
-			pattern = escapeRedisPattern(string(encoded)+string(r.opts.sep())) + "*"
-		}
-		var keys []string
-		iterator := r.client.Scan(ctx, 0, pattern, 0).Iterator()
-		for iterator.Next(ctx) {
-			keys = append(keys, iterator.Val())
-		}
-		if err := iterator.Err(); err != nil {
-			yield(Entry{}, redisOperationError("list", err))
-			return
-		}
-		keys = sortUniqueRedisKeys(keys)
-		for _, key := range keys {
-			if err := ctx.Err(); err != nil {
-				yield(Entry{}, err)
-				return
-			}
-			value, err := r.client.Get(ctx, key).Bytes()
-			if errors.Is(err, redis.Nil) {
-				continue
-			}
-			if err != nil {
-				yield(Entry{}, redisOperationError("list", err))
-				return
-			}
-			if !yield(Entry{Key: r.opts.decode([]byte(key)), Value: value}, nil) {
-				return
-			}
-		}
-	}
-}
-
-func sortUniqueRedisKeys(keys []string) []string {
-	sort.Strings(keys)
-	unique := keys[:0]
-	for _, key := range keys {
-		if len(unique) == 0 || unique[len(unique)-1] != key {
-			unique = append(unique, key)
-		}
-	}
-	return unique
-}
-
-// ListAfter returns a lexicographically ordered page below prefix.
-func (r *Redis) ListAfter(ctx context.Context, prefix, after Key, limit int) ([]Entry, error) {
-	if limit <= 0 {
-		return nil, nil
-	}
-	afterBytes := r.opts.encode(after)
-	entries := make([]Entry, 0, limit)
-	for entry, err := range r.List(ctx, prefix) {
-		if err != nil {
-			return nil, err
-		}
-		if len(afterBytes) > 0 && bytes.Compare(r.opts.encode(entry.Key), afterBytes) <= 0 {
-			continue
-		}
-		entries = append(entries, entry)
-		if len(entries) == limit {
-			break
-		}
-	}
-	return entries, nil
 }
 
 func (r *Redis) BatchSet(ctx context.Context, entries []Entry) error {
@@ -265,17 +192,6 @@ func deadlineMilliseconds(deadline time.Time) int64 {
 		return 0
 	}
 	return deadline.UnixMilli()
-}
-
-func escapeRedisPattern(value string) string {
-	var builder strings.Builder
-	for _, char := range value {
-		if char == '\\' || char == '*' || char == '?' || char == '[' || char == ']' {
-			builder.WriteByte('\\')
-		}
-		builder.WriteRune(char)
-	}
-	return builder.String()
 }
 
 type redisStoreOperationError struct {

@@ -88,16 +88,8 @@ func snPrefix(sn string) kv.Key {
 	return kv.Key{"by-sn", escapeIndexSegment(sn)}
 }
 
-func snKey(sn, publicKey string) kv.Key {
-	return append(snPrefix(sn), publicKey)
-}
-
 func imeiPrefix(tac, serial string) kv.Key {
 	return kv.Key{"by-imei", escapeIndexSegment(tac), escapeIndexSegment(serial)}
-}
-
-func imeiKey(tac, serial, publicKey string) kv.Key {
-	return append(imeiPrefix(tac, serial), publicKey)
 }
 
 func labelPrefix(key, value string) kv.Key {
@@ -127,12 +119,6 @@ func statusKey(status apitypes.PeerRegistrationStatus, publicKey string) kv.Key 
 func indexEntries(peer apitypes.Peer) []kv.Entry {
 	publicKey := peer.PublicKey
 	entries := make([]kv.Entry, 0)
-	if sn := peerSN(peer); sn != "" {
-		entries = append(entries, kv.Entry{Key: snKey(sn, publicKey), Value: []byte{1}})
-	}
-	for _, item := range dedupeIMEIs(peerIMEIs(peer)) {
-		entries = append(entries, kv.Entry{Key: imeiKey(item.Tac, item.Serial, publicKey), Value: []byte{1}})
-	}
 	for _, item := range dedupeLabels(peerLabels(peer)) {
 		entries = append(entries, kv.Entry{Key: labelKey(item, publicKey), Value: []byte{1}})
 	}
@@ -148,12 +134,6 @@ func indexEntries(peer apitypes.Peer) []kv.Entry {
 func indexKeys(peer apitypes.Peer) []kv.Key {
 	publicKey := peer.PublicKey
 	keys := make([]kv.Key, 0, 2+len(peerIMEIs(peer))+len(peerLabels(peer)))
-	if sn := peerSN(peer); sn != "" {
-		keys = append(keys, snKey(sn, publicKey))
-	}
-	for _, item := range dedupeIMEIs(peerIMEIs(peer)) {
-		keys = append(keys, imeiKey(item.Tac, item.Serial, publicKey))
-	}
 	for _, item := range dedupeLabels(peerLabels(peer)) {
 		keys = append(keys, labelKey(item, publicKey))
 	}
@@ -169,4 +149,16 @@ func indexKeys(peer apitypes.Peer) []kv.Key {
 func escapeIndexSegment(value string) string {
 	value = strings.ReplaceAll(value, "%", "%25")
 	return strings.ReplaceAll(value, ":", "%3A")
+}
+
+// identifierSets lists exact SN and IMEI collections for this Peer.
+func identifierSets(peer apitypes.Peer) []kv.SetMembers {
+	var sets []kv.SetMembers
+	if sn := peerSN(peer); sn != "" {
+		sets = append(sets, kv.SetMembers{Key: snPrefix(sn), Members: []string{peer.PublicKey}})
+	}
+	for _, imei := range dedupeIMEIs(peerIMEIs(peer)) {
+		sets = append(sets, kv.SetMembers{Key: imeiPrefix(imei.Tac, imei.Serial), Members: []string{peer.PublicKey}})
+	}
+	return sets
 }

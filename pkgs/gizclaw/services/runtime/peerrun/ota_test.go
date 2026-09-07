@@ -6,13 +6,10 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestOTARuntimeSnapshotOrdering(t *testing.T) {
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
-	s := &Server{Store: store}
+	s := newTestServer(t)
 	peer := testPublicKey(t)
 	ctx := context.Background()
 	base := time.Unix(100, 0).UTC()
@@ -59,49 +56,27 @@ func TestOTARuntimeSnapshotOrdering(t *testing.T) {
 	}
 }
 
-type delayedOTAStore struct {
-	kv.Store
-	entered, resume chan struct{}
-}
-
-func (s *delayedOTAStore) CompareAndMutate(ctx context.Context, guard kv.Key, expected []byte, entries []kv.Entry, keys []kv.Key) (bool, error) {
-	close(s.entered)
-	select {
-	case <-s.resume:
-	case <-ctx.Done():
-		return false, ctx.Err()
-	}
-	return kv.CompareAndMutate(ctx, s.Store, guard, expected, entries, keys)
-}
-
 func TestConcurrentOTAProgressCannotOverwriteSuccess(t *testing.T) {
-	store := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = store.Close() })
+	s := newTestServer(t)
 	peer := testPublicKey(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	base := time.Unix(100, 0).UTC()
-	s := &Server{Store: store}
+	ctx := t.Context()
 	if err := s.PutOTAStatus(ctx, peer, apitypes.PeerOtaStatus{State: "started", UpdateId: "one", ObservedAt: base}); err != nil {
 		t.Fatal(err)
 	}
-	delayed := &delayedOTAStore{Store: store, entered: make(chan struct{}), resume: make(chan struct{})}
-	result := make(chan error, 1)
-	go func() {
-		result <- (&Server{Store: delayed}).PutOTAStatus(ctx, peer, apitypes.PeerOtaStatus{State: "downloading", UpdateId: "one", ObservedAt: base.Add(time.Second), DownloadPercent: new(50.0)})
-	}()
-	select {
-	case <-delayed.entered:
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
+	start := make(chan struct{})
+	result := make(chan error, 2)
+	for _, next := range []apitypes.PeerOtaStatus{
+		{State: "downloading", UpdateId: "one", ObservedAt: base.Add(time.Second), DownloadPercent: new(50.0)},
+		{State: "succeeded", UpdateId: "one", ObservedAt: base.Add(2 * time.Second)},
+	} {
+		go func() { <-start; result <- s.PutOTAStatus(ctx, peer, next) }()
 	}
-	err := s.PutOTAStatus(ctx, peer, apitypes.PeerOtaStatus{State: "succeeded", UpdateId: "one", ObservedAt: base.Add(2 * time.Second)})
-	close(delayed.resume)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := <-result; err != nil {
-		t.Fatal(err)
+	close(start)
+	for range 2 {
+		if err := <-result; err != nil {
+			t.Fatal(err)
+		}
 	}
 	got, err := s.GetStatus(ctx, peer)
 	if err != nil || got.Ota == nil || got.Ota.State != "succeeded" {

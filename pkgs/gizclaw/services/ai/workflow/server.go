@@ -3,6 +3,7 @@ package workflow
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,18 +15,17 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
 )
-
-var workflowsRoot = kv.Key{"by-id"}
 
 const (
 	defaultListLimit = 50
 	maxListLimit     = 200
 )
 
+// Server owns the local SQL Workflow catalog.
 type Server struct {
-	Store kv.Store
+	DB *sqlx.DB
 }
 
 // BuiltinWorkflowError is returned by the Admin surface when a request targets
@@ -50,27 +50,33 @@ func BuiltinSFUWorkflow() apitypes.Workflow {
 	}
 }
 
+// Initialize creates the Workflow table once during Server startup.
+func (s *Server) Initialize(ctx context.Context) error {
+	if s == nil || s.DB == nil {
+		return errors.New("workflow: database not configured")
+	}
+	_, err := s.DB.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY CHECK(length(id)>0),driver TEXT NOT NULL,config_json TEXT NOT NULL)`)
+	return err
+}
+
 // EnsureBuiltinWorkflows idempotently materializes every built-in system
 // Workflow in the local catalog. Each Server calls it at startup so the same
 // Workflow identity exists on every Server that may activate a Social
 // Workspace.
 func (s *Server) EnsureBuiltinWorkflows(ctx context.Context) error {
-	if s == nil || s.Store == nil {
-		return errors.New("workflow: store not configured")
+	if s == nil || s.DB == nil {
+		return errors.New("workflow: database not configured")
 	}
-	doc, raw, err := validateWorkflow(BuiltinSFUWorkflow(), "")
+	doc, _, err := validateWorkflow(BuiltinSFUWorkflow(), "")
 	if err != nil {
-		return fmt.Errorf("workflow: built-in %q: %w", socialutil.SFUWorkflowID, err)
+		return err
 	}
-	if existing, err := s.Store.Get(ctx, workflowKey(doc.Id)); err == nil && bytes.Equal(existing, raw) {
-		return nil
-	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return fmt.Errorf("workflow: read built-in %q: %w", doc.Id, err)
+	config, err := workflowConfig(doc)
+	if err != nil {
+		return err
 	}
-	if err := s.Store.Set(ctx, workflowKey(doc.Id), raw); err != nil {
-		return fmt.Errorf("workflow: write built-in %q: %w", doc.Id, err)
-	}
-	return nil
+	_, err = s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO workflows(id,driver,config_json) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET driver=excluded.driver,config_json=excluded.config_json WHERE workflows.driver<>excluded.driver OR workflows.config_json<>excluded.config_json`), doc.Id, string(doc.Spec.Driver), config)
+	return err
 }
 
 func builtinWorkflowMessage(id string) string {
@@ -92,23 +98,33 @@ type workflowEnvelope struct {
 }
 
 func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkflowsRequestObject) (adminhttp.ListWorkflowsResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow database not configured")), nil
 	}
 	cursor, limit := normalizeListParams(request.Params.Cursor, request.Params.Limit)
-	entries, err := listVisibleWorkflows(ctx, s.Store, cursor, limit+1)
+	rows, err := s.DB.QueryContext(ctx, s.DB.Rebind(`SELECT id,driver,config_json FROM workflows WHERE id>? AND id<>? ORDER BY id LIMIT ?`), cursor, socialutil.SFUWorkflowID, limit+1)
 	if err != nil {
 		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	pageEntries, hasNext, nextCursor := paginateEntries(entries, limit)
-	items := make([]apitypes.Workflow, 0)
-	for _, entry := range pageEntries {
-		doc, err := decodeWorkflow(entry.Value)
+	defer rows.Close()
+	items := make([]apitypes.Workflow, 0, limit+1)
+	for rows.Next() {
+		doc, err := scanWorkflow(rows)
 		if err != nil {
 			return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 		}
 		items = append(items, doc)
 	}
+	if err := rows.Err(); err != nil {
+		return adminhttp.ListWorkflows500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	hasNext := len(items) > limit
+	var nextCursor *string
+	if hasNext {
+		items = items[:limit]
+		nextCursor = new(items[len(items)-1].Id)
+	}
+
 	return adminhttp.ListWorkflows200JSONResponse(adminhttp.WorkflowList{
 		HasNext:    hasNext,
 		Items:      items,
@@ -117,8 +133,8 @@ func (s *Server) ListWorkflows(ctx context.Context, request adminhttp.ListWorkfl
 }
 
 func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWorkflowRequestObject) (adminhttp.CreateWorkflowResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow database not configured")), nil
 	}
 	if request.Body == nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
@@ -127,68 +143,67 @@ func (s *Server) CreateWorkflow(ctx context.Context, request adminhttp.CreateWor
 	if IsBuiltinWorkflowID(body.Id) {
 		return adminhttp.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(body.Id))), nil
 	}
-	doc, raw, err := validateWorkflow(apitypes.Workflow{Id: body.Id, Spec: body.Spec}, "")
+	doc, _, err := validateWorkflow(apitypes.Workflow{Id: body.Id, Spec: body.Spec}, "")
 	if err != nil {
 		return adminhttp.CreateWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
-	_, created, err := kv.CreateIfAbsent(ctx, s.Store, kv.Entry{Key: workflowKey(doc.Id), Value: raw}, nil)
+	config, err := workflowConfig(doc)
 	if err != nil {
 		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if !created {
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO workflows(id,driver,config_json) VALUES (?,?,?) ON CONFLICT(id) DO NOTHING`), doc.Id, string(doc.Spec.Driver), config)
+	if err != nil {
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return adminhttp.CreateWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if count == 0 {
 		return adminhttp.CreateWorkflow409JSONResponse(apitypes.NewErrorResponse("WORKFLOW_ALREADY_EXISTS", fmt.Sprintf("workflow %q already exists", doc.Id))), nil
 	}
+
 	return adminhttp.CreateWorkflow200JSONResponse(doc), nil
 }
 
 func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWorkflowRequestObject) (adminhttp.DeleteWorkflowResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow database not configured")), nil
 	}
 	id := string(request.Id)
 	if IsBuiltinWorkflowID(id) {
 		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(id))), nil
 	}
-	key := workflowKey(id)
-	data, err := s.Store.Get(ctx, key)
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
-		}
-		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	doc, err := scanWorkflow(s.DB.QueryRowContext(ctx, s.DB.Rebind(`DELETE FROM workflows WHERE id=? RETURNING id,driver,config_json`), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
 	}
-	doc, err := decodeWorkflow(data)
 	if err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	if err := s.Store.Delete(ctx, key); err != nil {
-		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
+
 	return adminhttp.DeleteWorkflow200JSONResponse(doc), nil
 }
 
 func (s *Server) GetWorkflow(ctx context.Context, request adminhttp.GetWorkflowRequestObject) (adminhttp.GetWorkflowResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow database not configured")), nil
 	}
 	id := string(request.Id)
-	data, err := s.Store.Get(ctx, workflowKey(id))
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
-		}
-		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	doc, err := scanWorkflow(s.DB.QueryRowContext(ctx, s.DB.Rebind(`SELECT id,driver,config_json FROM workflows WHERE id=?`), id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return adminhttp.GetWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
 	}
-	doc, err := decodeWorkflow(data)
 	if err != nil {
 		return adminhttp.GetWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
+
 	return adminhttp.GetWorkflow200JSONResponse(doc), nil
 }
 
 func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowRequestObject) (adminhttp.PutWorkflowResponseObject, error) {
-	if s == nil || s.Store == nil {
-		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow store not configured")), nil
+	if s == nil || s.DB == nil {
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", "workflow database not configured")), nil
 	}
 	if request.Body == nil {
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", "request body required")), nil
@@ -197,24 +212,30 @@ func (s *Server) PutWorkflow(ctx context.Context, request adminhttp.PutWorkflowR
 	if IsBuiltinWorkflowID(id) || (request.Body != nil && IsBuiltinWorkflowID(request.Body.Id)) {
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(id))), nil
 	}
-	previousData, getErr := s.Store.Get(ctx, workflowKey(id))
-	if getErr == nil {
-		if _, err := decodeWorkflow(previousData); err != nil {
-			return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-		}
-	} else if errors.Is(getErr, kv.ErrNotFound) {
-		return adminhttp.PutWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
-	} else {
-		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", getErr.Error())), nil
-	}
 	body := *request.Body
-	doc, raw, err := validateWorkflow(apitypes.Workflow{Id: body.Id, Spec: body.Spec}, id)
+	doc, _, err := validateWorkflow(apitypes.Workflow{Id: body.Id, Spec: body.Spec}, id)
 	if err != nil {
+		var exists bool
+		if lookupErr := s.DB.QueryRowContext(ctx, s.DB.Rebind(`SELECT EXISTS(SELECT 1 FROM workflows WHERE id=?)`), id).Scan(&exists); lookupErr != nil {
+			return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", lookupErr.Error())), nil
+		}
+		if !exists {
+			return adminhttp.PutWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
+		}
 		return adminhttp.PutWorkflow400JSONResponse(apitypes.NewErrorResponse("INVALID_WORKFLOW", err.Error())), nil
 	}
-	if err := s.Store.Set(ctx, workflowKey(id), raw); err != nil {
+	config, err := workflowConfig(doc)
+	if err != nil {
 		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
+	doc, err = scanWorkflow(s.DB.QueryRowContext(ctx, s.DB.Rebind(`UPDATE workflows SET driver=?,config_json=? WHERE id=? RETURNING id,driver,config_json`), string(doc.Spec.Driver), config, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return adminhttp.PutWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
+	}
+	if err != nil {
+		return adminhttp.PutWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+
 	return adminhttp.PutWorkflow200JSONResponse(doc), nil
 }
 
@@ -374,56 +395,46 @@ func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRea
 	return nil
 }
 
-func decodeWorkflow(data []byte) (apitypes.Workflow, error) {
-	var item apitypes.Workflow
-	if err := json.Unmarshal(data, &item); err != nil {
-		return apitypes.Workflow{}, err
-	}
-	validated, _, err := validateWorkflow(item, "")
+func workflowConfig(doc apitypes.Workflow) (string, error) {
+	raw, err := json.Marshal(doc.Spec)
 	if err != nil {
-		return apitypes.Workflow{}, err
+		return "", err
 	}
-	return validated, nil
-}
-
-// listVisibleWorkflows reads up to limit Admin-visible Workflows after cursor.
-// Built-in system Workflows are skipped, so the scan continues until limit
-// visible entries are collected or the catalog ends.
-func listVisibleWorkflows(ctx context.Context, store kv.Store, cursor string, limit int) ([]kv.Entry, error) {
-	out := make([]kv.Entry, 0, limit)
-	after := cursorAfterKey(workflowsRoot, cursor)
-	for len(out) < limit {
-		want := limit - len(out)
-		entries, err := kv.ListAfter(ctx, store, workflowsRoot, after, want)
-		if err != nil {
-			return nil, err
-		}
-		for _, entry := range entries {
-			if len(entry.Key) > 0 && IsBuiltinWorkflowID(unescapeStoreSegment(entry.Key[len(entry.Key)-1])) {
-				continue
-			}
-			out = append(out, entry)
-		}
-		if len(entries) < want {
-			break
-		}
-		after = entries[len(entries)-1].Key
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &config); err != nil {
+		return "", err
 	}
-	return out, nil
+	delete(config, "driver")
+	raw, err = json.Marshal(config)
+	return string(raw), err
 }
-
-func workflowKey(id string) kv.Key {
-	return append(append(kv.Key{}, workflowsRoot...), escapeStoreSegment(id))
-}
-
-func unescapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%3A", ":")
-	return strings.ReplaceAll(value, "%25", "%")
-}
-
-func escapeStoreSegment(value string) string {
-	value = strings.ReplaceAll(value, "%", "%25")
-	return strings.ReplaceAll(value, ":", "%3A")
+func scanWorkflow(row interface{ Scan(...any) error }) (apitypes.Workflow, error) {
+	var doc apitypes.Workflow
+	var driver, config string
+	if err := row.Scan(&doc.Id, &driver, &config); err != nil {
+		return doc, err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(config), &fields); err != nil {
+		return doc, err
+	}
+	if fields == nil {
+		return doc, errors.New("workflow: null configuration")
+	}
+	encodedDriver, err := json.Marshal(driver)
+	if err != nil {
+		return doc, err
+	}
+	fields["driver"] = encodedDriver
+	raw, err := json.Marshal(fields)
+	if err != nil {
+		return doc, err
+	}
+	if err := json.Unmarshal(raw, &doc.Spec); err != nil {
+		return doc, err
+	}
+	doc, _, err = validateWorkflow(doc, "")
+	return doc, err
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {
@@ -442,28 +453,4 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 		nextLimit = maxListLimit
 	}
 	return nextCursor, nextLimit
-}
-
-func cursorAfterKey(prefix kv.Key, cursor string) kv.Key {
-	if cursor == "" {
-		return nil
-	}
-	after := append(kv.Key{}, prefix...)
-	return append(after, cursor)
-}
-
-func paginateEntries(entries []kv.Entry, limit int) ([]kv.Entry, bool, *string) {
-	if len(entries) == 0 {
-		return nil, false, nil
-	}
-	hasNext := len(entries) > limit
-	if !hasNext {
-		return entries, false, nil
-	}
-	page := entries[:limit]
-	if len(page) == 0 || len(page[len(page)-1].Key) == 0 {
-		return page, true, nil
-	}
-	nextCursor := page[len(page)-1].Key[len(page[len(page)-1].Key)-1]
-	return page, true, &nextCursor
 }

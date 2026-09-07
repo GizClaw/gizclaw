@@ -37,7 +37,7 @@ steps:
     request:
       name: missing
   expect_error:
-    code: 404
+    code: 5
 finally:
 - id: cleanup_peer
   client: peer

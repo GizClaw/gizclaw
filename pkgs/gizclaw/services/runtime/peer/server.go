@@ -8,9 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 
@@ -29,6 +30,9 @@ var (
 	ErrInvalidInfo         = errors.New("peer: invalid device info")
 	ErrPeerPendingDeletion = errors.New("peer: deletion pending")
 	ErrPeerDeleted         = errors.New("peer: deleted")
+	// ErrPeerConcurrentUpdate requires the caller to read the current record
+	// before retrying an update rejected by another Server's write.
+	ErrPeerConcurrentUpdate = errors.New("peer: record changed concurrently")
 )
 
 const (
@@ -47,6 +51,7 @@ type PeerManager interface {
 
 type Server struct {
 	Store           kv.Store
+	LocalRuns       *peerrun.Server
 	BuildVersion    string
 	BuildCommit     string
 	Endpoint        string
@@ -56,8 +61,6 @@ type Server struct {
 	ICEServers      []gizwebrtc.ICEServer
 	PeerManager     PeerManager
 	IconLocks       iconasset.Locker
-
-	mu sync.Mutex
 }
 
 type PeerAdminService interface {

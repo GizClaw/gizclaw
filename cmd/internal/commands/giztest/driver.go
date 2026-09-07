@@ -60,12 +60,10 @@ func (d *driver) ValidateStep(doc *giztest.Document, step giztest.Step) error {
 }
 
 func (d *driver) FailureCode(err error) (int32, string, bool) {
-	var failure *rpcFailure
-	if errors.As(err, &failure) {
+	if failure, ok := errors.AsType[*rpcFailure](err); ok {
 		return failure.code, failure.message, true
 	}
-	var apiError rpcapi.Error
-	if errors.As(err, &apiError) {
+	if apiError, ok := errors.AsType[rpcapi.Error](err); ok {
 		return int32(apiError.Code), apiError.Message, true
 	}
 	return 0, "", false

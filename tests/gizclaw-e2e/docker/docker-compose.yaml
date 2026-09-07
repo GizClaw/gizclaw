@@ -8,6 +8,35 @@ services:
       timeout: 1s
       retries: 60
 
+  livekit:
+    image: livekit/livekit-server:v1.13.6@sha256:e37d68f172556d02aa77968b9fc55ef481468c0315fa38e4fa6c56ce72e3a815
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        node_ip="$$(hostname -i)"
+        node_ip="$${node_ip%% *}"
+        exec /livekit-server --config-body "$$LIVEKIT_CONFIG" --node-ip "$$node_ip"
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          tcp_port: 7881
+          port_range_start: 50000
+          port_range_end: 50100
+          use_external_ip: false
+        keys:
+          ${GIZCLAW_E2E_LIVEKIT_API_KEY:?set by docker-compose-up.sh}: ${GIZCLAW_E2E_LIVEKIT_API_SECRET:?set by docker-compose-up.sh}
+        room:
+          empty_timeout: 300
+          departure_timeout: 20
+        logging:
+          level: info
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:7880/"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+
   mem0:
     profiles: ["memory"]
     build:
@@ -64,6 +93,8 @@ services:
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
     environment:
+      GIZCLAW_E2E_LIVEKIT_API_KEY: ${GIZCLAW_E2E_LIVEKIT_API_KEY:?set by docker-compose-up.sh}
+      GIZCLAW_E2E_LIVEKIT_API_SECRET: ${GIZCLAW_E2E_LIVEKIT_API_SECRET:?set by docker-compose-up.sh}
       GIZCLAW_E2E_CONFIG_HOME: /src/tests/gizclaw-e2e/testdata/cmd-config-home
       GIZCLAW_E2E_CAPACITY_ONLY: ${GIZCLAW_E2E_CAPACITY_ONLY:-}
       GIZCLAW_E2E_RESOURCE_PATHS: ${GIZCLAW_E2E_RESOURCE_PATHS:-}
@@ -78,6 +109,8 @@ services:
       GIZCLAW_E2E_TURN_CREDENTIAL: ${GIZCLAW_E2E_TURN_CREDENTIAL:?set by docker-compose-up.sh}
       GIZCLAW_TEST_REGISTRATION_TOKEN: ${GIZCLAW_TEST_REGISTRATION_TOKEN:?set by docker-compose-up.sh}
     depends_on:
+      livekit:
+        condition: service_healthy
       mem0:
         condition: service_healthy
         required: false

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -102,6 +103,10 @@ func (e *workspaceRewardTestEnvironment) EnsureWorkspaceAvailable(ctx context.Co
 	return e.availability[workspaceID]
 }
 
+func (e *workspaceRewardTestEnvironment) EnsureWorkspaceAvailableInTransaction(ctx context.Context, _ *sqlx.DB, _ *sqlx.Tx, workspaceID string) error {
+	return e.EnsureWorkspaceAvailable(ctx, workspaceID)
+}
+
 func (e *workspaceRewardTestEnvironment) ListWorkspaceIDs(context.Context) ([]string, error) {
 	e.mu.Lock()
 	e.listCalls++
@@ -138,7 +143,7 @@ func (e *workspaceRewardTestEnvironment) LatestHistoryEntryBefore(
 	before time.Time,
 ) (workspace.HistoryEntry, bool, error) {
 	e.recordHistoryCall(name)
-	for i := len(e.entries[name]) - 1; i >= 0; i-- {
+	for i := range slices.Backward(e.entries[name]) {
 		if e.entries[name][i].CreatedAt.Before(before) {
 			return e.entries[name][i], true, nil
 		}
@@ -1054,20 +1059,12 @@ func TestWorkspaceRewardCallbackSourceCreationUsesActivationBoundary(t *testing.
 	}
 }
 
-func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
+func TestWorkspaceRewardFreshSchemaAllowsPendingAfterBlockedWindow(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 29, 3, 30, 0, 0, time.UTC)
 	runtime := &Runtime{DB: testDB(t), Now: func() time.Time { return now }}
 	if err := runtime.Migration(ctx); err != nil {
 		t.Fatalf("initial Migration() error = %v", err)
-	}
-	if _, err := runtime.DB.ExecContext(ctx, `DROP INDEX gameplay_workspace_reward_windows_active_v2_idx`); err != nil {
-		t.Fatalf("drop v2 active index: %v", err)
-	}
-	if _, err := runtime.DB.ExecContext(ctx, `CREATE UNIQUE INDEX gameplay_workspace_reward_windows_active_idx
-		ON gameplay_workspace_reward_windows(workspace_id)
-		WHERE state IN ('pending', 'claimed', 'retry', 'blocked')`); err != nil {
-		t.Fatalf("create legacy active index: %v", err)
 	}
 	source := workspaceRewardSource{
 		WorkspaceID: "workflow-a", ScheduledCheckpoint: "001",
@@ -1088,11 +1085,11 @@ func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
 		NextAttemptAt: now, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
-		t.Fatalf("insert legacy blocked window: %v", err)
+		t.Fatalf("insert blocked window: %v", err)
 	}
 
 	if err := runtime.Migration(ctx); err != nil {
-		t.Fatalf("upgrade Migration() error = %v", err)
+		t.Fatalf("repeat Migration() error = %v", err)
 	}
 	window.ID = "window-pending"
 	window.BeneficiaryPublicKey = "peer-b"
@@ -1101,18 +1098,16 @@ func TestWorkspaceRewardMigrationReplacesBlockedActiveIndex(t *testing.T) {
 	window.State = workspaceRewardPending
 	source.ScheduledCheckpoint = "002"
 	if err := runtime.insertWorkspaceRewardWindowAndUpdateSource(ctx, window, source); err != nil {
-		t.Fatalf("insert pending window after upgrade: %v", err)
+		t.Fatalf("insert pending window after initialization: %v", err)
 	}
-	var legacyIndexes, currentIndexes int
-	if err := runtime.DB.QueryRowContext(ctx, `SELECT
-		COUNT(*) FILTER (WHERE name = 'gameplay_workspace_reward_windows_active_idx'),
-		COUNT(*) FILTER (WHERE name = 'gameplay_workspace_reward_windows_active_v2_idx')
-		FROM sqlite_master WHERE type = 'index'`).Scan(&legacyIndexes, &currentIndexes); err != nil {
-		t.Fatalf("read active indexes: %v", err)
+	var currentIndexes int
+	if err := runtime.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'gameplay_workspace_reward_windows_active_idx'`).Scan(&currentIndexes); err != nil {
+		t.Fatal(err)
 	}
-	if legacyIndexes != 0 || currentIndexes != 1 {
-		t.Fatalf("active index counts legacy/current = %d/%d", legacyIndexes, currentIndexes)
+	if currentIndexes != 1 {
+		t.Fatalf("active index count = %d", currentIndexes)
 	}
+
 }
 
 func TestWorkspaceRewardDispatchBlocksCorruptPolicyAndContinues(t *testing.T) {
@@ -1242,8 +1237,8 @@ func TestWorkspaceRewardCorruptPolicyBlockingHonorsClaimFence(t *testing.T) {
 	}
 
 	_, _, err := runtime.claimWorkspaceRewardWindow(ctx)
-	var corrupt *workspaceRewardPolicyCorruptionError
-	if !errors.As(err, &corrupt) {
+	corrupt, ok := errors.AsType[*workspaceRewardPolicyCorruptionError](err)
+	if !ok {
 		t.Fatalf("claimWorkspaceRewardWindow() error = %v, want policy corruption", err)
 	}
 	if corrupt.State != workspaceRewardClaimed || corrupt.ClaimToken != "claim-observed" {
@@ -2156,7 +2151,7 @@ func TestWorkspaceRewardDeletionFenceFailsClosedAfterCanceledCommit(t *testing.T
 		t.Fatal(err)
 	}
 	deleteCtx, cancelDelete := context.WithCancel(ctx)
-	err := runtime.WithWorkspaceDeletionFence(deleteCtx, "workspace-canceled-delete", func(context.Context) error {
+	err := runtime.WithWorkspaceDeletionFence(deleteCtx, "workspace-canceled-delete", func(context.Context, *sqlx.DB, *sqlx.Tx) error {
 		deleting = true
 		cancelDelete()
 		return nil
@@ -2248,7 +2243,7 @@ func testWorkspaceRewardDeletionFenceOrdersMarkerAndSettlement(t *testing.T, db 
 	deletionDone := make(chan error, 1)
 	go func() {
 		close(deletionAttempted)
-		deletionDone <- deletionRuntime.WithWorkspaceDeletionFence(ctx, first.WorkspaceID, func(context.Context) error {
+		deletionDone <- deletionRuntime.WithWorkspaceDeletionFence(ctx, first.WorkspaceID, func(context.Context, *sqlx.DB, *sqlx.Tx) error {
 			availabilityMu.Lock()
 			deleting[first.WorkspaceID] = true
 			availabilityMu.Unlock()
@@ -2275,7 +2270,7 @@ func testWorkspaceRewardDeletionFenceOrdersMarkerAndSettlement(t *testing.T, db 
 	}
 
 	second := seedWindow("workflow-marker-first", "peer-marker-first", "window-marker-first", "claim-marker-first")
-	if err := deletionRuntime.WithWorkspaceDeletionFence(ctx, second.WorkspaceID, func(context.Context) error {
+	if err := deletionRuntime.WithWorkspaceDeletionFence(ctx, second.WorkspaceID, func(context.Context, *sqlx.DB, *sqlx.Tx) error {
 		availabilityMu.Lock()
 		deleting[second.WorkspaceID] = true
 		availabilityMu.Unlock()

@@ -18,8 +18,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestMapGraphSupportsPublicNodesAndDerivesPublishers(t *testing.T) {
@@ -605,31 +607,37 @@ func TestWorkspaceAgentScopeIncludesOwnerWhenAvailable(t *testing.T) {
 	}
 }
 
-func TestFlowcraftStateStoreUsesCanonicalIsolatedScope(t *testing.T) {
-	base := kv.NewMemory(nil)
-	scope := workspaceAgentScope("owner-a", "workspace-a", "assistant")
-	state := flowcraftStateStore(base, scope)
-	if err := state.Set(t.Context(), kv.Key{"checkpoint"}, []byte("private")); err != nil {
-		t.Fatalf("Set() error = %v", err)
-	}
-
-	expectedKey := append(kv.Key{"flowcraft"}, strings.Split(scope, "/")...)
-	expectedKey = append(expectedKey, "checkpoint")
-	value, err := base.Get(t.Context(), expectedKey)
+func TestFlowcraftStateUsesIndependentSQLColumns(t *testing.T) {
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
-		t.Fatalf("base.Get(%v) error = %v", expectedKey, err)
+		t.Fatal(err)
 	}
-	if string(value) != "private" {
-		t.Fatalf("base.Get(%v) = %q", expectedKey, value)
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { db.Close() })
+	if err := flowstate.Initialize(t.Context(), db); err != nil {
+		t.Fatal(err)
 	}
-
-	for _, otherScope := range []string{
-		workspaceAgentScope("owner-b", "workspace-a", "assistant"),
-		workspaceAgentScope("owner-a", "workspace-b", "assistant"),
-		workspaceAgentScope("owner-a", "workspace-a", "other-agent"),
-	} {
-		if _, err := flowcraftStateStore(base, otherScope).Get(t.Context(), kv.Key{"checkpoint"}); !errors.Is(err, kv.ErrNotFound) {
-			t.Fatalf("scope %q Get() error = %v, want ErrNotFound", otherScope, err)
+	state, err := flowstate.OpenScope(t.Context(), db, "owner-a", "workspace-a", "assistant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := state.SaveState(t.Context(), "checkpoint", []byte(`{"private":true}`)); err != nil {
+		t.Fatal(err)
+	}
+	var value string
+	if err := db.QueryRowContext(t.Context(), `SELECT state_json FROM flowcraft_board_states WHERE owner_id='owner-a' AND workspace_id='workspace-a' AND agent_id='assistant' AND context_id='checkpoint'`).Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	if value != `{"private":true}` {
+		t.Fatalf("state = %s", value)
+	}
+	for _, scope := range [][3]string{{"owner-b", "workspace-a", "assistant"}, {"owner-a", "workspace-b", "assistant"}, {"owner-a", "workspace-a", "other-agent"}} {
+		other, err := flowstate.OpenScope(t.Context(), db, scope[0], scope[1], scope[2])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if value, err := other.LoadState(t.Context(), "checkpoint"); err != nil || value != nil {
+			t.Fatalf("foreign state = %s, %v", value, err)
 		}
 	}
 }

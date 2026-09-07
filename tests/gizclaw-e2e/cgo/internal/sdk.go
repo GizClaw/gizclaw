@@ -109,7 +109,7 @@ func NewClient(identityDir string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewClientWithCredentials("http://"+cfg.endpoint, cfg.privateKey)
+	return NewClientWithCredentials(serverBaseURL(cfg.endpoint), cfg.privateKey)
 }
 
 // NewClientWithCredentials dials serverURL, an absolute http or https base URL
@@ -921,13 +921,13 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	client := newTestClient(t, identityDir)
 	defer client.Close()
 	registerClient(t, client, registrationToken)
-	workspaceName := fmt.Sprintf("cgo-echo-%d", time.Now().UnixMilli())
+	workspaceName := fmt.Sprintf("cgo-workspace-%d", time.Now().UnixMilli())
 	var createResponse rpcpb.WorkspaceCreateResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE, &rpcpb.WorkspaceCreateRequest{
 		Value: &rpcpb.WorkspaceCreateBody{
 			Name:         workspaceName,
 			Collection:   "assistants",
-			WorkflowName: "echo",
+			WorkflowName: "flowcraft-chat-assistant",
 		},
 	}, &createResponse)
 	if createResponse.GetValue().GetName() != workspaceName {
@@ -936,20 +936,20 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var workspaceResponse rpcpb.WorkspaceGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: workspaceName}, &workspaceResponse)
 	workspace := workspaceResponse.GetValue()
-	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "echo" || !workspace.GetAvailable() {
+	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "flowcraft-chat-assistant" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
 	var inputResponse rpcpb.WorkspaceParametersSetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET, &rpcpb.WorkspaceParametersSetRequest{
 		Name: workspaceName, Parameters: &rpcpb.WorkspaceParametersPatch{Input: new(rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME)},
 	}, &inputResponse)
-	if mode := inputResponse.GetValue().GetParameters().GetChatRoomWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME {
+	if mode := inputResponse.GetValue().GetParameters().GetFlowcraftWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME {
 		t.Fatalf("invalid server.workspace.parameters.set: %s", inputResponse.String())
 	}
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET, &rpcpb.WorkspaceParametersSetRequest{
 		Name: workspaceName, Parameters: &rpcpb.WorkspaceParametersPatch{Input: new(rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK)},
 	}, &inputResponse)
-	if mode := inputResponse.GetValue().GetParameters().GetChatRoomWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
+	if mode := inputResponse.GetValue().GetParameters().GetFlowcraftWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
 		t.Fatalf("invalid server.workspace.parameters.set revert: %s", inputResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)

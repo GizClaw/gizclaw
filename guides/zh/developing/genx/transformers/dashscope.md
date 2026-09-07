@@ -28,6 +28,10 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 
 Provider session update 和 event name 留在 Adapter 内部；调用方只依赖 GenX Stream 与显式 update contract。
 
+## 输出流关联
+
+同一响应的语音转写文本与音频共享 `StreamID`，分别按 MIME 类型维护 BOS、数据和 EOS。独立的模型文本响应使用另一个 `StreamID`，避免文本结束事件提前关闭语音转写流；打断会关闭该响应的两条流。
+
 ## Function-tool 续跑
 
 `ToolInvoker` 非空时，每次 `Transform` 都会在打开 provider session 前解析当次可用工具的名称、说明和 JSON Schema。DashScope function call 按 provider 顺序通过 `InvokeTool(name, arguments)` 执行；每个 raw JSON result 使用原 provider call ID 提交，再通过 `response.create` 继续同一段会话。ToolCall 和 ToolResult control data 始终留在内部，不进入公开 GenX Stream。

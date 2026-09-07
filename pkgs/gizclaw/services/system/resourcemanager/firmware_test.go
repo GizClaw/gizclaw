@@ -5,15 +5,16 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/firmwaretest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	ctx := context.Background()
-	manager := New(Services{Firmwares: &firmware.Server{Store: kv.NewMemory(nil)}})
+	manager := New(Services{Firmwares: firmwaretest.New(t)})
 	resource, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
@@ -112,7 +113,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 		t.Fatalf("Delete misconfigured service error = %v", err)
 	}
 
-	manager := New(Services{Firmwares: &firmware.Server{Store: kv.NewMemory(nil)}})
+	manager := New(Services{Firmwares: firmwaretest.New(t)})
 	if _, err := manager.Get(ctx, apitypes.ResourceKindFirmware, "missing"); !isResourceError(err, 404, "RESOURCE_NOT_FOUND") {
 		t.Fatalf("Get missing firmware error = %v", err)
 	}
@@ -164,7 +165,7 @@ func TestFirmwareResourcePutAndErrors(t *testing.T) {
 
 func TestFirmwareResourceApplyUpdatesChangedSpec(t *testing.T) {
 	ctx := context.Background()
-	manager := New(Services{Firmwares: &firmware.Server{Store: kv.NewMemory(nil)}})
+	manager := New(Services{Firmwares: firmwaretest.New(t)})
 	first, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),

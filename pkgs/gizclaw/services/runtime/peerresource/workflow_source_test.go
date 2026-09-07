@@ -7,11 +7,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/voicetest"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/modeltest"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workflowtest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -21,7 +25,7 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
 	t.Cleanup(func() { _ = store.Close() })
-	workflows := &workflow.Server{Store: store}
+	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "runtime-chat")
 	createWorkflowForCollectionTest(t, ctx, workflows, "runtime-translate")
 	bindings := map[string]apitypes.RuntimeProfileBinding{
@@ -50,7 +54,7 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 }
 
 func TestWorkflowListRequiresCollection(t *testing.T) {
-	server := &Server{Workflows: &workflow.Server{Store: kv.NewMemory(nil)}}
+	server := &Server{Workflows: workflowtest.New(t)}
 	params := rpcapi.RPCPayload{}
 	if err := params.FromWorkflowListRequest(rpcapi.WorkflowListRequest{}); err != nil {
 		t.Fatal(err)
@@ -83,9 +87,9 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 		},
 	}
 	server := &Server{
-		Workflows: &workflow.Server{Store: store},
-		Models:    &model.Server{Store: store},
-		Voices:    &voice.Server{Store: store},
+		Workflows: workflowtest.New(t),
+		Models:    modeltest.New(t),
+		Voices:    voicetest.New(t),
 		RuntimeProfile: func() *apitypes.RuntimeProfile {
 			return &profile
 		},
@@ -151,7 +155,7 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
 	t.Cleanup(func() { _ = store.Close() })
-	models := &model.Server{Store: store}
+	models := modeltest.New(t)
 	canonical := adminhttp.ModelUpsert{
 		Id: "tenant-model-canonical", Kind: apitypes.ModelKindLlm, Source: apitypes.ModelSourceManual,
 		Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindOpenaiTenant, Id: "primary"},
@@ -227,7 +231,7 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 	ctx := context.Background()
 	store := kv.NewMemory(nil)
 	t.Cleanup(func() { _ = store.Close() })
-	voices := &voice.Server{Store: store}
+	voices := voicetest.New(t)
 	canonical := adminhttp.VoiceUpsert{
 		Id: "openai-tenant:primary:canonical-voice", Source: apitypes.VoiceSourceManual,
 		Provider: apitypes.VoiceProvider{Kind: apitypes.VoiceProviderKindOpenaiTenant, Id: "primary"},

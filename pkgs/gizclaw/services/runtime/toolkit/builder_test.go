@@ -3,13 +3,11 @@ package toolkit
 import (
 	"context"
 	"testing"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 	t.Parallel()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	toolIDs := make(map[string]string)
 	for _, tool := range []Tool{testClientTool("volume_set"), testHTTPTool("get_weather")} {
 		created, err := server.CreateTool(context.Background(), tool)
@@ -36,7 +34,7 @@ func TestBuilderResolvesCanonicalIDsAndAppliesPolicy(t *testing.T) {
 
 func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 	t.Parallel()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	disabled := testClientTool("volume_set")
 	disabled.Enabled = false
 	created, err := server.CreateTool(context.Background(), disabled)
@@ -61,7 +59,7 @@ func TestBuilderSkipsDisabledAndRejectsDanglingTools(t *testing.T) {
 
 func TestBuilderReturnsDefensiveSnapshots(t *testing.T) {
 	t.Parallel()
-	server := &Server{Store: kv.NewMemory(nil)}
+	server := &Server{DB: newTestDatabase(t)}
 	tool := testClientTool("volume_set")
 	tool.Metadata = []byte(`{"category":"device"}`)
 	created, err := server.CreateTool(context.Background(), tool)

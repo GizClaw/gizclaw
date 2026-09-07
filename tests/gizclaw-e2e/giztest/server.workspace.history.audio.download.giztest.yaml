@@ -51,7 +51,7 @@ steps:
       history_name: missing-history
     max_bytes: 16777216
   expect_error:
-    code: 404
+    code: 5
 finally:
 - id: cleanup_workspace
   client: peer

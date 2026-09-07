@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"iter"
 	"slices"
 	"strings"
 	"sync"
@@ -235,16 +234,22 @@ func TestGetFriendInfoRequiresCallerRelation(t *testing.T) {
 	}
 }
 
-func TestLegacyWireFriendRecordIsRejected(t *testing.T) {
+func TestIncompleteFriendRecordIsRejected(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer()
 	relationID := socialutil.RelationID("peer-a", "peer-b")
-	legacy := []byte(`{"id":"peer-b","name":"peer-b","peer_public_key":"peer-b","workspace_name":"friend-chat"}`)
-	if err := s.Friends.Set(ctx, socialutil.FriendKey("peer-a", relationID), legacy); err != nil {
-		t.Fatalf("seed legacy Friend wire record: %v", err)
+	incomplete := []byte(`{"peer_public_key":"peer-b","workspace_name":"friend-chat"}`)
+	if err := s.Friends.Set(ctx, socialutil.FriendKey("peer-a", relationID), incomplete); err != nil {
+		t.Fatalf("seed incomplete Friend record: %v", err)
+	}
+	if err := s.Friends.AddMembers(ctx, friendCollectionKey("peer-a"), relationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Friends.ApplyMutation(ctx, kv.Mutation{AddOrderedMembers: []kv.SetMembers{friendPageMembership("peer-a", relationID)}}); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := s.ListFriends(ctx, "peer-a", rpcapi.FriendListRequest{}); err == nil || err.Error() != "social: persisted Friend relationship is invalid" {
-		t.Fatalf("ListFriends legacy wire record error = %v", err)
+		t.Fatalf("ListFriends incomplete record error = %v", err)
 	}
 }
 
@@ -849,14 +854,17 @@ func TestReconcileCommittedDecisionDoesNotRestoreDeletedRelationship(t *testing.
 	); err != nil {
 		t.Fatalf("commitFriendCreation: %v", err)
 	}
-	if err := socialutil.WriteJSON(
-		ctx,
-		s.Friends,
-		creationIntentKey(intent.RelationID),
-		intent,
-	); err != nil {
+	intentData, err := json.Marshal(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Friends.ApplyMutation(ctx, kv.Mutation{
+		Entries:    []kv.Entry{{Key: creationIntentKey(intent.RelationID), Value: intentData}},
+		AddMembers: (socialutil.RecoveryIndex{Root: creationIntentsRoot}).Add(intent.RelationID),
+	}); err != nil {
 		t.Fatalf("restore creation intent to simulate post-commit crash: %v", err)
 	}
+
 	if _, err := s.DeleteFriend(
 		ctx,
 		"peer-a",
@@ -1369,9 +1377,6 @@ func TestInviteTokenExpiryAndClear(t *testing.T) {
 	if got.InviteToken != nil || got.ExpiresAt != nil {
 		t.Fatalf("expired token response = %#v, want no token fields", got)
 	}
-	if _, err := s.InviteTokens.Get(ctx, socialutil.FriendInviteTokenKey("peer-b")); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("expired invite token cleanup error = %v, want not found", err)
-	}
 
 	refreshed, err := s.CreateFriendInviteToken(ctx, "peer-b", rpcapi.FriendInviteTokenCreateRequest{})
 	if err != nil {
@@ -1422,9 +1427,7 @@ func TestAdminFriendResourceWrappersAndCursorHelpers(t *testing.T) {
 	if cursor := adminFriendCursor(kv.Key{"friends"}); cursor != "" {
 		t.Fatalf("adminFriendCursor short key = %q, want empty", cursor)
 	}
-	if after := adminFriendCursorAfter("/missing-owner"); after != nil {
-		t.Fatalf("adminFriendCursorAfter malformed = %#v, want nil", after)
-	}
+
 	got, err := s.AdminGetFriend(ctx, "peer-c", created.Id)
 	if err != nil {
 		t.Fatalf("AdminGetFriend by canonical ID: %v", err)
@@ -1490,7 +1493,7 @@ func TestPeerRetirementSnapshotOnlyBlocksRelationsForTargetPeer(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	s.Friends = &blockingFriendListStore{
-		Store: s.Friends, prefix: socialutil.OwnerPrefix(socialutil.FriendsRoot, "peer-a"),
+		Store: s.Friends, prefix: friendCollectionKey("peer-a"),
 		entered: entered, release: release,
 	}
 	secondary := *s
@@ -1636,7 +1639,7 @@ func TestConfigurationAndValidationErrors(t *testing.T) {
 func TestAddFriendPropagatesInviteTokenStoreErrors(t *testing.T) {
 	ctx := context.Background()
 	s := newTestServer()
-	wantErr := errors.New("forced list failure")
+	wantErr := errors.New("forced get failure")
 	s.InviteTokens = failingGetStore{Store: s.InviteTokens, err: wantErr}
 
 	_, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: "token"})
@@ -1660,7 +1663,7 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 			name: "invalid active timestamp",
 			value: mustJSON(t, inviteTokenRecord{
 				PeerPublicKey: "peer-b",
-				InviteToken:   "different-token",
+				InviteToken:   "token",
 				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
 			}),
 			token: "token",
@@ -1669,7 +1672,7 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 			name: "invalid nonmatching owner",
 			value: mustJSON(t, inviteTokenRecord{
 				PeerPublicKey: " peer-b ",
-				InviteToken:   "different-token",
+				InviteToken:   "token",
 				CreatedAt:     time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC),
 				ExpiresAt:     time.Date(2026, 6, 13, 0, 5, 0, 0, time.UTC),
 			}),
@@ -1682,6 +1685,9 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 			if err := s.InviteTokens.Set(t.Context(), socialutil.FriendInviteTokenKey("peer-b"), test.value); err != nil {
 				t.Fatalf("seed invite token: %v", err)
 			}
+			if err := s.InviteTokens.Set(t.Context(), socialutil.InviteTokenIndexKey(socialutil.FriendInviteTokensRoot, test.token), mustJSON(t, socialutil.FriendInviteTokenKey("peer-b"))); err != nil {
+				t.Fatal(err)
+			}
 			if _, err := s.AddFriend(t.Context(), "peer-a", rpcapi.FriendAddRequest{InviteToken: test.token}); !errors.Is(err, ErrInviteTokenLookupFailed) {
 				t.Fatalf("AddFriend() error = %v, want lookup failed", err)
 			}
@@ -1693,7 +1699,7 @@ func TestAddFriendRejectsCorruptInviteTokenRecords(t *testing.T) {
 	}
 }
 
-func TestAddFriendReportsExpiredInviteTokenCleanupFailure(t *testing.T) {
+func TestAddFriendRejectsExpiredInviteTokenWithoutCleanup(t *testing.T) {
 	s := newTestServer()
 	wantErr := errors.New("forced delete failure")
 	s.InviteTokens = failingDeleteStore{Store: s.InviteTokens, err: wantErr}
@@ -1703,13 +1709,13 @@ func TestAddFriendReportsExpiredInviteTokenCleanupFailure(t *testing.T) {
 		CreatedAt:     time.Date(2026, 6, 12, 23, 0, 0, 0, time.UTC),
 		ExpiresAt:     time.Date(2026, 6, 12, 23, 5, 0, 0, time.UTC),
 	}
-	if err := socialutil.WriteJSON(t.Context(), s.InviteTokens, socialutil.FriendInviteTokenKey("peer-b"), record); err != nil {
+	if err := socialutil.WriteInviteToken(t.Context(), s.InviteTokens, socialutil.FriendInviteTokenKey("peer-b"), record); err != nil {
 		t.Fatalf("seed expired invite token: %v", err)
 	}
 
 	_, err := s.AddFriend(t.Context(), "peer-a", rpcapi.FriendAddRequest{InviteToken: record.InviteToken})
-	if !errors.Is(err, ErrInviteTokenLookupFailed) || !errors.Is(err, wantErr) {
-		t.Fatalf("AddFriend() error = %v, want lookup failure wrapping delete cause", err)
+	if !errors.Is(err, ErrInviteTokenUnavailable) {
+		t.Fatalf("AddFriend() error = %v, want unavailable", err)
 	}
 	assertNoFriendCreationState(t, s.Friends)
 	if created := s.Workspaces.(*recordingWorkspaceService).created; len(created) != 0 {
@@ -1728,18 +1734,21 @@ func mustJSON(t *testing.T, value any) []byte {
 
 func assertNoFriendCreationState(t *testing.T, store kv.Store) {
 	t.Helper()
-	for _, root := range []kv.Key{
-		socialutil.FriendsRoot,
-		creationIntentsRoot,
-		creationDecisionsRoot,
-		workspaceBindingsRoot,
-	} {
-		for entry, err := range store.List(t.Context(), root) {
-			if err != nil {
-				t.Fatalf("list %s: %v", root, err)
-			}
-			t.Fatalf("unexpected Friend creation state under %s: %s", root, entry.Key)
+	relationID := socialutil.RelationID("peer-a", "peer-b")
+	// These rejection fixtures use this peer pair and the deterministic
+	// id-a/id-b sequence (the invitation may consume the first ID).
+	keys := []kv.Key{
+		socialutil.FriendKey("peer-a", relationID), socialutil.FriendKey("peer-b", relationID),
+		creationIntentKey(relationID), workspaceBindingKey(relationID),
+		creationDecisionKey(relationID, "id-a"), creationDecisionKey(relationID, "id-b"),
+	}
+	for _, key := range keys {
+		if _, err := store.Get(t.Context(), key); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("unexpected Friend state at %s: %v", key, err)
 		}
+	}
+	for id, err := range (socialutil.RecoveryIndex{Root: creationIntentsRoot}).IDs(t.Context(), store) {
+		t.Fatalf("unexpected creation recovery entry %q: %v", id, err)
 	}
 }
 
@@ -1770,17 +1779,11 @@ type blockingFriendListStore struct {
 	once             sync.Once
 }
 
-func (s *blockingFriendListStore) List(ctx context.Context, prefix kv.Key) iter.Seq2[kv.Entry, error] {
-	entries := s.Store.List(ctx, prefix)
-	return func(yield func(kv.Entry, error) bool) {
-		if slices.Equal(prefix, s.prefix) {
-			s.once.Do(func() {
-				close(s.entered)
-				<-s.release
-			})
-		}
-		entries(yield)
+func (s *blockingFriendListStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	if slices.Equal(key, s.prefix) {
+		s.once.Do(func() { close(s.entered); <-s.release })
 	}
+	return s.Store.ListMembers(ctx, key)
 }
 
 func (s *blockingFriendListStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
@@ -1890,11 +1893,7 @@ type failingGetStore struct {
 	err error
 }
 
-func (s failingGetStore) List(context.Context, kv.Key) iter.Seq2[kv.Entry, error] {
-	return func(yield func(kv.Entry, error) bool) {
-		yield(kv.Entry{}, s.err)
-	}
-}
+func (s failingGetStore) Get(context.Context, kv.Key) ([]byte, error) { return nil, s.err }
 
 type failingDeleteStore struct {
 	kv.Store
@@ -1958,4 +1957,65 @@ func (s *recordingWorkspaceService) RetireSystemWorkspaceByID(_ context.Context,
 func (s *recordingWorkspaceService) DeleteWorkspace(_ context.Context, req adminhttp.DeleteWorkspaceRequestObject) (adminhttp.DeleteWorkspaceResponseObject, error) {
 	s.deleted = append(s.deleted, req.Id)
 	return adminhttp.DeleteWorkspace200JSONResponse(apitypes.Workspace{Name: req.Id}), nil
+}
+
+func (s failingBatchMutateStore) ApplyMutation(context.Context, kv.Mutation) (bool, error) {
+	return false, errors.New("forced batch mutate failure")
+}
+func (s *toggleBatchMutateStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	for _, entry := range mutation.Entries {
+		if s.fail && len(entry.Key) > 0 && entry.Key[0] == creationDecisionsRoot[0] {
+			return false, errors.New("forced creation commit failure")
+		}
+	}
+	return s.Store.ApplyMutation(ctx, mutation)
+}
+func (s *blockingCreationDecisionStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	for _, entry := range mutation.Entries {
+		if len(entry.Key) == 0 || entry.Key[0] != creationDecisionsRoot[0] {
+			continue
+		}
+		var decision creationDecision
+		if err := json.Unmarshal(entry.Value, &decision); err != nil {
+			return false, err
+		}
+		if decision.State == s.state {
+			close(s.started)
+			select {
+			case <-ctx.Done():
+				return false, ctx.Err()
+			case <-s.release:
+			}
+		}
+	}
+	return s.Store.ApplyMutation(ctx, mutation)
+}
+
+func TestListFriendsPaginatesEscapedRelationIDs(t *testing.T) {
+	s := newTestServer()
+	want := []string{"peer/a", "peer:b", "peer_c"}
+	for _, peer := range want {
+		if _, err := s.AdminCreateFriend(t.Context(), "owner", peer); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var cursor *string
+	var got []string
+	for i, peer := range want {
+		page, err := s.ListFriends(t.Context(), "owner", rpcapi.FriendListRequest{Cursor: cursor, Limit: new(1)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(page.Items) != 1 || page.HasNext != (i < len(want)-1) {
+			t.Fatalf("page %d=%#v", i, page)
+		}
+		got = append(got, page.Items[0].Name)
+		if page.HasNext && (page.NextCursor == nil || *page.NextCursor != socialutil.RelationID("owner", peer)) {
+			t.Fatalf("cursor must be raw: %#v", page.NextCursor)
+		}
+		cursor = page.NextCursor
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("friends=%q want=%q", got, want)
+	}
 }

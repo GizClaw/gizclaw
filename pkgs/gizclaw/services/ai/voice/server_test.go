@@ -9,14 +9,15 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerVoiceCRUDAndFilters(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	srv := &Server{
-		Store: kv.NewMemory(nil),
+		DB: newTestDB(t),
 		Now: func() time.Time {
 			return now
 		},
@@ -114,7 +115,7 @@ func TestServerVoiceCRUDAndFilters(t *testing.T) {
 	}
 }
 
-func TestProviderDataStringAndLegacyDecode(t *testing.T) {
+func TestProviderDataString(t *testing.T) {
 	kind := apitypes.VoiceProviderKindMinimaxTenant
 	voice := apitypes.Voice{
 		Provider:     apitypes.VoiceProvider{Kind: kind, Id: "tenant"},
@@ -124,24 +125,11 @@ func TestProviderDataStringAndLegacyDecode(t *testing.T) {
 		t.Fatalf("ProviderDataString() = %q, want voice-1", got)
 	}
 
-	var decoded apitypes.Voice
-	if err := Decode([]byte(`{
-		"id": "provider:tenant:voice-1",
-		"provider": {"kind": "minimax-tenant", "name": "tenant"},
-		"source": "sync",
-		"provider_voice_id": "voice-1",
-		"provider_voice_type": "system"
-	}`), &decoded); err != nil {
-		t.Fatalf("Decode() error = %v", err)
-	}
-	if ProviderDataString(decoded, "voice_id") != "voice-1" || ProviderDataString(decoded, "voice_type") != "system" {
-		t.Fatalf("decoded provider data = %#v", decoded.ProviderData)
-	}
 }
 
 func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
+	store := newTestDB(t)
 	kind := apitypes.VoiceProviderKindMinimaxTenant
 
 	if got := StableID(kind, "main", "voice-1"); got != "voice-sha256-cba3bcf36024b57a995bfa445ad737b1c00f0619d204db2ac0c59fad26f7bc3d" {
@@ -244,9 +232,9 @@ func TestVoiceHelperIndexesAndSemanticEquality(t *testing.T) {
 
 func TestServerVoiceValidationAndPagination(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
+	store := newTestDB(t)
 	now := time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
-	srv := &Server{Store: store, Now: func() time.Time { return now }}
+	srv := &Server{DB: store, Now: func() time.Time { return now }}
 
 	if resp, err := (*Server)(nil).ListVoices(ctx, adminhttp.ListVoicesRequestObject{}); err != nil {
 		t.Fatalf("ListVoices(nil server) error = %v", err)
@@ -359,7 +347,7 @@ func TestServerVoiceValidationAndPagination(t *testing.T) {
 
 func TestVoiceBoundaryBranches(t *testing.T) {
 	ctx := context.Background()
-	store := kv.NewMemory(nil)
+	store := newTestDB(t)
 	kind := apitypes.VoiceProviderKind("openai-tenant")
 
 	if got := ProviderDataString(apitypes.Voice{}, "voice_id"); got != "" {
@@ -412,7 +400,7 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 		t.Fatalf("Write(sync voice) error = %v", err)
 	}
 	source := adminhttp.VoiceSource(apitypes.VoiceSourceManual)
-	pageResp, err := (&Server{Store: store}).ListVoices(ctx, adminhttp.ListVoicesRequestObject{
+	pageResp, err := (&Server{DB: store}).ListVoices(ctx, adminhttp.ListVoicesRequestObject{
 		Params: adminhttp.ListVoicesParams{Source: &source},
 	})
 	if err != nil {
@@ -429,14 +417,12 @@ func TestVoiceBoundaryBranches(t *testing.T) {
 	if _, err := Get(ctx, store, "missing"); err == nil {
 		t.Fatalf("Get(missing) error = nil, want error")
 	}
-	if got := unescapeStoreSegment("%zz"); got != "%zz" {
-		t.Fatalf("unescapeStoreSegment(invalid) = %q, want original", got)
-	}
+
 }
 
 func TestServerReconcileProviderVoices(t *testing.T) {
 	ctx := t.Context()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: newTestDB(t)}
 	kind := apitypes.VoiceProviderKind("minimax-tenant")
 	now := time.Date(2026, 8, 8, 1, 2, 3, 0, time.UTC)
 	makeVoice := func(id, upstreamID, name string) apitypes.Voice {
@@ -454,7 +440,7 @@ func TestServerReconcileProviderVoices(t *testing.T) {
 	if created, updated, deleted, err := srv.ReconcileProviderVoices(ctx, kind, "tenant", []apitypes.Voice{second}); err != nil || created != 0 || updated != 1 || deleted != 0 {
 		t.Fatalf("update reconcile = %d, %d, %d, %v", created, updated, deleted, err)
 	}
-	stored, err := Get(ctx, srv.Store, first.Id)
+	stored, err := Get(ctx, srv.DB, first.Id)
 	if err != nil || stored.DisplayName == nil || *stored.DisplayName != "B" {
 		t.Fatalf("Get(%q) = %#v, %v", first.Id, stored, err)
 	}
@@ -488,4 +474,23 @@ func voiceUpsert(id, providerID string) adminhttp.VoiceUpsert {
 //go:fix inline
 func stringPtr(value string) *string {
 	return new(value)
+}
+
+func newTestDB(t *testing.T) *sqlx.DB {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	s := &Server{DB: db}
+	if err := s.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return db
 }

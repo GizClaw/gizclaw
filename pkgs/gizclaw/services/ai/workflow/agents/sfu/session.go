@@ -340,16 +340,11 @@ func (s *session) drainDisconnects() {
 	}
 }
 
-// recheck re-validates the binding on Config.RecheckInterval and fails
-// closed on any resolver error or generation change.
-//
-// This poll is the only mechanism that ends an established attachment.
-// Social commits a friend deletion, a group deletion or a member removal and
-// pushes nothing: there is no cancellation callback and no cross-Server event
-// delivery, so a Peer homed on any Server stops the same way and within the
-// same bound. Revocation is therefore eventually consistent, at most one
-// interval late. New turns do not wait for it — every inbound BOS and Opus
-// packet re-checks membership before it is admitted.
+// recheck validates the attachment in the background. A refresh has a deadline
+// of at most two seconds (or one interval, when shorter). Cached membership is
+// usable only until that refresh completes; any error, timeout, or generation
+// change stops forwarding. The default maximum stale window is seven seconds:
+// the five-second interval plus the two-second request deadline.
 func (s *session) recheck() {
 	ticker := time.NewTicker(s.config.RecheckInterval)
 	defer ticker.Stop()
@@ -359,7 +354,12 @@ func (s *session) recheck() {
 			return
 		case <-ticker.C:
 		}
-		binding, err := s.agent.bindings.ResolveSFUWorkspaceBinding(s.ctx, s.agent.workspaceID, s.peer)
+		ctx, cancel := context.WithTimeout(s.ctx, min(s.config.RecheckInterval, 2*time.Second))
+		binding, err := s.agent.bindings.ResolveSFUWorkspaceBinding(ctx, s.agent.workspaceID, s.peer)
+		if err == nil {
+			err = ctx.Err()
+		}
+		cancel()
 		if err == nil && binding.SFU.Generation == s.binding.SFU.Generation && binding.SFU.RoomToken == s.binding.SFU.RoomToken {
 			continue
 		}

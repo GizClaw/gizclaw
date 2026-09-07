@@ -13,10 +13,10 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/catalogtest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/gameplay"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -108,13 +108,9 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 7, 30, 4, 0, 0, 0, time.UTC)
 	publishedBytes := makePublishedPetPixa()
-	catalog := &gameplay.Catalog{
-		PetDefs:   kv.NewMemory(nil),
-		BadgeDefs: kv.NewMemory(nil),
-		GameDefs:  kv.NewMemory(nil),
-		Assets:    newTestObjectStore(t),
-		Now:       func() time.Time { return now },
-	}
+	catalog := catalogtest.New(t)
+	catalog.Assets = newTestObjectStore(t)
+	catalog.Now = func() time.Time { return now }
 	createResp, err := catalog.CreatePetDef(ctx, adminhttp.CreatePetDefRequestObject{
 		Body: &adminhttp.PetDefUpsert{
 			Id: "petdef-rpc",
@@ -194,6 +190,9 @@ func TestRPCServerPetPixaDownloadStreamsPublishedAsset(t *testing.T) {
 		Now:        func() time.Time { return now },
 		NewID:      func() string { return "pet-rpc" },
 		PickWeight: func(int64) int64 { return 0 },
+	}
+	if err := runtime.Migration(ctx); err != nil {
+		t.Fatal(err)
 	}
 	adopted, err := runtime.AdoptPet(
 		gameplay.WithRuntimeProfile(ctx, profile),

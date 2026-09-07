@@ -237,8 +237,8 @@ func Fingerprint(record Record) (string, error) {
 
 // StoredFingerprint returns Fingerprint for valid records and a stable
 // quarantine fingerprint for malformed persisted records. Sources use the
-// latter only so a corrupt legacy marker can be claimed and failed instead of
-// blocking migration or every later task in the same source.
+// latter to identify malformed persisted records without interpreting their
+// descriptors as valid business data.
 func StoredFingerprint(record Record) (string, error) {
 	if fingerprint, err := Fingerprint(record); err == nil {
 		return fingerprint, nil

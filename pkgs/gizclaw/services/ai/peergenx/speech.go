@@ -180,8 +180,7 @@ func speechExtractionFailure(stage SpeechExtractionStage, cause error) error {
 	if cause == nil {
 		return nil
 	}
-	var existing *SpeechExtractionFailure
-	if errors.As(cause, &existing) {
+	if _, ok := errors.AsType[*SpeechExtractionFailure](cause); ok {
 		return cause
 	}
 	class := speechExtractionClassProviderFailure

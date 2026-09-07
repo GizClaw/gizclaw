@@ -123,8 +123,8 @@ func newOpenAIHarness(t *testing.T) *openAIHarness {
 func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	t.Helper()
 	workflows := apitypes.RuntimeProfileWorkflowCollections{"assistants": {"shared": binding("flowcraft-chat-assistant")}}
-	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-mini-chat"), "asr": binding("volc-bigasr-sauc")}
-	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
+	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-mini-chat"), "asr": binding("volc-bigasr-sauc"), "pet-chat": binding("pet-flowcraft-workflow-chat"), "pet-asr": binding("pet-flowcraft-workflow-asr")}
+	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts"), "pet": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
 	connection := apitypes.RuntimeProfileMemoryConnection{}
 	if err := connection.FromRuntimeProfileFlowcraftRedis8Connection(apitypes.RuntimeProfileFlowcraftRedis8Connection{
 		Type: apitypes.RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8, Url: "redis://redis:6379/0",

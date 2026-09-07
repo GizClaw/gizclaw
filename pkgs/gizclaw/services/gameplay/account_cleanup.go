@@ -57,7 +57,7 @@ func (r PeerRetirement) RetirePeerGameplay(ctx context.Context, snapshot PeerGam
 
 // SnapshotPeerGameplay captures exact Pet identities before account mutation.
 func (r *Runtime) SnapshotPeerGameplay(ctx context.Context, publicKey string) (PeerGameplaySnapshot, error) {
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return PeerGameplaySnapshot{}, err
 	}
 	db, err := r.db()
@@ -106,7 +106,7 @@ func (r *Runtime) RetirePeerGameplay(ctx context.Context, snapshot PeerGameplayS
 	if snapshot.PublicKey == "" || snapshot.PublicKey != strings.TrimSpace(snapshot.PublicKey) {
 		return false, errors.New("gameplay: invalid Peer retirement snapshot")
 	}
-	if err := r.Migration(ctx); err != nil {
+	if _, err := r.db(); err != nil {
 		return false, err
 	}
 	mu := r.accountMutex(snapshot.PublicKey)

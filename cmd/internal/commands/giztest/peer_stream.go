@@ -500,16 +500,24 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if session != nil {
 		session.streamID = streamID
 	}
-	if inputSent && next == nil && session == nil {
-		// input_sent records output that arrives while the input is pushed,
-		// so the step-owned reader starts before the first chunk goes out.
-		next = readPeerStream(ctx, stream, nil)
+	if (inputSent || (op.Mode == "realtime" && !firstResponse)) && next == nil {
+		// Realtime output can arrive while input is still being paced. Start
+		// reading before the first input chunk so those arrival timestamps are
+		// not shifted to the end of input. first_response retains its separate
+		// response-only deadline, which starts after input completes.
+		if session == nil {
+			next = readPeerStream(ctx, stream, nil)
+		} else {
+			session.startReader()
+			next = session.next
+		}
 	}
 	interrupted := false
 	observedInterrupted := false
 	firstAssistantStreamID := ""
 	secondAssistantStreamID := ""
 	var sendInterrupt func() error
+	var initialPush func(context.Context) error
 	switch op.Mode {
 	case "text":
 		text, ok := input.(string)
@@ -596,7 +604,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return nil
 		}
-		if err := pushTurn(ctx, streamID); err != nil {
+		if op.Mode == "realtime" && !firstResponse {
+			initialPush = func(sendCtx context.Context) error { return pushTurn(sendCtx, streamID) }
+		} else if err := pushTurn(ctx, streamID); err != nil {
 			return operationResult{}, err
 		}
 		sendInterrupt = func() error {
@@ -612,6 +622,21 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		}
 	default:
 		return operationResult{}, fmt.Errorf("peer_stream mode %q requires an existing stream", op.Mode)
+	}
+	var initialDone <-chan struct{}
+	var initialError error
+	if initialPush != nil {
+		sendCtx, cancelSend := context.WithCancel(ctx)
+		done := make(chan struct{})
+		initialDone = done
+		go func() {
+			defer close(done)
+			initialError = initialPush(sendCtx)
+		}()
+		defer func() {
+			cancelSend()
+			<-done
+		}()
 	}
 	if next == nil {
 		responseStarted = time.Now()
@@ -632,7 +657,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	var idle <-chan time.Time
 	var idleTimer *time.Timer
 	armIdle := func() {
-		if idleTimeout <= 0 {
+		if idleTimeout <= 0 || initialDone != nil {
 			return
 		}
 		if idleTimer == nil {
@@ -778,16 +803,48 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		// The turn is complete once its input is on the wire. Output that has
 		// already arrived on a step-owned stream is recorded without waiting;
 		// a retained session keeps its queue for the step that consumes it.
-		for session == nil {
+		var retained []nextPeerStreamResult
+		if session != nil {
+			defer func() { session.prependOutput(retained) }()
+		}
+		for {
 			var result nextPeerStreamResult
-			select {
-			case result = <-next:
-			default:
-				return finish()
+			if initialDone != nil {
+				select {
+				case <-ctx.Done():
+					return operationResult{}, context.Cause(ctx)
+				case <-initialDone:
+					initialDone = nil
+					if initialError != nil {
+						return operationResult{}, initialError
+					}
+					continue
+				case result = <-next:
+				}
+			} else {
+				if session != nil {
+					return finish()
+				}
+				select {
+				case result = <-next:
+				default:
+					return finish()
+				}
+			}
+			if session != nil {
+				retained = append(retained, result)
 			}
 			if result.err != nil || result.chunk == nil {
-				return finish()
+				if initialDone == nil {
+					return finish()
+				}
+				next = nil
+				continue
 			}
+			if session != nil {
+				continue
+			}
+
 			events++
 			lastEventMS = time.Since(started).Milliseconds()
 			switch part := result.chunk.Part.(type) {
@@ -805,12 +862,29 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				audioBytes += len(part.Data)
 			}
 		}
-		return finish()
 	}
+	responseComplete, interruptPending := false, false
 	for {
 		select {
+		case <-initialDone:
+			initialDone = nil
+			if initialError != nil {
+				return operationResult{}, initialError
+			}
+			if responseComplete {
+				return finish()
+			}
+			armIdle()
+			if interruptPending {
+				interruptTimer.Reset(0)
+				interrupt = interruptTimer.C
+			}
 		case <-interrupt:
 			interrupt = nil
+			if initialDone != nil {
+				interruptPending = true
+				continue
+			}
 			// The inactivity bound covers received output, not the reopen and
 			// replacement push; it restarts once the interrupting turn is sent.
 			stopIdle()
@@ -844,6 +918,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 		case result := <-next:
+			if responseComplete {
+				continue
+			}
 			eventElapsed := time.Since(started)
 			if firstResponse {
 				eventElapsed = result.receivedAt.Sub(responseStarted)
@@ -1049,6 +1126,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					}
 					textEOS, audioEOS = response.textEOS, response.audioEOS
 					textEOSMS, audioEOSMS = response.textEOSMS, response.audioEOSMS
+				}
+				if initialDone != nil {
+					responseComplete = true
+					continue
 				}
 				return finish()
 			}
@@ -1301,4 +1382,41 @@ func decodeOpusPackets(audio []byte) ([][]byte, error) {
 		return nil, fmt.Errorf("Ogg input contains no Opus audio packets")
 	}
 	return packets, nil
+}
+
+// prependOutput preserves output drained during input_sent for the next retained
+// session consumer. The relay exits with the session and keeps arrival order.
+func (s *peerStreamSession) prependOutput(results []nextPeerStreamResult) {
+	if len(results) == 0 {
+		return
+	}
+	source := s.next
+	out := make(chan nextPeerStreamResult)
+	s.next = out
+	go func() {
+		defer close(out)
+		send := func(result nextPeerStreamResult) bool {
+			select {
+			case out <- result:
+				return true
+			case <-s.ctx.Done():
+				return false
+			}
+		}
+		for _, result := range results {
+			if !send(result) {
+				return
+			}
+		}
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			case result, ok := <-source:
+				if !ok || !send(result) {
+					return
+				}
+			}
+		}
+	}()
 }

@@ -114,9 +114,9 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	// The key is owned by Server A: the foreign Server rejects it before any
 	// device or state lookup, and Server B keeps no PeerRun state even though
 	// Edge B routed the same key to Server A above.
-	beforeB := sqlTableSnapshot(t, stateB, "kv")
+	beforeB := sqlDatabaseSnapshot(t, stateB)
 	assertPeerRunAbsent(t, stateB, peer.Public)
-	assertSnapshotEqual(t, "Server B state after Edge-routed device requests", beforeB, sqlTableSnapshot(t, stateB, "kv"))
+	assertSnapshotEqual(t, "Server B state after Edge-routed device requests", beforeB, sqlDatabaseSnapshot(t, stateB))
 	if volume != 35 || !muted {
 		t.Fatalf("Edge-routed requests left the device inconsistent: volume = %d muted = %v", volume, muted)
 	}

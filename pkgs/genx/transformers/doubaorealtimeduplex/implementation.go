@@ -9,6 +9,7 @@ import (
 	"io"
 	"iter"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1399,8 +1400,8 @@ func doubaoRealtimeDuplexProviderErrorWithLogID(err error, logID string) error {
 	if err == nil || logID == "" {
 		return err
 	}
-	var providerErr *doubaospeech.Error
-	if !errors.As(err, &providerErr) {
+	providerErr, ok := errors.AsType[*doubaospeech.Error](err)
+	if !ok {
 		return err
 	}
 	if strings.TrimSpace(providerErr.LogID) == "" {
@@ -1478,9 +1479,9 @@ func realtimeDuplexASRText(payload []byte) string {
 	if text := strings.TrimSpace(decoded.Extra.OriginText); text != "" {
 		return text
 	}
-	for i := len(decoded.Results) - 1; i >= 0; i-- {
+	for i := range slices.Backward(decoded.Results) {
 		alternatives := decoded.Results[i].Alternatives
-		for j := len(alternatives) - 1; j >= 0; j-- {
+		for j := range slices.Backward(alternatives) {
 			if text := strings.TrimSpace(alternatives[j].Text); text != "" {
 				return text
 			}

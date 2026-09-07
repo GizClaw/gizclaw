@@ -2,20 +2,20 @@ package providertenants
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestServerDeepSeekTenantCRUDAndPagination(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 21, 9, 0, 0, 0, time.UTC)
 	srv := &Server{
-		Store: kv.NewMemory(nil),
-		Now:   func() time.Time { return now },
+		DB:  tenantTestDB(t),
+		Now: func() time.Time { return now },
 	}
 
 	body := deepSeekTenantUpsert("default")
@@ -111,38 +111,29 @@ func TestServerDeepSeekTenantCRUDAndPagination(t *testing.T) {
 	}
 }
 
-func TestServerDeepSeekTenantUsesDedicatedStore(t *testing.T) {
-	ctx := context.Background()
-	root := kv.NewMemory(nil)
-	srv := &Server{Store: root}
+func TestServerDeepSeekTenantUsesProviderScope(t *testing.T) {
+	db := tenantTestDB(t)
+	srv := &Server{DB: db}
 	body := deepSeekTenantUpsert("isolated")
-	response, err := srv.CreateDeepSeekTenant(ctx, adminhttp.CreateDeepSeekTenantRequestObject{Body: &body})
+	response, err := srv.CreateDeepSeekTenant(t.Context(), adminhttp.CreateDeepSeekTenantRequestObject{Body: &body})
 	if err != nil {
-		t.Fatalf("CreateDeepSeekTenant() error = %v", err)
+		t.Fatal(err)
 	}
 	created, ok := response.(adminhttp.CreateDeepSeekTenant200JSONResponse)
 	if !ok {
-		t.Fatalf("CreateDeepSeekTenant() response = %#v", response)
+		t.Fatalf("response = %#v", response)
 	}
-	deepSeekStore, err := srv.deepSeekTenantStore()
-	if err != nil {
+	if _, err := getDeepSeekTenant(t.Context(), db, created.Id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := deepSeekStore.Get(ctx, deepSeekTenantKey(created.Id)); err != nil {
-		t.Fatalf("DeepSeek scope Get() error = %v", err)
-	}
-	genericStore, err := srv.store()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := genericStore.Get(ctx, deepSeekTenantKey(created.Id)); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("generic scope Get() error = %v, want ErrNotFound", err)
+	if _, err := getOpenAITenant(t.Context(), db, created.Id); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("other provider read = %v", err)
 	}
 }
 
 func TestServerDeepSeekTenantValidationAndStoreErrors(t *testing.T) {
 	ctx := context.Background()
-	srv := &Server{Store: kv.NewMemory(nil)}
+	srv := &Server{DB: tenantTestDB(t)}
 	for _, tc := range []struct {
 		name string
 		body adminhttp.DeepSeekTenantUpsert

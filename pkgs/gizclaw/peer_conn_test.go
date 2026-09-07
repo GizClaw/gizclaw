@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
@@ -31,7 +33,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -232,7 +233,7 @@ func TestPeerConnReplaceAudioInputRouteClearsAuthorizationAndBroadcastsEOS(t *te
 	}
 	freshBOS := peerInputEvent(eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, "fresh-audio", nil)
 	freshBOS.GetBos().Kind = eventpb.StreamKind_STREAM_KIND_AUDIO
-	conn.acceptInputEvent(freshBOS, "fresh-audio", "workspace-b", false)
+	conn.acceptInputEvent(freshBOS, "fresh-audio", "workspace-b", false, conn.agentHost.RuntimeRevision())
 	if !conn.acceptedAudioInput || conn.acceptedAudioStream != "fresh-audio" || conn.acceptedAudioWorkspace != "workspace-b" || conn.events != broker {
 		t.Fatalf("fresh BOS was not admitted on the unchanged event transport")
 	}
@@ -301,7 +302,7 @@ func TestPeerRealtimeSourcePropagatesPeerEventWriteFailure(t *testing.T) {
 func TestPeerConnInitAgentHostWiresRouteErrorContext(t *testing.T) {
 	ctx := t.Context()
 	publicKey := giznet.PublicKey{42}
-	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	runs := peerruntest.New(t)
 	if _, err := runs.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "workspace-a"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -324,6 +325,7 @@ func TestPeerConnInitAgentHostWiresRouteErrorContext(t *testing.T) {
 	if output.Logger == nil || output.PeerPublicKey != publicKey.String() || output.WorkspaceName == nil {
 		t.Fatalf("route error context = %#v", output)
 	}
+	peerConn.inputPermission(ctx, false)
 	if got := output.WorkspaceName(ctx); got != "workspace-a" {
 		t.Fatalf("route error Workspace = %q, want workspace-a", got)
 	}
@@ -331,7 +333,10 @@ func TestPeerConnInitAgentHostWiresRouteErrorContext(t *testing.T) {
 
 func TestPeerConnFailsClosedWhenActiveWorkspaceCannotBeRead(t *testing.T) {
 	caller := giznet.PublicKey{33}
-	storeErr := errors.New("forced Peer run read failure")
+	runs := peerruntest.New(t)
+	if _, err := runs.DB.ExecContext(t.Context(), `DROP TABLE peer_runs`); err != nil {
+		t.Fatal(err)
+	}
 	broker := newPeerStreamEventBroker()
 	var output bytes.Buffer
 	unsubscribe, err := broker.Subscribe(&output)
@@ -342,9 +347,7 @@ func TestPeerConnFailsClosedWhenActiveWorkspaceCannotBeRead(t *testing.T) {
 	peer := &PeerConn{
 		Conn: &testGiznetConn{publicKey: caller},
 		Service: &PeerService{manager: &Manager{
-			PeerRun: &peerrun.Server{
-				Store: &failingGetStore{Store: kv.NewMemory(nil), err: storeErr},
-			},
+			PeerRun: runs,
 		}},
 		events: broker,
 	}
@@ -395,7 +398,7 @@ func TestPeerConnBoundsDeniedInputStreamTracking(t *testing.T) {
 func TestPeerConnRejectsAudioPacketsAfterWorkspaceSwitch(t *testing.T) {
 	ctx := t.Context()
 	caller := giznet.PublicKey{38}
-	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	runs := peerruntest.New(t)
 	workspaceA := apitypes.AgentSelection{WorkspaceName: "workspace-a"}
 	if _, err := runs.SetRunAgent(ctx, caller, workspaceA); err != nil {
 		t.Fatalf("SetRunAgent(workspace-a): %v", err)
@@ -403,7 +406,8 @@ func TestPeerConnRejectsAudioPacketsAfterWorkspaceSwitch(t *testing.T) {
 	if _, err := runs.ActivateRunAgent(ctx, caller, workspaceA); err != nil {
 		t.Fatalf("ActivateRunAgent(workspace-a): %v", err)
 	}
-	peer := &PeerConn{
+	host := &agenthost.Service{PublicKey: caller, PeerRun: runs}
+	peer := &PeerConn{agentHost: host,
 		Conn: &testGiznetConn{publicKey: caller},
 		Service: &PeerService{manager: &Manager{
 			PeerRun: runs,
@@ -416,7 +420,7 @@ func TestPeerConnRejectsAudioPacketsAfterWorkspaceSwitch(t *testing.T) {
 			StreamId: "audio-workspace-a",
 			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
 		}},
-	}, "audio-workspace-a", workspaceA.WorkspaceName, false)
+	}, "audio-workspace-a", workspaceA.WorkspaceName, false, peer.agentHost.RuntimeRevision())
 
 	authorized, err := peer.authorizeAudioPacket(ctx)
 	if err != nil {
@@ -427,7 +431,7 @@ func TestPeerConnRejectsAudioPacketsAfterWorkspaceSwitch(t *testing.T) {
 	}
 
 	workspaceB := apitypes.AgentSelection{WorkspaceName: "workspace-b"}
-	if _, err := runs.SetRunAgent(ctx, caller, workspaceB); err != nil {
+	if _, err := host.SetRunAgent(ctx, workspaceB); err != nil {
 		t.Fatalf("SetRunAgent(workspace-b): %v", err)
 	}
 	if _, err := runs.ActivateRunAgent(ctx, caller, workspaceB); err != nil {
@@ -504,7 +508,7 @@ func TestPeerConnAcceptsOpusPacketsOnlyAfterAuthorizedAudioBOS(t *testing.T) {
 			StreamId: "turn-1",
 			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
 		}},
-	}, "turn-1", "", false)
+	}, "turn-1", "", false, 0)
 
 	if err := peer.serveDirectPackets(); err != nil {
 		t.Fatalf("serveDirectPackets() error = %v", err)
@@ -1204,7 +1208,7 @@ func TestPeerConnCloseStopsAgentRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1246,7 +1250,7 @@ func TestPeerConnCloseDoesNotWaitForBlockedRuntimeTransition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1304,7 +1308,7 @@ func TestPeerConnHandleTelemetryPacket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	peerRun := &peerrun.Server{Store: kv.NewMemory(nil)}
+	peerRun := peerruntest.New(t)
 	metricStore := &peerConnFakeMetrics{}
 	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
 	manager.PeerRun = peerRun
@@ -1382,7 +1386,7 @@ func TestPeerConnServeDirectPacketsDoesNotBlockOnTelemetry(t *testing.T) {
 	}
 	metricStore := newPeerConnBlockingMetrics()
 	manager := NewManager(&peer.Server{Store: kv.NewMemory(nil)})
-	manager.PeerRun = &peerrun.Server{Store: kv.NewMemory(nil)}
+	manager.PeerRun = peerruntest.New(t)
 	manager.Metrics = metricStore
 	peerConn := &PeerConn{
 		Conn:    conn,
@@ -1499,7 +1503,7 @@ func TestPeerConnReloadsRuntimeWhenInputIsInactive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1546,7 +1550,7 @@ func TestPeerConnDropsInactiveInputAfterWorkspaceSelectionChanges(t *testing.T) 
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "realtime"}); err != nil {
 		t.Fatalf("SetRunAgent(realtime) error = %v", err)
 	}
@@ -1601,7 +1605,7 @@ func TestPeerConnPushSerializesWithRuntimeTransition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1675,7 +1679,7 @@ func TestPeerConnPushReturnsTransitionWaitError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}
@@ -1732,7 +1736,7 @@ func TestPeerConnRestoresInactiveInputForSameWorkspaceSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent(demo) error = %v", err)
 	}
@@ -2146,7 +2150,7 @@ func TestPeerConnSequentialAudioRoutesKeepActiveRuntimeInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKeyPair error = %v", err)
 	}
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, keyPair.Public, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent(demo) error = %v", err)
 	}
@@ -2269,5 +2273,38 @@ func TestNewPeerConnOpusEncoderUsesHighestComplexity(t *testing.T) {
 	}
 	if complexity != 10 {
 		t.Fatalf("complexity = %d, want 10", complexity)
+	}
+}
+
+func TestAudioPacketAuthorizationDoesNotReadDatabase(t *testing.T) {
+	runs := peerruntest.New(t)
+	caller := giznet.PublicKey{39}
+	host := &agenthost.Service{PublicKey: caller, PeerRun: runs}
+	input := &countingPeerAgentInput{pushed: make(chan *genx.MessageChunk, 1)}
+	peer := &PeerConn{agentInput: input, Conn: &testGiznetConn{publicKey: caller}, agentHost: host, Service: &PeerService{manager: &Manager{PeerRun: runs}}}
+	peer.acceptInputEvent(audioBOS("local-audio"), "local-audio", "workspace-a", false, host.RuntimeRevision())
+	// Make any accidental SQL read fail; an accepted stream needs no storage.
+	if _, err := runs.DB.ExecContext(t.Context(), `DROP TABLE peer_runs`); err != nil {
+		t.Fatal(err)
+	}
+	for range 1000 {
+		allowed, err := peer.authorizeAudioPacket(t.Context())
+		if err != nil || !allowed {
+			t.Fatalf("packet queried storage: %v %v", allowed, err)
+		}
+	}
+	if _, err := host.Stop(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	// The packet passed authorization before Stop; delivery must still reject
+	// its old revision after the transition completes.
+	if err := peer.pushAuthorizedAudioChunk(t.Context(), &genx.MessageChunk{}); err != nil {
+		t.Fatal(err)
+	}
+	if len(input.pushed) != 0 {
+		t.Fatal("packet crossed a completed runtime transition")
+	}
+	if allowed, err := peer.authorizeAudioPacket(t.Context()); err != nil || allowed {
+		t.Fatalf("stopped revision admitted packet: %v %v", allowed, err)
 	}
 }

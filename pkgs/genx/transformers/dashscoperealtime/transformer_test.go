@@ -83,12 +83,12 @@ func TestDashScopeStreamIDsSeparateInputAndResponseRoutes(t *testing.T) {
 	if routed := ids.response("provider-response-1"); routed != firstResponseID {
 		t.Fatalf("provider response StreamID = %q, want %q", routed, firstResponseID)
 	}
-	transcriptResponseID := ids.responseTranscript("provider-response-1")
-	if transcriptResponseID == "" || transcriptResponseID == firstResponseID {
-		t.Fatalf("response transcript StreamID = %q, response = %q", transcriptResponseID, firstResponseID)
+	textResponseID := ids.responseText("provider-response-1")
+	if textResponseID == "" || textResponseID == firstResponseID {
+		t.Fatalf("response text StreamID = %q, response = %q", textResponseID, firstResponseID)
 	}
-	if repeated := ids.responseTranscript("provider-response-1"); repeated != transcriptResponseID {
-		t.Fatalf("repeated response transcript StreamID = %q, want %q", repeated, transcriptResponseID)
+	if repeated := ids.responseText("provider-response-1"); repeated != textResponseID {
+		t.Fatalf("repeated response text StreamID = %q, want %q", repeated, textResponseID)
 	}
 
 	// The next ASR completion now consumes turn-2, independent of whether its
@@ -129,6 +129,7 @@ func TestTransformerOwnsEveryGeneratedRouteLifecycle(t *testing.T) {
 	}
 
 	routes := make(map[string][]*genx.MessageChunk)
+	var plainTextID, spokenTextID, audioID string
 	for _, chunk := range chunks {
 		if chunk == nil || chunk.Ctrl == nil {
 			continue
@@ -139,6 +140,22 @@ func TestTransformerOwnsEveryGeneratedRouteLifecycle(t *testing.T) {
 		}
 		key := chunk.Ctrl.StreamID + "\x00" + mimeType
 		routes[key] = append(routes[key], chunk)
+		switch part := chunk.Part.(type) {
+		case genx.Text:
+			switch string(part) {
+			case "answer":
+				plainTextID = chunk.Ctrl.StreamID
+			case "spoken":
+				spokenTextID = chunk.Ctrl.StreamID
+			}
+		case *genx.Blob:
+			if len(part.Data) > 0 {
+				audioID = chunk.Ctrl.StreamID
+			}
+		}
+	}
+	if spokenTextID == "" || audioID != spokenTextID || plainTextID == spokenTextID {
+		t.Fatalf("response routes: text=%q spoken=%q audio=%q; want spoken text paired with audio and independent plain text", plainTextID, spokenTextID, audioID)
 	}
 	if len(routes) != 4 {
 		t.Fatalf("generated MIME routes = %d, want input text, response text, response transcript, and response audio: %#v", len(routes), chunks)
@@ -236,7 +253,7 @@ func TestTransformerClosesInterruptedTurnsBeforeReplacementBOS(t *testing.T) {
 		providerID := fmt.Sprintf("response-%d", turn)
 		session.send(
 			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseCreated, ResponseID: providerID},
-			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDelta, ResponseID: providerID, Delta: answer},
+			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTranscriptDelta, ResponseID: providerID, Delta: answer},
 			&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: providerID, Audio: []byte(answer)},
 		)
 		waitForPart(answer, false)
@@ -249,23 +266,23 @@ func TestTransformerClosesInterruptedTurnsBeforeReplacementBOS(t *testing.T) {
 	pushInputBOS(2)
 	session.waitCancels(t, 2)
 	session.send(
-		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "response-1", Delta: "late-answer-1"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTranscriptDelta, ResponseID: "response-1", Delta: "late-answer-1"},
 		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: "response-1", Audio: []byte("late-answer-1")},
-		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-1"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTranscriptDone, ResponseID: "response-1"},
 		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-1"},
 	)
 	startResponse(2, "answer-2")
 	pushInputBOS(3)
 	session.waitCancels(t, 3)
 	session.send(
-		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDelta, ResponseID: "response-2", Delta: "late-answer-2"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTranscriptDelta, ResponseID: "response-2", Delta: "late-answer-2"},
 		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDelta, ResponseID: "response-2", Audio: []byte("late-answer-2")},
-		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-2"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTranscriptDone, ResponseID: "response-2"},
 		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-2"},
 	)
 	startResponse(3, "answer-3")
 	session.send(
-		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTextDone, ResponseID: "response-3"},
+		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseTranscriptDone, ResponseID: "response-3"},
 		&dashscope.RealtimeEvent{Type: dashscope.EventTypeResponseAudioDone, ResponseID: "response-3"},
 	)
 	close(session.events)

@@ -2,7 +2,6 @@ package friendgroup
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -16,10 +15,10 @@ import (
 )
 
 // requireMemberCapacity rejects adding one more member when the Group already
-// holds socialutil.FriendGroupMemberLimit members. Callers hold the Group
-// mutation lock so the count cannot race with another admission.
+// holds socialutil.FriendGroupMemberLimit members. Committing an admission
+// additionally compares the shared group version captured before this read.
 func (s *Server) requireMemberCapacity(ctx context.Context, friendGroupID string) error {
-	members, err := s.listAllMembers(ctx, friendGroupID)
+	members, err := s.memberPublicKeys(ctx, friendGroupID)
 	if err != nil {
 		return err
 	}
@@ -49,21 +48,32 @@ func (s *Server) removeMember(ctx context.Context, friendGroupID, peerID string,
 	// prefixes off the configured Server fields instead would let a wiring
 	// that binds those stores elsewhere delete keys nobody ever wrote, leaving
 	// the membership in place and the removed Peer still able to talk.
-	store, prefixes, ok := kv.SharedAtomicStore(members, belongs)
-	if !ok {
-		return errors.New("social: group member stores do not share an atomic store")
-	}
-	if err := store.BatchMutate(
-		ctx,
-		nil,
-		[]kv.Key{
-			s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID)),
-			s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)),
-			s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName))),
-		},
-	); err != nil {
+	guard, err := s.readGroupMutation(ctx, friendGroupID, members, belongs)
+	if err != nil {
 		return err
 	}
+	prefixes := guard.prefixes
+	memberKey := s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID))
+	memberData, err := guard.store.Get(ctx, memberKey)
+	if errors.Is(err, kv.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	changed, err := guard.apply(ctx, kv.Mutation{
+		Conditions:           []kv.Condition{{Key: memberKey, Expected: memberData}},
+		DeleteKeys:           []kv.Key{s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID)), s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)), s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName)))},
+		RemoveMembers:        []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
+		RemoveOrderedMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[1], belongPageKey(peerID)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}}},
+	}, false)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return ErrGroupChanged
+	}
+
 	return nil
 }
 
@@ -76,13 +86,7 @@ func (s *Server) ResolveSFUWorkspaceBinding(ctx context.Context, workspaceID, pe
 	if err := customid.ValidateResourceID(workspaceID); err != nil {
 		return socialutil.SFUWorkspaceBinding{}, fmt.Errorf("social: invalid workspace id: %w", err)
 	}
-	return s.resolveSFUBinding(ctx, peerPublicKey, func(binding workspaceBinding) bool {
-		return binding.WorkspaceID == workspaceID
-	}, func(intent retirementIntent) bool {
-		return intent.WorkspaceID == workspaceID
-	}, func(receipt retirementReceipt) bool {
-		return receipt.WorkspaceID == workspaceID
-	})
+	return s.resolveSFUBinding(ctx, peerPublicKey, socialutil.WorkspaceLocatorIDKey(workspaceID))
 }
 
 // ResolveSFUWorkspaceBindingByName is ResolveSFUWorkspaceBinding keyed by the
@@ -92,22 +96,10 @@ func (s *Server) ResolveSFUWorkspaceBindingByName(ctx context.Context, workspace
 	if workspaceName == "" {
 		return socialutil.SFUWorkspaceBinding{}, errors.New("social: workspace name is required")
 	}
-	return s.resolveSFUBinding(ctx, peerPublicKey, func(binding workspaceBinding) bool {
-		return binding.WorkspaceName == workspaceName
-	}, func(intent retirementIntent) bool {
-		return intent.WorkspaceName == workspaceName
-	}, func(receipt retirementReceipt) bool {
-		return receipt.WorkspaceName == workspaceName
-	})
+	return s.resolveSFUBinding(ctx, peerPublicKey, socialutil.WorkspaceLocatorNameKey(workspaceName))
 }
 
-func (s *Server) resolveSFUBinding(
-	ctx context.Context,
-	peerPublicKey string,
-	matchBinding func(workspaceBinding) bool,
-	matchIntent func(retirementIntent) bool,
-	matchReceipt func(retirementReceipt) bool,
-) (socialutil.SFUWorkspaceBinding, error) {
+func (s *Server) resolveSFUBinding(ctx context.Context, peerPublicKey string, key kv.Key) (socialutil.SFUWorkspaceBinding, error) {
 	store, err := s.relationshipStore()
 	if err != nil {
 		return socialutil.SFUWorkspaceBinding{}, err
@@ -116,51 +108,27 @@ func (s *Server) resolveSFUBinding(
 	if peerPublicKey == "" {
 		return socialutil.SFUWorkspaceBinding{}, errors.New("social: peer public key is required")
 	}
-	for entry, err := range store.List(ctx, workspaceBindingsRoot) {
-		if err != nil {
-			return socialutil.SFUWorkspaceBinding{}, err
-		}
-		if len(entry.Key) != len(workspaceBindingsRoot)+1 {
-			continue
-		}
-		friendGroupID := socialutil.UnescapeStoreSegment(entry.Key[len(workspaceBindingsRoot)])
-		binding, err := s.readWorkspaceBinding(ctx, friendGroupID)
-		if errors.Is(err, kv.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return socialutil.SFUWorkspaceBinding{}, err
-		}
-		if !matchBinding(binding) {
-			continue
-		}
-		return s.currentSFUBinding(ctx, binding, peerPublicKey)
+	locator, err := socialutil.ReadJSONValue[socialutil.WorkspaceBindingLocator](ctx, store, key)
+	if err != nil {
+		return socialutil.SFUWorkspaceBinding{}, err
 	}
-	for entry, err := range store.List(ctx, retirementIntentsRoot) {
-		if err != nil {
-			return socialutil.SFUWorkspaceBinding{}, err
-		}
-		var intent retirementIntent
-		if err := json.Unmarshal(entry.Value, &intent); err != nil {
-			return socialutil.SFUWorkspaceBinding{}, err
-		}
-		if matchIntent(intent) {
-			return socialutil.SFUWorkspaceBinding{}, sfu.ErrRevoked
-		}
+	if err := locator.Validate(); err != nil {
+		return socialutil.SFUWorkspaceBinding{}, err
 	}
-	for entry, err := range store.List(ctx, retirementReceiptsRoot) {
-		if err != nil {
-			return socialutil.SFUWorkspaceBinding{}, err
-		}
-		var receipt retirementReceipt
-		if err := json.Unmarshal(entry.Value, &receipt); err != nil {
-			return socialutil.SFUWorkspaceBinding{}, err
-		}
-		if matchReceipt(receipt) {
-			return socialutil.SFUWorkspaceBinding{}, sfu.ErrRevoked
-		}
+	if !slices.Equal(key, socialutil.WorkspaceLocatorIDKey(locator.WorkspaceID)) && !slices.Equal(key, socialutil.WorkspaceLocatorNameKey(locator.WorkspaceName)) {
+		return socialutil.SFUWorkspaceBinding{}, errors.New("social: workspace locator identity mismatch")
 	}
-	return socialutil.SFUWorkspaceBinding{}, kv.ErrNotFound
+	binding, err := s.readWorkspaceBinding(ctx, locator.ResourceID)
+	if errors.Is(err, kv.ErrNotFound) {
+		return socialutil.SFUWorkspaceBinding{}, sfu.ErrRevoked
+	}
+	if err != nil {
+		return socialutil.SFUWorkspaceBinding{}, err
+	}
+	if binding.FriendGroupID != locator.ResourceID || binding.WorkspaceID != locator.WorkspaceID || binding.WorkspaceName != locator.WorkspaceName {
+		return socialutil.SFUWorkspaceBinding{}, sfu.ErrRevoked
+	}
+	return s.currentSFUBinding(ctx, binding, peerPublicKey)
 }
 
 // currentSFUBinding verifies that the Group behind binding is still live and
@@ -186,14 +154,15 @@ func (s *Server) currentSFUBinding(ctx context.Context, binding workspaceBinding
 		}
 		return socialutil.SFUWorkspaceBinding{}, err
 	}
-	records, err := s.listAllMembers(ctx, binding.FriendGroupID)
+	store, err := s.membersStore()
 	if err != nil {
 		return socialutil.SFUWorkspaceBinding{}, err
 	}
-	members := make([]string, 0, len(records))
-	for _, member := range records {
-		members = append(members, member.PeerPublicKey)
+	members, err := store.ListMembers(ctx, memberCollectionKey(binding.FriendGroupID))
+	if err != nil {
+		return socialutil.SFUWorkspaceBinding{}, err
 	}
+	slices.Sort(members)
 	if !slices.Contains(members, peerPublicKey) {
 		return socialutil.SFUWorkspaceBinding{}, sfu.ErrNotMember
 	}
@@ -212,20 +181,14 @@ func (s *Server) ListSFUWorkspaceBindingsForPeer(ctx context.Context, peerPublic
 	if peerPublicKey == "" {
 		return nil, errors.New("social: peer public key is required")
 	}
-	prefix := append(append(kv.Key{}, socialutil.GroupBelongsRoot...), socialutil.EscapeStoreSegment(peerPublicKey))
-	out := make([]socialutil.SFUWorkspaceBinding, 0)
-	for entry, err := range belongs.List(ctx, prefix) {
-		if err != nil {
-			return nil, err
-		}
-		var member friendGroupMemberRecord
-		if err := json.Unmarshal(entry.Value, &member); err != nil {
-			return nil, err
-		}
-		if err := member.validate(); err != nil {
-			return nil, err
-		}
-		binding, err := s.readWorkspaceBinding(ctx, member.FriendGroupID)
+	groupIDs, err := belongs.ListMembers(ctx, belongCollectionKey(peerPublicKey))
+	if err != nil {
+		return nil, err
+	}
+	slices.Sort(groupIDs)
+	out := make([]socialutil.SFUWorkspaceBinding, 0, len(groupIDs))
+	for _, groupID := range groupIDs {
+		binding, err := s.readWorkspaceBinding(ctx, groupID)
 		if errors.Is(err, kv.ErrNotFound) {
 			continue
 		}

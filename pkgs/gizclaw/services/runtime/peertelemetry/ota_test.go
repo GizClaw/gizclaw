@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestOTAPacketIngestion(t *testing.T) {
@@ -37,16 +37,15 @@ func TestOTAPacketIngestion(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	peer := testPublicKey(t)
 	store := &fakeMetricsStore{}
-	runtimeStore := kv.NewMemory(nil)
-	t.Cleanup(func() { _ = runtimeStore.Close() })
-	service := &Service{Metrics: store, Status: StatusSync{Store: &peerrun.Server{Store: runtimeStore}}}
+	runtimeStore := peerruntest.New(t)
+	service := &Service{Metrics: store, Status: StatusSync{Store: runtimeStore}}
 	if err := service.ReportPacket(context.Background(), peer, payload); err != nil {
 		t.Fatal(err)
 	}
 	if output.Len() != 0 {
 		t.Fatal("OTA payload leaked to logs")
 	}
-	status, err := (&peerrun.Server{Store: runtimeStore}).GetStatus(context.Background(), peer)
+	status, err := (runtimeStore).GetStatus(context.Background(), peer)
 	if err != nil || status.Ota == nil || status.Ota.State != "failed" || status.Ota.DownloadPercent == nil || *status.Ota.DownloadPercent != 0 || status.Ota.ErrorMessage == nil || *status.Ota.ErrorMessage != "timeout" || status.Ota.ObservedAt.UnixMilli() != 1232 {
 		t.Fatalf("OTA runtime: %+v, %v", status.Ota, err)
 	}

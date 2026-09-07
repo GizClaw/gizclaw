@@ -24,9 +24,13 @@ services/ai/
 
 Have the credential resources required to call external AI providers and their persistence boundaries. Credentials are protected product resources and should not leak into workflow definitions, workspace history, or generic GenX abstractions.
 
+Credential uses the local SQL `credentials` table. ID, Provider, description, timestamps, revision, and creation identity have separate columns; secret configuration remains JSON. The table and `(provider, id)` index are initialized at startup, and Provider filtering and pagination run directly in SQL. Updates compare revision and creation identity. When a request omits the secret, conflict retries reread the latest configuration so concurrent secret rotation is preserved. Recreated records or persistent contention reject the old update with `CREDENTIAL_CONFLICT`.
+
 ### [model](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/model)
 
 Owns the GizClaw model catalog and has the ability to parse persistent model definitions into models that GenX can use. The general model interface belongs to `pkgs/genx`; the specific GizClaw model resources and selection logic belong here.
+
+Model uses the local SQL `models` table. ID, model kind, source, Provider kind and ID, display fields, and timestamps have separate columns; Provider configuration remains JSON. Tables and source/Provider indexes are initialized at startup. Lists apply the cursor, all filters, ordering, and limit in SQL and fetch complete records in one query. Updates preserve creation and synchronization timestamps, conditionally reject synchronized models, and cannot recreate deleted records.
 
 ### memorylayout
 
@@ -44,15 +48,19 @@ Connect GizClaw peer or provider-backed generation capabilities to the unified G
 
 Have product resources for each AI provider tenant, such as provider endpoint, account-level configuration, and information required for voice synchronization. It can rely on specific provider SDKs, but it cannot allow provider-specific fields to proliferate into unrelated areas.
 
-Server configuration assigns ProviderTenants one root Store; generic, MiniMax, DeepSeek, and Volc tenant records use code-owned internal scopes. The Credential and Voice capabilities it consumes are supplied by their owning Services instead of repeating their backing Stores under `services.provider_tenants`; the unused legacy `model_store` binding is removed.
+ProviderTenants uses the local SQL `provider_tenants` table with a composite `(provider_kind, id)` primary key, allowing independent IDs across all six Provider kinds. Credential ID, description, creation/update timestamps, and synchronization time have separate columns; Provider configuration remains JSON. Startup creates the table and credential lookup index. Lists apply Provider scope, ID cursor, and limit in SQL. Configuration updates preserve creation and synchronization timestamps. Sync completion updates only synchronization metadata and checks configuration identity to avoid modifying an updated or recreated tenant. Credential and Voice capabilities come from their respective business services.
 
 ### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
 
 Have voice resources and provider voice mappings available to Agent/GenX for selection. Common capabilities such as Audio codec, resampling and playback belong to `pkgs/audio` and do not belong to the voice catalog.
 
+Voice uses the local SQL `voices` table, with separate source, Provider kind and ID, upstream voice ID, display fields, and timestamps; Provider configuration remains JSON. Lists use indexes for the selected filters and ID range. Synchronization locks the target Provider within one transaction, writes batches of 64 while preserving existing IDs and creation timestamps, then removes synchronized voices missing from that batch generation. Manual voices are preserved. Any batch failure rolls back the entire synchronization. Tables and indexes are initialized at startup; legacy voice fields are not read.
+
 ### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
 
 Owns workflow definition, driver selection, and workflow resource persistence. `workflow/agents` stores the integration between specific workflow engines and GizClaw Agent Host, including Flowcraft, SFU, AST Translate, DashScope Realtime, Doubao Realtime, Doubao Realtime Duplex, and Eino.
+
+Workflow uses the local SQL `workflows` table, with separate ID, driver, and configuration JSON columns, through the Server database connection pool. The table is initialized at startup. Lists apply the ID range, limit, and built-in exclusion in SQL. Updates affect existing records only, and deletes atomically return the removed record, preventing concurrent updates from recreating a deleted Workflow. The built-in SFU Workflow is materialized idempotently at startup and retains its Admin create, update, and delete restrictions.
 
 Workflow describes how to run an Agent, but does not own the online state and stream lifecycle of the Agent instance.
 
@@ -112,6 +120,10 @@ Ordinary Workspace creation is Peer-owned. Admin `PUT` updates an existing Works
 
 One OpenAI Conversation maps one-to-one to one user Workspace. Text execution against a Workspace bound to the `sfu` driver is rejected explicitly because that Workspace has no Agent that can execute text input. History remains the sole transcript store; OpenAI item records contain only stable IDs, role/status/order, and exact History correlation. Conversation metadata, item indexes, immutable Response input snapshots, and Response lifecycle records share the Workspace runtime prefix and are therefore removed by normal Workspace cleanup.
 
+Tenant retirement first deletes the observed incarnation within a SQL transaction and holds its lifecycle lock until voice cleanup completes. A stale request encountering a replacement fails before touching voices. When tenant and Voice services share a pool, voice removal joins that transaction, rolls back with it, and does not borrow a second connection. With separate databases, voice cleanup commits independently and is retryable while the tenant transaction prevents a same-ID replacement; this configuration does not provide cross-database atomic commit.
+
+After fetching upstream voices, synchronization validates and locks the observed tenant incarnation before publishing voices or synchronization metadata. Shared pools use one transaction; separate pools hold the tenant row lock through the voice commit, in the same lock order as deletion. Configuration PUT atomically rotates the internal incarnation token. An updated, retired, or replaced tenant snapshot cannot publish voices. Workspace history activity timestamps remain monotonic; deleted or pending-deletion records return a conflict instead of reporting a skipped update as successful.
+
 ## Dependencies and boundaries
 
 ```mermaid
@@ -136,4 +148,6 @@ Shouldn't be placed here:
 - Provider credential plain text log or cross-domain replication.
 - Wiring codes that belong only to the Admin/Peer HTTP route registration.
 
-Workspace creation registers and drains in-flight work per owner. Runtime preparation and caller initialization run outside the coordinator mutex; retirement closes only the target owner's admission and waits for that owner's creations before snapshotting. MemoryLayout read-modify-write operations serialize per canonical layout ID, not per Server.
+Workspace creation registers and drains in-flight work per owner. Runtime preparation and caller initialization run outside the coordinator mutex; retirement closes only the target owner's admission and waits for that owner's creations before snapshotting. MemoryLayout updates and deletes are atomic SQL statements, without service-level read-modify-write locks.
+
+MemoryLayout uses the `memory_layouts` business table with an ID primary key and separate JSON columns for Flowcraft, Mem0 and VolcMem0 policy. It stores neither Memory content nor runtime connections. Server startup initializes the schema using the configured SQL pool. Lists use ID range queries and SQL limits. Atomic updates replace only an existing row and cannot recreate a concurrently deleted layout; service-level read-modify-write locks are unnecessary.

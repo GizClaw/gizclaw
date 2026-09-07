@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -134,7 +136,7 @@ func audioBOS(streamID string) *eventpb.PeerEvent {
 func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 	ctx := t.Context()
 	caller := giznet.PublicKey{41}
-	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	runs := peerruntest.New(t)
 	selection := apitypes.AgentSelection{WorkspaceName: testSFUWorkspaceName}
 	if _, err := runs.SetRunAgent(ctx, caller, selection); err != nil {
 		t.Fatalf("SetRunAgent: %v", err)
@@ -176,6 +178,7 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 	if _, err := runs.ActivateRunAgent(ctx, caller, selection); err != nil {
 		t.Fatalf("ActivateRunAgent: %v", err)
 	}
+	peer.inputPermission(ctx, true)
 	authorized, err = peer.authorizeInputEvent(ctx, audioBOS("turn-active"))
 	if err != nil {
 		t.Fatalf("authorize active BOS: %v", err)
@@ -196,8 +199,9 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 		t.Fatalf("authorize active EOS: %v", err)
 	}
 
-	// Membership lost: the next turn is denied without caching.
+	// Membership lost: background refresh revokes the cached decision.
 	bindings.set(sfu.ErrNotMember)
+	peer.inputPermission(ctx, true)
 	authorized, err = peer.authorizeInputEvent(ctx, audioBOS("turn-removed"))
 	if err != nil {
 		t.Fatalf("authorize removed BOS: %v", err)
@@ -221,6 +225,7 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 		t.Fatalf("authorize removed EOS: %v", err)
 	}
 	bindings.set(errors.New("social kv unavailable"))
+	peer.inputPermission(ctx, true)
 	if authorized, err := peer.authorizeInputEvent(ctx, audioBOS("turn-failed")); err != nil || authorized {
 		t.Fatalf("authorize BOS during lookup failure = %v, %v; want denied", authorized, err)
 	}
@@ -243,6 +248,7 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 	if _, err := runs.ActivateRunAgent(ctx, caller, workflowSelection); err != nil {
 		t.Fatalf("ActivateRunAgent(workflow): %v", err)
 	}
+	peer.inputPermission(ctx, true)
 	if authorized, err := peer.authorizeInputEvent(ctx, audioBOS("turn-workflow")); err != nil || !authorized {
 		t.Fatalf("authorize Workflow BOS = %v, %v; want admitted", authorized, err)
 	}
@@ -261,7 +267,7 @@ func TestPeerConnAdmitsSFUTurnsOnlyWhileRuntimeAttachedAndMember(t *testing.T) {
 func TestPeerConnRefusesSFUWorkspaceWithoutBinding(t *testing.T) {
 	ctx := t.Context()
 	caller := giznet.PublicKey{43}
-	runs := &peerrun.Server{Store: kv.NewMemory(nil)}
+	runs := peerruntest.New(t)
 	bindings := &stubSFUBindings{}
 	for name, tc := range map[string]struct {
 		workspaceName string
@@ -416,4 +422,27 @@ func audioEndEvent(streamID string) *eventpb.PeerEvent {
 			Kind:     eventpb.StreamKind_STREAM_KIND_AUDIO,
 		}},
 	}
+}
+
+// Ordinary Workspace input must remain independent of Social Redis outages.
+func TestOrdinaryWorkspaceInputSkipsSocialBindings(t *testing.T) {
+	manager := newSFUTestManager(nil, unexpectedSFUBindings{t: t})
+	for range 10 {
+		isSFU, denial := manager.sfuInputAccess(t.Context(), giznet.PublicKey{41}, testWorkflowWorkspaceName)
+		if isSFU || denial != nil {
+			t.Fatalf("ordinary Workspace input = %v, %v", isSFU, denial)
+		}
+	}
+}
+
+type unexpectedSFUBindings struct{ t *testing.T }
+
+func (r unexpectedSFUBindings) ResolveSFUWorkspaceBinding(context.Context, string, string) (socialutil.SFUWorkspaceBinding, error) {
+	r.t.Error("ordinary Workspace consulted Social binding by ID")
+	return socialutil.SFUWorkspaceBinding{}, errors.New("Social Redis unavailable")
+}
+
+func (r unexpectedSFUBindings) ResolveSFUWorkspaceBindingByName(context.Context, string, string) (socialutil.SFUWorkspaceBinding, error) {
+	r.t.Error("ordinary Workspace consulted Social binding by name")
+	return socialutil.SFUWorkspaceBinding{}, errors.New("Social Redis unavailable")
 }

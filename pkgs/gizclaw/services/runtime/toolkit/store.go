@@ -1,31 +1,53 @@
 package toolkit
 
 import (
-	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"slices"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
-var (
-	toolsRoot             = kv.Key{"by-id"}
-	toolsByInvokeNameRoot = kv.Key{"by-invoke-name"}
-)
-
+// Server owns the SQL catalog of executable Tool declarations.
 type Server struct {
-	Store kv.Store
-	Now   func() time.Time
+	DB  *sqlx.DB
+	Now func() time.Time
+}
+
+const toolColumns = "id,invoke_name,type,description,enabled,version,input_schema_json,triggers_json,metadata_json,http_json,created_at,updated_at,revision,incarnation"
+
+// Initialize creates the Tool schema during Server startup.
+func (s *Server) Initialize(ctx context.Context) error {
+	db, err := s.database()
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS tools (
+ id TEXT PRIMARY KEY CHECK(length(id)>0),
+ invoke_name TEXT NOT NULL UNIQUE CHECK(length(invoke_name)>0),
+ type TEXT NOT NULL CHECK(type IN ('http_request','client_rpc')),
+ description TEXT,
+ enabled BOOLEAN NOT NULL,
+ version TEXT,
+ input_schema_json TEXT NOT NULL,
+ triggers_json TEXT NOT NULL,
+ metadata_json TEXT NOT NULL,
+ http_json TEXT NOT NULL,
+ created_at TEXT NOT NULL,
+ updated_at TEXT NOT NULL,
+ revision BIGINT NOT NULL DEFAULT 1 CHECK(revision>0),
+ incarnation TEXT NOT NULL
+ )`)
+	return err
 }
 
 func (s *Server) GetTool(ctx context.Context, name string) (Tool, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return Tool{}, err
 	}
@@ -33,59 +55,62 @@ func (s *Server) GetTool(ctx context.Context, name string) (Tool, error) {
 	if err != nil {
 		return Tool{}, err
 	}
-	id, err := store.Get(ctx, toolInvokeNameKey(name))
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return Tool{}, ErrToolNotFound
-		}
-		return Tool{}, fmt.Errorf("toolkit: get tool %q: %w", name, err)
-	}
-	return s.GetToolByID(ctx, string(id))
+	tool, _, err := scanTool(db.QueryRowContext(ctx, db.Rebind(`SELECT `+toolColumns+` FROM tools WHERE invoke_name=?`), name))
+	return tool, err
 }
 
 func (s *Server) GetToolByID(ctx context.Context, id string) (Tool, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return Tool{}, err
 	}
 	if err := customid.ValidateResourceID(id); err != nil {
 		return Tool{}, ErrToolNotFound
 	}
-	data, err := store.Get(ctx, toolKey(id))
-	if err != nil {
-		if errors.Is(err, kv.ErrNotFound) {
-			return Tool{}, ErrToolNotFound
-		}
-		return Tool{}, fmt.Errorf("toolkit: get tool %q: %w", id, err)
-	}
-	tool, err := decodeTool(data)
-	if err != nil {
-		return Tool{}, fmt.Errorf("toolkit: decode tool %q: %w", id, err)
-	}
-	return tool, nil
+	tool, _, err := scanTool(db.QueryRowContext(ctx, db.Rebind(`SELECT `+toolColumns+` FROM tools WHERE id=?`), id))
+	return tool, err
 }
 
+// ListTools reads the catalog in bounded SQL pages ordered by canonical ID.
 func (s *Server) ListTools(ctx context.Context) ([]Tool, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return nil, err
 	}
-	var tools []Tool
-	for entry, err := range store.List(ctx, toolsRoot) {
+	var result []Tool
+	cursor := ""
+	for {
+		page, err := listToolPage(ctx, db, cursor)
 		if err != nil {
-			return nil, fmt.Errorf("toolkit: list tools: %w", err)
+			return nil, err
 		}
-		tool, err := decodeTool(entry.Value)
-		if err != nil {
-			return nil, fmt.Errorf("toolkit: decode tool at %s: %w", entry.Key.String(), err)
+		result = append(result, page...)
+		if len(page) < 256 {
+			return result, nil
 		}
-		tools = append(tools, tool)
+		cursor = page[len(page)-1].ID
 	}
-	return tools, nil
+}
+
+func listToolPage(ctx context.Context, db *sqlx.DB, cursor string) ([]Tool, error) {
+	rows, err := db.QueryContext(ctx, db.Rebind(`SELECT `+toolColumns+` FROM tools WHERE id>? ORDER BY id LIMIT 256`), cursor)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	page := make([]Tool, 0, 256)
+	for rows.Next() {
+		tool, _, err := scanTool(rows)
+		if err != nil {
+			return nil, err
+		}
+		page = append(page, tool)
+	}
+	return page, rows.Err()
 }
 
 func (s *Server) CreateTool(ctx context.Context, tool Tool) (Tool, error) {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return Tool{}, err
 	}
@@ -96,89 +121,161 @@ func (s *Server) CreateTool(ctx context.Context, tool Tool) (Tool, error) {
 	if err := customid.ValidateResourceID(tool.ID); err != nil {
 		return Tool{}, fmt.Errorf("%w: %v", ErrInvalidTool, err)
 	}
-	now := s.now()
-	tool.CreatedAt = now
+	tool.CreatedAt = s.now().UTC()
+	tool.UpdatedAt = tool.CreatedAt
 	tool, err = NormalizeTool(tool)
 	if err != nil {
 		return Tool{}, err
 	}
-	tool.UpdatedAt = now
-	data, err := json.Marshal(tool)
+	config, err := toolConfigValues(tool)
 	if err != nil {
-		return Tool{}, fmt.Errorf("toolkit: encode tool %q: %w", tool.ID, err)
+		return Tool{}, err
 	}
-	conflict, _, created, err := kv.CreateIfAllAbsent(ctx, store, []kv.Entry{
-		{Key: toolKey(tool.ID), Value: data},
-		{Key: toolInvokeNameKey(tool.InvokeName), Value: []byte(tool.ID)},
-	}, nil)
+	args := []any{tool.ID, tool.InvokeName, string(tool.Type), tool.Description, tool.Enabled, tool.Version}
+	args = append(args, config...)
+	args = append(args, tool.CreatedAt.Format(time.RFC3339Nano), tool.UpdatedAt.Format(time.RFC3339Nano), uuid.NewString())
+	result, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO tools(id,invoke_name,type,description,enabled,version,input_schema_json,triggers_json,metadata_json,http_json,created_at,updated_at,incarnation) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`), args...)
 	if err != nil {
-		return Tool{}, fmt.Errorf("toolkit: put tool %q: %w", tool.ID, err)
+		return Tool{}, fmt.Errorf("toolkit: create tool: %w", err)
 	}
-	if !created {
-		if slices.Equal(conflict, toolInvokeNameKey(tool.InvokeName)) {
-			return Tool{}, fmt.Errorf("%w: tool invoke_name %q already exists", ErrToolConflict, tool.InvokeName)
-		}
-		return Tool{}, fmt.Errorf("%w: tool id %q already exists", ErrToolConflict, tool.ID)
+	count, err := result.RowsAffected()
+	if err != nil {
+		return Tool{}, err
+	}
+	if count == 0 {
+		return Tool{}, fmt.Errorf("%w: tool ID or invoke_name already exists", ErrToolConflict)
 	}
 	return cloneTool(tool), nil
 }
 
-func (s *Server) PutTool(ctx context.Context, id string, tool Tool) (Tool, error) {
-	store, err := s.store()
+func (s *Server) PutTool(ctx context.Context, id string, desired Tool) (Tool, error) {
+	db, err := s.database()
 	if err != nil {
 		return Tool{}, err
 	}
-	existing, err := s.GetToolByID(ctx, id)
+	desired, err = normalizeToolDeclaration(desired)
 	if err != nil {
 		return Tool{}, err
 	}
-	tool, err = normalizeToolDeclaration(tool)
-	if err != nil {
-		return Tool{}, err
+	if desired.ID != id {
+		return Tool{}, fmt.Errorf("%w: id %q must match path id %q", ErrInvalidTool, desired.ID, id)
 	}
-	if tool.ID != id {
-		return Tool{}, fmt.Errorf("%w: id %q must match path id %q", ErrInvalidTool, tool.ID, id)
+	for range 16 {
+		existing, revision, err := scanTool(db.QueryRowContext(ctx, db.Rebind(`SELECT `+toolColumns+` FROM tools WHERE id=?`), id))
+		if err != nil {
+			return Tool{}, err
+		}
+		if desired.InvokeName != existing.InvokeName {
+			return Tool{}, fmt.Errorf("%w: invoke_name is immutable", ErrToolConflict)
+		}
+		tool := cloneTool(desired)
+		tool.CreatedAt = existing.CreatedAt
+		tool.UpdatedAt = s.now().UTC()
+		retainDirectSecret(&tool, existing)
+		tool, err = NormalizeTool(tool)
+		if err != nil {
+			return Tool{}, err
+		}
+		config, err := toolConfigValues(tool)
+		if err != nil {
+			return Tool{}, err
+		}
+		args := []any{string(tool.Type), tool.Description, tool.Enabled, tool.Version}
+		args = append(args, config...)
+		args = append(args, tool.UpdatedAt.Format(time.RFC3339Nano), id, revision.Version, revision.Incarnation)
+		result, err := db.ExecContext(ctx, db.Rebind(`UPDATE tools SET type=?,description=?,enabled=?,version=?,input_schema_json=?,triggers_json=?,metadata_json=?,http_json=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=? AND incarnation=?`), args...)
+		if err != nil {
+			return Tool{}, err
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return Tool{}, err
+		}
+		if count == 1 {
+			return cloneTool(tool), nil
+		}
 	}
-	if tool.InvokeName != existing.InvokeName {
-		return Tool{}, fmt.Errorf("%w: invoke_name %q must match immutable invoke_name %q", ErrToolConflict, tool.InvokeName, existing.InvokeName)
-	}
-	tool.CreatedAt = existing.CreatedAt
-	tool.UpdatedAt = s.now()
-	retainDirectSecret(&tool, existing)
-	tool, err = NormalizeTool(tool)
-	if err != nil {
-		return Tool{}, err
-	}
-	data, err := json.Marshal(tool)
-	if err != nil {
-		return Tool{}, fmt.Errorf("toolkit: encode tool %q: %w", tool.ID, err)
-	}
-	if err := store.Set(ctx, toolKey(tool.ID), data); err != nil {
-		return Tool{}, fmt.Errorf("toolkit: put tool %q: %w", tool.ID, err)
-	}
-	return cloneTool(tool), nil
+	return Tool{}, fmt.Errorf("%w: tool changed concurrently", ErrToolConflict)
 }
 
 func (s *Server) DeleteTool(ctx context.Context, id string) error {
-	store, err := s.store()
+	db, err := s.database()
 	if err != nil {
 		return err
 	}
-	tool, err := s.GetToolByID(ctx, id)
+	result, err := db.ExecContext(ctx, db.Rebind(`DELETE FROM tools WHERE id=?`), id)
 	if err != nil {
 		return err
 	}
-	if err := store.BatchDelete(ctx, []kv.Key{toolKey(tool.ID), toolInvokeNameKey(tool.InvokeName)}); err != nil {
-		return fmt.Errorf("toolkit: delete tool %q: %w", tool.ID, err)
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return ErrToolNotFound
 	}
 	return nil
 }
 
-func (s *Server) store() (kv.Store, error) {
-	if s == nil || s.Store == nil {
+type toolRevision struct {
+	Version     int64
+	Incarnation string
+}
+
+func scanTool(row interface{ Scan(...any) error }) (Tool, toolRevision, error) {
+	var tool Tool
+	var input, triggers, metadata, http, created, updated string
+	var revision toolRevision
+	err := row.Scan(&tool.ID, &tool.InvokeName, &tool.Type, &tool.Description, &tool.Enabled, &tool.Version, &input, &triggers, &metadata, &http, &created, &updated, &revision.Version, &revision.Incarnation)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Tool{}, toolRevision{}, ErrToolNotFound
+	}
+	if err != nil {
+		return Tool{}, toolRevision{}, err
+	}
+	for _, field := range []struct {
+		raw    string
+		target any
+	}{{input, &tool.InputSchema}, {triggers, &tool.Triggers}, {metadata, &tool.Metadata}, {http, &tool.HTTP}} {
+		if err := json.Unmarshal([]byte(field.raw), field.target); err != nil {
+			return Tool{}, toolRevision{}, fmt.Errorf("toolkit: invalid stored configuration: %w", err)
+		}
+	}
+	if metadata == "null" {
+		tool.Metadata = nil
+	}
+	if tool.CreatedAt, err = time.Parse(time.RFC3339Nano, created); err != nil {
+		return Tool{}, toolRevision{}, err
+	}
+	if tool.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated); err != nil {
+		return Tool{}, toolRevision{}, err
+	}
+	tool, err = NormalizeTool(tool)
+	return tool, revision, err
+}
+
+func toolConfigValues(tool Tool) ([]any, error) {
+	values := make([]any, 0, 4)
+	for _, field := range []any{tool.InputSchema, tool.Triggers, tool.Metadata, tool.HTTP} {
+		data, err := json.Marshal(field)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, string(data))
+	}
+	return values, nil
+}
+
+func (s *Server) database() (*sqlx.DB, error) {
+	if s == nil || s.DB == nil {
 		return nil, ErrNotConfigured
 	}
-	return s.Store, nil
+	switch s.DB.DriverName() {
+	case "sqlite", "postgres":
+	default:
+		return nil, fmt.Errorf("toolkit: unsupported SQL driver %q", s.DB.DriverName())
+	}
+	return s.DB, nil
 }
 
 func (s *Server) now() time.Time {
@@ -186,30 +283,6 @@ func (s *Server) now() time.Time {
 		return s.Now()
 	}
 	return time.Now()
-}
-
-func decodeTool(data []byte) (Tool, error) {
-	var tool Tool
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&tool); err != nil {
-		return Tool{}, err
-	}
-	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return Tool{}, errors.New("multiple JSON values")
-		}
-		return Tool{}, err
-	}
-	return NormalizeTool(tool)
-}
-
-func toolKey(id string) kv.Key {
-	return append(append(kv.Key{}, toolsRoot...), customid.EscapeStoreSegment(id))
-}
-
-func toolInvokeNameKey(name string) kv.Key {
-	return append(append(kv.Key{}, toolsByInvokeNameRoot...), customid.EscapeStoreSegment(name))
 }
 
 func retainDirectSecret(desired *Tool, existing Tool) {

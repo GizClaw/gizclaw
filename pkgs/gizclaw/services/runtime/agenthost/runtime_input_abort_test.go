@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // TestAbortingATurnByClosingTheInputSourceIsReportedAsUnexpectedOutputEnd
@@ -87,7 +87,7 @@ func newAbortHarness(t *testing.T) *abortHarness {
 	t.Helper()
 	ctx := context.Background()
 	publicKey := testPublicKey(t)
-	store := &peerrun.Server{Store: kv.NewMemory(nil)}
+	store := peerruntest.New(t)
 	if _, err := store.SetRunAgent(ctx, publicKey, apitypes.AgentSelection{WorkspaceName: "demo"}); err != nil {
 		t.Fatalf("SetRunAgent() error = %v", err)
 	}

@@ -11,8 +11,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/gofiber/fiber/v2"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func TestServerWorkflowsCRUD(t *testing.T) {
@@ -355,7 +356,7 @@ func TestServerMaterializesProtectedBuiltinSFUWorkflow(t *testing.T) {
 	if rejected, ok := deleteResp.(adminhttp.DeleteWorkflow404JSONResponse); !ok || rejected.Error.Code != BuiltinWorkflowCode {
 		t.Fatalf("DeleteWorkflow(builtin) response = %#v", deleteResp)
 	}
-	if _, err := srv.Store.Get(ctx, workflowKey(socialutil.SFUWorkflowID)); err != nil {
+	if _, err := scanWorkflow(srv.DB.QueryRowContext(ctx, `SELECT id,driver,config_json FROM workflows WHERE id=?`, socialutil.SFUWorkflowID)); err != nil {
 		t.Fatalf("builtin Workflow after rejected delete: %v", err)
 	}
 }
@@ -728,12 +729,22 @@ func TestWorkflowResponseVisitors(t *testing.T) {
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 
-	store, err := kv.NewBadgerInMemory(nil)
+	db, err := sqlx.Open("sqlite", ":memory:")
 	if err != nil {
-		t.Fatalf("NewBadgerInMemory() error = %v", err)
+		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Close() })
-	return &Server{Store: store}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	server := &Server{DB: db}
+	if err := server.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	return server
+
 }
 
 func mustDocument(t *testing.T, raw string) adminhttp.WorkflowUpsert {

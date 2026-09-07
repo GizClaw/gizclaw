@@ -429,6 +429,20 @@ func (s *Service) RuntimeRevision() uint64 {
 	return s.revision.Load()
 }
 
+// WaitRuntimeRevision waits for the current control-plane transition to finish
+// and returns its published revision. Callers must bound ctx and still fence
+// subsequent input delivery against a later transition.
+func (s *Service) WaitRuntimeRevision(ctx context.Context) (uint64, error) {
+	if s == nil {
+		return 0, nil
+	}
+	if err := s.lockTransition(ctx); err != nil {
+		return 0, err
+	}
+	defer s.unlockTransition()
+	return s.revision.Load(), nil
+}
+
 // PushInputIfCurrentRevision writes an input chunk only while the caller's
 // observed revision is still stable. It keeps the push inside the same
 // transition boundary as selection, reload, and stop so a completed transition

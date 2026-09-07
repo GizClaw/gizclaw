@@ -1,8 +1,10 @@
 package friendgroup
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -145,6 +147,18 @@ func TestFriendGroupDeletionHandlerDefersEveryResidualControlPlane(t *testing.T)
 				t.Fatal(err)
 			}
 		},
+		"member collection": func(t *testing.T, s *Server, groupID string) {
+			t.Helper()
+			if err := s.Members.AddMembers(t.Context(), memberCollectionKey(groupID), "peer-a"); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"belongs collection": func(t *testing.T, s *Server, groupID string) {
+			t.Helper()
+			if err := s.Belongs.AddMembers(t.Context(), belongCollectionKey("peer-a"), groupID); err != nil {
+				t.Fatal(err)
+			}
+		},
 		"belongs": func(t *testing.T, s *Server, groupID string) {
 			t.Helper()
 			value, err := json.Marshal(friendGroupMemberRecord{FriendGroupID: groupID, PeerPublicKey: "peer-a"})
@@ -239,4 +253,87 @@ func claimFriendGroupTask(t *testing.T, source pendingdeletion.KVSource, now tim
 		t.Fatalf("Claim() = %#v, %v, %v", claim, claimed, err)
 	}
 	return claim
+}
+
+type retirementQueryCounts struct{ gets, collections, memberships int }
+type retirementQueryStore struct {
+	kv.Store
+	counts *retirementQueryCounts
+}
+
+func (s retirementQueryStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	s.counts.gets++
+	return s.Store.Get(ctx, key)
+}
+func (s retirementQueryStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	s.counts.collections++
+	return s.Store.ListMembers(ctx, key)
+}
+func (s retirementQueryStore) HasMember(ctx context.Context, key kv.Key, member string) (bool, error) {
+	s.counts.memberships++
+	return s.Store.HasMember(ctx, key, member)
+}
+
+func TestFriendGroupRetirementQueriesAreScopedToItsMembers(t *testing.T) {
+	for _, foreignCount := range []int{0, 3000} {
+		t.Run(fmt.Sprint(foreignCount), func(t *testing.T) {
+			s, groupID, _, _, _ := retiredFriendGroupClaim(t)
+			for i := range foreignCount {
+				peer := fmt.Sprintf("foreign-%d", i)
+				if err := s.Belongs.Set(t.Context(), socialutil.GroupBelongKey(peer, "foreign-group"), []byte("invalid foreign record")); err != nil {
+					t.Fatal(err)
+				}
+				if err := s.Belongs.Set(t.Context(), socialutil.GroupNameKey(peer, "foreign-room"), []byte("foreign-group")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			counts := &retirementQueryCounts{}
+			s.RelationshipStore = retirementQueryStore{s.RelationshipStore, counts}
+			s.Groups = retirementQueryStore{s.Groups, counts}
+			s.InviteTokens = retirementQueryStore{s.InviteTokens, counts}
+			s.Members = retirementQueryStore{s.Members, counts}
+			s.Belongs = retirementQueryStore{s.Belongs, counts}
+			if err := (DeletionHandler{Server: s}).verifyRetirement(t.Context(), groupID); err != nil {
+				t.Fatal(err)
+			}
+			if *counts != (retirementQueryCounts{gets: 8, collections: 1, memberships: 1}) {
+				t.Fatalf("retirement reads = %+v", *counts)
+			}
+		})
+	}
+}
+
+func TestRetiredGroupNameIndexPreservesNewestDeletion(t *testing.T) {
+	s, groupID, _, _, _ := retiredFriendGroupClaim(t)
+	older, err := s.readRetirementReceipt(t.Context(), groupID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer := older
+	newer.FriendGroupID = "group-newer"
+	newer.WorkspaceID = "workspace-newer"
+	newer.DeletedAt = older.DeletedAt.Add(time.Second)
+	newer.Members = append([]friendGroupMemberRecord(nil), older.Members...)
+	for i := range newer.Members {
+		newer.Members[i].FriendGroupID = newer.FriendGroupID
+	}
+	for _, receipt := range []retirementReceipt{newer, older} {
+		data, err := json.Marshal(receipt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.commitRetirementReceipt(t.Context(), s.RelationshipStore, receipt, data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.RelationshipStore.Set(t.Context(), groupRetirementReceiptKey("unrelated"), []byte("invalid unrelated receipt")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.resolveRetiredFriendGroupName(t.Context(), older.Owner, older.Name)
+	if err != nil || got != newer.FriendGroupID {
+		t.Fatalf("resolveRetiredFriendGroupName() = %q, %v", got, err)
+	}
+	if _, err := s.resolveRetiredFriendGroupName(t.Context(), "another-owner", older.Name); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("foreign owner lookup = %v", err)
+	}
 }

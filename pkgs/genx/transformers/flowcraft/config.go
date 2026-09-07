@@ -10,7 +10,6 @@ import (
 
 	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -49,7 +48,7 @@ type Config struct {
 	// Memory stores provider-neutral long-term facts. The caller owns its lifecycle.
 	Memory memory.Store
 	// State stores serializable Board variables. The caller owns its lifecycle.
-	State kv.Store
+	State StateStore
 
 	// MemoryScope is the fixed opaque scope used by every Recall and Observe.
 	MemoryScope memory.Scope

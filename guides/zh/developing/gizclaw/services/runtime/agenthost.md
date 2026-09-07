@@ -98,3 +98,5 @@ Friend 与 Friend Group 的 SFU Workspace 走同一套 Reload、lease、registry
 SFU 下行是零解码 passthrough：session 同一时刻只把 floor 持有者的裸 Opus packet 以 `OpusPassthroughMIME` chunk 发出，每次 floor 持有使用新的 `stream_id`，`label` 等于 participant identity。这些 chunk 不经过 AgentHost decoder 与 mixer，只有 BOS/EOS 参与 route bookkeeping，让 `peerAudioRouteAggregator` 向 Device 发出成对的音频 BOS/EOS Peer Event；AgentHost mixer 仍服务其他 driver。talk utterance、半双工与 floor 规则见 [services/social](/zh/developing/gizclaw/services/social#媒体与下行)。connector 行为见 [SFU 组合边界](/zh/developing/gizclaw/services/ai#sfu-组合边界)，激活与撤权见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
 Direct Workspace turn 可以安装 request-scoped History observer。它在 History 已持久化且 attachment 尚未释放时接收准确 entry，不按 timestamp 扫描，也不复制文本。取消与 callback synchronization 由请求 attachment 拥有，不改变普通 Peer-run capture。
+
+新路由的 BOS 可能在 reload 结束旧 route 后、replacement runtime 发布前到达。此时输入鉴权最多等待 2 秒的本地 transition 完成，再对发布后的 revision 做必要鉴权；等待取消或超时仍拒绝输入。这个等待不访问 Redis。旧 route 的音频包仍按原 revision 丢弃，不能借用新 route 的权限。
