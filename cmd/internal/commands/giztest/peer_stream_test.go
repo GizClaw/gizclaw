@@ -1210,3 +1210,75 @@ func TestPeerStreamCompletionRequiresOneResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestInvokePeerStreamRealtimeFirstResponseTimesFromSpeechEnd(t *testing.T) {
+	// A realtime turn keeps pushing tail silence after the user stops speaking,
+	// so the provider normally answers while input is still on the wire. A
+	// reader started only once that push finished drained the whole transport
+	// backlog at once and stamped every chunk with the same time, collapsing
+	// first_text_ms, first_audio_ms and last_event_ms to zero.
+	const responseDelay = 100 * time.Millisecond
+	stream := newFakeRelayStream()
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	speechEnded := make(chan struct{})
+	go func() {
+		// The turn pushes one begin-of-stream chunk and one speech packet
+		// before the tail silence; the user stops speaking at the second push.
+		pushed := 0
+		for {
+			select {
+			case <-stream.pushes:
+				pushed++
+				if pushed == 2 {
+					close(speechEnded)
+				}
+			case <-stream.closed:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	go func() {
+		select {
+		case <-speechEnded:
+		case <-ctx.Done():
+			return
+		}
+		time.Sleep(responseDelay)
+		for _, chunk := range []*genx.MessageChunk{
+			assistantText("reply", "hello", false),
+			assistantBlob("reply", []byte{0xf8}, false),
+		} {
+			select {
+			case stream.in <- chunk:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
+			Mode: "realtime", Completion: "first_response", Pacing: "2ms",
+			FirstTextTimeout: "10s", FirstAudioTimeout: "10s",
+		},
+	}, []byte{0xf8}, 0)
+	if err != nil {
+		t.Fatalf("realtime first_response turn: %v", err)
+	}
+	floor := (responseDelay - 10*time.Millisecond).Milliseconds()
+	// The tail silence alone paces 4s of audio at 2ms per packet, so a clock
+	// that ran from the operation start or the end of the push would land far
+	// outside this bound in either direction.
+	ceiling := (responseDelay * 3).Milliseconds()
+	for _, name := range []string{"first_text_ms", "first_audio_ms", "last_event_ms"} {
+		elapsed, ok := result.evidence[name].(int64)
+		if !ok {
+			t.Fatalf("%s evidence = %#v, want int64", name, result.evidence[name])
+		}
+		if elapsed < floor || elapsed > ceiling {
+			t.Fatalf("%s = %d, want response latency measured from the end of the user's speech in [%d, %d]", name, elapsed, floor, ceiling)
+		}
+	}
+}
