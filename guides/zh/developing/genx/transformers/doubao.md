@@ -44,7 +44,7 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `doubaoasr.Config` 通过 `VADSegmentDuration`、`EndWindowSize` 和 `ForceToSpeechTime` 把 BigASR VAD 请求参数传给每个 SAUC session。这些字段使用 `*int`：`nil` 表示不发送并保留 provider 默认行为，非 `nil` 表示发送对应值，包括显式的零值。
 
-GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=200` 和 `force_to_speech_time=0`，使 continuous ASR 在短句后的静音阶段更快产生 definite transcript；只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
+GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=800` 和 `force_to_speech_time=1000`，与 provider 的强制判停缺省一致；`force_to_speech_time` 的文档最小值为 `1`，`0` 并不是合法的“无下限”取值。只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
 
 ### Seed V2 空音频
 

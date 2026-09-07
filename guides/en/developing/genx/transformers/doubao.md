@@ -44,7 +44,7 @@ For PCM input, ASR aggregates small live frames within the current provider sess
 
 `doubaoasr.Config` passes BigASR VAD request parameters to each SAUC session through `VADSegmentDuration`, `EndWindowSize`, and `ForceToSpeechTime`. These fields use `*int`: `nil` omits the field and preserves provider-default behavior, while non-nil sends the value, including an explicit zero.
 
-GizClaw's Volc ASR Builder accepts `vad_segment_duration`, `end_window_size`, and `force_to_speech_time`, together with their camelCase aliases. When the caller provides no endpointing parameter, the Builder uses `end_window_size=200` and `force_to_speech_time=0` so continuous ASR produces a definite transcript sooner during the silence after a short utterance. When the caller provides any endpointing parameter, the Builder sends only the explicitly provided fields.
+GizClaw's Volc ASR Builder accepts `vad_segment_duration`, `end_window_size`, and `force_to_speech_time`, together with their camelCase aliases. When the caller provides no endpointing parameter, the Builder uses `end_window_size=800` and `force_to_speech_time=1000`, matching the provider's forced-endpointing defaults; `force_to_speech_time` has a documented minimum of `1`, so `0` is not a valid "no minimum" value. When the caller provides any endpointing parameter, the Builder sends only the explicitly provided fields.
 
 ### Seed V2 empty audio
 
