@@ -5,7 +5,10 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -105,15 +108,80 @@ func TestTTSStreamBuffersInterleavedStreamIDs(t *testing.T) {
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s2", EndOfStream: true}},
 	}, doneErr: io.EOF}
 
+	// Segments are synthesized concurrently, so the two streams race and only
+	// the per-stream pairing of StreamID to accumulated text is deterministic.
+	var mu sync.Mutex
 	var got []string
 	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, meta TTSMeta, _ string, emit func([]byte) error) error {
+		mu.Lock()
 		got = append(got, meta.StreamID+":"+text)
+		mu.Unlock()
 		return emit([]byte("audio"))
 	})
 	_ = collectTransformerChunks(t, output)
-	want := []string{"s2:第二条消息已经来了，", "s1:好的，我来讲一个。"}
+	mu.Lock()
+	defer mu.Unlock()
+	slices.Sort(got)
+	want := []string{"s1:好的，我来讲一个。", "s2:第二条消息已经来了，"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("synthesized texts = %#v, want %#v", got, want)
+	}
+}
+
+// Every segment costs a fresh provider request, so synthesizing them one after
+// another puts a full first-audio latency of silence at each segment boundary.
+// A segment must therefore start while its predecessor is still emitting.
+func TestTTSStreamSynthesizesAheadWhilePriorSegmentEmits(t *testing.T) {
+	input := &testStream{chunks: []*genx.MessageChunk{
+		{Part: genx.Text("第一句话已经说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
+		{Part: genx.Text("第二句话也说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
+		{Part: genx.Text("第三句话同样说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true}},
+	}, doneErr: io.EOF}
+
+	started := make(chan string, 4)
+	release := make(chan struct{})
+	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
+		started <- text
+		<-release
+		return emit([]byte("audio:" + text))
+	})
+
+	await := func(what string) string {
+		t.Helper()
+		select {
+		case text := <-started:
+			return text
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s never started while an earlier segment was still held", what)
+			return ""
+		}
+	}
+	if text := await("first segment"); text != "第一句话已经说完了。" {
+		t.Fatalf("first synthesis = %q", text)
+	}
+	if text := await("lookahead segment"); text != "第二句话也说完了。" {
+		t.Fatalf("lookahead synthesis = %q", text)
+	}
+	// Lookahead is bounded: the third segment waits for the first to be emitted
+	// rather than opening a third concurrent provider session.
+	select {
+	case text := <-started:
+		t.Fatalf("third segment %q started beyond the lookahead bound", text)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+	chunks := collectTransformerChunks(t, output)
+	var audio []string
+	for _, chunk := range chunks {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+			audio = append(audio, string(blob.Data))
+		}
+	}
+	want := []string{"audio:第一句话已经说完了。", "audio:第二句话也说完了。", "audio:第三句话同样说完了。"}
+	if !reflect.DeepEqual(audio, want) {
+		t.Fatalf("emitted audio = %#v, want %#v in segment order", audio, want)
 	}
 }
 
