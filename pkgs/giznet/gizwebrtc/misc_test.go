@@ -254,13 +254,16 @@ func TestConnBoundsInboundServiceStreams(t *testing.T) {
 		if !ok {
 			t.Fatalf("reserve inbound service stream %d rejected below limit", index)
 		}
+		t.Cleanup(releases[index])
 	}
 	if _, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); ok {
 		t.Fatalf("reserve inbound service stream accepted above limit %d", maxInboundServiceStreams)
 	}
 	releases[0]()
-	if _, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); !ok {
+	if release, ok := conn.reserveInboundServiceStream(&channels[maxInboundServiceStreams]); !ok {
 		t.Fatal("reserve inbound service stream did not release closed channel capacity")
+	} else {
+		t.Cleanup(release)
 	}
 }
 

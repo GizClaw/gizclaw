@@ -19,7 +19,7 @@ Token 前缀为 `gizclaw_mk_`，其后至少 32 个字符。建议用 `openssl r
 
 ## 数据语义
 
-节点连接数是本进程 WebRTC association 数，包括上游连接；service stream 数独立统计。RX/TX 是进程启动以来的 WebRTC service payload 字节，不含 ICE、DTLS 等协议开销。设备计数来自所属 Server 的 Runtime。曲线每次请求完成一秒后继续采样，最多保留 1800 次采样，支持最近 2、10、30 分钟窗口；设备上行对应 Server RX，下行对应 Server TX。暂停后恢复会重新采样，连接计数重置时不产生负速率。
+节点连接数是本进程 WebRTC association 数，包括上游连接；service stream 数独立统计。`transport.inbound_service_channels` 是本进程所有连接上由对端打开、已通过准入但尚未释放的服务 DataChannel 数，包含等待打开的通道；流或父连接关闭时减少。它与入站服务通道准入额度使用相同的生命周期，不统计本端主动打开的通道、packet channel 或原生 tunnel channel，也不代表正在执行的请求数。节点页显示“入站服务 DataChannel”；观察 Edge 转发到 Server 的请求积压时，应查看 Server 节点。RX/TX 是进程启动以来的 WebRTC service payload 字节，不含 ICE、DTLS 等协议开销。设备计数来自所属 Server 的 Runtime。曲线每次请求完成一秒后继续采样，最多保留 1800 次采样，支持最近 2、10、30 分钟窗口；设备上行对应 Server RX，下行对应 Server TX。暂停后恢复会重新采样，连接计数重置时不产生负速率。
 
 节点日志只展示本进程最近 500 条结构化日志。`/gizclaw/v1/device/logs` 只返回其中 peer_public_key 精确匹配授权设备的记录，最多 500 条，单条消息最多 4096 字节。日志不持久化，不代表固件串口日志。节点界面提供级别/文本筛选、自动跟随和虚拟滚动。设备运行日志使用下面的持久化查询，不依赖此缓冲区。
 
@@ -64,3 +64,9 @@ go build ./cmd/gizclaw
 上述接口走现有 Edge 路由与 Server runtime 权限校验，readonly 可读取；不把工作流 spec 或 provider credentials 暴露给浏览器。API 定义位于 `api/http/peer.json`，Go 和 JavaScript client 随 Schema 生成。
 
 真实接口验收运行 `bash tests/gizclaw-e2e/run_monitor_tests.sh`，覆盖设备与节点权限、聊天历史、运行日志和音频下载，详见 [Monitor API giztest](testing#monitor-api-giztest)。
+
+## HTTP 代理通道生命周期验证
+
+`go test -race ./pkgs/giznet/gizhttp -run 'TestReverseProxyConcurrentStreamLifecycle|TestHTTPStreamTimeoutAndCancellationRelease' -count=3` 使用真实 HTTP reverse proxy 和生产 WebRTC 配置，分别覆盖直连与本地 TURN/UDP 中继，并断言中继实际被选中。每轮并发测试在同一条 WebRTC 连接上以 16 路并发完成 4096 次 HTTP 请求；超时测试覆盖响应头等待、流式响应体读取、调用方取消，以及下游 TCP 在响应前和响应中断开。
+
+测试在父 WebRTC 连接仍保持打开时检查入站计数、双向服务流总数和 HTTP 服务端连接数回到基线，并在异常请求后通过原连接再次完成请求。它不依靠关闭父连接回收资源，也不覆盖真实公网丢包、香港 TURN 部署或长时间运行条件。

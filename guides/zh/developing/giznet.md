@@ -80,6 +80,11 @@ WebRTC connection 中累积，同时 service 与父连接 shutdown 仍会拒绝�
 旧的 inbound stream；之后 allocator 才能把这个 ID 分配给新的 DataChannel。这里复用的是
 有限的 ID 空间，不是 DataChannel 或 RPC stream。
 
+SCTP 的 outgoing reset 在同一 association 上一次只发送一个待确认请求；后续关闭先排队，
+收到完成响应后再发送，每批最多包含 128 个 stream ID。超时重传保持原请求序号，
+`In progress` 响应不会提前发送下一批。这避免并发关闭时 reset 乱序被拒绝后遗留远端流，
+也避免大批关闭生成超出默认 MTU 的 reset 包。
+
 根 Go module 暂时把 `github.com/pion/sctp` 和 `github.com/pion/webrtc/v4` replace 到固定的
 GizClaw fork pseudo-version，用于报告已完成的 stream reset 并释放 DataChannel ID。Go 不会
 向下游传播依赖 module 的 `replace`，因此把 GizClaw 作为 module 使用的 executable 在上游

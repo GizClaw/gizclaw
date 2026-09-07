@@ -32,6 +32,9 @@ func TestNodeAuthorizationAndIsolation(t *testing.T) {
 			if snapshot.PublicKey != "local-key" || snapshot.Role != "server" {
 				t.Fatal("wrong node")
 			}
+			if !strings.Contains(out.Body.String(), `"inbound_service_channels":0`) {
+				t.Fatal("missing inbound service channel count")
+			}
 			if strings.Contains(out.Body.String(), token) {
 				t.Fatal("token leaked")
 			}

@@ -25,6 +25,10 @@ export type NodeSnapshot = {
         services: number;
         rx_bytes: number;
         tx_bytes: number;
+        /**
+         * Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels.
+         */
+        inbound_service_channels: number;
     };
     logs: Array<MonitorLog>;
 };

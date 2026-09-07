@@ -50,6 +50,7 @@ func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonit
 	transport := gizwebrtc.ReadMonitorSnapshot()
 	snapshot.Transport.Connections = transport.Connections
 	snapshot.Transport.Services = transport.Services
+	snapshot.Transport.InboundServiceChannels = transport.InboundServiceChannels
 	snapshot.Transport.RxBytes = transport.RXBytes
 	snapshot.Transport.TxBytes = transport.TXBytes
 	for _, entry := range gizlog.ReadMonitorLogs("") {
