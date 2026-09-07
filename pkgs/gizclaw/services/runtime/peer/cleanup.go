@@ -40,6 +40,16 @@ type PeerQuiescer interface {
 	QuiescePeer(context.Context, giznet.PublicKey) error
 }
 
+// retirementPlanVersion is the shape of the persisted Peer retirement plan.
+// Version 1 recorded Pet system Workspaces that a separate retirement pass
+// owned. That pass no longer exists, and a version 1 plan still deserializes
+// into this struct while its Pet Workspace IDs stay in WorkspaceIDs, so
+// completion would observe no pending marker for a Workspace nothing retired
+// and finalize the Peer while that Workspace and its assets remain. Plans are
+// rejected rather than migrated because only this handler can create the
+// missing markers and it no longer retires system Workspaces.
+const retirementPlanVersion = 2
+
 type retirementPlan struct {
 	Version           int                              `json:"version"`
 	MarkerFingerprint string                           `json:"marker_fingerprint"`
@@ -167,7 +177,7 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace snapshot failed", err)
 	}
-	plan := retirementPlan{Version: 1, MarkerFingerprint: claim.MarkerFingerprint, Peer: peerRecord, Social: socialSnapshot, Workspaces: workspaceSnapshot}
+	plan := retirementPlan{Version: retirementPlanVersion, MarkerFingerprint: claim.MarkerFingerprint, Peer: peerRecord, Social: socialSnapshot, Workspaces: workspaceSnapshot}
 	for _, item := range socialSnapshot.Friends {
 		plan.WorkspaceIDs = append(plan.WorkspaceIDs, item.WorkspaceID)
 	}
@@ -198,9 +208,19 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 
 func validateRetirementPlan(data []byte, claim pendingdeletion.Claim, publicKey giznet.PublicKey) (retirementPlan, error) {
 	var plan retirementPlan
-	if err := json.Unmarshal(data, &plan); err != nil || plan.Version != 1 || plan.MarkerFingerprint != claim.MarkerFingerprint || plan.Peer.PublicKey != publicKey.String() ||
-		plan.Social.PublicKey != publicKey.String() || plan.Workspaces.PublicKey != publicKey.String() {
+	if err := json.Unmarshal(data, &plan); err != nil {
 		return retirementPlan{}, pendingdeletion.Terminal("retirement_plan_invalid", "Peer retirement plan is invalid", err)
+	}
+	if plan.Version != retirementPlanVersion {
+		return retirementPlan{}, pendingdeletion.Terminal(
+			"retirement_plan_unsupported",
+			"Peer retirement plan was written by an earlier release and records Workspaces this handler cannot retire; delete the Peer again after retiring them",
+			nil,
+		)
+	}
+	if plan.MarkerFingerprint != claim.MarkerFingerprint || plan.Peer.PublicKey != publicKey.String() ||
+		plan.Social.PublicKey != publicKey.String() || plan.Workspaces.PublicKey != publicKey.String() {
+		return retirementPlan{}, pendingdeletion.Terminal("retirement_plan_invalid", "Peer retirement plan is invalid", nil)
 	}
 	return plan, nil
 }

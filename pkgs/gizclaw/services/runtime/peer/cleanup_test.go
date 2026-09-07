@@ -2,7 +2,9 @@ package peer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -142,4 +144,61 @@ func (emptyPeerLookup) Get(context.Context, string) (pendingdeletion.Record, err
 }
 func (emptyPeerLookup) HasLocator(context.Context, pendingdeletion.Locator) (bool, error) {
 	return false, nil
+}
+
+// TestPeerDeletionRejectsLegacyRetirementPlan pins the upgrade boundary: a plan
+// persisted by an earlier release recorded Pet system Workspaces in
+// WorkspaceIDs that a retirement pass this handler no longer has was expected
+// to remove. Accepting it would observe no pending marker for those Workspaces,
+// treat them as complete, and tombstone the Peer while they remain.
+func TestPeerDeletionRejectsLegacyRetirementPlan(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	server := &Server{Store: store}
+	key := giznet.PublicKey{22}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
+	if err := server.DeleteSelf(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	source := PendingDeletionSource(store)
+	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	record, err := server.LoadPeer(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedPeer, err := json.Marshal(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := fmt.Appendf(nil, `{
+		"version": 1,
+		"marker_fingerprint": %q,
+		"peer": %s,
+		"social": {"public_key": %q},
+		"workspaces": {
+			"public_key": %q,
+			"workspaces": [],
+			"pet_workspaces": [{"id": "workspace-pet", "name": "pet-1", "has_icon": false}]
+		},
+		"workspace_ids": ["workspace-pet"],
+		"friend_group_ids": []
+	}`, claim.MarkerFingerprint, encodedPeer, key.String(), key.String())
+	if err := store.Set(ctx, peerRetirementPlanKey(claim.Record.DeletionID), legacy); err != nil {
+		t.Fatal(err)
+	}
+	adapters := &peerDeletionAdapters{publicKey: key.String()}
+	handler := DeletionHandler{
+		Server: server, Source: source, Social: adapters, Workspaces: adapters,
+		APIKeys: adapters, RuntimeProfiles: adapters, Quiescer: adapters,
+		WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{},
+		Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) },
+	}
+	var outcome *pendingdeletion.OutcomeError
+	err = handler.Handle(ctx, claim)
+	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeTerminal || outcome.Code != "retirement_plan_unsupported" {
+		t.Fatalf("Handle(legacy plan) error = %v", err)
+	}
+	if _, err := server.LoadPeer(ctx, key); err != nil {
+		t.Fatalf("Peer tombstoned despite the unretired Workspace: %v", err)
+	}
 }
