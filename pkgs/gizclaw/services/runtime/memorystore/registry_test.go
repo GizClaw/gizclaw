@@ -612,3 +612,119 @@ func bbhTestRequest(t testing.TB) Request {
 	request.Binding.Connection = connection
 	return request
 }
+
+func TestRegistrySharesLocalIndexAcrossConcurrentWorkspaces(t *testing.T) {
+	t.Parallel()
+	request := bbhTestRequest(t)
+	registry := NewRegistry()
+	t.Cleanup(func() { _ = registry.Close() })
+
+	const count = 6
+	results := make([]Result, count)
+	errs := make([]error, count)
+	var wait sync.WaitGroup
+	for index := range count {
+		wait.Go(func() {
+			workspaceRequest := request
+			workspaceRequest.WorkspaceID = fmt.Sprintf("workspace-%d", index)
+			results[index], errs[index] = registry.Resolve(t.Context(), workspaceRequest)
+		})
+	}
+	wait.Wait()
+	for index, err := range errs {
+		if err != nil {
+			t.Fatalf("Resolve(workspace-%d) error = %v", index, err)
+		}
+	}
+	if len(registry.entries) != 1 {
+		t.Fatalf("concurrent Workspaces opened %d local indexes, want 1", len(registry.entries))
+	}
+	for _, result := range results {
+		if err := result.Closer.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// A binding backed by a local BBH index holds a badger directory lock, so a
+// Workspace that reopens the binding must wait for the previous physical
+// backend to finish closing instead of racing it for the same directory.
+func TestRegistryReopenWaitsForLocalIndexRelease(t *testing.T) {
+	t.Parallel()
+	request := bbhTestRequest(t)
+	registry := NewRegistry()
+	t.Cleanup(func() { _ = registry.Close() })
+
+	closing := make(chan struct{})
+	release := make(chan struct{})
+	var opens atomic.Int32
+	registry.open = func(ctx context.Context, request Request) (sharedBackend, error) {
+		backend, err := openSharedBackend(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		if opens.Add(1) == 1 {
+			return &slowClosingBackend{sharedBackend: backend, closing: closing, release: release}, nil
+		}
+		return backend, nil
+	}
+
+	first, err := registry.Resolve(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasedFirst := make(chan error, 1)
+	go func() { releasedFirst <- first.Closer.Close() }()
+	select {
+	case <-closing:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first lease did not start closing the physical backend")
+	}
+
+	type resolved struct {
+		result Result
+		err    error
+	}
+	reopened := make(chan resolved, 1)
+	go func() {
+		workspaceRequest := request
+		workspaceRequest.WorkspaceID = "workspace-reload"
+		result, err := registry.Resolve(t.Context(), workspaceRequest)
+		reopened <- resolved{result: result, err: err}
+	}()
+	// Give an unsynchronized reopen time to grab the badger directory lock
+	// while the previous index still holds it.
+	select {
+	case got := <-reopened:
+		t.Fatalf("Resolve() reopened the binding during the physical close: %+v", got)
+	case <-time.After(200 * time.Millisecond):
+	}
+	close(release)
+
+	if err := <-releasedFirst; err != nil {
+		t.Fatal(err)
+	}
+	got := <-reopened
+	if got.err != nil {
+		t.Fatalf("Resolve(after release) error = %v", got.err)
+	}
+	if err := got.result.Closer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if want := int32(2); opens.Load() != want {
+		t.Fatalf("physical opens = %d, want %d", opens.Load(), want)
+	}
+}
+
+type slowClosingBackend struct {
+	sharedBackend
+	closing chan struct{}
+	release <-chan struct{}
+	once    sync.Once
+}
+
+func (backend *slowClosingBackend) Close() error {
+	backend.once.Do(func() { close(backend.closing) })
+	<-backend.release
+	return backend.sharedBackend.Close()
+}
