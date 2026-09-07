@@ -941,6 +941,107 @@ final $typed_data.Uint8List serverRegisterResponseDescriptor =
         'ChZTZXJ2ZXJSZWdpc3RlclJlc3BvbnNlEjAKFHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAEgASgJUh'
         'JydW50aW1lUHJvZmlsZU5hbWU=');
 
+@$core.Deprecated('Use appConfigListRequestDescriptor instead')
+const AppConfigListRequest$json = {
+  '1': 'AppConfigListRequest',
+  '2': [
+    {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
+    {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
+  ],
+  '8': [
+    {'1': '_cursor'},
+    {'1': '_limit'},
+  ],
+};
+
+/// Descriptor for `AppConfigListRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigListRequestDescriptor = $convert.base64Decode(
+    'ChRBcHBDb25maWdMaXN0UmVxdWVzdBIbCgZjdXJzb3IYASABKAlIAFIGY3Vyc29yiAEBEhkKBW'
+    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBQgkKB19jdXJzb3JCCAoGX2xpbWl0');
+
+@$core.Deprecated('Use appConfigListResponseDescriptor instead')
+const AppConfigListResponse$json = {
+  '1': 'AppConfigListResponse',
+  '2': [
+    {'1': 'keys', '3': 1, '4': 3, '5': 9, '10': 'keys'},
+    {'1': 'has_next', '3': 2, '4': 1, '5': 8, '10': 'hasNext'},
+    {
+      '1': 'next_cursor',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'nextCursor',
+      '17': true
+    },
+    {
+      '1': 'runtime_profile_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 5,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
+  ],
+  '8': [
+    {'1': '_next_cursor'},
+  ],
+};
+
+/// Descriptor for `AppConfigListResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigListResponseDescriptor = $convert.base64Decode(
+    'ChVBcHBDb25maWdMaXN0UmVzcG9uc2USEgoEa2V5cxgBIAMoCVIEa2V5cxIZCghoYXNfbmV4dB'
+    'gCIAEoCFIHaGFzTmV4dBIkCgtuZXh0X2N1cnNvchgDIAEoCUgAUgpuZXh0Q3Vyc29yiAEBEjAK'
+    'FHJ1bnRpbWVfcHJvZmlsZV9uYW1lGAQgASgJUhJydW50aW1lUHJvZmlsZU5hbWUSOAoYcnVudG'
+    'ltZV9wcm9maWxlX3JldmlzaW9uGAUgASgJUhZydW50aW1lUHJvZmlsZVJldmlzaW9uQg4KDF9u'
+    'ZXh0X2N1cnNvcg==');
+
+@$core.Deprecated('Use appConfigGetRequestDescriptor instead')
+const AppConfigGetRequest$json = {
+  '1': 'AppConfigGetRequest',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+  ],
+};
+
+/// Descriptor for `AppConfigGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigGetRequestDescriptor = $convert
+    .base64Decode('ChNBcHBDb25maWdHZXRSZXF1ZXN0EhAKA2tleRgBIAEoCVIDa2V5');
+
+@$core.Deprecated('Use appConfigGetResponseDescriptor instead')
+const AppConfigGetResponse$json = {
+  '1': 'AppConfigGetResponse',
+  '2': [
+    {'1': 'value', '3': 1, '4': 1, '5': 9, '10': 'value'},
+    {
+      '1': 'runtime_profile_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileName'
+    },
+    {
+      '1': 'runtime_profile_revision',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'runtimeProfileRevision'
+    },
+  ],
+};
+
+/// Descriptor for `AppConfigGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List appConfigGetResponseDescriptor = $convert.base64Decode(
+    'ChRBcHBDb25maWdHZXRSZXNwb25zZRIUCgV2YWx1ZRgBIAEoCVIFdmFsdWUSMAoUcnVudGltZV'
+    '9wcm9maWxlX25hbWUYAiABKAlSEnJ1bnRpbWVQcm9maWxlTmFtZRI4ChhydW50aW1lX3Byb2Zp'
+    'bGVfcmV2aXNpb24YAyABKAlSFnJ1bnRpbWVQcm9maWxlUmV2aXNpb24=');
+
 @$core.Deprecated('Use aPIKeyDescriptor instead')
 const APIKey$json = {
   '1': 'APIKey',

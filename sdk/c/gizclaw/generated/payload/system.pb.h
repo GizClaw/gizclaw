@@ -248,6 +248,36 @@ typedef struct _gizclaw_rpc_v1_ServerRegisterResponse {
     char runtime_profile_name[256];
 } gizclaw_rpc_v1_ServerRegisterResponse;
 
+/* AppConfig is the opaque device-defined configuration downlink carried by the
+ selected RuntimeProfile. The Server stores and returns every value verbatim
+ and never parses it; Clients read it and cannot write it. */
+typedef struct _gizclaw_rpc_v1_AppConfigListRequest {
+    bool has_cursor;
+    char cursor[172];
+    bool has_limit;
+    int64_t limit;
+} gizclaw_rpc_v1_AppConfigListRequest;
+
+typedef struct _gizclaw_rpc_v1_AppConfigListResponse {
+    pb_size_t keys_count;
+    char keys[64][64];
+    bool has_next;
+    bool has_next_cursor;
+    char next_cursor[172];
+    pb_callback_t runtime_profile_name;
+    char runtime_profile_revision[65];
+} gizclaw_rpc_v1_AppConfigListResponse;
+
+typedef struct _gizclaw_rpc_v1_AppConfigGetRequest {
+    char key[64];
+} gizclaw_rpc_v1_AppConfigGetRequest;
+
+typedef struct _gizclaw_rpc_v1_AppConfigGetResponse {
+    char value[4097];
+    pb_callback_t runtime_profile_name;
+    char runtime_profile_revision[65];
+} gizclaw_rpc_v1_AppConfigGetResponse;
+
 typedef struct _gizclaw_rpc_v1_APIKey {
     char name[27];
     char display_name[81];
@@ -399,6 +429,10 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_default {""}
 #define gizclaw_rpc_v1_ServerRegisterResponse_init_default {""}
+#define gizclaw_rpc_v1_AppConfigListRequest_init_default {false, "", false, 0}
+#define gizclaw_rpc_v1_AppConfigListResponse_init_default {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}, 0, false, "", {{NULL}, NULL}, ""}
+#define gizclaw_rpc_v1_AppConfigGetRequest_init_default {""}
+#define gizclaw_rpc_v1_AppConfigGetResponse_init_default {"", {{NULL}, NULL}, ""}
 #define gizclaw_rpc_v1_APIKey_init_default       {"", "", "", 0, "", ""}
 #define gizclaw_rpc_v1_APIKeyCreateRequest_init_default {"", 0}
 #define gizclaw_rpc_v1_APIKeyCreateResponse_init_default {false, gizclaw_rpc_v1_APIKey_init_default, ""}
@@ -457,6 +491,10 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
 #define gizclaw_rpc_v1_ServerRegisterRequest_init_zero {""}
 #define gizclaw_rpc_v1_ServerRegisterResponse_init_zero {""}
+#define gizclaw_rpc_v1_AppConfigListRequest_init_zero {false, "", false, 0}
+#define gizclaw_rpc_v1_AppConfigListResponse_init_zero {0, {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}, 0, false, "", {{NULL}, NULL}, ""}
+#define gizclaw_rpc_v1_AppConfigGetRequest_init_zero {""}
+#define gizclaw_rpc_v1_AppConfigGetResponse_init_zero {"", {{NULL}, NULL}, ""}
 #define gizclaw_rpc_v1_APIKey_init_zero          {"", "", "", 0, "", ""}
 #define gizclaw_rpc_v1_APIKeyCreateRequest_init_zero {"", 0}
 #define gizclaw_rpc_v1_APIKeyCreateResponse_init_zero {false, gizclaw_rpc_v1_APIKey_init_zero, ""}
@@ -552,6 +590,17 @@ extern "C" {
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
 #define gizclaw_rpc_v1_ServerRegisterRequest_token_tag 1
 #define gizclaw_rpc_v1_ServerRegisterResponse_runtime_profile_name_tag 1
+#define gizclaw_rpc_v1_AppConfigListRequest_cursor_tag 1
+#define gizclaw_rpc_v1_AppConfigListRequest_limit_tag 2
+#define gizclaw_rpc_v1_AppConfigListResponse_keys_tag 1
+#define gizclaw_rpc_v1_AppConfigListResponse_has_next_tag 2
+#define gizclaw_rpc_v1_AppConfigListResponse_next_cursor_tag 3
+#define gizclaw_rpc_v1_AppConfigListResponse_runtime_profile_name_tag 4
+#define gizclaw_rpc_v1_AppConfigListResponse_runtime_profile_revision_tag 5
+#define gizclaw_rpc_v1_AppConfigGetRequest_key_tag 1
+#define gizclaw_rpc_v1_AppConfigGetResponse_value_tag 1
+#define gizclaw_rpc_v1_AppConfigGetResponse_runtime_profile_name_tag 2
+#define gizclaw_rpc_v1_AppConfigGetResponse_runtime_profile_revision_tag 3
 #define gizclaw_rpc_v1_APIKey_name_tag           1
 #define gizclaw_rpc_v1_APIKey_display_name_tag   2
 #define gizclaw_rpc_v1_APIKey_prefix_tag         3
@@ -834,6 +883,33 @@ X(a, STATIC,   SINGULAR, STRING,   runtime_profile_name,   1)
 #define gizclaw_rpc_v1_ServerRegisterResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ServerRegisterResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_AppConfigListRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, STRING,   cursor,            1) \
+X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
+#define gizclaw_rpc_v1_AppConfigListRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_AppConfigListRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_AppConfigListResponse_FIELDLIST(X, a) \
+X(a, STATIC,   REPEATED, STRING,   keys,              1) \
+X(a, STATIC,   SINGULAR, BOOL,     has_next,          2) \
+X(a, STATIC,   OPTIONAL, STRING,   next_cursor,       3) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   4) \
+X(a, STATIC,   SINGULAR, STRING,   runtime_profile_revision,   5)
+#define gizclaw_rpc_v1_AppConfigListResponse_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_AppConfigListResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_AppConfigGetRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   key,               1)
+#define gizclaw_rpc_v1_AppConfigGetRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_AppConfigGetRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_AppConfigGetResponse_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   value,             1) \
+X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_name,   2) \
+X(a, STATIC,   SINGULAR, STRING,   runtime_profile_revision,   3)
+#define gizclaw_rpc_v1_AppConfigGetResponse_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_AppConfigGetResponse_DEFAULT NULL
+
 #define gizclaw_rpc_v1_APIKey_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   name,              1) \
 X(a, STATIC,   SINGULAR, STRING,   display_name,      2) \
@@ -994,6 +1070,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PingRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRegisterRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRegisterResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AppConfigListRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AppConfigListResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AppConfigGetRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_AppConfigGetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_APIKey_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_APIKeyCreateRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_APIKeyCreateResponse_msg;
@@ -1054,6 +1134,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_PingResponse_fields &gizclaw_rpc_v1_PingResponse_msg
 #define gizclaw_rpc_v1_ServerRegisterRequest_fields &gizclaw_rpc_v1_ServerRegisterRequest_msg
 #define gizclaw_rpc_v1_ServerRegisterResponse_fields &gizclaw_rpc_v1_ServerRegisterResponse_msg
+#define gizclaw_rpc_v1_AppConfigListRequest_fields &gizclaw_rpc_v1_AppConfigListRequest_msg
+#define gizclaw_rpc_v1_AppConfigListResponse_fields &gizclaw_rpc_v1_AppConfigListResponse_msg
+#define gizclaw_rpc_v1_AppConfigGetRequest_fields &gizclaw_rpc_v1_AppConfigGetRequest_msg
+#define gizclaw_rpc_v1_AppConfigGetResponse_fields &gizclaw_rpc_v1_AppConfigGetResponse_msg
 #define gizclaw_rpc_v1_APIKey_fields &gizclaw_rpc_v1_APIKey_msg
 #define gizclaw_rpc_v1_APIKeyCreateRequest_fields &gizclaw_rpc_v1_APIKeyCreateRequest_msg
 #define gizclaw_rpc_v1_APIKeyCreateResponse_fields &gizclaw_rpc_v1_APIKeyCreateResponse_msg
@@ -1088,6 +1172,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 /* gizclaw_rpc_v1_PeerOtaStatus_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerStatus_size depends on runtime parameters */
 /* gizclaw_rpc_v1_PeerStatus_LabelsEntry_size depends on runtime parameters */
+/* gizclaw_rpc_v1_AppConfigListResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_AppConfigGetResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_Runtime_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetInfoResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerGetStatusResponse_size depends on runtime parameters */
@@ -1102,6 +1188,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_APIKeyRevokeRequest_size  28
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_size 0
 #define gizclaw_rpc_v1_APIKey_size               274
+#define gizclaw_rpc_v1_AppConfigGetRequest_size  65
+#define gizclaw_rpc_v1_AppConfigListRequest_size 185
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_size 11
 #define gizclaw_rpc_v1_ClientDeviceRebootResponse_size 0
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_size 45

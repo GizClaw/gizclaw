@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 115 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 117 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -144,6 +144,15 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 80 | `server.tool.list` | 分页列出当前 RuntimeProfile 的 Tool names。 |
 | 81 | `server.tool.get` | 按 name 读取 RuntimeProfile Tool projection。 |
 | 82 | `client.tool.invoke` | Server 请求 Client 执行本地 Tool，并用 `call_id` 关联真实执行结果。 |
+
+## App Config
+
+`app_config` 是当前 RuntimeProfile 的不透明设备配置下发通道。Server 原样存储并返回每个 value，从不解析；Peer 只能读，没有写入方法。value 上限 4096 字节、最多 64 个 key，因此 list 只返回 key，单个 value 通过 get 按需读取，设备可以使用静态缓冲区解码。
+
+| ID | Method | 作用 |
+| ---: | --- | --- |
+| 121 | `server.app_config.list` | 分页列出当前 RuntimeProfile 的 app_config keys，cursor 与 RuntimeProfile revision 绑定。 |
+| 122 | `server.app_config.get` | 按 key 原样返回一个 app_config value；key 不存在返回 `NOT_FOUND`。 |
 
 ## API Key
 
