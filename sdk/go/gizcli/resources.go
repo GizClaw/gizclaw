@@ -272,6 +272,20 @@ func (c *Client) GetTool(ctx context.Context, id string, request rpcapi.ToolGetR
 	})
 }
 
+// ListAppConfig pages the opaque app_config keys of the selected RuntimeProfile.
+func (c *Client) ListAppConfig(ctx context.Context, id string, request rpcapi.AppConfigListRequest) (*rpcapi.AppConfigListResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.AppConfigListResponse, error) {
+		return client.ListAppConfig(ctx, conn, id, request)
+	})
+}
+
+// GetAppConfig reads one opaque app_config value verbatim.
+func (c *Client) GetAppConfig(ctx context.Context, id string, request rpcapi.AppConfigGetRequest) (*rpcapi.AppConfigGetResponse, error) {
+	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.AppConfigGetResponse, error) {
+		return client.GetAppConfig(ctx, conn, id, request)
+	})
+}
+
 // SetWorkspaceParameters updates supported fields and ignores unsupported fields.
 func (c *Client) SetWorkspaceParameters(ctx context.Context, id string, request rpcapi.WorkspaceParametersSetRequest) (*rpcapi.WorkspaceParametersSetResponse, error) {
 	return callClientRPC(c, func(client *rpcClient, conn net.Conn) (*rpcapi.WorkspaceParametersSetResponse, error) {

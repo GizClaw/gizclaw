@@ -655,6 +655,13 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		}
 		spec.Resources.Memories = &normalized
 	}
+	if spec.AppConfig != nil {
+		normalized, err := normalizeAppConfig(*spec.AppConfig)
+		if err != nil {
+			return apitypes.RuntimeProfile{}, err
+		}
+		spec.AppConfig = &normalized
+	}
 	item := apitypes.RuntimeProfile{Id: id, Spec: spec}
 	if err := setProfileRevision(&item); err != nil {
 		return apitypes.RuntimeProfile{}, err
@@ -1300,6 +1307,38 @@ func normalizeBindingMap(values map[string]apitypes.RuntimeProfileBinding) (map[
 // profile bindings and resources that persist those aliases.
 func ValidateAlias(kind, value string) error {
 	return runtimealias.Validate(kind, value)
+}
+
+// MaxAppConfigEntries and MaxAppConfigValueBytes bound the opaque app_config
+// downlink so Clients can decode it into static buffers. The value bound is
+// counted in UTF-8 bytes and is stricter than the schema maxLength, which JSON
+// Schema can only express in characters.
+const (
+	MaxAppConfigEntries    = 64
+	MaxAppConfigValueBytes = 4096
+)
+
+// normalizeAppConfig trims and validates app_config keys and bounds the opaque
+// values. Values are never trimmed, parsed or rewritten.
+func normalizeAppConfig(in apitypes.RuntimeProfileAppConfig) (apitypes.RuntimeProfileAppConfig, error) {
+	normalized := make(apitypes.RuntimeProfileAppConfig, len(in))
+	for rawKey, value := range in {
+		key := strings.TrimSpace(rawKey)
+		if err := ValidateAlias("app_config key", key); err != nil {
+			return nil, err
+		}
+		if _, duplicate := normalized[key]; duplicate {
+			return nil, fmt.Errorf("app_config key %q is duplicated after normalization", key)
+		}
+		if len(value) > MaxAppConfigValueBytes {
+			return nil, fmt.Errorf("app_config.%s must not exceed %d bytes, got %d", key, MaxAppConfigValueBytes, len(value))
+		}
+		normalized[key] = value
+	}
+	if len(normalized) > MaxAppConfigEntries {
+		return nil, fmt.Errorf("app_config must not exceed %d entries, got %d", MaxAppConfigEntries, len(normalized))
+	}
+	return normalized, nil
 }
 
 func setProfileRevision(item *apitypes.RuntimeProfile) error {

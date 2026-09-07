@@ -170,7 +170,9 @@ func IsMethod(method rpcapi.RPCMethod) bool {
 		rpcapi.RPCMethodServerFriendGroupMembersPut,
 		rpcapi.RPCMethodServerFriendGroupMembersDelete,
 		rpcapi.RPCMethodServerToolList,
-		rpcapi.RPCMethodServerToolGet:
+		rpcapi.RPCMethodServerToolGet,
+		rpcapi.RPCMethodServerAppConfigList,
+		rpcapi.RPCMethodServerAppConfigGet:
 		return true
 	default:
 		return false
@@ -268,6 +270,10 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 		return s.handleToolList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerToolGet:
 		return s.handleToolGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerAppConfigList:
+		return s.handleAppConfigList(ctx, req), true, nil
+	case rpcapi.RPCMethodServerAppConfigGet:
+		return s.handleAppConfigGet(ctx, req), true, nil
 	default:
 		return nil, false, nil
 	}

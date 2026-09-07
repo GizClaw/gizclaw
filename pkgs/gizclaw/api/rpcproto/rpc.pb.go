@@ -215,6 +215,8 @@ const (
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY            RpcMethod = 117
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP            RpcMethod = 118
 	RpcMethod_RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET        RpcMethod = 119
+	RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_LIST                    RpcMethod = 121
+	RpcMethod_RPC_METHOD_SERVER_APP_CONFIG_GET                     RpcMethod = 122
 )
 
 // Enum value maps for RpcMethod.
@@ -318,6 +320,8 @@ var (
 		117: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY",
 		118: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP",
 		119: "RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET",
+		121: "RPC_METHOD_SERVER_APP_CONFIG_LIST",
+		122: "RPC_METHOD_SERVER_APP_CONFIG_GET",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                               0,
@@ -418,6 +422,8 @@ var (
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY":            117,
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP":            118,
 		"RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET":        119,
+		"RPC_METHOD_SERVER_APP_CONFIG_LIST":                    121,
+		"RPC_METHOD_SERVER_APP_CONFIG_GET":                     122,
 	}
 )
 
@@ -991,7 +997,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x93`\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\xf3a\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1188,7 +1194,11 @@ const file_rpc_proto_rawDesc = "" +
 	")RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP\x10v\x1am\xc2\xf3\x18i\n" +
 	"\x1eclient.device.audioplayer.stop\x12\"ClientDeviceAudioPlayerStopRequest\x1a#ClientDeviceAudioPlayerStopResponse\x12\xaa\x01\n" +
 	"-RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET\x10w\x1aw\xc2\xf3\x18s\n" +
-	"\"client.device.audioplayer.mode.set\x12%ClientDeviceAudioPlayerModeSetRequest\x1a&ClientDeviceAudioPlayerModeSetResponse:d\n" +
+	"\"client.device.audioplayer.mode.set\x12%ClientDeviceAudioPlayerModeSetRequest\x1a&ClientDeviceAudioPlayerModeSetResponse\x12p\n" +
+	"!RPC_METHOD_SERVER_APP_CONFIG_LIST\x10y\x1aI\xc2\xf3\x18E\n" +
+	"\x16server.app_config.list\x12\x14AppConfigListRequest\x1a\x15AppConfigListResponse\x12l\n" +
+	" RPC_METHOD_SERVER_APP_CONFIG_GET\x10z\x1aF\xc2\xf3\x18B\n" +
+	"\x15server.app_config.get\x12\x13AppConfigGetRequest\x1a\x14AppConfigGetResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

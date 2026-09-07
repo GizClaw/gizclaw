@@ -1,0 +1,72 @@
+# User Story:
+# As a GizClaw Peer API consumer,
+# I want read one app_config value by key,
+# So that opaque device configuration is returned verbatim end to end.
+version: gizclaw.test/v1alpha1
+name: server.app_config.get
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request:
+      token: "${registration_token}"
+- id: primary_rpc
+  client: peer
+  rpc:
+    method: server.app_config.get
+    request:
+      key: ui.theme
+  expect:
+    "/value":
+      equals: dark
+    "/runtime_profile_name":
+      non_empty: true
+    "/runtime_profile_revision":
+      non_empty: true
+- id: opaque_value
+  client: peer
+  rpc:
+    method: server.app_config.get
+    request:
+      key: app.entrypoints
+  expect:
+    "/value":
+      equals: "{\"home\": \"/tab/home\", \"settings\": \"/tab/settings\"}\n"
+- id: missing_key
+  client: peer
+  rpc:
+    method: server.app_config.get
+    request:
+      key: missing.key
+  expect_error:
+    code: 5
+    message_contains: app config key not found
+- id: empty_key
+  client: peer
+  rpc:
+    method: server.app_config.get
+    request:
+      key: " "
+  expect_error:
+    code: 3
+finally:
+- client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

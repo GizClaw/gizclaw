@@ -75,6 +75,27 @@ spec:
 
 `flowcraft_bbh` 不再是受支持的 connection。仍使用它的已持久化 profile 会在读取或 runtime 解析时被拒绝，错误会指出具体 profile 与 binding；管理员仍可通过 `PUT` 将其显式替换为 `flowcraft_redis8` 或 `flowcraft_object_store`。Profile 被拒绝、替换或删除时，GizClaw 都不会迁移、重新解释或删除旧的 managed local directory；operator 必须先保留或备份该目录，并在切换 binding 前显式完成所需的数据转移。
 
+## app_config
+
+`spec.app_config` 是可选的不透明设备配置下发通道，把设备自己的产品配置放进它已经使用的 RuntimeProfile，而不需要重新构建固件。它是一个 key-value map：key 使用与其他 RuntimeProfile alias 完全相同的语法（1–63 字节、`.` 分隔的 lowercase kebab-case segment），value 是任意 string。
+
+Server 原样存储并返回每个 value：不解析、不 trim、不做编码转换，也不校验它是不是 JSON。value 用什么格式由设备自己决定。Server 只校验 key 语法、单个 value 不超过 4096 字节、条目不超过 64 个；normalize 后出现重复 key 时拒绝整次写入。key 语法与 value 的字节上限都在 Server 归一化时校验：OpenAPI 3.0 没有 `propertyNames`，`maxLength` 也只能表达字符数，而设备侧按 UTF-8 字节静态分配，因此归一化比 schema 更严格。
+
+```yaml
+spec:
+  app_config:
+    ui.theme: dark
+    app.entrypoints: |
+      {"home": "/tab/home", "settings": "/tab/settings"}
+    feature.flags: beta-voice,beta-pet
+```
+
+app_config key 与 Workflow、Model、Voice、Tool 等 binding alias 属于互相独立的命名空间，不参与全局 alias 唯一性检查：`app_config` 里的 `chat` 与 `resources.models` 里的 `chat` 互不冲突。
+
+设备通过 `server.app_config.list` 与 `server.app_config.get` 只读访问，没有写入方法；同一个 RuntimeProfile 下的所有设备读到相同内容，不存在 per-Peer 配置。任何持有该绑定的已注册设备都能读到全部 key 与 value，因此这里不能存放 credential、API key 或任何 secret；凭证仍由 Credential 与 ProviderTenant 在 Server 侧解析，不进入 projection。
+
+app_config 参与 spec 归一化和 revision 计算，因此改配置就会产生新的 revision，设备可以缓存 revision 并在未变化时跳过重新拉取。
+
 规范化后的 spec 有确定性的 opaque revision。Catalog list/get 响应携带 RuntimeProfile ID 与 revision，分页 cursor 与 revision 绑定。每次 list、get、Workspace reload 和 standalone Speech 调用使用一个一致快照；并发更新从下一次操作开始生效。
 
 RuntimeProfile 在创建和更新时校验完整依赖图，再发布新的 revision。Workspace reload 等快照读取信任已经持久化的 revision，不会再次遍历 Workflow、Model、Voice、Tool 或 Memory 依赖。每个 consumer 只解析自己实际使用的 binding：选中的依赖不可用时由该 consumer 返回错误，而无关资源不可用不会阻塞快照或不受影响的 Workspace。

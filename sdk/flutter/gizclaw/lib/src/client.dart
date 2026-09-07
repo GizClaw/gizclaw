@@ -152,6 +152,32 @@ class GizClawClient {
     return rpc.call<payload.ModelListResponse>('server.model.list', request);
   }
 
+  /// Pages the opaque app_config keys of the selected RuntimeProfile.
+  Future<payload.AppConfigListResponse> listAppConfig({
+    String? cursor,
+    int? limit,
+  }) {
+    final request = payload.AppConfigListRequest();
+    if (cursor != null) {
+      request.cursor = cursor;
+    }
+    if (limit != null) {
+      request.limit = Int64(limit);
+    }
+    return rpc.call<payload.AppConfigListResponse>(
+      'server.app_config.list',
+      request,
+    );
+  }
+
+  /// Reads one opaque app_config value verbatim.
+  Future<payload.AppConfigGetResponse> getAppConfig(String key) {
+    return rpc.call<payload.AppConfigGetResponse>(
+      'server.app_config.get',
+      payload.AppConfigGetRequest(key: key),
+    );
+  }
+
   Future<payload.WorkspaceListResponse> listWorkspaces({
     required String collection,
     String? cursor,

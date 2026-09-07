@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 97 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 99 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -28,6 +28,7 @@
 | 11 | `server.run.workspace.get` | 读取当前、待切换和已选 Workspace 及其运行状态。 |
 | 12 | `server.run.workspace.set` | 选择要运行的 Workspace，并返回切换后的状态。 |
 | 13 | `server.run.workspace.reload` | 重新加载当前 Workspace 的运行实例。 |
+| 120 | `server.run.workspace.reload-with-options` | 重新加载指定或当前 Workspace，并按 `parameters` patch 覆盖本次运行的 Workspace 参数。 |
 | 14 | `server.run.workspace.history` | 分页读取当前运行 Workspace 的 history。 |
 | 15 | `server.run.workspace.history.play` | 请求播放一条当前 Workspace history 的音频。 |
 | 16 | `server.run.workspace.memory.stats` | 读取当前 Workspace memory/recall backend 的统计信息。 |
@@ -54,7 +55,6 @@ Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑
 | 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_name` 创建当前 Peer 的 Workspace。 |
 | 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
 | 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
-| 120 | `server.run.workspace.reload-with-options` | 应用受支持参数、选择目标 Workspace 并执行一次 reload，返回实际运行状态。 |
 | 112 | `server.runtime.put` | 设备设置自身 Runtime 的 `debug_mode`（`off`、`readonly` 或 `fullcontrol`），由所属 Server 存储并执行访问权限检查。 |
 | 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
 | 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
@@ -112,6 +112,7 @@ Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog�
 | 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
 | 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
 
+
 ## Tool
 
 Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创建、修改或删除真实 Tool。
@@ -121,6 +122,15 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 80 | `server.tool.list` | 分页列出当前 RuntimeProfile 的 Tool names。 |
 | 81 | `server.tool.get` | 按 name 读取 RuntimeProfile Tool projection。 |
 | 82 | `client.tool.invoke` | Server 请求 Client 执行本地 Tool，并用 `call_id` 关联真实执行结果。 |
+
+## App Config
+
+`app_config` 是当前 RuntimeProfile 的不透明设备配置下发通道。Server 原样存储并返回每个 value，从不解析；Peer 只能读，没有写入方法。value 上限 4096 字节、最多 64 个 key，因此 list 只返回 key，单个 value 通过 get 按需读取，设备可以使用静态缓冲区解码。
+
+| ID | Method | 作用 |
+| ---: | --- | --- |
+| 121 | `server.app_config.list` | 分页列出当前 RuntimeProfile 的 app_config keys，cursor 与 RuntimeProfile revision 绑定。 |
+| 122 | `server.app_config.get` | 按 key 原样返回一个 app_config value；key 不存在返回 `NOT_FOUND`。 |
 
 ## API Key
 
@@ -148,6 +158,13 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 108 | `client.wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
 | 109 | `client.wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
 | 111 | `client.firmware.update` | 通知设备执行一次 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 声明调用方看到的目标包，与设备解析出的包不一致时设备拒绝。设备在应答后自行下载、校验、写入并重启。 |
+| 113 | `client.device.audioplayer.get` | 读取设备当前的 `AudioPlayerStatus`（播放状态、曲目索引与 repeat mode）。 |
+| 114 | `client.device.audioplayer.playlist.get` | 读取设备当前播放列表。 |
+| 115 | `client.device.audioplayer.playlist.set` | 整体替换设备播放列表。 |
+| 116 | `client.device.audioplayer.playlist.append` | 向设备播放列表追加曲目。 |
+| 117 | `client.device.audioplayer.play` | 开始播放，可选 `index` 指定曲目。 |
+| 118 | `client.device.audioplayer.stop` | 幂等停止播放，保留播放列表与 repeat mode。 |
+| 119 | `client.device.audioplayer.mode.set` | 设置 repeat mode：`off` 播完停止、`one` 单曲循环、`all` 列表循环。 |
 
 ## 独立流式语音
 
@@ -168,6 +185,7 @@ Tool 同样由当前 RuntimeProfile 投影为 Peer name catalog；Peer 不能创
 | 83 | `server.peer.lookup` | 只读查询指定 Peer 当前的固定 Server assignment。 |
 | 84 | `server.peer.assign` | 原子 claim 缺少 assignment 的 Peer，或刷新同 owner metadata；其他 owner 返回 conflict，`expected_version` 不能转移归属。 |
 | 85 | `server.route.resolve` | 只读解析目标 Peer 当前的固定 Server route/assignment。 |
+| 99 | `server.api_key.resolve` | Edge-node 用 API Key 换取对应 Peer 的 assignment。 |
 
 ## 未指定值
 

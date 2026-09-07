@@ -3241,6 +3241,58 @@ int main(void) {
   }
   gzc_buf_free(&reload_params, platform);
 
+  /* app_config decodes into static buffers: a full 4096-byte value and a full
+     page of keys must round trip without heap allocation. */
+  gizclaw_rpc_v1_AppConfigGetResponse app_config_value =
+      gizclaw_rpc_v1_AppConfigGetResponse_init_zero;
+  memset(app_config_value.value, 'x', 4096);
+  app_config_value.value[4096] = '\0';
+  strcpy(app_config_value.runtime_profile_revision, "revision");
+  gzc_buf_t app_config_params;
+  gzc_buf_init(&app_config_params);
+  rc = encode_test_pb_message(platform, gizclaw_rpc_v1_AppConfigGetResponse_fields,
+                              &app_config_value, &app_config_params);
+  if (expect(rc == GZC_OK, "encode app config get response") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_AppConfigGetResponse decoded_app_config =
+      gizclaw_rpc_v1_AppConfigGetResponse_init_zero;
+  rc = decode_test_pb_message(
+      gzc_str_from_parts((const char *)app_config_params.data, app_config_params.len),
+      gizclaw_rpc_v1_AppConfigGetResponse_fields, &decoded_app_config);
+  if (expect(rc == GZC_OK && strlen(decoded_app_config.value) == 4096 &&
+                 strcmp(decoded_app_config.runtime_profile_revision, "revision") == 0,
+             "app config value round trip") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&app_config_params, platform);
+
+  gizclaw_rpc_v1_AppConfigListResponse app_config_keys =
+      gizclaw_rpc_v1_AppConfigListResponse_init_zero;
+  app_config_keys.keys_count = 64;
+  for (size_t key_index = 0; key_index < 64; key_index++) {
+    snprintf(app_config_keys.keys[key_index], sizeof(app_config_keys.keys[key_index]),
+             "app.key-%02zu", key_index);
+  }
+  gzc_buf_t app_config_keys_params;
+  gzc_buf_init(&app_config_keys_params);
+  rc = encode_test_pb_message(platform, gizclaw_rpc_v1_AppConfigListResponse_fields,
+                              &app_config_keys, &app_config_keys_params);
+  if (expect(rc == GZC_OK, "encode app config list response") != 0) {
+    return 1;
+  }
+  gizclaw_rpc_v1_AppConfigListResponse decoded_app_config_keys =
+      gizclaw_rpc_v1_AppConfigListResponse_init_zero;
+  rc = decode_test_pb_message(
+      gzc_str_from_parts((const char *)app_config_keys_params.data, app_config_keys_params.len),
+      gizclaw_rpc_v1_AppConfigListResponse_fields, &decoded_app_config_keys);
+  if (expect(rc == GZC_OK && decoded_app_config_keys.keys_count == 64 &&
+                 strcmp(decoded_app_config_keys.keys[63], "app.key-63") == 0,
+             "app config key page round trip") != 0) {
+    return 1;
+  }
+  gzc_buf_free(&app_config_keys_params, platform);
+
   gzc_buf_reset(&fake_webrtc.sent);
   int create_channel_count_before_edge = fake_webrtc.create_channel_count;
   memset(&response, 0, sizeof(response));

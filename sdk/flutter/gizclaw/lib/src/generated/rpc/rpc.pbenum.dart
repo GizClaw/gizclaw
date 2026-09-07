@@ -326,6 +326,10 @@ class RpcMethod extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET');
+  static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_LIST = RpcMethod._(
+      121, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_LIST');
+  static const RpcMethod RPC_METHOD_SERVER_APP_CONFIG_GET = RpcMethod._(
+      122, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_APP_CONFIG_GET');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -426,10 +430,12 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_PLAY,
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_STOP,
     RPC_METHOD_CLIENT_DEVICE_AUDIOPLAYER_MODE_SET,
+    RPC_METHOD_SERVER_APP_CONFIG_LIST,
+    RPC_METHOD_SERVER_APP_CONFIG_GET,
   ];
 
   static final $core.List<RpcMethod?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 120);
+      $pb.ProtobufEnum.$_initByValueList(values, 122);
   static RpcMethod? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

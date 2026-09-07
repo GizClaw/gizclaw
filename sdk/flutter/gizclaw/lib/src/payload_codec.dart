@@ -14,6 +14,10 @@ final _messageFactories = <String, MessageFactory>{
   'APIKeyListResponse': payload.APIKeyListResponse.new,
   'APIKeyRevokeRequest': payload.APIKeyRevokeRequest.new,
   'APIKeyRevokeResponse': payload.APIKeyRevokeResponse.new,
+  'AppConfigGetRequest': payload.AppConfigGetRequest.new,
+  'AppConfigGetResponse': payload.AppConfigGetResponse.new,
+  'AppConfigListRequest': payload.AppConfigListRequest.new,
+  'AppConfigListResponse': payload.AppConfigListResponse.new,
   'ClientDeviceAudioPlayerGetRequest':
       payload.ClientDeviceAudioPlayerGetRequest.new,
   'ClientDeviceAudioPlayerGetResponse':
@@ -247,6 +251,10 @@ final _messageTypes = <String, Type>{
   'APIKeyListResponse': payload.APIKeyListResponse,
   'APIKeyRevokeRequest': payload.APIKeyRevokeRequest,
   'APIKeyRevokeResponse': payload.APIKeyRevokeResponse,
+  'AppConfigGetRequest': payload.AppConfigGetRequest,
+  'AppConfigGetResponse': payload.AppConfigGetResponse,
+  'AppConfigListRequest': payload.AppConfigListRequest,
+  'AppConfigListResponse': payload.AppConfigListResponse,
   'ClientDeviceAudioPlayerGetRequest':
       payload.ClientDeviceAudioPlayerGetRequest,
   'ClientDeviceAudioPlayerGetResponse':

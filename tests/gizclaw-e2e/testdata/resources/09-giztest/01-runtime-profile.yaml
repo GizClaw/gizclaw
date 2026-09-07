@@ -59,3 +59,8 @@ spec:
       murder-mystery-memory: {layout_id: murder-mystery-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       poetry-memory: {layout_id: poetry-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
       werewolf-memory: {layout_id: werewolf-memory, driver: flowcraft, connection: {type: flowcraft_redis8, url: "redis://redis:6379/0"}}
+  app_config:
+    ui.theme: dark
+    app.entrypoints: |
+      {"home": "/tab/home", "settings": "/tab/settings"}
+    feature.flags: beta-voice,beta-audio
