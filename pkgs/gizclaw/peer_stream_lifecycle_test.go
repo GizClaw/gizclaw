@@ -572,7 +572,12 @@ func TestPeerStreamLifecycleClassifiesFirstAssistantModalities(t *testing.T) {
 					terminal = attrs
 				}
 			}
-			if produced["output_modality"] != test.wantModality || delivered["output_modality"] != test.wantModality {
+			wantDelivered := test.wantModality
+			if wantDelivered == "interrupt" {
+				// Normal interruption is delivered as an error-free EOS.
+				wantDelivered = "assistant_eos"
+			}
+			if produced["output_modality"] != test.wantModality || delivered["output_modality"] != wantDelivered {
 				t.Fatalf("first modalities produced=%#v delivered=%#v", produced, delivered)
 			}
 			if terminal["terminal_class"] != test.wantTerminal || terminal["produced_modalities"] != test.wantModalities {

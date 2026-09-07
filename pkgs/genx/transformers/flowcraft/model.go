@@ -16,11 +16,6 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-// providerSafeEmptyUserText matches the compatibility behavior previously
-// supplied by Claw. It keeps an initiative turn logically empty in Flowcraft
-// history and memory while satisfying providers that reject empty user input.
-const providerSafeEmptyUserText = "\u200b"
-
 type modelResolver struct {
 	generator   genx.Generator
 	toolInvoker genx.ToolInvoker
@@ -150,7 +145,6 @@ func buildModelContext(messages []flowmodel.Message, options *flowllm.GenerateOp
 	}
 	for _, message := range messages {
 		emptyUser := message.Role == flowmodel.RoleUser && strings.TrimSpace(message.Content()) == ""
-		wroteUserText := false
 		for _, part := range message.Parts {
 			if part.Type == flowmodel.PartData && part.Data != nil && part.Data.MimeType == "application/vnd.genx.interruption+json" {
 				continue
@@ -162,20 +156,15 @@ func buildModelContext(messages []flowmodel.Message, options *flowllm.GenerateOp
 			case flowmodel.RoleSystem:
 				builder.PromptText("system", part.Text)
 			case flowmodel.RoleUser:
-				text := part.Text
-				if emptyUser && !wroteUserText {
-					text = providerSafeEmptyUserText
+				// Initiative has no user input; keep only actual user text.
+				if !emptyUser && strings.TrimSpace(part.Text) != "" {
+					builder.UserText("", part.Text)
 				}
-				builder.UserText("", text)
-				wroteUserText = true
 			case flowmodel.RoleAssistant:
 				builder.ModelText("", part.Text)
 			default:
 				return nil, fmt.Errorf("flowcraft: unsupported model message role %q", message.Role)
 			}
-		}
-		if emptyUser && !wroteUserText {
-			builder.UserText("", providerSafeEmptyUserText)
 		}
 	}
 	return builder.Build(), nil

@@ -174,6 +174,73 @@ func TestInitiativeOnceWhenEmptySkipsExistingHistory(t *testing.T) {
 	}
 }
 
+func TestInitiativeOmitsEmptyUserMessagesAndKeepsNextTurn(t *testing.T) {
+	for _, usePrompt := range []bool{false, true} {
+		t.Run(fmt.Sprintf("prompt=%t", usePrompt), func(t *testing.T) {
+			chat := &fakeChatModel{chunks: []*schema.Message{schema.AssistantMessage("hello", nil)}}
+			config := chatConfig(&componentMapResolver{chat: chat})
+			config.Initiative = InitiativeOnReload
+			if !usePrompt {
+				config.Graph.Nodes = config.Graph.Nodes[1:]
+				config.Graph.Nodes[0].Inputs["messages"] = Binding{From: "input.messages"}
+				config.Graph.Edges = []EdgeDefinition{{From: "start", To: "model"}, {From: "model", To: "end"}}
+			}
+			transformer, err := New(t.Context(), config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			transformer.history.live = []*schema.Message{schema.UserMessage("previous"), schema.AssistantMessage("reply", nil)}
+			input := newInputBuilder()
+			output, err := transformer.Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer output.Close()
+			for {
+				chunk, err := output.Next()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if chunk.IsEndOfStream() {
+					if chunk.Ctrl.Error != "" {
+						t.Fatalf("initiative failed: %s", chunk.Ctrl.Error)
+					}
+					break
+				}
+			}
+			addTextTurn(t, input, "next user turn")
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+			drain(t, output)
+			chat.mu.Lock()
+			defer chat.mu.Unlock()
+			if len(chat.inputs) != 2 {
+				t.Fatalf("model calls = %d, want initiative and next turn", len(chat.inputs))
+			}
+			for _, messages := range chat.inputs {
+				for _, message := range messages {
+					if message.Role == schema.User && message.Content == "" {
+						t.Fatal("empty user message reached model")
+					}
+				}
+			}
+			first := chat.inputs[0]
+			if usePrompt {
+				if len(first) != 1 || first[0].Role != schema.System || first[0].Content != "system" {
+					t.Fatalf("initiative prompt = %+v, want system prompt only", first)
+				}
+			} else if len(first) != 2 || first[0].Content != "previous" || first[1].Content != "reply" {
+				t.Fatalf("initiative lost history: %+v", first)
+			}
+			last := chat.inputs[1]
+			if last[len(last)-1].Role != schema.User || last[len(last)-1].Content != "next user turn" {
+				t.Fatalf("next user input was lost: %+v", last)
+			}
+		})
+	}
+}
+
 func TestFailedInitiativeCanBeClaimedAgain(t *testing.T) {
 	t.Parallel()
 	config := textConfig()

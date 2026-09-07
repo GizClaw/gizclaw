@@ -39,3 +39,5 @@ Stream、不会恢复旧 route，也不会把 mandatory signal 降级为 best-ef
 对经 Edge 路由的 Peer，`peerAgentOutput` 只通过 producer response epoch 的不可变 input-route provenance 把 output 绑定到 logical turn。该关联跨越 input replacement 存活，因此旧 response 即使第一次被迟到观察也仍归属旧 `turn_index`；self-start 或第三方无 provenance response 绝不 fallback 到 current turn。记录有界 `output_terminal` 并完成 owning turn 的是 response-complete boundary，而不是第一个 MIME EOS。
 
 Produced accounting 分类 GenX source chunk；delivered accounting 只分类 `Broadcast` 成功后的实际 `PeerEvent`，aggregate audio 还必须已经完成 mixer drain。Broadcast 失败、drain 失败或 abandon，以及被聚合器抑制的 audio boundary 都不会增加 delivered modality。空 label text/blob event 沿用 Peer client 的 assistant fallback；空 label control-only EOS 仍为 `other`。Terminal snapshot 只包含排序后的封闭 source part/label 与 Peer event type/kind/label class；payload 和 raw label 始终排除。
+
+Workspace 切换取消旧回复、或用户 BOS 打断 Agent 开场时，旧输出通过不带 error 的 EOS 结束。真实模型或音频处理失败仍携带错误 code 和 message；输入路由重载仍使用 `INPUT_ROUTE_RELOADED` 通知重新开始输入。

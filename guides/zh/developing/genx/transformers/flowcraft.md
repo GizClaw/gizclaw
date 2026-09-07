@@ -68,7 +68,7 @@ Config 只接受 `model`、`input`、`output` 和 `rules`。Alias 不能包含 `
 
 每个已构造 Transformer 拥有一个 ContextID，同一 Agent lifetime 内的所有 `Transform(ctx, input)` 共用该 ContextID、History、Memory scope 与 Board State。显式配置 `ContextID` 时，重新构造后会继续使用相同的 History 与 State；留空时则为 standalone 使用场景生成 Agent-lifetime identity。GizClaw workflow Factory 会从 Workspace/Agent scope 派生稳定值，不要求 Workflow YAML 暴露该字段。同一个 Transformer 可以并发执行多个 Transform，各调用仍独立拥有 run、输入聚合、输出 buffer 与取消状态。
 
-`InitiativeOnReload` 会在 Transformer 生命周期内第一次 `Transform` 时运行一次空输入 Graph turn；`InitiativeOnceWhenEmpty` 仅在已配置会话 History 为空时运行。并发 attach 和后续 `Transform` 共享一次 initiative claim，不会重复触发。
+`InitiativeOnReload` 会在 Transformer 生命周期内第一次 `Transform` 时运行一次空输入 Graph turn；`InitiativeOnceWhenEmpty` 仅在已配置会话 History 为空时运行。并发 attach 和后续 `Transform` 共享一次 initiative claim，不会重复触发。模型适配层省略空白 user 文本，使用系统提示和有效历史生成开场，不注入占位用户文本。
 
 文本输入以 BOS 开始并持续聚合，直到对应文本 EOS 后才运行 Graph。每个完成的文本 turn 产生新的输出 StreamID、BOS、streaming text 和 EOS。非文本内容不进入 Flowcraft，按原 route 原样通过。
 

@@ -47,7 +47,7 @@ Bindings use this closed namespace:
 | Binding | Type | Value |
 | --- | --- | --- |
 | `input.text` | `string` | Completed user text turn. |
-| `input.messages` | `messages` | Ordered History followed by the current user message. |
+| `input.messages` | `messages` | Ordered History followed by the current user message; agent initiative uses History alone without an empty user message. |
 | `input.parts` | `list` | Defensively copied non-text input parts. |
 | `history.messages` | `messages` | Ordered prior History only. |
 | `memory.recalled` | `string` | Combined rendered recall results. |
@@ -239,3 +239,5 @@ When `WaitForCompletion` is true, the Store must implement `memory.OperationWait
 Runtime provider, Store, Script, component, cancellation, byte-limit, and optimistic-concurrency failures terminate every active route with an error EOS. No failed Graph run commits persistent State.
 
 The Eino Transformer depends only on the GenX `ToolInvoker` interface and does not receive RuntimeProfile, Toolkit policy, resource, or executor-registry details. One root `Transform` invocation shares its call-ID set and `MaxToolCalls` budget across nested Graphs. Provider call IDs remain inside Eino and are associated with the raw JSON result returned by `InvokeTool`. Zero uses 32 and negative values are rejected. Independent invocations may execute the shared invoker concurrently and reuse provider call IDs; resolution, invocation, invalid-result JSON, cancellation, duplicate-ID, and exhaustion failures remain local to one invocation.
+
+For agent initiative, ChatModel omits content-free user messages rendered by Prompt while preserving system instructions, history, and multimodal input.

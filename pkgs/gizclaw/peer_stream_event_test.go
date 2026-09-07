@@ -1147,7 +1147,7 @@ func TestPeerStreamEventsPreserveErroredTextTerminal(t *testing.T) {
 				Role: genx.RoleModel, Part: test.text,
 				Ctrl: &genx.StreamCtrl{
 					StreamID: "answer", Label: "assistant", EndOfStream: true,
-					Error: "interrupted", ErrorCode: "STREAM_INTERRUPTED",
+					Error: "provider failed", ErrorCode: "MODEL_ERROR",
 				},
 			})
 			if len(events) != len(test.want) {
@@ -1161,14 +1161,56 @@ func TestPeerStreamEventsPreserveErroredTextTerminal(t *testing.T) {
 			terminal := events[len(events)-1]
 			if terminal.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_TEXT ||
 				terminal.GetEos().GetMimeType() != "" ||
-				terminal.GetEos().GetError().GetMessage() != "interrupted" ||
-				terminal.GetEos().GetError().GetCode() != "STREAM_INTERRUPTED" {
+				terminal.GetEos().GetError().GetMessage() != "provider failed" ||
+				terminal.GetEos().GetError().GetCode() != "MODEL_ERROR" {
 				t.Fatalf("terminal kind=%s MIME=%q error=%#v", terminal.StreamKindValue(), terminal.GetEos().GetMimeType(), terminal.GetEos().GetError())
 			}
 			if test.text != "" && events[0].Text() != string(test.text) {
 				t.Fatalf("text delta = %q, want %q", events[0].Text(), test.text)
 			}
 		})
+	}
+}
+
+func TestPeerStreamEventsEndInterruptedRepliesWithoutError(t *testing.T) {
+	for _, ctrl := range []genx.StreamCtrl{
+		{Error: "interrupted"},
+		{Error: context.Canceled.Error()},
+		{ErrorCode: "STREAM_INTERRUPTED"},
+	} {
+		ctrl.StreamID = "old-reply"
+		ctrl.Label = "assistant"
+		ctrl.EndOfStream = true
+		events := peerStreamEventsFromChunk(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &ctrl})
+		if len(events) != 1 || events[0].Type != eventpb.PeerEventType_PEER_EVENT_TYPE_EOS || events[0].StreamID() != "old-reply" || events[0].StreamError() != nil {
+			t.Fatalf("normal interruption %+v produced events %+v", ctrl, events)
+		}
+	}
+}
+
+func TestPeerAgentOutputCancellationEndsAudioWithoutError(t *testing.T) {
+	var events bytes.Buffer
+	broker := newPeerStreamEventBroker()
+	unsubscribe, err := broker.Subscribe(&events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unsubscribe()
+	output := &peerStreamSliceStream{chunks: []*genx.MessageChunk{{
+		Part: &genx.Blob{MIMEType: "audio/opus"},
+		Ctrl: &genx.StreamCtrl{StreamID: "old-reply", Label: "assistant", BeginOfStream: true},
+	}}, doneErr: context.Canceled}
+	if err := (peerAgentOutput{Events: broker}).ConsumeAgentOutput(t.Context(), output); !errors.Is(err, context.Canceled) {
+		t.Fatalf("consumer error = %v, want cancellation preserved internally", err)
+	}
+	for _, eventType := range []eventpb.PeerEventType{eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, eventpb.PeerEventType_PEER_EVENT_TYPE_EOS} {
+		event, err := readPeerStreamEvent(&events)
+		if err != nil || event.Type != eventType || event.StreamID() != "old-reply" || event.StreamError() != nil {
+			t.Fatalf("audio boundary = %+v, err=%v", event, err)
+		}
+	}
+	if _, err := readPeerStreamEvent(&events); !errors.Is(err, io.EOF) {
+		t.Fatalf("extra terminal event: %v", err)
 	}
 }
 

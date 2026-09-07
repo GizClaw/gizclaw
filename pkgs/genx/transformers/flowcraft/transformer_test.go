@@ -1600,9 +1600,6 @@ func lastUserText(modelContext genx.ModelContext) string {
 			}
 		}
 	}
-	if result == providerSafeEmptyUserText {
-		return ""
-	}
 	return result
 }
 

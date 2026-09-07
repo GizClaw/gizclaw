@@ -47,7 +47,7 @@ Binding 只接受以下 namespace：
 | Binding | 类型 | 值 |
 | --- | --- | --- |
 | `input.text` | `string` | 已完成的 user text turn。 |
-| `input.messages` | `messages` | 有序 History 加当前 user message。 |
+| `input.messages` | `messages` | 有序 History 加当前 user message；Agent 主动开场只有 History，不追加空 user message。 |
 | `input.parts` | `list` | defensive copy 后的非文本 input part。 |
 | `history.messages` | `messages` | 仅包含此前的有序 History。 |
 | `memory.recalled` | `string` | 合并后的 recall 渲染结果。 |
@@ -239,3 +239,5 @@ Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph
 Provider、Store、Script、component、cancellation、byte limit 和 optimistic-concurrency runtime error 都会让所有 active route 以 error EOS 终止。失败的 Graph run 不提交 persistent State。
 
 Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一个 root `Transform` invocation 的 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。独立 invocation 可以并发执行同一 invoker 并复用 provider call ID；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
+
+Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user message，保留系统提示、历史以及多模态输入。

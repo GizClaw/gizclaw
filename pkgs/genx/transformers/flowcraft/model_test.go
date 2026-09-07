@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -69,31 +68,24 @@ func TestGenXLLMUsesInvokeForFlowcraftJSONSchema(t *testing.T) {
 	}
 }
 
-func TestBuildModelContextMakesEmptyUserInputProviderSafe(t *testing.T) {
-	messages := []flowmodel.Message{
-		flowmodel.NewTextMessage(flowmodel.RoleSystem, "system"),
-		flowmodel.NewTextMessage(flowmodel.RoleUser, ""),
-	}
-	modelContext, err := buildModelContext(messages, nil)
-	if err != nil {
-		t.Fatalf("buildModelContext() error = %v", err)
-	}
-	var userText string
-	for message := range modelContext.Messages() {
-		if message.Role != genx.RoleUser {
-			continue
+func TestBuildModelContextOmitsEmptyInitiativeInput(t *testing.T) {
+	for _, input := range []string{"", " \n\t"} {
+		messages := []flowmodel.Message{
+			flowmodel.NewTextMessage(flowmodel.RoleSystem, "system"),
+			flowmodel.NewTextMessage(flowmodel.RoleUser, input),
 		}
-		for _, part := range message.Payload.(genx.Contents) {
-			if text, ok := part.(genx.Text); ok {
-				userText += string(text)
+		modelContext, err := buildModelContext(messages, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for message := range modelContext.Messages() {
+			if message.Role == genx.RoleUser {
+				t.Fatalf("initiative fabricated user message: %#v", message)
 			}
 		}
-	}
-	if userText != providerSafeEmptyUserText || strings.TrimSpace(userText) == "" {
-		t.Fatalf("provider user text = %q", userText)
-	}
-	if messages[1].Content() != "" {
-		t.Fatalf("source message was mutated: %q", messages[1].Content())
+		if messages[1].Content() != input {
+			t.Fatal("source message was mutated")
+		}
 	}
 }
 
