@@ -141,7 +141,46 @@ static int telemetry_encode_gnss(const gzc_telemetry_gnss_t *gnss, const gzc_pla
   return GZC_OK;
 }
 
+static bool telemetry_str_is_digits(gzc_str_t value, size_t min_len, size_t max_len) {
+  if (value.len < min_len || value.len > max_len || (value.data == NULL && value.len != 0)) {
+    return false;
+  }
+  for (size_t i = 0; i < value.len; i++) {
+    if (value.data[i] < '0' || value.data[i] > '9') {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Matches the server rule: "wifi" is compared case-insensitively.
+static bool telemetry_rat_is_wifi(gzc_str_t rat) {
+  static const char wifi[] = "wifi";
+  if (rat.len != sizeof(wifi) - 1 || rat.data == NULL) {
+    return false;
+  }
+  for (size_t i = 0; i < rat.len; i++) {
+    char c = rat.data[i];
+    if (c >= 'A' && c <= 'Z') {
+      c = (char)(c - 'A' + 'a');
+    }
+    if (c != wifi[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 static int telemetry_encode_network(const gzc_telemetry_network_t *network, const gzc_platform_t *platform, gzc_buf_t *out) {
+  if (network->has_imei || network->has_imsi) {
+    if (network->has_rat && telemetry_rat_is_wifi(network->rat)) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+    if ((network->has_imei && !telemetry_str_is_digits(network->imei, 15, 15)) ||
+        (network->has_imsi && !telemetry_str_is_digits(network->imsi, 6, 15))) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+  }
   if (network->has_rssi_dbm) {
     int rc = telemetry_append_double(out, platform, 1, network->rssi_dbm);
     if (rc != GZC_OK) {
@@ -168,6 +207,18 @@ static int telemetry_encode_network(const gzc_telemetry_network_t *network, cons
   }
   if (network->has_connected) {
     int rc = telemetry_append_bool(out, platform, 5, network->connected);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  if (network->has_imei) {
+    int rc = telemetry_append_string(out, platform, 6, network->imei);
+    if (rc != GZC_OK) {
+      return rc;
+    }
+  }
+  if (network->has_imsi) {
+    int rc = telemetry_append_string(out, platform, 7, network->imsi);
     if (rc != GZC_OK) {
       return rc;
     }

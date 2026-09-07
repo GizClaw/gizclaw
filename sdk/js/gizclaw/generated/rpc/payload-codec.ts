@@ -841,6 +841,8 @@ export type PeerStatus = {
   "muted"?: boolean;
   "reported_at"?: string;
   "volume"?: number;
+  "network_imei"?: string;
+  "network_imsi"?: string;
 };
 export type PingRequest = {
   "client_send_time": number;
@@ -5026,6 +5028,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 11,
         "optional": true,
         "type": "int64"
+      },
+      {
+        "name": "network_imei",
+        "number": 15,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "network_imsi",
+        "number": 16,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

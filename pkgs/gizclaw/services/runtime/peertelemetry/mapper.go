@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -44,6 +46,10 @@ type StatusPatch struct {
 	GNSSAltitudeMAt  time.Time
 	GNSSAccuracyM    *float64
 	GNSSAccuracyMAt  time.Time
+	NetworkIMEI      *string
+	NetworkIMEIAt    time.Time
+	NetworkIMSI      *string
+	NetworkIMSIAt    time.Time
 }
 
 func (p StatusPatch) Empty() bool {
@@ -52,8 +58,22 @@ func (p StatusPatch) Empty() bool {
 		p.GNSSLatitude == nil &&
 		p.GNSSLongitude == nil &&
 		p.GNSSAltitudeM == nil &&
-		p.GNSSAccuracyM == nil
+		p.GNSSAccuracyM == nil &&
+		p.NetworkIMEI == nil &&
+		p.NetworkIMSI == nil
 }
+
+// networkIMEIPattern and networkIMSIPattern mirror the network_imei and
+// network_imsi patterns of the PeerStatus schema in
+// api/http/shared/peer_status.json.
+var (
+	networkIMEIPattern = regexp.MustCompile(`^[0-9]{15}$`)
+	networkIMSIPattern = regexp.MustCompile(`^[0-9]{6,15}$`)
+)
+
+// networkRATWifi is the radio access technology value that marks a Wi-Fi
+// route. Cellular subscriber identities are rejected on such observations.
+const networkRATWifi = "wifi"
 
 func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime time.Time) ([]metrics.Sample, StatusPatch, error) {
 	if peer.IsZero() {
@@ -92,11 +112,12 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 			}
 			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_Network:
-			next, err := mapNetwork(body.Network, labels, ts)
+			next, patch, err := mapNetwork(body.Network, labels, ts)
 			if err != nil {
 				return nil, StatusPatch{}, err
 			}
 			samples = append(samples, next...)
+			mergeStatusPatch(&status, patch)
 		case *telemetrypb.Observation_System:
 			next, err := mapSystem(body.System, labels, ts)
 			if err != nil {
@@ -191,27 +212,55 @@ func mapGNSS(obs *telemetrypb.GnssObservation, labels map[string]string, ts time
 	return samples, patch, nil
 }
 
-func mapNetwork(obs *telemetrypb.NetworkObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, error) {
+// mapNetwork projects signal metrics into samples and the cellular subscriber
+// identity into the status patch. IMEI and IMSI are owner-scoped identity
+// strings: they never become metric samples or labels, and validation errors
+// name the field without echoing the reported value.
+func mapNetwork(obs *telemetrypb.NetworkObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, StatusPatch, error) {
 	if obs == nil {
-		return nil, fmt.Errorf("%w: network observation is nil", ErrInvalidFrame)
+		return nil, StatusPatch{}, fmt.Errorf("%w: network observation is nil", ErrInvalidFrame)
 	}
 	samples := make([]metrics.Sample, 0, 3)
 	if obs.RssiDbm != nil {
 		if err := validateFinite("network rssi_dbm", *obs.RssiDbm); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
 		samples = append(samples, sample(MetricNetworkRSSIDbm, labels, ts, *obs.RssiDbm))
 	}
 	if obs.SignalLevel != nil {
 		if err := validateFinite("network signal_level", *obs.SignalLevel); err != nil {
-			return nil, err
+			return nil, StatusPatch{}, err
 		}
 		samples = append(samples, sample(MetricNetworkSignal, labels, ts, *obs.SignalLevel))
 	}
 	if obs.Connected != nil {
 		samples = append(samples, sample(MetricNetworkConnected, labels, ts, boolValue(*obs.Connected)))
 	}
-	return samples, nil
+	patch := StatusPatch{}
+	if obs.Imei == nil && obs.Imsi == nil {
+		return samples, patch, nil
+	}
+	if obs.Rat != nil && strings.EqualFold(*obs.Rat, networkRATWifi) {
+		return nil, StatusPatch{}, fmt.Errorf("%w: network imei and imsi are only allowed on cellular observations", ErrInvalidFrame)
+	}
+	patch.ReportedAt = ts
+	if obs.Imei != nil {
+		if !networkIMEIPattern.MatchString(*obs.Imei) {
+			return nil, StatusPatch{}, fmt.Errorf("%w: network imei must be 15 ASCII digits", ErrInvalidFrame)
+		}
+		imei := *obs.Imei
+		patch.NetworkIMEI = &imei
+		patch.NetworkIMEIAt = ts
+	}
+	if obs.Imsi != nil {
+		if !networkIMSIPattern.MatchString(*obs.Imsi) {
+			return nil, StatusPatch{}, fmt.Errorf("%w: network imsi must be 6 to 15 ASCII digits", ErrInvalidFrame)
+		}
+		imsi := *obs.Imsi
+		patch.NetworkIMSI = &imsi
+		patch.NetworkIMSIAt = ts
+	}
+	return samples, patch, nil
 }
 
 func mapSystem(obs *telemetrypb.SystemObservation, labels map[string]string, ts time.Time) ([]metrics.Sample, error) {
@@ -293,6 +342,14 @@ func mergeStatusPatch(dst *StatusPatch, src StatusPatch) {
 	if src.GNSSAccuracyM != nil && (dst.GNSSAccuracyM == nil || !src.GNSSAccuracyMAt.Before(dst.GNSSAccuracyMAt)) {
 		dst.GNSSAccuracyM = src.GNSSAccuracyM
 		dst.GNSSAccuracyMAt = src.GNSSAccuracyMAt
+	}
+	if src.NetworkIMEI != nil && (dst.NetworkIMEI == nil || !src.NetworkIMEIAt.Before(dst.NetworkIMEIAt)) {
+		dst.NetworkIMEI = src.NetworkIMEI
+		dst.NetworkIMEIAt = src.NetworkIMEIAt
+	}
+	if src.NetworkIMSI != nil && (dst.NetworkIMSI == nil || !src.NetworkIMSIAt.Before(dst.NetworkIMSIAt)) {
+		dst.NetworkIMSI = src.NetworkIMSI
+		dst.NetworkIMSIAt = src.NetworkIMSIAt
 	}
 }
 

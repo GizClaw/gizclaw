@@ -436,11 +436,17 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
 - `peer_stream.mode: listen` 是只收不发的操作：必须声明 Go duration `duration`
   （正数且不超过 5m），不推送任何输入，在该时长内记录 PeerStream 下发的全部 chunk。任何
   label 的 Opus blob 都算收到的音频（SFU 下行以远端 participant 作为 label）。result 暴露
-  `audio_bytes`、`packets`、`events`、`streams`、`first_audio_ms`、`last_event_ms`、
+  `audio_bytes`、`packets`、`events`、`streams`、`first_text_ms`、
+  `first_transcript_ms`、`first_audio_ms`、`last_event_ms`、
   `duration_ms`、`listened_ms`、有界的 `text`、`audio_pacing`，以及与现有 `peer_stream`
   相同编码的 `/audio`（Ogg/Opus，只在声明了 `/audio` capture 且收到音频时提供，受 output
   variable 的 `max_bytes` 约束），可以直接交给 `server.speech.transcribe`。收到零音频不是
-  错误，文档用 `expect` 断言 `audio_bytes`。listen 可以与同一 client 的发言 step 放在同一个 `parallel` step 中：两个
+  错误，文档用 `expect` 断言 `audio_bytes`。`first_text_ms`、`first_transcript_ms` 与
+  `first_audio_ms` 使用同一时钟：从 listen 窗口开启起算的毫秒数，没有收到对应内容时为 0，
+  因此 agent 主动开场（`conversation.initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT`）
+  的首字延迟也能与首音延迟一样被 gate。只有显式的 `transcript` label 计入 transcript，
+  其余文本片段都计入 `first_text_ms`，与「任何 label 的 Opus blob 都算音频」一致。
+  listen 可以与同一 client 的发言 step 放在同一个 `parallel` step 中：两个
   child 共享该 connection 唯一的 Peer Event Stream 订阅，发言方听不到自己的音频
   （mix-minus-self），因此发送方断言 `audio_bytes` 等于 0。listen 不能设置 `input`、`pacing`、
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、

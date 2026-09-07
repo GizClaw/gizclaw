@@ -363,3 +363,120 @@ func TestNewRejectsUnknownInitiative(t *testing.T) {
 		t.Fatalf("New() error = %v, want unsupported Initiative", err)
 	}
 }
+
+// newInitiativeSession builds a provider session that answers the opening query
+// and the gated input stream of the Transform invocation that owns it.
+func newInitiativeSession() (*fakeTransformerSession, *gatedRealtimeStream) {
+	eventsDrained := make(chan struct{})
+	session := &fakeTransformerSession{
+		eventsDrained:    eventsDrained,
+		blockAfterEvents: make(chan struct{}),
+		events:           initiativeTestEvents(),
+	}
+	return session, &gatedRealtimeStream{gate: eventsDrained}
+}
+
+func TestTransformerInitiativeClaimIsScopedToOneTransform(t *testing.T) {
+	first, firstInput := newInitiativeSession()
+	second, secondInput := newInitiativeSession()
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: first}, {session: second}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModePushToTalk),
+		withFormat("pcm"),
+		withInitiative(InitiativeOnReload, ""),
+	)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	// Two Workspaces served by one configured Transformer must each open their
+	// own conversation; the claim of one session is invisible to the other.
+	outputs := make([]<-chan []*genx.MessageChunk, 0, 2)
+	for _, input := range []*gatedRealtimeStream{firstInput, secondInput} {
+		output, err := tfr.transform(ctx, input)
+		if err != nil {
+			t.Fatalf("transform() error = %v", err)
+		}
+		done := make(chan []*genx.MessageChunk, 1)
+		go func() { done <- drainRealtimeTestOutput(t, output) }()
+		outputs = append(outputs, done)
+	}
+	for _, done := range outputs {
+		chunks := <-done
+		requireNoInitiativeLeak(t, chunks, DefaultInitiativeQuery)
+	}
+	for name, session := range map[string]*fakeTransformerSession{"first": first, "second": second} {
+		if got := session.textMessages(); !slices.Equal(got, []string{DefaultInitiativeQuery}) {
+			t.Fatalf("%s session queries = %q, want the opening query", name, got)
+		}
+	}
+}
+
+func TestTransformerInitiativeSequentialTransformOpensAgain(t *testing.T) {
+	first, firstInput := newInitiativeSession()
+	second, secondInput := newInitiativeSession()
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: first}, {session: second}}}
+	tfr := newTransformer(nil,
+		withDoubaoRealtimeOpener(opener),
+		withMode(ModeText),
+		withFormat("pcm"),
+		withInitiative(InitiativeOnReload, ""),
+	)
+	for _, step := range []struct {
+		name    string
+		session *fakeTransformerSession
+		input   *gatedRealtimeStream
+	}{
+		{name: "first", session: first, input: firstInput},
+		{name: "second", session: second, input: secondInput},
+	} {
+		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		output, err := tfr.transform(ctx, step.input)
+		if err != nil {
+			cancel()
+			t.Fatalf("%s transform() error = %v", step.name, err)
+		}
+		chunks := drainRealtimeTestOutput(t, output)
+		cancel()
+		requireNoInitiativeLeak(t, chunks, DefaultInitiativeQuery)
+		if got := step.session.textMessages(); !slices.Equal(got, []string{DefaultInitiativeQuery}) {
+			t.Fatalf("%s session queries = %q, want the opening query", step.name, got)
+		}
+		if !hasRealtimeTestText(chunks, genx.RoleModel, "你好呀") {
+			t.Fatalf("%s opening not published: %#v", step.name, chunks)
+		}
+	}
+}
+
+func TestDoubaoRealtimeRuntimeInitiativeClaimIsPerRuntime(t *testing.T) {
+	tfr := newTransformer(nil, withMode(ModePushToTalk), withInitiative(InitiativeOnReload, ""))
+	first := newDoubaoRealtimeRuntime(tfr)
+	defer first.close()
+	second := newDoubaoRealtimeRuntime(tfr)
+	defer second.close()
+
+	if !first.claimInitiative(tfr.initiative) {
+		t.Fatal("first runtime did not take the claim")
+	}
+	if first.claimInitiative(tfr.initiative) {
+		t.Fatal("first runtime took the claim twice")
+	}
+	if !second.claimInitiative(tfr.initiative) {
+		t.Fatal("second runtime observed another runtime's claim")
+	}
+	// A release hands the opening to the replacement session of that runtime
+	// only; the concurrent runtime keeps its own claim.
+	first.releaseInitiative()
+	if !first.claimInitiative(tfr.initiative) {
+		t.Fatal("released claim was not available to the replacement session")
+	}
+	if second.claimInitiative(tfr.initiative) {
+		t.Fatal("second runtime lost its claim to another runtime's release")
+	}
+
+	disabled := newDoubaoRealtimeRuntime(newTransformer(nil, withMode(ModePushToTalk)))
+	defer disabled.close()
+	if disabled.claimInitiative(InitiativeDisabled) {
+		t.Fatal("disabled initiative took a claim")
+	}
+}

@@ -1601,6 +1601,8 @@ type PeerStatus struct {
 	Muted          *bool                  `protobuf:"varint,9,opt,name=muted,proto3,oneof" json:"muted,omitempty"`
 	ReportedAt     *string                `protobuf:"bytes,10,opt,name=reported_at,json=reportedAt,proto3,oneof" json:"reported_at,omitempty"`
 	Volume         *int64                 `protobuf:"varint,11,opt,name=volume,proto3,oneof" json:"volume,omitempty"`
+	NetworkImei    *string                `protobuf:"bytes,15,opt,name=network_imei,json=networkImei,proto3,oneof" json:"network_imei,omitempty"`
+	NetworkImsi    *string                `protobuf:"bytes,16,opt,name=network_imsi,json=networkImsi,proto3,oneof" json:"network_imsi,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1731,6 +1733,20 @@ func (x *PeerStatus) GetVolume() int64 {
 		return *x.Volume
 	}
 	return 0
+}
+
+func (x *PeerStatus) GetNetworkImei() string {
+	if x != nil && x.NetworkImei != nil {
+		return *x.NetworkImei
+	}
+	return ""
+}
+
+func (x *PeerStatus) GetNetworkImsi() string {
+	if x != nil && x.NetworkImsi != nil {
+		return *x.NetworkImsi
+	}
+	return ""
 }
 
 type PingRequest struct {
@@ -2999,7 +3015,7 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_download_percentB\x11\n" +
 	"\x0f_target_versionB\r\n" +
 	"\v_error_codeB\x10\n" +
-	"\x0e_error_message\"\x84\a\n" +
+	"\x0e_error_message\"\xf6\a\n" +
 	"\n" +
 	"PeerStatus\x124\n" +
 	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusH\x00R\x03ota\x88\x01\x01\x12,\n" +
@@ -3018,7 +3034,9 @@ const file_payload_system_proto_rawDesc = "" +
 	" \x01(\tH\n" +
 	"R\n" +
 	"reportedAt\x88\x01\x01\x12\x1b\n" +
-	"\x06volume\x18\v \x01(\x03H\vR\x06volume\x88\x01\x01\x1a9\n" +
+	"\x06volume\x18\v \x01(\x03H\vR\x06volume\x88\x01\x01\x12&\n" +
+	"\fnetwork_imei\x18\x0f \x01(\tH\fR\vnetworkImei\x88\x01\x01\x12&\n" +
+	"\fnetwork_imsi\x18\x10 \x01(\tH\rR\vnetworkImsi\x88\x01\x01\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x06\n" +
@@ -3033,7 +3051,9 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x0f_gnss_longitudeB\b\n" +
 	"\x06_mutedB\x0e\n" +
 	"\f_reported_atB\t\n" +
-	"\a_volume\"7\n" +
+	"\a_volumeB\x0f\n" +
+	"\r_network_imeiB\x0f\n" +
+	"\r_network_imsi\"7\n" +
 	"\vPingRequest\x12(\n" +
 	"\x10client_send_time\x18\x01 \x01(\x03R\x0eclientSendTime\"/\n" +
 	"\fPingResponse\x12\x1f\n" +

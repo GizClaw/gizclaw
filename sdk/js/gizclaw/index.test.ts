@@ -33,6 +33,7 @@ import {
   createWebRTCFetch,
   decodeFrames,
   encodeTelemetryPacket,
+  networkTelemetry,
   encodeFrame,
   encodeRPCRequest,
   serveGiznetWebRTCRPC,
@@ -2565,6 +2566,25 @@ test("encodeTelemetryPacket prefixes protobuf telemetry payload", () => {
   assert.deepEqual(
     Array.from(packet.slice(1)),
     [8, 7, 16, 232, 7, 26, 13, 82, 11, 9, 0, 0, 0, 0, 0, 128, 84, 64, 16, 1],
+  );
+});
+
+test("encodeTelemetryPacket carries cellular imei and imsi on network observations", () => {
+  const packet = encodeTelemetryPacket({
+    observedAtUnixMs: 1000,
+    observations: [
+      networkTelemetry({
+        rat: "lte",
+        imei: "490154203237518",
+        imsi: "460001",
+      }),
+    ],
+  });
+
+  assert.equal(packet[0], GIZCLAW_EVENT_STREAM_TELEMETRY);
+  assert.equal(
+    Buffer.from(packet.slice(1)).toString("hex"),
+    "10e8071a20621e1a036c7465320f3439303135343230333233373531383a06343630303031",
   );
 });
 
